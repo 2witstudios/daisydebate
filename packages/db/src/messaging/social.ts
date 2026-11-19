@@ -1,5 +1,4 @@
 import { sql, type SQL } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { z } from 'zod';
 import { idSchema, messagingChannelLifecycles } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
@@ -9,6 +8,7 @@ import {
   messagingGroupGrants,
 } from '../schema/messaging-social';
 import { contactPairs } from '../schema/contacts';
+import type { Tx } from '../tx';
 
 const positiveRevision = z.number().int().positive().safe();
 
@@ -73,7 +73,6 @@ const channelFactSchema = z.union([
   }),
 ]);
 export type MessagingChannelFact = z.infer<typeof channelFactSchema>;
-export type MessagingTransaction = Pick<BunSQLDatabase, 'execute'>;
 
 /** Persistence validation, not an entitlement decision. Shared AZC evaluates it. */
 export function parseMessagingChannelFact(
@@ -128,7 +127,7 @@ const channelFactJoins = (actor: SQL) => sql`
  * No preference, cached age or friendship assertion is projected here.
  */
 export async function readMessagingChannelFact(
-  tx: MessagingTransaction,
+  tx: Tx,
   channelId: string,
   actorId: string,
 ): Promise<MessagingChannelFact | null> {
@@ -148,7 +147,7 @@ export async function readMessagingChannelFact(
  * binding order; an absent channel is null at its index.
  */
 export async function readMessagingChannelFacts(
-  tx: MessagingTransaction,
+  tx: Tx,
   bindings: readonly { readonly channelId: string; readonly actorId: string }[],
 ): Promise<readonly (MessagingChannelFact | null)[]> {
   if (bindings.length === 0) return [];

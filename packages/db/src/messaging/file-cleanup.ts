@@ -1,18 +1,15 @@
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import type { MessagingChannelFact } from './social';
 import type { FileReservation } from '../messaging-files';
-import {
-  lockAuthorizationActors,
-  type AuthorizationTransaction,
-} from '../authorization';
+import { lockAuthorizationActors } from '../authorization';
 import {
   failPendingFile,
   type FileScope,
   type FileToken,
 } from '../messaging-files';
+import { inTransaction, type Tx, type TxSource } from '../tx';
 
 type PendingFileFact = {
   readonly kind: 'pending_file';
@@ -29,7 +26,7 @@ type PendingFileFact = {
   > & { readonly kind: 'dm' | 'private_group' };
 };
 export type MessagingFileCleanupFence = (
-  tx: AuthorizationTransaction,
+  tx: Tx,
   input: FileScope,
   frame: {
     readonly fact: PendingFileFact;
@@ -42,7 +39,7 @@ export function createMessagingFileCleanup({
   database,
   authorize,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
   readonly authorize: MessagingFileCleanupFence;
 }) {
   return async (scope: FileScope, token: FileToken): Promise<void> => {
@@ -55,7 +52,7 @@ export function createMessagingFileCleanup({
       if (!idSchema.safeParse(id).success) throw createAppError('VALIDATION');
     if (!Number.isSafeInteger(token.generation) || token.generation < 1)
       throw createAppError('VALIDATION');
-    await database.transaction(async (tx) => {
+    await inTransaction(database, async (tx) => {
       const pairs = await tx.execute(
         sql`select low_actor_id, high_actor_id from messaging_dm_pairs where channel_id=${scope.channelId}`,
       );

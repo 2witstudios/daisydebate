@@ -1,8 +1,8 @@
 import type { TournamentNotificationKind } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { loadLobbyAuthority } from '../tab/lobby-authority';
 import { rowsOf } from '../raw-rows';
+import { inTransaction, type TxSource } from '../tx';
 
 /** What a standing tournament notification's words and link read (NTF-15). */
 export type TournamentNotificationFacts = {
@@ -28,7 +28,7 @@ export type TournamentInboxAccess = (
  * release opens it to them.
  */
 export async function standingTournamentNotifications(
-  database: BunSQLDatabase,
+  database: TxSource,
   input: {
     readonly userId: string;
     readonly canReadTournament?: TournamentInboxAccess | undefined;
@@ -42,7 +42,7 @@ export async function standingTournamentNotifications(
   const canRead = input.canReadTournament;
   if (!canRead) return new Map();
   const unread = input.unreadOnly ? sql`and n.read_at is null` : sql``;
-  return database.transaction(async (tx) => {
+  return inTransaction(database, async (tx) => {
     const lobbies = await rowsOf<{ id: string }>(
       tx,
       sql`select distinct n.notification_lobby_id id from notifications n where n.user_id=${input.userId} and n.notification_lobby_id is not null ${unread} order by n.notification_lobby_id`,

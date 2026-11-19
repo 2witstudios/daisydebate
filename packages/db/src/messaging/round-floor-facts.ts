@@ -4,8 +4,8 @@ import {
   type RoundFloorFact,
 } from '@daisy/protocol/round-floor';
 import type { YouthLiveFact } from '@daisy/protocol';
-import type { AuthorizationTransaction } from '../authorization';
 import { rowsOf } from '../raw-rows';
+import type { Tx } from '../tx';
 
 type FloorRow = {
   readonly actor_id: string;
@@ -38,7 +38,7 @@ const factOf = (roundId: string, row: FloorRow): RoundFloorFact => ({
  * seats them nowhere: a judge keeps their seat's view (ADR 0155).
  */
 export async function readRoundFloorFacts(
-  tx: AuthorizationTransaction,
+  tx: Tx,
   roundId: string,
   actorIds: readonly string[],
   youth: FloorYouth = null,
@@ -73,7 +73,7 @@ export async function readRoundFloorFacts(
   );
 }
 export async function readRoundFloorFact(
-  tx: AuthorizationTransaction,
+  tx: Tx,
   roundId: string,
   actorId: string,
   youth: FloorYouth = null,
@@ -85,10 +85,7 @@ export async function readRoundFloorFact(
 }
 
 /** Account -> Round -> channel -> stream is the floor's global lock order. */
-export async function fenceRoundFloor(
-  tx: AuthorizationTransaction,
-  roundId: string,
-) {
+export async function fenceRoundFloor(tx: Tx, roundId: string) {
   const [row] = await tx.execute(
     sql`select public.daisy_round_floor_read_fence(${roundId}::text) as locked`,
   );

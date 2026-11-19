@@ -21,7 +21,8 @@ import { scopeTransaction } from '../tenant-scope';
 import { lockTabCommandAccounts } from './command-accounts';
 import { loadEventCompletion } from './event-completion';
 import { storedCommand, appendHistory } from './command-record';
-import type { TabDatabase, TabTransaction } from './tab-transaction';
+import type { TabDatabase } from './tab-transaction';
+import { inTransaction, type Tx } from '../tx';
 
 type Command =
   | Extract<
@@ -35,7 +36,7 @@ type Input = {
   readonly lobbyId: string;
   readonly command: Command;
 };
-async function load(tx: TabTransaction, input: Input) {
+async function load(tx: Tx, input: Input) {
   await scopeTransaction(tx, {
     subjectUserId: input.senderUserId,
     lobbyId: input.lobbyId,
@@ -136,7 +137,7 @@ export const createCompletionCommandStore = (database: TabDatabase) => ({
       ) => Promise<void>;
     }) => Promise<Answer>,
   ): Promise<Answer> =>
-    database.transaction(async (tx) => {
+    inTransaction(database, async (tx) => {
       let loaded: LoadedCompletionCommand | null = null;
       return work({
         load: async () => {

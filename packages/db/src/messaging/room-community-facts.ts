@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
 import type { RoomCommunityFact } from '@daisy/protocol/room-community';
-import type { AuthorizationTransaction } from '../authorization';
 import { rowsOf } from '../raw-rows';
+import type { Tx } from '../tx';
 
 type RoomCommunityRow = {
   readonly actor_id: string;
@@ -35,7 +35,7 @@ const factOf = (roomId: string, row: RoomCommunityRow): RoomCommunityFact => ({
 
 /** Only the requested callers' own facts cross the boundary, in one cohort statement. */
 export async function readRoomCommunityFacts(
-  tx: AuthorizationTransaction,
+  tx: Tx,
   roomId: string,
   actorIds: readonly string[],
 ): Promise<ReadonlyMap<string, RoomCommunityFact>> {
@@ -50,7 +50,7 @@ export async function readRoomCommunityFacts(
   return new Map(rows.map((row) => [row.actor_id, factOf(roomId, row)]));
 }
 export async function readRoomCommunityFact(
-  tx: AuthorizationTransaction,
+  tx: Tx,
   roomId: string,
   actorId: string,
 ): Promise<RoomCommunityFact | null> {
@@ -64,10 +64,7 @@ export async function readRoomCommunityFact(
  * commands hold the Room row exclusively, so Start and close wait for a chat
  * write in flight and every later one sees the Room they left.
  */
-export async function fenceRoomCommunity(
-  tx: AuthorizationTransaction,
-  roomId: string,
-) {
+export async function fenceRoomCommunity(tx: Tx, roomId: string) {
   const [row] = await tx.execute(
     sql`select public.daisy_room_community_read_fence(${roomId}::text) as locked`,
   );

@@ -1,12 +1,12 @@
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import { eq, sql } from 'drizzle-orm';
-import type { CaptureTx } from './media-capture-context';
 import { rounds } from './schema/rounds';
 import { necessaryEvidenceRounds } from './schema/necessary-evidence-rounds';
 import { necessaryEvidence } from './schema/necessary-evidence';
+import type { Tx } from './tx';
 /** Internal revoker only; Round fence commits before custody, never a vendor call in this transaction. */
-export async function withdrawRoundEvidence(tx: CaptureTx, roundId: string) {
+export async function withdrawRoundEvidence(tx: Tx, roundId: string) {
   if (!idSchema.safeParse(roundId).success) throw createAppError('VALIDATION');
   const [round] = await tx
     .select({ id: rounds.id })
@@ -30,7 +30,7 @@ export async function withdrawRoundEvidence(tx: CaptureTx, roundId: string) {
 
 /** Caller holds Round. Only a genuinely new scope may create its initial open fence. */
 export async function requireRoundEvidenceOpen(
-  tx: CaptureTx,
+  tx: Tx,
   roundId: string,
   initial = false,
 ) {

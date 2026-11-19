@@ -1,9 +1,9 @@
 import { createAppError } from '@daisy/errors';
 import type { BetaAccessDecision } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { applyBetaEntitlementGrants } from './entitlement-grants';
 import { rowsOf } from './raw-rows';
+import type { Tx } from './tx';
 
 /**
  * The one write of a decided beta access change (ADR 0075), under the
@@ -12,7 +12,7 @@ import { rowsOf } from './raw-rows';
  * grants, the account fact's revision and the audit event of that same move.
  */
 export async function writeBetaAccessChange(
-  tx: Pick<BunSQLDatabase, 'execute'>,
+  tx: Tx,
   input: {
     readonly userId: string;
     readonly change: Extract<BetaAccessDecision, { kind: 'changed' }>;

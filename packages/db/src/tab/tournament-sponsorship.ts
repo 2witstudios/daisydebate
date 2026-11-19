@@ -21,10 +21,11 @@ import { lockTabCommandAccounts } from './command-accounts';
 import { loadAuthorityContext } from './authority-context';
 import { loadAccountHostingFacts } from './account-hosting-facts';
 import { appendHistory, storedCommand } from './command-record';
-import type { TabDatabase, TabTransaction } from './tab-transaction';
+import type { TabDatabase } from './tab-transaction';
+import { inTransaction, type Tx } from '../tx';
 
 export const currentTournamentSponsorship = async (
-  tx: TabTransaction,
+  tx: Tx,
   lobbyId: string,
 ): Promise<TournamentSponsorshipVersion | null> => {
   const [row] = await tx
@@ -54,7 +55,7 @@ export const currentTournamentSponsorship = async (
 };
 class SponsorshipChanged extends Error {}
 const load = async (
-  tx: TabTransaction,
+  tx: Tx,
   input: {
     readonly senderUserId: string;
     readonly command: TournamentSponsorshipCommand;
@@ -156,7 +157,7 @@ export const createTournamentSponsorshipStore = (database: TabDatabase) => ({
   ): Promise<Answer> =>
     retryStale(
       () =>
-        database.transaction(async (tx) =>
+        inTransaction(database, async (tx) =>
           work({
             load: () => load(tx, input),
             stored: (id) => storedCommand(tx, id),

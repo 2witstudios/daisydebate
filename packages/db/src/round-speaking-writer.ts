@@ -1,9 +1,8 @@
 import { createId } from '@paralleldrive/cuid2';
 import { and, eq, isNull } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type { RoundProjection } from '@daisy/protocol';
 import { roundSpeakingIntervals } from './schema/round-speaking-intervals';
-type Tx = Pick<BunSQLDatabase, 'update' | 'insert'>;
+import type { Tx } from './tx';
 
 /** Called after command/segment insertion in the same transaction; replay never calls it. */
 export async function writeSpeakingProjection(

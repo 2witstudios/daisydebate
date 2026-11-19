@@ -1,10 +1,10 @@
 import { eq, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
-import type { BoundedTransactionContext } from '../transaction-context';
 import { transcriptionRecoveryEnrollmentProgress as progress } from '../schema/transcription-recovery-enrollment-progress';
 import { missingRounds } from './missing-rounds';
+import type { Tx } from '../tx';
 /** Commit a bounded finite-pass position before external work; a crash defers a unit to the next pass, never deletes it. */
-export async function missing(tx: BoundedTransactionContext) {
+export async function missing(tx: Tx) {
   const [position] = await tx
     .select({ singleton: progress.singleton })
     .from(progress)

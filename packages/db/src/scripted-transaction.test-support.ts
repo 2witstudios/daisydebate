@@ -1,6 +1,6 @@
 import type { SQL } from 'drizzle-orm';
 import { PgDialect } from 'drizzle-orm/pg-core';
-import type { AuthorizationTransaction } from './authorization';
+import type { Tx } from './tx';
 
 /**
  * A transaction that answers each statement with the next scripted result
@@ -19,6 +19,6 @@ export function scriptedTransaction(
       queries.push(dialect.sqlToQuery(statement));
       return remaining.shift() ?? exhausted();
     },
-  } as unknown as AuthorizationTransaction;
+  } as unknown as Tx;
   return { tx, queries };
 }

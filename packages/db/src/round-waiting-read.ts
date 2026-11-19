@@ -4,9 +4,9 @@ import type {
   RoundWaitingOn,
 } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { readAttendanceLedger } from './attendance-settlement';
 import { readJudgingPanelFacts } from './judging-panel-read';
+import type { Tx } from './tx';
 
 /** Spares the hottest read this query for the whole of a running debate. */
 const speechesEnded = (round: Pick<LaunchedRound, 'rules' | 'segments'>) =>
@@ -15,7 +15,7 @@ const speechesEnded = (round: Pick<LaunchedRound, 'rules' | 'segments'>) =>
 
 /** Facts only: the injected engine decision says what they mean. */
 async function readWaitingFacts(
-  tx: Pick<BunSQLDatabase, 'select' | 'execute'>,
+  tx: Tx,
   round: Pick<LaunchedRound, 'id' | 'transcriptCompleteness'>,
 ): Promise<RoundWaitingFacts> {
   const [facts] = (await tx.execute(sql`select
@@ -41,7 +41,7 @@ async function readWaitingFacts(
 
 /** What a Round is waiting on, by the engine's injected decision; null unless it is active and played. */
 export const readWaitingOn = async (
-  tx: Pick<BunSQLDatabase, 'select' | 'execute'>,
+  tx: Tx,
   round: Pick<
     LaunchedRound,
     'id' | 'status' | 'rules' | 'segments' | 'transcriptCompleteness'

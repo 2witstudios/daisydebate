@@ -1,11 +1,10 @@
 import { sql, type SQL } from 'drizzle-orm';
-import type { AuthorizationTransaction } from '../authorization';
-import type { BoundedTransactionContext } from '../transaction-context';
 import type {
   ContextChannelFact,
   ContextChannelKind,
 } from './context-channel-contracts';
 import { appendStream, lockStream } from './stream';
+import type { Tx } from '../tx';
 
 /** What one context supplies so reports and operators can reach its messages. */
 export type ContextChannelModerationOwner<Fact extends ContextChannelFact> = {
@@ -14,12 +13,9 @@ export type ContextChannelModerationOwner<Fact extends ContextChannelFact> = {
   readonly ownerColumn: SQL;
   /** True while an operator may still read a reported message of channel `c`. */
   readonly subjectReadable: SQL;
-  readonly fence: (
-    tx: AuthorizationTransaction,
-    ownerId: string,
-  ) => Promise<boolean>;
+  readonly fence: (tx: Tx, ownerId: string) => Promise<boolean>;
   readonly readFact: (
-    tx: AuthorizationTransaction,
+    tx: Tx,
     ownerId: string,
     actorId: string,
   ) => Promise<Fact | null>;
@@ -31,7 +27,7 @@ export function contextChannelModeration<Fact extends ContextChannelFact>(
 ) {
   return {
     async readReportFacts(
-      tx: BoundedTransactionContext,
+      tx: Tx,
       input: { readonly messageId: string; readonly reporterActorId: string },
     ) {
       const [row] = await tx.execute(
@@ -47,7 +43,7 @@ export function contextChannelModeration<Fact extends ContextChannelFact>(
         ? { ownMessage: row.author_actor_id === input.reporterActorId, fact }
         : null;
     },
-    async readSubject(tx: BoundedTransactionContext, messageId: string) {
+    async readSubject(tx: Tx, messageId: string) {
       const [row] = await tx.execute(
         sql`select m.text,a.user_id as "authorUserId" from messaging_messages m join messaging_channels c on c.id=m.channel_id and c.kind=${owner.kind} join actors a on a.id=m.author_actor_id where m.id=${messageId} and ${owner.subjectReadable}`,
       );
@@ -59,7 +55,7 @@ export function contextChannelModeration<Fact extends ContextChannelFact>(
         : null;
     },
     async remove(
-      tx: BoundedTransactionContext,
+      tx: Tx,
       input: { readonly messageId: string; readonly now: Date },
     ) {
       const [found] = await tx.execute(

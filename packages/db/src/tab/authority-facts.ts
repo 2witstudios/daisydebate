@@ -13,7 +13,7 @@ import type { GrantRow } from './grant-rows';
 import type { MembershipRow, OrganizationRow } from './organization-facts';
 import { roleSeniority } from './role-seniority';
 import type { StaffMinimumBand } from './staff-minimum-band';
-import type { TabTransaction } from './tab-transaction';
+import type { Tx } from '../tx';
 
 /**
  * Current account and scoped grant authority, with an actual organization
@@ -112,7 +112,7 @@ export const grantAuthorityOf = (
 };
 
 const loadOrganizationAuthority = async (
-  tx: TabTransaction,
+  tx: Tx,
   organization: OrganizationRow,
   member: boolean,
 ): Promise<OrganizationAuthority> => {
@@ -149,7 +149,7 @@ const loadOrganizationAuthority = async (
  * in this transaction, whose subject is the person.
  */
 export const loadTabAuthorization = async (
-  tx: TabTransaction,
+  tx: Tx,
   scope: TenantScope,
   input: {
     readonly userId: string;

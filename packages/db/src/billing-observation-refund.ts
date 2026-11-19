@@ -6,14 +6,14 @@ import {
   type BillingPaymentObservation,
   type PaymentObservationContext,
 } from '@daisy/protocol/billing';
-import type { BoundedTransactionContext } from './transaction-context';
 import { admitRefundAction } from './billing-refund-admission';
 import { billingPaymentObservations } from './schema/billing-payment-observations';
 import { readDatabaseTime } from './database-clock';
+import type { Tx } from './tx';
 
 /** The persisted verified source precedes money admission; both reuse the sole original-charge action. */
 export async function linkObservedRefund(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   value: BillingPaymentObservation,
   input: {
     readonly context: PaymentObservationContext;
@@ -59,7 +59,7 @@ export async function linkObservedRefund(
   );
 }
 async function persistClassification(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   value: BillingPaymentObservation,
   linked: ReturnType<typeof classifyPaymentObservation>,
 ) {

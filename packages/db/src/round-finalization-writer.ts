@@ -1,9 +1,9 @@
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
+import type { Tx } from './tx';
 
 /** Caller holds the Round lock and has inserted the accepted terminal command. */
 export async function freezeRoundFinalization(
-  tx: Pick<BunSQLDatabase, 'execute'>,
+  tx: Tx,
   input: {
     readonly roundId: string;
     readonly commandId: string;

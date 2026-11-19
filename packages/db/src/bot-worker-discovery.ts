@@ -1,13 +1,10 @@
 import { sql } from 'drizzle-orm';
 import { isDebatingSeatSql } from './seat-columns';
 import { createAppError } from '@daisy/errors';
-import type { BoundedTransactionContext } from './transaction-context';
+import type { Tx } from './tx';
 
 /** Discovery is advisory. Claiming rechecks account, Round, seat and segment under locks. */
-export async function scanBotWorkers(
-  tx: Pick<BoundedTransactionContext, 'execute'>,
-  limit: number,
-) {
+export async function scanBotWorkers(tx: Tx, limit: number) {
   if (!Number.isSafeInteger(limit) || limit < 1 || limit > 64)
     throw createAppError('VALIDATION');
   const rows =

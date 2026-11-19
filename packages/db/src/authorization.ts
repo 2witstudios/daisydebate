@@ -1,16 +1,11 @@
 import { sql, type SQL } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import {
   authorizationAccountFact,
   type AuthorizationAccountRow,
 } from './authorization-account';
-/** The exact caller transaction, never a second pool or nested transaction. */
-export type AuthorizationTransaction = Pick<
-  BunSQLDatabase,
-  'execute' | 'insert'
->;
+import { inTransaction, type Tx, type TxOpener } from './tx';
 function requireActorSelector(
   actorIds: readonly string[],
   limits: { readonly maxActors: number },
@@ -27,7 +22,7 @@ function requireActorSelector(
     throw createAppError('VALIDATION');
 }
 async function accountFacts(
-  tx: AuthorizationTransaction,
+  tx: Tx,
   actorIds: readonly string[],
   limits: { readonly maxActors: number },
   producer: (ids: SQL) => SQL,
@@ -54,7 +49,7 @@ async function accountFacts(
  * waits; a revision is an invalidation hint, not permission or a cache lease.
  */
 export const lockAuthorizationActors = (
-  tx: AuthorizationTransaction,
+  tx: Tx,
   actorIds: readonly string[],
   limits: { readonly maxActors: number },
 ) =>
@@ -74,7 +69,7 @@ export const lockAuthorizationActors = (
  * that is a lock upgrade, and two such transactions deadlock.
  */
 export const readAuthorizationActors = (
-  tx: AuthorizationTransaction,
+  tx: Tx,
   actorIds: readonly string[],
   limits: { readonly maxActors: number },
 ) =>
@@ -87,7 +82,7 @@ export const readAuthorizationActors = (
   );
 /** The caller's decision over one actor's freshly locked account. */
 export type OwnCollectionFence<S> = (input: {
-  readonly tx: AuthorizationTransaction;
+  readonly tx: Tx;
   readonly scope: S;
   readonly account: Awaited<ReturnType<typeof lockAuthorizationActors>>[number];
 }) => Promise<void>;
@@ -108,17 +103,13 @@ export const requireOwnScope = (scope: {
  * One actor's read of their own collection: lock their account, let the
  * caller's decision run on it, then read in the same transaction.
  */
-export function readOwnCollection<
-  S extends { readonly actorId: string },
-  T,
-  Tx extends AuthorizationTransaction,
->(
-  database: { transaction: <R>(work: (tx: Tx) => Promise<R>) => Promise<R> },
+export function readOwnCollection<S extends { readonly actorId: string }, T>(
+  database: TxOpener,
   scope: S,
   authorize: OwnCollectionFence<S>,
   read: (tx: Tx) => Promise<T>,
 ): Promise<T> {
-  return database.transaction(async (tx) => {
+  return inTransaction(database, async (tx) => {
     const [account] = await lockAuthorizationActors(tx, [scope.actorId], {
       maxActors: 1,
     });
@@ -128,10 +119,7 @@ export function readOwnCollection<
 }
 
 /** Read-only requests get fresh rows without keeping a cross-request cache. */
-export async function loadAuthorizationAccount(
-  tx: Pick<AuthorizationTransaction, 'execute'>,
-  userId: string,
-) {
+export async function loadAuthorizationAccount(tx: Tx, userId: string) {
   if (!idSchema.safeParse(userId).success) throw createAppError('VALIDATION');
   const rows = await tx.execute(sql`
     select * from public.daisy_authorization_accounts_v2(null::text[], ${userId}::text, false)

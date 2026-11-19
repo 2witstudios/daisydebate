@@ -1,9 +1,7 @@
 import { createAppError } from '@daisy/errors';
 import type { EmailedNotificationKind } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { z } from 'zod';
-import type { AuthorizationTransaction } from '../authorization';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
 import {
   mailQueue,
@@ -21,8 +19,7 @@ import { readInboxRows, type InboxRow } from './inbox';
 import { wants } from './preferences';
 import { emailsMember } from './presentation';
 import { notificationStands } from './standing';
-
-type Database = Pick<BunSQLDatabase, 'transaction' | 'execute'>;
+import { inTransaction, type Tx, type TxSource } from '../tx';
 
 /** A digest waits this long after its latest notification, so a burst is one email. */
 const DIGEST_QUIET_MS = 15 * 60_000;
@@ -77,7 +74,7 @@ const DIGEST_ITEMS = 20;
  * member who turned this kind's email off, or all email, is owed none.
  */
 export async function oweDigests(
-  tx: AuthorizationTransaction,
+  tx: Tx,
   owed: {
     readonly kind: EmailedNotificationKind;
     readonly rows: readonly { readonly id: string; readonly userId: string }[];
@@ -116,7 +113,7 @@ export function notificationDigestOperations({
   database,
   eventSink,
 }: {
-  readonly database: Database;
+  readonly database: TxSource;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) {
   return {
@@ -197,7 +194,7 @@ export function notificationDigestOperations({
         // A job owed while this one was held can take the one queued place
         // first; the second attempt then sees it and joins it.
         retriedOnceIfQueuedMeanwhile(() =>
-          database.transaction(async (tx) => {
+          inTransaction(database, async (tx) => {
             const [next] = await rowsOf<{ id: string }>(
               tx,
               sql`select q.id from notification_digests q

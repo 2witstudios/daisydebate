@@ -15,15 +15,14 @@ import {
   usageSourceSchema,
   usageStateSchema,
 } from '@daisy/protocol/billing';
-import type { BoundedTransactionContext } from './transaction-context';
 import type { lockAuthorizationActors } from './authorization';
 import { readEntitlementGrants } from './entitlement-grants';
 import { readBillingEvidence } from './billing-subscription-facts';
 import { idSchema } from '@daisy/protocol';
 import { readDatabaseTime } from './database-clock';
 import { usageReservations } from './schema/usage-reservations';
+import type { Tx } from './tx';
 
-type Tx = BoundedTransactionContext;
 type Account = Awaited<ReturnType<typeof lockAuthorizationActors>>[number];
 type Admission = Extract<AllowanceDecision, { kind: 'admit' }>;
 export type AllowanceAccountPolicy = (account: Account) => boolean;
@@ -248,7 +247,7 @@ export async function reserveUsageLocked(
 
 /** No source/period or binding mutation is possible through provider accounting. */
 export async function advanceUsageLocked(
-  tx: Pick<Tx, 'select' | 'update' | 'execute'>,
+  tx: Tx,
   input: {
     readonly reservationId: string;
     readonly actorId: string;

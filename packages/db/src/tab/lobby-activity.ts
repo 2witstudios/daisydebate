@@ -1,14 +1,11 @@
 import { and, eq } from 'drizzle-orm';
-import type { TabTransaction } from './tab-transaction';
 import { rooms } from '../schema/rooms';
 import { rounds } from '../schema/rounds';
 import { fixtures } from '../schema/fixtures';
 import { results } from '../schema/results';
 import { isRoundRunning } from '@daisy/protocol';
-export const loadLobbyActivity = async (
-  tx: TabTransaction,
-  lobbyId: string | null,
-) => {
+import type { Tx } from '../tx';
+export const loadLobbyActivity = async (tx: Tx, lobbyId: string | null) => {
   if (lobbyId === null)
     return {
       liveRoundCount: 0,

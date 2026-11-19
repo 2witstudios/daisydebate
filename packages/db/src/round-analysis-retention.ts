@@ -1,15 +1,15 @@
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { requireRetentionBounds, type RetentionBatch } from './retention';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { analysisPurgeProjection } from './round-analysis-purge';
+import type { TxSource } from './tx';
 
 /** Purge report content at its retention boundary; the seat cannot become a new request. */
 export const roundAnalysisRetention = ({
   database,
   eventSink,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
   purgeExpiredRoundAnalyses: (batch: RetentionBatch) =>

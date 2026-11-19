@@ -5,13 +5,14 @@ import { guardianLinks } from '../schema/guardian-links';
 import { actionHistory } from '../schema/grants';
 import { scopeTransaction } from '../tenant-scope';
 import { loadAuthorityContext } from './authority-context';
-import type { TabDatabase, TabTransaction } from './tab-transaction';
+import type { TabDatabase } from './tab-transaction';
+import { inTransaction, type Tx } from '../tx';
 type Input = {
   readonly viewerUserId: string;
   readonly guardianLinkId: string;
   readonly subjectUserId: string;
 };
-const load = async (tx: TabTransaction, input: Input) => {
+const load = async (tx: Tx, input: Input) => {
   await scopeTransaction(tx, { subjectUserId: input.subjectUserId });
   const [initial] = await tx
     .select()
@@ -95,5 +96,5 @@ export const createFamilyHistoryStore = (database: TabDatabase) => ({
     input: Input,
     work: (facts: FamilyHistoryFacts | null) => Promise<Answer>,
   ): Promise<Answer> =>
-    database.transaction(async (tx) => work(await load(tx, input))),
+    inTransaction(database, async (tx) => work(await load(tx, input))),
 });

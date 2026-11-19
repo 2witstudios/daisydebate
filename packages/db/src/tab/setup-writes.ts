@@ -8,16 +8,16 @@ import {
 } from '../schema/ballot-definitions';
 import { resolutionPools, poolResolutions } from '../schema/resolution-pools';
 import { ballotDefinitionSchema } from '@daisy/protocol';
-import type { TabTransaction } from './tab-transaction';
 
 import type { SetupWrite } from './setup-write';
+import type { Tx } from '../tx';
 const one = (rows: readonly unknown[]): void => {
   if (rows.length !== 1)
     throw createAppError('INVARIANT', 'Setup write did not affect one row');
 };
 const at = (instant: string | null) =>
   instant === null ? null : new Date(instant);
-const apply = async (tx: TabTransaction, write: SetupWrite): Promise<void> => {
+const apply = async (tx: Tx, write: SetupWrite): Promise<void> => {
   switch (write.table) {
     case 'lobbies':
       return one(
@@ -163,7 +163,7 @@ const apply = async (tx: TabTransaction, write: SetupWrite): Promise<void> => {
   }
 };
 export const applySetupWrites = async (
-  tx: TabTransaction,
+  tx: Tx,
   writes: readonly SetupWrite[],
 ): Promise<void> => {
   for (const write of writes) await apply(tx, write);

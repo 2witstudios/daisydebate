@@ -27,7 +27,8 @@ import {
 import { applyEntryEnrollmentWrites } from './entry-enrollment-writes';
 import { loadTournamentHostingFacts } from './tournament-hosting-facts';
 import type { EntryEnrollmentWrite } from './entry-enrollment-write';
-import type { TabDatabase, TabTransaction } from './tab-transaction';
+import type { TabDatabase } from './tab-transaction';
+import { inTransaction, type Tx } from '../tx';
 export type EntryEnrollmentCommand = Exclude<
   EntryCommand,
   { readonly type: 'replace-entry-member' | 'choose-break' }
@@ -42,7 +43,7 @@ export type EntryEnrollmentInput = {
   readonly newId: string;
   readonly now: string;
 };
-const load = async (tx: TabTransaction, input: EntryEnrollmentInput) => {
+const load = async (tx: Tx, input: EntryEnrollmentInput) => {
   await scopeTransaction(tx, { subjectUserId: input.senderUserId });
   const [found] = await tx
     .select()
@@ -249,7 +250,7 @@ export const createEntryEnrollmentStore = (database: TabDatabase) => ({
     input: EntryEnrollmentInput,
     work: (session: EntryEnrollmentSession) => Promise<Answer>,
   ): Promise<Answer> =>
-    database.transaction(async (tx) => {
+    inTransaction(database, async (tx) => {
       let loaded: LoadedEntryEnrollment | null = null;
       return work({
         load: async () => {

@@ -9,15 +9,13 @@ import {
 } from './transaction-lifecycle';
 import { transactionSettlement } from './transaction-settlement';
 import { synchronizedTransactionClient } from './transaction-client';
-import {
-  transactionContext,
-  type BoundedTransactionContext,
-} from './transaction-context';
+import { transactionContext } from './transaction-context';
 import type { Lane } from './workload';
 import {
   recoverTransactionBackend,
   type OwnedBackend,
 } from './transaction-watchdog';
+import type { Tx } from './tx';
 
 const TRANSACTION_MS = 3000;
 /** A writer's work connection plus the watchdog that can terminate it. */
@@ -28,7 +26,7 @@ type TransactionOptions = {
   readonly executionMs?: number;
 };
 type TransactionWork<T> = (
-  tx: BoundedTransactionContext,
+  tx: Tx,
   signal: AbortSignal,
   receipt: TransactionReceipt,
 ) => Promise<T>;

@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
-import type { AuthorizationTransaction } from './authorization';
+import type { Tx } from './tx';
 
 type AgeInput = {
   readonly userId: string;
@@ -79,7 +79,7 @@ function projection(
 }
 /** Same transaction and canonical user fence; no raw birth data or profile leaves PostgreSQL. */
 export async function loadAuthorizationAgeFact(
-  tx: AuthorizationTransaction,
+  tx: Tx,
   input: AgeInput,
 ): Promise<AuthorizationAgeFact> {
   const instant = checkedInstant(input);
@@ -97,7 +97,7 @@ export async function loadAuthorizationAgeFact(
  * which must already hold their account fences; in input order.
  */
 export async function loadAuthorizationAgeFacts(
-  tx: AuthorizationTransaction,
+  tx: Tx,
   inputs: readonly AgeInput[],
 ): Promise<readonly AuthorizationAgeFact[]> {
   const instants = inputs.map(checkedInstant);

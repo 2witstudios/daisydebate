@@ -1,6 +1,5 @@
 import { groupLifecycleOf } from './social';
 import { and, eq, sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import { lockAuthorizationActors } from '../authorization';
@@ -13,6 +12,7 @@ import type {
   MessagingGroupCreationFence,
   MessagingGroupCreationStore,
 } from './group-creation-contracts';
+import { inTransaction, type TxSource } from '../tx';
 function proposalActors(scope: MessagingGroupCreationScope) {
   const actors = [...scope.proposedActorIds].sort();
   if (
@@ -37,13 +37,13 @@ function requireGroupFact(fact: MessagingChannelFact | null) {
 }
 /** Authorization projection discovery precedes one ordered fence; receipt payload is read only after canonical allow. */
 export function createMessagingGroupCreationStore(
-  database: BunSQLDatabase,
+  database: TxSource,
   authorize: MessagingGroupCreationFence,
 ): MessagingGroupCreationStore {
   return {
     withCreation: (scope, work) => {
       const proposed = proposalActors(scope);
-      return database.transaction(async (tx) => {
+      return inTransaction(database, async (tx) => {
         const ownReceipt = and(
           eq(messagingSocialCommands.actorId, scope.actorId),
           eq(messagingSocialCommands.requestId, scope.requestId),

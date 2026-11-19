@@ -1,8 +1,8 @@
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { z } from 'zod';
 import { createAppError } from '@daisy/errors';
 import { idSchema, type ChannelHistoryRecord } from '@daisy/protocol';
+import type { Tx } from '../tx';
 
 /** The owner's header batch ceiling, matching the SQL function's slice. */
 const OBSERVATION_HEADER_BATCH = 1024;
@@ -32,9 +32,7 @@ const iso = (value: unknown) =>
  * grant on message content. Headers go on the `headers` lane, windows on
  * `projection`; the composition root decides which pool each one gets.
  */
-export function channelObservationReads(
-  database: Pick<BunSQLDatabase, 'execute'>,
-) {
+export function channelObservationReads(database: Tx) {
   return {
     /** Current content (stream) and disclosure (authority) revisions; absent ids are deleted channels. */
     async readChannelObservationHeaders(channelIds: readonly string[]): Promise<

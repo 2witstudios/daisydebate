@@ -1,7 +1,6 @@
 import { eraseBetaPreapprovals } from './beta-preapproval-erasure';
 import { claimBetaPreapproval } from './beta-preapproval-claim';
 import { and, eq, isNull, sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import { instrumented, type DatabaseEventSink } from './instrumented';
@@ -15,6 +14,7 @@ import {
 } from './provisional-cleanup';
 import { users } from './schema/users';
 import { lockOpenAccount } from './lock-open-account';
+import { inTransaction, type TxOpener } from './tx';
 
 /** One accepted age-step answer: an already-banded birth month and the Terms accepted. */
 export type AgeStepRecord = {
@@ -40,7 +40,7 @@ export const ageStepOperations = ({
   database,
   eventSink,
 }: {
-  readonly database: Pick<BunSQLDatabase, 'transaction'>;
+  readonly database: TxOpener;
   readonly eventSink: DatabaseEventSink | undefined;
 }) => ({
   async recordAgeStep(
@@ -54,7 +54,7 @@ export const ageStepOperations = ({
     )
       throw createAppError('VALIDATION');
     return instrumented(eventSink, 'recordAgeStep', () =>
-      database.transaction(async (tx) => {
+      inTransaction(database, async (tx) => {
         await lockOpenAccount(tx, input.userId);
         const inserted = await tx
           .insert(accountAge)
@@ -81,7 +81,7 @@ export const ageStepOperations = ({
   async hasRecordedAge(userId: string): Promise<boolean> {
     if (!idSchema.safeParse(userId).success) throw createAppError('VALIDATION');
     return instrumented(eventSink, 'hasRecordedAge', () =>
-      database.transaction(async (tx) => {
+      inTransaction(database, async (tx) => {
         const rows = await tx.execute(
           sql`select 1 from ${accountAge} where user_id=${userId}`,
         );
@@ -106,7 +106,7 @@ export const ageStepOperations = ({
     if (!idSchema.safeParse(input.userId).success)
       throw createAppError('VALIDATION');
     return instrumented(eventSink, 'deleteProvisionalUser', () =>
-      database.transaction(async (tx) => {
+      inTransaction(database, async (tx) => {
         const [user] = await tx
           .select({ email: users.email })
           .from(users)

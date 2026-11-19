@@ -11,7 +11,6 @@ import {
   type JudgingRecoveryReason,
   type JudgingWorkKind,
 } from '@daisy/protocol';
-import type { BoundedTransactionContext } from './transaction-context';
 import type { BoundedTransaction } from './bounded-transaction';
 import { agentRuns } from './schema/agent-runs';
 import {
@@ -45,6 +44,7 @@ import {
   requireUndispatched,
 } from './round-judging-decisions';
 import { requireRoundBallot } from './round-ballot-decisions';
+import type { Tx } from './tx';
 export type { JudgingScope } from './round-judging-context';
 /** Whether a dispatch may go ahead, or why the job ended instead. */
 export type ModelCallBegun =
@@ -112,11 +112,7 @@ export type JudgingJobRules = {
       };
 };
 /** Calls that may have been served count; a call the vendor certainly refused does not. */
-async function paidCalls(
-  tx: BoundedTransactionContext,
-  scope: JudgingScope,
-  firstEpoch?: number,
-) {
+async function paidCalls(tx: Tx, scope: JudgingScope, firstEpoch?: number) {
   const [row] = await tx.execute(sql`select (
     coalesce(sum(a.requests),0) - count(*) filter(where t.answered_at is null and t.category='provider_refused')
     )::int as paid
@@ -126,7 +122,7 @@ async function paidCalls(
   return Number(row!.paid);
 }
 
-const attemptOfRun = async (tx: BoundedTransactionContext, runId: string) =>
+const attemptOfRun = async (tx: Tx, runId: string) =>
   (
     await tx
       .select()
@@ -136,7 +132,7 @@ const attemptOfRun = async (tx: BoundedTransactionContext, runId: string) =>
   )[0];
 /** Release a bounded attempt while preserving its durable obligation and held reply. */
 async function deferLockedJudgingJob(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   scope: JudgingScope,
   runId: string,
   recovery: ReturnType<JudgingJobRules['recover']>,
@@ -169,7 +165,7 @@ export function createRoundJudgingJobs(input: {
   requireLeaseMs(input.leaseMs);
   if (!input.model.trim()) throw createAppError('VALIDATION');
   const recoveryFor = async (
-    tx: BoundedTransactionContext,
+    tx: Tx,
     scope: JudgingScope,
     job: {
       readonly generationDeadlineAt: Date;
@@ -191,7 +187,7 @@ export function createRoundJudgingJobs(input: {
     scope: JudgingScope,
     token: string,
     work: (
-      tx: BoundedTransactionContext,
+      tx: Tx,
       lease: Awaited<ReturnType<typeof assertLockedJudgingLease>> & {
         round: Awaited<ReturnType<typeof lockRoundAgentContext>>['round'];
       },

@@ -1,5 +1,4 @@
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { requireRetentionBounds, type RetentionBatch } from './retention';
 import {
@@ -7,6 +6,7 @@ import {
   purposePattern,
   type ProvisionalLinkPurposes,
 } from './provisional-cleanup';
+import { inTransaction, type TxSource } from './tx';
 
 /**
  * An abandoned sign-up as of `before` (ISSUE-660): no username, not erased,
@@ -54,7 +54,7 @@ export const provisionalRetentionOperations = ({
   database,
   eventSink,
 }: {
-  readonly database: Pick<BunSQLDatabase, 'transaction' | 'execute'>;
+  readonly database: TxSource;
   readonly eventSink: DatabaseEventSink | undefined;
 }) => ({
   async purgeExpiredProvisionalUsers(
@@ -68,7 +68,7 @@ export const provisionalRetentionOperations = ({
       )) as unknown as { id: string }[];
       let deleted = 0;
       for (const { id } of candidates)
-        deleted += await database.transaction(async (tx) => {
+        deleted += await inTransaction(database, async (tx) => {
           const [locked] = (await tx.execute(
             sql`select id from users where id = ${id} for update skip locked`,
           )) as unknown as { id: string }[];

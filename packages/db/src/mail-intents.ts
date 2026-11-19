@@ -3,7 +3,6 @@ import { normalizedEmailSql } from './email-identity';
 import { loadAuthorizationAccount } from './authorization';
 import { createAppError } from '@daisy/errors';
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { z } from 'zod';
 import { DIGEST_WINDOW } from './beta-access';
 import { instrumented, type DatabaseEventSink } from './instrumented';
@@ -16,8 +15,7 @@ import {
   mailIntents,
   mailIntentPurposes,
 } from './schema/mail-intents';
-
-type Database = Pick<BunSQLDatabase, 'transaction' | 'execute'>;
+import { inTransaction, type TxSource } from './tx';
 
 export type MailIntentClaim = {
   readonly id: string;
@@ -91,7 +89,7 @@ export function mailIntentOperations({
   database,
   eventSink,
 }: {
-  readonly database: Database;
+  readonly database: TxSource;
   readonly eventSink: DatabaseEventSink | undefined;
 }) {
   return {
@@ -226,7 +224,7 @@ export function mailIntentOperations({
             order by id limit 100`)) as unknown as { id: string }[];
           for (const club of clubs) {
             if (deleted >= batch.limit) return deleted;
-            deleted += await database.transaction(async (tx) => {
+            deleted += await inTransaction(database, async (tx) => {
               await scopeTransaction(tx, { organizationId: club.id });
               await tx.execute(sql`update mail_intents set state='cancelled', last_error_code='not-owed',
                   completed_at=clock_timestamp(), lease_token_digest=null, lease_expires_at=null
@@ -272,7 +270,7 @@ const clubInvitationKey =
  * cancelled invitation is no longer owed.
  */
 async function clubSeatInvitationDelivery(
-  database: Database,
+  database: TxSource,
   intent: {
     readonly state: string;
     readonly dedupe_key: string;
@@ -291,7 +289,7 @@ async function clubSeatInvitationDelivery(
     string,
     string,
   ];
-  return database.transaction(async (tx) => {
+  return inTransaction(database, async (tx) => {
     await scopeTransaction(tx, { organizationId });
     const [row] = (await tx.execute(sql`select i.email, i.expires_at, o.name,
         coalesce(nullif(u.name, ''), u.username, 'Your club') as manager

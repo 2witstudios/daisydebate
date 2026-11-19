@@ -7,7 +7,7 @@ import {
 } from '@daisy/protocol/lobby/command';
 import { actionHistory } from '../schema/grants';
 import { isUniqueViolationOf } from '../unique-violation';
-import type { TabTransaction } from './tab-transaction';
+import type { Tx } from '../tx';
 
 /**
  * The command record every Tab aggregate shares: what is stored for a
@@ -86,7 +86,7 @@ export const historyRowOf = (
 
 /** What the record holds for a command id, or null for a new one. */
 export const storedCommand = async (
-  tx: TabTransaction,
+  tx: Tx,
   commandId: string,
 ): Promise<StoredTabCommand | null> => {
   const [row] = await tx
@@ -119,7 +119,7 @@ const commandIdKey = 'action_history_pkey';
 
 /** Appends the one history entry of an accepted command. */
 export const appendHistory = async (
-  tx: TabTransaction,
+  tx: Tx,
   entry: ActionHistoryEntry,
   receipt: LobbyCommandReceipt,
 ): Promise<void> => {

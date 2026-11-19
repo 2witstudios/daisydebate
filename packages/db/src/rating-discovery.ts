@@ -12,19 +12,12 @@ import {
 } from '@daisy/protocol';
 import { roundOutcomeSql } from './round-outcome-sql';
 import { sql, type SQL } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import {
   attendanceLedgerColumns,
   attendanceLedgerFacts,
 } from './attendance-settlement';
 import { recordedEnding, recordedEndingJoins } from './recorded-ending';
-
-/**
- * Loads the facts the engine decides a rating from. This file selects and
- * reads; `ratingEligibility` says who is rated (ADR 0055, ADR 0058).
- */
-
-type Execute = Pick<BunSQLDatabase, 'execute'>;
+import type { Tx } from './tx';
 
 /** A Round to rate, or one whose ledger row is corrupt: it fails alone, and the page moves on. */
 export type RatingCandidate =
@@ -97,7 +90,7 @@ const endingFacts = <Row extends EndingRow>({
 };
 
 const readCandidates = async (
-  db: Execute,
+  db: Tx,
   selection: SQL,
 ): Promise<readonly RatingCandidate[]> => {
   const rows = (await db.execute(sql`select ${endingColumns},
@@ -116,7 +109,7 @@ const readCandidates = async (
 const endingReadBatch = 10_000;
 
 export async function readEndingRatingFacts(
-  db: Execute,
+  db: Tx,
   roundIds: readonly string[],
 ): Promise<readonly EndingRead<EndingRatingFacts>[]> {
   if (!roundIds.every((id) => idSchema.safeParse(id).success))
@@ -141,7 +134,7 @@ export async function readEndingRatingFacts(
  * still advances the cursor.
  */
 export async function readRatingCandidates(
-  db: Execute,
+  db: Tx,
   input: { readonly afterId?: string; readonly limit: number },
 ): Promise<readonly RatingCandidate[]> {
   if (
@@ -163,7 +156,7 @@ export async function readRatingCandidates(
 
 /** One Round's facts, or null when there is no such Round. */
 export async function readRatingFacts(
-  db: Execute,
+  db: Tx,
   roundId: string,
 ): Promise<RatingEligibilityFacts | null> {
   if (!idSchema.safeParse(roundId).success) throw createAppError('VALIDATION');

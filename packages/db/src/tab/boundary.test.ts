@@ -1,6 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { boundaryOf, BoundaryOutsideSubject, loadBoundary } from './boundary';
-import type { TabTransaction } from './tab-transaction';
+import type { Tx } from '../tx';
 
 setupRitewayBun();
 
@@ -54,7 +54,7 @@ describe('loadBoundary', () => {
         queried.push('select');
         throw new Error('unreachable');
       },
-    } as unknown as TabTransaction;
+    } as unknown as Tx;
     const refused = await loadBoundary(
       tx,
       { userId: id('m'), actorId: id('a'), revision: 1 },

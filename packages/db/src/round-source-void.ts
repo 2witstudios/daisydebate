@@ -8,7 +8,6 @@ import {
   type RoundCommandReceipt,
 } from '@daisy/protocol';
 import { eq, sql } from 'drizzle-orm';
-import type { TabTransaction } from './tab/tab-transaction';
 import { hydrateRoundRows, type RoundHydration } from './round-hydration';
 import {
   requireFencedParticipants,
@@ -22,6 +21,7 @@ import { commitRoundCommand } from './round-command-commit';
 import { readDatabaseTime } from './database-clock';
 import { endOpenJudgingJobs, type JudgingEndRule } from './round-judging-end';
 import { roundCommands } from './schema/round-commands';
+import type { Tx } from './tx';
 
 /**
  * Internal ordinary owner port. The caller owns canonical account, source-parent and Room fences.
@@ -29,7 +29,7 @@ import { roundCommands } from './schema/round-commands';
  * Authorization is evaluated again on replay from the protected current context.
  */
 export async function voidLockedRoundSource(
-  tx: TabTransaction,
+  tx: Tx,
   input: {
     readonly roundId: string;
     readonly commandId: string;

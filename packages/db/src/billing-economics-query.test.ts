@@ -3,7 +3,7 @@ import type { SQL } from 'drizzle-orm';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createBillingEconomicsReader } from './billing-economics';
 import type { BoundedTransaction } from './bounded-transaction';
-import type { BoundedTransactionContext } from './transaction-context';
+import type { Tx } from './tx';
 setupRitewayBun();
 
 test('the actual reader query distinguishes missing token knowledge without changing served outcomes or recorded positive counters', async () => {
@@ -43,7 +43,7 @@ test('the actual reader query distinguishes missing token knowledge without chan
       statements.push(query);
       return [{ instance_id: instanceId, snapshot }];
     },
-  } as unknown as BoundedTransactionContext;
+  } as unknown as Tx;
   const run: BoundedTransaction = async (work) =>
     work(tx, new AbortController().signal, {
       receivedAt: snapshot.observedAt,

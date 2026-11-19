@@ -2,17 +2,13 @@ import { and, eq } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import { sampleRoundExecutionTime } from '../round-execution-time';
 import { requireOriginalEnrollment } from './readiness';
-import type { BoundedTransactionContext } from '../transaction-context';
 import { transcriptionRecoveryContexts as contexts } from '../schema/transcription-recovery';
 import { transcriptionRecoveryAttempts as attempts } from '../schema/transcription-recovery-attempts';
 import { current } from './current';
 import type { Claim, Policy } from './policy';
+import type { Tx } from '../tx';
 /** Conservative call admission commits before external I/O. A lost admission acknowledgement is never permission to repeat that epoch. */
-export async function begin(
-  tx: BoundedTransactionContext,
-  input: Claim,
-  options: Policy,
-) {
+export async function begin(tx: Tx, input: Claim, options: Policy) {
   const owned = await current(tx, input, options);
   const [existing] = await tx
     .select({ ordinal: attempts.ordinal })

@@ -5,7 +5,6 @@ import {
   type RoundFloorFact,
 } from '@daisy/protocol/round-floor';
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type { ContextChannelOwner } from './context-channel-contracts';
 import { createContextChannelStore } from './context-channel-store';
 import {
@@ -19,6 +18,7 @@ import type {
   RoundFloorReadFrame,
   RoundFloorWriteFrame,
 } from './round-floor-contracts';
+import type { TxSource } from '../tx';
 
 type DiscoveryScope = Omit<RoundFloorScope, 'channelId'>;
 export const roundFloorMetadataOf = (fact: RoundFloorFact) => ({
@@ -69,7 +69,7 @@ const roundFloorOwner = (
  * its cache (ADR 0155); null on any other Round.
  */
 export function createRoundFloorStore(
-  database: BunSQLDatabase,
+  database: TxSource,
   authorize: RoundFloorFence,
   youth: FloorYouth = null,
 ) {

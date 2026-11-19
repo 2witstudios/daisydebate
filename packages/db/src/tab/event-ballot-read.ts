@@ -6,10 +6,11 @@ import {
 } from '../schema/ballot-definitions';
 import { daisyOrganizationId } from '../daisy-reference';
 import { loadTournamentEventSettingFacts } from './tournament-event-settings';
-import type { TabDatabase, TabTransaction } from './tab-transaction';
+import type { TabDatabase } from './tab-transaction';
+import { inTransaction, type Tx } from '../tx';
 
 const load = async (
-  tx: TabTransaction,
+  tx: Tx,
   input: {
     readonly viewerUserId: string;
     readonly lobbyId: string;
@@ -64,5 +65,5 @@ export const createEventBallotReadStore = (database: TabDatabase) => ({
     },
     work: (facts: EventBallotFacts | null) => Promise<Answer>,
   ): Promise<Answer> =>
-    database.transaction(async (tx) => work(await load(tx, input))),
+    inTransaction(database, async (tx) => work(await load(tx, input))),
 });

@@ -1,10 +1,9 @@
 import { sql, type SQL } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type { PgColumn, PgTable } from 'drizzle-orm/pg-core';
 import { rowsOf } from './raw-rows';
 import type { retriedJobColumns } from './schema/columns';
+import type { Tx } from './tx';
 
-type Execute = Pick<BunSQLDatabase, 'execute'>;
 type RetriedJobTable = PgTable &
   Record<keyof ReturnType<typeof retriedJobColumns>, PgColumn>;
 
@@ -17,7 +16,7 @@ type RetriedJobTable = PgTable &
 export const retriedJob = (table: RetriedJobTable) => ({
   /** The attempt failed: counted and backed off, unless another runner already did. */
   failed: async (
-    database: Execute,
+    database: Tx,
     job: SQL,
     input: { readonly read: number; readonly retryAt: string },
   ): Promise<boolean> =>
@@ -30,7 +29,7 @@ export const retriedJob = (table: RetriedJobTable) => ({
     ).length === 1,
   /** The attempt succeeded: recorded whatever a concurrent failure counted. */
   succeeded: async (
-    database: Execute,
+    database: Tx,
     job: SQL,
     input: { readonly read: number; readonly now: string },
   ): Promise<boolean> =>

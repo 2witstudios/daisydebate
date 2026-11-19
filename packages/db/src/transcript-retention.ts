@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { requireRetentionBounds, type RetentionBatch } from './retention';
 import { instrumented, type DatabaseEventSink } from './instrumented';
+import type { TxSource } from './tx';
 
 /**
  * Discards a validated pending judging response by ending its job 'failed',
@@ -27,7 +27,7 @@ export const transcriptRetention = ({
   database,
   eventSink,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
   /** A ranked Round's transcript is ranked content: its waiver keeps it, so no window does. */

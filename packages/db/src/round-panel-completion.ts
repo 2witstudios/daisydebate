@@ -6,7 +6,6 @@ import {
 } from '@daisy/protocol';
 import { and, eq, sql } from 'drizzle-orm';
 import type { BoundedTransaction } from './bounded-transaction';
-import type { BoundedTransactionContext } from './transaction-context';
 import { fenceAttendance } from './attendance-facts';
 import { rounds } from './schema/rounds';
 import { refundPlatformEndedLocked } from './round-bot-admission';
@@ -48,6 +47,7 @@ import {
   validatePanelReceipt,
   type PanelDurableFacts,
 } from './round-panel-decisions';
+import type { Tx } from './tx';
 
 type CompletionFacts = Parameters<
   LockedRoundTickInput['buildProjection']
@@ -79,7 +79,7 @@ type Request = LockedRoundTickInput & {
   };
 };
 async function replay(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   input: Request,
   digest: string,
   sameCommand: boolean,
@@ -107,7 +107,7 @@ async function replay(
 }
 
 async function readCompletionFacts(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   input: Request,
   roundTime?: RoundTimeSource,
 ) {
@@ -150,11 +150,7 @@ async function readCompletionFacts(
   };
 }
 
-async function complete(
-  tx: BoundedTransactionContext,
-  input: Request,
-  roundTime?: RoundTimeSource,
-) {
+async function complete(tx: Tx, input: Request, roundTime?: RoundTimeSource) {
   await requireCurrentWeb(tx, input.instanceId);
   const digest = panelDigest(input);
   await tx.execute(

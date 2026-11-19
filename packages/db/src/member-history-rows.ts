@@ -8,7 +8,6 @@ import {
   type SeatRef,
 } from '@daisy/protocol';
 import { and, eq, inArray, sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { actors } from './schema/actors';
 import { botProfiles } from './schema/bot-profiles';
 import { aiJudgeProfiles } from './schema/ai-judge-profiles';
@@ -22,8 +21,7 @@ import {
   seatRowOrder,
   type SeatColumns,
 } from './seat-columns';
-
-type Tx = Pick<BunSQLDatabase, 'select' | 'execute'>;
+import type { Tx } from './tx';
 
 /** A competitor's seat: a side's or an unsided speaker's. */
 export const debating = isDebatingSeatSql(roundParticipants.seatKind);

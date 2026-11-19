@@ -1,14 +1,11 @@
 import type { TournamentNotificationKind } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
-import type { TabTransaction } from '../tab/tab-transaction';
 import { oweNotifications } from './owe';
 import { rowsOf } from '../raw-rows';
+import type { Tx } from '../tx';
 
 /** Actual accepted competitors and panel members of one fixture; never a lobby-wide broadcast. */
-export const fixtureNotificationPeople = (
-  tx: TabTransaction,
-  fixtureId: string,
-) =>
+export const fixtureNotificationPeople = (tx: Tx, fixtureId: string) =>
   rowsOf<{ userId: string; actorId: string; judgeId: string | null }>(
     tx,
     sql`
@@ -31,7 +28,7 @@ export const fixtureNotificationPeople = (
  * nothing twice. Nobody in particular brought it, so it is about no one.
  */
 export async function oweTournamentNotification(
-  tx: TabTransaction,
+  tx: Tx,
   input: {
     readonly kind: TournamentNotificationKind;
     readonly fixtureId: string;
@@ -62,7 +59,7 @@ export async function oweTournamentNotification(
 
 /** Only a newly recorded opening can owe results; changing policy never fabricates a release. */
 export async function notifyTournamentRelease(
-  tx: TabTransaction,
+  tx: Tx,
   release: {
     readonly lobbyId: string;
     readonly tabRoundId: string;
@@ -114,7 +111,7 @@ export async function notifyTournamentRelease(
 
 /** A previously recorded opening starts owing delivery when its actual result becomes available. */
 export async function notifyAvailableFixtureResult(
-  tx: TabTransaction,
+  tx: Tx,
   result: {
     readonly fixtureId: string;
     readonly lobbyId: string;

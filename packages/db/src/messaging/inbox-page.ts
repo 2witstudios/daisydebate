@@ -1,5 +1,4 @@
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError, isAppError } from '@daisy/errors';
 import {
   decodeMessagingInboxCursor,
@@ -9,10 +8,7 @@ import {
   messagingInboxSearchLine,
   messagingInboxPreviewMax,
 } from '@daisy/protocol';
-import {
-  loadAuthorizationAccount,
-  type AuthorizationTransaction,
-} from '../authorization';
+import { loadAuthorizationAccount } from '../authorization';
 import type { authorizationAccountFact } from '../authorization-account';
 import {
   loadAuthorizationAgeFacts,
@@ -33,6 +29,7 @@ import {
   inboxFactSignature,
   type InboxDiscovery,
 } from './inbox-page-facts';
+import type { Tx, TxOpener } from '../tx';
 
 type Account = NonNullable<ReturnType<typeof authorizationAccountFact>>;
 type MessagingInboxScope = {
@@ -84,7 +81,6 @@ export type MessagingInboxPage<D> = {
   /** The last scanned candidate of a full scan, even when none is shown. */
   readonly nextAfter: string | null;
 };
-type Tx = AuthorizationTransaction;
 
 function checkedScope(scope: MessagingInboxScope) {
   if (
@@ -363,9 +359,7 @@ async function ages(
  * discover the whole union, fence it once, verify the cast, then decide and
  * summarize. A cast that keeps moving is a retryable outage, never stale.
  */
-export function createMessagingInboxPage(
-  database: Pick<BunSQLDatabase, 'transaction'>,
-) {
+export function createMessagingInboxPage(database: TxOpener) {
   return <D>(
     scope: MessagingInboxScope,
     policy: MessagingInboxPolicy<D>,

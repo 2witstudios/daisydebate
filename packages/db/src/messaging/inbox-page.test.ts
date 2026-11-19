@@ -1,13 +1,13 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { createAppError } from '@daisy/errors';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { PgDialect } from 'drizzle-orm/pg-core';
 import type { SQL } from 'drizzle-orm';
 import {
   createMessagingInboxPage,
   type MessagingInboxPolicy,
 } from './inbox-page';
+import type { TxSource } from '../tx';
 setupRitewayBun();
 const now = '2026-10-10T12:00:00.000Z';
 const self = { userId: 'u'.repeat(24), actorId: 'a'.repeat(24) };
@@ -114,7 +114,7 @@ function world(size: number, options: { readonly hidden?: boolean } = {}) {
   const database = {
     transaction: async (work: (value: typeof tx) => Promise<unknown>) =>
       work(tx),
-  } as unknown as BunSQLDatabase;
+  } as unknown as TxSource;
   return { channels, statements, page: createMessagingInboxPage(database) };
 }
 type Decision = { readonly shown: true };

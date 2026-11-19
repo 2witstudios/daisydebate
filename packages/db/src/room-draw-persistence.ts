@@ -9,17 +9,17 @@ import {
   roundResolutionStrikes,
 } from './schema/resolution-draws';
 import { roundDrawSeeds } from './schema/round-seeds';
-import type { Tx } from './room-command-facts';
 import type {
   DrawPrivateInputs,
   ResolutionAudit,
   ResolutionDrawEvidence,
   ResolutionDrawState,
 } from '@daisy/protocol/resolution-draw';
+import type { Tx } from './tx';
 
 /** A Round's draw as the engine reads it, plus its secret seed (hex). */
 export const loadRoundDraw = async (
-  tx: Pick<Tx, 'select'>,
+  tx: Tx,
   roundId: string,
 ): Promise<{
   readonly state: ResolutionDrawState;
@@ -126,10 +126,7 @@ export const insertRoundDraw = async (
 };
 
 /** Appends a settled draw's new strikes and counts them; a stored one stays. */
-export const appendRoundStrikes = async (
-  tx: Pick<Tx, 'insert'>,
-  draw: ResolutionDrawState,
-) => {
+export const appendRoundStrikes = async (tx: Tx, draw: ResolutionDrawState) => {
   if (!draw.strikes.length) return 0;
   const added = await tx
     .insert(roundResolutionStrikes)
@@ -189,7 +186,7 @@ export const revealEvidence = (
  * Never the seed. Null for a live Round or one without a draw.
  */
 export const roundResolutionAudit = async (
-  tx: Pick<Tx, 'select'>,
+  tx: Tx,
   round: {
     readonly id: string;
     readonly status: RoundStatus;

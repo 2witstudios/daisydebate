@@ -1,10 +1,10 @@
 import type { RatingDivision } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
 import { eq } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type { LeagueRoomFacts } from './league-ladder-seat';
 import { ladders } from './schema/ladders';
 import { organizations } from './schema/organizations';
+import type { Tx } from './tx';
 
 /**
  * The league facts a Room's seating reads: the division of the league whose
@@ -13,7 +13,7 @@ import { organizations } from './schema/organizations';
  * seating sees it.
  */
 export const leagueRoomFacts = async (
-  tx: Pick<BunSQLDatabase, 'select'>,
+  tx: Tx,
   room: { readonly leagueLadderId: string | null },
 ): Promise<LeagueRoomFacts> => {
   if (room.leagueLadderId === null) return { leagueDivision: null };

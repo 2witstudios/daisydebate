@@ -7,6 +7,7 @@ import { readDatabaseTime } from './database-clock';
 import { billingCustomers } from './schema/billing-customers';
 import { billingSubscriptions } from './schema/billing-subscriptions';
 import { users } from './schema/users';
+import type { Tx } from './tx';
 
 const pageSize = 33;
 type Page = {
@@ -14,7 +15,6 @@ type Page = {
   readonly afterId?: string;
   readonly throughId?: string;
 };
-type Tx = Parameters<Parameters<BoundedTransaction>[0]>[0];
 const oldest = (values: readonly string[]) =>
   values.length ? values.reduce((a, b) => (a < b ? a : b)) : null;
 

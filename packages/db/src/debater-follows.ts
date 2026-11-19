@@ -1,9 +1,9 @@
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { rowsOf } from './raw-rows';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import type { PrivacyAdopter } from './privacy/contracts';
 import { exportRows } from './privacy/export-rows';
+import { inTransaction, type TxSource } from './tx';
 
 const debaterNamed = (username: string) =>
   sql`select a.id,u.id as user_id from users u join actors a on a.user_id=u.id
@@ -30,7 +30,7 @@ export const debaterFollowOperations = ({
   database,
   eventSink,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
   setDebaterFollow(input: {
@@ -39,7 +39,7 @@ export const debaterFollowOperations = ({
     readonly state: 'following' | 'not_following';
   }): Promise<DebaterFollowOutcome> {
     return instrumented(eventSink, 'setDebaterFollow', () =>
-      database.transaction(async (tx) => {
+      inTransaction(database, async (tx) => {
         const [debater] = await rowsOf<{ id: string; user_id: string }>(
           tx,
           debaterNamed(input.username),

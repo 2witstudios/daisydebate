@@ -1,7 +1,6 @@
 import { and, asc, eq, isNull, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import { isJudgeSeat, judgingPolicy } from '@daisy/protocol';
-import type { BoundedTransactionContext } from './transaction-context';
 import { agentRuns } from './schema/agent-runs';
 import {
   roundJudgingAttempts,
@@ -18,9 +17,10 @@ import { readDatabaseTime } from './database-clock';
 import { judgingJobWhere, type JudgingScope } from './round-judging-context';
 import { nextEpoch } from './lease-policy';
 import { firstPassLost, requireClaimableJob } from './round-judging-decisions';
+import type { Tx } from './tx';
 
 export async function claimLockedJudgingJob(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   target: Pick<JudgingScope, 'roundId' | 'judgeParticipantId'>,
   input: {
     nextId: () => string;

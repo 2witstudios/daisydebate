@@ -1,12 +1,12 @@
 import { and, eq, sql, type SQL } from 'drizzle-orm';
 import { createAppError, createRefusal } from '@daisy/errors';
 import { isJudgeSeat } from '@daisy/protocol';
-import type { BoundedTransactionContext } from './transaction-context';
 import { lockRoundAgentContext } from './round-agent-runs';
 import { readDatabaseTime } from './database-clock';
 import { requireAgentLeaseToken } from './round-agent-lease';
 import { agentRuns } from './schema/agent-runs';
 import { roundBotPublications } from './schema/round-bot-publications';
+import type { Tx } from './tx';
 
 export type BotPublicationScope = {
   readonly roundId: string;
@@ -27,10 +27,7 @@ const intervalOpen = (before: SQL, after: SQL) =>
 const segmentInProgress = (before: SQL, after: SQL) =>
   sql`s.started_at<=${before} and ${after}<least(coalesce(s.ended_at,'infinity'::timestamptz),s.due_at)`;
 /** A platform incident holds every microphone, and no answer is bought for a held speech. */
-async function refuseDuringIncident(
-  tx: Pick<BoundedTransactionContext, 'execute'>,
-  roundId: string,
-) {
+async function refuseDuringIncident(tx: Tx, roundId: string) {
   const rows = await tx.execute(
     sql`select 1 from rounds where id=${roundId} and runtime_state->'incident'->>'phase'<>'none'`,
   );
@@ -38,7 +35,7 @@ async function refuseDuringIncident(
 }
 /** When the segment a bot speaks in is due now; a resumed speech is due later than it was. */
 export async function botSegmentDueAt(
-  tx: Pick<BoundedTransactionContext, 'execute'>,
+  tx: Tx,
   target: Pick<BotPublicationScope, 'roundId' | 'segmentId'>,
 ): Promise<string> {
   const rows = (await tx.execute(
@@ -49,7 +46,7 @@ export async function botSegmentDueAt(
 }
 /** Latest actual played scope authenticates control, including unresolved historical attendance. */
 export async function requireBotControlSegment(
-  tx: Pick<BoundedTransactionContext, 'execute'>,
+  tx: Tx,
   target: Pick<BotPublicationScope, 'roundId' | 'segmentId'>,
 ) {
   const rows = await tx.execute(sql`select 1 from round_segments s
@@ -65,7 +62,7 @@ export async function requireBotControlSegment(
  * room hears nobody (ADR 0110). The one check every bot speech path shares.
  */
 export async function requireBotRoom(
-  tx: Pick<BoundedTransactionContext, 'execute'>,
+  tx: Tx,
   target: Pick<BotPublicationScope, 'roundId'>,
   room: string,
 ) {
@@ -76,7 +73,7 @@ export async function requireBotRoom(
 }
 /** The seat holds an open floor now, in its live segment, with no incident. */
 export async function requireBotSpeakingWindow(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   target: Pick<
     BotPublicationScope,
     'roundId' | 'roundParticipantId' | 'segmentId'
@@ -98,7 +95,7 @@ export async function requireBotSpeakingWindow(
  * speaking interval in it now.
  */
 export async function readBotSegmentFloor(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   target: Pick<
     BotPublicationScope,
     'roundId' | 'roundParticipantId' | 'segmentId'
@@ -137,7 +134,7 @@ export type BotMediaPrincipal = {
  * also reads.
  */
 export async function verifyBotMediaPrincipal(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   principal: BotMediaPrincipal,
 ) {
   await verifyLockedBotWorker(tx, principal.scope, principal.token);
@@ -178,7 +175,7 @@ export function requireRunScope(
     throw createAppError('AUTHORIZATION');
 }
 export async function verifyLockedBotWorker(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   scope: BotPublicationScope,
   token: string,
 ) {

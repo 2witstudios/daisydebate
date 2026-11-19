@@ -5,12 +5,12 @@ import { assertRejects } from '@daisy/errors/testing';
 import { sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import type { BoundedTransactionContext } from '../src/transaction-context';
 import { reconcileCheckInAttempts } from '../src/check-in-attempts';
 import {
   withCheckInAttempt as withAttempt,
   writeCheckInLedger,
 } from './bounded-transaction-lifecycle.test-support';
+import type { Tx } from '../src/tx';
 setupRitewayBun();
 requireTestServices(process.env);
 
@@ -18,7 +18,7 @@ test('actual check-in marker commits before writer BEGIN and closes only after a
   withAttempt(async ({ f, run, attempt, lifecycle }) => {
     const { attemptId } = attempt;
     let beforeBegin = false;
-    let escaped: BoundedTransactionContext | undefined;
+    let escaped: Tx | undefined;
     let observed: unknown;
     await assertRejects({
       given: 'actual durable check-in lifecycle and a domain refusal',

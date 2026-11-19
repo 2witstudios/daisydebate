@@ -1,10 +1,10 @@
 import { sql } from 'drizzle-orm';
-import type { AuthorizationTransaction } from '../authorization';
 import { buildUserInboxTopic, idSchema } from '@daisy/protocol';
 import { appendOutboxEvent } from '../outbox';
+import type { Tx } from '../tx';
 /** The event says only that this owner's protected messaging collection needs a fresh read. */
 export async function invalidateMessagingInboxes(
-  tx: AuthorizationTransaction,
+  tx: Tx,
   actors: readonly string[],
 ) {
   const owners = [
@@ -18,10 +18,7 @@ export async function invalidateMessagingInboxes(
       payload: { kind: 'messaging.inbox.changed' },
     });
 }
-export async function invalidateDmInboxes(
-  tx: AuthorizationTransaction,
-  channelId: string,
-) {
+export async function invalidateDmInboxes(tx: Tx, channelId: string) {
   const rows = await tx.execute(
     sql`select low_actor_id as "lowActorId", high_actor_id as "highActorId" from public.messaging_dm_pairs where channel_id=${channelId}`,
   );
@@ -39,10 +36,7 @@ export async function invalidateDmInboxes(
  * members, or a group's current members. The bell carries no channel or
  * content.
  */
-export async function invalidateChannelInboxes(
-  tx: AuthorizationTransaction,
-  channelId: string,
-) {
+export async function invalidateChannelInboxes(tx: Tx, channelId: string) {
   const rows = await tx.execute(sql`
     select low_actor_id as "actorId" from public.messaging_dm_pairs where channel_id=${channelId}
     union select high_actor_id from public.messaging_dm_pairs where channel_id=${channelId}

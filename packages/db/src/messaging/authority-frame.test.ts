@@ -2,7 +2,6 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { PgDialect } from 'drizzle-orm/pg-core';
 import type { SQL } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import {
   castChanged,
   createMessagingChannelAuthority,
@@ -11,6 +10,7 @@ import {
 } from './authority-frame';
 import { messagingAuthorityFixture } from './social.test-support';
 import { createAppError } from '@daisy/errors';
+import { inTransaction, type TxSource } from '../tx';
 setupRitewayBun();
 /** The statement order each scenario runs: a shared read restarts once on drift. */
 function expectedStatements(
@@ -80,11 +80,11 @@ for (const [changed, locked, extended] of [
     const database = {
       transaction: async (work: (value: typeof tx) => Promise<unknown>) =>
         work(tx),
-    } as unknown as BunSQLDatabase;
+    } as unknown as TxSource;
     const base = createMessagingChannelAuthority(database);
     const read: typeof base = extended
       ? (scope, work) =>
-          database.transaction((current) =>
+          inTransaction(database, (current) =>
             withLockedMessagingAuthority(current, scope, work, {
               additionalActors: ['d'.repeat(24)],
               beforeChannel: async (frame) => {
@@ -213,7 +213,7 @@ test('a read whose cast keeps moving gives up after two restarts, never answerin
       transactions += 1;
       return work(tx);
     },
-  } as unknown as BunSQLDatabase);
+  } as unknown as TxSource);
   await assertRejects({
     given:
       'a cast that moves between discovery and the fences on every attempt',
@@ -243,7 +243,7 @@ test('a read restarts on a cast change even when a layer wrapped it, and never o
           if (transactions === 1) throw first();
           return work(undefined as never);
         },
-      } as unknown as BunSQLDatabase,
+      } as unknown as TxSource,
       async () => 'fresh',
     ).catch((error: { code?: string }) => error.code);
     return { answer, transactions };

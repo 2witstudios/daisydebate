@@ -1,5 +1,4 @@
 import { and, eq, gt, ne, sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import { messagingChannels } from '../schema/messaging-channels';
@@ -15,11 +14,8 @@ import type {
   FileScope,
   FileToken,
 } from './records';
+import type { Tx } from '../tx';
 
-type FileTransaction = Pick<
-  BunSQLDatabase,
-  'select' | 'insert' | 'update' | 'execute'
->;
 type Row = typeof messagingFiles.$inferSelect;
 const reservation = (row: Row): FileReservation => ({
   lifecycle: row.lifecycle as FileReservation['lifecycle'],
@@ -44,7 +40,7 @@ export const fileDeletionValues = {
 };
 /** Caller holds canonical account/pair/channel locks. Never opens a transaction. */
 export function channelFileFrame(
-  tx: FileTransaction,
+  tx: Tx,
   input: FileScope,
   counters: { channelId: string; changeVersion: number },
   authorize: () => Promise<void>,

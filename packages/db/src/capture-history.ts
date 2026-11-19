@@ -1,6 +1,6 @@
 import { createAppError } from '@daisy/errors';
 import { and, eq, sql } from 'drizzle-orm';
-import type { CaptureTx, CaptureStream } from './media-capture-context';
+import type { CaptureStream } from './media-capture-context';
 import {
   leadSeatOf,
   speakingEndMs,
@@ -12,16 +12,12 @@ import { rounds } from './schema/rounds';
 import { roundSpeakingIntervals } from './schema/round-speaking-intervals';
 import { roundTranscripts } from './schema/transcript-segments';
 import type { roundSegments } from './schema/round-segments';
+import type { Tx } from './tx';
 
 type Segment = typeof roundSegments.$inferSelect;
 type StreamScope = CaptureStream & { readonly roundId: string };
-type Reader = Pick<CaptureTx, 'select'>;
 /** A stream's speaking windows within its segment, possibly none. */
-async function speakingWindows(
-  tx: Reader,
-  input: StreamScope,
-  segment: Segment,
-) {
+async function speakingWindows(tx: Tx, input: StreamScope, segment: Segment) {
   const rows = await tx
     .select()
     .from(roundSpeakingIntervals)
@@ -56,7 +52,7 @@ export function grantWindows(
   }));
 }
 export async function captureHistory(
-  tx: Reader,
+  tx: Tx,
   input: StreamScope,
   segment: Segment,
 ) {
@@ -67,7 +63,7 @@ export async function captureHistory(
 }
 /** Facts only, for a Round's grants or for one seat's grant in one segment. */
 export async function readSeatGrants(
-  tx: Pick<CaptureTx, 'execute' | 'select'>,
+  tx: Tx,
   input: { readonly roundId: string } & Partial<CaptureStream>,
 ) {
   const [round] = await tx
@@ -115,20 +111,14 @@ export async function readSeatGrants(
   });
 }
 
-export const transcriptRevision = async (
-  tx: Pick<CaptureTx, 'select'>,
-  roundId: string,
-) => {
+export const transcriptRevision = async (tx: Tx, roundId: string) => {
   const [row] = await tx
     .select({ revision: roundTranscripts.revision })
     .from(roundTranscripts)
     .where(eq(roundTranscripts.roundId, roundId));
   return row?.revision ?? 0;
 };
-export async function advanceTranscriptRevision(
-  tx: CaptureTx,
-  roundId: string,
-) {
+export async function advanceTranscriptRevision(tx: Tx, roundId: string) {
   const [row] = await tx
     .insert(roundTranscripts)
     .values({ roundId, revision: 1 })

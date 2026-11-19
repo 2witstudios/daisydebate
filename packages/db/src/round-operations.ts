@@ -5,18 +5,18 @@ import {
 } from '@daisy/protocol';
 import { frozenJudgingFor } from './round-judging-freeze';
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { hydrateRound, type RoundHydration } from './round-hydration';
 import { isUniqueViolation } from './unique-violation';
 import { rounds } from './schema/rounds';
+import type { TxSource } from './tx';
 
 export const roundOperations = ({
   database,
   eventSink,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
   /** Read-only wall-clock prediction; lifecycle authority is sampled inside execution. */

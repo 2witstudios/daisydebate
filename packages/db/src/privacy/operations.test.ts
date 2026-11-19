@@ -1,15 +1,14 @@
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { PgDialect } from 'drizzle-orm/pg-core';
 import type { SQL } from 'drizzle-orm';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
-import type { AuthorizationTransaction } from '../authorization';
 import { createMessagingPrivacyAdopter } from '../messaging/privacy';
 import {
   runPrivacyErasure,
   runPrivacyExport,
   type PrivacyVerificationBinding,
 } from './operations';
+import type { Tx, TxOpener } from '../tx';
 
 setupRitewayBun();
 
@@ -68,12 +67,10 @@ function messagingExportDatabase(
       }
       return [];
     },
-  } as unknown as AuthorizationTransaction;
+  } as unknown as Tx;
   const database = {
-    transaction: async <T>(
-      work: (transaction: AuthorizationTransaction) => Promise<T>,
-    ) => work(tx),
-  } as unknown as Pick<BunSQLDatabase, 'transaction'>;
+    transaction: async <T>(work: (transaction: Tx) => Promise<T>) => work(tx),
+  } as unknown as TxOpener;
   return { database, statements };
 }
 
@@ -164,7 +161,7 @@ test('verification cleanup rejects noncanonical bindings before any transaction'
       transactions++;
       throw new Error('transaction must not run');
     },
-  } as unknown as Pick<BunSQLDatabase, 'transaction'>;
+  } as unknown as TxOpener;
   const bad: readonly (readonly PrivacyVerificationBinding[])[] = [
     [{ purpose: ' sign-in ', subject: 'email' }],
     [{ jsonTypes: [' registration '], subjectPath: ['userData', 'id'] }],

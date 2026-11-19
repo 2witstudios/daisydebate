@@ -1,6 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { readOutboxRetentionBoundary } from './outbox-retention-boundary';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
+import type { Tx } from './tx';
 
 setupRitewayBun();
 
@@ -20,7 +20,7 @@ test('retention boundary refuses missing or malformed durable ordering facts', a
   ] as const) {
     const database = {
       execute: async () => rows,
-    } as unknown as Pick<BunSQLDatabase, 'execute'>;
+    } as unknown as Tx;
     assert({
       given: 'the persisted singleton or invalid adapter output',
       should: 'return only one validated boundary, otherwise fail closed',

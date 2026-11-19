@@ -63,7 +63,6 @@ import { leagueRoomFacts } from './league-room-division';
 import { rooms, roomParticipants } from './schema/rooms';
 
 import {
-  type Tx,
   type Caller,
   type Account,
   type AuthorizeRoom,
@@ -76,6 +75,7 @@ import {
   acceptCommand,
   transactionNow,
 } from './room-command-facts';
+import type { Tx } from './tx';
 type CommandInput = {
   readonly caller: Caller;
   readonly authorizeRead: AuthorizeRoom;

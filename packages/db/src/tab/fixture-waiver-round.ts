@@ -1,10 +1,10 @@
 import { hydrateRoundRows } from '../round-hydration';
 import type { FixtureCommandContext } from './fixture-command-context';
-import type { TabTransaction } from './tab-transaction';
+import type { Tx } from '../tx';
 
 /** The real current Round is the undelayed read's target; a fixture identifier cannot stand in for one. */
 export const readFixtureWaiverRound = async (
-  tx: TabTransaction,
+  tx: Tx,
   context: FixtureCommandContext,
 ) => {
   if (!context.round || !context.room) return null;

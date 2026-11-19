@@ -2,7 +2,6 @@ import { insertContentReport } from '../content-report-write';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { readAuthorizationActors } from '../authorization';
 import { channelReadFrame } from './read-frame';
 import {
@@ -20,9 +19,9 @@ import type {
   ContextChannelScope,
   ContextChannelWriteFrame,
 } from './context-channel-contracts';
+import { inTransaction, type TxSource, type Tx } from '../tx';
 
 type DiscoveryScope = Omit<ContextChannelScope, 'channelId'>;
-type Transaction = Parameters<Parameters<BunSQLDatabase['transaction']>[0]>[0];
 const requireScope = (scope: DiscoveryScope) => {
   for (const id of [scope.ownerId, scope.actorId, scope.userId])
     if (!idSchema.safeParse(id).success) throw createAppError('VALIDATION');
@@ -34,7 +33,7 @@ const requireScope = (scope: DiscoveryScope) => {
  * content operation rechecks the caller's current authority under those locks.
  */
 export function createContextChannelStore<Fact extends ContextChannelFact>(
-  database: BunSQLDatabase,
+  database: TxSource,
   owner: ContextChannelOwner<Fact>,
   authorize: ContextChannelFence<Fact>,
 ) {
@@ -44,11 +43,11 @@ export function createContextChannelStore<Fact extends ContextChannelFact>(
   };
   const fenced = <T>(
     scope: DiscoveryScope,
-    work: (tx: Transaction, frame: Frame) => Promise<T>,
+    work: (tx: Tx, frame: Frame) => Promise<T>,
     entryAction: 'read' | 'remove' = 'read',
   ) => {
     requireScope(scope);
-    return database.transaction(async (tx) => {
+    return inTransaction(database, async (tx) => {
       const [account] = await readAuthorizationActors(tx, [scope.actorId], {
         maxActors: 1,
       });
@@ -65,7 +64,7 @@ export function createContextChannelStore<Fact extends ContextChannelFact>(
     scope: ContextChannelScope & { readonly action?: 'post' | 'remove' },
     write: boolean,
     work: (
-      tx: Transaction,
+      tx: Tx,
       frame: Frame,
       counters: Awaited<ReturnType<typeof readStream>> & { channelId: string },
       check: (action: ContextChannelAction) => Promise<void>,

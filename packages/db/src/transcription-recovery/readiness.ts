@@ -1,6 +1,6 @@
 import { sql, type SQL } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
-import type { BoundedTransactionContext } from '../transaction-context';
+import type { Tx } from '../tx';
 /** A known retained original cannot disappear merely because selective restore omitted its recognition metadata. */
 export const hasUnenrolledOriginals = (roundId: string | SQL) =>
   sql`exists(select 1 from necessary_evidence pending
@@ -8,10 +8,7 @@ export const hasUnenrolledOriginals = (roundId: string | SQL) =>
       and pending.payload_accepted_at is not null
       and not exists(select 1 from transcription_recovery_sources enrolled where enrolled.evidence_id=pending.id))`;
 /** Caller owns original accounts→Round; this reads metadata, never raw payload or replacement capture authority. */
-export async function requireOriginalEnrollment(
-  tx: BoundedTransactionContext,
-  roundId: string,
-) {
+export async function requireOriginalEnrollment(tx: Tx, roundId: string) {
   const [row] = await tx.execute(
     sql`select ${hasUnenrolledOriginals(roundId)} as pending`,
   );

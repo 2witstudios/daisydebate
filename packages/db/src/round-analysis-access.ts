@@ -1,11 +1,11 @@
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { z } from 'zod';
 import type { Account } from './room-command-facts';
 import { createAppError } from '@daisy/errors';
 import { loadAuthorizationAccount } from './authorization';
 import { seatKinds, type SeatRef, type SideKey } from '@daisy/protocol';
 import { seatOfColumns } from './seat-columns';
+import type { Tx } from './tx';
 
 const accessRow = z.object({
   roundId: z.string(),
@@ -50,7 +50,7 @@ export type RoundAnalysisAccess = {
  * canonical account fences; this reader never acquires or upgrades one.
  */
 export async function readRoundAnalysisAccess(
-  tx: Pick<BunSQLDatabase, 'execute'>,
+  tx: Tx,
   target: { readonly roundId: string; readonly roundParticipantId: string },
 ): Promise<RoundAnalysisAccess> {
   const [row] =

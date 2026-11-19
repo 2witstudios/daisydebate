@@ -1,10 +1,11 @@
 import { and, eq, inArray, or, sql } from 'drizzle-orm';
 import type { RoomAssemblyState } from '@daisy/protocol';
 import { rooms, roomParticipants, roomSeatHolds } from './schema/rooms';
-import { appendRoomChanged, roomFacts, type Tx } from './room-command-facts';
+import { appendRoomChanged, roomFacts } from './room-command-facts';
 import { persistRoomOutsideCommands } from './room-mutation-persistence';
 import { endMemberRoomInvitations } from './room-invitations/store';
 import { roomIsOpen } from './room-open';
+import type { Tx } from './tx';
 
 /** The engine's pure Room rules a restriction applies, injected by the caller. */
 export type RoomReleaseRules = {

@@ -9,7 +9,6 @@ import type {
   RoundCommandAuthority,
 } from '@daisy/protocol';
 import { and, eq, sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { lockAuthorizationActors } from './authorization';
 import { hydrateRoundRows } from './round-hydration';
 import { actorFact } from './room-command-facts';
@@ -22,11 +21,7 @@ import { roundParticipants } from './schema/round-participants';
 import { agentRuns } from './schema/agent-runs';
 import { fencedActorIds, seatEligibility } from './seat-eligibility';
 import { principalAccessOf } from './participant-admission';
-export type RoundWriteTransaction = Pick<
-  BunSQLDatabase,
-  'select' | 'insert' | 'update' | 'execute'
->;
-type Tx = RoundWriteTransaction;
+import type { Tx } from './tx';
 export type RoundWriteScope = {
   readonly roundId: string;
   readonly principal: RoundCommandPrincipal;

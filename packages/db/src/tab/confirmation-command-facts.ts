@@ -18,7 +18,7 @@ import {
 } from './fixture-command-facts';
 import { loadAuthorityContext } from './authority-context';
 import { fixtureConnections } from './fixture-conflict';
-import type { TabTransaction } from './tab-transaction';
+import type { Tx } from '../tx';
 
 export type ConfirmationCommandInput = {
   readonly senderUserId: string;
@@ -31,7 +31,7 @@ export type ConfirmationCommandInput = {
 };
 /** Current principals and the actual original source share account-before-parent-before-pending fences. */
 export async function loadConfirmationCommandFacts(
-  tx: TabTransaction,
+  tx: Tx,
   input: ConfirmationCommandInput,
   readTime: typeof readDatabaseTime,
 ) {

@@ -7,26 +7,16 @@ import { sql } from 'drizzle-orm';
 import { divisionAgeBand, divisionOfBandSql } from './ladder-division-band';
 import { isDebatingSeatSql } from './seat-columns';
 import { scopeTransaction } from './tenant-scope';
-import type { BoundedTransactionContext } from './transaction-context';
 import type { MediaReleaseMailKind } from './media-release-mail';
-
-/**
- * Media release records as the commands read and write them (ADR 0151): a
- * minor's releases (with a club's attestation, read under the minor's subject
- * scope), their requests, their ladder division, and the writes every command
- * shares.
- */
-type Tx = BoundedTransactionContext;
+import type { Tx } from './tx';
 
 export const iso = (value: unknown): string =>
   new Date(value as string | Date).toISOString();
 export const isoOrNull = (value: unknown): string | null =>
   value === null || value === undefined ? null : iso(value);
 
-export const rows = async <Row>(
-  tx: Pick<Tx, 'execute'>,
-  query: ReturnType<typeof sql>,
-) => (await tx.execute(query)) as unknown as Row[];
+export const rows = async <Row>(tx: Tx, query: ReturnType<typeof sql>) =>
+  (await tx.execute(query)) as unknown as Row[];
 
 export type ReleaseRow = {
   id: string;
@@ -103,7 +93,7 @@ const requestOf = (row: RequestRow): ReleaseRequest => ({
  * `lock` takes the minor's release rows for the rest of the transaction.
  */
 export async function readReleasesOf(
-  tx: Pick<Tx, 'execute'>,
+  tx: Tx,
   userIds: readonly string[],
   lock: boolean,
 ): Promise<readonly MediaReleaseRecord[]> {
@@ -131,7 +121,7 @@ export async function readReleasesOf(
 
 /** A minor's recent requests, newest first. */
 export async function readRequestsOf(
-  tx: Pick<Tx, 'execute'>,
+  tx: Tx,
   userId: string,
   lock: boolean,
 ): Promise<readonly ReleaseRequest[]> {
@@ -148,7 +138,7 @@ export async function readRequestsOf(
 
 /** A member's ladder division, decided as every ranked command decides it. */
 export async function readDivisionOf(
-  tx: Pick<Tx, 'execute'>,
+  tx: Tx,
   userId: string,
 ): Promise<'open' | 'youth' | null> {
   const [row] = await rows<{ division: 'open' | 'youth' | null }>(
@@ -161,7 +151,7 @@ export async function readDivisionOf(
 
 /** Ends every public Youth Recording of a Round this minor debated (ADR 0151). */
 export async function endPublicationsOf(
-  tx: Pick<Tx, 'execute'>,
+  tx: Tx,
   userId: string,
 ): Promise<number> {
   const ended = await rows<{ round_id: string }>(
@@ -205,7 +195,7 @@ export async function insertMediaRelease(
 }
 
 export async function queueMediaReleaseMail(
-  tx: Pick<Tx, 'execute'>,
+  tx: Tx,
   input: {
     readonly id: string;
     readonly kind: MediaReleaseMailKind;

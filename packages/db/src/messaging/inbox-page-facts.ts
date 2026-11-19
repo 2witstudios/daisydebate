@@ -2,14 +2,10 @@ import { sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
-import {
-  readAuthorizationActors,
-  type AuthorizationTransaction,
-} from '../authorization';
+import { readAuthorizationActors } from '../authorization';
 import { actorIdsOf } from './authority-frame';
 import { readMessagingChannelFacts, type MessagingChannelFact } from './social';
-
-type Tx = AuthorizationTransaction;
+import type { Tx } from '../tx';
 
 const invitationRow = z.object({
   channelId: idSchema,

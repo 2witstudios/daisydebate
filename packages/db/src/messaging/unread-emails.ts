@@ -1,9 +1,7 @@
 import { createAppError } from '@daisy/errors';
 import { createId } from '@paralleldrive/cuid2';
 import { sql, type SQL } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { z } from 'zod';
-import type { AuthorizationTransaction } from '../authorization';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
 import {
   mailQueue,
@@ -18,8 +16,7 @@ import {
   messagingUnreadEmails,
   type messagingUnreadEmailErrorCodes,
 } from '../schema/messaging-unread-emails';
-
-type Database = Pick<BunSQLDatabase, 'transaction' | 'execute'>;
+import { inTransaction, type Tx, type TxSource } from '../tx';
 
 /** An unread-messages email waits this long after the latest message... */
 const UNREAD_EMAIL_QUIET_MS = 30 * 60_000;
@@ -84,7 +81,7 @@ const wantsConversationEmail = (channel: SQL, actor: SQL) =>
  * conversation's, is owed none.
  */
 export async function oweUnreadMessageEmails(
-  tx: AuthorizationTransaction,
+  tx: Tx,
   sent: {
     readonly channelId: string;
     readonly authorActorId: string;
@@ -119,7 +116,7 @@ export function messagingUnreadEmailOperations({
   database,
   eventSink,
 }: {
-  readonly database: Database;
+  readonly database: TxSource;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) {
   return {
@@ -206,7 +203,7 @@ export function messagingUnreadEmailOperations({
         // A job owed while this one was held can take the one queued place
         // first; the second attempt then sees it and joins it.
         retriedOnceIfQueuedMeanwhile(() =>
-          database.transaction(async (tx) => {
+          inTransaction(database, async (tx) => {
             const [next] = await rowsOf<{ id: string }>(
               tx,
               sql`select q.id from messaging_unread_emails q

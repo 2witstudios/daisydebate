@@ -7,7 +7,6 @@ import {
   type WinnerOutcome,
 } from '@daisy/protocol';
 import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { isDebatingSeatSql } from './seat-columns';
 import { actors } from './schema/actors';
@@ -20,6 +19,7 @@ import { users } from './schema/users';
 import { listSeasonRecords, type SeasonRecord } from './season-record';
 import { factReleasedSql, type SpectatorClock } from './spectator-release-sql';
 import { releasedStandings } from './standings-release';
+import { inTransaction, type TxSource } from './tx';
 
 /**
  * The leaderboard's reads (ADR 0055): the seasons a ladder can show, the
@@ -85,7 +85,7 @@ export const standingsOperations = ({
   database,
   eventSink,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
   /** Ratings hidden from a member until their current judging assignment is ruled. */
@@ -151,7 +151,8 @@ export const standingsOperations = ({
       if (input.seasonIds.length === 0) return { ratings: [], changes: [] };
       // One snapshot: a rating committed between the two selects must not
       // appear in one set and not the other.
-      const { ratingRows, changeRows } = await database.transaction(
+      const { ratingRows, changeRows } = await inTransaction(
+        database,
         async (tx) => ({
           ratingRows: await tx
             .select({

@@ -1,18 +1,18 @@
 import { and, eq, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import type { RoomAssemblyState } from '@daisy/protocol';
-import type { TabTransaction } from './tab/tab-transaction';
 import { rooms, roomParticipants } from './schema/rooms';
 import { rounds } from './schema/rounds';
 import { persistRoomOutsideCommands } from './room-mutation-persistence';
 import { roomFacts } from './room-command-facts';
+import type { Tx } from './tx';
 
 export type JudgeRoomMembers = (
   state: RoomAssemblyState & { readonly debateEnded: boolean },
 ) => readonly string[];
 /** The ordinary Room owner changes its mirror atomically; a replacement has no inherited Ready consent. */
 export async function writeLockedRoomJudge(
-  tx: TabTransaction,
+  tx: Tx,
   input: {
     readonly roomId: string;
     readonly slot: number;

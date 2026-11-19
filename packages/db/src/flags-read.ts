@@ -6,10 +6,9 @@ import {
   type FlagSnapshot,
 } from '@daisy/protocol/flags';
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { z } from 'zod';
+import type { Tx } from './tx';
 
-export type FlagReadTransaction = Pick<BunSQLDatabase, 'execute'>;
 const rowSchema = z.object({
   key: flagKeySchema,
   revision: z.coerce.number().int().min(0),
@@ -31,7 +30,7 @@ function requireFlagKeys(keys: readonly string[]) {
 
 /** One statement gives one coherent snapshot and one database instant. */
 export async function readFlagSnapshot(
-  database: FlagReadTransaction,
+  database: Tx,
   accountId: string | null,
   keys: readonly string[],
 ): Promise<{

@@ -23,7 +23,6 @@ import {
   fenceAttendance,
   finalizedAttendanceSegments,
   principalColumns,
-  type AttendanceTransactionContext,
   type AttendanceTransaction,
   type AttendancePrincipal,
   type LockedAttendanceCheckIn,
@@ -44,9 +43,10 @@ import {
   requireSameCheckIn,
   selectAttendanceSeat,
 } from './attendance-decisions';
+import type { Tx } from './tx';
 
 type WorkerVerifier = (
-  tx: AttendanceTransactionContext,
+  tx: Tx,
   principal: Extract<AttendancePrincipal, { kind: 'agent' }>,
   roundId: string,
 ) => Promise<void>;
@@ -61,7 +61,7 @@ type CheckInInput = {
 };
 type Fenced = Awaited<ReturnType<typeof fenceAttendance>>;
 async function authorizeSeat(
-  tx: AttendanceTransactionContext,
+  tx: Tx,
   principal: AttendancePrincipal,
   fenced: Fenced,
   verifyWorker: WorkerVerifier,
@@ -78,7 +78,7 @@ async function authorizeSeat(
   return seat;
 }
 async function readReplay(
-  tx: AttendanceTransactionContext,
+  tx: Tx,
   input: CheckInInput,
   columns: PrincipalColumns,
   participantId: string,
@@ -103,7 +103,7 @@ async function readReplay(
 }
 /** Attendance stores facts only; competitive decisions/projections remain pure engine work. */
 export function createAttendanceOperations(deps: {
-  readonly transaction: AttendanceTransaction;
+  readonly run: AttendanceTransaction;
   readonly roundTime?: RoundTimeSource | undefined;
   readonly nextAttemptId: () => string;
   readonly verifyWorker: WorkerVerifier;
@@ -117,7 +117,7 @@ export function createAttendanceOperations(deps: {
     }) {
       if (!idSchema.safeParse(input.roundId).success)
         throw createAppError('VALIDATION');
-      return deps.transaction(async (tx) => {
+      return deps.run(async (tx) => {
         const columns = principalColumns(input.principal);
         const fenced = await fenceAttendance(
           tx,
@@ -166,7 +166,7 @@ export function createAttendanceOperations(deps: {
     },
     async recordRoundCheckIn(input: CheckInInput): Promise<AttendanceReceipt> {
       requireCommandInput(input, attendanceEnvelopeSchema);
-      return deps.transaction(
+      return deps.run(
         async (tx, first) => {
           const columns = principalColumns(input.principal);
           const fenced = await fenceAttendance(

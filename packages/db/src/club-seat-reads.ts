@@ -15,9 +15,8 @@ import { invitedAs, type ClubSeatSubject } from './club-seat-commands';
 import { readClubSeats } from './club-seat-grants';
 import { readDatabaseTime } from './database-clock';
 import { scopeTransaction } from './tenant-scope';
-import type { BoundedTransactionContext } from './transaction-context';
+import type { Tx } from './tx';
 
-type Tx = BoundedTransactionContext;
 export type ClubPerson = {
   readonly userId: string;
   readonly name: string;

@@ -20,7 +20,6 @@ import {
 } from 'drizzle-orm';
 import { controlHeartbeat } from './control-heartbeat';
 import { openRecordingJobIfEgressRecorded } from './recording-processing-operations';
-import type { BoundedTransactionContext } from './transaction-context';
 import { broadcasts } from './schema/broadcasts';
 import { mediaSessions } from './schema/media-sessions';
 import { recordingCaptures } from './schema/recording-captures';
@@ -33,8 +32,7 @@ import {
   type SpectatorClock,
 } from './spectator-release-sql';
 import { operatorWithheldSql } from './broadcast-withheld-sql';
-
-type Tx = BoundedTransactionContext;
+import type { Tx } from './tx';
 
 /** One Broadcast per Round: a repeat keeps the first, policy included. */
 export const openBroadcast = async (
@@ -520,7 +518,7 @@ export const broadcastStopOf = (
  * Broadcast was stopped. One rule with every other read: `spectatorHorizonSql`.
  */
 export const readBroadcastRelease = async (
-  reader: Pick<BoundedTransactionContext, 'execute'>,
+  reader: Tx,
   roundId: string,
   clock: SpectatorClock,
 ) => {
@@ -623,7 +621,7 @@ export const claimBroadcastReconcile = async (
  * spans, through views that hold nothing else, because its role reaches no Round table.
  */
 export const readBroadcastStageHistory = async (
-  tx: Pick<BoundedTransactionContext, 'execute'>,
+  tx: Tx,
   broadcastId: string,
 ) => {
   const segments = (await tx.execute(sql`
@@ -657,10 +655,7 @@ export const readBroadcastStageHistory = async (
 };
 
 /** Whether this Broadcast's Round has a Recording, which reads its hold, then clears it. */
-export const readRecordingKeepsHold = async (
-  tx: Pick<BoundedTransactionContext, 'execute'>,
-  broadcastId: string,
-) => {
+export const readRecordingKeepsHold = async (tx: Tx, broadcastId: string) => {
   const rows = (await tx.execute(sql`
     select 1 from broadcast_recording_claims
     where broadcast_id = ${broadcastId}`)) as unknown as unknown[];
@@ -747,7 +742,7 @@ export const readConversationHeld = async (
  * there is no such Broadcast.
  */
 export const endBroadcastFeed = async (
-  tx: Pick<Tx, 'execute'>,
+  tx: Tx,
   input: {
     readonly id: string;
     readonly reason: BroadcastFeedEndReason;
@@ -777,7 +772,7 @@ export const endBroadcastFeed = async (
  * what is going must not keep playing. A Round with no Broadcast has nothing to end.
  */
 export const endRoundFeed = async (
-  tx: Pick<Tx, 'execute'>,
+  tx: Tx,
   input: {
     readonly roundId: string;
     readonly reason: BroadcastFeedEndReason;

@@ -1,11 +1,8 @@
 import { sql } from 'drizzle-orm';
-import type { BoundedTransactionContext } from '../transaction-context';
 import { eligible } from './eligible';
+import type { Tx } from '../tx';
 /** Round dedupe precedes LIMIT; actual all-member history survives finished siblings. Lock skips happen before the bound. */
-export async function select(
-  tx: BoundedTransactionContext,
-  lane: 'attached' | 'detached',
-) {
+export async function select(tx: Tx, lane: 'attached' | 'detached') {
   const live = sql`not exists(select 1 from necessary_evidence live
     where live.original_round_id=e.original_round_id and live.state='retiring' and live.lease_expires_at>clock_timestamp())`;
   const turn = sql`(select coalesce(max(history.last_claimed_at),min(history.created_at))

@@ -1,8 +1,6 @@
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError, isAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
-import type { AuthorizationTransaction } from '../authorization';
 import { withLockedMessagingAuthority } from '../messaging/authority-frame';
 import {
   acknowledgeErasedFileDeletion,
@@ -10,9 +8,10 @@ import {
   expireChannelFiles,
   pendingFileDeletions,
 } from './cleanup';
+import { inTransaction, type Tx, type TxSource } from '../tx';
 
 async function dueOwners(
-  tx: AuthorizationTransaction,
+  tx: Tx,
   channelId: string,
   now: string,
   fileIds: readonly string[],
@@ -34,12 +33,12 @@ async function dueOwners(
 }
 
 async function expireDueChannel(
-  database: BunSQLDatabase,
+  database: TxSource,
   channelId: string,
   now: string,
   fileIds: readonly string[],
 ) {
-  return database.transaction(async (tx) => {
+  return inTransaction(database, async (tx) => {
     const owners = await dueOwners(tx, channelId, now, fileIds);
     const first = owners[0];
     if (!first) return false;
@@ -112,7 +111,7 @@ function groupSelectedFiles(rows: readonly Record<string, unknown>[]) {
   return channels;
 }
 async function acknowledgeBatch(
-  database: BunSQLDatabase,
+  database: TxSource,
   now: string,
   remove: (key: string) => Promise<void>,
   work: Awaited<ReturnType<typeof pendingFileDeletions>>,
@@ -135,7 +134,7 @@ async function acknowledgeBatch(
 }
 
 /** Trusted worker only; no user-content projection or admission authority. */
-export function createMessagingFileMaintenance(database: BunSQLDatabase) {
+export function createMessagingFileMaintenance(database: TxSource) {
   return {
     async run(input: {
       now: string;

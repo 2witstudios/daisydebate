@@ -5,7 +5,6 @@ import type {
   ProfilePhotoStatus,
 } from '@daisy/protocol/public-profile';
 import { sql, type SQL } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import {
   readOwnCollection,
   requireOwnScope,
@@ -13,6 +12,7 @@ import {
 } from './authorization';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { rowsOf } from './raw-rows';
+import type { Tx, TxSource } from './tx';
 
 /**
  * The public profile's storage (ADR 0143): a member's display name and bio,
@@ -22,8 +22,6 @@ import { rowsOf } from './raw-rows';
  */
 
 type Scope = { readonly userId: string; readonly actorId: string };
-type Database = Pick<BunSQLDatabase, 'transaction' | 'execute'>;
-type Tx = Pick<BunSQLDatabase, 'execute'>;
 
 /** A member's own public profile, as they edit it. */
 export type OwnPublicProfile = {
@@ -138,7 +136,7 @@ export const publicProfileOperations = ({
   database,
   eventSink,
 }: {
-  readonly database: Database;
+  readonly database: TxSource;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
   readOwnPublicProfile: (

@@ -17,9 +17,10 @@ import {
   storedCommand,
   type StoredTabCommand,
 } from './command-record';
-import type { TabDatabase, TabTransaction } from './tab-transaction';
+import type { TabDatabase } from './tab-transaction';
 import { applySettingWrites, type SettingWrite } from './setting-writes';
 import { loadTournamentHostingFacts } from './tournament-hosting-facts';
+import { inTransaction, type Tx } from '../tx';
 
 export type SettingCommandInput = {
   readonly senderUserId: string;
@@ -65,7 +66,7 @@ const target = (graph: SettingGraph, command: SettingCommand) => {
             : undefined));
   return { event: event ?? null, lobby, template, organizationId };
 };
-const load = async (tx: TabTransaction, input: SettingCommandInput) => {
+const load = async (tx: Tx, input: SettingCommandInput) => {
   await scopeTransaction(tx, { subjectUserId: input.senderUserId });
   await lockTabCommandAccounts(tx, [input.senderUserId]);
   // Every writer that can change a chain takes this fence before row locks.
@@ -153,7 +154,7 @@ export const createSettingCommandStore = (database: TabDatabase) => ({
     input: SettingCommandInput,
     work: (session: SettingCommandSession) => Promise<Answer>,
   ): Promise<Answer> =>
-    database.transaction(async (tx) =>
+    inTransaction(database, async (tx) =>
       work({
         load: () => load(tx, input),
         stored: (id) => storedCommand(tx, id),

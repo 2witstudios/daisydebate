@@ -1,7 +1,6 @@
 import { invalidateChannelInboxes } from './inbox-change';
 import { oweUnreadMessageEmails } from './unread-emails';
 import { and, eq } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import { messageRecord } from './message-record';
@@ -17,10 +16,10 @@ import type {
   MessagingMessageRecord,
   MessagingSendCommand,
 } from './records';
+import type { Tx } from '../tx';
 
-type ReadTransaction = Pick<BunSQLDatabase, 'select'>;
 export const readMessageIn =
-  (tx: ReadTransaction, channelId: string) =>
+  (tx: Tx, channelId: string) =>
   async (messageId: string | null): Promise<MessagingMessageRecord | null> => {
     if (messageId === null) return null;
     const [row] = await tx
@@ -36,7 +35,7 @@ export const readMessageIn =
   };
 /** The actor's own receipt for one request key, if any. */
 export const readReceipt = async (
-  tx: ReadTransaction,
+  tx: Tx,
   scope: { readonly channelId: string; readonly actorId: string },
   requestId: string,
 ) => {
@@ -58,7 +57,7 @@ export const readReceipt = async (
 
 /** Shared Messaging content methods; the owning producer supplies its current authority fence. */
 export function messagingContentFrame(
-  tx: Pick<BunSQLDatabase, 'select' | 'insert' | 'update' | 'execute'>,
+  tx: Tx,
   input: { readonly channelId: string; readonly actorId: string },
   counters: {
     channelId: string;

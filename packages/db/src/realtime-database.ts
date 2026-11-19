@@ -2,7 +2,6 @@ import { createRoundFloorChannelCohortAuthority } from './messaging/round-floor-
 import { youthLiveReadOperations } from './youth-live-reads';
 import { createRoomCommunityChannelCohortAuthority } from './messaging/room-community-observation';
 import type { SQL } from 'bun';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { authorizationSessionOperations } from './authorization-session';
 import { availabilityOperations } from './availability-operations';
 import { databaseHealthOperations } from './database-health';
@@ -28,13 +27,14 @@ import {
   type LaneTimer,
   type WorkloadProfile,
 } from './workload-admission';
+import type { TxSource } from './tx';
 
 /**
  * The shared-fence authority reads a socket subscription needs, on one
  * lane: subscribes (`admission`) and renewals (`renewal`) are composed
  * separately, so an admission wave cannot consume renewal capacity.
  */
-const authorityReads = (database: BunSQLDatabase) => {
+const authorityReads = (database: TxSource) => {
   const youthLive = youthLiveReadOperations({ database });
   return {
     roundFloorChannelCohortAuthority:

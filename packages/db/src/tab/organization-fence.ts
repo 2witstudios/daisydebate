@@ -7,10 +7,10 @@ import { organizations } from '../schema/organizations';
 import { scopeTransaction, type TenantScope } from '../tenant-scope';
 import { lockTabCommandAccounts } from './command-accounts';
 import { namedPersonOf } from './organization-facts';
-import type { TabTransaction } from './tab-transaction';
+import type { Tx } from '../tx';
 
 const foundOrganization = async (
-  tx: TabTransaction,
+  tx: Tx,
   organizationId: string,
 ): Promise<{ readonly id: string } | undefined> => {
   const [organization] = await tx
@@ -28,7 +28,7 @@ const foundOrganization = async (
  * their own memberships and grants elsewhere stay readable.
  */
 const organizationScope = async (
-  tx: TabTransaction,
+  tx: Tx,
   input: {
     readonly senderUserId: string;
     readonly command: OrganizationCommand;
@@ -70,7 +70,7 @@ const organizationScope = async (
  * read, and answers the scope it set, for the steps that visit a lobby's.
  */
 export const fenceOrganizationCommand = async (
-  tx: TabTransaction,
+  tx: Tx,
   input: Parameters<typeof organizationScope>[1],
 ): Promise<TenantScope> => {
   // Organizations and lobbies are open to read, so the rows are found
@@ -114,7 +114,7 @@ export const fenceOrganizationCommand = async (
 
 /** Fences a read of one organization to it, once its row is found; answers the scope. */
 export const fenceOrganizationRead = async (
-  tx: TabTransaction,
+  tx: Tx,
   input: { readonly viewerUserId: string; readonly organizationId: string },
 ): Promise<TenantScope> => {
   const subject = { subjectUserId: input.viewerUserId };

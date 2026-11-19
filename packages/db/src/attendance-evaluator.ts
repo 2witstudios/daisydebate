@@ -9,7 +9,6 @@ import {
   finalizedAttendanceSegments,
   type AttendanceFacts,
   type AttendanceTransaction,
-  type AttendanceTransactionContext,
 } from './attendance-facts';
 import {
   insertCommandRow,
@@ -29,6 +28,7 @@ import {
   type AttendanceResolution,
   type NextAttendanceWindow,
 } from './attendance-adjudication';
+import type { Tx } from './tx';
 
 /**
  * The read is capped, so an old window can still be decided on what it proves.
@@ -36,7 +36,7 @@ import {
  * unmeasured (ADR 0095).
  */
 async function withEvidence(
-  tx: AttendanceTransactionContext,
+  tx: Tx,
   facts: AttendanceReceiptFacts,
   finalizedSegmentIds: readonly string[],
   nextWindow: NextAttendanceWindow,

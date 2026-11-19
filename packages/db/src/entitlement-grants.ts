@@ -1,8 +1,6 @@
 import { entitlementGrantSchema, type EntitlementGrant } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
-
-type Executor = Pick<BunSQLDatabase, 'execute'>;
+import type { Tx } from './tx';
 
 /**
  * An account's entitlement grants. Read inside the caller's transaction:
@@ -10,7 +8,7 @@ type Executor = Pick<BunSQLDatabase, 'execute'>;
  * beta command, which bumps the same fence, cannot change underneath it.
  */
 export async function readEntitlementGrants(
-  tx: Executor,
+  tx: Tx,
   userId: string,
 ): Promise<readonly EntitlementGrant[]> {
   const rows =
@@ -70,7 +68,7 @@ const betaGrants = [
  * removes them.
  */
 export async function applyBetaEntitlementGrants(
-  tx: Executor,
+  tx: Tx,
   userId: string,
   state: 'approved' | 'revoked',
 ) {

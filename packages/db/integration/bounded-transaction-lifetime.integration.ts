@@ -4,14 +4,14 @@ import { assertRejects } from '@daisy/errors/testing';
 import { createAppError } from '@daisy/errors';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { sql } from 'drizzle-orm';
-import type { BoundedTransactionContext } from '../src/transaction-context';
 import { createBoundedTransaction } from '../src/bounded-transaction';
 import { withPool, withBoundedRound } from './bounded-transaction.test-support';
+import type { Tx } from '../src/tx';
 setupRitewayBun();
 requireTestServices(process.env);
 test('review: a successfully completed transaction must fence its escaped handle', async () => {
   await withBoundedRound(async (f, run, round) => {
-    let escaped: BoundedTransactionContext | undefined;
+    let escaped: Tx | undefined;
 
     await run(async (tx) => {
       escaped = tx;
@@ -71,7 +71,7 @@ test('review: nested transaction on the supplied database handle must not commit
         await Reflect.get(
           tx,
           'transaction',
-        )(async (nested: BoundedTransactionContext) => {
+        )(async (nested: Tx) => {
           await nested.execute(
             sql`update rounds set resolution=${'early-nested-commit'} where id=${round}`,
           );
@@ -183,7 +183,7 @@ test(
           },
         });
       };
-      let escaped: BoundedTransactionContext | undefined;
+      let escaped: Tx | undefined;
       const run = createBoundedTransaction({
         lane: testLane(client, 4),
         now: performance.now,

@@ -1,6 +1,5 @@
 import { createAppError } from '@daisy/errors';
 import { idSchema, MAX_FORMAT_SEATS } from '@daisy/protocol';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type { Caller } from './room-command-facts';
 import {
   readRoundAnalysisAccess,
@@ -15,6 +14,7 @@ import { actors } from './schema/actors';
 import { readAuthorizationActors, requireOwnScope } from './authorization';
 import { eq } from 'drizzle-orm';
 import { readAllowanceLocked, type AiAllowanceOptions } from './usage-ledger';
+import { inTransaction, type TxSource } from './tx';
 
 /**
  * A caller's own round analysis facts: the caller must hold a human debater
@@ -27,7 +27,7 @@ export const roundAnalysisReads = ({
   database,
   allowance,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
   readonly allowance?: AiAllowanceOptions | undefined;
 }) => ({
   async readRoundAnalysis(input: {
@@ -43,7 +43,7 @@ export const roundAnalysisReads = ({
     if (!idSchema.safeParse(input.roundId).success)
       throw createAppError('VALIDATION');
     requireOwnScope(input.caller);
-    return database.transaction(async (tx) => {
+    return inTransaction(database, async (tx) => {
       const participants = await tx
         .select({
           id: roundParticipants.id,

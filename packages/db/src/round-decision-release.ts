@@ -1,9 +1,9 @@
 import { createId } from '@paralleldrive/cuid2';
 import { sql } from 'drizzle-orm';
-import type { AuthorizationTransaction } from './authorization';
 import type { NotificationRecipient } from './notifications/owe';
 import { oweNotifications, resurfaceNotifications } from './notifications/owe';
 import { rowsOf } from './raw-rows';
+import type { Tx } from './tx';
 
 /**
  * Who is told a Round's decision by default: every live account seated in it
@@ -11,7 +11,7 @@ import { rowsOf } from './raw-rows';
  * side's first seat).
  */
 export const roundDecisionAudience = async (
-  tx: Pick<AuthorizationTransaction, 'execute'>,
+  tx: Tx,
   roundId: string,
 ): Promise<readonly NotificationRecipient[]> =>
   (
@@ -45,7 +45,7 @@ export const roundDecisionAudience = async (
  * when they release, with the audience they resolved.
  */
 export async function releaseRoundDecision(
-  tx: AuthorizationTransaction,
+  tx: Tx,
   input: {
     readonly roundId: string;
     readonly at: string;
@@ -63,7 +63,7 @@ export async function releaseRoundDecision(
 
 /** The Round was just finalized: tells its seats now, unless its release is held. */
 export async function releaseFinalizedDecision(
-  tx: AuthorizationTransaction,
+  tx: Tx,
   input: { readonly roundId: string; readonly at: string },
 ): Promise<void> {
   const [round] = await rowsOf<{ decision_release: string }>(
@@ -82,7 +82,7 @@ export async function releaseFinalizedDecision(
  * notification comes back unread, so the analysis is read beside it.
  */
 export const resurfaceRoundDecision = (
-  tx: AuthorizationTransaction,
+  tx: Tx,
   input: {
     readonly roundId: string;
     readonly userIds: readonly string[];

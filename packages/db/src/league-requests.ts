@@ -7,7 +7,6 @@ import {
 } from '@daisy/protocol/league-request';
 import { createHash } from 'node:crypto';
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { z } from 'zod';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import {
@@ -21,8 +20,7 @@ import {
   leagueRequestNoticeErrorCodes,
   leagueRequests,
 } from './schema/league-requests';
-
-type Database = Pick<BunSQLDatabase, 'transaction' | 'execute'>;
+import type { TxSource } from './tx';
 
 /**
  * A lapsed lease is not marked `delivery-unknown`: the next claim sends the
@@ -110,7 +108,7 @@ export function leagueRequestOperations({
   database,
   eventSink,
 }: {
-  readonly database: Database;
+  readonly database: TxSource;
   readonly eventSink: DatabaseEventSink | undefined;
 }) {
   return {

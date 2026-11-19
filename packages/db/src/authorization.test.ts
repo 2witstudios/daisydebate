@@ -1,9 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
-import {
-  lockAuthorizationActors,
-  type AuthorizationTransaction,
-} from './authorization';
+import { lockAuthorizationActors } from './authorization';
+import type { Tx } from './tx';
 setupRitewayBun();
 describe('account lock boundary', () => {
   test('invalid actor batches never reach the transaction', async () => {
@@ -13,7 +11,7 @@ describe('account lock boundary', () => {
         calls += 1;
         return [];
       },
-    } as unknown as AuthorizationTransaction;
+    } as unknown as Tx;
     for (const ids of [
       [],
       ['invalid'],

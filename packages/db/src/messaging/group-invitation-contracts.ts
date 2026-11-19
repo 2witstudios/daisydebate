@@ -1,8 +1,6 @@
-import type {
-  AuthorizationTransaction,
-  lockAuthorizationActors,
-} from '../authorization';
+import type { lockAuthorizationActors } from '../authorization';
 import type { MessagingChannelFact } from './social';
+import type { Tx } from '../tx';
 export type MessagingGroupDecision = 'accept' | 'decline' | 'cancel';
 export type MessagingGroupInvitationScope = {
   readonly channelId: string;
@@ -45,7 +43,7 @@ export type MessagingGroupInvitationFact = {
   readonly expectedGeneration?: number;
 };
 export type MessagingGroupInvitationFence = (
-  tx: AuthorizationTransaction,
+  tx: Tx,
   scope: MessagingGroupInvitationScope,
   operation: 'read' | 'result' | MessagingGroupDecision,
   facts: {

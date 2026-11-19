@@ -14,8 +14,8 @@ import {
   survivingDms,
 } from './retained-dm';
 import { exportRows } from '../privacy/export-rows';
-import type { AuthorizationTransaction } from '../authorization';
 import type { PrivacyAdopter, PrivacyExport } from '../privacy';
+import type { Tx } from '../tx';
 
 type ChangedMessage = { id: string; channelId: string; authorActorId: string };
 const rowsOf = <T>(rows: unknown) => rows as T[];
@@ -30,10 +30,7 @@ function omitPrivateColumns(
 }
 
 /** Account lock is held by canonical PRIV before this pair -> channel fence. */
-async function lockSubjectMessaging(
-  tx: AuthorizationTransaction,
-  actorId: string,
-) {
+async function lockSubjectMessaging(tx: Tx, actorId: string) {
   idSchema.parse(actorId);
   await tx.execute(
     sql`select low_actor_id from contact_pairs where low_actor_id=${actorId} or high_actor_id=${actorId} order by low_actor_id,high_actor_id for update`,
@@ -73,11 +70,7 @@ async function lockSubjectMessaging(
 }
 
 /** Erasure is content: its revision goes through the stream; authority moves separately. */
-async function advanceChannel(
-  tx: AuthorizationTransaction,
-  channelId: string,
-  authority: boolean,
-) {
+async function advanceChannel(tx: Tx, channelId: string, authority: boolean) {
   if (authority) {
     const rows = await tx.execute(sql`
       update messaging_channels set authority_revision=authority_revision+1
@@ -93,7 +86,7 @@ async function advanceChannel(
 }
 
 async function scrubSubjectMessages(
-  tx: AuthorizationTransaction,
+  tx: Tx,
   actorId: string,
   now: string,
   versions: Map<string, number>,
@@ -121,7 +114,7 @@ async function scrubSubjectMessages(
 }
 
 async function eraseSubjectTitles(
-  tx: AuthorizationTransaction,
+  tx: Tx,
   actorId: string,
   versions: Map<string, number>,
 ) {
@@ -140,7 +133,7 @@ async function eraseSubjectTitles(
 }
 
 async function eraseAssociations(
-  tx: AuthorizationTransaction,
+  tx: Tx,
   actorId: string,
   versions: Map<string, number>,
 ) {

@@ -18,8 +18,8 @@ import {
 import { actors } from './schema/actors';
 import { rounds } from './schema/rounds';
 import { roundParticipants } from './schema/round-participants';
-import type { Tx } from './room-command-facts';
 import type { DrawBankSnapshot } from '@daisy/protocol/resolution-draw';
+import type { Tx } from './tx';
 
 /** Rounds per seated human whose chosen bank entries a new draw excludes. */
 const RECENT_ROUNDS = 20;

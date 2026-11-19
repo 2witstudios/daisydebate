@@ -1,12 +1,12 @@
 import { createAppError } from '@daisy/errors';
 import { idSchema, MAX_FORMAT_SEATS } from '@daisy/protocol';
 import { eq, sql } from 'drizzle-orm';
-import type { BoundedTransactionContext } from './transaction-context';
 import { lockAuthorizationActors, requireOwnScope } from './authorization';
 import type { Caller } from './room-command-facts';
 import { readRoundAnalysisAccess } from './round-analysis-access';
 import { roundParticipants } from './schema/round-participants';
 import { actors } from './schema/actors';
+import type { Tx } from './tx';
 
 export type AnalysisSeat = {
   readonly roundId: string;
@@ -15,7 +15,7 @@ export type AnalysisSeat = {
 
 /** All frozen human accounts first, in canonical order; no shared-to-exclusive upgrade. */
 export async function lockAnalysisAccounts(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   input: {
     readonly roundId: string;
     readonly roundParticipantId?: string;
@@ -64,10 +64,7 @@ export async function lockAnalysisAccounts(
 }
 
 /** The Round lock and fresh access facts follow canonical account fences. */
-export async function lockAnalysisRound(
-  tx: BoundedTransactionContext,
-  target: AnalysisSeat,
-) {
+export async function lockAnalysisRound(tx: Tx, target: AnalysisSeat) {
   const [round] = await tx.execute(
     sql`select id from rounds where id=${target.roundId} for update`,
   );
@@ -76,10 +73,7 @@ export async function lockAnalysisRound(
 }
 
 /** Hold actual evidence against concurrent retention, refusing a conflicting purge. */
-export async function lockAnalysisEvidence(
-  tx: BoundedTransactionContext,
-  roundId: string,
-) {
+export async function lockAnalysisEvidence(tx: Tx, roundId: string) {
   await tx.execute(
     sql`select round_id from round_transcript_freezes where round_id=${roundId} for share nowait`,
   );

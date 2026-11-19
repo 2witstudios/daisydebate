@@ -1,6 +1,5 @@
 import { createAppError, createRefusal } from '@daisy/errors';
 import { eq, sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { lockAuthorizationActors } from './authorization';
 import { actorFact } from './room-command-facts';
 import { hydrateRoundRows, type RoundHydration } from './round-hydration';
@@ -13,16 +12,10 @@ import {
 import type { CheckInAttempt } from './check-in-attempts';
 import { fencedActorIds, seatEligibility } from './seat-eligibility';
 import { requireFencedParticipants } from './round-command-replay';
-export type AttendanceTransactionContext = Pick<
-  BunSQLDatabase,
-  'select' | 'insert' | 'update' | 'delete' | 'execute'
->;
+import type { Tx } from './tx';
 /** The bounded same-pool producer supplies its FIRST writer identity statement's timestamp. */
 export type AttendanceTransaction = <T>(
-  run: (
-    tx: AttendanceTransactionContext,
-    receipt: { readonly receivedAt: string },
-  ) => Promise<T>,
+  run: (tx: Tx, receipt: { readonly receivedAt: string }) => Promise<T>,
   attempt?: CheckInAttempt,
 ) => Promise<T>;
 export type AttendancePrincipal =
@@ -57,7 +50,7 @@ export const principalColumns = (
     : { actorId: null, serviceId: principal.serviceId };
 
 export async function fenceAttendance(
-  tx: AttendanceTransactionContext,
+  tx: Tx,
   roundId: string,
   commandId: string,
   principalActorId: string | null,
@@ -91,7 +84,7 @@ export async function fenceAttendance(
 }
 /** The speeches already decided: an immutable fact, cheap to read under the Round lock. */
 export async function finalizedAttendanceSegments(
-  tx: AttendanceTransactionContext,
+  tx: Tx,
   roundId: string,
 ): Promise<readonly string[]> {
   const resolved = await tx.execute(
@@ -108,7 +101,7 @@ export async function finalizedAttendanceSegments(
  * must not be refused because the speaker was fast.
  */
 export async function closedAttendanceSegments(
-  tx: AttendanceTransactionContext,
+  tx: Tx,
   roundId: string,
 ): Promise<readonly string[]> {
   const closed = await tx.execute(
@@ -126,7 +119,7 @@ export async function closedAttendanceSegments(
  * can get (DEC-276).
  */
 export async function attendanceSamples(
-  tx: AttendanceTransactionContext,
+  tx: Tx,
   from: string | null,
 ): Promise<readonly AvailabilityEvidence[]> {
   if (!from) return [];

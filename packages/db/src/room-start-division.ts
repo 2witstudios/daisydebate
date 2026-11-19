@@ -8,7 +8,7 @@ import { createRefusal } from '@daisy/errors';
 import { sql } from 'drizzle-orm';
 import { divisionAgeBand, divisionOfBandSql } from './ladder-division-band';
 import { rowsOf } from './raw-rows';
-import type { Tx } from './room-command-facts';
+import type { Tx } from './tx';
 
 /**
  * Start's own check that every seated human debater still fits the Room's
@@ -18,7 +18,7 @@ import type { Tx } from './room-command-facts';
  * organiser's admitted cast and is left to its entries.
  */
 export async function refuseDebatersOffDivision(
-  tx: Pick<Tx, 'execute'>,
+  tx: Tx,
   room: RoomAssemblyState,
 ): Promise<void> {
   if (room.hostActorId === null) return;

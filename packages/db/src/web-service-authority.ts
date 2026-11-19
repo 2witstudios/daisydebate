@@ -1,9 +1,9 @@
 import { createAppError, createRefusal } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
-import type { BoundedTransactionContext } from './transaction-context';
 import type { BoundedTransaction } from './bounded-transaction';
 import { SERVICE_LEASE_WINDOW_MS } from './service-lease-lapse';
+import type { Tx } from './tx';
 
 /**
  * Refuses unless this web instance's own lease is current. With `lock`, the
@@ -12,7 +12,7 @@ import { SERVICE_LEASE_WINDOW_MS } from './service-lease-lapse';
  * so slow maintenance can never lapse the lease it runs under (DAISY-WEB-9).
  */
 export async function requireCurrentWeb(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   instanceId: string,
   lock = false,
 ) {

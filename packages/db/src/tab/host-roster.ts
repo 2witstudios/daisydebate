@@ -20,14 +20,15 @@ import { fenceTabAccountsRead } from './account-read-fence';
 import { lockEventSettingContext } from './event-setting-context';
 import { loadLobbyAuthority } from './lobby-authority';
 import { loadTabCounterpart } from './boundary';
-import type { TabDatabase, TabTransaction } from './tab-transaction';
+import type { TabDatabase } from './tab-transaction';
+import { inTransaction, type Tx } from '../tx';
 
 type Input = {
   readonly viewerUserId: string;
   readonly lobbyId: string;
   readonly eventId?: string | undefined;
 };
-async function load(tx: TabTransaction, input: Input) {
+async function load(tx: Tx, input: Input) {
   await scopeTransaction(tx, {
     subjectUserId: input.viewerUserId,
     lobbyId: input.lobbyId,
@@ -197,5 +198,5 @@ export const createHostRosterStore = (database: TabDatabase) => ({
     input: Input,
     work: (facts: HostRosterFacts | null) => Promise<Answer>,
   ): Promise<Answer> =>
-    database.transaction(async (tx) => work(await load(tx, input))),
+    inTransaction(database, async (tx) => work(await load(tx, input))),
 });

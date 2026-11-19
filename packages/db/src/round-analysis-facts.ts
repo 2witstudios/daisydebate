@@ -1,8 +1,8 @@
 import { createAppError } from '@daisy/errors';
 import { analysisWorkSchema, type AnalysisWork } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { z } from 'zod';
+import type { Tx } from './tx';
 const instant = z
   .union([z.date(), z.string()])
   .transform((value) => new Date(value).toISOString());
@@ -22,7 +22,7 @@ export type RoundAnalysisFacts = {
   readonly analysis: AnalysisWork | null;
 };
 export async function readRoundAnalysisFacts(
-  reader: Pick<BunSQLDatabase, 'execute'>,
+  reader: Tx,
   seat: { readonly roundId: string; readonly roundParticipantId: string },
 ): Promise<RoundAnalysisFacts> {
   const [row] = await reader.execute(sql`select r.status,r.completed_at,

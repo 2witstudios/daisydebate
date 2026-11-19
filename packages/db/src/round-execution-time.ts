@@ -1,8 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { createAppError } from '@daisy/errors';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
-type Tx = Pick<BunSQLDatabase, 'execute'>;
+import type { Tx } from './tx';
 /** Trusted persistence resource, never a request, tenant setting or environment clock. */
 export type RoundTimeSource = (tx: Tx) => Promise<string>;
 const utc = z.iso.datetime();

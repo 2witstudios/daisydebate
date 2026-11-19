@@ -1,18 +1,13 @@
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import {
   operatorCommandReceiptSchema,
   operatorLimits,
 } from '@daisy/protocol/operator';
-
-export type OperatorCommandTransaction = Parameters<
-  Parameters<BunSQLDatabase['transaction']>[0]
->[0];
-type Transaction = OperatorCommandTransaction;
+import type { Tx } from './tx';
 
 /** The bound, then one id at a time, as a beta access command does (ADR 0079). */
-export async function commandGate(tx: Transaction, commandId: string) {
+export async function commandGate(tx: Tx, commandId: string) {
   await tx.execute(
     sql.raw(`set local statement_timeout = ${operatorLimits.commandBoundMs}`),
   );
@@ -22,7 +17,7 @@ export async function commandGate(tx: Transaction, commandId: string) {
 }
 
 export async function storedResult(
-  tx: Transaction,
+  tx: Tx,
   commandId: string,
   requestDigest: string,
 ) {
@@ -38,7 +33,7 @@ export async function storedResult(
 }
 
 export async function writeReceipt(
-  tx: Transaction,
+  tx: Tx,
   input: {
     readonly commandId: string;
     readonly serviceId: string;

@@ -6,11 +6,11 @@ import {
   type SubjectOf,
 } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
-import type { AuthorizationTransaction } from '../authorization';
 import { appendOutboxEvents } from '../outbox';
 import { rowsOf } from '../raw-rows';
 import { notificationSubjectColumns } from '../schema/notifications';
 import { oweDigests } from './digests';
+import type { Tx } from '../tx';
 
 type SubjectColumns = typeof notificationSubjectColumns;
 
@@ -47,7 +47,7 @@ export type OwedNotifications<K extends NotificationKind> = {
  * Returns the rows written.
  */
 export async function oweNotifications<K extends NotificationKind>(
-  tx: AuthorizationTransaction,
+  tx: Tx,
   owed: OwedNotifications<K>,
 ): Promise<number> {
   if (owed.recipients.length === 0) return 0;
@@ -95,7 +95,7 @@ export async function oweNotifications<K extends NotificationKind>(
  * `user:inbox` signal, and for an emailed kind a place in their digest.
  */
 async function tellMembers(
-  tx: AuthorizationTransaction,
+  tx: Tx,
   told: {
     readonly kind: NotificationKind;
     readonly rows: readonly {
@@ -140,7 +140,7 @@ async function tellMembers(
  * the top of the inbox and is told like a new one. Returns the rows moved.
  */
 export async function resurfaceNotifications<K extends NotificationKind>(
-  tx: AuthorizationTransaction,
+  tx: Tx,
   owed: {
     readonly kind: K;
     readonly subject: NotificationSubjectIds<K>;

@@ -1,6 +1,5 @@
 import { SPECTATOR_MARGIN_MS } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
-import type { BoundedTransactionContext } from './transaction-context';
 import {
   captionHeardAtSql,
   captionKnownPublicSql,
@@ -8,8 +7,7 @@ import {
   roundAliasR as round,
   type SpectatorClock,
 } from './spectator-release-sql';
-
-type Tx = Pick<BoundedTransactionContext, 'execute'>;
+import type { Tx } from './tx';
 
 const heardAt = captionHeardAtSql({
   createdAt: sql`u.created_at`,

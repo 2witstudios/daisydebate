@@ -1,7 +1,6 @@
 import type { AgeBand, RatingDivision } from '@daisy/protocol';
 import { divisionAgeBand, divisionOfBandSql } from '../ladder-division-band';
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import {
   idSchema,
   type ChosenStatus,
@@ -16,6 +15,7 @@ import {
 import { placementOf, readAvailability } from './availability';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
 import { admittedParticipant } from '../participant-admission';
+import type { TxSource } from '../tx';
 
 type PeopleListScope = { readonly userId: string; readonly actorId: string };
 
@@ -107,7 +107,7 @@ const isOnline = (ids: readonly string[]) =>
 
 /** One keyset page, friends first, then online, then by name, and the list's totals. */
 export function readPeopleListPage(
-  database: BunSQLDatabase,
+  database: TxSource,
   scope: PeopleListScope,
   input: PeopleListPageInput,
   authorize: OwnCollectionFence<PeopleListScope>,
@@ -162,7 +162,7 @@ export const peopleListOperations = ({
   database,
   eventSink,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
   readPeopleListPage: (

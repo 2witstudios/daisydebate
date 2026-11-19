@@ -1,11 +1,10 @@
 import { sql } from 'drizzle-orm';
-import type { AuthorizationTransaction } from './authorization';
 import { endPublicationsOf } from './media-release-records';
 import type { PrivacyAdopter } from './privacy/contracts';
 import { exportRows } from './privacy/export-rows';
 import { scopeTransaction } from './tenant-scope';
+import type { Tx } from './tx';
 
-type Tx = AuthorizationTransaction;
 const page = 100;
 const at = (column: string) =>
   sql.raw(

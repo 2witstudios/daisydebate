@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
-import type { BoundedTransactionContext } from '../transaction-context';
 import type { Policy } from './policy';
 import { hasUnenrolledOriginals } from './readiness';
+import type { Tx } from '../tx';
 /** Alias c belongs to the recognition context. retryAt is eligibility only, never fair-turn priority. */
 export const due = (
   options: Policy,
@@ -15,7 +15,7 @@ export const due = (
    or exists(select 1 from necessary_evidence_erasure_requests p where p.actor_id=any(e.original_subject_actor_ids))
    or exists(select 1 from actors a join users u on u.id=a.user_id where a.id=any(e.original_subject_actor_ids) and u.deleted_at is not null)))`;
 /** Bounded distinct eligible Rounds before LIMIT; another worker's live Round claim excludes all its siblings. No locks precede account discovery. */
-export async function discover(tx: BoundedTransactionContext, options: Policy) {
+export async function discover(tx: Tx, options: Policy) {
   return (await tx.execute(sql`select chosen.id as "contextId",r.id as "roundId" from rounds r cross join lateral (
    select c.id from transcription_recovery_contexts c where c.round_id=r.id and ${due(options)} order by c.created_at,c.id limit 1
  ) chosen where r.status='active'

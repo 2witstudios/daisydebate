@@ -11,7 +11,7 @@ import { scopeTransaction, type TenantScope } from '../tenant-scope';
 import { appendHistory, storedCommand } from './command-record';
 import { loadAuthorityContext } from './authority-context';
 import { ladders } from '../schema/ladders';
-import type { TabDatabase, TabTransaction } from './tab-transaction';
+import type { TabDatabase } from './tab-transaction';
 import { applyLobbyAdministrationWrites } from './lobby-administration-writes';
 
 import type {
@@ -21,7 +21,7 @@ import type {
 } from './lobby-administration-facts';
 import { actors } from '../schema/actors';
 
-const fence = async (tx: TabTransaction, input: LobbyAdministrationInput) => {
+const fence = async (tx: Tx, input: LobbyAdministrationInput) => {
   const { command } = input;
   await scopeTransaction(tx, { subjectUserId: input.senderUserId });
   await lockTabCommandAccounts(tx, [input.senderUserId]);
@@ -60,7 +60,7 @@ const fence = async (tx: TabTransaction, input: LobbyAdministrationInput) => {
 };
 
 const load = async (
-  tx: TabTransaction,
+  tx: Tx,
   input: LobbyAdministrationInput,
   initialScope: TenantScope,
 ): Promise<LobbyAdministrationFacts> => {
@@ -203,13 +203,14 @@ const load = async (
 };
 
 import { grants } from '../schema/grants';
+import { inTransaction, type Tx } from '../tx';
 
 export const createLobbyAdministrationStore = (database: TabDatabase) => ({
   lobbyAdministrationCommand: <Answer>(
     input: LobbyAdministrationInput,
     work: (session: LobbyAdministrationSession) => Promise<Answer>,
   ): Promise<Answer> =>
-    database.transaction(async (tx) => {
+    inTransaction(database, async (tx) => {
       const scope = await fence(tx, input);
       return work({
         stored: (id) => replayRecord(tx, input, scope, id),
@@ -223,7 +224,7 @@ export const createLobbyAdministrationStore = (database: TabDatabase) => ({
 });
 
 const replayRecord = async (
-  tx: TabTransaction,
+  tx: Tx,
   input: LobbyAdministrationInput,
   scope: TenantScope,
   commandId: string,

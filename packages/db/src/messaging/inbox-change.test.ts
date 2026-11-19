@@ -1,6 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import type { AuthorizationTransaction } from '../authorization';
 import { invalidateMessagingInboxes } from './inbox-change';
+import type { Tx } from '../tx';
 setupRitewayBun();
 test('inbox invalidation validates the entire recipient set before I/O and deduplicates same-tx owner-only rows', async () => {
   const written: unknown[] = [];
@@ -18,7 +18,7 @@ test('inbox invalidation validates the entire recipient set before I/O and dedup
         },
       }),
     }),
-  } as unknown as AuthorizationTransaction;
+  } as unknown as Tx;
   let refused = false;
   try {
     await invalidateMessagingInboxes(tx, ['a'.repeat(24), 'bad']);

@@ -20,6 +20,7 @@ import {
 import { loadStandingRoomDraft } from './standing-room-draft';
 import { appendHistory, storedCommand } from './command-record';
 import type { TabDatabase } from './tab-transaction';
+import { inTransaction } from '../tx';
 
 export type CreateLobbyRoomCommand = Extract<
   LobbyCommand,
@@ -60,7 +61,7 @@ export const createLobbyRoomStore = (database: TabDatabase) => ({
       ) => Promise<LobbyCommandReceipt>;
     }) => Promise<Answer>,
   ): Promise<Answer> =>
-    database.transaction(async (tx) => {
+    inTransaction(database, async (tx) => {
       await lockCommand(tx, input.commandId);
       const actorIds = [
         ...new Set([

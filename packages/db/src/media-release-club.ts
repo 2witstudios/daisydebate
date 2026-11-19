@@ -19,10 +19,8 @@ import { oweNotifications } from './notifications/owe';
 import { isDebatingSeatSql } from './seat-columns';
 import { divisionAgeBand, divisionOfBandSql } from './ladder-division-band';
 import { scopeTransaction } from './tenant-scope';
-import type { BoundedTransactionContext } from './transaction-context';
 import { youthRoundShareableSql, youthRoundSql } from './youth-round-sql';
-
-type Tx = Pick<BoundedTransactionContext, 'execute'>;
+import type { Tx } from './tx';
 
 const rows = async <Row>(tx: Tx, query: ReturnType<typeof sql>) =>
   (await tx.execute(query)) as unknown as Row[];

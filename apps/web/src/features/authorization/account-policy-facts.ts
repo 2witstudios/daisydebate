@@ -1,10 +1,10 @@
 import { bindAuthorizationAgeFact } from '@daisy/db/account-age';
-import type { AuthorizationTransaction } from '@daisy/db/authorization';
+import type { Tx } from '@daisy/db/tx';
 import { loadAccountPolicyFacts as loadPolicyFacts } from '@daisy/auth/account-policy-facts';
 import type { AccountAuthorizationFact } from '@daisy/auth/authorization';
 /** Keep the minimal fact reader bound to the same account-fenced transaction. */
 export function loadAccountPolicyFacts(
-  tx: AuthorizationTransaction,
+  tx: Tx,
   lockedAccounts: readonly (AccountAuthorizationFact | null)[],
   now: string,
 ) {

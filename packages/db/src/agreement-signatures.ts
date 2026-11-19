@@ -1,6 +1,5 @@
 import { and, eq, sql } from 'drizzle-orm';
 import { daisyOrganizationId } from './daisy-reference';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import type { PrivacyAdopter } from './privacy/contracts';
 import { exportRows } from './privacy/export-rows';
@@ -8,8 +7,7 @@ import { agreementSignatures } from './schema/agreement-signatures';
 import { seasons } from './schema/ratings';
 import { transactionNow } from './room-command-facts';
 import { divisionAgeBand, divisionOfBandSql } from './ladder-division-band';
-
-type Tx = Pick<BunSQLDatabase, 'select' | 'insert'>;
+import { inTransaction, type Tx, type TxOpener } from './tx';
 
 /** Where a member stands on a version of their division's active season's waiver. */
 export type ContentWaiverStanding = 'signed' | 'unsigned' | 'no-active-season';
@@ -89,20 +87,19 @@ export async function recordCaptureNotice(
     .onConflictDoNothing();
 }
 
-type Transaction = <T>(run: (tx: Tx) => Promise<T>) => Promise<T>;
-
 export const agreementSignatureOperations = ({
   database,
   eventSink,
 }: {
-  readonly database: Pick<BunSQLDatabase, 'transaction'>;
+  readonly database: TxOpener;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => {
-  const transaction = database.transaction.bind(database) as Transaction;
   return {
     readContentWaiverStanding: (userId: string, version: string) =>
       instrumented(eventSink, 'readContentWaiverStanding', () =>
-        transaction((tx) => readContentWaiverStanding(tx, userId, version)),
+        inTransaction(database, (tx) =>
+          readContentWaiverStanding(tx, userId, version),
+        ),
       ),
     /** Signs for the active season; signing again keeps the first signature. */
     signContentWaiver: (input: {
@@ -112,7 +109,7 @@ export const agreementSignatureOperations = ({
       readonly words: string;
     }): Promise<'signed' | 'no-active-season'> =>
       instrumented(eventSink, 'signContentWaiver', () =>
-        transaction(async (tx) => {
+        inTransaction(database, async (tx) => {
           const seasonId = await activeSeasonId(tx, input.userId);
           if (!seasonId) return 'no-active-season';
           await tx
@@ -124,7 +121,7 @@ export const agreementSignatureOperations = ({
               version: input.version,
               words: input.words,
               seasonId,
-              signedAt: new Date(await transactionNow(tx as never)),
+              signedAt: new Date(await transactionNow(tx)),
             })
             .onConflictDoNothing();
           return 'signed';

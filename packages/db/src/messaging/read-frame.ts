@@ -1,4 +1,3 @@
-import type { AuthorizationTransaction } from '../authorization';
 import { invalidateMessagingInboxes } from './inbox-change';
 import {
   and,
@@ -12,7 +11,6 @@ import {
   sql,
   type SQL,
 } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { z } from 'zod';
 import { createAppError } from '@daisy/errors';
 import { messagingMessages } from '../schema/messaging-messages';
@@ -22,6 +20,7 @@ import {
 } from '../schema/messaging-channels';
 import { messageRecord } from './message-record';
 import type { MessagingCounters } from './records';
+import type { Tx } from '../tx';
 
 const requirePageLimit = (limit: number) => {
   if (!Number.isSafeInteger(limit) || limit < 1 || limit > 65535)
@@ -121,7 +120,7 @@ export function changesPage(
  * both come from one MVCC snapshot while writers share the fences (§3B).
  */
 export function channelReadFrame(
-  tx: Pick<BunSQLDatabase, 'select' | 'insert'> & AuthorizationTransaction,
+  tx: Tx & Tx,
   input: { readonly channelId: string; readonly actorId: string },
   counters: MessagingCounters,
   authorize: () => Promise<void>,

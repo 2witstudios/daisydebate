@@ -5,7 +5,7 @@ import {
 } from '@daisy/protocol/content-moderation';
 import { idSchema } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
-import type { AuthorizationTransaction } from './authorization';
+import type { Tx } from './tx';
 
 /**
  * A profile's text keeps its target id across edits (ADR 0143), so a repeat
@@ -32,7 +32,7 @@ const onRepeat = (report: ContentReportCreate) =>
 
 /** Content Reports owns the one closed-reason, deduplicated write; callers supply current target authority. */
 export async function insertContentReport(
-  tx: Pick<AuthorizationTransaction, 'execute'>,
+  tx: Tx,
   input: {
     readonly id: string;
     readonly reporterUserId: string;

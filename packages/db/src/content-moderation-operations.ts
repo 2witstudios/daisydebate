@@ -32,7 +32,6 @@ import {
 } from '@daisy/protocol';
 import { seatOfColumns } from './seat-columns';
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { z } from 'zod';
 import { endBroadcastFeed, stopBroadcast } from './broadcast-operations';
 import { instrumented, type DatabaseEventSink } from './instrumented';
@@ -45,16 +44,12 @@ import {
   type SpectatorChatModeration,
   type ChatMessageModeration,
 } from './content-moderation-ports';
-import type { BoundedTransactionContext } from './transaction-context';
+import { inTransaction, type TxSource, type Tx } from './tx';
 
-type Database = Pick<BunSQLDatabase, 'transaction' | 'execute'> &
-  BoundedTransactionContext;
-type Tx = BoundedTransactionContext;
+type Database = TxSource & Tx;
 
-const rows = async <T>(
-  tx: Pick<Tx, 'execute'>,
-  query: ReturnType<typeof sql>,
-) => (await tx.execute(query)) as unknown as T[];
+const rows = async <T>(tx: Tx, query: ReturnType<typeof sql>) =>
+  (await tx.execute(query)) as unknown as T[];
 
 const roundFacts = async (tx: Tx, roundId: string, actorId: string) => {
   const [round] = await rows<{
@@ -676,7 +671,7 @@ export function contentModerationOperations({
       readonly change: ContentModerationChange;
     }): Promise<ContentModerationCommandResult> =>
       instrumented(eventSink, 'runModerationCommand', () =>
-        database.transaction(async (tx) => {
+        inTransaction(database, async (tx) => {
           await tx.execute(
             sql.raw(
               `set local statement_timeout = ${operatorLimits.commandBoundMs}`,

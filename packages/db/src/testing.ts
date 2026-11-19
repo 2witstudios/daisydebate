@@ -173,5 +173,6 @@ export { scratchDatabase } from './testing-scratch';
 export {
   withRuntimeTestTransaction,
   committingRuntimeTestDatabase,
+  unusedTx,
   type SavepointTestDatabase,
 } from './testing-transaction';

@@ -4,17 +4,17 @@ import type {
   CaptureEvidenceBody,
   CaptureEvidenceSpeaker,
 } from '@daisy/protocol';
-import type { BoundedTransactionContext } from '../transaction-context';
 import {
   transcriptionRecoveryContexts as contexts,
   transcriptionRecoverySources as sources,
 } from '../schema/transcription-recovery';
 import { contextBoundary } from './context';
 import { sampleRoundExecutionTime } from '../round-execution-time';
+import type { Tx } from '../tx';
 
 /** The caller owns the original subjects→Round→evidence fence and validated canonical body. */
 export async function register(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   body: CaptureEvidenceBody,
   original: {
     readonly authorityId: string | null;

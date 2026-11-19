@@ -20,7 +20,7 @@ export async function configuredCapture(
     leaseMs: 15000,
   });
   const store = mediaCaptureOperations({
-    transaction,
+    run: transaction,
     captureRule,
     sttLagMs: 60000,
     nextId: createId,

@@ -1,5 +1,4 @@
 import { and, eq, or, sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError, createRefusal } from '@daisy/errors';
 import { divisionAgeBand, divisionOfBandSql } from '../ladder-division-band';
 import {
@@ -10,7 +9,6 @@ import {
   type RatingStyle,
   type CompetitionType,
 } from '@daisy/protocol';
-import type { AuthorizationTransaction } from '../authorization';
 import type { ContactPairKey } from '../contacts/reactions';
 import type { ContactInput } from '../contacts/fence';
 import { oweNotifications } from '../notifications/owe';
@@ -20,11 +18,7 @@ import { readAvailability } from '../presence/availability';
 import { openRoomHostedBy } from '../room-open';
 import { challenges } from '../schema/challenges';
 import { rooms, roomSeatHolds } from '../schema/rooms';
-
-type Tx = Pick<
-  BunSQLDatabase,
-  'select' | 'insert' | 'update' | 'delete' | 'execute'
->;
+import type { Tx } from '../tx';
 
 /** One challenge command over a locked contact pair (ADR 0103). */
 export type ChallengeFrame = {
@@ -57,7 +51,7 @@ export type ChallengeFrame = {
 };
 
 /** Both members' inbox doorbells: the bell says only "read your challenges". */
-async function ring(tx: AuthorizationTransaction, actors: readonly string[]) {
+async function ring(tx: Tx, actors: readonly string[]) {
   for (const actorId of [...actors].sort())
     await appendOutboxEvent(tx, {
       topic: buildUserInboxTopic(actorId),
@@ -71,10 +65,7 @@ async function ring(tx: AuthorizationTransaction, actors: readonly string[]) {
  * Ends a member's open offers, both ways, when a suspension or ban begins, and
  * rings whoever was on the other end: they could never have met.
  */
-export async function endMemberOffers(
-  tx: Pick<BunSQLDatabase, 'delete'> & AuthorizationTransaction,
-  actorId: string,
-) {
+export async function endMemberOffers(tx: Tx & Tx, actorId: string) {
   const removed = await tx
     .delete(challenges)
     .where(
@@ -96,10 +87,7 @@ export async function endMemberOffers(
 }
 
 /** Ends every challenge between a pair, either way: a block leaves none. */
-async function endPairChallenges(
-  tx: Pick<BunSQLDatabase, 'delete'>,
-  pair: ContactPairKey,
-) {
+async function endPairChallenges(tx: Tx, pair: ContactPairKey) {
   const between = (challenger: string, challenged: string) =>
     and(
       eq(challenges.challengerActorId, challenger),
@@ -117,11 +105,7 @@ async function endPairChallenges(
 
 /** What Challenges registers with Contacts: a block leaves no challenge. */
 export const challengeContactReactions = {
-  onBlock: async (
-    tx: Pick<BunSQLDatabase, 'delete'>,
-    pair: ContactPairKey,
-    blocked: boolean,
-  ) => {
+  onBlock: async (tx: Tx, pair: ContactPairKey, blocked: boolean) => {
     if (blocked) await endPairChallenges(tx, pair);
   },
 };
@@ -166,7 +150,7 @@ export function challengeFrame(
 ): ChallengeFrame {
   const other = input.memberActorIds.find((id) => id !== input.actorId);
   if (!other) throw createAppError('VALIDATION');
-  const owner = tx as unknown as AuthorizationTransaction;
+  const owner = tx as unknown as Tx;
   const requireId = (id: string) => {
     if (!idSchema.safeParse(id).success) throw createAppError('VALIDATION');
   };

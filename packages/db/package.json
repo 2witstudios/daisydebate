@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./tx": "./src/tx.ts",
     "./dev-seed": "./src/dev-seed.ts",
     "./catalog-formats": "./src/catalog-formats.ts",
     "./reference-formats": "./src/reference-formats.ts",

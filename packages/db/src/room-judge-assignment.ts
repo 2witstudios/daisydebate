@@ -5,7 +5,6 @@ import {
   type RoomAssemblyState,
 } from '@daisy/protocol';
 import { eq } from 'drizzle-orm';
-import type { TabTransaction } from './tab/tab-transaction';
 import { rooms } from './schema/rooms';
 import { roomFacts } from './room-command-facts';
 import { readAuthorizationActors } from './authorization';
@@ -20,10 +19,11 @@ import {
   writeLockedRoomJudge,
   type JudgeRoomMembers,
 } from './room-judge-assignment-write';
+import type { Tx } from './tx';
 
 /** Internal ordinary owner port before Start; the caller holds its account/source/Room fences and journal. */
 export async function changeLockedRoomJudge(
-  tx: TabTransaction,
+  tx: Tx,
   input: {
     readonly roomId: string;
     readonly slot: number;

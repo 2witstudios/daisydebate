@@ -9,7 +9,6 @@ import {
   type RoomInvitationView,
   type SeatKind,
 } from '@daisy/protocol';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { eq, sql } from 'drizzle-orm';
 import { lockAuthorizationActors } from '../authorization';
 import type { authorizationAccountFact } from '../authorization-account';
@@ -21,7 +20,6 @@ import {
   roomFacts,
   transactionNow,
   type Caller,
-  type Tx,
 } from '../room-command-facts';
 import type { roomCommandTransaction } from '../room-command-transaction';
 import {
@@ -32,6 +30,7 @@ import {
 import { roomInvitations } from '../schema/room-invitations';
 import { invitationOpen, invitationPending } from './open';
 import { rooms } from '../schema/rooms';
+import type { Tx } from '../tx';
 
 type Account = ReturnType<typeof authorizationAccountFact>;
 
@@ -95,7 +94,7 @@ export const roomInvitationOperations = ({
   transaction,
   eventSink,
 }: {
-  readonly database: Pick<BunSQLDatabase, 'execute'>;
+  readonly database: Tx;
   readonly transaction: ReturnType<typeof roomCommandTransaction>;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({

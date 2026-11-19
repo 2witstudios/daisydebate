@@ -52,19 +52,26 @@ function classify(
     if (name === 'Pick' && node.typeArguments?.length === 2) {
       const [base, keys] = node.typeArguments;
       if (!base || !keys || !classify(base, known)) return null;
-      return /'transaction'|"transaction"/.test(keys.getText())
-        ? 'TxSource'
-        : 'Tx';
+      const picked = keys.getText();
+      if (/^\s*['"]transaction['"]\s*$/.test(picked)) return 'TxOpener';
+      return /'transaction'|"transaction"/.test(picked) ? 'TxSource' : 'Tx';
     }
     if (name === 'TxOpener' && node.typeArguments) return null;
     return known.get(name) ?? null;
   }
+  if (
+    ts.isImportTypeNode(node) &&
+    node.qualifier &&
+    ts.isIdentifier(node.qualifier) &&
+    !node.typeArguments
+  )
+    return known.get(node.qualifier.text) ?? null;
   if (ts.isIndexedAccessTypeNode(node)) {
     const text = compact(node.getText());
     const opener = /^Parameters<Parameters<(\w+)\['transaction'\]>\[0\]>\[0\]$/;
     const bounded = /^Parameters<Parameters<BoundedTransaction>\[0\]>\[0\]$/;
     const match = opener.exec(text);
-    if (match?.[1] && known.get(match[1])) return 'TxSource';
+    if (match?.[1] && known.get(match[1])) return 'Tx';
     if (bounded.test(text)) return 'Tx';
   }
   if (ts.isTypeLiteralNode(node) && node.members.length === 1) {

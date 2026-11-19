@@ -3,7 +3,7 @@ import {
   applyOrganizationWrites,
   type OrganizationWrite,
 } from './organization-writes';
-import type { TabTransaction } from './tab-transaction';
+import type { Tx } from '../tx';
 
 /**
  * Tab's published transition for a Club seat holder (ADR 0148): accepting a
@@ -14,7 +14,7 @@ import type { TabTransaction } from './tab-transaction';
  * is left as they are. The caller holds the club row lock and its scope.
  */
 export async function activateSeatMembership(
-  tx: TabTransaction,
+  tx: Tx,
   input: {
     readonly organizationId: string;
     readonly userId: string;

@@ -28,7 +28,6 @@ import { readDatabaseTime } from './database-clock';
 import { oweNotifications } from './notifications/owe';
 import { isDebatingSeatSql } from './seat-columns';
 import { scopeTransaction } from './tenant-scope';
-import type { BoundedTransactionContext } from './transaction-context';
 import { readLinkedAdultUserIds } from './youth-recording-people';
 
 import {
@@ -46,8 +45,7 @@ import {
   type ReleaseRow,
 } from './media-release-records';
 import { youthRoundShareableSql, youthRoundSql } from './youth-round-sql';
-
-type Tx = BoundedTransactionContext;
+import type { Tx } from './tx';
 
 /** What a minor's Settings section reads. */
 export type MinorReleaseRead = {

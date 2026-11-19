@@ -3,8 +3,8 @@ import { sql } from 'drizzle-orm';
 import { clubOrganizationKinds } from './billing-owner-lock';
 import { readDivisionOf } from './media-release-records';
 import { rowsOf } from './raw-rows';
-import type { Tx } from './room-command-facts';
 import { currentTenantScope, scopeTransaction } from './tenant-scope';
+import type { Tx } from './tx';
 
 /**
  * Who creates a Room, as its lobby is decided (ADR 0156): their division, and

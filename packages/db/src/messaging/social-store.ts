@@ -1,5 +1,4 @@
 import { and, eq } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import { messagingSocialCommands } from '../schema/messaging-social';
@@ -10,6 +9,7 @@ import {
 import { dmRequestFrame } from './social-request';
 import type { ContactReactions } from '../contacts/reactions';
 import type { MessagingSocialStore } from './social-contracts';
+import type { TxSource } from '../tx';
 
 /**
  * Messaging's DM requests over the shared Contacts fence; blocks are
@@ -20,7 +20,7 @@ export function createMessagingSocialStore({
   authorize,
   reactions,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
   readonly authorize: ContactAuthorizationFence;
   readonly reactions: ContactReactions;
 }): MessagingSocialStore {

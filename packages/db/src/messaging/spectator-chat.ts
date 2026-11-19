@@ -1,6 +1,5 @@
 import { createAppError } from '@daisy/errors';
 import { and, eq, sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { readAuthorizationActors } from '../authorization';
 import type { SpectatorChatModeration } from '../content-moderation-ports';
 import { inLiveRoomSql, liveRoomOfR } from '../live-room-sql';
@@ -19,8 +18,7 @@ import type {
 } from './records';
 import { appendStream, lockStream, openStream } from './stream';
 import { youthRoundSql } from '../youth-round-sql';
-
-type Tx = Pick<BunSQLDatabase, 'select' | 'insert' | 'update' | 'execute'>;
+import { inTransaction, type Tx, type TxSource } from '../tx';
 
 /** The Round's side of a post: what its Broadcast allows, as read under the stream lock. */
 export type SpectatorChannelFacts = {
@@ -134,7 +132,7 @@ export const spectatorChatOperations = ({
   database,
   eventSink,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
   /** Null when the Round has no audience for this request: to it, it does not exist. */
@@ -150,7 +148,7 @@ export const spectatorChatOperations = ({
     plan: SpectatorPostPlanner,
   ) {
     return instrumented(eventSink, 'postSpectatorChatMessage', () =>
-      database.transaction(async (tx) => {
+      inTransaction(database, async (tx) => {
         const [account] = await readAuthorizationActors(tx, [input.actorId], {
           maxActors: 1,
         });
@@ -285,7 +283,7 @@ export const spectatorChatOperations = ({
 
 /** The chat page inside a caller's snapshot, so a whole audience read is one view. */
 export const readChatPage = async (
-  tx: Pick<BunSQLDatabase, 'execute'>,
+  tx: Tx,
   input: {
     readonly roundId: string;
     readonly limit: number;

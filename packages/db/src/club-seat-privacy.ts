@@ -1,11 +1,10 @@
 import { sql } from 'drizzle-orm';
 import { normalizedEmailSql } from './email-identity';
-import type { AuthorizationTransaction } from './authorization';
 import type { PrivacyAdopter } from './privacy/contracts';
 import { exportRows } from './privacy/export-rows';
 import { scopeTransaction } from './tenant-scope';
+import type { Tx } from './tx';
 
-type Tx = AuthorizationTransaction;
 const page = 100;
 
 /** Runs `work` under each club's own scope (club tables are tenant-fenced), then clears the scope. */

@@ -1,12 +1,10 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { PgDialect } from 'drizzle-orm/pg-core';
 import type { SQL } from 'drizzle-orm';
-import {
-  loadAuthorizationSession,
-  type AuthorizationTransaction,
-} from './authorization';
+import { loadAuthorizationSession } from './authorization';
 import { assertRejects } from '@daisy/errors/testing';
 import { authorizationSessionOperations } from './authorization-session';
+import type { Tx } from './tx';
 setupRitewayBun();
 test('session authorization binds durable session, user, actor, erasure and expiry', async () => {
   const userId = 'a'.repeat(24),
@@ -52,7 +50,7 @@ test('session authorization binds durable session, user, actor, erasure and expi
         return {
           execute: async () =>
             reads++ === 0 ? (row.session ? [row.session] : []) : [row.account],
-        } as unknown as AuthorizationTransaction;
+        } as unknown as Tx;
       };
       const explicit = await loadAuthorizationSession(
         transaction(false),
@@ -60,9 +58,8 @@ test('session authorization binds durable session, user, actor, erasure and expi
       );
       const reader = authorizationSessionOperations({
         database: {
-          transaction: async (
-            work: (tx: AuthorizationTransaction) => Promise<unknown>,
-          ) => work(transaction(true)),
+          transaction: async (work: (tx: Tx) => Promise<unknown>) =>
+            work(transaction(true)),
         } as unknown as Parameters<
           typeof authorizationSessionOperations
         >[0]['database'],
@@ -130,15 +127,13 @@ test('a realtime session read takes only the shared account fence', async () => 
   const dialect = new PgDialect();
   const reader = authorizationSessionOperations({
     database: {
-      transaction: async (
-        work: (tx: AuthorizationTransaction) => Promise<unknown>,
-      ) =>
+      transaction: async (work: (tx: Tx) => Promise<unknown>) =>
         work({
           execute: async (query: SQL) => {
             statements.push(dialect.sqlToQuery(query).sql);
             return [];
           },
-        } as unknown as AuthorizationTransaction),
+        } as unknown as Tx),
     } as unknown as Parameters<
       typeof authorizationSessionOperations
     >[0]['database'],

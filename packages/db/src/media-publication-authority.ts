@@ -5,11 +5,11 @@ import {
   isJudgeSeat,
   type RoundCommandAuthority,
 } from '@daisy/protocol';
-import type { BoundedTransactionContext } from './transaction-context';
 import type { RoundHydration } from './round-hydration';
 import { roundBotPublications } from './schema/round-bot-publications';
 import { verifyBotWorkerPrincipalLocked } from './bot-worker-authority';
 import { readBotSegmentFloor } from './bot-publication-context';
+import type { Tx } from './tx';
 
 type Participants = RoundCommandAuthority['participants'];
 type Publication = {
@@ -26,7 +26,7 @@ type Publication = {
  * actual generation scope verifier and the one bot media rule's predicates.
  */
 export async function readMediaBotLeases(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   roundId: string,
   participants: Participants,
 ) {

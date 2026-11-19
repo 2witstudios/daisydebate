@@ -1,5 +1,4 @@
 import { eq, sql } from 'drizzle-orm';
-import type { BoundedTransactionContext } from '../transaction-context';
 import { necessaryEvidence } from '../schema/necessary-evidence';
 import { sampleRoundExecutionTime } from '../round-execution-time';
 import { evidenceLeaseDigest } from '../necessary-evidence-policy';
@@ -7,9 +6,10 @@ import { nextEpoch } from '../lease-policy';
 import { select } from './select';
 import { lock } from './lock';
 import { eligible } from './eligible';
+import type { Tx } from '../tx';
 /** Returned only after the owning bounded transaction commits the no-use fence. No external custody here. */
 export async function claim(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   input: { workerId: string; lane: 'attached' | 'detached' },
   options: { leaseMs: number; nextToken: () => string },
 ) {

@@ -3,9 +3,9 @@ import {
   type NotificationPresentation,
 } from '@daisy/protocol';
 import { sql, type SQL } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
 import { rowsOf } from '../raw-rows';
+import type { TxSource } from '../tx';
 
 /** Whether Daisy may email the member `user` names at all; no row is yes. */
 export const emailsMember = (user: SQL) =>
@@ -16,7 +16,7 @@ export const notificationPresentationOperations = ({
   database,
   eventSink,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
   readNotificationPresentation(input: {

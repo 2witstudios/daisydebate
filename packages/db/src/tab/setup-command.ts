@@ -23,7 +23,8 @@ import {
 } from './command-record';
 import { applySetupWrites } from './setup-writes';
 import type { SetupWrite } from './setup-write';
-import type { TabDatabase, TabTransaction } from './tab-transaction';
+import type { TabDatabase } from './tab-transaction';
+import { inTransaction, type Tx } from '../tx';
 
 export type SetupCommandInput = {
   readonly senderUserId: string;
@@ -31,7 +32,7 @@ export type SetupCommandInput = {
   readonly newIds: { readonly primary: string; readonly secondary: string };
   readonly now: string;
 };
-const load = async (tx: TabTransaction, input: SetupCommandInput) => {
+const load = async (tx: Tx, input: SetupCommandInput) => {
   await scopeTransaction(tx, { subjectUserId: input.senderUserId });
   await lockTabCommandAccounts(tx, [input.senderUserId]);
   await tx.execute(
@@ -141,7 +142,7 @@ export const createSetupCommandStore = (database: TabDatabase) => ({
     input: SetupCommandInput,
     work: (session: SetupCommandSession) => Promise<Answer>,
   ): Promise<Answer> =>
-    database.transaction(async (tx) =>
+    inTransaction(database, async (tx) =>
       work({
         load: () => load(tx, input),
         stored: (id) => storedCommand(tx, id),

@@ -5,15 +5,12 @@ import {
   billingCleanupSchema,
   type CleanupContext,
 } from '@daisy/protocol/billing';
-import type { BoundedTransactionContext } from './transaction-context';
 import { privacyJobs } from './schema/privacy-jobs';
 import { lockRefundAccount } from './billing-refund-authority';
 import { readDatabaseTime } from './database-clock';
+import type { Tx } from './tx';
 
-export async function lockCleanupRecord(
-  tx: BoundedTransactionContext,
-  jobId: string,
-) {
+export async function lockCleanupRecord(tx: Tx, jobId: string) {
   if (!idSchema.safeParse(jobId).success) throw createAppError('VALIDATION');
   const [selector] = await tx
     .select({ userId: privacyJobs.subjectRef })
@@ -35,10 +32,7 @@ export async function lockCleanupRecord(
   return row ? { row, userId: selector.userId, closedAt } : null;
 }
 
-export async function lockCleanupJob(
-  tx: BoundedTransactionContext,
-  jobId: string,
-) {
+export async function lockCleanupJob(tx: Tx, jobId: string) {
   const locked = await lockCleanupRecord(tx, jobId);
   if (!locked || locked.row.status !== 'pending') return null;
   const { row } = locked;
@@ -51,10 +45,7 @@ export async function lockCleanupJob(
 }
 
 /** Positive current absence includes retained financial routing, not merely a missing customer. */
-export async function cleanupFacts(
-  tx: BoundedTransactionContext,
-  userId: string,
-) {
+export async function cleanupFacts(tx: Tx, userId: string) {
   const [effects] = await tx.execute(sql`select
     (select count(*)::int from billing_customers where user_id=${userId}) as "mappedCustomers",
     (select count(*)::int from billing_purchases where user_id=${userId} and state->>'kind' not in ('admitted','abandoned','expired')) as "possiblePurchases",
@@ -117,7 +108,7 @@ function cleanupRoute(
   };
 }
 export async function cleanupContext(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   jobId: string,
   effects: CleanupContext['effects'],
 ): Promise<CleanupContext> {

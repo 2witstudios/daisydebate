@@ -14,7 +14,8 @@ import type {
 import type { ResultCommand } from '@daisy/protocol/lobby/result-command';
 import { results, resultEntries, resultSpeakers } from '../schema/results';
 import { appendHistory, storedCommand } from './command-record';
-import type { TabDatabase, TabTransaction } from './tab-transaction';
+import type { TabDatabase } from './tab-transaction';
+import { inTransaction, type Tx } from '../tx';
 
 type Command = Extract<ResultCommand, { fixtureId: string }>;
 export type ResultCommandInput = {
@@ -23,7 +24,7 @@ export type ResultCommandInput = {
   readonly lobbyId: string;
   readonly command: Command;
 };
-const load = async (tx: TabTransaction, input: ResultCommandInput) => {
+const load = async (tx: Tx, input: ResultCommandInput) => {
   const context = await lockFixtureCommandContext(tx, {
     senderUserId: input.senderUserId,
     lobbyId: input.lobbyId,
@@ -81,7 +82,7 @@ export const createResultCommandStore = (database: TabDatabase) => ({
       ) => Promise<void>;
     }) => Promise<Answer>,
   ): Promise<Answer> =>
-    database.transaction(async (tx) => {
+    inTransaction(database, async (tx) => {
       let loaded: LoadedResultCommand | null = null;
       return work({
         load: async () => {

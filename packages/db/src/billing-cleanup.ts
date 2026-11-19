@@ -10,7 +10,6 @@ import {
   type CleanupWork,
 } from '@daisy/protocol/billing';
 import type { BoundedTransaction } from './bounded-transaction';
-import type { BoundedTransactionContext } from './transaction-context';
 import {
   createBillingCleanupResources,
   currentCleanupResolution,
@@ -31,6 +30,7 @@ import {
   cleanupFacts,
   lockCleanupJob,
 } from './billing-cleanup-authority';
+import type { Tx } from './tx';
 
 /** Stripe alone consumes its typed execution state and queue outcome in this current-service transaction. */
 export function createBillingCleanup(input: {
@@ -205,7 +205,7 @@ function needsObservationWrite(event: CleanupEvent) {
 }
 
 async function removeConfirmedCustomerMapping(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   userId: string,
   outcome: 'vendor-deleted' | 'no-vendor-effects',
   mappedCustomers: number,

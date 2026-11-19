@@ -12,7 +12,7 @@ import { lockTabCommandAccounts } from './command-accounts';
 import { loadAuthorityContext } from './authority-context';
 import { loadMemberships } from './organization-facts';
 import { loadTabAccount } from './boundary';
-import type { TabTransaction } from './tab-transaction';
+import type { Tx } from '../tx';
 export type GuardianCommandInput = {
   readonly senderUserId: string;
   readonly subjectUserId: string;
@@ -23,7 +23,7 @@ export type GuardianCommandInput = {
 export class GuardianPeopleChanged extends Error {}
 /** Named family facts; no organization or lobby owns the protected subject's journal. */
 export const loadGuardianCommandFacts = async (
-  tx: TabTransaction,
+  tx: Tx,
   input: GuardianCommandInput,
 ) => {
   const { command } = input;

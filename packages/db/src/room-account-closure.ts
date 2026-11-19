@@ -2,9 +2,10 @@ import { and, eq, inArray } from 'drizzle-orm';
 import type { RoomAssemblyState } from '@daisy/protocol';
 import type { PrivacyAdopter } from './privacy/contracts';
 import { rooms, roomParticipants } from './schema/rooms';
-import { roomFacts, type Tx } from './room-command-facts';
+import { roomFacts } from './room-command-facts';
 import { persistRoomOutsideCommands } from './room-mutation-persistence';
 import { roomIsOpen } from './room-open';
+import type { Tx } from './tx';
 
 /** The engine's pure Room transitions, injected by the caller. */
 export type RoomClosureTransitions = {

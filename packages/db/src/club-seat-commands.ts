@@ -32,9 +32,8 @@ import { readDatabaseTime } from './database-clock';
 import { normalizedEmailSql } from './email-identity';
 import { scopeTransaction } from './tenant-scope';
 import { activateSeatMembership } from './tab/seat-membership';
-import type { BoundedTransactionContext } from './transaction-context';
+import type { Tx } from './tx';
 
-type Tx = BoundedTransactionContext;
 /** The signed-in person acting: always their own account and actor. */
 export type ClubSeatSubject = {
   readonly userId: string;

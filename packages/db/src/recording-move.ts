@@ -5,7 +5,7 @@ import {
   type RecordingLifecycle,
 } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
-import type { BoundedTransactionContext } from './transaction-context';
+import type { Tx } from './tx';
 
 export type StoredRecording = {
   readonly id: string;
@@ -60,7 +60,7 @@ const written = (id: string, next: RecordingLifecycle) => {
 
 /** Whether an open report names this Recording or its Round: it is evidence until decided. */
 export const recordingUnderOpenReport = async (
-  tx: Pick<BoundedTransactionContext, 'execute'>,
+  tx: Tx,
   id: string,
 ): Promise<boolean> => {
   const [row] = (await tx.execute(sql`select exists(
@@ -80,7 +80,7 @@ export const recordingUnderOpenReport = async (
  * longer holds answers `stale` before the decision runs.
  */
 export const moveRecording = async <Decision extends RecordingDecision>(
-  tx: Pick<BoundedTransactionContext, 'execute'>,
+  tx: Tx,
   id: string,
   decide: (record: StoredRecording) => Decision,
   expectedVersion?: number,

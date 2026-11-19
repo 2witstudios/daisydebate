@@ -3,7 +3,6 @@ import { isDebatingSeatSql } from './seat-columns';
 import { and, eq, sql } from 'drizzle-orm';
 import { createAppError, createRefusal } from '@daisy/errors';
 import type { BoundedTransaction } from './bounded-transaction';
-import type { BoundedTransactionContext } from './transaction-context';
 import { lockAuthorizationActors } from './authorization';
 import { rounds } from './schema/rounds';
 import { usageReservations } from './schema/usage-reservations';
@@ -19,6 +18,7 @@ import {
   type AllowanceAccountPolicy,
 } from './usage-ledger';
 import { usageStateSchema } from '@daisy/protocol/billing';
+import type { Tx } from './tx';
 export {
   refundUnservedPracticeLocked,
   refundPlatformEndedLocked,
@@ -27,9 +27,9 @@ export {
 type Target = { readonly actorId: string; readonly roundId: string };
 type Reservation = Target & { readonly id: string };
 /** Global bot capacity precedes canonical account then Room/Round and usage fences. */
-export const lockBotAdmission = (tx: BoundedTransactionContext) =>
+export const lockBotAdmission = (tx: Tx) =>
   tx.execute(sql`select pg_advisory_xact_lock(59003, 1)`);
-async function lockSponsor(tx: BoundedTransactionContext, target: Target) {
+async function lockSponsor(tx: Tx, target: Target) {
   requireAdmissionTarget(target);
   const [account] = await lockAuthorizationActors(tx, [target.actorId], {
     maxActors: 1,
@@ -45,7 +45,7 @@ async function lockSponsor(tx: BoundedTransactionContext, target: Target) {
 
 /** First model-call count and provider-run creation share the caller's transaction. */
 export async function markLockedRoundBotModelCall(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   input: {
     readonly roundId: string;
     readonly before: string;
@@ -121,7 +121,7 @@ export function createRoundBotAdmission(input: {
 }) {
   requireBusyCap(input.busyCap);
   const reserveLocked = async (
-    tx: BoundedTransactionContext,
+    tx: Tx,
     target: Target,
   ): Promise<Reservation> => {
     const account = await lockSponsor(tx, target);

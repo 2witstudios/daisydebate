@@ -8,10 +8,10 @@ import {
   type AnyColumn,
   type SQL,
 } from 'drizzle-orm';
-import type { BoundedTransactionContext } from './transaction-context';
 import type { BotPublicationScope } from './bot-publication-context';
 import { roundSegments } from './schema/round-segments';
 import { utterances } from './schema/utterances';
+import type { Tx } from './tx';
 
 /**
  * The hearing and capture each time audio against PostgreSQL on their own
@@ -38,7 +38,7 @@ const AUTHORED_END_ALLOWANCE_MS = 500;
  * transcribes them.
  */
 export async function peerLineCovers(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   scope: Pick<BotPublicationScope, 'roundId' | 'segmentId'>,
   peers: readonly string[],
   at: Date,

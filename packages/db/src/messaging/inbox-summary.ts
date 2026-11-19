@@ -2,7 +2,7 @@ import { sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
-import type { AuthorizationTransaction } from '../authorization';
+import type { Tx } from '../tx';
 
 export type MessagingInboxSummary = {
   readonly title: string | null;
@@ -99,7 +99,7 @@ function conversationSummary(
  * introduction; never both, so a request never exposes history.
  */
 export async function readMessagingInboxSummary(
-  tx: AuthorizationTransaction,
+  tx: Tx,
   input: SummaryInput,
 ): Promise<MessagingInboxSummary> {
   const [summary] = await readMessagingInboxSummaries(tx, input.actorId, [
@@ -114,7 +114,7 @@ export async function readMessagingInboxSummary(
  * input order; a channel or request that vanished is null at its index.
  */
 export async function readMessagingInboxSummaries(
-  tx: AuthorizationTransaction,
+  tx: Tx,
   actorId: string,
   inputs: readonly Omit<SummaryInput, 'actorId'>[],
 ): Promise<readonly (MessagingInboxSummary | null)[]> {

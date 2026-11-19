@@ -1,18 +1,16 @@
 import { createAppError } from '@daisy/errors';
 import { sql, type SQL } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type { PgColumn, PgTable } from 'drizzle-orm/pg-core';
 import { requireLeaseMs } from './lease-policy';
 import { rowsOf } from './raw-rows';
 import { isUniqueViolation } from './unique-violation';
 import { agentLeaseDigest } from './round-agent-lease';
 import type { mailJobColumns } from './schema/columns';
+import { inTransaction, type TxOpener, type Tx } from './tx';
 
 /** A table that carries the mail job recipe's columns. */
 type MailJobTable = PgTable &
   Record<keyof ReturnType<typeof mailJobColumns>, PgColumn>;
-
-type Execute = Pick<BunSQLDatabase, 'execute'>;
 
 /** How a held mail job ends, or that it waits for another attempt. */
 export type MailJobOutcome<ErrorCode extends string> =
@@ -68,7 +66,7 @@ export const mailQueue = (
      * settled and may only be slow, so such a job ends `delivery-unknown`.
      */
     claimDue: (
-      database: Pick<BunSQLDatabase, 'transaction'>,
+      database: TxOpener,
       input: MailJobClaimInput,
       returning: SQL,
     ): Promise<readonly Claimed[]> => {
@@ -79,7 +77,7 @@ export const mailQueue = (
       ] as const)
         if (!Number.isSafeInteger(value) || value < 1 || value > most)
           throw createAppError('VALIDATION');
-      return database.transaction(async (tx) => {
+      return inTransaction(database, async (tx) => {
         const due = await rowsOf<{ id: string; spent: boolean }>(
           tx,
           sql`select id, attempts >= ${input.maxAttempts} as spent from ${table}
@@ -118,7 +116,7 @@ export const mailQueue = (
     },
     /** False when the lease lapsed and another worker may now hold the job. */
     settle: async <ErrorCode extends string>(
-      database: Execute,
+      database: Tx,
       input: {
         readonly id: string;
         readonly token: string;
@@ -147,7 +145,7 @@ export const mailQueue = (
      * chose to wait, not failed. False when the lease lapsed.
      */
     postpone: async (
-      database: Execute,
+      database: Tx,
       input: {
         readonly id: string;
         readonly token: string;
@@ -170,7 +168,7 @@ export const mailQueue = (
      * were for no longer stands. A provider request already in flight cannot
      * be recalled, so a held job ends `delivery-unknown`.
      */
-    cancelOwed: async (tx: Execute, owed: SQL): Promise<void> => {
+    cancelOwed: async (tx: Tx, owed: SQL): Promise<void> => {
       await tx.execute(sql`update ${table} set
           last_error_code = ${unknownIfHeld('not-owed')},
           state = 'cancelled', completed_at = clock_timestamp(),

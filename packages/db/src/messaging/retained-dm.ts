@@ -1,10 +1,9 @@
 import { sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
-import type { AuthorizationTransaction } from '../authorization';
 import { eraseSubjectFiles } from '../messaging-files';
+import type { Tx } from '../tx';
 
-type Tx = AuthorizationTransaction;
 type Survived = {
   readonly channelId: string;
   readonly survivorActorId: string;

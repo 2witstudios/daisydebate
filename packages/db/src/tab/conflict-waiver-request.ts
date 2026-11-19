@@ -10,10 +10,11 @@ import {
   recordFixtureConflict,
   storedFixtureCommand,
 } from './fixture-command-observation';
-import type { TabDatabase, TabTransaction } from './tab-transaction';
+import type { TabDatabase } from './tab-transaction';
+import { inTransaction, type Tx } from '../tx';
 
 const load = async (
-  tx: TabTransaction,
+  tx: Tx,
   input: {
     readonly senderUserId: string;
     readonly lobbyId: string;
@@ -74,7 +75,7 @@ export const createConflictWaiverRequestStore = (database: TabDatabase) => ({
       ) => ReturnType<typeof holdFixtureCommand>;
     }) => Promise<Answer>,
   ): Promise<Answer> =>
-    database.transaction(async (tx) => {
+    inTransaction(database, async (tx) => {
       await tx.execute(
         sql`select pg_advisory_xact_lock(59002,hashtext(${input.commandId}))`,
       );

@@ -7,7 +7,7 @@ import {
 } from '../schema/tournament-judges';
 import { bumpTabAccountRevision } from './command-accounts';
 import type { JudgeRegistrationWrite } from './judge-registration-write';
-import type { TabTransaction } from './tab-transaction';
+import type { Tx } from '../tx';
 
 const one = (rows: readonly unknown[]): void => {
   if (rows.length !== 1)
@@ -16,10 +16,7 @@ const one = (rows: readonly unknown[]): void => {
       'Judge registration write did not affect one row',
     );
 };
-const apply = async (
-  tx: TabTransaction,
-  write: JudgeRegistrationWrite,
-): Promise<void> => {
+const apply = async (tx: Tx, write: JudgeRegistrationWrite): Promise<void> => {
   switch (write.table) {
     case 'tournament_judges':
       if (write.op === 'insert') {
@@ -74,7 +71,7 @@ const apply = async (
   }
 };
 export const applyJudgeRegistrationWrites = async (
-  tx: TabTransaction,
+  tx: Tx,
   writes: readonly JudgeRegistrationWrite[],
 ): Promise<void> => {
   for (const write of writes) await apply(tx, write);

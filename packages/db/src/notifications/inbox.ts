@@ -9,7 +9,6 @@ import {
 } from '@daisy/protocol';
 import { maskEmail } from '@daisy/protocol/media-release';
 import { sql, type SQL } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
 import { appendOutboxEvent } from '../outbox';
 import { rowsOf } from '../raw-rows';
@@ -24,6 +23,7 @@ import {
   type TournamentInboxAccess,
   type TournamentNotificationFacts,
 } from './tournament-inbox';
+import { inTransaction, type Tx, type TxSource } from '../tx';
 
 /** A position in the inbox, newest first: the last row a page showed. */
 export type InboxCursor = { readonly surfacedAt: string; readonly id: string };
@@ -232,7 +232,7 @@ const iso = (column: string) =>
  * `where` is over `n` and the standing joins.
  */
 export const readInboxRows = async (
-  database: Pick<BunSQLDatabase, 'execute'>,
+  database: Tx,
   input: {
     readonly where: SQL;
     readonly limit: number;
@@ -261,7 +261,7 @@ export const notificationInboxOperations = ({
   database,
   eventSink,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
   /**
@@ -334,7 +334,7 @@ export const notificationInboxOperations = ({
     readonly at: string;
   }) {
     return instrumented(eventSink, 'markNotificationsRead', () =>
-      database.transaction(async (tx) => {
+      inTransaction(database, async (tx) => {
         const some =
           input.notificationIds === 'all'
             ? sql``

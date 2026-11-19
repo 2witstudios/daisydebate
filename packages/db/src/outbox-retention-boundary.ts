@@ -1,11 +1,11 @@
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { decodeOutboxCursor, type OutboxPosition } from './outbox';
 import { outboxRetentionBoundary } from './schema/outbox-retention-boundary';
+import type { Tx } from './tx';
 
 /** Missing or invalid durable metadata cannot certify any replay history. */
 export async function readOutboxRetentionBoundary(
-  database: Pick<BunSQLDatabase, 'execute'>,
+  database: Tx,
 ): Promise<OutboxPosition | null> {
   const rows = await database.execute(sql`
     select ${outboxRetentionBoundary.txid}::text as txid,

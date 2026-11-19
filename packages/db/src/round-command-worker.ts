@@ -1,8 +1,8 @@
 import { and, eq } from 'drizzle-orm';
 import { segmentDueAtMs, type RoundCommandPrincipal } from '@daisy/protocol';
 import type { RoundHydration } from './round-hydration';
-import type { RoundWriteTransaction } from './round-write-authority';
 import { roundBotPublications } from './schema/round-bot-publications';
+import type { Tx } from './tx';
 
 type Claim = Pick<
   typeof roundBotPublications.$inferSelect,
@@ -19,7 +19,7 @@ type WorkerRound = Pick<RoundHydration, 'id' | 'status'> & {
   >[];
 };
 export async function lockRoundCommandWorker(
-  tx: RoundWriteTransaction,
+  tx: Tx,
   principal: RoundCommandPrincipal,
 ) {
   if (principal.kind !== 'agent') return null;

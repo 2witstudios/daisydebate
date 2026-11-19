@@ -3,10 +3,10 @@ import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import type { BillingOwner } from '@daisy/protocol/billing';
 import { scopeTransaction } from './tenant-scope';
-import type { BoundedTransactionContext } from './transaction-context';
 import { billingCustomers } from './schema/billing-customers';
 import { billingPurchases } from './schema/billing-purchases';
 import { billingSubscriptions } from './schema/billing-subscriptions';
+import type { Tx } from './tx';
 
 /** A club may buy seats: a school or club, or a homeschool family (ADR 0148). */
 export const clubOrganizationKinds = ['school', 'family'] as const;
@@ -44,7 +44,7 @@ export function ownedBy(table: OwnedTable, owner: BillingOwner): SQL {
  * own rows (their seat in another club) be read. Null when no club exists.
  */
 export async function lockClub(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   organizationId: string,
   subjectUserId?: string,
 ): Promise<LockedClub | null> {
@@ -76,10 +76,7 @@ export async function lockClub(
 }
 
 /** The owner's billing customer and current subscription, locked for update. */
-export async function lockOwnerBillingRows(
-  tx: BoundedTransactionContext,
-  owner: BillingOwner,
-) {
+export async function lockOwnerBillingRows(tx: Tx, owner: BillingOwner) {
   const [customer] = await tx
     .select()
     .from(billingCustomers)

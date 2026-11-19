@@ -1,13 +1,11 @@
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { decideBetaAccessChange } from '@daisy/protocol';
 import { normalizeEmail } from '@daisy/protocol/email';
 import { canClaimPreapproval } from '@daisy/protocol/beta-preapproval';
 import { loadAuthorizationAccount } from './authorization';
 import { writeBetaAccessChange } from './beta-access-change';
 import { mailIntentQueue } from './mail-intent-queue';
-
-type Tx = Pick<BunSQLDatabase, 'execute'>;
+import type { Tx } from './tx';
 
 /** Account fence first, then email fence, including absent grants. */
 export const lockPreapprovalEmail = (tx: Tx, email: string) =>

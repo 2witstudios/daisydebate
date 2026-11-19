@@ -1,9 +1,7 @@
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { normalizeEmail } from '@daisy/protocol/email';
 import { lockPreapprovalEmail } from './beta-preapproval-claim';
-
-type Tx = Pick<BunSQLDatabase, 'execute'>;
+import type { Tx } from './tx';
 
 /** Caller holds the account fence. Order: sorted emails, grants, then mail. */
 export async function eraseBetaPreapprovals(

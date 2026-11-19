@@ -1,7 +1,7 @@
 import type { ReservedSQL } from 'bun';
 import { scopeBoundedTransaction } from './transaction-context';
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
+import { inTransaction, type TxSource, type Tx } from './tx';
 
 /**
  * The tenant a transaction may reach: an organization, a lobby, and the
@@ -64,13 +64,11 @@ export const currentTenantScope = async (
  * row is visible or writable.
  */
 export const withScope = <T>(
-  database: BunSQLDatabase,
+  database: TxSource,
   scope: TenantScope,
-  run: (
-    transaction: Parameters<Parameters<BunSQLDatabase['transaction']>[0]>[0],
-  ) => Promise<T>,
+  run: (transaction: Tx) => Promise<T>,
 ): Promise<T> =>
-  database.transaction(async (transaction) => {
+  inTransaction(database, async (transaction) => {
     await scopeTransaction(transaction, scope);
     return run(transaction);
   });

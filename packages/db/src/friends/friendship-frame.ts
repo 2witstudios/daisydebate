@@ -1,5 +1,4 @@
 import { and, count, eq, or, sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import { contactPairs } from '../schema/contacts';
 import { friendships } from '../schema/friends';
@@ -13,11 +12,7 @@ import {
 import type { ContactReactions } from '../contacts/reactions';
 import { oweNotifications } from '../notifications/owe';
 import { rowsOf } from '../raw-rows';
-
-type FriendshipTransaction = Pick<
-  BunSQLDatabase,
-  'select' | 'insert' | 'update' | 'delete' | 'execute'
->;
+import type { Tx } from '../tx';
 
 const accepted = (actorId: string) =>
   and(
@@ -28,10 +23,7 @@ const accepted = (actorId: string) =>
     ),
   );
 
-async function countWhere(
-  tx: FriendshipTransaction,
-  where: ReturnType<typeof and>,
-) {
+async function countWhere(tx: Tx, where: ReturnType<typeof and>) {
   const [row] = await tx
     .select({ value: count() })
     .from(friendships)
@@ -45,7 +37,7 @@ async function countWhere(
  * current until commit. Every write reauthorizes first (ADR 0072).
  */
 export function friendshipFrame(
-  tx: FriendshipTransaction,
+  tx: Tx,
   input: ContactInput,
   rows: readonly (typeof contactPairs.$inferSelect)[],
   authorize: () => Promise<void>,

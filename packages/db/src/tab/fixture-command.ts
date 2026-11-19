@@ -19,6 +19,7 @@ import type { FixtureOwnerEffects } from './fixture-owner-write';
 import { applyFixtureWrites } from './fixture-writes';
 import type { FixtureWrite } from './fixture-write';
 import type { TabDatabase } from './tab-transaction';
+import { inTransaction } from '../tx';
 
 /** Every panel, ordinary-owner effect and immutable result is in the fixture journal's one transaction. */
 export const createFixtureCommandStore = (database: TabDatabase) => ({
@@ -47,7 +48,7 @@ export const createFixtureCommandStore = (database: TabDatabase) => ({
       ) => Promise<void>;
     }) => Promise<Answer>,
   ): Promise<Answer> =>
-    database.transaction(async (tx) => {
+    inTransaction(database, async (tx) => {
       // Same command fence as ordinary Round writers, before account and aggregate locks.
       await tx.execute(
         sql`select pg_advisory_xact_lock(59002, hashtext(${input.commandId}))`,

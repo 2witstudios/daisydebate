@@ -3,7 +3,6 @@ import {
   type ReleaseLinkPurpose,
 } from '@daisy/protocol/media-release';
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { z } from 'zod';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import {
@@ -20,6 +19,7 @@ import {
   type mediaReleaseMailErrorCodes,
   type mediaReleaseMailKinds,
 } from './schema/media-releases';
+import { inTransaction, type TxSource } from './tx';
 
 export type MediaReleaseMailKind = (typeof mediaReleaseMailKinds)[number];
 export type MediaReleaseMailOutcome = MailJobOutcome<
@@ -76,7 +76,7 @@ export function mediaReleaseMailOperations({
   database,
   eventSink,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) {
   return {
@@ -96,7 +96,7 @@ export function mediaReleaseMailOperations({
       readonly tokenDigest: string;
     }): Promise<PreparedReleaseMail> =>
       instrumented(eventSink, 'prepareMediaReleaseMail', () =>
-        database.transaction(async (tx) => {
+        inTransaction(database, async (tx) => {
           const [mail] = await rowsOf<{
             kind: MediaReleaseMailKind;
             request_id: string;

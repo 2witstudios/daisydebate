@@ -9,7 +9,6 @@ import {
   type RatingState,
 } from '@daisy/protocol';
 import { and, desc, eq, inArray, max, ne, sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type { RateDebateInput, RateDebateResult } from './rating-facts';
 import {
   assertRankedRoundIntegrity,
@@ -23,18 +22,7 @@ import { seatOfColumns } from './seat-columns';
 import { roundParticipants } from './schema/round-participants';
 import { rounds } from './schema/rounds';
 import { ratingChanges, ratings, seasons } from './schema/ratings';
-
-/**
- * Rates one completed round (ADR 0055, ADR 0058) as a thin transactional
- * shell: it locks the round, asserts its frozen integrity, asks the
- * injected domain decision (`@daisy/debate-engine`'s decision, composed by
- * the caller because an adapter never decides domain rules) and writes what
- * it decides. Two ledger rows and both projections commit together or not
- * at all; a rerun finds the ledger rows and writes nothing; a projection
- * that moved under a concurrent write is retried from fresh facts.
- */
-
-type Tx = Parameters<Parameters<BunSQLDatabase['transaction']>[0]>[0];
+import { inTransaction, type Tx, type TxSource } from './tx';
 
 /** A projection moved under a concurrent debate: retry from fresh facts. */
 class StaleProjection extends Error {}
@@ -242,11 +230,11 @@ async function rateOnce(
 }
 
 export async function rateCompletedRound(
-  database: BunSQLDatabase,
+  database: TxSource,
   input: RateDebateInput,
 ): Promise<RateDebateResult> {
   return retryStale(
-    () => database.transaction((tx) => rateOnce(tx, input)),
+    () => inTransaction(database, (tx) => rateOnce(tx, input)),
     (error) => error instanceof StaleProjection,
     ATTEMPTS,
     () =>

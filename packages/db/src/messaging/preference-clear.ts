@@ -1,20 +1,17 @@
 import { invalidateMessagingInboxes } from './inbox-change';
 import { and, eq } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
-import {
-  lockAuthorizationActors,
-  type AuthorizationTransaction,
-} from '../authorization';
+import { lockAuthorizationActors } from '../authorization';
 import { messagingActorStates } from '../schema/messaging-channels';
+import type { Tx } from '../tx';
 type Scope = {
   readonly actorId: string;
   readonly channelId: string;
   readonly userId: string;
 };
 export type MessagingPreferenceClearFence = (
-  tx: AuthorizationTransaction,
+  tx: Tx,
   scope: Scope,
   frame: {
     readonly accounts: Awaited<ReturnType<typeof lockAuthorizationActors>>;
@@ -27,7 +24,7 @@ export type MessagingPreferenceClearFence = (
 ) => Promise<void>;
 /** Clear affects only an existing own preference. Account fencing serializes erasure; no channel/content grant is acquired. */
 export async function clearOwnMessagingPreference(
-  tx: Pick<BunSQLDatabase, 'execute' | 'insert' | 'select' | 'delete'>,
+  tx: Tx,
   scope: Scope,
   authorize: MessagingPreferenceClearFence,
 ) {

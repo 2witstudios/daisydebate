@@ -1,11 +1,9 @@
 import { runningRoundStatuses } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import { rowsOf } from './raw-rows';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { isDebatingSeatSql } from './seat-columns';
 import { currentTenantScope, scopeTransaction } from './tenant-scope';
-
-type Tx = Pick<BunSQLDatabase, 'execute'>;
+import { inTransaction, type Tx, type TxOpener } from './tx';
 
 /** At most this many: the newest running Rounds first. Watch shows a handful. */
 const STUDENT_LIVE_ROUNDS = 12;
@@ -111,10 +109,11 @@ const readStudentLiveRoundCandidates = async (
 
 /** The same read in its own read-only snapshot, so its scopes reach no other read. */
 export const readStudentLiveRounds = (
-  database: Pick<BunSQLDatabase, 'transaction'>,
+  database: TxOpener,
   adultUserId: string,
 ) =>
-  database.transaction(
+  inTransaction(
+    database,
     (tx) => readStudentLiveRoundCandidates(tx, adultUserId),
     { isolationLevel: 'repeatable read', accessMode: 'read only' },
   );

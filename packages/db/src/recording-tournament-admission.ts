@@ -2,11 +2,11 @@ import { z } from 'zod';
 import { idSchema } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
+import type { Tx } from './tx';
 
 /** Recording's named minimal input; funding/issuer/official identities stay in the owning admission. */
 export const readRecordingTournamentAdmission = async (
-  tx: Pick<BunSQLDatabase, 'execute'>,
+  tx: Tx,
   roundId: string,
 ) => {
   const [row] = await tx.execute(
@@ -34,7 +34,7 @@ export const readRecordingTournamentAdmission = async (
 
 /** Pins the admission before a capture-attempt lock; also locks a settled source so it cannot be reopened. */
 export const readLockedTournamentAdmission = async (
-  tx: Pick<BunSQLDatabase, 'execute'>,
+  tx: Tx,
   roundId: string,
 ) => {
   await tx.execute(
@@ -42,10 +42,7 @@ export const readLockedTournamentAdmission = async (
   );
 };
 
-export const listExpiredRecordingAdmissions = async (
-  tx: Pick<BunSQLDatabase, 'execute'>,
-  limit: number,
-) => {
+export const listExpiredRecordingAdmissions = async (tx: Tx, limit: number) => {
   const rows = await tx.execute(
     sql`select * from public.daisy_recording_expired_tournament_admissions(${limit})`,
   );
@@ -57,7 +54,7 @@ export const listExpiredRecordingAdmissions = async (
   return parsed.data;
 };
 export const settleUndispatchedRecordingAdmission = async (
-  tx: Pick<BunSQLDatabase, 'execute'>,
+  tx: Tx,
   roundId: string,
 ) => {
   const [row] = await tx.execute(

@@ -9,7 +9,6 @@ import {
   type BetaAccessState,
 } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { z } from 'zod';
 import {
   contentModerationActions,
@@ -28,21 +27,17 @@ import {
   type BetaAccessCommandOutcome,
 } from './beta-access-command';
 import { instrumented, type DatabaseEventSink } from './instrumented';
-
-type Database = Pick<BunSQLDatabase, 'transaction' | 'execute'>;
+import { inTransaction, type Tx, type TxSource } from './tx';
 
 /** A command that owes nothing further reads back its stored result alone. */
-const storedOnly = async (
-  _database: Pick<Database, 'execute'>,
-  _commandId: string,
-  result: unknown,
-) => ({ result }) as Omit<OperatorCommandState, 'action'>;
+const storedOnly = async (_database: Tx, _commandId: string, result: unknown) =>
+  ({ result }) as Omit<OperatorCommandState, 'action'>;
 
 /** Each operator command action's owner completes its own readback. */
 const commandStateReaders = new Map<
   string,
   (
-    database: Pick<Database, 'execute'>,
+    database: Tx,
     commandId: string,
     result: unknown,
   ) => Promise<Omit<OperatorCommandState, 'action'>>
@@ -99,7 +94,7 @@ export function operatorAccountOperations({
   database,
   eventSink,
 }: {
-  readonly database: Database;
+  readonly database: TxSource;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) {
   return {
@@ -146,7 +141,7 @@ export function operatorAccountOperations({
       input: BetaAccessCommandInput,
     ): Promise<BetaAccessCommandOutcome> =>
       instrumented(eventSink, 'runBetaAccessCommand', () =>
-        database.transaction((tx) =>
+        inTransaction(database, (tx) =>
           runBetaAccessCommand(tx, input, eventSink),
         ),
       ),

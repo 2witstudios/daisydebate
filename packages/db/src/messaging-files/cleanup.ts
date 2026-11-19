@@ -1,5 +1,4 @@
 import { and, eq, sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import {
@@ -7,11 +6,11 @@ import {
   messagingFileDeletionIntents,
 } from '../schema/messaging-files';
 import { fileDeletionValues } from './frame';
-import type { AuthorizationTransaction } from '../authorization';
+import { inTransaction, type Tx, type TxSource } from '../tx';
 
 /** Parent calls in its message-removal transaction after channel/user fences. */
 export async function deleteMessageFiles(
-  tx: Pick<BunSQLDatabase, 'update'>,
+  tx: Tx,
   input: { channelId: string; messageId: string },
 ) {
   await tx
@@ -33,7 +32,7 @@ export async function deleteMessageFiles(
  * channel loses its authority.
  */
 export async function eraseSubjectFiles(
-  tx: AuthorizationTransaction,
+  tx: Tx,
   actorId: string,
   channelId?: string,
   { pendingOnly = false }: { readonly pendingOnly?: boolean } = {},
@@ -60,10 +59,7 @@ export async function eraseSubjectFiles(
     sql`delete from messaging_files where owner_actor_id = ${actorId} and ${scope}`,
   );
 }
-export async function exportSubjectFiles(
-  tx: AuthorizationTransaction,
-  actorId: string,
-) {
+export async function exportSubjectFiles(tx: Tx, actorId: string) {
   if (!idSchema.safeParse(actorId).success) throw createAppError('VALIDATION');
   const rows = await tx.execute(sql`
     select id, channel_id, owner_actor_id, request_id, message_id, filename, mime,
@@ -88,7 +84,7 @@ export async function exportSubjectFiles(
 }
 /** Use inside the parent maintenance frame after canonical account/channel locks. */
 export async function expireChannelFiles(
-  tx: AuthorizationTransaction,
+  tx: Tx,
   channelId: string,
   now: string,
   fileIds?: readonly string[],
@@ -119,14 +115,14 @@ export async function expireChannelFiles(
 }
 /** The private vendor port must resolve only after actual delete acknowledgement. */
 export async function acknowledgeFileDeletion(
-  database: BunSQLDatabase,
+  database: TxSource,
   fileId: string,
   now: string,
   remove: (key: string) => Promise<void>,
 ) {
   if (!idSchema.safeParse(fileId).success || !Number.isFinite(Date.parse(now)))
     throw createAppError('VALIDATION');
-  return database.transaction(async (tx) => {
+  return inTransaction(database, async (tx) => {
     const [row] = await tx
       .select()
       .from(messagingFiles)
@@ -144,7 +140,7 @@ export async function acknowledgeFileDeletion(
 }
 /** Trusted failure cleanup; caller holds account/channel locks, never touches attached survivor content. */
 export async function failPendingFile(
-  tx: AuthorizationTransaction,
+  tx: Tx,
   scope: { actorId: string; channelId: string },
   token: { fileId: string; generation: number },
 ) {
@@ -157,9 +153,7 @@ export async function failPendingFile(
 }
 
 /** Global charged bytes include unlinked erasure intents until acknowledged. */
-export async function chargedFileBytes(
-  tx: AuthorizationTransaction,
-): Promise<string> {
+export async function chargedFileBytes(tx: Tx): Promise<string> {
   const rows = await tx.execute(sql`
     select (coalesce((select sum(reserved_bytes) from messaging_files where lifecycle <> 'deleted'),0)
       + coalesce((select sum(charged_bytes) from messaging_file_deletion_intents),0))::text as bytes
@@ -168,13 +162,13 @@ export async function chargedFileBytes(
 }
 /** Internal worker port; erased intents contain no subject or channel lookup. */
 export async function acknowledgeErasedFileDeletion(
-  database: BunSQLDatabase,
+  database: TxSource,
   objectKey: string,
   remove: (key: string) => Promise<void>,
 ) {
   if (!idSchema.safeParse(objectKey).success)
     throw createAppError('VALIDATION');
-  return database.transaction(async (tx) => {
+  return inTransaction(database, async (tx) => {
     const [intent] = await tx
       .select()
       .from(messagingFileDeletionIntents)
@@ -192,7 +186,7 @@ type FileDeletionWork =
   | { readonly kind: 'erased'; readonly objectKey: string };
 /** Internal bounded worker discovery; never an HTTP/user projection. */
 export async function pendingFileDeletions(
-  tx: AuthorizationTransaction,
+  tx: Tx,
   maxItems: number,
 ): Promise<readonly FileDeletionWork[]> {
   if (!Number.isSafeInteger(maxItems) || maxItems < 1 || maxItems > 65535)

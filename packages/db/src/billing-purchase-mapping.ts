@@ -7,9 +7,9 @@ import {
   billingOwnerColumns,
   type Purchase,
 } from '@daisy/protocol/billing';
-import type { BoundedTransactionContext } from './transaction-context';
 import { billingCustomers } from './schema/billing-customers';
 import { billingSubscriptions } from './schema/billing-subscriptions';
+import type { Tx } from './tx';
 
 function matchingCustomer(
   customer: typeof billingCustomers.$inferSelect | undefined,
@@ -35,7 +35,7 @@ export function permitsNewSubscription(
 
 /** A verified completed Session establishes identity, never paid evidence or grants. */
 export async function completePurchaseMapping(input: {
-  readonly tx: BoundedTransactionContext;
+  readonly tx: Tx;
   readonly purchase: Purchase;
   readonly customer: typeof billingCustomers.$inferSelect | undefined;
   readonly subscription: typeof billingSubscriptions.$inferSelect | undefined;

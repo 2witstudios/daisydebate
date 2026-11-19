@@ -1,10 +1,7 @@
 import { sql } from 'drizzle-orm';
-import type { BoundedTransactionContext } from '../transaction-context';
+import type { Tx } from '../tx';
 /** Boolean only, under the caller's owning Round lock. No payload, account lock or privacy authority is borrowed. */
-export async function pending(
-  tx: BoundedTransactionContext,
-  roundId: string,
-): Promise<boolean> {
+export async function pending(tx: Tx, roundId: string): Promise<boolean> {
   const [row] = (await tx.execute(sql`select
     exists(select 1 from necessary_evidence e
       where e.original_round_id=${roundId}

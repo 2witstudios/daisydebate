@@ -7,7 +7,7 @@ import { sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { lockAuthorizationActors } from './authorization';
 import { scopeTransaction } from './tenant-scope';
-import type { BoundedTransactionContext } from './transaction-context';
+import type { Tx } from './tx';
 
 type SeatGrant = Extract<EntitlementGrant, { source: 'organization_seat' }>;
 /** One holder's projected grants: what `clubSeatGrants` (auth) returns per seat. */
@@ -37,7 +37,7 @@ const holderGrantsSchema = z
 
 /** A club's seats, read under its scope (set by the caller's club lock or here). */
 export async function readClubSeats(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   organizationId: string,
 ): Promise<readonly ClubSeat[]> {
   const rows = await tx.execute(
@@ -57,7 +57,7 @@ export async function readClubSeats(
  * treats a different holder set as stale.
  */
 export async function lockClubSeatHolderAccounts(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   organizationId: string,
   extraUserIds: readonly string[] = [],
 ) {
@@ -95,7 +95,7 @@ export const sameHolders = (
  * with no projected grants (unfunded, or no access) is revoked.
  */
 export async function writeClubSeatGrants(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   organizationId: string,
   holders: readonly SeatHolderGrants[],
 ) {

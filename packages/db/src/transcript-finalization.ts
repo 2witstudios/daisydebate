@@ -13,8 +13,6 @@ import {
 import { appendTranscriptChanged } from './transcript-signal';
 import { createAppError } from '@daisy/errors';
 import { eq, sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
-import type { BoundedTransactionContext } from './transaction-context';
 import {
   executeLockedRoundTick,
   type LockedRoundTickInput,
@@ -36,9 +34,10 @@ import { roundTranscriptFreezes } from './schema/round-transcript-freezes';
 import { roundTranscripts } from './schema/transcript-segments';
 import { rounds } from './schema/rounds';
 import { notifyWork } from './work-wake';
+import type { TxSource, Tx } from './tx';
 
 export const transcriptFinalizationOperations = (input: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
 }) => ({
   /** Callers enforce private transcript/judge authorization before this internal read. */
   readFrozenRoundTranscript: (roundId: string) =>
@@ -70,7 +69,7 @@ export type FreezeRequest = LockedRoundTickInput & {
  * judging intent per eligible bot judge, unless the plan withholds AI judging.
  */
 async function planFrozenJudging(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   request: FreezeRequest,
   completeness: 'complete' | 'incomplete',
   capture: FrozenCapture,
@@ -110,7 +109,7 @@ async function planFrozenJudging(
 }
 /** Existing Round/lease/stream operation; a service consumer can recheck its lease after waits. */
 export async function finalizeLockedRoundTranscript(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   request: FreezeRequest,
   assertCurrent: () => Promise<void> = async () => {},
   roundTime?: RoundTimeSource,

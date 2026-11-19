@@ -1,13 +1,11 @@
 import type { RoundCommandReceipt, RoundProjection } from '@daisy/protocol';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import {
   insertCommandRow,
   lockedRoundVersion,
   writeProjectionWithPhaseSignal,
 } from './round-projection-writer';
 import { writeSpeakingProjection } from './round-speaking-writer';
-
-type Tx = Pick<BunSQLDatabase, 'select' | 'update' | 'insert' | 'execute'>;
+import type { Tx } from './tx';
 
 /**
  * Writes one decided command under the Round's lock: its projection, its

@@ -2,9 +2,9 @@ import { currentRoundParticipant } from './round-current-participant';
 import { createAppError } from '@daisy/errors';
 import type { JudgingPanelFacts } from '@daisy/protocol';
 import { and, eq, sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { ballots } from './schema/ballots';
 import { roundJudgingJobs } from './schema/round-judging-jobs';
+import type { Tx } from './tx';
 
 const iso = (column: string) =>
   sql.raw(
@@ -18,7 +18,7 @@ const iso = (column: string) =>
  * is corruption, never a hold without end.
  */
 export async function readJudgingPanelFacts(
-  tx: Pick<BunSQLDatabase, 'select' | 'execute'>,
+  tx: Tx,
   input: {
     readonly roundId: string;
     readonly completeness: JudgingPanelFacts['completeness'];

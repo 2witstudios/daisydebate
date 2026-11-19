@@ -8,7 +8,8 @@ import { certificationResults, certifications } from '../schema/certifications';
 import { actionHistory } from '../schema/grants';
 import { draws } from '../schema/draws';
 import { loadTournamentEventSettingFacts } from './tournament-event-settings';
-import type { TabDatabase, TabTransaction } from './tab-transaction';
+import type { TabDatabase } from './tab-transaction';
+import { inTransaction, type Tx } from '../tx';
 
 export type EventCompetitionInput = {
   readonly viewerUserId: string;
@@ -19,7 +20,7 @@ export type EventCompetitionInput = {
 
 /** The event metadata fence protects a coherent append-only competition read. */
 export async function loadEventCompetition(
-  tx: TabTransaction,
+  tx: Tx,
   input: EventCompetitionInput,
 ) {
   const context = await loadTournamentEventSettingFacts(tx, input);
@@ -106,7 +107,7 @@ export const createEventCompetitionStore = (database: TabDatabase) => ({
     input: EventCompetitionInput,
     work: (facts: EventCompetitionFacts | null) => Promise<Answer>,
   ): Promise<Answer> =>
-    database.transaction(async (tx) =>
+    inTransaction(database, async (tx) =>
       work(await loadEventCompetition(tx, input)),
     ),
 });

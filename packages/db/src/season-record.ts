@@ -1,8 +1,8 @@
 import type { RatingDivision } from '@daisy/protocol';
 import { desc, eq } from 'drizzle-orm';
 import { daisyOrganizationId } from './daisy-reference';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { seasons, type seasonStatuses } from './schema/ratings';
+import type { TxSource } from './tx';
 
 /**
  * A season as the season operations and the standings reads return it.
@@ -36,7 +36,7 @@ export const toSeasonRecord = (
  * for the CLI and the ladder. A league's season is not a rating season.
  */
 export const listSeasonRecords = async (
-  database: BunSQLDatabase,
+  database: TxSource,
 ): Promise<readonly SeasonRecord[]> =>
   (
     await database

@@ -7,13 +7,12 @@ import {
 } from '@daisy/protocol';
 import { eq } from 'drizzle-orm';
 import { readAuthorizationActors } from './authorization';
-import type { BoundedTransactionContext } from './transaction-context';
 import { actors } from './schema/actors';
 import { roundParticipants } from './schema/round-participants';
 import { rounds } from './schema/rounds';
 import { necessaryEvidence } from './schema/necessary-evidence';
+import type { Tx } from './tx';
 
-type Tx = BoundedTransactionContext;
 async function evidenceCast(tx: Tx, roundId: string) {
   const [round] = await tx
     .select({ creator: rounds.createdByActorId })

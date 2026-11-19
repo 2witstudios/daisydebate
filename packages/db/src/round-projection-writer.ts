@@ -8,7 +8,6 @@ import {
 } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
 import { and, eq, isNull, sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type {
   RoundOutcome,
   RoundProjection,
@@ -40,8 +39,7 @@ import { roundPrivateSpans } from './schema/round-private-spans';
 import { roundSegments } from './schema/round-segments';
 import { rounds } from './schema/rounds';
 import { notifyWork, type WorkKind } from './work-wake';
-
-type Tx = Pick<BunSQLDatabase, 'select' | 'update' | 'insert' | 'execute'>;
+import type { Tx } from './tx';
 
 /** Append the canonical content-free invalidation for a persisted Round revision. */
 export async function appendRoundPhaseChanged(

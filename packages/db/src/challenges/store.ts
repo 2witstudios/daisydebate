@@ -1,5 +1,4 @@
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type {
   CompetitionType,
   RatingDivision,
@@ -20,6 +19,7 @@ import { restrictionInForce } from '../moderation/in-force';
 import { challengeOpen } from './open';
 import { roomIsOpen } from '../room-open';
 import { challengeFrame, type ChallengeFrame } from './frame';
+import type { TxSource, Tx } from '../tx';
 
 /** Challenges over the shared Contacts fence (ADR 0103). */
 export type ChallengeStore = {
@@ -33,7 +33,7 @@ export function createChallengeStore({
   database,
   authorize,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
   readonly authorize: ContactAuthorizationFence;
 }): ChallengeStore {
   return {
@@ -71,7 +71,7 @@ const CHALLENGE_LIST_MAX = 40;
  * whose room is still gathering. Blocked pairs and closed accounts drop out. Reads only.
  */
 export function listChallenges(
-  database: BunSQLDatabase,
+  database: TxSource,
   scope: Scope,
   now: string,
   authorize: OwnCollectionFence<Scope>,
@@ -114,7 +114,7 @@ export function listChallenges(
 
 /** Removes offers past their time; the list already ignores them. */
 export async function purgeExpiredChallenges(
-  database: Pick<BunSQLDatabase, 'execute'>,
+  database: Tx,
   input: { readonly now: string; readonly limit: number },
 ): Promise<number> {
   const rows = await database.execute(sql`
@@ -131,7 +131,7 @@ export const challengeReadOperations = ({
   database,
   eventSink,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
   listChallenges: (

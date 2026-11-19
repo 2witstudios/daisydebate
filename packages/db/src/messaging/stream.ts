@@ -1,8 +1,7 @@
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
+import type { Tx } from '../tx';
 
-type StreamTransaction = Pick<BunSQLDatabase, 'execute'>;
 /** The channel stream's high-water mark: the last message position and content revision. */
 export type ChannelStream = {
   readonly messageSequence: number;
@@ -30,14 +29,14 @@ const streamOf = (row: Record<string, unknown> | undefined) => {
 };
 
 /** Opens a new channel's stream at its first content revision (creation). */
-export async function openStream(tx: StreamTransaction, channelId: string) {
+export async function openStream(tx: Tx, channelId: string) {
   await tx.execute(sql`insert into messaging_channel_streams(channel_id, message_sequence, change_version)
     values(${channelId}, 0, 1)`);
 }
 
 /** A reader's MVCC view of the high-water mark: never locks the stream row. */
 export async function readStream(
-  tx: StreamTransaction,
+  tx: Tx,
   channelId: string,
 ): Promise<ChannelStream> {
   const [row] = await tx.execute(sql`
@@ -54,7 +53,7 @@ export async function readStream(
  * and never on the authority fence. Readers never take it.
  */
 export async function lockStream(
-  tx: StreamTransaction,
+  tx: Tx,
   channelId: string,
 ): Promise<ChannelStream> {
   const [row] = await tx.execute(sql`
@@ -102,7 +101,7 @@ export function allocateStream(
  * throws and rolls everything back), and the counters are written once.
  */
 export async function appendStream(
-  tx: StreamTransaction,
+  tx: Tx,
   channelId: string,
   plan: StreamAppendPlan,
 ): Promise<StreamAllocation> {

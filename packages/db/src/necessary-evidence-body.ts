@@ -9,17 +9,13 @@ import { originalEvidenceBinding } from './necessary-evidence-binding';
 import { lockOriginalNecessaryEvidence } from './necessary-evidence-subjects';
 import { requireRoundEvidenceOpen } from './necessary-evidence-rounds';
 import { sampleRoundExecutionTime } from './round-execution-time';
-import type { CaptureTx } from './media-capture-context';
 import { rounds } from './schema/rounds';
 import { roundSegments } from './schema/round-segments';
 import { roundSpeakingIntervals } from './schema/round-speaking-intervals';
 import { requireEvidenceFrontierOpen } from './necessary-evidence-frontier';
+import type { Tx } from './tx';
 /** Original authoritative history is read-only; successor capture rights never authorize these bytes. */
-async function originalHistory(
-  tx: CaptureTx,
-  body: CaptureEvidenceBody,
-  now: Date,
-) {
+async function originalHistory(tx: Tx, body: CaptureEvidenceBody, now: Date) {
   const [history] = await tx
     .select({
       start: roundSegments.startedAt,
@@ -57,7 +53,7 @@ async function originalHistory(
     throw createAppError('CONFLICT', 'Original evidence history is unproven');
 }
 /** Read-only original body authority after account→Round→intent fences; never a successor capture grant. */
-export async function lockOriginalEvidenceBody(tx: CaptureTx, raw: unknown) {
+export async function lockOriginalEvidenceBody(tx: Tx, raw: unknown) {
   const encoded = canonicalCaptureEvidenceBody(raw);
   if (encoded.kind !== 'encoded') throw createAppError('VALIDATION');
   const { body } = encoded;

@@ -1,7 +1,6 @@
 import { createAppError } from '@daisy/errors';
 import { roundAnalysisLimits, type RoundAnalysisSkill } from '@daisy/protocol';
 import { and, asc, desc, eq, sql } from 'drizzle-orm';
-import type { BoundedTransactionContext } from './transaction-context';
 import type { RoundAnalysisAccess } from './round-analysis-access';
 import type { AnalysisSeat } from './round-analysis-authority';
 import { readLockedFrozenRoundTranscript } from './frozen-transcript';
@@ -10,13 +9,10 @@ import { roundParticipants } from './schema/round-participants';
 import { seatOfColumns } from './seat-columns';
 import { roundSegments } from './schema/round-segments';
 import { rounds } from './schema/rounds';
+import type { Tx } from './tx';
 
 /** Own retained skill scores only, from earlier completed Rounds; never ballots. */
-async function analysisHistory(
-  tx: BoundedTransactionContext,
-  seat: AnalysisSeat,
-  actorId: string,
-) {
+async function analysisHistory(tx: Tx, seat: AnalysisSeat, actorId: string) {
   const rows = await tx
     .select({ work: roundAnalyses.work })
     .from(roundAnalyses)
@@ -50,7 +46,7 @@ async function analysisHistory(
 
 /** Read only inside the current dispatch fence; no claim-time input survives a later purge. */
 export async function readAnalysisInput(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   seat: AnalysisSeat,
   access: RoundAnalysisAccess,
 ) {

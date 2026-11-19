@@ -1,10 +1,10 @@
 import { sql } from 'drizzle-orm';
-import type { AuthorizationTransaction } from '../authorization';
 import type { PrivacyVendor } from './planner';
+import type { Tx } from '../tx';
 
 /** Caller holds the canonical account fence and has proven a new erasure obligation. */
 export async function enqueuePrivacyJob(
-  tx: Pick<AuthorizationTransaction, 'execute'>,
+  tx: Tx,
   job: {
     readonly id: string;
     readonly subjectRef: string;

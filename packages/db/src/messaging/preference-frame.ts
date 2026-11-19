@@ -1,9 +1,9 @@
 import { and, eq, gt, isNull, ne, sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import { messagingPreferenceSchemas } from '@daisy/protocol';
 import { messagingActorStates } from '../schema/messaging-channels';
 import { messagingMessages } from '../schema/messaging-messages';
+import type { Tx } from '../tx';
 type Selection = {
   readonly following: boolean;
   readonly hidden: boolean;
@@ -17,7 +17,7 @@ const fields = {
 };
 /** Caller holds account/pair/channel fences. The exact operation's current read policy is mandatory. */
 export function channelPreferenceFrame(
-  tx: Pick<BunSQLDatabase, 'select' | 'insert'>,
+  tx: Tx,
   scope: { readonly channelId: string; readonly actorId: string },
   authorize: (operation: 'read' | 'update') => Promise<void>,
 ) {

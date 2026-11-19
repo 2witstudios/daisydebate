@@ -1,6 +1,5 @@
 import { invalidateMessagingInboxes } from './inbox-change';
 import { and, eq } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import { messagingChannels } from '../schema/messaging-channels';
 import {
@@ -17,7 +16,7 @@ import { openStream } from './stream';
 import type { ContactInput } from '../contacts/fence';
 import type { MessagingSocialFrame } from './social-contracts';
 import type { ContactReactions } from '../contacts/reactions';
-type Tx = Pick<BunSQLDatabase, 'select' | 'insert' | 'update' | 'execute'>;
+import type { Tx } from '../tx';
 type Pair = typeof contactPairs.$inferSelect;
 
 /** Pair fence is already held; all counts share the initiating account fence. */

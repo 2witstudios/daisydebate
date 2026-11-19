@@ -1,13 +1,10 @@
 import { createAppError } from '@daisy/errors';
 import { sql } from 'drizzle-orm';
 import { isBoundedTransactionContext } from './transaction-context';
-import type { FlagReadTransaction } from './flags-read';
+import type { Tx } from './tx';
 
 /** Command -> account -> Flags -> rows. Never acquire an account after this lock. */
-export async function lockFlags(
-  tx: FlagReadTransaction,
-  mode: 'read' | 'write',
-) {
+export async function lockFlags(tx: Tx, mode: 'read' | 'write') {
   const held =
     (await tx.execute(sql`select mode from pg_locks where pid=pg_backend_pid()
     and locktype='advisory' and classid=59118 and objid=1 and objsubid=2 and granted`)) as unknown as {
@@ -33,7 +30,7 @@ export async function lockFlags(
   );
 }
 
-async function boundFlagsTransaction(tx: FlagReadTransaction) {
+async function boundFlagsTransaction(tx: Tx) {
   await tx.execute(sql`select set_config(name,
       least(coalesce(nullif(setting::integer, 0), cap), cap)::text, true)
     from pg_settings join (values ('lock_timeout', 2000),

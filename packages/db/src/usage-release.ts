@@ -5,18 +5,18 @@ import type { FreeBindingReleaseFacts } from '@daisy/protocol/billing';
 import { usageStateSchema } from '@daisy/protocol/billing';
 import { lockAuthorizationActors } from './authorization';
 import type { BoundedTransaction } from './bounded-transaction';
-import type { BoundedTransactionContext } from './transaction-context';
 import { rounds } from './schema/rounds';
 import { usageReservations } from './schema/usage-reservations';
 import { advanceUsageLocked } from './usage-ledger';
 import { readDatabaseTime } from './database-clock';
 import { requireAdmissionTarget } from './round-usage-authority';
+import type { Tx } from './tx';
 
 type ReleasePolicy = (facts: FreeBindingReleaseFacts) => boolean;
 
 type Row = typeof usageReservations.$inferSelect;
 async function releaseReservedRows(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   rows: readonly Row[],
   target: { readonly actorId: string; readonly roundId: string },
 ) {

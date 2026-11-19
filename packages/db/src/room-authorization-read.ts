@@ -1,6 +1,5 @@
 import { currentRoundParticipant } from './round-current-participant';
 import { and, eq } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { idSchema, type SeatKind } from '@daisy/protocol';
 import { seatOfColumns } from './seat-columns';
 import { createAppError } from '@daisy/errors';
@@ -8,6 +7,7 @@ import { rooms, roomParticipants } from './schema/rooms';
 import { rounds } from './schema/rounds';
 import { roundParticipants } from './schema/round-participants';
 import { sharedAccount, type Caller } from './room-command-facts';
+import { inTransaction, type TxSource } from './tx';
 
 type AuthorizationParticipant = {
   readonly actorId: string | null;
@@ -28,13 +28,13 @@ function projectParticipants(rows: readonly AuthorizationParticipant[]) {
 export function roomAuthorizationRead({
   database,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
 }) {
   return {
     readRoomAuthorizationFacts: async (roomId: string, caller: Caller) => {
       if (!idSchema.safeParse(roomId).success)
         throw createAppError('VALIDATION');
-      return database.transaction(async (tx) => {
+      return inTransaction(database, async (tx) => {
         const account = await sharedAccount(tx, caller);
         // One statement snapshot keeps membership and Room revision coherent.
         const rows = await tx
@@ -71,7 +71,7 @@ export function roomAuthorizationRead({
     readRoundAuthorizationFacts: async (roundId: string, caller: Caller) => {
       if (!idSchema.safeParse(roundId).success)
         throw createAppError('VALIDATION');
-      return database.transaction(async (tx) => {
+      return inTransaction(database, async (tx) => {
         const account = await sharedAccount(tx, caller);
         const rows = await tx
           .select({

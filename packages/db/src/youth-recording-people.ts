@@ -1,9 +1,6 @@
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { rowsOf } from './raw-rows';
-
-/** A connection or a transaction: the read runs on the caller's. */
-type Tx = Pick<BunSQLDatabase, 'execute'>;
+import type { Tx } from './tx';
 
 /**
  * A minor's linked adults (ADR 0150 §3, ADR 0158): an adult with an active

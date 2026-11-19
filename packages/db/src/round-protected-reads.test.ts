@@ -3,13 +3,14 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { CaptureRule } from '@daisy/protocol';
 import { readTranscriptSnapshot } from './round-protected-reads';
 import { fakeSql } from './scripted-bun-wire';
+import { inTransaction } from './tx';
 
 setupRitewayBun();
 
 test('the transcript snapshot reads its revision before any transcript rows', async () => {
   const { client, queries } = fakeSql([[], [], [], [], [], []]);
   const database = drizzle({ client });
-  const snapshot = await database.transaction((tx) =>
+  const snapshot = await inTransaction(database, (tx) =>
     readTranscriptSnapshot(tx, 'r'.repeat(24), {} as CaptureRule),
   );
   const order = queries

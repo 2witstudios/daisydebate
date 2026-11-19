@@ -1,16 +1,16 @@
 import { createAppError } from '@daisy/errors';
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { readFlagSnapshot } from './flags-read';
 import { runFlagCommand, type FlagCommandInput } from './flags-command';
 import { lockFlags } from './flags-lock';
+import { inTransaction, type TxSource } from './tx';
 
 export function flagOperations({
   database,
   eventSink,
 }: {
-  readonly database: Pick<BunSQLDatabase, 'transaction' | 'execute'>;
+  readonly database: TxSource;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) {
   return {
@@ -20,7 +20,7 @@ export function flagOperations({
       ),
     runFlagCommand: (input: FlagCommandInput) =>
       instrumented(eventSink, 'runFlagCommand', () =>
-        database.transaction((tx) => runFlagCommand(tx, input)),
+        inTransaction(database, (tx) => runFlagCommand(tx, input)),
       ),
     purgeExpiredFlagOverrides: ({
       before,
@@ -30,7 +30,7 @@ export function flagOperations({
       readonly limit: number;
     }) =>
       instrumented(eventSink, 'purgeExpiredFlagOverrides', () =>
-        database.transaction(async (tx) => {
+        inTransaction(database, async (tx) => {
           if (
             !Number.isSafeInteger(limit) ||
             limit < 1 ||

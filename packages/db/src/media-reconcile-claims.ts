@@ -6,9 +6,7 @@ import {
   type RuntimeCheckpoint,
 } from '@daisy/protocol';
 import { eq, sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type { BoundedTransaction } from './bounded-transaction';
-import type { BoundedTransactionContext } from './transaction-context';
 import {
   lockMediaRound,
   mediaId,
@@ -19,6 +17,7 @@ import { mediaSessions } from './schema/media-sessions';
 import { rounds } from './schema/rounds';
 import { roundSegments } from './schema/round-segments';
 import { reconcileClaim } from './media-reconcile-rules';
+import type { TxSource, Tx } from './tx';
 type ActiveSessionRow = {
   readonly round_id: string;
   readonly reconcile_started_at: Date | null;
@@ -125,14 +124,14 @@ const activeSession = (row: ActiveSessionRow) => {
   };
 };
 export function createMediaReconcileClaims(deps: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
   readonly run: BoundedTransaction;
   readonly locked: (
-    tx: BoundedTransactionContext,
+    tx: Tx,
     sessionId: string,
   ) => Promise<typeof mediaSessions.$inferSelect>;
   readonly pending: (
-    tx: BoundedTransactionContext,
+    tx: Tx,
     sessionId: string,
   ) => Promise<readonly { readonly id: string }[]>;
 }) {

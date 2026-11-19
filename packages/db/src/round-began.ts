@@ -1,17 +1,14 @@
 import { createId } from '@paralleldrive/cuid2';
 import { sql } from 'drizzle-orm';
-import type { AuthorizationTransaction } from './authorization';
 import { oweNotifications } from './notifications/owe';
 import { rowsOf } from './raw-rows';
+import type { Tx } from './tx';
 
 /**
  * The seated members a Round's start needs: every live account in a debater
  * or judge seat. A bot has no account, so it is never told.
  */
-const seatedMembers = async (
-  tx: Pick<AuthorizationTransaction, 'execute'>,
-  roundId: string,
-) =>
+const seatedMembers = async (tx: Tx, roundId: string) =>
   rowsOf<{ user_id: string }>(
     tx,
     sql`select distinct u.id as user_id from round_participants p
@@ -26,7 +23,7 @@ const seatedMembers = async (
  * or never (ADR 0144).
  */
 export async function oweRoundStarted(
-  tx: AuthorizationTransaction,
+  tx: Tx,
   input: { readonly roundId: string; readonly at: string },
 ): Promise<void> {
   const members = await seatedMembers(tx, input.roundId);

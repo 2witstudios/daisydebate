@@ -1,6 +1,5 @@
 import { sql, type SQL } from 'drizzle-orm';
 import { daisyOrganizationId } from './daisy-reference';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import {
   ratingStyles,
   type RatingDivision,
@@ -19,6 +18,7 @@ import {
   type SpectatorClock,
 } from './spectator-release-sql';
 import { youthRoundSql } from './youth-round-sql';
+import type { TxSource } from './tx';
 
 type CardRatingRow = {
   readonly actorId: string;
@@ -81,7 +81,7 @@ type CardRecordRow = {
  * division's active season, released.
  */
 const readCardRatings = async (
-  database: BunSQLDatabase,
+  database: TxSource,
   ids: SQL,
   clock: SpectatorClock,
 ): Promise<readonly CardRatingRow[]> => {
@@ -128,7 +128,7 @@ export const memberCardOperations = ({
   database,
   eventSink,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
   /** Public Rounds only, never a Youth Round (ADR 0150), for any viewer. */

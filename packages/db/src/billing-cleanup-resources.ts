@@ -6,18 +6,18 @@ import {
   type CleanupEvent,
 } from '@daisy/protocol/billing';
 import type { BoundedTransaction } from './bounded-transaction';
-import type { BoundedTransactionContext } from './transaction-context';
 import { lockCleanupJob, cleanupContext } from './billing-cleanup-authority';
 import { billingPurchases } from './schema/billing-purchases';
 import { billingRefundActions } from './schema/billing-refund-actions';
 import { purchaseFromRow } from './billing-purchase-authority';
 import { refundFromRow } from './billing-refund-authority';
+import type { Tx } from './tx';
 const refuse = { kind: 'refuse' } as const;
 type LocalWork = Extract<CleanupWork, { kind: 'scan' }>;
 
 /** Positive local terminal facts are re-read under the caller's canonical account/job fence. */
 export async function currentCleanupResolution(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   userId: string,
   event: Extract<CleanupEvent, { kind: 'resolved' }>,
 ) {
@@ -41,11 +41,7 @@ export async function currentCleanupResolution(
     ['complete', 'expired', 'abandoned'].includes(resource.purchase.state.kind)
   );
 }
-async function readResources(
-  tx: BoundedTransactionContext,
-  userId: string,
-  work: LocalWork,
-) {
+async function readResources(tx: Tx, userId: string, work: LocalWork) {
   const scan = work.scan;
   if (scan.kind === 'page') {
     const table =

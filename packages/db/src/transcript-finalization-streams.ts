@@ -1,15 +1,15 @@
 import { asc, eq, sql } from 'drizzle-orm';
-import type { BoundedTransactionContext } from './transaction-context';
 import type { CaptureRule } from '@daisy/protocol';
 import { readSeatGrants } from './capture-history';
 import { transcriptSegments } from './schema/transcript-segments';
+import type { Tx } from './tx';
 
 export type ExpectedTranscriptStream = {
   readonly segmentId: string;
   readonly roundParticipantId: string;
 };
 export async function lockFinalizationStreams(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   roundId: string,
   botGrantUnused: CaptureRule['botGrantUnused'],
 ) {
@@ -43,7 +43,7 @@ export const streamKey = (stream: ExpectedTranscriptStream) =>
   `${stream.segmentId}:${stream.roundParticipantId}`;
 
 export async function closeUnresolvedStreams(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   roundId: string,
   facts: Awaited<ReturnType<typeof lockFinalizationStreams>>,
 ) {

@@ -5,7 +5,7 @@ import {
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
-import type { AttendanceTransactionContext } from './attendance-facts';
+import type { Tx } from './tx';
 export type CheckInAttempt = {
   readonly attemptId: string;
   readonly commandId: string;
@@ -43,10 +43,7 @@ export function checkInAttemptLifecycle(
       if (opening === 'unopened') throw createAppError('INVARIANT');
       if (opening === 'absent') throw createAppError('NOT_FOUND');
     },
-    async open(
-      control: AttendanceTransactionContext,
-      metadata: CheckInAttemptMetadata,
-    ): Promise<void> {
+    async open(control: Tx, metadata: CheckInAttemptMetadata): Promise<void> {
       // Production retains the first writer-identity timestamp. An explicitly
       // injected proof resource supplies that same ingress instant in controlled UTC.
       receivedAt = roundTime
@@ -61,7 +58,7 @@ export function checkInAttemptLifecycle(
       opening = rows.length === 1 ? 'present' : 'absent';
     },
     async close(
-      control: AttendanceTransactionContext,
+      control: Tx,
       metadata: CheckInAttemptMetadata,
       outcome: 'committed' | 'aborted',
     ): Promise<void> {
@@ -97,7 +94,7 @@ export function checkInAttemptLifecycle(
 }
 /** Backend absence AND fresh ledger identity settle an orphan. Leases/age are never proof. */
 export async function reconcileCheckInAttempts(
-  control: AttendanceTransactionContext,
+  control: Tx,
   limit: number,
 ): Promise<number> {
   if (!Number.isSafeInteger(limit) || limit < 1 || limit > 1000)

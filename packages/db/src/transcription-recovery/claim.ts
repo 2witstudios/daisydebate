@@ -1,15 +1,15 @@
 import { eq, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
-import type { BoundedTransactionContext } from '../transaction-context';
 import { sampleRoundExecutionTime } from '../round-execution-time';
 import { nextEpoch } from '../lease-policy';
 import { transcriptionRecoveryContexts as contexts } from '../schema/transcription-recovery';
 import { due } from './discover';
 import { lock } from './lock';
 import { claimDigest, type Policy } from './policy';
+import type { Tx } from '../tx';
 
 export async function claim(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   input: { workerId: string; contextId: string; roundId: string },
   options: Policy & { nextToken: () => string },
 ) {

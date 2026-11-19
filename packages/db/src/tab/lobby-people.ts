@@ -7,7 +7,8 @@ import { loadLobbyAuthority } from './lobby-authority';
 import { loadGrantRows, type GrantRow } from './grant-rows';
 import { loadOfferedRoles, type RoleRow } from './role-rows';
 import type { TabAuthorization } from './authority-facts';
-import type { TabDatabase, TabTransaction } from './tab-transaction';
+import type { TabDatabase } from './tab-transaction';
+import { inTransaction, type Tx } from '../tx';
 
 export type LobbyPeopleFacts = {
   readonly lobby: Pick<
@@ -28,7 +29,7 @@ export type LobbyPeopleFacts = {
 
 /** Exact-lobby recipients under the same account and actual-parent fences as grants. */
 async function load(
-  tx: TabTransaction,
+  tx: Tx,
   input: { readonly viewerUserId: string; readonly lobbyId: string },
 ): Promise<LobbyPeopleFacts | null> {
   const authority = await loadLobbyAuthority(tx, input);
@@ -93,5 +94,5 @@ export const createLobbyPeopleStore = (database: TabDatabase) => ({
     input: { readonly viewerUserId: string; readonly lobbyId: string },
     work: (facts: LobbyPeopleFacts | null) => Promise<Answer>,
   ): Promise<Answer> =>
-    database.transaction(async (tx) => work(await load(tx, input))),
+    inTransaction(database, async (tx) => work(await load(tx, input))),
 });

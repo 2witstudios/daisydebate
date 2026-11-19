@@ -14,6 +14,7 @@ import {
 import { createBoundedTransaction } from './bounded-transaction';
 import { scopeTransaction } from './tenant-scope';
 import { createLane } from './workload';
+import { inTransaction } from './tx';
 
 /**
  * A club with a paid Club plan, for the browser suite (ADR 0148): the
@@ -41,7 +42,7 @@ export async function fundTestClub(
     now: performance.now,
   });
   const organizationId = createId();
-  await drizzle({ client }).transaction(async (tx) => {
+  await inTransaction(drizzle({ client }), async (tx) => {
     await scopeTransaction(tx, { organizationId });
     await tx.execute(sql`insert into organizations (id, kind, name, handle, owner_user_id)
       values (${organizationId}, 'school', ${input.name}, ${`club-${organizationId}`}, ${input.owner.userId})`);

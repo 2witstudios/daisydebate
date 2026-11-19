@@ -8,11 +8,11 @@ import { certifications } from '../schema/certifications';
 import { actors } from '../schema/actors';
 import { scopeTransaction } from '../tenant-scope';
 import { loadEventCompetition } from './event-competition';
-import type { TabTransaction } from './tab-transaction';
+import type { Tx } from '../tx';
 
 /** Automatic season admission is host membership plus a followed league template, never participation alone. */
 export async function loadLeagueMembershipEvents(
-  tx: TabTransaction,
+  tx: Tx,
   input: {
     readonly viewerUserId: string;
     readonly organizationId: string;

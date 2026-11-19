@@ -1,4 +1,3 @@
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';
 import {
@@ -10,6 +9,7 @@ import { outbox } from './schema/outbox';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import type { RetentionBatch } from './retention';
 import { deleteExpiredOutboxPrefix } from './outbox-retention';
+import type { Tx } from './tx';
 
 /**
  * Full validation of the append input (RT-2.2 hazard note, plan revision
@@ -39,9 +39,6 @@ export type OutboxRow = OutboxPosition & {
   readonly payload: unknown;
   readonly createdAt: string;
 };
-
-/** A transaction handle: what `database.transaction(async (tx) => ...)` hands the caller. */
-type Tx = Pick<BunSQLDatabase, 'execute' | 'insert'>;
 
 const XID8_MAX = 2n ** 64n - 1n;
 const BIGSERIAL_MAX = 2n ** 63n - 1n;
@@ -179,7 +176,7 @@ const MAX_DRAIN_LIMIT = 500;
  * drained past it.
  */
 export async function drainOutbox(
-  db: Pick<BunSQLDatabase, 'execute'>,
+  db: Tx,
   cursor: OutboxPosition,
   limit = MAX_DRAIN_LIMIT,
 ): Promise<readonly OutboxRow[]> {
@@ -215,9 +212,7 @@ export async function drainOutbox(
  * own cursors. An empty outbox has no final position, so the origin stands
  * in for "nothing yet".
  */
-export async function readOutboxHighWaterMark(
-  db: Pick<BunSQLDatabase, 'execute'>,
-): Promise<OutboxPosition> {
+export async function readOutboxHighWaterMark(db: Tx): Promise<OutboxPosition> {
   const result = await db.execute(sql`
     select txid, seq
     from outbox
@@ -244,7 +239,7 @@ export const outboxOperations = ({
   database,
   eventSink,
 }: {
-  readonly database: Pick<BunSQLDatabase, 'execute'>;
+  readonly database: Tx;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
   /**

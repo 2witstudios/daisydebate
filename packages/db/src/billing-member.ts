@@ -8,8 +8,8 @@ import {
 } from './billing-purchase-authority';
 import { z } from 'zod';
 import { permitsNewSubscription } from './billing-purchase-mapping';
-import type { BoundedTransactionContext } from './transaction-context';
 import type { BoundedTransaction } from './bounded-transaction';
+import type { Tx } from './tx';
 
 type Account = Awaited<ReturnType<typeof lockPurchaseSubject>>['account'];
 
@@ -24,10 +24,7 @@ export function createBillingMember(input: {
     now: string,
   ) => boolean;
 }) {
-  const owned = async (
-    tx: BoundedTransactionContext,
-    subject: PurchaseSubject,
-  ) => {
+  const owned = async (tx: Tx, subject: PurchaseSubject) => {
     const locked = await lockPurchaseSubject(tx, subject);
     if (!input.manage(locked.account) || locked.customer?.closedAt)
       throw createAppError('AUTHORIZATION');

@@ -19,6 +19,7 @@ import { applyResultWrites } from './result-writes';
 import type { FixtureOwnerEffects } from './fixture-owner-write';
 import type { ConfirmationWrite } from './confirmation-write';
 import type { TabDatabase } from './tab-transaction';
+import { inTransaction } from '../tx';
 
 export type ConfirmationOwnerEffects = {
   readonly notificationIds: () => string;
@@ -49,7 +50,7 @@ export const createConfirmationCommandStore = (
       ) => Promise<void>;
     }) => Promise<Answer>,
   ): Promise<Answer> =>
-    database.transaction(async (tx) => {
+    inTransaction(database, async (tx) => {
       let loaded: LoadedConfirmationCommand | null = null;
       return work({
         load: async () => {

@@ -1,5 +1,4 @@
 import { and, eq, isNull, sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import type { ReportReason, ReportSurface } from '@daisy/protocol';
 import {
@@ -19,13 +18,9 @@ import {
   type ModerationReactions,
   type Sanction,
 } from '../moderation/store';
-import {
-  commandGate,
-  storedResult,
-  writeReceipt,
-  type OperatorCommandTransaction as Transaction,
-} from '../operator-command';
+import { commandGate, storedResult, writeReceipt } from '../operator-command';
 import { reports } from '../schema/reports';
+import { inTransaction, type TxSource, type Tx } from '../tx';
 
 /** Reports over the shared Contacts fence (ADR 0103). */
 export type ReportStore = {
@@ -49,7 +44,7 @@ export function createReportStore({
   database,
   authorize,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
   readonly authorize: ContactAuthorizationFence;
 }): ReportStore {
   return {
@@ -127,7 +122,7 @@ export type ReportResolveInput = {
  * outcome calls for one, and the receipt, all or nothing.
  */
 async function resolveReport(
-  tx: Transaction,
+  tx: Tx,
   input: ReportResolveInput,
   dependencies: {
     readonly eventSink: DatabaseEventSink | undefined;
@@ -191,7 +186,7 @@ export const reportOperations = ({
   eventSink,
   moderationReactions,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
   readonly eventSink?: DatabaseEventSink | undefined;
   readonly moderationReactions: (
     rules: RestrictionRules,
@@ -221,7 +216,7 @@ export const reportOperations = ({
     }),
   resolveReport: (input: ReportResolveInput) =>
     instrumented(eventSink, 'resolveReport', () =>
-      database.transaction((tx) =>
+      inTransaction(database, (tx) =>
         resolveReport(tx, input, {
           eventSink,
           reactions: moderationReactions(input.restrictionRules),

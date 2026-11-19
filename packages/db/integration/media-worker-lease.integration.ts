@@ -21,7 +21,7 @@ test('internal capture token admission requires a fresh exact lease and safe non
     const store = mediaCaptureOperations({
       sttLagMs: 60_000,
       captureRule,
-      transaction,
+      run: transaction,
       nextId: createId,
       buildProjection: () => {
         throw new Error('A new Round must not invent a running projection');

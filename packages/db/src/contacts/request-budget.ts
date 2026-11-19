@@ -1,12 +1,10 @@
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import type { ContactPairKey, ContactReactions } from './reactions';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
 import { deleteExpiredBatch, type RetentionBatch } from '../retention';
 import { socialRequestDeclines, socialRequests } from '../schema/contacts';
-
-type Tx = Pick<BunSQLDatabase, 'execute'>;
+import type { Tx } from '../tx';
 
 /** DEC-251 social request budgets, shared by DM and friend requests. */
 export type SocialRequestLimits = {
@@ -208,7 +206,7 @@ export const socialRequestRetention = ({
   database,
   eventSink,
 }: {
-  readonly database: Pick<BunSQLDatabase, 'execute'>;
+  readonly database: Tx;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
   purgeExpiredSocialDeclines: (batch: RetentionBatch) =>

@@ -5,9 +5,9 @@ import {
   loadAuthorizationAccount,
   lockAuthorizationActors,
   readAuthorizationActors,
-  type AuthorizationTransaction,
 } from './authorization';
 import { factOfRow } from './room-command-operations.test-support';
+import type { Tx } from './tx';
 setupRitewayBun();
 const account = {
   userId: 'a'.repeat(24),
@@ -29,7 +29,7 @@ test('both account loaders use the canonical minimal function with distinct sele
       queries.push(dialect.sqlToQuery(query));
       return [{ ...account, username: 'not exposed' }];
     },
-  } as unknown as AuthorizationTransaction;
+  } as unknown as Tx;
   const locked = await lockAuthorizationActors(tx, [account.actorId], {
     maxActors: 1,
   });
@@ -67,7 +67,7 @@ test('readers take the shared account fence; writers keep the exclusive one', as
       queries.push(dialect.sqlToQuery(query).sql);
       return [account];
     },
-  } as unknown as AuthorizationTransaction;
+  } as unknown as Tx;
   const read = await readAuthorizationActors(tx, [account.actorId], {
     maxActors: 1,
   });
@@ -92,7 +92,7 @@ test('readers take the shared account fence; writers keep the exclusive one', as
 test('the shared read refuses the same malformed selectors as the lock', async () => {
   const tx = {
     execute: async () => [],
-  } as unknown as AuthorizationTransaction;
+  } as unknown as Tx;
   const refused = await readAuthorizationActors(tx, ['not-an-id'], {
     maxActors: 1,
   }).catch((error: { code?: string }) => error.code);

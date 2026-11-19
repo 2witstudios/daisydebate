@@ -1,7 +1,6 @@
 import { SPECTATOR_MARGIN_MS, type NotificationKind } from '@daisy/protocol';
 import { isDebatingSeatSql } from '../seat-columns';
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { blockedBetween } from '../debater-follows';
 import { rowsOf } from '../raw-rows';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
@@ -14,8 +13,7 @@ import { oweNotifications } from './owe';
 import { wants } from './preferences';
 import { youthRoundSql } from '../youth-round-sql';
 import { operatorWithheldSql } from '../broadcast-withheld-sql';
-
-type Tx = Pick<BunSQLDatabase, 'execute' | 'insert'>;
+import { inTransaction, type Tx, type TxSource } from '../tx';
 
 const spectatorMargin = sql.raw(
   `interval '${SPECTATOR_MARGIN_MS} milliseconds'`,
@@ -97,7 +95,7 @@ export const watchNotificationOperations = ({
   database,
   eventSink,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
   /**
@@ -153,7 +151,7 @@ export const watchNotificationOperations = ({
       );
       let written = 0;
       for (const event of live)
-        written += await database.transaction(async (tx) => {
+        written += await inTransaction(database, async (tx) => {
           const kind = 'followed_debater_live';
           if (!(await claimFanout(tx, kind, event.round_id))) return 0;
           // Only a public Round reaches a follower, and only while on air.
@@ -165,7 +163,7 @@ export const watchNotificationOperations = ({
           );
         });
       for (const event of ready)
-        written += await database.transaction(async (tx) => {
+        written += await inTransaction(database, async (tx) => {
           const kind = 'recording_ready';
           if (!(await claimFanout(tx, kind, event.round_id))) return 0;
           const seated = await rowsOf<Recipient>(

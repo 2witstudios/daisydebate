@@ -1,7 +1,7 @@
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { readRoundYouth } from './round-youth-read';
 import { readYouthRecordingPeople } from './youth-recording-people';
 import { readStudentLiveRounds } from './youth-students-live';
+import type { TxSource } from './tx';
 
 /**
  * The live audience's own reads (ADR 0155): whether a Round is a Youth one,
@@ -12,7 +12,7 @@ import { readStudentLiveRounds } from './youth-students-live';
 export const youthLiveReadOperations = ({
   database,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
 }) => ({
   readRoundYouth: (roundId: string) => readRoundYouth(database, roundId),
   /**

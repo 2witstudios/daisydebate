@@ -5,12 +5,12 @@ import {
   SPECTATOR_CHAT_WINDOW,
 } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { readReactionTotals } from './audience-reactions';
 import { rowsOf } from './raw-rows';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { readChatPage } from './messaging/spectator-chat';
 import { youthRoundSql } from './youth-round-sql';
+import { inTransaction, type TxSource } from './tx';
 
 /**
  * A Round's audience activity, in one snapshot, as it stands now: rows only, for
@@ -21,7 +21,7 @@ export const audienceSnapshotReads = ({
   database,
   eventSink,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
   readAudienceSnapshot(input: {
@@ -29,7 +29,8 @@ export const audienceSnapshotReads = ({
     readonly beforeSequence?: number;
   }) {
     return instrumented(eventSink, 'readAudienceSnapshot', () =>
-      database.transaction(
+      inTransaction(
+        database,
         async (tx) => {
           const [round] = await rowsOf<{
             visibility: 'public' | 'unlisted';

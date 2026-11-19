@@ -2,8 +2,8 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { PgDialect } from 'drizzle-orm/pg-core';
 import type { SQL } from 'drizzle-orm';
-import type { AuthorizationTransaction } from '../authorization';
 import { readMessagingInboxSummary } from './inbox-summary';
+import type { Tx } from '../tx';
 setupRitewayBun();
 const actorId = 'a'.repeat(24),
   otherActorId = 'b'.repeat(24),
@@ -28,7 +28,7 @@ const transaction = (rows: readonly unknown[]) => {
       statements.push(new PgDialect().sqlToQuery(query));
       return rows;
     },
-  } as unknown as AuthorizationTransaction;
+  } as unknown as Tx;
   return { tx, statements };
 };
 test('an approved conversation summarizes its newest surviving message and unread state', async () => {

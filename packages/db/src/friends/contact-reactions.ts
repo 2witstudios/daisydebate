@@ -1,10 +1,11 @@
 import { and, eq, sql } from 'drizzle-orm';
 import { friendships } from '../schema/friends';
-import type { ContactPairKey, ContactTransaction } from '../contacts/reactions';
+import type { ContactPairKey } from '../contacts/reactions';
+import type { Tx } from '../tx';
 
 /** A block ends any friendship or request; unblocking never restores one. */
 async function endFriendshipOnBlock(
-  tx: ContactTransaction,
+  tx: Tx,
   pair: ContactPairKey,
   blocked: boolean,
 ) {

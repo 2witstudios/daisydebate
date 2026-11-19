@@ -19,6 +19,7 @@ import {
 } from './command-record';
 import { applyDrawWrites, type DrawRoomAssembly } from './draw-writes';
 import type { DrawWrite } from './draw-write';
+import { inTransaction } from '../tx';
 export type DrawCommandSession = {
   readonly lobbyAuthority: () => ReturnType<typeof loadLobbyAuthority>;
   readonly ratingInputs: (
@@ -40,7 +41,7 @@ export const createDrawCommandStore = (database: TabDatabase) => ({
     input: DrawCommandInput,
     work: (session: DrawCommandSession) => Promise<Answer>,
   ): Promise<Answer> =>
-    database.transaction(async (tx) => {
+    inTransaction(database, async (tx) => {
       let loaded: LoadedDrawCommand | null = null;
       return work({
         lobbyAuthority: () =>

@@ -1,5 +1,4 @@
 import { and, eq, sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type {
   RoomAssemblyState,
   RoomCommandReceipt,
@@ -37,11 +36,8 @@ import { rounds } from './schema/rounds';
 
 import { formats } from './schema/formats';
 import { formatRevisions } from './schema/format-revisions';
+import type { Tx } from './tx';
 
-export type Tx = Pick<
-  BunSQLDatabase,
-  'select' | 'insert' | 'update' | 'delete' | 'execute'
->;
 export type Caller = { readonly userId: string; readonly actorId: string };
 export type Account = ReturnType<typeof authorizationAccountFact>;
 export type AuthorizeRoom = (
@@ -68,7 +64,7 @@ export const requireAccount = async (
 };
 /** Standalone reads only: never upgrade this compatible reader fence to a writer fence. */
 export const sharedAccount = async (
-  tx: Pick<Tx, 'execute'>,
+  tx: Tx,
   caller: Caller,
 ): Promise<Account> => {
   if (
@@ -110,7 +106,7 @@ const aiRoleOf = (
   return null;
 };
 export const actorFact = async (
-  tx: Pick<BunSQLDatabase, 'select'>,
+  tx: Tx,
   actorId: string,
 ): Promise<Actor | null> => {
   const [row] = await tx

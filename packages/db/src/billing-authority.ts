@@ -6,9 +6,9 @@ import {
   billingSyncStateSchema,
 } from '@daisy/protocol/billing';
 import { lockAuthorizationActors } from './authorization';
-import type { BoundedTransactionContext } from './transaction-context';
 import { billingCustomers } from './schema/billing-customers';
 import { lockClub, type LockedClub } from './billing-owner-lock';
+import type { Tx } from './tx';
 
 type Account = NonNullable<
   Awaited<ReturnType<typeof lockAuthorizationActors>>[number]
@@ -40,7 +40,7 @@ export const billingOwnerRevision = (locked: LockedBillingCustomer) =>
   locked.kind === 'account' ? locked.account.revision : locked.club.revision;
 
 async function lockCustomerRow(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   customerId: string,
 ): Promise<Customer | null> {
   const [customer] = await tx
@@ -63,7 +63,7 @@ async function lockCustomerRow(
  * calling this (account fences, then the club, then billing rows).
  */
 export async function lockBillingCustomer(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   customerId: string,
 ): Promise<LockedBillingCustomer | null> {
   if (!idSchema.safeParse(customerId).success)

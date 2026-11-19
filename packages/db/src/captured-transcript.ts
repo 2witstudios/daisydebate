@@ -14,16 +14,16 @@ import {
   freshCaptureMutation,
   validCaptureIds,
   type CaptureDependencies,
-  type CaptureTx,
 } from './media-capture-context';
 import { transcriptSegments } from './schema/transcript-segments';
 import { utterances } from './schema/utterances';
 import { clipDigests, requireCapturedWindow } from './capture-rules';
+import type { Tx } from './tx';
 
 type Clip = z.infer<typeof captureClipSchema>;
 
 export async function appendCapturedTranscript(
-  tx: CaptureTx,
+  tx: Tx,
   input: Clip,
   dependencies: CaptureDependencies,
 ) {

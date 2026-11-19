@@ -15,7 +15,8 @@ import { loadLeagueEvents } from './league-events';
 import { loadLeagueMembershipEvents } from './league-membership-events';
 import { loadLeagueRoomList } from './league-room-list';
 import { scopeTransaction } from '../tenant-scope';
-import type { TabDatabase, TabTransaction } from './tab-transaction';
+import type { TabDatabase } from './tab-transaction';
+import { inTransaction, type Tx } from '../tx';
 
 type Input = {
   readonly viewerUserId: string;
@@ -23,7 +24,7 @@ type Input = {
   readonly seasonId?: string;
   readonly lobbyId?: string;
 };
-async function load(tx: TabTransaction, input: Input) {
+async function load(tx: Tx, input: Input) {
   const scope = await fenceOrganizationRead(tx, input);
   const authorization = await loadAuthorityContext(
     tx,
@@ -199,5 +200,5 @@ export const createLeagueSeasonStore = (database: TabDatabase) => ({
     input: Input,
     work: (facts: LeagueSeasonFacts | null) => Promise<Answer>,
   ): Promise<Answer> =>
-    database.transaction(async (tx) => work(await load(tx, input))),
+    inTransaction(database, async (tx) => work(await load(tx, input))),
 });

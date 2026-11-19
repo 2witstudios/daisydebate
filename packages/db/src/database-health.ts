@@ -1,5 +1,4 @@
 import type { SQL } from 'bun';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { sql } from 'drizzle-orm';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { probeListen } from './listen';
@@ -24,6 +23,7 @@ import {
   runtimeRoleProblems,
   type RuntimeRoleFactsRow,
 } from './runtime-role';
+import { inTransaction, type TxSource } from './tx';
 
 /** Connection/role probes for doctor, startup and health checks over the owned pool. */
 export const databaseHealthOperations = ({
@@ -31,7 +31,7 @@ export const databaseHealthOperations = ({
   dedicated,
   eventSink,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
   /** LISTEN probes need a connection outside every lane. */
   readonly dedicated: SQL;
   readonly eventSink: DatabaseEventSink | undefined;
@@ -90,7 +90,8 @@ export const databaseHealthOperations = ({
           database.execute(sql.raw(statement)),
         );
       const image = await readImageSchema();
-      return database.transaction(
+      return inTransaction(
+        database,
         async (tx) => {
           const journal = (await tx.execute(
             sql`select hash, created_at as "createdAt" from drizzle.__drizzle_migrations order by created_at, id`,

@@ -21,15 +21,13 @@ import {
   or,
   sql,
 } from 'drizzle-orm';
-import type { BoundedTransactionContext } from './transaction-context';
 import { broadcasts } from './schema/broadcasts';
 import { roundPrivateSpans } from './schema/round-private-spans';
 import { roundSegments } from './schema/round-segments';
 import { recordingCaptures } from './schema/recording-captures';
 import { recordingProcessingJobs as jobs } from './schema/recording-processing-jobs';
 import { recordings } from './schema/recordings';
-
-type Tx = BoundedTransactionContext;
+import type { Tx } from './tx';
 
 const stateColumns = (state: RecordingJobState) => ({
   state: recordingJobStateSchema.parse(state),
@@ -58,7 +56,7 @@ export const openRecordingJob = async (
  * left. Nothing happens with no Recording or no Egress yet.
  */
 export const openRecordingJobIfEgressRecorded = async (
-  tx: Pick<Tx, 'execute'>,
+  tx: Tx,
   roundId: string,
 ) => {
   const found =

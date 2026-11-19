@@ -1,7 +1,7 @@
 import { createAppError } from '@daisy/errors';
 import { judgingWorkKinds, type JudgingWorkKind } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
-import type { BoundedTransactionContext } from './transaction-context';
+import type { Tx } from './tx';
 
 type DueJudge = {
   readonly roundId: string;
@@ -11,7 +11,7 @@ type DueJudge = {
 
 /** Advisory discovery pages eligible Rounds, never siblings a live claim fences. */
 export async function discoverRoundJudgingJobs(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   limit: number,
   workKind: JudgingWorkKind,
 ): Promise<readonly DueJudge[]> {

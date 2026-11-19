@@ -42,7 +42,7 @@ import { observeCapturedStream, sealCapturedStream } from './capture-stream';
 export const mediaCaptureOperations = (dependencies: CaptureDependencies) => ({
   readMediaCaptureState(raw: unknown) {
     const input = parseCapture(captureReadSchema, raw);
-    return dependencies.transaction((tx) =>
+    return dependencies.run((tx) =>
       readMediaCaptureState(tx, input, dependencies),
     );
   },
@@ -54,7 +54,7 @@ export const mediaCaptureOperations = (dependencies: CaptureDependencies) => ({
    */
   readCurrentCaptureLease(raw: unknown) {
     const input = parseCapture(captureLeaseCheckSchema, raw);
-    return dependencies.transaction(async (tx) => {
+    return dependencies.run(async (tx) => {
       const [row] = (await tx.execute(sql`
         select to_char(clock_timestamp() at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as "serverNow"
         from media_worker_leases l
@@ -78,13 +78,13 @@ export const mediaCaptureOperations = (dependencies: CaptureDependencies) => ({
     if (!['recover', 'mint'].includes(purpose))
       throw createAppError('VALIDATION');
     const input = parseCapture(captureWorkerIdentitySchema, raw);
-    return dependencies.transaction((tx) =>
+    return dependencies.run((tx) =>
       verifyMediaWorkerLease(tx, input, dependencies, purpose),
     );
   },
   async claimMediaWorkerLease(raw: unknown) {
     const input = parseCapture(captureLeaseSchema, raw);
-    return dependencies.transaction(async (tx) => {
+    return dependencies.run(async (tx) => {
       const tick = await lockCaptureRound(tx, input, dependencies);
       validCaptureIds(input.workerId);
       const [current] = await tx
@@ -135,7 +135,7 @@ export const mediaCaptureOperations = (dependencies: CaptureDependencies) => ({
    */
   releaseMediaWorkerLease(raw: unknown) {
     const input = parseCapture(captureWorkerIdentitySchema, raw);
-    return dependencies.transaction(async (tx) => {
+    return dependencies.run(async (tx) => {
       await tx.execute(sql`
         update media_worker_leases set expires_at=least(expires_at,clock_timestamp())
         where session_id=${input.sessionId} and worker_id=${input.workerId}
@@ -148,55 +148,47 @@ export const mediaCaptureOperations = (dependencies: CaptureDependencies) => ({
   withdrawCaptureEvidence(raw: unknown) {
     evidencePolicyOf(dependencies);
     const input = parseCapture(captureRoundEvidenceSchema, raw);
-    return dependencies.transaction((tx) =>
-      withdrawRoundEvidence(tx, input.roundId),
-    );
+    return dependencies.run((tx) => withdrawRoundEvidence(tx, input.roundId));
   },
   claimCaptureEvidenceReconciliation(raw: unknown) {
     const input = parseCapture(captureEvidenceReconciliationSchema, raw);
-    return dependencies.transaction((tx) =>
+    return dependencies.run((tx) =>
       claimEvidenceAcquisition(tx, input, dependencies),
     );
   },
   loadCaptureEvidencePayload(raw: unknown) {
     evidencePolicyOf(dependencies);
-    return dependencies.transaction((tx) =>
-      loadCaptureEvidencePayload(tx, raw),
-    );
+    return dependencies.run((tx) => loadCaptureEvidencePayload(tx, raw));
   },
   readCaptureEvidencePayload(raw: unknown) {
     evidencePolicyOf(dependencies);
-    return dependencies.transaction((tx) =>
-      readCaptureEvidencePayload(tx, raw),
-    );
+    return dependencies.run((tx) => readCaptureEvidencePayload(tx, raw));
   },
   adoptCaptureEvidence(raw: unknown) {
     evidencePolicyOf(dependencies);
-    return dependencies.transaction((tx) =>
-      adoptCaptureEvidencePayload(tx, raw),
-    );
+    return dependencies.run((tx) => adoptCaptureEvidencePayload(tx, raw));
   },
   reserveCaptureEvidence(raw: unknown) {
     const input = parseCapture(captureEvidenceIntentSchema, raw);
-    return dependencies.transaction((tx) =>
+    return dependencies.run((tx) =>
       reserveCaptureEvidenceIntent(tx, input, dependencies),
     );
   },
   appendCapturedTranscript(raw: unknown) {
     const input = parseCapture(captureClipSchema, raw);
-    return dependencies.transaction((tx) =>
+    return dependencies.run((tx) =>
       appendCapturedTranscript(tx, input, dependencies),
     );
   },
   observeCapturedStream(raw: unknown) {
     const input = parseCapture(captureObservationSchema, raw);
-    return dependencies.transaction((tx) =>
+    return dependencies.run((tx) =>
       observeCapturedStream(tx, input, dependencies),
     );
   },
   sealCapturedStream(raw: unknown) {
     const input = parseCapture(captureSealSchema, raw);
-    return dependencies.transaction((tx) =>
+    return dependencies.run((tx) =>
       sealCapturedStream(tx, input, dependencies),
     );
   },

@@ -1,12 +1,8 @@
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
-import {
-  readOwnCollection,
-  type AuthorizationTransaction,
-  type OwnCollectionFence,
-} from '../authorization';
+import { readOwnCollection, type OwnCollectionFence } from '../authorization';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
 import { eraseRetainedAuthorship, requireRetainedAuthor } from './retained-dm';
+import type { Tx, TxSource } from '../tx';
 
 type Scope = { readonly actorId: string; readonly userId: string };
 const rowsOf = <T>(rows: unknown) => rows as T[];
@@ -18,10 +14,7 @@ const iso = (value: unknown) =>
  * count, so the last activity and size are theirs alone; there is no
  * unread state, sequence or counterpart.
  */
-async function listRetained(
-  tx: Pick<BunSQLDatabase, 'execute'>,
-  actorId: string,
-) {
+async function listRetained(tx: Tx, actorId: string) {
   return rowsOf<{ channelId: string; messages: number; lastAt: unknown }>(
     await tx.execute(sql`
     select r.channel_id as "channelId", count(m.id)::int as "messages", max(m.created_at) as "lastAt"
@@ -35,11 +28,7 @@ async function listRetained(
 }
 
 /** The survivor's own live messages in one retained conversation, oldest first. */
-async function readRetained(
-  tx: AuthorizationTransaction,
-  actorId: string,
-  channelId: string,
-) {
+async function readRetained(tx: Tx, actorId: string, channelId: string) {
   await requireRetainedAuthor(tx, actorId, channelId);
   return rowsOf<{
     id: string;
@@ -66,7 +55,7 @@ export const retainedConversationOperations = ({
   database,
   eventSink,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
   listRetainedConversations: (

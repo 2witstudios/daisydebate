@@ -2,7 +2,7 @@ import { entitlementKinds, type EntitlementGrant } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';
-import type { BoundedTransactionContext } from './transaction-context';
+import type { Tx } from './tx';
 
 const grantsSchema = z
   .array(
@@ -25,7 +25,7 @@ const grantsSchema = z
 
 /** Called under the canonical account fence, in the same transaction as verified evidence. */
 export async function replaceSubscriptionGrants(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   userId: string,
   grants: readonly EntitlementGrant[],
 ) {

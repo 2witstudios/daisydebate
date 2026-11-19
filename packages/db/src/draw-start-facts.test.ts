@@ -3,7 +3,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { RoomAssemblyState } from '@daisy/protocol';
 import { fakeSql } from './scripted-bun-wire';
 import { drawStartFacts } from './draw-start-facts';
-import type { Tx } from './room-command-facts';
+import type { Tx } from './tx';
 
 setupRitewayBun();
 

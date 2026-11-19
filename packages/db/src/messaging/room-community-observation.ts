@@ -1,15 +1,13 @@
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createContextChannelCohortAuthority } from './context-channel-observation';
 import {
   fenceRoomCommunity,
   readRoomCommunityFacts,
 } from './room-community-facts';
+import type { TxSource } from '../tx';
 
 /** Named Room chat adopter of the existing channel-messages observation resource. */
-export function createRoomCommunityChannelCohortAuthority(
-  database: BunSQLDatabase,
-) {
+export function createRoomCommunityChannelCohortAuthority(database: TxSource) {
   return createContextChannelCohortAuthority(database, {
     ownerOf: async (tx, channelId) => {
       const [row] = await tx.execute(

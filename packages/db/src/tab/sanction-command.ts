@@ -16,7 +16,8 @@ import { loadAuthorityContext } from './authority-context';
 import { lockEventSettingContext } from './event-setting-context';
 import { loadLobbyAuthority } from './lobby-authority';
 import { appendHistory, storedCommand } from './command-record';
-import type { TabDatabase, TabTransaction } from './tab-transaction';
+import type { TabDatabase } from './tab-transaction';
+import { inTransaction, type Tx } from '../tx';
 
 type Input = {
   readonly senderUserId: string;
@@ -24,7 +25,7 @@ type Input = {
   readonly lobbyId: string;
   readonly command: SanctionCommand;
 };
-async function load(tx: TabTransaction, input: Input) {
+async function load(tx: Tx, input: Input) {
   const scope = {
     subjectUserId: input.senderUserId,
     organizationId: input.organizationId,
@@ -188,7 +189,7 @@ export const createSanctionCommandStore = (database: TabDatabase) => ({
       ) => Promise<void>;
     }) => Promise<Answer>,
   ): Promise<Answer> =>
-    database.transaction(async (tx) =>
+    inTransaction(database, async (tx) =>
       work({
         load: () => load(tx, input),
         stored: (id) => storedCommand(tx, id),

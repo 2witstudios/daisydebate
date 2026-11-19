@@ -1,6 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { bindAuthorizationAgeFact } from './authorization-age-reader';
-import type { AuthorizationTransaction } from './authorization';
+import type { Tx } from './tx';
 setupRitewayBun();
 test('bound minimal age reader uses only its caller transaction', async () => {
   let calls = 0;
@@ -9,7 +9,7 @@ test('bound minimal age reader uses only its caller transaction', async () => {
       calls += 1;
       return [];
     },
-  } as unknown as AuthorizationTransaction;
+  } as unknown as Tx;
   const account = {
     userId: 'a'.repeat(24),
     actorId: 'b'.repeat(24),

@@ -2,9 +2,9 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { PgDialect } from 'drizzle-orm/pg-core';
 import type { SQL } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import { createMessagingFileCleanup } from './file-cleanup';
+import type { TxSource } from '../tx';
 setupRitewayBun();
 const scope = {
   actorId: 'owner'.padEnd(24, 'x'),
@@ -51,7 +51,7 @@ for (const denied of [true, false]) {
         transactions += 1;
         return work(tx);
       },
-    } as unknown as BunSQLDatabase;
+    } as unknown as TxSource;
     const cleanup = createMessagingFileCleanup({
       database,
       authorize: async (actualTx, input, frame) => {

@@ -1,5 +1,4 @@
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { rowsOf } from './raw-rows';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import type { PrivacyAdopter } from './privacy/contracts';
@@ -10,6 +9,7 @@ import {
   type SpectatorClock,
 } from './spectator-release-sql';
 import { youthRoundSql } from './youth-round-sql';
+import type { TxSource } from './tx';
 
 /**
  * What an account has watched (SPECT-1.4). It lists a Round's resolution only
@@ -19,7 +19,7 @@ export const watchHistoryOperations = ({
   database,
   eventSink,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
   /** Keeps the newest visit. A Round with no audience writes nothing. */

@@ -1,12 +1,11 @@
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 
 import { retriedJob } from './retried-job';
 import { observationPurgeJobs } from './schema/observation-purge-jobs';
+import type { Tx } from './tx';
 
-type Execute = Pick<BunSQLDatabase, 'execute'>;
 const purgeJob = retriedJob(observationPurgeJobs);
 
 /** The longest a failed purge waits for its retry. */
@@ -32,7 +31,7 @@ const instant = (value: string) => {
  * or not at all.
  */
 export async function queueObservationPurge(
-  tx: Execute,
+  tx: Tx,
   userId: string,
   now: string,
 ) {
@@ -52,7 +51,7 @@ export async function queueObservationPurge(
  * with exponential backoff, and nothing about the failure is stored.
  */
 export async function deliverObservationPurges(
-  database: Execute,
+  database: Tx,
   input: { readonly now: string; readonly limit: number },
   port: { readonly purge: () => Promise<void> },
 ): Promise<{ readonly succeeded: number; readonly retried: number }> {
@@ -111,9 +110,7 @@ export async function deliverObservationPurges(
  * Jobs not yet delivered, in backoff or past the batch: an unpaid obligation
  * that a run must not report as healthy (ISSUE-1007).
  */
-export async function owedObservationPurges(
-  database: Execute,
-): Promise<number> {
+export async function owedObservationPurges(database: Tx): Promise<number> {
   const rows = (await database.execute(sql`select count(*)::int as owed
     from observation_purge_jobs
     where status = 'pending'`)) as unknown as {

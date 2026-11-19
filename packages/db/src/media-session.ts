@@ -8,7 +8,6 @@ import {
   type BotMediaPrincipal,
 } from './bot-publication-context';
 import { and, eq } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type { BoundedTransaction } from './bounded-transaction';
 import {
   executeLockedRoundTick,
@@ -30,6 +29,7 @@ import {
   type MediaSessionRead,
 } from './media-session-snapshot';
 import { createMediaAdmissionStore } from './media-admission-store';
+import type { TxSource } from './tx';
 
 /** One application SQL pool and its bounded transaction runner; no owned connection lifecycle. */
 export function createMediaSessionStore({
@@ -37,7 +37,7 @@ export function createMediaSessionStore({
   run,
   nextId,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
   readonly run: BoundedTransaction;
   readonly nextId: () => string;
 }) {

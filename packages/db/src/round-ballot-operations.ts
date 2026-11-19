@@ -26,7 +26,6 @@ import {
   type RoundProjection,
 } from '@daisy/protocol';
 import { eq } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import {
   readLockedFrozenRoundTranscript,
   type FrozenRoundTranscript,
@@ -43,7 +42,6 @@ import {
   readRoundWriteContext,
   requireHumanRoundPrincipal,
   roundPrincipalColumns,
-  type RoundWriteTransaction,
 } from './round-write-authority';
 import type { RoundHydration } from './round-hydration';
 import { ballots } from './schema/ballots';
@@ -64,6 +62,7 @@ import {
   requireRoundBallot,
   ballotDecisionColumns,
 } from './round-ballot-decisions';
+import { inTransaction, type Tx, type TxSource } from './tx';
 
 type RoundBallotLeaseContext = {
   readonly roundId: string;
@@ -88,7 +87,7 @@ export type LockedRoundBallotInput = {
   readonly authorize: (context: LockedRoundBallotContext) => void;
   /** Required for bot results; called after locks and on replay, inside this transaction. */
   readonly assertLease?: (
-    tx: RoundWriteTransaction,
+    tx: Tx,
     context: RoundBallotLeaseContext,
   ) => Promise<void>;
   readonly attendanceSettled: AttendanceSettledRule;
@@ -107,10 +106,7 @@ export type LockedRoundBallotInput = {
   ) => RoundProjection | null;
 };
 
-async function replayBallot(
-  tx: RoundWriteTransaction,
-  input: LockedRoundBallotInput,
-) {
+async function replayBallot(tx: Tx, input: LockedRoundBallotInput) {
   const [previous] = await tx
     .select()
     .from(roundCommands)
@@ -125,7 +121,7 @@ async function replayBallot(
   return roundBallotReceiptSchema.parse(previous.result);
 }
 async function lockedBallotContext(
-  tx: RoundWriteTransaction,
+  tx: Tx,
   input: LockedRoundBallotInput,
   roundTime?: RoundTimeSource,
 ) {
@@ -168,7 +164,7 @@ async function lockedBallotContext(
 
 /** Caller supplies a genuinely active transaction; this helper never begins or commits one. */
 export async function executeLockedRoundBallot(
-  tx: RoundWriteTransaction,
+  tx: Tx,
   input: LockedRoundBallotInput,
   roundTime?: RoundTimeSource,
 ): Promise<RoundBallotReceipt> {
@@ -211,7 +207,7 @@ export async function executeLockedRoundBallot(
   return persistBallotResult(tx, input, context, current, ballotId, projection);
 }
 async function persistBallotResult(
-  tx: RoundWriteTransaction,
+  tx: Tx,
   input: LockedRoundBallotInput,
   context: LockedRoundBallotContext,
   current: Awaited<ReturnType<typeof lockedRoundVersion>>,
@@ -268,7 +264,7 @@ async function persistBallotResult(
 }
 
 async function insertFrozenBallot(
-  tx: RoundWriteTransaction,
+  tx: Tx,
   input: LockedRoundBallotInput,
   context: LockedRoundBallotContext & {
     readonly screening: Awaited<ReturnType<typeof lockRoundBallotScreening>>;
@@ -331,14 +327,14 @@ export const roundBallotOperations = ({
   eventSink,
   roundTime,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
   readonly roundTime?: RoundTimeSource | undefined;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
   ...roundBallotReads({ database }),
   executeRoundBallot: (input: LockedRoundBallotInput) =>
     instrumented(eventSink, 'executeRoundBallot', () =>
-      database.transaction((tx) =>
+      inTransaction(database, (tx) =>
         executeLockedRoundBallot(tx, input, roundTime),
       ),
     ),

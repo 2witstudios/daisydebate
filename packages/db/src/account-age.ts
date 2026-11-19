@@ -1,16 +1,13 @@
 import { sql } from 'drizzle-orm';
 import { idSchema } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
-import type { AuthorizationTransaction } from './authorization';
 import type { PrivacyAdopter } from './privacy/contracts';
 import { accountAge } from './schema/account-age';
+import type { Tx } from './tx';
 export { loadAuthorizationAgeFact } from './authorization-age';
 export { bindAuthorizationAgeFact } from './authorization-age-reader';
 /** Same account-fenced transaction as send/contact/erasure; no external pool. */
-export async function loadAccountAgeSource(
-  tx: AuthorizationTransaction,
-  userId: string,
-) {
+export async function loadAccountAgeSource(tx: Tx, userId: string) {
   if (!idSchema.safeParse(userId).success) throw createAppError('VALIDATION');
   const rows = (await tx.execute(
     sql`select birth_month as "birthMonth",version as revision,recorded_at as "recordedAt" from ${accountAge} where user_id=${userId}`,

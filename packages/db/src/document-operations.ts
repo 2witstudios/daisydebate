@@ -1,10 +1,10 @@
 import { and, desc, eq, inArray, isNull, like, sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import { lockAuthorizationActors } from './authorization';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { documentFolders } from './schema/document-folders';
 import { documents } from './schema/documents';
+import { inTransaction, type Tx, type TxSource } from './tx';
 
 /** One owned folder's recursive subtree, shared by confirmation and deletion. */
 const folderSubtree = (id: string) => sql`
@@ -109,14 +109,8 @@ export const documentSaveOutcome = (
       ? { status: 'conflict', revision: current.revision }
       : { status: 'missing' };
 
-type Transaction = Parameters<Parameters<BunSQLDatabase['transaction']>[0]>[0];
-
 /** The fence every drive change takes first, so moves run one at a time per member. */
-const fenced = async (
-  tx: Transaction,
-  ownerActorId: string,
-  admits: DriveAdmission,
-) => {
+const fenced = async (tx: Tx, ownerActorId: string, admits: DriveAdmission) => {
   const [account] = await lockAuthorizationActors(tx, [ownerActorId], {
     maxActors: 1,
   });
@@ -125,7 +119,7 @@ const fenced = async (
 };
 
 const ownFolder = async (
-  tx: Transaction,
+  tx: Tx,
   ownerActorId: string,
   folderId: string | null,
 ) => {
@@ -144,7 +138,7 @@ const ownFolder = async (
 };
 
 const countOf = async (
-  tx: Transaction,
+  tx: Tx,
   query: ReturnType<typeof sql>,
 ): Promise<number> => {
   const [row] = (await tx.execute(query)) as unknown as {
@@ -155,7 +149,7 @@ const countOf = async (
 
 /** The folders above `folderId`, itself first; empty for the root. */
 const ancestors = async (
-  tx: Transaction,
+  tx: Tx,
   ownerActorId: string,
   folderId: string | null,
 ): Promise<readonly string[]> => {
@@ -175,7 +169,7 @@ const ancestors = async (
 };
 
 /** How many levels a folder holds, counting itself. */
-const heightOf = async (tx: Transaction, folderId: string): Promise<number> =>
+const heightOf = async (tx: Tx, folderId: string): Promise<number> =>
   countOf(
     tx,
     sql`
@@ -205,9 +199,9 @@ export const documentOperations = ({
   searchDatabase,
   eventSink,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
   /** The search lane, so a slow search can never hold up a save (ADR 0111). */
-  readonly searchDatabase: BunSQLDatabase;
+  readonly searchDatabase: TxSource;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
   /** One page of a folder, folders first, then documents, each by name. */
@@ -359,7 +353,7 @@ export const documentOperations = ({
     readonly admits: DriveAdmission;
   }): Promise<DocumentRecord> {
     return instrumented(eventSink, 'createDocument', () =>
-      database.transaction(async (tx) => {
+      inTransaction(database, async (tx) => {
         const { ownerActorId, folderId } = input;
         await fenced(tx, ownerActorId, input.admits);
         await ownFolder(tx, ownerActorId, folderId);
@@ -440,7 +434,7 @@ export const documentOperations = ({
     readonly admits: DriveAdmission;
   }): Promise<boolean> {
     return instrumented(eventSink, 'renameDocument', () =>
-      database.transaction(async (tx) => {
+      inTransaction(database, async (tx) => {
         await fenced(tx, input.ownerActorId, input.admits);
         const rows = await tx
           .update(documents)
@@ -464,7 +458,7 @@ export const documentOperations = ({
     readonly admits: DriveAdmission;
   }): Promise<boolean> {
     return instrumented(eventSink, 'moveDocument', () =>
-      database.transaction(async (tx) => {
+      inTransaction(database, async (tx) => {
         await fenced(tx, input.ownerActorId, input.admits);
         await ownFolder(tx, input.ownerActorId, input.folderId);
         const rows = await tx
@@ -488,7 +482,7 @@ export const documentOperations = ({
     readonly admits: DriveAdmission;
   }): Promise<boolean> {
     return instrumented(eventSink, 'deleteDocument', () =>
-      database.transaction(async (tx) => {
+      inTransaction(database, async (tx) => {
         await fenced(tx, input.ownerActorId, input.admits);
         const rows = await tx
           .delete(documents)
@@ -512,7 +506,7 @@ export const documentOperations = ({
     readonly admits: DriveAdmission;
   }): Promise<void> {
     return instrumented(eventSink, 'createDocumentFolder', () =>
-      database.transaction(async (tx) => {
+      inTransaction(database, async (tx) => {
         const { ownerActorId, parentFolderId } = input;
         await fenced(tx, ownerActorId, input.admits);
         await ownFolder(tx, ownerActorId, parentFolderId);
@@ -540,7 +534,7 @@ export const documentOperations = ({
     readonly admits: DriveAdmission;
   }): Promise<boolean> {
     return instrumented(eventSink, 'renameDocumentFolder', () =>
-      database.transaction(async (tx) => {
+      inTransaction(database, async (tx) => {
         await fenced(tx, input.ownerActorId, input.admits);
         const rows = await tx
           .update(documentFolders)
@@ -565,7 +559,7 @@ export const documentOperations = ({
     readonly admits: DriveAdmission;
   }): Promise<void> {
     return instrumented(eventSink, 'moveDocumentFolder', () =>
-      database.transaction(async (tx) => {
+      inTransaction(database, async (tx) => {
         const { id, ownerActorId, parentFolderId } = input;
         await fenced(tx, ownerActorId, input.admits);
         await ownFolder(tx, ownerActorId, id);
@@ -592,7 +586,7 @@ export const documentOperations = ({
     readonly ownerActorId: string;
   }): Promise<number> {
     return instrumented(eventSink, 'countFolderDocuments', () =>
-      database.transaction(async (tx) => {
+      inTransaction(database, async (tx) => {
         await ownFolder(tx, input.ownerActorId, input.id);
         return countOf(
           tx,
@@ -611,7 +605,7 @@ export const documentOperations = ({
     readonly admits: DriveAdmission;
   }): Promise<readonly string[] | null> {
     return instrumented(eventSink, 'deleteDocumentFolder', () =>
-      database.transaction(async (tx) => {
+      inTransaction(database, async (tx) => {
         await fenced(tx, input.ownerActorId, input.admits);
         await ownFolder(tx, input.ownerActorId, input.id);
         // The account fence holds all document mutations until the cascade ends,

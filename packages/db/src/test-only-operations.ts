@@ -1,6 +1,7 @@
 import type { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { users } from './schema/users';
+import { inTransaction, type Tx } from './tx';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 
 /**
@@ -19,7 +20,8 @@ export function createTestOnlyOperations({
 }) {
   const database = drizzle({ client });
   return {
-    transaction: database.transaction.bind(database),
+    transaction: <T>(work: (tx: Tx) => Promise<T>) =>
+      inTransaction(database, work),
     async createUser(input: { id: string; username: string }) {
       return instrumented(eventSink, 'createUser', async () => {
         const [row] = await database.insert(users).values(input).returning();

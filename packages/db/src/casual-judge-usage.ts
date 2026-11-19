@@ -9,9 +9,8 @@ import {
   advanceUsageLocked,
   type AllowanceAccountPolicy,
 } from './usage-ledger';
-import type { BoundedTransactionContext } from './transaction-context';
+import type { Tx } from './tx';
 
-type Tx = Pick<BoundedTransactionContext, 'select' | 'update' | 'execute'>;
 const judgeReservation = async (tx: Tx, roundId: string) =>
   (
     await tx
@@ -28,7 +27,7 @@ const judgeReservation = async (tx: Tx, roundId: string) =>
 
 /** Caller already fenced the Round's accounts before locking Round, run and job. */
 export async function countCasualJudgeModelCall(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   input: {
     readonly roundId: string;
     readonly before: string;

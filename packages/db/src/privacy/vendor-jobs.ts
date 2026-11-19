@@ -1,15 +1,12 @@
 import { sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { retriedJob } from '../retried-job';
 import { privacyJobs } from '../schema/privacy-jobs';
 import { privacyVendors, type PrivacyVendor } from './planner';
+import type { Tx } from '../tx';
 
 const vendorJob = retriedJob(privacyJobs);
-
-/** A committed-pool port. Never pass the local erasure transaction here. */
-type Execute = Pick<BunSQLDatabase, 'execute'>;
 
 /** One due pending vendor deletion job, read for delivery. */
 export type DuePrivacyJob = {
@@ -26,7 +23,7 @@ const MAX_DUE_BATCH = 128;
  * through `deliverPrivacyJob`, which owns claiming, retry and success.
  */
 export async function duePrivacyJobs(
-  database: Execute,
+  database: Tx,
   input: {
     readonly now: string;
     readonly limit: number;
@@ -64,7 +61,7 @@ export async function duePrivacyJobs(
  * that a run must not report as healthy (ISSUE-1007).
  */
 export async function owedPrivacyJobs(
-  database: Execute,
+  database: Tx,
   input: { readonly vendors?: readonly PrivacyVendor[] } = {},
 ): Promise<number> {
   const scope = vendorScope(input.vendors);
@@ -77,7 +74,7 @@ export async function owedPrivacyJobs(
 }
 
 export async function deliverPrivacyJob(
-  database: Pick<BunSQLDatabase, 'execute'>,
+  database: Tx,
   input: {
     readonly jobId: string;
     readonly vendor: PrivacyVendor;

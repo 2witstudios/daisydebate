@@ -3,16 +3,16 @@ import { rowsOf } from '../raw-rows';
 import type { LoadedDrawCommand } from '../tab/draw-command-facts';
 import type { DrawRoomAssembly } from '../tab/draw-writes';
 import type { DrawWrite } from '../tab/draw-write';
-import type { TabTransaction } from '../tab/tab-transaction';
 import {
   fixtureNotificationPeople,
   oweTournamentNotification,
   notifyTournamentRelease,
 } from './tournament';
+import type { Tx } from '../tx';
 
 /** A draft owes nothing; published changes and real assembled Rooms tell only their affected cast. */
 export async function notifyDrawChanges(
-  tx: TabTransaction,
+  tx: Tx,
   loaded: LoadedDrawCommand,
   writes: readonly DrawWrite[],
   assembly: DrawRoomAssembly,

@@ -2,10 +2,7 @@ import { sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import { z } from 'zod';
 import { enqueuePrivacyJob } from './enqueue-job';
-import {
-  lockAuthorizationActors,
-  type AuthorizationTransaction,
-} from '../authorization';
+import { lockAuthorizationActors } from '../authorization';
 import type {
   PrivacyAdopter,
   PrivacyExport,
@@ -18,6 +15,7 @@ import {
   type PrivacyAdoption,
   type PrivacyErasureInput,
 } from './planner';
+import { inTransaction, type Tx } from '../tx';
 
 /** Supplied by the actual token producer, never inferred from token text. */
 export type PrivacyVerificationBinding =
@@ -30,10 +28,7 @@ export type PrivacyVerificationBinding =
       readonly subjectPath: readonly string[];
     };
 
-async function lockSubject(
-  tx: AuthorizationTransaction,
-  subject: PrivacySubject,
-) {
+async function lockSubject(tx: Tx, subject: PrivacySubject) {
   const facts = await lockAuthorizationActors(tx, [subject.actorId], {
     maxActors: 1,
   });
@@ -77,7 +72,7 @@ function checkBindings(bindings: readonly PrivacyVerificationBinding[]) {
 }
 
 async function eraseAdopters(
-  tx: AuthorizationTransaction,
+  tx: Tx,
   subject: PrivacySubject,
   now: string,
   adoption: PrivacyAdoption,
@@ -100,7 +95,7 @@ export async function runPrivacyErasure(
 ) {
   const plan = planPrivacyErasure(input, adoption);
   checkBindings(verificationBindings);
-  return database.transaction(async (tx) => {
+  return inTransaction(database, async (tx) => {
     const account = await lockSubject(tx, plan.subject);
     if (account.erased) return { alreadyErased: true, jobs: [] };
     await eraseAdopters(tx, plan.subject, plan.now, adoption, 'before-auth');
@@ -161,7 +156,7 @@ export async function runPrivacyExport(
   adoption: PrivacyAdoption,
 ): Promise<PrivacyExport> {
   const plan = planPrivacyExport(subject, adoption);
-  return database.transaction(async (tx) => {
+  return inTransaction(database, async (tx) => {
     await lockSubject(tx, plan.subject);
     const rows =
       await tx.execute(sql`select id, username, email, email_verified, name, image,

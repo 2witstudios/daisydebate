@@ -1,17 +1,13 @@
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createContextChannelCohortAuthority } from './context-channel-observation';
 import {
   readRoundFloorFacts,
   fenceRoundFloor,
   type FloorYouth,
 } from './round-floor-facts';
-import type { AuthorizationTransaction } from '../authorization';
+import type { Tx, TxSource } from '../tx';
 
-const floorRoundOf = async (
-  tx: Pick<AuthorizationTransaction, 'execute'>,
-  channelId: string,
-) => {
+const floorRoundOf = async (tx: Tx, channelId: string) => {
   const [row] = await tx.execute(
     sql`select round_id from public.daisy_round_floor_channel(${channelId}::text)`,
   );
@@ -23,9 +19,7 @@ const floorRoundOf = async (
  * A call may carry its Round's linked adults (ADR 0155), which the caller read
  * through its cache before this transaction opened.
  */
-export function createRoundFloorChannelCohortAuthority(
-  database: BunSQLDatabase,
-) {
+export function createRoundFloorChannelCohortAuthority(database: TxSource) {
   const cohortWith = (youth: FloorYouth) =>
     createContextChannelCohortAuthority(database, {
       ownerOf: floorRoundOf,

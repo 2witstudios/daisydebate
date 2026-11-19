@@ -4,9 +4,9 @@ import { createAppError } from '@daisy/errors';
 import {
   loadAuthorizationAccount,
   readAuthorizationActors,
-  type AuthorizationTransaction,
 } from './authorization';
 import type { authorizationAccountFact } from './authorization-account';
+import { inTransaction, type Tx, type TxOpener } from './tx';
 type RealtimeSessionInput = {
   readonly sessionId: string;
   readonly actorId: string;
@@ -17,7 +17,7 @@ type AuthorizationSessionInput = RealtimeSessionInput & {
 };
 /** Ticket identities are hints: reread their exact durable session and account inside the caller's fenced transaction. */
 export async function loadAuthorizationSession(
-  tx: AuthorizationTransaction,
+  tx: Tx,
   input: AuthorizationSessionInput,
 ) {
   return checkedSession(tx, input);
@@ -30,7 +30,7 @@ type AccountFact = NonNullable<ReturnType<typeof authorizationAccountFact>>;
  * session, or an account that is no longer the session's.
  */
 export async function loadAuthorizationSessions(
-  tx: AuthorizationTransaction,
+  tx: Tx,
   input: {
     readonly now: string;
     readonly sessions: readonly Omit<AuthorizationSessionInput, 'now'>[];
@@ -70,7 +70,7 @@ export async function loadAuthorizationSessions(
   });
 }
 async function checkedSession(
-  tx: AuthorizationTransaction,
+  tx: Tx,
   input: RealtimeSessionInput & { readonly userId?: string },
 ) {
   const instant = sessionInstant(input);
@@ -142,16 +142,13 @@ function currentSessionAccount(
 export function authorizationSessionOperations({
   database,
 }: {
-  readonly database: Pick<
-    import('drizzle-orm/bun-sql/postgres').BunSQLDatabase,
-    'transaction'
-  >;
+  readonly database: TxOpener;
 }) {
   const withSession = async (
     input: RealtimeSessionInput & { readonly userId?: string },
   ) => {
     sessionInstant(input);
-    return database.transaction(async (tx) => {
+    return inTransaction(database, async (tx) => {
       await readAuthorizationActors(tx, [input.actorId], { maxActors: 1 });
       return checkedSession(tx, input);
     });

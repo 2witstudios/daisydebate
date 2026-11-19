@@ -1,5 +1,4 @@
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { inLiveRoomSql, liveRoomOfR } from './live-room-sql';
 import type { RoundAudienceAdmission } from './messaging/spectator-chat';
 import { rowsOf } from './raw-rows';
@@ -7,13 +6,14 @@ import { instrumented, type DatabaseEventSink } from './instrumented';
 import type { PrivacyAdopter } from './privacy/contracts';
 import { exportRows } from './privacy/export-rows';
 import { youthRoundSql } from './youth-round-sql';
+import { inTransaction, type Tx, type TxSource } from './tx';
 
 /**
  * The totals inside a caller's snapshot: anonymous and current. Reactions are the
  * audience talking to itself, so nothing holds them back (ADR 0108).
  */
 export const readReactionTotals = async (
-  tx: Pick<BunSQLDatabase, 'execute'>,
+  tx: Tx,
   input: { readonly roundId: string },
 ) =>
   (
@@ -31,7 +31,7 @@ export const audienceReactionOperations = ({
   database,
   eventSink,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
   /**
@@ -56,7 +56,7 @@ export const audienceReactionOperations = ({
     }) => void,
   ) {
     return instrumented(eventSink, 'recordAudienceReaction', () =>
-      database.transaction(async (tx) => {
+      inTransaction(database, async (tx) => {
         const [round] = await rowsOf<{
           visibility: 'public' | 'unlisted';
           audience_link_hash: string | null;

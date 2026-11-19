@@ -9,10 +9,11 @@ import { organizations } from '../schema/organizations';
 import { daisyOrganizationId } from '../daisy-reference';
 import { readDatabaseTime } from '../database-clock';
 import { loadTournamentSetupFacts } from './tournament-setup-read';
-import type { TabDatabase, TabTransaction } from './tab-transaction';
+import type { TabDatabase } from './tab-transaction';
+import { inTransaction, type Tx } from '../tx';
 
 type Input = { readonly viewerUserId: string; readonly lobbyId: string };
-async function load(tx: TabTransaction, input: Input) {
+async function load(tx: Tx, input: Input) {
   const setup = await loadTournamentSetupFacts(tx, input);
   if (!setup) return null;
   const actorId = setup.authorization.account?.actorId;
@@ -113,5 +114,5 @@ export const createHostEventsStore = (database: TabDatabase) => ({
     input: Input,
     work: (facts: HostEventsFacts | null) => Promise<Answer>,
   ): Promise<Answer> =>
-    database.transaction(async (tx) => work(await load(tx, input))),
+    inTransaction(database, async (tx) => work(await load(tx, input))),
 });

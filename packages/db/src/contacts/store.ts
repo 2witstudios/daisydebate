@@ -1,5 +1,4 @@
 import { and, eq } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import { contactCommands } from '../schema/contacts';
@@ -11,6 +10,7 @@ import {
   type ContactInput,
 } from './fence';
 import type { ContactReactions } from './reactions';
+import type { TxSource } from '../tx';
 
 /** One contact command (a block) over a locked contact pair. */
 type ContactFrame = {
@@ -38,7 +38,7 @@ export function createContactStore({
   authorize,
   reactions,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
   readonly authorize: ContactAuthorizationFence;
   readonly reactions: ContactReactions;
 }): ContactStore {

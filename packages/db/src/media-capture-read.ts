@@ -7,7 +7,6 @@ import {
   lockCaptureRound,
   type CaptureDependencies,
   type CaptureIdentity,
-  type CaptureTx,
 } from './media-capture-context';
 import { roundParticipants } from './schema/round-participants';
 import { mediaParticipants } from './schema/media-sessions';
@@ -16,17 +15,14 @@ import { roundSegments } from './schema/round-segments';
 import { roundSpeakingIntervals } from './schema/round-speaking-intervals';
 import { rounds } from './schema/rounds';
 import { requireLiveCaptureLease } from './capture-rules';
+import type { Tx } from './tx';
 
 type ReadScope = CaptureIdentity & {
   readonly segmentId?: string | undefined;
   readonly expectedVersion?: number | undefined;
   readonly afterIntervalId?: string | undefined;
 };
-const historyPage = async (
-  tx: CaptureTx,
-  input: ReadScope,
-  segmentId: string,
-) => {
+const historyPage = async (tx: Tx, input: ReadScope, segmentId: string) => {
   const rows = await tx
     .select()
     .from(roundSpeakingIntervals)
@@ -70,7 +66,7 @@ const segmentView = (segment: typeof roundSegments.$inferSelect | undefined) =>
 
 /** Internal paged read; every page checks the same fresh committed Round version. */
 export async function readMediaCaptureState(
-  tx: CaptureTx,
+  tx: Tx,
   input: ReadScope,
   dependencies: CaptureDependencies,
 ) {

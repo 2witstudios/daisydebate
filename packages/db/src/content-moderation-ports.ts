@@ -3,9 +3,8 @@ import type {
   RebuildableRecordings,
   recordingTakedownReasons,
 } from '@daisy/protocol/content-moderation';
-import type { BoundedTransactionContext } from './transaction-context';
+import type { Tx } from './tx';
 
-type Tx = BoundedTransactionContext;
 type RecordingTakedownReason = (typeof recordingTakedownReasons)[number];
 
 /** A change a port made: it was applied, it already held, or no such thing. */

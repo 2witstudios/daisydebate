@@ -1,7 +1,6 @@
 import type { AllowanceAccountPolicy } from './usage-ledger';
 import { and, eq, isNotNull, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
-import type { BoundedTransactionContext } from './transaction-context';
 import type { BoundedTransaction } from './bounded-transaction';
 import { agentLeaseDigest } from './round-agent-lease';
 import { lockAgentAccounting } from './agent-accounting';
@@ -37,9 +36,10 @@ import { agentRuns } from './schema/agent-runs';
 import { botProfiles } from './schema/bot-profiles';
 import { readOrderedRoundUtterances } from './round-utterance-projection';
 import { utterances } from './schema/utterances';
+import type { Tx } from './tx';
 
 async function speechModel(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   scope: BotPublicationScope,
   characters: number,
   policy: SpeechPolicy,
@@ -71,10 +71,7 @@ async function speechModel(
  * must not leave its successor free to buy the speech again and start it
  * from the top.
  */
-async function requireUnansweredSpeech(
-  tx: BoundedTransactionContext,
-  scope: BotPublicationScope,
-) {
+async function requireUnansweredSpeech(tx: Tx, scope: BotPublicationScope) {
   const [answered] = await tx
     .select({ id: agentRuns.id })
     .from(agentRuns)

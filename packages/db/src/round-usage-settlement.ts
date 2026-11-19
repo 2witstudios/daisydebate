@@ -3,12 +3,10 @@ import { and, eq, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import type { PlatformUsageCredit, UsageEvent } from '@daisy/protocol/billing';
 import { usageStateSchema } from '@daisy/protocol/billing';
-import type { BoundedTransactionContext } from './transaction-context';
 import { usageReservations } from './schema/usage-reservations';
 import { advanceUsageLocked } from './usage-ledger';
 import { isDebatingSeatSql } from './seat-columns';
-
-type Tx = Pick<BoundedTransactionContext, 'select' | 'update' | 'execute'>;
+import type { Tx } from './tx';
 
 /** Only provider executions count, never an orchestration run or a missing response. */
 async function providerOutcome(tx: Tx, roundId: string) {

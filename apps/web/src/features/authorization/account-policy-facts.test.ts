@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import type { AuthorizationTransaction } from '@daisy/db/authorization';
+import type { Tx } from '@daisy/db/tx';
 import { loadAccountPolicyFacts } from './account-policy-facts';
 setupRitewayBun();
 test('web policy composition reads only canonical minimal age facts in its caller transaction', async () => {
@@ -27,7 +27,7 @@ test('web policy composition reads only canonical minimal age facts in its calle
       reads++;
       return [age];
     },
-  } as unknown as AuthorizationTransaction;
+  } as unknown as Tx;
   const now = '2026-10-09T00:00:00.000Z';
   const facts = await loadAccountPolicyFacts(tx, [account], now);
   assert({

@@ -1,5 +1,5 @@
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { sql, type Column, type Table, type SQL } from 'drizzle-orm';
+import type { Tx } from './tx';
 
 /**
  * The most rows one retention call may delete. Each call is one short
@@ -42,7 +42,7 @@ export function requireRetentionBounds({ before, limit }: RetentionBatch) {
  * before any statement runs.
  */
 export async function deleteExpiredBatch(
-  db: Pick<BunSQLDatabase, 'execute'>,
+  db: Tx,
   target: {
     readonly table: Table;
     /** The row's key: one column, or every column of a composite key. */

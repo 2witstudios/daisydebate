@@ -19,6 +19,7 @@ import {
   type GuardianCommandWrite,
 } from './guardian-command-writes';
 import type { TabDatabase } from './tab-transaction';
+import { inTransaction } from '../tx';
 export type GuardianCommandSession = {
   readonly load: () => Promise<LoadedGuardianCommand | null>;
   readonly stored: (commandId: string) => Promise<StoredTabCommand | null>;
@@ -34,7 +35,7 @@ export const createGuardianCommandStore = (database: TabDatabase) => ({
     input: GuardianCommandInput,
     work: (session: GuardianCommandSession) => Promise<Answer>,
   ): Promise<Answer> =>
-    database.transaction(async (tx) => {
+    inTransaction(database, async (tx) => {
       let loaded: LoadedGuardianCommand | null = null;
       return work({
         load: async () => {

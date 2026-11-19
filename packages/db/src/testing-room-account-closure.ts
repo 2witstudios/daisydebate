@@ -5,6 +5,7 @@ import {
   createRoomAccountClosureAdopter,
   type RoomClosureTransitions,
 } from './room-account-closure';
+import { inTransaction } from './tx';
 
 /**
  * Runs the Room-closure erasure step for one subject in its own
@@ -17,7 +18,7 @@ export const eraseRoomAccountClosure = (
   subject: PrivacySubject,
   now: string,
 ) =>
-  drizzle({ client }).transaction((tx) =>
+  inTransaction(drizzle({ client }), (tx) =>
     createRoomAccountClosureAdopter(transitions).erase(tx, subject, { now }),
   );
 
@@ -27,6 +28,6 @@ export const exportRoomAccountClosure = (
   transitions: RoomClosureTransitions,
   subject: PrivacySubject,
 ) =>
-  drizzle({ client }).transaction((tx) =>
+  inTransaction(drizzle({ client }), (tx) =>
     createRoomAccountClosureAdopter(transitions).export(tx, subject),
   );

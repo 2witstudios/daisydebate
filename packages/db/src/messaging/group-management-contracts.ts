@@ -1,9 +1,7 @@
-import type {
-  AuthorizationTransaction,
-  lockAuthorizationActors,
-} from '../authorization';
+import type { lockAuthorizationActors } from '../authorization';
 import type { MessagingChannelFact } from './social';
 import type { GroupManagementOperation } from './group-management-plan';
+import type { Tx } from '../tx';
 
 export type MessagingGroupManagementScope = {
   readonly userId: string;
@@ -21,7 +19,7 @@ type MessagingGroupManagementReceipt = {
   readonly channelId: string | null;
 };
 export type MessagingGroupManagementFence = (
-  tx: AuthorizationTransaction,
+  tx: Tx,
   scope: MessagingGroupManagementScope,
   facts: {
     readonly channel: MessagingChannelFact;

@@ -7,7 +7,6 @@ import {
 import { normalizedEmailSql } from './email-identity';
 import { createAppError } from '@daisy/errors';
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import {
   preapprovalAction,
   preapprovalEntrySchema,
@@ -21,9 +20,7 @@ import {
   cancelPreapprovalInvitations,
 } from './beta-preapproval-claim';
 import { operatorLimits } from '@daisy/protocol/operator';
-
-type Database = Pick<BunSQLDatabase, 'execute' | 'transaction'>;
-type Tx = Pick<BunSQLDatabase, 'execute'>;
+import { inTransaction, type Tx, type TxSource } from './tx';
 
 /** Delivery is unknown while a send may have happened without settlement. */
 const invitationStatusSql = sql.raw(
@@ -48,7 +45,7 @@ export async function readPreapprovalCommandState(
 export function preapprovalOperations({
   database,
 }: {
-  readonly database: Database;
+  readonly database: TxSource;
 }) {
   return {
     listBetaPreapprovals: async (input: {
@@ -80,7 +77,7 @@ export function preapprovalOperations({
     }) => {
       for (let attempt = 0; attempt < 3; attempt += 1) {
         if (!input.live()) throw createAppError('CONFLICT');
-        const result = await database.transaction(async (tx) => {
+        const result = await inTransaction(database, async (tx) => {
           const command = preapprovalCommandSchema.parse(input.command);
           await tx.execute(
             sql.raw(

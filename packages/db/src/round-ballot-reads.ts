@@ -19,7 +19,6 @@ import {
   type RoundBallotRead,
 } from '@daisy/protocol';
 import { and, desc, eq, inArray, sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { readLockedFrozenRoundTranscript } from './frozen-transcript';
 import { sharedAccount, type Caller, type Account } from './room-command-facts';
 import { readAuthorizedRound } from './round-read-authority';
@@ -30,6 +29,7 @@ import { ballots } from './schema/ballots';
 import { rounds } from './schema/rounds';
 import { roundParticipants } from './schema/round-participants';
 import { roundTranscriptFreezes } from './schema/round-transcript-freezes';
+import { inTransaction, type TxSource } from './tx';
 
 /** The frozen transcript an authorized audience reads once the Round completes. */
 export async function audienceTranscript(
@@ -68,7 +68,7 @@ export async function audienceTranscript(
 export const roundBallotReads = ({
   database,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
 }) => ({
   async listRoundJudgeAssignments(input: {
     readonly caller: Caller;
@@ -80,7 +80,7 @@ export const roundBallotReads = ({
     readonly readEventDecision: (owner: RoundRoomAuthority) => boolean;
     readonly readOpening: ReadOpening;
   }) {
-    return database.transaction(async (tx) => {
+    return inTransaction(database, async (tx) => {
       const account = await sharedAccount(tx, input.caller);
       if (!account?.member || account.erased)
         throw createAppError('AUTHORIZATION');
@@ -175,7 +175,7 @@ export const roundBallotReads = ({
   }): Promise<RoundBallotRead> {
     if (!idSchema.safeParse(input.roundId).success)
       throw createAppError('VALIDATION');
-    return database.transaction(async (tx) => {
+    return inTransaction(database, async (tx) => {
       const {
         round,
         account: currentAccount,

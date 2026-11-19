@@ -1,5 +1,4 @@
 import { and, eq, sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import type { ModerationNotice } from '@daisy/protocol';
 import {
@@ -13,15 +12,11 @@ import {
   type OwnCollectionFence,
 } from '../authorization';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
-import {
-  commandGate,
-  storedResult,
-  writeReceipt,
-  type OperatorCommandTransaction as Transaction,
-} from '../operator-command';
+import { commandGate, storedResult, writeReceipt } from '../operator-command';
 import { moderationActions } from '../schema/moderation';
 import { appendSessionRevokedFor } from '../session-revoked';
 import { actionInForce } from './in-force';
+import { inTransaction, type Tx, type TxSource } from '../tx';
 
 /** What a reviewer does to an account (ADR 0103). */
 export type Sanction =
@@ -36,7 +31,7 @@ export type Sanction =
  */
 export type ModerationReactions = {
   readonly onRestricted: readonly ((
-    tx: Transaction,
+    tx: Tx,
     actorId: string,
     context: {
       readonly now: string;
@@ -52,7 +47,7 @@ export type ModerationReactions = {
  * revokes the sessions and runs each reaction.
  */
 export async function applySanction(
-  tx: Transaction,
+  tx: Tx,
   input: {
     readonly id: string;
     readonly userId: string;
@@ -122,7 +117,7 @@ const mActionInForce = (at: Date) =>
 
 /** Lifts a suspension or ban in force; the row stays for the record. */
 async function liftModeration(
-  tx: Transaction,
+  tx: Tx,
   input: ModerationLiftInput,
 ): Promise<ModerationLiftResult> {
   await commandGate(tx, input.commandId);
@@ -170,7 +165,7 @@ export const moderationOperations = ({
   database,
   eventSink,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
   /** One keyset page of suspensions and bans in force, newest first. */
@@ -203,7 +198,7 @@ export const moderationOperations = ({
     }),
   liftModeration: (input: ModerationLiftInput) =>
     instrumented(eventSink, 'liftModeration', () =>
-      database.transaction((tx) => liftModeration(tx, input)),
+      inTransaction(database, (tx) => liftModeration(tx, input)),
     ),
   /** When the account's restriction in force ends; null for a ban or nothing. */
   readRestrictionEnd: (input: {

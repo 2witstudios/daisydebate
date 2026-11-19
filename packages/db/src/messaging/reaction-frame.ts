@@ -1,5 +1,4 @@
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import {
   idSchema,
@@ -11,7 +10,7 @@ import type {
   MessagingReactionAssociation,
   MessagingReactionCommand,
 } from './reaction-contracts';
-type Tx = Pick<BunSQLDatabase, 'execute' | 'insert'>;
+import type { Tx } from '../tx';
 type Scope = { readonly actorId: string; readonly channelId: string };
 type Guard = (
   operation: 'read' | 'add' | 'remove',

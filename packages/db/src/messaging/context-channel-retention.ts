@@ -1,7 +1,7 @@
 import { sql, type SQL } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { requireRetentionBounds, type RetentionBatch } from '../retention';
 import type { ContextChannelKind } from './context-channel-contracts';
+import type { Tx } from '../tx';
 
 /**
  * One context's bounded purges once its owner has ended. `ended` joins channel
@@ -10,7 +10,7 @@ import type { ContextChannelKind } from './context-channel-contracts';
  * its replies), then read state. Stream counters survive.
  */
 export function contextChannelRetention(
-  database: Pick<BunSQLDatabase, 'execute'>,
+  database: Tx,
   kind: ContextChannelKind,
   ended: (before: string) => SQL,
 ) {

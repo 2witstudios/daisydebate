@@ -1,5 +1,4 @@
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { parseTopic } from '@daisy/protocol';
 import {
   decodeOutboxCursor,
@@ -7,6 +6,7 @@ import {
   type OutboxPosition,
   type OutboxRow,
 } from './outbox';
+import type { Tx } from './tx';
 
 const order = (a: string, b: string) => {
   const left = decodeOutboxCursor(a);
@@ -49,7 +49,7 @@ export function catchupWindow({
  * Cursor positions are ordering tokens, never authority.
  */
 export async function readOutboxCatchup(
-  database: Pick<BunSQLDatabase, 'execute'>,
+  database: Tx,
   topic: string,
   since: string,
   through: OutboxPosition,

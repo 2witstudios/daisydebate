@@ -1,9 +1,9 @@
 import type { JudgingTerminalReason, RoundEnding } from '@daisy/protocol';
 import { and, eq, inArray, sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { roundJudgingJobs } from './schema/round-judging-jobs';
 import { judgingJobWhere } from './round-judging-context';
 import { settleCasualJudgeUsageLocked } from './casual-judge-usage';
+import type { Tx } from './tx';
 
 /** The engine's rule: judging names why a Round's end ended a job. */
 export type JudgingEndRule = (
@@ -17,7 +17,7 @@ export type JudgingEndRule = (
  * how the Round ended, and the injected judging rule names the reason.
  */
 export async function endOpenJudgingJobs(
-  tx: Pick<BunSQLDatabase, 'update' | 'execute' | 'select'>,
+  tx: Tx,
   input: {
     readonly roundId: string;
     readonly ending: RoundEnding;

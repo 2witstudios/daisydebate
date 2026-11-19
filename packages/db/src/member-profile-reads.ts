@@ -1,7 +1,6 @@
 import { createAppError } from '@daisy/errors';
 import type { RoundOutcome, RoundStatus, SeatRef } from '@daisy/protocol';
 import { and, count, desc, eq, isNotNull, sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { debating, historyRows, type HistoryRow } from './member-history-rows';
 import { sharedAccount, type Account, type Caller } from './room-command-facts';
@@ -16,15 +15,7 @@ import {
   type SpectatorClock,
 } from './spectator-release-sql';
 import { youthRoundSql } from './youth-round-sql';
-
-/**
- * The profile's read (ISSUE-600): who a member is, their Rounds grouped for
- * the record, and one page of their completed Rounds, in one snapshot. Rows
- * only: what a Round means for the record is the domain's `recordResult`,
- * and which Rounds the viewer may see is the caller's authorization decision.
- */
-
-type Tx = Pick<BunSQLDatabase, 'select' | 'execute'>;
+import { inTransaction, type Tx, type TxSource } from './tx';
 
 /** Which of the member's Rounds the viewer may see. */
 export type HistoryScope = 'owner' | 'public';
@@ -220,7 +211,7 @@ export const memberProfileReadOperations = ({
   database,
   eventSink,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
   /**
@@ -249,35 +240,39 @@ export const memberProfileReadOperations = ({
     )
       throw createAppError('VALIDATION');
     return instrumented(eventSink, 'readMemberProfile', () =>
-      database.transaction(async (tx) => {
-        const member = await memberRow(tx, input.username);
-        if (member === null) return null;
-        // A closed account has no owner left to read it: everyone sees the
-        // public subset any unrelated viewer could read before it closed.
-        const scope: HistoryScope = member.closed
-          ? 'public'
-          : input.decide(
-              member.actorId,
-              input.caller === null
-                ? null
-                : await sharedAccount(tx, input.caller),
-            );
-        const groups = await recordGroups(
-          tx,
-          member.actorId,
-          scope,
-          input.clock,
-        );
-        const page = await historyPage(tx, {
-          actorId: member.actorId,
-          scope,
-          before: input.before,
-          limit: input.limit,
-          clock: input.clock,
-        });
-        if (page === null) return null;
-        return { member, scope, groups, ...page };
-      }, snapshot),
+      inTransaction(
+        database,
+        async (tx) => {
+          const member = await memberRow(tx, input.username);
+          if (member === null) return null;
+          // A closed account has no owner left to read it: everyone sees the
+          // public subset any unrelated viewer could read before it closed.
+          const scope: HistoryScope = member.closed
+            ? 'public'
+            : input.decide(
+                member.actorId,
+                input.caller === null
+                  ? null
+                  : await sharedAccount(tx, input.caller),
+              );
+          const groups = await recordGroups(
+            tx,
+            member.actorId,
+            scope,
+            input.clock,
+          );
+          const page = await historyPage(tx, {
+            actorId: member.actorId,
+            scope,
+            before: input.before,
+            limit: input.limit,
+            clock: input.clock,
+          });
+          if (page === null) return null;
+          return { member, scope, groups, ...page };
+        },
+        snapshot,
+      ),
     );
   },
 });

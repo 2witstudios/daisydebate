@@ -1,16 +1,16 @@
 import { z } from 'zod';
 import { sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
-import type { AuthorizationTransaction } from '../authorization';
 import { contactPairs } from '../schema/contacts';
 import type { MessagingGroupInvitationFact } from './group-invitation-contracts';
+import type { Tx } from '../tx';
 /**
  * Only requested admission may materialize a pair; all refusals roll the same
  * tx back. A read (`shared`) never materializes and shares the pair rows, so
  * previews never wait on each other (MSG-2.1-arch1).
  */
 export async function lockGroupContacts(
-  tx: AuthorizationTransaction,
+  tx: Tx,
   actors: readonly string[],
   materialize: boolean,
   shared = false,

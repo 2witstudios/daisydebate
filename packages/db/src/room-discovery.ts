@@ -10,15 +10,11 @@ import {
   type SeatRef,
 } from '@daisy/protocol';
 import { seatOfColumns } from './seat-columns';
-import {
-  sharedAccount,
-  type Caller,
-  type Account,
-  type Tx,
-} from './room-command-facts';
+import { sharedAccount, type Caller, type Account } from './room-command-facts';
 import { loadAuthorizationAccount } from './authorization';
 import { factReleasedSql, type SpectatorClock } from './spectator-release-sql';
 import { currentRoomTopic, type ReadOpeningTopic } from './round-opening-read';
+import type { Tx } from './tx';
 type Seat = {
   readonly actorId: string;
   readonly seat: SeatRef;

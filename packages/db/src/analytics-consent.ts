@@ -1,5 +1,4 @@
 import { eq, sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import {
   analyticsConsentSchema,
   idSchema,
@@ -10,13 +9,12 @@ import { consentRecord } from './schema/consent-record';
 import type { PrivacyAdopter } from './privacy/contracts';
 import { exportRows } from './privacy/export-rows';
 import { lockOpenAccount } from './lock-open-account';
+import { inTransaction, type TxOpener } from './tx';
 
-export const analyticsConsentOperations = (
-  database: Pick<BunSQLDatabase, 'transaction'>,
-) => ({
+export const analyticsConsentOperations = (database: TxOpener) => ({
   async readAnalyticsConsent(userId: string): Promise<AnalyticsConsent | null> {
     if (!idSchema.safeParse(userId).success) throw createAppError('VALIDATION');
-    return database.transaction(async (tx) => {
+    return inTransaction(database, async (tx) => {
       const [row] = await tx
         .select()
         .from(consentRecord)
@@ -49,7 +47,7 @@ export const analyticsConsentOperations = (
           input.adopt))
     )
       throw createAppError('VALIDATION');
-    await database.transaction(async (tx) => {
+    await inTransaction(database, async (tx) => {
       await lockOpenAccount(tx, input.userId);
       const values = { ...result.data, recordedAt: new Date(input.now) };
       const insert = tx

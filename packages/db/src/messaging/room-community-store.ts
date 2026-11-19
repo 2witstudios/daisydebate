@@ -5,7 +5,6 @@ import {
   type RoomCommunityFact,
 } from '@daisy/protocol/room-community';
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type { ContextChannelOwner } from './context-channel-contracts';
 import { createContextChannelStore } from './context-channel-store';
 import {
@@ -18,6 +17,7 @@ import type {
   RoomCommunityScope,
   RoomCommunityWriteFrame,
 } from './room-community-contracts';
+import type { TxSource } from '../tx';
 
 type DiscoveryScope = Omit<RoomCommunityScope, 'channelId'>;
 /**
@@ -125,7 +125,7 @@ const roomCommunityOwner = (
 
 /** A named contextual producer: social pair/grant loaders never admit its channel. */
 export function createRoomCommunityStore(
-  database: BunSQLDatabase,
+  database: TxSource,
   authorize: RoomCommunityFence,
   namesJudge: RoomJudgeNaming,
 ) {

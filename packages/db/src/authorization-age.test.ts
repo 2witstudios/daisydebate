@@ -1,7 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { loadAuthorizationAgeFact } from './authorization-age';
-import type { AuthorizationTransaction } from './authorization';
+import type { Tx } from './tx';
 setupRitewayBun();
 const input = {
   userId: 'a'.repeat(24),
@@ -30,7 +30,7 @@ test('minimal age projection binds the current account and monthly deadline', as
   for (const values of rows) {
     const tx = {
       execute: async () => values,
-    } as unknown as AuthorizationTransaction;
+    } as unknown as Tx;
     actual.push(await loadAuthorizationAgeFact(tx, input));
   }
   assert({
@@ -49,7 +49,7 @@ test('minimal age inputs reject before transaction I/O', async () => {
     execute: () => {
       throw new Error('I/O must not begin');
     },
-  } as unknown as AuthorizationTransaction;
+  } as unknown as Tx;
   await assertRejects({
     given: 'a malformed actor binding',
     should: 'refuse before SQL',

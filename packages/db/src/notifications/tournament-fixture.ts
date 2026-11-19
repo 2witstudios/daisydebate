@@ -5,15 +5,15 @@ import type {
   FixtureCommandInput,
 } from '../tab/fixture-command-facts';
 import type { FixtureWrite } from '../tab/fixture-write';
-import type { TabTransaction } from '../tab/tab-transaction';
 import {
   fixtureNotificationPeople,
   oweTournamentNotification,
 } from './tournament';
+import type { Tx } from '../tx';
 
 /** Shared by direct and confirmed officiating, using the original command's identity. */
 export async function notifyFixtureChanges(
-  tx: TabTransaction,
+  tx: Tx,
   loaded: LoadedFixtureCommand,
   input: FixtureCommandInput,
   writes: readonly FixtureWrite[],

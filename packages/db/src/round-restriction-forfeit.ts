@@ -3,7 +3,6 @@ import { isDebatingSeatSql } from './seat-columns';
 import { CryptoHasher } from 'bun';
 import { and, eq, inArray } from 'drizzle-orm';
 import type { RoundProjection } from '@daisy/protocol';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type { DatabaseEventSink } from './instrumented';
 import { commitRoundCommand } from './round-command-commit';
 import { sampleRoundExecutionTime } from './round-execution-time';
@@ -11,11 +10,7 @@ import { hydrateRoundRows, type RoundHydration } from './round-hydration';
 import { lockedRoundVersion } from './round-projection-writer';
 import { roundParticipants } from './schema/round-participants';
 import { rounds } from './schema/rounds';
-
-type Tx = Pick<
-  BunSQLDatabase,
-  'select' | 'selectDistinct' | 'update' | 'insert' | 'execute'
->;
+import type { Tx } from './tx';
 
 /** The engine's forfeit, injected; null once the debate has nothing left to forfeit. */
 export type RoundForfeitRule = (input: {

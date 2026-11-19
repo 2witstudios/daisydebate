@@ -15,8 +15,7 @@ import { reserveUsageLocked, type AiAllowanceOptions } from './usage-ledger';
 import { roundAnalyses } from './schema/round-analyses';
 import { usageReservations } from './schema/usage-reservations';
 import { notifyWork } from './work-wake';
-
-type Tx = Parameters<Parameters<BoundedTransaction>[0]>[0];
+import type { Tx } from './tx';
 
 async function requireCapacity(
   tx: Tx,

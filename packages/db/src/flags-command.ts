@@ -6,14 +6,10 @@ import {
 } from '@daisy/protocol/flags';
 import { sql } from 'drizzle-orm';
 import { lockAuthorizationActors } from './authorization';
-import {
-  commandGate,
-  storedResult,
-  writeReceipt,
-  type OperatorCommandTransaction,
-} from './operator-command';
+import { commandGate, storedResult, writeReceipt } from './operator-command';
 import { lockFlags } from './flags-lock';
 import { readFlagSnapshot } from './flags-read';
+import type { Tx } from './tx';
 
 export type FlagCommandInput = {
   readonly commandId: string;
@@ -34,7 +30,7 @@ export type FlagCommandInput = {
     | { readonly kind: 'refused'; readonly reason: 'CONFLICT' | 'VALIDATION' };
 };
 
-async function lockTarget(tx: OperatorCommandTransaction, userId: string) {
+async function lockTarget(tx: Tx, userId: string) {
   const [actor] = (await tx.execute(
     sql`select id from actors where user_id = ${userId} and kind = 'human'`,
   )) as unknown as { id: string }[];
@@ -47,7 +43,7 @@ async function lockTarget(tx: OperatorCommandTransaction, userId: string) {
 
 /** Every change, its revision, audit and typed receipt commit together. */
 export async function runFlagCommand(
-  tx: OperatorCommandTransaction,
+  tx: Tx,
   input: FlagCommandInput,
 ): Promise<FlagCommandResult> {
   if (!input.authorize()) throw createAppError('AUTHORIZATION');
@@ -90,7 +86,7 @@ function requireLiveTarget(
     throw createAppError('NOT_FOUND');
 }
 async function persistChange(
-  tx: OperatorCommandTransaction,
+  tx: Tx,
   input: FlagCommandInput,
   state: string,
   revision: number,

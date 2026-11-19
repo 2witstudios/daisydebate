@@ -1,12 +1,12 @@
 import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
-import type { TabTransaction } from './tab/tab-transaction';
 import { agentRuns } from './schema/agent-runs';
 import { roundJudgingJobs } from './schema/round-judging-jobs';
 import { settleCasualJudgeUsageLocked } from './casual-judge-usage';
+import type { Tx } from './tx';
 
 /** Round/account fences held. Retire authority without erasing usage, deadlines or historical attempts. */
 export async function retireLockedRoundJudge(
-  tx: TabTransaction,
+  tx: Tx,
   input: { readonly roundId: string; readonly participantId: string },
 ) {
   const runs = await tx

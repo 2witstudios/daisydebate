@@ -16,7 +16,6 @@ import {
   freshCaptureMutation,
   requireCaptureSession,
   type CaptureDependencies,
-  type CaptureTx,
 } from './media-capture-context';
 import { necessaryEvidence } from './schema/necessary-evidence';
 import { lockNecessaryEvidenceRound } from './necessary-evidence-subjects';
@@ -24,6 +23,7 @@ import {
   evidenceLeaseDigest,
   evidencePolicyOf,
 } from './necessary-evidence-policy';
+import type { Tx } from './tx';
 
 type Intent = z.infer<typeof captureEvidenceIntentSchema>;
 const sameOriginal = (
@@ -48,7 +48,7 @@ const sameOriginal = (
 
 /** Commits original authority and bounded crash discovery BEFORE custody has any side effect. */
 export async function reserveCaptureEvidenceIntent(
-  tx: CaptureTx,
+  tx: Tx,
   input: Intent,
   dependencies: CaptureDependencies,
 ) {

@@ -13,15 +13,13 @@ import {
   operatorLimits,
 } from '@daisy/protocol/operator';
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { lockAuthorizationActors } from './authorization';
 import type { authorizationAccountFact } from './authorization-account';
 import type { DatabaseEventSink } from './instrumented';
 import { appendSessionRevokedFor } from './session-revoked';
 import { writeBetaAccessChange } from './beta-access-change';
 import { mailIntentQueue } from './mail-intent-queue';
-
-type Transaction = Parameters<Parameters<BunSQLDatabase['transaction']>[0]>[0];
+import type { Tx } from './tx';
 
 /** The approval mail a command owes, deduplicated by the command that owed it. */
 const approvalMailKey = (commandId: string) => `beta-approved:${commandId}`;
@@ -31,7 +29,7 @@ const approvalMailKey = (commandId: string) => `beta-approved:${commandId}`;
  * the state of the approval mail it owed (null when it owed none).
  */
 export async function readBetaAccessCommandState(
-  database: Pick<BunSQLDatabase, 'execute'>,
+  database: Tx,
   commandId: string,
   result: unknown,
 ): Promise<Omit<BetaAccessCommandState, 'action'>> {
@@ -85,7 +83,7 @@ const refusalCode = {
 } as const;
 
 /** The target's account fact, locked under the account fence; null without a human actor. */
-async function lockTarget(tx: Transaction, userId: string) {
+async function lockTarget(tx: Tx, userId: string) {
   const [actor] = (await tx.execute(
     sql`select id from actors where user_id = ${userId} and kind = 'human'`,
   )) as unknown as { id: string }[];
@@ -97,7 +95,7 @@ async function lockTarget(tx: Transaction, userId: string) {
 }
 
 /** A stored receipt's result for the same digest; a different digest conflicts. */
-async function storedResult(tx: Transaction, input: BetaAccessCommandInput) {
+async function storedResult(tx: Tx, input: BetaAccessCommandInput) {
   const [receipt] = (await tx.execute(sql`select request_digest, result
     from operator_command_receipts where command_id = ${input.commandId}`)) as unknown as {
     request_digest: string;
@@ -147,7 +145,7 @@ const commandResult = (
 
 /** State, revision, entitlement grants, audit event and the owed mail or revocation push. */
 async function applyChange(
-  tx: Transaction,
+  tx: Tx,
   input: BetaAccessCommandInput,
   decision: Extract<Decision, { kind: 'changed' }>,
   eventSink: DatabaseEventSink | undefined,
@@ -188,7 +186,7 @@ async function applyChange(
  * state, audit event, owed mail or revocation push and the receipt.
  */
 export async function runBetaAccessCommand(
-  tx: Transaction,
+  tx: Tx,
   input: BetaAccessCommandInput,
   eventSink: DatabaseEventSink | undefined,
 ): Promise<BetaAccessCommandOutcome> {

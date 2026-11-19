@@ -28,8 +28,8 @@ import {
 } from './round-analysis-accounting';
 import { readAnalysisInput } from './round-analysis-input';
 import type { AllowanceAccountPolicy } from './usage-ledger';
+import type { Tx } from './tx';
 
-type Tx = Parameters<Parameters<BoundedTransaction>[0]>[0];
 export type RoundAnalysisSeat = AnalysisSeat;
 type WorkContext = NonNullable<Awaited<ReturnType<typeof readWork>>>;
 async function readWork(
