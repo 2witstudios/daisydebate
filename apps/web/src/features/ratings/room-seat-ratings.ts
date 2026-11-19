@@ -5,6 +5,7 @@ import type {
   RatingState,
   RoomView,
 } from '@daisy/protocol';
+import { isTemporaryRefusal } from '@daisy/db/capacity';
 import { ratingStanding } from './standing';
 
 /** A seat's rating as the card read has it: released, active season. */
@@ -79,7 +80,13 @@ export const overlaySeatRatings = <View extends SeatedView>(
   };
 };
 
-/** One ratings read and one blinding read per view, whatever the seat count. */
+/**
+ * One ratings read and one blinding read per view, whatever the seat count.
+ * A rating only decorates a seat, and the card read takes the social lane: a
+ * social burst the lane refuses for now (ADR 0088) shows every seat without
+ * one, so the Room read never fails on it. A refusal that cannot clear, and
+ * any other failure, still fails the read.
+ */
 export async function withSeatRatings<View extends SeatedView>(
   view: View,
   reads: SeatRatingReads,
@@ -87,9 +94,15 @@ export async function withSeatRatings<View extends SeatedView>(
 ): Promise<View> {
   const actorIds = ratedSeatActorIds(view);
   if (actorIds.length === 0) return view;
-  const [ratings, blinded] = await Promise.all([
-    reads.ratings(actorIds),
-    reads.blinded(),
-  ]);
-  return overlaySeatRatings(view, { ratings, blinded, now });
+  try {
+    const [ratings, blinded] = await Promise.all([
+      reads.ratings(actorIds),
+      reads.blinded(),
+    ]);
+    return overlaySeatRatings(view, { ratings, blinded, now });
+  } catch (error) {
+    if (!isTemporaryRefusal(error)) throw error;
+    // Neither read is trusted alone: a blinding unread hides every rating.
+    return overlaySeatRatings(view, { ratings: [], blinded: [], now });
+  }
 }
