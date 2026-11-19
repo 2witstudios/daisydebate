@@ -576,6 +576,24 @@ test('a casual Round of a Youth Room holds every Youth fence; an Open casual Rou
       const [readyTold] =
         await f.sql`select count(*)::int as n from notifications
         where user_id=${f.host.userId} and round_id=${youth.roundId} and kind='recording_ready'`;
+      // What a visit and a follower's notice before the deploy left behind.
+      await f.sql`insert into watch_history (user_id, round_id, watched_at)
+        values (${stranger.userId}, ${youth.roundId}, now() - interval '1 day')`;
+      for (const { roundId } of [youth, open])
+        await f.sql`insert into notifications (id, user_id, kind, round_id)
+          values (${createId()}, ${stranger.userId}, 'recording_ready', ${roundId})`;
+      const standing = (
+        await f.store.readNotifications({
+          after: null,
+          userId: stranger.userId,
+          unreadOnly: false,
+          limit: 50,
+          now: new Date().toISOString(),
+        })
+      ).rows
+        .filter((row) => row.kind === 'recording_ready')
+        .map((row) => row.roundId);
+      await f.sql`delete from notifications where user_id=${stranger.userId}`;
       for (const { roundId } of [youth, open])
         await f.store.recordWatched({
           userId: stranger.userId,
@@ -594,14 +612,21 @@ test('a casual Round of a Youth Room holds every Youth fence; an Open casual Rou
         given:
           'the Youth Round’s withheld Broadcast completed, and a stranger recording a visit to each Round',
         should:
-          'tell its seated debater the Recording is ready, and keep only the Open Round in the stranger’s watch history',
+          'tell its seated debater the Recording is ready, let a follower’s earlier notice lapse, and keep only the Open Round in the stranger’s watch history, even a visit made before the deploy',
         actual: {
           seatTold: readyTold!.n,
+          followerNoticeStands: [youth.roundId, open.roundId].map((id) =>
+            standing.includes(id),
+          ),
           watched: [youth.roundId, open.roundId].map((id) =>
             watched.includes(id),
           ),
         },
-        expected: { seatTold: 1, watched: [false, true] },
+        expected: {
+          seatTold: 1,
+          followerNoticeStands: [false, true],
+          watched: [false, true],
+        },
       });
 
       const youthRound = await recordingRoundOf(database, youth.roundId);
