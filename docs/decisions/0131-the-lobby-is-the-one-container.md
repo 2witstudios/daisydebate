@@ -8,6 +8,10 @@ organization and a ladder to a standing lobby; Daisy's are unchanged.
 [ADR 0142](0142-freestyle-the-one-standard-and-ladder.md) reduces Daisy's
 ladders to one, Freestyle, which belongs to the public lobby as §5 says of
 the three.
+§5 and §6 are amended by
+[ADR 0162](0162-daisy-is-a-league-open-and-youth-are-lobbies.md): Daisy is an
+ordinary league whose Open and Youth are standing lobbies, and a season
+belongs to a standing lobby.
 
 ## Decision
 
