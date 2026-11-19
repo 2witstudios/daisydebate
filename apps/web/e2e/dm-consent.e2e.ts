@@ -137,3 +137,20 @@ test("an adult's cold request to a 14-year-old is refused with Add friend, and w
     await accept(minorPage, channelId);
   });
 });
+
+test('a minor asks an adult, and the adult’s Message on the minor’s profile opens their DM', async ({
+  browser,
+}) => {
+  test.setTimeout(120_000);
+  await withMembers(browser, [15, 30], async ([minor, adult]) => {
+    const minorPage = await openPage(minor!.context, 'the 15-year-old');
+    const channelId = await messageFromProfile(minorPage, adult!.username);
+    const adultPage = await openPage(adult!.context, 'the adult');
+    await accept(adultPage, channelId);
+    await adultPage.goto(`/profile/${minor!.username}`);
+    await adultPage
+      .getByRole('button', { name: `Message @${minor!.username}`, exact: true })
+      .click();
+    await expect(adultPage).toHaveURL(new RegExp(`/messages/${channelId}$`));
+  });
+});

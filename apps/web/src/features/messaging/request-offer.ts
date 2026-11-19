@@ -24,13 +24,17 @@ export async function messageOfferFor(
     const now = app.clock.now();
     return await app.database.readMessagingPairFacts(
       [self, other],
-      async (tx, accounts) =>
-        dmRequestOffer(
-          await loadAccountPolicyFacts(tx, accounts, now),
-          now,
-          self,
-          other,
-        ),
+      async (tx, accounts, openDm) =>
+        // A pending or accepted DM is where Message goes, whatever a new
+        // request would be answered.
+        openDm
+          ? 'message'
+          : dmRequestOffer(
+              await loadAccountPolicyFacts(tx, accounts, now),
+              now,
+              self,
+              other,
+            ),
     );
   } catch (error) {
     if (isAppError(error)) return 'message';

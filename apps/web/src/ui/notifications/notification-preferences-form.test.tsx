@@ -1,7 +1,10 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { createElement as h } from 'react';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { defaultNotificationChoices } from '@daisy/protocol';
+import {
+  defaultNotificationChoices,
+  notificationChoicePairs,
+} from '@daisy/protocol';
 import { NotificationPreferencesForm } from './notification-preferences-form';
 
 setupRitewayBun();
@@ -58,6 +61,6 @@ test('NotificationPreferencesForm', () => {
     given: 'friend request email turned off',
     should: 'leave only that switch unchecked',
     actual: (html.match(/checked=""/g) ?? []).length,
-    expected: 24,
+    expected: notificationChoicePairs.length - 1,
   });
 });

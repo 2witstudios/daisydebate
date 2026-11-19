@@ -87,8 +87,9 @@ export const bindMessagingContactFacts =
 /**
  * A read for what a page offers between two members (Message or Add friend,
  * decision 90): both accounts under shared fences, in one transaction, handed
- * to `work` with that transaction for their age and contact facts. It grants
- * nothing; a request still decides under its own locks.
+ * to `work` with that transaction for their age and contact facts, and
+ * whether the pair already has a pending or accepted DM (a request converges
+ * on it). It grants nothing; a request still decides under its own locks.
  */
 export const createMessagingPairFactsRead =
   (database: BunSQLDatabase) =>
@@ -97,13 +98,18 @@ export const createMessagingPairFactsRead =
     work: (
       tx: AuthorizationTransaction,
       accounts: Awaited<ReturnType<typeof readAuthorizationActors>>,
+      openDm: boolean,
     ) => Promise<T>,
   ): Promise<T> =>
-    database.transaction(async (tx) =>
-      work(
+    database.transaction(async (tx) => {
+      const [low, high] = [...actorIds].sort();
+      const accounts = await readAuthorizationActors(tx, [low!, high!], {
+        maxActors: 2,
+      });
+      const [dm] = await rowsOf<{ open: boolean }>(
         tx,
-        await readAuthorizationActors(tx, [...actorIds].sort(), {
-          maxActors: 2,
-        }),
-      ),
-    );
+        sql`select request_state in ('pending','accepted') as open
+          from messaging_dm_pairs where low_actor_id=${low} and high_actor_id=${high}`,
+      );
+      return work(tx, accounts, dm?.open === true);
+    });
