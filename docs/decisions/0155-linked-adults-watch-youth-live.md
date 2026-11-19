@@ -50,11 +50,11 @@ timing, not audience. Owner decision 86 takes it, without media.
 3. **Read lazily.** Every read that may admit a linked adult (the Round read,
    the transcript, the floor's HTTP routes, the realtime Round topic and the
    floor's realtime permits) runs without the linked adults first and reads
-   them only after a refusal (`withLinkedAdults`), so a seated debater's
+   them only after the read's own audience decision refuses (`withLinkedAdults`; a missing Round or an error from the read's own work never triggers it), so a seated debater's
    reads never wait on or pay for anyone's links. A watcher whose Round's
    people the cache already holds (`peek`) reads once, with them. The floor's
    realtime permits take the Round from the cohort's own facts. Watch's
-   student list reads at most four candidate Rounds at once, and its failure
+   student list proposes at most the 12 newest running Rounds, reads at most four at once, and its failure
    leaves the section out instead of failing the hub.
    The live audience's reads have their own module,
    `youthLiveReadOperations` (`readRoundYouth`, `readYouthRoundPeople`,
