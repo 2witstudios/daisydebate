@@ -11,7 +11,10 @@ import {
   type SpectatorTimelineContext,
 } from '@daisy/debate-engine';
 
-type Store = Pick<Database, 'readSpectatorTimeline' | 'readRoundAudienceLink'>;
+type Store = Pick<
+  Database,
+  'readSpectatorTimeline' | 'readRoundAudienceLink' | 'readRoundReuseFenced'
+>;
 
 const SNAPSHOT_TTL_MS = 1000;
 const SNAPSHOT_ROUNDS = 5000;
@@ -37,7 +40,7 @@ export type AudienceSnapshot = {
  * readers, and never to answer one without `admitAudience`.
  */
 export async function readAudienceSnapshot(
-  store: Pick<Store, 'readSpectatorTimeline'>,
+  store: Pick<Store, 'readSpectatorTimeline' | 'readRoundReuseFenced'>,
   input: {
     readonly roundId: string;
     readonly now: string;
@@ -56,7 +59,7 @@ export async function readAudienceSnapshot(
   return {
     visibility,
     feedKey: read.broadcast?.feedKey ?? null,
-    streamable: !read.round.reuseFenced,
+    streamable: !(await store.readRoundReuseFenced(input.roundId)),
     timeline: projectSpectatorTimeline(read, {
       nowMs,
       feedUrlOf: input.feedUrlOf,
@@ -87,7 +90,7 @@ export const admitAudience = async (
  * same second, so a crowd asks it once.
  */
 export const createWatchRoundSnapshots = (deps: {
-  readonly store: Pick<Store, 'readSpectatorTimeline'>;
+  readonly store: Pick<Store, 'readSpectatorTimeline' | 'readRoundReuseFenced'>;
   readonly clock: Pick<Clock, 'now'>;
   readonly feedUrlOf: SpectatorTimelineContext['feedUrlOf'];
 }) => {

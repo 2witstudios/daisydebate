@@ -25,7 +25,6 @@ import { users } from './schema/users';
 import { utterances } from './schema/utterances';
 import { outcomeOfColumns } from './round-outcome-columns';
 import { isDebatingSeatSql, seatOfColumns, seatRowOrder } from './seat-columns';
-import { youthReuseFencedSql } from './youth-round-sql';
 
 /** How many of the newest released captions one snapshot carries. */
 const CAPTION_WINDOW = 50;
@@ -70,10 +69,6 @@ export const spectatorTimelineReads = ({
               roomId: rounds.roomId,
               visibility: rounds.visibility,
               status: rounds.status,
-              /** Its content may not leave Daisy (ADR 0159): no Stream this Round. */
-              reuseFenced: youthReuseFencedSql(sql`${rounds.id}`).mapWith(
-                Boolean,
-              ),
               competitionType: rounds.competitionType,
               resolution: rounds.resolution,
               rules: rounds.rulesSnapshot,

@@ -17,6 +17,7 @@ import {
 } from '../src/features/recording/audience';
 import { openDownload } from '../src/features/recording/download';
 import { readAudienceForViewer } from '../src/features/spectating/audience-snapshot';
+import { readAudienceSnapshot } from '../src/features/spectating/read-timeline';
 import { recordingPersistence } from '../src/features/recording/persistence';
 import { requestParticipantRemoval } from '../src/features/recording/removal';
 import { spectatorClockAt } from '../src/features/spectating/spectator-clock';
@@ -479,6 +480,24 @@ test('a public casual Round of a Youth Room is read exactly as an Open one, but 
           open: await audience(open.roundId),
         },
         expected: { youth: 'read', open: 'read' },
+      });
+      // Watch offers Stream this Round only past the reuse fence (ADR 0159).
+      const streamable = async (roundId: string) =>
+        (
+          await readAudienceSnapshot(f.store as never, {
+            roundId,
+            now: new Date(Date.now() + 600_000).toISOString(),
+            feedUrlOf: () => 'https://feed.test/master.m3u8',
+          })
+        )?.streamable;
+      assert({
+        given: 'the Watch snapshot of each public casual Round',
+        should: 'offer the Open one to streamers and fence the Youth one',
+        actual: {
+          youth: await streamable(youth.roundId),
+          open: await streamable(open.roundId),
+        },
+        expected: { youth: false, open: true },
       });
       assert({
         given:
