@@ -21,16 +21,29 @@ export function composeRoundRoutes(app: App) {
     websocketEndpoint: app.websocketEndpoint,
     view: roundViewReader(app.database, liveLinkedAdults(app)),
     transcript: (caller, roundId) =>
-      withLinkedAdults(caller, roundId, liveLinkedAdults(app), (youth) =>
-        app.database.readRoundTranscript({
-          readEventDecision: (owner) =>
-            eventBallotAccess(caller, owner).parts.includes('decision'),
-          caller,
-          roundId,
-          captureRule,
-          authorize: (round, account, authority) =>
-            canReadTranscript(caller, round, account, authority, youth),
-        }),
+      withLinkedAdults(
+        caller,
+        roundId,
+        liveLinkedAdults(app),
+        (youth, refused) =>
+          app.database.readRoundTranscript({
+            readEventDecision: (owner) =>
+              eventBallotAccess(caller, owner).parts.includes('decision'),
+            caller,
+            roundId,
+            captureRule,
+            authorize: (round, account, authority) => {
+              const allowed = canReadTranscript(
+                caller,
+                round,
+                account,
+                authority,
+                youth,
+              );
+              if (!allowed) refused();
+              return allowed;
+            },
+          }),
       ),
   });
 }

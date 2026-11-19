@@ -85,6 +85,17 @@ describe('youthRoundLinkedAdults', () => {
     });
   });
 
+  test('several first reads at once share one', async () => {
+    const { linked, youthReads } = harness({ youth: true });
+    await Promise.all([linked('youth'), linked('youth'), linked('youth')]);
+    assert({
+      given: 'three reads of one cold Round at once',
+      should: 'read its division once',
+      actual: youthReads,
+      expected: ['youth'],
+    });
+  });
+
   test('whether a Round is Youth is read once', async () => {
     const { linked, youthReads } = harness({ youth: true, open: false });
     await linked('youth');

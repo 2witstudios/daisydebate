@@ -106,7 +106,7 @@ const recordingInputs = (
   const store = recordingPersistence(app);
   return {
     readRound: readHistoryRound,
-    readRoundFresh: readRoundWith(app.database.readYouthRecordingPeople),
+    readRoundFresh: readRoundWith(app.database.readYouthRoundPeople),
     readHistoryRound,
     readBroadcastRelease: (roundId) =>
       app.database.readRecordingBroadcastRelease(

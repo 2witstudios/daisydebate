@@ -30,19 +30,19 @@ export function composeRoundFloorRoutes(app: App) {
     roundId: string,
   ): ContextChatStore<RoundFloorFact> => {
     const caller = requireMemberActor(principal);
-    const floorWith = (youth: YouthLiveFact | null) =>
+    const floorWith = (youth: YouthLiveFact | null, refused: () => void) =>
       app.database.roundFloorStore(
-        contextChatFence(
-          caller,
-          ({ fact, account, action }) =>
-            decideRoundFloor({
-              principal: caller,
-              fact,
-              account,
-              action,
-              now: app.clock.now(),
-            }).allow,
-        ),
+        contextChatFence(caller, ({ fact, account, action }) => {
+          const { allow } = decideRoundFloor({
+            principal: caller,
+            fact,
+            account,
+            action,
+            now: app.clock.now(),
+          });
+          if (!allow) refused();
+          return allow;
+        }),
         youth,
       );
     // A Youth Round's linked adults read its floor and never post (ADR 0155).
@@ -51,8 +51,8 @@ export function composeRoundFloorRoutes(app: App) {
     const floor = <T>(
       work: (store: ReturnType<typeof floorWith>) => Promise<T>,
     ) =>
-      withLinkedAdults(caller, roundId, linkedAdults, (youth) =>
-        work(floorWith(youth)),
+      withLinkedAdults(caller, roundId, linkedAdults, (youth, refused) =>
+        work(floorWith(youth, refused)),
       );
     return {
       discover: (scope) => floor((it) => it.discover({ roundId, ...scope })),

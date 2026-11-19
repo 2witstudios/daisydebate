@@ -48,7 +48,11 @@ export default async function WatchPage({
           signInHref={signInHref(hubHref(query))}
         />
       ) : listing === 'refused' ? (
-        <WatchBusy retryHref={hubHref(query)} />
+        <>
+          {/* A student's own Round never waits on the public listing. */}
+          <StudentsLive cards={students} />
+          <WatchBusy retryHref={hubHref(query)} />
+        </>
       ) : listing ? (
         <>
           <StudentsLive cards={students} />

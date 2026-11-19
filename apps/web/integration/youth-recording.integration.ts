@@ -54,7 +54,7 @@ const recordingRoundOf = async (
       .filter((seat) => isJudgeSeat(seat.seat) || isModeratorSeat(seat.seat))
       .map((seat) => seat.actorId),
     youth: {
-      ...(await database.readYouthRecordingPeople(roundId)),
+      ...(await database.readYouthRoundPeople(roundId)),
       public: false,
     },
   };

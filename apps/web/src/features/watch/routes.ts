@@ -26,6 +26,10 @@ export const liveHref = (id: string): string =>
 export const roomLinkReachesWatch = (pathname: string): boolean =>
   /^\/rooms\/[^/]+$/.test(pathname);
 
+/** A Round's own live room, where a linked adult watches it (ADR 0155). */
+export const liveRoomHref = (roundId: string): string =>
+  `/rounds/${segment(roundId)}/room`;
+
 /**
  * Where a Room's link sends someone outside it: the Broadcast once its start
  * is released, or a linked adult's live room (ADR 0155); null otherwise.
@@ -36,7 +40,7 @@ export const roomWatchHref = (watch: RoomWatch | null): string | null => {
     case 'broadcast':
       return liveHref(watch.roundId);
     case 'live_room':
-      return `/rounds/${segment(watch.roundId)}/room`;
+      return liveRoomHref(watch.roundId);
   }
 };
 

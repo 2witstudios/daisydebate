@@ -7,6 +7,9 @@ import { currentTenantScope, scopeTransaction } from './tenant-scope';
 
 type Tx = Pick<BunSQLDatabase, 'execute'>;
 
+/** At most this many: the newest running Rounds first. Watch shows a handful. */
+export const STUDENT_LIVE_ROUNDS = 12;
+
 /** A running Youth Round one of the adult's students debates in, and its Room's title. */
 export type StudentLiveRound = {
   readonly roundId: string;
@@ -27,6 +30,14 @@ export const readStudentLiveRoundCandidates = async (
   tx: Tx,
   adultUserId: string,
 ): Promise<readonly StudentLiveRound[]> => {
+  // Only an adult with a valid age record stands in for a youth debater,
+  // the forward rule's own test: nobody else has students to look for.
+  const [adult] = await rowsOf<{ adult: boolean }>(
+    tx,
+    sql`select exists (select 1 from account_age a where a.user_id = ${adultUserId}
+      and public.daisy_age_band(a.birth_month, a.version, a.recorded_at, clock_timestamp()) = 'adult') as adult`,
+  );
+  if (adult?.adult !== true) return [];
   const caller = await currentTenantScope(tx);
   await scopeTransaction(tx, { subjectUserId: adultUserId });
   const minors = await rowsOf<{ user_id: string }>(
@@ -76,23 +87,23 @@ export const readStudentLiveRoundCandidates = async (
   if (students.length === 0) return [];
   const live = await rowsOf<{ id: string; title: string }>(
     tx,
-    sql`select distinct r.id, rm.title from rounds r
+    sql`select r.id, rm.title from rounds r
       join rooms rm on rm.id = r.room_id
-      join round_participants p on p.round_id = r.id
-        and ${isDebatingSeatSql(sql`p.seat_kind`)}
-        and public.daisy_round_participant_is_current(p.id)
-      join actors a on a.id = p.actor_id
       where r.competition_type = 'ranked' and r.ladder_division = 'youth'
         and r.status in (${sql.join(
           runningRoundStatuses.map((status) => sql`${status}`),
           sql`, `,
         )})
-        and a.user_id in (${sql.join(
-          students.map((userId) => sql`${userId}`),
-          sql`, `,
-        )})
-      order by r.id
-      limit 50`,
+        and exists (select 1 from round_participants p
+          join actors a on a.id = p.actor_id
+          where p.round_id = r.id and ${isDebatingSeatSql(sql`p.seat_kind`)}
+            and public.daisy_round_participant_is_current(p.id)
+            and a.user_id in (${sql.join(
+              students.map((userId) => sql`${userId}`),
+              sql`, `,
+            )}))
+      order by r.started_at desc nulls last, r.id
+      limit ${STUDENT_LIVE_ROUNDS}`,
   );
   return live.map((row) => ({ roundId: row.id, title: row.title }));
 };

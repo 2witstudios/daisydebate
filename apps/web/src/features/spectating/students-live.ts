@@ -1,4 +1,6 @@
 import { isAppError } from '@daisy/errors';
+import { isTemporaryRefusal } from '@daisy/db/capacity';
+import { liveRoomHref } from '../watch/routes';
 import type { RoundView } from '@daisy/protocol';
 import {
   observedRoundOf,
@@ -46,7 +48,7 @@ export const studentLiveCard = (
   const speech = watched.speeches.find((each) => each.state === 'now');
   return {
     roundId: view.id,
-    href: `/rounds/${encodeURIComponent(view.id)}/room`,
+    href: liveRoomHref(view.id),
     title,
     resolution: view.topic,
     line: [
@@ -87,7 +89,10 @@ export const studentsLive =
           deps.nowMs(),
         );
       } catch (error) {
+        // A Round they may not watch, or one the pool refused for now, is
+        // left out; the others still show.
         if (isAppError(error) && error.code === 'NOT_FOUND') return null;
+        if (isTemporaryRefusal(error)) return null;
         throw error;
       }
     };
@@ -101,4 +106,22 @@ export const studentsLive =
         )),
       );
     return cards.filter((card) => card !== null);
+  };
+
+/**
+ * The section, or nothing when it cannot be read: a failure is reported once
+ * and never takes the public hub down with it.
+ */
+export const studentsLiveOrNothing =
+  <Caller>(
+    read: (caller: Caller) => Promise<readonly StudentLiveCard[]>,
+    report: (error: unknown) => void,
+  ) =>
+  async (caller: Caller): Promise<readonly StudentLiveCard[]> => {
+    try {
+      return await read(caller);
+    } catch (error) {
+      report(error);
+      return [];
+    }
   };

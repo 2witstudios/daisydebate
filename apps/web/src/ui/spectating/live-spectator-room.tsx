@@ -44,7 +44,12 @@ const cardClass = 'rounded-xl border border-border bg-surface-raised';
 const onFloor = (activity: ObservedActivity) =>
   activity === 'speaking' || activity === 'asking';
 
-function LinkedAdultEndNotice({ roundId }: { readonly roundId: string }) {
+/** A linked adult's live view once the Round has ended (ADR 0155). */
+export function LinkedAdultEndNotice({
+  roundId,
+}: {
+  readonly roundId: string;
+}) {
   return (
     <div className="mx-auto flex w-full max-w-dash-column flex-col gap-3 px-6 py-8 max-narrow:px-4">
       <p role="status" className="font-strong">

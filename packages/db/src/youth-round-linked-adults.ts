@@ -37,17 +37,27 @@ export const youthRoundLinkedAdults = (deps: {
   };
 }): LinkedAdults => {
   const youth = new Map<string, boolean>();
-  const isYouth = async (roundId: string) => {
+  // One read per Round even when several ask at once.
+  const pending = new Map<string, Promise<boolean>>();
+  const isYouth = (roundId: string): Promise<boolean> => {
     const known = youth.get(roundId);
-    if (known !== undefined) return known;
-    const found = await deps.readRoundYouth(roundId);
-    if (found === null) return false;
-    if (youth.size >= MAX_ROUNDS) {
-      const oldest = youth.keys().next().value;
-      if (oldest !== undefined) youth.delete(oldest);
-    }
-    youth.set(roundId, found);
-    return found;
+    if (known !== undefined) return Promise.resolve(known);
+    const asking = pending.get(roundId);
+    if (asking) return asking;
+    const read = deps
+      .readRoundYouth(roundId)
+      .then((found) => {
+        if (found === null) return false;
+        if (youth.size >= MAX_ROUNDS) {
+          const oldest = youth.keys().next().value;
+          if (oldest !== undefined) youth.delete(oldest);
+        }
+        youth.set(roundId, found);
+        return found;
+      })
+      .finally(() => pending.delete(roundId));
+    pending.set(roundId, read);
+    return read;
   };
   const linked = async (roundId: string) =>
     (await isYouth(roundId)) ? factOf(await deps.people(roundId)) : null;

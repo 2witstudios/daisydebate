@@ -126,7 +126,7 @@ export const roundViewReader =
       caller,
       roundId,
       linkedAdults,
-      (youth) =>
+      (youth, refused) =>
         store.readLaunchedRound(
           roundId,
           caller,
@@ -141,10 +141,11 @@ export const roundViewReader =
               ? watchingAs(caller, round, youth)
               : null;
             // A linked adult reads the Round only as its watcher (ADR 0155).
-            return (
+            const allowed =
               canReadRound(caller, round, account, authority) ||
-              viewerWatchesAs === 'linked_adult'
-            );
+              viewerWatchesAs === 'linked_adult';
+            if (!allowed) refused();
+            return allowed;
           },
           readRoundOpening,
           roundWaitingOn,

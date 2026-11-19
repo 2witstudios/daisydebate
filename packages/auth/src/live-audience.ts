@@ -7,7 +7,11 @@
  * nothing. A seat always comes first: anyone seated keeps their own seat's view.
  */
 
-import { runningRoundStatuses, type YouthLiveFact } from '@daisy/protocol';
+import {
+  isRoundRunning,
+  roundStatusSchema,
+  type YouthLiveFact,
+} from '@daisy/protocol';
 
 export type { YouthLiveFact };
 
@@ -34,8 +38,11 @@ export type LiveAudience =
       readonly reason: 'signed_out' | 'seated' | 'not_live' | 'not_in_audience';
     };
 
-const running = (status: string): boolean =>
-  (runningRoundStatuses as readonly string[]).includes(status);
+/** The stored status as read, judged by protocol's one running predicate. */
+const running = (status: string): boolean => {
+  const parsed = roundStatusSchema.safeParse(status);
+  return parsed.success && isRoundRunning(parsed.data);
+};
 
 const watches = (as: 'host' | 'linked_adult') =>
   ({ kind: 'undelayed_no_media', as }) as const;

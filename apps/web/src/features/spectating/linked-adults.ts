@@ -25,24 +25,32 @@ export const liveLinkedAdults = (app: {
 /**
  * A read a Youth Round's linked adult passes only with that Round's linked
  * adults (ADR 0155). A watcher the cache already names reads once, with them.
- * Anyone else reads without them first, since nobody else needs them; only a
- * refusal reads them, through the cache, and runs once more when they name
- * this caller. Every other refusal stands as it was.
+ * Anyone else reads without them first, since nobody else needs them. The
+ * read calls `refused` when its own audience decision says no; only that
+ * refusal reads the links, through the cache, and runs once more when they
+ * name this caller. Any other error, a missing Round's or one from the read's
+ * own work, stands as it was.
  */
 export const withLinkedAdults = async <T>(
   caller: { readonly actorId: string },
   roundId: string,
   linkedAdults: LinkedAdultsOf,
-  read: (youth: YouthLiveFact | null) => Promise<T>,
+  read: (youth: YouthLiveFact | null, refused: () => void) => Promise<T>,
 ): Promise<T> => {
+  const ignore = () => undefined;
   const known = linkedAdults.peek(roundId);
-  if (known?.linkedAdultActorIds.includes(caller.actorId)) return read(known);
+  if (known?.linkedAdultActorIds.includes(caller.actorId))
+    return read(known, ignore);
+  let audienceRefused = false;
   try {
-    return await read(null);
+    return await read(null, () => {
+      audienceRefused = true;
+    });
   } catch (error) {
-    if (!isAppError(error) || error.code !== 'NOT_FOUND') throw error;
+    if (!audienceRefused || !isAppError(error) || error.code !== 'NOT_FOUND')
+      throw error;
     const youth = await linkedAdults(roundId);
     if (!youth?.linkedAdultActorIds.includes(caller.actorId)) throw error;
-    return read(youth);
+    return read(youth, ignore);
   }
 };

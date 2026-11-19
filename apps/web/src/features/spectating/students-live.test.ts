@@ -9,10 +9,12 @@ import {
   rules,
   startOf,
 } from '../../ui/debate-room/live-round.test-support';
+import { refuseCapacity } from '@daisy/db/testing';
 import {
   STUDENT_READS_AT_ONCE,
   studentLiveCard,
   studentsLive,
+  studentsLiveOrNothing,
 } from './students-live';
 
 setupRitewayBun();
@@ -121,6 +123,38 @@ describe('studentsLive', () => {
       should: 'read them all, never more than the bound at once',
       actual: [cards.length, most],
       expected: [10, STUDENT_READS_AT_ONCE],
+    });
+  });
+  test('a Round the pool refuses for now is left out', async () => {
+    const cards = await list(async (roundId) => {
+      if (roundId === 'refused')
+        throw refuseCapacity({ lane: 'browse', reason: 'saturated' });
+      return live;
+    });
+    assert({
+      given: "one candidate's read refused for now by the pool",
+      should: 'show the others',
+      actual: cards.map((card) => card.title),
+      expected: ['Watched'],
+    });
+  });
+});
+
+describe('studentsLiveOrNothing', () => {
+  test('a failed read reports once and shows nothing', async () => {
+    const reported: unknown[] = [];
+    const failure = createAppError('INFRASTRUCTURE');
+    const cards = await studentsLiveOrNothing(
+      async () => {
+        throw failure;
+      },
+      (error) => reported.push(error),
+    )({});
+    assert({
+      given: 'a students read that fails',
+      should: 'report the failure once and answer no cards',
+      actual: [cards, reported],
+      expected: [[], [failure]],
     });
   });
 });

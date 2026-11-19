@@ -67,15 +67,28 @@ const watches = async (f: Fixture, member: Member, roundId: string) => {
 };
 
 const transcript = (f: Fixture, member: Member, roundId: string) =>
-  withLinkedAdults(callerOf(member), roundId, f.linkedAdults, (youth) =>
-    f.store.readRoundTranscript({
-      caller: callerOf(member),
-      roundId,
-      captureRule,
-      readEventDecision: () => false,
-      authorize: (round, account, authority) =>
-        canReadTranscript(callerOf(member), round, account, authority, youth),
-    }),
+  withLinkedAdults(
+    callerOf(member),
+    roundId,
+    f.linkedAdults,
+    (youth, refused) =>
+      f.store.readRoundTranscript({
+        caller: callerOf(member),
+        roundId,
+        captureRule,
+        readEventDecision: () => false,
+        authorize: (round, account, authority) => {
+          const allowed = canReadTranscript(
+            callerOf(member),
+            round,
+            account,
+            authority,
+            youth,
+          );
+          if (!allowed) refused();
+          return allowed;
+        },
+      }),
   ).then(
     () => 'read',
     (error: { code?: string }) => error.code ?? 'error',

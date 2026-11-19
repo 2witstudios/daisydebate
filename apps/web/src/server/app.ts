@@ -1,4 +1,7 @@
-import { studentsLive } from '../features/spectating/students-live';
+import {
+  studentsLive,
+  studentsLiveOrNothing,
+} from '../features/spectating/students-live';
 import { liveLinkedAdults } from '../features/spectating/linked-adults';
 import { roundViewReader } from '../features/round-runtime/reads';
 import type { NativeBillingRuntime } from '../features/billing/native-contract';
@@ -298,20 +301,13 @@ export function createApp({
     /** The Live listing, likewise. */
     liveReads: createCachedLiveReads({ store: database, clock }),
     /** Watch's "Your students, live", or nothing when it cannot be read. */
-    studentsLive: (member: {
-      readonly userId: string;
-      readonly actorId: string;
-    }) =>
-      // A failure here never takes the public hub down with it: the section
-      // is left out, and the failure goes to the error tracker.
-      readStudentsLive(member).catch((error: unknown) => {
-        reporter.capture(error, {
-          requestId: ids.next(),
-          route: 'watch.students_live',
-          errorCode: errorCodeOf(error, 'INTERNAL'),
-        });
-        return [];
+    studentsLive: studentsLiveOrNothing(readStudentsLive, (error) =>
+      reporter.capture(error, {
+        requestId: ids.next(),
+        route: 'watch.students_live',
+        errorCode: errorCodeOf(error, 'INTERNAL'),
       }),
+    ),
     redis,
     /** AUTH-7.7's bounded-cardinality in-process counters (`/api/ops/metrics`). */
     metrics,
