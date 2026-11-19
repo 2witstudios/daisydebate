@@ -73,7 +73,7 @@ export const audienceReactionOperations = ({
               exists(select 1 from audience_bans x where x.user_id=${input.userId}) as banned
             from rounds r left join broadcasts b on b.round_id=r.id
             where r.id=${input.roundId} and r.visibility in ('public','unlisted') and r.room_id is not null
-      and not ${youthRoundSql(sql`r.id`)}`,
+              and not ${youthRoundSql(sql`r.id`)}`,
         );
         if (
           !round ||

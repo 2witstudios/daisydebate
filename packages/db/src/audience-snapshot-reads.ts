@@ -42,7 +42,7 @@ export const audienceSnapshotReads = ({
                 (b.completed_at is null and b.stopped_at is null) as open
               from rounds r left join broadcasts b on b.round_id=r.id
               where r.id=${input.roundId} and r.visibility in ('public','unlisted') and r.room_id is not null
-      and not ${youthRoundSql(sql`r.id`)}`,
+                and not ${youthRoundSql(sql`r.id`)}`,
           );
           if (!round) return null;
           return {
@@ -109,7 +109,7 @@ export const audienceSnapshotReads = ({
         sql`select r.visibility from broadcasts b join rounds r on r.id=b.round_id
           where b.round_id=${input.roundId} and b.completed_at is null and b.stopped_at is null
             and r.visibility in ('public','unlisted') and r.room_id is not null
-      and not ${youthRoundSql(sql`r.id`)}`,
+            and not ${youthRoundSql(sql`r.id`)}`,
       );
       return row ? { visibility: row.visibility } : null;
     });
