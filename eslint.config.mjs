@@ -441,6 +441,17 @@ export const typedRules = {
   // A cast that changes nothing hides the one that does. State a type
   // where the value is made (an annotation, a type argument), not after.
   '@typescript-eslint/no-unnecessary-type-assertion': 'error',
+  // A promise nobody awaits loses its failure. Await it, return it, or mark
+  // it `void` where the callee reports its own failures.
+  '@typescript-eslint/no-floating-promises': 'error',
+  '@typescript-eslint/no-misused-promises': 'error',
+  '@typescript-eslint/await-thenable': 'error',
+  // What is thrown is an Error, so every catch can read a stack and a
+  // cause. A caught value thrown again keeps its identity.
+  '@typescript-eslint/only-throw-error': [
+    'error',
+    { allowThrowingAny: false, allowThrowingUnknown: true },
+  ],
 };
 
 export default [

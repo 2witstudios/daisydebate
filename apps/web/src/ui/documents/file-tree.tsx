@@ -229,7 +229,11 @@ function FolderRow({
         dispatch={dispatch}
         drive={drive}
         onOpen={() =>
-          drive.toggle(node.id, !node.expanded, node.contents.state === 'read')
+          void drive.toggle(
+            node.id,
+            !node.expanded,
+            node.contents.state === 'read',
+          )
         }
         leading={
           <>

@@ -122,7 +122,8 @@ export const emailDeliveryOperations = ({
     suppress: EmailSuppressionReason | null;
     at: string;
   }): Promise<'applied' | 'duplicate' | 'unknown-message'> {
-    const unknown = Symbol('unknown-message');
+    // Thrown inside the transaction so the event row it inserted rolls back.
+    class UnknownMessage extends Error {}
     return instrumented(eventSink, 'applyEmailDeliveryEvent', async () => {
       try {
         return await database.transaction(async (tx) => {
@@ -145,7 +146,7 @@ export const emailDeliveryOperations = ({
               eq(emailDeliveries.providerMessageId, input.providerMessageId),
             )
             .limit(1);
-          if (!delivery) throw unknown;
+          if (!delivery) throw new UnknownMessage();
           await tx
             .update(emailDeliveries)
             .set({
@@ -172,7 +173,7 @@ export const emailDeliveryOperations = ({
           return 'applied' as const;
         });
       } catch (error) {
-        if (error === unknown) return 'unknown-message' as const;
+        if (error instanceof UnknownMessage) return 'unknown-message' as const;
         throw error;
       }
     });

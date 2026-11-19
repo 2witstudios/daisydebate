@@ -97,7 +97,10 @@ export function SettingsPage({
   watchHistory,
   mediaRelease,
 }: SettingsPageProps) {
-  const sections = nav.filter(([id]) => id !== 'media-release' || mediaRelease);
+  const hasMediaRelease = mediaRelease !== undefined && mediaRelease !== null;
+  const sections = nav.filter(
+    ([id]) => id !== 'media-release' || hasMediaRelease,
+  );
   return (
     <div className="mx-auto flex w-full max-w-dash-column flex-col gap-6 px-6 pt-5 pb-8 max-compact:gap-4 max-compact:px-4">
       <PageHeader title="Settings" />
@@ -163,7 +166,7 @@ export function SettingsPage({
               </div>
             )}
           </Section>
-          {mediaRelease ? (
+          {hasMediaRelease ? (
             <Section id="media-release" title="Media release">
               {mediaRelease}
             </Section>

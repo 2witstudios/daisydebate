@@ -36,8 +36,9 @@ export function startRealtimeServiceLease(input: {
       });
     return work;
   };
-  const timer = input.timers.setInterval(tick, 1000);
-  tick();
+  // A renewal never rejects: its failure goes to the sink above.
+  const timer = input.timers.setInterval(() => void tick(), 1000);
+  void tick();
   return {
     async stop() {
       stopped = true;

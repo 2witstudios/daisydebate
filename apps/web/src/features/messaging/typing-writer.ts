@@ -84,7 +84,7 @@ export function createTypingWriter({
       if (!queued && !closed && desired && interval !== null)
         timer = timers.setTimeout(() => {
           timer = null;
-          return trigger();
+          void trigger();
         }, interval);
     } while (queued);
     busy = false;

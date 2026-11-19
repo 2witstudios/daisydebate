@@ -38,17 +38,18 @@ export function ConversationList({
     event.preventDefault();
     inbox.setSearch(inbox.search);
   };
-  const more = (after: string) => async (event: MouseEvent) => {
+  const more = (after: string) => (event: MouseEvent) => {
     // The visible cursor belongs to the applied question, not text still waiting
     // for its debounced result. Its native destination preserves that question.
     if (inbox.search.trim() !== (inbox.appliedSearch ?? '')) return;
     event.preventDefault();
     setReading(true);
-    const read = await inbox.more(after);
-    setReading(false);
-    // A refused read still has the link's native answer to offer.
-    if (!read)
-      window.location.assign(inboxPageHref(after, inbox.appliedSearch));
+    void inbox.more(after).then((read) => {
+      setReading(false);
+      // A refused read still has the link's native answer to offer.
+      if (!read)
+        window.location.assign(inboxPageHref(after, inbox.appliedSearch));
+    });
   };
   return (
     <>

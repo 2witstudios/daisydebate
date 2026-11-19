@@ -399,6 +399,58 @@ describe('a cast that changes nothing is refused', () => {
   });
 });
 
+describe('a promise is awaited and what is thrown is an Error', () => {
+  const filePath = 'packages/protocol/src/assert-never.ts';
+  const count = async (rule: string, source: string) => {
+    const [result] = await typedRepositoryEslint().lintText(source, {
+      filePath,
+    });
+    return result!.messages.filter(({ ruleId }) => ruleId === rule).length;
+  };
+  test('a dropped promise fails; an awaited or voided one passes', async () => {
+    const rule = '@typescript-eslint/no-floating-promises';
+    const work = 'const work = async (): Promise<void> => {};';
+    assert({
+      given: 'a promise dropped, one marked void and one awaited',
+      should: 'report only the dropped one',
+      actual: [
+        await count(
+          rule,
+          `${work} export const run = (): void => { work(); };`,
+        ),
+        await count(
+          rule,
+          `${work} export const run = (): void => { void work(); };`,
+        ),
+        await count(
+          rule,
+          `${work} export const run = async (): Promise<void> => { await work(); };`,
+        ),
+      ],
+      expected: [1, 0, 0],
+    });
+  });
+  test('throwing a non-error fails; an Error or a caught value passes', async () => {
+    const rule = '@typescript-eslint/only-throw-error';
+    assert({
+      given: 'a thrown string, a thrown Error and a rethrown caught value',
+      should: 'report only the string',
+      actual: [
+        await count(rule, "export const fail = (): never => { throw 'no'; };"),
+        await count(
+          rule,
+          "export const fail = (): never => { throw new Error('no'); };",
+        ),
+        await count(
+          rule,
+          'export const again = (caught: unknown): never => { throw caught; };',
+        ),
+      ],
+      expected: [1, 0, 0],
+    });
+  });
+});
+
 describe('a switch over a union names every member', () => {
   // The rule reads types, so the probe is linted as a source file on disk.
   const filePath = 'packages/protocol/src/assert-never.ts';

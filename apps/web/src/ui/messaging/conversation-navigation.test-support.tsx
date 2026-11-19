@@ -27,17 +27,17 @@ export async function runMessagingNavigationProbe(
 ) {
   const document = win.document as unknown as Document;
   const commands: string[] = [];
-  mock.module('./typing-browser', () => ({
+  void mock.module('./typing-browser', () => ({
     createBrowserTypingWriter: () => ({
       activity: async () => {},
       close: async () => {},
     }),
   }));
-  mock.module('next/dist/client/components/navigator', () => ({
+  void mock.module('next/dist/client/components/navigator', () => ({
     navigate: (href: string) => commands.push(`intent:${href}`),
   }));
   // Prefetch I/O is outside this mounted command proof; real Next is covered in E2E.
-  mock.module('next/dist/client/components/links', () => ({
+  void mock.module('next/dist/client/components/links', () => ({
     IDLE: { pending: false },
     mountLinkInstance: () => ({}),
     onNavigationIntent() {},
@@ -51,7 +51,7 @@ export async function runMessagingNavigationProbe(
     await import('next/dist/shared/lib/app-router-context.shared-runtime');
   // Match Next's App Router alias instead of Bun's default Pages Router Link.
   const { default: AppLink } = await import('next/dist/client/app-dir/link');
-  mock.module('next/link', () => ({ default: AppLink }));
+  void mock.module('next/link', () => ({ default: AppLink }));
   const { ConversationNavigation, ConversationLink, ConversationSearchForm } =
     await import('./conversation-navigation');
   const { MessageComposer } = await import('./message-composer');

@@ -3,7 +3,7 @@ import { createStreamingAudioWriter } from '@daisy/media/publication';
 import type { Database } from '@daisy/db';
 import type { BotPublicationScope } from '@daisy/db/bot-publication';
 import { spokenPrefix } from '@daisy/protocol';
-import { createAppError, isAppError } from '@daisy/errors';
+import { createAppError, isAppError, rethrow } from '@daisy/errors';
 
 type Publication = Awaited<ReturnType<typeof createAudioPublication>>;
 /** One synthesized bot phrase, bound to its publication scope and token. */
@@ -600,8 +600,8 @@ export function createBotPublisher(input: {
         await revealing;
         // An end that fails is asked again later; it never hides why this stopped.
         if (asked) await settleLine(job, fractionOf(result.playedSamples));
-        if (refusal !== undefined) throw refusal;
-        if (result.failure !== undefined) throw result.failure;
+        if (refusal !== undefined) rethrow(refusal);
+        if (result.failure !== undefined) rethrow(result.failure);
         return { complete: false, segmentEnded: false };
       }
       // Its last frames are still queued: the line closes once they have
@@ -637,7 +637,7 @@ export function createBotPublisher(input: {
         clearNow(true);
         scheduledEndMs = input.monotonicNowMs();
         if (asked) await settleLine(job, playedUntil(cutAtMs));
-        throw refusal ?? createAppError('CONFLICT');
+        rethrow(refusal ?? createAppError('CONFLICT'));
       }
       lastHanded = { phraseId: job.phraseId, handedAtMs, playsUntilMs };
       closing = closing.then(async () => {

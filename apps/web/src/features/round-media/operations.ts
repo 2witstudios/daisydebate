@@ -1,5 +1,10 @@
 import { admitsPrincipalAccess } from '@daisy/auth/authorization';
-import { createAppError, isAppError, createRefusal } from '@daisy/errors';
+import {
+  createAppError,
+  isAppError,
+  createRefusal,
+  rethrow,
+} from '@daisy/errors';
 import { mediaPhase } from '@daisy/debate-engine';
 import {
   roundMediaAdmissionSchema,
@@ -313,7 +318,7 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
       refusal = await run(claim, principal, issue);
     }
     if (held.issued) return held.issued;
-    throw await notIssued(roundId, principal, refusal);
+    return rethrow(await notIssued(roundId, principal, refusal));
   };
   /**
    * Why the reconcile never reached the issue: a human caller revoked
