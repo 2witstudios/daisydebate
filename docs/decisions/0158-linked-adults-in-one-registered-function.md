@@ -44,7 +44,7 @@ had none and no check of one.
 
 2. **The TypeScript statement is the spec.** `linkedAdultsOfRound` in
    `@daisy/auth/linked-adults` states the same rule over
-   plain facts. Shared fixtures (`@daisy/auth/testing/linked-adults`) hold both:
+   plain facts. Shared fixtures (`@daisy/auth/linked-adults-testing`) hold both:
    a unit test runs them through the TypeScript rule, and
    `packages/db/integration/round-linked-adult-actors.integration.ts` seeds
    the same people into PostgreSQL and asserts that the function, run as the

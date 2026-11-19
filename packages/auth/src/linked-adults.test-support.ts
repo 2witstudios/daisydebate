@@ -1,5 +1,5 @@
 import type { AgeBand, RatingDivision } from '@daisy/protocol';
-import type { LinkedAdultFacts } from '../linked-adults';
+import type { LinkedAdultFacts } from './linked-adults';
 
 /**
  * The shared fixtures the linked-adult rule is held to (ADR 0158): the

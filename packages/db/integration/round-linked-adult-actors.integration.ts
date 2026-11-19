@@ -6,7 +6,7 @@ import {
   linkedAdultFixtures,
   type FixtureIds,
   type LinkedAdultFixture,
-} from '@daisy/auth/testing/linked-adults';
+} from '@daisy/auth/linked-adults-testing';
 import { requireTestServices } from '@daisy/config';
 import type { AgeBand } from '@daisy/protocol';
 import { createId } from '@paralleldrive/cuid2';

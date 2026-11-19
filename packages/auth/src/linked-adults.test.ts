@@ -5,7 +5,7 @@ import {
   linkedAdultFactsOf,
   linkedAdultFixtures,
   type LinkedAdultFixture,
-} from './testing/linked-adults';
+} from './linked-adults.test-support';
 
 setupRitewayBun();
 
