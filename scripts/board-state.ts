@@ -90,14 +90,20 @@ const VERDICT =
 const REVIEWER = /^Reviewer: (\S+) · Builder: (\S+)/m;
 
 /**
- * Whether the PR's latest review verdict approves the merged head: the last
- * `## Review:` comment carrying a whole-line verdict must name `headSha`, declare a reviewer
- * other than the builder, and approve with no open blocker or major. The
- * caller passes only comments from repository collaborators.
+ * Whether the PR's latest review verdict approves it: the last `## Review:`
+ * comment carrying a whole-line verdict must name a commit of this PR,
+ * declare a reviewer other than the builder, and approve with no open blocker
+ * or major. The caller passes only comments from repository collaborators.
+ *
+ * The commit may be the merged head or one before it (ADR 0159). Requiring the
+ * head itself made every fix after an approval draw a fresh full review:
+ * half of all reviews came after a PR's first clean verdict. A review of the
+ * later commits that finds a blocker or a major is itself the latest verdict,
+ * so it still decides.
  */
 export function approvedByReview(
   comments: readonly string[],
-  headSha: string,
+  commits: readonly string[],
 ): boolean {
   const body = comments
     .filter(
@@ -111,7 +117,7 @@ export function approvedByReview(
   return (
     body !== undefined &&
     last !== undefined &&
-    body.includes(headSha) &&
+    commits.some((sha) => body.includes(sha)) &&
     people !== null &&
     people[1] !== people[2] &&
     last[3] !== 'CHANGES REQUESTED' &&

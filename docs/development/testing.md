@@ -241,11 +241,12 @@ report in CI's advisory job) is the live audit:
   tests assert the parsed value or the issue paths, not a `.success`
   boolean. `given`/`should` read as a specification sentence:
   when the assertion fails, its message is the bug report.
-- **Dead code.** `bun run knip` reports unused files, exports and
-  dependencies, then runs again in production mode for `apps/web`, which
-  also reports a module only its own test imports. It warns on PRs and fails the nightly main run, so keep
-  findings at zero, and keep `knip.jsonc` ignores limited to genuine implicit
-  uses (ADR 0013, ADR 0083).
+- **Dead code.** `bun run knip` fails a PR on unused files, exports and
+  dependencies (ADR 0013, ADR 0159). A script started by path is an entry in
+  `knip.jsonc`, with a comment saying what starts it; keep its ignores
+  limited to genuine implicit uses. `bun run knip:production` reports the
+  `apps/web` modules no deployed code reaches, including one only its own
+  test imports; it is a report until that list is empty.
 - **Duplication.** `bun run duplication` reports copy-pasted blocks not in
   `.jscpd-baseline.json`, and copy-pasted test blocks not in
   `.jscpd-tests-baseline.json` (tests have their own scan and baseline). It
@@ -600,19 +601,21 @@ static and unit checks even when HEAD equals the base.
 The browser workflow runs no quick check of its own, so a lint failure never
 cascades into browser reds.
 
-- **When it runs.** `e2e.yml` runs on main pushes, nightly on main, and on
-  manual dispatch; it is not a PR check. The only required check is CI gate
-  ([ADR 0098](../decisions/0098-ci-gate-only-while-greenfield.md)). A builder
-  proves the specs its change touches, locally or by dispatching the workflow
-  on its branch (`gh workflow run e2e.yml --ref <branch>`), which runs the
-  three-run release qualification below on every project plus Isolated Room
-  Launch. A red run on main gets an owner at once, who fixes forward or
-  reverts. Strict gating returns before real users.
-- **Projects.** `e2e.yml` passes `--project=chromium` on main pushes. The
+- **When it runs.** `e2e.yml` runs on every PR, on main pushes, nightly on
+  main, and on manual dispatch. `Playwright E2E` and
+  `Isolated Room Launch E2E` are required checks beside CI gate
+  ([ADR 0159](../decisions/0159-signals-that-gate.md)). A newer push to a PR
+  replaces its run in progress. A manual dispatch
+  (`gh workflow run e2e.yml --ref <branch>`) runs the three-run release
+  qualification below on every project plus Isolated Room Launch. A red run
+  on main gets an owner at once, who fixes forward or reverts, and nothing
+  else merges until it is green.
+- **Projects.** `e2e.yml` passes `--project=chromium` on PRs and main pushes. The
   nightly scheduled run on main runs every project
   (chromium, chromium-mobile, firefox, webkit, webkit-mobile and visual) and
   posts a failure to the drive's Incidents channel.
-- **Isolated Room Launch.** Every run executes it in full.
+- **Isolated Room Launch.** Every run executes it in full, as five shards
+  (`launch-1` to `launch-5`), each on its own machine, slot and stack.
 - **Spec selection.** A native spec runs only in the Isolated Room Launch job:
   name it in both `testMatch` in `apps/web/e2e/support/room-launch-config.ts`
   and the chromium `testIgnore` in `apps/web/playwright.config.ts`. That
