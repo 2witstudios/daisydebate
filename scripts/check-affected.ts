@@ -204,6 +204,12 @@ export function planGates(
     args: ['bun', 'scripts/check-boundaries.ts'],
   });
   gates.push({ name: 'styling', args: ['bun', 'scripts/check-styling.ts'] });
+  // Part of `bun lint`, and absent here until main had drifted to eight
+  // violations that no PR's quick check could see.
+  gates.push({
+    name: 'side literals',
+    args: ['bun', 'scripts/check-side-literals.ts'],
+  });
   // knip and duplication are reports, not quick-check gates (ADR 0083).
   if (plan.runRootScriptsTests)
     gates.push({ name: 'root script tests', args: ['bun', 'test', 'scripts'] });
