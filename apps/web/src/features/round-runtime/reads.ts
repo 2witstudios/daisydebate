@@ -3,7 +3,7 @@ import {
   authorize,
   type AccountAuthorizationFact,
 } from '@daisy/auth/authorization';
-import { liveAudience, type YouthLiveFact } from '@daisy/auth/live-audience';
+import type { YouthLiveFact } from '@daisy/auth/live-audience';
 import type { Database, RoundRoomAuthority } from '@daisy/db';
 import {
   withLinkedAdults,
@@ -84,31 +84,6 @@ export const canObserveUndelayed = (
 ) =>
   canRead(caller, round, account, authority, 'round.observe.undelayed', youth);
 
-/**
- * Why a caller the capability admits watches: as a linked adult when the one
- * rule says so (ADR 0155); otherwise as a host, which also covers an event's
- * officials, whose event authority holds the capability (ADR 0099).
- */
-const watchingAs = (
-  caller: { readonly actorId: string },
-  round: LaunchedRound,
-  youth: YouthLiveFact | null,
-): 'host' | 'linked_adult' => {
-  const audience = liveAudience(
-    {
-      createdByActorId: round.hostActorId,
-      status: round.status,
-      participants: round.participants,
-      youth,
-    },
-    { kind: 'account', actorId: caller.actorId },
-  );
-  return audience.kind === 'undelayed_no_media' &&
-    audience.as === 'linked_adult'
-    ? 'linked_adult'
-    : 'host';
-};
-
 /** The Round as this caller may see it: every read of it, one composition. */
 export const roundViewReader =
   (
@@ -131,15 +106,21 @@ export const roundViewReader =
           roundId,
           caller,
           (round, account, authority) => {
+            // A capability held without the links (a seatless host, an
+            // event's official) is a host's; one that needs them, a linked
+            // adult's (ADR 0155).
             viewerWatchesAs = canObserveUndelayed(
               caller,
               round,
               account,
               authority,
-              youth,
+              null,
             )
-              ? watchingAs(caller, round, youth)
-              : null;
+              ? 'host'
+              : youth !== null &&
+                  canObserveUndelayed(caller, round, account, authority, youth)
+                ? 'linked_adult'
+                : null;
             // A linked adult reads the Round only as its watcher (ADR 0155).
             const allowed =
               canReadRound(caller, round, account, authority) ||

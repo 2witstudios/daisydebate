@@ -1,3 +1,4 @@
+import { isTemporaryRefusal } from '@daisy/db/capacity';
 import {
   studentsLive,
   studentsLiveOrNothing,
@@ -310,21 +311,25 @@ export function createApp({
           (round) => round.roundId,
         );
       } catch (error) {
-        reporter.capture(error, {
-          requestId: ids.next(),
-          route: 'lobby.student_rounds',
-          errorCode: errorCodeOf(error, 'INTERNAL'),
-        });
+        // A self-clearing pool refusal is expected under load, not an error.
+        if (!isTemporaryRefusal(error))
+          reporter.capture(error, {
+            requestId: ids.next(),
+            route: 'lobby.student_rounds',
+            errorCode: errorCodeOf(error, 'INTERNAL'),
+          });
         return [];
       }
     },
     /** Watch's "Your students, live", or nothing when it cannot be read. */
     studentsLive: studentsLiveOrNothing(readStudentsLive, (error) =>
-      reporter.capture(error, {
-        requestId: ids.next(),
-        route: 'watch.students_live',
-        errorCode: errorCodeOf(error, 'INTERNAL'),
-      }),
+      isTemporaryRefusal(error)
+        ? undefined
+        : reporter.capture(error, {
+            requestId: ids.next(),
+            route: 'watch.students_live',
+            errorCode: errorCodeOf(error, 'INTERNAL'),
+          }),
     ),
     redis,
     /** AUTH-7.7's bounded-cardinality in-process counters (`/api/ops/metrics`). */

@@ -340,3 +340,44 @@ test('an Open Round gains no linked adults', async () => {
     ),
   );
 });
+
+test('a casual Youth Room’s live Round has its debaters’ linked adults too (ADR 0156)', async () => {
+  await withRoomRuntime(async (f) =>
+    withLinks(f, async (made) => {
+      const people = await adults(f);
+      await setAge(f, f.host, '15 years');
+      await setAge(f, f.guest, '16 years');
+      const room = await f.assemble({ lobby: 'youth' });
+      const { roundId } = await launchRuntimeRound(f, room);
+      await schoolWithCoach(f, made, {
+        owner: people.owner,
+        coach: people.coach,
+        student: f.host,
+      });
+      const [row] =
+        await f.sql`select r.competition_type, rm.division from rounds r join rooms rm on rm.id=r.room_id where r.id=${roundId}`;
+      assert({
+        given:
+          'a live casual Round in a Youth Room, read by the host’s coach and a stranger',
+        should:
+          'read as a Youth Round by its Room, propose it to the coach and admit them, and nobody else',
+        actual: {
+          room: [row!.competition_type, row!.division],
+          youth: await f.store.readRoundYouth(roundId),
+          candidates: (
+            await f.store.readStudentLiveRounds(people.coach.userId)
+          ).map((each) => each.roundId),
+          coach: await watches(f, people.coach, roundId),
+          stranger: await watches(f, people.stranger, roundId),
+        },
+        expected: {
+          room: ['casual', 'youth'],
+          youth: true,
+          candidates: [roundId],
+          coach: true,
+          stranger: 'NOT_FOUND',
+        },
+      });
+    }),
+  );
+});

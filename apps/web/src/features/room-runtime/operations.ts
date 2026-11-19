@@ -127,7 +127,8 @@ export function createRoomRuntimeOperations({
     if (released !== null) return { kind: 'broadcast', roundId: released };
     const round = state.roundRef;
     if (round === null || isRoundOver(round.status)) return null;
-    const youth = await linkedAdults(round.id);
+    // A lookup that fails only means no live-room link: the Room read stands.
+    const youth = await linkedAdults(round.id).catch(() => null);
     return youth !== null &&
       liveAudience(
         {

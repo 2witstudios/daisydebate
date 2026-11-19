@@ -94,6 +94,18 @@ timing, not audience. Owner decision 86 takes it, without media.
    host's view, ADR 0150's SQL fences (Broadcast discovery, Live listing,
    spectator timeline, archive, profiles), and every Recording rule.
 
+7. **Realtime, for now.** The realtime role may hold no privilege on a
+   tenant-owned table ([ADR 0129](0129-tenant-isolation-by-row-level-security.md)
+   §4), and the people read touches several. So realtime is granted only
+   `SELECT (division) ON rooms` (exempt, §6). Its links lookup fails closed:
+   the Round topic refuses a linked adult, and floor permits keep the first
+   pass. Linked adults follow the Round through the web's read (polled), and
+   their floor chat is hidden while realtime is up. YLS-12 replaces the people
+   read with one registered SECURITY DEFINER function,
+   `daisy_round_linked_adult_actors`, shared by the web and realtime, with a
+   test that the TypeScript and SQL answers agree. It follows PR 813
+   (`youthRoundSql`).
+
 ## Consequences
 
 - Media for linked adults (a private, signed-URL feed of a Youth Round) is

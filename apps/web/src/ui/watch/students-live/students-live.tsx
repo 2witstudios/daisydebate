@@ -32,12 +32,14 @@ export function StudentsLive({ cards }: StudentsLiveProps) {
             <article
               className={cn(
                 'flex flex-1 flex-col gap-3 rounded-lg border border-border bg-surface p-4 shadow-1',
-                modeBorderClass(true),
+                modeBorderClass(card.ranked),
               )}
             >
               <div className="flex flex-wrap items-center gap-2 text-sm text-ink-muted">
                 <StatusLine tone="live">Live</StatusLine>
-                <Badge tone="clay">Ranked</Badge>
+                <Badge tone={card.ranked ? 'clay' : 'sky'}>
+                  {card.ranked ? 'Ranked' : 'Casual'}
+                </Badge>
               </div>
               <h3 className="truncate text-md font-bold text-ink">
                 {card.title}

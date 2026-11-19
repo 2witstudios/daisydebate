@@ -9,6 +9,7 @@ const card = {
   href: `/rounds/${'r'.repeat(24)}/room`,
   title: 'Thursday scrimmage',
   resolution: 'Cities should ban cars from their downtown cores.',
+  ranked: true,
   line: 'maya.okafor vs jules_park · Speeches · 1AR',
 };
 
@@ -25,8 +26,12 @@ test('Your students, live', () => {
       html.includes(card.line),
       html.includes(`href="${card.href}"`),
       html.includes('>Watch</a>'),
+      html.includes('Ranked'),
+      renderToStaticMarkup(
+        <StudentsLive cards={[{ ...card, ranked: false }]} />,
+      ).includes('Casual'),
     ],
-    expected: [true, true, true, true, true, true],
+    expected: [true, true, true, true, true, true, true, true],
   });
   assert({
     given: 'nobody to show',

@@ -39,6 +39,7 @@ describe('studentLiveCard', () => {
         href: `/rounds/${round.id}/room`,
         title: 'Thursday scrimmage',
         resolution: round.topic,
+        ranked: round.competitionType === 'ranked',
         line: `Sam Reyes vs Practice bot · Speeches · ${rules[0]!.label}`,
       },
     });

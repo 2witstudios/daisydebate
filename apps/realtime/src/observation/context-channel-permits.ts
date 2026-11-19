@@ -111,12 +111,14 @@ async function roundFloorPermits(
       youth?.linkedAdultActorIds.includes(principal.actorId) === true,
   );
   if (asked.length === 0) return plain;
+  // The re-ask failing keeps the first pass too: one watcher never costs the
+  // debaters their permits.
   const again = await evaluateCohort(
     { ...evaluation, principals: asked },
     (input, work) =>
       reads.roundFloorChannelCohortAuthority({ ...input, youth }, work),
     decideRoundFloorPermit,
-  );
+  ).catch(() => null);
   if (again === null) return plain;
   return principals.map((principal, index) => {
     const at = asked.indexOf(principal);

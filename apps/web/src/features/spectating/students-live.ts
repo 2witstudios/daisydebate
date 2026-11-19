@@ -18,6 +18,8 @@ export type StudentLiveCard = {
   readonly href: string;
   readonly title: string;
   readonly resolution: string | null;
+  /** Ranked or casual: a Youth Room holds either (ADR 0156). */
+  readonly ranked: boolean;
   /** The debaters by name, then where the Round is: "maya vs jules · Speeches · 1AR". */
   readonly line: string;
 };
@@ -51,6 +53,7 @@ export const studentLiveCard = (
     href: liveRoomHref(view.id),
     title,
     resolution: view.topic,
+    ranked: view.competitionType === 'ranked',
     line: [
       watched.seats.map((seat) => seat.label).join(' vs '),
       stageWords[watched.stage],
