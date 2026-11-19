@@ -57,8 +57,9 @@ timeline, downloaded and shared.
    `media_withheld`: a Youth Round has no audience to withhold from, so that
    flag is an operator's alone, an operator's stop after the sweep still sets
    it, and a moderation stop the sweep meets is not mistaken for one
-   (`operatorWithheldSql`). Migration `youth_sweep_unwithhold` clears the
-   marks the sweep left. This keeps ADR 0150's trade-off: a casual Youth Round live across the deploy whose Recording
+   (`operatorWithheldSql`). No stored row needs clearing: before this the
+   sweep matched only ranked Youth Rounds, and staging holds none. This keeps
+   ADR 0150's trade-off: a casual Youth Round live across the deploy whose Recording
    followed that Broadcast is recorded only up to the stop. No follower is
    told such a Round is live (the live fanout and its standing ask
    `youthRoundSql`). No publication needs a backfill: the publish command
