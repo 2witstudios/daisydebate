@@ -1,16 +1,20 @@
 #!/usr/bin/env bun
 /**
- * RECON-3.1 sweep: every transaction type in `packages/db/src` becomes `Tx`
- * or `TxSource` from `src/tx.ts`, and every `x.transaction(work)` becomes
- * `inTransaction(x, work)`. It finds each alias that only renames a
- * transaction type (`type Tx = Pick<BunSQLDatabase, 'execute'>`, an exported
- * `TabTransaction`, `Parameters<Parameters<BunSQLDatabase['transaction']>[0]>[0]`),
- * deletes it and rewrites its references and imports. Idempotent: run it
- * again after the parent branch takes main in, then `bun format`.
+ * RECON-3.1 sweep: every transaction type in `packages/db` becomes `Tx`,
+ * `TxSource` or `TxOpener` from `src/tx.ts`, and every `x.transaction(work)`
+ * in `src` becomes `inTransaction(x, work)`. It finds each alias that only
+ * renames a transaction type (`type Tx = Pick<BunSQLDatabase, 'execute'>`,
+ * an exported `TabTransaction`,
+ * `Parameters<Parameters<BunSQLDatabase['transaction']>[0]>[0]`, an object
+ * type with nothing but a `transaction` method), deletes it and rewrites its
+ * references and imports. A `transaction` property whose work takes more
+ * than the transaction (a bounded writer's signal and receipt) is not an
+ * opener; it is listed for a rename. Idempotent: run it again after the
+ * parent branch takes main in, then format the changed files.
  *
  *   bun packages/db/scripts/sweeps/tx.ts
  */
-import { relative, resolve, dirname } from 'node:path';
+import { dirname, relative, resolve } from 'node:path';
 import ts from 'typescript';
 import {
   applyEdits,
@@ -19,10 +23,12 @@ import {
   type Edit,
 } from './sweep-support';
 
-const SRC = resolve(import.meta.dir, '../../src');
+const PACKAGE = resolve(import.meta.dir, '../..');
+const SRC = resolve(PACKAGE, 'src');
 const HOME = resolve(SRC, 'tx.ts');
+const HOME_NAMES = new Set(['Tx', 'TxSource', 'TxOpener', 'inTransaction']);
 
-type Target = 'Tx' | 'TxSource';
+type Target = 'Tx' | 'TxSource' | 'TxOpener';
 
 /** Names that are a transaction type before any alias is read. */
 const seeds: ReadonlyMap<string, Target> = new Map([
@@ -30,6 +36,7 @@ const seeds: ReadonlyMap<string, Target> = new Map([
   ['BoundedTransactionContext', 'Tx'],
   ['Tx', 'Tx'],
   ['TxSource', 'TxSource'],
+  ['TxOpener', 'TxOpener'],
 ]);
 
 const compact = (text: string) => text.replace(/\s+/g, '');
@@ -49,6 +56,7 @@ function classify(
         ? 'TxSource'
         : 'Tx';
     }
+    if (name === 'TxOpener' && node.typeArguments) return null;
     return known.get(name) ?? null;
   }
   if (ts.isIndexedAccessTypeNode(node)) {
@@ -58,6 +66,13 @@ function classify(
     const match = opener.exec(text);
     if (match?.[1] && known.get(match[1])) return 'TxSource';
     if (bounded.test(text)) return 'Tx';
+  }
+  if (ts.isTypeLiteralNode(node) && node.members.length === 1) {
+    const text = compact(node.getText()).replace(/;?\}$/, '}');
+    const shape =
+      /^\{(?:readonly)?transaction:<(\w+)>\(\w+:\(\w+:(\w+)\)=>Promise<\1>\)=>Promise<\1>\}$/;
+    const match = shape.exec(text);
+    if (match?.[2] && known.get(match[2]) === 'Tx') return 'TxOpener';
   }
   return null;
 }
@@ -97,67 +112,135 @@ function aliasesOf(
   return found;
 }
 
-const files = sourceFiles(SRC).filter((file) => file !== HOME);
-const texts = new Map(files.map((file) => [file, Bun.file(file).text()]));
-const sources = new Map<string, ts.SourceFile>();
-for (const [file, text] of texts) sources.set(file, parse(file, await text));
-
-// Exported aliases are known everywhere; local ones only in their file.
-const exported = new Map(seeds);
-let grew = true;
-while (grew) {
-  grew = false;
-  for (const source of sources.values())
-    for (const [name, alias] of aliasesOf(source, exported))
-      if (alias.exported && !exported.has(name)) {
-        exported.set(name, alias.target);
-        grew = true;
-      }
-}
-
 const homeSpecifier = (file: string) => {
   const path = relative(dirname(file), HOME).replace(/\.ts$/, '');
   return path.startsWith('.') ? path : `./${path}`;
 };
 
-/** Pass 1: types. Pass 2 (repeated): one layer of `.transaction(` calls. */
-function sweepTypes(file: string, source: ts.SourceFile): string | null {
+const removeStatement = (source: ts.SourceFile, node: ts.Node): Edit => {
+  let end = node.getEnd();
+  if (source.text[end] === '\n') end += 1;
+  return { start: node.getStart(source, true), end, text: '' };
+};
+
+/**
+ * Pass 1, on the program as it stands: each `x.transaction(work)` whose work
+ * takes only the transaction becomes `inTransaction(x, work)`, nested calls
+ * included.
+ */
+function sweepCalls(
+  program: ts.Program,
+  source: ts.SourceFile,
+  refused: string[],
+): string | null {
+  const checker = program.getTypeChecker();
+  const isOpenerCall = (
+    node: ts.Node,
+  ): node is ts.CallExpression & {
+    expression: ts.PropertyAccessExpression;
+  } => {
+    if (
+      !ts.isCallExpression(node) ||
+      !ts.isPropertyAccessExpression(node.expression) ||
+      node.expression.name.text !== 'transaction'
+    )
+      return false;
+    const signature = checker.getResolvedSignature(node);
+    const work = signature?.parameters[0];
+    const workType = work && checker.getTypeOfSymbolAtLocation(work, node);
+    const takes = workType?.getCallSignatures()[0]?.parameters.length ?? 0;
+    if (takes > 1) {
+      const { line } = source.getLineAndCharacterOfPosition(node.getStart());
+      refused.push(
+        `${relative(PACKAGE, source.fileName)}:${line + 1} ${node.expression.getText(source)}`,
+      );
+      return false;
+    }
+    return true;
+  };
+  const rewrite = (node: ts.Node): Edit[] => {
+    if (!isOpenerCall(node))
+      return node.getChildren(source).flatMap((child) => rewrite(child));
+    const render = (part: ts.Node) => {
+      const start = part.getStart(source);
+      return applyEdits(
+        part.getText(source),
+        rewrite(part).map((edit) => ({
+          ...edit,
+          start: edit.start - start,
+          end: edit.end - start,
+        })),
+      );
+    };
+    const parts = [node.expression.expression, ...node.arguments].map(render);
+    return [
+      {
+        start: node.getStart(source),
+        end: node.getEnd(),
+        text: `inTransaction(${parts.join(', ')})`,
+      },
+    ];
+  };
+  const edits = rewrite(source);
+  if (edits.length === 0) return null;
+  return ensureNamedImport(
+    applyEdits(source.text, edits),
+    homeSpecifier(source.fileName),
+    'inTransaction',
+    false,
+  );
+}
+
+/** Pass 2, on text: transaction types and their imports. */
+function sweepTypes(
+  source: ts.SourceFile,
+  exported: ReadonlyMap<string, Target>,
+): string | null {
   const local = aliasesOf(source, exported);
   const known = new Map([
     ...exported,
     ...[...local].map(([name, { target }]) => [name, target] as const),
   ]);
+  const removed = new Set([...exported.keys(), ...local.keys()]);
+  const home = homeSpecifier(source.fileName);
   const edits: Edit[] = [];
   const used = new Set<Target>();
-  const removed = new Set([...exported.keys(), ...local.keys()]);
-  removed.delete('Tx');
-  removed.delete('TxSource');
 
   const visit = (node: ts.Node): void => {
     if (ts.isTypeAliasDeclaration(node) && local.has(node.name.text)) {
-      const start = node.getStart(source, true);
-      let end = node.getEnd();
-      if (source.text[end] === '\n') end += 1;
-      edits.push({ start, end, text: '' });
+      edits.push(removeStatement(source, node));
       return;
     }
     if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) {
+      const module =
+        node.moduleSpecifier && ts.isStringLiteral(node.moduleSpecifier)
+          ? node.moduleSpecifier.text
+          : null;
+      if (module === home) return;
       const clause = ts.isImportDeclaration(node)
         ? node.importClause?.namedBindings
         : node.exportClause;
       if (!clause || (!ts.isNamedImports(clause) && !ts.isNamedExports(clause)))
         return;
-      const elements = clause.elements as ts.NodeArray<
-        ts.ImportSpecifier | ts.ExportSpecifier
-      >;
-      const keep = elements.filter(
-        (element) => !removed.has((element.propertyName ?? element.name).text),
-      );
+      const elements: readonly (ts.ImportSpecifier | ts.ExportSpecifier)[] =
+        clause.elements;
+      const gone = (element: ts.ImportSpecifier | ts.ExportSpecifier) => {
+        const name = (element.propertyName ?? element.name).getText(source);
+        return removed.has(name) || (module !== null && HOME_NAMES.has(name));
+      };
+      for (const element of elements) {
+        const target = element.propertyName
+          ? known.get(element.propertyName.getText(source))
+          : undefined;
+        if (target && ts.isImportSpecifier(element))
+          known.set(element.name.text, target);
+      }
+      const keep = elements.filter((element) => !gone(element));
       if (keep.length === elements.length) return;
-      if (keep.length === 0 && !(ts.isImportDeclaration(node) && node.importClause?.name)) {
-        let end = node.getEnd();
-        if (source.text[end] === '\n') end += 1;
-        edits.push({ start: node.getStart(source), end, text: '' });
+      const defaultImport =
+        ts.isImportDeclaration(node) && node.importClause?.name;
+      if (keep.length === 0 && !defaultImport) {
+        edits.push(removeStatement(source, node));
         return;
       }
       edits.push({
@@ -185,55 +268,60 @@ function sweepTypes(file: string, source: ts.SourceFile): string | null {
   ts.forEachChild(source, visit);
   if (edits.length === 0) return null;
   let text = applyEdits(source.text, edits);
-  for (const target of used)
-    text = ensureNamedImport(text, homeSpecifier(file), target, true);
+  for (const target of used) text = ensureNamedImport(text, home, target, true);
   return text;
 }
 
-function sweepCalls(file: string, source: ts.SourceFile): string | null {
-  const edits: Edit[] = [];
-  const visit = (node: ts.Node): boolean => {
-    let inner = false;
-    ts.forEachChild(node, (child) => {
-      if (visit(child)) inner = true;
-    });
-    if (
-      ts.isCallExpression(node) &&
-      ts.isPropertyAccessExpression(node.expression) &&
-      node.expression.name.text === 'transaction'
-    ) {
-      if (!inner) {
-        const target = node.expression.expression.getText(source);
-        const args = node.arguments
-          .map((argument) => argument.getText(source))
-          .join(', ');
-        edits.push({
-          start: node.getStart(source),
-          end: node.getEnd(),
-          text: `inTransaction(${target}, ${args})`,
-        });
+const config = ts.getParsedCommandLineOfConfigFile(
+  resolve(PACKAGE, 'tsconfig.json'),
+  {},
+  { ...ts.sys, onUnRecoverableConfigFileDiagnostic: () => undefined },
+);
+if (!config) throw new Error('packages/db/tsconfig.json did not parse');
+const program = ts.createProgram(config.fileNames, config.options);
+const files = [
+  ...sourceFiles(SRC),
+  ...sourceFiles(resolve(PACKAGE, 'integration')),
+].filter((file) => file !== HOME);
+
+const refused: string[] = [];
+const texts = new Map<string, string>();
+for (const file of files) {
+  const original = await Bun.file(file).text();
+  const programSource = program.getSourceFile(file);
+  const called =
+    file.startsWith(SRC) && programSource
+      ? sweepCalls(program, programSource, refused)
+      : null;
+  texts.set(file, called ?? original);
+}
+
+// Exported aliases are known everywhere; local ones only in their file.
+const sources = new Map(
+  [...texts].map(([file, text]) => [file, parse(file, text)] as const),
+);
+const exported = new Map(seeds);
+let grew = true;
+while (grew) {
+  grew = false;
+  for (const source of sources.values())
+    for (const [name, alias] of aliasesOf(source, exported))
+      if (alias.exported && !exported.has(name)) {
+        exported.set(name, alias.target);
+        grew = true;
       }
-      return true;
-    }
-    return inner;
-  };
-  visit(source);
-  if (edits.length === 0) return null;
-  const text = applyEdits(source.text, edits);
-  return ensureNamedImport(text, homeSpecifier(file), 'inTransaction', false);
 }
 
 let changed = 0;
 for (const [file, source] of sources) {
-  let text = sweepTypes(file, source) ?? source.text;
-  for (;;) {
-    const next = sweepCalls(file, parse(file, text));
-    if (next === null) break;
-    text = next;
-  }
-  if (text !== source.text) {
+  const text = sweepTypes(source, exported) ?? source.text;
+  if (text !== (await Bun.file(file).text())) {
     await Bun.write(file, text);
     changed += 1;
   }
 }
 console.log(`tx sweep: ${changed} files changed`);
+if (refused.length > 0)
+  console.log(
+    `not openers (their work takes more than the transaction), rename them:\n  ${refused.join('\n  ')}`,
+  );
