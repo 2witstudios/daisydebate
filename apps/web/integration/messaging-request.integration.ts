@@ -34,7 +34,7 @@ const requestDeps = (
           decision: 'Explicit fixture only',
           key: 'social.dm',
           revision: 1,
-          allowedBandPairs: [['adult', 'adult']],
+          earlierRevisions: [],
         },
       },
     }),

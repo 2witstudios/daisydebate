@@ -50,7 +50,7 @@ export const input: AuthorizationInput = {
       decision: 'explicit isolated group fixture only',
       key: 'social.private_group',
       revision: 1,
-      allowedBandPairs: [['adult', 'adult']],
+      earlierRevisions: [],
       groupBlockScope: 'all_pairs',
     },
   },
