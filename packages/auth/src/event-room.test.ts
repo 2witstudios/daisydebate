@@ -176,6 +176,40 @@ describe('a Youth event Round and its linked adults (ADR 0155)', () => {
       expected: [false, false],
     });
   });
+  test('an officiator who is also linked is decided by the grant', () => {
+    const officiatingParent: Asker = {
+      actorId: 'parent',
+      grants: [lobbyGrant('hosted', ['tournament.rooms.officiate'])],
+    };
+    assert({
+      given: 'a linked parent who also holds the officiating grant',
+      should:
+        'be allowed under the grant’s own authority, exactly as an officiator who is not linked',
+      actual: ask(
+        'round.observe.undelayed',
+        youthRound('active'),
+        officiatingParent,
+      ),
+      expected: ask(
+        'round.observe.undelayed',
+        eventRound(),
+        people.officiator!,
+      ),
+    });
+  });
+  test('a Round’s creator gains nothing on an event Round', () => {
+    assert({
+      given:
+        'an unseated, unlinked creator of a running Youth event Round, without the grant',
+      should: 'be refused: no seatless-host fallback',
+      actual: ask(
+        'round.observe.undelayed',
+        { ...youthRound('active'), createdByActorId: 'creator' },
+        { actorId: 'creator' },
+      ).allow,
+      expected: false,
+    });
+  });
 });
 
 describe('an ordinary Room', () => {
