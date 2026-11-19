@@ -3,7 +3,7 @@ on:
   push:
     branches: [main]
   pull_request:
-  # The nightly main run: the whole CI on main, with knip blocking.
+  # The nightly main run: the whole CI on main, with the live dependency audit.
   schedule:
     - cron: '23 6 * * *'
   workflow_dispatch:

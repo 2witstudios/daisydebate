@@ -210,7 +210,8 @@ export function planGates(
     name: 'side literals',
     args: ['bun', 'scripts/check-side-literals.ts'],
   });
-  // knip and duplication are reports, not quick-check gates (ADR 0083).
+  // knip is a gate of its own in CI's checks matrix (ADR 0159); duplication
+  // is a report (ADR 0083).
   if (plan.runRootScriptsTests)
     gates.push({ name: 'root script tests', args: ['bun', 'test', 'scripts'] });
   if (plan.runEslintConfigTest)

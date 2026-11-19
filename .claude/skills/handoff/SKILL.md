@@ -3,7 +3,7 @@ name: handoff
 description: >
   Hand a slice PR to async review in one step: push the branch, open or update the one PR through
   /pr, move the delivered tasks to In Review, spawn the /review and /code-review reviewers into
-  your own worktree, ask the architecture reviewer for a pass, and post on the Delivery channel. Use when a
+  your own worktree, and post on the Delivery channel. Use when a
   slice PR opens, when the user says "/handoff", or at the end of a builder prompt.
 compatibility: Requires git, the gh CLI, pu, and the pagespace CLI with an active key. In a repository with bun board:* (Daisy) it uses them.
 ---

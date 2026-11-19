@@ -74,9 +74,9 @@ pu kill --agent <agent> && pu clean
     `PR_READY` and the required checks (CI gate, Playwright E2E and Isolated
     Room Launch E2E) are green at the exact head
     ([ADR 0159](../decisions/0159-signals-that-gate.md)).
-  - Nothing merges while main's latest Browser E2E run is red. That run
-    belongs to the point guard whose merge turned it red, who fixes forward
-    or reverts.
+  - While main's latest Browser E2E run on a push is red, only the PR that
+    fixes it or reverts what broke it merges. That run belongs to the point
+    guard whose merge turned it red.
   - The sweep merges at most two PRs per cycle into main. A feature parent
     takes one PR at a time (ADR 0128).
 - **After a merge.** The tasks the PR names move to Done when its latest

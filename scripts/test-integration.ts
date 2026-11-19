@@ -151,7 +151,6 @@ export function withSelectedSuites(
   };
 }
 
-/** The line for a sweep that dropped databases of dead runs, else nothing. */
 /**
  * Bun's default test deadline is 5 s. A suite that talks to PostgreSQL and
  * Redis crosses it on a loaded runner, and a different test failed the nightly
@@ -175,6 +174,7 @@ export const suiteArguments = (
   ...rest,
 ];
 
+/** The line for a sweep that dropped databases of dead runs, else nothing. */
 export const sweepMessage = (dropped: readonly string[]): string | undefined =>
   dropped.length === 0
     ? undefined

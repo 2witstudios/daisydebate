@@ -100,10 +100,10 @@ enforces the ADR-linked, time-bounded exception registry.
    journey also proves lost-response replay, permit expiry/reconnect, phone unread
    state and retained terminal history.
 4. **CI parity** — `bun check` mirrors CI's blocking gates (format, lint,
-   policy, invariants, typecheck, unit tests, production build). knip,
-   duplication, evidence and the coverage trend are reports: CI runs them in
-   its non-blocking "Advisory reports" job, and knip blocks only the nightly
-   main run (ADR 0083). CI additionally runs the
+   policy, invariants, knip, typecheck, unit tests, production build).
+   Duplication, evidence, the coverage trend and knip's production pass are
+   reports: CI runs them in its non-blocking "Advisory reports" job
+   (ADR 0083, ADR 0159). CI additionally runs the
    integration tier (Redis and LiveKit from `infra/compose.yaml`, the same
    memory-only Redis and dev-key SFU every slot uses) and the browser tier in the
    dedicated `e2e.yml` workflow (one E2E owner; `bun evidence`

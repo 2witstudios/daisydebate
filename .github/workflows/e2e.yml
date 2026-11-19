@@ -155,7 +155,7 @@ jobs:
       # Also installs zip/unzip: scripts/e2e-artifact-sanitizer.ts shells
       # out to them to redact retained trace archives, a path exercised only
       # when a test fails, so the job must not rely on the base image.
-      # The step bound sits inside the 20-minute job budget (ci-browsers.sh
+      # The step bound sits inside the 25-minute job budget (ci-browsers.sh
       # stops after three apt attempts).
       - name: Install Playwright browsers
         id: browsers
