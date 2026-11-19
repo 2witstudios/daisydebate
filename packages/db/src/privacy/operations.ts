@@ -170,7 +170,7 @@ export async function runPrivacyExport(
       version, to_char(deleted_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as deleted_at
       from users where id = ${plan.subject.userId}`);
     const result: Record<string, readonly Readonly<Record<string, unknown>>[]> =
-      { ...checkedExport({ users: rows as unknown as PrivacyExport[string] }) };
+      { ...checkedExport({ users: rows }) };
     for (const adopter of adoption) {
       const exported = checkedExport(await adopter.export(tx, plan.subject));
       for (const [table, records] of Object.entries(exported)) {

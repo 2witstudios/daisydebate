@@ -13,7 +13,7 @@ const at = (column: string) =>
   );
 
 const read = async (tx: Tx, query: ReturnType<typeof sql>) =>
-  (await tx.execute(query)) as unknown as Record<string, unknown>[];
+  await tx.execute(query);
 
 /** Runs `work` under each club's own scope (attestations are club rows), then clears it. */
 async function eachClub(

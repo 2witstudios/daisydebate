@@ -36,11 +36,8 @@ export const scope = (world: ReturnType<typeof createMediaWorld>) => ({
   workerId,
   epoch: 1,
 });
-export const authenticated = (world: ReturnType<typeof createMediaWorld>) =>
-  ({
-    roundId: world.roundId,
-    workerId,
-    serviceId: `media-capture:${workerId}`,
-  }) as Parameters<
-    ReturnType<typeof createMediaWorkerTokenBroker>['captureToken']
-  >[1];
+export const authenticated = (world: ReturnType<typeof createMediaWorld>) => ({
+  roundId: world.roundId,
+  workerId,
+  serviceId: `media-capture:${workerId}`,
+});

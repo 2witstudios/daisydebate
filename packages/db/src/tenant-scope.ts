@@ -44,7 +44,7 @@ export const currentTenantScope = async (
   const [row] = (await transaction.execute(sql`select
     current_setting('daisy.organization_scope', true) as organization,
     current_setting('daisy.lobby_scope', true) as lobby,
-    current_setting('daisy.subject_scope', true) as subject`)) as unknown as {
+    current_setting('daisy.subject_scope', true) as subject`)) as {
     organization: string | null;
     lobby: string | null;
     subject: string | null;

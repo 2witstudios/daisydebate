@@ -24,8 +24,8 @@ export const flagsPrivacyAdopter: PrivacyAdopter = {
       from operator_command_receipts where target_user_id = ${subject.userId}
       and action in ('flag.state.update', 'flag.override.update') order by created_at, command_id`);
     return {
-      flag_account_overrides: targeting as unknown as Record<string, unknown>[],
-      flag_commands: commands as unknown as Record<string, unknown>[],
+      flag_account_overrides: targeting,
+      flag_commands: commands,
     };
   },
 };

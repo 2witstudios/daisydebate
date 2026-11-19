@@ -31,12 +31,12 @@ export const requestsOf = (input: DrawInput): readonly EventRequest[] =>
 export const placedOf = (plan: Plan): readonly Placed[] => [
   ...plan.keep.map((k) => ({
     ref: { kind: 'existing', id: k.id } as const,
-    fixture: k.fixture as Fixture,
+    fixture: k.fixture,
     added: false,
   })),
   ...plan.add.map((a) => ({
     ref: { kind: 'new', ordinal: a.ordinal } as const,
-    fixture: a.fixture as Fixture,
+    fixture: a.fixture,
     added: true,
   })),
 ];

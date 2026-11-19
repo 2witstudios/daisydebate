@@ -97,7 +97,7 @@ export const spectatorTimelineReads = ({
             isYouthRound(round, { division: round.roomDivision })
           )
             return null;
-          const competitionType = round.competitionType as 'ranked' | 'casual';
+          const competitionType = round.competitionType;
           const [broadcast] = await tx
             .select()
             .from(broadcasts)

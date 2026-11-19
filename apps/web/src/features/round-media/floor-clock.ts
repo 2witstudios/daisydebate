@@ -75,7 +75,7 @@ export const floorClockOf = (round: ClockedRound): FloorClock => {
     activePrep: prep
       ? {
           startedAt: prep.started_at,
-          consumedMs: round.checkpoint!.prep_consumed_ms[prep.side] ?? 0,
+          consumedMs: round.checkpoint.prep_consumed_ms[prep.side] ?? 0,
         }
       : null,
     stops: round.checkpoint?.clock_stops ?? [],

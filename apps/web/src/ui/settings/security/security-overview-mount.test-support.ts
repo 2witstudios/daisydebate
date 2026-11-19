@@ -87,7 +87,7 @@ export const mount = async (signOutNotice?: string) => {
     signingOutOthers: () => held.overview.signOut.kind === 'asking',
     lists: () => output().getAttribute('data-lists'),
     shown: () =>
-      JSON.parse(output().textContent!) as {
+      JSON.parse(output().textContent) as {
         passkeys: string[];
         sessions: string[];
         sessionsNotice: string | null;

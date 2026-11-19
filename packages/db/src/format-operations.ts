@@ -171,7 +171,7 @@ export const formatOperations = ({
         )
         .limit(1);
       if (!row) return null;
-      return row as FormatPresetRecord;
+      return row;
     });
   },
 

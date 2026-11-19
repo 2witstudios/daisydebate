@@ -96,8 +96,8 @@ export const scheduleViolations = (
   const drawn = [
     ...plan.keep
       .filter((k) => !fixed.has(k.id))
-      .map((k) => fixtureName(k.fixture as Fixture)),
-    ...plan.add.map((a) => fixtureName(a.fixture as Fixture)),
+      .map((k) => fixtureName(k.fixture)),
+    ...plan.add.map((a) => fixtureName(a.fixture)),
   ];
   const left = [...drawn];
   const missing: string[] = [];

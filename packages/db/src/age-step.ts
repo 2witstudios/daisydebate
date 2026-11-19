@@ -147,9 +147,9 @@ export const accountTermsPrivacyAdopter: PrivacyAdopter = {
   },
   export: async (tx, subject) => ({
     account_terms: exportRows(
-      (await tx.execute(
+      await tx.execute(
         sql`select user_id,terms_version,accepted_at from ${accountTerms} where user_id=${subject.userId}`,
-      )) as unknown as Record<string, unknown>[],
+      ),
     ),
   }),
 };

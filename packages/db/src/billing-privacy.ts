@@ -64,22 +64,13 @@ export const billingPrivacyAdopter: PrivacyAdopter = {
       where job.subject_ref=${subject.userId} and job.vendor='stripe'
         and job.billing_cleanup->'invoiceDebt'->>'kind'='owed' order by identity`);
     return {
-      billing_customers: customers as unknown as Record<string, unknown>[],
-      billing_subscriptions: subscriptions as unknown as Record<
-        string,
-        unknown
-      >[],
-      billing_webhook_events: receipts as unknown as Record<string, unknown>[],
-      billing_purchases: purchases as unknown as Record<string, unknown>[],
-      billing_refund_actions: refunds as unknown as Record<string, unknown>[],
-      billing_payment_observations: observations as unknown as Record<
-        string,
-        unknown
-      >[],
-      billing_unrouted_invoices: unroutedInvoices as unknown as Record<
-        string,
-        unknown
-      >[],
+      billing_customers: customers,
+      billing_subscriptions: subscriptions,
+      billing_webhook_events: receipts,
+      billing_purchases: purchases,
+      billing_refund_actions: refunds,
+      billing_payment_observations: observations,
+      billing_unrouted_invoices: unroutedInvoices,
     };
   },
 };

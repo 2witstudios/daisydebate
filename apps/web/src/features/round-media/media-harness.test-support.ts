@@ -128,7 +128,7 @@ const stubRoom = (
       transport.stopTracks();
       void transport.disconnect().catch(() => undefined);
     },
-  } as unknown as MediaRoom;
+  };
 };
 
 export function createMediaHarness(input: {

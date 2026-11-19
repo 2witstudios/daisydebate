@@ -149,7 +149,7 @@ export const prepare = (request: EventRequest, seed: Uint8Array): Prepared => {
       cutoff,
       division: null,
       seed,
-    } as Parameters<typeof standings>[0]);
+    });
     results = table.results;
     const records = recordsAt(request, seed, cutoff);
     const place = new Map(table.rows.map((row, i) => [row.entry, i]));

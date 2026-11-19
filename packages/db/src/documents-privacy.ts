@@ -20,18 +20,18 @@ export const documentsPrivacyAdopter: PrivacyAdopter = {
     );
   },
   export: async (tx, subject) => {
-    const documents = (await tx.execute(sql`
+    const documents = await tx.execute(sql`
       select id, folder_id, title, html, revision,
         to_char(created_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as created_at,
         to_char(updated_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as updated_at
       from documents where owner_actor_id = ${subject.actorId}
-      order by id`)) as unknown as Record<string, unknown>[];
-    const folders = (await tx.execute(sql`
+      order by id`);
+    const folders = await tx.execute(sql`
       select id, parent_folder_id, name,
         to_char(created_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as created_at,
         to_char(updated_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as updated_at
       from document_folders where owner_actor_id = ${subject.actorId}
-      order by id`)) as unknown as Record<string, unknown>[];
+      order by id`);
     return { documents, document_folders: folders };
   },
 };

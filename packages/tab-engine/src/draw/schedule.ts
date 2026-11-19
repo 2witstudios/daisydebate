@@ -37,7 +37,7 @@ const roundRobinRound = (
     const a = turned[i]!;
     const b = turned[n - 1 - i]!;
     if (a === null || b === null)
-      return { kind: 'bye', entry: (a ?? b)! } as const;
+      return { kind: 'bye', entry: a ?? b } as const;
     const swap = (i + tabRound) % 2 === 1;
     return {
       kind: 'pairing',

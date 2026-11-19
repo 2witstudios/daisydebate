@@ -151,7 +151,7 @@ export function ContextChatMessageControls({
         onBlurCapture={(event) => {
           if (
             event.relatedTarget &&
-            !event.currentTarget.contains(event.relatedTarget as Node)
+            !event.currentTarget.contains(event.relatedTarget)
           )
             ownedFocus.current = false;
         }}

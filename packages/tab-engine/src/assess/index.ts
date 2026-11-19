@@ -8,7 +8,6 @@ import type {
   Draw,
   DrawInput,
   EventRequest,
-  ExistingFixture,
   FixtureRef,
   Plan,
 } from '../shapes/draw';
@@ -71,11 +70,7 @@ const drawPinned = (input: DrawInput, event: Id, entries: readonly Id[]) => {
       request.format.outcome === 'winner' || 'sides' in request.format
         ? { kind: 'pairing', sides: entries, panel: [] }
         : { kind: 'section', speakers: entries, panel: [] };
-    const pinned = {
-      id: PIN,
-      fixture,
-      hold: 'fixed',
-    } as ExistingFixture<never>;
+    const pinned = { id: PIN, fixture, hold: 'fixed' };
     return {
       ...request,
       existing: [...request.existing, pinned],

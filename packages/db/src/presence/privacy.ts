@@ -17,9 +17,9 @@ export const presencePrivacyAdopter: PrivacyAdopter = {
     const actorId = idSchema.parse(subject.actorId);
     return {
       presence_settings: exportRows(
-        (await tx.execute(
+        await tx.execute(
           sql`select * from presence_settings where actor_id=${actorId}`,
-        )) as unknown as Record<string, unknown>[],
+        ),
       ),
     };
   },

@@ -1,10 +1,6 @@
 import { youthRoundPublic } from './media-release-standing';
 import { currentRoundParticipant } from './round-current-participant';
-import {
-  isJudgeSeat,
-  type CompetitionType,
-  type RecordingStatus,
-} from '@daisy/protocol';
+import { isJudgeSeat } from '@daisy/protocol';
 import { and, desc, eq, isNotNull, or, sql, type SQL } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { broadcastStopOf } from './broadcast-operations';
@@ -236,7 +232,7 @@ export const recordingArchiveReadOperations = ({
           id: row.id,
           title: row.title,
           resolution: row.resolution,
-          competitionType: row.competitionType as CompetitionType,
+          competitionType: row.competitionType,
           visibility: row.visibility,
           hostActorId: row.hostActorId,
           completedAtMs: row.completedAt?.getTime() ?? null,
@@ -247,7 +243,7 @@ export const recordingArchiveReadOperations = ({
           youthPublic: row.youthPublic === true,
           sides: row.rules.sides,
           outcome: outcomeOfColumns(row, row.rules),
-          status: row.status as RecordingStatus | null,
+          status: row.status,
           durationMs: row.durationMs,
           hasTranscript: row.hasTranscript,
           seatedActorIds: (seats[index] ?? []).map((seat) => seat.actorId),

@@ -34,9 +34,7 @@ export const publicProfilePrivacyAdopter: PrivacyAdopter = {
   async export(tx, subject): Promise<PrivacyExport> {
     const actorId = idSchema.parse(subject.actorId);
     const rowsOf = async (query: ReturnType<typeof sql>) =>
-      exportRows(
-        (await tx.execute(query)) as unknown as Record<string, unknown>[],
-      );
+      exportRows(await tx.execute(query));
     return {
       member_profiles: await rowsOf(
         sql`select id, display_name, bio, display_name_changed_at, bio_changed_at,

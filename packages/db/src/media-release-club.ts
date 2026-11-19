@@ -349,7 +349,7 @@ export function createMediaReleaseClubs(input: {
           for (const scope of decision.scopes) {
             const releaseId = nextId();
             releaseIds.push(releaseId);
-            await insertMediaRelease(tx as BoundedTransactionContext, {
+            await insertMediaRelease(tx, {
               id: releaseId,
               userId: student.userId,
               scope,
@@ -371,7 +371,7 @@ export function createMediaReleaseClubs(input: {
                   resolved_at = clock_timestamp()
                 where id = ${student.supersedes} and outcome is null`,
             );
-          await oweNotifications(tx as BoundedTransactionContext, {
+          await oweNotifications(tx, {
             kind: 'media_release_club_confirmed',
             subject: { media_release_id: releaseIds[0]! },
             recipients: [{ userId: student.userId, about: null }],
@@ -433,7 +433,7 @@ export function createMediaReleaseClubs(input: {
         const staff = (await clubReleaseStaff(tx, club)).filter(
           (userId) => userId !== command.userId,
         );
-        await oweNotifications(tx as BoundedTransactionContext, {
+        await oweNotifications(tx, {
           kind: 'media_release_club_asked',
           subject: { media_release_club_ask_id: askId },
           recipients: staff.map((userId) => ({

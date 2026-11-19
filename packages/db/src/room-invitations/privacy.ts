@@ -24,11 +24,11 @@ export const roomInvitationsPrivacyAdopter: PrivacyAdopter = {
     const actorId = idSchema.parse(subject.actorId);
     return {
       room_invitations: exportRows(
-        (await tx.execute(
+        await tx.execute(
           sql`select room_id,seat,state,(invitee_actor_id=${actorId}) as received,expires_at,ended_at,created_at
             from room_invitations where invitee_actor_id=${actorId} or inviter_actor_id=${actorId}
             order by created_at,id`,
-        )) as unknown as Record<string, unknown>[],
+        ),
       ),
     };
   },

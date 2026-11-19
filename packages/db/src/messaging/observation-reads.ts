@@ -45,13 +45,13 @@ export function channelObservationReads(
         throw createAppError('VALIDATION');
       const ids = channelIds.map((id) => idSchema.parse(id));
       if (ids.length === 0) return new Map();
-      const rows = (await database.execute(
+      const rows = await database.execute(
         sql`select channel_id, change_version, authority_revision
           from public.daisy_observation_channel_headers(array[${sql.join(
             ids.map((id) => sql`${id}`),
             sql`, `,
           )}]::text[])`,
-      )) as unknown as Array<Record<string, unknown>>;
+      );
       return new Map(
         rows.map((row) => [
           String(row.channel_id),
@@ -67,9 +67,9 @@ export function channelObservationReads(
       idSchema.parse(channelId);
       if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100)
         throw createAppError('VALIDATION');
-      const rows = (await database.execute(
+      const rows = await database.execute(
         sql`select * from public.daisy_observation_channel_messages(${channelId}::text, ${limit}::integer)`,
-      )) as unknown as Array<Record<string, unknown>>;
+      );
       const header = rows[0];
       if (!header) return null;
       const records: ChannelHistoryRecord[] = rows.flatMap((row) =>

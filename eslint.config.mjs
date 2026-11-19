@@ -425,6 +425,24 @@ const repoSyntaxRestrictions = [
   ...processMutationRestrictions,
 ];
 
+/**
+ * The rules that read types. They run on workspace source only, which a
+ * TypeScript project owns; a probe under an invented path turns them off
+ * (eslint.config.test-support.ts).
+ */
+export const typedRules = {
+  '@typescript-eslint/switch-exhaustiveness-check': [
+    'error',
+    {
+      considerDefaultExhaustiveForUnions: false,
+      requireDefaultForNonUnion: false,
+    },
+  ],
+  // A cast that changes nothing hides the one that does. State a type
+  // where the value is made (an annotation, a type argument), not after.
+  '@typescript-eslint/no-unnecessary-type-assertion': 'error',
+};
+
 export default [
   {
     ignores: [
@@ -902,14 +920,6 @@ export default [
         tsconfigRootDir: import.meta.dirname,
       },
     },
-    rules: {
-      '@typescript-eslint/switch-exhaustiveness-check': [
-        'error',
-        {
-          considerDefaultExhaustiveForUnions: false,
-          requireDefaultForNonUnion: false,
-        },
-      ],
-    },
+    rules: typedRules,
   },
 ];

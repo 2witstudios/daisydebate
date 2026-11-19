@@ -144,9 +144,9 @@ export const agreementSignaturePrivacyAdopter: PrivacyAdopter = {
   erase: async () => undefined,
   export: async (tx, subject) => ({
     agreement_signatures: exportRows(
-      (await tx.execute(
+      await tx.execute(
         sql`select agreement,version,words,season_id,room_id,lobby_id,signed_at from ${agreementSignatures} where user_id=${subject.userId} order by signed_at, id`,
-      )) as unknown as Record<string, unknown>[],
+      ),
     ),
   }),
 };

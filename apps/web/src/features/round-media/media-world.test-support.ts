@@ -402,7 +402,7 @@ export function createMediaWorld(
     deadline: (work) => work,
     wait: async () => undefined,
     now: () => 0,
-  } as MediaOperationInput;
+  };
   return {
     input,
     roundId,

@@ -39,10 +39,12 @@ export const passkeyOwnershipGuardPlugin: BetterAuthPlugin = {
           if (!session?.session) throw new APIError('UNAUTHORIZED');
           const id = (context.body as { id?: unknown } | undefined)?.id;
           if (typeof id !== 'string') return;
-          const passkey = (await context.context.adapter.findOne({
+          const passkey = await context.context.adapter.findOne<{
+            userId?: string;
+          }>({
             model: 'passkey',
             where: [{ field: 'id', value: id }],
-          })) as { userId?: string } | null;
+          });
           // A nonexistent id is left to the vendor endpoint's own
           // NOT_FOUND; only ownership is this guard's guarantee.
           if (passkey && passkey.userId !== session.user.id)

@@ -53,18 +53,18 @@ export async function claimTestRunDatabase(
   name: string,
 ): Promise<number> {
   const quoted = quoteIdentifier(name);
-  const [{ free }] = (await admin.unsafe(
+  const [{ free }]: [{ free: boolean }] = await admin.unsafe(
     `select pg_try_advisory_lock(${lockKey(name)}) as free`,
-  )) as [{ free: boolean }];
+  );
   if (!free) throw new Error(`Run database ${name} is already claimed`);
   await admin.unsafe(`create database ${quoted} template template0`);
   return backendPid(admin);
 }
 
 const backendPid = async (admin: SQL): Promise<number> => {
-  const [{ pid }] = (await admin.unsafe('select pg_backend_pid() as pid')) as [
-    { pid: number },
-  ];
+  const [{ pid }]: [{ pid: number }] = await admin.unsafe(
+    'select pg_backend_pid() as pid',
+  );
   return pid;
 };
 
@@ -99,10 +99,10 @@ export async function dropTestRunDatabase(
 }
 
 async function runDatabasesOf(admin: SQL, slotTestDatabase: string) {
-  const rows = (await admin`
+  const rows: Array<{ name: string }> = await admin`
     select datname as name from pg_database
     where starts_with(datname, ${`${slotTestDatabase}_run_`})
-    order by datname`) as Array<{ name: string }>;
+    order by datname`;
   return rows
     .map(({ name }) => name)
     .filter((name) => slotDatabaseOfRun(name) === slotTestDatabase);
@@ -114,11 +114,11 @@ async function runDatabasesOf(admin: SQL, slotTestDatabase: string) {
  * run may last cannot belong to a live run.
  */
 async function sessionsOn(admin: SQL, name: string, maxRunMs: number) {
-  const [row] = (await admin.unsafe(
+  const [row]: Array<{ sessions: number; young: number }> = await admin.unsafe(
     `select count(*)::int as sessions,
        (count(*) filter (where backend_start >= now() - ${Number(maxRunMs)} * interval '1 millisecond'))::int as young
      from pg_stat_activity where datname = '${quoteIdentifier(name).slice(1, -1)}' and pid <> pg_backend_pid()`,
-  )) as [{ sessions: number; young: number }];
+  );
   return row ?? { sessions: 0, young: 0 };
 }
 
@@ -139,9 +139,9 @@ export async function sweepTestRunDatabases(
   const dropped: string[] = [];
   for (const name of await runDatabasesOf(admin, slotTestDatabase)) {
     const key = lockKey(quoteIdentifier(name).slice(1, -1));
-    const [{ free }] = (await admin.unsafe(
+    const [{ free }]: [{ free: boolean }] = await admin.unsafe(
       `select pg_try_advisory_lock(${key}) as free`,
-    )) as [{ free: boolean }];
+    );
     if (!free) continue;
     try {
       // A free lock with a session started within the run bound is a live

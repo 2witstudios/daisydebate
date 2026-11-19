@@ -158,7 +158,7 @@ const isRedirect = (error: unknown) =>
   typeof error === 'object' &&
   error !== null &&
   'digest' in error &&
-  String((error as { digest: unknown }).digest).startsWith('NEXT_REDIRECT');
+  String(error.digest).startsWith('NEXT_REDIRECT');
 
 /** Declines or withdraws an open offer. */
 export async function endChallengeAction(

@@ -20,6 +20,6 @@ export const roundAnalysisPrivacyAdopter: PrivacyAdopter = {
       to_char(a.created_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as created_at
       from round_analyses a join round_participants p on p.id=a.round_participant_id
       where p.actor_id=${subject.actorId} order by a.created_at,a.round_id`);
-    return { round_analyses: rows as unknown as Record<string, unknown>[] };
+    return { round_analyses: rows };
   },
 };

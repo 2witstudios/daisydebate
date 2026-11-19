@@ -163,8 +163,8 @@ export const maximumWeightMatching = (
     }
     blossombestedges[b] = bestedgeto.filter((edge) => edge !== -1);
     bestedge[b] = -1;
-    for (const edge of blossombestedges[b]!)
-      if (bestedge[b] === -1 || slack(edge) < slack(bestedge[b]!))
+    for (const edge of blossombestedges[b])
+      if (bestedge[b] === -1 || slack(edge) < slack(bestedge[b]))
         bestedge[b] = edge;
   };
 
@@ -260,7 +260,7 @@ export const maximumWeightMatching = (
     }
     blossomchilds[b] = rotate(childs, i);
     blossomendps[b] = rotate(endps, i);
-    blossombase[b] = blossombase[blossomchilds[b]![0]!]!;
+    blossombase[b] = blossombase[blossomchilds[b][0]!]!;
   };
 
   const augmentMatching = (k: number) => {

@@ -5,7 +5,6 @@ import { presenceSettings } from '../schema/presence';
 import {
   readOwnCollection,
   requireOwnScope,
-  type AuthorizationTransaction,
   type OwnCollectionFence,
 } from '../authorization';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
@@ -71,7 +70,7 @@ export function writeChosenStatus(
         target: presenceSettings.actorId,
         set: values,
       });
-    await appendOutboxEvent(tx as AuthorizationTransaction, {
+    await appendOutboxEvent(tx, {
       topic: buildUserInboxTopic(scope.actorId),
       kind: 'actor.presence-preference-changed',
       version: 1,

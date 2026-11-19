@@ -210,12 +210,12 @@ export const playEvent = (options: {
     const input = windowed(
       request({
         event: 'ev',
-        format: options.format as EventRequest['format'],
+        format: options.format,
         entries: options.entries,
         settings: options.settings,
         tabRound,
         cutoff: tabRound - 1,
-        history: history as EventRequest['history'],
+        history: history,
       }),
       judges,
       options.seed,
@@ -232,7 +232,7 @@ export const playEvent = (options: {
           resultsFor(options.format, f.id, f.fixture, next, options.settings),
         ),
       ],
-    } as StageHistory<FormatDescriptor>;
+    };
     const seated = new Map(
       fixtures.flatMap((f) =>
         f.fixture.kind === 'bye'
@@ -343,7 +343,7 @@ export const playBracket = (options: {
     const input = windowed(
       request({
         event: 'ev',
-        format: options.format as EventRequest['format'],
+        format: options.format,
         stage: {
           kind: 'elimination',
           division: null,
@@ -353,7 +353,7 @@ export const playBracket = (options: {
         settings: options.settings,
         tabRound,
         cutoff: tabRound - 1,
-        history: history as EventRequest['history'],
+        history: history,
       }),
       options.judges,
       options.seed,
@@ -378,7 +378,7 @@ export const playBracket = (options: {
           ),
         ),
       ],
-    } as StageHistory<FormatDescriptor>;
+    };
   }
   return played;
 };

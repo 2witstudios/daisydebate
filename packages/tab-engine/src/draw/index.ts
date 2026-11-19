@@ -168,7 +168,7 @@ const releasedMovable = (
   /** This event's movable seats, claimed in canonical order: the first fixture keeps a shared judge. */
   const local = new Set<Id>();
   for (const f of p.request.existing) {
-    const fixture = f.fixture as Fixture;
+    const fixture = f.fixture;
     if (f.hold !== 'movable' || fixture.kind === 'bye') continue;
     const competitors = new Set(
       entriesOf(fixture).flatMap((e) => people.get(e) ?? []),
@@ -335,7 +335,7 @@ export const draw = (input: DrawInput): DrawAnswer => {
                 plan: {
                   ...w.plan,
                   withdraw: [...w.plan.withdraw, ...finalReleased],
-                } as Plan,
+                },
               })),
             };
       }

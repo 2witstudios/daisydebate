@@ -193,7 +193,7 @@ export async function drainOutbox(
     order by txid, seq
     limit ${limit}
   `);
-  return (result as unknown as Record<string, unknown>[]).map((row) => ({
+  return result.map((row) => ({
     seq: BigInt(row.seq as string | number | bigint),
     txid: String(row.txid),
     topic: String(row.topic),
@@ -225,7 +225,7 @@ export async function readOutboxHighWaterMark(
     order by txid desc, seq desc
     limit 1
   `);
-  const [row] = result as unknown as Record<string, unknown>[];
+  const [row] = result;
   if (!row) return OUTBOX_ORIGIN;
   return {
     txid: String(row.txid),

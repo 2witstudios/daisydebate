@@ -89,7 +89,7 @@ export async function loadAuthorizationAgeFact(
   )`);
   if (rows.length !== 1 || typeof rows[0] !== 'object' || rows[0] === null)
     return { state: 'unknown' };
-  return projection(rows[0] as Record<string, unknown>, input, instant);
+  return projection(rows[0], input, instant);
 }
 
 /**
@@ -114,9 +114,7 @@ export async function loadAuthorizationAgeFacts(
       as w(i integer, user_id text, actor_id text, revision integer, checked_at timestamptz)
     cross join lateral public.daisy_authorization_age(w.user_id, w.actor_id, w.revision, w.checked_at) as age
     order by w.i`);
-  const byIndex = new Map(
-    (rows as Record<string, unknown>[]).map((row) => [Number(row.index), row]),
-  );
+  const byIndex = new Map(rows.map((row) => [Number(row.index), row]));
   return inputs.map((input, i) => {
     const row = byIndex.get(i);
     return row ? projection(row, input, instants[i]!) : { state: 'unknown' };

@@ -16,9 +16,9 @@ export const moderationPrivacyAdopter: PrivacyAdopter = {
     const userId = idSchema.parse(subject.userId);
     return {
       moderation_actions: exportRows(
-        (await tx.execute(
+        await tx.execute(
           sql`select id, kind, starts_at, ends_at, lifted_at, acknowledged_at from moderation_actions where user_id=${userId} order by starts_at,id`,
-        )) as unknown as Record<string, unknown>[],
+        ),
       ),
     };
   },

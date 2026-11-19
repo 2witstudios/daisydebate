@@ -82,9 +82,9 @@ export const analyticsConsentPrivacyAdopter: PrivacyAdopter = {
   },
   export: async (tx, subject) => ({
     consent_record: exportRows(
-      (await tx.execute(
+      await tx.execute(
         sql`select * from ${consentRecord} where user_id=${subject.userId}`,
-      )) as unknown as Record<string, unknown>[],
+      ),
     ),
   }),
 };

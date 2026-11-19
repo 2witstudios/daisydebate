@@ -73,7 +73,7 @@ export const roundAnalysisReads = ({
       );
       if (
         humans.some(
-          (_participant, index) => !accounts[index] || accounts[index]!.erased,
+          (_participant, index) => !accounts[index] || accounts[index].erased,
         )
       )
         throw createAppError('NOT_FOUND');

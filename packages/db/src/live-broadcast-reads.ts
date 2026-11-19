@@ -246,7 +246,7 @@ export const liveBroadcastReads = ({
               ladderStyle !== null && ladderDivision !== null
                 ? { style: ladderStyle, division: ladderDivision }
                 : null,
-            competitionType: row.competitionType as 'ranked' | 'casual',
+            competitionType: row.competitionType,
             horizonMs:
               row.horizon === null ? null : new Date(row.horizon).getTime(),
             seats: seats.filter((seat) => seat.roundId === row.id),

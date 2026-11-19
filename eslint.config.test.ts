@@ -369,6 +369,36 @@ test('pure packages reject Bun runtime subpaths while delivery adapters retain S
   });
 });
 
+describe('a cast that changes nothing is refused', () => {
+  const filePath = 'packages/protocol/src/assert-never.ts';
+  const rule = '@typescript-eslint/no-unnecessary-type-assertion';
+  const problems = async (source: string) => {
+    const [result] = await typedRepositoryEslint().lintText(source, {
+      filePath,
+    });
+    return result!.messages.filter(({ ruleId }) => ruleId === rule).length;
+  };
+  test('a needless assertion fails and a narrowing one passes', async () => {
+    assert({
+      given:
+        'a string asserted to be a string, a non-null value asserted non-null, and an unknown value narrowed',
+      should: 'report the two that change nothing',
+      actual: [
+        await problems(
+          'export const same = (name: string): string => name as string;',
+        ),
+        await problems(
+          'export const present = (name: string): string => name!;',
+        ),
+        await problems(
+          'export const narrowed = (value: unknown): string => value as string;',
+        ),
+      ],
+      expected: [1, 1, 0],
+    });
+  });
+});
+
 describe('a switch over a union names every member', () => {
   // The rule reads types, so the probe is linted as a source file on disk.
   const filePath = 'packages/protocol/src/assert-never.ts';

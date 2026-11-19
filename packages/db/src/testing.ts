@@ -18,19 +18,19 @@ const POLL_INTERVAL_MS = 10;
 
 /** Every other backend in the cluster that holds an xid, oldest first. */
 const describeXidHolders = async (client: SQL): Promise<string> => {
-  const holders = (await client.unsafe(`
-    select datname, pid, application_name, state,
-      (extract(epoch from now() - xact_start) * 1000)::int as "openMs"
-    from pg_stat_activity
-    where backend_xid is not null and pid <> pg_backend_pid()
-    order by xact_start
-  `)) as Array<{
+  const holders: Array<{
     datname: string | null;
     pid: number;
     application_name: string;
     state: string | null;
     openMs: number | null;
-  }>;
+  }> = await client.unsafe(`
+    select datname, pid, application_name, state,
+      (extract(epoch from now() - xact_start) * 1000)::int as "openMs"
+    from pg_stat_activity
+    where backend_xid is not null and pid <> pg_backend_pid()
+    order by xact_start
+  `);
   if (holders.length === 0) return 'no xid-holding transaction is open now';
   return holders
     .map(
@@ -65,10 +65,10 @@ export async function waitForOutboxFinality(
 ): Promise<void> {
   const deadline = now() + deadlineMs;
   for (;;) {
-    const [row] = (await client.unsafe(
+    const [row]: Array<{ final: boolean }> = await client.unsafe(
       'select pg_snapshot_xmin(pg_current_snapshot()) > $1::xid8 as final',
       [txid],
-    )) as Array<{ final: boolean }>;
+    );
     if (row?.final) return;
     if (now() >= deadline)
       throw new Error(
@@ -103,10 +103,10 @@ export async function finishedOrBlockedBehind(
   const deadline = now() + deadlineMs;
   for (;;) {
     if (finished) return 'finished';
-    const [row] = (await observer.unsafe(
+    const [row]: Array<{ waiting: number }> = await observer.unsafe(
       'select count(*)::int as waiting from pg_stat_activity where $1 = any(pg_blocking_pids(pid))',
       [holderPid],
-    )) as Array<{ waiting: number }>;
+    );
     if ((row?.waiting ?? 0) > 0) return 'blocked';
     if (now() >= deadline)
       throw new Error(

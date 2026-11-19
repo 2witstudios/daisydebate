@@ -145,8 +145,5 @@ export function reduceRoom(state: RoomState, action: RoomAction): RoomState {
       ? { ...next, phone: fromFiles(next.phone) }
       : next;
   }
-  return (reducers[action.type] as Reducer<RoundAction['type']>)(
-    state,
-    action as never,
-  );
+  return (reducers[action.type] as Reducer<RoundAction['type']>)(state, action);
 }

@@ -116,7 +116,7 @@ export function CreateAssemblyForm({
         event.preventDefault();
         const form = new FormData(
           event.currentTarget,
-          (event.nativeEvent as SubmitEvent).submitter,
+          event.nativeEvent.submitter,
         );
         startTransition(async () => {
           setState(await postRoomDraft(fetch, form));

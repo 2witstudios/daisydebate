@@ -63,20 +63,19 @@ const emptyHistory = { fixtures: [], results: [] } as const;
 export const request = <Format extends FormatDescriptor>(
   format: Format,
   fields: Partial<RequestOf<Format>> = {},
-): RequestOf<Format> =>
-  ({
-    event: 'ev',
-    format,
-    stage: { kind: 'preliminary' },
-    tabRound: 1,
-    entries: entries(8),
-    history: emptyHistory,
-    settings: swissPower,
-    cutoff: 0,
-    ratings: null,
-    existing: [],
-    ...fields,
-  }) as RequestOf<Format>;
+): RequestOf<Format> => ({
+  event: 'ev',
+  format,
+  stage: { kind: 'preliminary' },
+  tabRound: 1,
+  entries: entries(8),
+  history: emptyHistory,
+  settings: swissPower,
+  cutoff: 0,
+  ratings: null,
+  existing: [],
+  ...fields,
+});
 
 export const drawsOf = (answer: DrawAnswer): readonly Draw[] => {
   if (answer.kind !== 'drawn')

@@ -25,7 +25,7 @@ export const settingRow = (row: StoredSetting): SettingRow => {
     key: row.key,
     hold: row.hold,
     value: row.value,
-  }) as SettingRow;
+  });
 };
 const canonicalTemplateBallot = (
   graph: SettingGraph,

@@ -14,10 +14,7 @@ export const necessaryEvidencePrivacyAdopter: PrivacyAdopter = {
       to_char(propagated_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as propagated_at
       from necessary_evidence_erasure_requests where actor_id=${subject.actorId} and user_id=${subject.userId}`);
     return {
-      necessary_evidence_erasure_requests: rows as unknown as Record<
-        string,
-        unknown
-      >[],
+      necessary_evidence_erasure_requests: rows,
     };
   },
 };

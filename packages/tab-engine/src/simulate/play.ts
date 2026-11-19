@@ -54,7 +54,7 @@ export const playFixtures = (
   settings: ResolvedSettings,
 ): Result[] =>
   fixtures.flatMap((f): Result[] => {
-    const fixture = f.fixture as Fixture;
+    const fixture = f.fixture;
     if (fixture.kind === 'bye') {
       const common = {
         id: `res-${f.id}`,
@@ -114,7 +114,7 @@ export const playFixtures = (
               })),
             })),
           },
-        } as Result,
+        },
       ];
     }
     return [
@@ -132,7 +132,7 @@ export const playFixtures = (
             })),
           })),
         },
-      } as Result,
+      },
     ];
   });
 

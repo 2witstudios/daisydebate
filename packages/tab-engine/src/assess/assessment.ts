@@ -34,11 +34,11 @@ type Placed = { readonly ref: FixtureRef; readonly fixture: Fixture };
 export const placedOf = (plan: Plan): Placed[] => [
   ...plan.keep.map((k) => ({
     ref: { kind: 'existing', id: k.id } as const,
-    fixture: k.fixture as Fixture,
+    fixture: k.fixture,
   })),
   ...plan.add.map((a) => ({
     ref: { kind: 'new', ordinal: a.ordinal } as const,
-    fixture: a.fixture as Fixture,
+    fixture: a.fixture,
   })),
 ];
 
@@ -71,17 +71,17 @@ const structuralFacts = (
     if (times > 1) out.push({ fact: 'entry_placed_twice', event, entry });
   const status = new Map(prepared.request.entries.map((e) => [e.id, e.status]));
   for (const a of plan.add)
-    for (const e of entriesOf(a.fixture as Fixture))
+    for (const e of entriesOf(a.fixture))
       if (status.get(e) !== 'active')
         out.push({ fact: 'withdrawn_entry_placed', event, entry: e });
   if (prepared.request.stage.kind === 'preliminary')
     for (const entry of prepared.request.entries)
       if (entry.status === 'active' && !seen.has(entry.id))
         out.push({ fact: 'entry_not_placed', event, entry: entry.id });
-  const kept = new Map(plan.keep.map((k) => [k.id, k.fixture as Fixture]));
+  const kept = new Map(plan.keep.map((k) => [k.id, k.fixture]));
   const withdrawn = new Set(plan.withdraw);
   for (const existing of prepared.request.existing) {
-    const fixture = existing.fixture as Fixture;
+    const fixture = existing.fixture;
     const keptAs = kept.get(existing.id);
     if (
       (keptAs === undefined) === !withdrawn.has(existing.id) ||
@@ -198,9 +198,7 @@ const bestExchange = (
               (cost(own.fixture)[k] ?? 0) -
               (cost(other.fixture)[k] ?? 0),
           );
-          return diff.some((d) => d !== 0)
-            ? [{ key: key as CostKey, cost: diff }]
-            : [];
+          return diff.some((d) => d !== 0) ? [{ key: key, cost: diff }] : [];
         });
         best = {
           gain: delta,

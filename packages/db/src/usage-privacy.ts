@@ -18,6 +18,6 @@ export const usagePrivacyAdopter: PrivacyAdopter = {
       to_char(reserved_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as reserved_at,
       to_char(binding_released_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as binding_released_at
       from usage_reservations where actor_id=${subject.actorId} order by reserved_at,id`);
-    return { usage_reservations: rows as unknown as Record<string, unknown>[] };
+    return { usage_reservations: rows };
   },
 };

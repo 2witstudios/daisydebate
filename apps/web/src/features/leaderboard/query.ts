@@ -82,7 +82,7 @@ export function parseLadderQuery(params: SearchParams): LadderQuery {
     Object.fromEntries(
       keys.map((key) => [key, first(params[key]) ?? undefined]),
     ),
-  ) as LadderQuery;
+  );
 }
 
 const PATH = '/leaderboard';

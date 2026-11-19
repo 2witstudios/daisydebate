@@ -44,10 +44,10 @@ export const roundTranscriptPrivacyAdopter: PrivacyAdopter = {
   },
   export: async (tx, subject) => {
     const rows =
-      (await tx.execute(sql`select id,round_id,segment_id,sequence,text,
+      await tx.execute(sql`select id,round_id,segment_id,sequence,text,
         to_char(created_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as created_at
       from utterances where (round_participant_id,round_id) in (${seatedBy(subject.actorId)})
-      order by created_at,id`)) as unknown as Record<string, unknown>[];
+      order by created_at,id`);
     return { utterances: rows };
   },
 };

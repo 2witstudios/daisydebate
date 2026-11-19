@@ -54,7 +54,7 @@ export function ConversationReconnecting({
             ? input
             : input instanceof URL
               ? input.href
-              : (input as Request).url;
+              : input.url;
         const url = new URL(raw, window.location.href);
         if (
           url.origin !== window.location.origin ||
@@ -65,9 +65,8 @@ export function ConversationReconnecting({
           init?.method ?? (input instanceof Request ? input.method : 'GET');
         if (String(method).toUpperCase() !== 'GET') return false;
         const headers = new Headers(
-          (init?.headers ??
-            (input instanceof Request ? input.headers : undefined)) as
-            HeadersInit | undefined,
+          init?.headers ??
+            (input instanceof Request ? input.headers : undefined),
         );
         return (
           headers.has('rsc') && headers.get('next-router-prefetch') !== '1'

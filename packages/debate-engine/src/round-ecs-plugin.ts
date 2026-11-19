@@ -15,6 +15,12 @@ import {
 
 import type { Lifecycle } from './round-clock-state';
 
+// Each resource takes its type from its default. A function's return type
+// is not narrowed to the literal, so these state the whole type.
+const opening = (): Lifecycle => ({ status: 'opening' });
+const noIncident = (): RuntimeCheckpoint['incident'] => ({ phase: 'none' });
+const noPrepConsumed = (): RuntimeCheckpoint['prep_consumed_ms'] => ({});
+
 const plugin = Database.Plugin.create({
   components: {
     sequence: { type: 'number' },
@@ -26,15 +32,13 @@ const plugin = Database.Plugin.create({
     returnedMs: { type: 'number' },
   },
   resources: {
-    lifecycle: { default: { status: 'opening' } as Lifecycle },
-    incident: { default: { phase: 'none' } as RuntimeCheckpoint['incident'] },
+    lifecycle: { default: opening() },
+    incident: { default: noIncident() },
     prepEndedAt: { default: null as RuntimeCheckpoint['prep_ended_at'] },
     startGate: { default: null as RuntimeCheckpoint['start_gate'] },
     clockStops: { default: [] as RuntimeCheckpoint['clock_stops'] },
     /** Prep each side has spent, by side key: one keyed resource (TAB-6.2). */
-    prepConsumedMs: {
-      default: {} as RuntimeCheckpoint['prep_consumed_ms'],
-    },
+    prepConsumedMs: { default: noPrepConsumed() },
     activePrepSide: {
       ...Schema.Nullable({ type: 'string' }),
       default: null,

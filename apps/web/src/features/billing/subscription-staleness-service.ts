@@ -58,7 +58,7 @@ function continuation(page: Page) {
       'INFRASTRUCTURE',
       'Subscription freshness cursor is unavailable',
     );
-  return { afterId: page.afterId!, throughId: page.throughId! };
+  return { afterId: page.afterId, throughId: page.throughId };
 }
 function observePage(page: Page, scan?: Scan) {
   const facts = accumulate(page, scan),

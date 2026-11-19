@@ -2,7 +2,7 @@ import { canonicalJson, digestOf } from '@daisy/seeded-random';
 import { breaks } from '../breaks';
 import { check, checkBreaks, checkStandings } from '../checker';
 import { draw } from '../draw';
-import type { Entry, FormatDescriptor, Id } from '../shapes/competition';
+import type { Entry, Id } from '../shapes/competition';
 import type {
   Commitment,
   Draw,
@@ -548,17 +548,15 @@ export const simulate = (
   const judges = judgePool(scenario, d, d.chance(25));
   const events = scenario.events.map((plan) => {
     const entries = entriesFor(plan, scenario, d);
-    return {
-      plan,
-      state: {
-        id: plan.id,
-        format: plan.format as FormatDescriptor,
-        entries,
-        history: { fixtures: [], results: [] },
-        late: [],
-        strength: new Map(entries.map((e) => [e.id, d.below(60)])),
-      } as EventState,
+    const state: EventState = {
+      id: plan.id,
+      format: plan.format,
+      entries,
+      history: { fixtures: [], results: [] },
+      late: [],
+      strength: new Map(entries.map((e) => [e.id, d.below(60)])),
     };
+    return { plan, state };
   });
   if (scenario.personInTwoEvents && events.length > 1) {
     const [a, b] = [events[0]!.state, events[1]!.state];

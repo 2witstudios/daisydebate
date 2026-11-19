@@ -109,7 +109,7 @@ export const settlePendingCommand =
             definition = originalDefinition(loaded);
           if (definition.gate.length !== 1)
             throw createAppError('INVARIANT', 'Held capability is ambiguous');
-          const capability = definition.gate[0]!;
+          const capability = definition.gate[0];
           const proposer: TabPrincipal = {
             kind: 'user',
             userId: loaded.pending.proposerUserId,

@@ -74,7 +74,7 @@ function postedAnswers(
   if (!parsed.ok) return {};
   const answers: Record<string, unknown> = { ...parsed.value };
   delete answers.step;
-  return answers as Partial<OnboardingAnswers>;
+  return answers;
 }
 
 /** A step's answer when its save was refused or never arrived. */

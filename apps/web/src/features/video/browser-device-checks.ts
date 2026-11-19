@@ -179,7 +179,7 @@ function watchLoss(
   if (edge.permissions) {
     void edge.permissions
       .query({
-        name: (kind === 'camera' ? 'camera' : 'microphone') as PermissionName,
+        name: kind === 'camera' ? 'camera' : 'microphone',
       })
       .then((status) => {
         if (!active) return;

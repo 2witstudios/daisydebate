@@ -4,8 +4,6 @@ import type { PrivacyAdopter } from './privacy/contracts';
 import { exportRows } from './privacy/export-rows';
 import { scopeTransaction } from './tenant-scope';
 
-type Rows = Record<string, unknown>[];
-
 /**
  * A row this step just read under the subject scope must be writable under
  * its own scope; one that is not would leave authority in place silently.
@@ -79,23 +77,23 @@ export const organizationAuthorityPrivacyAdopter: PrivacyAdopter = {
     await scopeTransaction(tx, { subjectUserId: subject.userId });
     const result = {
       memberships: exportRows(
-        (await tx.execute(
+        await tx.execute(
           sql`select organization_id, status, joined_at, ended_at from memberships
             where user_id = ${subject.userId} order by organization_id`,
-        )) as unknown as Rows,
+        ),
       ),
       membershipPeriods: exportRows(
-        (await tx.execute(
+        await tx.execute(
           sql`select organization_id, joined_at, ended_at from membership_periods
             where user_id = ${subject.userId} order by organization_id, joined_at`,
-        )) as unknown as Rows,
+        ),
       ),
       grants: exportRows(
-        (await tx.execute(
+        await tx.execute(
           sql`select id, role_id, scope_kind, organization_id, lobby_id,
               granted_at, expires_at, revoked_at
             from grants where user_id = ${subject.userId} order by granted_at, id`,
-        )) as unknown as Rows,
+        ),
       ),
     };
     await scopeTransaction(tx, {});

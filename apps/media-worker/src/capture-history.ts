@@ -86,7 +86,7 @@ export function observedWindow(input: {
     );
   return {
     fromMs: startEvidence ? grant.startMs : clip.firstNominalMs,
-    untilMs: endEvidence ? grant.endMs! : clip.lastNominalMs + 10,
+    untilMs: endEvidence ? grant.endMs : clip.lastNominalMs + 10,
   };
 }
 /** How long a read the control plane could not answer waits before its restart. */

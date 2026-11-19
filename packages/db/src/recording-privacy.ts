@@ -57,11 +57,10 @@ export const recordingPrivacyAdopter: PrivacyAdopter = {
     }
   },
   export: async (tx, subject) => {
-    const rows =
-      (await tx.execute(sql`select id,round_id,recording_class,status,
+    const rows = await tx.execute(sql`select id,round_id,recording_class,status,
         to_char(created_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as created_at
       from recordings where round_id in (${seatedRounds(subject.actorId)})
-      order by created_at,id`)) as unknown as Record<string, unknown>[];
+      order by created_at,id`);
     return { recordings: rows };
   },
 };

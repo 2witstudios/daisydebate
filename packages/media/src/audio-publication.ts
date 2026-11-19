@@ -100,7 +100,7 @@ export async function createAudioPublication(input: {
     await room.disconnect();
     throw publicationStopError('connect', 'Native audio publication failed');
   }
-  const trackSid = track.sid!;
+  const trackSid = track.sid;
   return {
     /** The published track's server id, as capture names the track it hears. */
     trackSid,

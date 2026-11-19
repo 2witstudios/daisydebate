@@ -1138,11 +1138,7 @@ const publishDraw = (
   const overridden: ReadonlySet<string> = new Set(
     command.overrides.map((override) => override.key),
   );
-  if (
-    draw.inputs.broken.some(
-      (key) => !overridden.has(key as DrawOverride['key']),
-    )
-  )
+  if (draw.inputs.broken.some((key) => !overridden.has(key)))
     return refuse('rule-broken');
   const byId = fixtureById(facts);
   const leftOut = (previous?.fixtureIds ?? [])

@@ -17,9 +17,9 @@ export const challengesPrivacyAdopter: PrivacyAdopter = {
     const actorId = idSchema.parse(subject.actorId);
     return {
       challenges: exportRows(
-        (await tx.execute(
+        await tx.execute(
           sql`select * from challenges where challenger_actor_id=${actorId} or challenged_actor_id=${actorId} order by created_at,id`,
-        )) as unknown as Record<string, unknown>[],
+        ),
       ),
     };
   },

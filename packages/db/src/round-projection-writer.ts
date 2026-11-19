@@ -262,7 +262,7 @@ export async function insertCommandRow(
     payloadDigest: command.payloadDigest,
     result: command.result,
     resultingVersion,
-    appliedAt: sql`statement_timestamp()` as unknown as Date,
+    appliedAt: sql`statement_timestamp()`,
   });
   if (
     transition &&

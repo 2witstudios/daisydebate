@@ -70,7 +70,7 @@ const trackedAdapter = (
     'delete:verification': 'token delete',
     'deleteMany:verification': 'token delete',
   };
-  return ((...args: Parameters<typeof base>) => {
+  return (...args: Parameters<typeof base>) => {
     const adapter = base(...args);
     return new Proxy(adapter, {
       get: (target, property, receiver) => {
@@ -84,7 +84,7 @@ const trackedAdapter = (
         };
       },
     });
-  }) as ReturnType<typeof memoryAdapter>;
+  };
 };
 
 export type Consumed = {
