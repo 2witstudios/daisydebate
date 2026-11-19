@@ -36,7 +36,8 @@ test('a lobby click into a Room reaches a working camera and microphone', async 
     roomId = created.id;
     await claim(page, created, 'Affirmative 1');
     await page.goto('/lobby');
-    await enterLobbyRoom(page, created);
+    // The host holds a seat, so the row's one action returns to the Room.
+    await enterLobbyRoom(page, created, 'Return to room');
     await expect(page).toHaveURL(`/rooms/${created.id}`);
     await checkDevices(page);
   } finally {

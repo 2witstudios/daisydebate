@@ -93,9 +93,14 @@ test('a profile shows the real member, their record and history', async ({
       .locator('main')
       .getByRole('link', { name: 'Edit profile', exact: true }),
   ).toHaveAttribute('href', '/settings#profile');
-  await expect(page.locator('main').getByText(/\b(rating|elo)\b/i)).toHaveCount(
-    0,
-  );
+  // Ratings belong on the profile; only Home's Play tile shows none (YLS-10).
+  await page.goto('/');
+  const playTile = page
+    .locator('main')
+    .getByRole('link')
+    .filter({ has: page.getByRole('heading', { name: 'Play', exact: true }) });
+  await expect(playTile).toHaveCount(1);
+  await expect(playTile.getByText(/\b(rating|elo)\b/i)).toHaveCount(0);
   // A link followed from another site renders the profile, not an error.
   const followed = await page.request.get(`/profile/${username}`, {
     headers: {

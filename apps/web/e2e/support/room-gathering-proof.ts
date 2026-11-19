@@ -1,5 +1,6 @@
 import type { Browser, BrowserContext, Page, TestInfo } from '@playwright/test';
 import type { RoomView } from '@daisy/protocol';
+import type { LobbyAction } from '../../src/features/lobby/rows';
 import { expect, openPage } from './fixtures';
 import { origin } from './accounts';
 import { closeRoomSetup, openRoomSetup, reread } from './room-launch-flow';
@@ -7,14 +8,24 @@ import { assertNoSeriousFindings } from './axe';
 import { proveSiblingSave } from './room-setup-save-proof';
 import { proveClosedRoomNavigation } from './room-shell-refresh-proof';
 
-/** Enter through actual discovery, including retained duplicate-title pages. */
-export async function enterLobbyRoom(page: Page, view: RoomView) {
+/**
+ * Enter through actual discovery, including retained duplicate-title pages,
+ * by the row action named `verb` (`Join: <title>`): a row carries Watch
+ * beside its seat action, and both link to the Room.
+ */
+export async function enterLobbyRoom(
+  page: Page,
+  view: RoomView,
+  verb: LobbyAction['verb'],
+) {
   await expect(
     page.getByRole('heading', { name: 'Lobby', exact: true }),
   ).toBeVisible();
   const list = page.getByRole('region', { name: 'Available rooms' });
   await expect(list).toBeVisible();
-  const room = list.locator(`a[href="/rooms/${view.id}"]`);
+  const room = list
+    .getByRole('link', { name: `${verb}: ${view.title}`, exact: true })
+    .and(list.locator(`a[href="/rooms/${view.id}"]`));
   const next = page.getByRole('link', { name: 'Next page', exact: true });
   const visited = new Set<string>();
   for (;;) {

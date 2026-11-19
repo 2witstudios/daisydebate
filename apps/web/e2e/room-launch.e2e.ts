@@ -69,7 +69,7 @@ test('canonical browser create, settings, cast, refusals and reread preserve dur
     await guest.goto('/lobby');
     await guest.getByLabel('Search rooms').fill(view.title);
     await guest.getByRole('button', { name: 'Apply', exact: true }).click();
-    await enterLobbyRoom(guest, view);
+    await enterLobbyRoom(guest, view, 'Join');
     view = await claim(guest, view, 'Negative 1');
     await expect(guest.getByRole('button', { name: 'Save room' })).toHaveCount(
       0,

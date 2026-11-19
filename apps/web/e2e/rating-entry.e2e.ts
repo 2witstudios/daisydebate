@@ -60,8 +60,9 @@ test('native no-JavaScript ranked entry preserves canonical setup for the one Fr
         page.getByRole('heading', { name: 'Leaderboard', exact: true }),
       ).toBeVisible();
       await page.goto('/leaderboard/seasons?ladder=value');
+      // The season card names the season alone; no ladder (ADR 0156).
       await expect(
-        page.getByRole('heading', { level: 2, name: 'Freestyle · ' }),
+        page.getByRole('heading', { level: 2, name: 'Season 1', exact: true }),
       ).toBeVisible();
       await expect(
         page.getByText('One ladder per season', { exact: true }),
