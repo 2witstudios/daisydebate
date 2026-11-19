@@ -54,8 +54,9 @@ function BoundContextChat({
     refresh,
   } = useContextChat({ ...props, context, active, onUnread });
   const composerId = `${labels.idPrefix}-message-${props.ownerId}`;
+  // The page's hint until the chat is found; its own metadata after.
   const readOnly =
-    props.readOnlyHint || (state.kind === 'ready' && state.metadata.readOnly);
+    state.kind === 'ready' ? state.metadata.readOnly : props.readOnlyHint;
   const composed = !readOnly || labels.readOnly.composer === 'locked';
   return (
     <section

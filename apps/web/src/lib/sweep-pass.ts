@@ -35,12 +35,14 @@ export const createSweepPass = (budget?: () => Promise<void>) => {
       keyOf: (row: T) => string,
       work: (row: T) => Promise<unknown>,
       failed: () => void,
-    ) => {
+    ): Promise<number> => {
       let after: string | null = null;
+      let rows = 0;
       for (;;) {
         const page: readonly T[] = await read(after);
+        rows += page.length;
         await overPage(page, keyOf, work, failed);
-        if (page.length < size) return;
+        if (page.length < size) return rows;
         after = keyOf(page.at(-1)!);
       }
     },

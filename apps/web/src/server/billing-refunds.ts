@@ -6,10 +6,9 @@ import {
   stripeRefundPort,
 } from '../features/billing/refund-vendor';
 import { workerFailures } from './recoverable-failure';
-import {
-  startSingleFlightWorker,
-  type WorkerTimers,
-} from '../lib/worker-timers';
+import type { WorkerTimers } from '../lib/worker-timers';
+import { passOf } from '../lib/idle-backoff';
+import { HOUSEKEEPING_IDLE_MAX_MS, startWorkerLoop } from '../lib/worker-loop';
 
 /** Original-action repair runs independently of customer mappings and privacy-job completion. */
 export function startBillingRefunds(input: {
@@ -37,9 +36,9 @@ export function startBillingRefunds(input: {
     }),
     failed,
   });
-  const schedule = startSingleFlightWorker({
-    run: () => reconciliation.run(),
-    everyMs: 5_000,
+  const schedule = startWorkerLoop({
+    run: () => reconciliation.run().then(passOf),
+    backoff: { busyMs: 5_000, idleMaxMs: HOUSEKEEPING_IDLE_MAX_MS },
     timers: input.timers,
     failed: (error) => failed(error, 'tick'),
   });

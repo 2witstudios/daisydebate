@@ -9,6 +9,7 @@ import type { App } from './app';
 import type { createProviderBudget } from './provider-budget';
 import { workerFailures } from './recoverable-failure';
 import type { WorkerTimers } from '../lib/worker-timers';
+import type { WorkWake } from '../lib/worker-loop';
 
 /** AI judging's own worker (ISSUE-749), drawing on the competitive provider budget. */
 export function startRoundJudgingWorkers(input: {
@@ -17,6 +18,7 @@ export function startRoundJudgingWorkers(input: {
   readonly budget: ReturnType<typeof createProviderBudget>;
   readonly parallel: number;
   readonly timers: WorkerTimers;
+  readonly wake?: WorkWake | undefined;
   readonly reporter?: ErrorReporter;
 }) {
   const { app, policy } = input;
@@ -57,6 +59,7 @@ export function startRoundJudgingWorkers(input: {
       renewMs: policy.renewMs,
     },
     timers: input.timers,
+    wake: input.wake,
     jobEnded,
     failed: failure(
       'round.judging.failed',

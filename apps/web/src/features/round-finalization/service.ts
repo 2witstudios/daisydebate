@@ -1,6 +1,12 @@
 import { isAppError } from '@daisy/errors';
 import type { AttendanceEvaluation } from '@daisy/db/attendance';
 import type { WorkerTimers } from '../../lib/worker-timers';
+import type { LoopPass } from '../../lib/idle-backoff';
+import {
+  LIVE_IDLE_MAX_MS,
+  startWorkerLoop,
+  type WorkWake,
+} from '../../lib/worker-loop';
 import {
   nextPacing,
   noPacing,
@@ -27,6 +33,8 @@ type DiscoveryPage = {
   readonly roundIds: readonly string[];
   /** Those still in their opening: only the clock can move them yet. */
   readonly openingIds?: readonly string[];
+  /** An opening exists that is not yet due: its deadline comes by the clock. */
+  readonly openingsWaiting?: boolean;
   readonly cycleComplete: boolean;
 };
 type MaintenancePorts = {
@@ -34,8 +42,13 @@ type MaintenancePorts = {
   readonly tick: (roundId: string) => Promise<unknown>;
   readonly evaluate: (roundId: string) => Promise<AttendanceEvaluation>;
   readonly finalize: (roundId: string) => Promise<unknown>;
-  readonly rateUnrated: () => Promise<unknown>;
+  /** How many Rounds it rated: zero is an idle sweep. */
+  readonly rateUnrated: () => Promise<number>;
   readonly timers: WorkerTimers;
+  /** A Round changed: discover now (ADR 0154). */
+  readonly wake?: WorkWake | undefined;
+  /** A Round completed: a rating may be owed (ADR 0154). */
+  readonly ratingWake?: WorkWake | undefined;
   readonly failed: (error: unknown, stage: MaintenanceWork) => void;
   /** Monotonic milliseconds. */
   readonly now: () => number;
@@ -148,11 +161,7 @@ async function maintainRound(
 
 /** Discovery and committed-rating recovery never wait for a competing Round's work. */
 export function startRoundMaintenance(input: MaintenancePorts) {
-  let stopped = false,
-    discovering = false,
-    rating = false;
-  let discoveryWork = Promise.resolve(),
-    ratingWork = Promise.resolve();
+  let stopped = false;
   const active = new Map<string, Promise<void>>();
   const waiting = new Map<string, RoundPhase>();
   const pacing = createRoundPacing(input);
@@ -192,46 +201,56 @@ export function startRoundMaintenance(input: MaintenancePorts) {
     }
     advance();
   };
-  const discover = async () => {
-    if (stopped || discovering) return;
-    discovering = true;
-    try {
-      const page = await input.discover();
-      if (!stopped) remember(page);
-    } catch (error) {
-      input.failed(error, 'discover');
-    } finally {
-      discovering = false;
-    }
+  /**
+   * One discovery pulse: it worked while any Round is live, queued or due,
+   * so a live Round's deadlines keep the busy pace; idle only when nothing
+   * is live. A failed read throws, so the loop reports it and backs off.
+   */
+  const pulse = async (): Promise<LoopPass> => {
+    if (stopped) return 'idle';
+    const page = await input.discover();
+    if (!stopped) remember(page);
+    return page.roundIds.length > 0 ||
+      page.openingsWaiting === true ||
+      !page.cycleComplete ||
+      active.size > 0 ||
+      waiting.size > 0
+      ? 'worked'
+      : 'idle';
   };
-  const recoverRatings = async () => {
-    if (stopped || rating) return;
-    rating = true;
-    try {
-      await input.rateUnrated();
-    } catch (error) {
-      input.failed(error, 'rate');
-    } finally {
-      rating = false;
-    }
-  };
-  const pulse = () => {
-    if (!discovering) discoveryWork = discover();
-    if (!rating) ratingWork = recoverRatings();
-    return Promise.all([discoveryWork, ratingWork]).then(() => undefined);
-  };
-  const timer = input.timers.setInterval(pulse, MAINTENANCE_PULSE_MS);
-  const ready = pulse();
+  /**
+   * Rating recovery on its own loop, so a slow rating page never holds up
+   * discovering live Rounds. It worked while it rated or has pages left.
+   */
+  const rate = async (): Promise<LoopPass> =>
+    stopped ? 'idle' : (await input.rateUnrated()) > 0 ? 'worked' : 'idle';
+  const discovery = startWorkerLoop({
+    run: pulse,
+    backoff: { busyMs: MAINTENANCE_PULSE_MS, idleMaxMs: LIVE_IDLE_MAX_MS },
+    timers: input.timers,
+    failed: (error) => input.failed(error, 'discover'),
+    wake: input.wake,
+  });
+  const rating = startWorkerLoop({
+    run: rate,
+    backoff: { busyMs: MAINTENANCE_PULSE_MS, idleMaxMs: LIVE_IDLE_MAX_MS },
+    timers: input.timers,
+    failed: (error) => input.failed(error, 'rate'),
+    wake: input.ratingWake,
+  });
   let closing: Promise<void> | undefined;
   return {
-    ready,
+    ready: Promise.all([discovery.started, rating.started]).then(
+      () => undefined,
+    ),
     stop: () => {
       stopped = true;
       waiting.clear();
-      input.timers.clearInterval(timer);
-      closing ??= Promise.all([discoveryWork, ratingWork]).then(async () => {
-        await Promise.all(active.values());
-      });
+      closing ??= Promise.all([discovery.stop(), rating.stop()]).then(
+        async () => {
+          await Promise.all(active.values());
+        },
+      );
       return closing;
     },
   };

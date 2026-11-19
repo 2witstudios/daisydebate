@@ -234,6 +234,7 @@ const startRows = (changeVersion = 1) => [
   [],
   [],
   [[2n, '42']], // Round phase signal for the frozen Round
+  [], // the live Round loops' work wake (ADR 0154)
   [],
   [], // the seated members its start tells: none in this fake (ADR 0144)
   [], // command receipt insert follows the Round phase signal
@@ -288,7 +289,8 @@ test('Start mutation commits one frozen Round, cast, receipt, and change signal'
         .map(({ params }) =>
           params.find((value) => typeof value === 'object' && value !== null),
         ),
-      queries.filter(({ query }) => query.includes('pg_notify')).length,
+      queries.filter(({ query }) => query.includes("pg_notify('outbox'"))
+        .length,
     ],
     expected: [
       {

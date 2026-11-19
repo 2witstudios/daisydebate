@@ -1,5 +1,9 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { startAvailabilityService } from './service';
+import {
+  inertTimers,
+  withOneShots,
+} from '../../lib/worker-timers.test-support';
 setupRitewayBun();
 
 function fixture(elected: boolean, reconcile?: () => Promise<number>) {
@@ -29,7 +33,7 @@ function fixture(elected: boolean, reconcile?: () => Promise<number>) {
       return state.probeHealthy;
     },
     nowMs: () => 0,
-    timers: {
+    timers: withOneShots({
       setInterval: (callback, ms) => {
         tick = callback;
         events.push(`interval:${ms}`);
@@ -38,7 +42,7 @@ function fixture(elected: boolean, reconcile?: () => Promise<number>) {
       clearInterval: () => {
         events.push('clear');
       },
-    },
+    }),
     lapsing: { log: () => {}, report: () => {} },
     nextId: () => 's'.repeat(24),
     failed: () => {
@@ -122,13 +126,13 @@ test('missing probe resources are named at start and hourly, and never decide he
     },
     probeInvalid: (problem) => invalid.push(problem),
     nowMs: () => clock,
-    timers: {
+    timers: withOneShots({
       setInterval: (callback) => {
         tick = callback;
         return 1;
       },
       clearInterval: () => {},
-    },
+    }),
     failed: () => {},
     lapsing: { log: () => {}, report: () => {} },
     nextId: () => 's'.repeat(24),
@@ -183,7 +187,7 @@ test('every process checks the probe resources at start, elected or not', async 
     probeResources: async () => ['segment_missing'],
     probeInvalid: (problem) => invalid.push(problem),
     nowMs: () => 0,
-    timers: { setInterval: () => 1, clearInterval: () => {} },
+    timers: inertTimers,
     failed: () => {},
     lapsing: { log: () => {}, report: () => {} },
     nextId: () => 's'.repeat(24),
@@ -221,13 +225,13 @@ test('a failing probe check waits a minute, not a second', async () => {
     },
     probeInvalid: (problem) => invalid.push(problem),
     nowMs: () => clock,
-    timers: {
+    timers: withOneShots({
       setInterval: (callback) => {
         tick = callback;
         return 1;
       },
       clearInterval: () => {},
-    },
+    }),
     failed: () => {},
     lapsing: { log: () => {}, report: () => {} },
     nextId: () => 's'.repeat(24),
@@ -273,13 +277,13 @@ test('a lease left unproven for ten seconds is told once per channel, and a stop
     },
     probe: async () => false,
     nowMs: () => nowMs,
-    timers: {
+    timers: withOneShots({
       setInterval: (callback) => {
         tick = callback;
         return 1;
       },
       clearInterval: () => {},
-    },
+    }),
     lapsing: {
       log: (lapse) => void told.push(['log', lapse.lapsedMs]),
       report: (lapse) => {
@@ -343,13 +347,13 @@ function ticked(
     },
     probe: async () => false,
     nowMs: () => state.nowMs,
-    timers: {
+    timers: withOneShots({
       setInterval: (callback) => {
         state.tick = callback;
         return 1;
       },
       clearInterval: () => {},
-    },
+    }),
     lapsing: {
       log: (lapse) => {
         logs.push(lapse);
@@ -480,13 +484,13 @@ test('a streak id that cannot be minted never stops renewals, nor reuses another
     },
     probe: async () => false,
     nowMs: () => nowMs,
-    timers: {
+    timers: withOneShots({
       setInterval: (callback) => {
         tick = callback;
         return 1;
       },
       clearInterval: () => {},
-    },
+    }),
     lapsing: {
       log: (_lapse, streakId) => void told.push(['log', streakId]),
       report: (_lapse, streakId) => void told.push(['report', streakId]),

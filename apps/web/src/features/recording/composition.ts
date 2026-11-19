@@ -9,10 +9,12 @@ import {
 import { isJudgeSeat, isModeratorSeat } from '@daisy/protocol';
 import { identify } from '../../lib/identity';
 import type { App } from '../../server/app';
+import type { WorkerTimers } from '../../lib/worker-timers';
 import {
-  startSingleFlightWorker,
-  type WorkerTimers,
-} from '../../lib/worker-timers';
+  LIVE_IDLE_MAX_MS,
+  startWorkerLoop,
+  type WorkWake,
+} from '../../lib/worker-loop';
 import { stageEgressOf } from '../stage-capture/composition';
 import { newStageCredential } from '../stage-capture/stage-access';
 import { createRecordingCapturePort } from './capture-port';
@@ -177,7 +179,12 @@ const composeRecordingCapture = (app: App) =>
  * Inert unless RECORDING_CAPTURE is on, so merging never activates capture. It
  * reads the Broadcast and the Round; a failure here reaches neither.
  */
-export const startRecordingCapture = (app: App, timers: WorkerTimers) => {
+export const startRecordingCapture = (
+  app: App,
+  timers: WorkerTimers,
+  /** A Round changed: one may need recording now (ADR 0154). */
+  wake?: WorkWake,
+) => {
   const egress = stageEgressOf(app);
   if (app.config.RECORDING_CAPTURE !== 'on' || !egress) return null;
   const sweep = createRecordingCaptureSweep({
@@ -206,10 +213,11 @@ export const startRecordingCapture = (app: App, timers: WorkerTimers) => {
     report: (event) => app.logger.log(event, {}, 'Recording capture'),
     passBudget: () => Bun.sleep(PASS_BUDGET_MS),
   });
-  const running = startSingleFlightWorker({
+  const running = startWorkerLoop({
     run: sweep,
-    everyMs: CAPTURE_SWEEP_EVERY_MS,
+    backoff: { busyMs: CAPTURE_SWEEP_EVERY_MS, idleMaxMs: LIVE_IDLE_MAX_MS },
     timers,
+    wake,
     failed: () =>
       app.logger.log('recording.capture_failed', {}, 'Recording capture'),
   });

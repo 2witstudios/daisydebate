@@ -6,7 +6,10 @@ import {
 } from '@daisy/protocol';
 import { validRules } from './testing-rules';
 import { fakeSql, type ScriptedResult } from './scripted-bun-wire';
-import { writeProjectionWithPhaseSignal } from './round-projection-writer';
+import {
+  workKindsOf,
+  writeProjectionWithPhaseSignal,
+} from './round-projection-writer';
 
 setupRitewayBun();
 
@@ -30,8 +33,9 @@ const projection = (releases: boolean): RoundProjection => ({
   effects: [],
 });
 const releases = async (ruled: boolean) => {
-  // Round row and segment close, then (when ruled) the release, then the doorbell.
-  const writes: ScriptedResult[] = ruled ? [[], [], []] : [[], []];
+  // Round row, segment close and the work wake, then (when ruled) the
+  // release, then the doorbell.
+  const writes: ScriptedResult[] = ruled ? [[], [], [], []] : [[], [], []];
   const { client, queries } = fakeSql([
     ...writes,
     [[1n, '42']] as ScriptedResult,
@@ -55,5 +59,23 @@ test('the writer persists the engine release ruling and nothing else (ADR 0070)'
     should: 'release the Room memberships only when ruled',
     actual: [await releases(false), await releases(true)],
     expected: [false, true],
+  });
+});
+
+test('a Round write wakes the live loops; a completion also wakes rating', () => {
+  const live = { ...projection(false), round: null };
+  const completed = {
+    ...projection(false),
+    round: { status: 'completed' } as never,
+  };
+  const ended = {
+    ...projection(false),
+    round: { status: 'abandoned' } as never,
+  };
+  assert({
+    given: 'a plain write, a completing write and an abandoning write',
+    should: 'send round always, and rating only for the completion',
+    actual: [live, completed, ended].map(workKindsOf),
+    expected: [['round'], ['round', 'rating'], ['round']],
   });
 });

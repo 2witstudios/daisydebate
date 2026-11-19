@@ -1,7 +1,8 @@
 # Retained refund reconciliation
 
-The web process runs one single-flight original-action sweep every five seconds
-when Stripe is configured. It reads at most three action identities per tick
+The web process runs one original-action sweep on its worker loop when Stripe is
+configured: every five seconds while it finds work, backing off to a minute
+when idle (ADR 0154). It reads at most three action identities per pass
 through the current-service database facade, advances its indexed keyset past
 failed identities and restarts from the head after exhaustion. The sweep does
 not depend on a customer mapping, pending privacy job or the new-purchase flag.

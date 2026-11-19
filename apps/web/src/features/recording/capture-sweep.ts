@@ -23,6 +23,7 @@ import {
 } from './capture-decision';
 import { createSweepPass } from '../../lib/sweep-pass';
 import type { RecordingCapturePort } from './capture-port';
+import type { LoopPass } from '../../lib/idle-backoff';
 
 type Store = Pick<
   ReturnType<typeof createDatabase>['recordingCaptures'],
@@ -516,14 +517,19 @@ export const createRecordingCaptureSweep = (deps: {
 
   const failed = () => deps.report('recording.capture_failed');
   const pass = createSweepPass(deps.passBudget);
-  const sweep = async () => {
-    for (const expired of await store.listExpiredTournamentAdmissions(BATCH))
+  /** One pass; it worked while any capture is due, open, queued or processing. */
+  const sweep = async (): Promise<LoopPass> => {
+    let rows = 0;
+    for (const expired of await store.listExpiredTournamentAdmissions(BATCH)) {
+      rows += 1;
       await store
         .settleUndispatchedTournamentAdmission(expired.roundId)
         .catch(failed);
+    }
     for (const round of await store.discoverUnrecorded(BATCH))
       await (async () => {
         if (plannedRecording(round) === 'off') return;
+        rows += 1;
         await port.request({
           roundId: round.roundId,
           competitionType: round.competitionType,
@@ -535,21 +541,21 @@ export const createRecordingCaptureSweep = (deps: {
           now: iso(deps.now()),
         });
       })().catch(failed);
-    await pass.overPages(
+    rows += await pass.overPages(
       BATCH,
       (after) => store.listOpen(BATCH, after),
       (open) => open.id,
       reconcile,
       failed,
     );
-    await pass.overPages(
+    rows += await pass.overPages(
       BATCH,
       (after) => store.listJobs(BATCH, afterKey(JOB_KEY, after)),
       (job) => `${JOB_KEY}${job.recordingId}`,
       answerJob,
       failed,
     );
-    await pass.overPages(
+    rows += await pass.overPages(
       BATCH,
       (after) =>
         store.listProcessingUnalerted(BATCH, afterKey(DELAY_KEY, after)),
@@ -557,6 +563,7 @@ export const createRecordingCaptureSweep = (deps: {
       alertIfDelayed,
       failed,
     );
+    return rows > 0 ? 'worked' : 'idle';
   };
   return Object.assign(sweep, { settled: pass.settled });
 };

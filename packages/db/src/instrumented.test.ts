@@ -16,10 +16,7 @@ test('unrun work is a capacity refusal while genuine query failures remain failu
     [createAppError('INFRASTRUCTURE'), 'db.query.failed'],
     [new Error('query failed'), 'db.query.failed'],
     [
-      createAppError(
-        'INFRASTRUCTURE',
-        'Transcript transaction budget exceeded',
-      ),
+      createAppError('INFRASTRUCTURE', 'Bounded transaction budget exceeded'),
       'db.query.failed',
     ],
   ] as const) {

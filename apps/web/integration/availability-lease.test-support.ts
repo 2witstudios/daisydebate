@@ -62,6 +62,9 @@ export async function verifyAvailabilityLeaseCadence(input: {
         return 1;
       },
       clearInterval: () => {},
+      setTimeout: () => 1,
+      clearTimeout: () => {},
+      now: () => performance.now(),
     },
   });
   try {

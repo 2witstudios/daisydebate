@@ -87,6 +87,48 @@ test('maintenance discovery includes every cast without sessions and requires a 
     }
   }));
 
+test('discovery reports an opening that waits on the clock, so the loop keeps its pace (ADR 0154)', async () =>
+  withBoundedRound(async (f, _run, _round, client) => {
+    const store = maintenanceStore(client);
+    const instanceId = createId();
+    await store.renewServiceInstance({ instanceId, role: 'web' });
+    try {
+      await f.sql`update rounds set status='abandoned',current_stage=null,completed_at=clock_timestamp() where status in ('opening','active')`;
+      // An opening without a Room is no Room's countdown: it never counts.
+      await f.round();
+      const none = await store.readRoundMaintenanceCandidates({
+        instanceId,
+        limit: 8,
+      });
+      const host = await f.actor();
+      const room = await f.room(host, await f.format());
+      const waiting = await f.round({
+        room_id: room,
+        room_config_snapshot: {},
+        visibility: 'public',
+        pre_round_prep_ms: 3_600_000,
+      });
+      const pending = await store.readRoundMaintenanceCandidates({
+        instanceId,
+        limit: 8,
+      });
+      assert({
+        given:
+          'an opening without a Room, then one with a Room an hour from its prep end',
+        should:
+          'report no opening waiting, then one waiting that is not yet a due candidate',
+        actual: {
+          none: none.openingsWaiting,
+          pending: pending.openingsWaiting,
+          due: pending.roundIds.includes(waiting),
+        },
+        expected: { none: false, pending: true, due: false },
+      });
+    } finally {
+      await f.sql`delete from service_instances where instance_id=${instanceId}`;
+    }
+  }));
+
 test('maintenance rechecks service authority after a competing Round lock before invoking the engine', async () =>
   withBoundedRound(async (f, _run, roundId, client) => {
     const store = maintenanceStore(client),

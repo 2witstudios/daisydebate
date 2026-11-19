@@ -1,5 +1,9 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { startAvailabilityService } from './service';
+import {
+  inertTimers,
+  withOneShots,
+} from '../../lib/worker-timers.test-support';
 setupRitewayBun();
 
 test('a graceful elected sampler handoff measures fresh public health before releasing election', async () => {
@@ -35,13 +39,13 @@ test('a graceful elected sampler handoff measures fresh public health before rel
         now += 100;
         return true;
       },
-      timers: {
+      timers: withOneShots({
         setInterval: (callback) => {
           tick = callback;
           return 1;
         },
         clearInterval: () => {},
-      },
+      }),
       failed: () => {
         events.push('failed');
       },
@@ -110,7 +114,7 @@ for (const fault of ['probe', 'reconcile', 'sample', 'nonelected'] as const)
         }),
       },
       probe: async () => !(shuttingDown && fault === 'probe'),
-      timers: { setInterval: () => 1, clearInterval: () => {} },
+      timers: inertTimers,
       failed: () => {
         events.push('failed');
       },

@@ -1,5 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { startRunSchedule } from './run-schedule';
+import { withOneShots } from '../lib/worker-timers.test-support';
 
 setupRitewayBun();
 
@@ -10,14 +11,14 @@ describe('run schedule', () => {
     };
     return {
       state,
-      timers: {
+      timers: withOneShots({
         setInterval: (tick: () => unknown, ms: number) => {
           state.tick = tick;
           state.ms = ms;
           return 'retention-timer';
         },
         clearInterval: (handle: unknown) => void state.cleared.push(handle),
-      },
+      }),
     };
   };
   const gatedSweep = () => {

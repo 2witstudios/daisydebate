@@ -192,8 +192,10 @@ export function useContextChat({
     chat?.notice === 'read-failed'
       ? 'Messages could not be loaded. Try again.'
       : null;
-  const locked =
-    hidden || props.readOnlyHint || !chat || chat.metadata.readOnly || expired;
+  // A found chat's own metadata decides: the page's hint is only a guess for
+  // the time before the chat is found (a view cannot see every standing, such
+  // as a youth debater's club staff). The server refuses a post either way.
+  const locked = hidden || !chat || chat.metadata.readOnly || expired;
   const [initial] = useState(() => contextChatIdle(props.requestId));
   const pending =
     state.kind === 'idle' ||

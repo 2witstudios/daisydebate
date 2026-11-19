@@ -73,7 +73,7 @@ export const summarizeServerLog = (lines: readonly LogLine[]) => {
     ),
     vendorShareOfPassTime:
       passMs === 0 ? null : total(passes, 'vendorMs') / passMs,
-    lanes: grouped(named('db.lane.gauge'), (line) => text(line, 'lane')).map(
+    lanes: grouped(named('db.lane.window'), (line) => text(line, 'lane')).map(
       (group) => ({
         lane: text(group[0]!, 'lane'),
         connections: number(group[0]!, 'connections'),

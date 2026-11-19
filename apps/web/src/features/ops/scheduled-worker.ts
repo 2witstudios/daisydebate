@@ -68,13 +68,14 @@ export function createScheduledWorker({
       'Scheduled worker run failed',
     );
   return {
-    async run(): Promise<void> {
+    /** One run; returns how many jobs it delivered or retried, for a worker loop's pace. */
+    async run(): Promise<number> {
       let result: WorkerPass;
       try {
         result = await pass(clock.now());
       } catch {
         failed();
-        return;
+        return 0;
       }
       const outcome = workerOutcome(result);
       if (outcome === 'failed')
@@ -85,6 +86,7 @@ export function createScheduledWorker({
           { operation: name, deleted: result.deleted },
           'Scheduled worker run completed',
         );
+      return result.deleted + result.retried;
     },
   };
 }

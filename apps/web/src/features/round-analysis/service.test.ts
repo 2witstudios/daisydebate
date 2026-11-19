@@ -4,15 +4,30 @@ import { startRoundAnalysisService } from './service';
 
 setupRitewayBun();
 
+/** The next pass is one armed one-shot; a tick fires whatever is armed. */
 const manualTimers = () => {
   const tasks: (() => Promise<void>)[] = [];
+  const drop = (task: unknown) => {
+    const at = tasks.indexOf(task as () => Promise<void>);
+    if (at >= 0) tasks.splice(at, 1);
+  };
   return {
-    tick: () => Promise.all(tasks.map((task) => task())),
+    tick: () => Promise.all([...tasks].map((task) => task())),
     timers: {
-      setInterval: (task: () => Promise<void>, _ms: number) => tasks.push(task),
+      now: () => 0,
+      setInterval: (task: () => Promise<void>) => tasks.push(task),
       clearInterval: () => {
         tasks.length = 0;
       },
+      setTimeout: (run: () => unknown) => {
+        const task = async () => {
+          drop(task);
+          await run();
+        };
+        tasks.push(task);
+        return task;
+      },
+      clearTimeout: drop,
     },
   };
 };
