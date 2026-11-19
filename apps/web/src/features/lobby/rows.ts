@@ -1,15 +1,18 @@
 import {
   canWatchLive,
   seatAllowed,
-  sideSeat,
   type RatingDivision,
   type RoomListEntry,
   type RoundStage,
+  type SeatRef,
 } from '@daisy/protocol';
 import { drawnTopicLabel } from '../debate-room/vocabulary';
 import { liveHref, watchRoutes } from '../watch/routes';
 
 type RowState = 'open' | 'starting' | 'live';
+
+/** A debater seat, for asking the lobby rule whether the viewer may debate here. */
+const anyDebaterSeat: SeatRef = { kind: 'speaker', slot: 0 };
 
 /**
  * One verb per meaning, so a row's button always says the same thing: Watch
@@ -120,10 +123,11 @@ export function rowActions(
   }
   const watch = action('Watch', roomHref, false);
   if (state === 'starting') return [watch];
+  // Every debater seat answers alike, so one stands for them all.
   const debates = seatAllowed(
     { kind: 'human', division: viewer.division },
     room,
-    sideSeat('affirmative'),
+    anyDebaterSeat,
   );
   if (debates) return [watch, action('Join', roomHref, true)];
   return room.openJudgeSeats > 0

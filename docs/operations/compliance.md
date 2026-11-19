@@ -408,9 +408,10 @@ under 18 play ranked on Youth – Freestyle, against other members under 18.
   ratings, seasons, Rooms, Rounds and challenges carry the division, never
   an age.
 - **What a lobby discloses.** Pages never name an age or birth month. A
-  lobby still discloses an age class (ADR 0156): a member seated in a
-  Youth Room, or listed in the Youth lobby's Rooms, is under 18; Open, 18 or
-  over. Inside a lobby no Room, Round, result, challenge, rating, profile or
+  lobby still discloses an age class (ADR 0156): a member in a Youth Room's
+  debater seat is under 18, and in an Open Room's, 18 or over (or without an
+  age record, casual only). Hosts and judges may be of either class: adult club
+  staff host Youth Rooms and anyone judges. Inside a lobby no Room, Round, result, challenge, rating, profile or
   rail names a division, so nothing labels a named member's age class beyond
   the lobby they play in; the leaderboard's Open | Youth switch and Watch,
   Recordings and league pages still name a ladder. The people list carries each

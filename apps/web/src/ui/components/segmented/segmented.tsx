@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { cn } from '../../cn';
 import { segmentClass } from './segmented-class';
 
 type Segment = {
@@ -27,14 +28,20 @@ export function Segmented({
   return (
     <nav
       aria-label={label}
-      className={`inline-flex items-center gap-1 self-start rounded-md bg-surface-overlay p-1${fillOnPhone ? 'max-narrow:flex max-narrow:self-stretch' : ''}`}
+      className={cn(
+        'inline-flex items-center gap-1 self-start rounded-md bg-surface-overlay p-1',
+        fillOnPhone && 'max-narrow:flex max-narrow:self-stretch',
+      )}
     >
       {segments.map((segment) => (
         <Link
           key={segment.label}
           href={segment.href}
           aria-current={segment.selected ? 'page' : undefined}
-          className={`${segmentClass(segment.selected)}${fillOnPhone ? 'max-narrow:flex-1 max-narrow:justify-center' : ''}`}
+          className={cn(
+            segmentClass(segment.selected),
+            fillOnPhone && 'max-narrow:flex-1 max-narrow:justify-center',
+          )}
         >
           {segment.label}
         </Link>
