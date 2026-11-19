@@ -3,7 +3,13 @@ import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 
 export type BoundedTransactionContext = Pick<
   BunSQLDatabase,
-  'select' | 'insert' | 'update' | 'delete' | 'execute'
+  | 'select'
+  | 'selectDistinct'
+  | 'selectDistinctOn'
+  | 'insert'
+  | 'update'
+  | 'delete'
+  | 'execute'
 >;
 
 // Identity stays internal to the adapter; callers cannot forge a bounded context
@@ -37,6 +43,8 @@ export function transactionContext(
 ): BoundedTransactionContext {
   const methods: BoundedTransactionContext = {
     select: database.select.bind(database),
+    selectDistinct: database.selectDistinct.bind(database),
+    selectDistinctOn: database.selectDistinctOn.bind(database),
     insert: database.insert.bind(database),
     update: database.update.bind(database),
     delete: database.delete.bind(database),
