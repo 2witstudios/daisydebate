@@ -17,6 +17,9 @@ import { openStream } from './stream';
 import type { ContactInput } from '../contacts/fence';
 import type { MessagingSocialFrame } from './social-contracts';
 import type { ContactReactions } from '../contacts/reactions';
+import { oweNotifications } from '../notifications/owe';
+import { rowsOf } from '../raw-rows';
+import { sql } from 'drizzle-orm';
 type Tx = Pick<BunSQLDatabase, 'select' | 'insert' | 'update' | 'execute'>;
 type Pair = typeof contactPairs.$inferSelect;
 
@@ -136,6 +139,22 @@ export function dmRequestFrame(
         ]);
       }
       await record();
+      // The recipient hears of it in-app (and in their digest) in the same
+      // transaction; the introduction itself stays in Messages (decision 90).
+      const recipients = await rowsOf<{ user_id: string }>(
+        tx,
+        sql`select user_id from actors where id=${counterpartOf(input)} and user_id is not null`,
+      );
+      await oweNotifications(tx, {
+        kind: 'dm_request',
+        subject: { dm_channel_id: channelId },
+        recipients: recipients.map((row) => ({
+          userId: row.user_id,
+          about: input.actorId,
+        })),
+        at: command.now,
+        nextId: command.nextId,
+      });
       // Messaging's own receipt, which a retry of this request replays.
       await tx.insert(messagingSocialCommands).values({
         actorId: input.actorId,

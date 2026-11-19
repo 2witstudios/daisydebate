@@ -2,13 +2,14 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { createScriptedAuthorizationTransaction } from '@daisy/db/testing';
 import { messagingReactionFence } from './reaction-fence';
-import { typingWorld } from './typing.test-support';
+import { policyFactQuery, typingWorld } from './typing.test-support';
 setupRitewayBun();
 function fixture() {
   const f = typingWorld(),
     self = f.accounts[0]!.account;
   if (f.channel.authority.kind !== 'dm')
     throw new Error('Accepted DM fixture required');
+  // Unknown ages: the contact facts are never read.
   const { tx, queries } = createScriptedAuthorizationTransaction([]);
   const channel = {
     ...f.channel,
@@ -54,9 +55,7 @@ test('own reaction cleanup consumes actual canonical reading with blocked archiv
     should: 'reuse the same adapter and expose no raw birth query',
     actual: [
       f.queries.length,
-      f.queries.every((query) =>
-        query.query.includes('daisy_authorization_age'),
-      ),
+      f.queries.every((query) => policyFactQuery(query.query)),
     ],
     expected: [6, true],
   });

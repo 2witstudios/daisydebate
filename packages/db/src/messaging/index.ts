@@ -82,3 +82,4 @@ export type {
 } from './context-channel-contracts';
 export { roundFloorModeration } from './round-floor-moderation';
 export { roomCommunityMetadataOf } from './room-community-store';
+export { bindMessagingContactFacts } from './contact-facts';

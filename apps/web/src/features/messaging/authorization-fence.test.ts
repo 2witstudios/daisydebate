@@ -1,7 +1,11 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { messagingAuthorizationFence } from './authorization-fence';
-import { typingWorld } from './typing.test-support';
+import {
+  contactRowsOf,
+  policyFactQuery,
+  typingWorld,
+} from './typing.test-support';
 import { createScriptedAuthorizationTransaction } from '@daisy/db/testing';
 setupRitewayBun();
 test('channel authorization fences reject misbound channel projections before age I/O', async () => {
@@ -49,9 +53,10 @@ test('channel authorization fences reject misbound channel projections before ag
 test('channel fences consume minimal facts at the clock after their awaited producer returns', async () => {
   const f = typingWorld(),
     self = f.accounts[0]!.account;
-  const { tx, queries } = createScriptedAuthorizationTransaction(
-    f.accounts.map((row) => [row.age]),
-  );
+  const { tx, queries } = createScriptedAuthorizationTransaction([
+    ...f.accounts.map((row) => [row.age]),
+    contactRowsOf(f.accounts),
+  ]);
   const completedAt = '2026-10-10T12:00:01.000Z';
   let readingAt = '';
   const fence = messagingAuthorizationFence({
@@ -80,8 +85,8 @@ test('channel fences consume minimal facts at the clock after their awaited prod
     actual: [
       readingAt,
       queries.length,
-      queries.every((query) => query.query.includes('daisy_authorization_age')),
+      queries.every((query) => policyFactQuery(query.query)),
     ],
-    expected: [completedAt, 2, true],
+    expected: [completedAt, 3, true],
   });
 });

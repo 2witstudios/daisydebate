@@ -112,6 +112,11 @@ export const notificationWords = (
         text: `${subject.friend ? `@${subject.friend}` : 'A member'} accepted your friend request.`,
         href: '/friends',
       };
+    case 'dm_request':
+      return {
+        text: `${subject.from ? `@${subject.from}` : 'A member'} sent you a message request.`,
+        href: `/messages/requests/${subject.channelId}`,
+      };
     case 'media_release_requested':
       return {
         text: `Your release request to ${subject.recipient} is waiting. It stops working on ${releaseDay(subject.expiresAt)}.`,
