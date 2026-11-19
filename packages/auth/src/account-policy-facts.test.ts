@@ -56,8 +56,7 @@ test('contact facts ride on the accounts they describe', async () => {
   const facts = await loadAccountPolicyFacts({
     accounts: [a.account, b.account],
     now: '2026-10-09T00:00:00.000Z',
-    readAgeFact: async (account) =>
-      account.actorId === 'a' ? a.age : b.age,
+    readAgeFact: async (account) => (account.actorId === 'a' ? a.age : b.age),
     readContactFacts: async (rows) => {
       seen.push(rows.map((row) => row.age));
       return [contact('b'), contact('a')];

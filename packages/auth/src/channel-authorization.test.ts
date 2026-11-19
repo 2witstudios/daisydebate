@@ -213,15 +213,15 @@ test('declining and cancelling are never held to the DM rule (decision 90)', () 
     resource: pendingResource,
     context: {
       ...input.context,
-      account: accounts.find((row) => row.account.actorId === actorId)!
-        .account,
+      account: accounts.find((row) => row.account.actorId === actorId)!.account,
       socialPosting: refused,
     },
   });
   const recipient = at('b', 'v');
   assert({
     given: 'a pending request the DM rule no longer allows posting on',
-    should: 'refuse accepting, and still let the recipient decline and the sender cancel',
+    should:
+      'refuse accepting, and still let the recipient decline and the sender cancel',
     actual: [
       authorize({ ...recipient, capability: 'channel.request.decide' }).allow,
       authorize({
