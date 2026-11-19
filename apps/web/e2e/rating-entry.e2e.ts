@@ -5,7 +5,6 @@ import { test, expect, openPage } from './support/fixtures';
 import { resetRateLimits, signUpMember } from './support/accounts';
 import { submitCreateRoom, closeRoom } from './support/room-launch-flow';
 import type { RatingStyle } from '@daisy/protocol';
-import { ladderLabel } from '../src/features/ratings/ladder-labels';
 
 test('native no-JavaScript ranked entry preserves canonical setup for the one Freestyle ladder', async ({
   browser,
@@ -110,12 +109,10 @@ test('native no-JavaScript ranked entry preserves canonical setup for the one Fr
       await expect(ratings).toContainText(`${row.rating}*`);
       await capture(`${row.ladder}-profile`);
       await page.goto(`/rounds/${row.roundId}`);
-      // YRoundResult: the rating, then the ladder it moved on with the change.
+      // YRoundResult: the rating, then its change; no ladder is named (ADR 0156).
       await expect(
         page.getByRole('region', { name: 'Round ratings', exact: true }),
-      ).toContainText(
-        `${row.rating}* ${ladderLabel({ style: row.ladder, division: 'open' })} +${row.delta}`,
-      );
+      ).toContainText(`${row.rating}* +${row.delta}`);
       await capture(`${row.ladder}-round-rating`);
     }
     await page.goto('/leaderboard/privacy');

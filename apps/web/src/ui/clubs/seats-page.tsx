@@ -7,7 +7,7 @@ import { Icon } from '../components/icon/icon';
 import { PageHeader } from '../components/page-header/page-header';
 import { TabLinks } from '../components/tab-links/tab-links';
 import { ClubFrame, type ClubReleaseTabs } from './club-frame';
-import { dollars, ladderLabel, seatTally, shortDay } from './club-copy';
+import { dollars, seatTally, shortDay } from './club-copy';
 import type { ClubFormState } from './club-form-state';
 import {
   AssignSeatForm,
@@ -74,7 +74,6 @@ function SeatRow({
   return (
     <li className={rowClass}>
       <Who name={seat.name} line={seat.username ? `@${seat.username}` : ''} />
-      <span className="text-sm">{ladderLabel(seat.ladder)}</span>
       <span className="text-sm">
         {seat.funded ? (
           <span className="font-strong">Premium seat</span>
@@ -146,7 +145,6 @@ function MemberRow({
         name={member.name}
         line={member.username ? `@${member.username}` : ''}
       />
-      <span className="text-sm">{ladderLabel(member.ladder)}</span>
       <span className="text-sm text-ink-muted">No seat</span>
       {freeSeat ? (
         <AssignSeatForm
@@ -271,7 +269,6 @@ export function ClubSeatsPage({
           className={`${rowClass} border-t-0 text-xs font-bold tracking-widest text-ink-muted uppercase max-compact:hidden`}
         >
           <span>Member</span>
-          <span>Ladder</span>
           <span>Seat</span>
           <span>Actions</span>
         </div>

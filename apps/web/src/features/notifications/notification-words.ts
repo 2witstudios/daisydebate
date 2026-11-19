@@ -1,11 +1,6 @@
 import type { InboxRow } from '@daisy/db';
-import type {
-  CompetitionType,
-  RatingDivision,
-  RatingStyle,
-  SeatKind,
-} from '@daisy/protocol';
-import { ladderLabel, styleLabels } from '../ratings/ladder-labels';
+import type { CompetitionType, RatingStyle, SeatKind } from '@daisy/protocol';
+import { styleLabels } from '../ratings/ladder-labels';
 
 /** What one notification is about, with only the facts its words need. */
 export type NotificationSubject = InboxRow extends infer Row
@@ -28,15 +23,11 @@ export const invitedTo = (seat: SeatKind): string => {
 };
 
 /**
- * "a casual Freestyle debate", or a ranked one on its ladder: "a ranked
- * Youth – Freestyle debate" (ADR 0147).
+ * "a casual Freestyle debate", "a ranked Freestyle debate": the challenge's
+ * format, never a division (ADR 0156).
  */
-export const challengeWhat = (
-  mode: CompetitionType,
-  format: RatingStyle,
-  division: RatingDivision | null,
-) =>
-  `a ${mode} ${division === null ? styleLabels[format] : ladderLabel({ style: format, division })} debate`;
+export const challengeWhat = (mode: CompetitionType, format: RatingStyle) =>
+  `a ${mode} ${styleLabels[format]} debate`;
 
 /**
  * The words and the destination, from the kind and the names read now, so a
@@ -103,7 +94,7 @@ export const notificationWords = (
       };
     case 'challenge_received':
       return {
-        text: `${subject.challenger ? `@${subject.challenger}` : 'A member'} challenged you to ${challengeWhat(subject.mode, subject.format, subject.division)}.`,
+        text: `${subject.challenger ? `@${subject.challenger}` : 'A member'} challenged you to ${challengeWhat(subject.mode, subject.format)}.`,
         href: '/friends',
       };
     case 'challenge_accepted':

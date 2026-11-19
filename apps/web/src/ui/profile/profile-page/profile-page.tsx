@@ -18,7 +18,6 @@ import { liveHref } from '../../../features/watch/routes';
 import { MediaPageLink } from '../../round-media/media-page-link';
 import { profileHref } from '../../layout/app-shell/components/destinations';
 import { ProfileActions } from '../profile-actions/profile-actions';
-import { LadderBadge } from '../../ladder-badge/ladder-badge';
 import { profilePhotoSrc } from '../photo-src';
 
 const card = 'flex flex-col gap-4 rounded-xl bg-surface p-6 shadow-1';
@@ -112,7 +111,6 @@ function HistoryRow({
           {me && entry.visibility !== 'public' ? (
             <Badge>{entry.visibility}</Badge>
           ) : null}
-          {entry.ladder ? <LadderBadge ladder={entry.ladder} /> : null}
           <Badge tone={result.tone}>{result.label}</Badge>
         </span>
       </div>

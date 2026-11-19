@@ -11,9 +11,9 @@
   --spacing-club-field: 15rem;
 }
 
-/* A seats-board row: the member, their ladder, the seat and its actions. */
+/* A seats-board row: the member, the seat and its actions. */
 @utility grid-cols-club-row {
-  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto;
 }
 
 /* Stat tiles and plan facts: as many as fit, each at least its width. */

@@ -79,13 +79,6 @@ export const day = (at: string) => dayFormat.format(new Date(at));
 /** "1 Dec", in UTC. */
 export const shortDay = (at: string) => shortDayFormat.format(new Date(at));
 
-export const ladderLabel = (ladder: 'youth' | 'open' | null) =>
-  ladder === 'youth'
-    ? 'Youth'
-    : ladder === 'open'
-      ? 'Open'
-      : 'Set when they join';
-
 /** Filled, invited and empty seats, as the boards count them. */
 export function seatTally(view: {
   readonly plan: Plan;

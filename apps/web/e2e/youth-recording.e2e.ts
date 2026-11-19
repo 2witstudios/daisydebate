@@ -70,11 +70,8 @@ test('a Youth debater sees their Recording as private, with Take down and no pub
   await expect(
     page.getByRole('heading', { name: `Youth scrimmage ${tag}` }),
   ).toBeVisible();
-  // The page's own ladder badge. The shell's closed account menu also names
-  // the ladder once a season is open, so the label is read inside <main>.
-  await expect(
-    page.getByRole('main').getByText('Youth – Freestyle', { exact: true }),
-  ).toBeVisible();
+  // No page names a ladder (ADR 0156 copy rule).
+  await expect(page.getByRole('main')).not.toContainText('Youth – Freestyle');
   const sharing = page.getByRole('region', { name: 'Sharing' });
   await expect(sharing).toContainText(
     'Private: visible to the debaters, judges and their coaches or parents.',
@@ -141,12 +138,9 @@ test('Watch, the archive and a stranger never find a Youth Round', async ({
     const visitor = await openPage(context, 'visitor');
     await visitor.goto(`/watch?q=${tag}`);
     await expect(visitor.getByText(`Open final ${tag}`)).toBeVisible();
-    await expect(
-      visitor
-        .getByText('Open – Freestyle', { exact: true })
-        .filter({ visible: true })
-        .first(),
-    ).toBeVisible();
+    await expect(visitor.getByRole('main')).not.toContainText(
+      'Open – Freestyle',
+    );
     await expect(visitor.getByText(`Youth live ${tag}`)).toHaveCount(0);
     await expect(
       visitor.getByRole('combobox', { name: 'Ladder' }),
