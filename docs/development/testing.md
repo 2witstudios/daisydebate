@@ -387,9 +387,10 @@ fork or `main`).
 What that does to checks: the commit is a new PR head, so every check from the
 previous head stops counting and every required check runs again from zero.
 GitHub holds a workflow token's `pull_request` runs for approval, so the
-workflow's `Start CI on the rebaselined head` job approves the CI run at exactly
-that commit; nobody clicks anything or pushes anything. If that job fails, CI
-stays waiting: rerun it alone with `gh run rerun <run id> --failed`. A pull
+workflow's `Start CI and Browser E2E on the rebaselined head` job approves the
+CI run and the Browser E2E run at exactly that commit; nobody clicks anything
+or pushes anything. If that job fails, a run stays waiting: rerun the job alone
+with `gh run rerun <run id> --failed`. A pull
 request with a merge conflict gets no CI run until the conflict is resolved. Reviews also attach to the old
 head, so rebaseline before reviewers start, and pull before you commit again.
 
