@@ -1,4 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { refuseCapacity } from '@daisy/db/testing';
 import { judgeSeat, sideSeat, type RoomView } from '@daisy/protocol';
 import {
   overlaySeatRatings,
@@ -183,5 +184,51 @@ test('a Room view reads ratings once for all its seated humans', async () => {
     should: 'read nothing',
     actual: read2,
     expected: 0,
+  });
+});
+
+test('a social lane refusal for now shows the Room without seat ratings', async () => {
+  const refused = (reason: 'expired' | 'saturated' | 'unconfigured') => () =>
+    Promise.reject(refuseCapacity({ lane: 'social', reason }));
+  const unrated = view.participants.map((p) =>
+    'anonymous' in p ? p : { ...p, rating: null },
+  );
+  const reads = (failing: 'ratings' | 'blinded', error: () => Promise<never>) =>
+    withSeatRatings(
+      view,
+      {
+        ratings: failing === 'ratings' ? error : async () => ratings,
+        blinded: failing === 'blinded' ? error : async () => [blinded],
+      },
+      now,
+    );
+  assert({
+    given: 'a ratings read the social lane refused after its wait',
+    should: 'show every seat without a rating and keep the anonymous judge',
+    actual: (await reads('ratings', refused('expired'))).participants,
+    expected: unrated,
+  });
+  assert({
+    given: 'a blinding read refused while the ratings read succeeded',
+    should: 'show no rating at all, never an unblinded one',
+    actual: (await reads('blinded', refused('saturated'))).participants,
+    expected: unrated,
+  });
+  const failure = async (error: () => Promise<never>) => {
+    try {
+      await reads('ratings', error);
+      return 'read';
+    } catch {
+      return 'failed';
+    }
+  };
+  assert({
+    given: 'a refusal that cannot clear, or a failure that is no refusal',
+    should: 'still fail the Room read',
+    actual: [
+      await failure(refused('unconfigured')),
+      await failure(() => Promise.reject(new Error('query failed'))),
+    ],
+    expected: ['failed', 'failed'],
   });
 });

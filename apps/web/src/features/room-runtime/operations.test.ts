@@ -1,4 +1,5 @@
 import { fixedIds } from '@daisy/clock';
+import { refuseCapacity } from '@daisy/db/testing';
 import { createAppError } from '@daisy/errors';
 import type { RoomCreate } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -84,6 +85,33 @@ test('a seated bot answers its own seat availability', async () => {
       await eligibleWith({ debater: true, judge: false }),
     ],
     expected: [[false], [true]],
+  });
+});
+
+test('a seat rating the social lane refuses for now leaves the Room readable', async () => {
+  const read = (ratings: () => Promise<never>) =>
+    makeOperations({ readMemberCardRatings: ratings } as never).operations.view(
+      caller,
+      state.id,
+    );
+  const view = await read(() =>
+    Promise.reject(refuseCapacity({ lane: 'social', reason: 'expired' })),
+  );
+  assert({
+    given: 'a Room whose seated human rating read the social lane refused',
+    should: 'read the Room with that seat carrying no rating',
+    actual: [view.id, view.participants.map((p) => 'rating' in p && p.rating)],
+    expected: [state.id, state.participants.map(() => null)],
+  });
+  let failed = false;
+  await read(() => Promise.reject(new Error('query failed'))).catch(() => {
+    failed = true;
+  });
+  assert({
+    given: 'a ratings read that failed for any other reason',
+    should: 'still fail the Room read',
+    actual: failed,
+    expected: true,
   });
 });
 
