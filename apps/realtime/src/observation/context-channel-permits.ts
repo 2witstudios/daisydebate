@@ -6,6 +6,7 @@ import type { PermitDecision } from './permits';
 import { decideRoomCommunityPermit } from './room-community-viewer';
 import { decideRoundFloorPermit } from './round-floor-viewer';
 import { linkedAdultsFor } from '@daisy/db/youth-live';
+import type { YouthLiveFact } from '@daisy/protocol';
 
 type Evaluation = {
   readonly reads: RealtimeAuthorityReads;
@@ -96,7 +97,14 @@ async function roundFloorPermits(
   );
   if (plain === null || plain.every((permit) => permit.status !== 'denied'))
     return plain;
-  const youth = roundId === null ? null : await linkedAdultsFor(reads)(roundId);
+  // A failed lookup keeps the first pass: the denied stay denied, and those
+  // already allowed keep their permits.
+  let youth: YouthLiveFact | null = null;
+  try {
+    youth = roundId === null ? null : await linkedAdultsFor(reads)(roundId);
+  } catch {
+    return plain;
+  }
   const asked = principals.filter(
     (principal, index) =>
       plain[index]?.status === 'denied' &&

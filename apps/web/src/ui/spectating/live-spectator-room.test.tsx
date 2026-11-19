@@ -107,13 +107,15 @@ test('the Round ends while the host watches', () => {
   });
 });
 
-test("a linked adult's view once the Round has ended (ADR 0155)", () => {
+test("a linked adult's view once their read is refused (ADR 0155)", () => {
   const html = renderToStaticMarkup(<LinkedAdultEndNotice roundId="r1" />);
   assert({
-    given: 'the Round over and the read refused to a linked adult',
-    should: 'say it has ended and link its Recording',
+    given:
+      'the read refused to a linked adult (the Round ended, or their link)',
+    should:
+      'say they can no longer watch it live, without claiming which, and link its Recording',
     actual: [
-      html.includes('This round has ended.'),
+      html.includes('You can no longer watch this round live.'),
       html.includes('href="/recordings/r1"'),
     ],
     expected: [true, true],

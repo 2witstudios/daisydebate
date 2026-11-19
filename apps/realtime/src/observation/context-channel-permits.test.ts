@@ -221,3 +221,23 @@ test('a viewer the floor refuses on any other Round is not asked again', async (
     expected: [[{ status: 'denied' }], ['floor']],
   });
 });
+
+test('a failed links lookup keeps the first pass', async () => {
+  const asked: string[] = [];
+  const actual = await evaluate(
+    {
+      roundFloorChannelCohortAuthority:
+        refusedFrame as unknown as RealtimeAuthorityReads['roundFloorChannelCohortAuthority'],
+      readRoundYouth: async () => {
+        throw new Error('down');
+      },
+    },
+    asked,
+  );
+  assert({
+    given: 'a refused viewer, and a Youth lookup that fails',
+    should: 'answer the first pass and ask no second',
+    actual: [actual, asked],
+    expected: [[{ status: 'denied' }], ['floor']],
+  });
+});

@@ -160,18 +160,27 @@ export function createRealtimeAuthorization({
     >,
   ): Promise<boolean> {
     if (facts.resource.kind !== 'round') return false;
-    const youth = await linkedAdultsFor(resources.database)(
-      facts.resource.roundId,
+    const { roundId } = facts.resource;
+    const youth = await linkedAdultsFor(resources.database)(roundId);
+    if (youth === null) return false;
+    // Decide on the Round as it stands after the lookup: one that ended
+    // meanwhile admits no linked adult (ADR 0155).
+    const current = await resources.database.readRoundAuthorizationFacts(
+      roundId,
+      principal,
     );
-    return (
-      youth !== null &&
-      authorize({
-        principal: { kind: 'user', ...principal },
-        capability: 'round.observe.undelayed',
-        resource: { ...facts.resource, youth },
-        context: { account: facts.account },
-      }).allow
-    );
+    if (
+      !current?.account ||
+      current.account.revision !== facts.account?.revision ||
+      current.resource.kind !== 'round'
+    )
+      return false;
+    return authorize({
+      principal: { kind: 'user', ...principal },
+      capability: 'round.observe.undelayed',
+      resource: { ...current.resource, youth },
+      context: { account: current.account },
+    }).allow;
   }
   async function authorizeAudience(
     principal: SocketPrincipal,
