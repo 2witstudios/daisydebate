@@ -1,4 +1,4 @@
-import type { readYouthRoundPeople } from './youth-recording-people';
+import type { readYouthRecordingPeople } from './youth-recording-people';
 import { youthPeopleCache, type YouthPeopleCache } from './youth-people-cache';
 import {
   youthRoundLinkedAdults,
@@ -21,7 +21,7 @@ export type YouthLiveReads = {
   readonly readRoundYouth: (roundId: string) => Promise<boolean | null>;
   readonly readYouthRoundPeople: (
     roundId: string,
-  ) => ReturnType<typeof readYouthRoundPeople>;
+  ) => ReturnType<typeof readYouthRecordingPeople>;
 };
 
 const peopleOf = new WeakMap<YouthLiveReads, YouthPeopleCache>();

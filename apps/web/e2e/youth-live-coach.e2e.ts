@@ -1,41 +1,26 @@
-import { execFile } from 'node:child_process';
-import { resolve } from 'node:path';
-import { promisify } from 'node:util';
-import { systemClock } from '@daisy/clock';
-import { createId } from '@paralleldrive/cuid2';
 import { assertNoSeriousFindings } from './support/axe';
-import { origin, signUpMember, youthBirth } from './support/accounts';
+import { origin, signUpMember } from './support/accounts';
 import { expect, openPage, test } from './support/fixtures';
+import {
+  coachedYouthRound,
+  openFloor,
+  postFloorMessage,
+} from './support/youth-coach';
 
 /**
- * YLS-7 (ADR 0155) in a real browser: a youth debater's school coach finds
- * their student's live Youth Round under Watch's "Your students, live" and
- * watches it as timing, transcript and read-only floor chat, with no media
- * and nothing to post; the Round link takes them there too, with JavaScript
- * on and off, and a stranger finds nothing.
+ * YLS-7 and YLS-12 (ADR 0155, ADR 0158) in a real browser: a youth
+ * debater's school coach finds their student's live Youth Round under Watch's
+ * "Your students, live" and watches it as timing, transcript and read-only
+ * floor chat (the student's message there included), with no media and
+ * nothing to post; the Round link takes them there too, with JavaScript on
+ * and off, and a stranger finds nothing. The floor message arriving live
+ * through realtime is proven in the messaging realtime cohort
+ * (`support/youth-coach-floor-live.ts`).
  */
-const seed = async (input: Record<string, unknown>): Promise<unknown> => {
-  const { stdout } = await promisify(execFile)(
-    'bun',
-    [
-      resolve(import.meta.dirname, 'support/broadcast-seed-process.ts'),
-      JSON.stringify(input),
-    ],
-    {
-      cwd: resolve(import.meta.dirname, '../../..'),
-      env: process.env,
-      timeout: 60_000,
-    },
-  );
-  return JSON.parse(stdout);
-};
-
-const seeded: string[] = [];
+const cleanups: Array<() => Promise<unknown>> = [];
 
 test.afterEach(async () => {
-  await Promise.all(
-    seeded.splice(0).map((roundId) => seed({ command: 'stop', roundId })),
-  );
+  await Promise.all(cleanups.splice(0).map((cleanup) => cleanup()));
 });
 
 test("a coach watches their student's live Youth Round, and a stranger cannot", async ({
@@ -43,32 +28,17 @@ test("a coach watches their student's live Youth Round, and a stranger cannot", 
   context,
   browser,
 }) => {
-  const student = await browser.newContext({
-    baseURL: origin,
-    ignoreHTTPSErrors: true,
-  });
-  const { username: studentName } = await signUpMember(
-    student.request,
-    youthBirth(systemClock.now()),
+  const { student, studentName, tag, round, stop } = await coachedYouthRound(
+    browser,
+    context,
   );
-  await student.close();
-  const { username: coachName } = await signUpMember(context.request);
-  const tag = createId().slice(0, 8);
-  const round = (await seed({
-    command: 'create',
-    mode: 'ranked',
-    visibility: 'public',
-    division: 'youth',
-    affUsername: studentName,
-    title: `Thursday scrimmage ${tag}`,
-    resolution: `Cities should ban cars ${tag}`,
-  })) as { roundId: string; caption: string };
-  seeded.push(round.roundId);
-  await seed({
-    command: 'link-coach',
-    coachUsername: coachName,
-    studentUsername: studentName,
-  });
+  cleanups.push(stop, () => student.close());
+  // The student says something on the floor before the coach arrives.
+  const channelId = await openFloor(student.request, round.roundId);
+  const said = `Watch the second contention ${tag}`;
+  expect(
+    await postFloorMessage(student.request, round.roundId, channelId, said),
+  ).toMatchObject({ status: 200 });
 
   // Watch: the coach's own section, never the public listing.
   await page.goto('/watch');
@@ -91,9 +61,29 @@ test("a coach watches their student's live Youth Round, and a stranger cannot", 
   const transcript = page.getByRole('region', { name: 'Transcript' });
   await transcript.getByText('Show the transcript').click();
   await expect(transcript.getByText(round.caption)).toBeVisible();
-  await expect(page.getByText('This Round chat is read-only.')).toBeVisible();
-  await expect(page.getByRole('textbox')).toHaveCount(0);
+  const floor = page.getByRole('region', { name: 'Round floor chat' });
+  await expect(floor.getByText('This Round chat is read-only.')).toBeVisible();
+  // Its composer is locked: nothing to type, nothing to send.
+  await expect(page.getByRole('textbox')).toHaveCount(1);
+  await expect(floor.getByRole('textbox')).not.toBeEditable();
+  await expect(
+    floor.getByRole('button', { name: 'Send message' }),
+  ).toBeDisabled();
   await expect(page.locator('video')).toHaveCount(0);
+  await expect(
+    floor
+      .getByRole('list', { name: 'Floor messages' })
+      .getByText(said, { exact: true }),
+  ).toBeVisible();
+  // The coach reads and never posts (DEC-174, decision 84).
+  expect(
+    await postFloorMessage(
+      context.request,
+      round.roundId,
+      channelId,
+      'A coach’s word in',
+    ),
+  ).toEqual({ status: 403, code: 'AUTHORIZATION' });
   await assertNoSeriousFindings(page);
 
   // The Round link leads to the same room, with JavaScript and without. (The

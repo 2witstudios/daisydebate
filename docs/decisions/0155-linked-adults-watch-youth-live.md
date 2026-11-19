@@ -46,9 +46,9 @@ timing, not audience. Owner decision 86 takes it, without media.
    transcript; the seatless host still does not. Neither gains `round.read`,
    so ballots and every other host read stay as they were.
 2. **The same people, the same fences.** The linked adults are
-   `readYouthRecordingPeople` (ADR 0150 §3), read in its own read-only
-   snapshot under each subject's and each school's scope, through the
-   15-second people cache. `@daisy/db/youth-live` keeps one cache and one
+   `readYouthRecordingPeople` (ADR 0150 §3), one call to the registered
+   function `daisy_round_linked_adult_actors` ([ADR 0158](0158-linked-adults-in-one-registered-function.md)),
+   through the 15-second people cache. `@daisy/db/youth-live` keeps one cache and one
    resolver per set of reads (`youthPeopleFor`, `linkedAdultsFor`), so in the
    web the Recording's audience and the live audience share one cache; the
    realtime server keeps its own. Whether a Round is a Youth one is frozen at
@@ -98,17 +98,16 @@ timing, not audience. Owner decision 86 takes it, without media.
    host's view, ADR 0150's SQL fences (Broadcast discovery, Live listing,
    spectator timeline, archive, profiles), and every Recording rule.
 
-7. **Realtime, for now.** The realtime role may hold no privilege on a
-   tenant-owned table ([ADR 0129](0129-tenant-isolation-by-row-level-security.md)
-   §4), and the people read touches several. So realtime is granted only
-   `SELECT (division) ON rooms` (exempt, §6). Its links lookup fails closed:
-   the Round topic refuses a linked adult, and floor permits keep the first
-   pass. Linked adults follow the Round through the web's read (polled), and
-   their floor chat is hidden while realtime is up. YLS-12 replaces the people
-   read with one registered SECURITY DEFINER function,
-   `daisy_round_linked_adult_actors`, shared by the web and realtime, with a
-   test that the TypeScript and SQL answers agree. It follows PR 813
-   (`youthRoundSql`).
+7. **Realtime.** The realtime role may hold no privilege on a tenant-owned
+   table ([ADR 0129](0129-tenant-isolation-by-row-level-security.md) §4). It
+   holds `SELECT (division) ON rooms` (exempt, §6) and reads the people
+   through the registered function `daisy_round_linked_adult_actors`, so the
+   Round topic and the floor's permits admit linked adults while the Round
+   runs, and the floor chat shows to them read-only
+   ([ADR 0158](0158-linked-adults-in-one-registered-function.md), amending the
+   interim refusal this section first recorded). A links lookup that fails
+   still admits nobody: the Round topic refuses a linked adult, and floor
+   permits keep the first pass.
 
 ## Consequences
 

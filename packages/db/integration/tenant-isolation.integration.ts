@@ -8,6 +8,11 @@ import {
   tenantIsolationProblems,
   type TenantTableFacts,
 } from '../src/tenant-isolation';
+import {
+  tenantDefinerFactsSql,
+  tenantDefinerProblems,
+  type TenantDefinerFacts,
+} from '../src/tenant-definers';
 import { tenantIsolationManifest } from '../src/tenant-isolation-manifest';
 import {
   ddlTimeoutMs,
@@ -225,6 +230,85 @@ test('a privilege for the realtime role or PUBLIC on a tenant-owned table is rep
     expected: [
       ['daisy_realtime holds a privilege on results'],
       ['PUBLIC holds a privilege on results'],
+    ],
+  });
+});
+
+/** The definer check's report after one fault, rolled back. */
+const afterDefinerFault = (fault: string) =>
+  new Promise<readonly string[]>((resolve, reject) => {
+    inRolledBackTransaction(url, async (sql) => {
+      await sql.unsafe(fault);
+      resolve(
+        tenantDefinerProblems(
+          (await sql.unsafe(
+            tenantDefinerFactsSql,
+          )) as readonly TenantDefinerFacts[],
+          tenantIsolationManifest,
+        ),
+      );
+    }).catch(reject);
+  });
+
+/** ADR 0158: a read across tenants goes only through a registered definer. */
+test('an unregistered or widened SECURITY DEFINER function over tenant tables is reported', async () => {
+  assert({
+    given:
+      'a new definer reading grants, the linked-adult Round read opened to PUBLIC, its realtime grant revoked, its search path dropped, a BEGIN ATOMIC definer naming MEMBERSHIPS, Room chat’s fact without pg_temp last, a wrapper of the minor read, and a definer in another schema',
+    should: 'report each fault and nothing else',
+    actual: [
+      await afterDefinerFault(
+        `create function public.daisy_widened() returns setof text language sql stable security definer
+          set search_path = pg_catalog, public, pg_temp as $$ select user_id from public.grants $$`,
+      ),
+      await afterDefinerFault(
+        'grant execute on function public.daisy_round_linked_adult_actors(text) to public',
+      ),
+      await afterDefinerFault(
+        'revoke execute on function public.daisy_round_linked_adult_actors(text) from daisy_realtime',
+      ),
+      await afterDefinerFault(
+        'alter function public.daisy_linked_adult_users(text) reset search_path',
+      ),
+      await afterDefinerFault(
+        `create function public.daisy_atomic() returns setof text language sql stable security definer
+          set search_path = pg_catalog, public, pg_temp begin atomic select user_id from public.MEMBERSHIPS; end`,
+      ),
+      await afterDefinerFault(
+        'alter function public.daisy_room_community_fact(text,text) set search_path = pg_catalog, public',
+      ),
+      await afterDefinerFault(
+        `create function public.daisy_wrapper(u text) returns setof text language sql stable security definer
+          set search_path = pg_catalog, public, pg_temp as $$ select user_id from public.daisy_linked_adult_users(u) $$`,
+      ),
+      await afterDefinerFault(
+        `create schema private_fault; create function private_fault.daisy_people() returns setof text language sql stable security definer
+          set search_path = pg_catalog, public, pg_temp as $$ select guardian_user_id from public.guardian_links $$`,
+      ),
+    ],
+    expected: [
+      [
+        'daisy_widened is a SECURITY DEFINER function reading grants but is not registered',
+      ],
+      ['PUBLIC may execute daisy_round_linked_adult_actors'],
+      [
+        'daisy_round_linked_adult_actors is executable by daisy_web but registered for daisy_realtime, daisy_web',
+      ],
+      [
+        'daisy_linked_adult_users does not pin its search_path to pg_catalog first and pg_temp last',
+      ],
+      [
+        'daisy_atomic is a SECURITY DEFINER function reading memberships but is not registered',
+      ],
+      [
+        'daisy_room_community_fact does not pin its search_path to pg_catalog first and pg_temp last',
+      ],
+      [
+        'daisy_wrapper is a SECURITY DEFINER function reading daisy_linked_adult_users but is not registered',
+      ],
+      [
+        'private_fault.daisy_people is a SECURITY DEFINER function reading guardian_links but is not registered',
+      ],
     ],
   });
 });

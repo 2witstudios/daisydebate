@@ -80,6 +80,7 @@ const small: TenantIsolationManifest = {
     { table: 'templates', key: 'organization', openRead: true },
   ],
   exempt: [{ table: 'rooms', reason: 'read by the Room evaluator' }],
+  definers: [],
 };
 
 /** The small catalog with one table's facts replaced. */
@@ -251,8 +252,8 @@ describe('tenantIsolationProblems', () => {
       given: 'a manifest that lists one owned table twice',
       should: 'name it once',
       actual: tenantIsolationProblems(catalog(small), {
+        ...small,
         tables: [...small.tables, small.tables[0]!],
-        exempt: small.exempt,
       }),
       expected: [`${small.tables[0]!.table} is declared more than once`],
     });
@@ -264,6 +265,7 @@ describe('tenantIsolationProblems', () => {
         'a manifest entry and an exemption for tables that do not exist, and a table both owned and exempt',
       should: 'name each',
       actual: tenantIsolationProblems(catalog(small), {
+        ...small,
         tables: [...small.tables, { table: 'venues', key: 'lobby' }],
         exempt: [
           ...small.exempt,

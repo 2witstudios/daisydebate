@@ -9,6 +9,10 @@ import {
   type TenantTableFacts,
 } from './tenant-isolation';
 import {
+  tenantDefinerFactsSql,
+  type TenantDefinerFacts,
+} from './tenant-definers';
+import {
   readImageSchema,
   startupSchemaProblems,
   type MigrationStamp,
@@ -94,6 +98,9 @@ export const databaseHealthOperations = ({
           const facts = (await tx.execute(
             sql.raw(tenantIsolationFactsSql),
           )) as unknown as TenantTableFacts[];
+          const definers = (await tx.execute(
+            sql.raw(tenantDefinerFactsSql),
+          )) as unknown as TenantDefinerFacts[];
           return startupSchemaProblems({
             image,
             journal: journal.map(({ hash, createdAt }) => ({
@@ -101,6 +108,7 @@ export const databaseHealthOperations = ({
               createdAt: Number(createdAt),
             })),
             facts,
+            definers,
             manifest: tenantIsolationManifest,
           });
         },
