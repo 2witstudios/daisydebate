@@ -96,6 +96,11 @@ export type CapturePace = {
   readonly nowMs: () => number;
   readonly waitUntilMs: (due: number, signal: AbortSignal) => Promise<void>;
 };
+/** The worker's own pause: until `performance.now()` reaches `due`, or `signal` aborts. */
+export async function waitUntilPerformanceMs(due: number, signal: AbortSignal) {
+  while (performance.now() < due && !signal.aborted)
+    await Bun.sleep(Math.max(1, Math.min(25, due - performance.now())));
+}
 /**
  * A timed-out acquisition or an unanswering control plane is not an authority
  * refusal; restart with no partial pages, while frames wait in staging. Still

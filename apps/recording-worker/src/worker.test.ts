@@ -304,10 +304,8 @@ describe('a job taken away mid-build', () => {
   test('aborts the work and counts no failure', async () => {
     const calls = await runOne(queued, {
       renew: async () => false,
-      build: () =>
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('aborted')), 20),
-        ),
+      // A build that never returns on its own: only the refused renewal stops it.
+      build: () => new Promise<RecordingJobState>(() => undefined),
     });
     assert({
       given: 'a renewal refused because the web moved the job to discarding',
