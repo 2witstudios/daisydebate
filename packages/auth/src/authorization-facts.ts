@@ -90,6 +90,11 @@ export type RoundAuthorizationFact = {
   readonly revision: number;
   /** The Round's Room's lobby, as on the Room fact. */
   readonly owner?: import('./authorization-lobby-facts').RoomOwnerFact;
+  /**
+   * A Youth Round's linked adults (ADR 0155), read by the boundary; absent or
+   * null on every other Round, and wherever a read never needs them.
+   */
+  readonly youth?: import('./live-audience').YouthLiveFact | null;
 };
 /** MSG owns the underlying pair/grant projection and its transactional fence. */
 export type ChannelAuthorizationFact = {

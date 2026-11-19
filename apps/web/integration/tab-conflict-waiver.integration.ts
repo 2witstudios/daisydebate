@@ -104,8 +104,9 @@ test('actual connected read waiver is held, confirmed by a distinct current offi
               ),
           );
           return {
-            undelayed: (await f.roundView(connected, roundId))
-              .viewerIsUndelayedObserver,
+            undelayed:
+              (await f.roundView(connected, roundId)).viewerWatchesAs !==
+              undefined,
             parts,
           };
         };

@@ -41,7 +41,14 @@ import type {
   RoomCommandResponse,
   RoomCreate,
 } from '@daisy/protocol';
-import { isDebatingSeat, isOpenRoomStatus } from '@daisy/protocol';
+import {
+  isDebatingSeat,
+  isOpenRoomStatus,
+  isRoundOver,
+  type RoomWatch,
+} from '@daisy/protocol';
+import { liveAudience } from '@daisy/auth/live-audience';
+import type { LinkedAdultsOf } from '../spectating/linked-adults';
 import { createdSides } from './created-sides';
 
 export type Caller = { readonly userId: string; readonly actorId: string };
@@ -86,6 +93,7 @@ export function createRoomRuntimeOperations({
   aiSeats,
   betaGrantsPremium,
   entropy,
+  linkedAdults,
 }: {
   readonly store: Store;
   readonly redis: Redis;
@@ -98,7 +106,42 @@ export function createRoomRuntimeOperations({
   readonly betaGrantsPremium: boolean;
   /** 32 CSPRNG bytes as hex, for a draw's seed and salt; fixed in tests. */
   readonly entropy: () => string;
+  /** A Youth Round's linked adults, who watch it from its Room (ADR 0155). */
+  readonly linkedAdults: LinkedAdultsOf;
 }) {
+  /**
+   * Where someone outside a started Room watches its Round: its released
+   * Broadcast, or a live Youth Round's room for a youth debater's linked
+   * adult (ADR 0155), whose links are read only once no Broadcast answers.
+   */
+  const watchOf = async (
+    state: RoomAssemblyState,
+    actorId: string,
+    now: string,
+  ): Promise<RoomWatch | null> => {
+    if (!startHiddenFrom(state, actorId)) return null;
+    const released = await store.readWatchableRoundOfRoom(
+      state.id,
+      spectatorClockAt(now),
+    );
+    if (released !== null) return { kind: 'broadcast', roundId: released };
+    const round = state.roundRef;
+    if (round === null || isRoundOver(round.status)) return null;
+    // A lookup that fails only means no live-room link: the Room read stands.
+    const youth = await linkedAdults(round.id).catch(() => null);
+    return youth !== null &&
+      liveAudience(
+        {
+          createdByActorId: state.hostActorId,
+          status: round.status,
+          participants: state.participants,
+          youth,
+        },
+        { kind: 'account', actorId },
+      ).kind === 'undelayed_no_media'
+      ? { kind: 'live_room', roundId: round.id }
+      : null;
+  };
   const eligible = (state: RoomAssemblyState): RoomAssemblyState => ({
     ...state,
     participants: state.participants.map((p) => ({
@@ -214,9 +257,7 @@ export function createRoomRuntimeOperations({
             })),
           ]
         : [],
-      watchRoundId: startHiddenFrom(state, caller.actorId)
-        ? await store.readWatchableRoundOfRoom(state.id, spectatorClockAt(now))
-        : null,
+      watch: await watchOf(state, caller.actorId, now),
     };
   };
   /** The picker's catalog: role-bearing formats at their canonical presets (FMT-1). */

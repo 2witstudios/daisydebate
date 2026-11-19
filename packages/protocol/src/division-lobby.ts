@@ -71,13 +71,13 @@ export function seatAllowed(
 }
 
 /** Where someone stands towards a running Round. */
-export type LiveStanding = 'seat' | 'seatless-host' | 'none';
+export type LiveStanding = 'seat' | 'seatless-host' | 'linked-adult' | 'none';
 
 /**
  * Whether a member may watch a Round while it runs. An Open Round is for
- * every member. A Youth Round is for its own audience only: its seats and its
- * seatless host. (Its debaters' linked coaches and parents join that audience
- * with ADR 0150's amendment, YLS-7.)
+ * every member. A Youth Round is for its own audience only: its seats, its
+ * seatless host, and its youth debaters' linked coaches and parents
+ * (ADR 0155, amending ADR 0150 §4).
  */
 export const canWatchLive = (
   viewer: { readonly standing: LiveStanding },

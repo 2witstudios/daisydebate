@@ -112,6 +112,106 @@ describe('an event Room', () => {
   });
 });
 
+describe('a Youth event Round and its linked adults (ADR 0155)', () => {
+  const youthRound = (status: string) => ({
+    ...eventRound(),
+    status,
+    youth: { linkedAdultActorIds: ['parent'] },
+  });
+  const parent: Asker = { actorId: 'parent' };
+  test('an unseated linked parent watches it live, without officiating', () => {
+    assert({
+      given:
+        'a running Youth event Round, asked by a linked parent with no grant, an officiator, and a stranger',
+      should:
+        'let the parent observe undelayed and read the transcript, keep the officiator’s grant, and refuse the stranger',
+      actual: {
+        parentObserves: ask(
+          'round.observe.undelayed',
+          youthRound('active'),
+          parent,
+        ).allow,
+        parentTranscript: ask(
+          'round.transcript.read',
+          youthRound('active'),
+          parent,
+        ).allow,
+        officiator: ask(
+          'round.observe.undelayed',
+          youthRound('active'),
+          people.officiator!,
+        ),
+        stranger: ask(
+          'round.observe.undelayed',
+          youthRound('active'),
+          people.stranger!,
+        ).allow,
+      },
+      expected: {
+        parentObserves: true,
+        parentTranscript: true,
+        officiator: ask(
+          'round.observe.undelayed',
+          eventRound(),
+          people.officiator!,
+        ),
+        stranger: false,
+      },
+    });
+  });
+  test('only while it runs, and only as a linked adult', () => {
+    assert({
+      given:
+        'the parent once the Round ended, and a Youth event Round whose links name nobody asking',
+      should:
+        'refuse both: no seatless-host fallback, since an event Room has no host person',
+      actual: [
+        ask('round.observe.undelayed', youthRound('completed'), parent).allow,
+        ask(
+          'round.observe.undelayed',
+          { ...youthRound('active'), youth: { linkedAdultActorIds: [] } },
+          parent,
+        ).allow,
+      ],
+      expected: [false, false],
+    });
+  });
+  test('an officiator who is also linked is decided by the grant', () => {
+    const officiatingParent: Asker = {
+      actorId: 'parent',
+      grants: [lobbyGrant('hosted', ['tournament.rooms.officiate'])],
+    };
+    assert({
+      given: 'a linked parent who also holds the officiating grant',
+      should:
+        'be allowed under the grant’s own authority, exactly as an officiator who is not linked',
+      actual: ask(
+        'round.observe.undelayed',
+        youthRound('active'),
+        officiatingParent,
+      ),
+      expected: ask(
+        'round.observe.undelayed',
+        eventRound(),
+        people.officiator!,
+      ),
+    });
+  });
+  test('a Round’s creator gains nothing on an event Round', () => {
+    assert({
+      given:
+        'an unseated, unlinked creator of a running Youth event Round, without the grant',
+      should: 'be refused: no seatless-host fallback',
+      actual: ask(
+        'round.observe.undelayed',
+        { ...youthRound('active'), createdByActorId: 'creator' },
+        { actorId: 'creator' },
+      ).allow,
+      expected: false,
+    });
+  });
+});
+
 describe('an ordinary Room', () => {
   const actors = ['creator', 'seat', 'judge', 'stranger'];
   const visibilities = ['public', 'unlisted', 'private'] as const;

@@ -7,7 +7,7 @@ import {
   type SeatRef,
 } from '@daisy/protocol';
 import { drawnTopicLabel } from '../debate-room/vocabulary';
-import { liveHref, watchRoutes } from '../watch/routes';
+import { liveHref, liveRoomHref, watchRoutes } from '../watch/routes';
 
 type RowState = 'open' | 'starting' | 'live';
 
@@ -29,6 +29,12 @@ export type LobbyAction = {
 export type LobbyViewer = {
   readonly actorId: string | null;
   readonly division: RatingDivision | null;
+  /**
+   * The running Youth Rounds this viewer's students debate in, so a live row
+   * offers its linked coach or parent Watch (ADR 0155). A proposal only: the
+   * Round's own page decides. Empty for almost everyone.
+   */
+  readonly studentRoundIds?: readonly string[];
 };
 
 export type LobbyRow = {
@@ -116,10 +122,20 @@ export function rowActions(
     const standing =
       viewer.actorId !== null && viewer.actorId === room.hostActorId
         ? 'seatless-host'
-        : 'none';
-    return canWatchLive({ standing }, room)
-      ? [action('Watch', watchHrefOf(room), false)]
-      : [];
+        : round && viewer.studentRoundIds?.includes(round.id)
+          ? 'linked-adult'
+          : 'none';
+    if (!canWatchLive({ standing }, room)) return [];
+    // A linked adult watches in the Round's own live room.
+    return [
+      action(
+        'Watch',
+        standing === 'linked-adult' && round
+          ? liveRoomHref(round.id)
+          : watchHrefOf(room),
+        false,
+      ),
+    ];
   }
   const watch = action('Watch', roomHref, false);
   if (state === 'starting') return [watch];

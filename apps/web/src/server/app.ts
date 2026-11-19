@@ -1,3 +1,10 @@
+import { isTemporaryRefusal } from '@daisy/db/capacity';
+import {
+  studentsLive,
+  studentsLiveOrNothing,
+} from '../features/spectating/students-live';
+import { liveLinkedAdults } from '../features/spectating/linked-adults';
+import { roundViewReader } from '../features/round-runtime/reads';
 import type { NativeBillingRuntime } from '../features/billing/native-contract';
 import { createServerAnalytics } from '../features/analytics/server-adapter';
 import { createAnalyticsDelivery } from '../features/analytics/delivery';
@@ -26,7 +33,7 @@ import { createDatabase } from '@daisy/db';
 import { broadcastFeedUrls } from '../features/spectating/feed-url';
 import { createWatchRoundSnapshots } from '../features/spectating/read-timeline';
 import { createCachedLiveReads } from '../features/watch/cached-live-reads';
-import { createAppError } from '@daisy/errors';
+import { createAppError, errorCodeOf } from '@daisy/errors';
 import { createLogger } from '@daisy/logger';
 import { createDrainState } from '@daisy/observability';
 import { createSentryErrorReporter } from '../features/telemetry/sentry-reporter';
@@ -232,6 +239,19 @@ export function createApp({
   );
   const drainState = createDrainState([database, redis]);
   let startupChecked = true;
+  const reporter = createSentryErrorReporter();
+  /**
+   * Watch's "Your students, live" (ADR 0155). Composed here, in the process
+   * app, so a Round read's refusal is one of this process's own errors.
+   */
+  const readStudentsLive = studentsLive({
+    candidates: (member: {
+      readonly userId: string;
+      readonly actorId: string;
+    }) => database.readStudentLiveRounds(member.userId),
+    view: roundViewReader(database, liveLinkedAdults({ database })),
+    nowMs: () => Date.parse(clock.now()),
+  });
   return {
     billingNative(): NativeBillingRuntime | null {
       return billingNative?.() ?? null;
@@ -271,7 +291,7 @@ export function createApp({
      * runtime config initializes the SDK with its DSN; every consumer
      * receives it as an argument, never through a locator.
      */
-    reporter: createSentryErrorReporter(),
+    reporter,
     database,
     /** What Watch pages render from: one read per Round per second, whoever asks. */
     watchRounds: createWatchRoundSnapshots({
@@ -281,6 +301,36 @@ export function createApp({
     }),
     /** The Live listing, likewise. */
     liveReads: createCachedLiveReads({ store: database, clock }),
+    /**
+     * The running Youth Rounds a member's students debate in, for the
+     * Lobby's live rows (ADR 0155); none when they cannot be read.
+     */
+    studentRoundIds: async (member: { readonly userId: string }) => {
+      try {
+        return (await database.readStudentLiveRounds(member.userId)).map(
+          (round) => round.roundId,
+        );
+      } catch (error) {
+        // A self-clearing pool refusal is expected under load, not an error.
+        if (!isTemporaryRefusal(error))
+          reporter.capture(error, {
+            requestId: ids.next(),
+            route: 'lobby.student_rounds',
+            errorCode: errorCodeOf(error, 'INTERNAL'),
+          });
+        return [];
+      }
+    },
+    /** Watch's "Your students, live", or nothing when it cannot be read. */
+    studentsLive: studentsLiveOrNothing(readStudentsLive, (error) =>
+      isTemporaryRefusal(error)
+        ? undefined
+        : reporter.capture(error, {
+            requestId: ids.next(),
+            route: 'watch.students_live',
+            errorCode: errorCodeOf(error, 'INTERNAL'),
+          }),
+    ),
     redis,
     /** AUTH-7.7's bounded-cardinality in-process counters (`/api/ops/metrics`). */
     metrics,

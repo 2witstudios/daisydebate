@@ -33,8 +33,20 @@ describe('a Room link and Watch', () => {
     assert({
       given: 'a released Round, and none',
       should: 'name the Watch page only for the released Round',
-      actual: [roomWatchHref('round'), roomWatchHref(null)],
+      actual: [
+        roomWatchHref({ kind: 'broadcast', roundId: 'round' }),
+        roomWatchHref(null),
+      ],
       expected: ['/watch/round', null],
+    });
+  });
+
+  test("reaches a live Youth Round's room for a linked adult", () => {
+    assert({
+      given: "a youth debater's linked adult outside the started Room",
+      should: "name the Round's live room, never its Broadcast (ADR 0155)",
+      actual: roomWatchHref({ kind: 'live_room', roundId: 'round' }),
+      expected: '/rounds/round/room',
     });
   });
 

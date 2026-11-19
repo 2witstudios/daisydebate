@@ -51,4 +51,22 @@ describe('youthPeopleCache', () => {
       expected: ['failed', people],
     });
   });
+
+  test('peek answers only a fresh, settled read', async () => {
+    let nowMs = 0;
+    const cached = youthPeopleCache({
+      read: async () => people,
+      nowMs: () => nowMs,
+    });
+    const before = cached.peek('a');
+    await cached('a');
+    const fresh = cached.peek('a');
+    nowMs = YOUTH_PEOPLE_TTL_MS;
+    assert({
+      given: 'no read, a settled read, and that read once the window passed',
+      should: 'answer nothing, the people, then nothing again',
+      actual: [before, fresh, cached.peek('a')],
+      expected: [undefined, people, undefined],
+    });
+  });
 });

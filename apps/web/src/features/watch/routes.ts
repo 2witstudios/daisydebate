@@ -1,3 +1,5 @@
+import type { RoomWatch } from '@daisy/protocol';
+
 /**
  * Where Watch lives. The live hub, the live view, the recordings archive and
  * replay are all public (spectator routes stay outside the guarded areas), and
@@ -24,9 +26,23 @@ export const liveHref = (id: string): string =>
 export const roomLinkReachesWatch = (pathname: string): boolean =>
   /^\/rooms\/[^/]+$/.test(pathname);
 
-/** Where a Room's link sends someone outside it; null until the start is released. */
-export const roomWatchHref = (roundId: string | null): string | null =>
-  roundId === null ? null : liveHref(roundId);
+/** A Round's own live room, where a linked adult watches it (ADR 0155). */
+export const liveRoomHref = (roundId: string): string =>
+  `/rounds/${segment(roundId)}/room`;
+
+/**
+ * Where a Room's link sends someone outside it: the Broadcast once its start
+ * is released, or a linked adult's live room (ADR 0155); null otherwise.
+ */
+export const roomWatchHref = (watch: RoomWatch | null): string | null => {
+  if (watch === null) return null;
+  switch (watch.kind) {
+    case 'broadcast':
+      return liveHref(watch.roundId);
+    case 'live_room':
+      return liveRoomHref(watch.roundId);
+  }
+};
 
 /** The replay of a recorded Round, optionally with its query. */
 export const replayHref = (id: string, search = ''): string =>

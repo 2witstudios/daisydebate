@@ -1,3 +1,4 @@
+import { noLinkedAdults } from '../src/features/spectating/linked-adults';
 import type { SQL } from 'bun';
 import { authorize } from '@daisy/auth/authorization';
 import { createTabStore } from '@daisy/db/tab';
@@ -104,7 +105,8 @@ export const proveEventBallotReleases = async (input: {
     actual: [
       closed.ballots,
       closed.round.outcome,
-      (await roundViewReader(f.store)(competitor, roundId)).outcome,
+      (await roundViewReader(f.store, noLinkedAdults)(competitor, roundId))
+        .outcome,
     ],
     expected: [[], null, null],
   });
@@ -183,7 +185,8 @@ export const proveEventBallotReleases = async (input: {
       decisionReplay,
       opened.ballots[0]?.ballot.winner,
       opened.round.outcome,
-      (await roundViewReader(f.store)(competitor, roundId)).outcome,
+      (await roundViewReader(f.store, noLinkedAdults)(competitor, roundId))
+        .outcome,
       opened.ballots[0]?.ballot.reason,
     ],
     expected: [

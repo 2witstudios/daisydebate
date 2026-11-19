@@ -12,13 +12,18 @@ import {
 } from '../debate-room/live-round.test-support';
 setupRitewayBun();
 await mockNextRouter();
-const { LiveSpectatorRoom } = await import('./live-spectator-room');
+const { LiveSpectatorRoom, LinkedAdultEndNotice } =
+  await import('./live-spectator-room');
 
-const render = (round: RoundView, nowMs: number) =>
+const render = (
+  round: RoundView,
+  nowMs: number,
+  spectatorKind: 'host' | 'linked-adult' = 'host',
+) =>
   renderToStaticMarkup(
     <LiveSpectatorRoom
       view={round}
-      spectatorKind="undelayed-observer"
+      spectatorKind={spectatorKind}
       renderedAtMs={nowMs}
       read={async () => ({
         kind: 'found',
@@ -71,6 +76,24 @@ test('a seatless host watches the live Round without controls', () => {
   });
 });
 
+test("a youth debater's linked adult watches the live Round (ADR 0155)", () => {
+  const html = render(ran(1), origin + startOf(0) + 60_000, 'linked-adult');
+  assert({
+    given: 'the same Round watched by a linked coach',
+    should:
+      'say they are watching, never that they host, and offer no form, button or media',
+    actual: [
+      html.includes('>Watching</span>'),
+      html.includes('· watching'),
+      html.includes('hosting'),
+      html.includes('<form'),
+      html.includes('<button'),
+      html.includes('Live camera and sound'),
+    ],
+    expected: [true, true, false, false, false, false],
+  });
+});
+
 test('the Round ends while the host watches', () => {
   const html = render(asCompleted(ran(1)), origin);
   assert({
@@ -79,6 +102,21 @@ test('the Round ends while the host watches', () => {
     actual: [
       html.includes('This round is over.'),
       html.includes(`/rounds/${ran(1).id}`),
+    ],
+    expected: [true, true],
+  });
+});
+
+test("a linked adult's view once their read is refused (ADR 0155)", () => {
+  const html = renderToStaticMarkup(<LinkedAdultEndNotice roundId="r1" />);
+  assert({
+    given:
+      'the read refused to a linked adult (the Round ended, or their link)',
+    should:
+      'say they can no longer watch it live, without claiming which, and link its Recording',
+    actual: [
+      html.includes('You can no longer watch this round live.'),
+      html.includes('href="/recordings/r1"'),
     ],
     expected: [true, true],
   });

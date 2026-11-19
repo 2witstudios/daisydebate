@@ -1,4 +1,6 @@
 import { createRoundFloorChannelCohortAuthority } from './messaging/round-floor-observation';
+import { youthLiveReadOperations } from './youth-live-reads';
+import type { readYouthRoundPeople } from './youth-recording-people';
 import { createRoomCommunityChannelCohortAuthority } from './messaging/room-community-observation';
 import type { SQL } from 'bun';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
@@ -33,17 +35,28 @@ import {
  * lane: subscribes (`admission`) and renewals (`renewal`) are composed
  * separately, so an admission wave cannot consume renewal capacity.
  */
-const authorityReads = (database: BunSQLDatabase) => ({
-  roundFloorChannelCohortAuthority:
-    createRoundFloorChannelCohortAuthority(database),
-  roomCommunityChannelCohortAuthority:
-    createRoomCommunityChannelCohortAuthority(database),
-  ...authorizationSessionOperations({ database }),
-  ...roomAuthorizationRead({ database }),
-  messagingChannelAuthority: createMessagingChannelAuthority(database),
-  messagingChannelCohortAuthority:
-    createMessagingChannelCohortAuthority(database),
-});
+const authorityReads = (database: BunSQLDatabase) => {
+  const youthLive = youthLiveReadOperations({ database });
+  return {
+    roundFloorChannelCohortAuthority:
+      createRoundFloorChannelCohortAuthority(database),
+    /** A live Youth Round's linked adults (ADR 0155): whether it is one, then its people. */
+    readRoundYouth: youthLive.readRoundYouth,
+    // Until YLS-12's registered function, realtime may read none of the
+    // people read's tenant tables (ADR 0129 §4), so it asks nobody and admits
+    // no linked adult; it never sends a query that is sure to be refused.
+    readYouthRoundPeople: async (
+      _roundId: string,
+    ): ReturnType<typeof readYouthRoundPeople> => ({ debaters: [] }),
+    roomCommunityChannelCohortAuthority:
+      createRoomCommunityChannelCohortAuthority(database),
+    ...authorizationSessionOperations({ database }),
+    ...roomAuthorizationRead({ database }),
+    messagingChannelAuthority: createMessagingChannelAuthority(database),
+    messagingChannelCohortAuthority:
+      createMessagingChannelCohortAuthority(database),
+  };
+};
 export type RealtimeAuthorityReads = ReturnType<typeof authorityReads>;
 
 /**

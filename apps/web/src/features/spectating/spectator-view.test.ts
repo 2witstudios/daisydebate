@@ -13,7 +13,7 @@ setupRitewayBun();
 const hosted = (round: RoundView): RoundView => ({
   ...round,
   viewerIsHost: true,
-  viewerIsUndelayedObserver: true,
+  viewerWatchesAs: 'host',
 });
 
 describe('spectatorKindOf', () => {
@@ -27,20 +27,30 @@ describe('spectatorKindOf', () => {
         spectatorKindOf(hosted(view)),
         spectatorKindOf(hosted(asCompleted(view))),
         spectatorKindOf(hosted(asAbandoned(view))),
-        spectatorKindOf({
-          ...hosted(ran(1)),
-          viewerIsUndelayedObserver: false,
-        }),
+        spectatorKindOf({ ...ran(1), viewerIsHost: true }),
         spectatorKindOf(ran(1)),
       ],
-      expected: [
-        'undelayed-observer',
-        'undelayed-observer',
-        null,
-        null,
-        null,
-        null,
+      expected: ['host', 'host', null, null, null, null],
+    });
+  });
+});
+
+describe('spectatorKindOf, a linked adult', () => {
+  test("a youth debater's linked coach or parent (ADR 0155)", () => {
+    const linked = (round: RoundView): RoundView => ({
+      ...round,
+      viewerIsHost: false,
+      viewerWatchesAs: 'linked_adult',
+    });
+    assert({
+      given:
+        "the Round read's linked-adult answer, on a live Round and on one that ended",
+      should: 'watch as a linked adult while it is live, and not after',
+      actual: [
+        spectatorKindOf(linked(ran(1))),
+        spectatorKindOf(linked(asCompleted(view))),
       ],
+      expected: ['linked-adult', null],
     });
   });
 });
@@ -60,7 +70,7 @@ describe('watchingRoomOf', () => {
         }).kind,
         watchingRoomOf({
           judgeRound: { ...judging, status: 'completed' },
-          spectatorKind: 'undelayed-observer',
+          spectatorKind: 'host',
         }).kind,
         watchingRoomOf({
           judgeRound: null,

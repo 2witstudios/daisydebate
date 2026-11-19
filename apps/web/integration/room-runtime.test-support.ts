@@ -4,6 +4,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { systemId } from '@daisy/clock';
 import { requireTestServices } from '@daisy/config';
 import { createDatabase } from '@daisy/db';
+import { youthRoundLinkedAdults } from '@daisy/db/youth-live';
 import { createRedis, redisKey } from '@daisy/redis';
 import { createBoundedTestClient, testNamespace } from '@daisy/redis/testing';
 import { deleteNamespace } from '@daisy/redis/namespaces';
@@ -131,7 +132,13 @@ async function fixture(
       return redis.readRoomConsent(...args);
     },
   };
+  // Uncached: each read sees the links as they stand (ADR 0155).
+  const linkedAdults = youthRoundLinkedAdults({
+    readRoundYouth: store.readRoundYouth,
+    people: store.readYouthRoundPeople,
+  });
   const operations = createRoomRuntimeOperations({
+    linkedAdults,
     now: () => new Date().toISOString(),
     store,
     redis: controlled,
@@ -143,6 +150,7 @@ async function fixture(
   });
   const operationsWithBotAvailability = (available: boolean) =>
     createRoomRuntimeOperations({
+      linkedAdults,
       now: () => new Date().toISOString(),
       store,
       redis: controlled,
@@ -268,7 +276,8 @@ async function fixture(
     store,
     redis,
     operations,
-    roundView: roundViewReader(store),
+    roundView: roundViewReader(store, linkedAdults),
+    linkedAdults,
     operationsWithBotAvailability,
     host,
     guest,

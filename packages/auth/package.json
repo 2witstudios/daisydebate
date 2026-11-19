@@ -15,6 +15,7 @@
     "./testing": "./src/testing/social-policy.ts",
     "./operator-signature": "./src/operator-signature.ts",
     "./round-floor": "./src/round-floor.ts",
+    "./live-audience": "./src/live-audience.ts",
     "./room-community": "./src/room-community.ts"
   },
   "scripts": {

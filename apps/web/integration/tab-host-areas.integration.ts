@@ -1,3 +1,4 @@
+import { noLinkedAdults } from '../src/features/spectating/linked-adults';
 import { proveRosterArea } from './tab-roster-area.test-support';
 import { proveEventsArea } from './tab-events-area.test-support';
 import { proveDrawArea } from './tab-host-draw-area.test-support';
@@ -80,7 +81,7 @@ test('actual narrow lobby roles open only their host areas and rails, and curren
       { owner, databaseUrl: scratch.url, world },
       async ({ runtime, roundId, ballotId }) => {
         const readBallot = roundBallotReader(runtime.store);
-        const readVideo = roundViewReader(runtime.store);
+        const readVideo = roundViewReader(runtime.store, noLinkedAdults);
         const hidden = async (read: () => Promise<unknown>) => {
           try {
             await read();

@@ -1,3 +1,4 @@
+import { liveLinkedAdults } from '../spectating/linked-adults';
 import { trackRequest } from '../analytics/track-request';
 import { createRoomDraftHandler } from '../rooms/create-room-draft-handler';
 import { createAppError } from '@daisy/errors';
@@ -48,6 +49,7 @@ export function composeRoomRoutes(app: App) {
         aiSeats: () => app.aiSeats,
         betaGrantsPremium: app.config.PREMIUM_BETA_GRANT,
         entropy: drawEntropy,
+        linkedAdults: liveLinkedAdults(app),
       }),
     });
     return select(handlers);
