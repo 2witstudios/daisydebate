@@ -71,8 +71,10 @@ both.
 - A read across tenants ("my tournaments", a directory, a league's season)
   goes through the subject shape, the open read shape or a registered
   `SECURITY DEFINER` function. Widening a policy by hand fails the check, by
-  design. None of those functions exists yet; a league's read of certified
-  results will be the first.
+  design. The manifest's `definers` registry names each such function, the
+  roles that may run it and why; `tenantDefinerProblems` fails an
+  unregistered one that reads a tenant-owned table
+  ([ADR 0158](0158-linked-adults-in-one-registered-function.md)).
 - Scope is transaction-local, so a fenced read outside a transaction sees
   nothing. That is safe, and it will surprise the first reader.
 - A migration that adds a tenant-owned table adds its manifest entry and its

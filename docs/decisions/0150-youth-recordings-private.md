@@ -43,11 +43,11 @@ answers, with publishing closed in production by a release flag.
    the same answer as for a missing Round. The Room's visibility does not
    apply.
 
-3. **How linked adults are read.** `readYouthRecordingPeople` reads the
-   debater's own memberships and guardian links under the subject scope, and
-   each school's staff under that school's scope, as the web role, so
-   row-level security fences each read. It runs in its own transaction and
-   restores any scope its caller set. Playback authorizes every media segment,
+3. **How linked adults are read.** `readYouthRecordingPeople` is one call to
+   the registered `SECURITY DEFINER` function
+   `daisy_round_linked_adult_actors`, the rule's one SQL statement, shared
+   with the realtime server ([ADR 0158](0158-linked-adults-in-one-registered-function.md),
+   which replaced the scoped step-by-step read). Playback authorizes every media segment,
    so the web reuses one read per Round for 15 seconds (`youthPeopleCache`). A
    revoked grant or an ended link therefore stops admitting within about 15
    seconds. The takedown command never uses that cache: it reads the links
