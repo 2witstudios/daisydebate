@@ -61,18 +61,24 @@ export const fixtureBallot = (
 export const assembleJudgedRoom = (
   f: Parameters<Parameters<typeof withRoomRuntime>[0]>[0],
   judges = 1,
+  cast?: Parameters<
+    Parameters<Parameters<typeof withRoomRuntime>[0]>[0]['assemble']
+  >[1],
 ) =>
-  f.assemble({
-    selection: {
-      kind: 'custom',
-      definition: {
-        ...oneOnOneDefinition,
-        seats: { ...oneOnOneDefinition.seats, judges },
+  f.assemble(
+    {
+      selection: {
+        kind: 'custom',
+        definition: {
+          ...oneOnOneDefinition,
+          seats: { ...oneOnOneDefinition.seats, judges },
+        },
+        config: oneOnOneSettings,
+        competitionType: 'casual',
       },
-      config: oneOnOneSettings,
-      competitionType: 'casual',
     },
-  });
+    cast,
+  );
 /** That Room with two human judges seated and every member ready. */
 export async function readyTwoHumanJudgeRoom(
   f: Parameters<Parameters<typeof withRoomRuntime>[0]>[0],
