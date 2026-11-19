@@ -79,12 +79,20 @@ const dropSchools = (f: Fixture, ids: readonly string[]) =>
     }
   });
 
-/** A public ranked Freestyle Room hosted by a seatless adult, its chat opened. */
-const rankedRoom = async (f: Fixture, host: Member) => {
+/**
+ * A public ranked Freestyle Room in a lobby (ADR 0156), hosted by a seatless
+ * adult, its chat opened.
+ */
+const rankedRoom = async (
+  f: Fixture,
+  host: Member,
+  division: 'open' | 'youth',
+) => {
   const [preset] = await f.sql`select format_version,version from format_presets
     where format_id='freestyle' and superseded_at is null`;
   const roomId = await f.room(host.actorId, 'freestyle', {
     competition_type: 'ranked',
+    division,
     format_version: preset!.format_version,
     preset_version: preset!.version,
   });
@@ -152,11 +160,11 @@ test('in a Youth Room only the people in it chat; an Open Room is unchanged (dec
         coach: people.otherCoach,
         student: people.stranger,
       });
-      const youth = await rankedRoom(f, people.host);
+      const youth = await rankedRoom(f, people.host, 'youth');
       await seat(f, youth.roomId, people.debater.actorId, 'affirmative');
       await seat(f, youth.roomId, people.opponent.actorId, 'negative');
       await seat(f, youth.roomId, people.judge.actorId, 'judge');
-      const open = await rankedRoom(f, people.host);
+      const open = await rankedRoom(f, people.host, 'open');
       await seat(f, open.roomId, people.judge.actorId, 'affirmative');
       await seat(f, open.roomId, people.coach.actorId, 'negative');
 

@@ -110,3 +110,7 @@ AS $room_community_fact$
 $room_community_fact$;--> statement-breakpoint
 REVOKE ALL ON FUNCTION public.daisy_room_community_fact(text,text) FROM PUBLIC;--> statement-breakpoint
 GRANT EXECUTE ON FUNCTION public.daisy_room_community_fact(text,text) TO daisy_web, daisy_realtime;
+--> statement-breakpoint
+-- The spectator timeline refuses a Youth Room's Round (ADR 0156), so the
+-- audience publisher reads a Room's id and division, and nothing else of it.
+GRANT SELECT (id, division) ON "rooms" TO daisy_audience_publisher;

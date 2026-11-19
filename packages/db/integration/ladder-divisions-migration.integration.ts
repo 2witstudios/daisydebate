@@ -147,7 +147,8 @@ test(
       const ledgerBefore = await f.sql`
         select to_jsonb(c) as row from rating_changes c order by id`;
 
-      await scratch.migrate(() => true);
+      // This migration's own proof: later folders (ADR 0156) move challenges again.
+      await scratch.migrate((folder) => folder <= migration);
 
       const without = (
         rows: readonly { row: Record<string, unknown> }[],
