@@ -7,7 +7,7 @@ import {
 import type { WorkerTimers } from '../lib/worker-timers';
 
 /** The busy cadence of media recovery while any media session is live. */
-export const MEDIA_RECOVERY_MS = 500;
+const MEDIA_RECOVERY_MS = 500;
 
 /**
  * Optional media recovery on its own worker loop (ADR 0154), never waiting

@@ -32,9 +32,10 @@ jobs:
     strategy:
       fail-fast: false
       # Only what the quick check does not already run: it owns format,
-      # lint, typecheck and unit tests (ADR 0083).
+      # lint, typecheck and unit tests (ADR 0083). knip is a gate again
+      # (ADR 0159): as a report it reached 426 unused exports unseen.
       matrix:
-        task: [policy, invariants, build]
+        task: [policy, invariants, build, knip]
     env:
       TURBO_TELEMETRY_DISABLED: '1'
       NEXT_TELEMETRY_DISABLED: '1'
@@ -82,7 +83,9 @@ jobs:
         run: echo "### $TASK — $(( $(date +%s) - CI_TASK_STARTED )) seconds including cache restore/save" >> "$GITHUB_STEP_SUMMARY"
 
   # Reports, not gates (ADR 0083): a finding here warns on the run and never
-  # holds a merge. knip alone blocks, on the nightly main run.
+  # holds a merge, on the nightly run included. The production pass of knip
+  # reports modules no deployed code reaches; it becomes a gate once that
+  # list is empty (plan step R2.3).
   reports:
     name: Advisory reports
     runs-on: ubuntu-24.04
@@ -97,9 +100,9 @@ jobs:
         with:
           bun-version-file: .bun-version
       - run: bun install --frozen-lockfile
-      - name: Unused files, exports and dependencies
-        run: bun run knip
-        continue-on-error: ${{ github.event_name != 'schedule' }}
+      - name: Modules no deployed code reaches
+        run: bun run knip:production
+        continue-on-error: true
       - name: Copy-paste report
         run: bun run duplication
         continue-on-error: true

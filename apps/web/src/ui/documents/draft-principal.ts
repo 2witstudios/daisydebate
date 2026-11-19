@@ -84,7 +84,7 @@ export function readSessionPrincipal(
 }
 
 /** Retained recovery copies count, including offers not queued for saving. Unknown storage is not proof of absence. */
-export function hasPrincipalDrafts(
+function hasPrincipalDrafts(
   storage: DraftStorage,
   principalId: string,
 ): boolean | null {

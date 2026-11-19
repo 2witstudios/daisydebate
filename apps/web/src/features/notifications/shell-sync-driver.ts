@@ -14,7 +14,7 @@ import {
 } from '../resource-sync/resource-sync';
 
 /** How long the shell goes unread when nothing rings: a missed ring heals. */
-export const NOTIFICATION_SHELL_BACKSTOP_MS = 60_000;
+const NOTIFICATION_SHELL_BACKSTOP_MS = 60_000;
 
 /**
  * The shell's read carries no version and belongs to whoever is signed in,

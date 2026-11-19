@@ -208,17 +208,11 @@ export function ask(
     },
   });
 }
-/** The questions a rule answered yes to, as readable names. */
-export const allowed = <Item>(
-  items: readonly Item[],
-  name: (item: Item) => string,
-  decide: (item: Item) => { readonly allow: boolean },
-): readonly string[] => items.filter((item) => decide(item).allow).map(name);
 
 type RoomFact = Extract<Resource, { kind: 'room' }>;
 type RoundFact = Extract<Resource, { kind: 'round' }>;
 type EventOwner = Extract<NonNullable<RoomFact['owner']>, { kind: 'event' }>;
-export const eventOwner = (over: Partial<EventOwner> = {}): EventOwner => ({
+const eventOwner = (over: Partial<EventOwner> = {}): EventOwner => ({
   kind: 'event',
   fixtureId: 'fixture',
   scope: hosted,

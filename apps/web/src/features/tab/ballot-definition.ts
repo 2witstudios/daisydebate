@@ -9,7 +9,7 @@ import { hostRoutes } from './routes';
 import { lockedSetting, type ResolvedSetting } from './settings';
 import type { EventSwitch } from './setup';
 
-export type WrittenRule = 'required' | 'optional' | 'off';
+type WrittenRule = 'required' | 'optional' | 'off';
 
 /**
  * The typed settings of a ballot. Every field is something a host can

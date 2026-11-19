@@ -1,6 +1,7 @@
 import type { MessagingChannelLifecycle } from '@daisy/protocol';
 import type { AuthorizationCapability } from '@daisy/protocol/authorization';
 import type { BetaAccessState, SeatRef } from '@daisy/protocol';
+import type { CounterpartFact } from './authorization-lobby-facts';
 /** Current producer facts only. Neither preferences nor client claims grant access. */
 export type AuthorizationPrincipal =
   | { readonly kind: 'anonymous' }
@@ -345,7 +346,7 @@ export type AuthorizationInput = {
      */
     readonly answer?: 'accept' | 'decline';
     /** The other people the action reaches, for a minor with a boundary. */
-    readonly counterparts?: readonly import('./authorization-lobby-facts').CounterpartFact[];
+    readonly counterparts?: readonly CounterpartFact[];
   };
 };
 export type { AuthorizationDecision } from './authorization-decision';

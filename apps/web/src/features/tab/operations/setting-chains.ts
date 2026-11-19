@@ -17,7 +17,7 @@ const unique = (chain: SettingChain): SettingChain =>
         (other) => other.kind === scope.kind && other.id === scope.id,
       ) === i,
   );
-export const templateChain = (template: Template): SettingChain => [
+const templateChain = (template: Template): SettingChain => [
   { kind: 'organization', id: template.organizationId },
   { kind: 'template', id: template.id },
 ];

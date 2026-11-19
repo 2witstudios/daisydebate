@@ -12,7 +12,7 @@ import {
   type Refused,
   type Unacknowledged,
 } from '../forms/form-state';
-export const sanctionFormContextSchema = z.strictObject({
+const sanctionFormContextSchema = z.strictObject({
   organizationId: idSchema,
   lobbyId: idSchema,
   sanctionId: idSchema,

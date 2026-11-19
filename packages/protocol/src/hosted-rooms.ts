@@ -10,7 +10,7 @@ export const maxHostedRooms = 50;
  * is how a host without one finds their Rooms again. `seated` says whether
  * the host also sits in it, when their active-Room bar already leads there.
  */
-export const hostedRoomSchema = z.strictObject({
+const hostedRoomSchema = z.strictObject({
   id: idSchema,
   title: z.string().min(1),
   status: z.enum(openRoomStatuses),
@@ -22,4 +22,3 @@ export type HostedRoom = z.infer<typeof hostedRoomSchema>;
 export const hostedRoomsReadSchema = z.strictObject({
   rooms: z.array(hostedRoomSchema).max(maxHostedRooms),
 });
-export type HostedRoomsRead = z.infer<typeof hostedRoomsReadSchema>;

@@ -11,7 +11,7 @@ import { ListCard } from '../list-card/list-card';
 type Ladder = Extract<LeaguePanel, { kind: 'ladder' }>;
 
 /** A rating's last change, signed: `+12`, `−4`, `0`. */
-export const changeLabel = (change: number): string =>
+const changeLabel = (change: number): string =>
   change > 0 ? `+${change}` : change < 0 ? `−${-change}` : '0';
 
 function Row({ row }: { readonly row: LadderRow }) {

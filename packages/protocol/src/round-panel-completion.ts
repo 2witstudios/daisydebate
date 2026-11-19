@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { idSchema } from './primitives';
 import { roundOutcomeSchema } from './round-outcome';
-import { sideKeySchema } from './seats';
+import type { SideKey } from './seats';
 import type { RoundJudging } from './ballot-definition';
 
 /** What one AI judge seat can still do. One state per seat. */
@@ -39,20 +39,12 @@ export type JudgingPanel = {
  * One judge seat's ruling (TAB-6.11): the side a winner ballot named (null
  * for a tie or a double loss), or the places a ranking ballot gave.
  */
-export const judgeRulingSchema = z.union([
-  z.strictObject({
-    judgeParticipantId: idSchema,
-    winner: sideKeySchema.nullable(),
-  }),
-  z.strictObject({
-    judgeParticipantId: idSchema,
-    ranking: z
-      .array(z.array(z.string().min(1).max(64)).min(1).readonly())
-      .min(1)
-      .readonly(),
-  }),
-]);
-export type JudgeRuling = z.infer<typeof judgeRulingSchema>;
+export type JudgeRuling =
+  | { judgeParticipantId: string; winner: SideKey | null }
+  | {
+      judgeParticipantId: string;
+      ranking: readonly (readonly string[])[];
+    };
 
 /** One judging job as read; the engine decides what it means. */
 export type JudgingJobFacts = {

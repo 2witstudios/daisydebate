@@ -60,32 +60,8 @@ export {
   participantAccess,
 } from './participant-access';
 export type { ContactPairCapability } from './authorization-contact';
-export {
-  boundaryFilter,
-  insideBoundary,
-  type BoundaryFilter,
-} from './authorization-boundary';
-export type {
-  AuthorityRelation,
-  Conflict,
-  DecisionAuthority,
-} from './authorization-decision';
-export type {
-  BoundaryFact,
-  ConflictFact,
-  CounterpartFact,
-  GrantFact,
-  LobbyAuthorizationFact,
-  LobbyResourceFact,
-  LobbyScopeFact,
-  OrganizationAuthorizationFact,
-  RoleGivenFact,
-  RoomOwnerFact,
-  TournamentScopeFact,
-  VideoSubjectsFact,
-  ViewerAudience,
-  ViewingFact,
-} from './authorization-lobby-facts';
+export { insideBoundary } from './authorization-boundary';
+export type { GrantFact, RoomOwnerFact } from './authorization-lobby-facts';
 export type {
   AuthorizationPrincipal,
   AuthorizationCapability,

@@ -13,7 +13,7 @@ import {
 import type { TabPrincipal } from './tab-principal';
 
 /** The organization a host page names by its address. */
-export const organizationPeopleQuerySchema = z.strictObject({
+const organizationPeopleQuerySchema = z.strictObject({
   handle: z.string().trim().min(1).max(64),
 });
 

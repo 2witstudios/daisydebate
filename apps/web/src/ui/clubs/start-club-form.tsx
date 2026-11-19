@@ -13,7 +13,7 @@ import { clubSeatOffer } from '../../features/billing/club-price';
 const SEAT_PRICE_MINOR = clubSeatOffer.unitAmount;
 
 /** The board's three kinds; a debate club outside a school is the school kind. */
-export const clubKindChoices = [
+const clubKindChoices = [
   {
     value: 'school',
     label: 'School',

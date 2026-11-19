@@ -42,7 +42,7 @@ export const standingJoins = sql`left join rounds r on r.id=n.round_id
  * a read that asked Tab nothing (a digest: no Tab kind is emailed) passes none.
  */
 export type TournamentStanding = SQL;
-export const noTournamentStanding: TournamentStanding = sql`'[]'::jsonb`;
+const noTournamentStanding: TournamentStanding = sql`'[]'::jsonb`;
 export const tournamentStanding = (ids: Iterable<string>): TournamentStanding =>
   sql`${JSON.stringify([...ids])}::text::jsonb`;
 

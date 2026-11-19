@@ -15,7 +15,7 @@ export type LeagueRoomFacts = {
 };
 
 /** Whether a Room's Round rates on a league ladder. */
-export const roomOnLeagueLadder = (room: LeagueRoomFacts): boolean =>
+const roomOnLeagueLadder = (room: LeagueRoomFacts): boolean =>
   room.leagueDivision !== null;
 
 /** Whether this actor may sit in this Room; a bot always may. */

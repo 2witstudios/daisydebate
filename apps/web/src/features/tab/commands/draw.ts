@@ -1451,7 +1451,7 @@ export function drawVersionAssessmentInput(
   };
 }
 
-export function assessDrawVersion(
+function assessDrawVersion(
   engine: TabEngine,
   facts: DrawContextFacts,
   draw: DrawVersionFacts,

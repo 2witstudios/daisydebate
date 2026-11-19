@@ -230,7 +230,6 @@ export const reportResolveCommandSchema = z.discriminatedUnion('outcome', [
     suspendDays: z.number().int().min(1).max(moderationSuspensionMaxDays),
   }),
 ]);
-export type ReportResolveCommand = z.infer<typeof reportResolveCommandSchema>;
 export const reportResolveResultSchema = z.strictObject({
   commandId: idSchema,
   reportId: idSchema,

@@ -23,7 +23,7 @@ import type { PhotoClassifier, ProfilePhotoObjects } from './ports';
 export const PHOTO_UPLOAD_RULE = { windowSeconds: 3_600, max: 6 } as const;
 
 /** The decode bound: 40 megapixels, a few seconds, renditions within the stored bound. */
-export const PHOTO_DECODE_LIMITS: DecodeLimits = {
+const PHOTO_DECODE_LIMITS: DecodeLimits = {
   maxPixels: 40_000_000,
   maxBytes: PROFILE_PHOTO_RENDITION_MAX_BYTES,
   serviceMs: 10_000,
@@ -74,7 +74,7 @@ export type PhotoIntakeDependencies = {
 };
 
 /** How long a reservation waits for its upload before the sweep deletes it. */
-export const PHOTO_RESERVATION_MS = 3_600_000;
+const PHOTO_RESERVATION_MS = 3_600_000;
 
 const refuse = (
   code: 'VALIDATION' | 'PAYLOAD_TOO_LARGE' | 'INFRASTRUCTURE',

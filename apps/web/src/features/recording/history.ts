@@ -62,7 +62,7 @@ export type HistoryRound = RecordingRound & {
   }[];
 };
 
-export type HistoryTranscript = {
+type HistoryTranscript = {
   readonly revision: number;
   readonly completeness: 'complete' | 'incomplete';
   readonly gaps: readonly unknown[];
@@ -74,7 +74,7 @@ export type HistoryTranscript = {
   }[];
 };
 
-export type HistoryBallot = {
+type HistoryBallot = {
   /** Null for a ballot that named no winning side. */
   readonly winner: string | null;
   readonly reason: string | null;
@@ -110,7 +110,7 @@ export type HistoryInputs = {
 };
 
 /** A Youth Round's private panel: who still needs a release to publish it. */
-export type YouthPanel = {
+type YouthPanel = {
   /** In seat order, keyed by actor. */
   readonly debaters: readonly {
     readonly actorId: string;

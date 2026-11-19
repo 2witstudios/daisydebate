@@ -12,8 +12,7 @@ import type {
 } from './ports';
 
 /** Long enough to start the file; a stale link past this is refused by storage. */
-export const DOWNLOAD_LINK_SECONDS =
-  CONTENT_MODERATION_DELIVERY_BOUND_MS / 1000;
+const DOWNLOAD_LINK_SECONDS = CONTENT_MODERATION_DELIVERY_BOUND_MS / 1000;
 
 export const recordingDownloadRule = { max: 10, windowSeconds: 3600 };
 

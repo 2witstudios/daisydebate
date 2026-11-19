@@ -22,7 +22,7 @@ const run = async (command: readonly string[]) => {
   return stdout;
 };
 /** A polled read never wakes a node: it asks the platform, not the node's own URL. */
-export const nodeIsUp = async (target: DrillTarget, node: DrillNode) => {
+const nodeIsUp = async (target: DrillTarget, node: DrillNode) => {
   try {
     return isNodeUp(await run(fillCommand(target.state, node)));
   } catch {
@@ -31,7 +31,7 @@ export const nodeIsUp = async (target: DrillTarget, node: DrillNode) => {
 };
 export const killNode = (target: DrillTarget, node: DrillNode) =>
   run(fillCommand(target.kill, node));
-export const startNode = (target: DrillTarget, node: DrillNode) =>
+const startNode = (target: DrillTarget, node: DrillNode) =>
   run(fillCommand(target.start, node));
 
 const serving = async (node: DrillNode) => {

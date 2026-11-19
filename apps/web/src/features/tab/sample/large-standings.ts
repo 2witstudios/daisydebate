@@ -12,12 +12,12 @@ import {
  * novice. The top 64 break to triple octofinals; the next 16 novices break
  * on their own line to novice octofinals.
  */
-export const LARGE_ENTRIES = 200;
-export const LARGE_MAIN_BREAK = {
+const LARGE_ENTRIES = 200;
+const LARGE_MAIN_BREAK = {
   seeds: 64,
   tabRoundName: 'Triple octofinals',
 };
-export const LARGE_NOVICE_BREAK = {
+const LARGE_NOVICE_BREAK = {
   seeds: 16,
   tabRoundName: 'Novice octofinals',
 };
@@ -27,7 +27,7 @@ type Row = Extract<StandingsView, { visibility: 'official' }>['rows'][number];
 
 /** Five novices make the main break; 55 more are below it. */
 const madeMainBreak = new Set([44, 50, 55, 59, 62]);
-export const isLargeNovice = (n: number): boolean =>
+const isLargeNovice = (n: number): boolean =>
   madeMainBreak.has(n) || (n >= 64 && (n - 64) % 5 < 2);
 
 /** Wins and speaker points by place: the top 58 are a win clear of the line. */

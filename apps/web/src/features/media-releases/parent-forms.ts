@@ -53,7 +53,7 @@ export const parentUnacknowledged = (form: FormData): Unacknowledged => ({
   values: formValues(form),
 });
 
-export const parentRefused = (form: FormData, error: string): Refused => ({
+const parentRefused = (form: FormData, error: string): Refused => ({
   kind: 'refused',
   values: formValues(form),
   error,

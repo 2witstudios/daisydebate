@@ -18,7 +18,7 @@ export type CallOptions = {
   readonly schema?: 'ballot' | 'case_map' | 'json' | 'none';
 };
 
-export type PromptCall = {
+type PromptCall = {
   readonly number: number;
   readonly options: CallOptions;
   readonly messages: readonly ChatMessage[];

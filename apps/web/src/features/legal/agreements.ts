@@ -9,7 +9,7 @@ import type { LegalDocument } from './documents';
  * docs/legal/ranked-content-policy.md.
  */
 export const CONTENT_WAIVER_VERSION = 'draft-4';
-export const CONTENT_POLICY_VERSION = 'draft-3';
+const CONTENT_POLICY_VERSION = 'draft-3';
 
 const notReviewed =
   'This text has not been reviewed by counsel, and its wording may change after any review.';

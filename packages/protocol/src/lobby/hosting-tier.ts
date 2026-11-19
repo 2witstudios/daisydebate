@@ -55,7 +55,7 @@ const tierPrice = (tier: HostingTier): number =>
 
 /** What a hosted tournament may switch on, or take one more of. */
 export type HostedFeature = 'entry' | 'recording' | 'ai_judging' | 'broadcast';
-export type UpgradeReason = 'entry-limit' | Exclude<HostedFeature, 'entry'>;
+type UpgradeReason = 'entry-limit' | Exclude<HostedFeature, 'entry'>;
 export type EventAllowance =
   | { readonly kind: 'allowed' }
   | { readonly kind: 'upgrade_required'; readonly reason: UpgradeReason };
