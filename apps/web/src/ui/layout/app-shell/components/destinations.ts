@@ -43,7 +43,7 @@ export const primaryDestinations: readonly Destination[] = [
     icon: 'eye',
     label: 'Watch',
     subItems: [
-      { href: '/watch', label: 'Spectate live' },
+      { href: '/watch', label: 'Watch live' },
       { href: '/recordings', label: 'Recordings' },
     ],
   },

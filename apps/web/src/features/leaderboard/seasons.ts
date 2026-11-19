@@ -1,5 +1,4 @@
 import type { SearchParams } from '../access/decision';
-import { ladderLabel } from '../ratings/ladder-labels';
 import { rankRatingEntries } from '../ratings/rank';
 import type { Ladder, RatingDivision } from '@daisy/protocol';
 import { toRow } from './ladder-rows';
@@ -45,7 +44,6 @@ export type SeasonViewState = 'running' | 'past' | 'none-active';
 
 export type SeasonsView = {
   readonly season: Season;
-  readonly ladderLabel: string;
   readonly label: string;
   readonly state: SeasonViewState;
   readonly tag: string;
@@ -87,7 +85,6 @@ export function buildSeasonsView(
   const { day, length, percent } = seasonProgress(season, now);
   return {
     season,
-    ladderLabel: ladderLabel(ladder),
     label: seasonLabel(season),
     state: !closed
       ? 'running'

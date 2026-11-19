@@ -68,9 +68,8 @@ export function challengeRefusal(
   refusal: string | null = null,
 ): string {
   if (intent === 'send') {
-    if (status === 404) return 'They cannot take a challenge right now.';
-    if (status === 409 && refusal === 'ranked-division')
-      return 'Ranked needs you both on one ladder. Send a casual challenge.';
+    if (status === 404 || (status === 409 && refusal === 'other-division'))
+      return 'They cannot take a challenge right now.';
     if (status === 409) return 'Leave your room first.';
     if (status === 422)
       return 'Ranked is not open right now. Send a casual challenge.';

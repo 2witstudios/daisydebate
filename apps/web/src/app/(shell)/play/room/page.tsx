@@ -8,6 +8,7 @@ import { roomTemplates } from '../actions';
 import {
   requestMemberDivision,
   requestRoomDraftAnswer,
+  requestStaffLobby,
 } from '../../../../lib/request-session';
 
 export const metadata: Metadata = { title: 'Create a room' };
@@ -24,6 +25,7 @@ export default async function OpenRoomPage({
     <CreateRoomPage
       initialRanked={(await searchParams).ranked === '1'}
       memberDivision={await requestMemberDivision()}
+      staffLobby={await requestStaffLobby()}
       initialState={await requestRoomDraftAnswer((await searchParams).draft)}
       choices={templates.choices}
       commandId={systemId.next()}

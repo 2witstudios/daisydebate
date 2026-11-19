@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { systemClock } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
+import { lobbyOf } from '@daisy/protocol';
 import type { SearchParams } from '../../../features/access/decision';
 import { parseRoomDiscoveryQuery } from '../../../features/lobby/discovery-query';
 import { requireAccess } from '../../../lib/access';
@@ -23,14 +24,24 @@ export default async function LobbyPage({
   const identity = await requireAccess('/lobby', searchParams);
   const actorId =
     identity.state === 'member' ? identity.principal.actorId : null;
-  const query = parseRoomDiscoveryQuery(await searchParams);
-  if (!query.success) throw createAppError('VALIDATION');
-  const [listing, activeRoom, hosted, viewerDivision] = await Promise.all([
-    roomListing(query.data),
+  const parsed = parseRoomDiscoveryQuery(await searchParams);
+  if (!parsed.success) throw createAppError('VALIDATION');
+  // Only the rows' actions and the landing lobby read it; the Room's own seat
+  // check decides.
+  const division = requestMemberDivision().catch(() => null);
+  const others = Promise.all([
     requestActiveRoom(),
     actorId === null ? [] : hostedRoomsRead(),
-    // Only a row's seat hint reads it; the Room's own seat check decides.
-    requestMemberDivision().catch(() => null),
+  ]);
+  const viewerDivision = await division;
+  // A member lands in their own lobby unless the URL names one (ADR 0156).
+  const query = {
+    ...parsed.data,
+    division: parsed.data.division ?? lobbyOf({ division: viewerDivision }),
+  };
+  const [listing, [activeRoom, hosted]] = await Promise.all([
+    roomListing(query),
+    others,
   ]);
   if (listing.kind !== 'found') throw createAppError('INFRASTRUCTURE');
   const now = Date.parse(systemClock.now());
@@ -39,13 +50,13 @@ export default async function LobbyPage({
       <ResumeRound room={activeRoom} actorId={actorId} />
       <HostedRooms rooms={hosted} />
       <Lobby
-        query={query.data}
+        query={query}
         rooms={listing.rooms}
         nextCursor={listing.nextCursor}
         retry={listing.retry}
         activeRoom={activeRoom}
         now={now}
-        viewerDivision={viewerDivision}
+        viewer={{ actorId, division: viewerDivision }}
       />
     </>
   );

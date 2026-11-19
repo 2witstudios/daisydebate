@@ -13,19 +13,14 @@ import {
  * every request and its metadata says whether this viewer posts.
  */
 export const roomChatReaderOf = (
-  view: Pick<RoomView, 'participants' | 'hostActorId' | 'competitionType'>,
+  view: Pick<RoomView, 'participants' | 'hostActorId' | 'division'>,
   actorId: string,
 ): 'judge' | 'spectator' | null => {
   const named = view.participants.filter(isNamedSeat);
   const own = named.find((seat) => seat.actorId === actorId)?.seat.kind;
   if (roomCommunitySeatReadsOnly(own ?? null)) return 'judge';
   if (own !== undefined || view.hostActorId === actorId) return null;
-  return youthRoomOf({
-    competitionType: view.competitionType,
-    participants: named,
-  })
-    ? 'spectator'
-    : null;
+  return youthRoomOf(view) ? 'spectator' : null;
 };
 
 /**

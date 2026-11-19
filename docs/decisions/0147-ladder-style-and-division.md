@@ -5,7 +5,9 @@ Status: accepted (owner decision 79, 2026-11-18; slice PYL S2 ladder divisions,
 confirmed by the point guard on Delivery). Amends
 [ADR 0142](0142-freestyle-the-one-standard-and-ladder.md) §2 and §5, and
 replaces the ranked age floor that PR 789 introduced (ranked play for members
-18 and over only).
+18 and over only). §4, §5 and §6 are amended by
+[ADR 0156](0156-room-division-from-its-lobby.md): a Room's division is the
+lobby it was created in, not who sits.
 
 ## Context
 

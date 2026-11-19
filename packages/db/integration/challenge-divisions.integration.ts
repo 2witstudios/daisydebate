@@ -16,7 +16,7 @@ const { databaseUrl } = requireTestServices(process.env);
  * members' divisions under the pair's lock, stores the shared one, and
  * refuses across divisions or without one. Casual is always offered.
  */
-test('a ranked challenge stores its ladder division and refuses across ladders', async () => {
+test('a challenge stays inside one lobby and stores it (ADR 0156)', async () => {
   const client = new SQL(databaseUrl);
   const fixture = await createMessagingTestFixture(client);
   const database = drizzle({ client });
@@ -73,18 +73,28 @@ test('a ranked challenge stores its ladder division and refuses across ladders',
     await clear();
     await client`delete from account_age where user_id=${fixture.otherUserId}`;
     const noRecord = await send('ranked');
+    await setAge(fixture.userId, '30 years');
+    const casualNoRecord = await send('casual');
     assert({
       given:
-        'ranked offers between two adults, an adult and a minor, two minors and toward a member with no age record, and a casual offer across ladders',
+        'ranked offers between two adults, an adult and a minor, two minors and toward a member with no age record, then casual offers across lobbies and toward no age record',
       should:
-        'store Open and Youth on the same-ladder offers, refuse the cross-ladder and no-record ranked offers with the division reason, and send the casual one with no division',
-      actual: { bothAdults, acrossLadders, casualAcross, bothYouth, noRecord },
+        'store the shared lobby on every offer inside one, refuse every offer across lobbies, refuse ranked without an age record, and let casual reach a no-record member in Open',
+      actual: {
+        bothAdults,
+        acrossLadders,
+        casualAcross,
+        bothYouth,
+        noRecord,
+        casualNoRecord,
+      },
       expected: {
         bothAdults: 'open',
-        acrossLadders: 'ranked-division',
-        casualAcross: null,
+        acrossLadders: 'other-division',
+        casualAcross: 'other-division',
         bothYouth: 'youth',
-        noRecord: 'ranked-division',
+        noRecord: 'other-division',
+        casualNoRecord: 'open',
       },
     });
   } finally {

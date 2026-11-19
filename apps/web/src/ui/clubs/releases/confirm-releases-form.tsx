@@ -104,9 +104,6 @@ export function ConfirmReleasesForm({
                     </label>
                   </th>
                   <th scope="col" className={`${head} pt-3`}>
-                    Ladder
-                  </th>
-                  <th scope="col" className={`${head} pt-3`}>
                     Release
                   </th>
                   <th scope="col" className={`${head} pt-3`}>
@@ -149,9 +146,6 @@ export function ConfirmReleasesForm({
                         </span>
                       </label>
                     </th>
-                    <td className={cell}>
-                      <Badge tone="plum">Youth – Freestyle</Badge>
-                    </td>
                     <td className={cell}>
                       <Badge tone={releaseBadgeTone[row.badge]}>
                         {row.badgeText}

@@ -2,7 +2,6 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   filterCount,
   isFiltered,
-  lobbyDivisionChoices,
   lobbyHref,
   lobbyModeChoices,
   lobbyStatusChoices,
@@ -66,22 +65,22 @@ test('the Lobby status and mode filters narrow the canonical listing', () => {
   });
 });
 
-test('the Lobby division filter narrows ranked Rooms to one ladder', () => {
+test('the lobby switch names the Open or Youth lobby in the URL (ADR 0156)', () => {
   const parsed = (raw: Record<string, string | string[]>) => {
     const result = parseRoomDiscoveryQuery(raw);
     return result.success ? result.data : null;
   };
   assert({
     given:
-      'the Youth and Open choices, any division, and an unknown or repeated value',
+      'the Youth and Open lobbies, no lobby, and an unknown or repeated value',
     should:
-      'carry the division, drop any, and refuse the rest without guessing',
+      'carry the lobby, leave it to the viewer when absent, and refuse the rest',
     actual: [
-      parsed({ division: 'youth' }),
-      parsed({ division: 'open', mode: 'ranked' }),
-      parsed({ division: 'any' }),
-      parsed({ division: 'adult' }),
-      parsed({ division: ['open', 'youth'] }),
+      parsed({ lobby: 'youth' }),
+      parsed({ lobby: 'open', mode: 'ranked' }),
+      parsed({}),
+      parsed({ lobby: 'adult' }),
+      parsed({ lobby: ['open', 'youth'] }),
     ],
     expected: [
       { q: '', pageSize: 20, division: 'youth' },
@@ -96,14 +95,13 @@ test('the Lobby division filter narrows ranked Rooms to one ladder', () => {
 describe('Lobby choices', () => {
   test('come from the protocol vocabulary', () => {
     assert({
-      given: 'the status tabs, the mode select and the division select',
+      given: 'the status tabs and the mode select',
       should:
-        'offer every status, then each listing status; any, then each competition type; any, then each division',
-      actual: [lobbyStatusChoices, lobbyModeChoices, lobbyDivisionChoices],
+        'offer every status, then each listing status; any, then each competition type',
+      actual: [lobbyStatusChoices, lobbyModeChoices],
       expected: [
         ['all', 'open', 'starting', 'live'],
         ['any', 'ranked', 'casual'],
-        ['any', 'open', 'youth'],
       ],
     });
   });
@@ -135,13 +133,12 @@ describe('lobbyHref', () => {
     });
   });
 
-  test('a division narrows after the mode', () => {
+  test('the lobby follows the mode', () => {
     assert({
-      given: 'a ranked query on the Youth division',
-      should: 'carry the division after the mode',
+      given: 'a ranked query in the Youth lobby',
+      should: 'carry the lobby after the mode',
       actual: lobbyHref({ ...query, division: 'youth' }),
-      expected:
-        '/lobby?q=tax&pageSize=5&status=open&mode=ranked&division=youth',
+      expected: '/lobby?q=tax&pageSize=5&status=open&mode=ranked&lobby=youth',
     });
   });
 
@@ -171,14 +168,14 @@ describe('isFiltered', () => {
 
   test('the badge counts each panel filter', () => {
     assert({
-      given: 'a division and a mode, a division alone, and a status tab',
-      should: 'count two, one and none',
+      given: 'a mode in a lobby, a lobby alone, and a status tab',
+      should: 'count the mode only: the lobby is no filter',
       actual: [
         filterCount({ q: '', pageSize: 20, mode: 'ranked', division: 'open' }),
         filterCount({ q: '', pageSize: 20, division: 'youth' }),
         filterCount({ q: '', pageSize: 20, status: 'live' }),
       ],
-      expected: [2, 1, 0],
+      expected: [1, 0, 0],
     });
   });
 });

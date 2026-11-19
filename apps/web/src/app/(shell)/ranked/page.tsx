@@ -1,7 +1,6 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import type { SearchParams } from '../../../features/access/decision';
-import { rankedLadderLead } from '../../../features/play/ladder-division-words';
 import { requireAccess } from '../../../lib/access';
 import {
   requestMemberDivision,
@@ -26,10 +25,7 @@ export default async function RankedPage({
   ]);
   return (
     <div className="mx-auto flex w-full max-w-dash-column flex-col gap-5 p-6">
-      <PageHeader
-        title="Ranked debate"
-        lede={division === null ? undefined : rankedLadderLead(division)}
-      />
+      <PageHeader title="Ranked debate" />
       <RankedLadders standings={standings} division={division} />
       <div className="flex flex-wrap gap-3">
         {division === null ? null : (

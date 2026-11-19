@@ -61,38 +61,16 @@ describe('Room chat contracts', () => {
       ),
       expected: [false, false, true, false, false],
     }));
-  test('a Youth Room (decision 84)', () => {
-    const human = (division: 'open' | 'youth' | null) => ({
-      kind: 'human' as const,
-      seat: { kind: 'side', side: 'affirmative', slot: 0 } as const,
-      division,
-    });
-    const judge = {
-      kind: 'human' as const,
-      seat: { kind: 'judge', slot: 1 } as const,
-      division: 'youth' as const,
-    };
-    const room = (
-      competitionType: 'ranked' | 'casual',
-      participants: readonly Parameters<
-        typeof youthRoomOf
-      >[0]['participants'][number][],
-    ) => youthRoomOf({ competitionType, participants });
+  test('a Youth Room (decision 84, ADR 0156)', () => {
     assert({
       given:
-        'ranked Rooms seating a youth debater, only open debaters, nobody, a youth judge alone or a mixed pair, and a casual Room seating a youth debater',
-      should:
-        'be a Youth Room exactly when a ranked Room seats a human youth debater',
+        'a Room of the Youth lobby and one of the Open lobby, ranked or casual',
+      should: 'be a Youth Room exactly when it was created in the Youth lobby',
       actual: [
-        room('ranked', [human('youth')]),
-        room('ranked', [human('open'), human('open')]),
-        room('ranked', []),
-        room('ranked', [judge]),
-        room('ranked', [human('open'), human('youth')]),
-        room('ranked', [human(null)]),
-        room('casual', [human('youth')]),
+        youthRoomOf({ division: 'youth' }),
+        youthRoomOf({ division: 'open' }),
       ],
-      expected: [true, false, false, false, true, false, false],
+      expected: [true, false],
     });
   });
   test('who reads Room chat without posting', () => {

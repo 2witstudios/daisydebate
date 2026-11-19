@@ -37,6 +37,7 @@ const eventRoom = async (
     format_id: 'nsda-policy',
     format_version: 1,
     competition_type: 'casual',
+    division: 'open',
     config: validConfig,
     execution_plan: {},
     rules_snapshot: validRules,
@@ -194,16 +195,16 @@ test('a Room sits in one lobby, with a host person exactly when that lobby is st
         // placed in Daisy's.
         lobbyOmitted: await refusedBy(sql, () =>
           sql.unsafe(
-            `insert into rooms (id, host_actor_id, title, topic, visibility, format_id, format_version, competition_type, config, execution_plan, rules_snapshot, status)
-             values ($1, $2, 'A Room', 'A topic', 'public', 'nsda-policy', 1, 'casual', $3, '{}'::jsonb, $4, 'assembling')`,
+            `insert into rooms (id, host_actor_id, title, topic, visibility, format_id, format_version, competition_type, division, config, execution_plan, rules_snapshot, status)
+             values ($1, $2, 'A Room', 'A topic', 'public', 'nsda-policy', 1, 'casual', 'open', $3, '{}'::jsonb, $4, 'assembling')`,
             [createId(), ids.debaters[0], validConfig, validRules],
           ),
         ),
         movedToAnotherLobby: await (async () => {
           const id = createId();
           await sql.unsafe(
-            `insert into rooms (id, lobby_id, host_actor_id, title, topic, visibility, format_id, format_version, competition_type, config, execution_plan, rules_snapshot, status)
-             values ($1, $2, $3, 'A Room', 'A topic', 'public', 'nsda-policy', 1, 'casual', $4, '{}'::jsonb, $5, 'assembling')`,
+            `insert into rooms (id, lobby_id, host_actor_id, title, topic, visibility, format_id, format_version, competition_type, division, config, execution_plan, rules_snapshot, status)
+             values ($1, $2, $3, 'A Room', 'A topic', 'public', 'nsda-policy', 1, 'casual', 'open', $4, '{}'::jsonb, $5, 'assembling')`,
             [id, publicLobbyId, ids.debaters[0], validConfig, validRules],
           );
           return refusedBy(sql, () =>
@@ -431,6 +432,7 @@ test('a fixture has a Room of its own lobby exactly when it is published and not
         format_id: 'nsda-policy',
         format_version: 1,
         competition_type: 'casual',
+        division: 'open',
         config: validConfig,
         execution_plan: {},
         rules_snapshot: validRules,

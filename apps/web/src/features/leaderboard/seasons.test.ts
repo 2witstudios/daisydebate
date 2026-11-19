@@ -137,17 +137,17 @@ describe('a season with none active', () => {
   });
 });
 
-test('the overview names its ladder and keeps every link on it', () => {
+test('the overview names no ladder and keeps every link on its division', () => {
   const view = buildSeasonsView(readLadder(null, NOW, null).data, youth, NOW);
   assert({
     given: 'a season overview of the Youth ladder',
-    should: 'label Youth – Freestyle and keep every link on the Youth division',
+    should: 'name no ladder, and keep every link on the Youth division',
     actual: [
-      view.ladderLabel,
+      'ladderLabel' in view,
       [...view.chips.map((c) => c.href), view.ladderHref].every((href) =>
         href.includes('division=youth'),
       ),
     ],
-    expected: ['Youth – Freestyle', true],
+    expected: [false, true],
   });
 });

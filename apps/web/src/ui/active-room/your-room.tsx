@@ -3,7 +3,6 @@ import { roomStatusLabels } from '../../features/rooms/status-labels';
 import { buttonClass } from '../components/button/button-class';
 import { statusDotClass } from '../components/status-line/status-line-class';
 import { MediaPageLink } from '../round-media/media-page-link';
-import { SeatedLadderBadge } from '../ladder-badge/ladder-badge';
 
 /**
  * The viewer's one active Room (ADR 0070), as the shell, Lobby and Home show
@@ -11,7 +10,7 @@ import { SeatedLadderBadge } from '../ladder-badge/ladder-badge';
  */
 export type ActiveRoomSummary = Pick<
   ActiveRoom,
-  'id' | 'title' | 'phase' | 'href' | 'ladder'
+  'id' | 'title' | 'phase' | 'href'
 >;
 
 const phaseLabels: Readonly<Record<ActiveRoomSummary['phase'], string>> = {
@@ -45,7 +44,6 @@ export function YourRoom({ room }: { readonly room: ActiveRoomSummary }) {
         </p>
         <p className="flex min-w-0 flex-wrap items-center gap-2">
           <span className="truncate text-lg font-strong">{room.title}</span>
-          {room.ladder ? <SeatedLadderBadge seated={room.ladder} /> : null}
         </p>
       </div>
       <MediaPageLink

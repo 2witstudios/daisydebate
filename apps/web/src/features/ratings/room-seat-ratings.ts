@@ -1,3 +1,4 @@
+import { isDebatingSeat } from '@daisy/protocol';
 import type {
   RatingDivision,
   RatingStyle,
@@ -24,7 +25,7 @@ export type SeatRatingReads = {
 };
 
 /** Any Room view: the overlay reads and rewrites its participants alone. */
-type SeatedView = Pick<RoomView, 'participants'>;
+type SeatedView = Pick<RoomView, 'participants' | 'division'>;
 
 /** Daisy's one style (ADR 0142): every Room seat stands on Freestyle. */
 const seatStyle: RatingStyle = 'freestyle';
@@ -59,13 +60,14 @@ export const overlaySeatRatings = <View extends SeatedView>(
       if ('anonymous' in p) return p;
       if (p.kind !== 'human' || hidden.has(p.actorId))
         return { ...p, rating: null };
-      // A ranked debater's own ladder (ADR 0147); anyone else's active
-      // season rating, which is on one division at a time.
+      // A debater's rating on the Room's own ladder (ADR 0156); anyone
+      // else's active-season rating, which is on one division at a time.
+      const debater = isDebatingSeat(p.seat);
       const state = input.ratings.find(
         (r) =>
           r.actorId === p.actorId &&
           r.ladder === seatStyle &&
-          (p.division === null || r.division === p.division),
+          (!debater || r.division === view.division),
       );
       if (!state) return { ...p, rating: null };
       const standing = ratingStanding(state, state.lastRatedAt, input.now);

@@ -1,9 +1,6 @@
 import type { Ladder, RatingDivision } from '@daisy/protocol';
 import { noLadderReason } from '../../../../../features/play/ladder-division-words';
-import {
-  divisionAudiences,
-  ladderLabel,
-} from '../../../../../features/ratings/ladder-labels';
+import { ladderKey } from '@daisy/protocol';
 import type { MemberStanding } from '../../../../../features/ratings/read-member';
 import {
   markedRating,
@@ -11,7 +8,6 @@ import {
 } from '../../../../../features/ratings/provisional-mark';
 import type { ShellRatings } from '../../account';
 import { cn } from '../../../../cn';
-import { Icon } from '../../../../components/icon/icon';
 
 /** What a ladder row shows: the rating, or the state it is in. */
 export function ratingText(standing: MemberStanding): string {
@@ -21,51 +17,30 @@ export function ratingText(standing: MemberStanding): string {
 }
 
 /**
- * One row of the account menu's ratings (ADR 0147): the member's own ladder
- * with this season's standing, or another division's ladder, locked with who
- * it is for. Never an age.
+ * The account menu's one rating (ADR 0156, YHomeActive): the member's own
+ * ladder, named by its style alone, with this season's standing.
  */
-export type RailLadderRow =
-  | {
-      readonly kind: 'own';
-      readonly ladder: Ladder;
-      readonly text: string;
-      readonly provisional: boolean;
-    }
-  | {
-      readonly kind: 'locked';
-      readonly ladder: Ladder;
-      readonly audience: string;
-    };
+export type RailLadderRow = {
+  readonly ladder: Ladder;
+  readonly text: string;
+  readonly provisional: boolean;
+};
 
 /**
- * A row per ladder read, the member's own first. A standing kept from an
- * earlier season is no rating this season, so their own ladder reads
- * Unrated until they play.
+ * The member's own ladder's row. A standing kept from an earlier season is no
+ * rating this season, so it reads Unrated until they play.
  */
 export function railLadderRows(
   standings: readonly MemberStanding[],
   division: RatingDivision,
 ): readonly RailLadderRow[] {
   return standings
-    .slice()
-    .sort(
-      (a, b) =>
-        Number(b.ladder.division === division) -
-        Number(a.ladder.division === division),
-    )
+    .filter((standing) => standing.ladder.division === division)
     .map((standing): RailLadderRow => {
-      if (standing.ladder.division !== division)
-        return {
-          kind: 'locked',
-          ladder: standing.ladder,
-          audience: divisionAudiences[standing.ladder.division],
-        };
       const current = standing.current
         ? standing
         : { ...standing, rating: null, provisional: false, hidden: false };
       return {
-        kind: 'own',
         ladder: standing.ladder,
         text: ratingText(current),
         provisional: current.provisional && current.rating !== null,
@@ -88,23 +63,16 @@ const heading = 'text-xs font-semibold tracking-wide text-ink-faint uppercase';
 function LadderRow({ row }: { readonly row: RailLadderRow }) {
   return (
     <div className="flex items-baseline justify-between gap-3">
-      <dt className="text-sm text-ink-muted">{ladderLabel(row.ladder)}</dt>
-      {row.kind === 'own' ? (
-        <dd
-          className={cn(
-            'text-sm font-semibold text-ink tabular-nums',
-            row.provisional && provisionalMarkClass,
-          )}
-          title={row.provisional ? 'Provisional rating' : undefined}
-        >
-          {row.text}
-        </dd>
-      ) : (
-        <dd className="flex items-center gap-1 text-sm text-ink-muted">
-          <Icon name="lock" size={14} />
-          {row.audience}
-        </dd>
-      )}
+      <dt className="text-sm text-ink-muted">Rating</dt>
+      <dd
+        className={cn(
+          'text-sm font-semibold text-ink tabular-nums',
+          row.provisional && provisionalMarkClass,
+        )}
+        title={row.provisional ? 'Provisional rating' : undefined}
+      >
+        {row.text}
+      </dd>
     </div>
   );
 }
@@ -137,7 +105,10 @@ export async function AccountRatings({
       ) : (
         <dl className="flex flex-col gap-1">
           {railLadderRows(result.standings, result.division).map((row) => (
-            <LadderRow key={ladderLabel(row.ladder)} row={row} />
+            <LadderRow
+              key={ladderKey(row.ladder.style, row.ladder.division)}
+              row={row}
+            />
           ))}
         </dl>
       )}

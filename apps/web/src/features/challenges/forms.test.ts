@@ -72,16 +72,17 @@ test('a challenge form says something only when refused or sent', () => {
   });
 });
 
-test('a ranked offer across ladders says why', () => {
+test('a challenge to the other lobby reads as one they cannot take', () => {
   assert({
-    given: 'a refused send whose refusal names the ladder rule',
-    should: 'tell the sender ranked needs one ladder, not to leave a room',
+    given: 'a refused send naming the other lobby, and a plain conflict',
+    should:
+      'say they cannot take a challenge, with no lobby sentence, and not to leave a room',
     actual: [
-      challengeRefusal('send', 409, 'ranked-division'),
+      challengeRefusal('send', 409, 'other-division'),
       challengeRefusal('send', 409),
     ],
     expected: [
-      'Ranked needs you both on one ladder. Send a casual challenge.',
+      'They cannot take a challenge right now.',
       'Leave your room first.',
     ],
   });

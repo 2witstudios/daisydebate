@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm';
 
 import type { RoomAssemblyState, RoomMutationOutcome } from '@daisy/protocol';
-import { roundCompetition, seatedDivision } from '@daisy/protocol';
+import { roundCompetition } from '@daisy/protocol';
 import {
   emptyRuntimeCheckpointFor,
   aiBallotAdmissionRefusal,
@@ -24,6 +24,7 @@ import { oweRoundStarted } from './round-began';
 import { holdActiveRoomMembers } from './room-membership-persistence';
 import { freezeRoomBallot } from './room-ballot-freeze';
 import { columnsOfSeat } from './seat-columns';
+import { refuseDebatersOffDivision } from './room-start-division';
 
 import {
   appendRoomChanged,
@@ -122,6 +123,7 @@ export const persistRoomMutation = async (
   if (mutation.freeze) {
     // The engine named the Round this Start launches, and the status it launches in.
     if (next.status !== 'started') throw createAppError('INVARIANT');
+    await refuseDebatersOffDivision(tx, next);
     const plan = next.executionPlan;
     const prepMs = plan.preRoundPrep.enabled
       ? plan.preRoundPrep.durationMs
@@ -134,12 +136,8 @@ export const persistRoomMutation = async (
       .select({ leagueLadderId: rooms.leagueLadderId })
       .from(rooms)
       .where(eq(rooms.id, next.id));
-    // The Round's ladder follows who sat (ADR 0147): one division rates on
-    // its own season, a mixed seating plays casual in a ranked Room.
-    const competition = roundCompetition(
-      next,
-      seatedDivision(next.participants),
-    );
+    // A ranked Round rates on the Room's own division (ADR 0156).
+    const competition = roundCompetition(next);
     if (competition.ladder) await lockLadderSeason(tx, competition.ladder);
     await tx.insert(rounds).values({
       leagueLadderId: source?.leagueLadderId ?? null,

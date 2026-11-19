@@ -9,7 +9,6 @@ import { initialFriendForm } from '../../features/friends/forms';
 import { creationIdle } from '../../features/messaging/forms/create-form';
 import { initialPresenceForm } from '../../features/presence/form';
 import { initialReportForm } from '../../features/reports/form';
-import { noLadderReason } from '../../features/play/ladder-division-words';
 import { ladderLine, ratingsLabel, ratingText } from './member-card';
 import { ChallengeProvider } from '../challenges/challenge-provider';
 import { LobbyViews } from './lobby-views';
@@ -111,40 +110,32 @@ const inProvider = (
     ),
   );
 
-test('a ranked challenge off the member’s own ladder says why, with no Accept', () => {
-  const render = (memberDivision: RatingDivision | null) =>
-    inProvider(
-      h(PeopleRail, {
-        preference: 'auto',
-        actions,
-        setRail: async () => {},
-        activeRoomId: null,
-      }),
-      [person()],
-      memberDivision,
-    ).replaceAll('&#x27;', "'");
-  const card = (html: string) =>
+test('an incoming challenge names its style and mode, and offers Accept (YChallenge)', () => {
+  const html = inProvider(
+    h(PeopleRail, {
+      preference: 'auto',
+      actions,
+      setRail: async () => {},
+      activeRoomId: null,
+    }),
+    [person()],
+    'youth',
+  );
+  const card =
     /<section aria-label="Challenge from @mara".*?<\/section>/s.exec(
       html,
     )?.[0] ?? '';
-  const youth = card(render('youth'));
-  const open = card(render('open'));
-  const none = card(render(null));
   assert({
-    given:
-      'a ranked Youth – Freestyle challenge from @mara to a youth member, an open member and a member with no ladder',
+    given: 'a ranked challenge from @mara in the member’s own lobby',
     should:
-      'offer Accept on Youth only, and otherwise say why with only Decline',
+      'read Freestyle · Ranked with Accept and Decline, naming no division',
     actual: [
-      youth.includes('Youth – Freestyle · Ranked'),
-      youth.includes('>Accept<'),
-      open.includes('>Accept<'),
-      open.includes('you play Open – Freestyle'),
-      open.includes('>Decline<'),
-      none.includes('>Accept<'),
-      none.includes(noLadderReason),
+      card.includes('Freestyle · Ranked'),
+      card.includes('Youth') || card.includes('Open'),
+      card.includes('>Accept<'),
+      card.includes('>Decline<'),
     ],
-    expected: [true, true, false, true, true, false, true],
+    expected: [true, false, true, true],
   });
 });
 
@@ -231,7 +222,7 @@ describe('the people rail', () => {
       should: 'name who and what, and offer Accept and Decline',
       actual: [
         html.includes('Challenge from @mara'),
-        html.includes('Youth – Freestyle · Ranked'),
+        html.includes('Freestyle · Ranked'),
         html.includes('>Accept<'),
         html.includes('>Decline<'),
       ],
@@ -246,21 +237,22 @@ describe('the people rail', () => {
         ratingsLabel(person()),
         ratingsLabel(person({ division: null })),
       ],
-      expected: ['Youth – Freestyle Provisional', 'Unrated'],
+      expected: ['Freestyle Provisional', 'Unrated'],
     });
   });
-  test('a card names the member’s ladder beside their status', () => {
+  test('a card shows the rating beside the status, inside one lobby (YChallenge)', () => {
     assert({
       given:
-        'a provisional youth member, an Open member never rated, and one with no known ladder',
+        'a provisional youth member seen from Youth and from Open, an Open member never rated, and one with no known ladder',
       should:
-        'put the figure before the ladder, and name no ladder where they have not played ranked',
+        'show the figure alone in the viewer’s own lobby, nothing across lobbies, and nothing where they have not played ranked',
       actual: [
-        ladderLine(person()),
-        ladderLine(person({ division: 'open' })),
-        ladderLine(person({ division: null })),
+        ladderLine(person(), 'youth'),
+        ladderLine(person(), 'open'),
+        ladderLine(person({ division: 'open' }), 'open'),
+        ladderLine(person({ division: null }), 'open'),
       ],
-      expected: ['1612* Youth – Freestyle', null, null],
+      expected: ['1612*', null, null, null],
     });
   });
 });

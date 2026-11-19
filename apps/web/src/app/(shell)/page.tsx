@@ -9,10 +9,8 @@ import { ResumeRound } from '../../ui/active-room/resume-round';
 import {
   requestIdentity,
   requestLeadingLive,
-  requestMemberDivision,
   requestSeasonGlance,
 } from '../../lib/request-session';
-import { leaderboardTagline } from '../../ui/dashboard/leaderboard-tagline';
 import { LiveNow } from '../../ui/dashboard/live-now/live-now';
 import { requestLinkAction } from '../(bare)/sign-in/actions';
 import { requestPricingOpen } from './pricing/releases';
@@ -44,7 +42,6 @@ export default async function HomePage() {
         audience="visitor"
         liveNow={liveNow}
         seasonGlance={seasonGlance}
-        leaderboardTagline={leaderboardTagline(null)}
         hero={
           <HeroBanner
             requestLink={requestLinkAction.bind(null, '/')}
@@ -54,17 +51,12 @@ export default async function HomePage() {
       />
     );
   }
-  const [activeRoom, tagline] = await Promise.all([
-    requestActiveRoom(),
-    // Leaderboard keeps its own words when the division cannot be read.
-    requestMemberDivision().then(leaderboardTagline, () => null),
-  ]);
+  const activeRoom = await requestActiveRoom();
   return (
     <Dashboard
       audience="member"
       liveNow={liveNow}
       seasonGlance={seasonGlance}
-      leaderboardTagline={tagline}
       hero={
         <>
           <ResumeRound room={activeRoom} actorId={identity.principal.actorId} />

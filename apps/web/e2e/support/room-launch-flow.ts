@@ -149,7 +149,11 @@ export async function submitCreateRoom(
     // Without script the page cannot redraw, so the select stays and the words say so.
     if (scripted) await expect(form.getByLabel('Who can join')).toHaveCount(0);
     await expect(
-      form.getByText('Ranked Rounds are always public'),
+      form.getByText(
+        scripted
+          ? 'Listed in the lobby. Play casual to choose who can join.'
+          : 'Choosing Ranked makes the Room public',
+      ),
     ).toBeVisible();
   } else await form.getByLabel('Who can join').selectOption('public');
   return createConfiguredRoom(page);

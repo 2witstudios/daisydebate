@@ -1,3 +1,4 @@
+import { ladderCopyIn } from '../test-support/ladder-copy.test-support';
 import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { Dashboard } from './dashboard';
@@ -149,13 +150,12 @@ describe('Dashboard', () => {
 });
 
 describe('Dashboard ladder words', () => {
-  test('Play keeps its own words and Leaderboard names every ladder', () => {
+  test('Play and Leaderboard keep their own words (YHomeActive)', () => {
     const html = renderInStore(
       h(Dashboard, {
         audience: 'member',
         hero: null,
         liveNow: null,
-        leaderboardTagline: 'Youth – Freestyle and Open – Freestyle ladders.',
       }),
     );
     const play = (
@@ -165,13 +165,9 @@ describe('Dashboard ladder words', () => {
     assert({
       given: 'a youth member on Home',
       should:
-        'show Play with only its title and tagline (no ladder, no rating), and name both ladders on Leaderboard instead of its own tagline',
-      actual: [
-        play,
-        html.includes('Youth – Freestyle and Open – Freestyle ladders.'),
-        html.includes('The season ladder.'),
-      ],
-      expected: [`${playTile?.title}${playTile?.description}`, true, false],
+        'show Play with only its title and tagline, and Leaderboard with its shipped tagline, naming no division',
+      actual: [play, ladderCopyIn(html), html.includes('The season ladder.')],
+      expected: [`${playTile?.title}${playTile?.description}`, null, true],
     });
   });
 });

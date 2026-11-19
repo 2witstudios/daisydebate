@@ -369,6 +369,8 @@ export const createLobbyRoom =
                 room: {
                   id: write.row.id,
                   hostActorId: actorId,
+                  // A league's Rooms are in its division (ADR 0156).
+                  division: loaded.division,
                   title: command.room.title,
                   topic: resolution.topic,
                   visibility: command.room.visibility,

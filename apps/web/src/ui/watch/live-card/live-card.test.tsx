@@ -28,14 +28,14 @@ describe('LiveCard', () => {
     });
   });
 
-  test('names its ladder beside Ranked (PYL-5 board)', () => {
+  test('names no ladder (ADR 0156)', () => {
     assert({
       given: 'a ranked Round on Open – Freestyle',
-      should: 'show the ladder badge',
+      should: 'show no ladder badge',
       actual: renderToString(h(LiveCard, { card: liveCard() })).includes(
         'Open – Freestyle',
       ),
-      expected: true,
+      expected: false,
     });
   });
 });

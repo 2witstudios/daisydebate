@@ -1,7 +1,6 @@
 import type { CreateRoomDraft } from '../../../features/rooms/create-room-draft';
 import { clockDuration } from '../../../features/rooms/duration-input';
 import { shapeLabel } from '../../../features/debate-room/seat-names';
-import { RankedLadderSummary } from './ranked-ladder';
 
 export function DraftPreview({
   draft,
@@ -47,7 +46,6 @@ export function DraftPreview({
         </p>
         {draft.custom ? <p>Based on {draft.basis.label}</p> : null}
       </div>
-      {ranked ? <RankedLadderSummary /> : null}
       <div className="create-room-preview-stats">
         <div>
           <strong>{shapeLabel(definition)}</strong>

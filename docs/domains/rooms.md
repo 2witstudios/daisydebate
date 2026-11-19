@@ -305,26 +305,31 @@ content waiver, signed once per season, is the ranked agreement, and it alone
 fences a ranked Ready (`content-waiver-required`, or `ranked-unavailable` with
 no season open).
 
-A ranked Room's ladder follows who sits
-([ADR 0147](../decisions/0147-ladder-style-and-division.md)). The Room stores
-no division: its seated human debaters set it. It is unset until one sits,
-then Open – Freestyle (all 18 and over) or Youth – Freestyle (all under 18),
-or mixed. Each person's division comes from the stored birth month, aged on
-the start of the active Youth season, bounded by their own age record and a
-12-month carry (ADR 0147 §3).
+A Room belongs to the lobby it was created in
+([ADR 0156](../decisions/0156-room-division-from-its-lobby.md), amending
+[ADR 0147](../decisions/0147-ladder-style-and-division.md)). `rooms.division`
+(Open or Youth) is set at creation and never changes: a member creates in
+their own lobby (`roomLobbyAtCreation`), club staff may also open a Youth Room,
+a challenge's Room opens in the pair's lobby, a tournament Room in its event's
+age division and a league lobby's Room in its league's. Each person's division
+comes from the stored birth month, aged on the start of the active Youth
+season, bounded by their own age record and a 12-month carry (ADR 0147 §3).
 
-- **Own claims.** A member's own claim of a ranked debater seat is refused with
-  `ranked-division` when the others are on the other ladder or the member has
-  no division (`rankedSeatClaimRefusal`).
-- **Host assignments.** A host's assignment and an initial cast may mix ladders.
-- **Start.** Start freezes the Round's ladder (`roundCompetition`). One
-  division rates on that division's active season, and Start refuses with
-  `ranked-unavailable` when there is none. A mixed seating starts a casual
-  Round while the Room stays ranked, and the host is told before Start.
-- **Judges.** Judge seats take anyone.
+- **Debater seats** (`seatAllowed`), ranked and casual, take only the Room's
+  division, whether claimed or assigned by the host; anything else answers
+  `other-division`. A member with no age record debates only in an Open
+  casual Room; a bot only casually.
+- **Judges.** Judge seats take anyone: minors judge Open Rooms, adults Youth.
+- **Start.** A ranked Round rates on its Room's division (`roundCompetition`),
+  and Start refuses with `ranked-unavailable` when that division has no
+  active season.
 - **League ladders.** A league carries one division, Open or Youth (PYL-16),
-  and a league Room on its ladder seats only members in that division. A caller's own claim there answers
-  `ranked-division`, and a host's assignment answers `actor-ineligible`.
+  and a league Room on its ladder also seats only members in that division.
+  A caller's own claim there answers `other-division`, and a host's assignment
+  answers `actor-ineligible`.
+- **Watching live** (`canWatchLive`). Any member may watch an Open Round; a
+  Youth Room's Round only its seats and seatless host (the spectator read
+  answers as missing).
 
 Round writers keep their own eligibility, so a running Round is never changed
 by any of this. See [compliance](../operations/compliance.md#children).

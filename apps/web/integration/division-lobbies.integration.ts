@@ -101,7 +101,7 @@ const ranked = async (f: Fixture) => {
   };
 };
 
-/** A ranked Room whose host sits on the affirmative, setting its ladder. */
+/** A ranked Room its host opens in their own lobby and sits in. */
 const rankedRoomSetBy = async (f: Fixture, host: Member) => {
   const created = (await f.create(await ranked(f), host)).view;
   return (
@@ -120,62 +120,126 @@ const claim = (f: Fixture, member: Member, room: RoomView, judge = false) =>
     }),
   );
 
-test('a ranked Room’s ladder follows who sits, and a member’s own seat must fit it', async () => {
+/** Makes `member` the owner of a school club: club staff (ADR 0151, ADR 0156). */
+const makeClubStaff = async (f: Fixture, member: Member) => {
+  const id = createId();
+  await f.sql`insert into organizations(id,kind,name,handle,owner_user_id)
+    values(${id},'school',${id},${id},${member.userId})`;
+  return id;
+};
+
+test('a Room belongs to the lobby it is created in (ADR 0156)', async () => {
   await withRoomRuntime(async (f) =>
     withSeasons(f, async () => {
       await setAge(f, f.host, 'seventeen');
-      await setAge(f, f.guest, 'eighteen');
+      await setAge(f, f.guest, 'adult');
+      await setAge(f, f.outsider, 'adult');
+      const club = await makeClubStaff(f, f.outsider);
+      try {
+        const minorRanked = (await f.create(await ranked(f), f.host)).view;
+        const minorCasual = (await f.create({}, f.host)).view;
+        const adultCasual = (await f.create({}, f.guest)).view;
+        const adultChoosesYouth = await refusalOf(
+          f.create({ lobby: 'youth' }, f.guest),
+        );
+        const minorChoosesOpen = await refusalOf(
+          f.create({ lobby: 'open' }, f.host),
+        );
+        const staffYouth = (
+          await f.create({ ...(await ranked(f)), lobby: 'youth' }, f.outsider)
+        ).view;
+        const stored = await f.sql`select id, division from rooms
+          where id in (${minorRanked.id}, ${minorCasual.id}, ${adultCasual.id}, ${staffYouth.id})`;
+        const divisionOf = (id: string) =>
+          stored.find((row: { id: string }) => row.id === id)?.division;
+        assert({
+          given:
+            'a 17-year-old creating ranked and casual Rooms, an adult creating casual and asking for Youth, the minor asking for Open, and club staff asking for Youth',
+          should:
+            'open each member’s Room in their own lobby, casual included, refuse the other lobby, and let club staff open a Youth Room',
+          actual: {
+            minorRanked: [minorRanked.division, divisionOf(minorRanked.id)],
+            minorCasual: minorCasual.division,
+            adultCasual: adultCasual.division,
+            adultChoosesYouth,
+            minorChoosesOpen,
+            staffYouth: divisionOf(staffYouth.id),
+          },
+          expected: {
+            minorRanked: ['youth', 'youth'],
+            minorCasual: 'youth',
+            adultCasual: 'open',
+            adultChoosesYouth: 'other-division',
+            minorChoosesOpen: 'other-division',
+            staffYouth: 'youth',
+          },
+        });
+      } finally {
+        await f.sql`delete from organizations where id=${club}`;
+      }
+    }),
+  );
+});
+
+test('debater seats are for the Room’s own lobby; judges may be anyone', async () => {
+  await withRoomRuntime(async (f) =>
+    withSeasons(f, async () => {
+      await setAge(f, f.host, 'seventeen');
+      await setAge(f, f.guest, 'adult');
       await setAge(f, f.outsider, 'seventeen');
-      const unset = (await f.create(await ranked(f), f.host)).view;
       const youthRoom = await rankedRoomSetBy(f, f.host);
       const adultClaim = await claim(f, f.guest, youthRoom);
       const adultJudges = await claim(f, f.guest, youthRoom, true);
       const judged = await f.operations.view(f.host, youthRoom.id);
-      const youthClaim = await claim(f, f.outsider, judged);
-      const seated = await f.operations.view(f.host, youthRoom.id);
+      const minorClaim = await claim(f, f.outsider, judged);
+      // Fresh members: each holds one active Room at a time (ADR 0070).
+      const adults = await f.freshCast();
+      const minor = (await f.freshCast()).host;
+      await setAge(f, adults.host, 'adult');
+      await setAge(f, adults.guest, 'adult');
+      await setAge(f, minor, 'seventeen');
+      const openCasual = (await f.create({}, adults.host)).view;
+      const minorCasualClaim = await refusalOf(
+        f.command(minor, openCasual, {
+          type: 'claim-seat',
+          seat: sideSeat(affirmativeSide),
+        }),
+      );
+      const openRanked = await rankedRoomSetBy(f, adults.guest);
+      const minorRankedClaim = await claim(f, minor, openRanked);
+      const minorJudgesOpen = await claim(f, minor, openRanked, true);
       assert({
         given:
-          'a ranked Room a 17-year-old host opens and sits in, then an 18-year-old and another 17-year-old',
+          'a Youth ranked Room, then an Open casual and an Open ranked Room, each with members of both lobbies claiming seats',
         should:
-          'open it with no ladder, set Youth when the host sits, refuse the adult’s debater seat with the division reason, seat the adult as judge and the minor as debater',
+          'refuse the adult’s Youth debater seat and the minor’s Open ones, ranked and casual, and seat each as judge',
         actual: {
-          unset: unset.ladder,
-          youth: youthRoom.ladder,
           adultClaim,
           adultJudges,
-          youthClaim,
-          seated: seated.ladder,
-          debaterDivisions: seated.participants.flatMap((p) =>
-            'actorId' in p && p.seat.kind === 'side' ? [p.division] : [],
-          ),
+          minorClaim,
+          minorCasualClaim,
+          minorRankedClaim,
+          minorJudgesOpen,
         },
         expected: {
-          unset: 'unset',
-          youth: 'youth',
-          adultClaim: 'ranked-division',
+          adultClaim: 'other-division',
           adultJudges: 'accepted',
-          youthClaim: 'accepted',
-          seated: 'youth',
-          debaterDivisions: ['youth', 'youth'],
+          minorClaim: 'accepted',
+          minorCasualClaim: 'other-division',
+          minorRankedClaim: 'other-division',
+          minorJudgesOpen: 'accepted',
         },
       });
     }),
   );
 });
 
-test('a minor takes no Open debater seat, and a host’s mixed seating starts a casual Round', async () => {
+test('a host cannot move a member of the other lobby onto a debater seat', async () => {
   await withRoomRuntime(async (f) =>
     withSeasons(f, async () => {
       await setAge(f, f.host, 'adult');
       await setAge(f, f.guest, 'adult');
       await setAge(f, f.outsider, 'seventeen');
-      for (const member of [f.guest, f.outsider])
-        await f.store.signContentWaiver({
-          id: createId(),
-          userId: member.userId,
-          version: CONTENT_WAIVER_VERSION,
-          words: agreementWords(contentWaiverDocument),
-        });
       // A seatless host, as a coach hosts (YRoomMixedHost).
       const created = (await f.create(await ranked(f), f.host)).view;
       const openRoom = (
@@ -184,59 +248,21 @@ test('a minor takes no Open debater seat, and a host’s mixed seating starts a 
           seat: sideSeat(affirmativeSide),
         })
       ).view;
-      const minorClaim = await claim(f, f.outsider, openRoom);
-      // Anyone may judge; the host then moves the minor onto the debate.
-      const minorJudges = await claim(f, f.outsider, openRoom, true);
+      await claim(f, f.outsider, openRoom, true);
       const judging = await f.operations.view(f.host, openRoom.id);
-      let mixed = (
-        await f.command(f.host, judging, {
+      const moved = await refusalOf(
+        f.command(f.host, judging, {
           type: 'assign-seat',
           actorId: f.outsider.actorId,
           seat: sideSeat(negativeSide),
-        })
-      ).view;
-      mixed = (
-        await f.command(f.host, mixed, {
-          type: 'assign-seat',
-          seat: judgeSeat(),
-          actorId: (await f.aiJudge()).actorId,
-        })
-      ).view;
-      const ready = await everyoneReady(f, mixed, [f.guest, f.outsider]);
-      const started = await refusalOf(
-        f.command(f.host, ready, { type: 'start-round' }),
+        }),
       );
-      const [round] = await f.sql`
-        select competition_type, preset_version, ladder_id, ladder_division
-          from rounds where room_id=${openRoom.id}`;
       assert({
         given:
-          'an Open ranked Room an adult sits in, a minor claiming its debater seat, then the seatless host moving the minor from the judge seat onto it and starting',
-        should:
-          'refuse the minor’s own debater claim, seat them as judge, accept the host’s mixed seating, and start a casual Round that rates no one while the Room stays ranked',
-        actual: {
-          open: openRoom.ladder,
-          minorClaim,
-          minorJudges,
-          mixed: mixed.ladder,
-          room: mixed.competitionType,
-          started,
-          round,
-        },
-        expected: {
-          open: 'open',
-          minorClaim: 'ranked-division',
-          minorJudges: 'accepted',
-          mixed: 'mixed',
-          room: 'ranked',
-          started: 'accepted',
-          round: {
-            competition_type: 'casual',
-            preset_version: null,
-            ladder_id: null,
-            ladder_division: null,
-          },
-        },
+          'an Open ranked Room whose seatless host moves a minor from the judge seat onto a debater seat',
+        should: 'refuse it: no Round mixes lobbies',
+        actual: moved,
+        expected: 'other-division',
       });
     }),
   );
@@ -287,13 +313,13 @@ test('a Youth Room rates on the Youth season, and starts ranked only while it is
           'sign them on the Youth season, refuse ranked at Start and launch no Round',
         actual: {
           signedOn: signedOn.map((row: { division: string }) => row.division),
-          ladder: room.ladder,
+          division: room.division,
           started,
           rounds: rounds[0]!.c,
         },
         expected: {
           signedOn: ['youth', 'youth'],
-          ladder: 'youth',
+          division: 'youth',
           started: 'ranked-unavailable',
           rounds: 0,
         },
@@ -317,10 +343,10 @@ test('a member who turns 18 mid-season finishes it on Youth', async () => {
             'a member who turned 18 after the active Youth season began, sitting in a ranked Room, and an adult claiming beside them',
           should: 'seat them on Youth and refuse the adult',
           actual: {
-            ladder: room.ladder,
+            division: room.division,
             adultClaim: await claim(f, f.guest, room),
           },
-          expected: { ladder: 'youth', adultClaim: 'ranked-division' },
+          expected: { division: 'youth', adultClaim: 'other-division' },
         });
       },
       { youthStartedAgo: '3 months' },
@@ -339,7 +365,7 @@ test('the Youth carry is bounded: no one is aged before their own record, nor mo
         await setAge(f, f.guest, 'eighteenAndAHalf', '4 years');
         // On record since before the season, 19 and a month: past the carry.
         await setAge(f, f.outsider, 'nineteenAndAMonth', '4 years');
-        const lateSignUp = (await rankedRoomSetBy(f, f.host)).ladder;
+        const lateSignUp = (await rankedRoomSetBy(f, f.host)).division;
         assert({
           given:
             'a Youth season begun three years ago, a member who recorded their age at 18 and a half, one on record since before it who is 18 and a half, and one who is 19 and a month',
@@ -347,8 +373,8 @@ test('the Youth carry is bounded: no one is aged before their own record, nor mo
             'put the late sign-up on Open, carry the 18-and-a-half on Youth, and put the 19-year-old on Open',
           actual: {
             lateSignUp,
-            carried: (await rankedRoomSetBy(f, f.guest)).ladder,
-            pastTheCarry: (await rankedRoomSetBy(f, f.outsider)).ladder,
+            carried: (await rankedRoomSetBy(f, f.guest)).division,
+            pastTheCarry: (await rankedRoomSetBy(f, f.outsider)).division,
           },
           expected: {
             lateSignUp: 'open',
@@ -362,21 +388,57 @@ test('the Youth carry is bounded: no one is aged before their own record, nor mo
   );
 });
 
-test('a casual Room seats any member, whatever their division', async () => {
+test('a Youth Room’s live Round has no public audience; an Open one does (ADR 0156)', async () => {
   await withRoomRuntime(async (f) => {
-    await setAge(f, f.guest, 'seventeen');
-    await setAge(f, f.host, 'adult');
-    const room = await f.assemble();
+    // A fresh pair each: a member holds one active Room (ADR 0070).
+    const liveRound = async (age: keyof typeof ages) => {
+      const cast = await f.freshCast();
+      await setAge(f, cast.host, age);
+      await setAge(f, cast.guest, age);
+      const room = await f.assemble({}, cast);
+      const launched = await f.command(cast.host, room, {
+        type: 'start-round',
+      });
+      return launched.view.roundRef!.id;
+    };
+    const watch = async (roundId: string) =>
+      (await f.store.readSpectatorTimeline({
+        roundId,
+        horizonOf: () => 0,
+      })) === null
+        ? 'refused'
+        : 'watching';
+    const youth = await liveRound('seventeen');
+    const youthWatch = await watch(youth);
+    const open = await liveRound('adult');
     assert({
-      given: 'a casual Room with an adult and a 17-year-old debater',
-      should: 'seat and ready them both, with no ladder',
-      actual: {
-        ladder: room.ladder,
-        ready: room.participants.filter(
-          (p) => 'actorId' in p && p.ready === 'ready',
-        ).length,
-      },
-      expected: { ladder: null, ready: 2 },
+      given: 'a live casual Round in a Youth Room, then one in an Open Room',
+      should:
+        'refuse the spectator read of the Youth Round as missing, and serve the Open one',
+      actual: { youth: youthWatch, open: await watch(open) },
+      expected: { youth: 'refused', open: 'watching' },
+    });
+  });
+});
+
+test('Start refuses a seated debater who no longer fits the Room’s lobby', async () => {
+  await withRoomRuntime(async (f) => {
+    const cast = await f.freshCast();
+    await setAge(f, cast.host, 'seventeen');
+    await setAge(f, cast.guest, 'seventeen');
+    const room = await f.assemble({}, cast);
+    // The guest's division changes while seated: their age record is corrected.
+    await setAge(f, cast.guest, 'adult');
+    const started = await refusalOf(
+      f.command(cast.host, room, { type: 'start-round' }),
+    );
+    const rounds =
+      await f.sql`select count(*)::int as c from rounds where room_id=${room.id}`;
+    assert({
+      given: 'a Youth Room whose seated debater is now on record as an adult',
+      should: 'refuse Start as the other lobby’s seat and launch no Round',
+      actual: { started, rounds: rounds[0]!.c },
+      expected: { started: 'other-division', rounds: 0 },
     });
   });
 });

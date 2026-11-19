@@ -16,7 +16,7 @@ const freeAlways = [
   'Debate other people, casual and ranked',
   'AI judging on every ranked Round',
   'Tournaments, ballots and results',
-  'Spectate and watch public Recordings',
+  'Watch live and public Recordings',
   'One bot Round with its AI judge, and one analysis, to try them',
 ];
 
@@ -33,7 +33,7 @@ const questionsFor = (
   {
     question: 'Who plays ranked?',
     answer:
-      'Ranked is for members 18 and over on Open – Freestyle, and for members under 18 on Youth – Freestyle. Members are 13 or older. Anyone can judge.',
+      'Ranked is for members 18 and over; members under 18 play ranked in the Youth lobby. Members are 13 or older. Anyone can judge.',
   },
   ...(actions.club.kind === 'link'
     ? [
@@ -125,7 +125,7 @@ export function PricingPage({
           summary="We set up your league with you: seasons, schools, divisions and rules."
           features={[
             'Every league tournament covered',
-            'Youth and Open divisions',
+            'Divisions for every age',
             'Sanctioning and season standings',
             'Help moving from your current tab system',
           ]}

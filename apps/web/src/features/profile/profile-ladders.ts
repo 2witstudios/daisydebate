@@ -2,22 +2,23 @@ import type { RatingDivision } from '@daisy/protocol';
 import type { MemberStanding } from '../ratings/read-member';
 
 /**
- * The ladder cards a profile shows (ADR 0147): every ladder the member was
- * rated on, this season or kept as history, and their own ladder even while
- * unrated there. A ladder they never played is left out. This season's cards
- * come before history.
+ * The one rating card a profile shows (ADR 0156, YProfile): the ladder the
+ * member is rated on this season, or on their own profile their own ladder
+ * while unrated. Earlier seasons live in the season history, not as cards.
  */
 export const profileLadders = (
   standings: readonly MemberStanding[],
   ownDivision: RatingDivision | null,
-): readonly MemberStanding[] =>
-  standings
-    .filter(
-      (standing) =>
-        standing.rating !== null || standing.ladder.division === ownDivision,
-    )
-    .slice()
-    .sort((a, b) => Number(b.current) - Number(a.current));
+): readonly MemberStanding[] => {
+  const rated = standings.find(
+    (standing) => standing.current && standing.rating !== null,
+  );
+  const own = standings.find(
+    (standing) => standing.current && standing.ladder.division === ownDivision,
+  );
+  const shown = rated ?? own;
+  return shown ? [shown] : [];
+};
 
 /**
  * The division a member's ratings say they debate on now: the one ladder they

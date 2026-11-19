@@ -1,3 +1,4 @@
+import { ladderCopyIn } from '../test-support/ladder-copy.test-support';
 import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { RoundRatingsView } from '../../features/ratings/read-round';
@@ -75,14 +76,13 @@ describe('the ladder a Round rated', () => {
       should:
         'head with the ladder and season, and name the ladder on each change',
       actual: [
-        /<h2[^>]*><span[^>]*text-hue-plum[^>]*>Youth – Freestyle<\/span> · Fall 2026<\/h2>/.test(
-          html,
+        /<h2[^>]*>Ranked · Fall 2026<\/h2>/.test(html) &&
+          ladderCopyIn(html) === null,
+        html.includes(
+          '1526<span class="font-body text-base font-book not-italic text-online"> +14</span>',
         ),
         html.includes(
-          '1526<span class="font-body text-base font-book not-italic text-online"> Youth – Freestyle +14</span>',
-        ),
-        html.includes(
-          '1466*<span class="font-body text-base font-book not-italic text-hue-clay"> Youth – Freestyle −12</span>',
+          '1466*<span class="font-body text-base font-book not-italic text-hue-clay"> −12</span>',
         ),
         html.includes('Win +14 · Loss −12'),
       ],
@@ -98,10 +98,10 @@ describe('the ladder a Round rated', () => {
       .replace(/<[^>]+>/g, '')
       .replace(/&#x27;/g, "'");
     assert({
-      given: 'a provisional debater who gained 162 on Youth – Freestyle',
+      given: 'a provisional youth debater who gained 162',
       should:
-        'read the rating, then the ladder it moved on with the change: "1662* Youth – Freestyle +162"',
-      actual: text.includes('1662* Youth – Freestyle +162'),
+        'read the rating, then the change, naming no ladder: "1662* +162"',
+      actual: text.includes('1662* +162'),
       expected: true,
     });
   });
@@ -112,12 +112,12 @@ describe('the ladder a Round rated', () => {
       should: 'sign each with a true minus, name the ladder and tone it',
       actual: [
         [signedChange(14), signedChange(-12), signedChange(0)],
-        ladderChangeText({ style: 'freestyle', division: 'open' }, -3),
+        ladderChangeText(-3),
         [changeToneClass(1), changeToneClass(-1), changeToneClass(0)],
       ],
       expected: [
         ['+14', '−12', '0'],
-        'Open – Freestyle −3',
+        '−3',
         ['text-online', 'text-hue-clay', 'text-ink-muted'],
       ],
     });

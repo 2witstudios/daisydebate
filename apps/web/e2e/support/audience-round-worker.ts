@@ -117,6 +117,7 @@ try {
     format_id: format.id,
     format_version: format.version,
     competition_type: 'casual',
+    division: 'open',
     config: {},
     execution_plan: {},
     rules_snapshot: rules,

@@ -58,6 +58,8 @@ export async function leagueRoomRating(world: World) {
         id: roomId,
         hostActorId: principal.actorId,
         title: 'League ladder Room',
+        // A league's Rooms open in its division (ADR 0156); every league starts Open.
+        division: 'open',
         topic: 'League ladder proof',
         visibility: 'unlisted',
         formatId: 'freestyle',
@@ -152,10 +154,11 @@ export async function leagueRoomRating(world: World) {
           'a debater aged 17 years 11 months claiming a league-ladder seat',
         should: 'refuse them on their own ladder, never naming an age',
         actual: underAge,
-        expected: 'ranked-division',
+        expected: 'other-division',
       });
-      // PYL-16: the same league set to Youth seats the 17-year-old and
-      // refuses an adult, by the league's division alone.
+      // PYL-16 then ADR 0156: the league set to Youth refuses an adult by the
+      // league's division, and its existing Room keeps the Open lobby it was
+      // created in, so the 17-year-old takes no debater seat there either.
       const [league] =
         await world.sql`select l.organization_id from rooms r join ladders l on l.id = r.league_ladder_id where r.id = ${roomId}`;
       await world.sql`update organizations set league_division = 'youth' where id = ${league!.organization_id}`;
@@ -178,14 +181,17 @@ export async function leagueRoomRating(world: World) {
         'affirmative',
       );
       const youthInYouth = await outcome(minor, 'negative');
-      view = (await f.command(minor, view, { type: 'leave-seat' })).view;
       await world.sql`update organizations set league_division = 'open' where id = ${league!.organization_id}`;
       await world.sql`update account_age set birth_month=${kept!.birth_month}, version=version+1 where user_id=${minor.userId}`;
       assert({
-        given: 'the league set to Youth',
-        should: 'refuse an adult on their own ladder and seat the 17-year-old',
+        given: 'the league set to Youth after its Open Room was created',
+        should:
+          'refuse the adult by the league’s division and the 17-year-old by the Room’s lobby',
         actual: { adultInYouth, youthInYouth },
-        expected: { adultInYouth: 'ranked-division', youthInYouth: 'accepted' },
+        expected: {
+          adultInYouth: 'other-division',
+          youthInYouth: 'other-division',
+        },
       });
       for (const [side, person] of [
         ['affirmative', world.bots['Debater 1']!],

@@ -633,7 +633,7 @@ test(
       };
       const retainedAfter = {
         rooms:
-          await sql`select to_jsonb(r) - array['rules_snapshot','capture','lobby_id','lobby_kind','template_id','standing_template_id','ballot_definition_id','ballot_definition_version','league_ladder_id','holds_host'] as row from rooms r order by id`,
+          await sql`select to_jsonb(r) - array['rules_snapshot','capture','lobby_id','lobby_kind','template_id','standing_template_id','ballot_definition_id','ballot_definition_version','league_ladder_id','holds_host','division'] as row from rooms r order by id`,
         rounds:
           await sql`select to_jsonb(r) - array['rules_snapshot','capture','winning_side','ranking','judging','ballot_definition_id','ballot_definition_version','league_ladder_id','ladder_division'] as row from rounds r order by id`,
         roomParticipants:

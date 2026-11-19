@@ -45,10 +45,10 @@ import { useMovedOn } from '../form-action/use-moved-on';
 import { anchorAt, MemberCardBody } from './member-card';
 import { useChallenges } from '../challenges/challenge-provider';
 import {
+  challengeModeLine,
+  mayChallenge,
   offersRanked,
-  rankedChallengeLine,
-  rankedChallengeOf,
-} from '../../features/challenges/challenge-ladder';
+} from '../../features/challenges/challenge-lobby';
 import { usePeople } from './people-provider';
 import type { PersonActions } from './person-actions';
 import { publicNameLabel } from '../profile/public-name';
@@ -236,9 +236,10 @@ function ChallengeView({
 }) {
   const { username } = member;
   const { memberDivision } = useChallenges();
-  const ranked = rankedChallengeOf(memberDivision, member.division);
+  const ranked = offersRanked(memberDivision, member.division);
+  const line = ranked ? null : challengeModeLine(memberDivision);
   const [mode, setMode] = useState<CompetitionType>(
-    offersRanked(ranked) ? 'ranked' : 'casual',
+    ranked ? 'ranked' : 'casual',
   );
   const [answer, post, pending] = useFormAction(
     action,
@@ -261,11 +262,9 @@ function ChallengeView({
             key={value}
             type="button"
             aria-pressed={mode === value}
-            disabled={value === 'ranked' && !offersRanked(ranked)}
+            disabled={value === 'ranked' && !ranked}
             aria-describedby={
-              value === 'ranked' && !offersRanked(ranked)
-                ? ladderLineId
-                : undefined
+              value === 'ranked' && line !== null ? ladderLineId : undefined
             }
             onClick={() => setMode(value)}
             className={chip}
@@ -274,11 +273,11 @@ function ChallengeView({
           </button>
         ))}
       </div>
-      {mode === 'ranked' || !offersRanked(ranked) ? (
+      {line === null ? null : (
         <p id={ladderLineId} className="text-sm text-ink-muted">
-          {rankedChallengeLine(ranked, username)}
+          {line}
         </p>
-      ) : null}
+      )}
       {refusal ? (
         <p role="status" className="text-sm text-ink-muted">
           {refusal}
@@ -388,6 +387,7 @@ export function PersonMenu({
     challenges,
     refresh: refreshChallenges,
     noteCancelled,
+    memberDivision,
   } = useChallenges();
   const refresh = () => {
     refreshPeople();
@@ -434,7 +434,7 @@ export function PersonMenu({
         }}
         className="absolute person-anchor right-full z-40 mr-2 flex w-person-card flex-col gap-2 rounded-lg border border-border bg-surface-raised p-3 shadow-3 max-narrow:fixed max-narrow:inset-x-0 max-narrow:bottom-0 max-narrow:mr-0 max-narrow:w-auto max-narrow:rounded-b-none"
       >
-        <MemberCardBody member={member} />
+        <MemberCardBody member={member} viewer={memberDivision} />
         <hr className="border-border" />
         {view === 'menu' ? (
           <div className="flex flex-col">
@@ -444,7 +444,9 @@ export function PersonMenu({
                 challengeId={outgoing.id}
                 onDone={finish}
               />
-            ) : canBeChallenged(member) ? (
+            ) : canBeChallenged(member) &&
+              // Challenges stay inside one lobby (ADR 0156).
+              mayChallenge(memberDivision, member.division) ? (
               <button
                 type="button"
 

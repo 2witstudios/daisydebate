@@ -107,6 +107,8 @@ const daisyKeys: Record<string, Row> = {
   rooms: { lobby_id: publicLobbyId },
   seasons: { organization_id: daisyOrganizationId },
 };
+/** A fixture Room is in the Open lobby unless it says otherwise (ADR 0156). */
+const lobbyDivision: Row = { division: 'open' };
 
 /**
  * Per-test fixture over one connection. Every inserted key is tracked and
@@ -129,12 +131,16 @@ export class Fixture {
     if (!key) return {};
     this.daisyKeyed ??= (
       this.sql.unsafe(
-        `select table_name from information_schema.columns
+        `select table_name || '.' || column_name as found from information_schema.columns
          where table_schema = 'public'
-           and (table_name, column_name) in (('rooms', 'lobby_id'), ('seasons', 'organization_id'))`,
-      ) as Promise<Array<{ table_name: string }>>
-    ).then((found) => new Set(found.map((row) => row.table_name)));
-    return (await this.daisyKeyed).has(table) ? key : {};
+           and (table_name, column_name) in (('rooms', 'lobby_id'), ('seasons', 'organization_id'), ('rooms', 'division'))`,
+      ) as Promise<Array<{ found: string }>>
+    ).then((found) => new Set(found.map((row) => row.found)));
+    const present = await this.daisyKeyed;
+    const owner = present.has(`${table}.${Object.keys(key)[0]}`) ? key : {};
+    return table === 'rooms' && present.has('rooms.division')
+      ? { ...owner, ...lobbyDivision }
+      : owner;
   }
 
   track(table: string, key: string) {

@@ -73,9 +73,9 @@ test('a seatless member reads a Youth Room’s chat and has nowhere to post, wit
       true,
     );
     roomId = created.id;
-    // The minor sits, so the Room is a Youth Room; their page opens its chat.
+    // A minor creates it, so it is a Youth Room (ADR 0156); seated, their page opens its chat.
     const seated = await claim(host, created, 'Affirmative 1');
-    expect(seated.ladder).toBe('youth');
+    expect(seated.division).toBe('youth');
     await expect(
       chatOf(host).getByRole('textbox', {
         name: 'Message everyone in the room',

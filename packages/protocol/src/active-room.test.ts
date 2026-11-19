@@ -12,7 +12,6 @@ const entry = {
   phase: 'assembling',
   role: 'host',
   seated: false,
-  ladder: null,
   href: `/rooms/${roomId}`,
 } as const;
 

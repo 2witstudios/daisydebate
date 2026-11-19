@@ -19,6 +19,7 @@ import { recordings } from './schema/recordings';
 import { ratingChanges } from './schema/ratings';
 import { roundParticipants } from './schema/round-participants';
 import { roundSegments } from './schema/round-segments';
+import { rooms } from './schema/rooms';
 import { rounds } from './schema/rounds';
 import { users } from './schema/users';
 import { utterances } from './schema/utterances';
@@ -68,6 +69,7 @@ export const spectatorTimelineReads = ({
               roomId: rounds.roomId,
               visibility: rounds.visibility,
               ladderDivision: rounds.ladderDivision,
+              roomDivision: rooms.division,
               status: rounds.status,
               competitionType: rounds.competitionType,
               resolution: rounds.resolution,
@@ -78,6 +80,7 @@ export const spectatorTimelineReads = ({
               completedAt: rounds.completedAt,
             })
             .from(rounds)
+            .leftJoin(rooms, eq(rooms.id, rounds.roomId))
             .where(eq(rounds.id, input.roundId));
           const round = row && {
             ...row,
@@ -88,8 +91,10 @@ export const spectatorTimelineReads = ({
             round.roomId === null ||
             (round.visibility !== 'public' &&
               round.visibility !== 'unlisted') ||
-            // A Youth Round has no audience (ADR 0150): it reads as missing.
-            round.ladderDivision === 'youth'
+            // A Youth Round has no audience (ADR 0150), nor any Round of a
+            // Youth Room, casual included (ADR 0156): it reads as missing.
+            round.ladderDivision === 'youth' ||
+            round.roomDivision === 'youth'
           )
             return null;
           const competitionType = round.competitionType as 'ranked' | 'casual';

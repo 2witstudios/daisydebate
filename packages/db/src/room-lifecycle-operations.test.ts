@@ -22,6 +22,12 @@ test('a create whose host another Room holds is refused as active-room (ADR 0070
     [],
     [],
     [],
+    // the creator's division, scope, club staff, scope back (ADR 0156)
+    [],
+    [],
+    [],
+    [],
+    [],
     now,
     [],
     [],
@@ -34,6 +40,7 @@ test('a create whose host another Room holds is refused as active-room (ADR 0070
     actual: () =>
       database.createRoomCommand({
         room,
+        lobbyChoice: null,
         membersOf: () => [room.hostActorId],
         commandId: 'c4a2b6d8f1h3j5k7m9n2p4r6',
         payloadDigest: 'a'.repeat(64),
@@ -71,9 +78,6 @@ test('the active room read maps the membership row, and no row reads as none', a
         'active',
         null,
         'side',
-        'ranked',
-        'open',
-        ['open'],
       ],
     ],
     [accountRow()],
@@ -82,8 +86,8 @@ test('the active room read maps the membership row, and no row reads as none', a
   const authorize = (fact: { member: boolean } | null) => fact?.member === true;
   assert({
     given:
-      'a host seated on a side of a live ranked Room on Open, then an actor no Room holds',
-    should: 'return the portable facts with the Round’s ladder, then null',
+      'a host seated on a side of a live Room, then an actor no Room holds',
+    should: 'return the portable facts, then null',
     actual: [
       await database.readActiveRoomFacts(caller, authorize),
       await database.readActiveRoomFacts(caller, authorize),
@@ -95,7 +99,6 @@ test('the active room read maps the membership row, and no row reads as none', a
         roundRef: { id: roundId, status: 'active' },
         seatKind: 'side',
         debateEnded: false,
-        ladder: 'open',
       },
       null,
     ],

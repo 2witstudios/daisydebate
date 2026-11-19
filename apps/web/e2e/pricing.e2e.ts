@@ -132,9 +132,13 @@ for (const { name, width, height, columns } of widths) {
     await expect(
       page.getByText('There are no counters.', { exact: false }),
     ).toBeVisible();
-    await expect(ranked.getByText('Youth – Freestyle')).toBeHidden();
+    await expect(
+      ranked.getByText('Youth lobby', { exact: false }),
+    ).toBeHidden();
     await ranked.locator('summary').click();
-    await expect(ranked.getByText('Youth – Freestyle')).toBeVisible();
+    await expect(
+      ranked.getByText('Youth lobby', { exact: false }),
+    ).toBeVisible();
 
     // No horizontal scroll at either width.
     const overflow = await page.evaluate(

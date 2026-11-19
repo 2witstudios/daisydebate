@@ -174,11 +174,10 @@ export function MediaReleaseSection({
             <span className={muted}>{view.privateRounds}</span>
           </div>
           <p className="text-base text-ink">
-            You are under 18, so your ranked Rounds are on the{' '}
-            <strong className="font-strong">Youth – Freestyle</strong> ladder.
-            They are recorded but private: only you, the debaters and judges in
-            the Round, your coach and your parent can watch. A media release
-            lets Daisy publish them and make clips.
+            You are under 18, so your ranked Rounds are in the Youth lobby. They
+            are recorded but private: only you, the debaters and judges in the
+            Round, your coach and your parent can watch. A media release lets
+            Daisy publish them and make clips.
           </p>
           {view.withdrawnNote ? (
             <p className={muted}>{view.withdrawnNote}</p>

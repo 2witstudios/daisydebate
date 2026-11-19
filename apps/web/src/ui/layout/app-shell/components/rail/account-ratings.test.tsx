@@ -1,3 +1,4 @@
+import { ladderCopyIn } from '../../../../test-support/ladder-copy.test-support';
 import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
@@ -53,34 +54,22 @@ describe('ratingText', () => {
 });
 
 describe('railLadderRows', () => {
-  test('the member’s own ladder first with its rating; the other locked to its audience', () => {
+  test('only the member’s own ladder, never the other lobby’s', () => {
     const standings = [openStanding(), standing({})];
     assert({
       given: 'a youth member, then an adult, on both Freestyle ladders',
-      should:
-        'rate Youth and lock Open to 18 and over, then rate Open and lock Youth to Under 18',
+      should: 'show one row each: their own ladder and its rating',
       actual: [
-        railLadderRows(standings, 'youth').map((row) =>
-          row.kind === 'own'
-            ? [row.ladder.division, row.text]
-            : [row.ladder.division, row.audience],
-        ),
-        railLadderRows(standings, 'open').map((row) =>
-          row.kind === 'own'
-            ? [row.ladder.division, row.text]
-            : [row.ladder.division, row.audience],
-        ),
+        railLadderRows(standings, 'youth').map((row) => [
+          row.ladder.division,
+          row.text,
+        ]),
+        railLadderRows(standings, 'open').map((row) => [
+          row.ladder.division,
+          row.text,
+        ]),
       ],
-      expected: [
-        [
-          ['youth', '1526'],
-          ['open', '18 and over'],
-        ],
-        [
-          ['open', 'Unrated'],
-          ['youth', 'Under 18'],
-        ],
-      ],
+      expected: [[['youth', '1526']], [['open', 'Unrated']]],
     });
   });
   test('a rating kept from an earlier season is no rating this season', () => {
@@ -91,7 +80,7 @@ describe('railLadderRows', () => {
     assert({
       given: 'their own ladder with only last season’s rating',
       should: 'read Unrated',
-      actual: row?.kind === 'own' ? row.text : null,
+      actual: row?.text,
       expected: 'Unrated',
     });
   });
@@ -115,7 +104,7 @@ describe('railSeason', () => {
 });
 
 describe('AccountRatings', () => {
-  test('a youth member sees Youth rated and Open locked 18 and over', async () => {
+  test('one Rating, naming no ladder, style or division (YHomeActive)', async () => {
     const html = await render(
       Promise.resolve({
         state: 'ready',
@@ -127,17 +116,17 @@ describe('AccountRatings', () => {
       }),
     );
     assert({
-      given: 'a youth member rated provisionally on Youth – Freestyle',
+      given: 'a youth member rated provisionally on their own ladder',
       should:
-        'title the section with the season, rate Youth starred and italic, and lock Open',
+        'title the section with the season, show the Rating starred, and name no ladder, style or division',
       actual: [
         html.includes('Ranked · Fall 2026'),
-        html.indexOf('Youth – Freestyle') < html.indexOf('Open – Freestyle'),
+        html.includes('>Rating</dt>'),
         html.includes('1530*'),
         html.includes('title="Provisional rating"'),
-        html.includes('18 and over'),
+        ladderCopyIn(html) ?? (html.includes('Youth') || html.includes('Open')),
       ],
-      expected: [true, true, true, true, true],
+      expected: [true, true, true, true, false],
     });
   });
 

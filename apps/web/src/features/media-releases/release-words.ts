@@ -40,7 +40,7 @@ export const releaseMoment = (at: string): string =>
 
 /** Why a minor's request was not sent, in words. */
 export const askRefusalWords: Record<AskRefusal, string> = {
-  not_youth: 'Media releases are for members on Youth – Freestyle.',
+  not_youth: 'Media releases are for members under 18.',
   already_released: 'A media release is already on file for you.',
   invalid_email: 'Enter an email address.',
   recipient_stopped:

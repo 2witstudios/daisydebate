@@ -38,7 +38,11 @@ test.describe('authenticated Room lobby', () => {
       const item = roomRows(page).filter({ hasText: title });
       await expect(item).toHaveCount(1);
       await expect(item).toContainText(setResolution);
-      await expect(item.getByRole('link')).toHaveAttribute(
+      // Watch sits beside the row's seat action (ADR 0156); both lead to the Room.
+      await expect(
+        item.getByRole('link', { name: /^Watch: / }),
+      ).toHaveAttribute('href', `/rooms/${created.id}`);
+      await expect(item.getByRole('link').last()).toHaveAttribute(
         'href',
         `/rooms/${created.id}`,
       );
@@ -129,7 +133,8 @@ test.describe('Room lobby with JavaScript off', () => {
       await expect(roomRows(page).filter({ hasText: title })).toHaveCount(1);
       await page.getByRole('searchbox', { name: 'Search rooms' }).fill(title);
       await page.getByRole('button', { name: 'Apply', exact: true }).click();
-      await expect(page).toHaveURL(/\/lobby\?q=/);
+      // The form keeps the lobby it filters (ADR 0156).
+      await expect(page).toHaveURL(/\/lobby\?lobby=open&q=/);
       await expect(roomRows(page)).toHaveCount(1);
       await expect(roomRows(page).first()).toContainText(title);
     } finally {

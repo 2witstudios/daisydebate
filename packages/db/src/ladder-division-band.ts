@@ -40,14 +40,3 @@ export const divisionOfBandSql = (band: SQL): SQL =>
     ),
     sql` `,
   )} end)`;
-
-/**
- * The ladder divisions of a Room's seated human debaters, as a JSON array
- * (`roomId` names the Room, `r.id` by default): the facts
- * `divisionForSeatedDebaters` reads.
- */
-export const seatedDebaterDivisionsSql = (roomId: SQL = sql`r.id`): SQL =>
-  sql`(select coalesce(json_agg(${divisionOfBandSql(divisionAgeBand())}), '[]'::json)
-    from room_participants seated join actors seated_actor on seated_actor.id = seated.actor_id
-    left join account_age on account_age.user_id = seated_actor.user_id
-    where seated.room_id = ${roomId} and seated_actor.kind = 'human' and seated.seat_kind in ('side', 'speaker'))`;
