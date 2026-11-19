@@ -20,6 +20,11 @@ export type MessagingSocialBounds = Readonly<{
  */
 export const messageRequestSettings = ['everyone', 'friends', 'none'] as const;
 export type MessageRequestSetting = (typeof messageRequestSettings)[number];
+/** The body that stores a member's own request setting. */
+export const messageRequestSettingSchema = z.strictObject({
+  version: z.literal(1),
+  setting: z.enum(messageRequestSettings),
+});
 
 export const messagingDmResultSchema = z.strictObject({
   version: z.literal(1),

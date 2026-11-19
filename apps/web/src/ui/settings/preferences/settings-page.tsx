@@ -24,6 +24,7 @@ const heading = 'font-display text-xl font-bold text-ink';
 const nav = [
   ['profile', 'Profile'],
   ['media-release', 'Media release'],
+  ['messages', 'Messages'],
   ['notifications', 'Notifications'],
   ['watch-history', 'Watch history'],
   ['privacy', 'Privacy and data'],
@@ -58,6 +59,8 @@ export type SettingsPageProps = {
   readonly publicProfile?: ReactNode;
   /** The member's own status choice, the rail's control again (ADR 0103). */
   readonly status?: ReactNode;
+  /** Who may send the member message requests (decision 90). */
+  readonly messageRequests?: ReactNode;
   /** What is stored for the member, when it could be read (ISSUE-1045). */
   readonly notifications?: ReactNode;
   /** What the member has watched, which they alone see and can clear. */
@@ -93,11 +96,16 @@ export function SettingsPage({
   onboarding,
   publicProfile,
   status,
+  messageRequests,
   notifications,
   watchHistory,
   mediaRelease,
 }: SettingsPageProps) {
-  const sections = nav.filter(([id]) => id !== 'media-release' || mediaRelease);
+  const sections = nav.filter(
+    ([id]) =>
+      (id !== 'media-release' || mediaRelease) &&
+      (id !== 'messages' || messageRequests),
+  );
   return (
     <div className="mx-auto flex w-full max-w-dash-column flex-col gap-6 px-6 pt-5 pb-8 max-compact:gap-4 max-compact:px-4">
       <PageHeader title="Settings" />
@@ -181,6 +189,11 @@ export function SettingsPage({
             </p>
             <DataRights notices={dataRightsNotices} />
           </Section>
+          {messageRequests ? (
+            <Section id="messages" title="Messages">
+              {messageRequests}
+            </Section>
+          ) : null}
           {notifications ? (
             <Section id="notifications" title="Notifications">
               {notifications}

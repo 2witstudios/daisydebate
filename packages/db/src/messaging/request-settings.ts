@@ -1,0 +1,46 @@
+import type { MessageRequestSetting } from '@daisy/protocol';
+import { sql } from 'drizzle-orm';
+import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
+import { instrumented, type DatabaseEventSink } from '../instrumented';
+import { rowsOf } from '../raw-rows';
+
+/**
+ * A member's own "who can send me message requests" (decision 90, ADR 0160).
+ * No row is everyone; choosing everyone removes the row.
+ */
+export const messageRequestSettingOperations = ({
+  database,
+  eventSink,
+}: {
+  readonly database: BunSQLDatabase;
+  readonly eventSink?: DatabaseEventSink | undefined;
+}) => ({
+  readMessageRequestSetting(input: {
+    readonly userId: string;
+  }): Promise<MessageRequestSetting> {
+    return instrumented(eventSink, 'readMessageRequestSetting', async () => {
+      const [row] = await rowsOf<{ setting: MessageRequestSetting }>(
+        database,
+        sql`select setting from messaging_request_settings where user_id=${input.userId}`,
+      );
+      return row?.setting ?? 'everyone';
+    });
+  },
+  writeMessageRequestSetting(input: {
+    readonly userId: string;
+    readonly setting: MessageRequestSetting;
+  }): Promise<void> {
+    return instrumented(eventSink, 'writeMessageRequestSetting', async () => {
+      if (input.setting === 'everyone') {
+        await database.execute(
+          sql`delete from messaging_request_settings where user_id=${input.userId}`,
+        );
+        return;
+      }
+      await database.execute(sql`insert into messaging_request_settings(user_id,setting,updated_at)
+        select u.id,${input.setting},now() from users u
+        where u.id=${input.userId} and u.deleted_at is null
+        on conflict (user_id) do update set setting=excluded.setting,updated_at=excluded.updated_at`);
+    });
+  },
+});

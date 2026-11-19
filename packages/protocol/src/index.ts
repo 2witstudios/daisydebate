@@ -438,6 +438,7 @@ export {
   messagingDmDecisionResultSchema,
   messagingChannelLifecycles,
   messageRequestSettings,
+  messageRequestSettingSchema,
 } from './messaging/social';
 export type {
   MessagingChannelLifecycle,

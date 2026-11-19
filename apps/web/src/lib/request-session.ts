@@ -489,16 +489,18 @@ export const requestNotifications = (
 /** What this account keeps of its notification choices and watching. */
 export const requestAudienceSettings = async (userId: string) => {
   const { database, clock } = processApp();
-  const [preferences, presentation, history] = await Promise.all([
-    database.readNotificationPreferences({ userId }),
-    database.readNotificationPresentation({ userId }),
-    database.listWatchHistory({
-      userId,
-      clock: spectatorClockAt(clock.now()),
-      limit: WATCH_HISTORY_ROWS,
-    }),
-  ]);
-  return { preferences, presentation, history };
+  const [preferences, presentation, history, messageRequestSetting] =
+    await Promise.all([
+      database.readNotificationPreferences({ userId }),
+      database.readNotificationPresentation({ userId }),
+      database.listWatchHistory({
+        userId,
+        clock: spectatorClockAt(clock.now()),
+        limit: WATCH_HISTORY_ROWS,
+      }),
+      database.readMessageRequestSetting({ userId }),
+    ]);
+  return { preferences, presentation, history, messageRequestSetting };
 };
 
 /** Whether this account follows that debater; null when it cannot. */

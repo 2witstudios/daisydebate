@@ -17,7 +17,7 @@ import { openStream } from './stream';
 import type { ContactInput } from '../contacts/fence';
 import type { MessagingSocialFrame } from './social-contracts';
 import type { ContactReactions } from '../contacts/reactions';
-import { oweNotifications } from '../notifications/owe';
+import { oweNotifications, resurfaceNotifications } from '../notifications/owe';
 import { rowsOf } from '../raw-rows';
 import { sql } from 'drizzle-orm';
 type Tx = Pick<BunSQLDatabase, 'select' | 'insert' | 'update' | 'execute'>;
@@ -145,16 +145,25 @@ export function dmRequestFrame(
         tx,
         sql`select user_id from actors where id=${counterpartOf(input)} and user_id is not null`,
       );
-      await oweNotifications(tx, {
-        kind: 'dm_request',
+      const owed = {
+        kind: 'dm_request' as const,
         subject: { dm_channel_id: channelId },
+        at: command.now,
+        nextId: command.nextId,
+      };
+      const written = await oweNotifications(tx, {
+        ...owed,
         recipients: recipients.map((row) => ({
           userId: row.user_id,
           about: input.actorId,
         })),
-        at: command.now,
-        nextId: command.nextId,
       });
+      // Asking again after a decline brings the earlier notice back unread.
+      if (written === 0)
+        await resurfaceNotifications(tx, {
+          ...owed,
+          userIds: recipients.map((row) => row.user_id),
+        });
       // Messaging's own receipt, which a retry of this request replays.
       await tx.insert(messagingSocialCommands).values({
         actorId: input.actorId,
