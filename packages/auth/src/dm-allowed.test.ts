@@ -1,6 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { ageBands, messageRequestSettings } from '@daisy/protocol';
-import { dmAllowed, type DmQuestion } from './social-policy';
+import { dmAllowed, dmRequestOffer, type DmQuestion } from './social-policy';
+import { adultAccount } from './social.test-support';
 setupRitewayBun();
 
 const stages = ['request', 'conversation'] as const;
@@ -115,7 +116,8 @@ describe('dmAllowed (decision 90)', () => {
     );
     assert({
       given: 'an adult asking, or posting to, a 13-15 or 16-17',
-      should: 'allow it exactly when they are friends or the adult is linked staff',
+      should:
+        'allow it exactly when they are friends or the adult is linked staff',
       actual: answers(adultToMinor),
       expected: adultToMinor.map((q) => q.friends || q.linkedStaff),
     });
@@ -127,22 +129,160 @@ describe('dmAllowed (decision 90)', () => {
       should: 'answer each as the owner said',
       actual: [
         // 14 to 16: a message request, straight to the recipient.
-        dmAllowed({ stage: 'request', initiator: '13-15', recipient: '16-17', ...plain }),
+        dmAllowed({
+          stage: 'request',
+          initiator: '13-15',
+          recipient: '16-17',
+          ...plain,
+        }),
         // An adult's cold request to a 14-year-old.
-        dmAllowed({ stage: 'request', initiator: 'adult', recipient: '13-15', ...plain }),
+        dmAllowed({
+          stage: 'request',
+          initiator: 'adult',
+          recipient: '13-15',
+          ...plain,
+        }),
         // After the 14-year-old accepts the friendship.
-        dmAllowed({ stage: 'request', initiator: 'adult', recipient: '13-15', ...plain, friends: true }),
+        dmAllowed({
+          stage: 'request',
+          initiator: 'adult',
+          recipient: '13-15',
+          ...plain,
+          friends: true,
+        }),
         // The minor's own club staff, directly.
-        dmAllowed({ stage: 'request', initiator: 'adult', recipient: '16-17', ...plain, linkedStaff: true }),
+        dmAllowed({
+          stage: 'request',
+          initiator: 'adult',
+          recipient: '16-17',
+          ...plain,
+          linkedStaff: true,
+        }),
         // A minor asks an adult.
-        dmAllowed({ stage: 'request', initiator: '16-17', recipient: 'adult', ...plain }),
+        dmAllowed({
+          stage: 'request',
+          initiator: '16-17',
+          recipient: 'adult',
+          ...plain,
+        }),
         // Unfriended: the adult's DM with the minor stops posting.
-        dmAllowed({ stage: 'conversation', initiator: 'adult', recipient: '13-15', ...plain }),
+        dmAllowed({
+          stage: 'conversation',
+          initiator: 'adult',
+          recipient: '13-15',
+          ...plain,
+        }),
         // A minor's own DM with an adult keeps posting without a friendship.
-        dmAllowed({ stage: 'conversation', initiator: '13-15', recipient: 'adult', ...plain }),
+        dmAllowed({
+          stage: 'conversation',
+          initiator: '13-15',
+          recipient: 'adult',
+          ...plain,
+        }),
         // Adult to adult under Friends only, as friends.
-        dmAllowed({ stage: 'request', initiator: 'adult', recipient: 'adult', ...plain, friends: true, recipientSetting: 'friends' }),
+        dmAllowed({
+          stage: 'request',
+          initiator: 'adult',
+          recipient: 'adult',
+          ...plain,
+          friends: true,
+          recipientSetting: 'friends',
+        }),
       ],
       expected: [true, false, true, true, true, false, true, true],
+    }));
+});
+
+describe('dmRequestOffer', () => {
+  const now = '2026-10-09T00:00:00.000Z';
+  const person = (
+    actorId: string,
+    band: '13-15' | 'adult',
+    contact: Partial<{
+      requestSetting: 'everyone' | 'friends' | 'none';
+      friendActorIds: readonly string[];
+      linkedAdultUserIds: readonly string[];
+    }> = {},
+  ) => {
+    const row = adultAccount(actorId);
+    return {
+      account: { ...row.account, ageBand: band },
+      age: { ...row.age, band },
+      contact: { ...row.contact, ...contact },
+    };
+  };
+  test('what the profile offers', () =>
+    assert({
+      given:
+        'an adult toward a minor, a Friends-only adult, a No-one adult, friends, linked staff and peers',
+      should:
+        'offer Add friend wherever only a friendship opens a request, so an age never shows',
+      actual: [
+        dmRequestOffer(
+          [person('a', 'adult'), person('b', '13-15')],
+          now,
+          'a',
+          'b',
+        ),
+        dmRequestOffer(
+          [
+            person('a', 'adult'),
+            person('b', 'adult', { requestSetting: 'friends' }),
+          ],
+          now,
+          'a',
+          'b',
+        ),
+        dmRequestOffer(
+          [
+            person('a', 'adult'),
+            person('b', 'adult', { requestSetting: 'none' }),
+          ],
+          now,
+          'a',
+          'b',
+        ),
+        dmRequestOffer(
+          [
+            person('a', 'adult', { friendActorIds: ['b'] }),
+            person('b', '13-15', { friendActorIds: ['a'] }),
+          ],
+          now,
+          'a',
+          'b',
+        ),
+        dmRequestOffer(
+          [
+            person('a', 'adult'),
+            person('b', '13-15', { linkedAdultUserIds: ['a'] }),
+          ],
+          now,
+          'a',
+          'b',
+        ),
+        dmRequestOffer(
+          [person('a', '13-15'), person('b', 'adult')],
+          now,
+          'a',
+          'b',
+        ),
+        dmRequestOffer(
+          [person('a', 'adult'), person('b', 'adult')],
+          now,
+          'a',
+          'b',
+        ),
+        dmRequestOffer([person('a', 'adult')], now, 'a', 'b'),
+      ],
+      expected: [
+        'befriend',
+        'befriend',
+        'none',
+        'message',
+        'message',
+        'message',
+        'message',
+        'none',
+      ],
     }));
 });

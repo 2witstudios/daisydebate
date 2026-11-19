@@ -16,6 +16,7 @@ import { createMessagingGroupInvitationStore } from './group-invitation-store';
 import type { MessagingGroupInvitationFence } from './group-invitation-contracts';
 import { createMessagingInboxPage } from './inbox-page';
 import { createMessagingChannelAuthority } from './authority-frame';
+import { createMessagingPairFactsRead } from './contact-facts';
 import {
   createMessagingStore,
   createMessagingReactionStore,
@@ -50,6 +51,7 @@ export function messagingOperations(
       authorize: Parameters<typeof createMessagingDmStore>[0]['authorize'],
     ) => createMessagingDmStore({ database, authorize }),
     messagingChannelAuthority: createMessagingChannelAuthority(database),
+    readMessagingPairFacts: createMessagingPairFactsRead(database),
     messagingFileMaintenance: createMessagingFileMaintenance(database),
     messagingFileCleanup: (
       authorize: Parameters<typeof createMessagingFileCleanup>[0]['authorize'],

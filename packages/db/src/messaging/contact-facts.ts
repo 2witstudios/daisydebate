@@ -1,7 +1,11 @@
 import type { MessageRequestSetting } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
 import { sql } from 'drizzle-orm';
-import type { AuthorizationTransaction } from '../authorization';
+import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
+import {
+  readAuthorizationActors,
+  type AuthorizationTransaction,
+} from '../authorization';
 import { rowsOf } from '../raw-rows';
 
 type Account = {
@@ -79,3 +83,27 @@ export const bindMessagingContactFacts =
       };
     });
   };
+
+/**
+ * A read for what a page offers between two members (Message or Add friend,
+ * decision 90): both accounts under shared fences, in one transaction, handed
+ * to `work` with that transaction for their age and contact facts. It grants
+ * nothing; a request still decides under its own locks.
+ */
+export const createMessagingPairFactsRead =
+  (database: BunSQLDatabase) =>
+  <T>(
+    actorIds: readonly [string, string],
+    work: (
+      tx: AuthorizationTransaction,
+      accounts: Awaited<ReturnType<typeof readAuthorizationActors>>,
+    ) => Promise<T>,
+  ): Promise<T> =>
+    database.transaction(async (tx) =>
+      work(
+        tx,
+        await readAuthorizationActors(tx, [...actorIds].sort(), {
+          maxActors: 2,
+        }),
+      ),
+    );

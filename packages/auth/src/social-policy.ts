@@ -306,3 +306,37 @@ export const betaDmPolicy = {
   revision: 2,
   earlierRevisions: [1],
 } as const satisfies SocialContactPolicy;
+
+/**
+ * What a page offers one member toward another (decision 90): `message` when
+ * a request would be allowed now, `befriend` when only a friendship would
+ * open it (an adult toward a minor, or a recipient taking requests from
+ * friends only; the two read the same, so nothing shows an age), and `none`
+ * otherwise. It grants nothing: the request decides under its own locks.
+ */
+export function dmRequestOffer(
+  accounts: readonly SocialAccount[],
+  now: string,
+  initiatorActorId: string,
+  recipientActorId: string,
+): 'message' | 'befriend' | 'none' {
+  const instant = Date.parse(now);
+  const initiator = accounts.find(
+    (row) => row.account.actorId === initiatorActorId,
+  );
+  const recipient = accounts.find(
+    (row) => row.account.actorId === recipientActorId,
+  );
+  if (
+    initiatorActorId === recipientActorId ||
+    !Number.isFinite(instant) ||
+    !currentAccount(initiator, instant) ||
+    !currentAccount(recipient, instant)
+  )
+    return 'none';
+  const question = dmQuestionOf('request', initiator, recipient);
+  if (dmAllowed(question)) return 'message';
+  return !question.friends && dmAllowed({ ...question, friends: true })
+    ? 'befriend'
+    : 'none';
+}
