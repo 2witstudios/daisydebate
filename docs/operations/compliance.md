@@ -400,7 +400,8 @@ Room chat rules. Direct messages follow one rule for every age (decision 90,
 or over may send any other a message request, but an adult's first contact
 with a minor is a friend request, which carries no text; only once the minor
 accepts it (or when the adult is the minor's own club staff) may the adult
-ask to DM them, and unfriending or blocking ends that DM's posting. A minor
+ask to DM them; unfriending ends that DM's posting unless the adult is still
+the minor's club staff, and blocking ends any DM's posting. A minor
 may ask an adult. Every member chooses who can send them requests (everyone,
 friends only or no one), and declining and blocking are never limited by
 age. Refusals never reveal an age. Whether

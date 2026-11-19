@@ -19,6 +19,19 @@ const choices: readonly {
 ];
 
 /**
+ * The choice the form shows: after a refused save, the one it tried, so Save
+ * again sends it again; otherwise the stored one.
+ */
+export function shownSetting(
+  answer: SaveFormState,
+  stored: MessageRequestSetting,
+): MessageRequestSetting {
+  const attempted =
+    answer.kind === 'refused' ? answer.values['setting'] : undefined;
+  return choices.find((choice) => choice.value === attempted)?.value ?? stored;
+}
+
+/**
  * Who can send the member a new message request (decision 90). It never
  * closes a conversation already accepted; declining and blocking are always
  * open.
@@ -36,13 +49,14 @@ export function MessageRequestSettingForm({
     saveRefused,
   );
   const notice = saveNotice(answer);
+  const shown = shownSetting(answer, setting);
   return (
     <form
       action={post}
       aria-label="Message requests"
       className="flex flex-col gap-3"
     >
-      <fieldset className="flex flex-col gap-2">
+      <fieldset key={shown} className="flex flex-col gap-2">
         <legend className="text-base text-ink">
           Who can send me message requests
         </legend>
@@ -56,7 +70,7 @@ export function MessageRequestSettingForm({
                 type="radio"
                 name="setting"
                 value={choice.value}
-                defaultChecked={setting === choice.value}
+                defaultChecked={shown === choice.value}
               />{' '}
               {choice.label}
             </label>

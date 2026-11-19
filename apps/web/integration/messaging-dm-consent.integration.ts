@@ -348,3 +348,29 @@ test("a minor's own club staff may ask them directly", async () => {
     await p.cleanup();
   }
 });
+
+test("a member's request setting is in their export and goes with their erasure", async () => {
+  const opened = await openMessagingParticipants(databaseUrl);
+  const { client, fixture, sender } = opened;
+  const p = paths(opened);
+  try {
+    await p.setting(sender, 'friends');
+    const exported = await fixture.exportSubject(fixture.actorId);
+    await fixture.eraseSubject(fixture.actorId);
+    const [left] = await client.unsafe(
+      'select count(*)::int as rows from messaging_request_settings where user_id=$1',
+      [sender.userId],
+    );
+    assert({
+      given: 'a member who chose Friends only, exported and then erased',
+      should: 'export the choice, and leave no row after erasure',
+      actual: [
+        exported.messaging_request_settings?.map((row) => row.setting),
+        left.rows,
+      ],
+      expected: [['friends'], 0],
+    });
+  } finally {
+    await p.cleanup();
+  }
+});
