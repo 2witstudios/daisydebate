@@ -53,6 +53,6 @@ timeline, downloaded and shared.
 
 - A host who opts a casual Youth Room into a Broadcast gets a private
   Recording only; no audience feed opens. The capture choice itself is not
-  refused at the Room yet.
+  refused at the Room yet (ISSUE-1488).
 - A new fence must ask `isYouthRound` or `youthRoundSql`; an integration test
   holds the mirror to the rule.
