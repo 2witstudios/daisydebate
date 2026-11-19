@@ -41,7 +41,10 @@ const authorityReads = (database: BunSQLDatabase) => {
       createRoundFloorChannelCohortAuthority(database),
     /** A live Youth Round's linked adults (ADR 0155): whether it is one, then its people. */
     readRoundYouth: youthLive.readRoundYouth,
-    readYouthRoundPeople: youthLive.readYouthRoundPeople,
+    // Until YLS-12's registered function, realtime may read none of the
+    // people read's tenant tables (ADR 0129 §4), so it asks nobody and admits
+    // no linked adult; it never sends a query that is sure to be refused.
+    readYouthRoundPeople: async (_roundId: string) => ({ debaters: [] }),
     roomCommunityChannelCohortAuthority:
       createRoomCommunityChannelCohortAuthority(database),
     ...authorizationSessionOperations({ database }),

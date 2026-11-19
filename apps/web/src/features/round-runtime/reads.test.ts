@@ -133,6 +133,23 @@ test('a watcher the cache already names reads the Round once (ADR 0155)', async 
   });
 });
 
+test('a caller who holds the capability without the links stays a host (ADR 0155)', async () => {
+  const both = Object.assign(async () => null, {
+    peek: () => ({ linkedAdultActorIds: [caller.actorId] }),
+  });
+  const watched = await roundViewReader(
+    store({ ...launched, participants: [] }),
+    both,
+  )(caller, round.id);
+  assert({
+    given:
+      'the Round’s seatless host (as an event official is) whom the links also name',
+    should: 'read as a host, never as a linked adult',
+    actual: watched.viewerWatchesAs,
+    expected: 'host',
+  });
+});
+
 test('an explicitly unavailable event source never uses an ordinary host shortcut', () => {
   assert({
     given:

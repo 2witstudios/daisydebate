@@ -90,6 +90,20 @@ export const proveEventRoundRead = async (input: {
     ],
     expected: [roundId, 'host'],
   });
+  // The same official, also named as a youth debater's linked adult.
+  const namesOfficial = { linkedAdultActorIds: [stranger.actorId] };
+  const linkedToo = Object.assign(async () => namesOfficial, {
+    peek: () => namesOfficial,
+  });
+  assert({
+    given:
+      'that official also named among the Round’s linked adults (ADR 0155)',
+    should:
+      'stay a host: event authority grants the capability without the links',
+    actual: (await roundViewReader(f.store, linkedToo)(stranger, roundId))
+      .viewerWatchesAs,
+    expected: 'host',
+  });
   const [grant] =
     await owner`select id from grants where lobby_id=${lobbyId} and user_id=${stranger.userId} and revoked_at is null`;
   const removed = await send(as(director), {
