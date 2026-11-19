@@ -119,12 +119,12 @@ export const notificationWords = (
       };
     case 'media_release_declined':
       return {
-        text: 'Your parent or guardian declined your media release. Your Youth Rounds stay private.',
+        text: 'Your parent or guardian declined your media release. Nobody may clip, download or reuse your Rounds.',
         href: mediaReleaseSettings,
       };
     case 'media_release_signed':
       return {
-        text: 'Your parent signed your media release. Your Youth Rounds can now be published.',
+        text: 'Your parent signed your media release. Daisy and others may now clip, download and reuse your Rounds.',
         href: mediaReleaseSettings,
       };
     case 'media_release_club_confirmed':
@@ -135,11 +135,11 @@ export const notificationWords = (
     case 'media_release_withdrawn':
       return subject.own
         ? {
-            text: 'Your media release was withdrawn. Your public Rounds are coming down.',
+            text: 'Your media release was withdrawn. Nobody may clip, download or reuse your Rounds now.',
             href: mediaReleaseSettings,
           }
         : {
-            text: `${subject.minor ? `@${subject.minor}` : 'A student'}’s media release was withdrawn. Their public Rounds are coming down.`,
+            text: `${subject.minor ? `@${subject.minor}` : 'A student'}’s media release was withdrawn. Nobody may clip, download or reuse their Rounds now.`,
             href: subject.minor
               ? `/profile/${subject.minor}`
               : '/notifications',
