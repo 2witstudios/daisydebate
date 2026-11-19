@@ -104,10 +104,8 @@ const recordingInputs = (
     async (roundId: string) => {
       const round = await app.database.readRecordingRound(roundId);
       if (!round) return null;
-      const youthRound =
-        round.competitionType === 'ranked' &&
-        round.ladder?.division === 'youth';
-      if (!youthRound) return asRound(round, null);
+      // Any Round of a Youth Room, casual included (ADR 0150, 0157).
+      if (!round.youthRound) return asRound(round, null);
       const [found, shared, open] = await Promise.all([
         people(roundId),
         app.database.youthRoundPublications.readYouthRoundShared(roundId),

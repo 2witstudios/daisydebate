@@ -15,6 +15,7 @@ import {
   outcomeReleasedSql,
   type SpectatorClock,
 } from './spectator-release-sql';
+import { youthRoundSql } from './youth-round-sql';
 
 /**
  * The profile's read (ISSUE-600): who a member is, their Rounds grouped for
@@ -111,8 +112,8 @@ const seatsShown = (
       ? undefined
       : and(
           eq(rounds.visibility, 'public'),
-          // A Youth Round is private to its people (ADR 0150): never listed or counted here.
-          sql`${rounds.ladderDivision} is distinct from 'youth'`,
+          // A Youth Round is private to its people (ADR 0150, 0157): never listed or counted here.
+          sql`not ${youthRoundSql(sql`${rounds.id}`)}`,
           outcomeReleasedSql(rounds, clock),
         ),
   );

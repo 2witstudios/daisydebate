@@ -24,7 +24,9 @@ import type { BoundedTransactionContext } from './transaction-context';
 import { broadcasts } from './schema/broadcasts';
 import { mediaSessions } from './schema/media-sessions';
 import { recordingCaptures } from './schema/recording-captures';
+import { rooms } from './schema/rooms';
 import { rounds } from './schema/rounds';
+import { youthRoundSql } from './youth-round-sql';
 import {
   roundAliasR,
   spectatorHorizonSql,
@@ -483,8 +485,8 @@ export const listOpenBroadcasts = (
   tx
     .select({
       ...getTableColumns(broadcasts),
-      /** A Youth Round's Broadcast is only ever stopped (ADR 0150). */
-      youthRound: sql<boolean>`coalesce((select r.ladder_division = 'youth' from ${rounds} r where r.id = ${broadcasts.roundId}), false)`,
+      /** A Youth Round's Broadcast is only ever stopped (ADR 0150, 0157). */
+      youthRound: youthRoundSql(sql`${broadcasts.roundId}`),
     })
     .from(broadcasts)
     .where(
@@ -548,8 +550,10 @@ export const discoverUnopenedBroadcastRounds = async (tx: Tx, limit: number) =>
       competitionType: rounds.competitionType,
       capture: rounds.capture,
       ladderDivision: rounds.ladderDivision,
+      roomDivision: rooms.division,
     })
     .from(rounds)
+    .leftJoin(rooms, eq(rooms.id, rounds.roomId))
     .leftJoin(broadcasts, eq(broadcasts.roundId, rounds.id))
     .where(
       and(
@@ -560,8 +564,8 @@ export const discoverUnopenedBroadcastRounds = async (tx: Tx, limit: number) =>
         inArray(rounds.status, [...runningRoundStatuses]),
         // A private Round's Broadcast was refused at its edit and its Launch: this holds it.
         ne(rounds.visibility, 'private'),
-        // A Youth Round is never broadcast (ADR 0107, PYL-5): this holds it too.
-        sql`${rounds.ladderDivision} is distinct from 'youth'`,
+        // A Youth Round is never broadcast (ADR 0107, PYL-5, 0157): this holds it too.
+        sql`not ${youthRoundSql(sql`${rounds.id}`)}`,
         isNull(broadcasts.id),
       ),
     )
@@ -798,7 +802,7 @@ export const endRoundFeed = async (
  */
 export const endYouthBroadcasts = async (tx: Tx, now: Date) => {
   const at = now.toISOString();
-  const youth = sql`round_id in (select id from rounds where ladder_division = 'youth')`;
+  const youth = youthRoundSql(sql`broadcasts.round_id`);
   const withheld = (await tx.execute(sql`update broadcasts
     set stopped_at=coalesce(stopped_at, ${at}::timestamptz),
       stop_reason=coalesce(stop_reason, 'youth_round_private'),

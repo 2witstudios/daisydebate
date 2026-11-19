@@ -4,6 +4,7 @@ import {
 } from './spectator-release-sql';
 import {
   isRoundOver,
+  isYouthRound,
   recordingHiddenByModeration,
   SPECTATOR_MARGIN_MS,
 } from '@daisy/protocol';
@@ -91,10 +92,9 @@ export const spectatorTimelineReads = ({
             round.roomId === null ||
             (round.visibility !== 'public' &&
               round.visibility !== 'unlisted') ||
-            // A Youth Round has no audience (ADR 0150), nor any Round of a
-            // Youth Room, casual included (ADR 0156): it reads as missing.
-            round.ladderDivision === 'youth' ||
-            round.roomDivision === 'youth'
+            // A Youth Round has no audience (ADR 0150): any Round of a Youth
+            // Room, casual included (ADR 0157), reads as missing.
+            isYouthRound(round, { division: round.roomDivision })
           )
             return null;
           const competitionType = round.competitionType as 'ranked' | 'casual';

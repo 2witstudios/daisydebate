@@ -8,6 +8,7 @@ import { rooms } from './schema/rooms';
 import { roundParticipants } from './schema/round-participants';
 import { roundSegments } from './schema/round-segments';
 import { rounds } from './schema/rounds';
+import { youthRoundSql } from './youth-round-sql';
 import { users } from './schema/users';
 import { isDebatingSeatSql, seatOfColumns, seatRowOrder } from './seat-columns';
 import {
@@ -32,8 +33,11 @@ export type LiveBroadcastFilter = {
   readonly ladder?: Ladder | null;
 };
 
-/** A Youth Round is private (ADR 0107, PYL-5): never listed, counted or sent to Watch. */
-const notYouth = sql`${rounds.ladderDivision} is distinct from 'youth'`;
+/**
+ * A Youth Round, any Round of a Youth Room (ADR 0157), is private (ADR 0107,
+ * PYL-5): never listed, counted or sent to Watch.
+ */
+const notYouth = sql`not ${youthRoundSql(sql`${rounds.id}`)}`;
 
 /**
  * On the Live listing: a public Round whose Broadcast is open, once its start has
@@ -103,7 +107,7 @@ const afterCursor = (before: string, clock: SpectatorClock): SQL | undefined =>
     ? undefined
     : sql`(${rounds.startedAt}, ${rounds.id}) < (select c.started_at, c.id from rounds c
         where c.id = ${before} and c.visibility = 'public'
-          and c.ladder_division is distinct from 'youth'
+          and not ${youthRoundSql(sql`c.id`)}
           and ${factReleasedSql(sql`c.started_at`, cursorRound, clock)})`;
 
 /**

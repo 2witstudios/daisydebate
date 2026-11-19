@@ -11,6 +11,7 @@ import { youthRoundPublic } from './media-release-standing';
 import { readReleasesOf } from './media-release-records';
 import { oweNotifications } from './notifications/owe';
 import { readYouthRecordingPeople } from './youth-recording-people';
+import { youthRoundSql } from './youth-round-sql';
 
 export type PublishAnswer =
   | { readonly kind: 'published' }
@@ -50,7 +51,7 @@ export function createYouthRoundPublications(input: {
             from rounds r
             left join recordings rc on rc.round_id = r.id
             left join youth_round_publications p on p.round_id = r.id
-            where r.id = ${command.roundId} and r.ladder_division = 'youth'
+            where r.id = ${command.roundId} and ${youthRoundSql(sql`r.id`)}
             for update of r`,
         )) as unknown as {
           recording: string | null;

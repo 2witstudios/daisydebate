@@ -1,6 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   canWatchLive,
+  isYouthRound,
   lobbyOf,
   roomLobbyAtCreation,
   seatAllowed,
@@ -148,5 +149,37 @@ test('canWatchLive', () => {
       canWatchLive({ standing: 'none' }, { division: 'youth' }),
     ],
     expected: [true, true, false],
+  });
+});
+
+test('isYouthRound', () => {
+  const casual = { ladderDivision: null } as const;
+  assert({
+    given: 'a casual Round in a Youth Room and one in an Open Room',
+    should: 'be a Youth Round only in the Youth Room',
+    actual: [
+      isYouthRound(casual, { division: 'youth' }),
+      isYouthRound(casual, { division: 'open' }),
+    ],
+    expected: [true, false],
+  });
+  assert({
+    given: 'a ranked Round, whose ladder is its Room division',
+    should: 'follow the Room division',
+    actual: [
+      isYouthRound({ ladderDivision: 'youth' }, { division: 'youth' }),
+      isYouthRound({ ladderDivision: 'open' }, { division: 'open' }),
+    ],
+    expected: [true, false],
+  });
+  assert({
+    given: 'a Round with no Room',
+    should: 'fall back to its frozen ladder division',
+    actual: [
+      isYouthRound({ ladderDivision: 'youth' }, null),
+      isYouthRound({ ladderDivision: 'open' }, null),
+      isYouthRound(casual, null),
+    ],
+    expected: [true, false, false],
   });
 });

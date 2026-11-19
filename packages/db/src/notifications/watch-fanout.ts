@@ -12,6 +12,7 @@ import {
 } from '../spectator-release-sql';
 import { oweNotifications } from './owe';
 import { wants } from './preferences';
+import { youthRoundSql } from '../youth-round-sql';
 
 type Tx = Pick<BunSQLDatabase, 'execute' | 'insert'>;
 
@@ -132,7 +133,7 @@ export const watchNotificationOperations = ({
       }>(
         database,
         sql`select rc.round_id,r.visibility,
-            coalesce(r.ladder_division = 'youth', false) as youth
+            ${youthRoundSql(sql`r.id`)} as youth
           from recordings rc join rounds r on r.id=rc.round_id
           left join broadcasts b on b.round_id=rc.round_id
           where rc.status='ready'

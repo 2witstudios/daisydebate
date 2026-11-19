@@ -1,5 +1,9 @@
 import { currentRoundParticipant } from './round-current-participant';
-import { isDebatingSeat, type CaptureRule } from '@daisy/protocol';
+import {
+  isDebatingSeat,
+  isYouthRound,
+  type CaptureRule,
+} from '@daisy/protocol';
 import { and, asc, eq, sql, type SQL } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { readBroadcastRelease } from './broadcast-operations';
@@ -57,6 +61,7 @@ export const recordingRoundReadOperations = ({
           capture: rounds.capture,
           ladderStyle: rounds.ladderId,
           ladderDivision: rounds.ladderDivision,
+          roomDivision: rooms.division,
         })
         .from(rounds)
         .leftJoin(rooms, eq(rooms.id, rounds.roomId))
@@ -107,6 +112,8 @@ export const recordingRoundReadOperations = ({
         sides: round.rules.sides,
         outcome,
         seats,
+        /** A Youth Round: any Round of a Youth Room (ADR 0150, 0157). */
+        youthRound: isYouthRound(round, { division: round.roomDivision }),
         /** The ladder a ranked Round rated on, frozen at Start (ADR 0147). */
         ladder:
           round.ladderStyle !== null && round.ladderDivision !== null
