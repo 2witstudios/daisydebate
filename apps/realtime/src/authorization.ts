@@ -161,7 +161,11 @@ export function createRealtimeAuthorization({
   ): Promise<boolean> {
     if (facts.resource.kind !== 'round') return false;
     const { roundId } = facts.resource;
-    const youth = await linkedAdultsFor(resources.database)(roundId);
+    // A lookup this process cannot make admits nobody: the live read already
+    // refused, and a refusal must never wait on the links.
+    const youth = await linkedAdultsFor(resources.database)(roundId).catch(
+      () => null,
+    );
     if (youth === null) return false;
     // Decide on the Round as it stands after the lookup: one that ended
     // meanwhile admits no linked adult (ADR 0155).
