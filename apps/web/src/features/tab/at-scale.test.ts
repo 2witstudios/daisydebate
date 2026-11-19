@@ -17,8 +17,11 @@ import {
   roomStatuses,
   roomStatusLabels,
 } from './at-scale-rooms';
-import { sampleTabRoundView, sampleTimeSlotView } from './sample/tab-round';
-import type { SampleScene } from './sample/scene';
+import {
+  sampleTabRoundView,
+  sampleTimeSlotView,
+} from './test-support/sample/tab-round';
+import type { SampleScene } from './test-support/sample/scene';
 
 setupRitewayBun();
 

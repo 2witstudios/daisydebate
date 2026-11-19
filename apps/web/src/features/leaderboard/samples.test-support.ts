@@ -1,5 +1,5 @@
-import type { RatingPoint } from '../../features/leaderboard/history';
-import type { Season } from '../../features/leaderboard/season';
+import type { RatingPoint } from './history';
+import type { Season } from './season';
 import type { RatingEntry } from '../ratings/rank';
 
 /**
