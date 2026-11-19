@@ -374,3 +374,39 @@ test("a member's request setting is in their export and goes with their erasure"
     await p.cleanup();
   }
 });
+
+test('a message request notice stands while it is pending, and never across a block', async () => {
+  const opened = await openMessagingParticipants(databaseUrl);
+  const { client, database, fixture, sender, recipient } = opened;
+  const p = paths(opened);
+  const inbox = async () =>
+    (
+      await database.readNotifications({
+        userId: recipient.userId,
+        unreadOnly: false,
+        limit: 10,
+        now: fixture.now,
+        after: null,
+      })
+    ).rows.flatMap((row) =>
+      row.kind === 'dm_request' ? [[row.channelId, row.from !== null]] : [],
+    );
+  try {
+    await p.fresh();
+    await p.request(sender, recipient);
+    const pending = await inbox();
+    await client.unsafe(
+      'update contact_pairs set low_blocks_high=true where low_actor_id=$1 and high_actor_id=$2',
+      [fixture.low, fixture.high],
+    );
+    const blocked = await inbox();
+    assert({
+      given: 'a pending request, then a block between the pair',
+      should: 'show the recipient the notice, then stop showing it',
+      actual: [pending, blocked],
+      expected: [[[fixture.channelId, true]], []],
+    });
+  } finally {
+    await p.cleanup();
+  }
+});

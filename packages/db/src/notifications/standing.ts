@@ -86,9 +86,13 @@ const subjectStands = (
     case 'friend_request_accepted':
       return friendshipAccepted(sql`fr`);
     case 'dm_request':
-      // Until the request is answered or withdrawn, and only as its sender's.
+      // Until the request is answered or withdrawn, only as its sender's,
+      // and never across a block either way.
       return sql`(dmp.request_state='pending'
-        and dmp.request_sender_actor_id=n.actor_id)`;
+        and dmp.request_sender_actor_id=n.actor_id
+        and not exists (select 1 from contact_pairs cp
+          where cp.low_actor_id=dmp.low_actor_id and cp.high_actor_id=dmp.high_actor_id
+            and (cp.low_blocks_high or cp.high_blocks_low)))`;
     case 'media_release_requested':
       return releaseRequestWaiting(now, sql`mrq`);
     case 'media_release_declined':
