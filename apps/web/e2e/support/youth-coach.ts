@@ -74,7 +74,7 @@ export const coachedYouthRound = async (
   } catch (error) {
     // A setup that fails part way leaves nothing open or running.
     await stop().catch(() => undefined);
-    await student.close();
+    await student.close().catch(() => undefined);
     throw error;
   }
 };

@@ -21,9 +21,10 @@ const inlined = (expression: Parameters<PgDialect['sqlToQuery']>[0]) => {
   );
 };
 
-/** The same SQL however it is spaced, cased or schema-qualified. */
+/** The same SQL however it is spaced, cased, commented or schema-qualified. */
 const normal = (text: string) =>
   text
+    .replace(/--[^\n]*/g, '')
     .toLowerCase()
     .replaceAll('public.', '')
     .replace(/\s+/g, ' ')
