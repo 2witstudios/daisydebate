@@ -18,14 +18,18 @@ const oneOf = <T extends string>(
   notices: readonly T[],
 ): T | null => notices.find((notice) => notice === value) ?? null;
 
+/** A query value that came once, as text; a repeated or absent one is none. */
+const textOf = (value: unknown): string =>
+  typeof value === 'string' ? value : '';
+
 export const parseDataRightsQuery = (
   query: Record<string, unknown>,
 ): DataRightsNotices => ({
-  exportData: oneOf<ExportDataNotice>(String(query[EXPORT_DATA_QUERY] ?? ''), [
+  exportData: oneOf<ExportDataNotice>(textOf(query[EXPORT_DATA_QUERY]), [
     'rate-limited',
     'refused',
   ]),
-  erase: oneOf<EraseAccountNotice>(String(query[ERASE_ACCOUNT_QUERY] ?? ''), [
+  erase: oneOf<EraseAccountNotice>(textOf(query[ERASE_ACCOUNT_QUERY]), [
     'confirm',
     'rate-limited',
     'refused',

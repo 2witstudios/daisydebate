@@ -80,7 +80,7 @@ export const command = (
 ) =>
   ({
     type,
-    commandId: `${type}-${extra.ordinal ?? 0}`,
+    commandId: `${type}-${typeof extra.ordinal === 'number' ? extra.ordinal : 0}`,
     expectedVersion: room.version,
     ...extra,
   }) as RoomCommand;

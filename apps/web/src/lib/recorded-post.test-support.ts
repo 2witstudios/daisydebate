@@ -14,5 +14,7 @@ export const firstPost = (requests: { url: string; init: RequestInit }[]) => ({
   url: requests[0]?.url,
   method: requests[0]?.init.method,
   headers: requests[0]?.init.headers,
-  body: JSON.parse(String(requests[0]?.init.body)) as unknown,
+  body: JSON.parse(
+    typeof requests[0]?.init.body === 'string' ? requests[0].init.body : '',
+  ) as unknown,
 });

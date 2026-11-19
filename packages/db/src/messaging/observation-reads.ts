@@ -16,10 +16,15 @@ const revision = (value: unknown) => {
     throw createAppError('INFRASTRUCTURE');
   return parsed;
 };
+/** A text column's value; anything else is a fault in the function or its schema. */
+const text = (value: unknown): string => {
+  if (typeof value !== 'string') throw createAppError('INFRASTRUCTURE');
+  return value;
+};
 const iso = (value: unknown) =>
   value === null || value === undefined
     ? null
-    : (value instanceof Date ? value : new Date(String(value))).toISOString();
+    : (value instanceof Date ? value : new Date(text(value))).toISOString();
 
 /**
  * Channel observation reads (ADR 0089), through two SECURITY DEFINER
@@ -77,19 +82,19 @@ export function channelObservationReads(
           ? []
           : [
               {
-                id: String(row.id),
+                id: text(row.id),
                 channelId,
-                authorActorId: String(row.author_actor_id),
+                authorActorId: text(row.author_actor_id),
                 sequence: revision(row.sequence),
                 changeVersion: revision(row.message_change_version),
-                text: row.text === null ? null : String(row.text),
+                text: row.text === null ? null : text(row.text),
                 createdAt: iso(row.created_at)!,
                 editedAt: iso(row.edited_at),
                 removedAt: iso(row.removed_at),
                 reactions: reactionCounts.parse(row.reactions ?? []),
                 ...(row.reply_to_message_id === null
                   ? {}
-                  : { replyToMessageId: String(row.reply_to_message_id) }),
+                  : { replyToMessageId: text(row.reply_to_message_id) }),
               },
             ],
       );

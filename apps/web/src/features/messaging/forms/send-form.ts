@@ -1,5 +1,10 @@
 import { createAppError } from '@daisy/errors';
-import { type Idle, type Moved, type Refused } from '../../forms/form-state';
+import {
+  exactField,
+  type Idle,
+  type Moved,
+  type Refused,
+} from '../../forms/form-state';
 import { parseMessagingFormScope, formRequestId } from './form-scope';
 
 /** The command a message form posts: its text under one request id. */
@@ -44,7 +49,7 @@ export function messageFields(answer: MessageFormState): MessageFields {
 
 /** The draft and request a posted message form carried, whatever else it held. */
 export const messageDraft = (form: FormData): MessageValues['values'] => ({
-  text: typeof form.get('text') === 'string' ? String(form.get('text')) : '',
+  text: exactField(form, 'text'),
   requestId: formRequestId(form),
 });
 

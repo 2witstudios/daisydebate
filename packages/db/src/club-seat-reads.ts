@@ -59,6 +59,10 @@ async function readClub(tx: Tx, organizationId: string) {
     : null;
 }
 
+/** A nullable text column: null, or a row that is not there, reads as empty. */
+const text = (value: unknown): string =>
+  typeof value === 'string' ? value : '';
+
 async function person(tx: Tx, userId: string): Promise<ClubPerson> {
   const [row] = await tx.execute(
     sql`select name, username from users where id=${userId}`,
@@ -67,8 +71,8 @@ async function person(tx: Tx, userId: string): Promise<ClubPerson> {
   const band = account?.ageBand ?? null;
   return {
     userId,
-    name: String(row?.name ?? '') || String(row?.username ?? 'Member'),
-    username: row?.username ? String(row.username) : null,
+    name: text(row?.name) || text(row?.username) || 'Member',
+    username: text(row?.username) || null,
     ageBand: band === null ? null : band === 'adult' ? 'adult' : 'minor',
   };
 }

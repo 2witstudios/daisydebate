@@ -13,7 +13,8 @@ export function startRealtimeServiceLease(input: {
   /** The renewal's own failure; the log keeps the code, never the content. */
   readonly failed: (error: unknown) => void;
   readonly timers: {
-    readonly setInterval: (tick: () => void, ms: number) => unknown;
+    /** The tick answers with its renewal, which never rejects; a host timer ignores it. */
+    readonly setInterval: (tick: () => unknown, ms: number) => unknown;
     readonly clearInterval: (handle: unknown) => void;
   };
 }) {
@@ -37,7 +38,7 @@ export function startRealtimeServiceLease(input: {
     return work;
   };
   // A renewal never rejects: its failure goes to the sink above.
-  const timer = input.timers.setInterval(() => void tick(), 1000);
+  const timer = input.timers.setInterval(tick, 1000);
   void tick();
   return {
     async stop() {

@@ -1,6 +1,6 @@
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
-import { singleFormField } from '../forms/form-state';
+import { exactField, singleFormField } from '../forms/form-state';
 import {
   idle,
   refusedWith,
@@ -71,10 +71,7 @@ export function blockFormUnavailable(input: FormData): BlockRefused {
   const username = input.get('username');
   return refusedWith(
     {
-      requestId:
-        typeof input.get('requestId') === 'string'
-          ? String(input.get('requestId'))
-          : '',
+      requestId: exactField(input, 'requestId'),
       username: typeof username === 'string' ? username : '',
     },
     'Could not change this contact. Your username is kept; try again.',

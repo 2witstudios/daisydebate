@@ -127,6 +127,12 @@ export const field = (form: FormData, name: string): string => {
   return typeof value === 'string' ? value.trim() : '';
 };
 
+/** One text field exactly as posted: absent or not text reads as empty. */
+export const exactField = (form: FormData, name: string): string => {
+  const value = form.get(name);
+  return typeof value === 'string' ? value : '';
+};
+
 /** One text field that a form must send exactly once. */
 export function singleFormField(form: FormData, key: string): string {
   const value = form.get(key);

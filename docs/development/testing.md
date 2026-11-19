@@ -254,8 +254,9 @@ report in CI's advisory job) is the live audit:
   loop's `/simplify` pass by extracting the shared function, component or data
   table into the owning module. Never raise `minTokens`, add an ignore, or
   re-baseline to quiet it (ADR 0026, ADR 0083).
-- **Size and complexity.** ESLint's `max-lines` and `complexity` rules warn.
-  Treat a warning as a prompt to split or simplify, not as a merge blocker.
+- **Size and complexity.** `bun metrics` reports each file's size, churn and
+  complexity. They are not lint rules: `bun lint` prints errors only, so a
+  line of its output is always something to fix.
 - Tests are deterministic: inject clocks/IDs; never sleep-and-hope; no
   cross-test shared state; use deterministic unit IDs and CSPRNG isolation IDs
   only in real-service integration tests; clean only records you created.

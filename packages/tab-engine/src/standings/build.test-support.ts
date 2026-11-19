@@ -240,7 +240,11 @@ export const inputOf = <F extends TwoSides | FourSides | Speakers>(
 
 /** A row reduced to what a hand-worked table writes down. */
 export const tableOf = (
-  rows: readonly { entry: Id; rank: number | null; separatedBy: unknown }[],
+  rows: readonly {
+    entry: Id;
+    rank: number | null;
+    separatedBy: string | null;
+  }[],
 ) => rows.map((r) => `${r.rank ?? '-'} ${r.entry} ${r.separatedBy ?? '·'}`);
 
 /** A row's values as text: `n` or `n/d`, a vector joined by commas. */

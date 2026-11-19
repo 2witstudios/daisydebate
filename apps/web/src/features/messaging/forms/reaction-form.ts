@@ -55,7 +55,8 @@ export function parseReactionForm(
   if (
     !messageId.success ||
     typeof reaction !== 'string' ||
-    !['true', 'false'].includes(String(active)) ||
+    typeof active !== 'string' ||
+    !['true', 'false'].includes(active) ||
     form.getAll('reaction').length !== 1 ||
     form.getAll('active').length !== 1
   )

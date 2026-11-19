@@ -448,6 +448,8 @@ export const typedRules = {
   '@typescript-eslint/await-thenable': 'error',
   // What is thrown is an Error, so every catch can read a stack and a
   // cause. A caught value thrown again keeps its identity.
+  // Text made from a value with no text of its own reads "[object Object]".
+  '@typescript-eslint/no-base-to-string': 'error',
   '@typescript-eslint/only-throw-error': [
     'error',
     { allowThrowingAny: false, allowThrowingUnknown: true },
@@ -490,13 +492,8 @@ export default [
         'error',
         { argsIgnorePattern: '^_' },
       ],
-      // Size and complexity are signals, not gates (ADR 0083): they warn,
-      // and the review loop's /simplify pass acts on them.
-      complexity: ['warn', 10],
-      'max-lines': [
-        'warn',
-        { max: 300, skipBlankLines: true, skipComments: true },
-      ],
+      // Size and complexity are not lint rules: a warning nobody must act on
+      // buried the errors in 1,119 lines. `bun metrics` reports both (ADR 0083).
     },
   },
   // Token-locked Tailwind (ADR 0028): classes must come from the Daisy theme in
@@ -677,13 +674,6 @@ export default [
     // CLI glue exactly like the root scripts/ tree, not application source.
     files: ['scripts/**/*.ts', 'apps/web/scripts/**/*.ts'],
     rules: {
-      // Repo tooling is procedural CLI glue; application source keeps the
-      // lower complexity and size thresholds.
-      complexity: ['warn', 15],
-      'max-lines': [
-        'warn',
-        { max: 400, skipBlankLines: true, skipComments: true },
-      ],
       'no-console': 'off',
     },
   },
