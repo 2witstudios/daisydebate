@@ -1,4 +1,5 @@
 import { testRoundFloorLive } from './support/round-floor-live';
+import { testYouthCoachFloorLive } from './support/youth-coach-floor-live';
 import { testMessagingUnknownCommit } from './support/messaging-unknown-commit';
 import { testMessagingRecovery } from './support/messaging-recovery';
 import { STEP_LIMIT_MS } from './support/bounded-step';
@@ -37,6 +38,7 @@ const isBareInboxBell = (topic: string, payload: unknown) =>
     JSON.stringify({ kind: 'messaging.inbox.changed' });
 
 testRoundFloorLive();
+testYouthCoachFloorLive();
 testMessageControlFocus();
 testPeopleList();
 testNotificationShellLive();
