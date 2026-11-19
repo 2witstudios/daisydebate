@@ -51,7 +51,8 @@ read it, and here is the date it is judged by".
    planned surface and a compat remnant, expressed as a date.
 4. **It is a declaration, not a suppression, and it covers a narrower case than
    "an unused export may ship".** Knip still fails an export nothing reads; this
-   registry does not touch Knip. In practice a declared export already has _some_
+   registry never quiets `bun run knip` (decision 8 covers only the production
+   pass). In practice a declared export already has _some_
    syntactic consumer — a test, an integration suite, a harness — which is why
    the dead-code gate was passing it while its intended runtime reader was still
    a committed leaf away. These are **planned runtime readers**: the entry means
@@ -70,6 +71,20 @@ read it, and here is the date it is judged by".
    invented, not a port or table whose consumer is a committed leaf.** A new
    general-purpose helper still needs two callers; a foundation for a named
    task needs one declared reader.
+
+7. **The gate judges whether the reader has appeared** (amended 2026-11-19,
+   RECON-2.3). `scripts/planned-reader-importers.ts` indexes who imports each
+   export, following barrels and workspace export maps, and
+   `validatePlannedReaders` fails a declaration that shipping source imports
+   ("its reader has appeared, so remove the declaration") and one nothing
+   imports at all. A declaration lives only while tests are its sole
+   importers, which is decision 4's case and no other.
+8. **The production dead-code pass reads this registry** (amended 2026-11-19,
+   RECON-2.3). `bun run knip:production` reports every `apps/web` module no
+   deployed code reaches, and it is a required check. A module one of whose
+   exports is declared here is an entry of that pass, so an unwired
+   foundation is declared once, here, with its task and date, and there is no
+   second ignore list.
 
 ## Consequences
 

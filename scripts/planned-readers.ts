@@ -26,6 +26,7 @@ import {
   reviewDateProblems,
   type RegistryEntryOptions,
 } from './policy-registry';
+import { TEST_CODE } from './boundaries-rules';
 import { utcToday } from './review-date';
 
 export type PlannedReader = {
@@ -49,6 +50,13 @@ export type PlannedReaderValidationOptions = RegistryEntryOptions & {
    * exist; absent, the check is skipped rather than guessed.
    */
   readonly exportNames?: ReadonlyMap<string, readonly string[]>;
+  /**
+   * The files importing each `path|export` (`path|*` for a namespace import),
+   * from `collectImporters`. Supplied by the gate so a declaration whose
+   * reader has appeared, or that nothing imports, fails; absent, the check is
+   * skipped.
+   */
+  readonly importers?: ReadonlyMap<string, readonly string[]>;
 };
 
 type ReaderEntry = Partial<PlannedReader>;
@@ -76,6 +84,37 @@ function referenceProblems(
   ];
 }
 
+/**
+ * A declaration lives only while tests are its sole importers: shipping
+ * source importing it is the reader it waited for, and no importer at all
+ * means nothing will ever read it.
+ */
+function readerProblems(
+  entry: ReaderEntry,
+  prefix: string,
+  importers: ReadonlyMap<string, readonly string[]> | undefined,
+): readonly string[] {
+  if (importers === undefined || !entry.path || !entry.export) return [];
+  const files = [
+    ...new Set([
+      ...(importers.get(`${entry.path}|${entry.export}`) ?? []),
+      ...(importers.get(`${entry.path}|*`) ?? []),
+    ]),
+  ]
+    .filter((file) => file !== entry.path)
+    .sort();
+  const shipping = files.filter((file) => !TEST_CODE.test(file));
+  if (shipping.length > 0)
+    return [
+      `${prefix}: ${entry.path} ${entry.export} is read by ${shipping.join(', ')}; its reader has appeared, so remove the declaration`,
+    ];
+  return files.length === 0
+    ? [
+        `${prefix}: nothing imports ${entry.path} ${entry.export}; delete the export or remove the declaration`,
+      ]
+    : [];
+}
+
 export function validatePlannedReaders(
   registry: { version?: unknown; readers?: unknown },
   options: PlannedReaderValidationOptions = {},
@@ -98,6 +137,7 @@ export function validatePlannedReaders(
       ...referenceProblems(entry, prefix, knownPaths, options.exportNames),
     );
     problems.push(...reviewDateProblems(entry.reviewBy, prefix, today));
+    problems.push(...readerProblems(entry, prefix, options.importers));
     const key = `${entry.path}|${entry.export}`;
     if (seen.has(key)) problems.push(`${prefix}: duplicate ${key}`);
     seen.add(key);

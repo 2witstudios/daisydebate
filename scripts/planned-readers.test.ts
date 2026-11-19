@@ -379,3 +379,78 @@ describe('planned readers: a foundation may ship before its reader', () => {
     });
   });
 });
+
+describe('validatePlannedReaders: has the reader appeared?', () => {
+  const key = 'packages/db/src/schema/standin-grants.ts|roleGrants';
+  const judged = (importers: ReadonlyMap<string, readonly string[]>) =>
+    validatePlannedReaders(
+      { version: 1, readers: [declaration] },
+      { knownPaths, today: '2026-10-06', importers },
+    );
+
+  test('keeps a declaration only tests import', () => {
+    assert({
+      given:
+        'an export imported by a suite, an integration suite and test support',
+      should: 'accept it: its runtime reader is still to come',
+      actual: judged(
+        new Map([
+          [
+            key,
+            [
+              'packages/db/src/schema/standin-grants.test.ts',
+              'packages/db/integration/grants.ts',
+              'apps/web/src/features/grants/grants.test-support.ts',
+            ],
+          ],
+        ]),
+      ),
+      expected: [],
+    });
+  });
+
+  test('fails a declaration whose reader has appeared', () => {
+    assert({
+      given: 'an export shipping source imports, by name or as a namespace',
+      should: 'name the readers, so the declaration is removed',
+      actual: [
+        ...judged(
+          new Map([
+            [
+              key,
+              [
+                'packages/db/src/schema/standin-grants.test.ts',
+                'apps/web/src/features/grants/read.ts',
+              ],
+            ],
+          ]),
+        ),
+        ...judged(
+          new Map([
+            [
+              'packages/db/src/schema/standin-grants.ts|*',
+              ['packages/db/src/index.ts'],
+            ],
+          ]),
+        ),
+      ],
+      expected: [
+        'readers[0]: packages/db/src/schema/standin-grants.ts roleGrants is read by apps/web/src/features/grants/read.ts; its reader has appeared, so remove the declaration',
+        'readers[0]: packages/db/src/schema/standin-grants.ts roleGrants is read by packages/db/src/index.ts; its reader has appeared, so remove the declaration',
+      ],
+    });
+  });
+
+  test('fails a declaration nothing imports', () => {
+    assert({
+      given: 'an export no file imports but its own',
+      should: 'report it: a planned reader needs a consumer to wait on',
+      actual: judged(
+        new Map([[key, ['packages/db/src/schema/standin-grants.ts']]]),
+      ),
+      expected: [
+        'readers[0]: nothing imports packages/db/src/schema/standin-grants.ts roleGrants; delete the export or remove the declaration',
+      ],
+    });
+  });
+});
