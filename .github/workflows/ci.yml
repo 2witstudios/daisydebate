@@ -150,6 +150,9 @@ jobs:
           refuses daisy-admin-ci 'Invalid admin configuration: ADMIN_DATABASE_URL'
           refuses daisy-admin-migrate-ci 'Invalid admin configuration: ADMIN_MIGRATION_DATABASE_URL'
 
+  # Asks the live advisory database only when the branch changed a dependency
+  # input, and on the nightly run (scripts/audit.ts): an advisory published
+  # overnight no longer fails every open PR.
   audit:
     name: Dependency vulnerability audit
     runs-on: ubuntu-24.04
@@ -158,6 +161,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          # The audit compares this branch's dependency inputs with main.
+          fetch-depth: 0
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: '1.4.2'
