@@ -139,7 +139,7 @@ test('every Youth Broadcast, running or complete, is stopped and held back (ADR 
         assert({
           given: 'a running and a normally completed Youth Broadcast, twice',
           should:
-            'stop and hold back both, ask for the complete feed to go, and change nothing the second time',
+            'stop both without withholding the video, ask for the complete feed to go, and change nothing the second time',
           actual: {
             stopped: [...stopped].sort(),
             again,
@@ -160,11 +160,29 @@ test('every Youth Broadcast, running or complete, is stopped and held back (ADR 
           expected: {
             stopped: [ids.running, ids.complete].sort(),
             again: [],
+            // Stopped, never withheld: only an operator withholds (ADR 0157).
             rows: {
-              running: ['youth_round_private', true, false],
-              complete: ['youth_round_private', true, true],
+              running: ['youth_round_private', false, false],
+              complete: ['youth_round_private', false, true],
             },
           },
+        });
+        // An operator's stop that lands after the sweep is still recorded.
+        const operator = await db.transaction((tx) =>
+          stopBroadcast(tx, {
+            id: ids.running,
+            reason: 'policy_violation',
+            now: later,
+          }),
+        );
+        const [after] =
+          await client`select media_withheld from broadcasts where id=${ids.running}`;
+        assert({
+          given:
+            'an operator stopping a Youth Broadcast the sweep already stopped',
+          should: 'withhold its video',
+          actual: [operator, after.media_withheld],
+          expected: ['applied', true],
         });
       } finally {
         await client`delete from broadcasts where round_id in (${running}, ${complete})`;

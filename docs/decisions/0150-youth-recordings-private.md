@@ -10,7 +10,8 @@ Youth Recording publicly. Amended by [ADR 0155](0155-linked-adults-watch-youth-l
 §4's "never live" admits each youth debater's linked adults to the live
 Round without media.
 Amended by [ADR 0157](0157-every-youth-room-round-is-a-youth-round.md): every
-Round of a Youth Room, casual included, is a Youth Round (§1).
+Round of a Youth Room, casual included, is a Youth Round (§1), and the
+sweep in §4 stops a Youth Broadcast without withholding its video.
 
 ## Context
 

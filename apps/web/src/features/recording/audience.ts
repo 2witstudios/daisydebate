@@ -133,19 +133,18 @@ const youthPermissions = (
   release: BroadcastRelease,
   viewer: RecordingViewer,
 ): RoundEvidencePermissions => {
-  if (
-    round.completedAtMs === null ||
-    !(
-      (round.youth.public && round.visibility === 'public') ||
-      recordingAudience(round, viewer).kind === 'allowed'
-    )
-  )
-    return NOTHING;
+  if (round.completedAtMs === null) return NOTHING;
+  const inAudience = recordingAudience(round, viewer).kind === 'allowed';
+  const shared = round.youth.public && round.visibility === 'public';
+  if (!inAudience && !shared) return NOTHING;
   // An operator's stop withholds the video from all but the Round's own seats,
-  // shared or not; the youth sweep's own stop never reads as one (ADR 0157).
-  return release.stop === 'media_withheld' && !seated(round, viewer)
-    ? { ...EVERYTHING, media: false }
-    : EVERYTHING;
+  // shared or not (ADR 0157).
+  const media = release.stop !== 'media_withheld' || seated(round, viewer);
+  if (inAudience) return { ...EVERYTHING, media };
+  // The public reaches a shared Round as any public audience does: a casual
+  // one's transcript and ballots stay its people's (ADR 0157).
+  const ranked = round.competitionType === 'ranked';
+  return { open: true, media, transcript: ranked, result: ranked };
 };
 
 /** An officials' Recording's video: only for those who `watch`, until its deletion date. */

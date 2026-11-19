@@ -797,18 +797,19 @@ export const endRoundFeed = async (
 
 /**
  * A Youth Round is never broadcast (ADR 0150). Any Broadcast one opened before
- * that rule shipped, running or complete, is stopped and its video held back,
- * keeping a stop reason it already had; a complete one's feed is asked to go at
- * once. Ids it held back.
+ * that rule shipped, running or complete, is stopped, keeping a stop reason it
+ * already had; a complete one's feed is asked to go at once. It does not set
+ * `media_withheld`: a Youth Round has no audience to withhold from, and its
+ * video is its Recording's audience's (ADR 0157), so that flag stays an
+ * operator's alone and an operator's later stop still sets it. Ids it stopped.
  */
 export const endYouthBroadcasts = async (tx: Tx, now: Date) => {
   const at = now.toISOString();
   const youth = youthRoundSql(sql`broadcasts.round_id`);
   const withheld = (await tx.execute(sql`update broadcasts
-    set stopped_at=coalesce(stopped_at, ${at}::timestamptz),
-      stop_reason=coalesce(stop_reason, 'youth_round_private'),
-      media_withheld=true
-    where ${youth} and not media_withheld
+    set stopped_at=${at}::timestamptz,
+      stop_reason=coalesce(stop_reason, 'youth_round_private')
+    where ${youth} and stopped_at is null
     returning id`)) as unknown as readonly { readonly id: string }[];
   await tx.execute(sql`update broadcasts
     set feed_withdrawal_requested_at=${at}::timestamptz

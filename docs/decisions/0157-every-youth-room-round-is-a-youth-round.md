@@ -52,9 +52,13 @@ timeline, downloaded and shared.
    publish command refuses any other as `not_available`, and the panel says
    why).
 4. **Existing data.** Casual Rounds already played in Youth Rooms read as
-   private from deploy. Any Broadcast one opened is stopped and its video held
-   back by the existing youth-broadcast sweep (ADR 0150 §4), with ADR 0150's
-   trade-off: a casual Youth Round live across the deploy whose Recording
+   private from deploy. Any Broadcast one opened is stopped by the existing
+   youth-broadcast sweep (ADR 0150 §4). The sweep no longer sets
+   `media_withheld`: a Youth Round has no audience to withhold from, so that
+   flag is an operator's alone, an operator's stop after the sweep still sets
+   it, and a moderation stop the sweep meets is not mistaken for one
+   (`operatorWithheldSql`). Migration `youth_sweep_unwithhold` clears the
+   marks the sweep left. This keeps ADR 0150's trade-off: a casual Youth Round live across the deploy whose Recording
    followed that Broadcast is recorded only up to the stop. No follower is
    told such a Round is live (the live fanout and its standing ask
    `youthRoundSql`). No publication needs a backfill: the publish command
@@ -62,7 +66,10 @@ timeline, downloaded and shared.
    a club's page count only Rounds a release could make public. A follower's
    `recording_ready` notice sent before the deploy lapses from their inbox
    (only a current seat's stands), a Recording whose pre-rule Broadcast was
-   withheld still tells its own seats it is ready and is listed once shared,
+   stopped by the sweep still tells its own seats it is ready and is listed
+   once shared, while an operator's withheld stop keeps its video from all
+   but the seats; a shared casual one shows the public its video only, never
+   its transcript or ballots, as an Open casual audience sees it;
    and a viewer's watch history drops the Round. Staging held no such Round.
 
 ## Consequences

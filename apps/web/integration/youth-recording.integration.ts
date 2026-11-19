@@ -729,7 +729,7 @@ test('a casual Round of a Youth Room holds every Youth fence; an Open casual Rou
         page: (await release(youth.roundId)).stop,
       };
       // Had an operator stopped that Broadcast instead, its video stays withheld.
-      await f.sql`update broadcasts set stop_reason='policy_violation' where round_id=${youth.roundId}`;
+      await f.sql`update broadcasts set stop_reason='policy_violation', media_withheld=true where round_id=${youth.roundId}`;
       const operatorRows = await database
         .listRecordingArchive({
           query: {
@@ -745,7 +745,7 @@ test('a casual Round of a Youth Room holds every Youth fence; an Open casual Rou
           youthPublishing: true,
         })
         .then((page) => page.rows.map((row) => row.id));
-      await f.sql`update broadcasts set stop_reason='youth_round_private' where round_id=${youth.roundId}`;
+      await f.sql`update broadcasts set stop_reason='youth_round_private', media_withheld=false where round_id=${youth.roundId}`;
       assert({
         given: 'the same shared Round, had an operator withheld its Broadcast',
         should: 'keep it out of the public archive',

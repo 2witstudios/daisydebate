@@ -436,6 +436,27 @@ describe('a Youth Round (PYL-5)', () => {
     });
   });
 
+  test('a shared casual one shows the public no transcript or ballots (ADR 0157)', () => {
+    const sharedCasual: RecordingRound = {
+      ...youthRound,
+      competitionType: 'casual',
+      youth: { ...youthRound.youth!, public: true },
+    };
+    assert({
+      given: 'a stranger and a debater on a shared casual Youth Round',
+      should:
+        'give the stranger its video only, as an Open casual audience, and the debater everything',
+      actual: [
+        roundEvidencePermissions(sharedCasual, passed, account('stranger')),
+        roundEvidencePermissions(sharedCasual, passed, account('aff')),
+      ],
+      expected: [
+        { open: true, media: true, transcript: false, result: false },
+        everything,
+      ],
+    });
+  });
+
   test('a presented link admits nobody', () => {
     const hash = audienceLinkHash('token');
     assert({
