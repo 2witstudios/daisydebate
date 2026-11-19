@@ -503,6 +503,7 @@ describe('a Youth Round’s history (PYL-5)', () => {
           public: false,
           viewerDebated: false,
           shareable: true,
+          videoForOfficials: false,
         },
         download: null,
         takedown: true,

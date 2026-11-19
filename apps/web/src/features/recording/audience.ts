@@ -125,7 +125,8 @@ const EVERYTHING: RoundEvidencePermissions = {
  * its audience sees all of it once it ends, anyone else answers as missing.
  * Once a debater shared it, and while every release holds and publishing is
  * open, anyone sees it, as the public archive lists it: only on a public
- * Round, which every ranked Round is (ADR 0151).
+ * Round (ADR 0151). Every ranked Round is one; a casual one is shared only
+ * when public and recorded for everyone (ADR 0157).
  */
 const youthPermissions = (
   round: RecordingRound & { readonly youth: YouthRound },

@@ -146,6 +146,7 @@ describe('RecordingHistory, a Youth Round (PYL-5)', () => {
       public: false,
       viewerDebated: true,
       shareable: true,
+      videoForOfficials: false,
     },
     removal: { recordingId: 'rec', version: 4 },
   });
@@ -205,6 +206,7 @@ describe('RecordingHistory, a Youth Round (PYL-5)', () => {
             public: false,
             viewerDebated: true,
             shareable: true,
+            videoForOfficials: false,
           },
         },
         notice: null,
@@ -223,6 +225,7 @@ describe('RecordingHistory, a Youth Round (PYL-5)', () => {
     readonly public: boolean;
     readonly viewerDebated: boolean;
     readonly shareable?: boolean;
+    readonly videoForOfficials?: boolean;
   }) =>
     renderToString(
       h(RecordingHistory, {
@@ -232,6 +235,7 @@ describe('RecordingHistory, a Youth Round (PYL-5)', () => {
           youth: {
             debaters: [{ actorId: 'maya', name: '@maya', released: true }],
             shareable: true,
+            videoForOfficials: false,
             ...youth,
           },
         },
@@ -276,6 +280,24 @@ describe('RecordingHistory, a Youth Round (PYL-5)', () => {
             'Only a public Round recorded for everyone can be shared.',
           ),
           /<form[^>]*>.*Share publicly/s.test(page),
+        ];
+      })(),
+      expected: [true, false],
+    });
+    assert({
+      given: 'a casual Youth Round whose host kept the video for its judges',
+      should: 'say only the judges watch it, not that its debaters can',
+      actual: (() => {
+        const page = shared({
+          releasesComplete: true,
+          public: false,
+          viewerDebated: true,
+          shareable: false,
+          videoForOfficials: true,
+        });
+        return [
+          page.includes('the video is for the judges until it is deleted'),
+          page.includes('visible to the debaters, judges'),
         ];
       })(),
       expected: [true, false],

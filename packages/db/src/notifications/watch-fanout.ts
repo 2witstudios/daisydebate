@@ -139,7 +139,10 @@ export const watchNotificationOperations = ({
           from recordings rc join rounds r on r.id=rc.round_id
           left join broadcasts b on b.round_id=rc.round_id
           where rc.status='ready'
-            and (b.id is null or (b.completed_at is not null and not b.media_withheld))
+            -- A Youth Round's withheld Broadcast hid its video from an audience it
+            -- never had; its own people are still told (ADR 0150, 0157).
+            and (b.id is null or (b.completed_at is not null
+              and (not b.media_withheld or ${youthRoundSql(sql`rc.round_id`)})))
             and ${outcomeReleasedSql(roundAliasR, input.clock)}
             and not exists(select 1 from notification_fanouts f
               where f.kind='recording_ready' and f.round_id=rc.round_id)

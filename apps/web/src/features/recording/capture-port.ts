@@ -29,9 +29,9 @@ export type RecordingCapturePort = {
   readonly request: (input: {
     readonly roundId: string;
     readonly competitionType: CompetitionType;
-    readonly ladderDivision?: RatingDivision | null;
+    readonly ladderDivision: RatingDivision | null;
     /** Its Room's division: any Round of a Youth Room is a Youth Round (ADR 0157). */
-    readonly roomDivision?: RatingDivision | null;
+    readonly roomDivision: RatingDivision | null;
     readonly hostActorId: string | null;
     readonly hostOptedIn: boolean;
     readonly hostHoldsRecording: boolean;

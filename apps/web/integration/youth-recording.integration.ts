@@ -564,6 +564,46 @@ test('a casual Round of a Youth Room holds every Youth fence; an Open casual Rou
       await readyCasualRecording(f, youth.roundId, f.host.actorId);
       await readyCasualRecording(f, open.roundId, openCast.host.actorId);
 
+      // The stopped Broadcast finishes, its video withheld: its seats are still
+      // told the Recording is ready. A stranger who watched either Round keeps
+      // only the Open one in their history.
+      await f.sql`update broadcasts set completed_at=now() where round_id=${youth.roundId}`;
+      await f.store.sweepNotificationFanouts({
+        clock: spectatorClockAt(new Date(Date.now() + 600_000).toISOString()),
+        limit: 50,
+        nextId: createId,
+      });
+      const [readyTold] =
+        await f.sql`select count(*)::int as n from notifications
+        where user_id=${f.host.userId} and round_id=${youth.roundId} and kind='recording_ready'`;
+      for (const { roundId } of [youth, open])
+        await f.store.recordWatched({
+          userId: stranger.userId,
+          roundId,
+          at: new Date().toISOString(),
+        });
+      const watched = (
+        await f.store.listWatchHistory({
+          userId: stranger.userId,
+          clock: spectatorClockAt(new Date(Date.now() + 600_000).toISOString()),
+          limit: 50,
+        })
+      ).map((row) => row.roundId);
+      await f.sql`delete from watch_history where user_id=${stranger.userId}`;
+      assert({
+        given:
+          'the Youth Round’s withheld Broadcast completed, and a stranger recording a visit to each Round',
+        should:
+          'tell its seated debater the Recording is ready, and keep only the Open Round in the stranger’s watch history',
+        actual: {
+          seatTold: readyTold!.n,
+          watched: [youth.roundId, open.roundId].map((id) =>
+            watched.includes(id),
+          ),
+        },
+        expected: { seatTold: 1, watched: [false, true] },
+      });
+
       const youthRound = await recordingRoundOf(database, youth.roundId);
       const openRound = await recordingRoundOf(database, open.roundId);
       const release = (roundId: string) =>

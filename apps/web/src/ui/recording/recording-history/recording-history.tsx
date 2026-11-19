@@ -225,8 +225,10 @@ function YouthSharing({
         <Badge tone="gold">Private</Badge>
       </div>
       <p className="text-sm text-ink">
-        <strong className="font-strong">Private:</strong> visible to the
-        debaters, judges and their coaches or parents.
+        <strong className="font-strong">Private:</strong>{' '}
+        {youth.videoForOfficials
+          ? 'the video is for the judges until it is deleted; the debaters and their coaches or parents keep the transcript and result.'
+          : 'visible to the debaters, judges and their coaches or parents.'}
       </p>
       <div className="flex flex-col gap-2 rounded-md bg-surface-sunken p-3">
         <p className="text-sm font-strong text-ink">
