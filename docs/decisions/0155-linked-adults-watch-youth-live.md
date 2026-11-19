@@ -33,7 +33,11 @@ timing, not audience. Owner decision 86 takes it, without media.
    `canWatchLive`, so the Lobby's live rows and the live room decide alike. A
    Round is a Youth one here by its Room's division (ADR 0156), the division
    `canWatchLive` reads, so a casual Youth Room's Round counts too; ADR
-   0150's Recording rules still read the ranked Round's ladder division. Once the
+   0150's Recording rules still read the ranked Round's ladder division.
+   On an event (tournament) Round, `round.observe.undelayed` stays with the
+   holders of `tournament.rooms.officiate`; without that grant, only this
+   rule's `linked_adult` answer admits, while the Round runs. An event Room
+   has no host person, so there is no seatless-host fallback. Once the
    Round ends they are refused like anyone outside it and see it through its
    Recording, under ADR 0150's rules; their live view says so and links the
    Recording.
