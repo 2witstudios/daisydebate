@@ -270,7 +270,8 @@ The rest of this record describes BETA-2.
 The admin Accounts screen manages `beta_preapprovals`, independently of
 `account_beta_access`. A normalized email (trimmed and case insensitive, with
 plus tags and dots preserved) can be entered before an account exists. Only a
-verified matching account, pending and age 16+, without erasure or moderation
+verified matching account, pending and in an admitted age band (13 and over
+since decision 88, `@daisy/protocol/age-floor`), without erasure or moderation
 restrictions, consumes it once. Username enrollment and the required age step
 both attempt the claim. Adding a grant also approves an eligible existing
 waiting account immediately. A claim is the same transition an operator's
