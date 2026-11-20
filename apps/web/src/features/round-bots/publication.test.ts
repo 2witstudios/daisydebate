@@ -1276,6 +1276,26 @@ test('the claim’s end waits for a line end retry still in flight, and asks it 
   });
 });
 
+test('a queue clear at the exact handoff instant currently leaves the tail whole', async () => {
+  const { clock, claim } = harness();
+  claim.start();
+  await clock.advance(10);
+  const phrase = 'a'.repeat(24);
+  await clock.run(claim.publish(job(600, phrase), signal(), far()));
+  const stop = new AbortController();
+  stop.abort();
+  await clock
+    .run(claim.publish(job(400, 'b'.repeat(24)), stop.signal, far()))
+    .catch(() => undefined);
+  // R4.3 owns the same-millisecond handoff and clear ordering.
+  assert({
+    given: 'a clear in the same virtual millisecond as the phrase handoff',
+    should: 'report the tail as whole under the current publisher semantics',
+    actual: claim.tailCut(phrase),
+    expected: false,
+  });
+});
+
 test('a phrase reported played whole knows when the next phrase’s stop cut its tail', async () => {
   const { clock, claim } = harness();
   claim.start();

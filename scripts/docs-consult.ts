@@ -108,6 +108,7 @@ export async function dispatchDocumentationEvent(
     requestTimeoutMs,
     delay,
     now,
+    timeoutSignal,
   } = resolveOptions(options);
   const attempt = replayAttempt(options.attempt);
   const pipelines = replayPipelines(
@@ -119,7 +120,7 @@ export async function dispatchDocumentationEvent(
   // accepts and never answers must not outlive the budget, or the CI job is
   // cancelled before its incidents step runs.
   const until = (end: number, cap = Number.POSITIVE_INFINITY): AbortSignal =>
-    AbortSignal.timeout(Math.max(1, Math.min(cap, end - now())));
+    timeoutSignal(Math.max(1, Math.min(cap, end - now())));
 
   // 'absent' is a successful read that found no conversation; 'unreadable' is
   // a read that failed, which proves nothing either way.

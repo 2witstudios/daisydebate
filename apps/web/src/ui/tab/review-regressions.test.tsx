@@ -20,10 +20,8 @@ describe('interface-3 review regressions', () => {
         stdout: 'pipe',
         stderr: 'pipe',
       });
-      const timer = setTimeout(() => child.kill(), 1000);
-      const exit = await child.exited;
-      clearTimeout(timer);
-      results.push(exit);
+      // A hanging calendar never exits: the test runner's timeout fails it.
+      results.push(await child.exited);
     }
     assert({
       given: 'calendar months at both four-digit year boundaries',

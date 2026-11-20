@@ -79,9 +79,9 @@ describe('heavy queue across real processes', () => {
         stderr: 'pipe',
       },
     );
-    const deadline = setTimeout(() => outer.kill(), 15_000);
+    // A run that queues behind its own ancestor never exits: the test's
+    // timeout fails it.
     const code = await outer.exited;
-    clearTimeout(deadline);
     assert({
       given: 'a run that holds the only slot and starts two nested runs',
       should: 'run the innermost command without queueing and exit 0',

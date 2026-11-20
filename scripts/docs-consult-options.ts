@@ -39,6 +39,8 @@ export type ConsultOptions = {
   readonly delay?: (ms: number) => Promise<void>;
   /** The clock deadlines are measured on; tests inject one with `delay`. */
   readonly now?: () => number;
+  /** A signal that times out after `ms`, on the same clock as `now`. */
+  readonly timeoutSignal?: (ms: number) => AbortSignal;
 };
 
 // A replay targets only the pipelines that need it, so recovering one dead run
@@ -102,5 +104,7 @@ export function resolveOptions(options: ConsultOptions) {
     delay:
       options.delay ??
       ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))),
+    timeoutSignal:
+      options.timeoutSignal ?? ((ms: number) => AbortSignal.timeout(ms)),
   };
 }
