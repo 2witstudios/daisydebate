@@ -235,16 +235,30 @@ test('a minor may ask an adult, and keeps the DM without a friendship', async ()
     await p.age(recipient, 'adult');
     await p.fresh();
     await p.request(sender, recipient);
+    const pending = await p.request(recipient, sender);
     await p.decide(recipient, 'accept');
+    await p.setting(recipient, 'none');
+    const reopened = await Promise.all([
+      p.request(recipient, sender),
+      p.request(sender, recipient),
+    ]);
     const [fromMinor, fromAdult] = [
       await p.send(sender),
       await p.send(recipient),
     ];
     assert({
       given: 'a 16-year-old asking an adult, who accepts',
-      should: 'let both post with no friendship',
-      actual: [typeof fromMinor.id, typeof fromAdult.id],
-      expected: ['string', 'string'],
+      should: 'open the same pending and accepted DM and let both post',
+      actual: [pending, reopened, typeof fromMinor.id, typeof fromAdult.id],
+      expected: [
+        { channelId: opened.fixture.channelId, state: 'pending' },
+        [sender, recipient].map(() => ({
+          channelId: opened.fixture.channelId,
+          state: 'accepted',
+        })),
+        'string',
+        'string',
+      ],
     });
   } finally {
     await p.cleanup();

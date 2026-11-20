@@ -35,8 +35,9 @@ over, while minors stay protected from unsolicited contact by adults.
    Friend requests carry no free text, so no message reaches a minor before
    they accept. A minor may ask an adult; that DM keeps posting without a
    friendship, and block is its way out.
-4. **Ending the basis ends the posting.** Unfriending stops an adult-initiated
-   DM with a minor; blocking stops any DM. History stays readable as before.
+4. **Ending the basis ends the posting.** An adult-initiated DM with a minor
+   stops accepting posts when neither an accepted friendship nor a staff link
+   remains. Blocking stops any DM. History stays readable as before.
 5. **Ways out are never gated by age.** Reading, declining, cancelling and
    blocking ask only that the member is current; only accepting asks the rule.
 6. **Who can send me message requests.** Each member chooses Everyone (the
@@ -44,7 +45,9 @@ over, while minors stay protected from unsolicited contact by adults.
    everyone). It gates new requests only, never a conversation already
    accepted, and binds the minor's linked staff as it binds anyone. A new
    request tells the recipient through a `dm_request` notification; the
-   introduction stays in Messages.
+   introduction stays in Messages. Opening an existing pending or accepted
+   DM uses its read permission, provided neither member has blocked the other.
+   Setting writes take the same account lock as request admission.
 7. **Refusals stay masked.** A refused request answers as an unknown member
    (NOT_FOUND), as before. A profile offers Add friend in place of Message
    wherever only a friendship would open a request: an adult toward a minor
@@ -73,3 +76,8 @@ over, while minors stay protected from unsolicited contact by adults.
   laws on 13-15 consent stay a counsel question (YLS-9).
 - A guardian link holds no rows yet (counsel); when it does, a guardian is a
   linked adult and so may ask directly.
+- Decision 92 reserves guardian approval and parent-managed request settings
+  for PC-2. The friendship requirement counts accepted friendships. DM requests can
+  be reopened after decline or cancellation. The request-setting write and
+  admission both use the recipient's account fence, where PC-2 can enforce
+  who may change the setting and which setting applies.

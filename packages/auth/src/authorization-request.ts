@@ -29,7 +29,9 @@ function requestResultDecision(
 ): AuthorizationDecision {
   const authority = resource.authority;
   return authority.kind === 'dm' &&
-    authority.state !== 'pending' &&
+    (authority.state === 'accepted' ||
+      authority.state === 'declined' ||
+      authority.state === 'cancelled') &&
     [authority.lowActorId, authority.highActorId].includes(actorId) &&
     currentPolicy(resource, context.socialReading, context)
     ? allow

@@ -30,17 +30,24 @@ export const messageRequestSettingOperations = ({
     readonly userId: string;
     readonly setting: MessageRequestSetting;
   }): Promise<void> {
-    return instrumented(eventSink, 'writeMessageRequestSetting', async () => {
-      if (input.setting === 'everyone') {
-        await database.execute(
-          sql`delete from messaging_request_settings where user_id=${input.userId}`,
+    return instrumented(eventSink, 'writeMessageRequestSetting', () =>
+      database.transaction(async (tx) => {
+        // The account fence every DM request takes (FOR UPDATE of the user
+        // row): a request decided after this commit reads the new setting.
+        await tx.execute(
+          sql`select id from users where id=${input.userId} for update`,
         );
-        return;
-      }
-      await database.execute(sql`insert into messaging_request_settings(user_id,setting,updated_at)
-        select u.id,${input.setting},now() from users u
-        where u.id=${input.userId} and u.deleted_at is null
-        on conflict (user_id) do update set setting=excluded.setting,updated_at=excluded.updated_at`);
-    });
+        if (input.setting === 'everyone') {
+          await tx.execute(
+            sql`delete from messaging_request_settings where user_id=${input.userId}`,
+          );
+          return;
+        }
+        await tx.execute(sql`insert into messaging_request_settings(user_id,setting,updated_at)
+          select u.id,${input.setting},now() from users u
+          where u.id=${input.userId} and u.deleted_at is null
+          on conflict (user_id) do update set setting=excluded.setting,updated_at=excluded.updated_at`);
+      }),
+    );
   },
 });

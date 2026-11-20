@@ -2,7 +2,6 @@ import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import { dmRequestOffer } from '@daisy/auth/social-policy';
 import { isAppError } from '@daisy/errors';
 import type { App } from '../../server/app';
-import { appDiscoverActor } from '../account/username-discovery';
 import { loadAccountPolicyFacts } from '../authorization/account-policy-facts';
 
 /**
@@ -12,14 +11,16 @@ import { loadAccountPolicyFacts } from '../authorization/account-policy-facts';
  * every refusal; this read grants nothing.
  */
 export async function messageOfferFor(
-  app: Pick<App, 'limiter' | 'database' | 'clock'>,
+  app: Pick<App, 'database' | 'clock'>,
   principal: AuthorizationPrincipal,
   username: string,
 ): Promise<'message' | 'befriend' | 'none'> {
   if (principal.kind !== 'user' || principal.actorId === null) return 'none';
   const self = principal.actorId;
   try {
-    const other = await appDiscoverActor(app)(self, username);
+    // The page already shows this member: a view reads their actor as the
+    // profile does, without spending the username discovery budget.
+    const other = await app.database.lookupHumanActorByUsername(username);
     if (other === null || other === self) return 'none';
     const now = app.clock.now();
     return await app.database.readMessagingPairFacts(

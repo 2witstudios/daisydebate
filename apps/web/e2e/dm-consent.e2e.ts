@@ -124,6 +124,13 @@ test("an adult's cold request to a 14-year-old is refused with Add friend, and w
     await adultPage
       .getByRole('button', { name: `Add friend @${minor!.username}` })
       .click();
+    await adultPage.reload();
+    await expect(
+      adultPage.getByRole('button', {
+        name: `Message @${minor!.username}`,
+        exact: true,
+      }),
+    ).toHaveCount(0);
     const minorPage = await openPage(minor!.context, 'the 14-year-old');
     await minorPage.goto('/friends');
     await minorPage

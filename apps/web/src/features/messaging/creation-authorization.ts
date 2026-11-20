@@ -5,9 +5,10 @@ import type {
   SocialCreationPolicy,
 } from '@daisy/auth/authorization';
 import type { Clock } from '@daisy/clock';
-import type { ContactAuthorizationFence } from '@daisy/db/contacts';
+import type { Database } from '@daisy/db';
 import { createAppError } from '@daisy/errors';
 import { requireAuthorization } from '@daisy/auth/request-authorization';
+import { socialMemberReading } from '@daisy/auth/social-reading';
 import { loadAccountPolicyFacts } from '../authorization/account-policy-facts';
 
 type CreationOperation = {
@@ -28,8 +29,8 @@ export function messagingCreationFence({
   readonly principal: AuthorizationPrincipal;
   readonly clock: Clock;
   readonly operation: CreationOperation;
-}): ContactAuthorizationFence {
-  return async (tx, input, facts) => {
+}): Parameters<Database['messagingSocialStore']>[0] {
+  return async (tx, input, facts, existing) => {
     if (
       principal.kind !== 'user' ||
       principal.userId !== input.userId ||
@@ -45,6 +46,32 @@ export function messagingCreationFence({
       facts.accounts,
       now,
     );
+    if (existing) {
+      const dm = existing.authority;
+      if (dm.kind !== 'dm') throw createAppError('INFRASTRUCTURE');
+      const capability =
+        dm.state === 'accepted'
+          ? 'channel.read'
+          : dm.requestSenderActorId === input.actorId
+            ? 'channel.request.status'
+            : 'channel.request.read';
+      requireAuthorization({
+        principal,
+        capability,
+        resource: existing,
+        context: {
+          account,
+          now,
+          socialAccounts,
+          socialReading: socialMemberReading(operation.policy)({
+            channel: existing,
+            accounts: socialAccounts,
+            now,
+          }),
+        },
+      });
+      return;
+    }
     const resource = creationResource(
       operation,
       input.actorId,

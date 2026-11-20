@@ -26,7 +26,6 @@ import {
   type MessagingAuthorizationFence,
   createMessagingSocialStore,
 } from './index';
-import type { ContactAuthorizationFence } from '../contacts/fence';
 import type { ContactReactions } from '../contacts/reactions';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 
@@ -80,7 +79,8 @@ export function messagingOperations(
       createMessagingGroupManagementStore({ database, authorize }),
     messagingGroupInvitationStore: (authorize: MessagingGroupInvitationFence) =>
       createMessagingGroupInvitationStore({ database, authorize }),
-    messagingSocialStore: (authorize: ContactAuthorizationFence) =>
-      createMessagingSocialStore({ database, authorize, reactions }),
+    messagingSocialStore: (
+      authorize: Parameters<typeof createMessagingSocialStore>[0]['authorize'],
+    ) => createMessagingSocialStore({ database, authorize, reactions }),
   };
 }

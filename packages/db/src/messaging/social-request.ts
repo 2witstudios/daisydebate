@@ -50,6 +50,8 @@ export function dmRequestFrame(
   };
   const converges = (current: Awaited<ReturnType<typeof read>>) =>
     current !== null && ['pending', 'accepted'].includes(current.requestState);
+  const canReopen = (current: NonNullable<Awaited<ReturnType<typeof read>>>) =>
+    current.requestState === 'declined' || current.requestState === 'cancelled';
   const activeChannel = async (channelId: string) => {
     const [channel] = await tx
       .select()
@@ -69,7 +71,10 @@ export function dmRequestFrame(
       const current = await read();
       if (current && converges(current))
         return { channelId: current.channelId, state: current.requestState };
-      if (current) await activeChannel(current.channelId);
+      if (current) {
+        if (!canReopen(current)) throw createAppError('AUTHORIZATION');
+        await activeChannel(current.channelId);
+      }
       await refuseDeclineBlock(tx, input.actorId, counterpartOf(input), now);
       return null;
     },
@@ -87,7 +92,7 @@ export function dmRequestFrame(
       const current = await read();
       // screenDmRequest owns convergence: a pending or accepted DM is no new
       // request, so committing one is a caller that skipped the screen.
-      if (current && converges(current)) throw createAppError('CONFLICT');
+      if (current && !canReopen(current)) throw createAppError('CONFLICT');
       const record = await spendSocialRequest(
         tx,
         {
