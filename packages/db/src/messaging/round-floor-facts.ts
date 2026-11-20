@@ -4,18 +4,18 @@ import {
   type RoundFloorFact,
 } from '@daisy/protocol/round-floor';
 import { type YouthLiveFact, roundStatusSchema } from '@daisy/protocol';
-import { query } from '../raw-rows';
+import { postgresInt8, query } from '../raw-rows';
 import type { Tx } from '../tx';
 import { z } from 'zod';
 
 type FloorRow = {
   readonly actor_id: string;
-  readonly version: number;
+  readonly version: z.output<typeof postgresInt8>;
   readonly status: RoundFloorFact['status'];
   readonly completed_at: Date | null;
   readonly audience: RoundFloorFact['audience'];
   readonly channel_id: string | null;
-  readonly authority_revision: number | null;
+  readonly authority_revision: z.output<typeof postgresInt8> | null;
 };
 /** A Youth Round's linked adults (ADR 0155), as the boundary read them; null on any other Round. */
 export type FloorYouth = YouthLiveFact | null;
@@ -49,12 +49,12 @@ export async function readRoundFloorFacts(
     tx,
     z.object({
       actor_id: z.string(),
-      version: z.number(),
+      version: postgresInt8,
       status: roundStatusSchema,
       completed_at: z.date().nullable(),
       audience: z.enum(['debater', 'host', 'linked_adult']).nullable(),
       channel_id: z.string().nullable(),
-      authority_revision: z.number().nullable(),
+      authority_revision: postgresInt8.nullable(),
     }),
     sql`select wanted.actor_id,f.* from unnest(array[${sql.join(
       actorIds.map((id) => sql`${id}`),

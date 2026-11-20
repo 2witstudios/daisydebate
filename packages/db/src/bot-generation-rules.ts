@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import { createAppError } from '@daisy/errors';
 import { validAgentCounter } from './agent-accounting';
 import type { agentRuns } from './schema/agent-runs';
@@ -27,13 +28,16 @@ export function refuseFinalSpeech(message: string) {
   return refusal;
 }
 
-export function requireRequest(request: GenerationRequest | null | undefined) {
-  if (!request || !['language', 'tts'].includes(request.kind))
-    throw createAppError('VALIDATION');
-  if (
-    request.kind === 'tts' &&
-    (!validCount(request.characters) || request.characters === 0)
-  )
+const generationRequestSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('language') }),
+  z.object({
+    kind: z.literal('tts'),
+    characters: z.number().min(1).refine(validCount),
+  }),
+]);
+
+export function requireRequest(request: unknown) {
+  if (!generationRequestSchema.safeParse(request).success)
     throw createAppError('VALIDATION');
 }
 export function requireUsage(outcome: Outcome, usage: Usage) {
@@ -45,7 +49,7 @@ export function requireUsage(outcome: Outcome, usage: Usage) {
 }
 /** A definitely failed call served nothing, so it settles with no usage. */
 export function requireRunUsage(
-  run: typeof agentRuns.$inferSelect,
+  run: Pick<typeof agentRuns.$inferSelect, 'kind' | 'characters'>,
   outcome: Outcome,
   usage: Usage,
 ) {
@@ -62,7 +66,12 @@ export function requireRunUsage(
   } else if (usage.characters !== 0) throw createAppError('VALIDATION');
 }
 export function requireSameSettlement(
-  run: typeof agentRuns.$inferSelect,
+  run: Pick<
+    typeof agentRuns.$inferSelect,
+    'characters' | 'inputTokens' | 'outputTokens'
+  > & {
+    readonly configurationSnapshot: { readonly providerOutcome?: Outcome };
+  },
   outcome: Outcome,
   usage: Usage,
 ) {

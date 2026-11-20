@@ -9,8 +9,6 @@ import {
   ratingStyles,
   type RatingDivision,
   type RatingStyle,
-  type RoundOutcome,
-  type SeatRef,
   ratingDivisions,
 } from '@daisy/protocol';
 import { roundOutcomeSql } from './round-outcome-sql';

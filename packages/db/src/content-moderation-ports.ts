@@ -16,7 +16,7 @@ export type ContentModerationOutcome = 'applied' | 'unchanged' | null;
  */
 type ReportAudience = {
   readonly roundId: string;
-  readonly visibility: 'public' | 'unlisted' | 'private';
+  readonly visibility: 'public' | 'unlisted' | 'private' | null;
   readonly audienceLinkHash: string | null;
   readonly inLiveRoom: boolean;
 };

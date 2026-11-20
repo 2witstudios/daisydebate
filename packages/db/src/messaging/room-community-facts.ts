@@ -1,20 +1,20 @@
 import { sql } from 'drizzle-orm';
 import type { RoomCommunityFact } from '@daisy/protocol/room-community';
-import { query } from '../raw-rows';
+import { postgresInt8, query } from '../raw-rows';
 import type { Tx } from '../tx';
 import { seatKindSchema, roomStatuses } from '@daisy/protocol';
 import { z } from 'zod';
 
 type RoomCommunityRow = {
   readonly actor_id: string;
-  readonly version: number;
+  readonly version: z.output<typeof postgresInt8>;
   readonly status: RoomCommunityFact['status'];
   readonly visibility: RoomCommunityFact['visibility'];
   readonly ended_at: Date | null;
-  readonly host: boolean;
+  readonly host: boolean | null;
   readonly seat_kind: RoomCommunityFact['seatKind'];
   readonly channel_id: string | null;
-  readonly authority_revision: number | null;
+  readonly authority_revision: z.output<typeof postgresInt8> | null;
   readonly youth_room: boolean;
   readonly youth_staff: boolean;
 };
@@ -46,14 +46,14 @@ export async function readRoomCommunityFacts(
     tx,
     z.object({
       actor_id: z.string(),
-      version: z.number(),
+      version: postgresInt8,
       status: z.enum(roomStatuses),
       visibility: z.enum(['public', 'unlisted', 'private']),
       ended_at: z.date().nullable(),
-      host: z.boolean(),
+      host: z.boolean().nullable(),
       seat_kind: seatKindSchema.nullable(),
       channel_id: z.string().nullable(),
-      authority_revision: z.number().nullable(),
+      authority_revision: postgresInt8.nullable(),
       youth_room: z.boolean(),
       youth_staff: z.boolean(),
     }),

@@ -12,6 +12,22 @@ import {
 
 setupRitewayBun();
 requireTestServices(process.env);
+
+test('a subject with no messaging files still has an empty export collection', async () => {
+  await withPrivacyMessaging(async ({ database, userId, actorId }) => {
+    const result = await runPrivacyExport(
+      database,
+      { userId, actorId },
+      messagingPrivacyAdoption,
+    );
+    assert({
+      given: 'an account without stored messaging files',
+      should: 'return the empty collection',
+      actual: result.messaging_files,
+      expected: [],
+    });
+  });
+});
 function assertSocialExport(
   result: PrivacyExport,
   peer: PrivacyExport,

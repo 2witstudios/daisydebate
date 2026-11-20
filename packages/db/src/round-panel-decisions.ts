@@ -178,13 +178,20 @@ export function requirePanelFacts<
  * The engine's completion finishes the Round with no segment change, and
  * names a winner exactly when some judges ruled (`partial`).
  */
+type CompletionRound = Pick<
+  NonNullable<RoundProjection['round']>,
+  'status' | 'outcome'
+>;
+
 export function requireCompletionProjection(completion: {
-  readonly projection: RoundProjection;
+  readonly projection: {
+    readonly round?: CompletionRound | null | undefined;
+    readonly segmentInserts: readonly unknown[];
+    readonly segmentCloses: readonly unknown[];
+  };
   readonly ruling: RoundPanelReceipt['ruling'];
 }): asserts completion is typeof completion & {
-  readonly projection: {
-    readonly round: NonNullable<RoundProjection['round']>;
-  };
+  readonly projection: { readonly round: CompletionRound };
 } {
   const { projection } = completion;
   if (

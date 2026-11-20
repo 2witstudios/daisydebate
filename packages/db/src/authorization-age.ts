@@ -9,7 +9,7 @@ type AgeInput = {
   readonly userId: string;
   readonly actorId: string;
   readonly accountRevision: number;
-  readonly now: string;
+  readonly now: unknown;
 };
 export type AuthorizationAgeFact =
   | { readonly state: 'unknown' }
@@ -98,7 +98,7 @@ export async function loadAuthorizationAgeFact(
     tx,
     ageFactRow,
     sql`select * from public.daisy_authorization_age(
-    ${input.userId}::text, ${input.actorId}::text, ${input.accountRevision}::integer, ${input.now}::timestamptz
+    ${input.userId}::text, ${input.actorId}::text, ${input.accountRevision}::integer, ${instant.toISOString()}::timestamptz
   )`,
   );
   if (rows.length !== 1 || rows[0] === undefined) return { state: 'unknown' };
@@ -120,7 +120,7 @@ export async function loadAuthorizationAgeFacts(
     user_id: input.userId,
     actor_id: input.actorId,
     revision: input.accountRevision,
-    checked_at: input.now,
+    checked_at: instants[i]!.toISOString(),
   }));
   const rows = await query(
     tx,

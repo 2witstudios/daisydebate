@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import type { RetentionBatch } from './retention';
+import { requireRetentionBounds, type RetentionBatch } from './retention';
 import type { Tx } from './tx';
 import { query } from './raw-rows';
 import { z } from 'zod';
@@ -12,13 +12,7 @@ export async function deleteExpiredOutboxPrefix(
   database: Tx,
   { before, limit }: RetentionBatch,
 ): Promise<number> {
-  if (
-    !Number.isSafeInteger(limit) ||
-    limit < 1 ||
-    limit > 500 ||
-    Number.isNaN(Date.parse(before))
-  )
-    throw new Error('Invalid retention bounds');
+  requireRetentionBounds({ before, limit });
   const deleted = await query(
     database,
     z.object({ known: z.boolean(), count: z.number() }),

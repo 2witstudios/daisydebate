@@ -44,7 +44,7 @@ export const recordingModeration: RecordingModeration = {
       z.object({
         competition_type: z.string(),
         round_id: z.string(),
-        visibility: z.enum(['public', 'unlisted', 'private']),
+        visibility: z.enum(['public', 'unlisted', 'private']).nullable(),
         audience_link_hash: z.string().nullable(),
         reporter_seated: z.boolean(),
         in_live_room: z.boolean(),

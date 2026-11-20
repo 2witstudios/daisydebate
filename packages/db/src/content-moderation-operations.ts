@@ -52,7 +52,7 @@ const roundFacts = async (tx: Tx, roundId: string, actorId: string) => {
   const [round] = await queryRows(
     tx,
     z.object({
-      visibility: z.enum(['public', 'unlisted', 'private']),
+      visibility: z.enum(['public', 'unlisted', 'private']).nullable(),
       competition_type: z.string(),
       audience_link_hash: z.string().nullable(),
       seated: z.boolean(),

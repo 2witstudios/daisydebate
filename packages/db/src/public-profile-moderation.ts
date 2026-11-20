@@ -6,7 +6,6 @@ import type {
 import {
   profilePhotoTransition,
   type ProfilePhotoEvent,
-  type ProfilePhotoStatus,
   profilePhotoStatuses,
 } from '@daisy/protocol/public-profile';
 import { sql } from 'drizzle-orm';

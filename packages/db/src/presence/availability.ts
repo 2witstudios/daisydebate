@@ -1,5 +1,5 @@
 import { sql, type SQL } from 'drizzle-orm';
-import type { ChosenStatus, MemberPlacement } from '@daisy/protocol';
+import type { MemberPlacement } from '@daisy/protocol';
 import { roomIsOpen } from '../room-open';
 import type { Tx } from '../tx';
 import { query as queryRows } from '../raw-rows';

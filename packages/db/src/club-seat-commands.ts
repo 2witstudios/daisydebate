@@ -673,7 +673,7 @@ export async function invitedAs(
     ? {
         id: String(row.id),
         email: normalizeEmail(String(row.email)),
-        expiresAt: new Date(row.expires_at as string | Date).toISOString(),
+        expiresAt: row.expires_at.toISOString(),
       }
     : null;
 }

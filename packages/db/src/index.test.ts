@@ -1,7 +1,7 @@
 import { expect } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
-import { getTableName } from 'drizzle-orm';
+import { getTableColumns, getTableName } from 'drizzle-orm';
 import { getTableConfig } from 'drizzle-orm/pg-core';
 import { rounds } from './schema/rounds';
 import { users } from './schema/users';
@@ -57,7 +57,7 @@ describe('persistence schema', () => {
   });
 
   test('supports provisional authentication profiles', () => {
-    const columns = users as unknown as Record<string, { notNull?: boolean }>;
+    const columns = getTableColumns(users);
 
     assert({
       given: 'verified users before username onboarding',
@@ -68,7 +68,7 @@ describe('persistence schema', () => {
         hasEmailVerified: 'emailVerified' in columns,
         hasName: 'name' in columns,
         hasImage: 'image' in columns,
-        usernameRequired: columns.username?.notNull,
+        usernameRequired: columns.username.notNull,
       },
       expected: {
         hasEmail: true,
