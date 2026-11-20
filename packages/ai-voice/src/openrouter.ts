@@ -9,7 +9,7 @@ import { finishOf } from './completion-finish';
 export type Fetch = (url: string, init: RequestInit) => Promise<Response>;
 
 /** Resolves `ms` from now, or at once when `signal` aborts: what bounds a call in time. */
-export type Sleep = (ms: number, signal: AbortSignal) => Promise<void>;
+type Sleep = (ms: number, signal: AbortSignal) => Promise<void>;
 
 const deadlineFor = (ms: number, streamed: boolean, sleep?: Sleep) => {
   if (!streamed && sleep === undefined)

@@ -1,7 +1,11 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { seededWalk, type Draw } from '@daisy/seeded-random/testing';
+import {
+  seededDraws,
+  seededWalk,
+  type Draw,
+} from '@daisy/seeded-random/testing';
 import {
   attendanceTimingPolicy,
   isJudgeSeat,
@@ -137,6 +141,10 @@ const delayOf = (world: World, draw: Draw): number => {
 const rowProblems = (rules: RoundRules, rows: Persisted): string[] => {
   const problems: string[] = [];
   const { lifecycle, segments } = rows;
+  const prepBudget = rules.inRoundPrep?.budgetMsPerSide ?? 0;
+  for (const [side, spent] of Object.entries(rows.checkpoint.prep_consumed_ms))
+    if (!Number.isSafeInteger(spent) || spent < 0 || spent > prepBudget)
+      problems.push(`${ids.prepBudget}: ${side} persisted ${spent} ms of prep`);
   const open = segments.filter((row) => row.endedAt === null);
   if (open.length > 1)
     problems.push(`${ids.openCount}: ${open.length} segments open`);
@@ -848,6 +856,85 @@ describe('round engine oracle at rare clock boundaries', () => {
           outcome: null,
         },
       },
+    });
+  });
+});
+
+describe('hydration rejects inconsistent Round rows', () => {
+  test('a single corrupted row or checkpoint field names its invariant', () => {
+    const proof = seededDraws({
+      seed: 1_137,
+      runs: 126,
+      draws: 3,
+      problems: (draw) => {
+        const format = formats[draw(formats.length)]!;
+        const { rules } = format;
+        const cast = castOf(rules);
+        const blank = openingRound(rules);
+        const start = T0 + draw(1_000);
+        const now = start + rules.countdownMs;
+        const live = persist(
+          blank,
+          hydrate(rules, cast, blank).activate({
+            at: iso(start),
+            now: iso(now),
+          }),
+        );
+        const [open, ...later] = live.segments;
+        if (
+          live.lifecycle.status !== 'active' ||
+          open?.endedAt !== null ||
+          later.length > 0
+        )
+          return [`${format.name} never opened its first segment`];
+        hydrate(rules, cast, live).position(iso(now));
+
+        const alternatives: ReadonlyArray<readonly [string, Persisted]> = [
+          [
+            ids.segmentRules,
+            {
+              ...live,
+              segments: [
+                { ...open, durationMs: open.durationMs + 1 + draw(1_000) },
+              ],
+            },
+          ],
+          [
+            ids.openCount,
+            {
+              ...live,
+              checkpoint: { ...live.checkpoint, prep_ended_at: iso(now) },
+            },
+          ],
+          [
+            ids.lifecycle,
+            {
+              ...live,
+              lifecycle: { ...live.lifecycle, startedAt: 'invalid time' },
+            },
+          ],
+          [ids.stage, { ...live, currentStage: 'countdown' }],
+        ];
+        return alternatives.flatMap(([id, rows]) => {
+          try {
+            hydrate(rules, cast, rows);
+            return [`${format.name} hydrated rows violating ${id}`];
+          } catch (error) {
+            const refusal = refusalOf(error);
+            return refusal.kind === 'invariant' && refusal.id === id
+              ? []
+              : [`${format.name} refused ${id} as ${JSON.stringify(refusal)}`];
+          }
+        });
+      },
+    });
+    assert({
+      given:
+        'generated valid live Rounds with one corrupted persisted field at a time',
+      should:
+        'hydrate each control and refuse each corruption with its registered invariant',
+      actual: proof.failure,
+      expected: null,
     });
   });
 });

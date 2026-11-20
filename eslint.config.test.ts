@@ -492,22 +492,30 @@ describe('unit tests run on virtual time (ADR 0161)', () => {
     ).length;
   };
   const timed = [
+    "import { setTimeout as timerSleep } from 'node:timers/promises';",
+    "import * as timers from 'node:timers';",
     'await Bun.sleep(300);',
+    'await globalThis.Bun.sleep(300);',
+    "await Bun['sleep'](300);",
     'Bun.sleepSync(5);',
     'await new Promise((done) => setTimeout(done, 20));',
     'const wait = (ms: number) => new Promise((done) => setTimeout(done, ms));',
     'globalThis.setTimeout(() => undefined);',
     'const beat = setInterval(() => undefined, 10);',
+    'await timerSleep(20);',
+    'timers.setTimeout(() => undefined, 20);',
   ].join('\n');
   const yields = [
+    "import { setTimeout as timerSleep } from 'node:timers/promises';",
     'await Bun.sleep(0);',
     'await new Promise((done) => setTimeout(done, 0));',
     'await new Promise((done) => setImmediate(done));',
+    'await timerSleep(0);',
   ].join('\n');
   test('a timed wait in a unit test or its support is an error; a zero delay is not', async () => {
     assert({
       given:
-        'six timed waits and three zero-delay yields, in unit tests, test support, an integration suite and production code',
+        'ten timed waits and four zero-delay yields, in unit tests, test support, an integration suite and production code',
       should:
         'report each timed wait in unit test code only, and no yield anywhere',
       actual: {
@@ -531,10 +539,10 @@ describe('unit tests run on virtual time (ADR 0161)', () => {
         production: await sleeps(timed, 'packages/media/src/clock-probe.ts'),
       },
       expected: {
-        unit: 6,
-        tsx: 6,
-        support: 6,
-        script: 6,
+        unit: 10,
+        tsx: 10,
+        support: 10,
+        script: 10,
         yields: 0,
         integration: 0,
         integrationSupport: 0,

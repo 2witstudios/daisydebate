@@ -18,7 +18,6 @@ import {
   isJudgeSeat,
   leadSeatOf,
   sameSeat,
-  sideOfSeat,
   type FormatDefinition,
   type FormatSettings,
   type HydratedSegment,
@@ -247,5 +246,3 @@ export const panelCompletion = (
     },
   };
 };
-
-export { sideOfSeat };

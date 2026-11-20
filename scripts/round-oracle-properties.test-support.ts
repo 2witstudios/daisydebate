@@ -232,8 +232,8 @@ const volatilityConverges: OracleProperty = {
     seededCheck({
       seed: 13,
       runs: 600,
-      input: fc.tuple(glickoState, games, fc.integer({ min: 0, max: 3 })),
-      problems: ([player, played, iterations]) => {
+      input: fc.tuple(glickoState, games),
+      problems: ([player, played]) => {
         const config = {
           tau: ratingPolicy.tau,
           epsilon: ratingPolicy.epsilon,
@@ -254,11 +254,23 @@ const volatilityConverges: OracleProperty = {
           )
             problems.push(`the search returned ${JSON.stringify(next)}`);
         }
-        const cut = outcomeOf(() =>
-          ratePeriod(player, played, { ...config, maxIterations: iterations }),
+        // Equal ratings predict 0.5. For one game this puts the initial
+        // bracket endpoints tau apart, so a zero iteration budget must fail.
+        const equalMatch = [{ opponent: player, score: 1 as const }];
+        problems.push(
+          ...expectOutcome(
+            'a full search for an even match',
+            outcomeOf(() => ratePeriod(player, equalMatch, config)),
+            'accepted',
+          ),
+          ...expectOutcome(
+            'an even match with no iterations',
+            outcomeOf(() =>
+              ratePeriod(player, equalMatch, { ...config, maxIterations: 0 }),
+            ),
+            'debate.rating.volatility-converges',
+          ),
         );
-        if (cut !== 'accepted' && cut !== 'debate.rating.volatility-converges')
-          problems.push(`a search cut short at ${iterations} threw ${cut}`);
         return problems;
       },
     }).failure,

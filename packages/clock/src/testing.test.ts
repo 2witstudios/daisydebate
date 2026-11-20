@@ -60,6 +60,17 @@ describe('virtualClock', () => {
     });
   });
 
+  test('concurrent advances keep time monotonic', async () => {
+    const clock = virtualClock();
+    await Promise.all([clock.advance(10), clock.advance(5)]);
+    assert({
+      given: 'advances to 10 ms and 5 ms that settle together',
+      should: 'keep the later deadline as the current instant',
+      actual: clock.nowMs(),
+      expected: 10,
+    });
+  });
+
   test('run drives timed work to its end in no real time', async () => {
     const clock = virtualClock();
     const work = async () => {

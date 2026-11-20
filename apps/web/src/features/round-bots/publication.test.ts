@@ -1277,11 +1277,12 @@ test('the claim’s end waits for a line end retry still in flight, and asks it 
 });
 
 test('a queue clear at the exact handoff instant currently leaves the tail whole', async () => {
-  const { clock, claim } = harness();
+  const { clock, claim, events } = harness();
   claim.start();
   await clock.advance(10);
   const phrase = 'a'.repeat(24);
   await clock.run(claim.publish(job(600, phrase), signal(), far()));
+  const handoffAt = clock.nowMs();
   const stop = new AbortController();
   stop.abort();
   await clock
@@ -1291,8 +1292,12 @@ test('a queue clear at the exact handoff instant currently leaves the tail whole
   assert({
     given: 'a clear in the same virtual millisecond as the phrase handoff',
     should: 'report the tail as whole under the current publisher semantics',
-    actual: claim.tailCut(phrase),
-    expected: false,
+    actual: {
+      clear: events.includes('clear'),
+      elapsedMs: clock.nowMs() - handoffAt,
+      cut: claim.tailCut(phrase),
+    },
+    expected: { clear: true, elapsedMs: 0, cut: false },
   });
 });
 

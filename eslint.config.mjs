@@ -405,23 +405,57 @@ const refusalReadRestrictions = [
  */
 const zeroDelay = (node) =>
   node !== undefined && node.type === 'Literal' && node.value === 0;
-const timedWait = (call) => {
-  const { callee } = call;
-  const name =
-    callee.type === 'Identifier'
-      ? callee.name
-      : callee.type === 'MemberExpression' &&
-          callee.object.type === 'Identifier' &&
-          callee.property.type === 'Identifier'
-        ? `${callee.object.name}.${callee.property.name}`
-        : null;
+const callableName = (node) => {
+  if (node.type === 'Identifier') return node.name;
+  if (node.type !== 'MemberExpression') return null;
+  const receiver = callableName(node.object);
+  const member = node.computed
+    ? node.property.type === 'Literal' &&
+      typeof node.property.value === 'string'
+      ? node.property.value
+      : null
+    : node.property.type === 'Identifier'
+      ? node.property.name
+      : null;
+  return receiver === null || member === null ? null : `${receiver}.${member}`;
+};
+const timerMethods = ['setTimeout', 'setInterval'];
+const importedTimers = (program) => {
+  const timers = new Map();
+  for (const statement of program.body) {
+    if (statement.type !== 'ImportDeclaration') continue;
+    const moduleName = String(statement.source.value).replace(/^node:/, '');
+    if (moduleName !== 'timers' && moduleName !== 'timers/promises') continue;
+    const delayArgument = moduleName === 'timers' ? 1 : 0;
+    for (const specifier of statement.specifiers) {
+      if (specifier.type === 'ImportSpecifier') {
+        const name = callableName(specifier.imported);
+        if (timerMethods.includes(name))
+          timers.set(specifier.local.name, { name, delayArgument });
+      } else {
+        for (const name of timerMethods)
+          timers.set(`${specifier.local.name}.${name}`, {
+            name,
+            delayArgument,
+          });
+      }
+    }
+  }
+  return timers;
+};
+const timedWait = (call, timers) => {
+  const name = callableName(call.callee)?.replace(/^globalThis\./, '');
+  const imported = timers.get(name);
+  if (imported !== undefined)
+    return imported.name === 'setInterval' ||
+      !zeroDelay(call.arguments[imported.delayArgument])
+      ? imported.name
+      : null;
   if (name === 'Bun.sleep' || name === 'Bun.sleepSync')
     return zeroDelay(call.arguments[0]) ? null : name;
-  if (name === 'setTimeout' || name === 'globalThis.setTimeout')
+  if (name === 'setTimeout')
     return zeroDelay(call.arguments[1]) ? null : 'setTimeout';
-  if (name === 'setInterval' || name === 'globalThis.setInterval')
-    return 'setInterval';
-  return null;
+  return name === 'setInterval' ? name : null;
 };
 const testTimePlugin = {
   rules: {
@@ -434,13 +468,23 @@ const testTimePlugin = {
         },
         schema: [],
       },
-      create: (context) => ({
-        CallExpression: (call) => {
-          const name = timedWait(call);
-          if (name !== null)
-            context.report({ node: call, messageId: 'sleep', data: { name } });
-        },
-      }),
+      create: (context) => {
+        let timers = new Map();
+        return {
+          Program: (program) => {
+            timers = importedTimers(program);
+          },
+          CallExpression: (call) => {
+            const name = timedWait(call, timers);
+            if (name !== null)
+              context.report({
+                node: call,
+                messageId: 'sleep',
+                data: { name },
+              });
+          },
+        };
+      },
     },
   },
 };

@@ -112,7 +112,7 @@ export function virtualClock(startMs = 0): VirtualClock {
         wakeSoonest();
         await settle();
       }
-      now = until;
+      now = Math.max(now, until);
     },
     run: async <T>(work: Promise<T>): Promise<T> => {
       let done = false;

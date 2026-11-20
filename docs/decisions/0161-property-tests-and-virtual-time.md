@@ -39,6 +39,7 @@ Measured on 19 November 2026 at `417ad45a0`:
 4. **A real sleep in a unit test is a lint error** (`test-time/no-real-sleep`
    on `*.test.ts(x)` and `*.test-support.ts(x)` outside `integration/` and
    `e2e/`): `Bun.sleep`, `Bun.sleepSync`, `setTimeout` and `setInterval`,
+   including timer imports from `node:timers` and `node:timers/promises`,
    except a literal zero delay, which yields a turn and waits on no time.
    A test that waits for a real process waits on its event (output, exit, a
    file), with the runner's timeout as the deadline. Integration and browser
