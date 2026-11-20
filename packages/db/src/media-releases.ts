@@ -30,6 +30,7 @@ import { readLinkedAdultUserIds } from './youth-recording-people';
 
 import {
   insertMediaRelease,
+  supersedeOldRelease,
   isoOrNull,
   iso,
   nowSql,
@@ -372,12 +373,14 @@ export function createMediaReleases(input: {
         );
         if (!decision.ok) return { kind: 'refused', reason: decision.refusal };
         const userId = facts.request.subjectUserId;
+        await supersedeOldRelease(tx, userId, facts.now);
         const ids = decision.scopes.map(() => nextId());
         for (const [index, scope] of decision.scopes.entries())
           await insertMediaRelease(tx, {
             id: ids[index]!,
             userId,
             scope,
+            wordingVersion: decision.wordingVersion,
             parent: {
               requestId: facts.request.id,
               name: decision.signature.name,
@@ -495,6 +498,7 @@ export function createMediaReleases(input: {
             id: nextId(),
             userId: facts.request.subjectUserId,
             scope: 'paid_ads',
+            wordingVersion: publish.wordingVersion,
             parent: {
               requestId: facts.request.id,
               name: signer.name,

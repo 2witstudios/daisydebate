@@ -1,3 +1,4 @@
+import { createId } from '@paralleldrive/cuid2';
 import { catalogFormats } from '../src/catalog-formats';
 import { resolveRoomConfiguration } from '@daisy/debate-engine';
 import { oneOnOneDefinition, oneOnOneSettings } from '../src/reference-formats';
@@ -47,3 +48,29 @@ export async function authoredJudgedRound(fixture: Fixture, judges: number) {
     { rules: compiled.rules },
   );
 }
+
+/**
+ * Replaces the Round's judge in slot 0 the way Tab's change_judge commits it
+ * (a new judge identity, the assignment's next version), leaving the first
+ * judge's row as retired history.
+ */
+export const replaceJudge = (f: Fixture, roundId: string, byActorId: string) =>
+  f.sql.begin(async (tx) => {
+    const replacementActorId = await f.actor();
+    const replacementId = createId();
+    const commandId = createId();
+    await tx`insert into round_participants(id,round_id,actor_id,seat_kind,side,slot) values(${replacementId},${roundId},${replacementActorId},'judge',null,0)`;
+    const result = {
+      kind: 'judge_assignment',
+      roundId,
+      slot: 0,
+      assignmentVersion: 2,
+      participantId: replacementId,
+    };
+    const digest = new Bun.CryptoHasher('sha3-256')
+      .update(JSON.stringify(result))
+      .digest('hex');
+    await tx`insert into round_commands(command_id,round_id,actor_id,service_id,type,payload_digest,result,resulting_version,applied_at) values(${commandId},${roundId},${byActorId},null,'change_judge',${digest},${result},2,date_trunc('milliseconds',clock_timestamp()))`;
+    await tx`select public.daisy_append_round_judge_assignment(${roundId},0,1,1,${replacementId},${commandId})`;
+    return replacementActorId;
+  });

@@ -25,8 +25,13 @@ export type MediaReleaseSource = (typeof mediaReleaseSources)[number];
 export const guardianRelations = ['parent', 'legal_guardian'] as const;
 export type GuardianRelation = (typeof guardianRelations)[number];
 
-/** Who withdrew a release. */
-export const releaseWithdrawers = ['parent', 'club', 'erasure'] as const;
+/** How an active release ended. */
+export const releaseWithdrawers = [
+  'parent',
+  'club',
+  'erasure',
+  'superseded',
+] as const;
 export type ReleaseWithdrawer = (typeof releaseWithdrawers)[number];
 
 /** How a release request ended; an open request has none. */
@@ -160,7 +165,7 @@ export const activeReleaseOf = (
 
 /**
  * Where a minor stands, as Settings, the club and the coach see it. An active
- * publish release is on file; else an open request is waiting; else a release
+ * reuse release is on file; else an open request is waiting; else a release
  * a parent withdrew says so (only the parent can sign again); else none.
  */
 export type ReleaseStanding =
@@ -192,7 +197,10 @@ export const releaseStandingOf = (input: {
 }): ReleaseStanding => {
   const { subjectUserId, releases, nowMs } = input;
   const publish = activeReleaseOf(releases, subjectUserId, 'publish');
-  if (publish !== null)
+  if (
+    publish !== null &&
+    reuseLicensingWordings.includes(publish.wordingVersion)
+  )
     return {
       kind: 'on_file',
       publish,
@@ -326,6 +334,7 @@ export const releaseLinkVerdict = (
 // -------------------------------------------------------------- the parent
 
 export const signatureFormSchema = z.object({
+  wordingVersion: z.literal(mediaReleaseWording.version),
   name: z.string().trim().min(1).max(mediaReleasePolicy.nameMaxLength),
   relation: z.enum(guardianRelations),
   attests: z.literal(true),
@@ -341,6 +350,7 @@ export type SignDecision =
       readonly ok: true;
       readonly scopes: readonly MediaReleaseScope[];
       readonly signature: ParentSignature;
+      readonly wordingVersion: SignatureForm['wordingVersion'];
     }
   | { readonly ok: false; readonly refusal: Exclude<SignRefusal, 'usable'> };
 
@@ -364,6 +374,7 @@ export const decideSignature = (
   return {
     ok: true,
     scopes: parsed.data.paidAds ? ['publish', 'paid_ads'] : ['publish'],
+    wordingVersion: parsed.data.wordingVersion,
     signature: {
       kind: 'parent',
       name: parsed.data.name,
@@ -507,6 +518,7 @@ export const clubConfirmVerdict = (
 };
 
 export const clubConfirmFormSchema = z.object({
+  wordingVersion: z.literal(mediaReleaseWording.version),
   warrants: z.literal(true),
   paidAds: z.boolean(),
   name: z.string().trim().min(1).max(mediaReleasePolicy.nameMaxLength),
@@ -519,6 +531,7 @@ export type ClubConfirmDecision =
       readonly scopes: readonly MediaReleaseScope[];
       readonly name: string;
       readonly role: string;
+      readonly wordingVersion: typeof mediaReleaseWording.version;
       readonly confirm: readonly {
         readonly userId: string;
         /** The student's open parent request, now superseded. */
@@ -551,6 +564,7 @@ export const decideClubConfirm = (
     scopes: parsed.data.paidAds ? ['publish', 'paid_ads'] : ['publish'],
     name: parsed.data.name,
     role: parsed.data.role,
+    wordingVersion: parsed.data.wordingVersion,
     confirm: students.map((student) => ({
       userId: student.userId,
       supersedes:

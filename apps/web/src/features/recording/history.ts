@@ -460,8 +460,11 @@ export const openRecordingHistory = async (
       subscribed,
       // Read only when a subscriber could otherwise download it.
       reuseFenced:
-        subscribed && round.youth !== null
-          ? await inputs.readReuseFenced(round)
+        subscribed &&
+        permissions.media &&
+        record?.lifecycle.status === 'ready' &&
+        round.youth !== null
+          ? await inputs.readReuseFenced(round).catch(() => true)
           : round.youth !== null,
     }),
   };

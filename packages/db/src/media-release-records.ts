@@ -1,5 +1,5 @@
 import {
-  mediaReleaseWording,
+  reuseLicensingWordings,
   type MediaReleaseRecord,
   type ReleaseRequest,
 } from '@daisy/protocol/media-release';
@@ -158,6 +158,23 @@ export async function readDivisionOf(
   return row?.division ?? null;
 }
 
+/**
+ * Retire older publishing-only consent when authenticated replacement consent
+ * succeeds. Each caller already holds the minor's account lock. Paid-ad
+ * consent is separate and is recorded again only when explicitly selected.
+ */
+export const supersedeOldRelease = (tx: Tx, userId: string, now: Date) =>
+  tx.execute(sql`update media_releases r
+    set withdrawn_at = ${now.toISOString()}, withdrawn_by = 'superseded'
+    where r.user_id = ${userId} and r.withdrawn_at is null
+      and exists (select 1 from media_releases old
+        where old.user_id = r.user_id and old.scope = 'publish'
+          and old.withdrawn_at is null
+          and old.wording_version not in (${sql.join(
+            reuseLicensingWordings.map((version) => sql`${version}`),
+            sql`, `,
+          )}))`);
+
 /** Writes one release scope; the unique index holds one active per minor per scope. */
 export async function insertMediaRelease(
   tx: Tx,
@@ -165,6 +182,7 @@ export async function insertMediaRelease(
     readonly id: string;
     readonly userId: string;
     readonly scope: MediaReleaseRecord['scope'];
+    readonly wordingVersion: string;
     readonly parent: {
       readonly requestId: string;
       readonly name: string;
@@ -181,7 +199,7 @@ export async function insertMediaRelease(
         ${input.parent === null ? 'club' : 'parent'},
         ${input.parent?.requestId ?? null}, ${input.parent?.name ?? null},
         ${input.parent?.relation ?? null}, ${input.parent?.email ?? null},
-        ${mediaReleaseWording.version}, ${input.now.toISOString()})`,
+        ${input.wordingVersion}, ${input.now.toISOString()})`,
   );
 }
 

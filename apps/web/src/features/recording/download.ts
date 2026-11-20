@@ -56,7 +56,7 @@ export const openDownload = async (
     input.nowMs,
   );
   const allowed = mayDownload({
-    reuseFenced: await deps.inputs.readReuseFenced(round),
+    reuseFenced: await deps.inputs.readReuseFenced(round).catch(() => true),
     viewer: input.viewer,
     permissions,
     status: record.lifecycle.status,

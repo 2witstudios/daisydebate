@@ -1,5 +1,7 @@
 'use client';
 
+import { mediaReleaseWording } from '@daisy/protocol/media-release';
+
 import {
   initialSignState,
   parentUnacknowledged,
@@ -108,6 +110,11 @@ export function SignRelease(props: SignReleaseProps) {
         <ReleaseTerms minor={props.minor} />
         <ReleaseUnchanged minor={props.minor} />
         <form action={sign} className="flex flex-col gap-8">
+          <input
+            type="hidden"
+            name="wordingVersion"
+            value={mediaReleaseWording.version}
+          />
           <fieldset className="flex flex-col gap-3 rounded-lg border border-border-strong bg-surface p-5">
             <legend className="px-1 font-bold">
               Paid advertising{' '}

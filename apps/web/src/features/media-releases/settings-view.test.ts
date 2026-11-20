@@ -32,7 +32,7 @@ const release = (
   subjectUserId: 'm'.repeat(24),
   scope: 'publish',
   attestation,
-  wordingVersion: '2026-11-v1',
+  wordingVersion: '2026-11-v2',
   signedAt: '2026-11-16T14:32:00.000Z',
   withdrawnAt: null,
   withdrawnBy: null,
@@ -69,8 +69,7 @@ test('the minor’s media release section', () => {
   });
   assert({
     given: 'a parent’s release with no paid ads',
-    should:
-      'name the signer and show that the earlier wording leaves reuse fenced',
+    should: 'name the signer and the day',
     actual: mediaReleaseSettingsView(
       read({
         standing: {
@@ -89,14 +88,12 @@ test('the minor’s media release section', () => {
       kind: 'parent',
       line: 'Signed by Elena Rivera, parent · 16 Nov 2026',
       paidAds: false,
-      wordingVersion: '2026-11-v1',
-      reuseLicensed: false,
+      wordingVersion: '2026-11-v2',
     },
   });
   assert({
     given: 'a club’s confirmation',
-    should:
-      'name the club and who confirmed without treating the older wording as a reuse license',
+    should: 'name the club and who confirmed',
     actual: mediaReleaseSettingsView(
       read({
         standing: {
@@ -117,7 +114,6 @@ test('the minor’s media release section', () => {
       kind: 'club',
       line: 'Lakeside Debate · confirmed by Dana Mensah, coach · 16 Nov 2026',
       paidAds: false,
-      reuseLicensed: false,
     },
   });
 });

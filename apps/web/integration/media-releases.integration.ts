@@ -1,3 +1,4 @@
+import { mediaReleaseWording } from '@daisy/protocol/media-release';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -37,9 +38,6 @@ type Store = {
       userId: string,
     ) => Promise<{ standing: { kind: string } }>;
     readonly stopRequests: (recipientHash: string) => Promise<void>;
-    readonly readActivePublishReleases: (
-      ids: readonly string[],
-    ) => Promise<readonly unknown[]>;
   };
   readonly mediaReleaseClubs: {
     readonly confirmClubReleases: (c: {
@@ -146,6 +144,7 @@ const signForm = {
   relation: 'parent',
   attests: true,
   paidAds: false,
+  wordingVersion: mediaReleaseWording.version,
 };
 
 /** A minor asks a parent, who signs through the emailed link. */
@@ -214,6 +213,11 @@ test('a parent signs and withdraws through single-use links, without an account'
         },
       });
 
+      const stale = await store.mediaReleases.sign(
+        releaseLinkDigest('sign', token),
+        { ...signForm, wordingVersion: '2026-11-v1' },
+      );
+      const before = await store.mediaReleases.readMinorRelease(f.host.userId);
       const signed = await store.mediaReleases.sign(
         releaseLinkDigest('sign', token),
         {
@@ -238,6 +242,7 @@ test('a parent signs and withdraws through single-use links, without an account'
         should:
           'record both scopes once, refuse the second use, tell the minor, and owe no more sign mail',
         actual: {
+          stale: [stale.reason, before.standing.kind],
           signed: signed.kind,
           again: again.reason,
           scopes: scopes.map((r: Record<string, unknown>) => [
@@ -252,6 +257,7 @@ test('a parent signs and withdraws through single-use links, without an account'
           moreSignMail: reminder.prepared,
         },
         expected: {
+          stale: ['invalid_form', 'waiting'],
           signed: 'done',
           again: 'used',
           scopes: [
@@ -336,13 +342,14 @@ test('a club confirms releases for its Youth students, under row-level security'
         const form = {
           warrants: true,
           paidAds: false,
+          wordingVersion: mediaReleaseWording.version,
           name: 'Dana Mensah',
           role: 'Coach',
         };
         const confirm = (
           viewer: Member,
           students: readonly Member[],
-          answer = form,
+          answer: unknown = form,
         ) =>
           store.mediaReleaseClubs.confirmClubReleases({
             viewerUserId: viewer.userId,
@@ -359,7 +366,20 @@ test('a club confirms releases for its Youth students, under row-level security'
           ...form,
           warrants: false as never,
         });
+        const oldReleaseId = createId();
+        await f.sql`insert into media_releases (id, user_id, scope, source, wording_version, signed_at)
+          values (${oldReleaseId}, ${f.host.userId}, 'publish', 'club', '2026-11-v1', now() - interval '1 day')`;
+        const stale = await confirm(owner, [f.host], {
+          ...form,
+          wordingVersion: '2026-11-v1',
+        });
+        const before = await store.mediaReleases.readMinorRelease(
+          f.host.userId,
+        );
         const confirmed = await confirm(owner, [f.host]);
+        const [superseded] =
+          await f.sql`select withdrawn_by, wording_version from media_releases where id = ${oldReleaseId}`;
+
         const fenced = await f.sql.begin(async (tx) => {
           await tx`set local role daisy_web`;
           const [none] =
@@ -380,7 +400,9 @@ test('a club confirms releases for its Youth students, under row-level security'
             outsider: typeof outsider === 'string' ? 'refused' : outsider.kind,
             withdrawnToo: [withdrawnToo.reason, withdrawnToo.ineligible],
             noWarranty: noWarranty.reason,
+            stale: [stale.reason, before.standing.kind],
             confirmed: confirmed.kind,
+            superseded: [superseded?.withdrawn_by, superseded?.wording_version],
             standing: (
               await store.mediaReleases.readMinorRelease(f.host.userId)
             ).standing.kind,
@@ -390,7 +412,9 @@ test('a club confirms releases for its Youth students, under row-level security'
             outsider: 'refused',
             withdrawnToo: ['ineligible', [f.guest.userId]],
             noWarranty: 'invalid_form',
+            stale: ['invalid_form', 'none'],
             confirmed: 'confirmed',
+            superseded: ['superseded', '2026-11-v1'],
             standing: 'on_file',
             fenced: [0, 1],
           },

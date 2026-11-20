@@ -3,6 +3,7 @@ import { idSchema } from '@daisy/protocol';
 import {
   decideClubConfirm,
   releaseStandingOf,
+  reuseLicensingWordings,
   type ClubConfirmDecision,
   type ReleaseStanding,
 } from '@daisy/protocol/media-release';
@@ -11,6 +12,7 @@ import type { BoundedTransaction } from './bounded-transaction';
 import { readDatabaseTime } from './database-clock';
 import {
   insertMediaRelease,
+  supersedeOldRelease,
   readDivisionOf,
   readReleasesOf,
   readRequestsOf,
@@ -263,7 +265,11 @@ export function createMediaReleaseClubs(input: {
               and ${divisionOfBandSql(divisionAgeBand())} = 'youth'
               and not exists (select 1 from media_releases r
                 where r.user_id = m.user_id and r.scope = 'publish'
-                  and r.withdrawn_at is null)`,
+                  and r.withdrawn_at is null
+                  and r.wording_version in (${sql.join(
+                    reuseLicensingWordings.map((version) => sql`${version}`),
+                    sql`, `,
+                  )}))`,
         );
         return count?.n ?? 0;
       }),
@@ -323,6 +329,11 @@ export function createMediaReleaseClubs(input: {
             ineligible: decision.ineligible,
           };
         for (const student of decision.confirm) {
+          await supersedeOldRelease(
+            tx as BoundedTransactionContext,
+            student.userId,
+            now,
+          );
           const releaseIds: string[] = [];
           for (const scope of decision.scopes) {
             const releaseId = nextId();
@@ -331,6 +342,7 @@ export function createMediaReleaseClubs(input: {
               id: releaseId,
               userId: student.userId,
               scope,
+              wordingVersion: decision.wordingVersion,
               parent: null,
               now,
             });

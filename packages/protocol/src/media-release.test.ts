@@ -58,7 +58,7 @@ const parentRelease = (
     relation: 'parent',
     email: 'elena.rivera@fastmail.com',
   },
-  wordingVersion: '2026-11-v1',
+  wordingVersion: mediaReleaseWording.version,
   signedAt: iso(t0 + DAY),
   withdrawnAt: null,
   withdrawnBy: null,
@@ -387,8 +387,18 @@ test('a parent signs', () => {
     name: ' Elena Rivera ',
     relation: 'parent',
     attests: true,
+    wordingVersion: mediaReleaseWording.version,
     paidAds: false,
   };
+  assert({
+    given: 'missing or stale release wording',
+    should: 'refuse without accepting consent',
+    actual: [undefined, '2026-11-v1'].map(
+      (wordingVersion) =>
+        decideSignature(facts, { ...form, wordingVersion }).ok,
+    ),
+    expected: [false, false],
+  });
   assert({
     given: 'a usable link and a complete form without paid ads',
     should: 'release publishing only, signed by the addressee',
@@ -396,6 +406,7 @@ test('a parent signs', () => {
     expected: {
       ok: true,
       scopes: ['publish'],
+      wordingVersion: mediaReleaseWording.version,
       signature: {
         kind: 'parent',
         name: 'Elena Rivera',
@@ -411,6 +422,7 @@ test('a parent signs', () => {
     expected: {
       ok: true,
       scopes: ['publish', 'paid_ads'],
+      wordingVersion: mediaReleaseWording.version,
       signature: {
         kind: 'parent',
         name: 'Elena Rivera',
@@ -559,10 +571,20 @@ test('a club confirms', () => {
   });
   const form = {
     warrants: true,
+    wordingVersion: mediaReleaseWording.version,
     paidAds: false,
     name: 'Dana Mensah',
     role: 'Coach',
   };
+  assert({
+    given: 'missing or stale release wording',
+    should: 'refuse without accepting consent',
+    actual: [undefined, '2026-11-v1'].map(
+      (wordingVersion) =>
+        decideClubConfirm([student()], { ...form, wordingVersion }).ok,
+    ),
+    expected: [false, false],
+  });
   assert({
     given: 'each standing',
     should: 'admit none and waiting only',
@@ -629,6 +651,7 @@ test('a club confirms', () => {
     expected: {
       ok: true,
       scopes: ['publish'],
+      wordingVersion: mediaReleaseWording.version,
       name: 'Dana Mensah',
       role: 'Coach',
       confirm: [
@@ -644,6 +667,7 @@ test('a club confirms', () => {
     expected: {
       ok: true,
       scopes: ['publish', 'paid_ads'],
+      wordingVersion: mediaReleaseWording.version,
       name: 'Dana Mensah',
       role: 'Coach',
       confirm: [{ userId: minor, supersedes: null }],
@@ -720,7 +744,10 @@ test('reusing a Round', () => {
     should: 'stay fenced until consent covers reuse',
     actual: reuseFenced({
       ...youth,
-      releases: [active(a), parentRelease({ subjectUserId: b })],
+      releases: [
+        active(a),
+        parentRelease({ subjectUserId: b, wordingVersion: '2026-11-v1' }),
+      ],
     }),
     expected: true,
   });
@@ -766,6 +793,34 @@ test('a parent’s withdrawal outlives a new request', () => {
       }),
     ],
     nowMs: t0 + 3 * DAY,
+  });
+  const renewal = releaseStandingOf({
+    subjectUserId: minor,
+    releases: [clubRelease({ wordingVersion: '2026-11-v1' })],
+    requests: [],
+    nowMs: t0,
+  });
+  assert({
+    given: 'an active club release signed for publishing only',
+    should: 'let a parent or the club provide fresh reuse consent',
+    actual: [
+      decideAsk(
+        {
+          youth: true,
+          standing: renewal,
+          recipientStopped: false,
+          asksToday: 0,
+        },
+        'parent@example.com',
+      ).ok,
+      clubConfirmVerdict({
+        userId: minor,
+        member: true,
+        youth: true,
+        standing: renewal,
+      }),
+    ],
+    expected: [true, 'eligible'],
   });
   assert({
     given: 'a parent withdrew, then the minor asked again',

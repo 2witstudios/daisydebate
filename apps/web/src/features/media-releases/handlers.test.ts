@@ -59,6 +59,7 @@ describe('the media release routes (ADR 0151)', () => {
     const form = {
       name: 'E',
       relation: 'parent',
+      wordingVersion: '2026-11-v2',
       attests: true,
       paidAds: false,
     };

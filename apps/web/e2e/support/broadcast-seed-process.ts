@@ -9,6 +9,7 @@ import {
   negativeSide,
   type SideKey,
 } from '@daisy/protocol';
+import { mediaReleaseWording } from '@daisy/protocol/media-release';
 import { createId } from '@paralleldrive/cuid2';
 import { SQL } from 'bun';
 import { seatJudges } from './seat-judges';
@@ -55,7 +56,9 @@ type Advance = {
     | 'stop'
     | 'end'
     | 'recording-ready'
-    | 'recording-takedown';
+    | 'recording-takedown'
+    | 'release-reuse'
+    | 'withdraw-reuse';
   readonly roundId: string;
 };
 
@@ -240,6 +243,28 @@ const advance = async (sql: SQL, input: Advance) => {
       }} where round_id=${roundId}`;
       return row.id as string;
     }
+    case 'release-reuse': {
+      const debaters = await sql<{ user_id: string }[]>`select a.user_id
+        from round_participants p join actors a on a.id = p.actor_id
+        where p.round_id = ${roundId} and p.seat_kind = 'side'`;
+      if (debaters.length !== 2)
+        throw new Error('Expected two fixture debaters');
+      await sql.begin(async (tx) => {
+        for (const { user_id } of debaters)
+          await tx`insert into media_releases
+            (id, user_id, scope, source, signer_name, signer_relation, signer_email, wording_version, signed_at)
+            values (${createId()}, ${user_id}, 'publish', 'parent', 'Fixture guardian', 'parent',
+              'fixture@example.test', ${mediaReleaseWording.version}, clock_timestamp())`;
+      });
+      return;
+    }
+    case 'withdraw-reuse':
+      await sql`update media_releases m
+        set withdrawn_at = clock_timestamp(), withdrawn_by = 'parent'
+        from round_participants p join actors a on a.id = p.actor_id
+        where p.round_id = ${roundId} and p.seat_kind = 'side'
+          and p.side = ${affirmativeSide} and m.user_id = a.user_id and m.scope = 'publish'`;
+      return;
     case 'recording-takedown': {
       const at = systemClock.now();
       await sql`update recordings set status='taken_down',lifecycle=jsonb_build_object('status','taken_down','takenDownAt',${at}::text,'held',lifecycle) where round_id=${roundId}`;

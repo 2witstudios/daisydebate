@@ -59,7 +59,9 @@ export async function readAudienceSnapshot(
   return {
     visibility,
     feedKey: read.broadcast?.feedKey ?? null,
-    streamable: !(await store.readRoundReuseFenced(input.roundId)),
+    streamable: !(await store
+      .readRoundReuseFenced(input.roundId)
+      .catch(() => true)),
     timeline: projectSpectatorTimeline(read, {
       nowMs,
       feedUrlOf: input.feedUrlOf,

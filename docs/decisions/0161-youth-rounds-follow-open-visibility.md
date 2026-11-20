@@ -56,17 +56,20 @@ an open stream-and-earn grant, which a minor cannot give alone.
    integration test over every release standing. Download reads the same SQL fence when deciding whether to offer or issue a
    download; the Watch page reads it beside the shared
    spectator read (the audience publisher's role never reads releases) and
-   passes it to the viewer, which hides Stream this Round. It is read when
-   the page renders: a release withdrawn mid-broadcast takes effect for a
+   passes it to the viewer, which hides Stream this Round. If the release
+   read fails, the view stays available and the reuse action is withheld. The
+   page checks at render: a release withdrawn mid-broadcast takes effect for a
    viewer at their next load, which is acceptable because the feed is the
    one viewers already play. The Watch page still plays the same feed: viewing
    is not reuse.
 4. **The release is the reuse licence.** A media release (stored scope
    `publish`, unchanged) now allows Daisy and others to clip, download and
    reuse the minor's Rounds; paid ads stay a separate opt-in. Its wording is
-   version `2026-11-v2`. Older wording granted permission to publish and does
-   not lift the reuse fence. The release flow is live everywhere: the
-   `youth-publishing` flag retires (kept as retired in `policy/flag-keys.json`).
+   version `2026-11-v2`. Older wording granted permission to publish and leaves
+   the reuse fence in place. A parent or club must accept the displayed reuse
+   wording before the write records the new consent and supersedes the older
+   release. The earlier consent evidence is retained. The release flow is live
+   everywhere: the `youth-publishing` flag retires (kept as retired in `policy/flag-keys.json`).
 5. **A Youth waiver.** A ranked Ready by a member under 18, in any Room
    (debater or judge), asks for the Youth ranked content waiver (`youth-draft-1`, `docs/legal/youth-ranked-content-waiver.md`),
    picked by the signer's current age band in `requiredContentWaiver`, and an

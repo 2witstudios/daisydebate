@@ -55,8 +55,8 @@ export function ManageRelease(props: ManageReleaseProps) {
     ) : (
       <ReleaseNotice title="Paid advertising withdrawn.">
         <p>
-          Daisy stops using {who} in paid ads. Clipping and reuse stay allowed.
-          A fresh copy, with a new link, is on its way to you.
+          Daisy stops using {who} in paid ads. The rest of the release stays in
+          place. A fresh copy, with a new link, is on its way to you.
         </p>
       </ReleaseNotice>
     );
@@ -122,8 +122,8 @@ export function ManageRelease(props: ManageReleaseProps) {
               <span className="min-w-0">
                 Paid advertising only
                 <span className="block text-sm text-ink-muted">
-                  Keeps clipping and reuse allowed. Daisy stops using {who} in
-                  paid ads.
+                  Keeps the rest of the release in place. Daisy stops using{' '}
+                  {who} in paid ads.
                   {props.paidAds
                     ? null
                     : ' (You haven’t allowed this, so there is nothing to withdraw.)'}

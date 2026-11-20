@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { mediaReleaseWording } from '@daisy/protocol/media-release';
 import type { StandingBadge } from '../../../features/media-releases/release-words';
 import type { FormAction } from '../../form-action/form-action';
 import { Avatar } from '../../components/avatar/avatar';
@@ -80,6 +81,11 @@ export function ConfirmReleasesForm({
     >
       {({ values, pending, done }) => (
         <>
+          <input
+            type="hidden"
+            name="wordingVersion"
+            value={mediaReleaseWording.version}
+          />
           <div className="overflow-x-auto rounded-xl border border-border bg-surface-raised">
             <table className="w-full min-w-club-releases border-collapse">
               <thead>

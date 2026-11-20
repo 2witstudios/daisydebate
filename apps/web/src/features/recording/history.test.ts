@@ -92,6 +92,7 @@ const open = (
     viewer?: RecordingViewer;
     q?: string;
     reuseFenced?: boolean;
+    readReuseFenced?: HistoryInputs['readReuseFenced'];
   } = {},
 ) => {
   const calls: string[] = [];
@@ -113,7 +114,8 @@ const open = (
       return ballots;
     },
     holdsRecordingDownload: async () => over.subscribed ?? false,
-    readReuseFenced: async () => over.reuseFenced ?? false,
+    readReuseFenced:
+      over.readReuseFenced ?? (async () => over.reuseFenced ?? false),
     readJobState: async () => over.job ?? null,
     nowMs: () => over.nowMs ?? Date.parse(at),
     findRecordingByRound: async () =>
@@ -521,6 +523,23 @@ describe('a Youth Round’s history (ADR 0161)', () => {
         ).removal !== null,
       ],
       expected: [true, false],
+    });
+  });
+
+  test('a failed reuse read leaves the history available without download', async () => {
+    const watched = await history({
+      round: youthRound(),
+      viewer: member('stranger'),
+      subscribed: true,
+      readReuseFenced: async () => {
+        throw new Error('reuse read failed');
+      },
+    });
+    assert({
+      given: 'a subscriber allowed to view whose reuse check fails',
+      should: 'show the history and withhold the download',
+      actual: [watched.kind, watched.downloadHref],
+      expected: ['history', null],
     });
   });
 

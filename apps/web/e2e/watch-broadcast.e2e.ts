@@ -382,17 +382,34 @@ test.describe('watching with no account', () => {
     await expect(panel).toHaveCount(0);
   });
 
-  test('a ranked Youth Round plays as an Open one does, with no Stream this Round (ADR 0161)', async ({
+  test('a Youth broadcast plays while Stream this Round follows both debaters’ releases', async ({
     page,
   }) => {
     const round = await liveRound({ division: 'youth' });
-    await page.goto(`/watch/${round.roundId}`);
+    const watch = `/watch/${round.roundId}`;
+    const panel = page.getByRole('region', { name: 'Stream this Round' });
+    await page.goto(watch);
     await expectPlaying(page);
-    // Viewing is not reuse: without every youth debater's release, the feed
-    // is never offered to streamers.
-    await expect(
-      page.getByRole('region', { name: 'Stream this Round' }),
-    ).toHaveCount(0);
+    await expect(panel).toHaveCount(0);
+
+    await advance(round.roundId, 'release-reuse');
+    // The server holds Watch reads for one second. Reload until the new
+    // release state is served without coupling this test to that duration.
+    const feedUrl = panel.getByRole('textbox', { name: 'Official feed URL' });
+    await expect(async () => {
+      await page.reload();
+      await expect(feedUrl).toHaveValue(/\/live\/.+\/master\.m3u8$/, {
+        timeout: 500,
+      });
+    }).toPass({ timeout: 5_000 });
+    await expectPlaying(page);
+
+    await advance(round.roundId, 'withdraw-reuse');
+    await expect(async () => {
+      await page.reload();
+      await expect(panel).toHaveCount(0, { timeout: 500 });
+    }).toPass({ timeout: 5_000 });
+    await expectPlaying(page);
   });
 
   test('Stream this Round is usable with no script, and absent where there is no feed', async ({

@@ -41,6 +41,7 @@ const seatedAccounts = (roundId: string) =>
     from round_participants p join actors a on a.id=p.actor_id
     join users u on u.id=a.user_id and u.deleted_at is null
     where p.round_id=${roundId}
+      and public.daisy_round_participant_is_current(p.id)
       and ${wants('recording_ready', 'in_app', sql`u.id`)}`;
 
 type Recipient = {
