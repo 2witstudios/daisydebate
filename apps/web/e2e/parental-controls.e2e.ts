@@ -13,6 +13,7 @@ import {
   youthBirth,
 } from './support/accounts';
 import { expect, openPage, test } from './support/fixtures';
+import { claimUsername } from './support/forms';
 
 const flag = (state: 'enabled' | 'default') =>
   promisify(execFile)(
@@ -45,9 +46,13 @@ test('a parent creates a child’s account and the child uses the emailed sign-i
   test.setTimeout(120_000);
   const parent = await signUpMember(page.request);
   await page.goto('/settings');
-  await page
-    .getByRole('link', { name: 'Parental controls', exact: true })
-    .click();
+  const jump = page.getByLabel('Section', { exact: true });
+  if (await jump.isVisible())
+    await jump.selectOption('/settings/parental-controls');
+  else
+    await page
+      .getByRole('link', { name: 'Parental controls', exact: true })
+      .click();
   await page.getByText('Create a child’s account', { exact: true }).click();
   const form = page
     .locator('form')
@@ -77,13 +82,11 @@ test('a parent creates a child’s account and the child uses the emailed sign-i
     await expect(child.getByLabel('Month', { exact: true })).toHaveCount(0);
     await child.getByLabel(/I agree to the Terms/).check();
     await child.getByRole('button', { name: 'Continue' }).click();
-    await expect(child).toHaveURL(/\/onboarding\/(lobby|username)/);
+    await expect(child).toHaveURL(/\/onboarding\/lobby/);
+    await child.getByRole('link', { name: 'Continue', exact: true }).click();
     const username = uniqueName('child');
-    const claimed = await child.request.post('/api/account/username', {
-      headers: { origin },
-      data: { username },
-    });
-    expect(claimed.status()).toBe(201);
+    await claimUsername(child, username);
+    await expect(child).toHaveURL(/\/onboarding\/passkey/);
     await child.goto('/settings/your-parents');
     await expect(
       child.getByText(`@${parent.username}`, { exact: true }),

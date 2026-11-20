@@ -1,5 +1,6 @@
 'use server';
 
+import { revalidatePath } from 'next/cache';
 import { cookies, headers } from 'next/headers';
 import {
   ageAnswerHref,
@@ -54,12 +55,14 @@ export async function ageStepAction(
       body: JSON.stringify(read.body),
     },
   );
+  if (response.status === 400 && 'invitationId' in read.body)
+    revalidatePath('/onboarding/age');
   const answer = await readAgeAnswer(response);
   const href = ageAnswerHref(answer, destination);
   if (href === null)
     return ageUnavailable({
-      month: String(read.body.month),
-      year: String(read.body.year),
+      month: 'month' in read.body ? String(read.body.month) : '',
+      year: 'year' in read.body ? String(read.body.year) : '',
       terms: true,
     });
   if (answer.kind === 'refused')

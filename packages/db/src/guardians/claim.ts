@@ -41,6 +41,14 @@ async function findRequest(tx: GuardianClaimTx, userId: string, at: Date) {
     .orderBy(asc(childAccountRequests.createdAt), asc(childAccountRequests.id))
     .limit(1);
   if (!request?.birthMonth || !request.firstName) return null;
+  const guardian = await loadAuthorizationAccount(tx, request.guardianUserId);
+  if (
+    !guardian?.member ||
+    guardian.erased ||
+    guardian.restricted ||
+    guardian.ageBand !== 'adult'
+  )
+    return null;
   return {
     ...request,
     birthMonth: request.birthMonth,
@@ -66,13 +74,13 @@ export async function lockChildAccountRequest(
   const before = await readChildAccountRequest(tx, userId, at);
   if (before === null) {
     await lockOpenAccount(tx, userId);
-    if (await findRequest(tx, userId, at)) throw createAppError('CONFLICT');
+    if (await findRequest(tx, userId, at)) throw createAppError('VALIDATION');
     return null;
   }
   for (const id of [userId, before.guardianUserId].sort())
     await lockOpenAccount(tx, id);
   const request = await findRequest(tx, userId, at);
-  if (!request || request.id !== before.id) throw createAppError('CONFLICT');
+  if (!request || request.id !== before.id) throw createAppError('VALIDATION');
   return request;
 }
 
@@ -101,7 +109,7 @@ export async function claimChildAccount(
       ),
     )
     .returning({ id: childAccountRequests.id });
-  if (!claimed) throw createAppError('CONFLICT');
+  if (!claimed) throw createAppError('VALIDATION');
   await tx.insert(guardianLinks).values({
     id: ids.linkId,
     guardianUserId: request.guardianUserId,

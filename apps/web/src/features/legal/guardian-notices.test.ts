@@ -17,13 +17,13 @@ test('guardian notice versions identify the exact text presented for agreement',
         kind: 'parental-consent',
         version: 'draft-1',
         digest:
-          'e5ff99776bfa66517ba01d96d3dd3add99f15f1fa0e4a1b23b33ac198dc1d080',
+          '6404e5a8722c4f8d86b88c98658bfc14a343d3b4bc0b469bccd2fd7d63a6e2ea',
       },
       {
         kind: 'child-confirmation',
         version: 'draft-1',
         digest:
-          '24c61b1638e499d611d1edef99f3dd4be4bc1ef9062fa1e6aea8150d536b4b38',
+          '8c30686e85a29e5f886260acc43874c96f681cfaeed07dbb746540cf8a68707e',
       },
     ],
   });

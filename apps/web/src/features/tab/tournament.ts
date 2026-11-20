@@ -876,9 +876,8 @@ function adultPage(
           },
     manage:
       wards.length > 0
-        ? linkTo(
+        ? unavailableAction(
             `Manage ${listed(wards.map((ward) => `${ward}'s`))} accounts`,
-            '/settings/parental-controls',
           )
         : linkTo(
             `Manage ${school}'s entries`,

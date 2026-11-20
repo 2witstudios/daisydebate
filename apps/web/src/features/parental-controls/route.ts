@@ -6,7 +6,7 @@ import {
   memberHttpBoundary,
   runMemberRoute,
 } from '../../server/member-boundary';
-import { runGuardianCommand } from './commands';
+import { submitGuardianCommand } from './commands';
 
 type Handler = (request: Request) => Promise<Response>;
 type Defer = (work: () => Promise<void>) => void;
@@ -36,13 +36,11 @@ export function guardianCommandRoute(
           guardianCommandSchema,
           await readJson(request),
         );
-        const result = await app.database.guardians.forSubject(
-          caller.userId,
-          (session) =>
-            runGuardianCommand(
-              { caller, session, at: app.clock.now() },
-              command,
-            ),
+        const result = await submitGuardianCommand(
+          app.database.guardians,
+          caller,
+          app.clock.now(),
+          command,
         );
         if (result.kind === 'refused') return Response.json(result);
         if (result.mail) {

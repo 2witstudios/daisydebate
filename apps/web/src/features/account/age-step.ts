@@ -1,3 +1,4 @@
+import { idSchema } from '@daisy/protocol';
 import type { Logger } from '@daisy/logger';
 import type { ErrorReporter } from '@daisy/observability';
 import type { Clock } from '@daisy/clock';
@@ -79,10 +80,13 @@ type AgeStepDependencies = {
   readonly termsVersion: string;
   readonly parentalControls?: {
     readonly released: (userId: string) => Promise<boolean>;
-    readonly bindingMonth: (
+    readonly binding: (
       userId: string,
       now: string,
-    ) => Promise<string | null>;
+    ) => Promise<{
+      readonly requestId: string;
+      readonly birthMonth: string;
+    } | null>;
   };
   readonly record: (input: {
     readonly userId: string;
@@ -90,6 +94,7 @@ type AgeStepDependencies = {
     readonly parentalControls?: {
       readonly linkId: string;
       readonly pendingBetaEventId: string;
+      readonly requestId: string | null;
     };
     readonly termsVersion: string;
     readonly now: string;
@@ -99,11 +104,14 @@ type AgeStepDependencies = {
 };
 
 /** Exactly a month, a year and the Terms acceptance: nothing else, never an age. */
-const ageBody = z.strictObject({
-  month: z.int().min(1).max(12),
-  year: z.int().min(1900).max(9999),
-  terms: z.literal(true),
-});
+const ageBody = z.union([
+  z.strictObject({
+    month: z.int().min(1).max(12),
+    year: z.int().min(1900).max(9999),
+    terms: z.literal(true),
+  }),
+  z.strictObject({ invitationId: idSchema, terms: z.literal(true) }),
+]);
 
 const refused = (refusal: AgeRefusal, requestId: string) =>
   Response.json(
@@ -147,19 +155,25 @@ export function createAgeStepHandler(dependencies: AgeStepDependencies) {
             throw createAppError('CONFLICT');
           return refused(held, id);
         }
-        const { month, year } = parseValidated(
-          ageBody,
-          await readJson(request),
-        );
+        const answer = parseValidated(ageBody, await readJson(request));
         const now = dependencies.clock.now();
         const parentalControls = (await dependencies.parentalControls?.released(
           userId,
         ))
           ? dependencies.parentalControls
           : undefined;
-        const binding = await parentalControls?.bindingMonth(userId, now);
+        const binding = await parentalControls?.binding(userId, now);
+        if (
+          'invitationId' in answer &&
+          binding?.requestId !== answer.invitationId
+        )
+          throw createAppError('VALIDATION');
         const birthMonth =
-          binding ?? `${year}-${String(month).padStart(2, '0')}`;
+          binding?.birthMonth ??
+          ('month' in answer
+            ? `${answer.year}-${String(answer.month).padStart(2, '0')}`
+            : null);
+        if (birthMonth === null) throw createAppError('VALIDATION');
         const decision = memberFloorDecision(birthMonth, new Date(now));
         if (decision.outcome === 'refused') {
           // Refused means the account answered already or became a member:
@@ -176,6 +190,7 @@ export function createAgeStepHandler(dependencies: AgeStepDependencies) {
                 parentalControls: {
                   linkId: createId(),
                   pendingBetaEventId: createId(),
+                  requestId: binding?.requestId ?? null,
                 },
               }
             : {}),

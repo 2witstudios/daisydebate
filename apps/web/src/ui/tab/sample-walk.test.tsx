@@ -117,7 +117,6 @@ const canvas: Readonly<Record<string, string>> = {
   'Event Room: speech section': 'Speaking order',
   'Ballot: host-configured': 'Your ballot',
   'Parent or coach': 'Ballots you can read',
-  "Minor's account: restrictions": 'Lobbies Ada can see and join',
   'League lobby': 'pool:',
   'Postings, signed out': 'Taking part? Sign in to see your room',
   'Event Room: four teams': 'Opening Opposition',

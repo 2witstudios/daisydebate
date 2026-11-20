@@ -5,6 +5,7 @@ import { requireAccess } from '../../../lib/access';
 import { parseDataRightsQuery } from '../../../features/account/data-rights/notices';
 import {
   requestIdentity,
+  requestFamilyViewer,
   requestAnalytics,
   requestAudienceSettings,
   requestOnboardingAnswers,
@@ -38,8 +39,6 @@ import {
   cancelReleaseAction,
   resendReleaseAction,
 } from './media-release-actions';
-
-import { familySettingsRole } from './parental-controls/family-settings';
 
 export const metadata: Metadata = { title: 'Settings' };
 
@@ -114,7 +113,7 @@ export default async function SettingsRoute({
   ]);
   const answers = admitted ? ownAnswers : null;
   const username = claimedUsername(identity);
-  const family = await familySettingsRole();
+  const family = await requestFamilyViewer();
   // A restricted member may still read and clear what they show (ADR 0143);
   // the route decides, and answers nothing to anyone else.
   const [publicProfile, chosen, mediaRelease] = await Promise.all([

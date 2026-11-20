@@ -36,7 +36,7 @@ export const parentalConsentNotice: LegalDocument = {
       id: 'what-you-can-do',
       heading: 'What you can do',
       paragraphs: [
-        'While you are linked, you can see your child’s rounds, including private ones, and their friends. You cannot read their messages. Your child can see that you are linked.',
+        'While you are linked, you can see the Youth rounds Daisy makes available to parents and guardians, including private rounds. Your child can see that you are linked. You cannot read their messages.',
       ],
     },
     {
@@ -72,7 +72,7 @@ export const childConfirmationNotice: LegalDocument = {
       id: 'what-they-can-do',
       heading: 'What they can do',
       paragraphs: [
-        'They can see your rounds, including private ones, and who you are friends with. They cannot read your messages.',
+        'They can see the Youth rounds Daisy makes available to parents and guardians, including private rounds. They cannot read your messages.',
       ],
     },
     {

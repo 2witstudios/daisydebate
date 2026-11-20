@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm';
 import type { PrivacyAdopter } from '../privacy/contracts';
 import { exportRows } from '../privacy/export-rows';
 import { rowsOf } from '../raw-rows';
+import { expireGuardianRequests } from './retention';
 import { scopeTransaction } from '../tenant-scope';
 
 export const guardianLinksPrivacyAdopter: PrivacyAdopter = {
@@ -17,6 +18,9 @@ export const guardianLinksPrivacyAdopter: PrivacyAdopter = {
     await tx.execute(sql`update child_account_requests
       set status = 'cancelled', closed_at = ${now}, email = null, first_name = null, birth_month = null
       where guardian_user_id = ${subject.userId} and status in ('open', 'linked')`);
+    while ((await expireGuardianRequests(tx, 200, true)) === 200) {
+      // Erasure scrubs every request connected to a link naming this child.
+    }
     await scopeTransaction(tx, {});
   },
   export: async (tx, subject) => {

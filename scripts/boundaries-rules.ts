@@ -341,6 +341,7 @@ export const stageSurfaceIssue = (
  * of them mean a human.
  */
 const humanCoaching = [
+  'apps/web/src/features/legal/guardian-notices.ts',
   'packages/protocol/src/onboarding.ts',
   'packages/protocol/src/lobby/vocabulary.ts',
   'packages/db/src/schema/guardian-links.ts',

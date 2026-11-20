@@ -42,11 +42,14 @@ const missingCopy = {
 export function AgeStep({
   action,
   years,
-  bindingBirthMonth = null,
+  binding = null,
 }: {
   readonly action: AgeAction;
   readonly years: readonly number[];
-  readonly bindingBirthMonth?: string | null;
+  readonly binding?: {
+    readonly requestId: string;
+    readonly birthMonth: string;
+  } | null;
 }) {
   const [answered, post, posting] = useFormAction(
     action,
@@ -59,26 +62,29 @@ export function AgeStep({
   const fields = ageFields(answered);
   const missing = new Set(fields.missing);
   const errors = fields.missing.map((name) => missingCopy[name]);
-  const [birthYear, birthMonth] = bindingBirthMonth?.split('-') ?? [];
+  const [birthYear, birthMonth] = binding?.birthMonth.split('-') ?? [];
   return (
     <AuthFrame panel={taglinePanel} footer="Next: choose your username.">
       <AuthHeading
         eyebrow="Before you start"
-        title={bindingBirthMonth ? 'Your Daisy account' : 'When were you born?'}
+        title={binding ? 'Your Daisy account' : 'When were you born?'}
       >
-        {bindingBirthMonth
+        {binding
           ? 'Your parent or guardian supplied your birth month. Daisy keeps it private.'
           : 'Month and year only. Daisy keeps it private.'}
       </AuthHeading>
       <form action={post} className="flex flex-col gap-4" aria-busy={pending}>
-        {bindingBirthMonth ? (
+        {binding ? (
           <>
             <p className="text-md">
               Birth month and year: {monthNames[Number(birthMonth) - 1]}{' '}
               {birthYear}
             </p>
-            <input name="month" type="hidden" value={Number(birthMonth)} />
-            <input name="year" type="hidden" value={birthYear} />
+            <input
+              name="invitationId"
+              type="hidden"
+              value={binding.requestId}
+            />
           </>
         ) : (
           <fieldset

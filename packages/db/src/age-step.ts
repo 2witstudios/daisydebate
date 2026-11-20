@@ -30,6 +30,7 @@ export type AgeStepRecord = {
   readonly parentalControls?: {
     readonly linkId: string;
     readonly pendingBetaEventId: string;
+    readonly requestId: string | null;
   };
   readonly termsVersion: string;
   /** Trusted UTC ISO time from the injected clock. */
@@ -80,6 +81,11 @@ export const ageStepOperations = ({
           : (await lockOpenAccount(tx, input.userId), null);
         const band = invitation ? ageBand(invitation.birthMonth, now) : null;
         const claim = band === '13-15' || band === '16-17' ? invitation : null;
+        if (
+          input.parentalControls &&
+          (claim?.id ?? null) !== input.parentalControls.requestId
+        )
+          throw createAppError('VALIDATION');
         const inserted = await tx
           .insert(accountAge)
           .values({
@@ -109,17 +115,22 @@ export const ageStepOperations = ({
     );
   },
 
-  async childAccountBirthMonth(
+  async childAccountBinding(
     userId: string,
     now: string,
-  ): Promise<string | null> {
-    return instrumented(eventSink, 'childAccountBirthMonth', () =>
+  ): Promise<{
+    readonly requestId: string;
+    readonly birthMonth: string;
+  } | null> {
+    return instrumented(eventSink, 'childAccountBinding', () =>
       database.transaction(async (tx) => {
         const at = new Date(now);
         const request = await readChildAccountRequest(tx, userId, at);
         if (!request) return null;
         const band = ageBand(request.birthMonth, at);
-        return band === '13-15' || band === '16-17' ? request.birthMonth : null;
+        return band === '13-15' || band === '16-17'
+          ? { requestId: request.id, birthMonth: request.birthMonth }
+          : null;
       }),
     );
   },

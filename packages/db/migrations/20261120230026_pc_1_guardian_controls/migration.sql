@@ -56,6 +56,7 @@ ALTER TABLE "guardian_links" ADD COLUMN "guardian_consent_id" text NOT NULL;--> 
 ALTER TABLE "guardian_links" ADD COLUMN "guardian_role" text GENERATED ALWAYS AS ('guardian') STORED;--> statement-breakpoint
 ALTER TABLE "guardian_links" ADD COLUMN "child_confirmation_id" text;--> statement-breakpoint
 ALTER TABLE "guardian_links" ADD COLUMN "child_role" text GENERATED ALWAYS AS ('child') STORED;--> statement-breakpoint
+ALTER TABLE "guardian_links" ALTER COLUMN "guardian_role" SET NOT NULL, ALTER COLUMN "child_role" SET NOT NULL;--> statement-breakpoint
 ALTER TABLE "guardian_links" ADD COLUMN "activation" text;--> statement-breakpoint
 ALTER TABLE "guardian_links" ADD COLUMN "activated_at" timestamp with time zone;--> statement-breakpoint
 ALTER TABLE "guardian_links" ADD COLUMN "closed_at" timestamp with time zone;--> statement-breakpoint
@@ -117,6 +118,17 @@ AS $$
   )
 $$;
 --> statement-breakpoint
+CREATE FUNCTION public.daisy_owns_guardian_request_link(candidate text)
+RETURNS boolean
+LANGUAGE sql STABLE
+SET search_path = public, pg_temp
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.guardian_links
+    WHERE id = candidate AND minor_user_id = public.daisy_subject_scope()
+  )
+$$;
+--> statement-breakpoint
 ALTER TABLE "guardian_consent_evidence" ENABLE ROW LEVEL SECURITY;
 --> statement-breakpoint
 ALTER TABLE "child_account_requests" ENABLE ROW LEVEL SECURITY;
@@ -132,8 +144,8 @@ CREATE POLICY "guardian_consent_evidence_subject" ON "guardian_consent_evidence"
   WITH CHECK (person_user_id = daisy_subject_scope());
 --> statement-breakpoint
 CREATE POLICY "child_account_requests_subject" ON "child_account_requests" FOR ALL
-  USING ((guardian_user_id = daisy_subject_scope()) OR (claimed_user_id = daisy_subject_scope()) OR daisy_owns_guardian_request_email(email))
-  WITH CHECK ((guardian_user_id = daisy_subject_scope()) OR (claimed_user_id = daisy_subject_scope()) OR daisy_owns_guardian_request_email(email));
+  USING ((guardian_user_id = daisy_subject_scope()) OR (claimed_user_id = daisy_subject_scope()) OR daisy_owns_guardian_request_email(email) OR daisy_owns_guardian_request_link(requested_link_id))
+  WITH CHECK ((guardian_user_id = daisy_subject_scope()) OR (claimed_user_id = daisy_subject_scope()) OR daisy_owns_guardian_request_email(email) OR daisy_owns_guardian_request_link(requested_link_id));
 --> statement-breakpoint
 GRANT SELECT, INSERT, UPDATE ON "guardian_links", "child_account_requests" TO daisy_web;
 --> statement-breakpoint
@@ -233,10 +245,18 @@ BEGIN
     END IF;
   ELSIF NEW.id = OLD.id AND NEW.guardian_user_id = OLD.guardian_user_id
     AND NEW.guardian_consent_id = OLD.guardian_consent_id AND NEW.created_at = OLD.created_at
-    AND NEW.expires_at = OLD.expires_at AND NEW.requested_link_id IS NOT DISTINCT FROM OLD.requested_link_id THEN
-    IF (OLD.status IN ('open', 'linked') AND NEW.status = 'cancelled' AND OLD.guardian_user_id = subject)
+    AND NEW.expires_at = OLD.expires_at THEN
+    IF (OLD.status IN ('open', 'linked') AND NEW.status = 'cancelled' AND OLD.guardian_user_id = subject
+        AND NEW.requested_link_id IS NOT DISTINCT FROM OLD.requested_link_id)
       OR (OLD.status = 'open' AND NEW.status = 'claimed' AND NEW.claimed_user_id = subject
-        AND NEW.closed_at < OLD.expires_at AND public.daisy_owns_guardian_request_email(OLD.email)) THEN
+        AND NEW.closed_at < OLD.expires_at AND public.daisy_owns_guardian_request_email(OLD.email))
+      OR (OLD.status = 'open' AND NEW.status = 'linked' AND OLD.guardian_user_id = subject
+        AND NEW.closed_at < OLD.expires_at AND NEW.email = OLD.email AND NEW.first_name = OLD.first_name
+        AND NEW.birth_month = OLD.birth_month AND (NEW.requested_link_id IS NULL OR EXISTS (
+          SELECT 1 FROM public.guardian_links g WHERE g.id = NEW.requested_link_id
+            AND g.guardian_user_id = subject AND g.guardian_consent_id = NEW.guardian_consent_id
+            AND g.status = 'requested'
+        ))) THEN
       RETURN NEW;
     END IF;
   END IF;
@@ -249,3 +269,45 @@ $$;
 CREATE TRIGGER child_account_request_authorized_transition
   BEFORE INSERT OR UPDATE ON "child_account_requests"
   FOR EACH ROW EXECUTE FUNCTION public.daisy_child_account_request_transition();
+--> statement-breakpoint
+CREATE FUNCTION public.daisy_expire_child_account_requests(batch_size integer, erase_subject boolean)
+RETURNS integer
+LANGUAGE sql VOLATILE SECURITY DEFINER
+SET search_path = pg_catalog, public, pg_temp
+AS $$
+  WITH instant AS (
+    SELECT clock_timestamp() AS at
+  ), due AS (
+    SELECT r.id, r.requested_link_id
+    FROM public.child_account_requests r
+    CROSS JOIN instant
+    WHERE r.status IN ('open', 'linked') AND (
+      (NOT erase_subject AND r.expires_at <= instant.at) OR
+      (erase_subject AND EXISTS (
+        SELECT 1 FROM public.guardian_links g
+        JOIN public.users u ON u.id = g.minor_user_id
+        WHERE g.id = r.requested_link_id AND u.id = public.daisy_subject_scope()
+          AND u.deleted_at IS NOT NULL
+      ))
+    )
+    ORDER BY r.expires_at, r.id
+    LIMIT LEAST(GREATEST(batch_size, 0), 200)
+    FOR UPDATE OF r SKIP LOCKED
+  ), closed_links AS (
+    UPDATE public.guardian_links g
+    SET status = 'cancelled', closed_at = instant.at, updated_at = instant.at, version = g.version + 1
+    FROM due, instant
+    WHERE g.id = due.requested_link_id AND g.status = 'requested'
+  ), scrubbed AS (
+    UPDATE public.child_account_requests r
+    SET status = 'cancelled', closed_at = instant.at, first_name = null, birth_month = null, email = null
+    FROM due, instant
+    WHERE r.id = due.id
+    RETURNING r.id
+  )
+  SELECT count(*)::integer FROM scrubbed
+$$;
+--> statement-breakpoint
+REVOKE ALL ON FUNCTION public.daisy_expire_child_account_requests(integer, boolean) FROM PUBLIC;
+--> statement-breakpoint
+GRANT EXECUTE ON FUNCTION public.daisy_expire_child_account_requests(integer, boolean) TO daisy_web;

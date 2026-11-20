@@ -7,7 +7,10 @@ import {
 import type { GuardianCommand } from '@daisy/protocol/guardians';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { runGuardianCommand } from '../src/features/parental-controls/commands';
+import {
+  runGuardianCommand,
+  submitGuardianCommand,
+} from '../src/features/parental-controls/commands';
 import { createBots } from './tab-tournament.test-support';
 
 setupRitewayBun();
@@ -174,14 +177,19 @@ test('a verified child claims the parent’s birth month, evidence and beta acce
         values(${userId}, ${email}, true, ${new Date(at.getTime() + 1000)})`;
       const age = ageStepOperations({ database: db, eventSink: undefined });
       const now = new Date(at.getTime() + 2000).toISOString();
-      const binding = await age.childAccountBirthMonth(userId, now);
+      const binding = await age.childAccountBinding(userId, now);
+      if (!binding) throw new Error('No age binding');
       const linkId = createId();
       await age.recordAgeStep({
         userId,
         birthMonth: birth(30),
         now,
         termsVersion: 'fixture',
-        parentalControls: { linkId, pendingBetaEventId: createId() },
+        parentalControls: {
+          linkId,
+          pendingBetaEventId: createId(),
+          requestId: binding.requestId,
+        },
       });
       const [account] =
         await sql`select u.name, a.birth_month, b.state, t.terms_version
@@ -200,7 +208,7 @@ test('a verified child claims the parent’s birth month, evidence and beta acce
           young,
           adult,
           sent.kind,
-          binding,
+          binding.birthMonth,
           account,
           link?.status,
           link?.activation,
@@ -219,6 +227,175 @@ test('a verified child claims the parent’s birth month, evidence and beta acce
           'active',
           'created-account',
         ],
+      });
+    },
+  });
+});
+
+test('address conflicts and stale invitations never create consent or record a cancelled birth month', async () => {
+  const email = `${createId()}@example.test`;
+  await withRolledBackDatabase(databaseUrl, {
+    seed: async (sql) => {
+      const [first, second] = await createBots(sql, [
+        'First parent',
+        'Second parent',
+      ]);
+      if (!first || !second) throw new Error('Missing parent fixtures');
+      for (const parent of [first, second])
+        await sql`update users set email=${`${parent.userId}@example.test`} where id=${parent.userId}`;
+      return { first, second };
+    },
+    work: async (db, { first, second }, sql) => {
+      const store = createGuardianStore(db);
+      const invite = (caller: typeof first, at: string) =>
+        submitGuardianCommand(store, caller, at, {
+          version: 1,
+          type: 'create-child-account',
+          birthMonth: birth(15),
+          email,
+          firstName: 'Only one request',
+          noticeVersion: 'draft-1',
+        });
+      const original = await invite(first, stamp);
+      const overlap = await invite(second, stamp);
+      const orphanSignatures = await db.transaction(async () => {
+        await sql`select set_config('daisy.subject_scope', ${second.userId}, true)`;
+        const [row] =
+          await sql`select count(*)::int as count from guardian_consent_evidence where person_user_id=${second.userId}`;
+        return row?.count;
+      });
+
+      const child = createId();
+      await sql`insert into users(id, email, email_verified, created_at)
+        values (${child}, ${email}, true, ${new Date(at.getTime() + 1_000)})`;
+      const age = ageStepOperations({ database: db, eventSink: undefined });
+      const now = new Date(at.getTime() + 2_000).toISOString();
+      const binding = await age.childAccountBinding(child, now);
+      if (!binding) throw new Error('No live invitation');
+      await submitGuardianCommand(store, first, now, {
+        version: 1,
+        type: 'cancel-request',
+        request: { kind: 'invitation', id: binding.requestId },
+      });
+      const response = await age
+        .recordAgeStep({
+          userId: child,
+          birthMonth: binding.birthMonth,
+          now,
+          termsVersion: 'test',
+          parentalControls: {
+            linkId: createId(),
+            pendingBetaEventId: createId(),
+            requestId: binding.requestId,
+          },
+        })
+        .then(
+          () => 'written',
+          () => 'refused',
+        );
+      const expiredEmail = `${createId()}@example.test`;
+      const expiredAt = new Date(at.getTime() - 15 * 86_400_000).toISOString();
+      await submitGuardianCommand(store, first, expiredAt, {
+        version: 1,
+        type: 'create-child-account',
+        birthMonth: birth(15),
+        email: expiredEmail,
+        firstName: 'Expired details',
+        noticeVersion: 'draft-1',
+      });
+      const [expired] =
+        await sql`select public.daisy_expire_child_account_requests(200, false) as count`;
+      const parentRows = await store.forSubject(first.userId, (session) =>
+        session.requests(),
+      );
+      assert({
+        given:
+          'two invitations for one address, cancellation after displaying the birth month, and an expired request',
+        should:
+          'reject the overlapping claim path without orphan evidence, reject the stale age write, and scrub expired contact data',
+        actual: {
+          first: original.kind === 'accepted' && original.mail?.kind,
+          second: overlap.kind === 'accepted' && overlap.mail?.kind,
+          orphanSignatures,
+          response,
+          ageRecorded: await age.hasRecordedAge(child),
+          expired: expired?.count,
+          contactsCleared: parentRows.every(
+            (request) =>
+              request.email === null &&
+              request.firstName === null &&
+              request.birthMonth === null,
+          ),
+        },
+        expected: {
+          first: 'sign-in',
+          second: 'account-not-changed',
+          orphanSignatures: 0,
+          response: 'refused',
+          ageRecorded: false,
+          expired: 1,
+          contactsCleared: true,
+        },
+      });
+    },
+  });
+});
+
+test('resend asks a now-existing child to confirm instead of reviving an open claim', async () => {
+  const email = `${createId()}@example.test`;
+  await withRolledBackDatabase(databaseUrl, {
+    seed: async (sql) => {
+      const [parent, child] = await createBots(sql, [
+        'Parent',
+        'Existing child',
+      ]);
+      if (!parent || !child) throw new Error('Missing family fixtures');
+      await sql`update users set email=${`${parent.userId}@example.test`} where id=${parent.userId}`;
+      await sql`update account_age set birth_month=${birth(15)}, version=version+1 where user_id=${child.userId}`;
+      return { parent, child };
+    },
+    work: async (db, { parent, child }, sql) => {
+      const store = createGuardianStore(db);
+      const send = (command: GuardianCommand) =>
+        submitGuardianCommand(store, parent, stamp, command);
+      await send({
+        version: 1,
+        type: 'create-child-account',
+        email,
+        birthMonth: birth(15),
+        firstName: 'Child',
+        noticeVersion: 'draft-1',
+      });
+      const [waiting] = await store.forSubject(parent.userId, (session) =>
+        session.requests(),
+      );
+      if (!waiting) throw new Error('Missing invitation');
+      await sql`update users set email=${email} where id=${child.userId}`;
+      const sent = await send({
+        version: 1,
+        type: 'send-again',
+        request: { kind: 'invitation', id: waiting.id },
+      });
+      const [changed] = await store.forSubject(parent.userId, (session) =>
+        session.requests(),
+      );
+      const childLink = await store.forSubject(child.userId, (session) =>
+        changed?.requestedLinkId
+          ? session.link(changed.requestedLinkId)
+          : Promise.resolve(null),
+      );
+      assert({
+        given:
+          'a child email invitation and a member who takes that verified address before resend',
+        should:
+          'send confirmation to the account and leave the link awaiting the child',
+        actual: [
+          sent.kind === 'accepted' && sent.mail?.kind,
+          changed?.status,
+          childLink?.status,
+          childLink?.minorUserId,
+        ],
+        expected: ['confirm-link', 'linked', 'requested', child.userId],
       });
     },
   });

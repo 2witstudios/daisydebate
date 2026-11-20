@@ -3,12 +3,8 @@ import { notFound } from 'next/navigation';
 import type { GuardianCommand } from '@daisy/protocol/guardians';
 import type { LegalDocument } from '../../../../features/legal/documents';
 import { guardianNoticeDocument } from '../../../../features/legal/guardian-notices';
-import { readFamilySettings } from '../../../../features/parental-controls/settings';
-import { routeReleaseFor } from '../../../../features/flags/route-release';
-import { evaluatedIdentity } from '../../../../server/member-boundary';
-import { processApp } from '../../../../server/process-app';
 import { requireAccess } from '../../../../lib/access';
-import { requestIdentity } from '../../../../lib/request-session';
+import { requestFamilyRows } from '../../../../lib/request-session';
 import { GuardianForm } from '../../../../ui/settings/parental-controls/guardian-form';
 import { PageHeader } from '../../../../ui/components/page-header/page-header';
 import { controlClass } from '../../../../ui/components/form-field/form-field-class';
@@ -52,29 +48,6 @@ const card = 'flex flex-col gap-4 rounded-xl bg-surface p-5 shadow-1';
 const title = 'font-display text-xl font-bold text-ink';
 const version = 1 as const;
 
-export async function familySettingsRole() {
-  const app = processApp();
-  const identity = await requestIdentity();
-  if (!evaluatedIdentity(identity)) return null;
-  const { userId } = identity.principal;
-  if (!(await routeReleaseFor(app)('parental-controls', userId))) return null;
-  const age = await app.database.guardians.forSubject(
-    userId,
-    async (session) => {
-      const [account] = await session.lockAccounts([
-        identity.principal.actorId,
-      ]);
-      return account?.userId === userId && !account.erased
-        ? account.ageBand
-        : null;
-    },
-  );
-  if (age === 'adult') return { userId, role: 'adult' as const };
-  if (age === '13-15' || age === '16-17')
-    return { userId, role: 'child' as const };
-  return null;
-}
-
 export async function FamilySettings({
   role,
 }: {
@@ -83,19 +56,8 @@ export async function FamilySettings({
   const adult = role === 'adult';
   const path = adult ? '/settings/parental-controls' : '/settings/your-parents';
   await requireAccess(path, Promise.resolve({}));
-  const viewer = await familySettingsRole();
-  if (!viewer || viewer.role !== role) notFound();
-  const app = processApp();
-  const rows = await app.database.guardians.forSubject(
-    viewer.userId,
-    (session) =>
-      readFamilySettings(
-        session,
-        viewer.userId,
-        role,
-        new Date(app.clock.now()),
-      ),
-  );
+  const rows = await requestFamilyRows(role);
+  if (!rows) notFound();
   const notice = guardianNoticeDocument(
     adult ? 'parental-consent' : 'child-confirmation',
   );
@@ -197,6 +159,16 @@ export async function FamilySettings({
             ))}
           </ul>
         )}
+        {!adult && rows.some((row) => row.status === 'active') ? (
+          <div className="flex flex-col gap-1 text-sm text-ink">
+            <h3 className="font-semibold">What your linked parents can see</h3>
+            {notice.sections
+              .find((section) => section.id === 'what-they-can-do')
+              ?.paragraphs.map((text) => (
+                <p key={text}>{text}</p>
+              ))}
+          </div>
+        ) : null}
         {adult ? null : (
           <Link href="/help" className="self-start text-sm">
             Get help with safety

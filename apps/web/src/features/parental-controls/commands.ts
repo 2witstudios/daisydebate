@@ -1,6 +1,6 @@
 import { createId } from '@paralleldrive/cuid2';
 import { createAppError } from '@daisy/errors';
-import type { GuardianSession } from '@daisy/db';
+import type { Database, GuardianSession } from '@daisy/db';
 import type {
   ConsentMethod,
   GuardianCommand,
@@ -9,11 +9,7 @@ import type {
 } from '@daisy/protocol/guardians';
 import { servedNotice } from '../legal/guardian-notices';
 import { recordConsent, type ConsentEvidence } from './consent-evidence';
-import {
-  decideChildAccount,
-  invitationExpiresAt,
-  invitationLive,
-} from './guardian-invitation';
+import { decideChildAccount, invitationExpiresAt } from './guardian-invitation';
 import { requestedLink, transitionGuardianLink } from './guardian-link';
 import { linkStateColumns, readGuardianLink } from './link-row';
 
@@ -36,6 +32,15 @@ const refused = (refusal: GuardianRefusal): Result => ({
   kind: 'refused',
   refusal,
 });
+const reservationLost = createAppError(
+  'CONFLICT',
+  'Child invitation address is reserved',
+);
+const mailed = (email: string, kind: Delivery['kind']): Result => ({
+  kind: 'accepted',
+  mail: { email, kind },
+});
+
 const isMinor = (age: string | null | undefined) =>
   age === '13-15' || age === '16-17';
 const evidence = (context: Context, method: ConsentMethod, version: string) =>
@@ -50,18 +55,85 @@ const evidence = (context: Context, method: ConsentMethod, version: string) =>
     at: context.at,
   });
 
-async function ask(context: Context, child: string, consent: ConsentEvidence) {
+async function addRequestedLink(
+  context: Context,
+  child: string,
+  consentId: string,
+) {
   const { session, caller, at } = context;
   const now = new Date(at);
   const link = requestedLink({
     id: createId(),
     minorUserId: child,
     guardianUserId: caller.userId,
-    guardianConsentId: consent.id,
+    guardianConsentId: consentId,
   });
-  await session.insertEvidence({ ...consent, recordedAt: now });
   await session.insertLink({ ...link, createdAt: now, updatedAt: now });
   return link.id;
+}
+
+async function ask(context: Context, child: string, consent: ConsentEvidence) {
+  await context.session.insertEvidence({
+    ...consent,
+    recordedAt: new Date(context.at),
+  });
+  return addRequestedLink(context, child, consent.id);
+}
+
+type Account = NonNullable<
+  Awaited<ReturnType<GuardianSession['lockAccounts']>>[number]
+>;
+type Target = Awaited<ReturnType<GuardianSession['personByEmail']>>;
+type RequestRow = NonNullable<Awaited<ReturnType<GuardianSession['request']>>>;
+
+async function routeWaitingInvitation(
+  context: Context,
+  pending: RequestRow & { readonly email: string },
+  target: Target,
+  child: Account | null | undefined,
+): Promise<Result> {
+  const { session, at } = context;
+  if (
+    pending.status === 'open' &&
+    (!target || (!target.actorId && target.createdAt > pending.createdAt))
+  )
+    return mailed(pending.email, 'sign-in');
+
+  const awaiting = pending.requestedLinkId
+    ? await session.link(pending.requestedLinkId)
+    : null;
+  if (pending.status === 'linked') {
+    return mailed(
+      pending.email,
+      awaiting?.status === 'requested' &&
+        awaiting.minorUserId === target?.userId &&
+        target.emailVerified
+        ? 'confirm-link'
+        : 'account-not-changed',
+    );
+  }
+
+  const minor =
+    child?.member &&
+    !child.erased &&
+    target?.emailVerified &&
+    child.userId === target.userId &&
+    isMinor(child.ageBand)
+      ? child
+      : null;
+  const current = minor ? await session.openLink(minor.userId) : null;
+  const linkId =
+    minor && !current
+      ? await addRequestedLink(context, minor.userId, pending.guardianConsentId)
+      : null;
+  if (!(await session.linkRequest(pending.id, linkId, new Date(at))))
+    throw createAppError('CONFLICT');
+  return mailed(
+    pending.email,
+    linkId || current?.status === 'requested'
+      ? 'confirm-link'
+      : 'account-not-changed',
+  );
 }
 
 async function start(
@@ -72,18 +144,20 @@ async function start(
   >,
 ): Promise<Result> {
   const { caller, session, at } = context;
-  const parent = await session.personById(caller.userId);
-  if (!parent?.email || parent.actorId !== caller.actorId)
-    throw createAppError('AUTHORIZATION');
-  const target =
+  const readTarget = () =>
     cmd.type === 'request-link'
-      ? await session.personByUsername(cmd.username)
-      : await session.personByEmail(cmd.email);
+      ? session.personByUsername(cmd.username)
+      : session.personByEmail(cmd.email);
+  const initial = await readTarget();
   const otherActor =
-    target?.actorId === caller.actorId ? null : target?.actorId;
+    initial?.actorId === caller.actorId ? null : initial?.actorId;
   const [guardian, child] = await session.lockAccounts(
     otherActor ? [caller.actorId, otherActor] : [caller.actorId],
   );
+  const parent = await session.personById(caller.userId);
+  if (!parent?.email || parent.actorId !== caller.actorId)
+    throw createAppError('AUTHORIZATION');
+  const target = await readTarget();
   if (
     !guardian?.member ||
     guardian.restricted ||
@@ -92,6 +166,13 @@ async function start(
   )
     throw createAppError('AUTHORIZATION');
   if (guardian.ageBand !== 'adult') return refused('not-an-adult');
+  if (
+    target?.userId !== initial?.userId ||
+    target?.actorId !== initial?.actorId
+  )
+    return cmd.type === 'request-link'
+      ? refused('no-such-child')
+      : mailed(cmd.email, 'account-not-changed');
   const current =
     child && !child.erased ? await session.openLink(child.userId) : null;
   if (cmd.type === 'request-link') {
@@ -101,7 +182,7 @@ async function start(
     const consent = evidence(context, 'requested-link', cmd.noticeVersion);
     if (consent.kind === 'refused') return consent;
     await ask(context, child.userId, consent.evidence);
-    return target?.email
+    return target?.email && target.emailVerified
       ? {
           kind: 'accepted',
           mail: { kind: 'confirm-link', email: target.email },
@@ -120,7 +201,7 @@ async function start(
         ? {
             kind: 'account',
             userId: target.userId,
-            ageBand: child?.ageBand ?? null,
+            ageBand: target.emailVerified ? (child?.ageBand ?? null) : null,
             linkedToParent: current !== null,
           }
         : { kind: 'nobody' },
@@ -141,7 +222,13 @@ async function start(
           ? 'confirm-link'
           : 'account-not-changed',
   };
-  if (pending) return { kind: 'accepted', mail };
+  if (pending)
+    return routeWaitingInvitation(
+      context,
+      { ...pending, email: cmd.email },
+      target,
+      child,
+    );
 
   const requestedLinkId =
     decision.kind === 'ask-existing'
@@ -149,7 +236,7 @@ async function start(
       : null;
   if (requestedLinkId === null)
     await session.insertEvidence({ ...consent.evidence, recordedAt: now });
-  await session.insertRequest({
+  const inserted = await session.insertRequest({
     id: createId(),
     guardianUserId: caller.userId,
     guardianConsentId: consent.evidence.id,
@@ -162,6 +249,7 @@ async function start(
     expiresAt: new Date(invitationExpiresAt(at)),
     closedAt: decision.kind === 'invite' ? null : now,
   });
+  if (!inserted) throw reservationLost;
   return { kind: 'accepted', mail };
 }
 
@@ -210,10 +298,16 @@ async function actOnLink(
   }
   const row = await session.link(id);
   if (!row) return refused('not-found');
+  if (row.status === 'requested') {
+    const invitation = await session.requestForLink(row.id);
+    if (invitation && invitation.expiresAt <= new Date(at))
+      return refused('not-waiting');
+  }
   if (action === 'send') {
     if (row.status !== 'requested') return refused('not-waiting');
-    return other?.email
-      ? { kind: 'accepted', mail: { kind: 'confirm-link', email: other.email } }
+    const recipient = await session.personById(row.minorUserId);
+    return recipient?.emailVerified && recipient.email
+      ? mailed(recipient.email, 'confirm-link')
       : accepted;
   }
 
@@ -256,7 +350,16 @@ async function actOnRequest(
 ): Promise<Result> {
   if (ref.kind === 'link') return actOnLink(context, ref.id, action);
   const { session, caller, at } = context;
-  const [account] = await session.lockAccounts([caller.actorId]);
+  const first = await session.request(ref.id);
+  const firstTarget =
+    action === 'send' && first?.email
+      ? await session.personByEmail(first.email)
+      : null;
+  const targetActor =
+    firstTarget?.actorId !== caller.actorId ? firstTarget?.actorId : null;
+  const [account, child] = await session.lockAccounts(
+    targetActor ? [caller.actorId, targetActor] : [caller.actorId],
+  );
   if (
     !account?.member ||
     account.userId !== caller.userId ||
@@ -274,18 +377,21 @@ async function actOnRequest(
   )
     return refused('not-waiting');
 
-  if (action === 'send')
-    return {
-      kind: 'accepted',
-      mail: {
-        kind: invitationLive({ status, expiresAt: expiresAt.toISOString() }, at)
-          ? 'sign-in'
-          : requestedLinkId
-            ? 'confirm-link'
-            : 'account-not-changed',
-        email,
-      },
-    };
+  if (action === 'send') {
+    if (account.ageBand !== 'adult') return refused('not-an-adult');
+    const target = await session.personByEmail(email);
+    if (
+      target?.userId !== firstTarget?.userId ||
+      target?.actorId !== firstTarget?.actorId
+    )
+      return mailed(email, 'account-not-changed');
+    return routeWaitingInvitation(
+      context,
+      { ...pending, email },
+      target,
+      child,
+    );
+  }
   if (requestedLinkId) {
     const row = await session.link(requestedLinkId);
     if (row?.status === 'requested') {
@@ -335,5 +441,23 @@ export function runGuardianCommand(
       return actOnLink(context, command.linkId, 'refuse');
     case 'end-link':
       return actOnLink(context, command.linkId, 'end');
+  }
+}
+
+/** A conflicting address reservation leaves no evidence or token for a losing request. */
+export async function submitGuardianCommand(
+  store: Database['guardians'],
+  caller: Caller,
+  at: string,
+  command: GuardianCommand,
+): Promise<Result> {
+  try {
+    return await store.forSubject(caller.userId, (session) =>
+      runGuardianCommand({ session, caller, at }, command),
+    );
+  } catch (error) {
+    if (error === reservationLost && command.type === 'create-child-account')
+      return mailed(command.email, 'account-not-changed');
+    throw error;
   }
 }

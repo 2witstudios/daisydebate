@@ -23,7 +23,13 @@ type RequestInsert = typeof childAccountRequests.$inferInsert;
 function scopedGuardians(tx: GuardianTx, userId: string) {
   const person = async (where: ReturnType<typeof eq>) => {
     const [row] = await tx
-      .select({ userId: users.id, email: users.email, actorId: actors.id })
+      .select({
+        userId: users.id,
+        email: users.email,
+        emailVerified: users.emailVerified,
+        createdAt: users.createdAt,
+        actorId: actors.id,
+      })
       .from(users)
       .leftJoin(actors, eq(actors.userId, users.id))
       .where(and(where, isNull(users.deletedAt)));
@@ -154,6 +160,41 @@ function scopedGuardians(tx: GuardianTx, userId: string) {
         .insert(childAccountRequests)
         .values(request)
         .onConflictDoNothing()
+        .returning({ id: childAccountRequests.id });
+      return row !== undefined;
+    },
+    linkRequestDeadlines() {
+      return tx
+        .select({
+          linkId: childAccountRequests.requestedLinkId,
+          expiresAt: childAccountRequests.expiresAt,
+        })
+        .from(childAccountRequests)
+        .innerJoin(
+          guardianLinks,
+          eq(guardianLinks.id, childAccountRequests.requestedLinkId),
+        )
+        .where(eq(guardianLinks.minorUserId, userId));
+    },
+    async requestForLink(linkId: string) {
+      const [row] = await tx
+        .select({ expiresAt: childAccountRequests.expiresAt })
+        .from(childAccountRequests)
+        .where(eq(childAccountRequests.requestedLinkId, linkId))
+        .orderBy(asc(childAccountRequests.expiresAt));
+      return row ?? null;
+    },
+    async linkRequest(id: string, linkId: string | null, now: Date) {
+      const [row] = await tx
+        .update(childAccountRequests)
+        .set({ status: 'linked', requestedLinkId: linkId, closedAt: now })
+        .where(
+          and(
+            eq(childAccountRequests.id, id),
+            eq(childAccountRequests.guardianUserId, userId),
+            eq(childAccountRequests.status, 'open'),
+          ),
+        )
         .returning({ id: childAccountRequests.id });
       return row !== undefined;
     },

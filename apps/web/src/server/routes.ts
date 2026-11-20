@@ -200,7 +200,7 @@ export function createRoutes(app: App) {
           ...ageDependencies,
           parentalControls: {
             released,
-            bindingMonth: database.childAccountBirthMonth,
+            binding: database.childAccountBinding,
           },
         }),
     },

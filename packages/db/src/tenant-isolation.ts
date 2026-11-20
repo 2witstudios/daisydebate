@@ -124,7 +124,7 @@ const subjectPredicates: Record<TenantSubject, string> = {
   actor: '(actor_id = daisy_subject_actor_scope())',
   'consent-signer': '(person_user_id = daisy_subject_scope())',
   'child-account-request':
-    '((guardian_user_id = daisy_subject_scope()) OR (claimed_user_id = daisy_subject_scope()) OR daisy_owns_guardian_request_email(email))',
+    '((guardian_user_id = daisy_subject_scope()) OR (claimed_user_id = daisy_subject_scope()) OR daisy_owns_guardian_request_email(email) OR daisy_owns_guardian_request_link(requested_link_id))',
   guardian:
     '((guardian_user_id = daisy_subject_scope()) OR (minor_user_id = daisy_subject_scope()))',
 };

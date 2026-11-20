@@ -32,7 +32,7 @@ used guardian restrictions to fence tournament visibility.
 - Guardian data is fenced by person scope. The web role can insert and
   update links and invitations and append consent evidence. The age-step
   claim uses the subject’s verified address. Expired requests cannot claim
-  an account. Claim and cancellation remove the invitation’s contact details.
+  an account. Claim, cancellation and linked-account erasure clear the invitation’s contact details. The hourly retention sweep clears expired invitations and closes any unanswered links they created.
 - Settings exposes Parental controls and Your parents behind the
   `parental-controls` release flag. Staging uses its release default.
   Production activation and any counsel-directed changes require owner sign-off.

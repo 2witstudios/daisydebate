@@ -16,6 +16,14 @@ export async function readFamilySettings(
 ): Promise<readonly FamilyRow[]> {
   const links = await session.links();
   const requests = role === 'adult' ? await session.requests() : [];
+  const expiredForChild =
+    role === 'child'
+      ? new Set(
+          (await session.linkRequestDeadlines())
+            .filter(({ expiresAt }) => expiresAt <= now)
+            .map(({ linkId }) => linkId),
+        )
+      : new Set<string>();
   const byId = new Map(links.map(({ link }) => [link.id, link.status]));
   const privateLinks = new Set(
     requests.flatMap(({ requestedLinkId }) => requestedLinkId ?? []),
@@ -30,7 +38,12 @@ export async function readFamilySettings(
           return [];
       } else if (link.minorUserId !== userId || username === null) return [];
       if (link.status === 'ended' || link.status === 'cancelled') return [];
-      if (role === 'child' && link.status === 'refused') return [];
+      if (
+        role === 'child' &&
+        (link.status === 'refused' ||
+          (link.status === 'requested' && expiredForChild.has(link.id)))
+      )
+        return [];
       return [
         {
           id: link.id,

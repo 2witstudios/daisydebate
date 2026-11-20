@@ -267,6 +267,12 @@ export const tenantIsolationManifest: TenantIsolationManifest = {
   ],
   definers: [
     {
+      name: 'daisy_expire_child_account_requests',
+      executors: ['daisy_web'],
+      reason:
+        'ADR 0163: bounded expiration and contact scrubbing across guardian invitations. An erased child can also clear requests in links naming that child. Returns only a count.',
+    },
+    {
       name: 'daisy_linked_adult_users',
       executors: ['daisy_web'],
       reason:
