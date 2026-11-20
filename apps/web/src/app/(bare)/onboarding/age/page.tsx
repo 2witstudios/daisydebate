@@ -12,6 +12,8 @@ import {
   AGE_HOLD_COOKIE,
   holdRefusal,
 } from '../../../../features/account/age-step';
+import { processApp } from '../../../../server/process-app';
+import { routeReleaseFor } from '../../../../features/flags/route-release';
 import { readOnboardingEntry } from '../../../../lib/auth-entry';
 import { requestHasRecordedAge } from '../../../../lib/request-session';
 import { AgeRefusalStep } from '../../../../ui/onboarding/age/age-refusal';
@@ -46,10 +48,20 @@ export default async function OnboardingAgePage({
   // Answered already: on through the lobby landing, so a Youth member who
   // left before it still sees it (YLS-8).
   if (await requestHasRecordedAge()) redirect(lobbyLandingHref(destination));
+  const app = processApp();
+  const binding =
+    identity.state === 'provisional' &&
+    (await routeReleaseFor(app)('parental-controls', identity.principal.userId))
+      ? await app.database.childAccountBirthMonth(
+          identity.principal.userId,
+          app.clock.now(),
+        )
+      : null;
   return (
     <AgeStep
       action={ageStepAction.bind(null, destination)}
       years={birthYears(systemClock.now())}
+      bindingBirthMonth={binding}
     />
   );
 }

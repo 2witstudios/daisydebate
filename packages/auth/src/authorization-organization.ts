@@ -2,7 +2,6 @@ import type { AuthorizationCapability } from '@daisy/protocol/authorization';
 import { organizationInside } from './authorization-boundary';
 import {
   allowRelated,
-  allowUnder,
   decide,
   deny,
   type AuthorizationDecision,
@@ -82,12 +81,6 @@ export function membershipDecision(
     : deny('missing-capability');
 }
 
-/**
- * A guardian link is a relationship between two people. An adult makes
- * their own; a link through a school is made by whoever manages its roster,
- * and whoever manages that roster may change or end it, so a link does not
- * outlive the school's say when the adult it names leaves.
- */
 export function guardianLinkDecision(
   holder: Holder,
   capability: AuthorizationCapability,
@@ -98,14 +91,5 @@ export function guardianLinkDecision(
     return guardian || resource.wardActorId === holder.actorId
       ? allowRelated(guardian ? 'guardian' : 'ward')
       : deny('missing-capability');
-  if (resource.via !== null) {
-    const roster = holds(
-      holder,
-      'school.roster.manage',
-      organization(resource.via),
-    );
-    if (capability === 'guardian.link.create') return holdingDecision(roster);
-    if (roster.held) return allowUnder(roster.authority);
-  }
   return adultRelation(holder, guardian, 'guardian');
 }

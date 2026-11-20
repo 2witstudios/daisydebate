@@ -42,9 +42,11 @@ const missingCopy = {
 export function AgeStep({
   action,
   years,
+  bindingBirthMonth = null,
 }: {
   readonly action: AgeAction;
   readonly years: readonly number[];
+  readonly bindingBirthMonth?: string | null;
 }) {
   const [answered, post, posting] = useFormAction(
     action,
@@ -57,52 +59,69 @@ export function AgeStep({
   const fields = ageFields(answered);
   const missing = new Set(fields.missing);
   const errors = fields.missing.map((name) => missingCopy[name]);
+  const [birthYear, birthMonth] = bindingBirthMonth?.split('-') ?? [];
   return (
     <AuthFrame panel={taglinePanel} footer="Next: choose your username.">
-      <AuthHeading eyebrow="Before you start" title="When were you born?">
-        Month and year only. Daisy keeps it private.
+      <AuthHeading
+        eyebrow="Before you start"
+        title={bindingBirthMonth ? 'Your Daisy account' : 'When were you born?'}
+      >
+        {bindingBirthMonth
+          ? 'Your parent or guardian supplied your birth month. Daisy keeps it private.'
+          : 'Month and year only. Daisy keeps it private.'}
       </AuthHeading>
       <form action={post} className="flex flex-col gap-4" aria-busy={pending}>
-        <fieldset
-          className="flex flex-col gap-2 border-0 p-0"
-          disabled={pending}
-        >
-          <legend className="mb-2 text-sm font-semibold">
-            Birth month and year
-          </legend>
-          <div className="flex gap-3 max-narrow:flex-col">
-            <select
-              name="month"
-              aria-label="Month"
-              required
-              defaultValue={fields.month}
-              aria-invalid={missing.has('month') ? true : undefined}
-              className={selectClass}
-            >
-              <option value="">Month</option>
-              {monthNames.map((name, index) => (
-                <option key={name} value={index + 1}>
-                  {name}
-                </option>
-              ))}
-            </select>
-            <select
-              name="year"
-              aria-label="Year"
-              required
-              defaultValue={fields.year}
-              aria-invalid={missing.has('year') ? true : undefined}
-              className={selectClass}
-            >
-              <option value="">Year</option>
-              {years.map((year) => (
-                <option key={year} value={year}>
-                  {year}
-                </option>
-              ))}
-            </select>
-          </div>
-        </fieldset>
+        {bindingBirthMonth ? (
+          <>
+            <p className="text-md">
+              Birth month and year: {monthNames[Number(birthMonth) - 1]}{' '}
+              {birthYear}
+            </p>
+            <input name="month" type="hidden" value={Number(birthMonth)} />
+            <input name="year" type="hidden" value={birthYear} />
+          </>
+        ) : (
+          <fieldset
+            className="flex flex-col gap-2 border-0 p-0"
+            disabled={pending}
+          >
+            <legend className="mb-2 text-sm font-semibold">
+              Birth month and year
+            </legend>
+            <div className="flex gap-3 max-narrow:flex-col">
+              <select
+                name="month"
+                aria-label="Month"
+                required
+                defaultValue={fields.month}
+                aria-invalid={missing.has('month') ? true : undefined}
+                className={selectClass}
+              >
+                <option value="">Month</option>
+                {monthNames.map((name, index) => (
+                  <option key={name} value={index + 1}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+              <select
+                name="year"
+                aria-label="Year"
+                required
+                defaultValue={fields.year}
+                aria-invalid={missing.has('year') ? true : undefined}
+                className={selectClass}
+              >
+                <option value="">Year</option>
+                {years.map((year) => (
+                  <option key={year} value={year}>
+                    {year}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </fieldset>
+        )}
         <label className="flex min-h-auth-control items-start gap-3 text-md">
           <input
             type="checkbox"

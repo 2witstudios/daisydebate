@@ -29,7 +29,6 @@ const account = {
   beta: { state: 'approved' as const, revision: 1 },
   ageBand: 'adult' as const,
   restricted: false,
-  boundary: null,
 };
 const loaded = (
   overrides: Partial<LoadedOrganizationCommand['authorization']> = {},
@@ -54,22 +53,6 @@ const authority = (
 ) => organizationAuthorityOf(principal, command, from, { now, hostingPlan });
 
 describe('organizationAuthorityOf', () => {
-  test("a minor's boundary", () => {
-    const boundary = {
-      allowedLobbyIds: [id('l')],
-      entryLobbyIds: [],
-      revision: 2,
-    };
-    assert({
-      given: 'a sender whose guardian limits them to one lobby',
-      should: 'hand the evaluator the boundary on the account',
-      actual: authority(
-        { type: 'accept-membership', organizationId: id('o') },
-        loaded({ account: { ...account, ageBand: '16-17', boundary } }),
-      ).context.account?.boundary,
-      expected: boundary,
-    });
-  });
   test('creating', () => {
     const input = authority(
       {

@@ -30,6 +30,8 @@ export type TenantSubject =
   | 'actor'
   /** `guardian_user_id` and `minor_user_id` are the two people. */
   | 'guardian'
+  | 'consent-signer'
+  | 'child-account-request'
   /** The funding account or the person who acted on its named consent. */
   | 'tournament-sponsorship'
   /** The funding account or acting official in immutable capture provenance. */
@@ -42,6 +44,12 @@ export type TenantTable = {
   readonly keyColumn?: 'id';
   /** Adds a read of the person's own rows across tenants. */
   readonly subject?: TenantSubject;
+  /**
+   * The subject also writes its own rows (a `person` table only): the
+   * subject policy covers every command, with the same predicate as its
+   * check, so a person writes rows about themselves and nobody else's.
+   */
+  readonly subjectWrites?: true;
   /** Any tenant may read the rows; writing still needs the key in scope. */
   readonly openRead?: true;
   /**
@@ -109,8 +117,24 @@ export const tenantIsolationManifest: TenantIsolationManifest = {
     organization('roles', { openRead: true }),
     organization('role_permissions', { openRead: true }),
     either('grants', { subject: 'user' }),
-    { table: 'guardian_links', key: 'person', subject: 'guardian' },
-    { table: 'restrictions', key: 'person', subject: 'guardian' },
+    {
+      table: 'guardian_links',
+      key: 'person',
+      subject: 'guardian',
+      subjectWrites: true,
+    },
+    {
+      table: 'guardian_consent_evidence',
+      key: 'person',
+      subject: 'consent-signer',
+      subjectWrites: true,
+    },
+    {
+      table: 'child_account_requests',
+      key: 'person',
+      subject: 'child-account-request',
+      subjectWrites: true,
+    },
     { table: 'restriction_lobbies', key: 'person', subject: 'guardian' },
     { table: 'action_history', key: 'history' },
     lobby('lobbies', { keyColumn: 'id', openRead: true }),

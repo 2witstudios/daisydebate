@@ -15,9 +15,14 @@ import {
 import { returnableDestination } from '../../../../features/auth/redirect';
 import { moveOn } from '../../../../server/form-action';
 import { inProcessFetch } from '../../../../server/in-process-fetch';
+import { routeReleaseFor } from '../../../../features/flags/route-release';
 import { processRoute } from '../../../../server/process-app';
 
-const ageRoute = processRoute((routes) => routes.age.POST);
+const ageRoute = processRoute((routes, app) =>
+  routes.age.withParentalControls((id) =>
+    routeReleaseFor(app)('parental-controls', id),
+  ),
+);
 
 /**
  * The age form's POST, as a server action: it works before hydration and

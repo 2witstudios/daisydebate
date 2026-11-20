@@ -878,7 +878,7 @@ function adultPage(
       wards.length > 0
         ? linkTo(
             `Manage ${listed(wards.map((ward) => `${ward}'s`))} accounts`,
-            tabRoutes.family,
+            '/settings/parental-controls',
           )
         : linkTo(
             `Manage ${school}'s entries`,

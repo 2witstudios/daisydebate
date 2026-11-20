@@ -270,7 +270,7 @@ test('daisy_web has the exact runtime DML scope on every public table and sequen
         -- Flag, analysis-request and original refund-action identities cannot be reset by runtime DELETE.
         -- A grant is revoked and a held command settled, never deleted; a membership period is closed, never deleted.
         -- A hosting payment is a financial record: settled or expired, never deleted (ADR 0149).
-        when c.relname in ('release_flags', 'round_analyses', 'billing_refund_actions', 'billing_payment_observations', 'grants', 'pending_commands', 'membership_periods', 'tournament_hosting_purchases') then
+        when c.relname in ('release_flags', 'round_analyses', 'billing_refund_actions', 'billing_payment_observations', 'grants', 'pending_commands', 'membership_periods', 'tournament_hosting_purchases', 'guardian_links', 'child_account_requests') then
           has_table_privilege('daisy_web', c.oid, 'SELECT')
           and has_table_privilege('daisy_web', c.oid, 'INSERT')
           and has_table_privilege('daisy_web', c.oid, 'UPDATE')
@@ -279,8 +279,11 @@ test('daisy_web has the exact runtime DML scope on every public table and sequen
         when c.relname in ('account_hosting_versions','fixture_room_sources','round_judge_slots','round_judge_assignments','round_finalization_judge_assignments','round_source_voids') then
           has_table_privilege('daisy_web', c.oid, 'SELECT')
           and not has_table_privilege('daisy_web', c.oid, 'INSERT,UPDATE,DELETE')
-        -- Closed until counsel answers on minors: read only.
-        when c.relname in ('guardian_links', 'restrictions', 'restriction_lobbies') then
+        when c.relname = 'guardian_consent_evidence' then
+          has_table_privilege('daisy_web', c.oid, 'SELECT')
+          and has_table_privilege('daisy_web', c.oid, 'INSERT')
+          and not has_table_privilege('daisy_web', c.oid, 'UPDATE,DELETE')
+        when c.relname = 'restriction_lobbies' then
           has_table_privilege('daisy_web', c.oid, 'SELECT')
           and not has_table_privilege('daisy_web', c.oid, 'INSERT')
           and not has_table_privilege('daisy_web', c.oid, 'UPDATE')

@@ -167,8 +167,6 @@ type GuardianLinkAuthorizationFact = {
   readonly kind: 'guardian_link';
   readonly guardianActorId: string;
   readonly wardActorId: string;
-  /** The school a coach's link is made through; null for a parent's. */
-  readonly via: OrganizationAuthorizationFact | null;
 };
 type OrganizationCollectionAuthorizationFact = {
   readonly kind: 'organization_collection';

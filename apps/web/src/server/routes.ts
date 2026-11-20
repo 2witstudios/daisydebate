@@ -81,6 +81,18 @@ export function createRoutes(app: App) {
   const provisionalMail = provisionalMailCleanup(
     () => app.mailConfig().RECIPIENT_HASH_SECRET,
   );
+  const ageDependencies = {
+    logger,
+    reporter: app.reporter,
+    origin,
+    identify: (request) => identify(app.auth(), request.headers),
+    limiter: () => app.limiter,
+    clock: app.clock,
+    termsVersion: TERMS_VERSION,
+    record: (input) => database.recordAgeStep(input),
+    forget: (userId) =>
+      database.deleteProvisionalUser({ userId, ...provisionalMail }),
+  } satisfies Parameters<typeof createAgeStepHandler>[0];
   return {
     analyticsConsent: { POST: createConsentHandler(app) },
     mediaCapture: composeMediaCaptureRoutes(app),
@@ -182,18 +194,15 @@ export function createRoutes(app: App) {
       }),
     },
     age: {
-      POST: createAgeStepHandler({
-        logger,
-        reporter: app.reporter,
-        origin,
-        identify: (request) => identify(app.auth(), request.headers),
-        limiter: () => app.limiter,
-        clock: app.clock,
-        termsVersion: TERMS_VERSION,
-        record: (input) => database.recordAgeStep(input),
-        forget: (userId) =>
-          database.deleteProvisionalUser({ userId, ...provisionalMail }),
-      }),
+      POST: createAgeStepHandler(ageDependencies),
+      withParentalControls: (released: (userId: string) => Promise<boolean>) =>
+        createAgeStepHandler({
+          ...ageDependencies,
+          parentalControls: {
+            released,
+            bindingMonth: database.childAccountBirthMonth,
+          },
+        }),
     },
     onboarding: {
       POST: createOnboardingHandler({

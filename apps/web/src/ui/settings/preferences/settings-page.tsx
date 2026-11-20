@@ -64,6 +64,7 @@ export type SettingsPageProps = {
   readonly watchHistory?: ReactNode;
   /** A youth member's media release (ADR 0151), while releases are open. */
   readonly mediaRelease?: ReactNode;
+  readonly familySettings?: 'adult' | 'child' | null;
   readonly username: string | null;
   readonly analytics: {
     readonly choice: ConsentChoice;
@@ -96,8 +97,15 @@ export function SettingsPage({
   notifications,
   watchHistory,
   mediaRelease,
+  familySettings,
 }: SettingsPageProps) {
   const sections = nav.filter(([id]) => id !== 'media-release' || mediaRelease);
+  const familyLink =
+    familySettings === 'adult'
+      ? (['/settings/parental-controls', 'Parental controls'] as const)
+      : familySettings === 'child'
+        ? (['/settings/your-parents', 'Your parents'] as const)
+        : null;
   return (
     <div className="mx-auto flex w-full max-w-dash-column flex-col gap-6 px-6 pt-5 pb-8 max-compact:gap-4 max-compact:px-4">
       <PageHeader title="Settings" />
@@ -105,6 +113,7 @@ export function SettingsPage({
         <SectionJump
           sections={[
             ['/settings/billing', 'Billing'],
+            ...(familyLink ? [familyLink] : []),
             ...sections.map(([id, label]) => [`#${id}`, label] as const),
           ]}
         />
@@ -118,6 +127,14 @@ export function SettingsPage({
           >
             Billing
           </Link>
+          {familyLink ? (
+            <Link
+              href={familyLink[0]}
+              className="rounded-md px-3 py-2 text-base text-ink-muted no-underline hover:bg-surface hover:text-ink hover:no-underline"
+            >
+              {familyLink[1]}
+            </Link>
+          ) : null}
           {sections.map(([id, label]) => (
             <a
               key={id}

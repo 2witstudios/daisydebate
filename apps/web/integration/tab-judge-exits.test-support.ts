@@ -1,3 +1,4 @@
+import { seedGuardianLink } from './guardian-link.test-support';
 import { inTabTestTransaction } from './tab-test-transaction.test-support';
 import { authorize, type AuthorizationInput } from '@daisy/auth/authorization';
 import { createTabStore } from '@daisy/db/tab';
@@ -28,7 +29,6 @@ export const judgeExitStage = async (world: World): Promise<void> => {
   const parent = world.bots.Coach!;
   const director = world.bots.Director!;
   const lobbyId = world.made.get('tournament-lobby')!;
-  const allowedLobbyId = world.made.get('standing-lobby')!;
   const store = createTabStore(world.database);
   const dependencies = {
     store,
@@ -64,12 +64,7 @@ export const judgeExitStage = async (world: World): Promise<void> => {
   const judgeId = createId();
   await inTabTestTransaction(world.sql, async (sql) => {
     await sql`reset role`;
-    const linkId = createId();
-    await sql`insert into guardian_links (id, guardian_user_id, minor_user_id, kind, status) values (${linkId}, ${parent.userId}, ${minor.userId}, 'parent', 'active')`;
-    await sql`insert into restrictions (guardian_link_id, guardian_user_id, minor_user_id, limits_lobbies) values (${linkId}, ${parent.userId}, ${minor.userId}, true)`;
-    await sql`insert into restriction_lobbies (guardian_link_id, guardian_user_id, minor_user_id, lobby_id) values (${linkId}, ${parent.userId}, ${minor.userId}, ${allowedLobbyId})`;
-    // This represents an existing footprint; guardian writes and new minor
-    // invitations remain closed to the runtime role and the application.
+    await seedGuardianLink(sql, parent.userId, minor.userId);
     await sql`insert into tournament_judges (id, lobby_id, actor_id, status) values (${judgeId}, ${lobbyId}, ${minor.actorId}, 'invited')`;
     await sql`update users set version = version + 1 where id = ${minor.userId}`;
     await sql`set local role daisy_web`;

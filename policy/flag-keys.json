@@ -17,7 +17,7 @@
     },
     {
       "key": "daisy-tab-minors",
-      "retired": false,
+      "retired": true,
       "kind": "release",
       "owner": "Daisy Tab (@2witstudios)",
       "taskCode": "TAB-8.2"

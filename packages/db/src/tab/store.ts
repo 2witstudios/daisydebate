@@ -80,12 +80,6 @@ export type { RoomDirectionInput } from './room-direction';
 import { createEventBallotReadStore } from './event-ballot-read';
 export type { EventBallotFacts } from './event-ballot-read';
 import { createTournamentEventSettingReadStore } from './tournament-event-settings';
-import { createGuardianCommandStore } from './guardian-command';
-import { createFamilyHistoryStore } from './family-history';
-export type { FamilyHistoryFacts } from './family-history';
-export { GuardianPeopleChanged } from './guardian-command-facts';
-export type { LoadedGuardianCommand } from './guardian-command-facts';
-export type { GuardianCommandWrite } from './guardian-command-writes';
 export type { TournamentEventSettingFacts } from './tournament-event-settings';
 import { findLobbyByHandle } from './lobby-handle';
 import { createTournamentSetupReadStore } from './tournament-setup-read';
@@ -164,7 +158,7 @@ export type {
 export type { LobbyAdministrationWrite } from './lobby-administration-writes';
 
 export type { StoredTabCommand } from './command-record';
-export type { BoundaryAuthority, TabAccount } from './boundary';
+export type { TabAccount } from './account';
 export type { TabDatabase, TabTransaction } from './tab-transaction';
 export type {
   GrantAuthority,
@@ -236,8 +230,6 @@ export const createTabStore = (database: TabDatabase) => ({
   ...createReleaseCommandStore(database),
   ...createTournamentSponsorshipStore(database),
   ...createTournamentHostingPurchaseStore(database),
-  ...createGuardianCommandStore(database),
-  ...createFamilyHistoryStore(database),
   ...createDrawCommandStore(database),
   ...createEventCompetitionStore(database),
   ...createCompletionCommandStore(database),

@@ -15,8 +15,7 @@ export const eligibleTournamentActors = (
           account?.member &&
           !account.erased &&
           participantAccess(account) &&
-          account.ageBand === 'adult' &&
-          account.boundary === null,
+          account.ageBand === 'adult',
       )
       .map((person) => person.actorId),
   );

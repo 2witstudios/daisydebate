@@ -5,6 +5,7 @@ import { createAppError } from '@daisy/errors';
 import type { Identity } from '@daisy/auth';
 import { memberFloorDecision, type AgeRefusal } from '@daisy/auth/age-floor';
 import { z } from 'zod';
+import { createId } from '@paralleldrive/cuid2';
 import { consumeOrThrow, type RateLimiter } from '../../server/rate-limit';
 import {
   handleOperation,
@@ -76,9 +77,20 @@ type AgeStepDependencies = {
   readonly limiter: () => RateLimiter;
   readonly clock: Clock;
   readonly termsVersion: string;
+  readonly parentalControls?: {
+    readonly released: (userId: string) => Promise<boolean>;
+    readonly bindingMonth: (
+      userId: string,
+      now: string,
+    ) => Promise<string | null>;
+  };
   readonly record: (input: {
     readonly userId: string;
     readonly birthMonth: string;
+    readonly parentalControls?: {
+      readonly linkId: string;
+      readonly pendingBetaEventId: string;
+    };
     readonly termsVersion: string;
     readonly now: string;
   }) => Promise<'recorded' | 'already-recorded'>;
@@ -139,8 +151,15 @@ export function createAgeStepHandler(dependencies: AgeStepDependencies) {
           ageBody,
           await readJson(request),
         );
-        const birthMonth = `${year}-${String(month).padStart(2, '0')}`;
         const now = dependencies.clock.now();
+        const parentalControls = (await dependencies.parentalControls?.released(
+          userId,
+        ))
+          ? dependencies.parentalControls
+          : undefined;
+        const binding = await parentalControls?.bindingMonth(userId, now);
+        const birthMonth =
+          binding ?? `${year}-${String(month).padStart(2, '0')}`;
         const decision = memberFloorDecision(birthMonth, new Date(now));
         if (decision.outcome === 'refused') {
           // Refused means the account answered already or became a member:
@@ -152,6 +171,14 @@ export function createAgeStepHandler(dependencies: AgeStepDependencies) {
         const outcome = await dependencies.record({
           userId,
           birthMonth,
+          ...(parentalControls
+            ? {
+                parentalControls: {
+                  linkId: createId(),
+                  pendingBetaEventId: createId(),
+                },
+              }
+            : {}),
           termsVersion: dependencies.termsVersion,
           now,
         });

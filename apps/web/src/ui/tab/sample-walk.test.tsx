@@ -122,7 +122,6 @@ const canvas: Readonly<Record<string, string>> = {
   'Postings, signed out': 'Taking part? Sign in to see your room',
   'Event Room: four teams': 'Opening Opposition',
   'Open Room: main Daisy': 'Run of show',
-  'Parent: allow a tournament': 'If you allow it',
   'Host: one time slot, several events': 'Events in this slot',
   'Host: events and schedule': 'Judges are one pool.',
   'Competitor: entered in three events': 'Later today',
@@ -133,7 +132,6 @@ const canvas: Readonly<Record<string, string>> = {
   'League: tournaments': 'All five count toward',
   'League: create a room': 'People I invite',
   'Tournament: after': 'Recordings you can watch',
-  'Parent: your family': 'account active',
   'Host: a speech event, round running': 'all six have spoken',
 };
 
@@ -247,28 +245,6 @@ describe('the sample tournament', () => {
         ),
       ],
       expected: [[true, true, true], true, ['screening']],
-    });
-  });
-
-  test('a guardian comes back to their family', () => {
-    const parent = crawls.get('parent.prelims.normal')?.html;
-    assert({
-      given: "a minor's account and a tournament waiting to be allowed",
-      should: 'lead back to the family page, which leads to both',
-      actual: [
-        hrefsIn(parent?.get('/family/ada') ?? '').includes('/family'),
-        hrefsIn(
-          parent?.get('/family/ada/allow/capital-city-classic') ?? '',
-        ).includes('/family'),
-        hrefsIn(parent?.get('/family') ?? '').filter((href) =>
-          href.startsWith('/family/'),
-        ),
-      ],
-      expected: [
-        true,
-        true,
-        ['/family/ada/allow/capital-city-classic', '/family/ada'],
-      ],
     });
   });
 

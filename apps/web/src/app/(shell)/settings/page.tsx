@@ -39,6 +39,8 @@ import {
   resendReleaseAction,
 } from './media-release-actions';
 
+import { familySettingsRole } from './parental-controls/family-settings';
+
 export const metadata: Metadata = { title: 'Settings' };
 
 /**
@@ -112,6 +114,7 @@ export default async function SettingsRoute({
   ]);
   const answers = admitted ? ownAnswers : null;
   const username = claimedUsername(identity);
+  const family = await familySettingsRole();
   // A restricted member may still read and clear what they show (ADR 0143);
   // the route decides, and answers nothing to anyone else.
   const [publicProfile, chosen, mediaRelease] = await Promise.all([
@@ -129,6 +132,7 @@ export default async function SettingsRoute({
         ? await audienceSections(identity.principal.userId)
         : {})}
       username={username}
+      familySettings={family?.role ?? null}
       publicProfile={publicProfile}
       mediaRelease={
         mediaRelease ? (

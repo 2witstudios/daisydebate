@@ -134,7 +134,9 @@ export function transitionGuardianLink(
 }
 
 /** A parent's request to link an existing account: waits for the child. */
-export const requestedLink = (people: Omit<People, 'version'>): GuardianLink => ({
+export const requestedLink = (
+  people: Omit<People, 'version'>,
+): Extract<GuardianLink, { status: 'requested' }> => ({
   ...people,
   version: 1,
   status: 'requested',

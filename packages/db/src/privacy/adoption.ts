@@ -14,7 +14,7 @@ import { mediaReleasePrivacyAdopter } from '../media-release-privacy';
 import { documentsPrivacyAdopter } from '../documents-privacy';
 import { competitiveRecordPrivacyAdopter } from '../competitive-record-privacy';
 import { organizationAuthorityPrivacyAdopter } from '../organization-authority-privacy';
-import { guardianLinksPrivacyAdopter } from '../guardian-links-privacy';
+import { guardianLinksPrivacyAdopter } from '../guardians/privacy';
 import { tournamentRecordPrivacyAdopter } from '../tournament-record-privacy';
 import { entitlementGrantPrivacyAdopter } from '../entitlement-grants-privacy';
 import { usagePrivacyAdopter } from '../usage-privacy';

@@ -175,3 +175,6 @@ export {
   committingRuntimeTestDatabase,
   type SavepointTestDatabase,
 } from './testing-transaction';
+
+export { createGuardianStore } from './guardians/store';
+export { ageStepOperations } from './age-step';

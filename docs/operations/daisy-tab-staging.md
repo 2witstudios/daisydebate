@@ -9,7 +9,7 @@ Use the existing staging apps, credentials and workflow described in
 ## Release flags on staging
 
 Staging gets every feature. Its `fly.toml` sets
-`DAISY_RELEASE_FLAG_DEFAULT=enabled`, so `daisy-tab`, `daisy-tab-minors` and
+`DAISY_RELEASE_FLAG_DEFAULT=enabled`, so `daisy-tab`, `parental-controls` and
 `premium-checkout` (and any later release flag) are on for every staging
 account unless a stored choice says otherwise ([ADR 0118](../decisions/0118-release-and-ops-flags.md#staging-release-default-amendment-2026-11-17)).
 `pricing-page` opens /pricing and its links. `host-tiers`, `club-seats` and

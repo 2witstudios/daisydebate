@@ -965,42 +965,6 @@
       "reviewBy": "2026-12-31"
     },
     {
-      "path": "packages/protocol/src/lobby/guardian-read.ts",
-      "export": "guardianReadCatalogue",
-      "task": "TAB-8.2",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/guardian-read.ts",
-      "export": "guardianViewSchema",
-      "task": "TAB-8.2",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/guardian-read.ts",
-      "export": "wardAccountViewSchema",
-      "task": "TAB-8.2",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "packages/protocol/src/lobby/guardian-read.ts",
-      "export": "wardEntryRequestViewSchema",
-      "task": "TAB-8.2",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
       "path": "packages/protocol/src/lobby/lobby-read.ts",
       "export": "lobbyLadderSchema",
       "task": "TAB-8.3",

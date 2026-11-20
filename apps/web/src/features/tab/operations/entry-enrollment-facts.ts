@@ -92,7 +92,6 @@ export const entryEnrollmentFacts = (
           judge.actorId === person.actorId && slots.has(judge.timeSlotId),
       ),
     // Enrollment behind the closed minors gate does not reconstruct a guardian's provenance.
-    boundary: null,
   }));
   const responsible =
     input.command.type === 'submit-entry' ? input.command.responsible : null;

@@ -72,31 +72,43 @@ test(
     await scratch.migrate((folder) => folder <= schema);
     // The original schema predates protected-person history and league extensions. Verify its own
     // two-scope contract, then the current contract after the forward migration.
+    const originalTables = tenantIsolationManifest.tables
+      .filter(
+        (table) =>
+          ![
+            'tournament_sponsorship_versions',
+            'tournament_capture_admissions',
+            'tournament_hosting_purchases',
+            'fixture_room_sources',
+            'league_schools',
+            'membership_periods',
+            'tournament_rating_snapshots',
+            // Club seats arrive later (ADR 0148).
+            'club_seats',
+            'club_seat_invitations',
+            // Media releases arrive later (ADR 0151).
+            'media_release_club_attestations',
+            'guardian_consent_evidence',
+            'child_account_requests',
+          ].includes(table.table),
+      )
+      .map((table) =>
+        table.table === 'action_history'
+          ? { ...table, key: 'either' as const }
+          : table.table === 'guardian_links'
+            ? {
+                table: 'guardian_links',
+                key: 'person' as const,
+                subject: 'guardian' as const,
+              }
+            : table,
+      );
     const afterSchema = await problemsOf(scratch.url, {
       ...tenantIsolationManifest,
-      tables: tenantIsolationManifest.tables
-        .filter(
-          (table) =>
-            ![
-              'tournament_sponsorship_versions',
-              'tournament_capture_admissions',
-              'tournament_hosting_purchases',
-              'fixture_room_sources',
-              'league_schools',
-              'membership_periods',
-              'tournament_rating_snapshots',
-              // Club seats arrive later (ADR 0148).
-              'club_seats',
-              'club_seat_invitations',
-              // Media releases arrive later (ADR 0151).
-              'media_release_club_attestations',
-            ].includes(table.table),
-        )
-        .map((table) =>
-          table.table === 'action_history'
-            ? { ...table, key: 'either' as const }
-            : table,
-        ),
+      tables: [
+        ...originalTables,
+        { table: 'restrictions', key: 'person', subject: 'guardian' },
+      ],
       exempt: tenantIsolationManifest.exempt.filter(
         (entry) => entry.table !== 'media_release_club_asks',
       ),

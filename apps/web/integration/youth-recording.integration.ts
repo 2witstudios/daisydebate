@@ -1,3 +1,4 @@
+import { seedGuardianLink } from './guardian-link.test-support';
 import { requireTestServices } from '@daisy/config';
 import { plannedRecording } from '@daisy/debate-engine';
 import { assertRejects } from '@daisy/errors/testing';
@@ -117,8 +118,7 @@ test('a Youth Round’s Recording is private to its debaters, judges and linked 
           student: f.host,
         });
         made.users.push(parent.userId);
-        await f.sql`insert into guardian_links(id,guardian_user_id,minor_user_id,kind,status)
-        values(${createId()},${parent.userId},${f.guest.userId},'parent','active')`;
+        await seedGuardianLink(f.sql, parent.userId, f.guest.userId);
         await f.sql`update rounds set status='completed', current_stage=null, started_at=coalesce(started_at, now()), winning_side='affirmative', completed_at=now() where id=${roundId}`;
         const [division] =
           await f.sql`select ladder_division from rounds where id=${roundId}`;
@@ -162,7 +162,7 @@ test('a Youth Round’s Recording is private to its debaters, judges and linked 
         });
 
         await f.sql`update grants set revoked_at=now(), revoked_by_user_id=${owner.userId} where id=${school.grantId}`;
-        await f.sql`update guardian_links set status='ended', ended_at=now() where guardian_user_id=${parent.userId}`;
+        await f.sql`update guardian_links set status='ended', closed_at=now() where guardian_user_id=${parent.userId}`;
         const lapsed = await recordingRoundOf(database, roundId);
         assert({
           given: 'the coach’s grant revoked and the parent’s link ended',
@@ -257,8 +257,7 @@ test('any youth debater of a Youth Round, or their linked adult, takes its Recor
         const { parent } = await people(f);
         made.users.push(parent.userId);
         const { roundId } = await endedYouthRound(f);
-        await f.sql`insert into guardian_links(id,guardian_user_id,minor_user_id,kind,status)
-        values(${createId()},${parent.userId},${f.guest.userId},'parent','active')`;
+        await seedGuardianLink(f.sql, parent.userId, f.guest.userId);
         await f.sql`update rounds set status='completed', current_stage=null, started_at=coalesce(started_at, now()), winning_side='affirmative', completed_at=now() where id=${roundId}`;
         const store = recordingPersistence({ database });
         made.rounds.push(roundId);
@@ -496,8 +495,7 @@ test('a casual Round of a Youth Room holds every Youth fence; an Open casual Rou
 
       await schoolWithCoach(f, made, { owner, coach, student: f.host });
       made.users.push(parent.userId);
-      await f.sql`insert into guardian_links(id,guardian_user_id,minor_user_id,kind,status)
-        values(${createId()},${parent.userId},${f.guest.userId},'parent','active')`;
+      await seedGuardianLink(f.sql, parent.userId, f.guest.userId);
       made.rounds.push(youth.roundId, open.roundId);
       await readyCasualRecording(f, youth.roundId, f.host.actorId);
       await readyCasualRecording(f, open.roundId, openCast.host.actorId);

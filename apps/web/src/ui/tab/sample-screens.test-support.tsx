@@ -12,11 +12,6 @@ import {
 } from '../../features/tab/sample/read-entries';
 import { readEventsSchedule } from '../../features/tab/sample/read-events';
 import {
-  readFamily,
-  readMinorAccount,
-  readTournamentRequest,
-} from '../../features/tab/sample/read-guardian';
-import {
   readCreateRoom,
   leagueViewOf,
   readHostLeague,
@@ -52,9 +47,6 @@ import { readWalk } from '../../features/tab/walk';
 import { BallotSettings } from './ballot-settings/ballot-settings';
 import { DrawBoard } from './draw-board/draw-board';
 import { EventsSchedule } from './events-schedule/events-schedule';
-import { Family } from './guardian/family';
-import { MinorAccount } from './guardian/minor-account';
-import { TournamentRequest } from './guardian/tournament-request';
 import { HostEntries } from './host-entries/host-entries';
 import { HostJudges } from './host-entries/host-judges';
 import { HostHome } from './host-home/host-home';
@@ -175,23 +167,6 @@ function participant(
       return screen(ballot && <JudgeBallot ballot={ballot} submit={submit} />);
     }
     return missing;
-  }
-  if (area === 'family' && id === undefined) {
-    const family = readFamily(scene);
-    return screen(family && <Family family={family} />);
-  }
-  if (area === 'family' && id !== undefined) {
-    if (rest.length === 0) {
-      const account = readMinorAccount(id, scene);
-      return screen(
-        account && <MinorAccount account={account} submit={submit} />,
-      );
-    }
-    const [allow, slug, ...more] = rest;
-    if (allow === 'allow' && slug !== undefined && more.length === 0) {
-      const request = readTournamentRequest(id, slug, scene);
-      return screen(request && <TournamentRequest request={request} />);
-    }
   }
   return missing;
 }

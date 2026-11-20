@@ -160,6 +160,8 @@ import { utteranceOperations } from './utterance-operations';
 import { documentOperations } from './document-operations';
 import { onboardingOperations } from './onboarding-operations';
 import { ageStepOperations } from './age-step';
+import { createGuardianStore } from './guardians/store';
+export type { GuardianLinkRow, GuardianSession } from './guardians/store';
 import { actorOperations } from './actor-operations';
 import { rateCompletedRound } from './rating-operations';
 import { standingsOperations } from './standings';
@@ -440,6 +442,7 @@ export function createDatabase({
     ...messagingOperations(social, contactReactions),
     /** Daisy Tab's commands and reads, each in one transaction fenced to its tenant. */
     tabCommands: createTabStore(database),
+    guardians: createGuardianStore(control),
     ...friendshipReadOperations({ database: social, eventSink }),
     ...presenceSettingOperations({ database: social, eventSink }),
     ...peopleListOperations({ database: social, eventSink }),

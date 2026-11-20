@@ -55,7 +55,7 @@ timing, not audience. Owner decision 86 takes it, without media.
    Start, so the resolver reads it once per Round and reads nobody's links
    for any other Round. A revoked grant or ended link
    stops admitting within about 15 seconds. In production this is school staff
-   only: guardian links still have no write path.
+   only. The active guardian links it reads are established by ADR 0163.
 3. **Read lazily.** Every read that may admit a linked adult (the Round read,
    the transcript, the floor's HTTP routes, the realtime Round topic and the
    floor's realtime permits) runs without the linked adults first and reads

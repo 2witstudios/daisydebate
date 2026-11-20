@@ -155,12 +155,6 @@ function steps(scene: SampleScene): WalkStep[] {
       return [
         ...tournaments,
         step("A family's entries", tabRoutes.entries(AUTUMN)),
-        step('Your family', tabRoutes.family),
-        step("A minor's account", tabRoutes.minor('ada')),
-        step(
-          'Allow a tournament',
-          tabRoutes.allowTournament('ada', 'capital-city-classic'),
-        ),
         ...posted,
         ...league,
       ];

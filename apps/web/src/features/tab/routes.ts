@@ -27,10 +27,6 @@ export const tabRoutes = {
   room,
   liveRoom: (id: string) => `${room(id)}/live`,
   ballot: (id: string) => `${room(id)}/ballot`,
-  family: '/family',
-  minor: (id: string) => `/family/${id}`,
-  allowTournament: (minor: string, slug: string) =>
-    `/family/${minor}/allow/${slug}`,
 } as const;
 
 const hostTournament = (slug: string) => `/host${tournament(slug)}`;
@@ -108,13 +104,7 @@ export function participantPathOf(hostPath: string): string {
   return `/${segments.join('/')}`;
 }
 
-const tabPrefixes = [
-  '/host',
-  '/tournaments/',
-  '/leagues/',
-  '/rooms/sample/',
-  '/family',
-];
+const tabPrefixes = ['/host', '/tournaments/', '/leagues/', '/rooms/sample/'];
 
 /**
  * Whether a path a form sent back is one of Tab's own pages. It round-trips
