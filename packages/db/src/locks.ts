@@ -94,7 +94,7 @@ type TransactionLockName = keyof typeof transactionLocks;
 
 /**
  * Takes `lock` until the transaction ends: alone by default, or shared with
- * other shared holders.
+ * other shared holders. The caller must supply an active transaction.
  */
 export async function takeLock(
   tx: Tx,
@@ -114,7 +114,7 @@ export async function takeLock(
  * connection ends. Each names the one connection that holds it.
  */
 export const sessionLocks = {
-  /** Slot administration on the admin database: one slot change at a time. */
+  /** Serializes slot administration. Both calls use the same single-connection admin client. */
   slotAdmin: {
     take: async (admin: SQL) => {
       await admin`select pg_advisory_lock(hashtext('daisy-slot-admin'))`;
@@ -125,7 +125,8 @@ export const sessionLocks = {
   },
   /**
    * A test run database's liveness: its runner holds it for the run.
-   * `name` is the database name as an unquoted identifier.
+   * Both calls use the same single-connection admin client. Pass the
+   * database name without SQL identifier quotes.
    */
   testRun: {
     tryTake: async (admin: SQL, name: string): Promise<boolean> => {

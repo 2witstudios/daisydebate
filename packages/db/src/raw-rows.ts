@@ -23,8 +23,11 @@ export async function query<Row extends z.ZodType>(
     throw createAppError(
       'INVARIANT',
       'A raw read returned a row its schema refuses',
-      // Include the issue locations and kinds without logging row values.
-      parsed.error.issues.map(({ path, code }) => ({ path, code })),
+      // Nested paths may include user-supplied object keys.
+      parsed.error.issues.map(({ path: [index], code }) => ({
+        row: typeof index === 'number' ? index : undefined,
+        code,
+      })),
     );
   return parsed.data;
 }

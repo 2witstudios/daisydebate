@@ -47,19 +47,21 @@ test('query parses every row with its schema', async () => {
 test('query refuses a row its schema does not describe, without its values', async () => {
   const error = await query(
     database,
-    numbers,
-    sql`select 'secret' as n, now() as at, 'x' as name`,
+    z.object({ metadata: z.record(z.string(), z.number()) }),
+    sql`select jsonb_build_object('person@example.com', 'private value') as metadata`,
   ).catch((caught: unknown) => caught);
   assert({
-    given: 'a text value where the schema says number',
-    should: 'refuse as an invariant naming the path, never the value',
+    given:
+      'a user-keyed JSON object with a text value where the schema says number',
+    should:
+      'report the row index and issue code without the object key or value',
     actual: {
       code: (error as { code?: string }).code,
       cause: JSON.stringify((error as Error).cause),
     },
     expected: {
       code: 'INVARIANT',
-      cause: JSON.stringify([{ path: [0, 'n'], code: 'invalid_type' }]),
+      cause: JSON.stringify([{ row: 0, code: 'invalid_type' }]),
     },
   });
 });
@@ -210,10 +212,10 @@ test('session locks hold their old keys until released', async () => {
 
   const runName = `daisy_boundary_${process.pid}`;
   const first = await sessionLocks.testRun.tryTake(holder, runName);
-  const second = await sessionLocks.testRun.tryTake(other, runName);
+  const runKey = `hashtextextended('${runName}', 0)`;
+  const second = await tryOther(runKey);
   await sessionLocks.testRun.release(holder, runName);
-  const afterRelease = await sessionLocks.testRun.tryTake(other, runName);
-  await sessionLocks.testRun.release(other, runName);
+  const afterRelease = await tryOther(runKey);
 
   const mine = await holder.reserve();
   const theirs = await other.reserve();
@@ -223,6 +225,8 @@ test('session locks hold their old keys until released', async () => {
       await sessionLocks.availabilitySampler.elect(mine),
       await sessionLocks.availabilitySampler.elect(theirs),
     ];
+    const samplerBlocked =
+      await theirs`select pg_try_advisory_lock(59003::bigint) as free`;
     const [row]: { holds: boolean }[] =
       await mine`select ${sessionLocks.availabilitySampler.held(mine)} as holds`;
     await sessionLocks.availabilitySampler.release(mine);
@@ -234,12 +238,12 @@ test('session locks hold their old keys until released', async () => {
       actual: {
         slot: [slotHeld, slotFreed],
         testRun: [first, second, afterRelease],
-        sampler: [...elected, row?.holds, handedOver],
+        sampler: [...elected, samplerBlocked[0]?.free, row?.holds, handedOver],
       },
       expected: {
         slot: [false, true],
         testRun: [true, false, true],
-        sampler: [true, true, false, true, true],
+        sampler: [true, true, false, false, true, true],
       },
     });
   } finally {
