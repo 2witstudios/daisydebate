@@ -1,8 +1,5 @@
 import type { MinorReleaseRead } from '@daisy/db';
-import {
-  maskEmail,
-  reuseLicensingWordings,
-} from '@daisy/protocol/media-release';
+import { maskEmail } from '@daisy/protocol/media-release';
 import {
   guardianRelationWords,
   releaseDate,

@@ -340,9 +340,7 @@ export function MediaReleaseSection({
           </p>
           <div className="flex flex-wrap gap-2">
             {takedown}
-            {view.kind === 'parent' && view.reuseLicensed ? (
-              <SignedTerms />
-            ) : null}
+            {view.kind === 'parent' ? <SignedTerms /> : null}
           </div>
         </>
       );
