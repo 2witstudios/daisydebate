@@ -143,6 +143,10 @@ describe('test support subpaths', () => {
         'report the production import of test support, while test code may import it',
       actual: [
         testSupportIssue(
+          './test-support',
+          'apps/web/src/features/tab/league.ts',
+        ),
+        testSupportIssue(
           './test-support/sample/league',
           'apps/web/src/features/tab/league.ts',
         ),
@@ -164,6 +168,7 @@ describe('test support subpaths', () => {
         ),
       ],
       expected: [
+        'production import of test support ./test-support',
         'production import of test support ./test-support/sample/league',
         'production import of test support ../../features/tab/test-support/sample/draw',
         null,

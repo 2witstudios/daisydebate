@@ -1,17 +1,11 @@
-import {
-  sampleEntryList,
-  sampleJudgeList,
-  sampleSchoolEntries,
-} from './entries';
+import { sampleEntryList, sampleJudgeList } from './entries';
 import { varsitySwitch } from './event-switch';
 import type { SampleScene } from './scene';
 import {
   type HostEntries,
   type HostJudges,
-  type SchoolEntries,
   hostEntriesOf,
   hostJudgesOf,
-  schoolEntriesOf,
 } from '../../entries';
 
 export const readHostEntries = (
@@ -28,12 +22,4 @@ export const readHostJudges = (
 ): HostJudges | null => {
   const view = sampleJudgeList(slug, scene);
   return view === null ? null : hostJudgesOf(view);
-};
-
-export const readSchoolEntries = (
-  slug: string,
-  scene: SampleScene,
-): SchoolEntries | null => {
-  const view = sampleSchoolEntries(slug, scene);
-  return view === null ? null : schoolEntriesOf(view, slug);
 };

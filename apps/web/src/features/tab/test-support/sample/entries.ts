@@ -4,10 +4,8 @@ import type {
   JudgeSlot,
   ListedEntry,
   ListedJudge,
-  SchoolEntriesView,
-  SchoolStudent,
 } from '@daisy/protocol/lobby/entry-read';
-import { AUTUMN, reached, WINTER } from './moment';
+import { AUTUMN, reached } from './moment';
 import { largeEntryList, largeJudgeList } from './large-entries';
 import { atScale, type SampleScene } from './scene';
 
@@ -323,112 +321,5 @@ function ordinaryJudgeList(before: boolean): JudgeListView {
     ],
     notShown: { schoolName: 'Lakeside', count: 4 },
     capabilities: { manageJudges: true },
-  };
-}
-
-const student = (
-  name: string,
-  note: string | null,
-  events: readonly (string | readonly [string, string])[],
-  clash: readonly [string, string] | null = null,
-): SchoolStudent => ({
-  id: sampleId(`student${name}`),
-  name,
-  note,
-  entries: events.map((event) => {
-    const [eventName, partner] =
-      typeof event === 'string' ? [event, null] : event;
-    return {
-      id: sampleId(`entry${name}${eventName}`),
-      eventName,
-      partnerNames: partner === null ? [] : [partner],
-    };
-  }),
-  clash: clash === null ? null : { eventNames: [clash[0], clash[1]] },
-});
-
-const capabilities = { manageRoster: true, submit: true };
-
-export function sampleSchoolEntries(
-  slug: string,
-  scene: SampleScene,
-): SchoolEntriesView | null {
-  if (scene.viewer !== 'coach' && scene.viewer !== 'parent') return null;
-  if (slug === WINTER && scene.viewer === 'coach')
-    return {
-      lobbyId: sampleId('winterclassic'),
-      tournamentName: 'Winter Classic',
-      responsible: {
-        kind: 'school',
-        organizationId: hartwell,
-        name: 'Hartwell',
-      },
-      terms:
-        'Entries close Wed 9 Dec · one debate event, one Speech A and one Speech B each',
-      students: [
-        student('Wu', 'novice, second season', [
-          ['Parli', 'Okoye'],
-          'Impromptu',
-          'Extemp',
-        ]),
-        student('Okoye', 'novice, first season', [['Parli', 'Wu'], 'Oratory']),
-        student('Jensen', null, ['Varsity LD', 'Impromptu']),
-        student(
-          'Amari',
-          'novice, first season',
-          ['Novice LD', 'Impromptu', 'Oratory'],
-          ['Impromptu', 'Oratory'],
-        ),
-        student('Reid', 'third season', ['Varsity LD']),
-      ],
-      judges: {
-        owed: 3,
-        named: 2,
-        dueAt: '2026-12-11T17:00:00.000Z',
-        terms:
-          'Two for your four debate entries, one for your six speech entries. One judge can cover both if cleared for both.',
-      },
-      capabilities,
-    };
-  if (slug !== AUTUMN && slug !== WINTER) return null;
-  const autumn = slug === AUTUMN;
-  const parent = scene.viewer === 'parent';
-  return {
-    lobbyId: sampleId(autumn ? 'autumnopen' : 'winterclassic'),
-    tournamentName: autumn ? 'Autumn Open' : 'Winter Classic',
-    responsible: parent
-      ? { kind: 'guardian', name: 'Okafor family' }
-      : { kind: 'school', organizationId: hartwell, name: 'Hartwell' },
-    terms: autumn
-      ? 'Entries close Thursday 17:00 · one debate event and one speech event each'
-      : 'Entries close Wed 9 Dec · one debate event, one Speech A and one Speech B each',
-    students: parent
-      ? [
-          student('Chidi', 'age 15', [
-            autumn ? 'Varsity debate' : 'Varsity LD',
-          ]),
-          student('Ada', 'age 13', ['Impromptu']),
-        ]
-      : [
-          student('Jensen', null, ['Varsity debate']),
-          student('Haddad', null, ['Varsity debate']),
-          student('Brooks', 'second season', ['Varsity debate', 'Impromptu']),
-        ],
-    judges: parent
-      ? {
-          owed: 1,
-          named: 1,
-          dueAt: null,
-          terms:
-            'You are cleared for Novice debate and Impromptu, and are never in a room with Chidi or Ada.',
-        }
-      : {
-          owed: 3,
-          named: 2,
-          dueAt: null,
-          terms:
-            'One for every three debate entries. You can add the third judge until Friday.',
-        },
-    capabilities,
   };
 }

@@ -58,25 +58,6 @@ export type EventsSchedule = {
 };
 
 /** The form's fields the setup read does not decide, as the screen words them. */
-export type EventFormCopy = Omit<EventForm, 'slug' | 'name' | 'format'>;
-
-/** The words the events screen uses, beyond what the setup read carries. */
-export type EventsCopy = {
-  readonly actions: readonly TabAction[];
-  /** Each event's one-line summary, by event. */
-  readonly summaries: Readonly<Record<string, string>>;
-  /** The edit form of each event that has one, by event. */
-  readonly forms: Readonly<Record<string, EventFormCopy>>;
-  /** The event the screen opens on when the address names none. */
-  readonly opening: string;
-  readonly entryLimit: string;
-  readonly judgePool: { readonly rule: string; readonly action: TabAction };
-};
-
-/** An event's place in a host address: its name, lowercased and hyphenated. */
-const eventSlug = (event: { readonly name: string }): string =>
-  event.name.trim().toLowerCase().replaceAll(/\s+/g, '-');
-
 const numberWords = ['no', 'one', 'two', 'three', 'four', 'five', 'six'];
 const countWords = (count: number) => numberWords[count] ?? String(count);
 
@@ -146,51 +127,6 @@ function timesOf(
           : clock(slot.startsAt),
       )
       .join(', '),
-  };
-}
-
-/** The events and schedule screen from a tournament's setup read. */
-export function eventsScheduleOf(
-  setup: TournamentSetupView,
-  selected: string | null,
-  copy: EventsCopy,
-): EventsSchedule {
-  const groups = groupsOf(setup.events);
-  const chosen = setup.events.find(
-    (event) => eventSlug(event) === (selected ?? copy.opening),
-  );
-  const form = chosen === undefined ? undefined : copy.forms[chosen.eventId];
-  const owner = setup.owner?.name ?? setup.name;
-  return {
-    lede: `${setup.events.length} events in ${countWords(groups.length)} groups. Events in a group run at the same time.`,
-    actions: copy.actions,
-    groups: groups.map((group) => ({
-      ...timesOf(setup, group),
-      events: group.map((event) => ({
-        slug: eventSlug(event),
-        name: event.name,
-        summary: copy.summaries[event.eventId] ?? '',
-        href: hostRoutes.events(setup.handle, eventSlug(event)),
-      })),
-    })),
-    entryLimit: {
-      kind: 'configured',
-      rule: copy.entryLimit,
-      source: `Set by ${owner}.`,
-    },
-    judgePool: { kind: 'configured', ...copy.judgePool },
-    selected:
-      chosen === undefined || form === undefined
-        ? null
-        : {
-            slug: eventSlug(chosen),
-            name: chosen.name,
-            format: {
-              value: chosen.format.name,
-              source: `set by ${chosen.template?.organization.name ?? owner}`,
-            },
-            ...form,
-          },
   };
 }
 

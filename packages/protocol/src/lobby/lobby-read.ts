@@ -50,7 +50,6 @@ const lobbyViewerRoles = [
   'judge',
   'responsible_adult',
 ] as const;
-export type LobbyViewerRole = (typeof lobbyViewerRoles)[number];
 const viewerRolesSchema = z.array(z.enum(lobbyViewerRoles)).max(5);
 
 /** One tab round as a schedule names it. `name` is the host's, when typed. */
@@ -291,7 +290,6 @@ export const lobbyViewSchema = z.discriminatedUnion('kind', [
   standingLobbyViewSchema,
   tournamentLobbyViewSchema,
 ]);
-export type StandingLobbyView = z.infer<typeof standingLobbyViewSchema>;
 export type TournamentLobbyView = z.infer<typeof tournamentLobbyViewSchema>;
 
 /** What the viewer is doing at a listed tournament. */
@@ -379,17 +377,15 @@ const listedLobbySchema = z.discriminatedUnion('kind', [
       .nullable(),
   }),
 ]);
-export type ListedLobby = z.infer<typeof listedLobbySchema>;
 
-export const lobbyListDefaultPageSize = 20;
+const lobbyListDefaultPageSize = 20;
 
 /** Which tournaments a list asks for, by where they stand now. */
-export const lobbyListTabs = ['upcoming', 'live', 'past'] as const;
-export type LobbyListTab = (typeof lobbyListTabs)[number];
+const lobbyListTabs = ['upcoming', 'live', 'past'] as const;
 
 const day = z.iso.date();
 /** A month whose full week grid stays within four-digit ISO years. */
-export const tournamentMonthSchema = z
+const tournamentMonthSchema = z
   .string()
   .regex(/^\d{4}-(0[1-9]|1[0-2])$/)
   .refine((month) => month >= '0001-01' && month <= '9998-12');
@@ -438,7 +434,6 @@ export const lobbyListQuerySchema = z
       query.from <= query.to,
     { path: ['to'], message: 'The end comes after the start.' },
   );
-export type LobbyListQuery = z.infer<typeof lobbyListQuerySchema>;
 
 export const lobbyListPageSchema = z.strictObject({
   asOf: instant,
@@ -448,7 +443,6 @@ export const lobbyListPageSchema = z.strictObject({
   /** Null for a signed-out reader. */
   capabilities: z.strictObject({ createLobby: z.boolean() }).nullable(),
 });
-export type LobbyListPage = z.infer<typeof lobbyListPageSchema>;
 
 /** The Room list is asked of one lobby (`room.list` on that lobby). */
 export const lobbyRoomListQuerySchema = z.strictObject({ lobbyId: idSchema });
@@ -482,7 +476,6 @@ export const lobbyRoomListSchema = z.strictObject({
   asOf: instant,
   rooms: z.array(listedRoomSchema).max(100),
 });
-export type LobbyRoomList = z.infer<typeof lobbyRoomListSchema>;
 
 const ladderLineSchema = z.strictObject({
   actorId: idSchema,
