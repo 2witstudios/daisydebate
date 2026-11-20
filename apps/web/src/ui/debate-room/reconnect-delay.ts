@@ -10,7 +10,5 @@ export const reconnectDelaySeconds = (entropy: number): number =>
   FLOOR_SECONDS + (entropy % SPREAD_SECONDS);
 
 /** A refused page's delay, drawn at the edge, where randomness belongs. */
-export const drawReconnectDelaySeconds = (): number => {
-  const [entropy] = crypto.getRandomValues(new Uint8Array(1));
-  return reconnectDelaySeconds(entropy!);
-};
+export const drawReconnectDelaySeconds = (): number =>
+  reconnectDelaySeconds(crypto.getRandomValues(new Uint8Array(1))[0]!);

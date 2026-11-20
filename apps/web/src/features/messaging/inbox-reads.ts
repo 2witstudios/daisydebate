@@ -44,6 +44,8 @@ export function createInboxReads({
   let again = false;
   let cancelPending: (() => void) | null = null;
   let closed = false;
+  // Read live: close() can run during any await, which narrowing cannot see.
+  const isClosed = () => closed;
 
   /** Every loaded page in order, or null if any one could not be read. */
   const readLoaded = async (
@@ -76,7 +78,7 @@ export function createInboxReads({
     const askedQ = q;
     const answer = await readLoaded(askedQ, pages);
     inFlight = false;
-    if (closed) return;
+    if (isClosed()) return;
     if (answer !== null && asked === generation)
       onRefreshed(answer, { q: askedQ });
     if (again || asked !== generation) {

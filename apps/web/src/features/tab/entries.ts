@@ -157,7 +157,7 @@ function entryFacts(view: EntryListView, entry: ListedEntry): string {
     entry.minor.managedBy === null
       ? ''
       : `, account managed by ${entry.minor.managedBy}`;
-  return `${standing} · ${entry.minor.age === null ? 'minor' : `age ${entry.minor.age}`}${managed}`;
+  return `${standing} · age ${entry.minor.age}${managed}`;
 }
 
 const owing = (owed: number, named: number): string =>

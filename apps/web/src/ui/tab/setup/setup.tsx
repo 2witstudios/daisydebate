@@ -80,11 +80,11 @@ export function Setup(props: SetupProps) {
         : {
             asideLabel: 'Pairing',
             aside:
-              props.pairingForm !== undefined ? (
+              props.submit === undefined ? (
                 props.pairingForm
               ) : (
                 <SampleForm
-                  action={props.submit!(pairing.save.label)}
+                  action={props.submit(pairing.save.label)}
                   label="Pairing"
                   className="flex flex-col gap-4"
                 >

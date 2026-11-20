@@ -19,12 +19,19 @@ export function createRefundReconciliation(input: {
 }) {
   let afterId: string | undefined;
   let stopped = false;
+  /** Read afresh after every await: stop() lands between them. */
+  const isStopped = () => stopped;
   let running = false;
   async function reconcile(actionId: string) {
     let stage: FailureStage = 'claim';
     try {
       const claim = await input.store.claim(actionId);
-      if (!claim || stopped || claim.work === 'wait' || claim.work === 'refuse')
+      if (
+        !claim ||
+        isStopped() ||
+        claim.work === 'wait' ||
+        claim.work === 'refuse'
+      )
         return;
       if (!claim.action.claim) throw createAppError('INVARIANT');
       if (claim.action.mode !== input.mode) throw createAppError('CONFLICT');
@@ -55,7 +62,7 @@ export function createRefundReconciliation(input: {
   return {
     /** One pass; returns how many rows it handled. */
     async run(): Promise<number> {
-      if (stopped || running) return 0;
+      if (isStopped() || running) return 0;
       running = true;
       try {
         // Each vendor action performs at most two bounded reads; three identities bound one tick.
@@ -65,7 +72,7 @@ export function createRefundReconciliation(input: {
           ...(afterId === undefined ? {} : { afterId }),
         });
         for (const { actionId } of page.rows) {
-          if (stopped) return page.rows.length;
+          if (isStopped()) return page.rows.length;
           await reconcile(actionId);
         }
         afterId = page.exhausted ? undefined : (page.afterId ?? undefined);

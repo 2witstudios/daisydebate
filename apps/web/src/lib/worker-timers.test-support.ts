@@ -46,8 +46,9 @@ export function manualTimers() {
     for (let turn = 0; turn < 50 && shots.size === 0; turn += 1)
       await new Promise((settle) => setTimeout(settle, 0));
     const [ms] = [...shots.values()];
-    if (ms === undefined) throw new Error('No worker pass armed');
-    await tasks.get(ms)!();
+    const pass = ms === undefined ? undefined : tasks.get(ms);
+    if (pass === undefined) throw new Error('No worker pass armed');
+    await pass();
   };
   return { tasks, timers, waits, nextPass };
 }

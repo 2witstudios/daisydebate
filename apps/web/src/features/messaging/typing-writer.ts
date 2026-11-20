@@ -64,6 +64,8 @@ export function createTypingWriter({
     failures = 0;
   let timer: unknown = null;
   let completion = Promise.resolve();
+  // Read live: trigger() queues during any await, which narrowing cannot see.
+  const isQueued = () => queued;
   const cancel = () => {
     if (timer !== null) timers.clearTimeout(timer);
     timer = null;
@@ -81,12 +83,12 @@ export function createTypingWriter({
       failures = next.failures;
       const interval = next.interval;
       stalled = sent && interval === null;
-      if (!queued && !closed && desired && interval !== null)
+      if (!isQueued() && !closed && desired && interval !== null)
         timer = timers.setTimeout(() => {
           timer = null;
           void trigger();
         }, interval);
-    } while (queued);
+    } while (isQueued());
     busy = false;
   };
   const trigger = () => {

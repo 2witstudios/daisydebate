@@ -123,7 +123,7 @@ export const messagingLatestPageItems = (): number =>
 
 /** Whether this deployment has a file runtime; without one no file control shows. */
 export const messagingFilesAvailable = (): boolean =>
-  processApp().messagingFiles !== undefined;
+  processApp().messagingFiles !== null;
 
 /**
  * Whether shared Youth Recordings are public at all (ADR 0151): the
@@ -269,11 +269,7 @@ const divisionWhen = async (
   state: 'member' | 'provisional',
 ): Promise<RatingDivision | null> => {
   const identity = await requestIdentity();
-  // The second check never fires after the first; it narrows the union to
-  // the states that carry a principal, for the type checker.
   if (identity.state !== state) return null;
-  if (identity.state !== 'member' && identity.state !== 'provisional')
-    return null;
   return processApp().database.readMemberDivision(identity.principal.userId);
 };
 

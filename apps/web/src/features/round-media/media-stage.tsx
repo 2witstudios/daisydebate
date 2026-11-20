@@ -101,7 +101,7 @@ export function MediaStage({
           const microphoneTrack = mediaTracks.find(
             (track) => track.source === 'microphone',
           );
-          const mine = identity !== null && identity === ownIdentity;
+          const mine = identity === ownIdentity;
           return (
             <figure
               key={seat.id}

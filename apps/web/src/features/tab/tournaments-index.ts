@@ -637,9 +637,8 @@ function calendarOf(
   addressOf: AddressOf,
 ): IndexCalendar {
   const today = dayOf(asOf);
-  const month = isMonth(state.month ?? undefined)
-    ? state.month!
-    : monthOfDay(today);
+  const requestedMonth = state.month ?? undefined;
+  const month = isMonth(requestedMonth) ? requestedMonth : monthOfDay(today);
   const counts = new Map<string, number>();
   // The calendar is for what is coming: a day gone by is grey, uncounted.
   for (const lobby of found) {

@@ -144,11 +144,7 @@ export function contextChatOperations<Fact extends ContextChannelFact>(
               messages: page.messages.map(channelHistoryView),
             }),
             authors: await frame.readAuthors([
-              ...new Set(
-                page.messages.flatMap((message) =>
-                  message.authorActorId === null ? [] : [message.authorActorId],
-                ),
-              ),
+              ...new Set(page.messages.map((message) => message.authorActorId)),
             ]),
           };
         });

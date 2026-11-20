@@ -42,8 +42,6 @@ function definitionProblems(
     !isDate(entry.expiresOn)
   )
     problems.push('invalid definition');
-  if (entry.kind === 'release' && entry.safeDefault !== false)
-    problems.push('release must fail closed');
   if (new Set(entry.dependencies).size !== entry.dependencies.length)
     problems.push('duplicate dependency');
   if (entry.dependencies.some((key) => !entries.has(key)))

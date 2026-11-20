@@ -30,7 +30,7 @@ export function seasonProgress(season: Season, now: string): SeasonProgress {
   }
   const length = Math.max(
     1,
-    Math.round((Date.parse(season.endsAt ?? now) - start) / DAY_MS),
+    Math.round((Date.parse(season.endsAt) - start) / DAY_MS),
   );
   const elapsed = Math.floor((Date.parse(now) - start) / DAY_MS);
   const current = Math.min(length, Math.max(1, elapsed + 1));

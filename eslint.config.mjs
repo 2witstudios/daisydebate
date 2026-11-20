@@ -454,7 +454,39 @@ export const typedRules = {
     'error',
     { allowThrowingAny: false, allowThrowingUnknown: true },
   ],
+  // A check the type already answers is dead code or a wrong type. Correct
+  // the type where the value is made, or delete the branch; never widen a
+  // type to keep a check alive.
+  '@typescript-eslint/no-unnecessary-condition': 'error',
 };
+
+/**
+ * A non-null assertion claims what the type does not say. Model the state
+ * instead: a union, a narrowing, or a function that returns the value it
+ * found. The one form left is `array[index]!`, which
+ * `noUncheckedIndexedAccess` asks for where a bound proves the index. The
+ * rule reads syntax only, so it needs no type information.
+ */
+const nonNullAssertion = {
+  meta: {
+    type: 'problem',
+    schema: [],
+    messages: {
+      assertion:
+        'Model the state instead of asserting non-null: a union, a narrowing, or a returned value. Only `array[index]!` is allowed, where a bound proves the index.',
+    },
+  },
+  create: (context) => ({
+    TSNonNullExpression(node) {
+      const { expression } = node;
+      if (expression.type === 'MemberExpression' && expression.computed) {
+        return;
+      }
+      context.report({ node, messageId: 'assertion' });
+    },
+  }),
+};
+const daisyPlugin = { rules: { 'no-non-null-assertion': nonNullAssertion } };
 
 export default [
   {
@@ -922,5 +954,21 @@ export default [
       },
     },
     rules: typedRules,
+  },
+  {
+    files: ['packages/*/src/**/*.ts', 'apps/*/src/**/*.{ts,tsx}'],
+    ignores: ['**/*.test.{ts,tsx}'],
+    plugins: { daisy: daisyPlugin },
+    rules: { 'daisy/no-non-null-assertion': 'error' },
+  },
+  // packages/db/src is the database boundary, and the recon-db-boundary slice
+  // (plan step R3.1 to R3.3) owns its needless conditions and non-null
+  // assertions. That slice fixes them and deletes this block.
+  {
+    files: ['packages/db/src/**/*.ts'],
+    rules: {
+      '@typescript-eslint/no-unnecessary-condition': 'off',
+      'daisy/no-non-null-assertion': 'off',
+    },
   },
 ];

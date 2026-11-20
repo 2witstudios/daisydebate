@@ -119,8 +119,9 @@ function awaitedSeat(
   const generating = unruled.flatMap((standing) =>
     standing.state === 'generating' ? [standing.deadlineAt] : [],
   );
-  if (generating.length > 0)
-    return { on: 'ai_generating', deadlineAt: generating.sort().at(-1)! };
+  const latestGenerating = generating.sort().at(-1);
+  if (latestGenerating !== undefined)
+    return { on: 'ai_generating', deadlineAt: latestGenerating };
   if (unruled.some((standing) => standing.state === 'recovering'))
     return { on: 'ai_recovering' };
   if (unruled.some((standing) => standing.state === 'blocked'))

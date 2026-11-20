@@ -27,11 +27,8 @@ export type MessagingSocialRuntimePolicy = {
 };
 
 export function composeMessagingSocialRoutes(app: App) {
-  const run = (
-    request: Request,
-    kind: 'request' | 'decide' | 'preview' | 'status',
-    channelId?: string,
-  ) => {
+  /** Built per request, as before; each route names its own operation. */
+  const handlersForRequest = () => {
     const policy = app.messagingPolicy,
       social = policy.social;
     const limit = (actorId: string) =>
@@ -48,7 +45,7 @@ export function composeMessagingSocialRoutes(app: App) {
         postingPolicy: policy.posting,
         readingPolicy: policy.reading,
       });
-    const handlers = createMessagingSocialHandlers({
+    return createMessagingSocialHandlers({
       ...memberHttpBoundary(app),
       maxBodyBytes: policy.maxBodyBytes,
       bounds: social.bounds,
@@ -80,16 +77,13 @@ export function composeMessagingSocialRoutes(app: App) {
           bounds: social.bounds,
         }),
     });
-    return kind === 'preview' || kind === 'status'
-      ? handlers[kind](request, channelId!)
-      : handlers[kind](request);
   };
   return {
     requestStatus: (request: Request, channelId: string) =>
-      run(request, 'status', channelId),
-    requestDm: (request: Request) => run(request, 'request'),
-    decideDm: (request: Request) => run(request, 'decide'),
+      handlersForRequest().status(request, channelId),
+    requestDm: (request: Request) => handlersForRequest().request(request),
+    decideDm: (request: Request) => handlersForRequest().decide(request),
     requestPreview: (request: Request, channelId: string) =>
-      run(request, 'preview', channelId),
+      handlersForRequest().preview(request, channelId),
   };
 }

@@ -59,9 +59,9 @@ const withinBrowserBound = (
   const live = others.flatMap((raw) => {
     const decoded = decodeDraftRecord(raw, now);
     if (!decoded.ok) return [raw];
-    return hasCopies(decoded.record)
-      ? [encodeDraftRecord(decoded.record)!.raw]
-      : [];
+    if (!hasCopies(decoded.record)) return [];
+    // A pruned record that no longer encodes within its bound stays as stored.
+    return [encodeDraftRecord(decoded.record)?.raw ?? raw];
   });
   return fits(
     live.length + 1,
@@ -76,8 +76,11 @@ export function pruneExpiredDrafts(storage: DraftStorage, now: number) {
     if (raw === null) continue;
     const decoded = decodeDraftRecord(raw, now);
     if (!decoded.ok || !hasCopies(decoded.record)) storage.removeItem(key);
-    else if (decoded.expired)
-      storage.setItem(key, encodeDraftRecord(decoded.record)!.raw);
+    else if (decoded.expired) {
+      // A pruned record that no longer encodes within its bound stays as stored.
+      const encoded = encodeDraftRecord(decoded.record);
+      if (encoded) storage.setItem(key, encoded.raw);
+    }
   }
 }
 
@@ -109,14 +112,19 @@ export function createDraftStorage({
         }
       }
       const record = decoded.record;
-      const encoded = encodeDraftRecord(record)!;
       if (!decoded.expired && hasCopies(record)) return { record, raw };
       // Only expired copies or empty records are pruned on reads. Original
       // per-copy timestamps and every unexpired copy remain unchanged.
       try {
-        if (hasCopies(record)) storage.setItem(key, encoded.raw);
-        else storage.removeItem(key);
-        return { record, raw: hasCopies(record) ? encoded.raw : null };
+        if (!hasCopies(record)) {
+          storage.removeItem(key);
+          return { record, raw: null };
+        }
+        // A pruned record that no longer encodes within its bound stays as stored.
+        const encoded = encodeDraftRecord(record);
+        if (encoded === null) return { record, raw };
+        storage.setItem(key, encoded.raw);
+        return { record, raw: encoded.raw };
       } catch {
         failed(id);
         return { record, raw };

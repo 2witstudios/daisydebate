@@ -67,8 +67,11 @@ const composeStageMedia = (app: App) => {
 };
 
 const stageMediaOf = (app: App) => {
-  if (!stageMedia.has(app)) stageMedia.set(app, composeStageMedia(app));
-  return stageMedia.get(app)!;
+  const known = stageMedia.get(app);
+  if (known !== undefined) return known;
+  const media = composeStageMedia(app);
+  stageMedia.set(app, media);
+  return media;
 };
 
 /** The LiveKit and Egress adapter, or null on a deployment with no LiveKit. */

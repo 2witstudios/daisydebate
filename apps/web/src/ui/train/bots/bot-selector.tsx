@@ -128,9 +128,7 @@ export function BotSelectorPage({
                 </h2>
                 {chosen.difficulty ? (
                   <p>
-                    <Badge>
-                      {difficultyLabels[chosen.difficulty] ?? chosen.difficulty}
-                    </Badge>
+                    <Badge>{difficultyLabels[chosen.difficulty]}</Badge>
                   </p>
                 ) : null}
               </div>

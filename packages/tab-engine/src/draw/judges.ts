@@ -194,7 +194,9 @@ export const staff = (input: {
       padded[s * columns.length + j] === null ? null : packed[at++]!,
     ),
   );
-  const assigned = minimumCostAssignment(table)!;
+  const assigned = minimumCostAssignment(table);
+  // The full flow above seated every seat, so the eligible judges outnumber them.
+  if (assigned === null) throw new Error('Every seat has an eligible judge');
   assigned.forEach((column, s) => {
     const seat = seats[s]!;
     panels[seat.task]![seat.seat] = columns[column]!.id;
@@ -265,9 +267,11 @@ const improvePanels = (
       for (let b = a + 1; b < seats.length; b += 1) {
         const [x, y] = [seats[a]!, seats[b]!];
         if (x.task === y.task) continue;
-        const jx = byId.get(panels[x.task]![x.seat]!)!;
-        const jy = byId.get(panels[y.task]![y.seat]!)!;
+        const jx = byId.get(panels[x.task]![x.seat]!);
+        const jy = byId.get(panels[y.task]![y.seat]!);
         if (
+          jx === undefined ||
+          jy === undefined ||
           !columns.includes(jx) ||
           !columns.includes(jy) ||
           !eligible(x, jy) ||

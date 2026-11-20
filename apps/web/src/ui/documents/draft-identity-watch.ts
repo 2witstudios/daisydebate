@@ -66,8 +66,8 @@ export function watchDraftIdentity(
       const response = await resources.fetchSession(controller.signal);
       if (!response.ok) return;
       const next = readSessionPrincipal(await response.json());
+      // Stopping the watch aborts its pending read, so an abort covers it.
       if (
-        !live ||
         pending !== controller ||
         controller.signal.aborted ||
         next === undefined

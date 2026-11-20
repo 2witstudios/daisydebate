@@ -12,7 +12,14 @@ import { participantAccess } from './participant-access';
 type RoomCommunityDecisionInput = {
   readonly principal: { readonly userId: string; readonly actorId: string };
   readonly account: AccountAuthorizationFact | null;
-  readonly fact: RoomCommunityFact;
+  /**
+   * The channel's stored policy columns arrive as written; the decision
+   * refuses any pair but this policy's own.
+   */
+  readonly fact: Omit<RoomCommunityFact, 'policyKey' | 'policyRevision'> & {
+    readonly policyKey: string;
+    readonly policyRevision: number;
+  };
   readonly action: 'read' | 'post' | 'remove';
   readonly now: string;
 };

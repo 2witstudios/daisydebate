@@ -1,8 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname, useSearchParams } from 'next/navigation';
 import { Icon } from '../icon/icon';
+import { useRoutedPathname, useRoutedSearchParams } from './router-location';
 import { dismissedHref, sampleActionMessage } from './sample-action-href';
 
 /**
@@ -10,8 +10,8 @@ import { dismissedHref, sampleActionMessage } from './sample-action-href';
  * it needs no state and survives a reload, and it clears with its own link.
  */
 export function SampleActionNotice() {
-  const pathname = usePathname() ?? '';
-  const params = useSearchParams();
+  const pathname = useRoutedPathname() ?? '';
+  const params = useRoutedSearchParams();
   const message = sampleActionMessage(params?.get('did') ?? null);
   if (message === null || !pathname.startsWith('/tournaments/walk'))
     return null;

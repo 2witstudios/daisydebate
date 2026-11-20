@@ -85,16 +85,19 @@ export const runWorker = async (deps: {
       let skipped = job.releaseSkips.clips;
       const clipFailures = new Map<number, number>();
       let leaseUntilMs = deps.now() + LEASE_MS;
-      let leaseEnded = false;
+      // Shared by the step loop and the renewal loop, which run at once: each one
+      // changes the other's state across its own awaits, so it is read fresh.
+      const lease: { ended: boolean } = { ended: false };
       let finished = false;
+      const finishedNow = () => finished;
       // Apart from the steps, so a long step cannot outlast the lease, and a stop or a
       // lost lease stops the encoder at once rather than at the step's end.
       const stepping = new AbortController();
       const renewing = (async () => {
         let renewedAt = deps.now();
-        while (!finished) {
+        while (!finishedNow()) {
           await deps.sleep(RENEW_MS);
-          if (finished || deps.now() - renewedAt < RENEW_MS) continue;
+          if (finishedNow() || deps.now() - renewedAt < RENEW_MS) continue;
           const row = await store
             .renew({
               id: job.id,
@@ -107,7 +110,7 @@ export const runWorker = async (deps: {
             deps.report('broadcast.release_failed');
             continue;
           }
-          if (row === null) leaseEnded = true;
+          if (row === null) lease.ended = true;
           else {
             facts = row;
             renewedAt = deps.now();
@@ -118,12 +121,19 @@ export const runWorker = async (deps: {
       })();
       /** Checked before each public write: a takedown must never be undone by a late one. */
       const ensureLease = () => {
-        if (leaseEnded || stepping.signal.aborted || deps.now() >= leaseUntilMs)
+        if (
+          lease.ended ||
+          stepping.signal.aborted ||
+          deps.now() >= leaseUntilMs
+        )
           throw new LeaseEnded();
       };
-      while (!deps.stopped() && facts.completedAt === null && !leaseEnded) {
-        let encoded = false;
-        let attempting: number | null = null;
+      while (!deps.stopped() && facts.completedAt === null && !lease.ended) {
+        // Set by the encode port while the step runs.
+        const step: { encoded: boolean; attempting: number | null } = {
+          encoded: false,
+          attempting: null,
+        };
         // A failed step keeps the job: dropping it waits out this worker's own lease.
         try {
           if (facts.stoppedAt !== null) {
@@ -162,8 +172,8 @@ export const runWorker = async (deps: {
             {
               readHoldPlaylist: () => objects.readHoldText(`${hold}p.m3u8`),
               encode: async (clip) => {
-                encoded = true;
-                attempting = clip.capturedAtMs;
+                step.encoded = true;
+                step.attempting = clip.capturedAtMs;
                 const { source, interval, capturedAtMs, offsetMs, durationMs } =
                   clip;
                 const { name } = source;
@@ -279,7 +289,7 @@ export const runWorker = async (deps: {
         } catch (error) {
           if (!(error instanceof LeaseEnded)) {
             deps.report('broadcast.release_failed');
-            const clipMs = attempting;
+            const clipMs = step.attempting;
             if (error instanceof UnreadableClip && clipMs !== null) {
               const attempts = (clipFailures.get(clipMs) ?? 0) + 1;
               clipFailures.set(clipMs, attempts);
@@ -296,7 +306,7 @@ export const runWorker = async (deps: {
             } else await deps.sleep(IDLE_MS);
           }
         } finally {
-          if (encoded)
+          if (step.encoded)
             await scratch
               .clear(job.id)
               .catch(() => deps.report('broadcast.release_failed'));

@@ -1,11 +1,11 @@
 'use client';
 
-import { useSearchParams } from 'next/navigation';
 import type { ReactNode } from 'react';
 import {
   ActionForm,
   type FormStateAction,
 } from '../../form-action/action-form';
+import { useRoutedSearchParams } from '../../components/sample-action/router-location';
 import { ANSWERED } from './answered';
 
 /** Builds the action a sample form posts to, from the label of its submit. */
@@ -34,7 +34,7 @@ export function SampleForm({
   readonly className?: string;
   readonly children: ReactNode;
 }) {
-  const answered = useSearchParams()?.get(ANSWERED) ?? '';
+  const answered = useRoutedSearchParams()?.get(ANSWERED) ?? '';
   return (
     <ActionForm
       key={answered}

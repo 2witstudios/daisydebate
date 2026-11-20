@@ -172,7 +172,7 @@ export async function serveRealtime({
           delivery.registry.backlog(Date.parse(resources.clock.now())),
       },
     },
-    allowedOrigins: resources.transport?.allowedOrigins ?? [],
+    allowedOrigins: resources.transport.allowedOrigins,
     trustedProxies,
     admission: delivery.admission,
     socketDependencies: {
@@ -237,9 +237,9 @@ export async function serveRealtime({
       observing?.close();
       delivery.registry.closeAll();
       await completeShutdown([
-        Promise.resolve().then(() => server?.stop()),
+        Promise.resolve().then(() => server.stop()),
         drain.stop(),
-        Promise.resolve(hintSubscription?.unlisten()),
+        Promise.resolve(hintSubscription.unlisten()),
         Promise.resolve(validation),
         delivery.registry.settled(),
       ]);

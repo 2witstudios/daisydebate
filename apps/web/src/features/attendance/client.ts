@@ -49,6 +49,9 @@ export function createAttendanceClient(deps: {
   let active = true;
   let stopped = false;
   let terminal = false;
+  /** Read afresh after every await: stop(), sign-out and a view flip these between them. */
+  const isActive = () => active;
+  const isHalted = () => stopped || terminal;
   let inFlight: Promise<void> | null = null;
   let forceQueued = false;
   /** The wait the last failing pass set, or null while check-ins succeed. */
@@ -72,7 +75,7 @@ export function createAttendanceClient(deps: {
     inFlight = (async () => {
       let failed = false;
       for (const item of [...pending.values()].reverse()) {
-        if (!active) break;
+        if (!isActive()) break;
         if (item.acknowledged && !force) continue;
         try {
           const result = await deps.send({
@@ -150,7 +153,7 @@ export function createAttendanceClient(deps: {
     if (stopped || terminal) return;
     const tickAt = nowMs();
     const snapshot = await deps.read().catch(() => null);
-    if (stopped || terminal) return;
+    if (isHalted()) return;
     if (snapshot === 'signed-out') {
       signOut();
       return;

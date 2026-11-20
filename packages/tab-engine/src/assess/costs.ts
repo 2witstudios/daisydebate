@@ -39,7 +39,9 @@ export const methodCosts = (
       );
     for (const { index, sides } of members) {
       const [i, j] = sides.map((e) => ranked.indexOf(e)).sort((x, y) => x - y);
-      out.set(index, methodCost(method.later, i!, j!, ranked.length));
+      if (i === undefined || j === undefined)
+        throw new Error('A pairing has two sides');
+      out.set(index, methodCost(method.later, i, j, ranked.length));
     }
   }
   return out;

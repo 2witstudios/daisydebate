@@ -1,10 +1,10 @@
 'use client';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
 import type { ComponentProps } from 'react';
 import { walkHref } from '../../../features/tab/walk-href';
+import { useRoutedPathname } from '../../components/sample-action/router-location';
 export function WalkLink({ href, ...props }: ComponentProps<typeof Link>) {
-  const pathname = usePathname();
+  const pathname = useRoutedPathname();
   return (
     <Link
       {...props}

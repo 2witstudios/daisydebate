@@ -76,6 +76,8 @@ export function createOutboxDrainLoop({
   let running = false;
   let stopped = false;
   let current: Promise<void> = Promise.resolve();
+  // trigger() and stop() land while a pass awaits, so this is read fresh.
+  const passAgain = () => dirty && !stopped;
 
   async function runPass(): Promise<void> {
     if (running) return;
@@ -112,7 +114,7 @@ export function createOutboxDrainLoop({
           );
           return;
         }
-      } while (dirty && !stopped);
+      } while (passAgain());
     } finally {
       running = false;
     }

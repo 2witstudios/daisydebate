@@ -73,16 +73,15 @@ function refusalFor(status: number) {
     refusedForNow.add(refusal);
     return refusal;
   }
-  const codes = {
-    400: 'VALIDATION',
-    401: 'AUTHENTICATION',
-    403: 'AUTHORIZATION',
-    404: 'NOT_FOUND',
-    409: 'CONFLICT',
-  } as const;
-  return createAppError(
-    codes[status as keyof typeof codes] ?? 'INFRASTRUCTURE',
-  );
+  const codes: Readonly<Record<number, Parameters<typeof createAppError>[0]>> =
+    {
+      400: 'VALIDATION',
+      401: 'AUTHENTICATION',
+      403: 'AUTHORIZATION',
+      404: 'NOT_FOUND',
+      409: 'CONFLICT',
+    };
+  return createAppError(codes[status] ?? 'INFRASTRUCTURE');
 }
 export async function readReply(
   response: Response,

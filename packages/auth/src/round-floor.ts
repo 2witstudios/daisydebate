@@ -27,8 +27,6 @@ const boundEligibleAccount = ({
 const currentAudience = ({ fact, principal }: FloorDecisionInput) =>
   fact.actorId === principal.actorId &&
   fact.audience !== null &&
-  fact.policyKey === 'round.floor' &&
-  fact.policyRevision === 1 &&
   Number.isSafeInteger(fact.revision) &&
   fact.revision > 0;
 

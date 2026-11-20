@@ -46,9 +46,10 @@ export function createMailIntentDelivery(input: {
       Date.parse(input.now()) >= Date.parse(delivery.sendBefore)
     )
       return { kind: 'failed', errorCode: 'delivery-unknown' };
-    if (delivery.kind === 'owner-digest' && !input.ownerAddress)
-      return { kind: 'cancelled', errorCode: 'unconfigured' };
-    const [to, rendered] =
+    // An owner digest with no owner address configured has nowhere to go.
+    const addressed:
+      | readonly [string, Pick<EmailMessage, 'subject' | 'text' | 'html'>]
+      | null =
       delivery.kind === 'club-seat-invitation'
         ? [
             delivery.to,
@@ -82,15 +83,19 @@ export function createMailIntentDelivery(input: {
                   url: new URL('/play', input.appUrl).toString(),
                 }),
               ]
-            : [
-                input.ownerAddress!,
-                renderBetaEmail({
-                  kind: 'beta-requests',
-                  newRequests: delivery.newRequests,
-                  waiting: delivery.waiting,
-                  url: `${operatorConsoleOrigin}/accounts?access=pending`,
-                }),
-              ];
+            : input.ownerAddress
+              ? [
+                  input.ownerAddress,
+                  renderBetaEmail({
+                    kind: 'beta-requests',
+                    newRequests: delivery.newRequests,
+                    waiting: delivery.waiting,
+                    url: `${operatorConsoleOrigin}/accounts?access=pending`,
+                  }),
+                ]
+              : null;
+    if (!addressed) return { kind: 'cancelled', errorCode: 'unconfigured' };
+    const [to, rendered] = addressed;
     try {
       const sent = await input.deliver({
         ...rendered,

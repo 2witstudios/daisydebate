@@ -55,13 +55,11 @@ function intentCurrent(
   if (resource.mode === 'dm')
     return (
       capability === 'channel.dm.request' &&
-      resource.policyKey === 'social.dm' &&
       validPair(resource.contactPair, [actorId, resource.recipientActorId]) &&
       !resource.contactPair.blocked
     );
   return (
     capability === 'channel.create.private_group' &&
-    resource.policyKey === 'social.private_group' &&
     resource.memberActorIds.includes(actorId) &&
     groupPairsCurrent(resource, policy)
   );

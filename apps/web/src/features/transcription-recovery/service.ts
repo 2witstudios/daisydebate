@@ -39,6 +39,8 @@ export function startTranscriptionRecoveryService(input: {
     throw createAppError('VALIDATION', 'Invalid recognition service bounds');
   const entries = new Map<string, Entry>();
   let stopped = false;
+  // Read live: stop() can run during any await, which narrowing cannot see.
+  const isStopped = () => stopped;
   let scanning: Promise<void> | null = null;
   let enrolling: Promise<void> | null = null;
   let renewing: Promise<void> | null = null;
@@ -77,9 +79,9 @@ export function startTranscriptionRecoveryService(input: {
         };
         try {
           const claim = await input.store.claim({ workerId: input.workerId });
-          if (stopped || claim.kind !== 'claimed') {
+          if (isStopped() || claim.kind !== 'claimed') {
             free();
-            if (claim.kind === 'blocked' && !stopped) continue;
+            if (claim.kind === 'blocked' && !isStopped()) continue;
             break;
           }
           if (entries.has(claim.contextId)) {
@@ -109,7 +111,7 @@ export function startTranscriptionRecoveryService(input: {
         // The owning query commits its finite pass before this bounded external work.
         const targets = await input.store.missing();
         for (const target of targets) {
-          if (stopped) break;
+          if (isStopped()) break;
           try {
             await input.enroll(target);
           } catch (error) {

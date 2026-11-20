@@ -18,15 +18,16 @@ const rank: Record<HostingTier, number> = {
   event_unlimited: 2,
 };
 
-const entryCaps: Record<HostingTier, number | null> = {
+const entryCaps = {
   free: 16,
   event_64: 64,
   event_unlimited: null,
-};
+} as const satisfies Record<HostingTier, number | null>;
 
 /** The accepted entries a tournament may hold on a tier; null has no cap. */
-export const hostingEntryCap = (tier: HostingTier): number | null =>
-  entryCaps[tier];
+export const hostingEntryCap = <Tier extends HostingTier>(
+  tier: Tier,
+): (typeof entryCaps)[Tier] => entryCaps[tier];
 
 /** The one-time Stripe offers, found by lookup key and verified by amount (USD cents). */
 export const hostingOffers = {

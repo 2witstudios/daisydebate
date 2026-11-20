@@ -234,7 +234,14 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
     const sign = async (context: AdmissionContext) => {
       // Post-lock PostgreSQL eligibility, not the earlier unlocked read. Only the
       // caller's own seat is a refusal; another's revocation is a room still rotating.
-      if (ownSeatRevoked(context, context.participantId))
+      const caller = context.participants.find(
+        (seat) => seat.id === context.participantId,
+      );
+      // A missing seat is a revoked one: `ownSeatRevoked` refuses it too.
+      if (
+        caller === undefined ||
+        ownSeatRevoked(context, context.participantId)
+      )
         throw createAppError('CONFLICT', 'Round media admission is closed');
       if (admissionRevoked(context)) throw createAppError('INFRASTRUCTURE');
       // A hearing grant rests on the projected hearing seats, the same fact
@@ -263,12 +270,7 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
               ...(principal.kind === 'bot' ? { subscribe: false } : {}),
             },
       );
-      const own = {
-        ...context,
-        caller: context.participants.find(
-          (seat) => seat.id === context.participantId,
-        )!,
-      };
+      const own = { ...context, caller };
       return {
         ...projectMedia(own, true, input.nextId),
         state: 'ready' as const,

@@ -1,6 +1,6 @@
 'use client';
-import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
+import { useRoutedPathname } from '../../components/sample-action/router-location';
 import { SampleAction } from '../../components/sample-action/sample-action';
 export function UnavailableControl({
   label,
@@ -13,7 +13,7 @@ export function UnavailableControl({
   readonly ariaLabel?: string;
   readonly children: ReactNode;
 }) {
-  const pathname = usePathname();
+  const pathname = useRoutedPathname();
   if (!pathname?.startsWith('/tournaments/walk'))
     return (
       <button

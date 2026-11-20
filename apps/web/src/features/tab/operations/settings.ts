@@ -83,11 +83,12 @@ export const settingCommand =
                         ? { template: facts.template.version }
                         : {}),
                       ...(facts.lobby ? { lobby: facts.lobby.version } : {}),
-                      ...(facts.event
+                      // An event fact is read from the named event, so both exist.
+                      ...(facts.event && loaded.named.event
                         ? {
                             event: facts.event.version,
                             settings: facts.event.settingsVersion,
-                            entries: loaded.named.event!.entriesVersion,
+                            entries: loaded.named.event.entriesVersion,
                           }
                         : {}),
                     };

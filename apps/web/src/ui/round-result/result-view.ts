@@ -68,12 +68,16 @@ export function sectionItems(
   );
   const items: TranscriptItem[] = [];
   for (const line of section.lines) {
+    let gap = gaps[0];
     while (
-      gaps[0] &&
+      gap &&
       line.startOffsetMs !== null &&
-      gaps[0].fromOffsetMs <= line.startOffsetMs
-    )
-      items.push({ kind: 'gap', ...gaps.shift()! });
+      gap.fromOffsetMs <= line.startOffsetMs
+    ) {
+      items.push({ kind: 'gap', ...gap });
+      gaps.shift();
+      gap = gaps[0];
+    }
     items.push({ kind: 'line', ...line });
   }
   return [

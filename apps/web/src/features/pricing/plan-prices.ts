@@ -33,7 +33,7 @@ export const planPrices: PlanPrices = {
   premiumMonthlyCents: premiumOffer.unitAmount,
   clubSeatMonthlyCents: 1000,
   host: {
-    freeEntryLimit: hostingEntryCap('free')!,
+    freeEntryLimit: hostingEntryCap('free'),
     eventUpgrades: [
       {
         entryLimit: hostingEntryCap('event_64'),

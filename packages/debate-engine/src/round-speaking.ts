@@ -62,7 +62,8 @@ export function speakingChangesOf(input: {
   readonly rules: RoundRules;
   readonly participants: readonly RoundParticipantSeat[];
   readonly changes: readonly ClockChange[];
-  readonly segmentIds: ReadonlyMap<number, string>;
+  /** The id of a segment the clock has opened. */
+  readonly segmentIdOf: (sequence: number) => string;
   readonly floorChange: {
     readonly sequence: number;
     readonly at: string;
@@ -75,7 +76,7 @@ export function speakingChangesOf(input: {
     holder: string | null,
   ): RoundSpeakingChange => ({
     kind: 'open',
-    segmentId: input.segmentIds.get(sequence)!,
+    segmentId: input.segmentIdOf(sequence),
     at: new Date(atMs).toISOString(),
     participantIds: speakingParticipants(
       input.rules,
@@ -96,7 +97,7 @@ export function speakingChangesOf(input: {
           return [
             {
               kind: 'close',
-              segmentId: input.segmentIds.get(change.sequence)!,
+              segmentId: input.segmentIdOf(change.sequence),
               at: new Date(change.atMs).toISOString(),
             },
           ];
@@ -107,7 +108,7 @@ export function speakingChangesOf(input: {
   );
   const floor = input.floorChange;
   if (floor && !sharesSpeaking(input.rules, floor.sequence)) {
-    const segmentId = input.segmentIds.get(floor.sequence)!;
+    const segmentId = input.segmentIdOf(floor.sequence);
     result.push(
       { kind: 'close', segmentId, at: floor.at },
       {

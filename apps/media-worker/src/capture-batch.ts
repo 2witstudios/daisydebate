@@ -31,11 +31,12 @@ export function flushClipCarry(
   const key = streamKey(stream.segmentId, stream.roundParticipantId);
   const carry = carries.get(key);
   carries.delete(key);
-  if (!carry?.frames.length) return [];
+  const last = carry?.frames.at(-1);
+  if (carry === undefined || last === undefined) return [];
   return cutCaptureClips({
     roundId,
     roundParticipantId: stream.roundParticipantId,
-    serverNowMs: carry.frames.at(-1)!.frame.afterMs,
+    serverNowMs: last.frame.afterMs,
     segments: [],
     intervals: [],
     frames: [],
@@ -150,6 +151,7 @@ export async function validateCaptureBatch(input: {
       const cut = cutStream(
         input,
         history.state,
+        segment,
         first.seat,
         valid.slice(at, at + MAX_CUT_FRAMES),
       );
@@ -165,10 +167,12 @@ function cutStream(
     'roundId' | 'carries'
   >,
   state: Awaited<ReturnType<CaptureClient['read']>>['state'],
+  segment: NonNullable<
+    Awaited<ReturnType<CaptureClient['read']>>['state']['segment']
+  >,
   seat: string,
   frames: readonly StagedFrame[],
 ) {
-  const segment = state.segment!;
   const key = streamKey(segment.id, seat);
   const cut = cutCaptureClips({
     roundId: input.roundId,

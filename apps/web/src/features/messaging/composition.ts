@@ -67,18 +67,8 @@ export type MessagingRuntimePolicy = {
 };
 export function composeMessagingRoutes(app: App) {
   const policy = app.messagingPolicy;
-  const run = (
-    request: Request,
-    operation:
-      | 'send'
-      | 'edit'
-      | 'remove'
-      | 'history'
-      | 'search'
-      | 'changes'
-      | 'markRead',
-    channelId?: string,
-  ) => {
+  /** Built per request, as before; each route names its own operation. */
+  const handlersForRequest = () => {
     const store = (
       principal: Parameters<typeof sendMessagingMessage>[1],
       capability: 'channel.post' | 'channel.read' | 'channel.message.remove',
@@ -118,19 +108,15 @@ export function composeMessagingRoutes(app: App) {
               ),
           }),
         );
-    const handlers = createMessagingHandlers({
+    return createMessagingHandlers({
       logger: app.logger,
       reporter: app.reporter,
       origin: () => app.auth().config.PUBLIC_APP_URL,
       maxBodyBytes: policy.maxBodyBytes,
       bounds: policy.bounds,
       websocketEndpoint: app.websocketEndpoint,
-      ...(policy.typing === undefined
-        ? {}
-        : {
-            typingRefetchMs: messagingTypingSchemas.policy.parse(policy.typing)
-              .refetchMs,
-          }),
+      typingRefetchMs: messagingTypingSchemas.policy.parse(policy.typing)
+        .refetchMs,
       identify: (request) => identify(app.auth(), request.headers),
       edit: mutation('edit'),
       remove: mutation('remove'),
@@ -168,13 +154,6 @@ export function composeMessagingRoutes(app: App) {
         'history' | 'search' | 'changes' | 'markRead'
       >),
     });
-    if (
-      operation === 'history' ||
-      operation === 'search' ||
-      operation === 'changes'
-    )
-      return handlers[operation](request, channelId!);
-    return handlers[operation](request);
   };
   return {
     ...composeMessagingSocialRoutes(app),
@@ -191,15 +170,15 @@ export function composeMessagingRoutes(app: App) {
     preferences: composeMessagingPreferenceRoutes(app),
     typing: composeMessagingTypingRoutes(app),
     reactions: composeMessagingReactionRoute(app),
-    send: (request: Request) => run(request, 'send'),
-    edit: (request: Request) => run(request, 'edit'),
-    remove: (request: Request) => run(request, 'remove'),
+    send: (request: Request) => handlersForRequest().send(request),
+    edit: (request: Request) => handlersForRequest().edit(request),
+    remove: (request: Request) => handlersForRequest().remove(request),
     search: (request: Request, channelId: string) =>
-      run(request, 'search', channelId),
+      handlersForRequest().search(request, channelId),
     history: (request: Request, channelId: string) =>
-      run(request, 'history', channelId),
+      handlersForRequest().history(request, channelId),
     changes: (request: Request, channelId: string) =>
-      run(request, 'changes', channelId),
-    markRead: (request: Request) => run(request, 'markRead'),
+      handlersForRequest().changes(request, channelId),
+    markRead: (request: Request) => handlersForRequest().markRead(request),
   };
 }

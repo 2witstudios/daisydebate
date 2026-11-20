@@ -217,7 +217,8 @@ export type GroupCommandResultAuthorizationFact = {
   readonly channel: {
     readonly channelId: string;
     readonly kind: 'private_group';
-    readonly policyKey: 'social.private_group';
+    /** The stored policy column, copied as read; the decision refuses any other. */
+    readonly policyKey: string;
     readonly policyRevision: number;
     readonly revision: number;
     readonly lifecycle: 'active' | 'archived';

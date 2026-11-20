@@ -235,25 +235,21 @@ function dispatch(
   switch (route.route) {
     case 'setFlagState':
     case 'setFlagOverride':
-      return changeFlag(deps, principal, route.route, route.id!, request);
+    case 'setBetaAccess':
+    case 'resolveReport':
+    case 'liftModeration':
+    case 'readCommand':
+      return dispatchSubject(deps, principal, route.route, route.id, request);
     case 'listPreapprovals':
       return listPreapprovals(deps, principal, url);
     case 'updatePreapproval':
       return updatePreapproval(deps, principal, request);
     case 'listAccounts':
       return listAccounts(deps, principal, url);
-    case 'setBetaAccess':
-      return setBetaAccess(deps, principal, route.id!, request);
     case 'listReports':
       return listReports(deps, principal, url);
-    case 'resolveReport':
-      return resolveReport(deps, principal, route.id!, request);
     case 'listRestrictions':
       return listRestrictions(deps, principal, url);
-    case 'liftModeration':
-      return liftModeration(deps, principal, route.id!, request);
-    case 'readCommand':
-      return readCommand(deps, principal, route.id!);
     default:
       return contentModerationRoute(
         {
@@ -269,6 +265,36 @@ function dispatch(
         url,
         request,
       );
+  }
+}
+
+/** A route whose path captures its subject's id; no capture finds nothing. */
+function dispatchSubject(
+  deps: OperatorApiDependencies,
+  principal: AuthorizationPrincipal,
+  route:
+    | 'setFlagState'
+    | 'setFlagOverride'
+    | 'setBetaAccess'
+    | 'resolveReport'
+    | 'liftModeration'
+    | 'readCommand',
+  id: string | null,
+  request: { readonly body: Uint8Array; readonly signedAtMs: number },
+): Promise<unknown> {
+  if (id === null) throw createAppError('NOT_FOUND');
+  switch (route) {
+    case 'setFlagState':
+    case 'setFlagOverride':
+      return changeFlag(deps, principal, route, id, request);
+    case 'setBetaAccess':
+      return setBetaAccess(deps, principal, id, request);
+    case 'resolveReport':
+      return resolveReport(deps, principal, id, request);
+    case 'liftModeration':
+      return liftModeration(deps, principal, id, request);
+    case 'readCommand':
+      return readCommand(deps, principal, id);
   }
 }
 
@@ -610,9 +636,11 @@ async function listPreapprovals(
     ...(parsed.data.cursor === undefined ? {} : { cursor: parsed.data.cursor }),
   });
   const items = [...rows].slice(0, parsed.data.limit);
+  const last = items.at(-1);
   return preapprovalPageSchema.parse({
     items,
-    nextCursor: rows.length > parsed.data.limit ? items.at(-1)!.id : null,
+    nextCursor:
+      rows.length > parsed.data.limit && last !== undefined ? last.id : null,
   });
 }
 

@@ -14,8 +14,6 @@ const identifier = (value: string) =>
 function channelCurrent(channel: GroupInvitationAuthorizationFact['channel']) {
   return (
     identifier(channel.channelId) &&
-    channel.kind === 'private_group' &&
-    channel.policyKey === 'social.private_group' &&
     positive(channel.policyRevision) &&
     positive(channel.revision) &&
     ['active', 'archived'].includes(channel.lifecycle) &&

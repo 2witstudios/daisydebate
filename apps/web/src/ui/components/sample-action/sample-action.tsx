@@ -1,9 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname, useSearchParams } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { cn } from '../../cn';
+import { useRoutedPathname, useRoutedSearchParams } from './router-location';
 import { sampleActionHref } from './sample-action-href';
 
 export type SampleActionProps = {
@@ -26,8 +26,8 @@ export function SampleAction({
   ariaLabel,
   children,
 }: SampleActionProps) {
-  const pathname = usePathname() ?? '';
-  const search = useSearchParams()?.toString() ?? '';
+  const pathname = useRoutedPathname() ?? '';
+  const search = useRoutedSearchParams()?.toString() ?? '';
   return (
     <Link
       href={sampleActionHref(pathname, search, label)}

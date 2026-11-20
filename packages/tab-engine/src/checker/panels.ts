@@ -7,7 +7,7 @@ import type {
 } from '../shapes/draw';
 import { forceKeys, type JudgingForceKey } from '../shapes/settings';
 import { costContext, placedOf } from './context';
-import { forceOf, seatCosts } from './costs';
+import { forceOf, seatCosts, type CostContext } from './costs';
 import { entriesIn } from './past';
 import type { Matched } from './structure';
 
@@ -72,11 +72,13 @@ export const panelCapacity = (
   const taken = new Set<Id>();
   const groups: {
     readonly m: Matched;
+    readonly ctx: CostContext;
     readonly fixture: Fixture;
     readonly seat: number;
     readonly cap: number;
   }[] = [];
   for (const m of matched) {
+    const ctx = costContext(input, m.request);
     const members = new Map(m.request.entries.map((e) => [e.id, e.members]));
     const existing = new Map(
       (m.request.existing as readonly ExistingFixture<never>[]).map((e) => [
@@ -97,14 +99,17 @@ export const panelCapacity = (
       const open = Math.max(0, size - seated.length);
       if (open === 0) continue;
       const chairOpen = seated.length === 0;
-      if (chairOpen) groups.push({ m, fixture, seat: 0, cap: 1 });
+      if (chairOpen) groups.push({ m, ctx, fixture, seat: 0, cap: 1 });
       if (open - (chairOpen ? 1 : 0) > 0)
-        groups.push({ m, fixture, seat: 1, cap: open - (chairOpen ? 1 : 0) });
+        groups.push({
+          m,
+          ctx,
+          fixture,
+          seat: 1,
+          cap: open - (chairOpen ? 1 : 0),
+        });
     }
   }
-  const contexts = new Map(
-    matched.map((m) => [m.request.event, costContext(input, m.request)]),
-  );
   const source = 0;
   const sink = 1 + judges.length + groups.length;
   const arcs: [number, number, number][] = [];
@@ -121,7 +126,7 @@ export const panelCapacity = (
           .flatMap((e) => e.members),
       );
       if (members.has(judge.person)) return;
-      const costs = seatCosts(contexts.get(event)!, held, judge, g.seat);
+      const costs = seatCosts(g.ctx, held, judge, g.seat);
       if (judgingRules(g.m).some((key) => (costs.get(key) ?? 0) > 0)) return;
       arcs.push([1 + j, 1 + judges.length + i, 1]);
     });

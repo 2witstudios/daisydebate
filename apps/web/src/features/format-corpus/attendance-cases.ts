@@ -68,7 +68,10 @@ export const firstSpeechEvidence = (
 const decisionChecks = () => {
   const rules = oneOnOne();
   const base = firstSpeechEvidence(rules, seatsOf(rules), ['negative']);
-  const decision = adjudicateAttendance(base)!;
+  const decision = adjudicateAttendance(base);
+  // One seat checked in at the window's open: a case the rules decide.
+  if (decision === null)
+    throw new Error('A one-sided first speech has no attendance decision');
   const evidence: DecisionEvidence = { ...base, segmentType: 'speech' };
   const check = (
     name: string,

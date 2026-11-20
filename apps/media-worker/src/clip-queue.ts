@@ -16,12 +16,13 @@ export function createClipQueue<T extends Size>(limits: {
   let bytes = 0,
     durationMs = 0;
   const heldMs = (clip: T) => (clip.bytes > 0 ? clip.durationMs : 0);
+  const release = (clip: T) => {
+    bytes -= clip.bytes;
+    durationMs -= heldMs(clip);
+  };
   const removeAt = (index: number) => {
     const [clip] = clips.splice(index, 1);
-    if (clip) {
-      bytes -= clip.bytes;
-      durationMs -= heldMs(clip);
-    }
+    if (clip) release(clip);
     return clip;
   };
   const shift = () => removeAt(0);
@@ -34,13 +35,23 @@ export function createClipQueue<T extends Size>(limits: {
         clip.durationMs <= 0
       )
         throw createAppError('VALIDATION');
-      const dropped: T[] = [];
       clips.push(clip);
       bytes += clip.bytes;
       durationMs += heldMs(clip);
-      while (clips.length > limits.maxClips) dropped.push(shift()!);
-      while (bytes > limits.maxBytes || durationMs > limits.maxDurationMs)
-        dropped.push(removeAt(clips.findIndex((held) => held.bytes > 0))!);
+      const dropped = clips.splice(
+        0,
+        Math.max(0, clips.length - limits.maxClips),
+      );
+      dropped.forEach(release);
+      while (bytes > limits.maxBytes || durationMs > limits.maxDurationMs) {
+        // Only audible clips count against these limits, so one is held while over them.
+        const audible = clips.find((held) => held.bytes > 0);
+        if (audible === undefined)
+          throw new Error('Clip queue is over its limits with no audible clip');
+        clips.splice(clips.indexOf(audible), 1);
+        release(audible);
+        dropped.push(audible);
+      }
       return dropped;
     },
     shift,

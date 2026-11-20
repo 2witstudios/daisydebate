@@ -134,7 +134,8 @@ export const placeTwoSided = (
   >();
   const optionsOf = (a: Id, b: Id) => {
     const key = pairKey(a, b);
-    if (base.has(key)) return base.get(key)!;
+    const known = base.get(key);
+    if (known !== undefined) return known;
     const made =
       structure === 'prematched' &&
       a !== BYE &&
@@ -261,9 +262,14 @@ const regroup = (
     const field = (fixture: Fixture2) => {
       if (fixture.kind === 'bye') return 0;
       const [i, j] = fixture.sides
-        .map((e) => rank.get(e)!)
+        .flatMap((e) => {
+          const place = rank.get(e);
+          return place === undefined ? [] : [place];
+        })
         .sort((x, y) => x - y);
-      return methodCost(later, i!, j!, ranked.length);
+      if (i === undefined || j === undefined)
+        throw new Error('A pairing in a group has both its sides ranked there');
+      return methodCost(later, i, j, ranked.length);
     };
     const group =
       later === 'top_down'
@@ -272,15 +278,15 @@ const regroup = (
             candidate(() => 0),
           )
         : solve(ranked, candidate(field));
-    out.push(
-      ...(
-        group ??
-        solve(
-          ranked,
-          candidate(() => 0),
-        )!
-      ).fixtures.map((c) => c.fixture),
-    );
+    const solved =
+      group ??
+      solve(
+        ranked,
+        candidate(() => 0),
+      );
+    // The first pass paired these members, so they pair again at no cost.
+    if (solved === null) throw new Error('A paired group pairs again');
+    out.push(...solved.fixtures.map((c) => c.fixture));
   }
   return out;
 };
@@ -300,11 +306,12 @@ const topDown = (
   let free = [...ranked];
   const chosen: Candidate[] = [];
   let spent = target.map(() => 0);
-  while (free.length > 0) {
+  for (;;) {
     const [top, ...rest] = free;
+    if (top === undefined) break;
     let picked: { c: Candidate; partner: Id } | null = null;
     for (const partner of rest) {
-      const pair = candidate(top!, partner);
+      const pair = candidate(top, partner);
       if (pair === null) continue;
       const remainder = solve(
         rest.filter((v) => v !== partner),
@@ -346,7 +353,10 @@ export const pairGraph = (
   vertices.forEach((a, i) =>
     vertices.slice(i + 1).forEach((b, k) => {
       if (a === null || b === null) {
-        if (ok({ kind: 'bye', entry: (a ?? b)! })) edges.push([i, i + 1 + k]);
+        // One vertex at most is the bye.
+        const entry = a ?? b;
+        if (entry !== null && ok({ kind: 'bye', entry }))
+          edges.push([i, i + 1 + k]);
         return;
       }
       if (

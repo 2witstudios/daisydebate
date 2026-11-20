@@ -72,7 +72,11 @@ export const mount = async (signOutNotice?: string) => {
     ),
   );
   const act = (work: () => void) => client.act(async () => work());
-  const output = () => client.container.querySelector('output')!;
+  const output = () => {
+    const found = client.container.querySelector('output');
+    if (!found) throw new Error('No probe output is mounted');
+    return found;
+  };
   return {
     reads,
     signOuts,
@@ -82,7 +86,9 @@ export const mount = async (signOutNotice?: string) => {
     /** A passkey saved from this screen, which reads the lists again. */
     savePasskey: async () => {
       await act(() => held.addPasskey());
-      await act(() => enrolments.at(-1)!.resolve({ kind: 'saved' }));
+      const enrolment = enrolments.at(-1);
+      if (!enrolment) throw new Error('Saving a passkey started no enrolment');
+      await act(() => enrolment.resolve({ kind: 'saved' }));
     },
     signingOutOthers: () => held.overview.signOut.kind === 'asking',
     lists: () => output().getAttribute('data-lists'),

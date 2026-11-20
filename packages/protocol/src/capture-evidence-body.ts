@@ -35,8 +35,9 @@ const captureEvidenceBodySchema = z
   })
   .refine((body) => {
     const frames = body.frames;
-    const first = frames[0]!,
-      last = frames.at(-1)!;
+    const first = frames[0],
+      last = frames.at(-1);
+    if (first === undefined || last === undefined) return false;
     const anchor = JSON.stringify(first.clock.anchor);
     return (
       first.clock.window.nominalStartMs ===

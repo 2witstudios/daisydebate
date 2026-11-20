@@ -18,9 +18,10 @@ export function hostDrawView(
 ): DrawView {
   const loaded = facts.draw;
   const context = eventDrawFacts(loaded, drawCompetitionAt(loaded, drawId));
-  const stored = loaded.versions.find((row) => row.id === drawId)!;
+  const stored = loaded.versions.find((row) => row.id === drawId);
   const draw = context.versions.find((row) => row.id === drawId);
-  if (!draw) throw createAppError('INVARIANT', 'Addressed draw is missing');
+  if (!stored || !draw)
+    throw createAppError('INVARIANT', 'Addressed draw is missing');
   const sources = new Set(
     loaded.drawResultInputs
       .filter((row) => row.drawId === drawId)
@@ -44,7 +45,8 @@ export function hostDrawView(
       seed,
     },
   );
-  const rawSettings = engineInput?.settings;
+  // The settings a draw version stored as JSON, read as what the column holds.
+  const rawSettings: unknown = engineInput?.settings;
   const frozen =
     typeof rawSettings === 'object' &&
     rawSettings !== null &&
@@ -85,7 +87,9 @@ export function hostDrawView(
           .map((entry) => {
             const stored = loaded.entries.find(
               (row) => row.id === entry.entryId,
-            )!;
+            );
+            if (!stored)
+              throw createAppError('INVARIANT', 'Draw entry is missing');
             return {
               entryId: stored.id,
               name: stored.name,

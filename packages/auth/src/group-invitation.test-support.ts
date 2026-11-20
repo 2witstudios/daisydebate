@@ -5,6 +5,12 @@ import type {
 import { adultAccount } from './social.test-support';
 const now = '2026-10-09T00:00:00.000Z';
 export const accounts = ['a', 'b', 'c'].map((actorId) => adultAccount(actorId));
+const contactPair = (lowActorId: string, highActorId: string) => ({
+  lowActorId,
+  highActorId,
+  blocked: false,
+  revision: 1,
+});
 export const invitation: GroupInvitationAuthorizationFact = {
   kind: 'group_invitation',
   channel: {
@@ -26,15 +32,10 @@ export const invitation: GroupInvitationAuthorizationFact = {
   expectedGeneration: 3,
   inviterGrant: { actorId: 'a', role: 'manager', generation: 1 },
   contactPairs: [
-    ['a', 'b'],
-    ['a', 'c'],
-    ['b', 'c'],
-  ].map(([lowActorId, highActorId]) => ({
-    lowActorId: lowActorId!,
-    highActorId: highActorId!,
-    blocked: false,
-    revision: 1,
-  })),
+    contactPair('a', 'b'),
+    contactPair('a', 'c'),
+    contactPair('b', 'c'),
+  ],
 };
 export const input: AuthorizationInput = {
   principal: { kind: 'user', userId: 'b', actorId: 'b' },

@@ -125,7 +125,7 @@ export function createBillingCleanupDelivery(input: {
       if (stopped) return 'idle' as const;
       const claimed = await input.store.claim(jobId);
       if (
-        stopped ||
+        !running() ||
         claimed.kind !== 'claimed' ||
         claimed.state.kind === 'acknowledged' ||
         !claimed.state.claim

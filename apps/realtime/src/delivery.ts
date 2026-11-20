@@ -49,14 +49,7 @@ export function createRealtimeDelivery({
     });
   const authority = authorityOn(resources.database.admission);
   const renewal = authorityOn(resources.database.renewal);
-  const tuning = resources.transport ?? {
-    maxPerIp: 20,
-    maxUnauthenticated: 4,
-    maxPerActor: 8,
-    ringLimit: 2_000,
-    maxSubscriptions: 64,
-    allowedOrigins: [],
-  };
+  const tuning = resources.transport;
   // Codes only; the raw error never reaches a log line (ADR 0037).
   const reportUnavailable = (
     error: unknown,
