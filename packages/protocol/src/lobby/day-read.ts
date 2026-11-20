@@ -166,8 +166,6 @@ const dayRowSchema = z.union([
     ...dayProgress.published,
   }),
 ]);
-export type DayRow = z.infer<typeof dayRowSchema>;
-
 export const dayViewSchema = z.strictObject({
   lobbyId: idSchema,
   asOf: instant,
