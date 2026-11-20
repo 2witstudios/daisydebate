@@ -1,7 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import type { GuardianFormState } from '../../../app/(shell)/settings/parental-controls/actions';
+import type { GuardianFormState } from '../../../features/parental-controls/form';
 import {
   formUnavailable,
   initialFormState,

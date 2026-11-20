@@ -12,12 +12,10 @@ import {
   field,
   formUnavailable,
   refused,
-  type FormState,
 } from '../../../../features/forms/form-state';
 import { post } from '../../form-post';
 
-export type GuardianFormState =
-  FormState | { readonly kind: 'sent'; readonly message: string };
+import type { GuardianFormState } from '../../../../features/parental-controls/form';
 
 const refusalWords: Readonly<Record<GuardianRefusal, string>> = {
   'not-an-adult': 'You need to be an adult to add a child.',
