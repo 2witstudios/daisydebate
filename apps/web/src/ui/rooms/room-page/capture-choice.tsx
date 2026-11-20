@@ -13,7 +13,7 @@ import { UpgradePanel } from '../../components/upgrade-panel/upgrade-panel';
 
 /**
  * The host's two separate choices and the release choice (WATCH-8). Plain
- * fields in a native form, so all of it works with no script; choosing asks
+ * fields in a native form, so all of it works before hydration; choosing asks
  * every seat to Ready again, with the notice saying what was chosen.
  */
 export function CaptureChoice({

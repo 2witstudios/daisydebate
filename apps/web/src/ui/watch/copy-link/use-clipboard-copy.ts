@@ -4,7 +4,7 @@ import { useState, useSyncExternalStore } from 'react';
 
 const subscribeNever = () => () => undefined;
 
-/** Clipboard copy once hydrated: `ready` is false on the server and with no script. */
+/** Clipboard copy once hydrated: `ready` is false on the server and before hydration. */
 export function useClipboardCopy() {
   const ready = useSyncExternalStore(
     subscribeNever,

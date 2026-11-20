@@ -23,9 +23,6 @@ export function initialRoomModel(
     title: '',
     visibility: defaultRoomVisibility,
     ...kept,
-    // A native post's intent was its submitter's act, already consumed; a
-    // stale one would make readRoomDraft reset the preset on the next edit.
-    intent: '',
   };
   if (
     initialRanked &&
@@ -68,7 +65,7 @@ export function chooseRoomChoice(
 ): CreateRoomModel {
   const selected = createRoomDraft(choice);
   return {
-    values: { ...model.values, ...draftFormValues(selected), intent: '' },
+    values: { ...model.values, ...draftFormValues(selected) },
     draft: selected,
   };
 }

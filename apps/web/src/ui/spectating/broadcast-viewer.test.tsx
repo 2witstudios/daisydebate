@@ -127,7 +127,7 @@ describe('BroadcastViewer', () => {
     }
   });
 
-  test('a ready Recording is one link away, with no script', () => {
+  test('a ready Recording is one link away', () => {
     const html = render({
       broadcast: { state: 'ended' },
       stage: ended,
@@ -153,14 +153,13 @@ describe('BroadcastViewer', () => {
     });
     assert({
       given: 'a stream on air, rendered on the server',
-      should: 'give a labelled video with controls, and a no-script note',
+      should: 'give a labelled video with controls',
       actual: [
         html.includes('aria-label="Broadcast of this debate"'),
         html.includes('controls'),
-        html.includes('The video needs JavaScript'),
         html.includes('The video is showing a slate. Nobody is speaking.'),
       ],
-      expected: [true, true, true, true],
+      expected: [true, true, true],
     });
   });
 });

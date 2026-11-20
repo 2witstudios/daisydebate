@@ -17,7 +17,7 @@ const ONE_YEAR_SECONDS = 365 * 24 * 60 * 60;
 
 /**
  * The cookie's one definition: a year at the root, Secure and HttpOnly —
- * the server alone reads and writes it, and no script needs it. Browsers
+ * the server alone reads and writes it, and no client code needs it. Browsers
  * accept Secure cookies on localhost and the TLS edge, like the age hold.
  */
 export const RAIL_COOKIE_OPTIONS = {

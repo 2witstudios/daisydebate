@@ -1,5 +1,4 @@
 import { controlLaunch } from './support/room-launch-settled';
-import { maintainHumanBallotFixtures } from './support/human-ballot-maintenance';
 import { createRoomLaunchAccounts } from './support/room-launch-accounts';
 import {
   createHumanBallotRound,
@@ -20,23 +19,16 @@ import { expect, test } from './support/live-room-documents';
 import { openPage } from './support/fixtures';
 test.use({ roundCommands: true });
 
-test('native Start affirmative constructive and enhanced round controls retain canonical state on reload', async ({
+test('Start affirmative constructive and round controls on a second page retain canonical state on reload', async ({
   liveRoom,
-  browser,
 }) => {
   // The clock plays a 30s cross-examination and countdown before the speech.
   test.setTimeout(240_000);
   const { page, roundId } = liveRoom;
-  const native = await browser.newContext({
-    baseURL: origin,
-    ignoreHTTPSErrors: true,
-    javaScriptEnabled: false,
-    storageState: await page.context().storageState(),
-  });
+  const formPage = await openPage(page.context(), 'Round commands');
   try {
-    const formPage = await openPage(native, 'native Round commands');
     const path = `/rounds/${roundId}/room`;
-    const read = () => readBallotRound(native.request, roundId);
+    const read = () => readBallotRound(page.request, roundId);
     await formPage.goto(path);
     expect((await read()).status).toBe('active');
     await formPage
@@ -55,19 +47,11 @@ test('native Start affirmative constructive and enhanced round controls retain c
         exact: true,
       })
       .click();
-    // The clock starts one microphone lead after prep ends, and this page has no script.
-    await expect(async () => {
-      await formPage.reload();
-      await expect(
-        formPage.getByRole('button', { name: 'End speech', exact: true }),
-      ).toBeEnabled({ timeout: 500 });
-    }).toPass({ timeout: 15_000 });
+    // The clock starts one microphone lead after prep ends.
+    await expect(
+      formPage.getByRole('button', { name: 'End speech', exact: true }),
+    ).toBeEnabled({ timeout: 15_000 });
     const speaking = await read();
-    const stalePage = await openPage(native, 'stale native Round command');
-    await stalePage.goto(path);
-    await stalePage
-      .getByRole('button', { name: 'End speech', exact: true })
-      .click();
     expect(speaking.checkpoint?.active_prep).toBeNull();
     await formPage
       .getByRole('button', { name: 'End speech', exact: true })
@@ -82,24 +66,13 @@ test('native Start affirmative constructive and enhanced round controls retain c
     await formPage
       .getByRole('button', { name: 'Confirm end speech', exact: true })
       .click();
-    expect((await read()).segments[0]?.endedAt).not.toBeNull();
-    const beforeRefusal = await read();
-    await stalePage
-      .getByRole('button', { name: 'Confirm end speech', exact: true })
-      .click();
-    await expect(
-      stalePage.getByText(
-        'The round changed or that action is no longer legal. Review the current round and try again.',
-        { exact: true },
-      ),
-    ).toBeVisible();
-    expect((await read()).version).toBe(beforeRefusal.version);
-    await stalePage.close();
+    await expect
+      .poll(async () => (await read()).segments[0]?.endedAt)
+      .not.toBeNull();
     // Cross-examination has no Interrupt whatever the policy. The negative's
     // speech that follows does, under this Round's enabled policy. It opens on
     // a maintenance tick that advances the version: a page rendered before it
-    // posts a stale expected version and is refused, as the stale page above
-    // is. Render it after the opening, and post it only once its form carries
+    // posts a stale expected version and is refused. Render it after the opening, and post it only once its form carries
     // the canonical version.
     const interrupt = formPage.getByRole('button', {
       name: 'Interrupt',
@@ -134,6 +107,9 @@ test('native Start affirmative constructive and enhanced round controls retain c
       ).toHaveValue(String(opened.version));
     }).toPass({ timeout: 120000 });
     await interrupt.click();
+    await expect
+      .poll(async () => (await read()).checkpoint?.floor ?? null)
+      .not.toBeNull();
     const interrupted = await read();
     const human = interrupted.participants
       .filter(isNamedSeat)
@@ -170,7 +146,7 @@ test('native Start affirmative constructive and enhanced round controls retain c
     // A full read lane refuses unrun work; it cannot retract the accepted yield.
     await controlLaunch('refuse-round-reads');
     try {
-      const refused = await native.request.get(`/api/rounds/${roundId}`);
+      const refused = await page.request.get(`/api/rounds/${roundId}`);
       expect(refused.status()).toBe(503);
       expect(refused.headers()['retry-after']).toBe('1');
     } finally {
@@ -194,61 +170,7 @@ test('native Start affirmative constructive and enhanced round controls retain c
     expect(final.outcome).toEqual(winnerOutcome(negativeSide));
     expect(new URL(formPage.url()).search).toBe('');
   } finally {
-    await native.close();
-  }
-});
-
-test('native attendance records an actual opened speech through the mounted production POST', async ({
-  browser,
-}) => {
-  const accounts = await createRoomLaunchAccounts(browser, 4);
-  const host = accounts.members[0]!;
-  const native = await browser.newContext({
-    baseURL: origin,
-    ignoreHTTPSErrors: true,
-    javaScriptEnabled: false,
-    storageState: await host.context.storageState(),
-  });
-  try {
-    const round = await createHumanBallotRound(accounts.members);
-    await maintainHumanBallotFixtures([round.id]);
-    const page = await openPage(native, 'native actual attendance');
-    await page.goto(`/rounds/${round.id}/room`);
-    const button = page.getByRole('button', {
-      name: 'Record attendance for this speech',
-      exact: true,
-    });
-    await expect(button).toBeVisible();
-    const form = page.locator('form', { has: button });
-    await expect(form).toHaveAttribute(
-      'action',
-      `/api/rounds/${round.id}/check-in`,
-    );
-    expect(await form.locator('input[name="commandId"]').inputValue()).toMatch(
-      /^[a-z0-9]{20,32}$/,
-    );
-    await button.click();
-    await expect(
-      page.getByRole('heading', { name: 'Attendance recorded', exact: true }),
-    ).toBeVisible();
-    await page
-      .getByRole('link', { name: 'Return to the round', exact: true })
-      .click();
-    await expect(page).toHaveURL(`/rounds/${round.id}/room`);
-    await expect(
-      page.getByText('Attendance recorded for Affirmative constructive.', {
-        exact: true,
-      }),
-    ).toBeVisible();
-    await expect(
-      page.getByRole('button', {
-        name: 'Record attendance for this speech',
-        exact: true,
-      }),
-    ).toHaveCount(0);
-  } finally {
-    await native.close();
-    await accounts.closeContexts();
+    await formPage.close();
   }
 });
 
@@ -275,86 +197,75 @@ test('the mounted private capture boundary rejects GET, oversized bodies and inv
   });
 });
 
-for (const javaScriptEnabled of [false, true])
-  test(`${javaScriptEnabled ? 'enhanced' : 'native'} fresh Room creates a new cast after an actual result`, async ({
-    browser,
-  }) => {
-    const accounts = await createRoomLaunchAccounts(browser, 4);
-    let context: Awaited<ReturnType<typeof browser.newContext>> | undefined;
-    try {
-      const host = accounts.members[0]!.context;
-      const live = await createHumanBallotRound(accounts.members);
-      // Maintenance opens the first speech within a tick of start (ISSUE-489):
-      // the command must land against the Round the clock has moved on.
-      await expect
-        .poll(
-          async () => (await readBallotRound(host.request, live.id)).version,
-        )
-        .toBeGreaterThan(live.version);
-      const seat = live.participants
-        .filter(isNamedSeat)
-        .find((p) => sideOfSeat(p.seat) === affirmativeSide)!;
-      const ended = await currentRoundForfeit(host.request, live.id, seat.id);
-      context = await browser.newContext({
-        baseURL: origin,
-        ignoreHTTPSErrors: true,
-        javaScriptEnabled,
-        storageState: await host.storageState(),
-      });
-      const page = await openPage(context, 'fresh Room after durable result');
-      await page.goto(`/rooms/${live.roomId}`);
-      await page
-        .getByRole('link', { name: 'Create a new room', exact: true })
-        .click();
-      await expect(page).toHaveURL(`/rooms/${live.roomId}/rematch`);
-      await expect(
-        page.getByRole('heading', { name: 'Create a new room', exact: true }),
-      ).toBeVisible();
-      const form = page.getByRole('form', {
-        name: 'Create a room',
-        exact: true,
-      });
-      await expect(form.getByLabel('Room name', { exact: true })).toHaveValue(
-        '',
-      );
-      await expect(
-        form.locator('[name="format"][value="freestyle"]'),
-      ).toBeChecked();
-      await expect(
-        form.getByRole('combobox', { name: 'Resolution', exact: true }),
-      ).toHaveValue('strike');
-      await form
-        .getByLabel('Room name', { exact: true })
-        .fill('A genuinely fresh Room');
-      await form
-        .getByRole('combobox', { name: 'Resolution', exact: true })
-        .selectOption('custom');
-      const applyResolution = form.getByRole('button', {
-        name: 'Apply resolution',
-        exact: true,
-      });
-      if (await applyResolution.count()) await applyResolution.click();
-      await form
-        .getByLabel('Custom resolution', { exact: true })
-        .fill('Libraries should remain public');
-      await form
-        .getByRole('button', { name: 'Create room', exact: true })
-        .click();
-      await expect(page).toHaveURL(/\/rooms\/[a-z0-9]+$/);
-      const newId = new URL(page.url()).pathname.split('/').at(-1)!;
-      expect(newId).not.toBe(live.roomId);
-      const freshResponse = await context.request.get(`/api/rooms/${newId}`);
-      expect(freshResponse.status()).toBe(200);
-      const fresh = roomViewSchema.parse(await freshResponse.json());
-      expect([
-        fresh.participants.length,
-        fresh.readiness.readyActorIds.length,
-        fresh.roundRef,
-      ]).toEqual([0, 0, null]);
-      const oldResponse = await host.request.get(`/api/rounds/${live.id}`);
-      expect(roundViewSchema.parse(await oldResponse.json())).toEqual(ended);
-    } finally {
-      await context?.close();
-      await accounts.closeContexts();
-    }
-  });
+test('a fresh Room creates a new cast after an actual result', async ({
+  browser,
+}) => {
+  const accounts = await createRoomLaunchAccounts(browser, 4);
+  let context: Awaited<ReturnType<typeof browser.newContext>> | undefined;
+  try {
+    const host = accounts.members[0]!.context;
+    const live = await createHumanBallotRound(accounts.members);
+    // Maintenance opens the first speech within a tick of start (ISSUE-489):
+    // the command must land against the Round the clock has moved on.
+    await expect
+      .poll(async () => (await readBallotRound(host.request, live.id)).version)
+      .toBeGreaterThan(live.version);
+    const seat = live.participants
+      .filter(isNamedSeat)
+      .find((p) => sideOfSeat(p.seat) === affirmativeSide)!;
+    const ended = await currentRoundForfeit(host.request, live.id, seat.id);
+    context = await browser.newContext({
+      baseURL: origin,
+      ignoreHTTPSErrors: true,
+      storageState: await host.storageState(),
+    });
+    const page = await openPage(context, 'fresh Room after durable result');
+    await page.goto(`/rooms/${live.roomId}`);
+    await page
+      .getByRole('link', { name: 'Create a new room', exact: true })
+      .click();
+    await expect(page).toHaveURL(`/rooms/${live.roomId}/rematch`);
+    await expect(
+      page.getByRole('heading', { name: 'Create a new room', exact: true }),
+    ).toBeVisible();
+    const form = page.getByRole('form', {
+      name: 'Create a room',
+      exact: true,
+    });
+    await expect(form.getByLabel('Room name', { exact: true })).toHaveValue('');
+    await expect(
+      form.locator('[name="format"][value="freestyle"]'),
+    ).toBeChecked();
+    await expect(
+      form.getByRole('combobox', { name: 'Resolution', exact: true }),
+    ).toHaveValue('strike');
+    await form
+      .getByLabel('Room name', { exact: true })
+      .fill('A genuinely fresh Room');
+    await form
+      .getByRole('combobox', { name: 'Resolution', exact: true })
+      .selectOption('custom');
+    await form
+      .getByLabel('Custom resolution', { exact: true })
+      .fill('Libraries should remain public');
+    await form
+      .getByRole('button', { name: 'Create room', exact: true })
+      .click();
+    await expect(page).toHaveURL(/\/rooms\/[a-z0-9]+$/);
+    const newId = new URL(page.url()).pathname.split('/').at(-1)!;
+    expect(newId).not.toBe(live.roomId);
+    const freshResponse = await context.request.get(`/api/rooms/${newId}`);
+    expect(freshResponse.status()).toBe(200);
+    const fresh = roomViewSchema.parse(await freshResponse.json());
+    expect([
+      fresh.participants.length,
+      fresh.readiness.readyActorIds.length,
+      fresh.roundRef,
+    ]).toEqual([0, 0, null]);
+    const oldResponse = await host.request.get(`/api/rounds/${live.id}`);
+    expect(roundViewSchema.parse(await oldResponse.json())).toEqual(ended);
+  } finally {
+    await context?.close();
+    await accounts.closeContexts();
+  }
+});

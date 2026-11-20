@@ -16,7 +16,7 @@ describe('BetaWaiting (ADR 0075)', () => {
     );
     assert({
       given: 'a pending account',
-      should: 'name it on the list and link to its settings, without script',
+      should: 'name it on the list and link to its settings, before hydration',
       actual: {
         headline: html.includes('You&#x27;re on the list, @ada'),
         settings: html.includes('href="/settings"'),
@@ -67,7 +67,7 @@ describe('BetaWaiting (ADR 0075)', () => {
   });
 });
 
-describe('signing out of /beta without JavaScript (ISSUE-691)', () => {
+describe('signing out of /beta before hydration (ISSUE-691)', () => {
   test('every waiting reason carries a native sign-out form', () => {
     const forms = (['pending', 'revoked', 'age-required'] as const).map(
       (reason) =>
@@ -83,7 +83,7 @@ describe('signing out of /beta without JavaScript (ISSUE-691)', () => {
     );
     assert({
       given: 'a pending, a revoked and an age-required account',
-      should: 'offer a sign-out form that posts without script on each page',
+      should: 'offer a sign-out form that posts before hydration on each page',
       actual: forms,
       expected: [true, true, true],
     });

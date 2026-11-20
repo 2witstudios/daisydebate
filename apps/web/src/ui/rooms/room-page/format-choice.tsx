@@ -217,7 +217,7 @@ function LeagueForm({ view, choices, ids, action }: FormProps) {
 /**
  * Room setup's format: Daisy's standards and Custom (FMT-3, FMT-4). Choosing
  * a standard posts select-format; Custom is never chosen directly, it is
- * what any edit makes the room. Every form works without JavaScript.
+ * what any edit makes the room. Every form works before hydration.
  */
 export function FormatChoice(props: FormProps) {
   return (

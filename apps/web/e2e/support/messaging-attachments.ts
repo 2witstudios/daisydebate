@@ -84,7 +84,7 @@ async function refuseOverflowAttachment(
     await expect(peer.getByRole('link', { name, exact: true })).toHaveCount(1);
   await peer.goto(`/messages/${channelId}`);
 }
-/** Both JS modes POST native bytes, then a separate authenticated peer downloads. */
+/** An authenticated peer downloads the bytes posted by the author. */
 export async function attachNativeMessageFile(
   author: Page,
   peer: Page,

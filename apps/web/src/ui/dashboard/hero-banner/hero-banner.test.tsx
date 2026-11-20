@@ -59,7 +59,7 @@ describe('HeroBanner', () => {
     });
   });
 
-  test('joins with one email that posts without JavaScript', () => {
+  test('joins with one email that posts before hydration', () => {
     const html = render();
     const form = /<form\b[^>]*>/.exec(html)?.[0] ?? '';
     assert({

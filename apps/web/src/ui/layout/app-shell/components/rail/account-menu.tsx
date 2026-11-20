@@ -19,7 +19,7 @@ import { profilePhotoSrc } from '../../../../profile/photo-src';
  * The foot's account control. A member's avatar, with the username beside it
  * when extended, opens a menu upward and to the right: their ratings, their
  * status, then the account pages and sign-out. The menu is a native disclosure, so it opens on
- * a tap without script. A visitor gets the way in on the same row.
+ * a tap before hydration. A visitor gets the way in on the same row.
  */
 export function AccountMenu({
   account,

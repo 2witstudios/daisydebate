@@ -10,9 +10,7 @@ import {
   rosterSeatName,
 } from './support/room-launch-flow';
 
-test('a ranked seat signs the content waiver without JavaScript', async ({
-  browser,
-}) => {
+test('a ranked seat signs the content waiver', async ({ browser }) => {
   await new Promise<void>((resolve, reject) =>
     execFile(
       'bun',
@@ -26,8 +24,8 @@ test('a ranked seat signs the content waiver without JavaScript', async ({
         error ? reject(new Error('Season setup refused')) : resolve(),
     ),
   );
-  const context = await browser.newContext({ javaScriptEnabled: false });
-  const page = await openPage(context, 'native content waiver');
+  const context = await browser.newContext();
+  const page = await openPage(context, 'content waiver');
   try {
     await resetRateLimits(page.request);
     await signUpMember(page.request);

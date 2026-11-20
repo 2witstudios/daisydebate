@@ -2,6 +2,7 @@ import { WalkLink as Link } from '../walk/walk-link';
 import type { PageFilter, StatusChoice } from '../../../features/tab/at-scale';
 import { cn } from '../../cn';
 import { SearchField } from '../../components/filter-form/filter-form';
+import { SearchForm } from '../../components/search-form/search-form';
 
 /** A status choice drawn as one segment of the filter: the chosen one is filled. */
 export const segmentClass = (selected: boolean): string =>
@@ -45,9 +46,8 @@ export function InPageSearch<Status extends string>({
 }) {
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-      <form
-        method="get"
-        action={path.split('?')[0]}
+      <SearchForm
+        action={path.split('?')[0] ?? path}
         role="search"
         className="flex min-w-0 grow basis-1/2"
       >
@@ -66,7 +66,7 @@ export function InPageSearch<Status extends string>({
         <button type="submit" className="sr-only">
           Search
         </button>
-      </form>
+      </SearchForm>
       {choices.length === 0 ? null : (
         <nav aria-label={statusLabel}>
           <ul className="flex flex-wrap gap-1 rounded-md border border-border bg-surface-raised p-1">

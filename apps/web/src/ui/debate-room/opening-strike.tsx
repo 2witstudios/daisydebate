@@ -177,7 +177,7 @@ function StrikeForm({
 
 /**
  * The opening's strike (ADR 0104): the resolutions and nothing else. A native
- * form, so it works without JavaScript; a strike can't be undone, so the
+ * form, so it works before hydration; a strike can't be undone, so the
  * submit asks once more with it.
  */
 export function OpeningStrike({

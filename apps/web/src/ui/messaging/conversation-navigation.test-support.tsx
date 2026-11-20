@@ -112,7 +112,7 @@ export async function runMessagingNavigationProbe(
             >
               Preferences
             </ConversationLink>
-            <ConversationSearchForm action="/messages/channel" method="get">
+            <ConversationSearchForm action="/messages/channel">
               <input
                 name="query"
                 required

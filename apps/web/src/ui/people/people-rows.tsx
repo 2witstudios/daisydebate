@@ -131,7 +131,7 @@ export function usePersonOverlay(
 
 /**
  * A row: avatar, name and status, and three dots. The dots are a link to the
- * profile, which carries every action as a form, so a row works without script;
+ * profile, which carries every action as a form, so a row works before hydration;
  * hydrated, they open the menu instead.
  */
 function PersonRow({

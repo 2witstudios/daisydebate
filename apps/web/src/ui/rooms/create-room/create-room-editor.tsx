@@ -179,17 +179,6 @@ export function CreateRoomEditor({
               </label>
             ))}
           </div>
-          <noscript>
-            <button
-              type="submit"
-              name="intent"
-              value="format"
-              formNoValidate
-              className={buttonClass('secondary')}
-            >
-              Apply format
-            </button>
-          </noscript>
           {mayRank ? (
             <div className="create-room-ranked">
               <label>
@@ -304,17 +293,6 @@ export function CreateRoomEditor({
                   ))}
                 </select>
               </label>
-              <noscript>
-                <button
-                  type="submit"
-                  name="intent"
-                  value="template"
-                  formNoValidate
-                  className={buttonClass('secondary')}
-                >
-                  Apply template
-                </button>
-              </noscript>
               <p>Based on {draft.basis.label}</p>
             </details>
           ) : null}
@@ -341,17 +319,6 @@ export function CreateRoomEditor({
                 <option value="custom">Custom</option>
               </select>
             </label>
-            <noscript>
-              <button
-                type="submit"
-                name="intent"
-                value="configure"
-                formNoValidate
-                className={buttonClass('secondary')}
-              >
-                Apply resolution
-              </button>
-            </noscript>
             {values.resolutionMethod === 'strike' ? (
               <p>Chosen by strike before the round</p>
             ) : null}

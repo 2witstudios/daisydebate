@@ -22,7 +22,7 @@ export type ExportDataNotice = 'rate-limited' | 'refused';
 
 /**
  * POST /api/privacy/export, the account's access-and-portability request
- * (ISSUE-833, ADR 0087): a native form post that works without JavaScript.
+ * (ISSUE-833, ADR 0087): a native form post that works before hydration.
  * Same origin, any authenticated account (members and the waitlisted alike —
  * data rights belong to the account, not to beta participation), the export
  * budget, then the whole subject-rights composition under one lock. The

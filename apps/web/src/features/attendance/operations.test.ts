@@ -291,7 +291,7 @@ test('a missing bot speaker receipt abandons through the shared engine projectio
   });
 });
 
-test('targets expose only open unrecorded windows and native forms carry fresh commands', async () => {
+test('targets expose only open unrecorded windows', async () => {
   const open = { now: iso(openedAtMs + 10000) };
   assert({
     given: 'an open actual speech window',
@@ -319,14 +319,6 @@ test('targets expose only open unrecorded windows and native forms carry fresh c
       actual: await feature(read as never).instance.targets(principal, 'round'),
       expected: [],
     });
-  assert({
-    given: 'a native read of an open window',
-    should: 'issue a fresh command id per target',
-    actual: (
-      await feature(open).instance.nativeState(principal, 'round')
-    ).targets.map((target) => target.commandId),
-    expected: ['command00000000000000001'],
-  });
 });
 
 test('check-in validates the envelope and records a SHA3 digest of it', async () => {

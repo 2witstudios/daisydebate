@@ -183,7 +183,7 @@ export async function proveHumanBotJourney(browser: Browser) {
     await expect(
       receipt.getByText(/^Result · (Affirmative|Negative) won$/),
     ).toBeVisible();
-    await expectHistoryTranscript(browser, receipt, host.username, view.id);
+    await expectHistoryTranscript(receipt, host.username, view.id);
   } finally {
     await accounts.closeContexts();
   }

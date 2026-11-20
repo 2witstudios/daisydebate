@@ -40,8 +40,8 @@ const none = '—';
 
 /**
  * A member's optional onboarding answers, each with an Edit link to the
- * step that asks it (ISSUE-324). Plain links, so it works without
- * JavaScript. Shown on the Ready step and in Settings.
+ * step that asks it (ISSUE-324). Plain links, so it works before
+ * hydration. Shown on the Ready step and in Settings.
  */
 export function AnswerSummary({
   answers,

@@ -33,7 +33,7 @@ export type FilterFormProps = {
 
 /**
  * The hub's filters as one GET form: search, mode, sort and Apply. The URL
- * carries the state, so it works with no script; selects and radios also
+ * carries the state, so it works before hydration; selects and radios also
  * apply at once when hydrated.
  */
 export function FilterForm({

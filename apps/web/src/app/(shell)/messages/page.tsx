@@ -12,7 +12,7 @@ import { GET } from '../../api/messaging/inbox/route';
 
 export const metadata = { title: 'Messages' };
 
-/** Search or a later page for a reader with no JavaScript: the list's own read. */
+/** Results at the address for a search or a later page of the inbox. */
 async function InboxResults({
   q,
   after,

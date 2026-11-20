@@ -12,7 +12,7 @@ import {
  * The rail toggle's POST (ADR 0091): it flips the saved rail width —
  * setting daisy.rail=mini, or deleting the cookie so absent means extended
  * again — and Next re-renders the current route in the same response, so a
- * plain form POST works before hydration and without JavaScript. The POST
+ * plain form POST works before hydration. The POST
  * carries no data to validate; the cookie value is the one untrusted input
  * and parseRailPreference is its trust boundary.
  */

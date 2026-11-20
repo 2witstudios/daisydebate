@@ -132,7 +132,6 @@ async function submitEnhanced(page: Page, submit: Locator) {
 /** No fixture clock, maintenance callback, seeded ledger, transcript or ballot. */
 export async function proveHumanJudgedJourney(browser: Browser) {
   const accounts = await createRoomLaunchAccounts(browser, 4);
-  let native: Awaited<ReturnType<typeof browser.newContext>> | undefined;
   try {
     const host = accounts.members[0]!.context;
     const view = await playActualSpeeches(accounts.members);
@@ -149,19 +148,10 @@ export async function proveHumanJudgedJourney(browser: Browser) {
       Date.parse(last.endedAt!) + TRANSCRIPT_ADMISSION_WINDOW_MS,
     );
     for (const index of [2, 3]) {
-      let context = accounts.members[index]!.context;
-      if (index === 2) {
-        native = await browser.newContext({
-          baseURL: origin,
-          ignoreHTTPSErrors: true,
-          javaScriptEnabled: false,
-          storageState: await context.storageState(),
-        });
-        context = native;
-      }
+      const context = accounts.members[index]!.context;
       const page = await openPage(
         context,
-        index === 2 ? 'native actual judge' : 'enhanced actual final judge',
+        index === 2 ? 'actual judge' : 'actual final judge',
       );
       await page.goto(`/judge/ballot/${view.id}`);
       await page
@@ -179,8 +169,7 @@ export async function proveHumanJudgedJourney(browser: Browser) {
         name: 'Submit ballot',
         exact: true,
       });
-      if (index === 2) await submit.click();
-      else await submitEnhanced(page, submit);
+      await submitEnhanced(page, submit);
       await expect(
         page.getByText('Ballot submitted.', { exact: false }),
       ).toBeVisible();
@@ -203,7 +192,6 @@ export async function proveHumanJudgedJourney(browser: Browser) {
       winnerOutcome(affirmativeSide),
     ]);
   } finally {
-    await native?.close();
     await accounts.closeContexts();
   }
 }

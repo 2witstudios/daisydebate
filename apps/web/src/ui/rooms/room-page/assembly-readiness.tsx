@@ -123,7 +123,7 @@ const confirmId = 'ready-confirm';
 /**
  * What a seat agrees to by readying, asked only when I'm ready is pressed:
  * the ranked waiver while unsigned, the casual capture notice, the post-round
- * call. A native popover, so it opens without script; null when there is
+ * call. A native popover, so it opens before hydration; null when there is
  * nothing to ask.
  */
 function ReadyConfirm({

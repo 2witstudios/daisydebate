@@ -81,34 +81,6 @@ test('native opt-in survives reload and sign-in; Settings withdrawal stops every
   await other.close();
 });
 
-test('consent acceptance and withdrawal work with JavaScript disabled', async ({
-  browser,
-  baseURL,
-}) => {
-  const context = await browser.newContext({
-    ...(baseURL ? { baseURL } : {}),
-    javaScriptEnabled: false,
-    ignoreHTTPSErrors: true,
-  });
-  const { requests } = await captureAnalytics(context);
-  try {
-    const page = await openPage(context, 'analytics preferences');
-    await page.goto('/');
-    await page.getByRole('button', { name: 'Accept optional' }).click();
-    await expect(page).toHaveURL(/\/$/);
-    await expect(
-      page.getByRole('complementary', { name: 'Analytics preferences' }),
-    ).toHaveCount(0);
-    await page.goto('/analytics');
-    await expect(page.getByLabel('Product analytics')).toBeChecked();
-    await page.getByRole('button', { name: 'Reject optional' }).click();
-    await expect(page.getByLabel('Product analytics')).not.toBeChecked();
-    expect(requests).toEqual([]);
-  } finally {
-    await context.close();
-  }
-});
-
 test('the stage that Egress records carries no consent banner and no analytics (ADR 0123)', async ({
   page,
   context,

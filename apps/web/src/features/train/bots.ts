@@ -29,7 +29,7 @@ type OpponentCard = {
   readonly difficulty: RoomCastChoice['difficulty'] | null;
   readonly eligible: boolean;
   readonly selected: boolean;
-  /** The card's address, so choosing works without JavaScript. */
+  /** The card's address, so choosing works before hydration. */
   readonly href: string;
 };
 

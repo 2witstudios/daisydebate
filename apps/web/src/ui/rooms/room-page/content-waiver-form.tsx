@@ -13,7 +13,7 @@ import { RoomAnswerForm } from './assembly-command-form';
 
 /**
  * The season's content waiver, signed in place before Ready (WATCH-15). A
- * native form with a required box: it works without JavaScript, and the server
+ * native form with a required box: it works before hydration, and the server
  * refuses a post without the tick. The waiver stays on screen whatever the
  * answer: when one is lost the member signs again, which is the same
  * signature.

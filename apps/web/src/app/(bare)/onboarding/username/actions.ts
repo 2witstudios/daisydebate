@@ -17,12 +17,12 @@ const claimRoute = processRoute((routes) => routes.username.POST);
 
 /**
  * The username form's POST, as a server action: the claim works before
- * hydration and without JavaScript. It runs the POST /api/account/username
+ * hydration. It runs the POST /api/account/username
  * handler in process with this request's headers, so the same-origin,
  * session, rate-limit and claim gates all apply. Every argument comes from
  * the browser: `next` is validated again and the form is read defensively.
- * A claimed (or already named) account moves on (`moveOn`: a 303 without
- * JavaScript, a destination the page navigates to with it), never by a
+ * A claimed (or already named) account moves on (`moveOn`: a 303 before
+ * hydration, a destination a hydrated page navigates to), never by a
  * username in a URL.
  */
 export async function claimUsernameAction(

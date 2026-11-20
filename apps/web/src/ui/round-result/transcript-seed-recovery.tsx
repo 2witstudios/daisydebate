@@ -89,9 +89,7 @@ export function TranscriptSeedAnswer({
             Reload
           </button>
         </>
-      ) : (
-        <noscript> Reload to try again.</noscript>
-      )}
+      ) : null}
     </p>
   );
 }

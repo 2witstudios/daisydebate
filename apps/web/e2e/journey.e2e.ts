@@ -13,7 +13,9 @@ import {
   reachOnboardingFromRanked,
   sessionUsername,
   answerAgeStep,
+  origin,
 } from './support/accounts';
+import { requestConfirmLink } from './support/confirm-page';
 import {
   claimUsername,
   declineOfferToLobby,
@@ -346,4 +348,92 @@ test('a visitor can reach home, and Sign in at the rail foot or in the bottom ta
   expect(covered).toEqual([]);
   await signIn.click();
   await expect(page).toHaveURL(/\/sign-in$/);
+});
+
+test('AUTH-4.7: a real double submit of the same confirm link ends on a usable page', async ({
+  page,
+  request,
+}) => {
+  const { link } = await requestConfirmLink(page, request);
+  const linkUrl = new URL(link);
+  const formBody = {
+    token: linkUrl.searchParams.get('token') ?? '',
+    callbackURL: linkUrl.searchParams.get('callbackURL') ?? '/lobby',
+  };
+  // Two overlapping submissions of the very same token, fired together
+  // rather than sequentially: the double submit a slow network or an
+  // eager double-click produces. `page.request` shares the page's cookie jar, so whichever
+  // submission actually signs in leaves its session cookie behind for
+  // the page navigations below.
+  const post = () =>
+    page.request.post('/auth/confirm', {
+      headers: { origin },
+      form: formBody,
+      maxRedirects: 0,
+    });
+  const [first, second] = await Promise.all([post(), post()]);
+
+  const signedIn = [first, second].filter(
+    (response) => response.headers()['set-cookie'],
+  );
+  // The redemption is atomic: exactly one submission signs in, whichever
+  // arrived first; the other finds the token already spent.
+  expect(signedIn.length).toBe(1);
+  for (const response of [first, second]) expect(response.status()).toBe(303);
+
+  // The winner's own redirect target is a real, working page.
+  const winnerLocation = signedIn[0]?.headers()['location'] ?? '/lobby';
+  await page.goto(winnerLocation);
+  await expect(page).not.toHaveURL(/\/sign-in/);
+
+  // The loser's redirect lands on the expired state, itself still usable:
+  // the resend form and "Continue to Daisy Debate" both work from here.
+  const loser = [first, second].find((response) => response !== signedIn[0]);
+  await page.goto(loser?.headers()['location'] ?? '/auth/confirm');
+  await expect(
+    page.getByRole('heading', { name: /can no longer be used/i }),
+  ).toBeVisible();
+  const continueLink = page.getByRole('link', {
+    name: /already signed in\? continue to daisy/i,
+  });
+  await continueLink.click();
+  await expect(page).not.toHaveURL(/\/sign-in/);
+});
+
+test('the data-rights forms export a download and close the account (ISSUE-833)', async ({
+  page,
+  request,
+}) => {
+  const { email } = await signUpMember(request);
+  // The page's own jar is a fresh anonymous browser: this member signs in
+  // through the form.
+  await page.goto('/sign-in?next=%2Flobby');
+  await requestSignInLink(page, email);
+  await confirmSignIn(page, await emailedLink(request, email));
+  await page.goto('/settings#privacy');
+
+  // The export is the download the form post itself answers.
+  const downloadPromise = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Download your data' }).click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toMatch(/^daisy-export-.*\.json$/);
+  await expect(page).toHaveURL(/\/settings/);
+
+  // Erasure needs its confirmation: without it, the fixed notice returns.
+  await page.getByRole('button', { name: 'Close your account' }).click();
+  await expect(page).toHaveURL(/privacyErase=confirm$/);
+  await expect(
+    page.getByText('Tick the box to confirm you want your account closed.'),
+  ).toBeVisible();
+
+  // A confirmed erasure closes the account and signs this browser out.
+  await page
+    .getByRole('checkbox', { name: 'I understand this cannot be undone.' })
+    .check();
+  await page.getByRole('button', { name: 'Close your account' }).click();
+  await expect(page).toHaveURL(/\/sign-in\?closed=1$/);
+  await expect(page.getByText('Your account is closed.')).toBeVisible();
+  // The closed session is really gone: the settings guard sends them away.
+  await page.goto('/settings');
+  await expect(page).toHaveURL(/\/sign-in/);
 });

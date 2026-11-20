@@ -1,4 +1,4 @@
-import { holdScripts, overflowing } from './support/ballot-layout-probes';
+import { overflowing } from './support/ballot-layout-probes';
 import { proveBallotRecovery } from './support/ballot-recovery-proof';
 import { createRoomLaunchAccounts } from './support/room-launch-accounts';
 import { createHumanBallotRound } from './support/human-ballot-round';
@@ -7,12 +7,12 @@ import { expect, test, openPage } from './support/fixtures';
 import { assertNoSeriousFindings } from './support/axe';
 import { humanBallotFixtures } from './support/human-ballot-fixtures';
 import { expectNotInUrl } from './support/forms';
-import { effectsRan } from './support/hydration';
+import { effectsRan, holdScripts } from './support/hydration';
 import { gotoWithTheme } from './support/theme';
 
 /**
- * The judge's ballot (ISSUE-348): one real POST that works with and without
- * JavaScript, keeps everything entered when it is refused, and is usable on
+ * The judge's ballot (ISSUE-348): one real POST that works before and after
+ * hydration, keeps everything entered when it is refused, and is usable on
  * a phone. The finished debate shows both judges' ballots.
  */
 test.describe('actual frozen human ballots', () => {
@@ -34,11 +34,7 @@ test.describe('actual frozen human ballots', () => {
       .context()
       .addCookies(await fixtures.members[2]!.context.cookies());
     const path = info.titlePath.join(' ');
-    const index = path.includes('a refusal keeps everything')
-      ? path.includes('JavaScript off')
-        ? 2
-        : 1
-      : 0;
+    const index = path.includes('a refusal keeps everything') ? 1 : 0;
     ballotUrl = `/judge/ballot/${fixtures.rounds[index]!.id}`;
   });
 
@@ -51,58 +47,47 @@ test.describe('actual frozen human ballots', () => {
   const slider = (page: Page, category: string, name: string) =>
     page.getByLabel(`${category}, ${name}`);
 
-  for (const javaScriptEnabled of [true, false]) {
-    test.describe(`with JavaScript ${javaScriptEnabled ? 'on' : 'off'}`, () => {
-      test.use({ javaScriptEnabled });
+  test('a refusal keeps everything, a low-point win asks first, then it submits', async ({
+    page,
+  }) => {
+    await page.goto(ballotUrl);
+    await pick(page, negativeName);
+    await slider(page, 'Thesis', affirmativeName).fill('5');
+    await page.getByLabel(`Feedback for ${affirmativeName}`).fill('Slow down.');
+    await submit(page);
 
-      test('a refusal keeps everything, a low-point win asks first, then it submits', async ({
-        page,
-      }) => {
-        await page.goto(ballotUrl);
-        await pick(page, negativeName);
-        await slider(page, 'Thesis', affirmativeName).fill('5');
-        await page
-          .getByLabel(`Feedback for ${affirmativeName}`)
-          .fill('Slow down.');
-        await submit(page);
+    // No reason: refused, and everything entered comes back.
+    await expect(page.locator('#round-ballot-refusal')).toHaveText(
+      'Write the reason for your decision.',
+    );
+    // The refusal heads the form, so the reloaded page shows it at once.
+    await expect(page.locator('#round-ballot-refusal')).toBeInViewport();
+    await expect(radio(page, negativeName)).toBeChecked();
+    await expect(slider(page, 'Thesis', affirmativeName)).toHaveValue('5');
+    await expect(
+      page.getByLabel(`Feedback for ${affirmativeName}`),
+    ).toHaveValue('Slow down.');
+    await expect(page.locator('#round-ballot-refusal')).toBeFocused();
 
-        // No reason: refused, and everything entered comes back.
-        await expect(page.locator('#round-ballot-refusal')).toHaveText(
-          'Write the reason for your decision.',
-        );
-        // The refusal heads the form, so the reloaded page shows it at once.
-        await expect(page.locator('#round-ballot-refusal')).toBeInViewport();
-        await expect(radio(page, negativeName)).toBeChecked();
-        await expect(slider(page, 'Thesis', affirmativeName)).toHaveValue('5');
-        await expect(
-          page.getByLabel(`Feedback for ${affirmativeName}`),
-        ).toHaveValue('Slow down.');
-        if (javaScriptEnabled)
-          await expect(page.locator('#round-ballot-refusal')).toBeFocused();
+    // Daniel wins on 30 to 32: the ballot asks for a confirmation.
+    const reason = 'Daniel weighed his impacts; Maya did not answer them.';
+    await page.getByLabel('Reason for decision').fill(reason);
+    await submit(page);
+    await expect(page.locator('#round-ballot-refusal')).toHaveText(
+      'Confirm the low-point win, or change the scores.',
+    );
+    await expect(
+      page.getByText(`${negativeName} wins with fewer points: 30 to 32`),
+    ).toBeVisible();
+    await expect(radio(page, negativeName)).toBeChecked();
+    await expect(page.getByLabel('Reason for decision')).toHaveValue(reason);
 
-        // Daniel wins on 30 to 32: the ballot asks for a confirmation.
-        const reason = 'Daniel weighed his impacts; Maya did not answer them.';
-        await page.getByLabel('Reason for decision').fill(reason);
-        await submit(page);
-        await expect(page.locator('#round-ballot-refusal')).toHaveText(
-          'Confirm the low-point win, or change the scores.',
-        );
-        await expect(
-          page.getByText(`${negativeName} wins with fewer points: 30 to 32`),
-        ).toBeVisible();
-        await expect(radio(page, negativeName)).toBeChecked();
-        await expect(page.getByLabel('Reason for decision')).toHaveValue(
-          reason,
-        );
-
-        await page.getByLabel('Confirm the decision').check();
-        await submit(page);
-        await expect(page).toHaveURL(ballotUrl);
-        await expect(page.getByText('Ballot submitted')).toBeVisible();
-        expectNotInUrl(page, reason);
-      });
-    });
-  }
+    await page.getByLabel('Confirm the decision').check();
+    await submit(page);
+    await expect(page).toHaveURL(ballotUrl);
+    await expect(page.getByText('Ballot submitted')).toBeVisible();
+    expectNotInUrl(page, reason);
+  });
 
   test('input made before hydration is kept, shown and posted', async ({
     page,
@@ -202,7 +187,7 @@ test.describe('actual frozen human ballots', () => {
       page,
     }) => {
       await page.setViewportSize({ width, height: 900 });
-      await page.goto(`/judge/ballot/${fixtures.rounds[3]!.id}`);
+      await page.goto(`/judge/ballot/${fixtures.rounds[2]!.id}`);
       const table = page.getByRole('table', { name: 'Your recorded scores' });
       await expect(table).toBeVisible();
       for (const name of [affirmativeName, negativeName])
@@ -256,7 +241,7 @@ test.describe('actual frozen human ballots', () => {
     await assertNoSeriousFindings(page);
     await gotoWithTheme(
       page,
-      `/judge/ballot/${fixtures.rounds[3]!.id}`,
+      `/judge/ballot/${fixtures.rounds[2]!.id}`,
       'light',
     );
     await expect(
@@ -268,7 +253,7 @@ test.describe('actual frozen human ballots', () => {
     page,
   }) => {
     // Round 4 is frozen and never judged by any other test here.
-    const roundId = fixtures.rounds[4]!.id;
+    const roundId = fixtures.rounds[3]!.id;
     await page.goto(`/rounds/${roundId}/room`);
     await expect(
       page.getByRole('heading', { name: 'The speeches are over' }),
@@ -282,7 +267,7 @@ test.describe('actual frozen human ballots', () => {
   test('a reload keeps what the judge entered in this tab', async ({
     page,
   }) => {
-    await page.goto(`/judge/ballot/${fixtures.rounds[4]!.id}`);
+    await page.goto(`/judge/ballot/${fixtures.rounds[3]!.id}`);
     await effectsRan(page);
     await pick(page, negativeName);
     await page.getByLabel('Reason for decision').fill('Kept through a reload.');

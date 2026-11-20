@@ -70,7 +70,7 @@ const sheetClass =
 
 /**
  * Search and every filter as one GET form, so the index filters on the
- * server with no script; the address keeps the view, tab and calendar day.
+ * server before hydration; the address keeps the view, tab and calendar day.
  * On the phone the filters sit in a sheet behind "Filters N"; on the desktop
  * they are a row of selects.
  */

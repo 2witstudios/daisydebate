@@ -36,28 +36,18 @@ export async function proveHumanLaunch(browser: Browser, info: TestInfo) {
     view = await claim(host, view, 'Affirmative 1');
     view = await claim(guest, view, 'Negative 1');
     await host.reload();
-    const native = await browser.newContext({
-      baseURL: origin,
-      ignoreHTTPSErrors: false,
-      javaScriptEnabled: false,
-      storageState: await accounts.members[0]!.context.storageState(),
-    });
-    try {
-      const failClosed = await openPage(
-        native,
-        'native human readiness refusal',
-      );
-      await failClosed.goto(`/rooms/${view.id}`);
-      await expect(
-        failClosed.getByRole('button', { name: 'I’m ready', exact: true }),
-      ).toBeDisabled();
-      expect(
-        (await reread(native.request, view.id)).readiness.readyActorIds,
-      ).toEqual([]);
-    } finally {
-      await native.close();
-    }
-    // With script, the tile's one button turns devices on until both pass (ADR 0145).
+    // Ready stays closed until the devices pass, and nothing is stored.
+    await expect(
+      host.getByRole('button', {
+        name: 'I’m ready',
+        exact: true,
+        disabled: false,
+      }),
+    ).toHaveCount(0);
+    expect(
+      (await reread(host.request, view.id)).readiness.readyActorIds,
+    ).toEqual([]);
+    // The tile's one button turns devices on until both pass (ADR 0145).
     const turnOn = (page: typeof host) =>
       page.getByRole('button', { name: 'Turn on camera and mic', exact: true });
     for (const page of [host, guest]) {

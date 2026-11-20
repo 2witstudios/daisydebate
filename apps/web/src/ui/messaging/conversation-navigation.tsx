@@ -26,6 +26,7 @@ import {
   type FormAction,
 } from '../form-action/form-action';
 import { followAnswer } from '../form-action/use-moved-on';
+import { SearchForm } from '../components/search-form/search-form';
 
 function createScope(requestId: string, changed: () => void) {
   let state = initialCompletionOwnership(requestId);
@@ -100,11 +101,11 @@ export function ConversationLink(
 }
 
 export function ConversationSearchForm(
-  props: Omit<ComponentProps<'form'>, 'onSubmit'>,
+  props: Omit<ComponentProps<typeof SearchForm>, 'onSubmit'>,
 ) {
   const navigation = useContext(Navigation);
   return (
-    <form
+    <SearchForm
       {...props}
       onSubmit={() => navigation?.current().accept({ type: 'navigate' })}
     />

@@ -188,7 +188,7 @@ export function AboutStep({ answers, ...rest }: QuestionStepProps) {
           ))}
         </div>
         {/* Shown by CSS alone when "I have a club" is picked, so it works
-            without script like every other mutating form. */}
+            before hydration like every other mutating form. */}
         <div className="mt-4 onboarding-club-reveal flex-col gap-2">
           <label
             htmlFor="club-name"

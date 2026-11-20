@@ -24,7 +24,7 @@ export type ActionFormBody = {
 };
 
 /**
- * A real POST to a server action: before hydration or without JavaScript the
+ * A real POST to a server action: before hydration the
  * browser submits it to the same action. JavaScript adds the pending state
  * and navigates to the answered `next`. The typed values come back with a
  * refusal so nothing is lost.

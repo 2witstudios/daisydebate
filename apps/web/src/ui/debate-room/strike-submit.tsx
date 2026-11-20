@@ -19,7 +19,7 @@ export function strikePress(
 }
 
 /**
- * The strike's submit. Without JavaScript the button is the confirmation;
+ * The strike's submit. Before hydration the button is the confirmation;
  * with it, the first press names the chosen resolution and asks once more,
  * because a strike can't be undone (FMT-7.2).
  */

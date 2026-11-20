@@ -83,15 +83,14 @@ const command = async (
   return roomViewSchema.parse((await response.json()).view);
 };
 
-/** A no-JavaScript page on a member's own session; the caller closes the context. */
-const noScriptPage = async (
+/** A page on a member's own session; the caller closes the context. */
+const memberPage = async (
   browser: import('@playwright/test').Browser,
   member: { readonly context: import('@playwright/test').BrowserContext },
   name: string,
 ) => {
   const context = await browser.newContext({
     baseURL: origin,
-    javaScriptEnabled: false,
     storageState: await member.context.storageState(),
   });
   return { context, page: await openPage(context, name) };
@@ -99,7 +98,7 @@ const noScriptPage = async (
 
 const yourTurn = 'Your strike';
 
-test('debaters strike to one resolution without JavaScript while a spectator never receives a drawn line first', async ({
+test('debaters strike to one resolution while a spectator never receives a drawn line first', async ({
   browser,
 }) => {
   test.setTimeout(240_000);
@@ -152,44 +151,24 @@ test('debaters strike to one resolution without JavaScript while a spectator nev
     expect(spectated.status()).toBe(404);
     expect(await spectated.text()).not.toContain(SENTINEL);
 
-    // The Negative strikes first; a second tab still holds the same turn's form.
-    const negative = await noScriptPage(
-      browser,
-      guest,
-      'Strike negative, no JavaScript',
-    );
+    // The Negative strikes first.
+    const negative = await memberPage(browser, guest, 'Strike negative');
     opened.push(negative.context);
-    const stale = await openPage(negative.context, 'Stale strike form');
-    for (const page of [negative.page, stale]) {
-      await page.goto(roundPath);
-      await expect(page.getByRole('heading', { name: yourTurn })).toBeVisible();
-      // ADR0097 keeps the participant workspace through the strike phase.
-      await expect(
-        page.getByRole('navigation', { name: 'Files' }),
-      ).toBeVisible();
-    }
-    // Without scripts the timer is the server read's own count: within the 15 s window.
-    // Anchored: the clock ends the timer, and no digit may precede its 0.
+    await negative.page.goto(roundPath);
     await expect(
-      negative.page.getByRole('timer', {
-        name: 'Time left for this strike',
-        exact: true,
-      }),
-    ).toHaveText(/(?<![\d:])0:(0\d|1[0-5])\s*$/);
+      negative.page.getByRole('heading', { name: yourTurn }),
+    ).toBeVisible();
+    // ADR0097 keeps the participant workspace through the strike phase.
+    await expect(
+      negative.page.getByRole('navigation', { name: 'Files' }),
+    ).toBeVisible();
     await negative.page.getByRole('radio').first().check();
     await negative.page
       .getByRole('button', { name: 'Strike this resolution' })
       .click();
     await expect(negative.page.getByText('You struck this')).toBeVisible();
-    await stale.getByRole('radio', { disabled: false }).last().check();
-    await stale.getByRole('button', { name: 'Strike this resolution' }).click();
-    await expect(
-      stale.getByText(
-        'Someone struck first, or time ran out. Here is the draw now.',
-      ),
-    ).toBeVisible();
 
-    // The Affirmative lets its window run out; Refresh shows the reveal.
+    // The Affirmative lets its window run out; the page shows the reveal.
     const revealed = async () =>
       roundViewSchema.parse(
         await (
@@ -201,11 +180,9 @@ test('debaters strike to one resolution without JavaScript while a spectator nev
     }).toPass({ timeout: 60_000 });
     const survivor = (await revealed()).topic!;
     expect(lines).toContain(survivor);
-    await negative.page.getByRole('link', { name: 'Refresh' }).click();
     await expect(
       negative.page.getByText(survivor).locator('visible=true').first(),
     ).toBeVisible();
-    await expect(negative.page).not.toHaveURL(/notice=/);
 
     // A started Room reads closed from outside, with no drawn line, the survivor included.
     await spectator.reload();

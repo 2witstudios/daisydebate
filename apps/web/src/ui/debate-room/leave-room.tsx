@@ -15,11 +15,11 @@ import { leaveRound } from '../../features/rooms/resume-departure';
 import { clearRoundMediaPreferences } from '../../features/round-media/media-preferences';
 
 export type LeaveLinks = {
-  /** The server rendered the confirm (no script ran yet). */
+  /** The server rendered the confirm (not hydrated yet). */
   readonly confirming: boolean;
   /** This round without the confirm: where Stay goes. */
   readonly stayHref: string;
-  /** This round with the confirm: where Leave round goes without script. */
+  /** This round with the confirm: where Leave round goes before hydration. */
   readonly confirmHref: string;
   /** Where leaving takes the debater when there is nothing to forfeit. */
   readonly leaveHref: string;
@@ -67,7 +67,7 @@ const action =
 
 const unanswered: RoundFormState = idle();
 
-/** Leave as the confirmed forfeit (or absence); it works without script and moves on. */
+/** Leave as the confirmed forfeit (or absence); it works before hydration and moves on. */
 function ForfeitLeave({
   forfeit,
   left,
@@ -119,7 +119,7 @@ function ForfeitLeave({
 
 /**
  * Leave, far right of the round bar, behind a confirm. Opening and
- * dismissing the confirm are links, so they work without script; with
+ * dismissing the confirm are links, so they work before hydration; with
  * script the confirm opens in place. Leaving a live Round forfeits it.
  */
 function LeavePermanent({

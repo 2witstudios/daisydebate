@@ -20,7 +20,7 @@ const included = [
 /**
  * Upgrade one event (PYL-15): choose a tier, see what it costs today, and
  * post to checkout. The form posts the tier alone; the server decides the
- * amount. Without JavaScript it still posts, with the summary of the first
+ * amount. Before hydration it still posts, with the summary of the first
  * choice.
  */
 export function UpgradeForm({

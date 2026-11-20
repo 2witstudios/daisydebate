@@ -123,8 +123,8 @@ const seeOther = (location: string) =>
  * then the operation, which also checks the document is the caller's own.
  * Document content, titles and search words are private user content: they never
  * reach a log line. A change posts either JSON or a plain form, the same route:
- * a form answers with a 303 back to the page it came from, so it works without
- * JavaScript, and a refusal returns a fixed notice key, never a typed value.
+ * a form answers with a 303 back to the page it came from, so it works before
+ * hydration, and a refusal returns a fixed notice key, never a typed value.
  */
 export function createDocumentHandlers(dependencies: Dependencies) {
   const route =
@@ -201,7 +201,7 @@ export function createDocumentHandlers(dependencies: Dependencies) {
         },
       );
       // A gate or the rate limit refused a plain form before it was read: a person
-      // without script gets a page and a fixed notice, never raw JSON.
+      // before hydration gets a page and a fixed notice, never raw JSON.
       return isForm(request) && response.status >= 400 && response.status < 500
         ? seeOther('/prep?notice=refused')
         : response;

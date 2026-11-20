@@ -26,13 +26,12 @@ const withdrawGrant = (username: string) =>
     ),
   );
 
-test('without JavaScript, a member without the casual AI judge practises with a person judging, and the server refuses the seat', async ({
+test('a member without the casual AI judge practises with a person judging, and the server refuses the seat', async ({
   browser,
 }) => {
   const context = await browser.newContext({
     baseURL: origin,
     ignoreHTTPSErrors: true,
-    javaScriptEnabled: false,
   });
   try {
     await resetRateLimits(context.request);

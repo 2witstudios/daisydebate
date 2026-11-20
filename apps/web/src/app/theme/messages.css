@@ -81,7 +81,7 @@
   }
 }
 
-/* Newest stays in view with no script: the reversed column starts at its end. */
+/* Newest stays in view before hydration: the reversed column starts at its end. */
 @utility message-scroller {
   display: flex;
   flex-direction: column-reverse;

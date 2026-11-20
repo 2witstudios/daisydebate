@@ -163,16 +163,6 @@ export function createAttendanceFeature(deps: {
   return {
     targets: async (principal: AttendancePrincipal, roundId: string) =>
       (await readState(principal, roundId)).targets,
-    nativeState: async (principal: AttendancePrincipal, roundId: string) => {
-      const state = await readState(principal, roundId);
-      return {
-        ...state,
-        targets: state.targets.map((target) => ({
-          ...target,
-          commandId: deps.nextId(),
-        })),
-      };
-    },
     async checkIn(
       principal: AttendancePrincipal,
       roundId: string,
@@ -209,7 +199,3 @@ export function createAttendanceFeature(deps: {
       }),
   };
 }
-
-export type NativeAttendanceState = Awaited<
-  ReturnType<ReturnType<typeof createAttendanceFeature>['nativeState']>
->;

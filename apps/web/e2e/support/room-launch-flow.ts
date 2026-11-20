@@ -116,10 +116,6 @@ export async function submitCreateRoom(
   await form
     .locator(`input[name="format"][value="${template ? 'custom' : formatId}"]`)
     .check();
-  // Rendered only inside noscript, so it also says this browser runs no script.
-  const apply = form.getByRole('button', { name: 'Apply format', exact: true });
-  const scripted = (await apply.count()) === 0;
-  if (!scripted) await apply.click();
   if (template) {
     await form
       .getByText('Start from a league template', { exact: true })
@@ -127,18 +123,10 @@ export async function submitCreateRoom(
     const templates = form.locator('[name="template"]');
     const option = templates.locator('option').filter({ hasText: template });
     await templates.selectOption((await option.getAttribute('value'))!);
-    if (!scripted)
-      await form
-        .getByRole('button', { name: 'Apply template', exact: true })
-        .click();
   }
   await form.getByLabel('Room name', { exact: true }).fill(title);
   if (resolution !== null) {
     await form.locator('[name="resolutionMethod"]').selectOption('custom');
-    if (!scripted)
-      await form
-        .getByRole('button', { name: 'Apply resolution', exact: true })
-        .click();
     await form
       .getByLabel('Custom resolution', { exact: true })
       .fill(resolution);
@@ -146,13 +134,10 @@ export async function submitCreateRoom(
   if (ranked) {
     await form.getByRole('checkbox', { name: 'Ranked', exact: true }).check();
     // A ranked Room is always public, so the form offers no choice (WATCH-5).
-    // Without script the page cannot redraw, so the select stays and the words say so.
-    if (scripted) await expect(form.getByLabel('Who can join')).toHaveCount(0);
+    await expect(form.getByLabel('Who can join')).toHaveCount(0);
     await expect(
       form.getByText(
-        scripted
-          ? 'Listed in the lobby. Play casual to choose who can join.'
-          : 'Choosing Ranked makes the Room public',
+        'Listed in the lobby. Play casual to choose who can join.',
       ),
     ).toBeVisible();
   } else await form.getByLabel('Who can join').selectOption('public');
@@ -396,15 +381,10 @@ export async function assertFrozenLaunch(view: RoomView) {
   return proof;
 }
 /**
- * The host's Fill seat on an open seat's row opens its picker (ADR 0145).
- * Pass `script: false` for a JavaScript-disabled page: the menu still opens
- * natively, but only PopoverDialog's script moves focus to the choice (#784).
+ * The host's Fill seat on an open seat's row opens its picker (ADR 0145),
+ * and PopoverDialog moves keyboard focus to the choice (#784).
  */
-export async function openSeatPicker(
-  page: Page,
-  seatName: string,
-  { script = true }: { script?: boolean } = {},
-) {
+export async function openSeatPicker(page: Page, seatName: string) {
   const select = page.getByLabel(`Seat someone in ${seatName}`, {
     exact: true,
   });
@@ -414,8 +394,7 @@ export async function openSeatPicker(
     .getByRole('button', { name: `Fill ${seatName}`, exact: true })
     .click();
   await expect(select).toBeVisible();
-  // With script, opening it moves keyboard focus to the choice.
-  if (script) await expect(select).toBeFocused();
+  await expect(select).toBeFocused();
   return select;
 }
 

@@ -13,10 +13,9 @@ pressing Try again. When a read answers temporarily (`temporary-read.ts`: a
 refused read's 503 with `Retry-After`, or a rate limit), or a refusal makes the
 page's identity temporarily unavailable, a Round's room and its own page render
 an honest status page that asks again after 2 to 4 s, so pages refused together
-do not return together. With JavaScript it asks in place with a `router.refresh`,
-waiting longer each time up to 10 s, which keeps focus and the shell around it,
-and a member moving on cancels it. Without JavaScript a plain `meta refresh` does
-it. It shows no Round state, because none was read, and each retry applies the
+do not return together. It asks in place with a `router.refresh`, waiting
+longer each time up to 10 s, which keeps focus and the shell around it, and a
+member moving on cancels it. It shows no Round state, because none was read, and each retry applies the
 access and redirect rules again. It answers 200 and `no-store`: a Next page cannot choose a 5xx.
 Reads beside the room (ratings, transcript, attendance) degrade in place,
 because a refresh would cost the room for less than its controls. Any other
@@ -80,7 +79,7 @@ The rule that remains is that a click before hydration never leaks what was type
   username claim, the sign-in link request and the email change all work
   this way.
 - An action that moves on ends with `moveOn` (`apps/web/src/server/form-action.ts`),
-  never a bare `redirect()`. A form posted without JavaScript gets a 303;
+  never a bare `redirect()`. A form posted before hydration gets a 303;
   a hydrated page gets the destination back as action state and navigates
   itself. A `redirect()` in an action the page's script calls makes Next
   fetch the target from the public origin with the browser's cookies, and
@@ -214,8 +213,7 @@ only, with every name kept as screen-reader text.
 The full accessible name is unchanged in both modes: counts stay in it
 ("Friends, 5 online"), hover flyouts (Watch: Watch live, Recordings)
 reveal on hover and keyboard focus, badges are unchanged, and Friends is its
-own page, `/friends`. Minimize is a form posting a server action, so it
-works without JavaScript; it is named Minimize when extended and Expand when
+own page, `/friends`. Minimize is a form posting a server action; it is named Minimize when extended and Expand when
 mini.
 
 Both shell sidebars follow the selected theme: light cream/white surfaces in

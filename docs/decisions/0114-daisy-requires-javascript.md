@@ -17,4 +17,15 @@ tests, and agents kept raising it.
 2. One rule remains: a form used before hydration never submits as a native GET,
    because that would put what was typed in the URL.
 3. Existing fallbacks and JavaScript-off tests are removed in their own slice.
-   Until then they stay green and set no precedent.
+   Until then they stay green and set no precedent. Done in RECON-2.1
+   (2026-11-19).
+
+## Enforcement
+
+`scripts/check-styling.ts` runs `scripts/javascript-required.ts`, in `bun lint`
+and the quick check. It fails on a `<noscript>`, a meta refresh, or a
+`javaScriptEnabled` browser context, and on a form that could submit as a
+native GET: one with no `action` (a spread does not count) unless it is
+`method="dialog"`, one posting to a URL with no `method`, and a GET form
+outside the search primitives (`SearchForm` in web and in the operator app).
+A form posted before hydration still gets its 303 from `moveOn`.

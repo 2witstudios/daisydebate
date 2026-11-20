@@ -4,7 +4,7 @@ import { useRef, type ReactNode } from 'react';
 import { buttonClass } from '../../components/button/button-class';
 import { Icon } from '../../components/icon/icon';
 
-/** The page that lists the same choices when no script has run. */
+/** The page that lists the same choices when nothing has hydrated. */
 const playFallbackHref = '/play';
 
 type Click = {

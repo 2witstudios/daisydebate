@@ -127,7 +127,7 @@ for (const { name, width, height, columns } of widths) {
     const target = await premium.boundingBox();
     expect(target?.height ?? 0).toBeGreaterThanOrEqual(44);
 
-    // The questions open without script and the first starts open.
+    // The questions are native disclosures and the first starts open.
     const ranked = page.locator('details', { hasText: 'Who plays ranked?' });
     await expect(
       page.getByText('There are no counters.', { exact: false }),

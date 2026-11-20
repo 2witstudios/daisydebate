@@ -255,12 +255,6 @@ export function BroadcastViewer({
                 {playerNotices[screen.notice]}
               </p>
             ) : null}
-            <noscript>
-              <p className="text-sm text-ink-muted">
-                The video needs JavaScript. The facts below stay current on
-                reload.
-              </p>
-            </noscript>
           </div>
         ) : (
           <StateInsteadOfPlayer

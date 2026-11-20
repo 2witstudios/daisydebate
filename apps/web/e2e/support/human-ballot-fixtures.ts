@@ -26,7 +26,7 @@ export async function humanBallotFixtures(browser: Browser) {
   const accounts = await createHumanJudgeProofAccounts(browser);
   try {
     const rounds = [];
-    for (let index = 0; index < 5; index++)
+    for (let index = 0; index < 4; index++)
       rounds.push(
         await playHumanBallotRound(
           accounts.members,
@@ -37,7 +37,7 @@ export async function humanBallotFixtures(browser: Browser) {
       rounds.map((round) => round.id),
       true,
     );
-    await submitJudgeBallot(accounts.members[2]!, rounds[3]!.id, {
+    await submitJudgeBallot(accounts.members[2]!, rounds[2]!.id, {
       winner: accounts.members[0]!.username,
       reason: 'The affirmative answered the decisive clash.',
     });

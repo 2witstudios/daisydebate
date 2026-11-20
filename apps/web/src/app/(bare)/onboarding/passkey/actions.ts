@@ -8,8 +8,8 @@ import type { DeclineState } from '../../../../ui/auth/onboarding/decline-offer'
 
 /**
  * The passkey offer's decline choices (shared computer, or not now), as a
- * server action: both are real form POSTs, so they work before hydration
- * and without JavaScript. `next` is validated again here with the same
+ * server action: both are real form POSTs, so they work before hydration.
+ * `next` is validated again here with the same
  * helper the page used, never trusted as a redirect target as posted. A
  * member who has not finished onboarding continues into it.
  */
