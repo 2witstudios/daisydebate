@@ -8,6 +8,7 @@
  * before it is quoted into SQL.
  */
 import type { SQL } from 'bun';
+import { sessionLocks } from './locks';
 import { quoteIdentifier } from './identifiers';
 
 const passwordPattern = /^[a-z0-9-]{1,64}$/;
@@ -137,10 +138,10 @@ export async function withSlotLock<T>(
   admin: SQL,
   work: () => Promise<T>,
 ): Promise<T> {
-  await admin`select pg_advisory_lock(hashtext('daisy-slot-admin'))`;
+  await sessionLocks.slotAdmin.take(admin);
   try {
     return await work();
   } finally {
-    await admin`select pg_advisory_unlock(hashtext('daisy-slot-admin'))`;
+    await sessionLocks.slotAdmin.release(admin);
   }
 }

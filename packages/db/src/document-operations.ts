@@ -5,6 +5,8 @@ import { instrumented, type DatabaseEventSink } from './instrumented';
 import { documentFolders } from './schema/document-folders';
 import { documents } from './schema/documents';
 import { inTransaction, type Tx, type TxSource } from './tx';
+import { query as queryRows } from './raw-rows';
+import { z } from 'zod';
 
 /** One owned folder's recursive subtree, shared by confirmation and deletion. */
 const folderSubtree = (id: string) => sql`
@@ -154,7 +156,10 @@ const ancestors = async (
   folderId: string | null,
 ): Promise<readonly string[]> => {
   if (folderId === null) return [];
-  const rows = (await tx.execute(sql`
+  const rows = await queryRows(
+    tx,
+    z.object({ id: z.string() }),
+    sql`
     with recursive up(id, parent_folder_id, depth) as (
       select id, parent_folder_id, 1 from document_folders
       where id = ${folderId} and owner_actor_id = ${ownerActorId}
@@ -162,9 +167,8 @@ const ancestors = async (
       select f.id, f.parent_folder_id, up.depth + 1
       from document_folders f join up on f.id = up.parent_folder_id
     )
-    select id from up order by depth`)) as unknown as {
-    readonly id: string;
-  }[];
+    select id from up order by depth`,
+  );
   return rows.map((row) => row.id);
 };
 
@@ -323,7 +327,15 @@ export const documentOperations = ({
     readonly offset: number;
   }): Promise<readonly DocumentSearchHit[]> {
     return instrumented(eventSink, 'searchDocuments', async () => {
-      const rows = (await searchDatabase.execute(sql`
+      const rows = await queryRows(
+        searchDatabase,
+        z.object({
+          id: z.string(),
+          title: z.string(),
+          folderId: z.string().nullable(),
+          snippet: z.string(),
+        }),
+        sql`
         with hits as (
           select id, title, folder_id, html,
             ts_rank(search, to_tsquery('simple', ${input.query})) as score,
@@ -338,7 +350,8 @@ export const documentOperations = ({
           ts_headline('simple', left(html, ${SNIPPET_SOURCE_CHARS}), to_tsquery('simple', ${input.query}),
             'StartSel="", StopSel="", MaxFragments=1, MaxWords=24, MinWords=8') as snippet
         from hits
-        order by score desc, updated_at desc, id`)) as unknown as DocumentSearchHit[];
+        order by score desc, updated_at desc, id`,
+      );
       return rows;
     });
   },

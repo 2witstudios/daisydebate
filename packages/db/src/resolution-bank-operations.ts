@@ -1,4 +1,4 @@
-import { and, inArray, isNull, max, sql } from 'drizzle-orm';
+import { and, inArray, isNull, max } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import {
@@ -7,6 +7,7 @@ import {
 } from './schema/resolution-draws';
 import type { ResolutionCategory } from '@daisy/protocol/resolution-draw';
 import { inTransaction, type TxSource } from './tx';
+import { takeLock, transactionLocks } from './locks';
 
 type NewEntry = {
   readonly id: string;
@@ -40,9 +41,7 @@ export const resolutionBankOperations = ({
       throw createAppError('VALIDATION');
     return instrumented(eventSink, 'publishResolutionBankRevision', () =>
       inTransaction(database, async (tx) => {
-        await tx.execute(
-          sql`select pg_advisory_xact_lock(hashtextextended('resolution-bank', 59002))`,
-        );
+        await takeLock(tx, transactionLocks.resolutionBank());
         const [latest] = await tx
           .select({ revision: max(resolutionBankRevisions.revision) })
           .from(resolutionBankRevisions);

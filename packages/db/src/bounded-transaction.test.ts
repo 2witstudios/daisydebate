@@ -202,7 +202,7 @@ test('the transaction facade refuses controls and use after its callback', async
     actual: () =>
       run(async (tx) => {
         escaped = tx;
-        return (tx as unknown as { transaction: unknown }).transaction;
+        return Reflect.get(tx, 'transaction');
       }),
     code: 'INVARIANT',
   });

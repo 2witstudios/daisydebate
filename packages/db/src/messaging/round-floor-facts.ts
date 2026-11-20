@@ -4,8 +4,9 @@ import {
   type RoundFloorFact,
 } from '@daisy/protocol/round-floor';
 import type { YouthLiveFact } from '@daisy/protocol';
-import { rowsOf } from '../raw-rows';
+import { rowsOf, query } from '../raw-rows';
 import type { Tx } from '../tx';
+import { z } from 'zod';
 
 type FloorRow = {
   readonly actor_id: string;
@@ -56,8 +57,9 @@ export async function readRoundFloorFacts(
       ? new Set<string>()
       : new Set(
           (
-            await rowsOf<{ readonly actor_id: string }>(
+            await query(
               tx,
+              z.object({ actor_id: z.string() }),
               sql`select p.actor_id from round_participants p where p.round_id=${roundId}::text and public.daisy_round_participant_is_current(p.id)`,
             )
           ).map((row) => row.actor_id),

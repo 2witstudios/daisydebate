@@ -16,6 +16,7 @@ import {
   type PrivacyErasureInput,
 } from './planner';
 import { inTransaction, type Tx } from '../tx';
+import { run } from '../raw-rows';
 
 /** Supplied by the actual token producer, never inferred from token text. */
 export type PrivacyVerificationBinding =
@@ -105,11 +106,16 @@ export async function runPrivacyErasure(
           binding.subject === 'userId'
             ? sql`value::jsonb ->> 'userId' = ${plan.subject.userId}`
             : sql`lower(value::jsonb ->> 'email') = (select lower(email) from users where id = ${plan.subject.userId})`;
-        await tx.execute(sql`delete from verification where case
+        await run(
+          tx,
+          sql`delete from verification where case
           when starts_with(identifier, ${`${binding.purpose}:`}) then ${condition}
-          else false end`);
+          else false end`,
+        );
       } else {
-        await tx.execute(sql`delete from verification where case
+        await run(
+          tx,
+          sql`delete from verification where case
           when value is json object then case
             when value::jsonb ->> 'type' in (${sql.join(
               binding.jsonTypes.map((type) => sql`${type}`),
@@ -120,17 +126,22 @@ export async function runPrivacyErasure(
                 sql`, `,
               )}]::text[] = ${plan.subject.userId}
             else false end
-          else false end`);
+          else false end`,
+        );
       }
     }
     for (const table of ['session', 'account', 'passkey'])
-      await tx.execute(
+      await run(
+        tx,
         sql`delete from ${sql.identifier(table)} where user_id = ${plan.subject.userId}`,
       );
-    await tx.execute(sql`update users set email = null, image = null,
+    await run(
+      tx,
+      sql`update users set email = null, image = null,
       name = '', email_verified = false, deleted_at = ${plan.now}::timestamptz,
       updated_at = ${plan.now}::timestamptz, version = version + 1
-      where id = ${plan.subject.userId}`);
+      where id = ${plan.subject.userId}`,
+    );
     await eraseAdopters(tx, plan.subject, plan.now, adoption, 'after-close');
     for (const job of plan.jobs) await enqueuePrivacyJob(tx, job);
     return { alreadyErased: false, jobs: plan.jobs };

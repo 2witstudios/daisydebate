@@ -45,6 +45,8 @@ import {
   type ChatMessageModeration,
 } from './content-moderation-ports';
 import { inTransaction, type TxSource, type Tx } from './tx';
+import { takeLock, transactionLocks } from './locks';
+import { run } from './raw-rows';
 
 type Database = TxSource & Tx;
 
@@ -672,14 +674,13 @@ export function contentModerationOperations({
     }): Promise<ContentModerationCommandResult> =>
       instrumented(eventSink, 'runModerationCommand', () =>
         inTransaction(database, async (tx) => {
-          await tx.execute(
+          await run(
+            tx,
             sql.raw(
               `set local statement_timeout = ${operatorLimits.commandBoundMs}`,
             ),
           );
-          await tx.execute(
-            sql`select pg_advisory_xact_lock(hashtextextended(${input.commandId}, 59079))`,
-          );
+          await takeLock(tx, transactionLocks.operatorCommand(input.commandId));
           const [stored] = await rows<{
             request_digest: string;
             result: unknown;
@@ -710,12 +711,15 @@ export function contentModerationOperations({
             input.change.action === 'account.audience_ban.update'
               ? input.change.userId
               : null;
-          await tx.execute(sql`insert into operator_command_receipts
+          await run(
+            tx,
+            sql`insert into operator_command_receipts
               (command_id, service_id, operator_ref, action, target_user_id,
                request_digest, result, admin_audit_head)
             values (${input.commandId}, ${input.serviceId}, ${input.operatorRef},
               ${receipt.action}, ${targetUserId}, ${input.requestDigest},
-              ${JSON.stringify(receipt.result)}::text::jsonb, ${input.adminAuditHead})`);
+              ${JSON.stringify(receipt.result)}::text::jsonb, ${input.adminAuditHead})`,
+          );
           // Checked last: a command delayed past its deadline writes nothing.
           if (!input.live()) throw createAppError('CONFLICT');
           return contentModerationCommandResultSchema.parse(receipt.result);

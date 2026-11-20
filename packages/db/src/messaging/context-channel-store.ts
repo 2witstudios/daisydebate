@@ -20,6 +20,7 @@ import type {
   ContextChannelWriteFrame,
 } from './context-channel-contracts';
 import { inTransaction, type TxSource, type Tx } from '../tx';
+import { run } from '../raw-rows';
 
 type DiscoveryScope = Omit<ContextChannelScope, 'channelId'>;
 const requireScope = (scope: DiscoveryScope) => {
@@ -76,7 +77,8 @@ export function createContextChannelStore<Fact extends ContextChannelFact>(
       async (tx, frame) => {
         if (frame.fact.channelId !== scope.channelId)
           throw createAppError('NOT_FOUND');
-        await tx.execute(
+        await run(
+          tx,
           sql`select id from messaging_channels where id=${scope.channelId} and kind=${owner.kind} for share`,
         );
         const counters = {

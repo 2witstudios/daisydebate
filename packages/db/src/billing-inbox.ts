@@ -14,6 +14,7 @@ import {
   resolveRefundReceipt,
 } from './billing-refund-receipt';
 import type { Tx } from './tx';
+import { run as runStatement } from './raw-rows';
 
 const customerReceiptSchema = z.strictObject({
   eventId: z
@@ -168,6 +169,9 @@ export function createBillingInbox(input: {
 
 /** Retain only bounded receipts; replay after retention still rereads current vendor facts. */
 export async function eraseBillingReceipts(tx: Tx, userId: string) {
-  await tx.execute(sql`delete from billing_webhook_events where (mode,vendor_customer_id) in
-    (select mode,vendor_customer_id from billing_customers where user_id=${userId})`);
+  await runStatement(
+    tx,
+    sql`delete from billing_webhook_events where (mode,vendor_customer_id) in
+    (select mode,vendor_customer_id from billing_customers where user_id=${userId})`,
+  );
 }

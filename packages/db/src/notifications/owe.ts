@@ -7,10 +7,11 @@ import {
 } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import { appendOutboxEvents } from '../outbox';
-import { rowsOf } from '../raw-rows';
+import { query } from '../raw-rows';
 import { notificationSubjectColumns } from '../schema/notifications';
 import { oweDigests } from './digests';
 import type { Tx } from '../tx';
+import { z } from 'zod';
 
 type SubjectColumns = typeof notificationSubjectColumns;
 
@@ -66,12 +67,9 @@ export async function oweNotifications<K extends NotificationKind>(
     columns.map((column) => sql`${ids[column]}`),
     sql`,`,
   );
-  const written = await rowsOf<{
-    id: string;
-    user_id: string;
-    actor_id: string;
-  }>(
+  const written = await query(
     tx,
+    z.object({ id: z.string(), user_id: z.string(), actor_id: z.string() }),
     sql`with w as (
         insert into notifications(id,user_id,kind,${subjectNames},actor_id,created_at,surfaced_at)
         select w.id,w.user_id,${owed.kind},${subjectValues},w.actor_id,${owed.at}::timestamptz,${owed.at}::timestamptz
@@ -158,12 +156,9 @@ export async function resurfaceNotifications<K extends NotificationKind>(
     sql` and `,
   );
   const users = JSON.stringify(owed.userIds);
-  const moved = await rowsOf<{
-    id: string;
-    user_id: string;
-    actor_id: string;
-  }>(
+  const moved = await query(
     tx,
+    z.object({ id: z.string(), user_id: z.string(), actor_id: z.string() }),
     sql`with m as (
         update notifications n set surfaced_at=${owed.at}::timestamptz,read_at=null
         where n.kind=${owed.kind} and ${names}

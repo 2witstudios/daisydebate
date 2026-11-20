@@ -21,6 +21,9 @@ import {
 } from './beta-preapproval-claim';
 import { operatorLimits } from '@daisy/protocol/operator';
 import { inTransaction, type Tx, type TxSource } from './tx';
+import { takeLock, transactionLocks } from './locks';
+import { run, query } from './raw-rows';
+import { z } from 'zod';
 
 /** Delivery is unknown while a send may have happened without settlement. */
 const invitationStatusSql = sql.raw(
@@ -32,9 +35,11 @@ export async function readPreapprovalCommandState(
   commandId: string,
   result: unknown,
 ) {
-  const [mail] = (await database.execute(
+  const [mail] = await query(
+    database,
+    z.object({ state: z.string() }),
     sql`select ${invitationStatusSql} as state from mail_intents m where dedupe_key = ${`beta-invitation:${commandId}`}`,
-  )) as unknown as { state: string }[];
+  );
   const stored = preapprovalResultSchema.parse(result);
   return {
     result: stored,
@@ -79,13 +84,15 @@ export function preapprovalOperations({
         if (!input.live()) throw createAppError('CONFLICT');
         const result = await inTransaction(database, async (tx) => {
           const command = preapprovalCommandSchema.parse(input.command);
-          await tx.execute(
+          await run(
+            tx,
             sql.raw(
               `set local statement_timeout = ${operatorLimits.commandBoundMs}`,
             ),
           );
-          await tx.execute(
-            sql`select pg_advisory_xact_lock(hashtextextended(${command.commandId}, 59079))`,
+          await takeLock(
+            tx,
+            transactionLocks.operatorCommand(command.commandId),
           );
           const [receipt] = (await tx.execute(
             sql`select request_digest, result from operator_command_receipts where command_id = ${command.commandId}`,
@@ -99,16 +106,20 @@ export function preapprovalOperations({
           // all take their account first; removal has no account effect at all.
           const accounts =
             command.operation === 'add'
-              ? ((await tx.execute(
+              ? await query(
+                  tx,
+                  z.object({ id: z.string() }),
                   sql`select id from users where ${normalizedEmailSql(sql`email`)} = ${command.email} order by id for update`,
-                )) as unknown as { id: string }[])
+                )
               : [];
           const [existing] =
             command.operation === 'add'
               ? []
-              : ((await tx.execute(
+              : await query(
+                  tx,
+                  z.object({ email: z.string() }),
                   sql`select email from beta_preapprovals where id = ${command.preapprovalId}`,
-                )) as unknown as { email: string }[]);
+                );
           const email =
             command.operation === 'add' ? command.email : existing?.email;
           if (!email) throw createAppError('NOT_FOUND');
@@ -116,16 +127,19 @@ export function preapprovalOperations({
           if (command.operation === 'add') {
             // A signup may have committed after discovery but before this email
             // fence. Restart account-first; never acquire an unseen account here.
-            const fresh = (await tx.execute(
+            const fresh = await query(
+              tx,
+              z.object({ id: z.string() }),
               sql`select id from users where ${normalizedEmailSql(sql`email`)} = ${email}`,
-            )) as unknown as { id: string }[];
+            );
             if (
               fresh.some(
                 (user) => !accounts.some((locked) => locked.id === user.id),
               )
             )
               return null;
-            await tx.execute(
+            await run(
+              tx,
               sql`insert into beta_preapprovals (id, email) values (${input.nextId()}, ${email}) on conflict (email) do nothing`,
             );
             for (const user of accounts)
@@ -134,29 +148,35 @@ export function preapprovalOperations({
                 commandId: command.commandId,
               });
           }
-          const [grant] = (await tx.execute(
+          const [grant] = await query(
+            tx,
+            z.object({
+              id: z.string(),
+              revision: z.number(),
+              claimed_user_id: z.string().nullable(),
+              last_invited_at: z.date().nullable(),
+            }),
             sql`select id, revision, claimed_user_id, last_invited_at from beta_preapprovals where email = ${email} for update`,
-          )) as unknown as {
-            id: string;
-            revision: number;
-            claimed_user_id: string | null;
-            last_invited_at: Date | null;
-          }[];
+          );
           const account = grant?.claimed_user_id
             ? await loadAuthorizationAccount(tx, grant.claimed_user_id)
             : null;
           const [identity] = grant?.claimed_user_id
-            ? ((await tx.execute(
+            ? await query(
+                tx,
+                z.object({
+                  email: z.string().nullable(),
+                  email_verified: z.boolean(),
+                }),
                 sql`select email, email_verified from users where id = ${grant.claimed_user_id}`,
-              )) as unknown as {
-                email: string | null;
-                email_verified: boolean;
-              }[])
+              )
             : [];
           const [owed] = grant
-            ? ((await tx.execute(
+            ? await query(
+                tx,
+                z.object({ id: z.string() }),
                 sql`select id from mail_intents where preapproval_id = ${grant.id} and state in ('queued', 'leased') limit 1`,
-              )) as unknown as { id: string }[])
+              )
             : [];
           const decision = decidePreapprovalChange({
             command,
@@ -189,25 +209,30 @@ export function preapprovalOperations({
               tx,
               decision.result.preapprovalId,
             );
-            await tx.execute(
+            await run(
+              tx,
               sql`delete from beta_preapprovals where id = ${decision.result.preapprovalId}`,
             );
           } else {
             if (decision.queueInvitation) {
-              await tx.execute(
+              await run(
+                tx,
                 sql`insert into mail_intents (id, purpose, preapproval_id, dedupe_key, next_attempt_at) values (${input.nextId()}, 'beta-invitation', ${decision.result.preapprovalId}, ${`beta-invitation:${command.commandId}`}, now())`,
               );
-              await tx.execute(
+              await run(
+                tx,
                 sql`update beta_preapprovals set last_invited_at = now() where id = ${decision.result.preapprovalId}`,
               );
             }
             if (decision.advanceRevision)
-              await tx.execute(
+              await run(
+                tx,
                 sql`update beta_preapprovals set revision = ${decision.result.revision} where id = ${decision.result.preapprovalId}`,
               );
           }
           const result = decision.result;
-          await tx.execute(
+          await run(
+            tx,
             sql`insert into operator_command_receipts (command_id, service_id, operator_ref, action, request_digest, result, admin_audit_head) values (${command.commandId}, ${input.serviceId}, ${input.operatorRef}, ${preapprovalAction}, ${input.requestDigest}, ${JSON.stringify(result)}::text::jsonb, ${command.adminAuditHead})`,
           );
           if (!input.live()) throw createAppError('CONFLICT');

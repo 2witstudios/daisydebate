@@ -16,6 +16,7 @@ import { roundAnalyses } from './schema/round-analyses';
 import { usageReservations } from './schema/usage-reservations';
 import { notifyWork } from './work-wake';
 import type { Tx } from './tx';
+import { takeLock, transactionLocks } from './locks';
 
 async function requireCapacity(
   tx: Tx,
@@ -54,9 +55,7 @@ export function createRoundAnalysisRequests(input: {
       if (!authority.privacy || !authority.account)
         throw createAppError('NOT_FOUND');
       // Account fences precede the feature's capacity lock; no vendor I/O or lock upgrade.
-      await tx.execute(
-        sql`select pg_advisory_xact_lock(hashtextextended('round-analysis-capacity',59004))`,
-      );
+      await takeLock(tx, transactionLocks.roundAnalysisCapacity());
       const access = await lockAnalysisRound(tx, authority.target);
       if (access.round.status !== 'completed' || !request.authorize(access))
         throw createAppError('NOT_FOUND');

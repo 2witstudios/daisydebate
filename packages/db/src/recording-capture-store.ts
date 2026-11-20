@@ -49,6 +49,7 @@ import { rooms } from './schema/rooms';
 import { roundParticipants } from './schema/round-participants';
 import { rounds } from './schema/rounds';
 import { inTransaction, type TxSource } from './tx';
+import { run } from './raw-rows';
 
 /**
  * Recording's capture control plane: its own tables, and the Round and the
@@ -320,7 +321,8 @@ export const createRecordingCaptureStore = (database: TxSource) => ({
           egressSettledAt: own.egressSettledAt ?? now,
         })
         .where(eq(captures.recordingId, input.recordingId));
-      await tx.execute(
+      await run(
+        tx,
         sql`select public.daisy_recording_settle_tournament_admission(${address.roundId})`,
       );
       return true;

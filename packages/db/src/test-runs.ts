@@ -9,6 +9,7 @@
  * it.
  */
 import type { SQL } from 'bun';
+import { sessionLocks } from './locks';
 import { quoteIdentifier } from './identifiers';
 
 const tokenPattern = /^[0-9a-f]{8}$/;
@@ -40,8 +41,6 @@ export function testRunDatabaseName(
 export const slotDatabaseOfRun = (name: string): string | undefined =>
   runSuffix.exec(name)?.[1];
 
-const lockKey = (name: string) => `hashtextextended('${name}', 0)`;
-
 /**
  * Creates the run's database from `template0` while holding its liveness
  * lock. The lock is taken first, so a concurrent sweep never sees the
@@ -53,10 +52,8 @@ export async function claimTestRunDatabase(
   name: string,
 ): Promise<number> {
   const quoted = quoteIdentifier(name);
-  const [{ free }]: [{ free: boolean }] = await admin.unsafe(
-    `select pg_try_advisory_lock(${lockKey(name)}) as free`,
-  );
-  if (!free) throw new Error(`Run database ${name} is already claimed`);
+  if (!(await sessionLocks.testRun.tryTake(admin, name)))
+    throw new Error(`Run database ${name} is already claimed`);
   await admin.unsafe(`create database ${quoted} template template0`);
   return backendPid(admin);
 }
@@ -138,11 +135,7 @@ export async function sweepTestRunDatabases(
 ): Promise<readonly string[]> {
   const dropped: string[] = [];
   for (const name of await runDatabasesOf(admin, slotTestDatabase)) {
-    const key = lockKey(quoteIdentifier(name).slice(1, -1));
-    const [{ free }]: [{ free: boolean }] = await admin.unsafe(
-      `select pg_try_advisory_lock(${key}) as free`,
-    );
-    if (!free) continue;
+    if (!(await sessionLocks.testRun.tryTake(admin, name))) continue;
     try {
       // A free lock with a session started within the run bound is a live
       // run whose runner's connection was cut (ISSUE-250): never drop under
@@ -152,7 +145,7 @@ export async function sweepTestRunDatabases(
       await dropTestRunDatabase(admin, name);
       dropped.push(name);
     } finally {
-      await admin.unsafe(`select pg_advisory_unlock(${key})`);
+      await sessionLocks.testRun.release(admin, name);
     }
   }
   return dropped;

@@ -7,6 +7,8 @@ import { sql } from 'drizzle-orm';
 import { readAttendanceLedger } from './attendance-settlement';
 import { readJudgingPanelFacts } from './judging-panel-read';
 import type { Tx } from './tx';
+import { query as queryRows } from './raw-rows';
+import { z } from 'zod';
 
 /** Spares the hottest read this query for the whole of a running debate. */
 const speechesEnded = (round: Pick<LaunchedRound, 'rules' | 'segments'>) =>
@@ -18,13 +20,14 @@ async function readWaitingFacts(
   tx: Tx,
   round: Pick<LaunchedRound, 'id' | 'transcriptCompleteness'>,
 ): Promise<RoundWaitingFacts> {
-  const [facts] = (await tx.execute(sql`select
+  const [facts] = await queryRows(
+    tx,
+    z.object({ now: z.string(), ended: z.boolean() }),
+    sql`select
     clock_timestamp()::text as now,
     r.final_segment_ended_at is not null as ended
-    from rounds r where r.id=${round.id}`)) as unknown as {
-    now: string;
-    ended: boolean;
-  }[];
+    from rounds r where r.id=${round.id}`,
+  );
   if (!facts!.ended) return { speeches: 'running' };
   return {
     speeches: 'ended',

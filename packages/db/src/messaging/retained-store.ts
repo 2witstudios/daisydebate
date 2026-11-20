@@ -3,6 +3,7 @@ import { readOwnCollection, type OwnCollectionFence } from '../authorization';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
 import { eraseRetainedAuthorship, requireRetainedAuthor } from './retained-dm';
 import type { Tx, TxSource } from '../tx';
+import { run } from '../raw-rows';
 
 type Scope = { readonly actorId: string; readonly userId: string };
 const rowsOf = <T>(rows: unknown) => rows as T[];
@@ -87,7 +88,8 @@ export const retainedConversationOperations = ({
     instrumented(eventSink, 'deleteRetainedConversation', () =>
       readOwnCollection(database, scope, authorize, async (tx) => {
         await requireRetainedAuthor(tx, scope.actorId, scope.channelId);
-        await tx.execute(
+        await run(
+          tx,
           sql`select id from messaging_channels where id=${scope.channelId} for update`,
         );
         await eraseRetainedAuthorship(tx, scope.actorId, [scope.channelId]);

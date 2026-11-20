@@ -6,6 +6,8 @@ import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import type { Tx } from './tx';
+import { query } from './raw-rows';
+import { z } from 'zod';
 export type CheckInAttempt = {
   readonly attemptId: string;
   readonly commandId: string;
@@ -69,10 +71,12 @@ export function checkInAttemptLifecycle(
       // reconciler mid-transaction and then reads its committed state, and one
       // it already aborted for this writer is the same verified fact
       // (ISSUE-618). A single statement's snapshot would still see 'pending'.
-      const [held] = (await control.execute(
+      const [held] = await query(
+        control,
+        z.object({ state: z.string() }),
         sql`select state from round_check_in_attempts where attempt_id=${attempt.attemptId}
      and backend_pid=${metadata.writer.pid} and backend_started_at=${metadata.writer.backendStart}::timestamptz for update`,
-      )) as unknown as { state: string }[];
+      );
       if (outcome === 'aborted' && held?.state === 'aborted') return;
       const resolvedAt = roundTime
         ? sql`${await sampleRoundExecutionTime(control, roundTime)}::timestamptz`

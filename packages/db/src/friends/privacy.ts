@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm';
 import { idSchema } from '@daisy/protocol';
 import type { PrivacyAdopter, PrivacyExport } from '../privacy/contracts';
 import { exportRows } from '../privacy/export-rows';
+import { run } from '../raw-rows';
 
 const rowsOf = (rows: unknown) => rows as Record<string, unknown>[];
 
@@ -11,7 +12,8 @@ export const friendsPrivacyAdopter: PrivacyAdopter = {
   phase: 'after-close',
   async erase(tx, subject) {
     const actorId = idSchema.parse(subject.actorId);
-    await tx.execute(
+    await run(
+      tx,
       sql`delete from friendships where low_actor_id=${actorId} or high_actor_id=${actorId}`,
     );
   },

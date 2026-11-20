@@ -7,6 +7,8 @@ import {
 } from './authorization';
 import type { authorizationAccountFact } from './authorization-account';
 import { inTransaction, type Tx, type TxOpener } from './tx';
+import { query } from './raw-rows';
+import { z } from 'zod';
 type RealtimeSessionInput = {
   readonly sessionId: string;
   readonly actorId: string;
@@ -41,12 +43,14 @@ export async function loadAuthorizationSessions(
     sessionInstant({ ...session, now: input.now }),
   );
   if (input.sessions.length === 0) return [];
-  const rows = (await tx.execute(
+  const rows = await query(
+    tx,
+    z.object({ id: z.string(), userId: z.string(), expiresAt: z.date() }),
     sql`select id, user_id as "userId", expires_at as "expiresAt" from session where id = any(array[${sql.join(
       input.sessions.map(({ sessionId }) => sql`${sessionId}`),
       sql`, `,
     )}]::text[])`,
-  )) as unknown as { id: string; userId: string; expiresAt: Date }[];
+  );
   const byId = new Map(rows.map((row) => [row.id, row]));
   return input.sessions.map((wanted, index) => {
     const row = byId.get(wanted.sessionId);
@@ -74,9 +78,11 @@ async function checkedSession(
   input: RealtimeSessionInput & { readonly userId?: string },
 ) {
   const instant = sessionInstant(input);
-  const rows = (await tx.execute(
+  const rows = await query(
+    tx,
+    z.object({ userId: z.string(), expiresAt: z.date() }),
     sql`select user_id as "userId",expires_at as "expiresAt" from session where id=${input.sessionId}`,
-  )) as unknown as { userId: string; expiresAt: Date }[];
+  );
   const session = rows[0];
   if (
     !session ||

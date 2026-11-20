@@ -20,6 +20,8 @@ import { challengeOpen } from './open';
 import { roomIsOpen } from '../room-open';
 import { challengeFrame, type ChallengeFrame } from './frame';
 import type { TxSource, Tx } from '../tx';
+import { query } from '../raw-rows';
+import { z } from 'zod';
 
 /** Challenges over the shared Contacts fence (ADR 0103). */
 export type ChallengeStore = {
@@ -148,14 +150,16 @@ export const challengeReadOperations = ({
    */
   readChallengeCounterpart: (actorId: string, challengeId: string) =>
     instrumented(eventSink, 'readChallengeCounterpart', async () => {
-      const [row] = (await database.execute(sql`
+      const [row] = await query(
+        database,
+        z.object({ other: z.string() }),
+        sql`
         select case when challenger_actor_id = ${actorId}
           then challenged_actor_id else challenger_actor_id end as other
         from challenges
         where id = ${challengeId}
-          and (challenger_actor_id = ${actorId} or challenged_actor_id = ${actorId})`)) as unknown as {
-        other: string;
-      }[];
+          and (challenger_actor_id = ${actorId} or challenged_actor_id = ${actorId})`,
+      );
       return row?.other ?? null;
     }),
   purgeExpiredChallenges: (input: {

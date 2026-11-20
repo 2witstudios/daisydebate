@@ -13,6 +13,7 @@ import type { CheckInAttempt } from './check-in-attempts';
 import { fencedActorIds, seatEligibility } from './seat-eligibility';
 import { requireFencedParticipants } from './round-command-replay';
 import type { Tx } from './tx';
+import { takeLock, transactionLocks } from './locks';
 /** The bounded same-pool producer supplies its FIRST writer identity statement's timestamp. */
 export type AttendanceTransaction = <T>(
   run: (tx: Tx, receipt: { readonly receivedAt: string }) => Promise<T>,
@@ -55,9 +56,7 @@ export async function fenceAttendance(
   commandId: string,
   principalActorId: string | null,
 ) {
-  await tx.execute(
-    sql`select pg_advisory_xact_lock(hashtextextended(${commandId},59002))`,
-  );
+  await takeLock(tx, transactionLocks.roundCommand(commandId));
   const initial = await tx
     .select({ actorId: roundParticipants.actorId })
     .from(roundParticipants)

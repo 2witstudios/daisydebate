@@ -29,6 +29,7 @@ import {
   type NextAttendanceWindow,
 } from './attendance-adjudication';
 import type { Tx } from './tx';
+import { run } from './raw-rows';
 
 /**
  * The read is capped, so an old window can still be decided on what it proves.
@@ -196,8 +197,11 @@ export function createAttendanceEvaluator(
           { before: current.status, projection: resolution.projection },
         );
         const columns = adjudicationColumns(resolution);
-        await tx.execute(sql`insert into round_attendance_adjudications(round_id,segment_id,command_id,decision,evidence,effective_deadline,settled_horizon,receipt_participant_id)
-    values(${round.id},${target.id},${input.commandId},${resolution.decision},${resolution.evidence},${columns.effectiveDeadline}::timestamptz,${columns.settledHorizon}::timestamptz,${columns.receiptParticipantId})`);
+        await run(
+          tx,
+          sql`insert into round_attendance_adjudications(round_id,segment_id,command_id,decision,evidence,effective_deadline,settled_horizon,receipt_participant_id)
+    values(${round.id},${target.id},${input.commandId},${resolution.decision},${resolution.evidence},${columns.effectiveDeadline}::timestamptz,${columns.settledHorizon}::timestamptz,${columns.receiptParticipantId})`,
+        );
         if (resolution.projection)
           await writeSpeakingProjection(tx, {
             roundId: round.id,

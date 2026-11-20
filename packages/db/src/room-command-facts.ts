@@ -37,6 +37,7 @@ import { rounds } from './schema/rounds';
 import { formats } from './schema/formats';
 import { formatRevisions } from './schema/format-revisions';
 import type { Tx } from './tx';
+import { takeLock, transactionLocks } from './locks';
 
 export type Caller = { readonly userId: string; readonly actorId: string };
 export type Account = ReturnType<typeof authorizationAccountFact>;
@@ -302,9 +303,7 @@ const hydrateRoom = async (
   };
 };
 export const lockCommand = (tx: Tx, commandId: string) =>
-  tx.execute(
-    sql`select pg_advisory_xact_lock(hashtextextended(${commandId}, 59001))`,
-  );
+  takeLock(tx, transactionLocks.roomCommand(commandId));
 export const replayReceipt = async (
   tx: Tx,
   commandId: string,

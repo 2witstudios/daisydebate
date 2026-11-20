@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import type { PrivacyAdopter } from './privacy/contracts';
 import { lockFlags } from './flags-lock';
+import { run } from './raw-rows';
 
 /** The caller already holds this subject's canonical account fence. */
 export const flagsPrivacyAdopter: PrivacyAdopter = {
@@ -8,10 +9,14 @@ export const flagsPrivacyAdopter: PrivacyAdopter = {
   phase: 'after-close',
   erase: async (tx, subject) => {
     await lockFlags(tx, 'write');
-    await tx.execute(sql`with removed as (
+    await run(
+      tx,
+      sql`with removed as (
       delete from flag_account_overrides where user_id = ${subject.userId} returning key
-    ) update release_flags set revision = revision + 1 where key in (select key from removed)`);
-    await tx.execute(
+    ) update release_flags set revision = revision + 1 where key in (select key from removed)`,
+    );
+    await run(
+      tx,
       sql`select public.daisy_erase_flag_subject(${subject.userId})`,
     );
   },

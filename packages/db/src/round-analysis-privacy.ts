@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import type { PrivacyAdopter } from './privacy/contracts';
 import { analysisPurgeProjection } from './round-analysis-purge';
+import { run } from './raw-rows';
 
 /** Private reports quote every frozen participant. Erasure removes content and all future dispatch authority. */
 export const roundAnalysisPrivacyAdopter: PrivacyAdopter = {
@@ -9,9 +10,12 @@ export const roundAnalysisPrivacyAdopter: PrivacyAdopter = {
   erase: async (tx, subject) => {
     // Workers fence every participant first. This subject fence therefore excludes
     // all new dispatch/publication while retaining truthful original accounting.
-    await tx.execute(sql`update round_analyses set work=${analysisPurgeProjection}
+    await run(
+      tx,
+      sql`update round_analyses set work=${analysisPurgeProjection}
       where work->>'kind'<>'purged' and round_id in
-      (select round_id from round_participants where actor_id=${subject.actorId})`);
+      (select round_id from round_participants where actor_id=${subject.actorId})`,
+    );
   },
   export: async (tx, subject) => {
     const rows =

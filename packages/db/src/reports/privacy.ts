@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm';
 import { idSchema } from '@daisy/protocol';
 import type { PrivacyAdopter, PrivacyExport } from '../privacy/contracts';
 import { exportRows } from '../privacy/export-rows';
+import { run } from '../raw-rows';
 
 const rowsOf = (rows: unknown) => rows as Record<string, unknown>[];
 
@@ -18,7 +19,8 @@ export const reportsPrivacyAdopter: PrivacyAdopter = {
   phase: 'after-close',
   async erase(tx, subject) {
     const actorId = idSchema.parse(subject.actorId);
-    await tx.execute(
+    await run(
+      tx,
       sql`update reports set reporter_actor_id = null where reporter_actor_id=${actorId}`,
     );
   },

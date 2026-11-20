@@ -19,6 +19,7 @@ import { requireTranscriptUnfrozen } from './transcript-unfrozen';
 import { transcriptSegments } from './schema/transcript-segments';
 import { utterances } from './schema/utterances';
 import type { Tx } from './tx';
+import { run } from './raw-rows';
 
 /** One phrase a bot is about to say: its own words and its known length. */
 export type BotPhrase = {
@@ -331,11 +332,14 @@ async function closeLine(
     return;
   }
   await tx.delete(utterances).where(eq(utterances.id, row.id));
-  await tx.execute(sql`delete from transcript_segments t
+  await run(
+    tx,
+    sql`delete from transcript_segments t
     where t.round_id=${row.roundId} and t.segment_id=${row.segmentId}
       and t.round_participant_id=${row.roundParticipantId} and t.chunk_count=0
       and not exists(select 1 from utterances u where u.round_id=t.round_id
-        and u.segment_id=t.segment_id and u.round_participant_id=t.round_participant_id)`);
+        and u.segment_id=t.segment_id and u.round_participant_id=t.round_participant_id)`,
+  );
 }
 
 /**

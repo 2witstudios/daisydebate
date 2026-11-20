@@ -22,6 +22,7 @@ import { readDatabaseTime } from './database-clock';
 import { endOpenJudgingJobs, type JudgingEndRule } from './round-judging-end';
 import { roundCommands } from './schema/round-commands';
 import type { Tx } from './tx';
+import { run } from './raw-rows';
 
 /**
  * Internal ordinary owner port. The caller owns canonical account, source-parent and Room fences.
@@ -77,7 +78,8 @@ export async function voidLockedRoundSource(
       payloadDigest: input.payloadDigest,
       type: previous.type,
     });
-    await tx.execute(
+    await run(
+      tx,
       sql`select public.daisy_mark_round_source_void(${input.roundId},${input.commandId})`,
     );
     return {
@@ -144,7 +146,8 @@ export async function voidLockedRoundSource(
       current.version + 1,
     );
   }
-  await tx.execute(
+  await run(
+    tx,
     sql`select public.daisy_mark_round_source_void(${input.roundId},${input.commandId})`,
   );
   if (!isRoundRunning(current.status))

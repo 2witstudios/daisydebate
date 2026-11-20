@@ -4,6 +4,7 @@ import {
   clearJudgingStages,
   discardPendingJudgment,
 } from './transcript-retention';
+import { run } from './raw-rows';
 
 const seatedBy = (actorId: string) =>
   sql`select id,round_id from round_participants where actor_id=${actorId}`;
@@ -27,20 +28,32 @@ export const roundTranscriptPrivacyAdopter: PrivacyAdopter = {
   id: 'round-transcript',
   phase: 'after-close',
   erase: async (tx, subject) => {
-    await tx.execute(sql`delete from utterances
-      where (round_participant_id,round_id) in (${seatedOnNonRanked(subject.actorId)})`);
-    await tx.execute(sql`update round_judging_jobs set ${discardPendingJudgment}
+    await run(
+      tx,
+      sql`delete from utterances
+      where (round_participant_id,round_id) in (${seatedOnNonRanked(subject.actorId)})`,
+    );
+    await run(
+      tx,
+      sql`update round_judging_jobs set ${discardPendingJudgment}
       where pending_ballot is not null
-        and round_id in (select round_id from (${seatedOnNonRanked(subject.actorId)}) seats)`);
+        and round_id in (select round_id from (${seatedOnNonRanked(subject.actorId)}) seats)`,
+    );
     // Open work whose stage records go ends as a held response does, so no
     // later claim re-buys them from what is left of the transcript (ADR 0125).
-    await tx.execute(sql`update round_judging_jobs set ${discardPendingJudgment},${clearJudgingStages}
+    await run(
+      tx,
+      sql`update round_judging_jobs set ${discardPendingJudgment},${clearJudgingStages}
       where (first_ballot is not null or case_map is not null)
         and status not in ('succeeded','failed')
-        and round_id in (select round_id from (${seatedOnNonRanked(subject.actorId)}) seats)`);
-    await tx.execute(sql`update round_judging_jobs set ${clearJudgingStages}
+        and round_id in (select round_id from (${seatedOnNonRanked(subject.actorId)}) seats)`,
+    );
+    await run(
+      tx,
+      sql`update round_judging_jobs set ${clearJudgingStages}
       where (first_ballot is not null or case_map is not null)
-        and round_id in (select round_id from (${seatedOnNonRanked(subject.actorId)}) seats)`);
+        and round_id in (select round_id from (${seatedOnNonRanked(subject.actorId)}) seats)`,
+    );
   },
   export: async (tx, subject) => {
     const rows =

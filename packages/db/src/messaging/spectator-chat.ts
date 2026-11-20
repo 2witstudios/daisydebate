@@ -3,7 +3,7 @@ import { and, eq, sql } from 'drizzle-orm';
 import { readAuthorizationActors } from '../authorization';
 import type { SpectatorChatModeration } from '../content-moderation-ports';
 import { inLiveRoomSql, liveRoomOfR } from '../live-room-sql';
-import { rowsOf } from '../raw-rows';
+import { rowsOf, run, query } from '../raw-rows';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
 import {
   messagingMessages,
@@ -19,6 +19,7 @@ import type {
 import { appendStream, lockStream, openStream } from './stream';
 import { youthRoundSql } from '../youth-round-sql';
 import { inTransaction, type Tx, type TxSource } from '../tx';
+import { z } from 'zod';
 
 /** The Round's side of a post: what its Broadcast allows, as read under the stream lock. */
 export type SpectatorChannelFacts = {
@@ -53,8 +54,9 @@ export type SpectatorPostPlanner = (
   | MessagingCreateSendPlan;
 
 const channelOf = async (tx: Tx, roundId: string) => {
-  const [row] = await rowsOf<{ id: string }>(
+  const [row] = await query(
     tx,
+    z.object({ id: z.string() }),
     sql`select id from messaging_channels
       where round_id=${roundId} and kind='round_spectator'`,
   );
@@ -63,8 +65,9 @@ const channelOf = async (tx: Tx, roundId: string) => {
 
 /** Each Round has its own channel, opened by its first post; a race keeps one. */
 const openChannel = async (tx: Tx, roundId: string, channelId: string) => {
-  const created = await rowsOf<{ id: string }>(
+  const created = await query(
     tx,
+    z.object({ id: z.string() }),
     sql`insert into messaging_channels(id,kind,policy_key,policy_revision,lifecycle,round_id)
       values(${channelId},'round_spectator','round.spectator',1,'active',${roundId})
       on conflict (round_id,kind) do nothing returning id`,
@@ -388,9 +391,12 @@ export const spectatorChatModeration: SpectatorChatModeration = {
       messages: 0,
       changes: 1,
     });
-    await tx.execute(sql`update messaging_messages set text=null,
+    await run(
+      tx,
+      sql`update messaging_messages set text=null,
         removed_at=${input.now.toISOString()}::timestamptz,change_version=${changeVersion}
-      where id=${input.messageId} and channel_id=${row.channel_id}`);
+      where id=${input.messageId} and channel_id=${row.channel_id}`,
+    );
     return 'applied';
   },
 };

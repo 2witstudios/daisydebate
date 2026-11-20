@@ -2,7 +2,7 @@ import { createAppError } from '@daisy/errors';
 import type { BetaAccessDecision } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import { applyBetaEntitlementGrants } from './entitlement-grants';
-import { rowsOf } from './raw-rows';
+import { rowsOf, run } from './raw-rows';
 import type { Tx } from './tx';
 
 /**
@@ -35,11 +35,15 @@ export async function writeBetaAccessChange(
   // Premium entitlements are their own fact, written with the state change.
   await applyBetaEntitlementGrants(tx, userId, change.to);
   // The account fact's revision moves, so live realtime sessions re-check.
-  await tx.execute(
+  await run(
+    tx,
     sql`update users set version = version + 1 where id = ${userId}`,
   );
-  await tx.execute(sql`insert into account_access_events
+  await run(
+    tx,
+    sql`insert into account_access_events
       (id, user_id, command_id, from_state, to_state, revision, principal)
     values (${input.eventId}, ${userId}, ${input.commandId},
-      ${change.from}, ${change.to}, ${change.revision}, ${input.principal})`);
+      ${change.from}, ${change.to}, ${change.revision}, ${input.principal})`,
+  );
 }

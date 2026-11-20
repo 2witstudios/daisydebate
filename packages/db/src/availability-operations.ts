@@ -8,7 +8,7 @@ import {
   type OutboxPosition,
 } from './outbox';
 
-const SAMPLER_LOCK = 59003;
+import { sessionLocks } from './locks';
 type AvailabilityCause =
   | 'web_stale'
   | 'realtime_stale'
@@ -42,12 +42,7 @@ export function createAvailabilitySampler(client: SQL) {
   };
   const electSession = async () => {
     session ??= await client.reserve({ signal: AbortSignal.timeout(900) });
-    const [election] =
-      await session`select case when exists(select 1 from pg_locks
-        where locktype='advisory' and pid=pg_backend_pid() and classid=0
-          and objid=${SAMPLER_LOCK}::oid and objsubid=1 and granted)
-        then true else pg_try_advisory_lock(${SAMPLER_LOCK}::bigint) end as elected`;
-    return election.elected === true;
+    return sessionLocks.availabilitySampler.elect(session);
   };
   return {
     /** Election is evidence from the SAME reserved producer session, never a process flag. */
@@ -92,8 +87,7 @@ export function createAvailabilitySampler(client: SQL) {
           insert into availability_samples(at,healthy,cause)
           select at,cause is null,cause from assessment
           where at > coalesce((select max(at) from availability_samples),'-infinity'::timestamptz)
-            and exists(select 1 from pg_locks where locktype='advisory' and pid=pg_backend_pid()
-              and classid=0 and objid=${SAMPLER_LOCK}::oid and objsubid=1 and granted)
+            and ${sessionLocks.availabilitySampler.held(session)}
           returning to_char(at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as at,healthy,cause`;
         return row
           ? {
@@ -120,7 +114,7 @@ export function createAvailabilitySampler(client: SQL) {
       session = null;
       if (held) {
         try {
-          await held`select pg_advisory_unlock(${SAMPLER_LOCK}::bigint)`;
+          await sessionLocks.availabilitySampler.release(held);
         } finally {
           held.release();
         }

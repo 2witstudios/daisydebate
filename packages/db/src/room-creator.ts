@@ -2,9 +2,10 @@ import type { RoomCreator } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import { clubOrganizationKinds } from './billing-owner-lock';
 import { readDivisionOf } from './media-release-records';
-import { rowsOf } from './raw-rows';
+import { query } from './raw-rows';
 import { currentTenantScope, scopeTransaction } from './tenant-scope';
 import type { Tx } from './tx';
+import { z } from 'zod';
 
 /**
  * Who creates a Room, as its lobby is decided (ADR 0156): their division, and
@@ -21,8 +22,9 @@ export async function readRoomCreator(
   const division = await readDivisionOf(tx, userId);
   const scope = await currentTenantScope(tx);
   await scopeTransaction(tx, { subjectUserId: userId });
-  const [staff] = await rowsOf<{ staff: boolean }>(
+  const [staff] = await query(
     tx,
+    z.object({ staff: z.boolean() }),
     sql`select exists (
         select 1 from organizations o
         where o.owner_user_id = ${userId} and o.closed_at is null

@@ -23,6 +23,7 @@ import { roundParticipants } from './schema/round-participants';
 import { rounds } from './schema/rounds';
 import { ratingChanges, ratings, seasons } from './schema/ratings';
 import { inTransaction, type Tx, type TxSource } from './tx';
+import { takeLock, transactionLocks } from './locks';
 
 /** A projection moved under a concurrent debate: retry from fresh facts. */
 class StaleProjection extends Error {}
@@ -199,7 +200,7 @@ async function rateOnce(
     )})) locks
     order by locks.key`);
   for (const { key } of keys as unknown as { key: string }[])
-    await tx.execute(sql`select pg_advisory_xact_lock(59090, ${key}::integer)`);
+    await takeLock(tx, transactionLocks.ratingSeat(Number(key)));
   const standings: Record<string, DebaterStanding> = {};
   for (const { actorId } of seats)
     standings[actorId] = await loadStanding(tx, {

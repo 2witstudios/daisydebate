@@ -9,6 +9,7 @@ import { isDebatingSeatSql } from './seat-columns';
 import { scopeTransaction } from './tenant-scope';
 import type { MediaReleaseMailKind } from './media-release-mail';
 import type { Tx } from './tx';
+import { run } from './raw-rows';
 
 export const iso = (value: unknown): string =>
   new Date(value as string | Date).toISOString();
@@ -183,7 +184,8 @@ export async function insertMediaRelease(
     readonly now: Date;
   },
 ) {
-  await tx.execute(
+  await run(
+    tx,
     sql`insert into media_releases (id, user_id, scope, source, request_id,
         signer_name, signer_relation, signer_email, wording_version, signed_at)
       values (${input.id}, ${input.userId}, ${input.scope},
@@ -203,7 +205,8 @@ export async function queueMediaReleaseMail(
     readonly at: SqlInstant;
   },
 ) {
-  await tx.execute(
+  await run(
+    tx,
     sql`insert into media_release_mails (id, kind, request_id, next_attempt_at)
       values (${input.id}, ${input.kind}, ${input.requestId}, ${input.at})`,
   );

@@ -3,6 +3,7 @@ import { idSchema } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import type { Tx } from './tx';
+import { run } from './raw-rows';
 
 /** Recording's named minimal input; funding/issuer/official identities stay in the owning admission. */
 export const readRecordingTournamentAdmission = async (
@@ -37,7 +38,8 @@ export const readLockedTournamentAdmission = async (
   tx: Tx,
   roundId: string,
 ) => {
-  await tx.execute(
+  await run(
+    tx,
     sql`select * from public.daisy_lock_recording_tournament_admission(${roundId})`,
   );
 };

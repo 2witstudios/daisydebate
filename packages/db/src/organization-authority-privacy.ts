@@ -3,6 +3,8 @@ import { sql } from 'drizzle-orm';
 import type { PrivacyAdopter } from './privacy/contracts';
 import { exportRows } from './privacy/export-rows';
 import { scopeTransaction } from './tenant-scope';
+import { query } from './raw-rows';
+import { z } from 'zod';
 
 /**
  * A row this step just read under the subject scope must be writable under
@@ -31,18 +33,22 @@ export const organizationAuthorityPrivacyAdopter: PrivacyAdopter = {
   phase: 'after-close',
   erase: async (tx, subject, { now }) => {
     await scopeTransaction(tx, { subjectUserId: subject.userId });
-    const memberships = (await tx.execute(
+    const memberships = await query(
+      tx,
+      z.object({ organization_id: z.string() }),
       sql`select organization_id from memberships
         where user_id = ${subject.userId} and status in ('invited', 'active')`,
-    )) as unknown as Array<{ organization_id: string }>;
-    const grants = (await tx.execute(
+    );
+    const grants = await query(
+      tx,
+      z.object({
+        id: z.string(),
+        organization_id: z.string().nullable(),
+        lobby_id: z.string().nullable(),
+      }),
       sql`select id, organization_id, lobby_id from grants
         where user_id = ${subject.userId} and revoked_at is null`,
-    )) as unknown as Array<{
-      id: string;
-      organization_id: string | null;
-      lobby_id: string | null;
-    }>;
+    );
     for (const grant of grants) {
       await scopeTransaction(tx, {
         organizationId: grant.organization_id ?? undefined,

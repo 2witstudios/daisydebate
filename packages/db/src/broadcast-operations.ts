@@ -33,6 +33,8 @@ import {
 } from './spectator-release-sql';
 import { operatorWithheldSql } from './broadcast-withheld-sql';
 import type { Tx } from './tx';
+import { run, query } from './raw-rows';
+import { z } from 'zod';
 
 /** One Broadcast per Round: a repeat keeps the first, policy included. */
 export const openBroadcast = async (
@@ -757,10 +759,13 @@ export const endBroadcastFeed = async (
   if (stopped.length === 1) return 'applied';
   // Already complete, its feed would wait out the grace: past the delivery bound
   // for a stop that lands just after. The withdrawal loop takes it on its next poll.
-  await tx.execute(sql`update broadcasts
+  await run(
+    tx,
+    sql`update broadcasts
     set feed_withdrawal_requested_at=${at}::timestamptz
     where id=${input.id} and completed_at is not null
-      and feed_withdrawn_at is null and feed_withdrawal_requested_at is null`);
+      and feed_withdrawn_at is null and feed_withdrawal_requested_at is null`,
+  );
   const found = (await tx.execute(
     sql`select id from broadcasts where id=${input.id}`,
   )) as unknown as readonly unknown[];
@@ -779,9 +784,11 @@ export const endRoundFeed = async (
     readonly now: Date;
   },
 ): Promise<void> => {
-  const [broadcast] = (await tx.execute(
+  const [broadcast] = await query(
+    tx,
+    z.object({ id: z.string() }),
     sql`select id from broadcasts where round_id=${input.roundId}`,
-  )) as unknown as readonly { readonly id: string }[];
+  );
   if (broadcast)
     await endBroadcastFeed(tx, {
       id: broadcast.id,
@@ -801,15 +808,22 @@ export const endRoundFeed = async (
 export const endYouthBroadcasts = async (tx: Tx, now: Date) => {
   const at = now.toISOString();
   const youth = youthRoundSql(sql`broadcasts.round_id`);
-  const stopped = (await tx.execute(sql`update broadcasts
+  const stopped = await query(
+    tx,
+    z.object({ id: z.string() }),
+    sql`update broadcasts
     set stopped_at=${at}::timestamptz,
       stop_reason=coalesce(stop_reason, 'youth_round_private')
     where ${youth} and stopped_at is null
-    returning id`)) as unknown as readonly { readonly id: string }[];
-  await tx.execute(sql`update broadcasts
+    returning id`,
+  );
+  await run(
+    tx,
+    sql`update broadcasts
     set feed_withdrawal_requested_at=${at}::timestamptz
     where ${youth} and completed_at is not null
-      and feed_withdrawn_at is null and feed_withdrawal_requested_at is null`);
+      and feed_withdrawn_at is null and feed_withdrawal_requested_at is null`,
+  );
   return stopped.map((row) => row.id);
 };
 

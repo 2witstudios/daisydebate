@@ -9,9 +9,10 @@ import {
   type ProfilePhotoStatus,
 } from '@daisy/protocol/public-profile';
 import { sql } from 'drizzle-orm';
-import { rowsOf } from './raw-rows';
+import { rowsOf, run, query } from './raw-rows';
 import { changedNow, lockLivePhotos } from './public-profile-operations';
 import type { Tx } from './tx';
+import { z } from 'zod';
 
 type Outcome = 'applied' | 'unchanged' | null;
 type ProfileTextField = 'display_name' | 'bio';
@@ -66,17 +67,23 @@ async function movePhoto(
   const now = input.now.toISOString();
   if (next.to === 'published')
     // The member's earlier published photo gives way to the approved one.
-    await tx.execute(sql`update profile_photos set status = 'withdrawn',
+    await run(
+      tx,
+      sql`update profile_photos set status = 'withdrawn',
         ended_at = ${now}::timestamptz, delete_after = ${now}::timestamptz,
         version = version + 1
-      where actor_id = ${row.actor_id} and status = 'published'`);
+      where actor_id = ${row.actor_id} and status = 'published'`,
+    );
   const ended = next.to !== 'published';
-  await tx.execute(sql`update profile_photos set status = ${next.to},
+  await run(
+    tx,
+    sql`update profile_photos set status = ${next.to},
       decided_at = ${now}::timestamptz,
       ended_at = ${ended ? now : null}::timestamptz,
       delete_after = ${ended ? now : null}::timestamptz,
       version = version + 1
-    where id = ${input.photoId}`);
+    where id = ${input.photoId}`,
+  );
   return 'applied';
 }
 
@@ -102,8 +109,9 @@ export const publicProfileModeration = {
       readonly reporterActorId: string;
     },
   ): Promise<ProfileReportFacts> => {
-    const [row] = await rowsOf<{ actor_id: string; text: string | null }>(
+    const [row] = await query(
       tx,
+      z.object({ actor_id: z.string(), text: z.string().nullable() }),
       sql`select m.actor_id, m.${textColumn(input.field)} as text
         from member_profiles m
         join actors a on a.id = m.actor_id
@@ -139,12 +147,13 @@ export const publicProfileModeration = {
     profileId: string,
     field: ProfileTextField,
   ): Promise<ContentModerationSubject | null> => {
-    const [row] = await rowsOf<{
-      username: string;
-      text: string | null;
-      version: number;
-    }>(
+    const [row] = await query(
       tx,
+      z.object({
+        username: z.string(),
+        text: z.string().nullable(),
+        version: z.number(),
+      }),
       sql`select u.username, m.${textColumn(field)} as text, m.version
         from member_profiles m
         join actors a on a.id = m.actor_id
@@ -243,8 +252,9 @@ export const publicProfileModeration = {
     },
   ): Promise<Outcome> => {
     const column = textColumn(input.field);
-    const [row] = await rowsOf<{ text: string | null; version: number }>(
+    const [row] = await query(
       tx,
+      z.object({ text: z.string().nullable(), version: z.number() }),
       sql`select ${column} as text, version from member_profiles
         where id = ${input.profileId} for update`,
     );
@@ -255,10 +265,13 @@ export const publicProfileModeration = {
       input.field === 'display_name'
         ? sql.raw('display_name_changed_at')
         : sql.raw('bio_changed_at');
-    await tx.execute(sql`update member_profiles set ${column} = null,
+    await run(
+      tx,
+      sql`update member_profiles set ${column} = null,
         ${changedAt} = ${changedNow},
         updated_at = ${input.now.toISOString()}::timestamptz, version = version + 1
-      where id = ${input.profileId}`);
+      where id = ${input.profileId}`,
+    );
     return 'applied';
   },
 };

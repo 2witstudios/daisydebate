@@ -1,15 +1,18 @@
 import { sql } from 'drizzle-orm';
 import type { PrivacyAdopter } from './privacy/contracts';
+import { run } from './raw-rows';
 
 /** Erasure deletes the subject's grants; export returns them. */
 export const entitlementGrantPrivacyAdopter: PrivacyAdopter = {
   id: 'entitlement-grants',
   phase: 'after-close',
   erase: async (tx, subject) => {
-    await tx.execute(
+    await run(
+      tx,
       sql`delete from account_entitlement_grants where user_id = ${subject.userId}`,
     );
-    await tx.execute(
+    await run(
+      tx,
       sql`select public.daisy_erase_unused_hosting_versions(${subject.userId})`,
     );
   },

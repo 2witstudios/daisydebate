@@ -9,7 +9,7 @@ import {
   type MailJobOutcome,
 } from '../mail-queue';
 import { emailsMember } from '../notifications/presentation';
-import { rowsOf } from '../raw-rows';
+import { rowsOf, run, query } from '../raw-rows';
 import { retriedOnceIfQueuedMeanwhile } from '../mail-queue';
 import { deleteExpiredBatch, type RetentionBatch } from '../retention';
 import {
@@ -90,8 +90,9 @@ export async function oweUnreadMessageEmails(
 ): Promise<void> {
   const at = sql`${sent.at}::timestamptz`;
   const channel = sql`${sent.channelId}`;
-  const members = await rowsOf<{ user_id: string }>(
+  const members = await query(
     tx,
+    z.object({ user_id: z.string() }),
     sql`select u.id as user_id from (${membersOf(channel)}) m
       join public.actors a on a.id=m.actor_id
       join public.users u on u.id=a.user_id and u.deleted_at is null
@@ -103,12 +104,15 @@ export async function oweUnreadMessageEmails(
   const jobs = JSON.stringify(
     members.map((member) => ({ id: createId(), user_id: member.user_id })),
   );
-  await tx.execute(sql`insert into messaging_unread_emails(id,user_id,first_owed_at,state,attempts,next_attempt_at,created_at)
+  await run(
+    tx,
+    sql`insert into messaging_unread_emails(id,user_id,first_owed_at,state,attempts,next_attempt_at,created_at)
     select j.id,j.user_id,${at},'queued',0,${at}+${UNREAD_EMAIL_QUIET_MS}*interval '1 millisecond',${at}
     from jsonb_to_recordset(${jobs}::text::jsonb) as j(id text,user_id text)
     on conflict (user_id) where state='queued' do update set next_attempt_at=least(
       greatest(messaging_unread_emails.next_attempt_at,excluded.next_attempt_at),
-      messaging_unread_emails.first_owed_at+${UNREAD_EMAIL_LONGEST_WAIT_MS}*interval '1 millisecond')`);
+      messaging_unread_emails.first_owed_at+${UNREAD_EMAIL_LONGEST_WAIT_MS}*interval '1 millisecond')`,
+  );
 }
 
 /** The unread-messages email queue's store (ADR 0144), on the shared mail recipe. */
@@ -138,14 +142,15 @@ export function messagingUnreadEmailOperations({
       id: string,
     ): Promise<MessagingUnreadEmailDelivery> =>
       instrumented(eventSink, 'readMessagingUnreadEmailDelivery', async () => {
-        const [member] = await rowsOf<{
-          user_id: string;
-          actor_id: string | null;
-          email: string | null;
-          verified: boolean | null;
-          emails: boolean;
-        }>(
+        const [member] = await query(
           database,
+          z.object({
+            user_id: z.string(),
+            actor_id: z.string().nullable(),
+            email: z.string().nullable(),
+            verified: z.boolean().nullable(),
+            emails: z.boolean(),
+          }),
           sql`select j.user_id,a.id as actor_id,u.email,u.email_verified as verified,
               ${emailsMember(sql`j.user_id`)} as emails
             from messaging_unread_emails j
@@ -204,8 +209,9 @@ export function messagingUnreadEmailOperations({
         // first; the second attempt then sees it and joins it.
         retriedOnceIfQueuedMeanwhile(() =>
           inTransaction(database, async (tx) => {
-            const [next] = await rowsOf<{ id: string }>(
+            const [next] = await query(
               tx,
+              z.object({ id: z.string() }),
               sql`select q.id from messaging_unread_emails q
               join messaging_unread_emails j on j.user_id=q.user_id and j.id=${input.id}
               where q.state='queued' for update of q`,

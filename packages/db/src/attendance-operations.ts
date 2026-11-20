@@ -44,6 +44,7 @@ import {
   selectAttendanceSeat,
 } from './attendance-decisions';
 import type { Tx } from './tx';
+import { run as runStatement } from './raw-rows';
 
 type WorkerVerifier = (
   tx: Tx,
@@ -237,7 +238,8 @@ export function createAttendanceOperations(deps: {
             current.version,
           );
           if (existing.length === 0)
-            await tx.execute(
+            await runStatement(
+              tx,
               sql`insert into round_check_ins(command_id,round_id,segment_id,participant_id,received_at) values(${input.envelope.commandId},${round.id},${segment.id},${seat.id},${stamp}::timestamptz)`,
             );
           return receipt;

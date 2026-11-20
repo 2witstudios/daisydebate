@@ -5,6 +5,8 @@ import { readFlagSnapshot } from './flags-read';
 import { runFlagCommand, type FlagCommandInput } from './flags-command';
 import { lockFlags } from './flags-lock';
 import { inTransaction, type TxSource } from './tx';
+import { query } from './raw-rows';
+import { z } from 'zod';
 
 export function flagOperations({
   database,
@@ -60,9 +62,11 @@ export function flagOperations({
       instrumented(eventSink, 'purgeExpiredFlagEvidence', async () => {
         if (!Number.isSafeInteger(limit) || limit < 1 || limit > 500)
           throw createAppError('VALIDATION');
-        const [row] = (await database.execute(
+        const [row] = await query(
+          database,
+          z.object({ count: z.number() }),
           sql`select public.daisy_purge_flag_evidence(${before}::timestamptz, ${limit}::integer) as count`,
-        )) as unknown as { count: number }[];
+        );
         return row!.count;
       }),
   };

@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import type { Tx } from './tx';
+import { run } from './raw-rows';
 
 /** Caller holds the Round lock and has inserted the accepted terminal command. */
 export async function freezeRoundFinalization(
@@ -18,6 +19,9 @@ export async function freezeRoundFinalization(
     returning round_id`);
   if (!frozen) return;
   for (const ballotId of input.ballotIds)
-    await tx.execute(sql`insert into round_finalization_ballots(round_id,ballot_id,freeze_revision)
-      values(${input.roundId},${ballotId},${input.freezeRevision})`);
+    await run(
+      tx,
+      sql`insert into round_finalization_ballots(round_id,ballot_id,freeze_revision)
+      values(${input.roundId},${ballotId},${input.freezeRevision})`,
+    );
 }

@@ -1,4 +1,4 @@
-import { and, eq, or, sql } from 'drizzle-orm';
+import { and, eq, or } from 'drizzle-orm';
 import type { TournamentSetupCommand } from '@daisy/protocol/lobby/lobby-setup-command';
 import type {
   ActionHistoryEntry,
@@ -25,6 +25,7 @@ import { applySetupWrites } from './setup-writes';
 import type { SetupWrite } from './setup-write';
 import type { TabDatabase } from './tab-transaction';
 import { inTransaction, type Tx } from '../tx';
+import { takeLock, transactionLocks } from '../locks';
 
 export type SetupCommandInput = {
   readonly senderUserId: string;
@@ -35,9 +36,7 @@ export type SetupCommandInput = {
 const load = async (tx: Tx, input: SetupCommandInput) => {
   await scopeTransaction(tx, { subjectUserId: input.senderUserId });
   await lockTabCommandAccounts(tx, [input.senderUserId]);
-  await tx.execute(
-    sql`select pg_advisory_xact_lock(hashtextextended('tab-settings-chains', 0))`,
-  );
+  await takeLock(tx, transactionLocks.tabSettingsChains());
   const [found] = await tx
     .select()
     .from(lobbies)

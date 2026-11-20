@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
 import type { PrivacyAdopter } from '../privacy/contracts';
 import { exportRows } from '../privacy/export-rows';
-import { rowsOf } from '../raw-rows';
+import { rowsOf, run } from '../raw-rows';
 
 /**
  * The subject's notifications, choices, presentation and digests go, and any
@@ -14,17 +14,23 @@ export const notificationPrivacyAdopter: PrivacyAdopter = {
   id: 'notifications',
   phase: 'after-close',
   erase: async (tx, subject) => {
-    await tx.execute(sql`delete from notifications
+    await run(
+      tx,
+      sql`delete from notifications
       where user_id=${subject.userId} or actor_id=${subject.actorId}
         or friendship_low_actor_id=${subject.actorId}
-        or friendship_high_actor_id=${subject.actorId}`);
-    await tx.execute(
+        or friendship_high_actor_id=${subject.actorId}`,
+    );
+    await run(
+      tx,
       sql`delete from notification_digests where user_id=${subject.userId}`,
     );
-    await tx.execute(
+    await run(
+      tx,
       sql`delete from notification_preferences where user_id=${subject.userId}`,
     );
-    await tx.execute(
+    await run(
+      tx,
       sql`delete from notification_presentation where user_id=${subject.userId}`,
     );
   },

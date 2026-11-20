@@ -16,6 +16,7 @@ import {
 import { exportRows } from '../privacy/export-rows';
 import type { PrivacyAdopter, PrivacyExport } from '../privacy';
 import type { Tx } from '../tx';
+import { run } from '../raw-rows';
 
 type ChangedMessage = { id: string; channelId: string; authorActorId: string };
 const rowsOf = <T>(rows: unknown) => rows as T[];
@@ -32,26 +33,35 @@ function omitPrivateColumns(
 /** Account lock is held by canonical PRIV before this pair -> channel fence. */
 async function lockSubjectMessaging(tx: Tx, actorId: string) {
   idSchema.parse(actorId);
-  await tx.execute(
+  await run(
+    tx,
     sql`select low_actor_id from contact_pairs where low_actor_id=${actorId} or high_actor_id=${actorId} order by low_actor_id,high_actor_id for update`,
   );
   // Floor lifecycle precedes its channel in every lock graph, including erasure.
-  await tx.execute(sql`select r.id from rounds r where exists (
+  await run(
+    tx,
+    sql`select r.id from rounds r where exists (
     select 1 from messaging_channels c where c.round_id=r.id and c.kind='round_floor' and (
       exists(select 1 from messaging_messages m where m.channel_id=c.id and m.author_actor_id=${actorId})
       or exists(select 1 from messaging_actor_states s where s.channel_id=c.id and s.actor_id=${actorId})
       or exists(select 1 from messaging_receipts x where x.channel_id=c.id and x.actor_id=${actorId})
     )
-  ) order by r.id for share`);
+  ) order by r.id for share`,
+  );
   // Room chat keeps the same order: the Room before its channel.
-  await tx.execute(sql`select r.id from rooms r where exists (
+  await run(
+    tx,
+    sql`select r.id from rooms r where exists (
     select 1 from messaging_channels c where c.room_id=r.id and c.kind='room_community' and (
       exists(select 1 from messaging_messages m where m.channel_id=c.id and m.author_actor_id=${actorId})
       or exists(select 1 from messaging_actor_states s where s.channel_id=c.id and s.actor_id=${actorId})
       or exists(select 1 from messaging_receipts x where x.channel_id=c.id and x.actor_id=${actorId})
     )
-  ) order by r.id for share`);
-  await tx.execute(sql`
+  ) order by r.id for share`,
+  );
+  await run(
+    tx,
+    sql`
     select id from messaging_channels where id in (
       select channel_id from messaging_dm_pairs where low_actor_id=${actorId} or high_actor_id=${actorId}
       union select id from messaging_channels where title_author_actor_id=${actorId}
@@ -66,7 +76,8 @@ async function lockSubjectMessaging(tx: Tx, actorId: string) {
       union select channel_id from messaging_retained_authors where actor_id=${actorId}
       union select c.result_channel_id from messaging_social_commands c join messaging_social_command_subjects s on s.actor_id=c.actor_id and s.request_id=c.request_id where s.subject_actor_id=${actorId}
     ) order by id for update
-  `);
+  `,
+  );
 }
 
 /** Erasure is content: its revision goes through the stream; authority moves separately. */
@@ -102,13 +113,16 @@ async function scrubSubjectMessages(
   );
   for (const message of messages) {
     const version = await advanceChannel(tx, message.channelId, false);
-    await tx.execute(sql`
+    await run(
+      tx,
+      sql`
       update messaging_messages set
         text=case when author_actor_id=${actorId} then null else text end,
         removed_at=case when author_actor_id=${actorId} then coalesce(removed_at,${now}::timestamptz) else removed_at end,
         change_version=${version}
       where id=${message.id} and channel_id=${message.channelId}
-    `);
+    `,
+    );
     versions.set(message.channelId, version);
   }
 }
@@ -125,7 +139,8 @@ async function eraseSubjectTitles(
   );
   for (const { channelId } of channels) {
     const version = await advanceChannel(tx, channelId, false);
-    await tx.execute(
+    await run(
+      tx,
       sql`update messaging_channels set title=null,title_author_actor_id=null where id=${channelId} and title_author_actor_id=${actorId}`,
     );
     versions.set(channelId, version);
@@ -144,30 +159,32 @@ async function eraseAssociations(
     order by "channelId"
   `),
   );
-  await tx.execute(
+  await run(
+    tx,
     sql`delete from messaging_social_commands c where actor_id=${actorId} or counterpart_actor_id=${actorId} or exists (select 1 from messaging_social_command_subjects s where s.actor_id=c.actor_id and s.request_id=c.request_id and s.subject_actor_id=${actorId}) or result_channel_id in (select channel_id from messaging_dm_pairs where low_actor_id=${actorId} or high_actor_id=${actorId})`,
   );
-  await tx.execute(
+  await run(
+    tx,
     sql`delete from messaging_group_invitations where invitee_actor_id=${actorId} or invited_by_actor_id=${actorId}`,
   );
-  await tx.execute(
-    sql`delete from messaging_receipts where actor_id=${actorId}`,
-  );
-  await tx.execute(
-    sql`delete from messaging_reactions where actor_id=${actorId}`,
-  );
-  await tx.execute(
+  await run(tx, sql`delete from messaging_receipts where actor_id=${actorId}`);
+  await run(tx, sql`delete from messaging_reactions where actor_id=${actorId}`);
+  await run(
+    tx,
     sql`delete from messaging_actor_states where actor_id=${actorId}`,
   );
-  await tx.execute(
+  await run(
+    tx,
     sql`delete from messaging_group_grants where actor_id=${actorId}`,
   );
   // Messaging's own pair rows; Friends, Presence and Contacts erase theirs.
-  await tx.execute(
+  await run(
+    tx,
     sql`delete from messaging_dm_pairs where low_actor_id=${actorId} or high_actor_id=${actorId}`,
   );
   for (const { channelId } of authorityChannels) {
-    await tx.execute(
+    await run(
+      tx,
       sql`update messaging_channels c set lifecycle='archived' where c.id=${channelId} and c.kind='private_group' and not exists(select 1 from messaging_group_grants g where g.channel_id=c.id and g.role='manager' and g.revoked_at is null)`,
     );
     versions.set(channelId, await advanceChannel(tx, channelId, true));
@@ -202,7 +219,8 @@ export function createMessagingPrivacyAdopter(): PrivacyAdopter {
       // Cached observation copies of what was just erased are purged by a
       // durable, retried job queued in this same transaction (ISSUE-852).
       await queueObservationPurge(tx, subject.userId, now);
-      await tx.execute(
+      await run(
+        tx,
         sql`delete from messaging_unread_emails where user_id=${subject.userId}`,
       );
     },

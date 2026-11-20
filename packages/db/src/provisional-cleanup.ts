@@ -2,6 +2,7 @@ import { eq, sql } from 'drizzle-orm';
 import { verifications } from './schema/auth';
 import { emailDeliveries } from './schema/email-delivery';
 import type { Tx } from './tx';
+import { run } from './raw-rows';
 
 /**
  * The app's emailed-link purposes and keyed recipient hash: @daisy/db holds
@@ -62,7 +63,7 @@ export async function clearProvisionalLinks(
   user: { readonly id: string; readonly email: string | null },
   input: ProvisionalLinkPurposes,
 ): Promise<void> {
-  await tx.execute(ownLinksDelete(user, input));
+  await run(tx, ownLinksDelete(user, input));
 }
 
 /**

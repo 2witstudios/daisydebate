@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
-import { rowsOf } from './raw-rows';
+import { rowsOf, query } from './raw-rows';
 import type { Tx } from './tx';
+import { z } from 'zod';
 
 /**
  * A minor's linked adults (ADR 0150 §3, ADR 0158): an adult with an active
@@ -14,8 +15,9 @@ export const readLinkedAdultUserIds = async (
   minorUserId: string,
 ): Promise<readonly string[]> =>
   (
-    await rowsOf<{ user_id: string }>(
+    await query(
       tx,
+      z.object({ user_id: z.string() }),
       sql`select user_id from public.daisy_linked_adult_users(${minorUserId})`,
     )
   ).map((row) => row.user_id);

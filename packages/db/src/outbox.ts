@@ -10,6 +10,7 @@ import { instrumented, type DatabaseEventSink } from './instrumented';
 import type { RetentionBatch } from './retention';
 import { deleteExpiredOutboxPrefix } from './outbox-retention';
 import type { Tx } from './tx';
+import { run } from './raw-rows';
 
 /**
  * Full validation of the append input (RT-2.2 hazard note, plan revision
@@ -114,7 +115,8 @@ export async function appendOutboxEvent(
     txid: String(row.txid),
     seq: BigInt(row.seq),
   };
-  await tx.execute(
+  await run(
+    tx,
     sql`select pg_notify('outbox', ${encodeOutboxCursor(position)})`,
   );
   return position;
@@ -157,7 +159,8 @@ export async function appendOutboxEvents(
   const last = written.at(-1);
   if (!last || written.length !== rows.length)
     throw new Error('Outbox insert returned too few rows');
-  await tx.execute(
+  await run(
+    tx,
     sql`select pg_notify('outbox', ${encodeOutboxCursor({
       txid: String(last.txid),
       seq: BigInt(last.seq),

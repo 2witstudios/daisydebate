@@ -4,6 +4,7 @@ import type { PrivacyAdopter } from './privacy/contracts';
 import { exportRows } from './privacy/export-rows';
 import { scopeTransaction } from './tenant-scope';
 import type { Tx } from './tx';
+import { run } from './raw-rows';
 
 const page = 100;
 const at = (column: string) =>
@@ -54,23 +55,28 @@ export const mediaReleasePrivacyAdopter: PrivacyAdopter = {
     // The minor's account row orders every release command about them, so a
     // co-debater's share either commits first (and is ended below) or waits
     // and then finds the releases withdrawn.
-    await tx.execute(
+    await run(
+      tx,
       sql`select 1 from users where id = ${subject.userId} for update`,
     );
-    await tx.execute(
+    await run(
+      tx,
       sql`update media_releases set withdrawn_at = clock_timestamp(),
           withdrawn_by = 'erasure'
         where user_id = ${subject.userId} and withdrawn_at is null`,
     );
     await endPublicationsOf(tx, subject.userId);
-    await tx.execute(
+    await run(
+      tx,
       sql`delete from media_release_requests where user_id = ${subject.userId}`,
     );
-    await tx.execute(
+    await run(
+      tx,
       sql`delete from media_release_club_asks where user_id = ${subject.userId}`,
     );
     await eachClub(tx, async (organizationId) => {
-      await tx.execute(
+      await run(
+        tx,
         sql`update media_release_club_attestations
           set attested_by_user_id = null, attester_name = 'Former club staff'
           where organization_id = ${organizationId}

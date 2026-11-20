@@ -2,7 +2,7 @@ import { SPECTATOR_MARGIN_MS, type NotificationKind } from '@daisy/protocol';
 import { isDebatingSeatSql } from '../seat-columns';
 import { sql } from 'drizzle-orm';
 import { blockedBetween } from '../debater-follows';
-import { rowsOf } from '../raw-rows';
+import { rowsOf, query } from '../raw-rows';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
 import {
   outcomeReleasedSql,
@@ -14,6 +14,7 @@ import { wants } from './preferences';
 import { youthRoundSql } from '../youth-round-sql';
 import { operatorWithheldSql } from '../broadcast-withheld-sql';
 import { inTransaction, type Tx, type TxSource } from '../tx';
+import { z } from 'zod';
 
 const spectatorMargin = sql.raw(
   `interval '${SPECTATOR_MARGIN_MS} milliseconds'`,
@@ -112,12 +113,13 @@ export const watchNotificationOperations = ({
   }) {
     return instrumented(eventSink, 'sweepNotificationFanouts', async () => {
       const at = input.clock.now;
-      const live = await rowsOf<{
-        round_id: string;
-        visibility: string;
-        on_air: boolean;
-      }>(
+      const live = await query(
         database,
+        z.object({
+          round_id: z.string(),
+          visibility: z.string(),
+          on_air: z.boolean(),
+        }),
         sql`select b.round_id,r.visibility,(b.completed_at is null and b.stopped_at is null) as on_air
           from broadcasts b join rounds r on r.id=b.round_id
           where b.released_through_at is not null
@@ -130,12 +132,13 @@ export const watchNotificationOperations = ({
               where f.kind='followed_debater_live' and f.round_id=b.round_id)
           order by b.created_at limit ${input.limit}`,
       );
-      const ready = await rowsOf<{
-        round_id: string;
-        visibility: string;
-        youth: boolean;
-      }>(
+      const ready = await query(
         database,
+        z.object({
+          round_id: z.string(),
+          visibility: z.string(),
+          youth: z.boolean(),
+        }),
         sql`select rc.round_id,r.visibility,
             ${youthRoundSql(sql`r.id`)} as youth
           from recordings rc join rounds r on r.id=rc.round_id
@@ -159,21 +162,36 @@ export const watchNotificationOperations = ({
           return owe(
             tx,
             { kind, roundId: event.round_id, at, nextId: input.nextId },
-            await rowsOf<Recipient>(tx, followersOf(event.round_id, kind)),
+            await query(
+              tx,
+              z.object({
+                user_id: z.string(),
+                actor_id: z.string().nullable(),
+              }),
+              followersOf(event.round_id, kind),
+            ),
           );
         });
       for (const event of ready)
         written += await inTransaction(database, async (tx) => {
           const kind = 'recording_ready';
           if (!(await claimFanout(tx, kind, event.round_id))) return 0;
-          const seated = await rowsOf<Recipient>(
+          const seated = await query(
             tx,
+            z.object({ user_id: z.string(), actor_id: z.string().nullable() }),
             seatedAccounts(event.round_id, event.youth),
           );
           // A Youth Round is private to its people (ADR 0150): no follower hears of it.
           const followers =
             event.visibility === 'public' && !event.youth
-              ? await rowsOf<Recipient>(tx, followersOf(event.round_id, kind))
+              ? await query(
+                  tx,
+                  z.object({
+                    user_id: z.string(),
+                    actor_id: z.string().nullable(),
+                  }),
+                  followersOf(event.round_id, kind),
+                )
               : [];
           return owe(
             tx,

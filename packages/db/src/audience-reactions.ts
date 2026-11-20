@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { inLiveRoomSql, liveRoomOfR } from './live-room-sql';
 import type { RoundAudienceAdmission } from './messaging/spectator-chat';
-import { rowsOf } from './raw-rows';
+import { rowsOf, run } from './raw-rows';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import type { PrivacyAdopter } from './privacy/contracts';
 import { exportRows } from './privacy/export-rows';
@@ -90,10 +90,13 @@ export const audienceReactionOperations = ({
           inLiveRoom: round.in_live_room,
         });
         // A closed account writes nothing, even if it was closed a moment ago.
-        await tx.execute(sql`insert into audience_reactions(id,round_id,user_id,kind,spaced_at,created_at)
+        await run(
+          tx,
+          sql`insert into audience_reactions(id,round_id,user_id,kind,spaced_at,created_at)
           select ${input.id},${input.roundId},u.id,${input.kind},${input.spacedAt}::timestamptz,${input.at}::timestamptz
           from users u where u.id=${input.userId} and u.deleted_at is null
-          on conflict do nothing`);
+          on conflict do nothing`,
+        );
         return true;
       }),
     );
@@ -125,7 +128,8 @@ export const audienceReactionPrivacyAdopter: PrivacyAdopter = {
   id: 'audience-reactions',
   phase: 'after-close',
   erase: async (tx, subject) => {
-    await tx.execute(
+    await run(
+      tx,
       sql`delete from audience_reactions where user_id=${subject.userId}`,
     );
   },

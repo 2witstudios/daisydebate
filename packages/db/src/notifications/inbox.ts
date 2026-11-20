@@ -11,7 +11,7 @@ import { maskEmail } from '@daisy/protocol/media-release';
 import { sql, type SQL } from 'drizzle-orm';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
 import { appendOutboxEvent } from '../outbox';
-import { rowsOf } from '../raw-rows';
+import { rowsOf, query } from '../raw-rows';
 import { wants } from './preferences';
 import {
   notificationStands,
@@ -24,6 +24,7 @@ import {
   type TournamentNotificationFacts,
 } from './tournament-inbox';
 import { inTransaction, type Tx, type TxSource } from '../tx';
+import { z } from 'zod';
 
 /** A position in the inbox, newest first: the last row a page showed. */
 export type InboxCursor = { readonly surfacedAt: string; readonly id: string };
@@ -345,8 +346,9 @@ export const notificationInboxOperations = ({
             where user_id=${input.userId} and read_at is null ${some} returning id`,
         );
         if (changed.length === 0) return;
-        const [actor] = await rowsOf<{ id: string }>(
+        const [actor] = await query(
           tx,
+          z.object({ id: z.string() }),
           sql`select id from actors where user_id=${input.userId}`,
         );
         if (actor)

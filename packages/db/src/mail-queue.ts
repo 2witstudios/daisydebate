@@ -2,11 +2,12 @@ import { createAppError } from '@daisy/errors';
 import { sql, type SQL } from 'drizzle-orm';
 import type { PgColumn, PgTable } from 'drizzle-orm/pg-core';
 import { requireLeaseMs } from './lease-policy';
-import { rowsOf } from './raw-rows';
+import { rowsOf, run, query } from './raw-rows';
 import { isUniqueViolation } from './unique-violation';
 import { agentLeaseDigest } from './round-agent-lease';
 import type { mailJobColumns } from './schema/columns';
 import { inTransaction, type TxOpener, type Tx } from './tx';
+import { z } from 'zod';
 
 /** A table that carries the mail job recipe's columns. */
 type MailJobTable = PgTable &
@@ -78,8 +79,9 @@ export const mailQueue = (
         if (!Number.isSafeInteger(value) || value < 1 || value > most)
           throw createAppError('VALIDATION');
       return inTransaction(database, async (tx) => {
-        const due = await rowsOf<{ id: string; spent: boolean }>(
+        const due = await query(
           tx,
+          z.object({ id: z.string(), spent: z.boolean() }),
           sql`select id, attempts >= ${input.maxAttempts} as spent from ${table}
             where (state = 'queued' and next_attempt_at <= clock_timestamp())
                or (state = 'leased' and lease_expires_at <= clock_timestamp())
@@ -90,12 +92,15 @@ export const mailQueue = (
         const claims: Claimed[] = [];
         for (const { id, spent } of due) {
           if (spent) {
-            await tx.execute(sql`update ${table} set
+            await run(
+              tx,
+              sql`update ${table} set
                 last_error_code = case when state = 'leased' or last_error_code = 'delivery-unknown'
                   then 'delivery-unknown' else 'delivery' end,
                 state = 'failed', completed_at = clock_timestamp(),
                 lease_token_digest = null, lease_expires_at = null
-              where id = ${id}`);
+              where id = ${id}`,
+            );
             continue;
           }
           const token = input.nextToken();
@@ -169,11 +174,14 @@ export const mailQueue = (
      * be recalled, so a held job ends `delivery-unknown`.
      */
     cancelOwed: async (tx: Tx, owed: SQL): Promise<void> => {
-      await tx.execute(sql`update ${table} set
+      await run(
+        tx,
+        sql`update ${table} set
           last_error_code = ${unknownIfHeld('not-owed')},
           state = 'cancelled', completed_at = clock_timestamp(),
           lease_token_digest = null, lease_expires_at = null
-        where state in ('queued', 'leased') and (${owed})`);
+        where state in ('queued', 'leased') and (${owed})`,
+      );
     },
   };
 };

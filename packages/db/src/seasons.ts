@@ -11,6 +11,7 @@ import {
   type SeasonRecord,
 } from './season-record';
 import { inTransaction, type Tx, type TxSource } from './tx';
+import { takeLock, transactionLocks } from './locks';
 
 /**
  * Season operations for the `bun season` CLI (ADR 0055): a season is opened
@@ -39,7 +40,7 @@ const onDivision = (division: RatingDivision) =>
 
 /** Serializes opening and beta activation, each of which reads for any season. */
 const lockSeasonCreation = (tx: Tx) =>
-  tx.execute(sql`select pg_advisory_xact_lock(59091, 1)`);
+  takeLock(tx, transactionLocks.seasonCreation());
 
 async function open(tx: Tx, input: NewSeason): Promise<SeasonRecord> {
   await lockSeasonCreation(tx);

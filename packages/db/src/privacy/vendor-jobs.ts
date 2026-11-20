@@ -5,6 +5,8 @@ import { retriedJob } from '../retried-job';
 import { privacyJobs } from '../schema/privacy-jobs';
 import { privacyVendors, type PrivacyVendor } from './planner';
 import type { Tx } from '../tx';
+import { query } from '../raw-rows';
+import { z } from 'zod';
 
 const vendorJob = retriedJob(privacyJobs);
 
@@ -65,11 +67,13 @@ export async function owedPrivacyJobs(
   input: { readonly vendors?: readonly PrivacyVendor[] } = {},
 ): Promise<number> {
   const scope = vendorScope(input.vendors);
-  const rows = (await database.execute(sql`select count(*)::int as owed
+  const rows = await query(
+    database,
+    z.object({ owed: z.number() }),
+    sql`select count(*)::int as owed
     from privacy_jobs
-    where status = 'pending' ${scope}`)) as unknown as {
-    owed: number;
-  }[];
+    where status = 'pending' ${scope}`,
+  );
   return rows[0]?.owed ?? 0;
 }
 

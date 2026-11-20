@@ -15,6 +15,7 @@ import {
 import { users } from './schema/users';
 import { lockOpenAccount } from './lock-open-account';
 import { inTransaction, type TxOpener } from './tx';
+import { run } from './raw-rows';
 
 /** One accepted age-step answer: an already-banded birth month and the Terms accepted. */
 export type AgeStepRecord = {
@@ -141,7 +142,8 @@ export const accountTermsPrivacyAdopter: PrivacyAdopter = {
   id: 'account-terms',
   phase: 'after-close',
   erase: async (tx, subject) => {
-    await tx.execute(
+    await run(
+      tx,
       sql`delete from ${accountTerms} where user_id=${subject.userId}`,
     );
   },

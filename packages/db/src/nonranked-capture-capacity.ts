@@ -2,11 +2,12 @@ import { z } from 'zod';
 import { createAppError } from '@daisy/errors';
 import { sql } from 'drizzle-orm';
 import type { Tx } from './tx';
+import { takeLock, transactionLocks } from './locks';
 
 /** The existing one-Egress nonranked physical fleet, shared by ordinary and tournament capture. */
 export const NONRANKED_CAPTURE_FLEET_LIMIT = 1;
 export const lockNonrankedCaptureCapacity = async (tx: Tx): Promise<void> => {
-  await tx.execute(sql`select pg_advisory_xact_lock(59081)`);
+  await takeLock(tx, transactionLocks.nonrankedCaptureCapacity());
 };
 /** A named read-only count crosses tenant scopes without returning another tenant's identity. */
 export const readNonrankedCaptureCapacity = async (

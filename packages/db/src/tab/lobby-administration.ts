@@ -28,9 +28,7 @@ const fence = async (tx: Tx, input: LobbyAdministrationInput) => {
   if (command.type === 'create-lobby') {
     // A handle is public identity. Serialize its first writer so concurrent
     // retries can find the receipt, and competing creates answer handle-taken.
-    await tx.execute(
-      sql`select pg_advisory_xact_lock(hashtextextended(${`tab-lobby-handle:${command.handle.toLowerCase()}`}, 0))`,
-    );
+    await takeLock(tx, transactionLocks.tabLobbyHandle(command.handle));
   }
   const [lobby] =
     'lobbyId' in command
@@ -204,6 +202,7 @@ const load = async (
 
 import { grants } from '../schema/grants';
 import { inTransaction, type Tx } from '../tx';
+import { takeLock, transactionLocks } from '../locks';
 
 export const createLobbyAdministrationStore = (database: TabDatabase) => ({
   lobbyAdministrationCommand: <Answer>(

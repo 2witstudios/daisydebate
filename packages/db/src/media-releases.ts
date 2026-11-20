@@ -46,6 +46,7 @@ import {
 } from './media-release-records';
 import { youthRoundShareableSql, youthRoundSql } from './youth-round-sql';
 import type { Tx } from './tx';
+import { run as runStatement } from './raw-rows';
 
 /** What a minor's Settings section reads. */
 export type MinorReleaseRead = {
@@ -95,7 +96,8 @@ export function createMediaReleases(input: {
     // The minor's account row orders every command about them; a page's
     // read takes no lock, so a link scanner never waits on a command.
     if (lock)
-      await tx.execute(
+      await runStatement(
+        tx,
         sql`select 1 from users where id = ${userId} for update`,
       );
     const releases = await readReleasesOf(tx, [userId], lock);
@@ -282,7 +284,8 @@ export function createMediaReleases(input: {
               : 'expired',
           );
         const requestId = nextId();
-        await tx.execute(
+        await runStatement(
+          tx,
           sql`insert into media_release_requests (id, user_id, recipient_email,
               recipient_hash, requested_at, expires_at, sends, last_sent_at)
             values (${requestId}, ${command.userId}, ${decision.recipientEmail},
@@ -327,7 +330,8 @@ export function createMediaReleases(input: {
         const request = facts.standing.request;
         const decision = decideResend(request, now.getTime());
         if (!decision.ok) return { kind: 'refused', reason: decision.refusal };
-        await tx.execute(
+        await runStatement(
+          tx,
           sql`update media_release_requests set sends = sends + 1,
               last_sent_at = ${now.toISOString()} where id = ${request.id}`,
         );
@@ -464,7 +468,8 @@ export function createMediaReleases(input: {
           return { kind: 'refused', reason: facts.verdict };
         const decision = decideWithdrawal(facts.held, form);
         if (!decision.ok) return { kind: 'refused', reason: decision.refusal };
-        await tx.execute(
+        await runStatement(
+          tx,
           sql`update media_releases set withdrawn_at = clock_timestamp(),
               withdrawn_by = 'parent', withdrawal_note = ${decision.note}
             where id in ${sql`(${sql.join(
@@ -524,7 +529,8 @@ export function createMediaReleases(input: {
             now: facts.now,
           });
         } else {
-          await tx.execute(
+          await runStatement(
+            tx,
             sql`update media_releases set withdrawn_at = clock_timestamp(),
                 withdrawn_by = 'parent' where id = ${decision.releaseId}`,
           );
@@ -588,12 +594,14 @@ export function createMediaReleases(input: {
     /** "Don't send me release requests": the address's keyed hash is kept. */
     stopRequests: (recipientHash: string): Promise<void> =>
       run(async (tx) => {
-        await tx.execute(
+        await runStatement(
+          tx,
           sql`insert into media_release_stops (recipient_hash) values (${recipientHash})
             on conflict do nothing`,
         );
         // Its open requests end now, so no reminder or resend reaches it.
-        await tx.execute(
+        await runStatement(
+          tx,
           sql`update media_release_requests set outcome = 'stopped',
               resolved_at = clock_timestamp()
             where recipient_hash = ${recipientHash} and outcome is null`,

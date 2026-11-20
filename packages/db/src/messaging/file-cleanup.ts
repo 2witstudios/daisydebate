@@ -10,6 +10,7 @@ import {
   type FileToken,
 } from '../messaging-files';
 import { inTransaction, type Tx, type TxSource } from '../tx';
+import { run } from '../raw-rows';
 
 type PendingFileFact = {
   readonly kind: 'pending_file';
@@ -69,7 +70,8 @@ export function createMessagingFileCleanup({
         maxActors: 65535,
       });
       if (pair)
-        await tx.execute(
+        await run(
+          tx,
           sql`select low_actor_id from contact_pairs where low_actor_id=${pair.low_actor_id} and high_actor_id=${pair.high_actor_id} for update`,
         );
       const channels = await tx.execute(

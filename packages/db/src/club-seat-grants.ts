@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { lockAuthorizationActors } from './authorization';
 import { scopeTransaction } from './tenant-scope';
 import type { Tx } from './tx';
+import { run } from './raw-rows';
 
 type SeatGrant = Extract<EntitlementGrant, { source: 'organization_seat' }>;
 /** One holder's projected grants: what `clubSeatGrants` (auth) returns per seat. */
@@ -107,20 +108,27 @@ export async function writeClubSeatGrants(
     )
       throw createAppError('VALIDATION');
     const grants = JSON.stringify(parsed.data);
-    await tx.execute(sql`delete from account_entitlement_grants
+    await run(
+      tx,
+      sql`delete from account_entitlement_grants
       where user_id=${holder.userId} and source='organization_seat'
       and (organization_id <> ${organizationId} or entitlement not in
-        (select value->>'entitlement' from jsonb_array_elements(${grants}::text::jsonb)))`);
+        (select value->>'entitlement' from jsonb_array_elements(${grants}::text::jsonb)))`,
+    );
     if (parsed.data.length)
-      await tx.execute(sql`insert into account_entitlement_grants
+      await run(
+        tx,
+        sql`insert into account_entitlement_grants
         (user_id, entitlement, source, organization_id, starts_at, expires_at)
         select ${holder.userId}, value->>'entitlement', 'organization_seat', ${organizationId},
           (value->>'startsAt')::timestamptz, (value->>'expiresAt')::timestamptz
         from jsonb_array_elements(${grants}::text::jsonb)
         on conflict (user_id, entitlement, source) do update
           set organization_id=excluded.organization_id,
-            starts_at=excluded.starts_at, expires_at=excluded.expires_at`);
-    await tx.execute(
+            starts_at=excluded.starts_at, expires_at=excluded.expires_at`,
+      );
+    await run(
+      tx,
       sql`update users set version=version+1 where id=${holder.userId}`,
     );
   }

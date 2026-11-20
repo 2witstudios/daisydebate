@@ -21,6 +21,7 @@ import { divisionAgeBand, divisionOfBandSql } from './ladder-division-band';
 import { scopeTransaction } from './tenant-scope';
 import { youthRoundShareableSql, youthRoundSql } from './youth-round-sql';
 import type { Tx } from './tx';
+import { run as runStatement } from './raw-rows';
 
 const rows = async <Row>(tx: Tx, query: ReturnType<typeof sql>) =>
   (await tx.execute(query)) as unknown as Row[];
@@ -309,7 +310,8 @@ export function createMediaReleaseClubs(input: {
           throw createAppError('NOT_FOUND');
         // Each student's account row orders every command about them.
         for (const id of [...ids].sort())
-          await tx.execute(
+          await runStatement(
+            tx,
             sql`select 1 from users where id = ${id} for update`,
           );
         const now = await readDatabaseTime(tx);
@@ -355,7 +357,8 @@ export function createMediaReleaseClubs(input: {
               now,
             });
             await scopeTransaction(tx, { organizationId: club.id });
-            await tx.execute(
+            await runStatement(
+              tx,
               sql`insert into media_release_club_attestations (release_id,
                   organization_id, user_id, attested_by_user_id, attester_name,
                   attester_role)
@@ -364,7 +367,8 @@ export function createMediaReleaseClubs(input: {
             );
           }
           if (student.supersedes !== null)
-            await tx.execute(
+            await runStatement(
+              tx,
               sql`update media_release_requests set outcome = 'superseded',
                   resolved_at = clock_timestamp()
                 where id = ${student.supersedes} and outcome is null`,
@@ -395,7 +399,8 @@ export function createMediaReleaseClubs(input: {
       if (!idSchema.safeParse(command.organizationId).success)
         throw createAppError('VALIDATION');
       return run(async (tx) => {
-        await tx.execute(
+        await runStatement(
+          tx,
           sql`select 1 from users where id = ${command.userId} for update`,
         );
         const club = await readClub(tx, { id: command.organizationId }, false);
@@ -424,7 +429,8 @@ export function createMediaReleaseClubs(input: {
         if ((recent?.n ?? 0) > 0) return { kind: 'already_asked' };
         const now = await readDatabaseTime(tx);
         const askId = nextId();
-        await tx.execute(
+        await runStatement(
+          tx,
           sql`insert into media_release_club_asks (id, organization_id, user_id, asked_at)
             values (${askId}, ${club.id}, ${command.userId}, ${now.toISOString()})`,
         );

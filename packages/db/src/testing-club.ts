@@ -15,6 +15,7 @@ import { createBoundedTransaction } from './bounded-transaction';
 import { scopeTransaction } from './tenant-scope';
 import { createLane } from './workload';
 import { inTransaction } from './tx';
+import { run as runStatement } from './raw-rows';
 
 /**
  * A club with a paid Club plan, for the browser suite (ADR 0148): the
@@ -44,10 +45,16 @@ export async function fundTestClub(
   const organizationId = createId();
   await inTransaction(drizzle({ client }), async (tx) => {
     await scopeTransaction(tx, { organizationId });
-    await tx.execute(sql`insert into organizations (id, kind, name, handle, owner_user_id)
-      values (${organizationId}, 'school', ${input.name}, ${`club-${organizationId}`}, ${input.owner.userId})`);
-    await tx.execute(sql`insert into memberships (organization_id, user_id, status, joined_at)
-      values (${organizationId}, ${input.owner.userId}, 'active', now())`);
+    await runStatement(
+      tx,
+      sql`insert into organizations (id, kind, name, handle, owner_user_id)
+      values (${organizationId}, 'school', ${input.name}, ${`club-${organizationId}`}, ${input.owner.userId})`,
+    );
+    await runStatement(
+      tx,
+      sql`insert into memberships (organization_id, user_id, status, joined_at)
+      values (${organizationId}, ${input.owner.userId}, 'active', now())`,
+    );
   });
   const subject = { ...input.owner, organizationId };
   const purchases = createBillingPurchases({

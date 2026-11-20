@@ -1,6 +1,8 @@
 import { sql } from 'drizzle-orm';
 import { eligible } from './eligible';
 import type { Tx } from '../tx';
+import { query as queryRows } from '../raw-rows';
+import { z } from 'zod';
 /** Round dedupe precedes LIMIT; actual all-member history survives finished siblings. Lock skips happen before the bound. */
 export async function select(tx: Tx, lane: 'attached' | 'detached') {
   const live = sql`not exists(select 1 from necessary_evidence live
@@ -20,6 +22,6 @@ export async function select(tx: Tx, lane: 'attached' | 'detached') {
         order by e.original_round_id,e.created_at,e.id
       ) due on due.id=e.id order by ${turn},e.original_round_id
       for update of e skip locked limit 1`;
-  const [row] = (await tx.execute(query)) as unknown as { id: string }[];
+  const [row] = await queryRows(tx, z.object({ id: z.string() }), query);
   return row?.id ?? null;
 }

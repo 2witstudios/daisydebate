@@ -5,6 +5,7 @@ import type {
 } from './context-channel-contracts';
 import { appendStream, lockStream } from './stream';
 import type { Tx } from '../tx';
+import { run } from '../raw-rows';
 
 /** What one context supplies so reports and operators can reach its messages. */
 export type ContextChannelModerationOwner<Fact extends ContextChannelFact> = {
@@ -68,7 +69,8 @@ export function contextChannelModeration<Fact extends ContextChannelFact>(
       )
         return null;
       await owner.fence(tx, found.owner_id);
-      await tx.execute(
+      await run(
+        tx,
         sql`select id from messaging_channels where id=${found.id} for share`,
       );
       await lockStream(tx, found.id);
@@ -85,7 +87,8 @@ export function contextChannelModeration<Fact extends ContextChannelFact>(
         sql`update messaging_messages set text=null,removed_at=${input.now.toISOString()}::timestamptz,change_version=${stream.changeVersion} where id=${input.messageId} and channel_id=${found.id} and removed_at is null returning id`,
       );
       if (!row) return 'unchanged' as const;
-      await tx.execute(
+      await run(
+        tx,
         sql`update messaging_receipts set payload_digest=null where channel_id=${found.id} and message_id=${input.messageId}`,
       );
       return 'applied' as const;

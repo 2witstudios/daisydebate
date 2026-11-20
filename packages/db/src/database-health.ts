@@ -24,6 +24,7 @@ import {
   type RuntimeRoleFactsRow,
 } from './runtime-role';
 import { inTransaction, type TxSource } from './tx';
+import { run } from './raw-rows';
 
 /** Connection/role probes for doctor, startup and health checks over the owned pool. */
 export const databaseHealthOperations = ({
@@ -38,7 +39,7 @@ export const databaseHealthOperations = ({
 }) => ({
   async health() {
     return instrumented(eventSink, 'health', async () => {
-      await database.execute(sql`select 1`);
+      await run(database, sql`select 1`);
       return true;
     });
   },

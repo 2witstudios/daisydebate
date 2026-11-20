@@ -3,6 +3,10 @@ import { z } from 'zod';
 import { createAppError } from '@daisy/errors';
 import type { Tx } from './tx';
 
+type RawExecutor = {
+  readonly execute: (statement: SQL) => PromiseLike<unknown>;
+};
+
 /** The rows of one raw statement, as the caller says they are. */
 export const rowsOf = async <T>(tx: Pick<Tx, 'execute'>, statement: SQL) =>
   (await tx.execute(statement)) as unknown as T[];
@@ -14,7 +18,7 @@ export const rowsOf = async <T>(tx: Pick<Tx, 'execute'>, statement: SQL) =>
  * numeric as a string and timestamptz as a Date; the schema says which.
  */
 export async function query<Row extends z.ZodType>(
-  tx: Pick<Tx, 'execute'>,
+  tx: RawExecutor,
   rowSchema: Row,
   statement: SQL,
 ): Promise<z.output<Row>[]> {
@@ -23,13 +27,16 @@ export async function query<Row extends z.ZodType>(
     throw createAppError(
       'INVARIANT',
       'A raw read returned a row its schema refuses',
-      // Include the issue locations and kinds without logging row values.
-      parsed.error.issues.map(({ path, code }) => ({ path, code })),
+      // Nested paths may include user-supplied object keys.
+      parsed.error.issues.map(({ path: [index], code }) => ({
+        row: typeof index === 'number' ? index : undefined,
+        code,
+      })),
     );
   return parsed.data;
 }
 
 /** Runs one raw statement whose rows nobody reads. */
-export async function run(tx: Pick<Tx, 'execute'>, statement: SQL) {
+export async function run(tx: RawExecutor, statement: SQL) {
   await tx.execute(statement);
 }

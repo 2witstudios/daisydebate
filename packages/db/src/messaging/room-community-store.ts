@@ -18,6 +18,8 @@ import type {
   RoomCommunityWriteFrame,
 } from './room-community-contracts';
 import type { TxSource } from '../tx';
+import { query } from '../raw-rows';
+import { z } from 'zod';
 
 type DiscoveryScope = Omit<RoomCommunityScope, 'channelId'>;
 /**
@@ -81,7 +83,9 @@ const roomCommunityOwner = (
       sql`, `,
     )}]::text[]`;
     const wanted = authorActorIds.length ? requested : sql`array[]::text[]`;
-    const rows = (await tx.execute(
+    const rows = await query(
+      tx,
+      z.object({ actorId: z.string(), label: z.string(), judge: z.boolean() }),
       sql`select a.id as "actorId",u.username as label,
           exists(select 1 from room_participants p where p.room_id=${ownerId} and p.actor_id=a.id and p.seat_kind='judge') as judge
         from actors a join users u on u.id=a.user_id and u.deleted_at is null
@@ -90,11 +94,7 @@ const roomCommunityOwner = (
           union
           select m.author_actor_id from messaging_messages m where m.channel_id=${channelId} and m.text is not null and m.removed_at is null and m.author_actor_id=any(${wanted})
         ) order by (a.id=any(${wanted})) desc,a.id limit ${AUTHOR_LABELS}`,
-    )) as unknown as readonly {
-      readonly actorId: string;
-      readonly label: string;
-      readonly judge: boolean;
-    }[];
+    );
     if (!rows.some((row) => row.judge))
       return rows.map(({ actorId, label }) => ({ actorId, label }));
     const [room] = (await tx.execute(

@@ -15,6 +15,8 @@ import { loadAuthorizationAccount } from './authorization';
 import { factReleasedSql, type SpectatorClock } from './spectator-release-sql';
 import { currentRoomTopic, type ReadOpeningTopic } from './round-opening-read';
 import type { Tx } from './tx';
+import { run, query as queryRows } from './raw-rows';
+import { z } from 'zod';
 type Seat = {
   readonly actorId: string;
   readonly seat: SeatRef;
@@ -125,7 +127,10 @@ export async function discoverRooms(
   const order = pageOrder(sort, cursor, caller);
   let account = await sharedAccount(tx, caller);
   if (!authorizeCollection(account)) throw createAppError('AUTHORIZATION');
-  const candidates = (await tx.execute(sql`
+  const candidates = await queryRows(
+    tx,
+    z.object({ id: z.string() }),
+    sql`
   select id from (
     (select r.id,r.created_at from rooms r ${joins}
       where ${assembly} and r.status in ${assemblyStatuses(status)} and ${modeMatches(mode)} and ${divisionMatches(division)} and ${order.after} and ${visible(caller)} and ${search(q, sql`r.topic`)}
@@ -136,7 +141,8 @@ export async function discoverRooms(
         and ${order.after} and ${visible(caller)} and ${inLaunchedRound(caller)} and ${search(q, launchedTopic)}
       order by r.created_at ${order.direction},r.id collate "C" ${order.direction} limit ${pageSize + 1})
   ) candidates order by created_at ${order.direction},id collate "C" ${order.direction} limit ${pageSize + 1}
- `)) as unknown as { id: string }[];
+ `,
+  );
   const ids = candidates.slice(0, pageSize).map((r) => r.id);
   const more = candidates.length > pageSize;
   if (!ids.length) return { rooms: [], nextCursor: null, retry: false };
@@ -144,10 +150,12 @@ export async function discoverRooms(
     ids.map((id) => sql`${id}`),
     sql`, `,
   )}]::text[]`;
-  await tx.execute(
+  await run(
+    tx,
     sql`select id from rooms where id=any(${idSet}) order by id for share`,
   );
-  await tx.execute(
+  await run(
+    tx,
     sql`select id from rounds where room_id=any(${idSet}) order by id for share`,
   );
   // Producer facts are read again after every downstream lock wait.

@@ -20,6 +20,9 @@ import { appendSessionRevokedFor } from './session-revoked';
 import { writeBetaAccessChange } from './beta-access-change';
 import { mailIntentQueue } from './mail-intent-queue';
 import type { Tx } from './tx';
+import { takeLock, transactionLocks } from './locks';
+import { run, query } from './raw-rows';
+import { z } from 'zod';
 
 /** The approval mail a command owes, deduplicated by the command that owed it. */
 const approvalMailKey = (commandId: string) => `beta-approved:${commandId}`;
@@ -33,10 +36,12 @@ export async function readBetaAccessCommandState(
   commandId: string,
   result: unknown,
 ): Promise<Omit<BetaAccessCommandState, 'action'>> {
-  const [mail] = (await database.execute(sql`select state from mail_intents
-    where dedupe_key = ${approvalMailKey(commandId)}`)) as unknown as {
-    state: string;
-  }[];
+  const [mail] = await query(
+    database,
+    z.object({ state: z.string() }),
+    sql`select state from mail_intents
+    where dedupe_key = ${approvalMailKey(commandId)}`,
+  );
   return {
     result: betaAccessCommandResultSchema.parse(result),
     mailState: (mail?.state ?? null) as BetaAccessCommandState['mailState'],
@@ -84,9 +89,11 @@ const refusalCode = {
 
 /** The target's account fact, locked under the account fence; null without a human actor. */
 async function lockTarget(tx: Tx, userId: string) {
-  const [actor] = (await tx.execute(
+  const [actor] = await query(
+    tx,
+    z.object({ id: z.string() }),
     sql`select id from actors where user_id = ${userId} and kind = 'human'`,
-  )) as unknown as { id: string }[];
+  );
   if (!actor) return null;
   const [fact] = await lockAuthorizationActors(tx, [actor.id], {
     maxActors: 1,
@@ -158,10 +165,13 @@ async function applyChange(
     principal: `operator:${input.serviceId}/${input.operatorRef}`,
   });
   if (decision.to === 'approved')
-    await tx.execute(sql`insert into mail_intents
+    await run(
+      tx,
+      sql`insert into mail_intents
         (id, purpose, recipient_user_id, dedupe_key, next_attempt_at)
       values (${input.nextId()}, 'beta-approved', ${input.targetUserId},
-        ${approvalMailKey(input.commandId)}, now())`);
+        ${approvalMailKey(input.commandId)}, now())`,
+    );
   else {
     // A revoked account's invitations, by its claim or its address, are not owed.
     await mailIntentQueue.cancelOwed(
@@ -192,14 +202,13 @@ export async function runBetaAccessCommand(
 ): Promise<BetaAccessCommandOutcome> {
   // Every statement, COMMIT included, is bounded, so a command that passes
   // its deadline check commits within the bound or not at all.
-  await tx.execute(
+  await run(
+    tx,
     sql.raw(`set local statement_timeout = ${operatorLimits.commandBoundMs}`),
   );
   // One command id is one command, whatever its target: a concurrent reuse
   // waits here and then meets the receipt as a conflict, not a key error.
-  await tx.execute(
-    sql`select pg_advisory_xact_lock(hashtextextended(${input.commandId}, 59079))`,
-  );
+  await takeLock(tx, transactionLocks.operatorCommand(input.commandId));
   const fact = await lockTarget(tx, input.targetUserId);
   const replayed = await storedResult(tx, input);
   if (replayed) return { kind: 'replayed', result: replayed };
@@ -211,12 +220,15 @@ export async function runBetaAccessCommand(
     action: betaAccessCommandAction,
     result,
   });
-  await tx.execute(sql`insert into operator_command_receipts
+  await run(
+    tx,
+    sql`insert into operator_command_receipts
       (command_id, service_id, operator_ref, action, target_user_id,
        request_digest, result, admin_audit_head)
     values (${input.commandId}, ${input.serviceId}, ${input.operatorRef},
       ${receipt.action}, ${input.targetUserId},
-      ${input.requestDigest}, ${JSON.stringify(receipt.result)}::text::jsonb, ${input.adminAuditHead})`);
+      ${input.requestDigest}, ${JSON.stringify(receipt.result)}::text::jsonb, ${input.adminAuditHead})`,
+  );
   // Checked last: a PUT delayed past its signed deadline (behind a lock, say)
   // writes nothing, so an admin that waited out the deadline may abandon it.
   if (!input.live()) throw createAppError('CONFLICT');

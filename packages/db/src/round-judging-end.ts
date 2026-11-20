@@ -4,6 +4,7 @@ import { roundJudgingJobs } from './schema/round-judging-jobs';
 import { judgingJobWhere } from './round-judging-context';
 import { settleCasualJudgeUsageLocked } from './casual-judge-usage';
 import type { Tx } from './tx';
+import { run } from './raw-rows';
 
 /** The engine's rule: judging names why a Round's end ended a job. */
 export type JudgingEndRule = (
@@ -46,10 +47,13 @@ export async function endOpenJudgingJobs(
     )
     .for('update');
   // A job's run ends with it, or a dead lease reads as still running.
-  await tx.execute(sql`update agent_runs set ended_at=clock_timestamp()
+  await run(
+    tx,
+    sql`update agent_runs set ended_at=clock_timestamp()
     where kind='judging' and ended_at is null and round_participant_id in (
       select judge_participant_id from round_judging_jobs
-      where round_id=${roundId} and status in ('queued','leased','recovering','blocked'))`);
+      where round_id=${roundId} and status in ('queued','leased','recovering','blocked'))`,
+  );
   const nowMs = Date.parse(input.now);
   const reasons: JudgingTerminalReason[] = [];
   for (const job of open) {

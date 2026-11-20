@@ -7,7 +7,7 @@ import {
 } from '@daisy/protocol';
 import { sql, type SQL } from 'drizzle-orm';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
-import { rowsOf } from '../raw-rows';
+import { rowsOf, run } from '../raw-rows';
 import { inTransaction, type TxSource } from '../tx';
 
 /** Whether `user` wants `kind` on `channel`: on unless they turned it off. */
@@ -58,10 +58,13 @@ export const notificationPreferenceOperations = ({
           const enabled = (
             input.choices[kind] as Partial<Record<NotificationChannel, boolean>>
           )[channel];
-          await tx.execute(sql`insert into notification_preferences(user_id,kind,channel,enabled)
+          await run(
+            tx,
+            sql`insert into notification_preferences(user_id,kind,channel,enabled)
             select u.id,${kind},${channel},${enabled ?? true} from users u
             where u.id=${input.userId} and u.deleted_at is null
-            on conflict (user_id,kind,channel) do update set enabled=excluded.enabled`);
+            on conflict (user_id,kind,channel) do update set enabled=excluded.enabled`,
+          );
         }
       }),
     );

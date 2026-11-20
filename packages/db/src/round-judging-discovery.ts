@@ -2,6 +2,8 @@ import { createAppError } from '@daisy/errors';
 import { judgingWorkKinds, type JudgingWorkKind } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import type { Tx } from './tx';
+import { query } from './raw-rows';
+import { z } from 'zod';
 
 type DueJudge = {
   readonly roundId: string;
@@ -19,7 +21,14 @@ export async function discoverRoundJudgingJobs(
     throw createAppError('VALIDATION');
   if (!judgingWorkKinds.includes(workKind)) throw createAppError('VALIDATION');
   const lane = sql`and holds_ballot=${workKind === 'submission'}`;
-  return (await tx.execute(sql`
+  return await query(
+    tx,
+    z.object({
+      roundId: z.string(),
+      judgeParticipantId: z.string(),
+      holdsBallot: z.boolean(),
+    }),
+    sql`
     with sampled as materialized (select clock_timestamp() as now),
     turns as (
       select j.round_id,max(j.last_claimed_at) as last_claimed_at,
@@ -50,5 +59,6 @@ export async function discoverRoundJudgingJobs(
     from due where round_turn=1 ${lane}
     order by service_turn_at,round_id,created_at,judge_participant_id
     limit ${limit}
-  `)) as unknown as readonly DueJudge[];
+  `,
+  );
 }

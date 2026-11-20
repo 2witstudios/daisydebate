@@ -1,9 +1,10 @@
 import { runningRoundStatuses } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
-import { rowsOf } from './raw-rows';
+import { query } from './raw-rows';
 import { isDebatingSeatSql } from './seat-columns';
 import { currentTenantScope, scopeTransaction } from './tenant-scope';
 import { inTransaction, type Tx, type TxOpener } from './tx';
+import { z } from 'zod';
 
 /** At most this many: the newest running Rounds first. Watch shows a handful. */
 const STUDENT_LIVE_ROUNDS = 12;
@@ -31,21 +32,24 @@ const readStudentLiveRoundCandidates = async (
 ): Promise<readonly StudentLiveRound[]> => {
   // Only an adult with a valid age record stands in for a youth debater,
   // the forward rule's own test: nobody else has students to look for.
-  const [adult] = await rowsOf<{ adult: boolean }>(
+  const [adult] = await query(
     tx,
+    z.object({ adult: z.boolean() }),
     sql`select exists (select 1 from account_age a where a.user_id = ${adultUserId}
       and public.daisy_age_band(a.birth_month, a.version, a.recorded_at, clock_timestamp()) = 'adult') as adult`,
   );
   if (adult?.adult !== true) return [];
   const caller = await currentTenantScope(tx);
   await scopeTransaction(tx, { subjectUserId: adultUserId });
-  const minors = await rowsOf<{ user_id: string }>(
+  const minors = await query(
     tx,
+    z.object({ user_id: z.string() }),
     sql`select g.minor_user_id as user_id from guardian_links g
       where g.guardian_user_id = ${adultUserId} and g.status = 'active'`,
   );
-  const schools = await rowsOf<{ organization_id: string; owner: boolean }>(
+  const schools = await query(
     tx,
+    z.object({ organization_id: z.string(), owner: z.boolean() }),
     sql`select o.id as organization_id, true as owner from organizations o
         where o.kind = 'school' and o.closed_at is null
           and o.owner_user_id = ${adultUserId}
@@ -61,8 +65,9 @@ const readStudentLiveRoundCandidates = async (
     await scopeTransaction(tx, { organizationId });
     // A member who is not staff has no students here (the forward rule's own test).
     if (!owner) {
-      const [staff] = await rowsOf<{ staff: boolean }>(
+      const [staff] = await query(
         tx,
+        z.object({ staff: z.boolean() }),
         sql`select exists (select 1 from grants g
           where g.organization_id = ${organizationId} and g.user_id = ${adultUserId}
             and g.scope_kind = 'organization' and g.revoked_at is null
@@ -72,8 +77,9 @@ const readStudentLiveRoundCandidates = async (
       );
       if (staff?.staff !== true) continue;
     }
-    const found = await rowsOf<{ user_id: string }>(
+    const found = await query(
       tx,
+      z.object({ user_id: z.string() }),
       sql`select m.user_id from memberships m
         where m.organization_id = ${organizationId} and m.status = 'active'`,
     );
@@ -84,8 +90,9 @@ const readStudentLiveRoundCandidates = async (
     ...new Set([...minors.map((row) => row.user_id), ...members]),
   ].filter((userId) => userId !== adultUserId);
   if (students.length === 0) return [];
-  const live = await rowsOf<{ id: string; title: string }>(
+  const live = await query(
     tx,
+    z.object({ id: z.string(), title: z.string() }),
     sql`select r.id, rm.title from rounds r
       join rooms rm on rm.id = r.room_id
       where rm.division = 'youth'

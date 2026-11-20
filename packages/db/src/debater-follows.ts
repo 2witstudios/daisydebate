@@ -1,9 +1,10 @@
 import { sql } from 'drizzle-orm';
-import { rowsOf } from './raw-rows';
+import { rowsOf, run, query } from './raw-rows';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import type { PrivacyAdopter } from './privacy/contracts';
 import { exportRows } from './privacy/export-rows';
 import { inTransaction, type TxSource } from './tx';
+import { z } from 'zod';
 
 const debaterNamed = (username: string) =>
   sql`select a.id,u.id as user_id from users u join actors a on a.user_id=u.id
@@ -40,15 +41,19 @@ export const debaterFollowOperations = ({
   }): Promise<DebaterFollowOutcome> {
     return instrumented(eventSink, 'setDebaterFollow', () =>
       inTransaction(database, async (tx) => {
-        const [debater] = await rowsOf<{ id: string; user_id: string }>(
+        const [debater] = await query(
           tx,
+          z.object({ id: z.string(), user_id: z.string() }),
           debaterNamed(input.username),
         );
         if (!debater || debater.user_id === input.followerUserId)
           return 'unavailable' as const;
         if (input.state === 'not_following') {
-          await tx.execute(sql`delete from debater_follows
-            where follower_user_id=${input.followerUserId} and debater_actor_id=${debater.id}`);
+          await run(
+            tx,
+            sql`delete from debater_follows
+            where follower_user_id=${input.followerUserId} and debater_actor_id=${debater.id}`,
+          );
           return 'not_following' as const;
         }
         // A ban covers all audience interaction; letting a follow go stays open.
@@ -58,10 +63,13 @@ export const debaterFollowOperations = ({
             or exists(select 1 from audience_bans x where x.user_id=${input.followerUserId})`,
         );
         if (refused) return 'unavailable' as const;
-        await tx.execute(sql`insert into debater_follows(follower_user_id,debater_actor_id)
+        await run(
+          tx,
+          sql`insert into debater_follows(follower_user_id,debater_actor_id)
           select u.id,${debater.id} from users u
           where u.id=${input.followerUserId} and u.deleted_at is null
-          on conflict do nothing`);
+          on conflict do nothing`,
+        );
         return 'following' as const;
       }),
     );
@@ -72,8 +80,9 @@ export const debaterFollowOperations = ({
     readonly username: string;
   }) {
     return instrumented(eventSink, 'readDebaterFollow', async () => {
-      const [debater] = await rowsOf<{ id: string; user_id: string }>(
+      const [debater] = await query(
         database,
+        z.object({ id: z.string(), user_id: z.string() }),
         debaterNamed(input.username),
       );
       if (!debater || debater.user_id === input.followerUserId) return null;
@@ -92,8 +101,9 @@ export const debaterFollowOperations = ({
   }) {
     return instrumented(eventSink, 'listFollowedDebaters', async () =>
       (
-        await rowsOf<{ username: string }>(
+        await query(
           database,
+          z.object({ username: z.string() }),
           sql`select u.username from debater_follows f
             join actors a on a.id=f.debater_actor_id
             join users u on u.id=a.user_id and u.deleted_at is null
@@ -111,8 +121,11 @@ export const debaterFollowPrivacyAdopter: PrivacyAdopter = {
   id: 'debater-follows',
   phase: 'after-close',
   erase: async (tx, subject) => {
-    await tx.execute(sql`delete from debater_follows
-      where follower_user_id=${subject.userId} or debater_actor_id=${subject.actorId}`);
+    await run(
+      tx,
+      sql`delete from debater_follows
+      where follower_user_id=${subject.userId} or debater_actor_id=${subject.actorId}`,
+    );
   },
   export: async (tx, subject) => ({
     debater_follows: exportRows(

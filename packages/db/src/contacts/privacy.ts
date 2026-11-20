@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm';
 import { idSchema } from '@daisy/protocol';
 import type { PrivacyAdopter, PrivacyExport } from '../privacy/contracts';
 import { exportRows } from '../privacy/export-rows';
+import { run } from '../raw-rows';
 
 const rowsOf = (rows: unknown) => rows as Record<string, unknown>[];
 
@@ -21,7 +22,7 @@ export const contactsPrivacyAdopter: PrivacyAdopter = {
       sql`delete from contact_commands where actor_id=${actorId} or counterpart_actor_id=${actorId}`,
       sql`delete from contact_pairs where low_actor_id=${actorId} or high_actor_id=${actorId}`,
     ])
-      await tx.execute(statement);
+      await run(tx, statement);
   },
   async export(tx, subject): Promise<PrivacyExport> {
     const actorId = idSchema.parse(subject.actorId);

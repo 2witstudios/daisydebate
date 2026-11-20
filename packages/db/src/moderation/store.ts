@@ -17,6 +17,8 @@ import { moderationActions } from '../schema/moderation';
 import { appendSessionRevokedFor } from '../session-revoked';
 import { actionInForce } from './in-force';
 import { inTransaction, type Tx, type TxSource } from '../tx';
+import { run, query } from '../raw-rows';
+import { z } from 'zod';
 
 /** What a reviewer does to an account (ADR 0103). */
 export type Sanction =
@@ -72,7 +74,8 @@ export async function applySanction(
       ? { endsAt: new Date(input.sanction.endsAt) }
       : {}),
   });
-  await tx.execute(
+  await run(
+    tx,
     sql`update users set version = version + 1 where id = ${input.userId}`,
   );
   if (input.sanction.kind === 'warning') return;
@@ -123,13 +126,13 @@ async function liftModeration(
   await commandGate(tx, input.commandId);
   const replayed = await storedResult(tx, input.commandId, input.requestDigest);
   if (replayed) return replayed as ModerationLiftResult;
-  const [row] =
-    (await tx.execute(sql`select m.user_id as "userId", a.id as "actorId"
+  const [row] = await query(
+    tx,
+    z.object({ userId: z.string(), actorId: z.string() }),
+    sql`select m.user_id as "userId", a.id as "actorId"
     from moderation_actions m join actors a on a.user_id = m.user_id and a.kind = 'human'
-    where m.id = ${input.actionId}`)) as unknown as {
-      userId: string;
-      actorId: string;
-    }[];
+    where m.id = ${input.actionId}`,
+  );
   if (!row) throw createAppError('NOT_FOUND');
   await lockAuthorizationActors(tx, [row.actorId], { maxActors: 1 });
   const lifted = await tx
@@ -143,7 +146,8 @@ async function liftModeration(
     )
     .returning({ id: moderationActions.id });
   if (!lifted[0]) throw createAppError('CONFLICT');
-  await tx.execute(
+  await run(
+    tx,
     sql`update users set version = version + 1 where id = ${row.userId}`,
   );
   const result: ModerationLiftResult = {
@@ -243,9 +247,12 @@ export const moderationOperations = ({
     requireOwnScope(scope);
     return instrumented(eventSink, 'acknowledgeModerationNotice', () =>
       readOwnCollection(database, scope, authorize, async (tx) => {
-        await tx.execute(sql`update moderation_actions
+        await run(
+          tx,
+          sql`update moderation_actions
           set acknowledged_at = ${new Date(input.now)}
-          where id = ${input.id} and user_id = ${scope.userId} and kind = 'warning' and acknowledged_at is null`);
+          where id = ${input.id} and user_id = ${scope.userId} and kind = 'warning' and acknowledged_at is null`,
+        );
       }),
     );
   },

@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm';
 import { idSchema } from '@daisy/protocol';
 import type { PrivacyAdopter, PrivacyExport } from '../privacy/contracts';
 import { exportRows } from '../privacy/export-rows';
+import { run } from '../raw-rows';
 
 /** Challenges' subject rights (ADR 0103): every challenge naming the subject. */
 export const challengesPrivacyAdopter: PrivacyAdopter = {
@@ -9,7 +10,8 @@ export const challengesPrivacyAdopter: PrivacyAdopter = {
   phase: 'after-close',
   async erase(tx, subject) {
     const actorId = idSchema.parse(subject.actorId);
-    await tx.execute(
+    await run(
+      tx,
       sql`delete from challenges where challenger_actor_id=${actorId} or challenged_actor_id=${actorId}`,
     );
   },

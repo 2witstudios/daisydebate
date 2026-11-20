@@ -3,6 +3,8 @@ import { createAppError } from '@daisy/errors';
 import { transcriptionRecoveryEnrollmentProgress as progress } from '../schema/transcription-recovery-enrollment-progress';
 import { missingRounds } from './missing-rounds';
 import type { Tx } from '../tx';
+import { query } from '../raw-rows';
+import { z } from 'zod';
 /** Commit a bounded finite-pass position before external work; a crash defers a unit to the next pass, never deletes it. */
 export async function missing(tx: Tx) {
   const [position] = await tx
@@ -16,11 +18,16 @@ export async function missing(tx: Tx) {
       'Enrollment scan position unavailable',
     );
   // Sample after the scan lock wait. Do not round-trip microsecond cursor keys through JavaScript Date.
-  const [due] = (await tx.execute(
+  const [due] = await query(
+    tx,
+    z.object({ due: z.boolean() }),
     sql`select next_scan_at<=clock_timestamp() as due from transcription_recovery_enrollment_progress where singleton`,
-  )) as unknown as { due: boolean }[];
+  );
   if (!due?.due) return [];
-  return (await tx.execute(sql`with
+  return await query(
+    tx,
+    z.object({ roundId: z.string(), evidenceId: z.string() }),
+    sql`with
  eligible as materialized(${missingRounds}),
  head as materialized(select turn_at,round_id from eligible order by turn_at desc,round_id desc limit 1),
  bounds as materialized(select p.*,coalesce(p.until_at,h.turn_at) as ceiling_at,coalesce(p.until_round_id,h.round_id) as ceiling_round_id
@@ -40,8 +47,6 @@ export async function missing(tx: Tx) {
   until_round_id=case when (l.turn_at,l.round_id)<(b.ceiling_at,b.ceiling_round_id) then b.ceiling_round_id else null end,
   next_scan_at=clock_timestamp()+interval '1 second'
   from bounds b left join last_seen l on true where p.singleton returning p.singleton)
- select page.round_id as "roundId",page.evidence_id as "evidenceId" from page join offered on offered.evidence_id=page.evidence_id cross join changed order by page.turn_at,page.round_id`)) as unknown as {
-    roundId: string;
-    evidenceId: string;
-  }[];
+ select page.round_id as "roundId",page.evidence_id as "evidenceId" from page join offered on offered.evidence_id=page.evidence_id cross join changed order by page.turn_at,page.round_id`,
+  );
 }

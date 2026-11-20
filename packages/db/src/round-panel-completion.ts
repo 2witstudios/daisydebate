@@ -48,6 +48,7 @@ import {
   type PanelDurableFacts,
 } from './round-panel-decisions';
 import type { Tx } from './tx';
+import { takeLock, transactionLocks } from './locks';
 
 type CompletionFacts = Parameters<
   LockedRoundTickInput['buildProjection']
@@ -153,9 +154,7 @@ async function readCompletionFacts(
 async function complete(tx: Tx, input: Request, roundTime?: RoundTimeSource) {
   await requireCurrentWeb(tx, input.instanceId);
   const digest = panelDigest(input);
-  await tx.execute(
-    sql`select pg_advisory_xact_lock(hashtextextended(${input.commandId},59002))`,
-  );
+  await takeLock(tx, transactionLocks.roundCommand(input.commandId));
   const prior = await replay(tx, input, digest, true);
   if (prior) return { receipt: prior, ended: [] };
   try {

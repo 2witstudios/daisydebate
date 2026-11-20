@@ -11,6 +11,8 @@ import type { RecordingModeration } from './content-moderation-ports';
 import { inLiveRoomSql, liveRoomOfR } from './live-room-sql';
 import { moveRecording, recordingUnderOpenReport } from './recording-move';
 import { requeueRecordingJob } from './recording-processing-operations';
+import { query } from './raw-rows';
+import { z } from 'zod';
 
 type ReportRow = {
   readonly competition_type: string;
@@ -210,9 +212,13 @@ export const recordingModeration: RecordingModeration = {
     });
   },
   readBroadcastId: async (tx, recordingId) => {
-    const [row] = (await tx.execute(sql`select b.id from broadcasts b
+    const [row] = await query(
+      tx,
+      z.object({ id: z.string() }),
+      sql`select b.id from broadcasts b
       join recordings rec on rec.round_id=b.round_id
-      where rec.id=${recordingId}`)) as unknown as { readonly id: string }[];
+      where rec.id=${recordingId}`,
+    );
     return row?.id ?? null;
   },
 };

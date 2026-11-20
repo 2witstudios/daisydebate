@@ -7,6 +7,7 @@ import {
   memberOnboarding,
   memberTopics,
 } from './schema/onboarding';
+import { run } from './raw-rows';
 
 /**
  * Optional onboarding answers are personal/private (DEC-106): exported to
@@ -16,16 +17,20 @@ export const onboardingPrivacyAdopter: PrivacyAdopter = {
   id: 'onboarding',
   phase: 'after-close',
   erase: async (tx, subject) => {
-    await tx.execute(
+    await run(
+      tx,
       sql`delete from ${memberInterests} where user_id=${subject.userId}`,
     );
-    await tx.execute(
+    await run(
+      tx,
       sql`delete from ${memberTopics} where user_id=${subject.userId}`,
     );
-    await tx.execute(
+    await run(
+      tx,
       sql`delete from ${memberLeagues} where user_id=${subject.userId}`,
     );
-    await tx.execute(
+    await run(
+      tx,
       sql`delete from ${memberOnboarding} where user_id=${subject.userId}`,
     );
   },

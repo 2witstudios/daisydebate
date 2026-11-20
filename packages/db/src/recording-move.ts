@@ -6,6 +6,8 @@ import {
 } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import type { Tx } from './tx';
+import { query } from './raw-rows';
+import { z } from 'zod';
 
 export type StoredRecording = {
   readonly id: string;
@@ -63,13 +65,15 @@ export const recordingUnderOpenReport = async (
   tx: Tx,
   id: string,
 ): Promise<boolean> => {
-  const [row] = (await tx.execute(sql`select exists(
+  const [row] = await query(
+    tx,
+    z.object({ reported: z.boolean() }),
+    sql`select exists(
       select 1 from recordings rec join content_reports c on c.status='open' and (
         (c.target_kind='recording' and c.target_id=rec.id)
         or (c.target_kind='round' and c.target_id=rec.round_id))
-      where rec.id=${id}) as reported`)) as unknown as {
-    readonly reported: boolean;
-  }[];
+      where rec.id=${id}) as reported`,
+  );
   return row?.reported ?? false;
 };
 

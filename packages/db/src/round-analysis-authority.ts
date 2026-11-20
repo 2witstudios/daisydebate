@@ -7,6 +7,7 @@ import { readRoundAnalysisAccess } from './round-analysis-access';
 import { roundParticipants } from './schema/round-participants';
 import { actors } from './schema/actors';
 import type { Tx } from './tx';
+import { run } from './raw-rows';
 
 export type AnalysisSeat = {
   readonly roundId: string;
@@ -74,10 +75,12 @@ export async function lockAnalysisRound(tx: Tx, target: AnalysisSeat) {
 
 /** Hold actual evidence against concurrent retention, refusing a conflicting purge. */
 export async function lockAnalysisEvidence(tx: Tx, roundId: string) {
-  await tx.execute(
+  await run(
+    tx,
     sql`select round_id from round_transcript_freezes where round_id=${roundId} for share nowait`,
   );
-  await tx.execute(
+  await run(
+    tx,
     sql`select id from utterances where round_id=${roundId} order by id for share nowait`,
   );
 }

@@ -3,6 +3,7 @@ import { normalizedEmailSql } from './email-identity';
 import { sql } from 'drizzle-orm';
 import { exportRows } from './privacy/export-rows';
 import type { PrivacyAdopter } from './privacy/contracts';
+import { run } from './raw-rows';
 
 /**
  * Erasure deletes the subject's beta state and any mail still owed to them
@@ -16,10 +17,12 @@ export const betaAccessPrivacyAdopter: PrivacyAdopter = {
   phase: 'before-auth',
   erase: async (tx, subject) => {
     await eraseBetaPreapprovals(tx, subject.userId);
-    await tx.execute(
+    await run(
+      tx,
       sql`delete from mail_intents where recipient_user_id = ${subject.userId}`,
     );
-    await tx.execute(
+    await run(
+      tx,
       sql`delete from account_beta_access where user_id = ${subject.userId}`,
     );
   },

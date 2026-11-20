@@ -4,7 +4,7 @@ import {
   type RoundRules,
 } from '@daisy/protocol';
 import { frozenJudgingFor } from './round-judging-freeze';
-import { sql } from 'drizzle-orm';
+import { readDatabaseTime } from './database-clock';
 import { createAppError } from '@daisy/errors';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { hydrateRound, type RoundHydration } from './round-hydration';
@@ -21,14 +21,9 @@ export const roundOperations = ({
 }) => ({
   /** Read-only wall-clock prediction; lifecycle authority is sampled inside execution. */
   async databaseNow(): Promise<string> {
-    return instrumented(eventSink, 'databaseNow', async () => {
-      const [row] = (await database.execute(
-        sql`select clock_timestamp() as now`,
-      )) as unknown as Array<{ now: Date }>;
-      if (!row)
-        throw createAppError('INFRASTRUCTURE', 'The clock is unreadable');
-      return row.now.toISOString();
-    });
+    return instrumented(eventSink, 'databaseNow', async () =>
+      (await readDatabaseTime(database)).toISOString(),
+    );
   },
 
   /**

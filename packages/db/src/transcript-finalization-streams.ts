@@ -3,6 +3,7 @@ import type { CaptureRule } from '@daisy/protocol';
 import { readSeatGrants } from './capture-history';
 import { transcriptSegments } from './schema/transcript-segments';
 import type { Tx } from './tx';
+import { run } from './raw-rows';
 
 export type ExpectedTranscriptStream = {
   readonly segmentId: string;
@@ -14,9 +15,12 @@ export async function lockFinalizationStreams(
   botGrantUnused: CaptureRule['botGrantUnused'],
 ) {
   // Takeover requests only lease, never Round afterward. Missing sessions need no lease.
-  await tx.execute(sql`select l.session_id from media_worker_leases l
+  await run(
+    tx,
+    sql`select l.session_id from media_worker_leases l
     join media_sessions s on s.id=l.session_id where s.round_id=${roundId}
-    order by l.session_id for update of l`);
+    order by l.session_id for update of l`,
+  );
   const streams = await tx
     .select()
     .from(transcriptSegments)

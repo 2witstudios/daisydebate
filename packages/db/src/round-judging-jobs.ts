@@ -45,6 +45,7 @@ import {
 } from './round-judging-decisions';
 import { requireRoundBallot } from './round-ballot-decisions';
 import type { Tx } from './tx';
+import { takeLock, transactionLocks } from './locks';
 export type { JudgingScope } from './round-judging-context';
 /** Whether a dispatch may go ahead, or why the job ended instead. */
 export type ModelCallBegun =
@@ -194,9 +195,7 @@ export function createRoundJudgingJobs(input: {
     ) => T | Promise<T>,
   ) =>
     input.run(async (tx) => {
-      await tx.execute(
-        sql`select pg_advisory_xact_lock(hashtextextended(${scope.commandId},59002))`,
-      );
+      await takeLock(tx, transactionLocks.roundCommand(scope.commandId));
       const context = await lockRoundAgentContext(
         tx,
         scope.roundId,

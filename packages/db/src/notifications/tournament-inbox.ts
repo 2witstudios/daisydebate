@@ -1,8 +1,9 @@
 import type { TournamentNotificationKind } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import { loadLobbyAuthority } from '../tab/lobby-authority';
-import { rowsOf } from '../raw-rows';
+import { rowsOf, query } from '../raw-rows';
 import { inTransaction, type TxSource } from '../tx';
+import { z } from 'zod';
 
 /** What a standing tournament notification's words and link read (NTF-15). */
 export type TournamentNotificationFacts = {
@@ -43,8 +44,9 @@ export async function standingTournamentNotifications(
   if (!canRead) return new Map();
   const unread = input.unreadOnly ? sql`and n.read_at is null` : sql``;
   return inTransaction(database, async (tx) => {
-    const lobbies = await rowsOf<{ id: string }>(
+    const lobbies = await query(
       tx,
+      z.object({ id: z.string() }),
       sql`select distinct n.notification_lobby_id id from notifications n where n.user_id=${input.userId} and n.notification_lobby_id is not null ${unread} order by n.notification_lobby_id`,
     );
     const standing = new Map<string, TournamentNotificationFacts>();

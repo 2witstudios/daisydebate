@@ -10,6 +10,7 @@ import type { PrivacyAdopter } from './privacy/contracts';
 import { exportRows } from './privacy/export-rows';
 import { lockOpenAccount } from './lock-open-account';
 import { inTransaction, type TxOpener } from './tx';
+import { run } from './raw-rows';
 
 export const analyticsConsentOperations = (database: TxOpener) => ({
   async readAnalyticsConsent(userId: string): Promise<AnalyticsConsent | null> {
@@ -61,11 +62,14 @@ export const analyticsConsentOperations = (database: TxOpener) => ({
           set: values,
         });
       if (input.deletionJobId)
-        await tx.execute(sql`insert into privacy_jobs
+        await run(
+          tx,
+          sql`insert into privacy_jobs
         (id,subject_ref,vendor,status,attempts,created_at,retry_at)
         values (${input.deletionJobId},${input.userId},'posthog','pending',0,${input.now}::timestamptz,${input.now}::timestamptz)
         on conflict (subject_ref,vendor) do update set id=excluded.id,status='pending',attempts=0,
-        created_at=excluded.created_at,retry_at=excluded.retry_at,succeeded_at=null`);
+        created_at=excluded.created_at,retry_at=excluded.retry_at,succeeded_at=null`,
+        );
     });
   },
 });
@@ -74,7 +78,8 @@ export const analyticsConsentPrivacyAdopter: PrivacyAdopter = {
   id: 'analytics-consent',
   phase: 'after-close',
   erase: async (tx, subject) => {
-    await tx.execute(
+    await run(
+      tx,
       sql`delete from ${consentRecord} where user_id=${subject.userId}`,
     );
   },

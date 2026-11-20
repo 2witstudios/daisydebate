@@ -28,6 +28,8 @@ import { recordingCaptures } from './schema/recording-captures';
 import { recordingProcessingJobs as jobs } from './schema/recording-processing-jobs';
 import { recordings } from './schema/recordings';
 import type { Tx } from './tx';
+import { run, query } from './raw-rows';
+import { z } from 'zod';
 
 const stateColumns = (state: RecordingJobState) => ({
   state: recordingJobStateSchema.parse(state),
@@ -59,18 +61,21 @@ export const openRecordingJobIfEgressRecorded = async (
   tx: Tx,
   roundId: string,
 ) => {
-  const found =
-    (await tx.execute(sql`select rec.id as "recordingId", b.id as "broadcastId"
+  const found = await query(
+    tx,
+    z.object({ recordingId: z.string(), broadcastId: z.string() }),
+    sql`select rec.id as "recordingId", b.id as "broadcastId"
     from recordings rec join broadcasts b on b.round_id=rec.round_id
-    where rec.round_id=${roundId} and b.egress_id is not null`)) as unknown as readonly {
-      readonly recordingId: string;
-      readonly broadcastId: string;
-    }[];
+    where rec.round_id=${roundId} and b.egress_id is not null`,
+  );
   for (const { recordingId, broadcastId } of found)
-    await tx.execute(sql`insert into recording_processing_jobs
+    await run(
+      tx,
+      sql`insert into recording_processing_jobs
         (recording_id, hold_prefix, status, state)
       values (${recordingId}, ${broadcastHoldPrefix(broadcastId)}, 'waiting', ${JSON.stringify(recordingJobStateSchema.parse({ status: 'waiting' }))}::text::jsonb)
-      on conflict (recording_id) do nothing`);
+      on conflict (recording_id) do nothing`,
+    );
 };
 
 /** Capture ended: the worker may now read this many attempts. Only from `waiting`. */

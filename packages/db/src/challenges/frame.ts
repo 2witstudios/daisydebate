@@ -13,12 +13,13 @@ import type { ContactPairKey } from '../contacts/reactions';
 import type { ContactInput } from '../contacts/fence';
 import { oweNotifications } from '../notifications/owe';
 import { appendOutboxEvent } from '../outbox';
-import { rowsOf } from '../raw-rows';
+import { rowsOf, run, query } from '../raw-rows';
 import { readAvailability } from '../presence/availability';
 import { openRoomHostedBy } from '../room-open';
 import { challenges } from '../schema/challenges';
 import { rooms, roomSeatHolds } from '../schema/rooms';
 import type { Tx } from '../tx';
+import { z } from 'zod';
 
 /** One challenge command over a locked contact pair (ADR 0103). */
 export type ChallengeFrame = {
@@ -65,7 +66,7 @@ async function ring(tx: Tx, actors: readonly string[]) {
  * Ends a member's open offers, both ways, when a suspension or ban begins, and
  * rings whoever was on the other end: they could never have met.
  */
-export async function endMemberOffers(tx: Tx & Tx, actorId: string) {
+export async function endMemberOffers(tx: Tx, actorId: string) {
   const removed = await tx
     .delete(challenges)
     .where(
@@ -172,10 +173,13 @@ export function challengeFrame(
       // read under the pair's lock.
       const division = await pairLobby(tx, input.actorId, other, mode);
       if (division === null) throw createRefusal('CONFLICT', 'other-division');
-      await tx.execute(sql`
+      await run(
+        tx,
+        sql`
         delete from challenges
         where challenger_actor_id = ${input.actorId} and challenged_actor_id = ${other}
-          and room_id is null and expires_at <= ${new Date(now)}`);
+          and room_id is null and expires_at <= ${new Date(now)}`,
+      );
       const inserted = await tx
         .insert(challenges)
         .values({
@@ -192,8 +196,9 @@ export function challengeFrame(
         .returning({ id: challenges.id });
       if (inserted[0]) {
         await ring(owner, [input.actorId, other]);
-        const recipients = await rowsOf<{ user_id: string }>(
+        const recipients = await query(
           tx,
+          z.object({ user_id: z.string() }),
           sql`select user_id from actors where id=${other} and user_id is not null`,
         );
         await oweNotifications(tx, {
@@ -284,8 +289,9 @@ export function challengeFrame(
       if (!updated[0]) throw createAppError('NOT_FOUND');
       await ring(owner, [input.actorId, other]);
       // The challenger is waited for now: urgent, never emailed (ADR 0144).
-      const recipients = await rowsOf<{ user_id: string }>(
+      const recipients = await query(
         tx,
+        z.object({ user_id: z.string() }),
         sql`select user_id from actors where id=${other} and user_id is not null`,
       );
       await oweNotifications(tx, {

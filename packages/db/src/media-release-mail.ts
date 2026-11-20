@@ -10,7 +10,7 @@ import {
   type MailJobClaimInput,
   type MailJobOutcome,
 } from './mail-queue';
-import { rowsOf } from './raw-rows';
+import { rowsOf, run } from './raw-rows';
 import { deleteExpiredBatch, type RetentionBatch } from './retention';
 import {
   mediaReleaseMails,
@@ -161,7 +161,8 @@ export function mediaReleaseMailOperations({
               wordingVersion: publish.wording_version,
             };
           }
-          await tx.execute(
+          await run(
+            tx,
             sql`insert into media_release_links (id, token_digest, purpose,
                 request_id, expires_at)
               values (${input.linkId}, ${input.tokenDigest}, ${purpose},

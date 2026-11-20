@@ -6,6 +6,8 @@ import { sql } from 'drizzle-orm';
 import type { PrivacyAdopter } from './privacy/contracts';
 import { endRoundFeed } from './broadcast-operations';
 import { moveRecording } from './recording-move';
+import { query } from './raw-rows';
+import { z } from 'zod';
 
 const seatedRounds = (actorId: string) =>
   sql`select round_id from round_participants where actor_id=${actorId}`;
@@ -24,7 +26,10 @@ export const recordingPrivacyAdopter: PrivacyAdopter = {
   id: 'recording',
   phase: 'after-close',
   erase: async (tx, subject, { now }) => {
-    const rows = (await tx.execute(sql`select rec.id,
+    const rows = await query(
+      tx,
+      z.object({ id: z.string(), reported: z.boolean() }),
+      sql`select rec.id,
         exists(select 1 from content_reports c where c.status='open' and (
           (c.target_kind='recording' and c.target_id=rec.id)
           or (c.target_kind='round' and c.target_id=rec.round_id))) as reported
@@ -32,10 +37,8 @@ export const recordingPrivacyAdopter: PrivacyAdopter = {
       where rec.recording_class='casual'
         and rec.status not in ('removing','removed')
         and rec.round_id in (${seatedRounds(subject.actorId)})
-      order by rec.id`)) as unknown as {
-      readonly id: string;
-      readonly reported: boolean;
-    }[];
+      order by rec.id`,
+    );
     const heldUntil = new Date(
       Date.parse(now) + RECORDING_EVIDENCE_HOLD_MS,
     ).toISOString();

@@ -7,6 +7,7 @@ import {
 } from './authority-frame';
 import { readMessagingChannelFact } from './social';
 import type { Tx, TxSource } from '../tx';
+import { run } from '../raw-rows';
 /** Lossy aggregate invalidation only: no durable cursor or actor/content fields. */
 async function notifyMessagingTyping(tx: Tx, channelId: string) {
   const frame = serverMessageSchema.parse({
@@ -14,7 +15,8 @@ async function notifyMessagingTyping(tx: Tx, channelId: string) {
     type: 'typing_changed',
     topic: buildChannelTopic(channelId),
   });
-  await tx.execute(
+  await run(
+    tx,
     sql`select pg_notify('daisy_realtime_hints',${JSON.stringify(frame)})`,
   );
 }

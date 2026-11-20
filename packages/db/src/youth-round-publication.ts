@@ -12,6 +12,7 @@ import { readReleasesOf } from './media-release-records';
 import { oweNotifications } from './notifications/owe';
 import { readYouthRecordingPeople } from './youth-recording-people';
 import { youthRoundShareableSql, youthRoundSql } from './youth-round-sql';
+import { run as runStatement } from './raw-rows';
 
 export type PublishAnswer =
   | { readonly kind: 'published' }
@@ -68,7 +69,8 @@ export function createYouthRoundPublications(input: {
         const debaterUserIds = people.debaters.map((d) => d.userId);
         // Each debater's account row orders every release command about them.
         for (const id of [...debaterUserIds].sort())
-          await tx.execute(
+          await runStatement(
+            tx,
             sql`select 1 from users where id = ${id} for update`,
           );
         const releases = await readReleasesOf(tx, debaterUserIds, true);
@@ -82,7 +84,8 @@ export function createYouthRoundPublications(input: {
         });
         if (!decision.ok) return { kind: 'refused', reason: decision.refusal };
         const now = await readDatabaseTime(tx);
-        await tx.execute(
+        await runStatement(
+          tx,
           sql`insert into youth_round_publications (round_id, published_by_user_id, published_at)
             values (${command.roundId}, ${command.userId}, ${now.toISOString()})
             on conflict (round_id) do update set published_by_user_id = excluded.published_by_user_id,

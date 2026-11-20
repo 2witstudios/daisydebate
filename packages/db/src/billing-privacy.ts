@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm';
 import { readDatabaseTime } from './database-clock';
 import { eraseBillingReceipts } from './billing-inbox';
 import type { PrivacyAdopter } from './privacy/contracts';
+import { run } from './raw-rows';
 
 /** The canonical account fence also excludes receipt, claim and subscription application. */
 export const billingPrivacyAdopter: PrivacyAdopter = {
@@ -10,17 +11,24 @@ export const billingPrivacyAdopter: PrivacyAdopter = {
   erase: async (tx, subject) => {
     const now = await readDatabaseTime(tx);
     await eraseBillingReceipts(tx, subject.userId);
-    await tx.execute(
+    await run(
+      tx,
       sql`delete from billing_subscriptions where user_id=${subject.userId}`,
     );
     // A claimed or observed purchase may still have vendor effects. Preserve that
     // cleanup obligation; never infer non-execution from an expired lease.
-    await tx.execute(sql`delete from billing_purchases where user_id=${subject.userId}
-      and state->>'kind' in ('admitted','abandoned','expired')`);
+    await run(
+      tx,
+      sql`delete from billing_purchases where user_id=${subject.userId}
+      and state->>'kind' in ('admitted','abandoned','expired')`,
+    );
     // The minimal mapping remains an owed vendor-cleanup obligation; it never authorizes access.
-    await tx.execute(sql`update billing_customers set closed_at=coalesce(closed_at,${now}),
+    await run(
+      tx,
+      sql`update billing_customers set closed_at=coalesce(closed_at,${now}),
       synchronization=jsonb_build_object('kind','settled','revision',synchronization->'revision',
-        'observedAt',${now.toISOString()}::text,'nextAt',${now.toISOString()}::text) where user_id=${subject.userId}`);
+        'observedAt',${now.toISOString()}::text,'nextAt',${now.toISOString()}::text) where user_id=${subject.userId}`,
+    );
   },
   export: async (tx, subject) => {
     const customers = await tx.execute(sql`select id,vendor_customer_id,mode,

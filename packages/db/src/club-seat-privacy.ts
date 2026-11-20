@@ -4,6 +4,8 @@ import type { PrivacyAdopter } from './privacy/contracts';
 import { exportRows } from './privacy/export-rows';
 import { scopeTransaction } from './tenant-scope';
 import type { Tx } from './tx';
+import { run, query } from './raw-rows';
+import { z } from 'zod';
 
 const page = 100;
 
@@ -15,10 +17,12 @@ async function eachClub(
   let after = '';
   try {
     for (;;) {
-      const clubs = (await tx.execute(sql`select id from organizations
-        where kind in ('school', 'family') and id > ${after} order by id limit ${page}`)) as unknown as {
-        id: string;
-      }[];
+      const clubs = await query(
+        tx,
+        z.object({ id: z.string() }),
+        sql`select id from organizations
+        where kind in ('school', 'family') and id > ${after} order by id limit ${page}`,
+      );
       for (const club of clubs) {
         await scopeTransaction(tx, { organizationId: club.id });
         await work(club.id);
@@ -45,16 +49,23 @@ export const clubSeatPrivacyAdopter: PrivacyAdopter = {
   phase: 'before-auth',
   erase: async (tx, subject) => {
     await eachClub(tx, async (organizationId) => {
-      await tx.execute(
+      await run(
+        tx,
         sql`delete from club_seats where organization_id=${organizationId} and user_id=${subject.userId}`,
       );
-      await tx.execute(sql`update mail_intents set state='cancelled', last_error_code='recipient-gone',
+      await run(
+        tx,
+        sql`update mail_intents set state='cancelled', last_error_code='recipient-gone',
           completed_at=clock_timestamp(), lease_token_digest=null, lease_expires_at=null
         where state in ('queued', 'leased') and club_seat_invitation_id in (
           select id from club_seat_invitations where organization_id=${organizationId}
-            and email = ${subjectEmail(subject.userId)})`);
-      await tx.execute(sql`delete from club_seat_invitations
-        where organization_id=${organizationId} and email = ${subjectEmail(subject.userId)}`);
+            and email = ${subjectEmail(subject.userId)})`,
+      );
+      await run(
+        tx,
+        sql`delete from club_seat_invitations
+        where organization_id=${organizationId} and email = ${subjectEmail(subject.userId)}`,
+      );
     });
   },
   export: async (tx, subject) => {

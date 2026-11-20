@@ -7,6 +7,7 @@ import {
 } from '../schema/messaging-files';
 import { fileDeletionValues } from './frame';
 import { inTransaction, type Tx, type TxSource } from '../tx';
+import { run } from '../raw-rows';
 
 /** Parent calls in its message-removal transaction after channel/user fences. */
 export async function deleteMessageFiles(
@@ -50,12 +51,16 @@ export async function eraseSubjectFiles(
     sql` and `,
   );
   // Canonical adopter acquires its complete sorted pair/channel set before invoking this hook.
-  await tx.execute(sql`
+  await run(
+    tx,
+    sql`
     insert into messaging_file_deletion_intents(object_key, charged_bytes)
     select object_key, reserved_bytes from messaging_files
     where owner_actor_id = ${actorId} and ${scope} and lifecycle <> 'deleted'
-  `);
-  await tx.execute(
+  `,
+  );
+  await run(
+    tx,
     sql`delete from messaging_files where owner_actor_id = ${actorId} and ${scope}`,
   );
 }
@@ -106,12 +111,15 @@ export async function expireChannelFiles(
           fileIds.map((id) => sql`${id}`),
           sql`, `,
         )})`;
-  await tx.execute(sql`
+  await run(
+    tx,
+    sql`
     update messaging_files set lifecycle = 'deleting', filename = null, mime = null,
       request_id = null, message_id = null, generation = generation + 1
     where channel_id = ${channelId} and lifecycle in ('reserved','quarantined') and expires_at <= ${new Date(now)}
     ${selected}
-  `);
+  `,
+  );
 }
 /** The private vendor port must resolve only after actual delete acknowledgement. */
 export async function acknowledgeFileDeletion(
@@ -144,12 +152,15 @@ export async function failPendingFile(
   scope: { actorId: string; channelId: string },
   token: { fileId: string; generation: number },
 ) {
-  await tx.execute(sql`
+  await run(
+    tx,
+    sql`
     update messaging_files set lifecycle = 'deleting', filename = null, mime = null,
       request_id = null, message_id = null, generation = generation + 1
     where id = ${token.fileId} and channel_id = ${scope.channelId} and owner_actor_id = ${scope.actorId}
       and generation = ${token.generation} and lifecycle in ('reserved','quarantined')
-  `);
+  `,
+  );
 }
 
 /** Global charged bytes include unlinked erasure intents until acknowledged. */

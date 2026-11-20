@@ -11,8 +11,10 @@ import {
   type OwnCollectionFence,
 } from './authorization';
 import { instrumented, type DatabaseEventSink } from './instrumented';
-import { rowsOf } from './raw-rows';
+import { rowsOf, run, query as queryRows } from './raw-rows';
 import type { Tx, TxSource } from './tx';
+import { takeLock, transactionLocks } from './locks';
+import { z } from 'zod';
 
 /**
  * The public profile's storage (ADR 0143): a member's display name and bio,
@@ -58,12 +60,13 @@ const ownProfile = async (
   tx: Tx,
   actorId: string,
 ): Promise<OwnPublicProfile> => {
-  const [profile] = await rowsOf<{
-    id: string;
-    display_name: string | null;
-    bio: string | null;
-  }>(
+  const [profile] = await queryRows(
     tx,
+    z.object({
+      id: z.string(),
+      display_name: z.string().nullable(),
+      bio: z.string().nullable(),
+    }),
     sql`select id, display_name, bio from member_profiles where actor_id = ${actorId}`,
   );
   const photos = await rowsOf<{ id: string; status: ProfilePhotoStatus }>(
@@ -90,13 +93,14 @@ const ownProfile = async (
 export async function lockLivePhotos(tx: Tx, actorId: string, alsoId?: string) {
   // The member's photos as a whole first: two first uploads hold no row to
   // lock, so they queue here instead of racing the one-per-status indexes.
-  await tx.execute(
-    sql`select pg_advisory_xact_lock(hashtextextended(${actorId}, 71043))`,
-  );
-  await tx.execute(sql`select id from profile_photos
+  await takeLock(tx, transactionLocks.publicProfile(actorId));
+  await run(
+    tx,
+    sql`select id from profile_photos
     where actor_id = ${actorId}
       and (ended_at is null ${alsoId ? sql`or id = ${alsoId}` : sql``})
-    order by id for update`);
+    order by id for update`,
+  );
 }
 
 /**
@@ -123,8 +127,9 @@ const endPhotos = (
   status: ProfilePhotoStatus,
   now: string,
 ) =>
-  rowsOf<{ id: string }>(
+  queryRows(
     tx,
+    z.object({ id: z.string() }),
     sql`update profile_photos set status = ${status},
         ended_at = ${now}::timestamptz, delete_after = ${now}::timestamptz,
         version = version + 1
@@ -182,11 +187,12 @@ export const publicProfileOperations = ({
         database,
         scope,
         async (fact) => {
-          const [current] = await rowsOf<{
-            display_name: string | null;
-            bio: string | null;
-          }>(
+          const [current] = await queryRows(
             fact.tx,
+            z.object({
+              display_name: z.string().nullable(),
+              bio: z.string().nullable(),
+            }),
             sql`select display_name, bio from member_profiles
               where actor_id = ${scope.actorId} for update`,
           );
@@ -196,7 +202,9 @@ export const publicProfileOperations = ({
           })(fact);
         },
         async (tx) => {
-          await tx.execute(sql`insert into member_profiles
+          await run(
+            tx,
+            sql`insert into member_profiles
               (actor_id, id, display_name, bio, display_name_changed_at,
                bio_changed_at, updated_at)
             values (${scope.actorId}, ${input.profileId}, ${input.displayName},
@@ -210,7 +218,8 @@ export const publicProfileOperations = ({
                 when excluded.bio is distinct from member_profiles.bio
                 then ${changedNow} else member_profiles.bio_changed_at end,
               updated_at = excluded.updated_at,
-              version = member_profiles.version + 1`);
+              version = member_profiles.version + 1`,
+          );
           return ownProfile(tx, scope.actorId);
         },
       ),
@@ -238,12 +247,15 @@ export const publicProfileOperations = ({
     idSchema.parse(input.photoId);
     return instrumented(eventSink, 'reserveProfilePhoto', () =>
       readOwnCollection(database, scope, authorize, async (tx) => {
-        await tx.execute(sql`insert into profile_photos
+        await run(
+          tx,
+          sql`insert into profile_photos
             (id, actor_id, status, check_verdict, object_prefix, created_at,
              ended_at, delete_after)
           values (${input.photoId}, ${scope.actorId}, 'uploading',
             ${input.checkVerdict}, ${input.objectPrefix}, ${input.now}::timestamptz,
-            ${input.now}::timestamptz, ${input.deleteAfter}::timestamptz)`);
+            ${input.now}::timestamptz, ${input.deleteAfter}::timestamptz)`,
+        );
       }),
     );
   },
@@ -281,8 +293,9 @@ export const publicProfileOperations = ({
           'withdrawn',
           input.now,
         );
-        const made = await rowsOf<{ id: string }>(
+        const made = await queryRows(
           tx,
+          z.object({ id: z.string() }),
           sql`update profile_photos set status = ${input.status},
               ended_at = null, delete_after = null,
               decided_at = ${input.status === 'published' ? input.now : null}::timestamptz,
@@ -359,12 +372,13 @@ export const publicProfileOperations = ({
       if (ids.length === 0) return new Map<string, PublicProfileCard>();
       if (ids.length > 500 || ids.some((id) => !idSchema.safeParse(id).success))
         throw createAppError('VALIDATION');
-      const found = await rowsOf<{
-        actor_id: string;
-        display_name: string | null;
-        photo_id: string | null;
-      }>(
+      const found = await queryRows(
         database,
+        z.object({
+          actor_id: z.string(),
+          display_name: z.string().nullable(),
+          photo_id: z.string().nullable(),
+        }),
         sql`select a.id as actor_id, m.display_name, p.id as photo_id
           from actors a
           left join member_profiles m on m.actor_id = a.id
@@ -389,13 +403,14 @@ export const publicProfileOperations = ({
   readPublicProfile: (actorId: string) =>
     instrumented(eventSink, 'readPublicProfile', async () => {
       idSchema.parse(actorId);
-      const [row] = await rowsOf<{
-        profile_id: string | null;
-        display_name: string | null;
-        bio: string | null;
-        photo_id: string | null;
-      }>(
+      const [row] = await queryRows(
         database,
+        z.object({
+          profile_id: z.string().nullable(),
+          display_name: z.string().nullable(),
+          bio: z.string().nullable(),
+          photo_id: z.string().nullable(),
+        }),
         sql`select m.id as profile_id, m.display_name, m.bio, p.id as photo_id
           from actors a
           left join member_profiles m on m.actor_id = a.id
@@ -422,12 +437,13 @@ export const publicProfileOperations = ({
         input.limit > 500
       )
         throw createAppError('VALIDATION');
-      const found = await rowsOf<{
-        id: string;
-        object_prefix: string;
-        delete_attempts: number;
-      }>(
+      const found = await queryRows(
         database,
+        z.object({
+          id: z.string(),
+          object_prefix: z.string(),
+          delete_attempts: z.number(),
+        }),
         sql`select id, object_prefix, delete_attempts from profile_photos
           where ended_at is not null and delete_after <= ${input.now}::timestamptz
           order by delete_after, id limit ${input.limit}`,
@@ -443,7 +459,8 @@ export const publicProfileOperations = ({
   completePhotoDeletion: (photoId: string) =>
     instrumented(eventSink, 'completePhotoDeletion', async () => {
       idSchema.parse(photoId);
-      await database.execute(
+      await run(
+        database,
         sql`delete from profile_photos where id = ${photoId} and ended_at is not null`,
       );
     }),
@@ -452,19 +469,20 @@ export const publicProfileOperations = ({
   deferPhotoDeletion: (photoId: string, retryAt: string) =>
     instrumented(eventSink, 'deferPhotoDeletion', async () => {
       idSchema.parse(photoId);
-      await database.execute(sql`update profile_photos
+      await run(
+        database,
+        sql`update profile_photos
         set delete_attempts = delete_attempts + 1, delete_after = ${retryAt}::timestamptz
-        where id = ${photoId} and ended_at is not null`);
+        where id = ${photoId} and ended_at is not null`,
+      );
     }),
 
   /** How many image deletions are owed, due or not: the sweep's backlog. */
   owedPhotoDeletions: (now: string) =>
     instrumented(eventSink, 'owedPhotoDeletions', async () => {
-      const [row] = await rowsOf<{ owed: number }>(
+      const [row] = await queryRows(
         database,
-        // Owed: due now, or already tried and deferred. A reservation not yet
-        // due (an upload in flight, or one its account's erasure ended) is
-        // not owed: counting it would hold the worker 'waiting' meanwhile.
+        z.object({ owed: z.number() }),
         sql`select count(*)::int as owed from profile_photos
           where ended_at is not null
             and (delete_after <= ${now}::timestamptz or delete_attempts > 0)`,

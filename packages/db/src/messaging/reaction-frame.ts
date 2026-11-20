@@ -11,6 +11,7 @@ import type {
   MessagingReactionCommand,
 } from './reaction-contracts';
 import type { Tx } from '../tx';
+import { run } from '../raw-rows';
 type Scope = { readonly actorId: string; readonly channelId: string };
 type Guard = (
   operation: 'read' | 'add' | 'remove',
@@ -102,10 +103,13 @@ export function channelReactionFrame(
           command.messageId,
         );
       }
-      await tx.execute(sql`
+      await run(
+        tx,
+        sql`
         insert into messaging_receipts(actor_id,channel_id,request_id,message_id,payload_digest)
         values(${scope.actorId},${scope.channelId},${command.requestId},${command.messageId},${payloadDigest})
-      `);
+      `,
+      );
       if (command.active) await authorize('add');
       return result(command, false, available, !command.active);
     },

@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import type { PrivacyAdopter } from './privacy/contracts';
+import { run } from './raw-rows';
 
 /** DEC-316: allowance identity belongs to this account, never a future signup. */
 export const usagePrivacyAdopter: PrivacyAdopter = {
@@ -8,7 +9,8 @@ export const usagePrivacyAdopter: PrivacyAdopter = {
   erase: async (tx, subject) => {
     // Closure already holds the canonical account fence. A stale worker cannot
     // admit or dispatch, and late provider accounting cannot recreate this row.
-    await tx.execute(
+    await run(
+      tx,
       sql`delete from usage_reservations where actor_id=${subject.actorId}`,
     );
   },

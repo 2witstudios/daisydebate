@@ -1,6 +1,7 @@
 import { entitlementGrantSchema, type EntitlementGrant } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import type { Tx } from './tx';
+import { run } from './raw-rows';
 
 /**
  * An account's entitlement grants. Read inside the caller's transaction:
@@ -73,11 +74,15 @@ export async function applyBetaEntitlementGrants(
   state: 'approved' | 'revoked',
 ) {
   if (state === 'approved')
-    await tx.execute(sql`insert into account_entitlement_grants (user_id, entitlement, source)
+    await run(
+      tx,
+      sql`insert into account_entitlement_grants (user_id, entitlement, source)
       select ${userId}, entitlement, 'beta' from unnest(${`{${betaGrants.join(',')}}`}::text[]) as entitlement
-      on conflict do nothing`);
+      on conflict do nothing`,
+    );
   else
-    await tx.execute(
+    await run(
+      tx,
       sql`delete from account_entitlement_grants where user_id = ${userId} and source = 'beta'`,
     );
 }

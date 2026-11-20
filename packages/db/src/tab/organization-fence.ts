@@ -1,6 +1,6 @@
 import { fenceTabAccountRead } from './account-read-fence';
 import { loadGrantRows } from './grant-rows';
-import { eq, sql } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import type { OrganizationCommand } from '@daisy/protocol/lobby/organization-command';
 import { lobbies } from '../schema/lobbies';
 import { organizations } from '../schema/organizations';
@@ -8,6 +8,7 @@ import { scopeTransaction, type TenantScope } from '../tenant-scope';
 import { lockTabCommandAccounts } from './command-accounts';
 import { namedPersonOf } from './organization-facts';
 import type { Tx } from '../tx';
+import { takeLock, transactionLocks } from '../locks';
 
 const foundOrganization = async (
   tx: Tx,
@@ -105,8 +106,9 @@ export const fenceOrganizationCommand = async (
     named === null ? [input.senderUserId] : [input.senderUserId, named],
   );
   if (input.command.type === 'create-organization') {
-    await tx.execute(
-      sql`select pg_advisory_xact_lock(hashtextextended(${`tab-organization-handle:${input.command.handle.toLowerCase()}`}, 0))`,
+    await takeLock(
+      tx,
+      transactionLocks.tabOrganizationHandle(input.command.handle),
     );
   }
   return scope;

@@ -11,8 +11,9 @@ import {
 } from '../contacts/request-budget';
 import type { ContactReactions } from '../contacts/reactions';
 import { oweNotifications } from '../notifications/owe';
-import { rowsOf } from '../raw-rows';
+import { query } from '../raw-rows';
 import type { Tx } from '../tx';
+import { z } from 'zod';
 
 const accepted = (actorId: string) =>
   and(
@@ -94,8 +95,9 @@ export function friendshipFrame(
         kind: 'friend_request_received' | 'friend_request_accepted',
         actorId: string,
       ) => {
-        const members = await rowsOf<{ user_id: string }>(
+        const members = await query(
           tx,
+          z.object({ user_id: z.string() }),
           sql`select user_id from actors where id=${actorId} and user_id is not null`,
         );
         await oweNotifications(tx, {

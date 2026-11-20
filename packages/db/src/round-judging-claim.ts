@@ -18,6 +18,7 @@ import { judgingJobWhere, type JudgingScope } from './round-judging-context';
 import { nextEpoch } from './lease-policy';
 import { firstPassLost, requireClaimableJob } from './round-judging-decisions';
 import type { Tx } from './tx';
+import { takeLock, transactionLocks } from './locks';
 
 export async function claimLockedJudgingJob(
   tx: Tx,
@@ -35,9 +36,7 @@ export async function claimLockedJudgingJob(
     .where(judgingJobWhere(target));
   if (!initial) throw createAppError('NOT_FOUND');
   const commandId = initial.commandId ?? input.nextId();
-  await tx.execute(
-    sql`select pg_advisory_xact_lock(hashtextextended(${commandId},59002))`,
-  );
+  await takeLock(tx, transactionLocks.roundCommand(commandId));
   const { round, seat } = await lockRoundAgentContext(
     tx,
     target.roundId,

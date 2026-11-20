@@ -32,6 +32,7 @@ import { rounds } from './schema/rounds';
 import { rooms } from './schema/rooms';
 import { retireLockedRoundJudge } from './round-judge-retirement';
 import type { Tx } from './tx';
+import { run } from './raw-rows';
 
 type AssignmentContext = {
   readonly round: RoundHydration;
@@ -170,7 +171,8 @@ export async function changeLockedRoundJudge(
       side: null,
       slot: input.slot,
     });
-  await tx.execute(
+  await run(
+    tx,
     sql`select public.daisy_append_round_judge_assignment(${input.roundId},${input.slot},${input.expectedVersion},${input.expectedAssignmentVersion},${participantId},${input.commandId})`,
   );
   await writeLockedRoomJudge(tx, {

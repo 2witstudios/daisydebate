@@ -1,5 +1,4 @@
 import { readFixtureWaiverRound } from './fixture-waiver-round';
-import { sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import { readDatabaseTime } from '../database-clock';
 import { readFixtureReadWaiver } from './fixture-read-waiver';
@@ -12,6 +11,7 @@ import {
 } from './fixture-command-observation';
 import type { TabDatabase } from './tab-transaction';
 import { inTransaction, type Tx } from '../tx';
+import { takeLock, transactionLocks } from '../locks';
 
 const load = async (
   tx: Tx,
@@ -76,9 +76,7 @@ export const createConflictWaiverRequestStore = (database: TabDatabase) => ({
     }) => Promise<Answer>,
   ): Promise<Answer> =>
     inTransaction(database, async (tx) => {
-      await tx.execute(
-        sql`select pg_advisory_xact_lock(59002,hashtext(${input.commandId}))`,
-      );
+      await takeLock(tx, transactionLocks.tabCommand(input.commandId));
       let loaded: LoadedConflictWaiverRequest | null = null;
       return work({
         load: async () => {

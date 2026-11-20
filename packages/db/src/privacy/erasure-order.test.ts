@@ -6,6 +6,7 @@ import { fakeSql } from '../index.test-support';
 import { accountAgePrivacyAdopter } from '../account-age';
 import { runPrivacyErasure } from './operations';
 import type { PrivacyAdopter } from './contracts';
+import { run } from '../raw-rows';
 
 setupRitewayBun();
 const subject = { userId: 'u'.repeat(24), actorId: 'a'.repeat(24) };
@@ -34,7 +35,8 @@ const before: PrivacyAdopter = {
   id: 'test-associations',
   phase: 'before-auth',
   erase: async (tx, value) => {
-    await tx.execute(
+    await run(
+      tx,
       sql`delete from test_associations where actor_id=${value.actorId}`,
     );
   },

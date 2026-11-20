@@ -37,6 +37,8 @@ import {
 } from './media-worker-lease';
 import { appendCapturedTranscript } from './captured-transcript';
 import { observeCapturedStream, sealCapturedStream } from './capture-stream';
+import { run as runStatement, query } from './raw-rows';
+import { z } from 'zod';
 
 /** Internal composition: inject the existing pool's actual bounded transaction. */
 export const mediaCaptureOperations = (dependencies: CaptureDependencies) => ({
@@ -55,7 +57,10 @@ export const mediaCaptureOperations = (dependencies: CaptureDependencies) => ({
   readCurrentCaptureLease(raw: unknown) {
     const input = parseCapture(captureLeaseCheckSchema, raw);
     return dependencies.run(async (tx) => {
-      const [row] = (await tx.execute(sql`
+      const [row] = await query(
+        tx,
+        z.object({ serverNow: z.string() }),
+        sql`
         select to_char(clock_timestamp() at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as "serverNow"
         from media_worker_leases l
         join media_sessions s on s.id=l.session_id
@@ -66,9 +71,8 @@ export const mediaCaptureOperations = (dependencies: CaptureDependencies) => ({
           and s.deletion_requested_at is null
           and (${input.segmentId}::text is null or exists(
             select 1 from round_segments g
-            where g.round_id=s.round_id and g.id=${input.segmentId} and g.ended_at is null))`)) as unknown as {
-        serverNow: string;
-      }[];
+            where g.round_id=s.round_id and g.id=${input.segmentId} and g.ended_at is null))`,
+      );
       if (!row)
         throw createAppError('CONFLICT', 'Capture worker lease is stale');
       return row;
@@ -136,11 +140,14 @@ export const mediaCaptureOperations = (dependencies: CaptureDependencies) => ({
   releaseMediaWorkerLease(raw: unknown) {
     const input = parseCapture(captureWorkerIdentitySchema, raw);
     return dependencies.run(async (tx) => {
-      await tx.execute(sql`
+      await runStatement(
+        tx,
+        sql`
         update media_worker_leases set expires_at=least(expires_at,clock_timestamp())
         where session_id=${input.sessionId} and worker_id=${input.workerId}
           and epoch=${input.epoch}
-          and session_id in (select id from media_sessions where round_id=${input.roundId})`);
+          and session_id in (select id from media_sessions where round_id=${input.roundId})`,
+      );
       return null;
     });
   },

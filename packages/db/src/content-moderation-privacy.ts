@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import type { PrivacyAdopter } from './privacy/contracts';
+import { run } from './raw-rows';
 
 /**
  * Export returns what the subject reported and whether they are banned.
@@ -10,10 +11,12 @@ export const contentModerationPrivacyAdopter: PrivacyAdopter = {
   id: 'content-moderation',
   phase: 'after-close',
   erase: async (tx, subject) => {
-    await tx.execute(
+    await run(
+      tx,
       sql`update content_reports set reporter_user_id = null where reporter_user_id = ${subject.userId}`,
     );
-    await tx.execute(
+    await run(
+      tx,
       sql`delete from audience_bans where user_id = ${subject.userId}`,
     );
   },

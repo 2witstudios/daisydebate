@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import type { PrivacyAdopter } from './privacy/contracts';
+import { run } from './raw-rows';
 
 /**
  * A member's documents and folders are private to them (ADR 0111). Erasure
@@ -12,10 +13,12 @@ export const documentsPrivacyAdopter: PrivacyAdopter = {
   id: 'documents',
   phase: 'after-close',
   erase: async (tx, subject) => {
-    await tx.execute(
+    await run(
+      tx,
       sql`delete from documents where owner_actor_id = ${subject.actorId}`,
     );
-    await tx.execute(
+    await run(
+      tx,
       sql`delete from document_folders where owner_actor_id = ${subject.actorId}`,
     );
   },

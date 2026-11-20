@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import type { Tx } from '../tx';
+import { run } from '../raw-rows';
 
 /** The channel stream's high-water mark: the last message position and content revision. */
 export type ChannelStream = {
@@ -30,8 +31,11 @@ const streamOf = (row: Record<string, unknown> | undefined) => {
 
 /** Opens a new channel's stream at its first content revision (creation). */
 export async function openStream(tx: Tx, channelId: string) {
-  await tx.execute(sql`insert into messaging_channel_streams(channel_id, message_sequence, change_version)
-    values(${channelId}, 0, 1)`);
+  await run(
+    tx,
+    sql`insert into messaging_channel_streams(channel_id, message_sequence, change_version)
+    values(${channelId}, 0, 1)`,
+  );
 }
 
 /** A reader's MVCC view of the high-water mark: never locks the stream row. */
@@ -107,8 +111,11 @@ export async function appendStream(
 ): Promise<StreamAllocation> {
   requirePlan(plan);
   const allocation = allocateStream(await lockStream(tx, channelId), plan);
-  await tx.execute(sql`update messaging_channel_streams
+  await run(
+    tx,
+    sql`update messaging_channel_streams
     set message_sequence=${allocation.messageSequence}, change_version=${allocation.changeVersion}
-    where channel_id=${channelId}`);
+    where channel_id=${channelId}`,
+  );
   return allocation;
 }

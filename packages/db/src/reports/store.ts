@@ -21,6 +21,8 @@ import {
 import { commandGate, storedResult, writeReceipt } from '../operator-command';
 import { reports } from '../schema/reports';
 import { inTransaction, type TxSource, type Tx } from '../tx';
+import { query } from '../raw-rows';
+import { z } from 'zod';
 
 /** Reports over the shared Contacts fence (ADR 0103). */
 export type ReportStore = {
@@ -132,13 +134,13 @@ async function resolveReport(
   await commandGate(tx, input.commandId);
   const replayed = await storedResult(tx, input.commandId, input.requestDigest);
   if (replayed) return replayed as ReportResolveResult;
-  const [row] =
-    (await tx.execute(sql`select r.subject_actor_id as "actorId", a.user_id as "userId"
+  const [row] = await query(
+    tx,
+    z.object({ actorId: z.string(), userId: z.string() }),
+    sql`select r.subject_actor_id as "actorId", a.user_id as "userId"
     from reports r join actors a on a.id = r.subject_actor_id
-    where r.id = ${input.reportId}`)) as unknown as {
-      actorId: string;
-      userId: string;
-    }[];
+    where r.id = ${input.reportId}`,
+  );
   if (!row) throw createAppError('NOT_FOUND');
   await lockAuthorizationActors(tx, [row.actorId], { maxActors: 1 });
   const closed = await tx

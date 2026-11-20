@@ -5,6 +5,8 @@ import { and, eq, sql } from 'drizzle-orm';
 import { ballots } from './schema/ballots';
 import { roundJudgingJobs } from './schema/round-judging-jobs';
 import type { Tx } from './tx';
+import { query } from './raw-rows';
+import { z } from 'zod';
 
 const iso = (column: string) =>
   sql.raw(
@@ -60,15 +62,18 @@ export async function readJudgingPanelFacts(
         currentRoundParticipant(roundJudgingJobs.judgeParticipantId),
       ),
     );
-  const judges =
-    (await tx.execute(sql`select s.slot,p.id,a.kind from round_judge_slots s
+  const judges = await query(
+    tx,
+    z.object({
+      slot: z.number(),
+      id: z.string().nullable(),
+      kind: z.string().nullable(),
+    }),
+    sql`select s.slot,p.id,a.kind from round_judge_slots s
     left join round_participants p on p.id=s.participant_id
     left join actors a on a.id=p.actor_id
-    where s.round_id=${roundId} order by s.slot`)) as unknown as {
-      slot: number;
-      id: string | null;
-      kind: string | null;
-    }[];
+    where s.round_id=${roundId} order by s.slot`,
+  );
   const rulings = await tx
     .select({
       judgeParticipantId: ballots.judgeParticipantId,

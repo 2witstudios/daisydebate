@@ -3,6 +3,7 @@ import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import { eraseSubjectFiles } from '../messaging-files';
 import type { Tx } from '../tx';
+import { run } from '../raw-rows';
 
 type Survived = {
   readonly channelId: string;
@@ -37,15 +38,22 @@ export async function detachSurvivorsFromSubject(
 ) {
   for (const { channelId, survivorActorId } of dms) {
     const subjectMessages = sql`select id from messaging_messages where channel_id=${channelId} and author_actor_id=${actorId}`;
-    await tx.execute(sql`
+    await run(
+      tx,
+      sql`
       update messaging_messages set reply_to_message_id=null
       where channel_id=${channelId} and reply_to_message_id in (${subjectMessages})
-    `);
-    await tx.execute(sql`
+    `,
+    );
+    await run(
+      tx,
+      sql`
       update messaging_receipts set message_id=null, payload_digest=null
       where channel_id=${channelId} and message_id in (${subjectMessages})
-    `);
-    await tx.execute(
+    `,
+    );
+    await run(
+      tx,
       sql`delete from messaging_actor_states where channel_id=${channelId} and actor_id=${survivorActorId}`,
     );
   }
@@ -68,7 +76,8 @@ export async function retainSurvivorDms(
   const deleted: string[] = [];
   for (const { channelId, survivorActorId } of dms) {
     // detachSurvivorsFromSubject already cleared every receipt's pointer.
-    await tx.execute(
+    await run(
+      tx,
       sql`delete from messaging_messages where channel_id=${channelId} and author_actor_id=${actorId}`,
     );
     const [own] = rowsOf<{ live: boolean }>(
@@ -82,10 +91,12 @@ export async function retainSurvivorDms(
       await eraseSubjectFiles(tx, survivorActorId, channelId, {
         pendingOnly: true,
       });
-      await tx.execute(
+      await run(
+        tx,
         sql`update messaging_channels set lifecycle='retained', title=null, title_author_actor_id=null where id=${channelId}`,
       );
-      await tx.execute(
+      await run(
+        tx,
         sql`insert into messaging_retained_authors(channel_id, actor_id, created_at) values (${channelId}, ${survivorActorId}, ${now}::timestamptz)`,
       );
     } else {
@@ -111,7 +122,8 @@ export async function eraseRetainedAuthorship(
   for (const channelId of channelIds) {
     await eraseSubjectFiles(tx, actorId, channelId);
     await deleteAuthoredRows(tx, channelId, actorId);
-    await tx.execute(
+    await run(
+      tx,
       sql`delete from messaging_retained_authors where channel_id=${channelId} and actor_id=${actorId}`,
     );
   }
@@ -125,10 +137,12 @@ export async function eraseRetainedAuthorship(
  */
 async function deleteAuthoredRows(tx: Tx, channelId: string, actorId: string) {
   const authored = sql`select id from messaging_messages where channel_id=${channelId} and author_actor_id=${actorId}`;
-  await tx.execute(
+  await run(
+    tx,
     sql`delete from messaging_receipts where channel_id=${channelId} and message_id in (${authored})`,
   );
-  await tx.execute(
+  await run(
+    tx,
     sql`delete from messaging_messages where channel_id=${channelId} and author_actor_id=${actorId}`,
   );
 }
@@ -139,11 +153,14 @@ export async function deleteAbandonedChannels(
   channelIds: readonly string[],
 ) {
   for (const channelId of channelIds)
-    await tx.execute(sql`
+    await run(
+      tx,
+      sql`
       delete from messaging_channels c where c.id=${channelId} and c.kind='dm'
         and not exists(select 1 from messaging_retained_authors r where r.channel_id=c.id)
         and not exists(select 1 from messaging_dm_pairs p where p.channel_id=c.id)
-    `);
+    `,
+    );
 }
 
 /** The retained channels `actorId` survives, locked for their erasure. */

@@ -33,6 +33,7 @@ import { normalizedEmailSql } from './email-identity';
 import { scopeTransaction } from './tenant-scope';
 import { activateSeatMembership } from './tab/seat-membership';
 import type { Tx } from './tx';
+import { run as runStatement } from './raw-rows';
 
 /** The signed-in person acting: always their own account and actor. */
 export type ClubSeatSubject = {
@@ -151,10 +152,13 @@ async function queueInvitationMail(
   input: { organizationId: string; invitationId: string; sendId: string },
 ) {
   // The dedupe key carries the club so the worker can scope its one read.
-  await tx.execute(sql`insert into mail_intents
+  await runStatement(
+    tx,
+    sql`insert into mail_intents
     (id, purpose, club_seat_invitation_id, dedupe_key, next_attempt_at)
     values (${input.sendId}, 'club-seat-invitation', ${input.invitationId},
-      ${`club-seat-invitation:${input.organizationId}:${input.invitationId}:${input.sendId}`}, now())`);
+      ${`club-seat-invitation:${input.organizationId}:${input.invitationId}:${input.sendId}`}, now())`,
+  );
 }
 
 /**
@@ -223,21 +227,30 @@ async function writeSeating(
   );
   for (const invitation of closed) {
     // An answered or cancelled offer is no longer owed: its unsent mail ends first.
-    await tx.execute(sql`update mail_intents set state='cancelled', last_error_code='not-owed',
+    await runStatement(
+      tx,
+      sql`update mail_intents set state='cancelled', last_error_code='not-owed',
         completed_at=clock_timestamp(), lease_token_digest=null, lease_expires_at=null
-      where club_seat_invitation_id=${invitation.id} and state in ('queued', 'leased')`);
-    await tx.execute(
+      where club_seat_invitation_id=${invitation.id} and state in ('queued', 'leased')`,
+    );
+    await runStatement(
+      tx,
       sql`delete from club_seat_invitations where organization_id=${club.id} and id=${invitation.id}`,
     );
   }
   for (const seat of removed) {
-    await tx.execute(
+    await runStatement(
+      tx,
       sql`delete from club_seats where organization_id=${club.id} and user_id=${seat.userId}`,
     );
-    await tx.execute(sql`update account_entitlement_grants
+    await runStatement(
+      tx,
+      sql`update account_entitlement_grants
       set expires_at = greatest(starts_at, least(expires_at, ${endOfUtcDay(input.now)}))
-      where user_id=${seat.userId} and source='organization_seat' and organization_id=${club.id}`);
-    await tx.execute(
+      where user_id=${seat.userId} and source='organization_seat' and organization_id=${club.id}`,
+    );
+    await runStatement(
+      tx,
       sql`update users set version=version+1 where id=${seat.userId}`,
     );
   }
@@ -248,10 +261,13 @@ async function writeSeating(
     if (inserted.length !== 1) throw new Refused('seated-elsewhere');
   }
   for (const invitation of opened) {
-    await tx.execute(sql`insert into club_seat_invitations
+    await runStatement(
+      tx,
+      sql`insert into club_seat_invitations
       (id, organization_id, email, invited_by_user_id, expires_at, created_at)
       values (${invitation.id}, ${club.id}, ${invitation.email}, ${input.invitedBy},
-        ${invitation.expiresAt}, ${invitation.createdAt})`);
+        ${invitation.expiresAt}, ${invitation.createdAt})`,
+    );
     await queueInvitationMail(tx, {
       organizationId: club.id,
       invitationId: invitation.id,

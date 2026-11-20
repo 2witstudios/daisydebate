@@ -21,6 +21,7 @@ import type { TabDatabase } from './tab-transaction';
 import { applySettingWrites, type SettingWrite } from './setting-writes';
 import { loadTournamentHostingFacts } from './tournament-hosting-facts';
 import { inTransaction, type Tx } from '../tx';
+import { takeLock, transactionLocks } from '../locks';
 
 export type SettingCommandInput = {
   readonly senderUserId: string;
@@ -71,9 +72,7 @@ const load = async (tx: Tx, input: SettingCommandInput) => {
   await lockTabCommandAccounts(tx, [input.senderUserId]);
   // Every writer that can change a chain takes this fence before row locks.
   // It serializes checks of enforced values with follows and offers.
-  await tx.execute(
-    sql`select pg_advisory_xact_lock(hashtextextended('tab-settings-chains', 0))`,
-  );
+  await takeLock(tx, transactionLocks.tabSettingsChains());
   const graph = await loadSettingGraph(tx, {
     subjectUserId: input.senderUserId,
   });

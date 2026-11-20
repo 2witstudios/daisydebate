@@ -5,6 +5,7 @@ import { instrumented, type DatabaseEventSink } from '../instrumented';
 import { deleteExpiredBatch, type RetentionBatch } from '../retention';
 import { socialRequestDeclines, socialRequests } from '../schema/contacts';
 import type { Tx } from '../tx';
+import { run } from '../raw-rows';
 
 /** DEC-251 social request budgets, shared by DM and friend requests. */
 export type SocialRequestLimits = {
@@ -138,10 +139,13 @@ export async function spendSocialRequest(
   )
     throw createAppError('RATE_LIMIT');
   return async () => {
-    await tx.execute(sql`insert into social_requests
+    await run(
+      tx,
+      sql`insert into social_requests
       (actor_id, request_id, counterpart_actor_id, kind, unrelated, created_at)
       values (${actorId}, ${command.requestId}, ${counterpartActorId}, ${command.kind},
-        ${facts.unrelated}, ${at(now)}::timestamptz)`);
+        ${facts.unrelated}, ${at(now)}::timestamptz)`,
+    );
   };
 }
 
@@ -165,7 +169,9 @@ export async function recordSocialDecline(
   const { declinerActorId, requesterActorId, limits } = command;
   const [low, high] = ordered(declinerActorId, requesterActorId);
   const until = at(now + limits.declineBlockMs);
-  await tx.execute(sql`with counted as (
+  await run(
+    tx,
+    sql`with counted as (
       select coalesce((select case when d.expires_at > ${at(now)}::timestamptz
         then d.declined_count else 0 end
         from social_request_declines d
@@ -186,13 +192,15 @@ export async function recordSocialDecline(
       expires_at = greatest(excluded.expires_at, social_request_declines.blocked_until),
       blocked_until = coalesce(excluded.blocked_until,
         case when social_request_declines.blocked_until > ${at(now)}::timestamptz
-          then social_request_declines.blocked_until end)`);
+          then social_request_declines.blocked_until end)`,
+  );
 }
 
 /** An accepted request clears the pair's declines in both directions. */
 export async function clearSocialDeclines(tx: Tx, a: string, b: string) {
   const [low, high] = ordered(a, b);
-  await tx.execute(
+  await run(
+    tx,
     sql`delete from social_request_declines where low_actor_id=${low} and high_actor_id=${high}`,
   );
 }

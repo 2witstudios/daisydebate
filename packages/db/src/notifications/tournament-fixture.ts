@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { rowsOf } from '../raw-rows';
+import { query } from '../raw-rows';
 import type {
   LoadedFixtureCommand,
   FixtureCommandInput,
@@ -10,6 +10,7 @@ import {
   oweTournamentNotification,
 } from './tournament';
 import type { Tx } from '../tx';
+import { z } from 'zod';
 
 /** Shared by direct and confirmed officiating, using the original command's identity. */
 export async function notifyFixtureChanges(
@@ -35,8 +36,9 @@ export async function notifyFixtureChanges(
       write.op === 'insert'
         ? write.row.tournamentJudgeId
         : write.tournamentJudgeId;
-    const people = await rowsOf<{ userId: string; actorId: string }>(
+    const people = await query(
       tx,
+      z.object({ userId: z.string(), actorId: z.string() }),
       sql`select a.user_id as "userId",a.id as "actorId"
       from tournament_judges j join actors a on a.id=j.actor_id join users u on u.id=a.user_id and u.deleted_at is null
       where j.id=${judgeId} and j.lobby_id=${input.lobbyId} and j.status='accepted'`,
@@ -63,8 +65,9 @@ export async function notifyFixtureChanges(
       people,
       kind: 'tournament_draw_changed',
     });
-    const [room] = await rowsOf<{ status: string }>(
+    const [room] = await query(
       tx,
+      z.object({ status: z.string() }),
       sql`select r.status from fixtures f join rooms r on r.id=f.room_id where f.id=${fixture.id}`,
     );
     if (room?.status === 'ready') {

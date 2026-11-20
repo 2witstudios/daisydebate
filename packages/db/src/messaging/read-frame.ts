@@ -48,6 +48,9 @@ const reactionRowSchema = z.array(
     own: z.boolean(),
   }),
 );
+export const parseHistoryReactions = (value: unknown) =>
+  reactionRowSchema.parse(value ?? []);
+
 /**
  * Pure: a history page from one statement's rows (descending sequence).
  * Counts are shared; which reactions are the reader's own stays apart, and a
@@ -120,7 +123,7 @@ export function changesPage(
  * both come from one MVCC snapshot while writers share the fences (§3B).
  */
 export function channelReadFrame(
-  tx: Tx & Tx,
+  tx: Tx,
   input: { readonly channelId: string; readonly actorId: string },
   counters: MessagingCounters,
   authorize: () => Promise<void>,
@@ -204,7 +207,7 @@ export function channelReadFrame(
       const result = historyPage(
         required(rows).map((row) => ({
           ...row,
-          reactions: reactionRowSchema.parse(row.reactions ?? []),
+          reactions: parseHistoryReactions(row.reactions),
         })),
         limit,
         input.channelId,

@@ -19,6 +19,7 @@ import {
 } from './usage-ledger';
 import { usageStateSchema } from '@daisy/protocol/billing';
 import type { Tx } from './tx';
+import { takeLock, transactionLocks } from './locks';
 export {
   refundUnservedPracticeLocked,
   refundPlatformEndedLocked,
@@ -28,7 +29,7 @@ type Target = { readonly actorId: string; readonly roundId: string };
 type Reservation = Target & { readonly id: string };
 /** Global bot capacity precedes canonical account then Room/Round and usage fences. */
 export const lockBotAdmission = (tx: Tx) =>
-  tx.execute(sql`select pg_advisory_xact_lock(59003, 1)`);
+  takeLock(tx, transactionLocks.botAdmission());
 async function lockSponsor(tx: Tx, target: Target) {
   requireAdmissionTarget(target);
   const [account] = await lockAuthorizationActors(tx, [target.actorId], {
