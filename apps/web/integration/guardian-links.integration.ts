@@ -2,6 +2,7 @@ import { requireTestServices } from '@daisy/config';
 import {
   ageStepOperations,
   createGuardianStore,
+  guardianLinksPrivacyAdopter,
   withRolledBackDatabase,
 } from '@daisy/db/testing';
 import type { GuardianCommand } from '@daisy/protocol/guardians';
@@ -304,7 +305,7 @@ test('address conflicts and stale invitations never create consent or record a c
         noticeVersion: 'draft-1',
       });
       const [expired] =
-        await sql`select public.daisy_expire_child_account_requests(200, false) as count`;
+        await sql`select public.daisy_expire_child_account_requests(200) as count`;
       const parentRows = await store.forSubject(first.userId, (session) =>
         session.requests(),
       );
@@ -396,6 +397,33 @@ test('resend asks a now-existing child to confirm instead of reviving an open cl
           childLink?.minorUserId,
         ],
         expected: ['confirm-link', 'linked', 'requested', child.userId],
+      });
+
+      await sql`update users set deleted_at=${stamp}, email=null, name='' where id=${child.userId}`;
+      await db.transaction((tx) =>
+        guardianLinksPrivacyAdopter.erase(tx, child, { now: stamp }),
+      );
+      const scrubbed = await store.forSubject(
+        parent.userId,
+        async (session) =>
+          [
+            await session.request(waiting.id),
+            childLink ? await session.link(childLink.id) : null,
+          ] as const,
+      );
+      assert({
+        given:
+          'the linked child closes their account with an email confirmation still pending',
+        should:
+          'cancel the invitation and link, clearing the retained request contact details',
+        actual: [
+          scrubbed[0]?.status,
+          scrubbed[0]?.email,
+          scrubbed[0]?.firstName,
+          scrubbed[0]?.birthMonth,
+          scrubbed[1]?.status,
+        ],
+        expected: ['cancelled', null, null, null, 'cancelled'],
       });
     },
   });

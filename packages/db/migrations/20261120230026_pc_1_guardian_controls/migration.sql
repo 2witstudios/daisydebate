@@ -246,8 +246,12 @@ BEGIN
   ELSIF NEW.id = OLD.id AND NEW.guardian_user_id = OLD.guardian_user_id
     AND NEW.guardian_consent_id = OLD.guardian_consent_id AND NEW.created_at = OLD.created_at
     AND NEW.expires_at = OLD.expires_at THEN
-    IF (OLD.status IN ('open', 'linked') AND NEW.status = 'cancelled' AND OLD.guardian_user_id = subject
-        AND NEW.requested_link_id IS NOT DISTINCT FROM OLD.requested_link_id)
+    IF (OLD.status IN ('open', 'linked') AND NEW.status = 'cancelled'
+        AND NEW.requested_link_id IS NOT DISTINCT FROM OLD.requested_link_id
+        AND (OLD.guardian_user_id = subject OR (
+          public.daisy_owns_guardian_request_link(OLD.requested_link_id)
+          AND EXISTS (SELECT 1 FROM public.users WHERE id = subject AND deleted_at IS NOT NULL)
+        )))
       OR (OLD.status = 'open' AND NEW.status = 'claimed' AND NEW.claimed_user_id = subject
         AND NEW.closed_at < OLD.expires_at AND public.daisy_owns_guardian_request_email(OLD.email))
       OR (OLD.status = 'open' AND NEW.status = 'linked' AND OLD.guardian_user_id = subject
@@ -270,7 +274,7 @@ CREATE TRIGGER child_account_request_authorized_transition
   BEFORE INSERT OR UPDATE ON "child_account_requests"
   FOR EACH ROW EXECUTE FUNCTION public.daisy_child_account_request_transition();
 --> statement-breakpoint
-CREATE FUNCTION public.daisy_expire_child_account_requests(batch_size integer, erase_subject boolean)
+CREATE FUNCTION public.daisy_expire_child_account_requests(batch_size integer)
 RETURNS integer
 LANGUAGE sql VOLATILE SECURITY DEFINER
 SET search_path = pg_catalog, public, pg_temp
@@ -281,15 +285,7 @@ AS $$
     SELECT r.id, r.requested_link_id
     FROM public.child_account_requests r
     CROSS JOIN instant
-    WHERE r.status IN ('open', 'linked') AND (
-      (NOT erase_subject AND r.expires_at <= instant.at) OR
-      (erase_subject AND EXISTS (
-        SELECT 1 FROM public.guardian_links g
-        JOIN public.users u ON u.id = g.minor_user_id
-        WHERE g.id = r.requested_link_id AND u.id = public.daisy_subject_scope()
-          AND u.deleted_at IS NOT NULL
-      ))
-    )
+    WHERE r.status IN ('open', 'linked') AND r.expires_at <= instant.at
     ORDER BY r.expires_at, r.id
     LIMIT LEAST(GREATEST(batch_size, 0), 200)
     FOR UPDATE OF r SKIP LOCKED
@@ -308,6 +304,6 @@ AS $$
   SELECT count(*)::integer FROM scrubbed
 $$;
 --> statement-breakpoint
-REVOKE ALL ON FUNCTION public.daisy_expire_child_account_requests(integer, boolean) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.daisy_expire_child_account_requests(integer) FROM PUBLIC;
 --> statement-breakpoint
-GRANT EXECUTE ON FUNCTION public.daisy_expire_child_account_requests(integer, boolean) TO daisy_web;
+GRANT EXECUTE ON FUNCTION public.daisy_expire_child_account_requests(integer) TO daisy_web;
