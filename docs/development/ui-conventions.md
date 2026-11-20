@@ -458,9 +458,9 @@ debater's flow document.
 
 ## Daisy Tab
 
-Tournament tabulation, on sample data behind the closed `daisy-tab` release
-flag (plan: Plans › tab-interface; the design canvas is the specification for
-layout and copy). With the flag closed every Tab address answers with the bare
+Tournament tabulation uses stored data behind the `daisy-tab` release flag.
+The design canvas specifies the layout and copy for Tab screens, including
+those awaiting wiring. With the flag closed every Tab address answers with the bare
 missing page it always has, because the gate is in the layouts of the `(tab)`,
 `(tab-live)` and `(host)` route groups, and `/tournaments` keeps its
 information page.
@@ -469,8 +469,7 @@ information page.
   (`ui/tab/host-shell`): the timeline rail beside one page. The rail is the
   tournament in order, by time slot; with one event the slots are its rounds.
   The participant side is the same paths without the prefix, in the product
-  shell. Anyone without a grant who opens a host address is sent to the
-  participant page at the same path (`participantPathOf`).
+  shell. Wired host pages authorize access against stored grants.
 - **One module per aggregate.** `features/tab/<aggregate>.ts` owns that
   aggregate's pure read projection. Sample `read…` adapters and their facts are
   test support (`features/tab/test-support/sample/`), which production source
@@ -498,9 +497,6 @@ information page.
   (`ui/tab/ballot/configured-ballot.tsx`): scale and step, ranks, a criteria
   grid, the allowed outcomes and the written fields. Ballot settings redraw
   the same component as a preview on every choice.
-- **There is no sample walk.** The design canvas is the specification for a
-  screen with no wired page; the sample tournament is test support only, and
-  real routes never reserve sample handles.
 - **Not built here:** a role editor, setting a policy's force key by key (a
   host picks a pairing preset; the forces are shown), comparing draw versions,
   and host screens at phone width. Tab screens have no visual baselines.
