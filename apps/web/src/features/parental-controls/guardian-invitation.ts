@@ -60,7 +60,7 @@ export type ChildAccountDecision =
   | { readonly kind: 'invite' }
   /** A minor's account holds it: ask that account to confirm the parent. */
   | { readonly kind: 'ask-existing'; readonly minorUserId: string }
-  /** Anyone else holds it: keep the invitation (it can never be claimed) and say nothing changed. */
+  /** The address is held, but a new link request would change nothing. */
   | { readonly kind: 'tell-holder' };
 
 const isMinor = (band: AgeBand | null): boolean =>
@@ -82,9 +82,7 @@ export function decideChildAccount(
   if (holder.kind === 'nobody') return { kind: 'invite' };
   if (holder.userId === facts.parent.userId)
     return { kind: 'refused', refusal: 'own-email' };
-  if (holder.linkedToParent)
-    return { kind: 'refused', refusal: 'already-linked' };
-  return isMinor(holder.ageBand)
+  return isMinor(holder.ageBand) && !holder.linkedToParent
     ? { kind: 'ask-existing', minorUserId: holder.userId }
     : { kind: 'tell-holder' };
 }

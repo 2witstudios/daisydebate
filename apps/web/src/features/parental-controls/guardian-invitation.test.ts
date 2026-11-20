@@ -129,7 +129,7 @@ test('an address someone already holds', () => {
   });
   assert({
     given: 'a child this parent is already linked to or waiting on',
-    should: 'refuse as already linked',
+    should: 'leave the existing link alone without revealing the account',
     actual: decideChildAccount(
       facts({
         holder: {
@@ -141,7 +141,7 @@ test('an address someone already holds', () => {
       }),
       command,
     ),
-    expected: { kind: 'refused', refusal: 'already-linked' },
+    expected: { kind: 'tell-holder' },
   });
 });
 

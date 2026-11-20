@@ -31,6 +31,15 @@ export const flagCatalogue = [
     dependencies: ['daisy-tab'],
   },
   {
+    key: 'parental-controls',
+    kind: 'release',
+    owner: 'Daisy Tab (@2witstudios)',
+    taskCode: 'PC-1.3',
+    expiresOn: '2027-03-31',
+    safeDefault: false,
+    dependencies: [],
+  },
+  {
     // /pricing and the links to it; opens once the owner approves pricing
     // in production (epic PYL win condition 5).
     key: 'pricing-page',
