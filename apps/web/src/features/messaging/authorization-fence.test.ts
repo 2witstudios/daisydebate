@@ -135,3 +135,39 @@ test('DM request reads, decline and cancel bypass an unavailable contact-fact pr
     expected: [false, false, false],
   });
 });
+
+test('own message removal and preferences depend only on reading evidence', async () => {
+  const f = typingWorld();
+  const { actorId, userId } = f.accounts[0]!.account;
+  const frame = {
+    fact: f.channel,
+    accounts: f.accounts.map((row) => row.account),
+  };
+  const scope = { actorId, userId, channelId: f.channel.channelId };
+  const queried = [];
+  for (const capability of [
+    'channel.message.remove',
+    'channel.preferences.read',
+    'channel.preferences.update',
+  ] as const) {
+    const { tx, queries } = createScriptedAuthorizationTransaction([
+      ...f.accounts.map((row) => [row.age]),
+      new Error('DM contact facts unavailable'),
+    ]);
+    await messagingAuthorizationFence({
+      principal: { kind: 'user', userId, actorId },
+      clock: { now: () => f.now },
+      postingPolicy: f.policy.posting,
+      readingPolicy: f.policy.reading,
+      capability,
+    })(tx, scope, frame);
+    queried.push(queries.length);
+  }
+  assert({
+    given: 'an accepted DM and unavailable contact facts',
+    should:
+      'authorize message removal and preference reads and writes with account-age evidence alone',
+    actual: queried,
+    expected: [2, 2, 2],
+  });
+});

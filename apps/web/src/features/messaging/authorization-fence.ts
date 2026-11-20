@@ -41,7 +41,7 @@ export async function loadMessagingAuthorizationInput(
   input: BoundInput,
   frame: BoundFrame,
   options: MessagingFenceOptions,
-  purpose: 'reading' | 'posting' = 'posting',
+  purpose: 'reading' | 'posting',
 ) {
   requireBoundFrame(options.principal, input, frame.fact.channelId);
   const accounts = await loadAccountPolicyFacts(
@@ -67,7 +67,7 @@ export function messagingAuthorizationInput(
     readonly now: string;
   },
   options: MessagingFenceOptions,
-  purpose: 'reading' | 'posting' = 'posting',
+  purpose: 'reading' | 'posting',
 ): Omit<AuthorizationInput, 'capability' | 'resource'> & {
   readonly resource: ChannelAuthorizationFact;
 } {
@@ -111,14 +111,9 @@ export function messagingAuthorizationFence(
 ): MessagingAuthorizationFence {
   const { capability, answer } = options;
   const needsPosting =
-    ![
-      'channel.read',
-      'channel.request.read',
-      'channel.request.status',
-      'channel.request.result',
-      'channel.request.cancel',
-    ].includes(capability) &&
-    !(capability === 'channel.request.decide' && answer === 'decline');
+    capability === 'channel.post' ||
+    capability === 'channel.manage' ||
+    (capability === 'channel.request.decide' && answer !== 'decline');
   return async (tx, input, frame) => {
     const loaded = await loadMessagingAuthorizationInput(
       tx,
