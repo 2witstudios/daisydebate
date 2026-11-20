@@ -39,7 +39,7 @@ import {
   isLiveDebater,
 } from '../../../../../ui/debate-room/live-round';
 import { LiveRoundRoom } from '../../../../../ui/debate-room/live-round-room';
-import { temporarilyRefused } from '../../../../../server/temporary-read';
+import { temporarilyRefused } from '../../../../../features/resource-sync/temporary-read';
 import { reconnectingRoundPage } from '../../../../../ui/debate-room/round-reconnecting';
 import { SeatedSpectatorChat } from '../../../../(shell)/audience/seated-spectator-chat';
 import { readPersistedRound } from '../../../../(shell)/rounds/[id]/actions';

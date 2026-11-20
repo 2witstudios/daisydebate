@@ -3,7 +3,7 @@ import { idSchema } from '@daisy/protocol';
 import {
   unavailableRead,
   type UnavailableRead,
-} from '../../server/temporary-read';
+} from '../resource-sync/temporary-read';
 import type { NativeAttendanceState } from './operations';
 const stateSchema = z.strictObject({
   roundId: idSchema,

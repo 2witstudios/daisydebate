@@ -51,7 +51,8 @@ describe('browser workflow triggers', () => {
     const launch = job.strategy.matrix.cohort.filter((cohort) =>
       cohort.startsWith('launch-'),
     );
-    const step = job.steps.find((candidate) => candidate.id === 'launch');
+    const step = job.steps.find((candidate) => candidate.id === 'launch') as
+      (Step & { env?: Record<string, string> }) | undefined;
     // The step's own shell works the shard out of the cohort's name.
     const shards = launch.map((cohort) =>
       Bun.spawnSync(
@@ -73,6 +74,10 @@ describe('browser workflow triggers', () => {
         shards,
         onlyLaunch: step?.if,
         bounded: job['timeout-minutes'] <= 45,
+        // One share for each shard, none empty.
+        shares: (step?.env?.PWTEST_SHARD_WEIGHTS ?? '')
+          .split(':')
+          .filter((share) => Number(share) > 0).length,
       },
       expected: {
         shards: launch.map(
@@ -80,6 +85,7 @@ describe('browser workflow triggers', () => {
         ),
         onlyLaunch: "${{ startsWith(matrix.cohort, 'launch-') }}",
         bounded: true,
+        shares: launch.length,
       },
     });
   });

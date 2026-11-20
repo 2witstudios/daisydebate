@@ -1,9 +1,9 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { refuseCapacity } from '@daisy/db/testing';
 import { createAppError } from '@daisy/errors';
-import { handleOperation } from './http';
+import { handleOperation } from '../../server/http';
 import { temporarilyRefused, unavailableRead } from './temporary-read';
-import { silentLogger } from './test-loggers.test-support';
+import { silentLogger } from '../../server/test-loggers.test-support';
 
 setupRitewayBun();
 
