@@ -159,5 +159,19 @@ test('a minor asks an adult, and the adult’s Message on the minor’s profile 
       .getByRole('button', { name: `Message @${minor!.username}`, exact: true })
       .click();
     await expect(adultPage).toHaveURL(new RegExp(`/messages/${channelId}$`));
+
+    await adultPage.goto('/settings');
+    const settings = adultPage.getByRole('form', { name: 'Message requests' });
+    await settings.getByRole('radio', { name: 'No one' }).check();
+    await settings.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(settings.getByRole('status')).toHaveText('Saved.');
+    await adultPage.reload();
+    await expect(settings.getByRole('radio', { name: 'No one' })).toBeChecked();
+
+    await minorPage.goto(`/profile/${adult!.username}`);
+    await minorPage
+      .getByRole('button', { name: `Message @${adult!.username}`, exact: true })
+      .click();
+    await expect(minorPage).toHaveURL(new RegExp(`/messages/${channelId}$`));
   });
 });

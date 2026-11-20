@@ -409,6 +409,10 @@ test('a message request notice stands while it is pending, and never across a bl
     await p.fresh();
     await p.request(sender, recipient);
     const pending = await inbox();
+    const account = await fixture.exportSubject(recipient.actorId);
+    const exported = account.notifications?.flatMap((row) =>
+      row.kind === 'dm_request' ? [row.dm_channel_id] : [],
+    );
     await client.unsafe(
       'update contact_pairs set low_blocks_high=true where low_actor_id=$1 and high_actor_id=$2',
       [fixture.low, fixture.high],
@@ -416,9 +420,9 @@ test('a message request notice stands while it is pending, and never across a bl
     const blocked = await inbox();
     assert({
       given: 'a pending request, then a block between the pair',
-      should: 'show the recipient the notice, then stop showing it',
-      actual: [pending, blocked],
-      expected: [[[fixture.channelId, true]], []],
+      should: 'show and export the recipient’s notice, then stop showing it',
+      actual: [pending, exported, blocked],
+      expected: [[[fixture.channelId, true]], [fixture.channelId], []],
     });
   } finally {
     await p.cleanup();
