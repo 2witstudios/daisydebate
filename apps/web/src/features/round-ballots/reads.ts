@@ -3,7 +3,7 @@ import {
   roundBallotReadSchema,
   roundJudgeAssignmentsSchema,
 } from '@daisy/protocol';
-import { unavailableRead } from '../../server/temporary-read';
+import { unavailableRead } from '../resource-sync/temporary-read';
 type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
 /** Canonical protected input/result read; query parameters never choose a ballot state. */
 export async function readRoundBallot(fetch: FetchLike, roundId: string) {

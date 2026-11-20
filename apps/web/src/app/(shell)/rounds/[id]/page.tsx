@@ -33,7 +33,7 @@ import { drawReconnectDelaySeconds } from '../../../../ui/debate-room/reconnect-
 import { audienceLinkPageHref } from '../../../../features/audience-link/audience-link';
 import { RoundAnalysis } from '../../../../ui/round-analysis/round-analysis';
 import { isTemporaryRefusal } from '@daisy/db/capacity';
-import { temporarilyRefused } from '../../../../server/temporary-read';
+import { temporarilyRefused } from '../../../../features/resource-sync/temporary-read';
 import { transcriptLines } from '../../../../ui/round-result/result-view';
 
 import {

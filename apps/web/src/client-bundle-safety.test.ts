@@ -7,8 +7,22 @@ setupRitewayBun();
 const web = resolve(import.meta.dir, '..');
 const repo = resolve(web, '../..');
 
-/** Imports a browser chunk can never load: the database driver and its runtime. */
-const SERVER_ONLY = new Set(['@daisy/db', 'bun']);
+/**
+ * Imports a browser chunk must never reach: the runtime, Node's own modules,
+ * the database and Redis packages by any subpath, and the request's headers.
+ * A rule, not a list of two names, so a new subpath or module is covered.
+ */
+const serverOnlySpecifier = (specifier: string) =>
+  specifier === 'bun' ||
+  specifier.startsWith('bun:') ||
+  specifier.startsWith('node:') ||
+  specifier === 'next/headers' ||
+  ['@daisy/db', '@daisy/redis'].some(
+    (name) => specifier === name || specifier.startsWith(`${name}/`),
+  );
+/** Everything under src/server is the process's own: composition, I/O, secrets. */
+const serverOnlyFile = (file: string) =>
+  file.startsWith(join(web, 'src/server') + '/');
 
 const workspaceExports = new Map<string, Record<string, string>>(
   ['packages', 'apps'].flatMap((group) =>
@@ -74,11 +88,14 @@ function serverOnlyReached(entry: string): string[] {
   while (queue.length > 0) {
     const file = queue.shift()!;
     for (const specifier of specifiersOf(file)) {
-      if (SERVER_ONLY.has(specifier)) {
+      const next = resolveImport(file, specifier);
+      if (
+        serverOnlySpecifier(specifier) ||
+        (next !== undefined && serverOnlyFile(next))
+      ) {
         found.push(`${pathTo(file)} -> ${specifier}`);
         continue;
       }
-      const next = resolveImport(file, specifier);
       if (!next || seen.has(next) || !/\.tsx?$/.test(next)) continue;
       seen.add(next);
       parents.set(next, file);
@@ -103,11 +120,11 @@ test('the guard finds the client components it walks', () => {
   });
 });
 
-test('no client component reaches the database driver', () => {
+test('no client component reaches server-only code', () => {
   assert({
     given: `every 'use client' module (${clientEntries.length}) and its import graph, through workspace package exports`,
     should:
-      'never import the @daisy/db root or bun, which break the browser chunk (#473: preference-form.tsx -> server/http.ts)',
+      'never import the runtime, a node: module, the database or Redis packages, next/headers, or a module under src/server. Move what the client needs into a module with no such import (#473: preference-form.tsx -> server/http.ts)',
     actual: clientEntries.flatMap(serverOnlyReached),
     expected: [],
   });
