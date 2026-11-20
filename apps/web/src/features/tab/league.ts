@@ -1,7 +1,10 @@
+import type { Ladder } from '@daisy/protocol';
 import type { StandingRoomCreation } from './standing-room-creation';
 import type { TabAction } from './action';
 import type { ResolvedSettingsView } from '@daisy/protocol/lobby/resolved-settings-read';
 import type { TemplateView } from '@daisy/protocol/lobby/template-read';
+import type { LadderScope } from './league-view';
+import type { TournamentGroup } from './tournament';
 import type { SettingLine } from './settings';
 import type { LeagueTab } from './routes';
 
@@ -131,11 +134,6 @@ export type LeagueLobby = {
   readonly panel: LeaguePanel;
 };
 
-/**
- * The create-room form of a standing lobby: the resolved settings of the
- * template the Room follows. Enforced values are locked; defaults are
- * prefilled and may be changed.
- */
 /** What the form is drawn from: the lobby, the Room draft's view, the offered templates. */
 export type CreateRoomReads = {
   readonly creation?: StandingRoomCreation;

@@ -58,10 +58,7 @@ export type BallotSettings = {
   };
 };
 
-/**
- * The settings preview's prelim, drawn with sample names. Every ballot
- * settings screen previews with these, the walk's and the stored event's.
- */
+/** Example names and scores for the host's ballot authoring preview. */
 export const sampleBallotPreview: BallotSettings['preview'] = {
   lede: 'A prelim round, with sample names',
   subjects: [

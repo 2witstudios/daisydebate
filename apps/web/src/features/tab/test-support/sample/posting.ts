@@ -1,4 +1,3 @@
-import type { DayRow } from '@daisy/protocol/lobby/day-read';
 import type { TabRoundRef } from '@daisy/protocol/lobby/lobby-read';
 
 /**
@@ -34,14 +33,4 @@ export const tabRound = (
   number,
   name,
   stage,
-});
-
-const won = (
-  judgesFor = 1,
-  judgesAgainst = 0,
-  points: number | null = null,
-): DayRow['result'] => ({
-  kind: 'released',
-  decision: { kind: 'debate', won: true, judgesFor, judgesAgainst },
-  scores: points === null ? null : { points },
 });

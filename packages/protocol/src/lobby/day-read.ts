@@ -183,7 +183,6 @@ export const dayViewSchema = z.strictObject({
     )
     .max(64),
 });
-type DayView = z.infer<typeof dayViewSchema>;
 
 export const dayReadCatalogue = {
   DayView: { gate: ['lobby.read'] },

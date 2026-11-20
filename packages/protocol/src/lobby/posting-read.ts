@@ -66,7 +66,6 @@ export const postingViewSchema = z.strictObject({
   /** Null until the round's resolution is released. */
   resolution: z.strictObject({ text: z.string().trim().min(1) }).nullable(),
 });
-type PostingView = z.infer<typeof postingViewSchema>;
 
 export const postingReadCatalogue = {
   PostingView: { gate: ['posting.read'] },
