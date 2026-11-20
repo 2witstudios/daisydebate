@@ -71,7 +71,6 @@ const hostLobbySchema = z.strictObject({
   progress: tournamentProgress.nullable(),
   shape: ownTournamentShape.nullable(),
 });
-export type HostLobby = z.infer<typeof hostLobbySchema>;
 
 const hostOrganizationSchema = z.strictObject({
   organizationId: idSchema,
@@ -93,7 +92,6 @@ export const hostHomeViewSchema = z.strictObject({
   lobbies: z.array(hostLobbySchema),
   capabilities: z.strictObject({ createLobby: z.boolean() }),
 });
-export type HostHomeView = z.infer<typeof hostHomeViewSchema>;
 
 const publicProfile = {
   organizationId: idSchema,
@@ -120,7 +118,6 @@ export const organizationViewSchema = z.discriminatedUnion('audience', [
     capabilities: z.strictObject({ manage: z.boolean() }),
   }),
 ]);
-export type OrganizationView = z.infer<typeof organizationViewSchema>;
 
 const grantScope = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('organization') }),
@@ -163,7 +160,6 @@ const organizationRoleSchema = z.strictObject({
   preset: z.boolean(),
   permissions: z.array(z.enum(permissions)),
 });
-export type OrganizationRole = z.infer<typeof organizationRoleSchema>;
 
 /**
  * An organization's people: members with their grants and recorded

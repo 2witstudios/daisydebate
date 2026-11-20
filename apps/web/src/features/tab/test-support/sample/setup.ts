@@ -54,12 +54,7 @@ const autumnRows = [
 ];
 
 /** Slots are in the tournament's time; the sample keeps them at UTC. */
-export const slot = (
-  key: string,
-  name: string,
-  time: string,
-  day = '2026-11-14',
-) => ({
+const slot = (key: string, name: string, time: string, day = '2026-11-14') => ({
   timeSlotId: sampleId(`slot${key}`),
   name,
   startsAt: `${day}T${time}:00.000Z`,
@@ -69,7 +64,7 @@ export const slot = (
  * One event: its preliminary rounds each in a slot, then an elimination
  * stage whose first round opens the break slot.
  */
-export function sampleEvent(
+function sampleEvent(
   key: string,
   name: string,
   shape: {

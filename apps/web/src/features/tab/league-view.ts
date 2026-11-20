@@ -1,4 +1,4 @@
-export type LadderScope = 'top' | 'around';
+type LadderScope = 'top' | 'around';
 
 /** One tab of a league's lobby, with what its address chose on it. */
 export type LeagueView =

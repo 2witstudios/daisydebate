@@ -147,7 +147,7 @@ export const TEST_CODE =
  * module in a `test-support/` folder.
  */
 const TEST_SUPPORT_SPECIFIER =
-  /^@daisy\/[^/]+\/testing$|\.test-support(?:\.tsx?)?$|(?:^|\/)test-support\//;
+  /^@daisy\/[^/]+\/testing$|\.test-support(?:\.tsx?)?$|(?:^|\/)test-support(?:\/|$)/;
 
 /**
  * Test support (a workspace's `./testing` subpath, a `*.test-support` module

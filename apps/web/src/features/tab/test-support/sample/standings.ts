@@ -1,10 +1,5 @@
 import type { StandingsView } from '@daisy/protocol/lobby/standings-read';
 import { lockedSetting, type ResolvedSetting } from '../../settings';
-import {
-  standingsTableOf,
-  withDivisionBreak,
-  type StandingsTable,
-} from '../../standings';
 import { AUTUMN, LEAGUE_NAME, reached, VARSITY } from './moment';
 import {
   largeNoviceStandingsView,
@@ -214,19 +209,4 @@ export function sampleDivisionStandingsView(
   return whole === null
     ? null
     : { read: largeNoviceStandingsView(whole.read), tiebreaks };
-}
-
-/** The table as a screen draws it, for the sample screens that embed one. */
-export function sampleStandings(
-  slug: string,
-  event: string | null,
-  scene: SampleScene,
-): StandingsTable | null {
-  const sample = sampleStandingsView(slug, event, scene);
-  if (sample === null) return null;
-  const table = standingsTableOf(sample.read, sample.tiebreaks);
-  const novice = sampleDivisionStandingsView(slug, event, NOVICE, scene);
-  return novice === null
-    ? table
-    : withDivisionBreak(table, standingsTableOf(novice.read, novice.tiebreaks));
 }

@@ -1,13 +1,5 @@
-import type {
-  PostedFixture,
-  PostedJudge,
-  PostingView,
-  ShownEntrant,
-} from '@daisy/protocol/lobby/posting-read';
-import type { DayRow, DayView } from '@daisy/protocol/lobby/day-read';
+import type { DayRow } from '@daisy/protocol/lobby/day-read';
 import type { TabRoundRef } from '@daisy/protocol/lobby/lobby-read';
-
-type DayFixture = NonNullable<DayRow['fixture']>;
 
 /**
  * A sample id: the same 24 lowercase characters for the same key, so the
@@ -30,16 +22,6 @@ export function sampleId(key: string): string {
 export const at = (day: string, time: string): string =>
   `${day}T${time}:00.000Z`;
 
-export const named = (name: string): ShownEntrant => ({ kind: 'name', name });
-export const initials = (text: string): ShownEntrant => ({
-  kind: 'initials',
-  initials: text,
-});
-export const judge = (name: string, chair = false): PostedJudge => ({
-  name,
-  chair,
-});
-
 export const tabRound = (
   lobby: string,
   event: string,
@@ -54,116 +36,7 @@ export const tabRound = (
   stage,
 });
 
-/** One published fixture with a Room, its entrants in position order. */
-export const postedFixture = (
-  room: string,
-  roomName: string,
-  entrants: readonly ShownEntrant[],
-  judges: readonly PostedJudge[],
-  video = true,
-): PostedFixture => ({
-  fixtureId: sampleId(`fixture/${room}`),
-  kind: 'pairing',
-  room: { roomId: sampleId(room), name: roomName },
-  entries: entrants.map((shown) => ({
-    entryId: sampleId(`entry/${shownKey(shown)}`),
-    shown,
-    school: null,
-  })),
-  judges: [...judges],
-  video,
-});
-
-const shownKey = (shown: ShownEntrant) =>
-  shown.kind === 'name' ? shown.name : shown.initials;
-
-/** `Jensen v Amari` as a fixture's two named entrants. */
-export const versus = (title: string): readonly ShownEntrant[] =>
-  title.split(/ v |, /).map(named);
-
-export const postingOf = (
-  lobby: string,
-  event: { readonly key: string; readonly name: string },
-  round: TabRoundRef,
-  times: { readonly opensAt: string; readonly startedAt: string | null },
-  roomCount: number,
-  fixtures: readonly PostedFixture[],
-  more: number,
-): PostingView => ({
-  lobbyId: sampleId(lobby),
-  event: { eventId: sampleId(`${lobby}/${event.key}`), name: event.name },
-  tabRound: round,
-  opensAt: times.opensAt,
-  startedAt: times.startedAt,
-  roomCount,
-  fixtures: [...fixtures],
-  more,
-  resolution: null,
-});
-
-type Defaulted = 'breaking' | 'recording' | 'result' | 'person';
-/** Per row variant: a role at a stage of progress keeps its own fields. */
-type DayRowInput = DayRow extends infer Row
-  ? Row extends DayRow
-    ? Omit<Row, 'tabRound' | 'event' | Defaulted> &
-        Partial<Pick<Row, Defaulted>>
-    : never
-  : never;
-
-/** One row of a person's day, in one event's tab round. */
-export const dayRow = (
-  lobby: string,
-  event: { readonly key: string; readonly name: string },
-  round: {
-    readonly number: number;
-    readonly name?: string | null;
-    readonly stage?: TabRoundRef['stage'];
-  },
-  row: DayRowInput,
-): DayRow => ({
-  person: { kind: 'self' },
-  breaking: null,
-  result: null,
-  recording: null,
-  ...row,
-  event: { eventId: sampleId(`${lobby}/${event.key}`), name: event.name },
-  tabRound: tabRound(
-    lobby,
-    event.key,
-    round.number,
-    round.name ?? null,
-    round.stage ?? 'preliminary',
-  ),
-});
-
-/** A fixture as a day row shows it: the row's own entry marked. */
-export const dayFixture = (
-  room: string,
-  roomName: string,
-  entrants: readonly {
-    readonly name: string;
-    readonly side?: string;
-    readonly own?: boolean;
-  }[],
-  judges: readonly PostedJudge[],
-  extra: Partial<Pick<DayFixture, 'kind' | 'speaks' | 'topicAt'>> = {},
-): DayFixture => ({
-  fixtureId: sampleId(`fixture/${room}`),
-  kind: 'pairing',
-  room: { roomId: sampleId(room), name: roomName },
-  entries: entrants.map((entrant) => ({
-    entryId: sampleId(`entry/${entrant.name}`),
-    shown: named(entrant.name),
-    side: entrant.side ?? null,
-    own: entrant.own ?? false,
-  })),
-  judges: [...judges],
-  speaks: null,
-  topicAt: null,
-  ...extra,
-});
-
-export const won = (
+const won = (
   judgesFor = 1,
   judgesAgainst = 0,
   points: number | null = null,
@@ -171,38 +44,4 @@ export const won = (
   kind: 'released',
   decision: { kind: 'debate', won: true, judgesFor, judgesAgainst },
   scores: points === null ? null : { points },
-});
-export const lost = (
-  judgesFor = 0,
-  judgesAgainst = 1,
-  points: number | null = null,
-): DayRow['result'] => ({
-  kind: 'released',
-  decision: { kind: 'debate', won: false, judgesFor, judgesAgainst },
-  scores: points === null ? null : { points },
-});
-export const over = { kind: 'over' } as const;
-
-/** One time slot of a day, holding the rows the viewer has in it. */
-export const daySlot = (
-  lobby: string,
-  name: string,
-  startsAt: string,
-  rows: readonly DayRow[],
-) => ({
-  timeSlotId: sampleId(`${lobby}/slot/${startsAt}`),
-  name,
-  startsAt,
-  rows: [...rows],
-});
-
-/** A day: its slots in order, leaving out a slot with no rows. */
-export const dayOf = (
-  lobby: string,
-  asOf: string,
-  slots: readonly ReturnType<typeof daySlot>[],
-): DayView => ({
-  lobbyId: sampleId(lobby),
-  asOf,
-  slots: slots.filter((slot) => slot.rows.length > 0),
 });

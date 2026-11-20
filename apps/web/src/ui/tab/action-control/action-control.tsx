@@ -55,7 +55,7 @@ const compact: Readonly<Record<CompactSize, string>> = {
  * and type size, so they are swapped here rather than overridden, keeping one
  * value per property on the element.
  */
-export const compactButtonClass = (
+const compactButtonClass = (
   variant: ButtonVariant,
   size: CompactSize,
 ): string =>
@@ -90,21 +90,6 @@ export function ActionButton({
         'whitespace-nowrap no-underline hover:no-underline',
         className,
       )}
-    />
-  );
-}
-
-/**
- * An action as a text link, only where it reads as part of a sentence
- * ("Round 3: you won. … Watch it back"). Anywhere else an action is an
- * `ActionButton`.
- */
-export function SentenceLink({ action, about, className }: ActionProps) {
-  return (
-    <Control
-      action={action}
-      {...(about === undefined ? {} : { about })}
-      className={cn('font-strong text-ink underline', className)}
     />
   );
 }
