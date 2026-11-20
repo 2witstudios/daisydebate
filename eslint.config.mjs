@@ -464,8 +464,9 @@ export const typedRules = {
  * A non-null assertion claims what the type does not say. Model the state
  * instead: a union, a narrowing, or a function that returns the value it
  * found. The one form left is `array[index]!`, which
- * `noUncheckedIndexedAccess` asks for where a bound proves the index. The
- * rule reads syntax only, so it needs no type information.
+ * `noUncheckedIndexedAccess` asks for where a bound proves the index. A
+ * property name in brackets still names a property. The rule reads syntax
+ * only, so it needs no type information.
  */
 const nonNullAssertion = {
   meta: {
@@ -479,7 +480,13 @@ const nonNullAssertion = {
   create: (context) => ({
     TSNonNullExpression(node) {
       const { expression } = node;
-      if (expression.type === 'MemberExpression' && expression.computed) {
+      if (
+        expression.type === 'MemberExpression' &&
+        expression.computed &&
+        expression.property.type !== 'TemplateLiteral' &&
+        (expression.property.type !== 'Literal' ||
+          typeof expression.property.value === 'number')
+      ) {
         return;
       }
       context.report({ node, messageId: 'assertion' });

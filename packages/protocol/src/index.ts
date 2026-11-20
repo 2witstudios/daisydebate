@@ -384,6 +384,7 @@ export {
   messagingDmResultSchema,
   messagingDmDecisionResultSchema,
   messagingChannelLifecycles,
+  messagingPrivateGroupPolicySchema,
 } from './messaging/social';
 export type {
   MessagingChannelLifecycle,

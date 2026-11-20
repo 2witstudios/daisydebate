@@ -4,16 +4,8 @@ const positive = (value: number) => Number.isSafeInteger(value) && value > 0;
 /** Cleanup changes only the caller's still-pending generation; it grants no file/content read. */
 export function pendingFileCleanupAllowed(
   actorId: string,
-  /**
-   * MSG reads the channel row under its lock and may find none (its file
-   * cleanup takes the first row of that read), so the decision refuses a fact
-   * without one.
-   */
-  fact: Omit<PendingFileAuthorizationFact, 'channel'> & {
-    readonly channel: PendingFileAuthorizationFact['channel'] | undefined;
-  },
+  fact: PendingFileAuthorizationFact,
 ): boolean {
-  if (!fact.channel) return false;
   const ids = [
     fact.fileId,
     fact.channelId,

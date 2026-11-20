@@ -1,5 +1,6 @@
 import { isOpenRoomStatus } from '@daisy/protocol';
 import {
+  roomCommunityPolicySchema,
   roomCommunityReadsOnly,
   roomCommunityRetentionMs,
   roomCommunitySeatReadsOnly,
@@ -12,14 +13,7 @@ import { participantAccess } from './participant-access';
 type RoomCommunityDecisionInput = {
   readonly principal: { readonly userId: string; readonly actorId: string };
   readonly account: AccountAuthorizationFact | null;
-  /**
-   * The channel's stored policy columns arrive as written; the decision
-   * refuses any pair but this policy's own.
-   */
-  readonly fact: Omit<RoomCommunityFact, 'policyKey' | 'policyRevision'> & {
-    readonly policyKey: string;
-    readonly policyRevision: number;
-  };
+  readonly fact: RoomCommunityFact;
   readonly action: 'read' | 'post' | 'remove';
   readonly now: string;
 };
@@ -46,8 +40,7 @@ const boundAccount = ({
   account.actorId === principal.actorId;
 const currentFact = ({ fact, principal }: RoomCommunityDecisionInput) =>
   fact.actorId === principal.actorId &&
-  fact.policyKey === 'room.community' &&
-  fact.policyRevision === 1 &&
+  roomCommunityPolicySchema.safeParse(fact).success &&
   Number.isSafeInteger(fact.revision) &&
   fact.revision > 0;
 

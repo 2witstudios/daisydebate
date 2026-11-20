@@ -45,19 +45,11 @@ export function hostDrawView(
       seed,
     },
   );
-  // The settings a draw version stored as JSON, read as what the column holds.
-  const rawSettings: unknown = engineInput?.settings;
-  const frozen =
-    typeof rawSettings === 'object' &&
-    rawSettings !== null &&
-    !Array.isArray(rawSettings)
-      ? rawSettings
-      : {};
   const settings = {
     ...retained.settings,
     'bye.result': engineInput
       ? settingsCatalogue['bye.result'].value.parse(
-          'bye.result' in frozen ? frozen['bye.result'] : undefined,
+          engineInput.settings['bye.result'],
         )
       : retained.settings['bye.result'],
   };

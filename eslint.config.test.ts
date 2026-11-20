@@ -540,20 +540,23 @@ describe('a non-null assertion is refused except on an index', () => {
      declare const list: readonly string[];
      declare const index: number;
      export const read = (): string => ${expression};`;
-  test('value!, object.property!, map.get(key)! and call()! fail; array[index]! passes', async () => {
+  test('value, named property and call assertions fail; array index assertions pass', async () => {
     const path = 'packages/protocol/src/x.ts';
     assert({
       given:
-        'an assertion on a value, a property, a map read, a call, and an index access',
-      should: 'report every one but the index access',
+        'an assertion on a value, a named property in three spellings, a map read, a call, and two array indices',
+      should: 'report the value, property and call assertions',
       actual: [
         await count(source('value!'), path),
         await count(source('record.name!'), path),
+        await count(source("record['name']!"), path),
+        await count(source('record[`name`]!'), path),
         await count(source("names.get('a')!"), path),
         await count(source('find()!'), path),
         await count(source('list[index]!'), path),
+        await count(source('list[0]!'), path),
       ],
-      expected: [1, 1, 1, 1, 0],
+      expected: [1, 1, 1, 1, 1, 1, 0, 0],
     });
   });
   test('the rule covers app and package source; tests and packages/db/src are outside it', async () => {

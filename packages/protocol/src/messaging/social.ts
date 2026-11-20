@@ -41,6 +41,11 @@ export const messagingChannelLifecycles = [
 export type MessagingChannelLifecycle =
   (typeof messagingChannelLifecycles)[number];
 
+export const messagingPrivateGroupPolicySchema = z.object({
+  kind: z.literal('private_group'),
+  policyKey: z.literal('social.private_group'),
+});
+
 export const messagingGroupCreationResultSchema = z.strictObject({
   version: z.literal(1),
   channelId: idSchema,
