@@ -7,8 +7,8 @@ setupRitewayBun();
 const source = resolve(import.meta.dir, '../..');
 const app = join(source, 'app');
 const pages = [...new Glob('**/page.tsx').scanSync(app)];
-const productionPages = pages.filter(
-  (file) => /^(\(host\)|\(tab\)|\(tab-live\))\//.test(file),
+const productionPages = pages.filter((file) =>
+  /^(\(host\)|\(tab\)|\(tab-live\))\//.test(file),
 );
 const read = (file: string) => readFileSync(file, 'utf8');
 
