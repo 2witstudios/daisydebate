@@ -1,6 +1,6 @@
-# ADR 0163 — Guardian links are confirmed or created with consent evidence
+# 0163: Guardian links are confirmed or created with consent evidence
 
-**Status:** Accepted in decisions 91–93 and Delivery #5279 (2026-11-19)
+Status: accepted in decisions 91–93 and Delivery #5279 (2026-11-19)
 
 ## Context
 
