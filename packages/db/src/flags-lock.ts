@@ -1,19 +1,14 @@
 import { createAppError } from '@daisy/errors';
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';
-import { takeLock, transactionLocks } from './locks';
+import { heldFlagLockModes, takeLock, transactionLocks } from './locks';
 import { query, run } from './raw-rows';
 import { isBoundedTransactionContext } from './transaction-context';
 import type { Tx } from './tx';
 
 /** Command -> account -> Flags -> rows. Never acquire an account after this lock. */
 export async function lockFlags(tx: Tx, mode: 'read' | 'write') {
-  const held = await query(
-    tx,
-    z.object({ mode: z.string() }),
-    sql`select mode from pg_locks where pid=pg_backend_pid()
-    and locktype='advisory' and classid=59118 and objid=1 and objsubid=2 and granted`,
-  );
+  const held = await heldFlagLockModes(tx);
   if (
     mode === 'write' &&
     held.some((lock) => lock.mode === 'ShareLock') &&

@@ -1,3 +1,4 @@
+import { createAppError } from '@daisy/errors';
 import { isRoundOver } from '@daisy/protocol';
 import { isDebatingSeatSql } from '../seat-columns';
 import {
@@ -23,17 +24,21 @@ import { query } from '../raw-rows';
 import { z } from 'zod';
 
 type DiscoveryScope = Omit<RoundFloorScope, 'channelId'>;
-export const roundFloorMetadataOf = (fact: RoundFloorFact) => ({
-  channelId: fact.channelId!,
-  // A linked adult watches and never posts (ADR 0155).
-  readOnly: isRoundOver(fact.status) || fact.audience === 'linked_adult',
-  expiresAt:
-    fact.completedAt === null
-      ? null
-      : new Date(
-          Date.parse(fact.completedAt) + roundFloorRetentionMs,
-        ).toISOString(),
-});
+export const roundFloorMetadataOf = (fact: RoundFloorFact) => {
+  if (!fact.channelId)
+    throw createAppError('INVARIANT', 'Messaging channel is missing');
+  return {
+    channelId: fact.channelId,
+    // A linked adult watches and never posts (ADR 0155).
+    readOnly: isRoundOver(fact.status) || fact.audience === 'linked_adult',
+    expiresAt:
+      fact.completedAt === null
+        ? null
+        : new Date(
+            Date.parse(fact.completedAt) + roundFloorRetentionMs,
+          ).toISOString(),
+  };
+};
 
 /**
  * The floor as a context channel: the Round's lock, its fact and its named

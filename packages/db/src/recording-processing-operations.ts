@@ -1,3 +1,4 @@
+import { createAppError } from '@daisy/errors';
 import {
   broadcastHoldPrefix,
   publicIntervals,
@@ -16,7 +17,6 @@ import {
   isNull,
   lte,
   ne,
-  not,
   notInArray,
   or,
   sql,
@@ -259,7 +259,8 @@ export const claimRecordingJob = async (
     })
     .where(eq(jobs.recordingId, free.id))
     .returning();
-  return claimed!;
+  if (!claimed) throw createAppError('INVARIANT');
+  return claimed;
 };
 
 type Held = {
@@ -394,9 +395,7 @@ export const listUnsettledRecordingJobs = (
           'stripped',
         ]),
         notInArray(recordings.status, ['requested', 'capturing', 'taken_down']),
-        not(
-          and(eq(jobs.status, 'queued'), eq(recordings.status, 'processing'))!,
-        ),
+        or(ne(jobs.status, 'queued'), ne(recordings.status, 'processing')),
         after === null ? undefined : gt(jobs.recordingId, after),
       ),
     )

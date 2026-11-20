@@ -49,7 +49,7 @@ export const transcriptRetention = ({
           limit ${limit}
         ) returning id`,
       );
-      return (gone as unknown as unknown[]).length;
+      return gone.length;
     }),
   clearExpiredPendingBallots: ({ before, limit }: RetentionBatch) =>
     instrumented(eventSink, 'clearExpiredPendingBallots', async () => {
@@ -67,7 +67,7 @@ export const transcriptRetention = ({
           for update skip locked
         ) returning round_id`,
       );
-      return (cleared as unknown as unknown[]).length;
+      return cleared.length;
     }),
   /** Stage records follow ballot retention: 180 days from their receipt (DEC-393). */
   clearExpiredJudgingStages: ({ before, limit }: RetentionBatch) =>
@@ -86,6 +86,6 @@ export const transcriptRetention = ({
           for update skip locked
         ) returning round_id`,
       );
-      return (cleared as unknown as unknown[]).length;
+      return cleared.length;
     }),
 });

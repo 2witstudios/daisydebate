@@ -25,8 +25,8 @@ export async function begin(tx: Tx, input: Claim, options: Policy) {
   const admittedAt = new Date(await sampleRoundExecutionTime(tx));
   const startBefore = new Date(
     Math.min(
-      owned.context.leaseExpiresAt!.getTime(),
-      ...owned.members.map((unit) => unit.expiresAt!.getTime()),
+      owned.context.leaseExpiresAt.getTime(),
+      ...owned.members.map((unit) => unit.expiresAt.getTime()),
     ),
   );
   if (startBefore <= admittedAt)

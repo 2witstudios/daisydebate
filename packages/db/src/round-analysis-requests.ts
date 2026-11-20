@@ -78,9 +78,11 @@ export function createRoundAnalysisRequests(input: {
       const work = row ? analysisWorkSchema.parse(row.work) : null;
       // Read/retry authority does not depend on generation evidence or current paid access.
       if (work && work.kind !== 'unrequested') return work;
+      const { actorId } = authority.account;
+      if (!actorId) throw createAppError('AUTHORIZATION');
       await requireCapacity(
         tx,
-        authority.account.actorId!,
+        actorId,
         input.capacity,
         await readDatabaseTime(tx),
       );
@@ -96,7 +98,7 @@ export function createRoundAnalysisRequests(input: {
         .from(usageReservations)
         .where(
           and(
-            eq(usageReservations.actorId, authority.account.actorId!),
+            eq(usageReservations.actorId, actorId),
             eq(usageReservations.roundId, request.roundId),
             eq(usageReservations.kind, 'round_analysis'),
           ),

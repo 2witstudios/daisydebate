@@ -234,9 +234,7 @@ export function createClubSeatReads(input: {
                 club: { name: club.name, kind: club.kind, handle: club.handle },
                 manager: owner.name,
                 email: '',
-                expiresAt: new Date(
-                  held.assigned_at as string | Date,
-                ).toISOString(),
+                expiresAt: held.assigned_at.toISOString(),
                 expired: false,
                 seatedHere: true,
                 seatedElsewhere: false,

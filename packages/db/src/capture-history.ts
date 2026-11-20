@@ -5,7 +5,6 @@ import {
   leadSeatOf,
   speakingEndMs,
   type SeatGrantFacts,
-  type SeatKind,
   seatKindSchema,
 } from '@daisy/protocol';
 import { seatOfColumns } from './seat-columns';

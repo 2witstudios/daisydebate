@@ -18,7 +18,14 @@ async function dueOwners(
   now: string,
   fileIds: readonly string[],
 ) {
-  const rows = await tx.execute(sql`
+  const rows = await query(
+    tx,
+    z.object({
+      fileId: z.string(),
+      actorId: z.string(),
+      userId: z.string().nullable(),
+    }),
+    sql`
     select f.id as "fileId", f.owner_actor_id as "actorId", a.user_id as "userId"
     from messaging_files f join actors a on a.id=f.owner_actor_id
     where f.channel_id=${channelId} and f.id in (${sql.join(
@@ -26,7 +33,8 @@ async function dueOwners(
       sql`, `,
     )}) and f.lifecycle in ('reserved','quarantined')
       and f.expires_at <= ${new Date(now)} order by f.owner_actor_id
-  `);
+  `,
+  );
   return [...rows].map((row) => ({
     fileId: idSchema.parse(row.fileId),
     actorId: idSchema.parse(row.actorId),

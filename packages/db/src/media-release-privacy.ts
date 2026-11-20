@@ -4,16 +4,14 @@ import type { PrivacyAdopter } from './privacy/contracts';
 import { exportRows } from './privacy/export-rows';
 import { scopeTransaction } from './tenant-scope';
 import type { Tx } from './tx';
-import { run } from './raw-rows';
+import { query, run } from './raw-rows';
+import { z } from 'zod';
 
 const page = 100;
 const at = (column: string) =>
   sql.raw(
     `to_char(${column} at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`,
   );
-
-const read = async (tx: Tx, query: ReturnType<typeof sql>) =>
-  await tx.execute(query);
 
 /** Runs `work` under each club's own scope (attestations are club rows), then clears it. */
 async function eachClub(
@@ -23,17 +21,18 @@ async function eachClub(
   let after = '';
   try {
     for (;;) {
-      const clubs = (await read(
+      const clubs = await query(
         tx,
+        z.object({ id: z.string() }),
         sql`select id from organizations where kind in ('school', 'family')
           and id > ${after} order by id limit ${page}`,
-      )) as { id: string }[];
+      );
       for (const club of clubs) {
         await scopeTransaction(tx, { organizationId: club.id });
         await work(club.id);
       }
       if (clubs.length < page) return;
-      after = clubs.at(-1)!.id;
+      after = clubs[clubs.length - 1]!.id;
     }
   } finally {
     await scopeTransaction(tx, {});
@@ -86,8 +85,16 @@ export const mediaReleasePrivacyAdopter: PrivacyAdopter = {
   },
   export: async (tx, subject) => ({
     media_release_requests: exportRows(
-      await read(
+      await query(
         tx,
+        z.object({
+          id: z.string(),
+          recipient_email: z.string(),
+          requested_at: z.string(),
+          expires_at: z.string(),
+          outcome: z.string().nullable(),
+          resolved_at: z.string().nullable(),
+        }),
         sql`select id, recipient_email, ${at('requested_at')} as requested_at,
             ${at('expires_at')} as expires_at, outcome,
             ${at('resolved_at')} as resolved_at
@@ -96,8 +103,19 @@ export const mediaReleasePrivacyAdopter: PrivacyAdopter = {
       ),
     ),
     media_releases: exportRows(
-      await read(
+      await query(
         tx,
+        z.object({
+          id: z.string(),
+          scope: z.string(),
+          source: z.string(),
+          signer_name: z.string().nullable(),
+          signer_relation: z.string().nullable(),
+          wording_version: z.string().nullable(),
+          signed_at: z.string(),
+          withdrawn_at: z.string().nullable(),
+          withdrawn_by: z.string().nullable(),
+        }),
         sql`select id, scope, source, signer_name, signer_relation,
             wording_version, ${at('signed_at')} as signed_at,
             ${at('withdrawn_at')} as withdrawn_at, withdrawn_by
@@ -106,8 +124,13 @@ export const mediaReleasePrivacyAdopter: PrivacyAdopter = {
       ),
     ),
     media_release_club_asks: exportRows(
-      await read(
+      await query(
         tx,
+        z.object({
+          id: z.string(),
+          organization_id: z.string(),
+          asked_at: z.string(),
+        }),
         sql`select id, organization_id, ${at('asked_at')} as asked_at
           from media_release_club_asks where user_id = ${subject.userId}
           order by asked_at, id`,

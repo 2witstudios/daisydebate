@@ -77,21 +77,44 @@ export function createMessagingFileCleanup({
           tx,
           sql`select low_actor_id from contact_pairs where low_actor_id=${pair.low_actor_id} and high_actor_id=${pair.high_actor_id} for update`,
         );
-      const channels = await tx.execute(
+      const channels = await query(
+        tx,
+        z.object({
+          channelId: z.string(),
+          kind: z.enum(['dm', 'private_group']),
+          policyKey: z.enum(['social.dm', 'social.private_group']),
+          policyRevision: z.int(),
+          revision: z.int(),
+        }),
         sql`select id as "channelId", kind, policy_key as "policyKey", policy_revision::float8 as "policyRevision", authority_revision::float8 as revision from messaging_channels where id=${scope.channelId} for update`,
       );
       if (!channels[0]) throw createAppError('NOT_FOUND');
-      const files = await tx.execute(
+      const files = await query(
+        tx,
+        z.object({
+          fileId: z.string(),
+          channelId: z.string(),
+          ownerActorId: z.string(),
+          lifecycle: z.enum([
+            'reserved',
+            'quarantined',
+            'attached',
+            'deleting',
+            'deleted',
+          ]),
+          generation: z.int(),
+          revision: z.int(),
+        }),
         sql`select id as "fileId",channel_id as "channelId",owner_actor_id as "ownerActorId",lifecycle,generation::float8 as generation,authority_revision::float8 as revision from messaging_files where id=${token.fileId} and channel_id=${scope.channelId} and owner_actor_id=${scope.actorId} for update`,
       );
       if (!files[0]) throw createAppError('NOT_FOUND');
       // Rows are produced by closed schema columns; canonical AZC validates their values.
-      const fact = {
+      const fact: PendingFileFact = {
         ...files[0],
         kind: 'pending_file',
         expectedGeneration: token.generation,
         channel: channels[0],
-      } as PendingFileFact;
+      };
       await authorize(tx, scope, { fact, accounts });
       await failPendingFile(tx, scope, token);
     });

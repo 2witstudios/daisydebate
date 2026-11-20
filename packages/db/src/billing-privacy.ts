@@ -63,25 +63,58 @@ export const billingPrivacyAdopter: PrivacyAdopter = {
       to_char(created_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as created_at
       from billing_subscriptions where user_id=${subject.userId} order by created_at,id`,
     );
-    const receipts = await tx.execute(sql`select vendor_event_id,
+    const receipts = await query(
+      tx,
+      z.object({ vendor_event_id: z.string(), received_at: z.string() }),
+      sql`select vendor_event_id,
       to_char(received_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as received_at
       from billing_webhook_events where (mode,vendor_customer_id) in
         (select mode,vendor_customer_id from billing_customers where user_id=${subject.userId}
           union select mode,vendor_customer_id from billing_refund_actions where user_id=${subject.userId}
-          union select mode,vendor_customer_id from billing_payment_observations where user_id=${subject.userId}) order by received_at,id`);
-    const purchases =
-      await tx.execute(sql`select id,mode,price_id,vendor_customer_id,return_origin,
+          union select mode,vendor_customer_id from billing_payment_observations where user_id=${subject.userId}) order by received_at,id`,
+    );
+    const purchases = await query(
+      tx,
+      z.object({
+        id: z.string(),
+        mode: z.string(),
+        price_id: z.string(),
+        vendor_customer_id: z.string().nullable(),
+        return_origin: z.string(),
+        admitted_at: z.string(),
+        state: z.json(),
+      }),
+      sql`select id,mode,price_id,vendor_customer_id,return_origin,
       to_char(admitted_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as admitted_at,
       state-'claim'-'afterSessionId' as state
-      from billing_purchases where user_id=${subject.userId} order by admitted_at,id`);
-    const refunds =
-      await tx.execute(sql`select id,mode,vendor_customer_id,vendor_charge_id,vendor_invoice_id,vendor_subscription_id,
+      from billing_purchases where user_id=${subject.userId} order by admitted_at,id`,
+    );
+    const refunds = await query(
+      tx,
+      z.object({
+        id: z.string(),
+        mode: z.string(),
+        vendor_customer_id: z.string(),
+        vendor_charge_id: z.string(),
+        vendor_invoice_id: z.string(),
+        vendor_subscription_id: z.string(),
+        amount_minor: z.string(),
+        currency: z.string(),
+        paid_at_seconds: z.string(),
+        period_starts_at: z.string(),
+        period_ends_at: z.string(),
+        closed_at: z.string(),
+        admitted_at: z.string(),
+        state: z.json(),
+      }),
+      sql`select id,mode,vendor_customer_id,vendor_charge_id,vendor_invoice_id,vendor_subscription_id,
       amount_minor::text as amount_minor,currency,paid_at_seconds::text as paid_at_seconds,
       to_char(period_starts_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as period_starts_at,
       to_char(period_ends_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as period_ends_at,
       to_char(closed_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as closed_at,
       to_char(admitted_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as admitted_at,
-      state-'afterRefundId' as state from billing_refund_actions where user_id=${subject.userId} order by admitted_at,id`);
+      state-'afterRefundId' as state from billing_refund_actions where user_id=${subject.userId} order by admitted_at,id`,
+    );
     const observations = await query(
       tx,
       z.object({
@@ -104,12 +137,15 @@ export const billingPrivacyAdopter: PrivacyAdopter = {
       to_char(observed_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as observed_at
       from billing_payment_observations where user_id=${subject.userId} order by id`,
     );
-    const unroutedInvoices =
-      await tx.execute(sql`select identity as vendor_invoice_id
+    const unroutedInvoices = await query(
+      tx,
+      z.object({ vendor_invoice_id: z.string() }),
+      sql`select identity as vendor_invoice_id
       from privacy_jobs job cross join lateral
         jsonb_array_elements_text(job.billing_cleanup->'invoiceDebt'->'ids') identity
       where job.subject_ref=${subject.userId} and job.vendor='stripe'
-        and job.billing_cleanup->'invoiceDebt'->>'kind'='owed' order by identity`);
+        and job.billing_cleanup->'invoiceDebt'->>'kind'='owed' order by identity`,
+    );
     return {
       billing_customers: customers,
       billing_subscriptions: subscriptions,

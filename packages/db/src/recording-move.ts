@@ -1,5 +1,7 @@
 import {
   recordingLifecycleSchema,
+  recordingEligibilitySchema,
+  recordingClasses,
   type RecordingClass,
   type RecordingEligibility,
   type RecordingLifecycle,
@@ -24,21 +26,22 @@ export type RecordingDecision =
   | { readonly kind: 'unchanged' }
   | { readonly kind: 'refused'; readonly reason: string };
 
-type Row = {
-  readonly id: string;
-  readonly round_id: string;
-  readonly recording_class: RecordingClass;
-  readonly eligibility: RecordingEligibility;
-  readonly lifecycle: unknown;
-  readonly version: number;
-};
+const recordingRow = z.object({
+  id: z.string(),
+  round_id: z.string(),
+  recording_class: z.enum(recordingClasses),
+  eligibility: recordingEligibilitySchema,
+  lifecycle: recordingLifecycleSchema,
+  version: z.int(),
+});
+type Row = z.output<typeof recordingRow>;
 
 const storedRow = (row: Row): StoredRecording => ({
   id: row.id,
   roundId: row.round_id,
   class: row.recording_class,
   eligibility: row.eligibility,
-  lifecycle: recordingLifecycleSchema.parse(row.lifecycle),
+  lifecycle: row.lifecycle,
   version: row.version,
 });
 
@@ -89,9 +92,11 @@ export const moveRecording = async <Decision extends RecordingDecision>(
   decide: (record: StoredRecording) => Decision,
   expectedVersion?: number,
 ) => {
-  const [row] = (await tx.execute(
+  const [row] = await query(
+    tx,
+    recordingRow,
     sql`select ${COLUMNS} from recordings where id=${id} for update`,
-  )) as unknown as Row[];
+  );
   if (!row) return { kind: 'missing' } as const;
   const record = storedRow(row);
   if (expectedVersion !== undefined && row.version !== expectedVersion)
@@ -99,12 +104,11 @@ export const moveRecording = async <Decision extends RecordingDecision>(
   const transition = decide(record);
   if (transition.kind !== 'moved')
     return { kind: 'decided', record, transition } as const;
-  const [updated] = (await tx.execute(
-    written(id, transition.next),
-  )) as unknown as Row[];
+  const [updated] = await query(tx, recordingRow, written(id, transition.next));
+  if (!updated) throw new Error('Moved recording is missing');
   return {
     kind: 'decided',
-    record: storedRow(updated!),
+    record: storedRow(updated),
     transition,
   } as const;
 };

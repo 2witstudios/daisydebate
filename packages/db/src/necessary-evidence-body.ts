@@ -66,6 +66,9 @@ export async function lockOriginalEvidenceBody(tx: Tx, raw: unknown) {
   });
   await requireRoundEvidenceOpen(tx, body.roundId);
   const row = current.row;
+  const { authorityId, originalSubjectActorIds } = row;
+  if (!authorityId || !originalSubjectActorIds)
+    throw createAppError('CONFLICT', 'Original evidence binding is incomplete');
   const binding = originalEvidenceBinding(
     {
       roundId: body.roundId,
@@ -80,11 +83,11 @@ export async function lockOriginalEvidenceBody(tx: Tx, raw: unknown) {
       before: body.before,
       after: body.after,
       evidenceId: body.evidenceId,
-      authorityId: row.authorityId!,
+      authorityId,
       bodyDigest,
       reservedBytes: encoded.byteLength,
     },
-    row.originalSubjectActorIds!,
+    originalSubjectActorIds,
     captureEvidenceSpeakerSchema.parse(row.originalSpeaker),
   );
   if (
@@ -101,5 +104,12 @@ export async function lockOriginalEvidenceBody(tx: Tx, raw: unknown) {
   let admittedAt = new Date(await sampleRoundExecutionTime(tx));
   await originalHistory(tx, body, admittedAt);
   admittedAt = new Date(await sampleRoundExecutionTime(tx));
-  return { encoded, body, bodyDigest, binding, row, admittedAt };
+  return {
+    encoded,
+    body,
+    bodyDigest,
+    binding,
+    row: { ...row, authorityId, originalSubjectActorIds },
+    admittedAt,
+  };
 }

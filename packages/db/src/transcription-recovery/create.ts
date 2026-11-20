@@ -69,8 +69,8 @@ export function create(
           kind: 'current' as const,
           evidenceIds: owned.members.map((unit) => unit.evidenceId),
           attempts: owned.context.attempts,
-          model: owned.context.model!,
-          policyDigest: owned.context.policyDigest!,
+          model: owned.context.model,
+          policyDigest: owned.context.policyDigest,
         };
       });
     },

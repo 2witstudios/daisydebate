@@ -77,7 +77,8 @@ export function createMediaReconcileStore(input: {
       .select({ count: count() })
       .from(mediaVendorMutations)
       .where(eq(mediaVendorMutations.sessionId, sessionId));
-    return row!.count;
+    if (!row) throw createAppError('INVARIANT');
+    return row.count;
   };
   const locked = async (tx: Tx, sessionId: string) => {
     const [initial] = await tx

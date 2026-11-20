@@ -61,10 +61,7 @@ export function createBillingCleanup(input: {
         )
           return { kind: 'unresolved' } as const;
         const facts = await cleanupFacts(tx, locked.userId);
-        if (
-          facts.route.kind !== 'owned' ||
-          (facts.route.mode !== 'test' && facts.route.mode !== 'live')
-        )
+        if (facts.route.kind !== 'owned')
           return { kind: 'unresolved' } as const;
         const source = await readFrozenBillingOffer(tx, {
           owner: { kind: 'account', userId: locked.userId },
@@ -128,6 +125,9 @@ export function createBillingCleanup(input: {
           context,
         );
         if (transition.kind !== 'claimed') return { kind: 'idle' } as const;
+        const work = cleanupWork(transition.state);
+        if (!work)
+          throw createAppError('INVARIANT', 'Claim has no cleanup work');
         await tx
           .update(privacyJobs)
           .set({ billingCleanup: transition.state })
@@ -135,7 +135,7 @@ export function createBillingCleanup(input: {
         return {
           kind: 'claimed' as const,
           state: transition.state,
-          work: cleanupWork(transition.state)!,
+          work,
           userId: locked.userId,
           closedAt: locked.closedAt,
           attempts: locked.row.attempts,

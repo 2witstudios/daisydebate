@@ -1,3 +1,4 @@
+import { roundJudgingSchema } from '@daisy/protocol';
 import { currentRoundParticipant } from './round-current-participant';
 import { createAppError } from '@daisy/errors';
 import type { JudgingPanelFacts } from '@daisy/protocol';
@@ -27,7 +28,16 @@ export async function readJudgingPanelFacts(
   },
 ): Promise<JudgingPanelFacts> {
   const { roundId } = input;
-  const [round] = (await tx.execute(sql`select
+  const [round] = await query(
+    tx,
+    z.object({
+      ballotDeadlineAt: z.string().nullable(),
+      attendanceCutoffAt: z.string().nullable(),
+      lastAttendanceDecisionAt: z.string().nullable(),
+      lastWriterResolvedAt: z.string().nullable(),
+      judging: roundJudgingSchema.nullable(),
+    }),
+    sql`select
     ${iso('r.ballot_deadline_at')} as "ballotDeadlineAt",
     ${iso('r.attendance_resolution_cutoff_at')} as "attendanceCutoffAt",
     (select ${iso('max(decided.applied_at)')} from round_attendance_adjudications decision
@@ -36,13 +46,8 @@ export async function readJudgingPanelFacts(
     (select ${iso('max(writer.resolved_at)')} from round_check_in_attempts writer
       where writer.round_id=r.id) as "lastWriterResolvedAt",
     r.judging as "judging"
-    from rounds r where r.id=${roundId}`)) as unknown as {
-    judging: JudgingPanelFacts['judging'] | null;
-    ballotDeadlineAt: string | null;
-    attendanceCutoffAt: string | null;
-    lastAttendanceDecisionAt: string | null;
-    lastWriterResolvedAt: string | null;
-  }[];
+    from rounds r where r.id=${roundId}`,
+  );
   if (!round?.attendanceCutoffAt)
     throw createAppError(
       'INVARIANT',

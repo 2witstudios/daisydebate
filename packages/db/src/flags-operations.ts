@@ -71,7 +71,8 @@ export function flagOperations({
           z.object({ count: z.number() }),
           sql`select public.daisy_purge_flag_evidence(${before}::timestamptz, ${limit}::integer) as count`,
         );
-        return row!.count;
+        if (!row) throw createAppError('INVARIANT');
+        return row.count;
       }),
   };
 }

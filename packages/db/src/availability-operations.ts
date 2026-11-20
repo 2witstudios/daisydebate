@@ -93,7 +93,8 @@ export function createAvailabilitySampler(client: SQL) {
           insert into availability_samples(at,healthy,cause)
           select at,cause is null,cause from assessment
           where at > coalesce((select max(at) from availability_samples),'-infinity'::timestamptz)
-            and ${sessionLocks.availabilitySampler.held(session)}
+            and exists(select 1 from pg_locks where locktype='advisory' and pid=pg_backend_pid()
+              and classid=0 and objid=${sessionLocks.availabilitySampler.key}::oid and objsubid=1 and granted)
           returning to_char(at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as at,healthy,cause`;
         return row
           ? {

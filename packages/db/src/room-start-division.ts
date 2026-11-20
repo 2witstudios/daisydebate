@@ -1,7 +1,6 @@
 import {
   isDebatingSeat,
   seatAllowed,
-  type RatingDivision,
   type RoomAssemblyState,
   ratingDivisions,
 } from '@daisy/protocol';

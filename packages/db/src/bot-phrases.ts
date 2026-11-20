@@ -262,8 +262,8 @@ export async function endLockedBotPhrase(
   const { scope, end } = input;
   if (
     !idSchema.safeParse(input.phraseId).success ||
-    (end.kind !== 'whole' &&
-      (end.kind !== 'cut' || typeof end.spoken !== 'string'))
+    !['whole', 'cut'].includes(end.kind) ||
+    (end.kind === 'cut' && typeof end.spoken !== 'string')
   )
     throw createAppError('VALIDATION');
   await lockRoundAgentContext(tx, scope.roundId, scope.roundParticipantId);

@@ -231,7 +231,7 @@ async function executeOnce(
   )
     throw createAppError('AUTHORIZATION');
   if ('replay' in preparation) return preparation.replay;
-  const execute = preparation.execute;
+  const apply = preparation.apply;
   if (state.participants.some((p) => !fencedActors.includes(p.actorId)))
     throw new RoomMoved('Cast changed while acquiring authority');
   if (state.changeVersion !== prepared.changeVersion)
@@ -289,7 +289,7 @@ async function executeOnce(
     await lockNonrankedCaptureCapacity(tx);
   // Facts can wait on SQL locks. Admission uses one instant after those waits.
   const now = judgeQuote?.now ?? (await transactionNow(tx));
-  const outcome = execute(
+  const outcome = apply(
     state,
     now,
     target,
@@ -452,13 +452,13 @@ async function prepareCommand(tx: Tx, input: CommandInput) {
   )
     throw createAppError('AUTHORIZATION');
   if (replay) return { replay, prepared, row: preparationRow } as const;
-  const execute = await input.prepare(
+  const apply = await input.prepare(
     prepared,
     await transactionNow(tx),
     preparationAccount,
     direction,
   );
-  return { prepared, execute, row: preparationRow } as const;
+  return { prepared, apply, row: preparationRow } as const;
 }
 
 /** A Launch whose prepared cast seats a bot debater. */

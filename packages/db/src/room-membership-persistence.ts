@@ -5,6 +5,7 @@ import { activeSeats, roomParticipants, rooms } from './schema/rooms';
 import { hostPersonOf } from './room-host';
 import { rounds } from './schema/rounds';
 import type { Tx } from './tx';
+import { run } from './raw-rows';
 
 /**
  * Makes a Room's active seats exactly the engine's member set (ADR 0070,
@@ -45,7 +46,8 @@ export async function holdActiveRoomMembers(
 
 /** A Round that ends frees every member of its Room: no terminal state holds anyone. */
 export const releaseRoundRoomMembers = (tx: Tx, roundId: string) =>
-  tx.execute(
+  run(
+    tx,
     sql`delete from ${activeSeats} where ${activeSeats.roomId} = (select ${rounds.roomId} from ${rounds} where ${rounds.id} = ${roundId})`,
   );
 
@@ -57,7 +59,8 @@ export const releaseLeftMembers = (
 ) =>
   actorIds.length === 0
     ? Promise.resolve()
-    : tx.execute(
+    : run(
+        tx,
         sql`delete from ${activeSeats} where ${activeSeats.roomId} = (select ${rounds.roomId} from ${rounds} where ${rounds.id} = ${roundId}) and ${inArray(activeSeats.actorId, [...actorIds])}`,
       );
 

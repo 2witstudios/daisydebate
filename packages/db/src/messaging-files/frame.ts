@@ -17,19 +17,22 @@ import type {
 import type { Tx } from '../tx';
 
 type Row = typeof messagingFiles.$inferSelect;
-const reservation = (row: Row): FileReservation => ({
-  lifecycle: row.lifecycle as FileReservation['lifecycle'],
-  id: row.id,
-  channelId: row.channelId,
-  ownerActorId: row.ownerActorId,
-  objectKey: row.objectKey,
-  filename: row.filename!,
-  mime: row.mime as FileReservation['mime'],
-  reservedBytes: row.reservedBytes,
-  generation: row.generation,
-  authorityRevision: row.authorityRevision,
-  expiresAt: row.expiresAt.toISOString(),
-});
+const reservation = (row: Row): FileReservation => {
+  if (row.filename === null) throw createAppError('INVARIANT');
+  return {
+    lifecycle: row.lifecycle as FileReservation['lifecycle'],
+    id: row.id,
+    channelId: row.channelId,
+    ownerActorId: row.ownerActorId,
+    objectKey: row.objectKey,
+    filename: row.filename,
+    mime: row.mime as FileReservation['mime'],
+    reservedBytes: row.reservedBytes,
+    generation: row.generation,
+    authorityRevision: row.authorityRevision,
+    expiresAt: row.expiresAt.toISOString(),
+  };
+};
 export const fileDeletionValues = {
   lifecycle: 'deleting',
   filename: null,
@@ -118,10 +121,11 @@ export function channelFileFrame(
       !Number.isFinite(Date.parse(now))
     )
       throw createAppError('NOT_FOUND');
+    if (row.storedBytes === null) throw createAppError('INVARIANT');
     return {
       ...reservation(row),
       messageId: row.messageId,
-      storedBytes: row.storedBytes!,
+      storedBytes: row.storedBytes,
       accessExpiresAt: new Date(
         Date.parse(now) + policy.accessMs,
       ).toISOString(),
@@ -165,9 +169,10 @@ export function channelFileFrame(
             ne(messagingFiles.lifecycle, 'deleted'),
           ),
         );
+      if (!quota) throw createAppError('INVARIANT');
       if (
-        Number(quota!.bytes) + command.bytes > policy.maxStoredBytes ||
-        Number(quota!.count) >= policy.maxStoredFiles
+        Number(quota.bytes) + command.bytes > policy.maxStoredBytes ||
+        Number(quota.count) >= policy.maxStoredFiles
       )
         throw createAppError('PAYLOAD_TOO_LARGE');
       // Every reservation counts, deleted or not, so removing a file never
@@ -184,7 +189,8 @@ export function channelFileFrame(
             ),
           ),
         );
-      if (Number(today!.count) >= policy.maxUploadsPerDay)
+      if (!today) throw createAppError('INVARIANT');
+      if (Number(today.count) >= policy.maxUploadsPerDay)
         throw createAppError('RATE_LIMIT');
       const row: typeof messagingFiles.$inferInsert = {
         id: command.id,
@@ -205,7 +211,8 @@ export function channelFileFrame(
         .insert(messagingFiles)
         .values(row)
         .returning();
-      return reservation(inserted!);
+      if (!inserted) throw createAppError('INVARIANT');
+      return reservation(inserted);
     },
     async upload(token, now) {
       const row = await read(token, true);
@@ -248,7 +255,8 @@ export function channelFileFrame(
         })
         .where(eq(messagingFiles.id, row.id))
         .returning();
-      return reservation(updated!);
+      if (!updated) throw createAppError('INVARIANT');
+      return reservation(updated);
     },
     async finalize(token, messageId, now, supplied) {
       const policy = requireFilePolicy(supplied);
@@ -283,7 +291,8 @@ export function channelFileFrame(
             eq(messagingFiles.lifecycle, 'attached'),
           ),
         );
-      if (Number(count!.value) >= policy.maxFilesPerMessage)
+      if (!count) throw createAppError('INVARIANT');
+      if (Number(count.value) >= policy.maxFilesPerMessage)
         throw createAppError('PAYLOAD_TOO_LARGE');
       await tx
         .update(messagingFiles)

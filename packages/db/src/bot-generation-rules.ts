@@ -27,7 +27,7 @@ export function refuseFinalSpeech(message: string) {
   return refusal;
 }
 
-export function requireRequest(request: GenerationRequest) {
+export function requireRequest(request: GenerationRequest | null | undefined) {
   if (!request || !['language', 'tts'].includes(request.kind))
     throw createAppError('VALIDATION');
   if (
@@ -80,14 +80,14 @@ export type SpeechPolicy = {
 };
 
 /** Speech needs an explicit model and a positive per-seat character budget. */
-export function requireSpeechPolicy(policy: SpeechPolicy): string {
+export function requireSpeechPolicy(policy: SpeechPolicy) {
   if (
     !policy.ttsModel?.trim() ||
     !policy.speechBudget ||
     !validCount(policy.speechBudget)
   )
     throw createAppError('INFRASTRUCTURE', 'Explicit speech policy required');
-  return policy.ttsModel;
+  return { model: policy.ttsModel, budget: policy.speechBudget };
 }
 
 /** The seat's spoken characters, including this request, stay within budget. */

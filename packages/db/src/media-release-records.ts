@@ -9,15 +9,13 @@ import { isDebatingSeatSql } from './seat-columns';
 import { scopeTransaction } from './tenant-scope';
 import type { MediaReleaseMailKind } from './media-release-mail';
 import type { Tx } from './tx';
-import { run } from './raw-rows';
+import { run, query as queryRows } from './raw-rows';
+import { z } from 'zod';
 
 export const iso = (value: unknown): string =>
   new Date(value as string | Date).toISOString();
 export const isoOrNull = (value: unknown): string | null =>
   value === null || value === undefined ? null : iso(value);
-
-export const rows = async <Row>(tx: Tx, query: ReturnType<typeof sql>) =>
-  (await tx.execute(query)) as unknown as Row[];
 
 export type ReleaseRow = {
   id: string;
@@ -101,8 +99,26 @@ export async function readReleasesOf(
   const found: MediaReleaseRecord[] = [];
   for (const userId of userIds) {
     await scopeTransaction(tx, { subjectUserId: userId });
-    const read = await rows<ReleaseRow>(
+    const read = await queryRows(
       tx,
+      z.object({
+        id: z.string(),
+        user_id: z.string(),
+        scope: z.enum(['publish', 'paid_ads']),
+        source: z.enum(['parent', 'club']),
+        signer_name: z.string().nullable(),
+        signer_relation: z.enum(['parent', 'legal_guardian']).nullable(),
+        signer_email: z.string().nullable(),
+        wording_version: z.string(),
+        signed_at: z.union([z.string(), z.date()]),
+        withdrawn_at: z.union([z.string(), z.date()]).nullable(),
+        withdrawn_by: z.enum(['parent', 'club', 'erasure']).nullable(),
+        organization_id: z.string().nullable(),
+        organization_name: z.string().nullable(),
+        attested_by_user_id: z.string().nullable(),
+        attester_name: z.string().nullable(),
+        attester_role: z.string().nullable(),
+      }),
       sql`select r.id, r.user_id, r.scope, r.source, r.signer_name,
           r.signer_relation, r.signer_email, r.wording_version, r.signed_at,
           r.withdrawn_at, r.withdrawn_by, a.organization_id,
@@ -126,8 +142,29 @@ export async function readRequestsOf(
   userId: string,
   lock: boolean,
 ): Promise<readonly ReleaseRequest[]> {
-  const read = await rows<RequestRow>(
+  const read = await queryRows(
     tx,
+    z.object({
+      id: z.string(),
+      user_id: z.string(),
+      recipient_email: z.string(),
+      requested_at: z.union([z.string(), z.date()]),
+      expires_at: z.union([z.string(), z.date()]),
+      outcome: z
+        .enum([
+          'signed',
+          'declined',
+          'not_me',
+          'cancelled',
+          'superseded',
+          'expired',
+          'stopped',
+        ])
+        .nullable(),
+      resolved_at: z.union([z.string(), z.date()]).nullable(),
+      sends: z.number(),
+      last_sent_at: z.union([z.string(), z.date()]).nullable(),
+    }),
     sql`select id, user_id, recipient_email, requested_at, expires_at, outcome,
         resolved_at, sends, last_sent_at
       from media_release_requests where user_id = ${userId}
@@ -142,8 +179,9 @@ export async function readDivisionOf(
   tx: Tx,
   userId: string,
 ): Promise<'open' | 'youth' | null> {
-  const [row] = await rows<{ division: 'open' | 'youth' | null }>(
+  const [row] = await queryRows(
     tx,
+    z.object({ division: z.enum(['open', 'youth']).nullable() }),
     sql`select ${divisionOfBandSql(divisionAgeBand())} as division
       from account_age where account_age.user_id = ${userId}`,
   );
@@ -155,8 +193,9 @@ export async function endPublicationsOf(
   tx: Tx,
   userId: string,
 ): Promise<number> {
-  const ended = await rows<{ round_id: string }>(
+  const ended = await queryRows(
     tx,
+    z.object({ round_id: z.string() }),
     sql`update youth_round_publications p set ended_at = clock_timestamp()
       where p.ended_at is null and exists (
         select 1 from round_participants rp

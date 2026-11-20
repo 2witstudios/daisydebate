@@ -3,7 +3,7 @@ import { and, eq, sql } from 'drizzle-orm';
 import { readAuthorizationActors } from '../authorization';
 import type { SpectatorChatModeration } from '../content-moderation-ports';
 import { inLiveRoomSql, liveRoomOfR } from '../live-room-sql';
-import { run, query } from '../raw-rows';
+import { postgresInt8, run, query } from '../raw-rows';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
 import {
   messagingMessages,
@@ -309,7 +309,7 @@ export const readChatPage = async (
     tx,
     z.object({
       id: z.string(),
-      sequence: z.union([z.string(), z.number()]),
+      sequence: postgresInt8,
       at: z.string(),
       text: z.string().nullable(),
       username: z.string().nullable(),

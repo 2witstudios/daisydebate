@@ -1,3 +1,4 @@
+import { createAppError } from '@daisy/errors';
 import {
   mediaReleasePolicy,
   type ReleaseLinkPurpose,
@@ -129,7 +130,8 @@ export function mediaReleaseMailOperations({
             z.object({ now: z.union([z.string(), z.date()]) }),
             sql`select clock_timestamp() as now`,
           );
-          const nowMs = Date.parse(iso(now!.now));
+          if (!now) throw createAppError('INVARIANT');
+          const nowMs = Date.parse(iso(now.now));
           let linkExpiresAt: string;
           let signed: Extract<PreparedReleaseMail, { kind: 'owed' }>['signed'] =
             null;

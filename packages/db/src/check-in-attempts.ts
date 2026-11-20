@@ -117,9 +117,7 @@ export async function reconcileCheckInAttempts(
     and not exists(select 1 from pg_stat_activity p where p.pid=a.backend_pid and p.backend_start=a.backend_started_at)
     order by a.received_at limit ${limit} for update skip locked`,
   );
-  const ids = (absent as unknown as { attempt_id: string }[]).map(
-    (row) => row.attempt_id,
-  );
+  const ids = absent.map((row) => row.attempt_id);
   if (ids.length === 0) return 0;
   // A SECOND READ COMMITTED statement sees commits that preceded confirmed backend absence.
   // Combining pg_stat_activity and ledger reads in one MVCC snapshot can falsely call a commit aborted.

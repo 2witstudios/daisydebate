@@ -14,7 +14,10 @@ export function recordJudgingUsage(
   run: BoundedTransaction,
   scope: JudgingScope,
   token: string,
-  usage: { readonly inputTokens: number; readonly outputTokens: number },
+  usage:
+    | { readonly inputTokens: number; readonly outputTokens: number }
+    | null
+    | undefined,
 ) {
   if (!idSchema.safeParse(scope.roundId).success)
     throw createAppError('AUTHORIZATION');

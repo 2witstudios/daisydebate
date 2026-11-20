@@ -1,7 +1,8 @@
 import { entitlementGrantSchema, type EntitlementGrant } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import type { Tx } from './tx';
-import { run } from './raw-rows';
+import { run, query } from './raw-rows';
+import { z } from 'zod';
 
 /**
  * An account's entitlement grants. Read inside the caller's transaction:
@@ -12,8 +13,17 @@ export async function readEntitlementGrants(
   tx: Tx,
   userId: string,
 ): Promise<readonly EntitlementGrant[]> {
-  const rows =
-    (await tx.execute(sql`select g.entitlement, g.source, g.organization_id as "organizationId",
+  const rows = await query(
+    tx,
+    z.object({
+      entitlement: z.string(),
+      source: z.string(),
+      organizationId: z.string().nullable(),
+      startsAt: z.string().nullable(),
+      expiresAt: z.string().nullable(),
+      hosting: z.json(),
+    }),
+    sql`select g.entitlement, g.source, g.organization_id as "organizationId",
       to_char(g.starts_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as "startsAt",
       to_char(g.expires_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as "expiresAt",
       case when v.id is not null then jsonb_build_object(
@@ -26,9 +36,9 @@ export async function readEntitlementGrants(
     left join account_hosting_versions v on v.id = g.hosting_version_id
       and v.user_id = g.user_id and v.source = g.source
     where g.user_id = ${userId} and g.revoked_at is null
-    order by g.entitlement, g.source`)) as unknown as unknown[];
-  return rows.map((row) => {
-    const value = row as Record<string, unknown>;
+    order by g.entitlement, g.source`,
+  );
+  return rows.map((value) => {
     return entitlementGrantSchema.parse(
       value.entitlement === 'tournament_hosting'
         ? {

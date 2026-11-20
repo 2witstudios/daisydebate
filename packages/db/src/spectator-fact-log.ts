@@ -50,7 +50,10 @@ export async function recordFactReleases(
   tx: Tx,
   input: { readonly roundId: string; readonly clock: SpectatorClock },
 ): Promise<number> {
-  const rows = await tx.execute(sql`
+  const rows = await query(
+    tx,
+    z.object({ fact_id: z.string() }),
+    sql`
     insert into spectator_fact_releases (round_id, kind, fact_id, captured_at, released_at, watermark_at, basis)
     select r.id, f.kind, f.fact_id, f.captured_at, ${input.clock.now}::timestamptz,
       b.released_through_at,
@@ -66,8 +69,9 @@ export async function recordFactReleases(
     where r.id = ${input.roundId}
       and ${factReleasedSql(sql`f.captured_at`, round, input.clock)}
     on conflict (round_id, kind, fact_id) do nothing
-    returning fact_id`);
-  return (rows as unknown as unknown[]).length;
+    returning fact_id`,
+  );
+  return rows.length;
 }
 
 const unlogged = sql`not exists (
@@ -99,7 +103,7 @@ export async function readRoundsAwaitingFactLog(
       )
     order by r.id limit ${input.limit}`,
   );
-  return (rows as unknown as { id: string }[]).map((row) => row.id);
+  return rows.map((row) => row.id);
 }
 
 /**
@@ -124,7 +128,7 @@ export async function closeSettledFactLogRounds(tx: Tx): Promise<number> {
     where o.round_id=s.round_id and o.touched_at=s.touched_at
     returning o.round_id`,
   );
-  return (rows as unknown as unknown[]).length;
+  return rows.length;
 }
 
 /** Records the log for every Round that may have a fact to record; a sweep's pass. */

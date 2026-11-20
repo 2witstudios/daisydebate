@@ -9,6 +9,7 @@ import {
 } from '../schema/messaging-social';
 import { contactPairs } from '../schema/contacts';
 import type { Tx } from '../tx';
+import { query } from '../raw-rows';
 
 const positiveRevision = z.number().int().positive().safe();
 
@@ -134,11 +135,15 @@ export async function readMessagingChannelFact(
   idSchema.parse(channelId);
   idSchema.parse(actorId);
   const actor = sql`${actorId}::text`;
-  const rows = (await tx.execute(sql`
+  const rows = await query(
+    tx,
+    z.object({ fact: z.unknown() }),
+    sql`
     select ${channelFactObject(actor)} as fact
     from ${messagingChannels} c ${channelFactJoins(actor)}
     where c.id = ${channelId} and c.kind in ('dm','private_group') and (c.kind <> 'dm' or d.channel_id is not null)
-  `)) as unknown as Array<{ fact: unknown }>;
+  `,
+  );
   return rows.length === 0 ? null : parseMessagingChannelFact(rows[0]!.fact);
 }
 
@@ -157,12 +162,16 @@ export async function readMessagingChannelFacts(
     actor_id: idSchema.parse(binding.actorId),
   }));
   const actor = sql`w.actor_id`;
-  const rows = (await tx.execute(sql`
+  const rows = await query(
+    tx,
+    z.object({ index: z.int(), fact: z.unknown() }),
+    sql`
     select w.i as "index", ${channelFactObject(actor)} as fact
     from jsonb_to_recordset(${JSON.stringify(wanted)}::text::jsonb) as w(i integer, channel_id text, actor_id text)
     join ${messagingChannels} c on c.id = w.channel_id ${channelFactJoins(actor)}
     where c.kind in ('dm','private_group') and (c.kind <> 'dm' or d.channel_id is not null)
-  `)) as unknown as Array<{ index: unknown; fact: unknown }>;
+  `,
+  );
   const facts: (MessagingChannelFact | null)[] = bindings.map(() => null);
   for (const row of rows) {
     const index = Number(row.index);

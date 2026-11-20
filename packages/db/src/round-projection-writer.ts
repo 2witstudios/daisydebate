@@ -398,6 +398,7 @@ async function writeProjection(
         and(eq(roundSegments.id, back.id), eq(roundSegments.roundId, roundId)),
       );
   for (const insert of projection.segmentInserts) {
+    const endedAt = closes.get(insert.id);
     try {
       await tx.insert(roundSegments).values({
         id: insert.id,
@@ -407,9 +408,7 @@ async function writeProjection(
         rulesSegmentKey: insert.rulesSegmentKey,
         startedAt: new Date(insert.startedAt),
         durationMs: insert.durationMs,
-        endedAt: closes.has(insert.id)
-          ? new Date(closes.get(insert.id)!)
-          : null,
+        endedAt: endedAt === undefined ? null : new Date(endedAt),
       });
     } catch (error) {
       if (isUniqueViolation(error))

@@ -22,8 +22,7 @@ import { privacyJobs } from './schema/privacy-jobs';
 function availableInvoiceRoute(
   route: Awaited<ReturnType<typeof cleanupFacts>>['route'],
 ): { readonly mode: 'test' | 'live'; readonly customerId: string } | null {
-  return route.kind === 'owned' &&
-    (route.mode === 'test' || route.mode === 'live')
+  return route.kind === 'owned'
     ? { mode: route.mode, customerId: route.customerId }
     : null;
 }

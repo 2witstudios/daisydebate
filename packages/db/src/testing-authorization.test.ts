@@ -1,6 +1,8 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { sql } from 'drizzle-orm';
 import { createScriptedAuthorizationTransaction } from './testing-authorization';
+import { query as queryRows } from './raw-rows';
+import { z } from 'zod';
 
 setupRitewayBun();
 
@@ -9,7 +11,9 @@ test('scripted authorization transactions use real Drizzle query execution', asy
     [{ actorId: 'actor', member: true }],
   ]);
 
-  const result = await tx.execute(
+  const result = await queryRows(
+    tx,
+    z.object({ actorId: z.string(), member: z.boolean() }),
     sql`select ${'actor'}::text as "actorId", true as member`,
   );
 

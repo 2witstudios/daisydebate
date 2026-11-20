@@ -58,7 +58,7 @@ export function createBillingMember(input: {
           amountMinor: subscription?.amountMinor ?? null,
           purchaseAllowed:
             input.purchase(account) && permitsNewSubscription(subscription),
-          hasCustomer: customer !== undefined && customer !== null,
+          hasCustomer: customer !== undefined,
           subscriptionLifecycle: subscription?.evidence.lifecycle ?? null,
         };
       }),

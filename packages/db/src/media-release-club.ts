@@ -21,10 +21,8 @@ import { divisionAgeBand, divisionOfBandSql } from './ladder-division-band';
 import { scopeTransaction } from './tenant-scope';
 import { youthRoundShareableSql, youthRoundSql } from './youth-round-sql';
 import type { Tx } from './tx';
-import { run as runStatement } from './raw-rows';
-
-const rows = async <Row>(tx: Tx, query: ReturnType<typeof sql>) =>
-  (await tx.execute(query)) as unknown as Row[];
+import { run as runStatement, query as queryRows } from './raw-rows';
+import { z } from 'zod';
 
 /** Who in a club may confirm its students' releases. */
 export type ClubReleaseRole = 'owner' | 'staff';
@@ -50,8 +48,9 @@ async function clubReleaseRole(
   if (club.owner_user_id === userId) return 'owner';
   if (club.kind !== 'school') return null;
   await scopeTransaction(tx, { organizationId: club.id });
-  const [staff] = await rows<{ n: number }>(
+  const [staff] = await queryRows(
     tx,
+    z.object({ n: z.number() }),
     sql`select count(*)::int as n from grants g
       join memberships m on m.organization_id = g.organization_id
         and m.user_id = g.user_id and m.status = 'active'
@@ -69,8 +68,9 @@ async function clubReleaseStaff(tx: Tx, club: ClubRow): Promise<string[]> {
   await scopeTransaction(tx, { organizationId: club.id });
   const staff =
     club.kind === 'school'
-      ? await rows<{ user_id: string }>(
+      ? await queryRows(
           tx,
+          z.object({ user_id: z.string() }),
           sql`select distinct g.user_id from grants g
             join memberships m on m.organization_id = g.organization_id
               and m.user_id = g.user_id and m.status = 'active'
@@ -94,8 +94,15 @@ const readClub = async (
   by: { readonly handle: string } | { readonly id: string },
   lock: boolean,
 ): Promise<ClubRow | null> => {
-  const [club] = await rows<ClubRow>(
+  const [club] = await queryRows(
     tx,
+    z.object({
+      id: z.string(),
+      name: z.string(),
+      handle: z.string(),
+      kind: z.enum(['school', 'family']),
+      owner_user_id: z.string().nullable(),
+    }),
     sql`select id, name, handle, kind, owner_user_id from organizations
       where ${'handle' in by ? sql`lower(handle) = lower(${by.handle})` : sql`id = ${by.id}`}
         and kind in ('school', 'family') and closed_at is null
@@ -140,12 +147,13 @@ async function youthStudents(
   only?: readonly string[],
 ): Promise<ClubReleaseStudent[]> {
   await scopeTransaction(tx, { organizationId: club.id });
-  const members = await rows<{
-    user_id: string;
-    username: string | null;
-    joined_at: Date | string | null;
-  }>(
+  const members = await queryRows(
     tx,
+    z.object({
+      user_id: z.string(),
+      username: z.string().nullable(),
+      joined_at: z.union([z.string(), z.date()]).nullable(),
+    }),
     sql`select m.user_id, u.username, m.joined_at from memberships m
       join users u on u.id = m.user_id and u.deleted_at is null
       where m.organization_id = ${club.id} and m.status = 'active'
@@ -160,8 +168,12 @@ async function youthStudents(
       order by u.username nulls last, m.user_id
       limit 500`,
   );
-  const asks = await rows<{ user_id: string; asked_at: Date | string }>(
+  const asks = await queryRows(
     tx,
+    z.object({
+      user_id: z.string(),
+      asked_at: z.union([z.string(), z.date()]),
+    }),
     sql`select user_id, max(asked_at) as asked_at from media_release_club_asks
       where organization_id = ${club.id}
         and asked_at > clock_timestamp() - interval '7 days'
@@ -172,8 +184,9 @@ async function youthStudents(
     if ((await readDivisionOf(tx, member.user_id)) !== 'youth') continue;
     const releases = await readReleasesOf(tx, [member.user_id], false);
     const requests = await readRequestsOf(tx, member.user_id, false);
-    const [rounds] = await rows<{ public: number; private: number }>(
+    const [rounds] = await queryRows(
       tx,
+      z.object({ public: z.number(), private: z.number() }),
       sql`select count(*) filter (where p.round_id is not null)::int as public,
           -- Only a Round a release could make public counts as waiting (ADR 0157).
           count(*) filter (where p.round_id is null and ${youthRoundShareableSql(sql`r`)})::int as private
@@ -275,8 +288,9 @@ export function createMediaReleaseClubs(input: {
         if ((await clubReleaseRole(tx, club, viewerUserId)) === null)
           return null;
         await scopeTransaction(tx, { organizationId: club.id });
-        const [count] = await rows<{ n: number }>(
+        const [count] = await queryRows(
           tx,
+          z.object({ n: z.number() }),
           sql`select count(*)::int as n from memberships m
             join users u on u.id = m.user_id and u.deleted_at is null
             join account_age on account_age.user_id = m.user_id
@@ -409,8 +423,9 @@ export function createMediaReleaseClubs(input: {
           organizationId: club.id,
           subjectUserId: command.userId,
         });
-        const [member] = await rows<{ n: number }>(
+        const [member] = await queryRows(
           tx,
+          z.object({ n: z.number() }),
           sql`select count(*)::int as n from memberships
             where organization_id = ${club.id} and user_id = ${command.userId}
               and status = 'active'`,
@@ -420,8 +435,9 @@ export function createMediaReleaseClubs(input: {
           (await readDivisionOf(tx, command.userId)) !== 'youth'
         )
           return { kind: 'not_a_member' };
-        const [recent] = await rows<{ n: number }>(
+        const [recent] = await queryRows(
           tx,
+          z.object({ n: z.number() }),
           sql`select count(*)::int as n from media_release_club_asks
             where organization_id = ${club.id} and user_id = ${command.userId}
               and asked_at > clock_timestamp() - interval '7 days'`,

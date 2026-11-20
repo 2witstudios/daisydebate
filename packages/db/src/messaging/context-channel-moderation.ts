@@ -32,7 +32,12 @@ export function contextChannelModeration<Fact extends ContextChannelFact>(
       tx: Tx,
       input: { readonly messageId: string; readonly reporterActorId: string },
     ) {
-      const [row] = await tx.execute(
+      const [row] = await query(
+        tx,
+        z.object({
+          owner_id: z.string().nullable(),
+          author_actor_id: z.string(),
+        }),
         sql`select ${owner.ownerColumn} as owner_id,m.author_actor_id from messaging_messages m join messaging_channels c on c.id=m.channel_id and c.kind=${owner.kind} where m.id=${input.messageId} and m.text is not null and m.removed_at is null`,
       );
       if (!row || typeof row.owner_id !== 'string') return null;
@@ -46,13 +51,18 @@ export function contextChannelModeration<Fact extends ContextChannelFact>(
         : null;
     },
     async readSubject(tx: Tx, messageId: string) {
-      const [row] = await tx.execute(
+      const [row] = await query(
+        tx,
+        z.object({
+          text: z.string().nullable(),
+          authorUserId: z.string().nullable(),
+        }),
         sql`select m.text,a.user_id as "authorUserId" from messaging_messages m join messaging_channels c on c.id=m.channel_id and c.kind=${owner.kind} join actors a on a.id=m.author_actor_id where m.id=${messageId} and ${owner.subjectReadable}`,
       );
       return row
         ? {
-            text: row.text as string | null,
-            authorUserId: row.authorUserId as string | null,
+            text: row.text,
+            authorUserId: row.authorUserId,
           }
         : null;
     },
@@ -60,15 +70,12 @@ export function contextChannelModeration<Fact extends ContextChannelFact>(
       tx: Tx,
       input: { readonly messageId: string; readonly now: Date },
     ) {
-      const [found] = await tx.execute(
+      const [found] = await query(
+        tx,
+        z.object({ owner_id: z.string().nullable(), id: z.string() }),
         sql`select ${owner.ownerColumn} as owner_id,c.id from messaging_messages m join messaging_channels c on c.id=m.channel_id and c.kind=${owner.kind} where m.id=${input.messageId}`,
       );
-      if (
-        !found ||
-        typeof found.owner_id !== 'string' ||
-        typeof found.id !== 'string'
-      )
-        return null;
+      if (!found || found.owner_id === null) return null;
       await owner.fence(tx, found.owner_id);
       await run(
         tx,
@@ -86,7 +93,9 @@ export function contextChannelModeration<Fact extends ContextChannelFact>(
         messages: 0,
         changes: 1,
       });
-      const [row] = await tx.execute(
+      const [row] = await query(
+        tx,
+        z.object({ id: z.string() }),
         sql`update messaging_messages set text=null,removed_at=${input.now.toISOString()}::timestamptz,change_version=${stream.changeVersion} where id=${input.messageId} and channel_id=${found.id} and removed_at is null returning id`,
       );
       if (!row) return 'unchanged' as const;

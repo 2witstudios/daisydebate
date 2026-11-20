@@ -1,4 +1,5 @@
 import type { TenantScope } from './tenant-scope';
+import { boundExecute } from './raw-rows';
 import type { TxSource, Tx } from './tx';
 
 // Identity stays internal to the adapter; callers cannot forge a bounded context
@@ -37,7 +38,7 @@ export function transactionContext(
     insert: database.insert.bind(database),
     update: database.update.bind(database),
     delete: database.delete.bind(database),
-    execute: database.execute.bind(database),
+    execute: boundExecute(database),
   };
   const context = new Proxy(Object.freeze(methods), {
     get(target, property, receiver) {

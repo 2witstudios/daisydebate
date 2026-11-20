@@ -126,7 +126,8 @@ async function paidCalls(tx: Tx, scope: JudgingScope, firstEpoch?: number) {
     where a.round_participant_id=${scope.judgeParticipantId} and a.kind='judging' and a.requests>0
       and (${firstEpoch ?? null}::integer is null or t.job_epoch is null or t.job_epoch>=${firstEpoch ?? null}::integer)`,
   );
-  return Number(row!.paid);
+  if (!row) throw createAppError('INVARIANT');
+  return Number(row.paid);
 }
 
 const attemptOfRun = async (tx: Tx, runId: string) =>
@@ -243,12 +244,13 @@ export function createRoundJudgingJobs(input: {
           await deferLockedJudgingJob(tx, scope, run.id, recovery);
           return { kind: 'deferred', reason: recovery.reason };
         }
+        if (!job.leaseExpiresAt) throw createAppError('INVARIANT');
         await countCasualJudgeModelCall(tx, {
           roundId: scope.roundId,
           before: new Date(
             Math.min(
               job.generationDeadlineAt.getTime(),
-              job.leaseExpiresAt!.getTime(),
+              job.leaseExpiresAt.getTime(),
             ),
           ).toISOString(),
           accountEligible: input.accountEligible,

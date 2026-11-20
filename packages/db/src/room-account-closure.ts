@@ -76,14 +76,14 @@ export const createRoomAccountClosureAdopter = (
     id: 'room-closure',
     phase: 'before-auth',
     erase: async (tx, subject, { now }) => {
-      const roomTx = tx as unknown as Tx;
+      const roomTx = tx;
       await closeHosted(roomTx, subject.actorId, now);
       await freeSeats(roomTx, subject.actorId, now);
     },
     // The resolution lists the member wrote for Rooms they host: their own
     // text, exported to them though erasure keeps it on the record.
     export: async (tx, subject) => {
-      const hosted = await (tx as unknown as Tx)
+      const hosted = await tx
         .select({ id: rooms.id, config: rooms.config })
         .from(rooms)
         .where(eq(rooms.hostActorId, subject.actorId));

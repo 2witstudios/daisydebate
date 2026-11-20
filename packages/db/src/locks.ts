@@ -1,6 +1,7 @@
 import { sql, type SQL as Statement } from 'drizzle-orm';
 import type { ReservedSQL, SQL } from 'bun';
-import { run } from './raw-rows';
+import { query, run } from './raw-rows';
+import { z } from 'zod';
 import type { Tx } from './tx';
 
 /**
@@ -23,6 +24,10 @@ const lock = (name: TransactionLockName, key: Statement): TransactionLock => ({
   name,
   key,
 });
+
+const flagsLockClass = 59118;
+const flagsLockObject = 1;
+const samplerLockKey = 59003;
 
 /** The closed registry: a lock not named here cannot be taken. */
 export const transactionLocks = {
@@ -53,7 +58,8 @@ export const transactionLocks = {
   /** Bot admission is serialized across Rounds. */
   botAdmission: () => lock('botAdmission', sql`59003, 1`),
   /** The flags table: readers share it, a change holds it alone. */
-  flags: () => lock('flags', sql`59118, 1`),
+  flags: () =>
+    lock('flags', sql`${flagsLockClass}::int, ${flagsLockObject}::int`),
   /** Season creation is serialized. */
   seasonCreation: () => lock('seasonCreation', sql`59091, 1`),
   /** Non-ranked capture capacity is admitted one at a time. */
@@ -109,6 +115,17 @@ export async function takeLock(
   );
 }
 
+/** The session's held Flags modes, used to refuse an unsafe lock upgrade. */
+export const heldFlagLockModes = (tx: Tx) =>
+  query(
+    tx,
+    z.object({ mode: z.string() }),
+    sql`select mode from pg_locks
+    where pid=pg_backend_pid() and locktype='advisory'
+      and classid=${flagsLockClass}::oid and objid=${flagsLockObject}::oid
+      and objsubid=2 and granted`,
+  );
+
 /**
  * Session locks on a Bun SQL connection, held until released or the
  * connection ends. Each names the one connection that holds it.
@@ -140,25 +157,18 @@ export const sessionLocks = {
   },
   /** The availability sampler: one elected producer session. */
   availabilitySampler: {
+    key: samplerLockKey,
     /** Elected when this session holds the lock already or takes it now. */
     elect: async (session: ReservedSQL): Promise<boolean> => {
       const [row]: { elected: boolean }[] =
-        await session`select case when ${samplerHeld(session)}
-          then true else pg_try_advisory_lock(${SAMPLER_KEY}::bigint) end as elected`;
+        await session`select case when exists(select 1 from pg_locks
+          where locktype='advisory' and pid=pg_backend_pid() and classid=0
+            and objid=${samplerLockKey}::oid and objsubid=1 and granted)
+          then true else pg_try_advisory_lock(${samplerLockKey}::bigint) end as elected`;
       return row?.elected === true;
     },
-    /** A condition, true while this session holds the sampler lock. */
-    held: samplerHeld,
     release: async (session: ReservedSQL) => {
-      await session`select pg_advisory_unlock(${SAMPLER_KEY}::bigint)`;
+      await session`select pg_advisory_unlock(${samplerLockKey}::bigint)`;
     },
   },
 } as const;
-
-const SAMPLER_KEY = 59003;
-
-function samplerHeld(session: ReservedSQL) {
-  return session`exists(select 1 from pg_locks
-    where locktype='advisory' and pid=pg_backend_pid() and classid=0
-      and objid=${SAMPLER_KEY}::oid and objsubid=1 and granted)`;
-}

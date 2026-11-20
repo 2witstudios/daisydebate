@@ -32,8 +32,8 @@ export const admitCasualCapture = async (
     sponsorUserId: null,
     lobbyId: null,
   });
-  if ((counts?.hosted ?? 0) >= CASUAL_CAPTURES_PER_HOST)
+  if (counts.hosted >= CASUAL_CAPTURES_PER_HOST)
     throw createRefusal('CONFLICT', 'capture-host-limit');
-  if ((counts?.running ?? 0) >= CASUAL_CAPTURES_AT_ONCE)
+  if (counts.running >= CASUAL_CAPTURES_AT_ONCE)
     throw createRefusal('CONFLICT', 'capture-capacity');
 };

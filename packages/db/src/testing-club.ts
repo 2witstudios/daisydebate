@@ -15,7 +15,8 @@ import { createBoundedTransaction } from './bounded-transaction';
 import { scopeTransaction } from './tenant-scope';
 import { createLane } from './workload';
 import { inTransaction } from './tx';
-import { run as runStatement } from './raw-rows';
+import { run as runStatement, query } from './raw-rows';
+import { z } from 'zod';
 
 /**
  * A club with a paid Club plan, for the browser suite (ADR 0148): the
@@ -81,14 +82,22 @@ export async function fundTestClub(
   });
   const [ids] = await run(async (tx) => {
     await scopeTransaction(tx, { organizationId });
-    return tx.execute(sql`select c.id as customer_id, s.id as subscription_id, now() as now
+    return query(
+      tx,
+      z.object({
+        customer_id: z.string(),
+        subscription_id: z.string(),
+        now: z.date(),
+      }),
+      sql`select c.id as customer_id, s.id as subscription_id, now() as now
       from billing_customers c join billing_subscriptions s
         on s.organization_id = c.organization_id and s.current
-      where c.organization_id = ${organizationId}`);
+      where c.organization_id = ${organizationId}`,
+    );
   });
   if (!ids)
     throw new Error('The test Club purchase established no subscription');
-  const now = Date.parse(new Date(ids.now as string | Date).toISOString());
+  const now = ids.now.getTime();
   await createBillingInbox({ run, nextId: createId })({
     eventId: `evt_${createId()}`,
     customerId: vendorCustomerId,

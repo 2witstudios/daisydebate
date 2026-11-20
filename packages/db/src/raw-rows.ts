@@ -1,10 +1,14 @@
 import type { SQL } from 'drizzle-orm';
 import { z } from 'zod';
 import { createAppError } from '@daisy/errors';
+import type { Tx } from './tx';
 
 type RawExecutor = {
   readonly execute: (statement: SQL) => PromiseLike<unknown>;
 };
+
+/** Binds Drizzle's raw method when building the adapter's opaque Tx surface. */
+export const boundExecute = (tx: Tx): Tx['execute'] => tx.execute.bind(tx);
 
 /** PostgreSQL int8 representations from Bun SQL and bounded writers. */
 export const postgresInt8 = z.union([

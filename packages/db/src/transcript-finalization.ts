@@ -82,9 +82,10 @@ async function planFrozenJudging(
     sql`select exists(select 1 from round_participants p join actors a on a.id=p.actor_id
     where p.round_id=${request.roundId} and p.seat_kind='judge' and public.daisy_round_participant_is_current(p.id) and a.kind='human') as "humanJudges"`,
   );
+  if (!judges) throw createAppError('INVARIANT');
   const plan = request.planJudging({
     completeness,
-    humanJudges: judges!.humanJudges,
+    humanJudges: judges.humanJudges,
     capture,
   });
   if (plan.ballotDeadlineMs !== null) {
@@ -181,6 +182,7 @@ export async function finalizeLockedRoundTranscript(
       captureGaps: shortfall.captureGaps,
     })
     .returning();
+  if (!freeze) throw createAppError('INVARIANT');
   await planFrozenJudging(tx, request, state, shortfall.capture);
   await appendTranscriptChanged(tx, request.roundId, revision + 1);
   // What the Round waits on changes here, so the room must read it: a new version
@@ -193,6 +195,6 @@ export async function finalizeLockedRoundTranscript(
   await appendRoundPhaseChanged(tx, request.roundId, version + 1);
   return {
     status: 'frozen' as const,
-    freeze: { ...freeze!, frozenAt: freeze!.frozenAt.toISOString() },
+    freeze: { ...freeze, frozenAt: freeze.frozenAt.toISOString() },
   };
 }

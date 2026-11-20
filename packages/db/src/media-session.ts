@@ -1,3 +1,4 @@
+import { createAppError } from '@daisy/errors';
 import {
   bindMediaParticipant,
   mediaBindingFields as bindingFields,
@@ -55,7 +56,8 @@ export function createMediaSessionStore({
       const roundId = parseId(input.roundId);
       return run(async (tx) => {
         const authority = await lockMediaRound(tx, roundId, input.caller);
-        const roundParticipantId = authority.caller!.id;
+        if (!authority.caller) throw createAppError('AUTHORIZATION');
+        const roundParticipantId = authority.caller.id;
         requireMediaWindow(
           input.mediaPhase,
           await readMediaWindowFacts(tx, roundId, {

@@ -5,7 +5,7 @@ import { instrumented, type DatabaseEventSink } from './instrumented';
 import { documentFolders } from './schema/document-folders';
 import { documents } from './schema/documents';
 import { inTransaction, type Tx, type TxSource } from './tx';
-import { query as queryRows } from './raw-rows';
+import { postgresInt8, query as queryRows } from './raw-rows';
 import { z } from 'zod';
 
 /** One owned folder's recursive subtree, shared by confirmation and deletion. */
@@ -98,7 +98,7 @@ const documentColumns = {
   updatedAt: documents.updatedAt,
 };
 
-const now = () => sql`statement_timestamp()` as unknown as Date;
+const now = () => sql<Date>`statement_timestamp()`;
 
 /** A swapped row saved; otherwise a present document conflicts, an absent one is missing. */
 export const documentSaveOutcome = (
@@ -143,11 +143,7 @@ const countOf = async (
   tx: Tx,
   query: ReturnType<typeof sql>,
 ): Promise<number> => {
-  const [row] = await queryRows(
-    tx,
-    z.object({ count: z.union([z.string(), z.number()]) }),
-    query,
-  );
+  const [row] = await queryRows(tx, z.object({ count: postgresInt8 }), query);
   return Number(row?.count ?? 0);
 };
 

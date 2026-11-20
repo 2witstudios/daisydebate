@@ -44,7 +44,7 @@ async function speechModel(
   characters: number,
   policy: SpeechPolicy,
 ) {
-  const model = requireSpeechPolicy(policy);
+  const { model, budget } = requireSpeechPolicy(policy);
   const [total] = await tx
     .select({
       characters: sql<number>`coalesce(sum(${agentRuns.characters}),0)`,
@@ -56,11 +56,7 @@ async function speechModel(
         eq(agentRuns.kind, 'tts'),
       ),
     );
-  requireSpeechBudget(
-    Number(total?.characters ?? 0),
-    characters,
-    policy.speechBudget!,
-  );
+  requireSpeechBudget(Number(total?.characters ?? 0), characters, budget);
   return model;
 }
 /**

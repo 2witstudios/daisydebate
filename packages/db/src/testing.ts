@@ -97,14 +97,14 @@ export async function finishedOrBlockedBehind(
     deadlineMs = 5000,
   }: { readonly now: () => number; readonly deadlineMs?: number },
 ): Promise<'finished' | 'blocked'> {
-  let finished = false;
+  const completion = { finished: false };
   void work.then(
-    () => (finished = true),
-    () => (finished = true),
+    () => (completion.finished = true),
+    () => (completion.finished = true),
   );
   const deadline = now() + deadlineMs;
   for (;;) {
-    if (finished) return 'finished';
+    if (completion.finished) return 'finished';
     const [row]: Array<{ waiting: number }> = await observer.unsafe(
       'select count(*)::int as waiting from pg_stat_activity where $1 = any(pg_blocking_pids(pid))',
       [holderPid],

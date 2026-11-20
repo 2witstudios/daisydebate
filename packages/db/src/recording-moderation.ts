@@ -14,15 +14,6 @@ import { requeueRecordingJob } from './recording-processing-operations';
 import { query } from './raw-rows';
 import { z } from 'zod';
 
-type ReportRow = {
-  readonly competition_type: string;
-  readonly round_id: string;
-  readonly visibility: 'public' | 'unlisted' | 'private';
-  readonly audience_link_hash: string | null;
-  readonly reporter_seated: boolean;
-  readonly in_live_room: boolean;
-};
-
 type Moved = Awaited<ReturnType<typeof moveRecording<RecordingTransition>>>;
 
 /** A moved Recording answers as a command does; a version gone stale is refused. */

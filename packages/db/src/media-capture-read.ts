@@ -47,7 +47,7 @@ const historyPage = async (tx: Tx, input: ReadScope, segmentId: string) => {
       startedVersion: row.startedVersion,
       endedVersion: row.endedVersion,
     })),
-    nextIntervalId: rows.length > 512 ? page.at(-1)!.id : null,
+    nextIntervalId: rows.length > 512 ? page[page.length - 1]!.id : null,
   };
 };
 
@@ -82,6 +82,7 @@ export async function readMediaCaptureState(
     .select({ status: rounds.status })
     .from(rounds)
     .where(eq(rounds.id, input.roundId));
+  if (!round) throw createAppError('NOT_FOUND');
   const [segment] = await tx
     .select()
     .from(roundSegments)
@@ -132,7 +133,7 @@ export async function readMediaCaptureState(
     sessionId: input.sessionId,
     version: tick.resultingVersion,
     serverNow: now.toISOString(),
-    status: round!.status,
+    status: round.status,
     transcriptAdmissionCutoff: tick.transcriptAdmissionCutoff,
     participants,
     segment: segmentView(segment),

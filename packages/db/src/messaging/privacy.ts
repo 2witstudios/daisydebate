@@ -18,8 +18,6 @@ import type { PrivacyAdopter, PrivacyExport } from '../privacy';
 import type { Tx } from '../tx';
 import { postgresInt8, run, query } from '../raw-rows';
 
-type ChangedMessage = { id: string; channelId: string; authorActorId: string };
-
 function omitPrivateColumns(
   row: Record<string, unknown>,
   columns: readonly string[],

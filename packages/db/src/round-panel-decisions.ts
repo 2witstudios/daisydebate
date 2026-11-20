@@ -181,7 +181,11 @@ export function requirePanelFacts<
 export function requireCompletionProjection(completion: {
   readonly projection: RoundProjection;
   readonly ruling: RoundPanelReceipt['ruling'];
-}): void {
+}): asserts completion is typeof completion & {
+  readonly projection: {
+    readonly round: NonNullable<RoundProjection['round']>;
+  };
+} {
   const { projection } = completion;
   if (
     projection.round?.status !== 'completed' ||

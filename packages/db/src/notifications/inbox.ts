@@ -1,3 +1,4 @@
+import { createAppError } from '@daisy/errors';
 import {
   buildUserInboxTopic,
   type CompetitionType,
@@ -15,7 +16,7 @@ import { maskEmail } from '@daisy/protocol/media-release';
 import { sql, type SQL } from 'drizzle-orm';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
 import { appendOutboxEvent } from '../outbox';
-import { query } from '../raw-rows';
+import { postgresInt8, query } from '../raw-rows';
 import { wants } from './preferences';
 import {
   notificationStands,
@@ -132,6 +133,16 @@ type FlatRow = {
   surfacedAt: string;
 };
 
+const requiredInboxField = <Field extends keyof FlatRow>(
+  row: FlatRow,
+  field: Field,
+) => {
+  const value = row[field];
+  if (value === null)
+    throw createAppError('INVARIANT', 'Notification subject facts are missing');
+  return value;
+};
+
 const inboxRow = (
   row: FlatRow,
   tournament: ReadonlyMap<string, TournamentNotificationFacts>,
@@ -146,25 +157,29 @@ const inboxRow = (
       return {
         ...base,
         kind: row.kind,
-        roundId: row.roundId!,
+        roundId: requiredInboxField(row, 'roundId'),
         debater: row.about,
       };
     case 'recording_ready':
     case 'round_started':
-      return { ...base, kind: row.kind, roundId: row.roundId! };
+      return {
+        ...base,
+        kind: row.kind,
+        roundId: requiredInboxField(row, 'roundId'),
+      };
     case 'round_decision_released':
       return {
         ...base,
         kind: row.kind,
-        roundId: row.roundId!,
+        roundId: requiredInboxField(row, 'roundId'),
         opponent: row.about,
       };
     case 'room_invitation':
       return {
         ...base,
         kind: row.kind,
-        roomId: row.roomId!,
-        seat: row.seat!,
+        roomId: requiredInboxField(row, 'roomId'),
+        seat: requiredInboxField(row, 'seat'),
         host: row.about,
       };
     case 'challenge_received':
@@ -172,15 +187,15 @@ const inboxRow = (
         ...base,
         kind: row.kind,
         challenger: row.about,
-        mode: row.mode!,
-        format: row.format!,
+        mode: requiredInboxField(row, 'mode'),
+        format: requiredInboxField(row, 'format'),
         division: row.division,
       };
     case 'challenge_accepted':
       return {
         ...base,
         kind: row.kind,
-        roomId: row.challengeRoomId!,
+        roomId: requiredInboxField(row, 'challengeRoomId'),
         opponent: row.about,
       };
     case 'friend_request_received':
@@ -190,8 +205,8 @@ const inboxRow = (
       return {
         ...base,
         kind: row.kind,
-        recipient: maskEmail(row.recipientEmail!),
-        expiresAt: row.requestExpiresAt!,
+        recipient: maskEmail(requiredInboxField(row, 'recipientEmail')),
+        expiresAt: requiredInboxField(row, 'requestExpiresAt'),
       };
     case 'media_release_declined':
     case 'media_release_signed':
@@ -209,10 +224,15 @@ const inboxRow = (
         ...base,
         kind: row.kind,
         student: row.about,
-        clubHandle: row.clubHandle!,
+        clubHandle: requiredInboxField(row, 'clubHandle'),
       };
     case 'youth_round_published':
-      return { ...base, kind: row.kind, roundId: row.roundId!, by: row.about };
+      return {
+        ...base,
+        kind: row.kind,
+        roundId: requiredInboxField(row, 'roundId'),
+        by: row.about,
+      };
     case 'judge_assigned':
     case 'judge_replaced':
     case 'judge_unassigned':
@@ -333,7 +353,7 @@ export const notificationInboxOperations = ({
       });
       const [count] = await query(
         database,
-        z.object({ unread: z.union([z.string(), z.number()]) }),
+        z.object({ unread: postgresInt8 }),
         sql`select count(*) as unread from notifications n ${standingJoins}
           where ${shown} and n.read_at is null`,
       );

@@ -113,9 +113,11 @@ export const loadStandingRoomDraft = async (tx: Tx, input: Input) => {
     });
   }
   await scopeTransaction(tx, scope);
-  const authorization = templateAuthorizations.find(
+  const ownerAuthority = templateAuthorizations.find(
     (row) => row.organizationId === lobby.ownerOrganizationId,
-  )!.authorization;
+  );
+  if (!ownerAuthority) return null;
+  const { authorization } = ownerAuthority;
   const presets = currentTemplates.length
     ? await tx
         .select()

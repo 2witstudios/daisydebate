@@ -216,7 +216,7 @@ async function complete(tx: Tx, input: Request, roundTime?: RoundTimeSource) {
     freezeRevision: freeze.revision,
     resultingVersion: current.version + 1,
     ruling: completion.ruling,
-    outcome: projection.round!.outcome,
+    outcome: projection.round.outcome,
     noRuling: completion.noRuling,
   });
   await insertCommandRow(

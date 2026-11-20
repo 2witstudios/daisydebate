@@ -92,7 +92,8 @@ class TransactionAttempt {
     const options = { signal: this.controller.signal };
     this.watchdog = await this.client.reserve(options);
     this.checkBudget();
-    this.work = await this.client.reserve(options);
+    const writer = await this.client.reserve(options);
+    this.work = writer;
     this.checkBudget();
     const [identity] = await this.work<
       (OwnedBackend & { receivedAt: string })[]
@@ -137,7 +138,7 @@ class TransactionAttempt {
           this.checkLifetime();
           // Tenant addressing is adapter-owned. Arbitrary callback configuration
           // still passes through the unchanged rejecting statement guard.
-          await scopeReservedTransaction(this.work!, scope);
+          await scopeReservedTransaction(writer, scope);
           this.checkLifetime();
         },
       ),
@@ -165,17 +166,20 @@ class TransactionAttempt {
     outcome: 'open' | 'committed' | 'aborted',
     deadline = this.deadline,
   ) {
-    if (!this.lifecycle) return;
+    const { lifecycle, watchdog, metadata } = this;
+    if (!lifecycle) return;
+    if (!watchdog || !metadata)
+      throw createAppError('INVARIANT', 'Transaction lifecycle has no backend');
     this.controlInUse = true;
     await runTransactionLifecycle({
-      control: this.watchdog!,
+      control: watchdog,
       now: this.now,
       deadline,
       refuse: this.refuseControl,
       run: (tx) =>
         outcome === 'open'
-          ? this.lifecycle!.open(tx, this.metadata!)
-          : this.lifecycle!.close(tx, this.metadata!, outcome),
+          ? lifecycle.open(tx, metadata)
+          : lifecycle.close(tx, metadata, outcome),
     });
     this.controlInUse = false;
   }

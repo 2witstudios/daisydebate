@@ -267,11 +267,11 @@ export function mailIntentOperations({
                   order by expires_at limit ${batch.limit - deleted})
                 returning id`,
               );
-              return (rows as unknown as unknown[]).length;
+              return rows.length;
             });
           }
           if (clubs.length < 100) return deleted;
-          after = clubs.at(-1)!.id;
+          after = clubs[clubs.length - 1]!.id;
         }
       }),
     /** Terminal intents only: a queued or leased intent has no `completed_at`. */
@@ -306,18 +306,15 @@ async function clubSeatInvitationDelivery(
     readonly club_seat_invitation_id: string | null;
   },
 ): Promise<MailIntentDelivery> {
-  const key = clubInvitationKey.exec(intent.dedupe_key);
+  const [, organizationId, invitationId] =
+    clubInvitationKey.exec(intent.dedupe_key) ?? [];
   if (
     intent.state !== 'leased' ||
-    !key ||
-    key[2] !== intent.club_seat_invitation_id
+    organizationId === undefined ||
+    invitationId === undefined ||
+    invitationId !== intent.club_seat_invitation_id
   )
     return { kind: 'not-owed' };
-  const [, organizationId, invitationId] = key as unknown as [
-    string,
-    string,
-    string,
-  ];
   return inTransaction(database, async (tx) => {
     await scopeTransaction(tx, { organizationId });
     const [row] = await query(

@@ -16,15 +16,28 @@ export async function current(tx: Tx, input: Claim, options: Policy) {
     row.claimEpoch !== input.claim.epoch ||
     row.leaseDigest !== claimDigest(input.claim.token) ||
     !row.leaseExpiresAt ||
-    row.leaseExpiresAt <= now ||
-    owned.members.some(
-      (unit) =>
-        unit.state !== 'retained' ||
-        !unit.payloadAcceptedAt ||
-        !unit.expiresAt ||
-        unit.expiresAt <= now,
-    )
+    row.leaseExpiresAt <= now
   )
     throw createAppError('CONFLICT', 'Recognition execution is stale');
-  return { ...owned, now };
+  const members = owned.members.map((unit) => {
+    if (
+      unit.state !== 'retained' ||
+      !unit.payloadAcceptedAt ||
+      !unit.expiresAt ||
+      unit.expiresAt <= now
+    )
+      throw createAppError('CONFLICT', 'Recognition execution is stale');
+    return { ...unit, expiresAt: unit.expiresAt };
+  });
+  return {
+    ...owned,
+    members,
+    now,
+    context: {
+      ...row,
+      model: options.model,
+      policyDigest: options.policyDigest,
+      leaseExpiresAt: row.leaseExpiresAt,
+    },
+  };
 }

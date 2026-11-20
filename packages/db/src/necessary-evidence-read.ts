@@ -64,10 +64,13 @@ async function sealedRow(
 }
 const scopeOf = (
   row: Pick<Row, 'originalRoundId' | 'originalSubjectActorIds'>,
-): EvidencePrivacyScope => ({
-  roundId: row.originalRoundId,
-  subjectActorIds: row.originalSubjectActorIds!,
-});
+): EvidencePrivacyScope => {
+  if (!row.originalSubjectActorIds) throw createAppError('CONFLICT');
+  return {
+    roundId: row.originalRoundId,
+    subjectActorIds: row.originalSubjectActorIds,
+  };
+};
 const knownEvidence = async (tx: Tx, id: string) => {
   const [known] = await tx
     .select({ id: necessaryEvidence.id })
@@ -91,7 +94,7 @@ export async function readCaptureEvidencePayload(tx: Tx, raw: unknown) {
       kind: 'pending' as const,
       evidenceId,
       bindingDigest: original.binding,
-      authorityId: original.row.authorityId!,
+      authorityId: original.row.authorityId,
       privacyScope,
     };
   return {

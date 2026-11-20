@@ -3,10 +3,11 @@ import { daisyOrganizationId } from './daisy-reference';
 import { createAppError } from '@daisy/errors';
 import {
   roomListQuerySchema,
+  roomListPageSchema,
+  seatKindSchema,
   type RoomListQuery,
   type RoomListEntry,
   type RoomListPage,
-  type SeatKind,
   type SeatRef,
 } from '@daisy/protocol';
 import { seatOfColumns } from './seat-columns';
@@ -161,7 +162,31 @@ export async function discoverRooms(
   // Producer facts are read again after every downstream lock wait.
   account = await loadAuthorizationAccount(tx, caller.userId);
   if (!authorizeCollection(account)) throw createAppError('AUTHORIZATION');
-  const rows = (await tx.execute(sql`
+  const fields = roomListPageSchema.shape.rooms.unwrap().element.shape;
+  const rowSchema = z.object({
+    ...fields,
+    waitingSince: z.union([z.date(), z.string()]).nullable(),
+    live: z
+      .object({
+        stage: fields.live.unwrap().shape.stage,
+        startedAt: z.union([z.date(), z.string()]).nullable(),
+      })
+      .nullable(),
+    seatKind: seatKindSchema.nullable(),
+    side: z.string().nullable(),
+    slot: z.int().nullable(),
+    roundVersion: z.int().nullable(),
+    roundCreator: z.string().nullable(),
+    roundVisibility: fields.visibility.nullable(),
+    roundSeatKind: seatKindSchema.nullable(),
+    roundSide: z.string().nullable(),
+    roundSlot: z.int().nullable(),
+    hostIsHumanJudge: z.boolean().nullable(),
+  });
+  const rows = await queryRows(
+    tx,
+    rowSchema,
+    sql`
   select r.id,r.version,r.title,coalesce(d.resolution,r.topic) as topic,r.visibility,r.host_actor_id as "hostActorId",
    ${hostLabel} as "hostLabel",${hostIsHumanJudge} as "hostIsHumanJudge",r.status,r.competition_type as "competitionType",
    p.actor_id is not null as seated,p.seat_kind as "seatKind",p.side,p.slot,
@@ -181,26 +206,11 @@ export async function discoverRooms(
    and ${modeMatches(mode)} and ${divisionMatches(division)}
    and ((${assembly} and r.status in ${assemblyStatuses(status)}) or (${launched} and r.status='started' and d.status in ('opening','active') and ${inLaunchedRound(caller)}))
   order by r.created_at ${order.direction},r.id collate "C" ${order.direction}
- `)) as unknown as (Omit<RoomListEntry, 'waitingSince' | 'live'> & {
-    waitingSince: Date | string | null;
-    live: {
-      stage: NonNullable<RoomListEntry['live']>['stage'];
-      startedAt: Date | string | null;
-    } | null;
-    seatKind: SeatKind | null;
-    side: string | null;
-    slot: number | null;
-    roundVersion: number;
-    roundCreator: string | null;
-    roundVisibility: RoomListEntry['visibility'];
-    roundSeatKind: SeatKind | null;
-    roundSide: string | null;
-    roundSlot: number | null;
-    hostActorId: string | null;
-    hostIsHumanJudge: boolean;
-  })[];
+ `,
+  );
   const fact = (r: (typeof rows)[number]): RoomDiscoveryFact => ({
     ...r,
+    hostIsHumanJudge: r.hostIsHumanJudge === true,
     participants:
       r.seated && r.seatKind && typeof r.slot === 'number'
         ? [
@@ -214,29 +224,30 @@ export async function discoverRooms(
             },
           ]
         : [],
-    round: r.roundRef
-      ? {
-          kind: 'round',
-          roundId: r.roundRef.id,
-          status: r.roundRef.status,
-          revision: r.roundVersion,
-          createdByActorId: r.roundCreator,
-          visibility: r.roundVisibility,
-          participants:
-            r.roundSeatKind && typeof r.roundSlot === 'number'
-              ? [
-                  {
-                    actorId: caller.actorId,
-                    seat: seatOfColumns({
-                      seatKind: r.roundSeatKind,
-                      side: r.roundSide,
-                      slot: r.roundSlot,
-                    }),
-                  },
-                ]
-              : [],
-        }
-      : null,
+    round:
+      r.roundRef && r.roundVersion !== null && r.roundVisibility !== null
+        ? {
+            kind: 'round',
+            roundId: r.roundRef.id,
+            status: r.roundRef.status,
+            revision: r.roundVersion,
+            createdByActorId: r.roundCreator,
+            visibility: r.roundVisibility,
+            participants:
+              r.roundSeatKind && typeof r.roundSlot === 'number'
+                ? [
+                    {
+                      actorId: caller.actorId,
+                      seat: seatOfColumns({
+                        seatKind: r.roundSeatKind,
+                        side: r.roundSide,
+                        slot: r.roundSlot,
+                      }),
+                    },
+                  ]
+                : [],
+          }
+        : null,
   });
   const entries = rows
     .filter((r) => authorize(fact(r), account))

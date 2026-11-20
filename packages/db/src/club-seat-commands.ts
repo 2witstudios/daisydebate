@@ -114,7 +114,7 @@ async function readInvitations(
     id: String(row.id),
     email: String(row.email),
     createdAt: new Date(row.created_at as string | Date).toISOString(),
-    expiresAt: new Date(row.expires_at as string | Date).toISOString(),
+    expiresAt: row.expires_at.toISOString(),
   }));
 }
 
@@ -535,7 +535,8 @@ export function createClubSeats(input: {
             });
             if (limit) return refused(limit);
           }
-          const seatingCommand = toSeatingCommand(command, facts)!;
+          const seatingCommand = toSeatingCommand(command, facts);
+          if (!seatingCommand) throw createAppError('INVARIANT');
           const decision = decideClubSeating(
             before,
             seatingCommand,

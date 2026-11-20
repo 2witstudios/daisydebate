@@ -43,23 +43,14 @@ async function load(tx: Tx, input: Input) {
           : eq(sanctions.id, input.command.sanctionId),
       ),
     );
-  if (
-    input.command.type !== 'request-sanction' &&
-    (!sanction || sanction.lobbyId !== input.lobbyId)
-  )
-    return null;
-  const eventId =
+  const target =
     input.command.type === 'request-sanction'
-      ? input.command.eventId
-      : sanction!.eventId;
-  const templateId =
-    input.command.type === 'request-sanction'
-      ? input.command.templateId
-      : sanction!.templateId;
-  const seasonId =
-    input.command.type === 'request-sanction'
-      ? input.command.seasonId
-      : sanction!.seasonId;
+      ? input.command
+      : sanction?.lobbyId === input.lobbyId
+        ? sanction
+        : null;
+  if (!target) return null;
+  const { eventId, templateId, seasonId } = target;
   const configuration = await lockEventSettingContext(tx, {
     lobbyId: input.lobbyId,
     eventId,

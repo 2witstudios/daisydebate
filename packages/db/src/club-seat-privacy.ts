@@ -28,7 +28,7 @@ async function eachClub(
         await work(club.id);
       }
       if (clubs.length < page) return;
-      after = clubs.at(-1)!.id;
+      after = clubs[clubs.length - 1]!.id;
     }
   } finally {
     await scopeTransaction(tx, {});

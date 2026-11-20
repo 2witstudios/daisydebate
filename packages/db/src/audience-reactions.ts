@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { inLiveRoomSql, liveRoomOfR } from './live-room-sql';
 import type { RoundAudienceAdmission } from './messaging/spectator-chat';
-import { run, query } from './raw-rows';
+import { postgresInt8, run, query } from './raw-rows';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import type { PrivacyAdopter } from './privacy/contracts';
 import { exportRows } from './privacy/export-rows';
@@ -20,7 +20,7 @@ export const readReactionTotals = async (
   (
     await query(
       tx,
-      z.object({ kind: z.string(), count: z.union([z.string(), z.number()]) }),
+      z.object({ kind: z.string(), count: postgresInt8 }),
       sql`select ar.kind,count(*) as count
         from audience_reactions ar
         where ar.round_id=${input.roundId}

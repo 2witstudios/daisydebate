@@ -1,3 +1,4 @@
+import { createAppError } from '@daisy/errors';
 import {
   runningRoundStatuses,
   type BroadcastFeedEndReason,
@@ -55,7 +56,8 @@ export const openBroadcast = async (
     .select()
     .from(broadcasts)
     .where(eq(broadcasts.roundId, input.roundId));
-  return row!;
+  if (!row) throw createAppError('INVARIANT');
+  return row;
 };
 
 /**
@@ -108,7 +110,8 @@ const claimOldestFree = async (tx: Tx, work: SQL, input: ClaimLease) => {
     })
     .where(eq(broadcasts.id, free.id))
     .returning(workerRow);
-  return claimed!;
+  if (!claimed) throw createAppError('INVARIANT');
+  return claimed;
 };
 
 /** Takes the oldest Broadcast still releasing whose lease is free. */
@@ -122,7 +125,7 @@ export const claimBroadcast = (tx: Tx, input: ClaimLease) =>
         isNull(broadcasts.releaseNotBefore),
         lte(broadcasts.releaseNotBefore, input.now),
       ),
-    )!,
+    ) ?? sql`false`,
     input,
   );
 
@@ -155,7 +158,7 @@ export const claimFeedWithdrawal = (
         isNull(broadcasts.completedAt),
         isNotNull(broadcasts.finalMediaEndAt),
       ),
-    )!,
+    ) ?? sql`false`,
     input,
   );
 
@@ -656,13 +659,13 @@ export const readBroadcastStageHistory = async (
     at === null ? null : new Date(at).getTime();
   return {
     segments: segments.map((row) => ({
-      startedAtMs: ms(row.started_at)!,
+      startedAtMs: new Date(row.started_at).getTime(),
       endedAtMs: ms(row.ended_at),
       durationMs: row.duration_ms,
     })),
     privateSpans: spans.map((row) => ({
       kind: row.kind,
-      startedAtMs: ms(row.started_at)!,
+      startedAtMs: new Date(row.started_at).getTime(),
       endedAtMs: ms(row.ended_at),
     })),
   };

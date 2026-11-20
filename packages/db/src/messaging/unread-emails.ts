@@ -9,7 +9,7 @@ import {
   type MailJobOutcome,
 } from '../mail-queue';
 import { emailsMember } from '../notifications/presentation';
-import { run, query } from '../raw-rows';
+import { postgresInt8, run, query } from '../raw-rows';
 import { retriedOnceIfQueuedMeanwhile } from '../mail-queue';
 import { deleteExpiredBatch, type RetentionBatch } from '../retention';
 import {
@@ -165,7 +165,7 @@ export function messagingUnreadEmailOperations({
         const actor = sql`${member.actor_id}`;
         const [count] = await query(
           database,
-          z.object({ n: z.union([z.string(), z.number()]) }),
+          z.object({ n: postgresInt8 }),
           sql`select count(*) as n from (
               select channel_id from public.messaging_dm_pairs where ${actor} in (low_actor_id,high_actor_id)
               union select channel_id from public.messaging_group_grants

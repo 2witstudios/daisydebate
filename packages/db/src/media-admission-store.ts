@@ -72,7 +72,10 @@ export const createMediaAdmissionStore = (run: BoundedTransaction) => ({
         });
         await verifyBotMediaPrincipal(tx, input.principal);
         participantId = input.principal.scope.roundParticipantId;
-      } else participantId = snapshot.caller!.id;
+      } else {
+        if (!snapshot.caller) throw createAppError('AUTHORIZATION');
+        participantId = snapshot.caller.id;
+      }
       const binding = snapshot.bindings.find(
         (binding) => binding.roundParticipantId === participantId,
       );

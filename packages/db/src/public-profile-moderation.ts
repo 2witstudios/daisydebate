@@ -23,13 +23,6 @@ export type ProfileReportFacts =
   | { readonly kind: 'missing' }
   | { readonly kind: 'profile'; readonly ownedByReporter: boolean };
 
-type PhotoRow = {
-  status: ProfilePhotoStatus;
-  version: number;
-  actor_id: string;
-  username: string;
-};
-
 const photoRow = async (tx: Tx, photoId: string) => {
   const [row] = await query(
     tx,

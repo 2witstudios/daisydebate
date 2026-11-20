@@ -148,18 +148,25 @@ const apply = async (tx: Tx, write: SetupWrite): Promise<void> => {
     case 'resolution_pools':
       await tx.insert(resolutionPools).values(write.row);
       return;
-    case 'pool_resolutions':
+    case 'pool_resolutions': {
       if (write.op === 'insert') {
         await tx.insert(poolResolutions).values(write.row);
         return;
       }
+      const { retiredAt } = write.set;
+      if (!retiredAt)
+        throw createAppError(
+          'INVARIANT',
+          'Resolution retirement needs an instant',
+        );
       return one(
         await tx
           .update(poolResolutions)
-          .set({ retiredAt: new Date(write.set.retiredAt!) })
+          .set({ retiredAt: new Date(retiredAt) })
           .where(eq(poolResolutions.id, write.id))
           .returning({ id: poolResolutions.id }),
       );
+    }
   }
 };
 export const applySetupWrites = async (

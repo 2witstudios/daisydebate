@@ -175,7 +175,7 @@ export const revealEvidence = (
       at,
     })),
     survivorPosition: survivor.position,
-    revealedAt: draw.strikes.at(-1)!.at,
+    revealedAt: draw.strikes[draw.strikes.length - 1]!.at,
     survivorText: survivor.text,
   };
 };

@@ -149,12 +149,12 @@ test('a settled run accepts only the identical settlement again', async () => {
 test('speech needs an explicit model and stays within the seat budget', async () => {
   assert({
     given: 'an explicit model and budget, and speech that exactly fills it',
-    should: 'return the model and admit the speech',
+    should: 'return the explicit model and budget and admit the speech',
     actual: [
       requireSpeechPolicy({ ttsModel: 'voice-1', speechBudget: 1000 }),
       requireSpeechBudget(880, 120, 1000),
     ],
-    expected: ['voice-1', undefined],
+    expected: [{ model: 'voice-1', budget: 1000 }, undefined],
   });
   for (const policy of [
     {},

@@ -1,3 +1,4 @@
+import { createAppError } from '@daisy/errors';
 import { and, asc, desc, eq, isNotNull, isNull, or, sql } from 'drizzle-orm';
 import { actors } from '../schema/actors';
 import { users } from '../schema/users';
@@ -109,13 +110,16 @@ async function readRows(
     )
     .orderBy(asc(friendships.state), desc(friendships.requestedAt))
     .limit(FRIENDSHIP_LIST_MAX);
-  return rows.map((row) => ({
-    otherActorId: row.otherActorId,
-    username: row.username!,
-    state: row.state as 'pending' | 'accepted',
-    requesterActorId: row.requesterActorId,
-    requestedAt: row.requestedAt.toISOString(),
-    otherChosen: row.otherChosen,
-    otherPlacement: row.otherPlacement,
-  }));
+  return rows.map((row) => {
+    if (row.username === null) throw createAppError('INVARIANT');
+    return {
+      otherActorId: row.otherActorId,
+      username: row.username,
+      state: row.state as 'pending' | 'accepted',
+      requesterActorId: row.requesterActorId,
+      requestedAt: row.requestedAt.toISOString(),
+      otherChosen: row.otherChosen,
+      otherPlacement: row.otherPlacement,
+    };
+  });
 }

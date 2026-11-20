@@ -31,11 +31,8 @@ type OwnedTable =
 /** The one owner a billing row belongs to, as a WHERE condition. */
 export function ownedBy(table: OwnedTable, owner: BillingOwner): SQL {
   return owner.kind === 'account'
-    ? and(eq(table.userId, owner.userId), isNull(table.organizationId))!
-    : and(
-        eq(table.organizationId, owner.organizationId),
-        isNull(table.userId),
-      )!;
+    ? sql`(${eq(table.userId, owner.userId)} and ${isNull(table.organizationId)})`
+    : sql`(${eq(table.organizationId, owner.organizationId)} and ${isNull(table.userId)})`;
 }
 
 /**

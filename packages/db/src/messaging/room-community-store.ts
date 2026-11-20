@@ -1,3 +1,4 @@
+import { createAppError } from '@daisy/errors';
 import { isOpenRoomStatus } from '@daisy/protocol';
 import {
   roomCommunityReadsOnly,
@@ -27,16 +28,20 @@ type DiscoveryScope = Omit<RoomCommunityScope, 'channelId'>;
  * of a Youth Room (decision 84), and for everyone once the Room has ended,
  * when own removal is all that is left and the rows expire.
  */
-export const roomCommunityMetadataOf = (fact: RoomCommunityFact) => ({
-  channelId: fact.channelId!,
-  readOnly: !isOpenRoomStatus(fact.status) || roomCommunityReadsOnly(fact),
-  expiresAt:
-    fact.endedAt === null
-      ? null
-      : new Date(
-          Date.parse(fact.endedAt) + roomCommunityRetentionMs,
-        ).toISOString(),
-});
+export const roomCommunityMetadataOf = (fact: RoomCommunityFact) => {
+  if (!fact.channelId)
+    throw createAppError('INVARIANT', 'Messaging channel is missing');
+  return {
+    channelId: fact.channelId,
+    readOnly: !isOpenRoomStatus(fact.status) || roomCommunityReadsOnly(fact),
+    expiresAt:
+      fact.endedAt === null
+        ? null
+        : new Date(
+            Date.parse(fact.endedAt) + roomCommunityRetentionMs,
+          ).toISOString(),
+  };
+};
 /** The most authors one page may label: the page's own and the newest messages'. */
 const AUTHOR_LABELS = 100;
 

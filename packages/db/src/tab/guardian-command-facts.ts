@@ -44,19 +44,20 @@ export const loadGuardianCommandFacts = async (
   const subjectUserId =
     command.type === 'create-guardian-link'
       ? command.wardUserId
-      : initial!.minorUserId;
+      : initial?.minorUserId;
   if (subjectUserId !== input.subjectUserId) return null;
   const guardianUserId =
     command.type === 'create-guardian-link' || command.type === 'add-guardian'
       ? command.guardianUserId
-      : initial!.guardianUserId;
+      : initial?.guardianUserId;
+  if (guardianUserId === undefined) return null;
   const authorityGuardianUserId = initial?.guardianUserId ?? guardianUserId;
   const schoolId =
     command.type === 'create-guardian-link'
       ? command.through.kind === 'school'
         ? command.through.organizationId
         : null
-      : initial!.viaOrganizationId;
+      : (initial?.viaOrganizationId ?? null);
   await lockTabCommandAccounts(tx, [
     input.senderUserId,
     subjectUserId,

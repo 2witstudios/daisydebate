@@ -48,24 +48,24 @@ function readPage(tx: Tx, end: string, afterId?: string) {
     .orderBy(asc(billingCustomers.id))
     .limit(pageSize + 1);
 }
-function provenObservation(
+function provenObservationAt(
   row: Awaited<ReturnType<typeof readPage>>[number],
   state: ReturnType<typeof billingSyncStateSchema.parse>,
   now: Date,
 ) {
-  const created = row.subscriptionCreatedAt?.getTime(),
-    at = row.subscriptionObservedAt?.getTime();
+  const { subscriptionCreatedAt, subscriptionObservedAt } = row;
+  if (!subscriptionCreatedAt || !subscriptionObservedAt) return null;
+  const created = subscriptionCreatedAt.getTime();
+  const at = subscriptionObservedAt.getTime();
   // Mapping seeds observed_at. Only settled apply or a strictly later current-subscription
   // observation proves a vendor read; equality/missing/future/inconsistent facts stay unknown.
-  return (
-    created !== undefined &&
-    at !== undefined &&
-    created <= at &&
+  return created <= at &&
     at <= now.getTime() &&
     (state.kind === 'settled'
-      ? state.observedAt === row.subscriptionObservedAt!.toISOString()
+      ? state.observedAt === subscriptionObservedAt.toISOString()
       : at > created)
-  );
+    ? subscriptionObservedAt.toISOString()
+    : null;
 }
 function pageFacts(
   rows: Awaited<ReturnType<typeof readPage>>,
@@ -87,8 +87,8 @@ function pageFacts(
       else claimed++;
       requested.push(state.requestedAt);
     }
-    if (provenObservation(row, state, now))
-      observed.push(row.subscriptionObservedAt!.toISOString());
+    const observation = provenObservationAt(row, state, now);
+    if (observation) observed.push(observation);
     else unconfirmed++;
   }
   return {

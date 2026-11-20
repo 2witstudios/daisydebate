@@ -1,3 +1,4 @@
+import { createAppError } from '@daisy/errors';
 import type {
   LaunchedRound,
   RoundWaitingFacts,
@@ -28,10 +29,12 @@ async function readWaitingFacts(
     r.final_segment_ended_at is not null as ended
     from rounds r where r.id=${round.id}`,
   );
-  if (!facts!.ended) return { speeches: 'running' };
+  if (!facts)
+    throw createAppError('INVARIANT', 'Round waiting facts are missing');
+  if (!facts.ended) return { speeches: 'running' };
   return {
     speeches: 'ended',
-    nowMs: Date.parse(facts!.now),
+    nowMs: Date.parse(facts.now),
     attendance: await readAttendanceLedger(tx, round.id),
     frozen: round.transcriptCompleteness
       ? await readJudgingPanelFacts(tx, {

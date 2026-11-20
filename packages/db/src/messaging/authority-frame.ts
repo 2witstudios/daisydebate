@@ -75,9 +75,13 @@ async function lockChannel(
   mode: FenceMode,
 ) {
   const pair = authority.kind === 'dm' ? authority : null;
-  const rows = await tx.execute(sql`select ${fences[mode].channel}(
+  const rows = await query(
+    tx,
+    z.object({ locked: z.boolean() }),
+    sql`select ${fences[mode].channel}(
     ${channelId}::text, ${pair?.lowActorId ?? null}::text, ${pair?.highActorId ?? null}::text
-  ) as locked`);
+  ) as locked`,
+  );
   return rows[0]?.locked === true;
 }
 

@@ -91,7 +91,7 @@ export function historyPage(
     changeVersion: rows[0]!.changeVersion,
     nextBefore:
       found.length > limit
-        ? { channelId, sequence: page.at(-1)!.sequence }
+        ? { channelId, sequence: page[page.length - 1]!.sequence }
         : null,
   };
 }
@@ -112,7 +112,9 @@ export function changesPage(
     nextAfter: {
       channelId,
       changeVersion:
-        found.length > limit ? page.at(-1)!.changeVersion : changeVersion,
+        found.length > limit
+          ? page[page.length - 1]!.changeVersion
+          : changeVersion,
     },
   };
 }

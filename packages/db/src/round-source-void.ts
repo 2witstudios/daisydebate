@@ -94,10 +94,7 @@ export async function voidLockedRoundSource(
   let receipt: RoundCommandReceipt;
   if (isRoundRunning(current.status)) {
     const projection = input.stopProjection({ round, now });
-    if (
-      projection.round?.status !== 'abandoned' ||
-      projection.round.outcome !== null
-    )
+    if (projection.round?.status !== 'abandoned')
       throw createAppError(
         'INVARIANT',
         'A source stop must abandon its live ordinary Round',

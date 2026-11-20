@@ -115,7 +115,10 @@ async function storedResult(tx: Tx, input: BetaAccessCommandInput) {
   return betaAccessCommandResultSchema.parse(receipt.result);
 }
 
-const liveTarget = (fact: AccountFact | null, userId: string) =>
+const liveTarget = (
+  fact: AccountFact | null,
+  userId: string,
+): fact is AccountFact =>
   fact !== null && !fact.erased && fact.userId === userId;
 
 /** The transition the fresh fact allows; a refusal throws and writes nothing. */
@@ -125,7 +128,7 @@ function decided(
 ): Applied {
   if (!liveTarget(fact, input.targetUserId)) throw createAppError('NOT_FOUND');
   if (!input.authorize(fact)) throw createAppError('AUTHORIZATION');
-  const decision = input.decide(fact!.beta, fact!.ageBand);
+  const decision = input.decide(fact.beta, fact.ageBand);
   if (decision.kind === 'refused')
     throw createAppError(refusalCode[decision.reason]);
   return decision;

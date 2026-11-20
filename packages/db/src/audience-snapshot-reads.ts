@@ -1,7 +1,5 @@
 import {
   isRoundOver,
-  type RoundStatus,
-  type SeatKind,
   SPECTATOR_CHAT_WINDOW,
   seatKindSchema,
   roundStatusSchema,

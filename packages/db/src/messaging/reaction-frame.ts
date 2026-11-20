@@ -42,11 +42,19 @@ export function channelReactionFrame(
   ) => {
     const rows =
       available && !withdrawal
-        ? await tx.execute(sql`
+        ? await query(
+            tx,
+            z.object({
+              reaction: z.string(),
+              count: z.string(),
+              own: z.boolean(),
+            }),
+            sql`
       select reaction, count(*)::text as count, bool_or(actor_id=${scope.actorId}) as own
       from messaging_reactions where channel_id=${scope.channelId} and message_id=${command.messageId}
       group by reaction order by reaction
-    `)
+    `,
+          )
         : [];
     if (!withdrawal) await authorize('read');
     const parsed = schemas.result.safeParse({
@@ -126,12 +134,21 @@ async function readOwnReaction(
   scope: Scope,
   command: MessagingReactionCommand,
 ) {
-  const [row] = await tx.execute(sql`
+  const [row] = await query(
+    tx,
+    z.object({
+      actorId: z.string(),
+      channelId: z.string(),
+      messageId: z.string(),
+      reaction: z.string(),
+    }),
+    sql`
     select r.actor_id as "actorId", r.channel_id as "channelId", r.message_id as "messageId", r.reaction
     from messaging_reactions r join messaging_messages m on m.id=r.message_id and m.channel_id=r.channel_id
     where r.actor_id=${scope.actorId} and r.channel_id=${scope.channelId}
       and r.message_id=${command.messageId} and r.reaction=${command.reaction} for update of r
-  `);
+  `,
+  );
   if (!row) return null;
   if (
     row.actorId !== scope.actorId ||
@@ -155,23 +172,35 @@ async function changeAssociation(
 ) {
   // DEC-251: the message row is locked, so the member's count is current.
   if (command.active) {
-    const [held] = await tx.execute(sql`
+    const [held] = await query(
+      tx,
+      z.object({ count: z.int() }),
+      sql`
     select count(*)::int as "count" from messaging_reactions
     where actor_id=${scope.actorId} and message_id=${command.messageId}
-  `);
+  `,
+    );
     if (Number(held?.count ?? Infinity) >= distinctPerMessage)
       throw createAppError('VALIDATION');
   }
   const rows = command.active
-    ? await tx.execute(sql`
+    ? await query(
+        tx,
+        z.object({ actorId: z.string() }),
+        sql`
     insert into messaging_reactions(actor_id,channel_id,message_id,reaction)
     values(${scope.actorId},${scope.channelId},${command.messageId},${command.reaction})
     returning actor_id as "actorId"
-  `)
-    : await tx.execute(sql`
+  `,
+      )
+    : await query(
+        tx,
+        z.object({ actorId: z.string() }),
+        sql`
     delete from messaging_reactions where actor_id=${scope.actorId} and channel_id=${scope.channelId}
       and message_id=${command.messageId} and reaction=${command.reaction} returning actor_id as "actorId"
-  `);
+  `,
+      );
   if (rows.length !== 1 || rows[0]?.actorId !== scope.actorId)
     throw createAppError('CONFLICT');
 }
@@ -218,10 +247,14 @@ async function readReactionState(
   // A removal discovers nothing before its own association: the removal
   // check itself needs that association, and a non-member never has one.
   if (command.active) await authorize('add');
-  const [message] = await tx.execute(sql`
+  const [message] = await query(
+    tx,
+    z.object({ id: z.string(), channelId: z.string(), available: z.boolean() }),
+    sql`
     select id, channel_id as "channelId", text is not null and removed_at is null as available
     from messaging_messages where id=${command.messageId} and channel_id=${scope.channelId} for update
-  `);
+  `,
+  );
   if (
     !message ||
     message.id !== command.messageId ||

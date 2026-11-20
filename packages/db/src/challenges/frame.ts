@@ -153,7 +153,7 @@ export function challengeFrame(
 ): ChallengeFrame {
   const other = input.memberActorIds.find((id) => id !== input.actorId);
   if (!other) throw createAppError('VALIDATION');
-  const owner = tx as unknown as Tx;
+  const owner = tx;
   const requireId = (id: string) => {
     if (!idSchema.safeParse(id).success) throw createAppError('VALIDATION');
   };

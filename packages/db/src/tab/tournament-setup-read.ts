@@ -95,13 +95,13 @@ export const loadTournamentSetupFacts = async (tx: Tx, input: Input) => {
     currentEvents.some(
       (row, index) =>
         row.id !== initialEvents[index]?.id ||
-        row.templateId !== initialEvents[index]?.templateId,
+        row.templateId !== initialEvents[index].templateId,
     ) ||
     currentSanctions.length !== initialSanctions.length ||
     currentSanctions.some(
       (row, index) =>
         row.id !== initialSanctions[index]?.id ||
-        row.organizationId !== initialSanctions[index]?.organizationId,
+        row.organizationId !== initialSanctions[index].organizationId,
     )
   )
     return null;

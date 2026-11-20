@@ -72,7 +72,8 @@ export const recordingOperations = ({
         .select()
         .from(recordings)
         .where(eq(recordings.roundId, input.roundId));
-      return stored(row!);
+      if (!row) throw createAppError('INVARIANT');
+      return stored(row);
     });
   },
 
@@ -163,7 +164,8 @@ export const recordingOperations = ({
           })
           .where(eq(recordings.id, id))
           .returning();
-        claims.push({ record: stored(row!), attempts: row!.deletionAttempts });
+        if (!row) throw createAppError('INVARIANT');
+        claims.push({ record: stored(row), attempts: row.deletionAttempts });
       }
       return claims;
     });

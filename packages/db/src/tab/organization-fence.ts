@@ -79,17 +79,19 @@ export const fenceOrganizationCommand = async (
   await scopeTransaction(tx, { subjectUserId: input.senderUserId });
   const scope = await organizationScope(tx, input);
   await scopeTransaction(tx, scope);
+  const grantScope = scope.organizationId
+    ? {
+        organizationId: scope.organizationId,
+        ...(scope.lobbyId ? { lobbyId: scope.lobbyId } : {}),
+      }
+    : scope.lobbyId
+      ? { lobbyId: scope.lobbyId }
+      : null;
   const grant =
-    input.command.type === 'remove-grant' &&
-    (scope.organizationId || scope.lobbyId)
+    input.command.type === 'remove-grant' && grantScope
       ? (
           await loadGrantRows(tx, {
-            ...(scope.organizationId
-              ? {
-                  organizationId: scope.organizationId,
-                  ...(scope.lobbyId ? { lobbyId: scope.lobbyId } : {}),
-                }
-              : { lobbyId: scope.lobbyId! }),
+            ...grantScope,
             userIds: [],
             grantIds: [input.command.grantId],
           })

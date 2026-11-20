@@ -231,13 +231,13 @@ const keyProblems = (
     ],
     person: [],
     history: [
-      ...historyColumns.map((name) =>
-        column(name) === undefined
-          ? `${entry.table} has no ${name} column`
-          : column(name)!.notNull
-            ? `${entry.table}.${name} must permit the other history scopes`
-            : null,
-      ),
+      ...historyColumns.map((name) => {
+        const value = column(name);
+        if (!value) return `${entry.table} has no ${name} column`;
+        return value.notNull
+          ? `${entry.table}.${name} must permit the other history scopes`
+          : null;
+      }),
       facts.checks.includes(
         'CHECK ((num_nonnulls(organization_id, lobby_id, subject_person_user_id) = 1))',
       )

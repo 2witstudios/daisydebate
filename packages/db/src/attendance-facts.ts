@@ -94,9 +94,7 @@ export async function finalizedAttendanceSegments(
     z.object({ segment_id: z.string() }),
     sql`select segment_id from round_attendance_adjudications where round_id=${roundId}`,
   );
-  return (resolved as unknown as { segment_id: string }[]).map(
-    (row) => row.segment_id,
-  );
+  return resolved.map((row) => row.segment_id);
 }
 
 /**
@@ -113,9 +111,7 @@ export async function closedAttendanceSegments(
     z.object({ segment_id: z.string() }),
     sql`select segment_id from round_attendance_adjudications where round_id=${roundId} and evidence<>'on_time_receipt'`,
   );
-  return (closed as unknown as { segment_id: string }[]).map(
-    (row) => row.segment_id,
-  );
+  return closed.map((row) => row.segment_id);
 }
 
 /**
