@@ -118,7 +118,7 @@ const sourceCandidates = (base: string) => [
 const isFile = (path: string) => existsSync(path) && statSync(path).isFile();
 
 /** The repository path a specifier names from `importer`, or null if outside. */
-export function resolveSpecifier(
+function resolveSpecifier(
   specifier: string,
   importer: string,
   workspaces: ReturnType<typeof workspaceExports>,

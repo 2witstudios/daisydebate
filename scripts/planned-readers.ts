@@ -8,7 +8,8 @@
 // syntactic consumer -- usually a test, an integration suite or a harness -- so
 // the dead-code gate already passes it, but whose intended runtime reader is a
 // committed leaf away. It is not a permission to ship an export nothing at all
-// reads; that still fails Knip, and this registry does not touch Knip.
+// reads. The ordinary Knip pass still verifies those exports. The production
+// pass uses the registry to recognise foundations awaiting their reader.
 //
 // It is a declaration, not a suppression: a declared reader fails the gate on its
 // review date, so a foundation nobody adopts goes red again instead of sitting in
