@@ -163,10 +163,9 @@ export function createAgeStepHandler(dependencies: AgeStepDependencies) {
           ? dependencies.parentalControls
           : undefined;
         const binding = await parentalControls?.binding(userId, now);
-        if (
-          'invitationId' in answer &&
-          binding?.requestId !== answer.invitationId
-        )
+        const submittedRequest =
+          'invitationId' in answer ? answer.invitationId : null;
+        if ((binding?.requestId ?? null) !== submittedRequest)
           throw createAppError('VALIDATION');
         const birthMonth =
           binding?.birthMonth ??

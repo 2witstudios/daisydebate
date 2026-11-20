@@ -392,6 +392,9 @@ async function actOnRequest(
       child,
     );
   }
+  // Expiry locks the invitation before touching its link.
+  if (!(await session.cancelRequest(id, new Date(at))))
+    throw createAppError('CONFLICT');
   if (requestedLinkId) {
     const row = await session.link(requestedLinkId);
     if (row?.status === 'requested') {
@@ -410,8 +413,6 @@ async function actOnRequest(
         throw createAppError('CONFLICT');
     }
   }
-  if (!(await session.cancelRequest(id, new Date(at))))
-    throw createAppError('CONFLICT');
   return accepted;
 }
 

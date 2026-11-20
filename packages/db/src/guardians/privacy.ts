@@ -10,17 +10,17 @@ export const guardianLinksPrivacyAdopter: PrivacyAdopter = {
   phase: 'after-close',
   erase: async (tx, subject, { now }) => {
     await scopeTransaction(tx, { subjectUserId: subject.userId });
-    await tx.execute(sql`update guardian_links
-      set status = case when status = 'active' then 'ended' else 'cancelled' end,
-        version = version + 1, closed_at = ${now}, updated_at = ${now}
-      where (guardian_user_id = ${subject.userId} or minor_user_id = ${subject.userId})
-        and status in ('active', 'requested')`);
     await tx.execute(sql`update child_account_requests
       set status = 'cancelled', closed_at = ${now}, email = null, first_name = null, birth_month = null
       where guardian_user_id = ${subject.userId} and status in ('open', 'linked')`);
     while ((await expireGuardianRequests(tx, 200, true)) === 200) {
       // Erasure scrubs every request connected to a link naming this child.
     }
+    await tx.execute(sql`update guardian_links
+      set status = case when status = 'active' then 'ended' else 'cancelled' end,
+        version = version + 1, closed_at = ${now}, updated_at = ${now}
+      where (guardian_user_id = ${subject.userId} or minor_user_id = ${subject.userId})
+        and status in ('active', 'requested')`);
     await scopeTransaction(tx, {});
   },
   export: async (tx, subject) => {
