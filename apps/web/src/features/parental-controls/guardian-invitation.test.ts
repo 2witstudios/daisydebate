@@ -12,7 +12,9 @@ setupRitewayBun();
 
 const now = '2026-11-19T12:00:00.000Z';
 const parent = 'p'.repeat(24);
-const facts = (overrides: Partial<ChildAccountFacts> = {}): ChildAccountFacts => ({
+const facts = (
+  overrides: Partial<ChildAccountFacts> = {},
+): ChildAccountFacts => ({
   now,
   parent: { userId: parent, email: 'sam@example.test', ageBand: 'adult' },
   parentInvitedAddress: false,
@@ -24,7 +26,8 @@ const command = { birthMonth: '2012-03', email: 'ada@example.test' };
 test('a birth month a parent gives', () => {
   assert({
     given: 'months either side of 13 and 18 in November 2026',
-    should: 'admit only 13 to 17, counting a person that age for the month they turn it',
+    should:
+      'admit only 13 to 17, counting a person that age for the month they turn it',
     actual: ['2013-12', '2013-11', '2009-01', '2008-12', '2008-11'].map(
       (month) => childBand(month, now),
     ),
@@ -56,7 +59,9 @@ test('creating a child’s account', () => {
     should: 'refuse: only an adult is a guardian',
     actual: [
       decideChildAccount(
-        facts({ parent: { userId: parent, email: 'x@y.test', ageBand: '16-17' } }),
+        facts({
+          parent: { userId: parent, email: 'x@y.test', ageBand: '16-17' },
+        }),
         command,
       ),
       decideChildAccount(
@@ -120,7 +125,8 @@ test('an address someone already holds', () => {
   });
   assert({
     given: 'an adult’s account, or one with no age yet',
-    should: 'tell the holder nothing changed, and the parent the same as always',
+    should:
+      'tell the holder nothing changed, and the parent the same as always',
     actual: [
       decideChildAccount(holder('adult'), command),
       decideChildAccount(holder(null), command),
@@ -168,7 +174,8 @@ test('the child’s first sign-in claims the invitation', () => {
   });
   assert({
     given: 'two parents’ live invitations to the same address',
-    should: 'let the earliest make the account, with its birth month, and ask the other',
+    should:
+      'let the earliest make the account, with its birth month, and ask the other',
     actual: claimInvitations([second, first], now),
     expected: {
       created: first,
@@ -187,7 +194,11 @@ test('the child’s first sign-in claims the invitation', () => {
         now,
       ),
       claimInvitations(
-        [invitation('e', '2026-11-18T00:00:00.000Z', { birthMonth: '2008-11' })],
+        [
+          invitation('e', '2026-11-18T00:00:00.000Z', {
+            birthMonth: '2008-11',
+          }),
+        ],
         now,
       ),
     ],

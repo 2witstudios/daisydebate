@@ -23,7 +23,8 @@ export const invitationLive = (
   invitation: { readonly status: string; readonly expiresAt: string },
   now: string,
 ): boolean =>
-  invitation.status === 'open' && Date.parse(invitation.expiresAt) > Date.parse(now);
+  invitation.status === 'open' &&
+  Date.parse(invitation.expiresAt) > Date.parse(now);
 
 /** Who already holds the address the parent typed, as the server alone knows it. */
 export type AddressHolder =
