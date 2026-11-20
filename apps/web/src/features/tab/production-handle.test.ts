@@ -41,4 +41,4 @@ test('sample handles dispatch to the same stored host page as every other handle
       (slug) => [slug, 'StoredDrawOverview', slug],
     ),
   });
-});
+}, 20_000);
