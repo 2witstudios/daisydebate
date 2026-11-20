@@ -56,6 +56,15 @@
       "reviewBy": "2027-01-31"
     },
     {
+      "path": "packages/tab-engine/src/checker/index.ts",
+      "export": "check",
+      "task": "TAB-8.15",
+      "owner": "tab",
+      "adr": "docs/decisions/0057-planned-readers.md",
+      "reason": "TAB-7 slice G: the tab engine is a pure package built before its reader; slice H wiring calls it from the commands and reads that the merged screens need (12-execution-plan §4).",
+      "reviewBy": "2026-12-15"
+    },
+    {
       "path": "apps/web/src/features/tab/commands/confirmation.ts",
       "export": "ConfirmFacts",
       "task": "TAB-8.7",

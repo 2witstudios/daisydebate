@@ -23,13 +23,21 @@ type ModuleLinks = {
 
 const importedNames = (clause: ts.ImportClause | undefined) => {
   const bindings = clause?.namedBindings;
-  if (bindings === undefined) return clause?.name ? ['default'] : [];
+  const names = clause?.name ? ['default'] : [];
+  if (bindings === undefined) return names;
   return ts.isNamespaceImport(bindings)
-    ? ['*']
-    : bindings.elements.map(
-        (element) => (element.propertyName ?? element.name).text,
-      );
+    ? [...names, '*']
+    : [
+        ...names,
+        ...bindings.elements.map(
+          (element) => (element.propertyName ?? element.name).text,
+        ),
+      ];
 };
+
+/** The exported name at the beginning of a qualified import type. */
+const firstName = (name: ts.EntityName): string =>
+  ts.isQualifiedName(name) ? firstName(name.left) : name.text;
 
 /** The imports and re-exports of one source file, read from its AST. */
 export function moduleLinks(path: string, source: string): ModuleLinks {
@@ -66,7 +74,16 @@ export function moduleLinks(path: string, source: string): ModuleLinks {
             specifier,
             (element.propertyName ?? element.name).text,
           ]);
-      else imports.push([specifier, ['*']]);
+      else reexports.set(clause.name.text, [specifier, '*']);
+    } else if (
+      ts.isImportTypeNode(node) &&
+      ts.isLiteralTypeNode(node.argument) &&
+      ts.isStringLiteralLike(node.argument.literal)
+    ) {
+      imports.push([
+        node.argument.literal.text,
+        [node.qualifier === undefined ? '*' : firstName(node.qualifier)],
+      ]);
     } else if (
       ts.isCallExpression(node) &&
       node.expression.kind === ts.SyntaxKind.ImportKeyword &&
@@ -171,17 +188,18 @@ export function collectImporters(
     const module = links.get(path);
     if (module === undefined) return [key];
     const named = module.reexports.get(name);
-    if (named !== undefined) {
-      const target = resolveSpecifier(named[0], path, workspaces);
-      return target === null
-        ? [key]
-        : [key, ...origins(target, named[1], seen)];
-    }
+    const reexports =
+      named === undefined
+        ? [
+            ...(name === '*' ? module.reexports.values() : []),
+            ...module.stars.map((specifier) => [specifier, name] as const),
+          ]
+        : [named];
     return [
       key,
-      ...module.stars.flatMap((star) => {
-        const target = resolveSpecifier(star, path, workspaces);
-        return target === null ? [] : origins(target, name, seen);
+      ...reexports.flatMap(([specifier, exported]) => {
+        const target = resolveSpecifier(specifier, path, workspaces);
+        return target === null ? [] : origins(target, exported, seen);
       }),
     ];
   };

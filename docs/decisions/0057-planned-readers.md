@@ -77,8 +77,9 @@ read it, and here is the date it is judged by".
    export, following barrels and workspace export maps, and
    `validatePlannedReaders` fails a declaration that shipping source imports
    ("its reader has appeared, so remove the declaration") and one nothing
-   imports at all. A declaration lives only while tests are its sole
-   importers, which is decision 4's case and no other.
+   imports at all. Tests and offline qualification tooling, including the Tab
+   simulator, are consumers for decision 4. Shipping source that imports an
+   export still retires its declaration.
 8. **The production dead-code pass reads this registry** (amended 2026-11-19,
    RECON-2.3). `bun run knip:production` reports every `apps/web` module no
    deployed code reaches, and it is a required check. A module one of whose

@@ -388,10 +388,10 @@ describe('validatePlannedReaders: has the reader appeared?', () => {
       { knownPaths, today: '2026-10-06', importers },
     );
 
-  test('keeps a declaration only tests import', () => {
+  test('keeps a declaration only qualification tools import', () => {
     assert({
       given:
-        'an export imported by a suite, an integration suite and test support',
+        'an export imported by tests, test support and offline qualification tools',
       should: 'accept it: its runtime reader is still to come',
       actual: judged(
         new Map([
@@ -401,6 +401,8 @@ describe('validatePlannedReaders: has the reader appeared?', () => {
               'packages/db/src/schema/standin-grants.test.ts',
               'packages/db/integration/grants.ts',
               'apps/web/src/features/grants/grants.test-support.ts',
+              'scripts/performance-cases.ts',
+              'packages/tab-engine/src/simulate/run.ts',
             ],
           ],
         ]),

@@ -86,10 +86,12 @@ function referenceProblems(
 }
 
 /**
- * A declaration lives only while tests are its sole importers: shipping
- * source importing it is the reader it waited for, and no importer at all
- * means nothing will ever read it.
+ * Tooling and the offline Tab simulator qualify foundations without adopting
+ * them in the deployed application.
  */
+const TOOLING =
+  /^(?:scripts\/|(?:apps|packages)\/[^/]+\/scripts\/|packages\/tab-engine\/src\/simulate\/)/;
+
 function readerProblems(
   entry: ReaderEntry,
   prefix: string,
@@ -104,7 +106,9 @@ function readerProblems(
   ]
     .filter((file) => file !== entry.path)
     .sort();
-  const shipping = files.filter((file) => !TEST_CODE.test(file));
+  const shipping = files.filter(
+    (file) => !TEST_CODE.test(file) && !TOOLING.test(file),
+  );
   if (shipping.length > 0)
     return [
       `${prefix}: ${entry.path} ${entry.export} is read by ${shipping.join(', ')}; its reader has appeared, so remove the declaration`,

@@ -12,12 +12,14 @@ describe('moduleLinks', () => {
     const links = moduleLinks(
       'apps/web/src/a.ts',
       [
-        "import { a, b as c } from './one';",
+        "import one, { a, b as c } from './one';",
         "import type { T } from './two';",
         "import * as all from './three';",
         "export { d as e } from './four';",
         "export * from './five';",
         "const lazy = () => import('./six');",
+        "type R = import('./seven').Outer.Inner;",
+        "export * as contents from './eight';",
       ].join('\n'),
     );
     assert({
@@ -30,12 +32,16 @@ describe('moduleLinks', () => {
       },
       expected: {
         imports: [
-          ['./one', ['a', 'b']],
+          ['./one', ['default', 'a', 'b']],
           ['./two', ['T']],
           ['./three', ['*']],
           ['./six', ['*']],
+          ['./seven', ['Outer']],
         ],
-        reexports: [['e', ['./four', 'd']]],
+        reexports: [
+          ['e', ['./four', 'd']],
+          ['contents', ['./eight', '*']],
+        ],
         stars: ['./five'],
       },
     });
@@ -56,6 +62,9 @@ describe('collectImporters', () => {
       file('lib/leaf.ts', 'export const leaf = 1;'),
       file('lib/index.ts', "export * from './leaf';"),
       file('reader.ts', "import { leaf } from './lib';"),
+      file('lib/named.ts', "export { leaf as renamed } from './leaf';"),
+      file('namespace.ts', "import * as all from './lib/named';"),
+      file('dynamic.ts', "const lazy = () => import('./lib/named');"),
       file(
         'protocol-reader.ts',
         "import { lobbyLadderSchema } from '@daisy/protocol/lobby/lobby-read';",
@@ -64,10 +73,15 @@ describe('collectImporters', () => {
     const importers = collectImporters(files);
     rmSync(scratch, { recursive: true });
     assert({
-      given: 'an import through an index that re-exports everything',
-      should: 'count the importer against the file that declares the name',
+      given:
+        'named, namespace and dynamic imports through re-exporting modules',
+      should: 'count each importer against the file that declares the name',
       actual: importers.get(`${base}/lib/leaf.ts|leaf`),
-      expected: [`${base}/reader.ts`],
+      expected: [
+        `${base}/reader.ts`,
+        `${base}/namespace.ts`,
+        `${base}/dynamic.ts`,
+      ],
     });
     assert({
       given: 'an import of a workspace export-map subpath',
