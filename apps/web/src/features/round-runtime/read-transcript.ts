@@ -3,7 +3,7 @@ import {
   liveTranscriptReadSchema,
   type LiveTranscriptRead,
 } from '@daisy/protocol';
-import { unavailableRead } from '../../server/temporary-read';
+import { unavailableRead } from '../resource-sync/temporary-read';
 import type { ResourceRead } from '../resource-sync/driver';
 
 type FetchLike = (url: string, init: RequestInit) => Promise<Response>;

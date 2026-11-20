@@ -2,7 +2,7 @@ import { idSchema, roundViewSchema, type RoundView } from '@daisy/protocol';
 import {
   unavailableRead,
   type UnavailableRead,
-} from '../../server/temporary-read';
+} from '../resource-sync/temporary-read';
 import { realtimeEndpointOf } from '../realtime/endpoint-header';
 
 type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
