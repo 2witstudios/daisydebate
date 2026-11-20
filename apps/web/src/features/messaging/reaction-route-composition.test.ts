@@ -23,14 +23,12 @@ test('actual app reaction route binds signed identity and canonical operation fe
         }
       : row,
   );
-  const { tx, queries } = createScriptedAuthorizationTransaction(
-    // Each fence: both ages, then the contact facts.
-    Array.from({ length: 2 }, () => [
-      [accountRows[0]!.age],
-      [accountRows[1]!.age],
-      contactRowsOf(accountRows),
-    ]).flat(),
-  );
+  const ages = accountRows.map((row) => [row.age]);
+  const { tx, queries } = createScriptedAuthorizationTransaction([
+    ...ages,
+    ...ages,
+    contactRowsOf(accountRows),
+  ]);
   const events: unknown[] = [];
   const messageId = 'm'.repeat(24);
   const response = {
@@ -133,7 +131,9 @@ test('actual app reaction route binds signed identity and canonical operation fe
         (await read.json()).policy,
         change.status,
         events,
-        queries.length,
+        queries.map((query) =>
+          query.query.includes('messaging_request_settings'),
+        ),
       ],
       expected: [
         200,
@@ -145,7 +145,7 @@ test('actual app reaction route binds signed identity and canonical operation fe
           { reactionUnits: 8, choices: ['👍'], distinctPerMessage: 1 },
           ['change', scope],
         ],
-        6,
+        [false, false, false, false, true],
       ],
     });
   } finally {
