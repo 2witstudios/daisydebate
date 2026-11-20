@@ -237,9 +237,7 @@ test('every state against every event', () => {
       (['confirm', 'refuse', 'cancel', 'end'] as const).map((kind) =>
         outcome(
           link,
-          kind === 'confirm'
-            ? confirm(stranger)
-            : event(kind, stranger),
+          kind === 'confirm' ? confirm(stranger) : event(kind, stranger),
         ),
       ),
     ),

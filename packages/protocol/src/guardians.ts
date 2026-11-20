@@ -195,6 +195,4 @@ export const guardianCommandAnswerSchema = z.discriminatedUnion('kind', [
     refusal: z.enum(guardianRefusals),
   }),
 ]);
-export type GuardianCommandAnswer = z.infer<
-  typeof guardianCommandAnswerSchema
->;
+export type GuardianCommandAnswer = z.infer<typeof guardianCommandAnswerSchema>;
