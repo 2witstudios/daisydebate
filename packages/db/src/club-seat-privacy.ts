@@ -73,16 +73,30 @@ export const clubSeatPrivacyAdopter: PrivacyAdopter = {
     const invitations: Record<string, unknown>[] = [];
     await eachClub(tx, async (organizationId) => {
       seats.push(
-        ...(await tx.execute(sql`select organization_id,
+        ...(await query(
+          tx,
+          z.object({ organization_id: z.string(), assigned_at: z.string() }),
+          sql`select organization_id,
             to_char(assigned_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as assigned_at
-          from club_seats where organization_id=${organizationId} and user_id=${subject.userId}`)),
+          from club_seats where organization_id=${organizationId} and user_id=${subject.userId}`,
+        )),
       );
       invitations.push(
-        ...(await tx.execute(sql`select id, organization_id, email,
+        ...(await query(
+          tx,
+          z.object({
+            id: z.string(),
+            organization_id: z.string(),
+            email: z.string(),
+            created_at: z.string(),
+            expires_at: z.string(),
+          }),
+          sql`select id, organization_id, email,
             to_char(created_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as created_at,
             to_char(expires_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as expires_at
           from club_seat_invitations where organization_id=${organizationId}
-            and email = ${subjectEmail(subject.userId)}`)),
+            and email = ${subjectEmail(subject.userId)}`,
+        )),
       );
     });
     return {

@@ -1,8 +1,9 @@
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
-import type {
-  PhotoCheckVerdict,
-  ProfilePhotoStatus,
+import {
+  type PhotoCheckVerdict,
+  type ProfilePhotoStatus,
+  profilePhotoStatuses,
 } from '@daisy/protocol/public-profile';
 import { sql, type SQL } from 'drizzle-orm';
 import {
@@ -11,7 +12,7 @@ import {
   type OwnCollectionFence,
 } from './authorization';
 import { instrumented, type DatabaseEventSink } from './instrumented';
-import { rowsOf, run, query as queryRows } from './raw-rows';
+import { run, query as queryRows } from './raw-rows';
 import type { Tx, TxSource } from './tx';
 import { takeLock, transactionLocks } from './locks';
 import { z } from 'zod';
@@ -69,8 +70,9 @@ const ownProfile = async (
     }),
     sql`select id, display_name, bio from member_profiles where actor_id = ${actorId}`,
   );
-  const photos = await rowsOf<{ id: string; status: ProfilePhotoStatus }>(
+  const photos = await queryRows(
     tx,
+    z.object({ id: z.string(), status: z.enum(profilePhotoStatuses) }),
     sql`select id, status from profile_photos
       where actor_id = ${actorId} and status in ('published', 'in_review')`,
   );
@@ -336,14 +338,15 @@ export const publicProfileOperations = ({
   readProfilePhoto: (photoId: string) =>
     instrumented(eventSink, 'readProfilePhoto', async () => {
       if (!idSchema.safeParse(photoId).success) return null;
-      const [row] = await rowsOf<{
-        id: string;
-        actor_id: string;
-        status: ProfilePhotoStatus;
-        object_prefix: string;
-        version: number;
-      }>(
+      const [row] = await queryRows(
         database,
+        z.object({
+          id: z.string(),
+          actor_id: z.string(),
+          status: z.enum(profilePhotoStatuses),
+          object_prefix: z.string(),
+          version: z.number(),
+        }),
         sql`select p.id, p.actor_id, p.status, p.object_prefix, p.version
           from profile_photos p
           join actors a on a.id = p.actor_id

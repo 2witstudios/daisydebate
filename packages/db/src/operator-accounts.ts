@@ -28,6 +28,7 @@ import {
 } from './beta-access-command';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { inTransaction, type Tx, type TxSource } from './tx';
+import { query } from './raw-rows';
 
 /** A command that owes nothing further reads back its stored result alone. */
 const storedOnly = async (_database: Tx, _commandId: string, result: unknown) =>
@@ -155,12 +156,13 @@ export function operatorAccountOperations({
       readonly serviceId: string;
     }) =>
       instrumented(eventSink, 'readOperatorCommand', async () => {
-        const [row] = (await database.execute(sql`select action, result
+        const [row] = await query(
+          database,
+          z.object({ action: z.string(), result: z.json() }),
+          sql`select action, result
           from operator_command_receipts
-          where command_id = ${input.commandId} and service_id = ${input.serviceId}`)) as unknown as {
-          action: string;
-          result: unknown;
-        }[];
+          where command_id = ${input.commandId} and service_id = ${input.serviceId}`,
+        );
         if (!row) return null;
         const read = commandStateReaders.get(row.action);
         if (!read)

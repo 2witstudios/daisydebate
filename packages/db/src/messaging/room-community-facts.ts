@@ -1,7 +1,9 @@
 import { sql } from 'drizzle-orm';
 import type { RoomCommunityFact } from '@daisy/protocol/room-community';
-import { rowsOf } from '../raw-rows';
+import { query } from '../raw-rows';
 import type { Tx } from '../tx';
+import { seatKindSchema, roomStatuses } from '@daisy/protocol';
+import { z } from 'zod';
 
 type RoomCommunityRow = {
   readonly actor_id: string;
@@ -40,8 +42,21 @@ export async function readRoomCommunityFacts(
   actorIds: readonly string[],
 ): Promise<ReadonlyMap<string, RoomCommunityFact>> {
   if (actorIds.length === 0) return new Map();
-  const rows = await rowsOf<RoomCommunityRow>(
+  const rows = await query(
     tx,
+    z.object({
+      actor_id: z.string(),
+      version: z.number(),
+      status: z.enum(roomStatuses),
+      visibility: z.enum(['public', 'unlisted', 'private']),
+      ended_at: z.date().nullable(),
+      host: z.boolean(),
+      seat_kind: seatKindSchema.nullable(),
+      channel_id: z.string().nullable(),
+      authority_revision: z.number().nullable(),
+      youth_room: z.boolean(),
+      youth_staff: z.boolean(),
+    }),
     sql`select wanted.actor_id,f.* from unnest(array[${sql.join(
       actorIds.map((id) => sql`${id}`),
       sql`, `,
@@ -65,7 +80,9 @@ export async function readRoomCommunityFact(
  * write in flight and every later one sees the Room they left.
  */
 export async function fenceRoomCommunity(tx: Tx, roomId: string) {
-  const [row] = await tx.execute(
+  const [row] = await query(
+    tx,
+    z.object({ locked: z.boolean() }),
     sql`select public.daisy_room_community_read_fence(${roomId}::text) as locked`,
   );
   return row?.locked === true;

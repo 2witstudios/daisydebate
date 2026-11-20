@@ -8,6 +8,8 @@ import {
   type SpectatorClock,
 } from './spectator-release-sql';
 import type { Tx } from './tx';
+import { query } from './raw-rows';
+import { z } from 'zod';
 
 const heardAt = captionHeardAtSql({
   createdAt: sql`u.created_at`,
@@ -83,7 +85,10 @@ export async function readRoundsAwaitingFactLog(
   tx: Tx,
   input: { readonly clock: SpectatorClock; readonly limit: number },
 ): Promise<readonly string[]> {
-  const rows = await tx.execute(sql`select r.id
+  const rows = await query(
+    tx,
+    z.object({ id: z.string() }),
+    sql`select r.id
     from spectator_fact_log_open_rounds o
     join rounds r on r.id=o.round_id
     where ${hasAudience}
@@ -92,7 +97,8 @@ export async function readRoundsAwaitingFactLog(
         where ${unlogged}
           and ${factReleasedSql(sql`f.captured_at`, round, input.clock)}
       )
-    order by r.id limit ${input.limit}`);
+    order by r.id limit ${input.limit}`,
+  );
   return (rows as unknown as { id: string }[]).map((row) => row.id);
 }
 
@@ -103,7 +109,10 @@ export async function readRoundsAwaitingFactLog(
  * and then leaves the row, however the two interleave.
  */
 export async function closeSettledFactLogRounds(tx: Tx): Promise<number> {
-  const rows = await tx.execute(sql`with settled as (
+  const rows = await query(
+    tx,
+    z.object({ round_id: z.string() }),
+    sql`with settled as (
       select o.round_id, o.touched_at
       from spectator_fact_log_open_rounds o
       join rounds r on r.id=o.round_id
@@ -113,7 +122,8 @@ export async function closeSettledFactLogRounds(tx: Tx): Promise<number> {
     )
     delete from spectator_fact_log_open_rounds o using settled s
     where o.round_id=s.round_id and o.touched_at=s.touched_at
-    returning o.round_id`);
+    returning o.round_id`,
+  );
   return (rows as unknown as unknown[]).length;
 }
 

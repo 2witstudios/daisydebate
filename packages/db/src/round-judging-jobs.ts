@@ -46,6 +46,8 @@ import {
 import { requireRoundBallot } from './round-ballot-decisions';
 import type { Tx } from './tx';
 import { takeLock, transactionLocks } from './locks';
+import { query } from './raw-rows';
+import { z } from 'zod';
 export type { JudgingScope } from './round-judging-context';
 /** Whether a dispatch may go ahead, or why the job ended instead. */
 export type ModelCallBegun =
@@ -114,12 +116,16 @@ export type JudgingJobRules = {
 };
 /** Calls that may have been served count; a call the vendor certainly refused does not. */
 async function paidCalls(tx: Tx, scope: JudgingScope, firstEpoch?: number) {
-  const [row] = await tx.execute(sql`select (
+  const [row] = await query(
+    tx,
+    z.object({ paid: z.int() }),
+    sql`select (
     coalesce(sum(a.requests),0) - count(*) filter(where t.answered_at is null and t.category='provider_refused')
     )::int as paid
     from agent_runs a left join round_judging_attempts t on t.agent_run_id=a.id
     where a.round_participant_id=${scope.judgeParticipantId} and a.kind='judging' and a.requests>0
-      and (${firstEpoch ?? null}::integer is null or t.job_epoch is null or t.job_epoch>=${firstEpoch ?? null}::integer)`);
+      and (${firstEpoch ?? null}::integer is null or t.job_epoch is null or t.job_epoch>=${firstEpoch ?? null}::integer)`,
+  );
   return Number(row!.paid);
 }
 

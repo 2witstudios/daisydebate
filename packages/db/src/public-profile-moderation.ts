@@ -7,9 +7,10 @@ import {
   profilePhotoTransition,
   type ProfilePhotoEvent,
   type ProfilePhotoStatus,
+  profilePhotoStatuses,
 } from '@daisy/protocol/public-profile';
 import { sql } from 'drizzle-orm';
-import { rowsOf, run, query } from './raw-rows';
+import { run, query } from './raw-rows';
 import { changedNow, lockLivePhotos } from './public-profile-operations';
 import type { Tx } from './tx';
 import { z } from 'zod';
@@ -30,8 +31,14 @@ type PhotoRow = {
 };
 
 const photoRow = async (tx: Tx, photoId: string) => {
-  const [row] = await rowsOf<PhotoRow>(
+  const [row] = await query(
     tx,
+    z.object({
+      status: z.enum(profilePhotoStatuses),
+      version: z.number(),
+      actor_id: z.string(),
+      username: z.string(),
+    }),
     sql`select p.status, p.version, p.actor_id, u.username
       from profile_photos p
       join actors a on a.id = p.actor_id
@@ -177,14 +184,15 @@ export const publicProfileModeration = {
     tx: Tx,
     limit: number,
   ): Promise<ProfilePhotoReviews['items']> => {
-    const found = await rowsOf<{
-      id: string;
-      username: string;
-      check_verdict: 'review' | null;
-      created_at: string;
-      version: number;
-    }>(
+    const found = await query(
       tx,
+      z.object({
+        id: z.string(),
+        username: z.string(),
+        check_verdict: z.literal('review').nullable(),
+        created_at: z.string(),
+        version: z.number(),
+      }),
       sql`select p.id, u.username, p.check_verdict, p.version,
           to_char(p.created_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as created_at
         from profile_photos p
@@ -204,12 +212,13 @@ export const publicProfileModeration = {
 
   /** Where an operator reads a live photo's image from; null once it ended. */
   readOperatorPhoto: async (tx: Tx, photoId: string) => {
-    const [row] = await rowsOf<{
-      status: ProfilePhotoStatus;
-      version: number;
-      object_prefix: string;
-    }>(
+    const [row] = await query(
       tx,
+      z.object({
+        status: z.enum(profilePhotoStatuses),
+        version: z.number(),
+        object_prefix: z.string(),
+      }),
       sql`select status, version, object_prefix from profile_photos
         where id = ${photoId} and ended_at is null`,
     );

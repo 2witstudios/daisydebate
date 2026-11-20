@@ -143,9 +143,11 @@ const countOf = async (
   tx: Tx,
   query: ReturnType<typeof sql>,
 ): Promise<number> => {
-  const [row] = (await tx.execute(query)) as unknown as {
-    readonly count: number | string;
-  }[];
+  const [row] = await queryRows(
+    tx,
+    z.object({ count: z.union([z.string(), z.number()]) }),
+    query,
+  );
   return Number(row?.count ?? 0);
 };
 
@@ -221,7 +223,15 @@ export const documentOperations = ({
       const resume = after
         ? sql`where (rank, label, id) > (${rank}, ${after.label}, ${after.id})`
         : sql``;
-      const rows = (await database.execute(sql`
+      const rows = await queryRows(
+        database,
+        z.object({
+          kind: z.enum(['folder', 'document']),
+          id: z.string(),
+          label: z.string(),
+          updated_at: z.union([z.string(), z.date()]),
+        }),
+        sql`
         select * from (
           select 0 as rank, 'folder' as kind, id, name as label, updated_at
           from document_folders
@@ -234,12 +244,8 @@ export const documentOperations = ({
             and folder_id is not distinct from ${folderId}
         ) entries ${resume}
         order by rank, label, id
-        limit ${limit}`)) as unknown as {
-        readonly kind: 'folder' | 'document';
-        readonly id: string;
-        readonly label: string;
-        readonly updated_at: Date | string;
-      }[];
+        limit ${limit}`,
+      );
       return rows.map((row) =>
         row.kind === 'folder'
           ? {

@@ -1,3 +1,5 @@
+import { query } from './raw-rows';
+import { z } from 'zod';
 export { loanRoundAssignmentInterface } from './testing-round-assignment-interface';
 import { SQL } from 'bun';
 import { sql } from 'drizzle-orm';
@@ -151,7 +153,9 @@ export async function readSpectatorHorizon(
 ): Promise<number | null> {
   const client = new SQL(url, { max: 1 });
   try {
-    const rows = (await drizzle({ client }).execute(
+    const rows = await query(
+      drizzle({ client }),
+      z.object({ horizon: z.union([z.date(), z.string()]).nullable() }),
       sql`select ${spectatorHorizonSql(
         {
           id: sql`r.id`,
@@ -161,7 +165,7 @@ export async function readSpectatorHorizon(
         },
         clock,
       )} as horizon from rounds r where r.id=${roundId}`,
-    )) as unknown as { horizon: Date | string | null }[];
+    );
     const horizon = rows[0]?.horizon ?? null;
     return horizon === null ? null : new Date(horizon).getTime();
   } finally {

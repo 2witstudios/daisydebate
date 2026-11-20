@@ -164,7 +164,8 @@ export function createMediaReleases(input: {
   }
 
   const consume = (tx: Tx, linkId: string) =>
-    tx.execute(
+    runStatement(
+      tx,
       sql`update media_release_links set consumed_at = clock_timestamp() where id = ${linkId}`,
     );
 
@@ -173,7 +174,8 @@ export function createMediaReleases(input: {
     requestId: string,
     outcome: NonNullable<ReleaseRequest['outcome']>,
   ) =>
-    tx.execute(
+    runStatement(
+      tx,
       sql`update media_release_requests set outcome = ${outcome},
           resolved_at = clock_timestamp()
         where id = ${requestId} and outcome is null`,

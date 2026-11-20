@@ -63,14 +63,18 @@ export function preapprovalOperations({
         input.limit > 101
       )
         throw createAppError('VALIDATION');
-      const rows = await database.execute(sql`select p.id, p.email, p.revision,
+      const rows = await query(
+        database,
+        preapprovalEntrySchema,
+        sql`select p.id, p.email, p.revision,
         to_char(p.created_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as "createdAt",
         case when p.claimed_user_id is null then 'unused' else 'claimed' end as status,
         case when m.state is null and p.last_invited_at is not null then 'unknown' else ${invitationStatusSql} end as invitation
         from beta_preapprovals p left join lateral (select state, attempts, last_error_code from mail_intents where preapproval_id = p.id order by created_at desc, id desc limit 1) m on true
         where ${input.cursor ? sql`p.id < ${input.cursor}` : sql`true`}
-        order by p.id desc limit ${input.limit}`);
-      return [...rows].map((row) => preapprovalEntrySchema.parse(row));
+        order by p.id desc limit ${input.limit}`,
+      );
+      return rows;
     },
     runPreapprovalCommand: async (input: {
       readonly command: PreapprovalCommand;
@@ -94,9 +98,11 @@ export function preapprovalOperations({
             tx,
             transactionLocks.operatorCommand(command.commandId),
           );
-          const [receipt] = (await tx.execute(
+          const [receipt] = await query(
+            tx,
+            z.object({ request_digest: z.string(), result: z.json() }),
             sql`select request_digest, result from operator_command_receipts where command_id = ${command.commandId}`,
-          )) as unknown as { request_digest: string; result: unknown }[];
+          );
           if (receipt) {
             if (receipt.request_digest !== input.requestDigest)
               throw createAppError('CONFLICT');

@@ -6,6 +6,7 @@ import { readAuthorizationActors } from '../authorization';
 import { actorIdsOf } from './authority-frame';
 import { readMessagingChannelFacts, type MessagingChannelFact } from './social';
 import type { Tx } from '../tx';
+import { postgresInt8, query } from '../raw-rows';
 
 const invitationRow = z.object({
   channelId: idSchema,
@@ -24,13 +25,23 @@ export async function discoverInboxFacts(
 ) {
   const invitations = channelIds.length
     ? (
-        await tx.execute(sql`
+        await query(
+          tx,
+          z.object({
+            channelId: z.string(),
+            invitedByActorId: z.string(),
+            inviteeActorId: z.string(),
+            generation: postgresInt8,
+            state: z.string(),
+          }),
+          sql`
           select channel_id as "channelId", invited_by_actor_id as "invitedByActorId",
             invitee_actor_id as "inviteeActorId", generation, state
           from public.messaging_group_invitations
           where invitee_actor_id = ${actorId}
             and channel_id in (select jsonb_array_elements_text(${JSON.stringify(channelIds)}::text::jsonb))
-          order by channel_id`)
+          order by channel_id`,
+        )
       ).map((row) => {
         const parsed = invitationRow.safeParse(row);
         if (!parsed.success) throw createAppError('INFRASTRUCTURE');

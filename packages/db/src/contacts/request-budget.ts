@@ -5,7 +5,8 @@ import { instrumented, type DatabaseEventSink } from '../instrumented';
 import { deleteExpiredBatch, type RetentionBatch } from '../retention';
 import { socialRequestDeclines, socialRequests } from '../schema/contacts';
 import type { Tx } from '../tx';
-import { run } from '../raw-rows';
+import { query, run } from '../raw-rows';
+import { z } from 'zod';
 
 /** DEC-251 social request budgets, shared by DM and friend requests. */
 export type SocialRequestLimits = {
@@ -21,11 +22,6 @@ export type SocialRequestLimits = {
 
 const HOUR_MS = 3_600_000;
 const DAY_MS = 24 * HOUR_MS;
-
-const rowsOf = <Row>(result: unknown) =>
-  (Array.isArray(result)
-    ? result
-    : ((result as { rows?: unknown[] }).rows ?? [])) as Row[];
 
 const at = (now: number) => new Date(now).toISOString();
 
@@ -45,7 +41,8 @@ function requireLimits(limits: SocialRequestLimits, now: string) {
   return instant;
 }
 
-const ordered = (a: string, b: string) => (a < b ? [a, b] : [b, a]);
+const ordered = (a: string, b: string): readonly [string, string] =>
+  a < b ? [a, b] : [b, a];
 
 /** Whether `counterpartActorId`'s declines block `actorId`'s requests at `now`. */
 const declineBlocks = (
@@ -66,10 +63,10 @@ export async function refuseDeclineBlock(
 ) {
   const instant = Date.parse(now);
   if (!Number.isFinite(instant)) throw createAppError('VALIDATION');
-  const [row] = rowsOf<{ blocked: boolean }>(
-    await tx.execute(
-      sql`select ${declineBlocks(actorId, counterpartActorId, at(instant))} as "blocked"`,
-    ),
+  const [row] = await query(
+    tx,
+    z.object({ blocked: z.boolean() }),
+    sql`select ${declineBlocks(actorId, counterpartActorId, at(instant))} as "blocked"`,
   );
   if (!row) throw createAppError('INFRASTRUCTURE');
   if (row.blocked) throw createAppError('AUTHORIZATION');
@@ -115,21 +112,23 @@ export async function spendSocialRequest(
   const now = requireLimits(command.limits, command.now);
   const { actorId, counterpartActorId, limits } = command;
   const [low, high] = ordered(actorId, counterpartActorId);
-  const [facts] = rowsOf<{
-    declined: boolean;
-    unrelated: boolean;
-    daily: number;
-    hourly: number;
-  }>(
-    await tx.execute(sql`select
+  const [facts] = await query(
+    tx,
+    z.object({
+      declined: z.boolean(),
+      unrelated: z.boolean(),
+      daily: z.int(),
+      hourly: z.int(),
+    }),
+    sql`select
       ${declineBlocks(actorId, counterpartActorId, at(now))} as "declined",
-      ${unrelated(relations, { lowActorId: low!, highActorId: high! })} as "unrelated",
+      ${unrelated(relations, { lowActorId: low, highActorId: high })} as "unrelated",
       (select count(*)::int from social_requests
         where actor_id=${actorId}
           and created_at > ${at(now - DAY_MS)}::timestamptz) as "daily",
       (select count(*)::int from social_requests
         where actor_id=${actorId} and unrelated
-          and created_at > ${at(now - HOUR_MS)}::timestamptz) as "hourly"`),
+          and created_at > ${at(now - HOUR_MS)}::timestamptz) as "hourly"`,
   );
   if (!facts) throw createAppError('INFRASTRUCTURE');
   if (facts.declined) throw createAppError('AUTHORIZATION');

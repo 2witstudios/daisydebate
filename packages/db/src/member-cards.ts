@@ -6,6 +6,7 @@ import {
   type RatingStyle,
   type RoundOutcome,
   type SeatRef,
+  ratingDivisions,
 } from '@daisy/protocol';
 import { roundOutcomeSql } from './round-outcome-sql';
 import { seatOfColumns, type SeatColumns } from './seat-columns';
@@ -19,6 +20,8 @@ import {
 } from './spectator-release-sql';
 import { youthRoundSql } from './youth-round-sql';
 import type { TxSource } from './tx';
+import { query } from './raw-rows';
+import { z } from 'zod';
 
 type CardRatingRow = {
   readonly actorId: string;
@@ -92,7 +95,21 @@ const readCardRatings = async (
   );
   const postings = sql`rating_changes c join rounds held_r on held_r.id = c.round_id
     where c.actor_id = r.actor_id and c.ladder = r.ladder and c.division = r.division and c.season_id = r.season_id`;
-  const ratings = (await database.execute(sql`
+  const ratings = await query(
+    database,
+    z.object({
+      division: z.enum(ratingDivisions),
+      actorId: z.string(),
+      rating: z.number(),
+      ladder: z.literal('freestyle'),
+      deviation: z.number(),
+      volatility: z.number(),
+      lastRatedAt: z.union([z.string(), z.date()]).nullable(),
+      heldRating: z.number().nullable(),
+      heldDeviation: z.number().nullable(),
+      heldVolatility: z.number().nullable(),
+    }),
+    sql`
     select r.actor_id as "actorId", r.ladder, r.division, r.rating, r.deviation, r.volatility,
       (select max(c.occurred_at) from ${postings} and ${postingReleased}) as "lastRatedAt",
       held.rating_before as "heldRating",
@@ -105,7 +122,8 @@ const readCardRatings = async (
       from ${postings} and not ${postingReleased}
       order by c.occurred_at asc limit 1
     ) held on true
-    where r.actor_id = any(${ids})`)) as unknown as CardRatingRead[];
+    where r.actor_id = any(${ids})`,
+  );
   return ratings
     .filter((row) => ratingStyles.includes(row.ladder))
     .flatMap((row) => releasedCardRating(row) ?? []);

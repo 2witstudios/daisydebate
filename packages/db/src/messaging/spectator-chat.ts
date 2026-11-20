@@ -3,7 +3,7 @@ import { and, eq, sql } from 'drizzle-orm';
 import { readAuthorizationActors } from '../authorization';
 import type { SpectatorChatModeration } from '../content-moderation-ports';
 import { inLiveRoomSql, liveRoomOfR } from '../live-room-sql';
-import { rowsOf, run, query } from '../raw-rows';
+import { run, query } from '../raw-rows';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
 import {
   messagingMessages,
@@ -155,11 +155,15 @@ export const spectatorChatOperations = ({
         const [account] = await readAuthorizationActors(tx, [input.actorId], {
           maxActors: 1,
         });
-        const [round] = await rowsOf<{
-          visibility: 'public' | 'unlisted';
-          audience_link_hash: string | null;
-          in_live_room: boolean;
-        }>(tx, audienceRound(input.roundId, input.actorId));
+        const [round] = await query(
+          tx,
+          z.object({
+            visibility: z.enum(['public', 'unlisted']),
+            audience_link_hash: z.string().nullable(),
+            in_live_room: z.boolean(),
+          }),
+          audienceRound(input.roundId, input.actorId),
+        );
         if (
           !round ||
           !input.admit({
@@ -169,12 +173,13 @@ export const spectatorChatOperations = ({
           })
         )
           return null;
-        const [broadcast] = await rowsOf<{
-          completed_at: unknown;
-          stopped_at: unknown;
-          chat_slow_mode_seconds: number;
-        }>(
+        const [broadcast] = await query(
           tx,
+          z.object({
+            completed_at: z.date().nullable(),
+            stopped_at: z.date().nullable(),
+            chat_slow_mode_seconds: z.int(),
+          }),
           sql`select completed_at,stopped_at,chat_slow_mode_seconds from broadcasts where round_id=${input.roundId}`,
         );
         const channelId = await openChannel(
@@ -183,12 +188,14 @@ export const spectatorChatOperations = ({
           input.newChannelId,
         );
         const counters = await lockStream(tx, channelId);
-        const [banned] = await rowsOf(
+        const [banned] = await query(
           tx,
-          sql`select 1 from audience_bans where user_id=${input.userId}`,
+          z.object({ present: z.literal(1) }),
+          sql`select 1 as present from audience_bans where user_id=${input.userId}`,
         );
-        const [last] = await rowsOf<{ at: string | Date | null }>(
+        const [last] = await query(
           tx,
+          z.object({ at: z.union([z.string(), z.date()]).nullable() }),
           sql`select max(created_at) as at from messaging_messages
             where channel_id=${channelId} and author_actor_id=${input.actorId}`,
         );
@@ -266,8 +273,9 @@ export const spectatorChatOperations = ({
     readonly limit: number;
   }) {
     return instrumented(eventSink, 'purgeExpiredSpectatorChat', async () => {
-      const gone = await rowsOf(
+      const gone = await query(
         database,
+        z.object({ id: z.string() }),
         sql`with due as (
             select m.id,m.channel_id from messaging_messages m
             join messaging_channels c on c.id=m.channel_id and c.kind='round_spectator'
@@ -297,14 +305,15 @@ export const readChatPage = async (
     input.beforeSequence === undefined
       ? sql``
       : sql`and m.sequence < ${input.beforeSequence}`;
-  const rows = await rowsOf<{
-    id: string;
-    sequence: number | string;
-    at: string;
-    text: string | null;
-    username: string | null;
-  }>(
+  const rows = await query(
     tx,
+    z.object({
+      id: z.string(),
+      sequence: z.union([z.string(), z.number()]),
+      at: z.string(),
+      text: z.string().nullable(),
+      username: z.string().nullable(),
+    }),
     sql`select m.id,m.sequence,m.text,u.username,
         to_char(m.created_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as at
       from spectator_chat_messages m
@@ -339,13 +348,13 @@ const reportedMessage = (messageId: string, reporterActorId: string) =>
     join rounds r on r.id=c.round_id
     where m.id=${messageId}`;
 
-type SpectatorMessageRow = {
-  readonly text: string | null;
-  readonly channel_id: string;
-  readonly author_actor_id: string;
-  readonly removed_at: unknown;
-  readonly user_id: string | null;
-};
+const spectatorMessageRow = z.object({
+  text: z.string().nullable(),
+  channel_id: z.string(),
+  author_actor_id: z.string(),
+  removed_at: z.date().nullable(),
+  user_id: z.string().nullable(),
+});
 
 /**
  * Moderation's reach into spectator chat (WATCH-7): spectator messages only, so
@@ -354,13 +363,17 @@ type SpectatorMessageRow = {
  */
 export const spectatorChatModeration: SpectatorChatModeration = {
   readReportFacts: async (tx, input) => {
-    const [row] = await rowsOf<{
-      author_actor_id: string;
-      round_id: string;
-      visibility: 'public' | 'unlisted' | 'private';
-      audience_link_hash: string | null;
-      in_live_room: boolean;
-    }>(tx, reportedMessage(input.messageId, input.reporterActorId));
+    const [row] = await query(
+      tx,
+      z.object({
+        author_actor_id: z.string(),
+        round_id: z.string(),
+        visibility: z.enum(['public', 'unlisted', 'private']),
+        audience_link_hash: z.string().nullable(),
+        in_live_room: z.boolean(),
+      }),
+      reportedMessage(input.messageId, input.reporterActorId),
+    );
     return row
       ? {
           ownMessage: row.author_actor_id === input.reporterActorId,
@@ -374,15 +387,17 @@ export const spectatorChatModeration: SpectatorChatModeration = {
       : null;
   },
   readSubject: async (tx, messageId) => {
-    const [row] = await rowsOf<SpectatorMessageRow>(
+    const [row] = await query(
       tx,
+      spectatorMessageRow,
       spectatorMessage(messageId),
     );
     return row ? { text: row.text, authorUserId: row.user_id } : null;
   },
   remove: async (tx, input) => {
-    const [row] = await rowsOf<SpectatorMessageRow>(
+    const [row] = await query(
       tx,
+      spectatorMessageRow,
       spectatorMessage(input.messageId),
     );
     if (!row) return null;

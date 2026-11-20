@@ -45,10 +45,11 @@ import {
   panelDigest,
   panelReceipt,
   validatePanelReceipt,
-  type PanelDurableFacts,
 } from './round-panel-decisions';
 import type { Tx } from './tx';
 import { takeLock, transactionLocks } from './locks';
+import { query } from './raw-rows';
+import { z } from 'zod';
 
 type CompletionFacts = Parameters<
   LockedRoundTickInput['buildProjection']
@@ -116,16 +117,24 @@ async function readCompletionFacts(
   await executeLockedRoundTick(tx, input, roundTime);
   const round = await hydrateRoundRows(tx, input.roundId);
   const freeze = await readTranscriptFreeze(tx, input.roundId);
-  const [durable] =
-    await tx.execute(sql`select final_segment_ended_at,transcript_admission_cutoff,ballot_deadline_at,
+  const [durable] = await query(
+    tx,
+    z.object({
+      final_segment_ended_at: z.date().nullable(),
+      transcript_admission_cutoff: z.date().nullable(),
+      ballot_deadline_at: z.date().nullable(),
+      ratings: z.boolean(),
+    }),
+    sql`select final_segment_ended_at,transcript_admission_cutoff,ballot_deadline_at,
     exists(select 1 from rating_changes where round_id=${input.roundId}) as ratings
-    from rounds where id=${input.roundId}`);
+    from rounds where id=${input.roundId}`,
+  );
   const now = await sampleRoundExecutionTime(tx, roundTime);
   requirePanelRound(round);
   const { freeze: frozen } = requirePanelFacts({
     freezeRevision: input.freezeRevision,
     freeze,
-    durable: durable as PanelDurableFacts | undefined,
+    durable,
   });
   await assertRoundAttendanceSettled(tx, {
     roundId: input.roundId,

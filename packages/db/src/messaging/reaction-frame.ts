@@ -11,7 +11,8 @@ import type {
   MessagingReactionCommand,
 } from './reaction-contracts';
 import type { Tx } from '../tx';
-import { run } from '../raw-rows';
+import { run, query } from '../raw-rows';
+import { z } from 'zod';
 type Scope = { readonly actorId: string; readonly channelId: string };
 type Guard = (
   operation: 'read' | 'add' | 'remove',
@@ -68,10 +69,14 @@ export function channelReactionFrame(
       const parsed = idSchema.safeParse(input);
       if (!parsed.success) throw createAppError('VALIDATION');
       await authorize('read');
-      const [message] = await tx.execute(sql`
+      const [message] = await query(
+        tx,
+        z.object({ id: z.string() }),
+        sql`
         select id from messaging_messages where id=${parsed.data} and channel_id=${scope.channelId}
           and text is not null and removed_at is null
-      `);
+      `,
+      );
       if (message?.id !== parsed.data) throw createAppError('NOT_FOUND');
       return result({ messageId: parsed.data }, false, true);
     },
@@ -179,10 +184,14 @@ async function advanceReactionVersion(
     messages: 0,
     changes: 1,
   });
-  const messages = await tx.execute(sql`
+  const messages = await query(
+    tx,
+    z.object({ id: z.string() }),
+    sql`
     update messaging_messages set change_version=${next} where id=${messageId} and channel_id=${channelId}
       and change_version < ${next} returning id
-  `);
+  `,
+  );
   if (messages.length !== 1 || messages[0]?.id !== messageId)
     throw createAppError('CONFLICT');
   return next;
@@ -222,10 +231,17 @@ async function readReactionState(
   if (command.active && message.available !== true)
     throw createAppError('NOT_FOUND');
   const own = await readOwnReaction(tx, scope, command);
-  const [receipt] = await tx.execute(sql`
+  const [receipt] = await query(
+    tx,
+    z.object({
+      messageId: z.string().nullable(),
+      payloadDigest: z.string().nullable(),
+    }),
+    sql`
     select message_id as "messageId", payload_digest as "payloadDigest" from messaging_receipts
     where actor_id=${scope.actorId} and channel_id=${scope.channelId} and request_id=${command.requestId}
-  `);
+  `,
+  );
   return { available: message.available === true, own, receipt };
 }
 function requireReceipt(

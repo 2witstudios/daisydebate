@@ -3,8 +3,8 @@ import {
   withLinkedAdultAudience,
   type RoundFloorFact,
 } from '@daisy/protocol/round-floor';
-import type { YouthLiveFact } from '@daisy/protocol';
-import { rowsOf, query } from '../raw-rows';
+import { type YouthLiveFact, roundStatusSchema } from '@daisy/protocol';
+import { query } from '../raw-rows';
 import type { Tx } from '../tx';
 import { z } from 'zod';
 
@@ -45,8 +45,17 @@ export async function readRoundFloorFacts(
   youth: FloorYouth = null,
 ): Promise<ReadonlyMap<string, RoundFloorFact>> {
   if (actorIds.length === 0) return new Map();
-  const rows = await rowsOf<FloorRow>(
+  const rows = await query(
     tx,
+    z.object({
+      actor_id: z.string(),
+      version: z.number(),
+      status: roundStatusSchema,
+      completed_at: z.date().nullable(),
+      audience: z.enum(['debater', 'host', 'linked_adult']).nullable(),
+      channel_id: z.string().nullable(),
+      authority_revision: z.number().nullable(),
+    }),
     sql`select wanted.actor_id,f.* from unnest(array[${sql.join(
       actorIds.map((id) => sql`${id}`),
       sql`, `,
@@ -88,7 +97,9 @@ export async function readRoundFloorFact(
 
 /** Account -> Round -> channel -> stream is the floor's global lock order. */
 export async function fenceRoundFloor(tx: Tx, roundId: string) {
-  const [row] = await tx.execute(
+  const [row] = await query(
+    tx,
+    z.object({ locked: z.boolean() }),
     sql`select public.daisy_round_floor_read_fence(${roundId}::text) as locked`,
   );
   return row?.locked === true;

@@ -6,7 +6,8 @@ import {
 } from '@daisy/protocol/operator';
 import type { Tx } from './tx';
 import { takeLock, transactionLocks } from './locks';
-import { run } from './raw-rows';
+import { run, query } from './raw-rows';
+import { z } from 'zod';
 
 /** The bound, then one id at a time, as a beta access command does (ADR 0079). */
 export async function commandGate(tx: Tx, commandId: string) {
@@ -22,11 +23,12 @@ export async function storedResult(
   commandId: string,
   requestDigest: string,
 ) {
-  const [receipt] = (await tx.execute(sql`select request_digest, result
-    from operator_command_receipts where command_id = ${commandId}`)) as unknown as {
-    request_digest: string;
-    result: unknown;
-  }[];
+  const [receipt] = await query(
+    tx,
+    z.object({ request_digest: z.string(), result: z.json() }),
+    sql`select request_digest, result
+    from operator_command_receipts where command_id = ${commandId}`,
+  );
   if (!receipt) return null;
   if (receipt.request_digest !== requestDigest)
     throw createAppError('CONFLICT');

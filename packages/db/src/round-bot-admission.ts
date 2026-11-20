@@ -1,3 +1,5 @@
+import { z } from 'zod';
+import { query } from './raw-rows';
 import { roundHasAiJudge } from './round-ai-judge';
 import { isDebatingSeatSql } from './seat-columns';
 import { and, eq, sql } from 'drizzle-orm';
@@ -93,6 +95,16 @@ const liveBotDebaterRounds = (exceptRoundId?: string) =>
     join actors a on a.id=p.actor_id and a.kind='bot'
     where r.status in ('opening','active') and r.id<>${exceptRoundId ?? ''}`;
 
+async function countLiveBotRounds(tx: Tx, exceptRoundId?: string) {
+  const [row] = await query(
+    tx,
+    z.object({ count: z.int() }),
+    liveBotDebaterRounds(exceptRoundId),
+  );
+  if (!row) throw createAppError('INVARIANT', 'Bot admission count is missing');
+  return row.count;
+}
+
 function admissionRefusal(
   decision: Awaited<ReturnType<typeof readAllowanceLocked>>['decision'],
   busy: number,
@@ -148,8 +160,7 @@ export function createRoundBotAdmission(input: {
       },
     });
     if (!existing) {
-      const [row] = await tx.execute(liveBotDebaterRounds(target.roundId));
-      if (Number((row as { count: number }).count) >= input.busyCap)
+      if ((await countLiveBotRounds(tx, target.roundId)) >= input.busyCap)
         throw createRefusal('CONFLICT', 'bots-busy');
     }
     const bot = rows.find((row) => row.kind === 'ai_round');
@@ -169,9 +180,7 @@ export function createRoundBotAdmission(input: {
         const [account] = await lockAuthorizationActors(tx, [actorId], {
           maxActors: 1,
         });
-        const [{ count: busy }] = (await tx.execute(
-          liveBotDebaterRounds(),
-        )) as unknown as [{ count: number }];
+        const busy = await countLiveBotRounds(tx);
         // Preview never establishes binding or grants dispatch authority.
         const result = await readAllowanceLocked(tx, {
           account: account ?? null,

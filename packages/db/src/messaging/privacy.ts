@@ -16,10 +16,9 @@ import {
 import { exportRows } from '../privacy/export-rows';
 import type { PrivacyAdopter, PrivacyExport } from '../privacy';
 import type { Tx } from '../tx';
-import { run } from '../raw-rows';
+import { postgresInt8, run, query } from '../raw-rows';
 
 type ChangedMessage = { id: string; channelId: string; authorActorId: string };
-const rowsOf = <T>(rows: unknown) => rows as T[];
 
 function omitPrivateColumns(
   row: Record<string, unknown>,
@@ -83,10 +82,14 @@ async function lockSubjectMessaging(tx: Tx, actorId: string) {
 /** Erasure is content: its revision goes through the stream; authority moves separately. */
 async function advanceChannel(tx: Tx, channelId: string, authority: boolean) {
   if (authority) {
-    const rows = await tx.execute(sql`
+    const rows = await query(
+      tx,
+      z.object({ id: z.string() }),
+      sql`
       update messaging_channels set authority_revision=authority_revision+1
       where id=${channelId} and authority_revision < 9007199254740991 returning id
-    `);
+    `,
+    );
     if (!rows[0]) throw createAppError('CONFLICT');
   }
   const { changeVersion } = await appendStream(tx, channelId, {
@@ -102,14 +105,20 @@ async function scrubSubjectMessages(
   now: string,
   versions: Map<string, number>,
 ) {
-  const messages = rowsOf<ChangedMessage>(
-    await tx.execute(sql`
+  const messages = await query(
+    tx,
+    z.object({
+      id: z.string(),
+      channelId: z.string(),
+      authorActorId: z.string(),
+    }),
+    sql`
     select m.id,m.channel_id as "channelId",m.author_actor_id as "authorActorId"
     from messaging_messages m where
       (m.author_actor_id=${actorId} and (m.text is not null or m.removed_at is null))
       or exists (select 1 from messaging_reactions r where r.message_id=m.id and r.channel_id=m.channel_id and r.actor_id=${actorId})
     order by m.channel_id,m.sequence
-  `),
+  `,
   );
   for (const message of messages) {
     const version = await advanceChannel(tx, message.channelId, false);
@@ -132,10 +141,10 @@ async function eraseSubjectTitles(
   actorId: string,
   versions: Map<string, number>,
 ) {
-  const channels = rowsOf<{ channelId: string }>(
-    await tx.execute(
-      sql`select id as "channelId" from messaging_channels where title_author_actor_id=${actorId} order by id`,
-    ),
+  const channels = await query(
+    tx,
+    z.object({ channelId: z.string() }),
+    sql`select id as "channelId" from messaging_channels where title_author_actor_id=${actorId} order by id`,
   );
   for (const { channelId } of channels) {
     const version = await advanceChannel(tx, channelId, false);
@@ -152,12 +161,14 @@ async function eraseAssociations(
   actorId: string,
   versions: Map<string, number>,
 ) {
-  const authorityChannels = rowsOf<{ channelId: string }>(
-    await tx.execute(sql`
+  const authorityChannels = await query(
+    tx,
+    z.object({ channelId: z.string() }),
+    sql`
     select channel_id as "channelId" from messaging_dm_pairs where low_actor_id=${actorId} or high_actor_id=${actorId}
     union select channel_id as "channelId" from messaging_group_grants where actor_id=${actorId}
     order by "channelId"
-  `),
+  `,
   );
   await run(
     tx,
@@ -227,76 +238,161 @@ export function createMessagingPrivacyAdopter(): PrivacyAdopter {
     async export(tx, subject): Promise<PrivacyExport> {
       await lockSubjectMessaging(tx, subject.actorId);
       const actorId = subject.actorId;
-      const messages = rowsOf<Record<string, unknown>>(
-        await tx.execute(
-          sql`select * from messaging_messages where author_actor_id=${actorId} order by channel_id,sequence`,
-        ),
+      const messages = await query(
+        tx,
+        z.object({
+          id: z.string(),
+          channel_id: z.string(),
+          author_actor_id: z.string(),
+          sequence: postgresInt8,
+          change_version: postgresInt8,
+          text: z.string().nullable(),
+          reply_to_message_id: z.string().nullable(),
+          created_at: z.date(),
+          edited_at: z.date().nullable(),
+          removed_at: z.date().nullable(),
+        }),
+        sql`select * from messaging_messages where author_actor_id=${actorId} order by channel_id,sequence`,
       );
-      const preferences = rowsOf<Record<string, unknown>>(
-        await tx.execute(
-          sql`select * from messaging_actor_states where actor_id=${actorId} order by channel_id`,
-        ),
+      const preferences = await query(
+        tx,
+        z.object({
+          channel_id: z.string(),
+          actor_id: z.string(),
+          following: z.boolean(),
+          hidden: z.boolean(),
+          notification_level: z.string(),
+          read_sequence: postgresInt8,
+        }),
+        sql`select * from messaging_actor_states where actor_id=${actorId} order by channel_id`,
       );
-      const grants = rowsOf<Record<string, unknown>>(
-        await tx.execute(
-          sql`select * from messaging_group_grants where actor_id=${actorId} order by channel_id`,
-        ),
+      const grants = await query(
+        tx,
+        z.object({
+          channel_id: z.string(),
+          channel_kind: z.string(),
+          actor_id: z.string(),
+          role: z.string(),
+          generation: postgresInt8,
+          granted_at: z.date(),
+          revoked_at: z.date().nullable(),
+        }),
+        sql`select * from messaging_group_grants where actor_id=${actorId} order by channel_id`,
       );
-      const receipts = rowsOf<Record<string, unknown>>(
-        await tx.execute(
-          sql`select * from messaging_receipts where actor_id=${actorId} order by channel_id,request_id`,
-        ),
+      const receipts = await query(
+        tx,
+        z.object({
+          channel_id: z.string(),
+          actor_id: z.string(),
+          request_id: z.string(),
+          payload_digest: z.string().nullable(),
+          message_id: z.string().nullable(),
+        }),
+        sql`select * from messaging_receipts where actor_id=${actorId} order by channel_id,request_id`,
       );
-      const reactions = rowsOf<Record<string, unknown>>(
-        await tx.execute(
-          sql`select * from messaging_reactions where actor_id=${actorId} order by channel_id,message_id`,
-        ),
+      const reactions = await query(
+        tx,
+        z.object({
+          channel_id: z.string(),
+          message_id: z.string(),
+          actor_id: z.string(),
+          reaction: z.string(),
+        }),
+        sql`select * from messaging_reactions where actor_id=${actorId} order by channel_id,message_id`,
       );
-      const pairs = rowsOf<Record<string, unknown>>(
-        await tx.execute(
-          sql`select * from messaging_dm_pairs where low_actor_id=${actorId} or high_actor_id=${actorId} order by channel_id`,
-        ),
+      const pairs = await query(
+        tx,
+        z.object({
+          low_actor_id: z.string(),
+          high_actor_id: z.string(),
+          channel_id: z.string(),
+          channel_kind: z.string(),
+          request_sender_actor_id: z.string(),
+          request_state: z.string(),
+          requested_at: z.date(),
+          decided_at: z.date().nullable(),
+          introduction: z.string().nullable(),
+        }),
+        sql`select * from messaging_dm_pairs where low_actor_id=${actorId} or high_actor_id=${actorId} order by channel_id`,
       );
       const ownPairs = pairs.map((row) => {
         if (row.request_sender_actor_id === actorId) return row;
         return omitPrivateColumns(row, ['introduction']);
       });
-      const retained = rowsOf<Record<string, unknown>>(
-        await tx.execute(
-          sql`select * from messaging_retained_authors where actor_id=${actorId} order by channel_id`,
-        ),
+      const retained = await query(
+        tx,
+        z.object({
+          channel_id: z.string(),
+          actor_id: z.string(),
+          created_at: z.date(),
+        }),
+        sql`select * from messaging_retained_authors where actor_id=${actorId} order by channel_id`,
       );
-      const commands = rowsOf<Record<string, unknown>>(
-        await tx.execute(
-          sql`select * from messaging_social_commands where actor_id=${actorId} order by created_at,request_id`,
-        ),
+      const commands = await query(
+        tx,
+        z.object({
+          actor_id: z.string(),
+          request_id: z.string(),
+          kind: z.string(),
+          digest: z.string().nullable(),
+          result_channel_id: z.string().nullable(),
+          created_at: z.date(),
+          counterpart_actor_id: z.string().nullable(),
+        }),
+        sql`select * from messaging_social_commands where actor_id=${actorId} order by created_at,request_id`,
       );
-      const commandSubjects = rowsOf<Record<string, unknown>>(
-        await tx.execute(
-          sql`select * from messaging_social_command_subjects where actor_id=${actorId} or subject_actor_id=${actorId} order by actor_id,request_id,subject_actor_id`,
-        ),
+      const commandSubjects = await query(
+        tx,
+        z.object({
+          actor_id: z.string(),
+          request_id: z.string(),
+          subject_actor_id: z.string(),
+        }),
+        sql`select * from messaging_social_command_subjects where actor_id=${actorId} or subject_actor_id=${actorId} order by actor_id,request_id,subject_actor_id`,
       );
-      const invitations = rowsOf<Record<string, unknown>>(
-        await tx.execute(
+      const invitations = (
+        await query(
+          tx,
+          z.object({
+            channel_id: z.string(),
+            channel_kind: z.string(),
+            invitee_actor_id: z.string(),
+            invited_by_actor_id: z.string(),
+            generation: postgresInt8,
+            state: z.string(),
+            invited_at: z.date(),
+            decided_at: z.date().nullable(),
+          }),
           sql`select * from messaging_group_invitations where invitee_actor_id=${actorId} or invited_by_actor_id=${actorId} order by channel_id,invitee_actor_id`,
-        ),
+        )
       ).map((row) => {
         if (row.invitee_actor_id === actorId) return row;
         return omitPrivateColumns(row, ['state', 'decided_at']);
       });
-      const channels = rowsOf<Record<string, unknown>>(
-        await tx.execute(
-          sql`select id,title,title_author_actor_id from messaging_channels where title_author_actor_id=${actorId} order by id`,
-        ),
+      const channels = await query(
+        tx,
+        z.object({
+          id: z.string(),
+          title: z.string().nullable(),
+          title_author_actor_id: z.string().nullable(),
+        }),
+        sql`select id,title,title_author_actor_id from messaging_channels where title_author_actor_id=${actorId} order by id`,
       );
       const files = await exportSubjectFiles(tx, actorId);
       // Read last: Messaging's own email jobs, after every other table.
-      const unreadEmails = rowsOf<Record<string, unknown>>(
-        await tx.execute(
-          sql`select state,attempts,last_error_code,first_owed_at,created_at,completed_at
+      const unreadEmails = await query(
+        tx,
+        z.object({
+          state: z.string(),
+          attempts: z.int(),
+          last_error_code: z.string().nullable(),
+          first_owed_at: z.date(),
+          created_at: z.date(),
+          completed_at: z.date().nullable(),
+        }),
+        sql`select state,attempts,last_error_code,first_owed_at,created_at,completed_at
             from messaging_unread_emails
             where user_id=(select user_id from actors where id=${actorId}) order by created_at,id`,
-        ),
       );
       return Object.fromEntries(
         Object.entries({

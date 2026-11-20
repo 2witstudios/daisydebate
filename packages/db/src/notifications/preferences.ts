@@ -4,11 +4,13 @@ import {
   type NotificationChannel,
   type NotificationChoices,
   type NotificationKind,
+  notificationKinds,
 } from '@daisy/protocol';
 import { sql, type SQL } from 'drizzle-orm';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
-import { rowsOf, run } from '../raw-rows';
+import { run, query as queryRows } from '../raw-rows';
 import { inTransaction, type TxSource } from '../tx';
+import { z } from 'zod';
 
 /** Whether `user` wants `kind` on `channel`: on unless they turned it off. */
 export const wants = (
@@ -32,12 +34,13 @@ export const notificationPreferenceOperations = ({
     readonly userId: string;
   }): Promise<NotificationChoices> {
     return instrumented(eventSink, 'readNotificationPreferences', async () => {
-      const rows = await rowsOf<{
-        kind: NotificationKind;
-        channel: NotificationChannel;
-        enabled: boolean;
-      }>(
+      const rows = await queryRows(
         database,
+        z.object({
+          kind: z.enum(notificationKinds),
+          channel: z.enum(['in_app', 'email']),
+          enabled: z.boolean(),
+        }),
         sql`select kind,channel,enabled from notification_preferences where user_id=${input.userId}`,
       );
       const choices = structuredClone(defaultNotificationChoices) as Record<

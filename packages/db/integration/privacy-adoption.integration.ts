@@ -1,10 +1,11 @@
+import { accountAgePrivacyAdopter } from '../src/account-age';
 import { sql } from 'drizzle-orm';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { expect } from 'bun:test';
 import { assertRejects } from '@daisy/errors/testing';
 import { runPrivacyErasure, runPrivacyExport } from '../src/privacy/operations';
-import type { PrivacyAdopter } from '../src/privacy/contracts';
+import type { PrivacyAdopter, PrivacyExport } from '../src/privacy/contracts';
 import {
   bindings,
   now,
@@ -165,4 +166,28 @@ test('export returns only bound subject data and rejects a mismatched principal'
       });
     },
   );
+});
+
+test('canonical export refuses duplicate tables and non-JSON values', async () => {
+  await withPrivacySubject(async ({ database, userId, actorId }) => {
+    const invalidExports: unknown[] = [
+      { users: [] },
+      { account_age: null },
+      { account_age: [{ birth_month: new Date(now) }] },
+    ];
+    for (const invalid of invalidExports) {
+      await assertRejects({
+        given: 'an adopter exporting a duplicate table or malformed JSON',
+        should: 'refuse the complete export',
+        actual: () =>
+          runPrivacyExport(database, { userId, actorId }, [
+            {
+              ...accountAgePrivacyAdopter,
+              export: async () => invalid as PrivacyExport,
+            },
+          ]),
+        code: 'VALIDATION',
+      });
+    }
+  });
 });

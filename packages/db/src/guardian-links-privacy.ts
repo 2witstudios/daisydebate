@@ -2,6 +2,8 @@ import { sql } from 'drizzle-orm';
 import type { PrivacyAdopter } from './privacy/contracts';
 import { exportRows } from './privacy/export-rows';
 import { scopeTransaction } from './tenant-scope';
+import { query } from './raw-rows';
+import { z } from 'zod';
 
 /**
  * The guardian relationship (docs/operations/compliance.md). The tables
@@ -21,19 +23,37 @@ export const guardianLinksPrivacyAdopter: PrivacyAdopter = {
     const own = sql`guardian_user_id = ${subject.userId} or minor_user_id = ${subject.userId}`;
     const result = {
       guardian_links: exportRows(
-        await tx.execute(
+        await query(
+          tx,
+          z.object({
+            id: z.string(),
+            guardian_user_id: z.string(),
+            minor_user_id: z.string(),
+            kind: z.string(),
+            via_organization_id: z.string().nullable(),
+            status: z.string(),
+            ended_at: z.date().nullable(),
+          }),
           sql`select id, guardian_user_id, minor_user_id, kind, via_organization_id, status, ended_at
             from guardian_links where ${own} order by id`,
         ),
       ),
       restrictions: exportRows(
-        await tx.execute(
+        await query(
+          tx,
+          z.object({
+            guardian_link_id: z.string(),
+            limits_lobbies: z.boolean(),
+            video_audience_cap: z.string(),
+          }),
           sql`select guardian_link_id, limits_lobbies, video_audience_cap
             from restrictions where ${own} order by guardian_link_id`,
         ),
       ),
       restriction_lobbies: exportRows(
-        await tx.execute(
+        await query(
+          tx,
+          z.object({ guardian_link_id: z.string(), lobby_id: z.string() }),
           sql`select guardian_link_id, lobby_id
             from restriction_lobbies where ${own} order by guardian_link_id, lobby_id`,
         ),

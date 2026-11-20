@@ -3,6 +3,8 @@ import { requireRetentionBounds, type RetentionBatch } from './retention';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { analysisPurgeProjection } from './round-analysis-purge';
 import type { TxSource } from './tx';
+import { query } from './raw-rows';
+import { z } from 'zod';
 
 /** Purge report content at its retention boundary; the seat cannot become a new request. */
 export const roundAnalysisRetention = ({
@@ -15,12 +17,15 @@ export const roundAnalysisRetention = ({
   purgeExpiredRoundAnalyses: (batch: RetentionBatch) =>
     instrumented(eventSink, 'purgeExpiredRoundAnalyses', async () => {
       requireRetentionBounds(batch);
-      const rows =
-        await database.execute(sql`update round_analyses set work=${analysisPurgeProjection}
+      const rows = await query(
+        database,
+        z.object({ round_participant_id: z.string() }),
+        sql`update round_analyses set work=${analysisPurgeProjection}
       where round_participant_id in (select round_participant_id from round_analyses
         where work->>'kind' in ('retained','succeeded') and coalesce((work->>'requestedAt')::timestamptz,created_at)<${batch.before}::timestamptz
         order by created_at,round_participant_id limit ${batch.limit} for update skip locked)
-      returning round_participant_id`);
+      returning round_participant_id`,
+      );
       return rows.length;
     }),
 });

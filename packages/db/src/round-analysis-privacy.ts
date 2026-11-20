@@ -1,7 +1,8 @@
 import { sql } from 'drizzle-orm';
 import type { PrivacyAdopter } from './privacy/contracts';
 import { analysisPurgeProjection } from './round-analysis-purge';
-import { run } from './raw-rows';
+import { run, query } from './raw-rows';
+import { z } from 'zod';
 
 /** Private reports quote every frozen participant. Erasure removes content and all future dispatch authority. */
 export const roundAnalysisPrivacyAdopter: PrivacyAdopter = {
@@ -18,12 +19,21 @@ export const roundAnalysisPrivacyAdopter: PrivacyAdopter = {
     );
   },
   export: async (tx, subject) => {
-    const rows =
-      await tx.execute(sql`select a.round_id,a.round_participant_id,a.freeze_revision,
+    const rows = await query(
+      tx,
+      z.object({
+        round_id: z.string(),
+        round_participant_id: z.string(),
+        freeze_revision: z.int(),
+        work: z.json(),
+        created_at: z.string(),
+      }),
+      sql`select a.round_id,a.round_participant_id,a.freeze_revision,
       case when a.work->>'kind'='purged' then jsonb_set(a.work,'{request,calls}', coalesce((select jsonb_agg(c - 'tokenDigest') from jsonb_array_elements(a.work->'request'->'calls') c),'[]'::jsonb),false) else jsonb_set(a.work - 'lease','{calls}', coalesce((select jsonb_agg(c - 'tokenDigest') from jsonb_array_elements(a.work->'calls') c),'[]'::jsonb),false) end as work,
       to_char(a.created_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as created_at
       from round_analyses a join round_participants p on p.id=a.round_participant_id
-      where p.actor_id=${subject.actorId} order by a.created_at,a.round_id`);
+      where p.actor_id=${subject.actorId} order by a.created_at,a.round_id`,
+    );
     return { round_analyses: rows };
   },
 };

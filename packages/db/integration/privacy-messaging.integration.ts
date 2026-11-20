@@ -68,12 +68,12 @@ test('canonical privacy export composes MSG and age while masking other private 
         should:
           'export only the subject contribution, own block direction and own age, with no unowned title',
         actual: [
-          result.messaging_messages?.map((row) => row.text),
+          result.messaging_messages?.map((row) => [row.text, row.created_at]),
           Object.values(contact).includes(true),
           result.messaging_channels,
           result.account_age?.map((row) => row.birth_month),
         ],
-        expected: [['Subject contribution'], false, [], ['2000-01']],
+        expected: [[['Subject contribution', now]], false, [], ['2000-01']],
       });
     },
   );
@@ -237,6 +237,119 @@ test('canonical composed erasure rolls back all adopters then commits subject-on
           0,
         ],
       });
+    },
+  );
+});
+
+test('Contacts and Friends export only their subject rows and erase after Messaging', async () => {
+  await withPrivacyMessaging(
+    async ({ client, database, userId, actorId, otherId, otherActorId }) => {
+      const [low, high] =
+        actorId < otherActorId
+          ? [actorId, otherActorId]
+          : [otherActorId, actorId];
+      const subject = { userId, actorId };
+      const peer = { userId: otherId, actorId: otherActorId };
+      const ownRequest = createId();
+      const peerRequest = createId();
+      const until = '2026-10-10T18:00:00.000Z';
+      try {
+        await client`insert into friendships(low_actor_id,high_actor_id,requester_actor_id,state,requested_at,accepted_at)
+          values(${low},${high},${actorId},'accepted',${now},${now})`;
+        for (const [self, other, request] of [
+          [actorId, otherActorId, ownRequest],
+          [otherActorId, actorId, peerRequest],
+        ] as const) {
+          await client`insert into social_requests(actor_id,request_id,counterpart_actor_id,kind,unrelated,created_at)
+            values(${self},${request},${other},'friend',true,${now})`;
+          await client`insert into social_request_declines(decliner_actor_id,requester_actor_id,low_actor_id,high_actor_id,declined_count,last_declined_at,expires_at)
+            values(${self},${other},${low},${high},1,${now},${until})`;
+          await client`insert into contact_commands(actor_id,request_id,counterpart_actor_id,kind,digest,created_at)
+            values(${self},${request},${other},'contact.block',${'a'.repeat(64)},${now})`;
+        }
+        const own = await runPrivacyExport(
+          database,
+          subject,
+          messagingPrivacyAdoption,
+        );
+        const other = await runPrivacyExport(
+          database,
+          peer,
+          messagingPrivacyAdoption,
+        );
+        assert({
+          given: 'both directions of the pair and an accepted friendship',
+          should:
+            'export only each subjects own requests, declines, receipts, and block direction',
+          actual: [own, other].map((result) => ({
+            direction: Object.keys(result.contact_pairs?.[0] ?? {}).filter(
+              (key) => key.includes('blocks'),
+            ),
+            requests: result.social_requests?.map(
+              ({ request_id, created_at }) => [request_id, created_at],
+            ),
+            decline: result.social_request_declines?.map(
+              ({ decliner_actor_id }) => decliner_actor_id,
+            ),
+            receipts: result.contact_commands?.map(
+              ({ request_id }) => request_id,
+            ),
+            friendships: result.friendships?.map(({ state, accepted_at }) => [
+              state,
+              accepted_at,
+            ]),
+          })),
+          expected: [
+            {
+              direction: [
+                actorId === low ? 'low_blocks_high' : 'high_blocks_low',
+              ],
+              requests: [[ownRequest, now]],
+              decline: [actorId],
+              receipts: [ownRequest],
+              friendships: [['accepted', now]],
+            },
+            {
+              direction: [
+                otherActorId === low ? 'low_blocks_high' : 'high_blocks_low',
+              ],
+              requests: [[peerRequest, now]],
+              decline: [otherActorId],
+              receipts: [peerRequest],
+              friendships: [['accepted', now]],
+            },
+          ],
+        });
+        await runPrivacyErasure(
+          database,
+          { subject, now, vendors: [], jobIds: [] },
+          messagingPrivacyAdoption,
+          bindings,
+        );
+        const [left] = await client`select
+          (select count(*)::int from friendships where low_actor_id=${low} and high_actor_id=${high}) as friendships,
+          (select count(*)::int from contact_pairs where low_actor_id=${low} and high_actor_id=${high}) as pairs,
+          (select count(*)::int from social_requests where request_id in (${ownRequest},${peerRequest})) as requests,
+          (select count(*)::int from social_request_declines where low_actor_id=${low} and high_actor_id=${high}) as declines,
+          (select count(*)::int from contact_commands where request_id in (${ownRequest},${peerRequest})) as receipts`;
+        assert({
+          given:
+            'the canonical erasure composed over Messaging, Friends and Contacts',
+          should:
+            'erase every association naming the subject without a foreign key failure',
+          actual: left,
+          expected: {
+            friendships: 0,
+            pairs: 0,
+            requests: 0,
+            declines: 0,
+            receipts: 0,
+          },
+        });
+      } finally {
+        await client`delete from friendships where low_actor_id=${low} and high_actor_id=${high}`;
+        await client`delete from social_request_declines where low_actor_id=${low} and high_actor_id=${high}`;
+      }
     },
   );
 });

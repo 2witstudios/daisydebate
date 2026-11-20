@@ -17,6 +17,8 @@ import { usageReservations } from './schema/usage-reservations';
 import { notifyWork } from './work-wake';
 import type { Tx } from './tx';
 import { takeLock, transactionLocks } from './locks';
+import { query } from './raw-rows';
+import { z } from 'zod';
 
 async function requireCapacity(
   tx: Tx,
@@ -24,10 +26,14 @@ async function requireCapacity(
   capacity: number,
   now: Date,
 ) {
-  const [pending] = await tx.execute(sql`select count(*)::integer as total,
+  const [pending] = await query(
+    tx,
+    z.object({ total: z.int(), own: z.int() }),
+    sql`select count(*)::integer as total,
     count(*) filter(where p.actor_id=${actorId})::integer as own
     from round_analyses a join round_participants p on p.id=a.round_participant_id
-    where a.work->>'kind' in ('queued','leased') and (a.work->>'deadlineAt')::timestamptz>${now}`);
+    where a.work->>'kind' in ('queued','leased') and (a.work->>'deadlineAt')::timestamptz>${now}`,
+  );
   if (!pending || Number(pending.total) >= capacity || Number(pending.own) > 0)
     throw createAppError('CONFLICT', 'Round analysis capacity unavailable');
 }

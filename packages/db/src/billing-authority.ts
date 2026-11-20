@@ -9,6 +9,8 @@ import { lockAuthorizationActors } from './authorization';
 import { billingCustomers } from './schema/billing-customers';
 import { lockClub, type LockedClub } from './billing-owner-lock';
 import type { Tx } from './tx';
+import { query } from './raw-rows';
+import { z } from 'zod';
 
 type Account = NonNullable<
   Awaited<ReturnType<typeof lockAuthorizationActors>>[number]
@@ -84,7 +86,9 @@ export async function lockBillingCustomer(
       ? { kind: 'organization', club, customer }
       : null;
   }
-  const [actor] = await tx.execute(
+  const [actor] = await query(
+    tx,
+    z.object({ id: z.string() }),
     sql`select id from actors where user_id=${owner.userId} and kind='human'`,
   );
   if (!actor || typeof actor.id !== 'string') return null;

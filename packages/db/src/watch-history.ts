@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { rowsOf, run, query } from './raw-rows';
+import { run, query } from './raw-rows';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import type { PrivacyAdopter } from './privacy/contracts';
 import { exportRows } from './privacy/export-rows';
@@ -90,8 +90,9 @@ export const watchHistoryOperations = ({
     readonly limit: number;
   }) {
     return instrumented(eventSink, 'purgeExpiredWatchHistory', async () => {
-      const gone = await rowsOf(
+      const gone = await query(
         database,
+        z.object({ user_id: z.string() }),
         sql`delete from watch_history where (user_id,round_id) in (
             select user_id,round_id from watch_history
             where watched_at < ${input.before}::timestamptz limit ${input.limit})
@@ -113,8 +114,9 @@ export const watchHistoryPrivacyAdopter: PrivacyAdopter = {
   },
   export: async (tx, subject) => ({
     watch_history: exportRows(
-      await rowsOf<Record<string, unknown>>(
+      await query(
         tx,
+        z.object({ round_id: z.string(), watched_at: z.date() }),
         sql`select round_id,watched_at from watch_history
           where user_id=${subject.userId} order by watched_at,round_id`,
       ),

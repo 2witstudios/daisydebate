@@ -9,7 +9,7 @@ import {
   type MailJobOutcome,
 } from '../mail-queue';
 import { emailsMember } from '../notifications/presentation';
-import { rowsOf, run, query } from '../raw-rows';
+import { run, query } from '../raw-rows';
 import { retriedOnceIfQueuedMeanwhile } from '../mail-queue';
 import { deleteExpiredBatch, type RetentionBatch } from '../retention';
 import {
@@ -128,9 +128,9 @@ export function messagingUnreadEmailOperations({
       input: MailJobClaimInput,
     ): Promise<readonly MessagingUnreadEmailClaim[]> =>
       instrumented(eventSink, 'claimMessagingUnreadEmails', async () =>
-        (await queue.claimDue(database, input, sql`id, attempts`)).map(
-          ({ row, token }) => ({ ...claimRow.parse(row), token }),
-        ),
+        (
+          await queue.claimDue(database, input, sql`id, attempts`, claimRow)
+        ).map(({ row, token }) => ({ ...row, token })),
       ),
     /**
      * How many of the member's conversations hold a message from someone
@@ -163,8 +163,9 @@ export function messagingUnreadEmailOperations({
           return { kind: 'cancel', errorCode: 'recipient-gone' };
         if (!member.emails) return { kind: 'cancel', errorCode: 'not-owed' };
         const actor = sql`${member.actor_id}`;
-        const [count] = await rowsOf<{ n: number | string }>(
+        const [count] = await query(
           database,
+          z.object({ n: z.union([z.string(), z.number()]) }),
           sql`select count(*) as n from (
               select channel_id from public.messaging_dm_pairs where ${actor} in (low_actor_id,high_actor_id)
               union select channel_id from public.messaging_group_grants

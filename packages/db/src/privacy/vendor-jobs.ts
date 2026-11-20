@@ -42,10 +42,25 @@ export async function duePrivacyJobs(
   )
     throw createAppError('VALIDATION');
   const scope = vendorScope(input.vendors);
-  const read =
-    (await database.execute(sql`select id, vendor, attempts from privacy_jobs
+  const read = await query(
+    database,
+    z.object({
+      id: z.string(),
+      vendor: z.enum([
+        'sentry',
+        'posthog',
+        'beehiiv',
+        'resend',
+        'object-storage',
+        'messaging-typing',
+        'stripe',
+      ]),
+      attempts: z.number(),
+    }),
+    sql`select id, vendor, attempts from privacy_jobs
     where status = 'pending' and retry_at <= ${input.now}::timestamptz ${scope}
-    order by retry_at, id limit ${input.limit}`)) as unknown as DuePrivacyJob[];
+    order by retry_at, id limit ${input.limit}`,
+  );
   // A row the database checks admit is malformed: refuse before delivery.
   if (
     !read.every(
@@ -91,13 +106,14 @@ export async function deliverPrivacyJob(
   },
 ): Promise<'idle' | 'retry' | 'succeeded'> {
   checkJobInput(input);
-  const rows =
-    await database.execute(sql`select subject_ref as "subjectRef", attempts from privacy_jobs
+  const rows = await query(
+    database,
+    z.object({ subjectRef: z.string(), attempts: z.number() }),
+    sql`select subject_ref as "subjectRef", attempts from privacy_jobs
     where id = ${input.jobId} and vendor = ${input.vendor} and status = 'pending'
-    and retry_at <= ${input.now}::timestamptz`);
-  const row = (
-    rows as unknown as { subjectRef: string; attempts: number }[]
-  )[0];
+    and retry_at <= ${input.now}::timestamptz`,
+  );
+  const [row] = rows;
   if (!row) return 'idle';
   if (!idSchema.safeParse(row.subjectRef).success)
     throw createAppError('VALIDATION');

@@ -12,7 +12,8 @@ import { readReleasesOf } from './media-release-records';
 import { oweNotifications } from './notifications/owe';
 import { readYouthRecordingPeople } from './youth-recording-people';
 import { youthRoundShareableSql, youthRoundSql } from './youth-round-sql';
-import { run as runStatement } from './raw-rows';
+import { run as runStatement, query } from './raw-rows';
+import { z } from 'zod';
 
 export type PublishAnswer =
   | { readonly kind: 'published' }
@@ -33,10 +34,12 @@ export function createYouthRoundPublications(input: {
     /** Whether a debater's share of this Youth Round stands (the flag is the caller's). */
     readYouthRoundShared: (roundId: string): Promise<boolean> =>
       input.run(async (tx) => {
-        const rows = (await tx.execute(
-          sql`select 1 from youth_round_publications yp
+        const rows = await query(
+          tx,
+          z.object({ present: z.literal(1) }),
+          sql`select 1 as present from youth_round_publications yp
             where yp.round_id = ${roundId} and ${youthRoundPublic(sql`yp`)}`,
-        )) as unknown as unknown[];
+        );
         return rows.length > 0;
       }),
     publishYouthRound: (command: {
@@ -47,9 +50,14 @@ export function createYouthRoundPublications(input: {
       if (!idSchema.safeParse(command.roundId).success)
         throw createAppError('VALIDATION');
       return input.run(async (tx) => {
-        const [round] = (await tx.execute(
-          // Only a public Round whose Recording is for everyone can be public:
-          // every ranked one, and a casual one its host released (ADR 0157).
+        const [round] = await query(
+          tx,
+          z.object({
+            recording: z.string().nullable(),
+            ended_at: z.union([z.string(), z.date()]).nullable(),
+            published: z.string().nullable(),
+            shareable: z.boolean(),
+          }),
           sql`select r.id, rc.status as recording, p.ended_at, p.round_id as published,
               ${youthRoundShareableSql(sql`r`)} as shareable
             from rounds r
@@ -57,12 +65,7 @@ export function createYouthRoundPublications(input: {
             left join youth_round_publications p on p.round_id = r.id
             where r.id = ${command.roundId} and ${youthRoundSql(sql`r.id`)}
             for update of r`,
-        )) as unknown as {
-          recording: string | null;
-          ended_at: Date | string | null;
-          published: string | null;
-          shareable: boolean;
-        }[];
+        );
         if (round === undefined)
           return { kind: 'refused', reason: 'not_found' };
         const people = await readYouthRecordingPeople(tx, command.roundId);

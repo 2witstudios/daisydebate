@@ -7,6 +7,7 @@ import { lockedRoundVersion } from './round-projection-writer';
 import { roundParticipants } from './schema/round-participants';
 import {
   availabilitySamplesFrom,
+  availabilityEvidenceRow,
   type AvailabilityEvidence,
 } from './availability-operations';
 import type { CheckInAttempt } from './check-in-attempts';
@@ -14,6 +15,8 @@ import { fencedActorIds, seatEligibility } from './seat-eligibility';
 import { requireFencedParticipants } from './round-command-replay';
 import type { Tx } from './tx';
 import { takeLock, transactionLocks } from './locks';
+import { query } from './raw-rows';
+import { z } from 'zod';
 /** The bounded same-pool producer supplies its FIRST writer identity statement's timestamp. */
 export type AttendanceTransaction = <T>(
   run: (tx: Tx, receipt: { readonly receivedAt: string }) => Promise<T>,
@@ -86,7 +89,9 @@ export async function finalizedAttendanceSegments(
   tx: Tx,
   roundId: string,
 ): Promise<readonly string[]> {
-  const resolved = await tx.execute(
+  const resolved = await query(
+    tx,
+    z.object({ segment_id: z.string() }),
     sql`select segment_id from round_attendance_adjudications where round_id=${roundId}`,
   );
   return (resolved as unknown as { segment_id: string }[]).map(
@@ -103,7 +108,9 @@ export async function closedAttendanceSegments(
   tx: Tx,
   roundId: string,
 ): Promise<readonly string[]> {
-  const closed = await tx.execute(
+  const closed = await query(
+    tx,
+    z.object({ segment_id: z.string() }),
     sql`select segment_id from round_attendance_adjudications where round_id=${roundId} and evidence<>'on_time_receipt'`,
   );
   return (closed as unknown as { segment_id: string }[]).map(
@@ -122,12 +129,5 @@ export async function attendanceSamples(
   from: string | null,
 ): Promise<readonly AvailabilityEvidence[]> {
   if (!from) return [];
-  const samples = await tx.execute(availabilitySamplesFrom(sql, from));
-  return (
-    samples as unknown as {
-      at: string;
-      healthy: boolean;
-      cause: AvailabilityEvidence['cause'];
-    }[]
-  ).map((row) => ({ at: row.at, healthy: row.healthy, cause: row.cause }));
+  return query(tx, availabilityEvidenceRow, availabilitySamplesFrom(sql, from));
 }

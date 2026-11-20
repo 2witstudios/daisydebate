@@ -5,7 +5,8 @@ import type {
 } from './context-channel-contracts';
 import { appendStream, lockStream } from './stream';
 import type { Tx } from '../tx';
-import { run } from '../raw-rows';
+import { run, query } from '../raw-rows';
+import { z } from 'zod';
 
 /** What one context supplies so reports and operators can reach its messages. */
 export type ContextChannelModerationOwner<Fact extends ContextChannelFact> = {
@@ -74,7 +75,9 @@ export function contextChannelModeration<Fact extends ContextChannelFact>(
         sql`select id from messaging_channels where id=${found.id} for share`,
       );
       await lockStream(tx, found.id);
-      const [current] = await tx.execute(
+      const [current] = await query(
+        tx,
+        z.object({ removed_at: z.date().nullable() }),
         sql`select removed_at from messaging_messages where id=${input.messageId} and channel_id=${found.id}`,
       );
       if (!current) return null;

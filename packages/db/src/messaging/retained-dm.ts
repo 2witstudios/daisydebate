@@ -3,23 +3,26 @@ import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import { eraseSubjectFiles } from '../messaging-files';
 import type { Tx } from '../tx';
-import { run } from '../raw-rows';
+import { query, run } from '../raw-rows';
+import { z } from 'zod';
 
 type Survived = {
   readonly channelId: string;
   readonly survivorActorId: string;
 };
-const rowsOf = <T>(rows: unknown) => rows as T[];
+const channelIdRow = z.object({ channelId: z.string() });
 
 /** The subject's DMs and who survives each, read before their pairs go. */
 export async function survivingDms(tx: Tx, actorId: string) {
-  return rowsOf<Survived>(
-    await tx.execute(sql`
+  return query(
+    tx,
+    channelIdRow.extend({ survivorActorId: z.string() }),
+    sql`
     select channel_id as "channelId",
       case when low_actor_id=${actorId} then high_actor_id else low_actor_id end as "survivorActorId"
     from messaging_dm_pairs where low_actor_id=${actorId} or high_actor_id=${actorId}
     order by channel_id
-  `),
+  `,
   );
 }
 
@@ -80,10 +83,10 @@ export async function retainSurvivorDms(
       tx,
       sql`delete from messaging_messages where channel_id=${channelId} and author_actor_id=${actorId}`,
     );
-    const [own] = rowsOf<{ live: boolean }>(
-      await tx.execute(
-        sql`select exists(select 1 from messaging_messages where channel_id=${channelId} and author_actor_id=${survivorActorId} and removed_at is null) as "live"`,
-      ),
+    const [own] = await query(
+      tx,
+      z.object({ live: z.boolean() }),
+      sql`select exists(select 1 from messaging_messages where channel_id=${channelId} and author_actor_id=${survivorActorId} and removed_at is null) as "live"`,
     );
     if (own?.live) {
       // Only attached files belong to the retained messages: an upload still
@@ -165,10 +168,12 @@ export async function deleteAbandonedChannels(
 
 /** The retained channels `actorId` survives, locked for their erasure. */
 export async function retainedChannelsOf(tx: Tx, actorId: string) {
-  return rowsOf<{ channelId: string }>(
-    await tx.execute(
+  return (
+    await query(
+      tx,
+      channelIdRow,
       sql`select channel_id as "channelId" from messaging_retained_authors where actor_id=${actorId} order by channel_id for update`,
-    ),
+    )
   ).map((row) => row.channelId);
 }
 
@@ -179,12 +184,14 @@ export async function requireRetainedAuthor(
   channelId: string,
 ) {
   if (!idSchema.safeParse(channelId).success) throw createAppError('NOT_FOUND');
-  const [row] = rowsOf<{ channelId: string }>(
-    await tx.execute(sql`
+  const [row] = await query(
+    tx,
+    channelIdRow,
+    sql`
     select r.channel_id as "channelId" from messaging_retained_authors r
     join messaging_channels c on c.id=r.channel_id and c.lifecycle='retained'
     where r.channel_id=${channelId} and r.actor_id=${actorId} for update of r
-  `),
+  `,
   );
   if (!row) throw createAppError('NOT_FOUND');
 }

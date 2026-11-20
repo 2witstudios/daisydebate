@@ -2,9 +2,8 @@ import { sql } from 'drizzle-orm';
 import { idSchema } from '@daisy/protocol';
 import type { PrivacyAdopter, PrivacyExport } from '../privacy/contracts';
 import { exportRows } from '../privacy/export-rows';
-import { run } from '../raw-rows';
-
-const rowsOf = (rows: unknown) => rows as Record<string, unknown>[];
+import { postgresInt8, run, query } from '../raw-rows';
+import { z } from 'zod';
 
 /**
  * Contacts' subject rights, run after every capability built on the pair
@@ -27,10 +26,18 @@ export const contactsPrivacyAdopter: PrivacyAdopter = {
   async export(tx, subject): Promise<PrivacyExport> {
     const actorId = idSchema.parse(subject.actorId);
     // The subject's own block direction only: the other member's is theirs.
-    const pairs = rowsOf(
-      await tx.execute(
+    const pairs = (
+      await query(
+        tx,
+        z.object({
+          low_actor_id: z.string(),
+          high_actor_id: z.string(),
+          low_blocks_high: z.boolean(),
+          high_blocks_low: z.boolean(),
+          revision: postgresInt8,
+        }),
         sql`select * from contact_pairs where low_actor_id=${actorId} or high_actor_id=${actorId} order by low_actor_id,high_actor_id`,
-      ),
+      )
     ).map((row) => ({
       low_actor_id: row.low_actor_id,
       high_actor_id: row.high_actor_id,
@@ -42,25 +49,48 @@ export const contactsPrivacyAdopter: PrivacyAdopter = {
     return {
       contact_pairs: exportRows(pairs),
       contact_commands: exportRows(
-        rowsOf(
-          await tx.execute(
-            sql`select * from contact_commands where actor_id=${actorId} order by created_at,request_id`,
-          ),
+        await query(
+          tx,
+          z.object({
+            actor_id: z.string(),
+            request_id: z.string(),
+            counterpart_actor_id: z.string(),
+            kind: z.string(),
+            digest: z.string(),
+            created_at: z.date(),
+          }),
+          sql`select * from contact_commands where actor_id=${actorId} order by created_at,request_id`,
         ),
       ),
       // Only the subject's own requests and declines: others' stay theirs.
       social_requests: exportRows(
-        rowsOf(
-          await tx.execute(
-            sql`select * from social_requests where actor_id=${actorId} order by created_at,request_id`,
-          ),
+        await query(
+          tx,
+          z.object({
+            actor_id: z.string(),
+            request_id: z.string(),
+            counterpart_actor_id: z.string(),
+            kind: z.string(),
+            unrelated: z.boolean(),
+            created_at: z.date(),
+          }),
+          sql`select * from social_requests where actor_id=${actorId} order by created_at,request_id`,
         ),
       ),
       social_request_declines: exportRows(
-        rowsOf(
-          await tx.execute(
-            sql`select * from social_request_declines where decliner_actor_id=${actorId} order by requester_actor_id`,
-          ),
+        await query(
+          tx,
+          z.object({
+            decliner_actor_id: z.string(),
+            requester_actor_id: z.string(),
+            low_actor_id: z.string(),
+            high_actor_id: z.string(),
+            declined_count: postgresInt8,
+            last_declined_at: z.date(),
+            blocked_until: z.date().nullable(),
+            expires_at: z.date(),
+          }),
+          sql`select * from social_request_declines where decliner_actor_id=${actorId} order by requester_actor_id`,
         ),
       ),
     };

@@ -1,6 +1,11 @@
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
-import type { ReportReason, ReportSurface } from '@daisy/protocol';
+import {
+  type ReportReason,
+  type ReportSurface,
+  reportReasons,
+  reportSurfaces,
+} from '@daisy/protocol';
 import {
   reportResolveCommandAction,
   type ReportResolveResult,
@@ -199,7 +204,19 @@ export const reportOperations = ({
     readonly limit: number;
   }): Promise<readonly OperatorReportRow[]> =>
     instrumented(eventSink, 'listOperatorReports', async () => {
-      const rows = (await database.execute(sql`
+      const rows = await query(
+        database,
+        z.object({
+          id: z.string(),
+          reason: z.enum(reportReasons),
+          subject: z.string().nullable(),
+          reporter: z.string().nullable(),
+          subjectUserId: z.string(),
+          surface: z.enum(reportSurfaces),
+          reportsOnSubject: z.number(),
+          createdAt: z.union([z.string(), z.date()]),
+        }),
+        sql`
         select r.id, ru.username as reporter, su.username as subject,
           su.id as "subjectUserId", r.reason, r.surface, r.created_at as "createdAt",
           (select count(*)::int from reports o where o.subject_actor_id = r.subject_actor_id) as "reportsOnSubject"
@@ -210,10 +227,8 @@ export const reportOperations = ({
         join users su on su.id = sa.user_id
         where r.closed_at is null
         order by r.created_at, r.id
-        limit ${input.limit}`)) as unknown as (Omit<
-        OperatorReportRow,
-        'createdAt'
-      > & { createdAt: Date | string })[];
+        limit ${input.limit}`,
+      );
       return rows.map((row) => ({ ...row, createdAt: iso(row.createdAt) }));
     }),
   resolveReport: (input: ReportResolveInput) =>
@@ -231,12 +246,16 @@ export const reportOperations = ({
     readonly limit: number;
   }): Promise<number> =>
     instrumented(eventSink, 'purgeClosedReports', async () => {
-      const rows = await database.execute(sql`
+      const rows = await query(
+        database,
+        z.object({ id: z.string() }),
+        sql`
         delete from reports where id in (
           select id from reports
           where purge_after is not null and purge_after <= ${new Date(input.now)}
           limit ${input.limit})
-        returning id`);
+        returning id`,
+      );
       return rows.length;
     }),
 });

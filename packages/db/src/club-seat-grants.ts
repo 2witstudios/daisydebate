@@ -8,7 +8,7 @@ import { z } from 'zod';
 import { lockAuthorizationActors } from './authorization';
 import { scopeTransaction } from './tenant-scope';
 import type { Tx } from './tx';
-import { run } from './raw-rows';
+import { run, query } from './raw-rows';
 
 type SeatGrant = Extract<EntitlementGrant, { source: 'organization_seat' }>;
 /** One holder's projected grants: what `clubSeatGrants` (auth) returns per seat. */
@@ -41,7 +41,9 @@ export async function readClubSeats(
   tx: Tx,
   organizationId: string,
 ): Promise<readonly ClubSeat[]> {
-  const rows = await tx.execute(
+  const rows = await query(
+    tx,
+    z.object({ user_id: z.string(), assigned_at: z.date() }),
     sql`select user_id, assigned_at from club_seats
       where organization_id=${organizationId} order by user_id`,
   );
@@ -68,7 +70,9 @@ export async function lockClubSeatHolderAccounts(
     ...new Set([...seats.map((seat) => seat.userId), ...extraUserIds]),
   ];
   if (userIds.length === 0) return { seats, accounts: [] };
-  const actors = await tx.execute(
+  const actors = await query(
+    tx,
+    z.object({ id: z.string(), user_id: z.string().nullable() }),
     sql`select id, user_id from actors where kind='human'
       and user_id in (${sql.join(
         userIds.map((id) => sql`${id}`),

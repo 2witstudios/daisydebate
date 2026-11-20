@@ -7,7 +7,8 @@ import {
 } from '../schema/messaging-files';
 import { fileDeletionValues } from './frame';
 import { inTransaction, type Tx, type TxSource } from '../tx';
-import { run } from '../raw-rows';
+import { postgresInt8, run, query } from '../raw-rows';
+import { z } from 'zod';
 
 /** Parent calls in its message-removal transaction after channel/user fences. */
 export async function deleteMessageFiles(
@@ -66,12 +67,32 @@ export async function eraseSubjectFiles(
 }
 export async function exportSubjectFiles(tx: Tx, actorId: string) {
   if (!idSchema.safeParse(actorId).success) throw createAppError('VALIDATION');
-  const rows = await tx.execute(sql`
+  const rows = await query(
+    tx,
+    z.object({
+      id: z.string(),
+      channel_id: z.string(),
+      owner_actor_id: z.string(),
+      request_id: z.string().nullable(),
+      message_id: z.string().nullable(),
+      filename: z.string().nullable(),
+      mime: z.string().nullable(),
+      reserved_bytes: postgresInt8,
+      stored_bytes: postgresInt8.nullable(),
+      generation: postgresInt8,
+      authority_revision: postgresInt8,
+      lifecycle: z.string(),
+      created_at: z.date(),
+      expires_at: z.date(),
+      deleted_at: z.date().nullable(),
+    }),
+    sql`
     select id, channel_id, owner_actor_id, request_id, message_id, filename, mime,
       reserved_bytes, stored_bytes, generation, authority_revision, lifecycle,
       created_at, expires_at, deleted_at
     from messaging_files where owner_actor_id = ${actorId} order by id
-  `);
+  `,
+  );
   return {
     messaging_files: [...rows].map((row) =>
       Object.fromEntries(
@@ -165,10 +186,14 @@ export async function failPendingFile(
 
 /** Global charged bytes include unlinked erasure intents until acknowledged. */
 export async function chargedFileBytes(tx: Tx): Promise<string> {
-  const rows = await tx.execute(sql`
+  const rows = await query(
+    tx,
+    z.object({ bytes: z.string() }),
+    sql`
     select (coalesce((select sum(reserved_bytes) from messaging_files where lifecycle <> 'deleted'),0)
       + coalesce((select sum(charged_bytes) from messaging_file_deletion_intents),0))::text as bytes
-  `);
+  `,
+  );
   return String(rows[0]!.bytes);
 }
 /** Internal worker port; erased intents contain no subject or channel lookup. */
@@ -202,13 +227,17 @@ export async function pendingFileDeletions(
 ): Promise<readonly FileDeletionWork[]> {
   if (!Number.isSafeInteger(maxItems) || maxItems < 1 || maxItems > 65535)
     throw createAppError('VALIDATION');
-  const rows = await tx.execute(sql`
+  const rows = await query(
+    tx,
+    z.object({ kind: z.enum(['file', 'erased']), key: z.string() }),
+    sql`
     select kind, key from (
       select 'file' as kind, id as key from messaging_files where lifecycle='deleting'
       union all
       select 'erased' as kind, object_key as key from messaging_file_deletion_intents
     ) work order by key limit ${maxItems}
-  `);
+  `,
+  );
   return [...rows].map((row) =>
     row.kind === 'file'
       ? { kind: 'file' as const, fileId: String(row.key) }

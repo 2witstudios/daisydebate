@@ -103,8 +103,9 @@ export function mailIntentOperations({
             database,
             input,
             sql`id, purpose, attempts`,
+            claimRow,
           )
-        ).map(({ row, token }) => ({ ...claimRow.parse(row), token })),
+        ).map(({ row, token }) => ({ ...row, token })),
       ),
     readMailIntentDelivery: (id: string): Promise<MailIntentDelivery> =>
       instrumented(eventSink, 'readMailIntentDelivery', async () => {
@@ -181,11 +182,14 @@ export function mailIntentOperations({
           };
         }
         if (intent.purpose === 'beta-approved') {
-          const [row] =
-            (await database.execute(sql`select u.email, u.username, b.state
+          const [row] = await query(
+            database,
+            memberRow,
+            sql`select u.email, u.username, b.state
             from users u left join account_beta_access b on b.user_id = u.id
-            where u.id = ${intent.recipient_user_id} and u.deleted_at is null`)) as unknown as unknown[];
-          const member = row ? memberRow.parse(row) : null;
+            where u.id = ${intent.recipient_user_id} and u.deleted_at is null`,
+          );
+          const member = row;
           if (!member?.email || !member.username)
             return { kind: 'recipient-gone' };
           if (member.state !== 'approved') return { kind: 'not-owed' };
@@ -195,12 +199,18 @@ export function mailIntentOperations({
             username: member.username,
           };
         }
-        const [row] = (await database.execute(sql`select
+        const [row] = await query(
+          database,
+          digestRow,
+          sql`select
             count(*) filter (where requested_at >= ${intent.window_start}
               and requested_at < ${intent.window_start}::timestamptz + ${DIGEST_WINDOW}) as new_requests,
             count(*) as waiting
-          from account_beta_access where state = 'pending'`)) as unknown as unknown[];
-        const digest = digestRow.parse(row);
+          from account_beta_access where state = 'pending'`,
+        );
+        if (!row)
+          throw createAppError('INVARIANT', 'Digest counts are missing');
+        const digest = row;
         return digest.new_requests === 0
           ? { kind: 'not-owed' }
           : {
@@ -247,13 +257,16 @@ export function mailIntentOperations({
                   select id from club_seat_invitations where organization_id=${club.id}
                     and expires_at < ${batch.before}::timestamptz)`,
               );
-              const rows =
-                await tx.execute(sql`delete from club_seat_invitations
+              const rows = await query(
+                tx,
+                z.object({ id: z.string() }),
+                sql`delete from club_seat_invitations
                 where organization_id=${club.id} and id in (
                   select id from club_seat_invitations where organization_id=${club.id}
                     and expires_at < ${batch.before}::timestamptz
                   order by expires_at limit ${batch.limit - deleted})
-                returning id`);
+                returning id`,
+              );
               return (rows as unknown as unknown[]).length;
             });
           }
@@ -307,18 +320,22 @@ async function clubSeatInvitationDelivery(
   ];
   return inTransaction(database, async (tx) => {
     await scopeTransaction(tx, { organizationId });
-    const [row] = (await tx.execute(sql`select i.email, i.expires_at, o.name,
+    const [row] = await query(
+      tx,
+      z.object({
+        email: z.string(),
+        expires_at: z.union([z.string(), z.date()]),
+        name: z.string(),
+        manager: z.string(),
+      }),
+      sql`select i.email, i.expires_at, o.name,
         coalesce(nullif(u.name, ''), u.username, 'Your club') as manager
       from club_seat_invitations i
       join organizations o on o.id = i.organization_id and o.closed_at is null
       left join users u on u.id = o.owner_user_id
       where i.organization_id = ${organizationId} and i.id = ${invitationId}
-        and i.expires_at > now()`)) as unknown as {
-      email: string;
-      expires_at: Date | string;
-      name: string;
-      manager: string;
-    }[];
+        and i.expires_at > now()`,
+    );
     if (!row) return { kind: 'not-owed' } as const;
     return {
       kind: 'club-seat-invitation',

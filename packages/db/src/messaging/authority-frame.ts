@@ -8,6 +8,8 @@ import {
 import { readMessagingChannelFact, type MessagingChannelFact } from './social';
 import { channelObservationReads } from './observation-reads';
 import { inTransaction, type Tx, type TxOpener, type TxSource } from '../tx';
+import { postgresInt8, query } from '../raw-rows';
+import { z } from 'zod';
 type Scope = {
   readonly channelId: string;
   readonly actorId: string;
@@ -260,19 +262,23 @@ async function viewerFacts(
   const { authority } = fact;
   if (authority.kind === 'dm')
     return new Map(actorIds.map((actorId) => [actorId, fact]));
-  const rows = (await tx.execute(sql`
+  const rows = await query(
+    tx,
+    z.object({
+      actorId: z.string(),
+      role: z.string(),
+      revokedAt: z.date().nullable(),
+      generation: postgresInt8,
+    }),
+    sql`
     select actor_id as "actorId", role, revoked_at as "revokedAt", generation
     from messaging_group_grants
     where channel_id = ${fact.channelId} and actor_id = any(array[${sql.join(
       actorIds.map((actorId) => sql`${actorId}`),
       sql`, `,
     )}]::text[])
-  `)) as unknown as {
-    actorId: string;
-    role: 'manager' | 'member';
-    revokedAt: unknown;
-    generation: number;
-  }[];
+  `,
+  );
   const grants = new Map(rows.map((row) => [row.actorId, row]));
   return new Map(
     actorIds.map((actorId): [string, MessagingChannelFact] => {

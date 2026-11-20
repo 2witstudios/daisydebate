@@ -10,7 +10,8 @@ import type { PrivacyAdopter } from './privacy/contracts';
 import { exportRows } from './privacy/export-rows';
 import { lockOpenAccount } from './lock-open-account';
 import { inTransaction, type TxOpener } from './tx';
-import { run } from './raw-rows';
+import { run, query } from './raw-rows';
+import { z } from 'zod';
 
 export const analyticsConsentOperations = (database: TxOpener) => ({
   async readAnalyticsConsent(userId: string): Promise<AnalyticsConsent | null> {
@@ -85,7 +86,16 @@ export const analyticsConsentPrivacyAdopter: PrivacyAdopter = {
   },
   export: async (tx, subject) => ({
     consent_record: exportRows(
-      await tx.execute(
+      await query(
+        tx,
+        z.object({
+          user_id: z.string(),
+          version: z.int(),
+          necessary: z.string(),
+          analytics: z.string(),
+          replay: z.string(),
+          recorded_at: z.date(),
+        }),
         sql`select * from ${consentRecord} where user_id=${subject.userId}`,
       ),
     ),

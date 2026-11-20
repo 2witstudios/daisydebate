@@ -16,7 +16,7 @@ import {
   type PrivacyErasureInput,
 } from './planner';
 import { inTransaction, type Tx } from '../tx';
-import { run } from '../raw-rows';
+import { run, query } from '../raw-rows';
 
 /** Supplied by the actual token producer, never inferred from token text. */
 export type PrivacyVerificationBinding =
@@ -169,12 +169,26 @@ export async function runPrivacyExport(
   const plan = planPrivacyExport(subject, adoption);
   return inTransaction(database, async (tx) => {
     await lockSubject(tx, plan.subject);
-    const rows =
-      await tx.execute(sql`select id, username, email, email_verified, name, image,
+    const rows = await query(
+      tx,
+      z.object({
+        id: z.string(),
+        username: z.string().nullable(),
+        email: z.string().nullable(),
+        email_verified: z.boolean(),
+        name: z.string(),
+        image: z.string().nullable(),
+        created_at: z.string(),
+        updated_at: z.string(),
+        version: z.int(),
+        deleted_at: z.string().nullable(),
+      }),
+      sql`select id, username, email, email_verified, name, image,
       to_char(created_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as created_at,
       to_char(updated_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as updated_at,
       version, to_char(deleted_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as deleted_at
-      from users where id = ${plan.subject.userId}`);
+      from users where id = ${plan.subject.userId}`,
+    );
     const result: Record<string, readonly Readonly<Record<string, unknown>>[]> =
       { ...checkedExport({ users: rows }) };
     for (const adopter of adoption) {

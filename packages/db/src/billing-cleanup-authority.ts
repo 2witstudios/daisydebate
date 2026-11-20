@@ -9,6 +9,8 @@ import { privacyJobs } from './schema/privacy-jobs';
 import { lockRefundAccount } from './billing-refund-authority';
 import { readDatabaseTime } from './database-clock';
 import type { Tx } from './tx';
+import { query } from './raw-rows';
+import { z } from 'zod';
 
 export async function lockCleanupRecord(tx: Tx, jobId: string) {
   if (!idSchema.safeParse(jobId).success) throw createAppError('VALIDATION');
@@ -46,7 +48,15 @@ export async function lockCleanupJob(tx: Tx, jobId: string) {
 
 /** Positive current absence includes retained financial routing, not merely a missing customer. */
 export async function cleanupFacts(tx: Tx, userId: string) {
-  const [effects] = await tx.execute(sql`select
+  const [effects] = await query(
+    tx,
+    z.object({
+      mappedCustomers: z.int().nonnegative(),
+      possiblePurchases: z.int().nonnegative(),
+      retainedFinancialRoutes: z.int().nonnegative(),
+      owedFinancialEffects: z.boolean(),
+    }),
+    sql`select
     (select count(*)::int from billing_customers where user_id=${userId}) as "mappedCustomers",
     (select count(*)::int from billing_purchases where user_id=${userId} and state->>'kind' not in ('admitted','abandoned','expired')) as "possiblePurchases",
     (select count(*)::int from billing_refund_actions where user_id=${userId})+
@@ -55,28 +65,21 @@ export async function cleanupFacts(tx: Tx, userId: string) {
       and not coalesce(action.state->>'kind'='known' and action.state->>'status'='succeeded',false)) or
     exists(select 1 from billing_payment_observations observation left join billing_refund_actions action on action.id=observation.refund_action_id
       where observation.user_id=${userId} and (observation.state->>'kind'='owed' or
-        (observation.state->>'kind'='refund-linked' and not coalesce(action.state->>'kind'='known' and action.state->>'status'='succeeded',false)))) ) as "owedFinancialEffects"`);
-  if (
-    !effects ||
-    typeof effects.owedFinancialEffects !== 'boolean' ||
-    !['mappedCustomers', 'possiblePurchases', 'retainedFinancialRoutes'].every(
-      (key) => Number.isSafeInteger(effects[key]) && Number(effects[key]) >= 0,
-    )
-  )
-    throw createAppError('INVARIANT');
-  const routes = await tx.execute(sql`select mode,"customerId" from (
+        (observation.state->>'kind'='refund-linked' and not coalesce(action.state->>'kind'='known' and action.state->>'status'='succeeded',false)))) ) as "owedFinancialEffects"`,
+  );
+  if (!effects) throw createAppError('INVARIANT');
+  const routes = await query(
+    tx,
+    z.object({ mode: z.string(), customerId: z.string() }),
+    sql`select mode,"customerId" from (
     select mode,vendor_customer_id as "customerId" from billing_customers where user_id=${userId}
     union select mode,state->>'customerId' as "customerId" from billing_purchases where user_id=${userId} and state->>'customerId' is not null
     union select mode,vendor_customer_id as "customerId" from billing_refund_actions where user_id=${userId}
     union select mode,vendor_customer_id as "customerId" from billing_payment_observations where user_id=${userId}
-  ) owned_routes limit 2`);
+  ) owned_routes limit 2`,
+  );
   return {
-    effects: effects as {
-      mappedCustomers: number;
-      possiblePurchases: number;
-      retainedFinancialRoutes: number;
-      owedFinancialEffects: boolean;
-    },
+    effects,
     route: cleanupRoute(routes),
   };
 }

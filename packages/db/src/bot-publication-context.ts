@@ -7,6 +7,8 @@ import { requireAgentLeaseToken } from './round-agent-lease';
 import { agentRuns } from './schema/agent-runs';
 import { roundBotPublications } from './schema/round-bot-publications';
 import type { Tx } from './tx';
+import { query } from './raw-rows';
+import { z } from 'zod';
 
 export type BotPublicationScope = {
   readonly roundId: string;
@@ -28,8 +30,10 @@ const segmentInProgress = (before: SQL, after: SQL) =>
   sql`s.started_at<=${before} and ${after}<least(coalesce(s.ended_at,'infinity'::timestamptz),s.due_at)`;
 /** A platform incident holds every microphone, and no answer is bought for a held speech. */
 async function refuseDuringIncident(tx: Tx, roundId: string) {
-  const rows = await tx.execute(
-    sql`select 1 from rounds where id=${roundId} and runtime_state->'incident'->>'phase'<>'none'`,
+  const rows = await query(
+    tx,
+    z.object({ present: z.literal(1) }),
+    sql`select 1 as present from rounds where id=${roundId} and runtime_state->'incident'->>'phase'<>'none'`,
   );
   if (rows.length > 0) throw createRefusal('CONFLICT', 'platform-incident');
 }
@@ -38,9 +42,11 @@ export async function botSegmentDueAt(
   tx: Tx,
   target: Pick<BotPublicationScope, 'roundId' | 'segmentId'>,
 ): Promise<string> {
-  const rows = (await tx.execute(
+  const rows = await query(
+    tx,
+    z.object({ due_at: z.union([z.string(), z.date()]) }),
     sql`select due_at from round_segments where round_id=${target.roundId} and id=${target.segmentId}`,
-  )) as unknown as { due_at: Date | string }[];
+  );
   if (!rows[0]) throw createAppError('CONFLICT');
   return new Date(rows[0].due_at).toISOString();
 }
@@ -49,11 +55,15 @@ export async function requireBotControlSegment(
   tx: Tx,
   target: Pick<BotPublicationScope, 'roundId' | 'segmentId'>,
 ) {
-  const rows = await tx.execute(sql`select 1 from round_segments s
+  const rows = await query(
+    tx,
+    z.object({ present: z.literal(1) }),
+    sql`select 1 as present from round_segments s
     where s.round_id=${target.roundId} and s.id=${target.segmentId}
       and s.started_at<=clock_timestamp()
       and not exists(select 1 from round_segments later where later.round_id=s.round_id
-        and later.sequence>s.sequence and later.started_at is not null) limit 1`);
+        and later.sequence>s.sequence and later.started_at is not null) limit 1`,
+  );
   if (rows.length !== 1)
     throw createAppError('CONFLICT', 'Worker segment changed');
 }
@@ -66,8 +76,10 @@ export async function requireBotRoom(
   target: Pick<BotPublicationScope, 'roundId'>,
   room: string,
 ) {
-  const named = await tx.execute(
-    sql`select 1 from media_sessions where round_id=${target.roundId} and room_name=${room} limit 1`,
+  const named = await query(
+    tx,
+    z.object({ present: z.literal(1) }),
+    sql`select 1 as present from media_sessions where round_id=${target.roundId} and room_name=${room} limit 1`,
   );
   if (named.length !== 1) throw createRefusal('CONFLICT', 'bot-room-changed');
 }
@@ -81,11 +93,15 @@ export async function requireBotSpeakingWindow(
 ) {
   await refuseDuringIncident(tx, target.roundId);
   const now = sql`clock_timestamp()`;
-  const rows = await tx.execute(sql`select 1 from round_speaking_intervals i
+  const rows = await query(
+    tx,
+    z.object({ present: z.literal(1) }),
+    sql`select 1 as present from round_speaking_intervals i
     join round_segments s on s.id=i.segment_id and s.round_id=i.round_id
     where i.round_id=${target.roundId} and i.segment_id=${target.segmentId} and i.round_participant_id=${target.roundParticipantId}
       and ${intervalOpen(now, now)}
-      and ${segmentInProgress(now, now)} limit 1`);
+      and ${segmentInProgress(now, now)} limit 1`,
+  );
   if (rows.length !== 1)
     throw createAppError('CONFLICT', 'Bot speaking authority changed');
 }
@@ -102,14 +118,17 @@ export async function readBotSegmentFloor(
   >,
 ) {
   const now = sql`clock_timestamp()`;
-  const [row] =
-    await tx.execute(sql`select exists(select 1 from round_speaking_intervals i
+  const [row] = await query(
+    tx,
+    z.object({ floor: z.boolean() }),
+    sql`select exists(select 1 from round_speaking_intervals i
       where i.round_id=s.round_id and i.segment_id=s.id and i.round_participant_id=${target.roundParticipantId}
         and ${intervalOpen(now, now)}) as floor
     from round_segments s
     where s.round_id=${target.roundId} and s.id=${target.segmentId}
-      and ${segmentInProgress(now, now)} limit 1`);
-  return row ? { floor: (row as { floor: boolean }).floor === true } : null;
+      and ${segmentInProgress(now, now)} limit 1`,
+  );
+  return row ? { floor: row.floor } : null;
 }
 /** A bot seat asking for media: to publish, or (`hearing`) only to listen. */
 export type BotMediaPrincipal = {

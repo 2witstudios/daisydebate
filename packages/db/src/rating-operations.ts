@@ -24,6 +24,8 @@ import { rounds } from './schema/rounds';
 import { ratingChanges, ratings, seasons } from './schema/ratings';
 import { inTransaction, type Tx, type TxSource } from './tx';
 import { takeLock, transactionLocks } from './locks';
+import { query } from './raw-rows';
+import { z } from 'zod';
 
 /** A projection moved under a concurrent debate: retry from fresh facts. */
 class StaleProjection extends Error {}
@@ -191,15 +193,18 @@ async function rateOnce(
   // Two-int advisory namespace59090 belongs to ratings, disjoint from the
   // bigint command locks. Sort/dedupe actual int32 keys before acquisition;
   // a hash collision only serializes unrelated ladder/actor pairs.
-  const keys =
-    await tx.execute(sql`select key::text as key from (select distinct
+  const keys = await query(
+    tx,
+    z.object({ key: z.string() }),
+    sql`select key::text as key from (select distinct
     hashtext(${ladderKey(eligibility.ladder.style, eligibility.ladder.division)} || ':' || actor_id) as key
     from round_participants where round_id=${roundId} and seat_kind='side' and side in (${sql.join(
       twoSideKeys.map((side) => sql`${side}`),
       sql`, `,
     )})) locks
-    order by locks.key`);
-  for (const { key } of keys as unknown as { key: string }[])
+    order by locks.key`,
+  );
+  for (const { key } of keys)
     await takeLock(tx, transactionLocks.ratingSeat(Number(key)));
   const standings: Record<string, DebaterStanding> = {};
   for (const { actorId } of seats)

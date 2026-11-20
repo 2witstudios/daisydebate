@@ -19,7 +19,8 @@ import { requireTranscriptUnfrozen } from './transcript-unfrozen';
 import { transcriptSegments } from './schema/transcript-segments';
 import { utterances } from './schema/utterances';
 import type { Tx } from './tx';
-import { run } from './raw-rows';
+import { run, query as queryRows } from './raw-rows';
+import { z } from 'zod';
 
 /** One phrase a bot is about to say: its own words and its known length. */
 export type BotPhrase = {
@@ -353,8 +354,18 @@ export async function closeAbandonedBotLines(
   roundId: string,
   roundParticipantId?: string,
 ) {
-  const rows =
-    (await tx.execute(sql`select u.id, u.text, u.round_id as "roundId",
+  const rows = await queryRows(
+    tx,
+    z.object({
+      id: z.string(),
+      text: z.string(),
+      fraction: z.union([z.string(), z.number()]),
+      durationMs: z.number(),
+      roundId: z.string(),
+      segmentId: z.string(),
+      roundParticipantId: z.string(),
+    }),
+    sql`select u.id, u.text, u.round_id as "roundId",
       u.segment_id as "segmentId", u.round_participant_id as "roundParticipantId",
       extract(epoch from (least(clock_timestamp(),
         u.created_at+u.bot_duration_ms*interval '1 millisecond',
@@ -363,15 +374,8 @@ export async function closeAbandonedBotLines(
     from utterances u join round_segments s on s.id=u.segment_id and s.round_id=u.round_id
     where u.round_id=${roundId} and u.bot_phrase_id is not null and not u.complete
       ${roundParticipantId === undefined ? sql`` : sql`and u.round_participant_id=${roundParticipantId}`}
-    for update of u`)) as unknown as {
-      id: string;
-      text: string;
-      fraction: number | string;
-      durationMs: number;
-      roundId: string;
-      segmentId: string;
-      roundParticipantId: string;
-    }[];
+    for update of u`,
+  );
   for (const row of rows) {
     const fraction = Number(row.fraction);
     await closeLine(

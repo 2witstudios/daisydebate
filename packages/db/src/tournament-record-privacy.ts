@@ -2,6 +2,8 @@ import { sql } from 'drizzle-orm';
 import type { PrivacyAdopter } from './privacy/contracts';
 import { exportRows } from './privacy/export-rows';
 import { scopeTransaction } from './tenant-scope';
+import { query } from './raw-rows';
+import { z } from 'zod';
 
 /**
  * The tournament record (docs/operations/compliance.md): the entries a
@@ -18,7 +20,14 @@ export const tournamentRecordPrivacyAdopter: PrivacyAdopter = {
     await scopeTransaction(tx, { subjectUserId: subject.userId });
     const result = {
       entry_members: exportRows(
-        await tx.execute(
+        await query(
+          tx,
+          z.object({
+            entry_id: z.string(),
+            event_id: z.string(),
+            lobby_id: z.string(),
+            created_at: z.date(),
+          }),
           sql`select entry_id, event_id, lobby_id, created_at from entry_members
             where actor_id = ${subject.actorId} order by lobby_id, event_id, entry_id`,
         ),
@@ -44,7 +53,15 @@ export const tournamentRecordPrivacyAdopter: PrivacyAdopter = {
           order by lobby_id,created_at,id`),
       ),
       tournament_judges: exportRows(
-        await tx.execute(
+        await query(
+          tx,
+          z.object({
+            id: z.string(),
+            lobby_id: z.string(),
+            status: z.string(),
+            chair_qualified: z.boolean(),
+            created_at: z.date(),
+          }),
           sql`select id, lobby_id, status, chair_qualified, created_at from tournament_judges
             where actor_id = ${subject.actorId} order by lobby_id, id`,
         ),

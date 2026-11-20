@@ -62,9 +62,13 @@ async function evidenceAvailable(tx: Tx, context: WorkContext) {
   const request = analysisRequest(context.work);
   if (!context.authorized || !request) return false;
   await lockAnalysisEvidence(tx, context.row.roundId);
-  const [facts] = await tx.execute(sql`select z.revision,
+  const [facts] = await query(
+    tx,
+    z.object({ revision: z.int(), lines: z.int() }),
+    sql`select z.revision,
     (select count(*)::integer from utterances where round_id=${context.row.roundId}) as lines
-    from round_transcript_freezes z where z.round_id=${context.row.roundId}`);
+    from round_transcript_freezes z where z.round_id=${context.row.roundId}`,
+  );
   return (
     facts?.revision === context.row.freezeRevision &&
     facts.lines === request.evidenceLines

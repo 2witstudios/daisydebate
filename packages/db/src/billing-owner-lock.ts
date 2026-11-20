@@ -7,6 +7,8 @@ import { billingCustomers } from './schema/billing-customers';
 import { billingPurchases } from './schema/billing-purchases';
 import { billingSubscriptions } from './schema/billing-subscriptions';
 import type { Tx } from './tx';
+import { query } from './raw-rows';
+import { z } from 'zod';
 
 /** A club may buy seats: a school or club, or a homeschool family (ADR 0148). */
 export const clubOrganizationKinds = ['school', 'family'] as const;
@@ -51,7 +53,17 @@ export async function lockClub(
   if (!idSchema.safeParse(organizationId).success)
     throw createAppError('VALIDATION');
   await scopeTransaction(tx, { organizationId, subjectUserId });
-  const [row] = await tx.execute(
+  const [row] = await query(
+    tx,
+    z.object({
+      id: z.string(),
+      kind: z.string(),
+      name: z.string(),
+      handle: z.string(),
+      owner_user_id: z.string().nullable(),
+      closed_at: z.date().nullable(),
+      version: z.int(),
+    }),
     sql`select id, kind, name, handle, owner_user_id, closed_at, version
       from organizations where id=${organizationId} for update`,
   );

@@ -41,15 +41,19 @@ export function flagOperations({
           )
             throw createAppError('VALIDATION');
           await lockFlags(tx, 'write');
-          const removed = await tx.execute(sql`with due as (
+          const removed = await query(
+            tx,
+            z.object({ count: z.number() }),
+            sql`with due as (
           select key, user_id from flag_account_overrides where expires_at <= least(${before}::timestamptz, clock_timestamp())
           order by expires_at, key, user_id limit ${limit}
         ), removed as (
           delete from flag_account_overrides o using due where o.key = due.key and o.user_id = due.user_id returning o.key
         ), revisions as (
           update release_flags set revision = revision + 1 where key in (select key from removed) returning key
-        ) select count(*)::integer as count from removed`);
-          return (removed as unknown as { count: number }[])[0]!.count;
+        ) select count(*)::integer as count from removed`,
+          );
+          return removed[0]!.count;
         }),
       ),
     purgeExpiredFlagEvidence: ({

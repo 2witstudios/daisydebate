@@ -524,16 +524,20 @@ export const readBroadcastRelease = async (
   roundId: string,
   clock: SpectatorClock,
 ) => {
-  const rows = await reader.execute(sql`
+  const rows = await query(
+    reader,
+    z.object({
+      horizon: z.union([z.string(), z.date()]).nullable(),
+      stopped: z.boolean(),
+      withheld: z.boolean(),
+    }),
+    sql`
     select ${spectatorHorizonSql(roundAliasR, clock)} as horizon,
       exists (select 1 from broadcasts b where b.round_id = r.id and b.stopped_at is not null) as stopped,
       exists (select 1 from broadcasts b where b.round_id = r.id and ${operatorWithheldSql(sql`b`)}) as withheld
-    from rounds r where r.id = ${roundId}`);
-  const [row] = rows as unknown as {
-    readonly horizon: Date | string | null;
-    readonly stopped: boolean;
-    readonly withheld: boolean;
-  }[];
+    from rounds r where r.id = ${roundId}`,
+  );
+  const [row] = rows;
   return {
     releasedThroughMs:
       row?.horizon === null || row?.horizon === undefined
@@ -626,20 +630,28 @@ export const readBroadcastStageHistory = async (
   tx: Tx,
   broadcastId: string,
 ) => {
-  const segments = (await tx.execute(sql`
+  const segments = await query(
+    tx,
+    z.object({
+      started_at: z.union([z.string(), z.date()]),
+      ended_at: z.union([z.string(), z.date()]).nullable(),
+      duration_ms: z.number(),
+    }),
+    sql`
     select started_at, ended_at, duration_ms from broadcast_public_history
-    where broadcast_id = ${broadcastId} order by sequence`)) as unknown as {
-    readonly started_at: Date | string;
-    readonly ended_at: Date | string | null;
-    readonly duration_ms: number;
-  }[];
-  const spans = (await tx.execute(sql`
+    where broadcast_id = ${broadcastId} order by sequence`,
+  );
+  const spans = await query(
+    tx,
+    z.object({
+      kind: z.enum(['prep', 'judging']),
+      started_at: z.union([z.string(), z.date()]),
+      ended_at: z.union([z.string(), z.date()]).nullable(),
+    }),
+    sql`
     select kind, started_at, ended_at from broadcast_private_history
-    where broadcast_id = ${broadcastId}`)) as unknown as {
-    readonly kind: 'prep' | 'judging';
-    readonly started_at: Date | string;
-    readonly ended_at: Date | string | null;
-  }[];
+    where broadcast_id = ${broadcastId}`,
+  );
   const ms = (at: Date | string | null) =>
     at === null ? null : new Date(at).getTime();
   return {
@@ -658,9 +670,13 @@ export const readBroadcastStageHistory = async (
 
 /** Whether this Broadcast's Round has a Recording, which reads its hold, then clears it. */
 export const readRecordingKeepsHold = async (tx: Tx, broadcastId: string) => {
-  const rows = (await tx.execute(sql`
-    select 1 from broadcast_recording_claims
-    where broadcast_id = ${broadcastId}`)) as unknown as unknown[];
+  const rows = await query(
+    tx,
+    z.object({ present: z.literal(1) }),
+    sql`
+    select 1 as present from broadcast_recording_claims
+    where broadcast_id = ${broadcastId}`,
+  );
   return rows.length > 0;
 };
 
@@ -752,10 +768,14 @@ export const endBroadcastFeed = async (
   },
 ): Promise<'applied' | 'unchanged' | null> => {
   const at = input.now.toISOString();
-  const stopped = (await tx.execute(sql`update broadcasts
+  const stopped = await query(
+    tx,
+    z.object({ id: z.string() }),
+    sql`update broadcasts
     set stopped_at=${at}::timestamptz, stop_reason=${input.reason}
     where id=${input.id} and stopped_at is null and completed_at is null
-    returning id`)) as unknown as readonly unknown[];
+    returning id`,
+  );
   if (stopped.length === 1) return 'applied';
   // Already complete, its feed would wait out the grace: past the delivery bound
   // for a stop that lands just after. The withdrawal loop takes it on its next poll.
@@ -766,9 +786,11 @@ export const endBroadcastFeed = async (
     where id=${input.id} and completed_at is not null
       and feed_withdrawn_at is null and feed_withdrawal_requested_at is null`,
   );
-  const found = (await tx.execute(
+  const found = await query(
+    tx,
+    z.object({ id: z.string() }),
     sql`select id from broadcasts where id=${input.id}`,
-  )) as unknown as readonly unknown[];
+  );
   return found.length === 1 ? 'unchanged' : null;
 };
 

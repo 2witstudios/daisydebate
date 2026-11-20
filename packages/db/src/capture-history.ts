@@ -6,6 +6,7 @@ import {
   speakingEndMs,
   type SeatGrantFacts,
   type SeatKind,
+  seatKindSchema,
 } from '@daisy/protocol';
 import { seatOfColumns } from './seat-columns';
 import { rounds } from './schema/rounds';
@@ -13,6 +14,8 @@ import { roundSpeakingIntervals } from './schema/round-speaking-intervals';
 import { roundTranscripts } from './schema/transcript-segments';
 import type { roundSegments } from './schema/round-segments';
 import type { Tx } from './tx';
+import { query } from './raw-rows';
+import { z } from 'zod';
 
 type Segment = typeof roundSegments.$inferSelect;
 type StreamScope = CaptureStream & { readonly roundId: string };
@@ -72,7 +75,19 @@ export async function readSeatGrants(
     .where(eq(rounds.id, input.roundId));
   const one =
     input.segmentId !== undefined && input.roundParticipantId !== undefined;
-  const rows = (await tx.execute(sql`select distinct
+  const rows = await query(
+    tx,
+    z.object({
+      segmentId: z.string(),
+      roundParticipantId: z.string(),
+      kind: z.enum(['human', 'bot']),
+      seatKind: seatKindSchema,
+      side: z.string().nullable(),
+      slot: z.number(),
+      sequence: z.number().nullable(),
+      authored: z.boolean(),
+    }),
+    sql`select distinct
       i.segment_id as "segmentId", i.round_participant_id as "roundParticipantId",
       a.kind, p.seat_kind as "seatKind", p.side, p.slot, s.sequence,
       exists(select 1 from utterances u
@@ -86,16 +101,8 @@ export async function readSeatGrants(
     where i.round_id=${input.roundId} and p.seat_kind<>'judge'
       and (i.ended_at is null or i.ended_at>i.started_at)
       ${one ? sql`and i.segment_id=${input.segmentId} and i.round_participant_id=${input.roundParticipantId}` : sql``}
-    order by i.segment_id, i.round_participant_id`)) as unknown as {
-    segmentId: string;
-    roundParticipantId: string;
-    kind: 'human' | 'bot';
-    seatKind: SeatKind;
-    side: string | null;
-    slot: number;
-    sequence: number | null;
-    authored: boolean;
-  }[];
+    order by i.segment_id, i.round_participant_id`,
+  );
   return rows.map((row) => {
     const turn =
       row.sequence === null ? undefined : round?.rules.segments[row.sequence];

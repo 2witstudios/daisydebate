@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import type { PrivacyAdopter } from './privacy/contracts';
-import { run } from './raw-rows';
+import { run, query } from './raw-rows';
+import { z } from 'zod';
 /** Reuses the owning erasure's exclusive canonical account fence. No Round/user locks, audio loop or external call here. */
 export const necessaryEvidencePrivacyAdopter: PrivacyAdopter = {
   id: 'necessary-evidence',
@@ -13,10 +14,20 @@ export const necessaryEvidencePrivacyAdopter: PrivacyAdopter = {
     );
   },
   export: async (tx, subject) => {
-    const rows = await tx.execute(sql`select actor_id,user_id,phase,
+    const rows = await query(
+      tx,
+      z.object({
+        actor_id: z.string(),
+        user_id: z.string(),
+        phase: z.string(),
+        requested_at: z.string(),
+        propagated_at: z.string().nullable(),
+      }),
+      sql`select actor_id,user_id,phase,
       to_char(requested_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as requested_at,
       to_char(propagated_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as propagated_at
-      from necessary_evidence_erasure_requests where actor_id=${subject.actorId} and user_id=${subject.userId}`);
+      from necessary_evidence_erasure_requests where actor_id=${subject.actorId} and user_id=${subject.userId}`,
+    );
     return {
       necessary_evidence_erasure_requests: rows,
     };

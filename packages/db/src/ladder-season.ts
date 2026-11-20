@@ -3,6 +3,8 @@ import type { Ladder } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import { daisyOrganizationId } from './daisy-reference';
 import type { Tx } from './tx';
+import { query } from './raw-rows';
+import { z } from 'zod';
 
 /**
  * A ranked Round needs Daisy's active season on its ladder's division (ADR
@@ -10,7 +12,9 @@ import type { Tx } from './tx';
  * freezes the Round. With none, the Room cannot start ranked.
  */
 export async function lockLadderSeason(tx: Tx, ladder: Ladder): Promise<void> {
-  const active = await tx.execute(
+  const active = await query(
+    tx,
+    z.object({ id: z.string() }),
     sql`select id from seasons where status = 'active' and organization_id = ${daisyOrganizationId} and division = ${ladder.division} for share`,
   );
   if (active.length !== 1)

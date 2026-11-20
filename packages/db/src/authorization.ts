@@ -3,8 +3,9 @@ import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import {
   authorizationAccountFact,
-  type AuthorizationAccountRow,
+  authorizationAccountRow,
 } from './authorization-account';
+import { query } from './raw-rows';
 import { inTransaction, type Tx, type TxOpener } from './tx';
 function requireActorSelector(
   actorIds: readonly string[],
@@ -28,7 +29,9 @@ async function accountFacts(
   producer: (ids: SQL) => SQL,
 ) {
   requireActorSelector(actorIds, limits);
-  const rows = await tx.execute(
+  const rows = await query(
+    tx,
+    authorizationAccountRow,
     producer(
       sql`array[${sql.join(
         actorIds.map((id) => sql`${id}`),
@@ -36,10 +39,9 @@ async function accountFacts(
       )}]::text[]`,
     ),
   );
-  const current = rows as unknown as AuthorizationAccountRow[];
   return actorIds.map((actorId) =>
     authorizationAccountFact(
-      current.find((row) => row.actorId === actorId) ?? null,
+      rows.find((row) => row.actorId === actorId) ?? null,
     ),
   );
 }
@@ -121,12 +123,14 @@ export function readOwnCollection<S extends { readonly actorId: string }, T>(
 /** Read-only requests get fresh rows without keeping a cross-request cache. */
 export async function loadAuthorizationAccount(tx: Tx, userId: string) {
   if (!idSchema.safeParse(userId).success) throw createAppError('VALIDATION');
-  const rows = await tx.execute(sql`
+  const rows = await query(
+    tx,
+    authorizationAccountRow,
+    sql`
     select * from public.daisy_authorization_accounts_v2(null::text[], ${userId}::text, false)
-  `);
-  const account = authorizationAccountFact(
-    (rows as unknown as AuthorizationAccountRow[])[0] ?? null,
+  `,
   );
+  const account = authorizationAccountFact(rows[0] ?? null);
   return account?.userId === userId ? account : null;
 }
 

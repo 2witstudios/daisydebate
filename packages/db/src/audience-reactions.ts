@@ -1,12 +1,13 @@
 import { sql } from 'drizzle-orm';
 import { inLiveRoomSql, liveRoomOfR } from './live-room-sql';
 import type { RoundAudienceAdmission } from './messaging/spectator-chat';
-import { rowsOf, run } from './raw-rows';
+import { run, query } from './raw-rows';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import type { PrivacyAdopter } from './privacy/contracts';
 import { exportRows } from './privacy/export-rows';
 import { youthRoundSql } from './youth-round-sql';
 import { inTransaction, type Tx, type TxSource } from './tx';
+import { z } from 'zod';
 
 /**
  * The totals inside a caller's snapshot: anonymous and current. Reactions are the
@@ -17,8 +18,9 @@ export const readReactionTotals = async (
   input: { readonly roundId: string },
 ) =>
   (
-    await rowsOf<{ kind: string; count: number | string }>(
+    await query(
       tx,
+      z.object({ kind: z.string(), count: z.union([z.string(), z.number()]) }),
       sql`select ar.kind,count(*) as count
         from audience_reactions ar
         where ar.round_id=${input.roundId}
@@ -57,15 +59,16 @@ export const audienceReactionOperations = ({
   ) {
     return instrumented(eventSink, 'recordAudienceReaction', () =>
       inTransaction(database, async (tx) => {
-        const [round] = await rowsOf<{
-          visibility: 'public' | 'unlisted';
-          audience_link_hash: string | null;
-          in_live_room: boolean;
-          has_broadcast: boolean;
-          open: boolean;
-          banned: boolean;
-        }>(
+        const [round] = await query(
           tx,
+          z.object({
+            visibility: z.enum(['public', 'unlisted']),
+            audience_link_hash: z.string().nullable(),
+            in_live_room: z.boolean(),
+            has_broadcast: z.boolean(),
+            open: z.boolean(),
+            banned: z.boolean(),
+          }),
           sql`select r.visibility,r.audience_link_hash,
               ${inLiveRoomSql(liveRoomOfR, input.actorId)} as in_live_room,
               b.id is not null as has_broadcast,
@@ -110,8 +113,9 @@ export const audienceReactionOperations = ({
       eventSink,
       'purgeExpiredAudienceReactions',
       async () => {
-        const gone = await rowsOf(
+        const gone = await query(
           database,
+          z.object({ id: z.string() }),
           sql`delete from audience_reactions where id in (
               select id from audience_reactions
               where created_at < ${input.before}::timestamptz limit ${input.limit})
@@ -135,8 +139,13 @@ export const audienceReactionPrivacyAdopter: PrivacyAdopter = {
   },
   export: async (tx, subject) => ({
     audience_reactions: exportRows(
-      await rowsOf<Record<string, unknown>>(
+      await query(
         tx,
+        z.object({
+          round_id: z.string(),
+          kind: z.string(),
+          created_at: z.date(),
+        }),
         sql`select round_id,kind,created_at from audience_reactions
           where user_id=${subject.userId} order by created_at,id`,
       ),

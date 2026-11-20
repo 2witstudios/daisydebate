@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { rowsOf, run, query } from './raw-rows';
+import { run, query } from './raw-rows';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import type { PrivacyAdopter } from './privacy/contracts';
 import { exportRows } from './privacy/export-rows';
@@ -57,9 +57,10 @@ export const debaterFollowOperations = ({
           return 'not_following' as const;
         }
         // A ban covers all audience interaction; letting a follow go stays open.
-        const [refused] = await rowsOf(
+        const [refused] = await query(
           tx,
-          sql`select 1 where ${blockedBetween(input.followerUserId, debater.id)}
+          z.object({ present: z.literal(1) }),
+          sql`select 1 as present where ${blockedBetween(input.followerUserId, debater.id)}
             or exists(select 1 from audience_bans x where x.user_id=${input.followerUserId})`,
         );
         if (refused) return 'unavailable' as const;
@@ -86,9 +87,10 @@ export const debaterFollowOperations = ({
         debaterNamed(input.username),
       );
       if (!debater || debater.user_id === input.followerUserId) return null;
-      const [row] = await rowsOf(
+      const [row] = await query(
         database,
-        sql`select 1 from debater_follows
+        z.object({ present: z.literal(1) }),
+        sql`select 1 as present from debater_follows
           where follower_user_id=${input.followerUserId} and debater_actor_id=${debater.id}`,
       );
       return { following: row !== undefined };
@@ -129,8 +131,9 @@ export const debaterFollowPrivacyAdopter: PrivacyAdopter = {
   },
   export: async (tx, subject) => ({
     debater_follows: exportRows(
-      await rowsOf<Record<string, unknown>>(
+      await query(
         tx,
+        z.object({ debater_actor_id: z.string(), created_at: z.date() }),
         sql`select debater_actor_id,created_at from debater_follows
           where follower_user_id=${subject.userId} order by created_at,debater_actor_id`,
       ),

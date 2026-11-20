@@ -9,17 +9,23 @@ import {
 } from './outbox';
 
 import { sessionLocks } from './locks';
-type AvailabilityCause =
-  | 'web_stale'
-  | 'realtime_stale'
-  | 'delivery_lag'
-  | 'public_probe_failed'
-  | 'check_in_pending';
-export type AvailabilityEvidence = {
-  readonly at: string;
-  readonly healthy: boolean;
-  readonly cause: AvailabilityCause | null;
-};
+import { z } from 'zod';
+export const availabilityEvidenceRow = z.object({
+  at: z.string(),
+  healthy: z.boolean(),
+  cause: z
+    .enum([
+      'web_stale',
+      'realtime_stale',
+      'delivery_lag',
+      'public_probe_failed',
+      'check_in_pending',
+    ])
+    .nullable(),
+});
+export type AvailabilityEvidence = Readonly<
+  z.output<typeof availabilityEvidenceRow>
+>;
 type ProbeEvidence = {
   readonly publicProbeHealthy: boolean;
 };
@@ -221,19 +227,14 @@ export function availabilityOperations(client: SQL, dedicated: SQL) {
     ): Promise<readonly AvailabilityEvidence[]> {
       if (!Number.isFinite(Date.parse(from)))
         throw createAppError('VALIDATION');
-      const rows: {
-        at: string;
-        healthy: boolean;
-        cause: AvailabilityCause | null;
-      }[] = await availabilitySamplesFrom(
-        (strings, ...values) => client(strings, ...values),
-        from,
-      );
-      return rows.map((row) => ({
-        at: row.at,
-        healthy: row.healthy,
-        cause: row.cause,
-      }));
+      return z
+        .array(availabilityEvidenceRow)
+        .parse(
+          await availabilitySamplesFrom(
+            (strings, ...values) => client(strings, ...values),
+            from,
+          ),
+        );
     },
     async purgeExpiredServiceInstances(input: {
       readonly before: string;

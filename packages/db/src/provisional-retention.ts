@@ -86,7 +86,9 @@ export const provisionalRetentionOperations = ({
           );
           if (!user) return 0;
           await clearProvisionalLinks(tx, user, input);
-          const rows = await tx.execute(
+          const rows = await query(
+            tx,
+            z.object({ id: z.string() }),
             sql`delete from users where id = ${id} returning id`,
           );
           return rows.length;

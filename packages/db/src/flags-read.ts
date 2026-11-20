@@ -8,6 +8,7 @@ import {
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';
 import type { Tx } from './tx';
+import { query } from './raw-rows';
 
 const rowSchema = z.object({
   key: flagKeySchema,
@@ -40,7 +41,10 @@ export async function readFlagSnapshot(
   requireFlagKeys(keys);
   if (accountId !== null && !idSchema.safeParse(accountId).success)
     throw createAppError('VALIDATION');
-  const rows = await database.execute(sql`with instant as materialized (
+  const rows = await query(
+    database,
+    rowSchema,
+    sql`with instant as materialized (
       select extract(epoch from clock_timestamp()) * 1000 as now_ms
     ) select requested.key, coalesce(f.revision, 0) as revision,
       coalesce(f.state, 'default') as state, o.enabled,
@@ -53,13 +57,14 @@ export async function readFlagSnapshot(
     left join release_flags f on f.key = requested.key
     left join flag_account_overrides o on o.key = f.key and o.user_id = ${accountId}
       and exists(select 1 from users u where u.id = o.user_id and u.deleted_at is null)
-    order by requested.key`);
-  const parsed = z.array(rowSchema).length(keys.length).parse(rows);
+    order by requested.key`,
+  );
+  if (rows.length !== keys.length) throw createAppError('INVARIANT');
   return {
-    now: parsed[0]!.now_ms,
+    now: rows[0]!.now_ms,
     snapshot: {
       kind: 'available',
-      flags: parsed.map((row) => ({
+      flags: rows.map((row) => ({
         key: row.key,
         revision: row.revision,
         state: row.state,

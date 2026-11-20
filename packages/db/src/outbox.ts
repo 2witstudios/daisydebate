@@ -10,7 +10,7 @@ import { instrumented, type DatabaseEventSink } from './instrumented';
 import type { RetentionBatch } from './retention';
 import { deleteExpiredOutboxPrefix } from './outbox-retention';
 import type { Tx } from './tx';
-import { run } from './raw-rows';
+import { postgresInt8, run, query } from './raw-rows';
 
 /**
  * Full validation of the append input (RT-2.2 hazard note, plan revision
@@ -170,6 +170,8 @@ export async function appendOutboxEvents(
 
 const MAX_DRAIN_LIMIT = 500;
 
+const outboxRawPosition = z.object({ txid: postgresInt8, seq: postgresInt8 });
+
 /**
  * Commit-ordered drain (plan: "Cursor correctness"). Reads only rows whose
  * inserting transaction has finished for every observer
@@ -185,20 +187,30 @@ export async function drainOutbox(
 ): Promise<readonly OutboxRow[]> {
   if (!Number.isSafeInteger(limit) || limit < 1 || limit > MAX_DRAIN_LIMIT)
     throw new Error('Invalid outbox drain limit');
-  const result = await db.execute(sql`
+  const result = await query(
+    db,
+    outboxRawPosition.extend({
+      topic: z.string(),
+      kind: z.string(),
+      version: z.int(),
+      payload: z.json(),
+      createdAt: z.union([z.date(), z.string()]),
+    }),
+    sql`
     select seq, txid, topic, kind, version, payload, created_at as "createdAt"
     from outbox
     where (txid, seq) > (${cursor.txid}::xid8, ${cursor.seq.toString()}::bigint)
       and txid < pg_snapshot_xmin(pg_current_snapshot())
     order by txid, seq
     limit ${limit}
-  `);
+  `,
+  );
   return result.map((row) => ({
-    seq: BigInt(row.seq as string | number | bigint),
+    seq: BigInt(row.seq),
     txid: String(row.txid),
-    topic: String(row.topic),
-    kind: String(row.kind),
-    version: Number(row.version),
+    topic: row.topic,
+    kind: row.kind,
+    version: row.version,
     payload: row.payload,
     createdAt:
       row.createdAt instanceof Date
@@ -216,18 +228,22 @@ export async function drainOutbox(
  * in for "nothing yet".
  */
 export async function readOutboxHighWaterMark(db: Tx): Promise<OutboxPosition> {
-  const result = await db.execute(sql`
+  const result = await query(
+    db,
+    outboxRawPosition,
+    sql`
     select txid, seq
     from outbox
     where txid < pg_snapshot_xmin(pg_current_snapshot())
     order by txid desc, seq desc
     limit 1
-  `);
+  `,
+  );
   const [row] = result;
   if (!row) return OUTBOX_ORIGIN;
   return {
     txid: String(row.txid),
-    seq: BigInt(row.seq as string | number | bigint),
+    seq: BigInt(row.seq),
   };
 }
 

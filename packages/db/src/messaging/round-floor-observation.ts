@@ -6,9 +6,13 @@ import {
   type FloorYouth,
 } from './round-floor-facts';
 import type { Tx, TxSource } from '../tx';
+import { query } from '../raw-rows';
+import { z } from 'zod';
 
 const floorRoundOf = async (tx: Tx, channelId: string) => {
-  const [row] = await tx.execute(
+  const [row] = await query(
+    tx,
+    z.object({ round_id: z.string() }),
     sql`select round_id from public.daisy_round_floor_channel(${channelId}::text)`,
   );
   return typeof row?.round_id === 'string' ? row.round_id : null;
@@ -25,7 +29,9 @@ export function createRoundFloorChannelCohortAuthority(database: TxSource) {
       ownerOf: floorRoundOf,
       fence: fenceRoundFloor,
       fenceChannel: async (tx, channelId) => {
-        const [locked] = await tx.execute(
+        const [locked] = await query(
+          tx,
+          z.object({ locked: z.boolean() }),
           sql`select public.daisy_round_floor_channel_read_fence(${channelId}::text) as locked`,
         );
         return locked?.locked === true;

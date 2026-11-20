@@ -2,6 +2,8 @@ import { sql, type SQL } from 'drizzle-orm';
 import type { ChosenStatus, MemberPlacement } from '@daisy/protocol';
 import { roomIsOpen } from '../room-open';
 import type { Tx } from '../tx';
+import { query as queryRows } from '../raw-rows';
+import { z } from 'zod';
 
 /** Rooms' and Rounds' published fact, for the membership row `m` joined to `rooms`. */
 const placementSql = sql<MemberPlacement>`case
@@ -18,11 +20,15 @@ export const placementOf = (actorId: SQL) =>
 
 /** Whether a member can take a challenge now: their choice and placement. */
 export async function readAvailability(tx: Tx, actorId: string) {
-  const [row] = (await tx.execute(sql`
+  const [row] = await queryRows(
+    tx,
+    z.object({
+      chosen: z.enum(['online', 'busy', 'appearing_offline']),
+      placement: z.enum(['round', 'room']).nullable(),
+    }),
+    sql`
     select coalesce((select chosen_status from presence_settings where actor_id = ${actorId}), 'online') as chosen,
-      ${placementOf(sql`${actorId}`)} as placement`)) as unknown as {
-    chosen: ChosenStatus;
-    placement: MemberPlacement;
-  }[];
+      ${placementOf(sql`${actorId}`)} as placement`,
+  );
   return row ?? { chosen: 'online' as const, placement: null };
 }

@@ -87,7 +87,7 @@ class TransactionAttempt {
     this.checkBudget();
   };
 
-  private async execute<T>(run: TransactionWork<T>): Promise<T> {
+  private async runWork<T>(run: TransactionWork<T>): Promise<T> {
     // No writer can hold a lock without its separately owned control connection.
     const options = { signal: this.controller.signal };
     this.watchdog = await this.client.reserve(options);
@@ -258,7 +258,7 @@ class TransactionAttempt {
       );
     });
     try {
-      return await Promise.race([this.execute(work), budget]);
+      return await Promise.race([this.runWork(work), budget]);
     } catch (error) {
       return await this.recover(error);
     } finally {

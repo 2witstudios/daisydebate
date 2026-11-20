@@ -1,7 +1,8 @@
 import { sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import type { Tx } from '../tx';
-import { run } from '../raw-rows';
+import { postgresInt8, run, query } from '../raw-rows';
+import { z } from 'zod';
 
 /** The channel stream's high-water mark: the last message position and content revision. */
 export type ChannelStream = {
@@ -43,10 +44,14 @@ export async function readStream(
   tx: Tx,
   channelId: string,
 ): Promise<ChannelStream> {
-  const [row] = await tx.execute(sql`
+  const [row] = await query(
+    tx,
+    z.object({ messageSequence: postgresInt8, changeVersion: postgresInt8 }),
+    sql`
     select message_sequence as "messageSequence", change_version as "changeVersion"
     from messaging_channel_streams where channel_id=${channelId}
-  `);
+  `,
+  );
   return streamOf(row);
 }
 
@@ -60,10 +65,14 @@ export async function lockStream(
   tx: Tx,
   channelId: string,
 ): Promise<ChannelStream> {
-  const [row] = await tx.execute(sql`
+  const [row] = await query(
+    tx,
+    z.object({ messageSequence: postgresInt8, changeVersion: postgresInt8 }),
+    sql`
     select message_sequence as "messageSequence", change_version as "changeVersion"
     from messaging_channel_streams where channel_id=${channelId} for update
-  `);
+  `,
+  );
   return streamOf(row);
 }
 

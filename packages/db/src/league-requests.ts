@@ -14,7 +14,7 @@ import {
   type MailJobClaimInput,
   type MailJobOutcome,
 } from './mail-queue';
-import { rowsOf } from './raw-rows';
+import { query } from './raw-rows';
 import { deleteExpiredBatch, type RetentionBatch } from './retention';
 import {
   leagueRequestNoticeErrorCodes,
@@ -118,9 +118,10 @@ export function leagueRequestOperations({
      */
     leagueRequestUnchanged: (request: LeagueRequest): Promise<boolean> =>
       instrumented(eventSink, 'leagueRequestUnchanged', async () => {
-        const rows = await rowsOf(
+        const rows = await query(
           database,
-          sql`select 1 from league_requests where form_id = ${request.requestId}
+          z.object({ present: z.literal(1) }),
+          sql`select 1 as present from league_requests where form_id = ${request.requestId}
             and fields_digest = ${leagueRequestDigest(request)}`,
         );
         return rows.length === 1;
@@ -141,8 +142,9 @@ export function leagueRequestOperations({
     ): Promise<void> =>
       instrumented(eventSink, 'recordLeagueRequest', async () => {
         const insert = (id: string) =>
-          rowsOf(
+          query(
             database,
+            z.object({ id: z.string() }),
             sql`insert into league_requests (
               id, form_id, fields_digest, league_name, schools, seasons, style,
               divisions, needs, contact_name, contact_role, contact_email,
@@ -164,14 +166,33 @@ export function leagueRequestOperations({
       input: MailJobClaimInput,
     ): Promise<readonly LeagueRequestNoticeClaim[]> =>
       instrumented(eventSink, 'claimLeagueRequestNotices', async () =>
-        (await noticeQueue.claimDue(database, input, sql`id, attempts`)).map(
-          ({ row, token }) => ({ ...claimRow.parse(row), token }),
-        ),
+        (
+          await noticeQueue.claimDue(
+            database,
+            input,
+            sql`id, attempts`,
+            claimRow,
+          )
+        ).map(({ row, token }) => ({ ...row, token })),
       ),
     readLeagueRequestNotice: (id: string): Promise<LeagueRequestNotice> =>
       instrumented(eventSink, 'readLeagueRequestNotice', async () => {
-        const [row] = await rowsOf<unknown>(
+        const [row] = await query(
           database,
+          z.object({
+            id: z.string(),
+            league_name: z.string(),
+            schools: z.string(),
+            seasons: z.string(),
+            style: z.string(),
+            divisions: z.string(),
+            needs: z.string(),
+            contact_name: z.string(),
+            contact_role: z.string(),
+            contact_email: z.string(),
+            contact_phone: z.string().nullable(),
+            received_at: z.string(),
+          }),
           sql`select id, league_name, schools, seasons, style, divisions, needs,
               contact_name, contact_role, contact_email, contact_phone,
               to_char(created_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as received_at

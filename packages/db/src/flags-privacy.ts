@@ -1,7 +1,8 @@
 import { sql } from 'drizzle-orm';
 import type { PrivacyAdopter } from './privacy/contracts';
 import { lockFlags } from './flags-lock';
-import { run } from './raw-rows';
+import { run, query } from './raw-rows';
+import { z } from 'zod';
 
 /** The caller already holds this subject's canonical account fence. */
 export const flagsPrivacyAdopter: PrivacyAdopter = {
@@ -21,13 +22,30 @@ export const flagsPrivacyAdopter: PrivacyAdopter = {
     );
   },
   export: async (tx, subject) => {
-    const targeting = await tx.execute(sql`select key, enabled,
+    const targeting = await query(
+      tx,
+      z.object({
+        key: z.string(),
+        enabled: z.boolean(),
+        expires_at: z.string(),
+      }),
+      sql`select key, enabled,
       to_char(expires_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as expires_at
-      from flag_account_overrides where user_id = ${subject.userId} order by key`);
-    const commands = await tx.execute(sql`select command_id, action, result,
+      from flag_account_overrides where user_id = ${subject.userId} order by key`,
+    );
+    const commands = await query(
+      tx,
+      z.object({
+        command_id: z.string(),
+        action: z.string(),
+        result: z.json(),
+        created_at: z.string(),
+      }),
+      sql`select command_id, action, result,
       to_char(created_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as created_at
       from operator_command_receipts where target_user_id = ${subject.userId}
-      and action in ('flag.state.update', 'flag.override.update') order by created_at, command_id`);
+      and action in ('flag.state.update', 'flag.override.update') order by created_at, command_id`,
+    );
     return {
       flag_account_overrides: targeting,
       flag_commands: commands,

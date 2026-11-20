@@ -2,7 +2,8 @@ import { sql } from 'drizzle-orm';
 import { readDatabaseTime } from './database-clock';
 import { eraseBillingReceipts } from './billing-inbox';
 import type { PrivacyAdopter } from './privacy/contracts';
-import { run } from './raw-rows';
+import { run, query } from './raw-rows';
+import { z } from 'zod';
 
 /** The canonical account fence also excludes receipt, claim and subscription application. */
 export const billingPrivacyAdopter: PrivacyAdopter = {
@@ -31,15 +32,37 @@ export const billingPrivacyAdopter: PrivacyAdopter = {
     );
   },
   export: async (tx, subject) => {
-    const customers = await tx.execute(sql`select id,vendor_customer_id,mode,
+    const customers = await query(
+      tx,
+      z.object({
+        id: z.string(),
+        vendor_customer_id: z.string(),
+        mode: z.string(),
+        closed_at: z.string().nullable(),
+        created_at: z.string(),
+      }),
+      sql`select id,vendor_customer_id,mode,
       to_char(closed_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as closed_at,
       to_char(created_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as created_at
-      from billing_customers where user_id=${subject.userId} order by id`);
-    const subscriptions =
-      await tx.execute(sql`select id,vendor_subscription_id,evidence,current,renewal_off,amount_minor,
+      from billing_customers where user_id=${subject.userId} order by id`,
+    );
+    const subscriptions = await query(
+      tx,
+      z.object({
+        id: z.string(),
+        vendor_subscription_id: z.string(),
+        evidence: z.json(),
+        current: z.boolean(),
+        renewal_off: z.boolean(),
+        amount_minor: z.int().nullable(),
+        observed_at: z.string(),
+        created_at: z.string(),
+      }),
+      sql`select id,vendor_subscription_id,evidence,current,renewal_off,amount_minor,
       to_char(observed_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as observed_at,
       to_char(created_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as created_at
-      from billing_subscriptions where user_id=${subject.userId} order by created_at,id`);
+      from billing_subscriptions where user_id=${subject.userId} order by created_at,id`,
+    );
     const receipts = await tx.execute(sql`select vendor_event_id,
       to_char(received_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as received_at
       from billing_webhook_events where (mode,vendor_customer_id) in
@@ -59,12 +82,28 @@ export const billingPrivacyAdopter: PrivacyAdopter = {
       to_char(closed_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as closed_at,
       to_char(admitted_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as admitted_at,
       state-'afterRefundId' as state from billing_refund_actions where user_id=${subject.userId} order by admitted_at,id`);
-    const observations =
-      await tx.execute(sql`select id,mode,vendor_customer_id,vendor_invoice_id,kind,vendor_invoice_payment_id,refund_action_id,source,state,
+    const observations = await query(
+      tx,
+      z.object({
+        id: z.string(),
+        mode: z.string(),
+        vendor_customer_id: z.string(),
+        vendor_invoice_id: z.string(),
+        kind: z.string(),
+        vendor_invoice_payment_id: z.string().nullable(),
+        refund_action_id: z.string().nullable(),
+        source: z.json(),
+        state: z.json(),
+        closed_at: z.string(),
+        created_at: z.string(),
+        observed_at: z.string(),
+      }),
+      sql`select id,mode,vendor_customer_id,vendor_invoice_id,kind,vendor_invoice_payment_id,refund_action_id,source,state,
       to_char(closed_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as closed_at,
       to_char(created_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as created_at,
       to_char(observed_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as observed_at
-      from billing_payment_observations where user_id=${subject.userId} order by id`);
+      from billing_payment_observations where user_id=${subject.userId} order by id`,
+    );
     const unroutedInvoices =
       await tx.execute(sql`select identity as vendor_invoice_id
       from privacy_jobs job cross join lateral

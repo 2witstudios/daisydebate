@@ -62,7 +62,9 @@ const roomCommunityOwner = (
   fence: fenceRoomCommunity,
   readFact: readRoomCommunityFact,
   insertChannel: async (tx, { ownerId, channelId }) => {
-    const [created] = await tx.execute(
+    const [created] = await query(
+      tx,
+      z.object({ id: z.string() }),
       sql`insert into messaging_channels(id,kind,policy_key,policy_revision,lifecycle,room_id) values(${channelId},'room_community','room.community',1,'active',${ownerId}) on conflict (room_id,kind) do nothing returning id`,
     );
     return created !== undefined;
@@ -97,15 +99,17 @@ const roomCommunityOwner = (
     );
     if (!rows.some((row) => row.judge))
       return rows.map(({ actorId, label }) => ({ actorId, label }));
-    const [room] = (await tx.execute(
+    const [room] = await query(
+      tx,
+      z.object({
+        hostActorId: z.string(),
+        hostInherited: z.boolean(),
+        seated: z.array(z.string()),
+      }),
       sql`select r.host_actor_id as "hostActorId",r.host_inherited as "hostInherited",
           coalesce((select array_agg(p.actor_id) from room_participants p where p.room_id=r.id),'{}') as seated
         from rooms r where r.id=${ownerId}`,
-    )) as unknown as readonly {
-      readonly hostActorId: string;
-      readonly hostInherited: boolean;
-      readonly seated: readonly string[];
-    }[];
+    );
     const facts = room && {
       hostActorId: room.hostActorId,
       hostInherited: room.hostInherited,

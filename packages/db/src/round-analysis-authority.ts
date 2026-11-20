@@ -7,7 +7,8 @@ import { readRoundAnalysisAccess } from './round-analysis-access';
 import { roundParticipants } from './schema/round-participants';
 import { actors } from './schema/actors';
 import type { Tx } from './tx';
-import { run } from './raw-rows';
+import { run, query } from './raw-rows';
+import { z } from 'zod';
 
 export type AnalysisSeat = {
   readonly roundId: string;
@@ -66,7 +67,9 @@ export async function lockAnalysisAccounts(
 
 /** The Round lock and fresh access facts follow canonical account fences. */
 export async function lockAnalysisRound(tx: Tx, target: AnalysisSeat) {
-  const [round] = await tx.execute(
+  const [round] = await query(
+    tx,
+    z.object({ id: z.string() }),
     sql`select id from rounds where id=${target.roundId} for update`,
   );
   if (!round) throw createAppError('NOT_FOUND');

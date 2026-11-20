@@ -8,13 +8,14 @@ import {
   type RoomAssemblyState,
   type RoomInvitationView,
   type SeatKind,
+  seatKindSchema,
 } from '@daisy/protocol';
 import { eq, sql } from 'drizzle-orm';
 import { lockAuthorizationActors } from '../authorization';
 import type { authorizationAccountFact } from '../authorization-account';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
 import { oweNotifications } from '../notifications/owe';
-import { rowsOf, run, query } from '../raw-rows';
+import { run, query } from '../raw-rows';
 import {
   appendRoomChanged,
   roomFacts,
@@ -36,8 +37,15 @@ import { z } from 'zod';
 type Account = ReturnType<typeof authorizationAccountFact>;
 
 const pendingRows = (tx: Tx, roomId: string, now: string) =>
-  rowsOf<PendingRoomInvitation>(
+  query(
     tx,
+    z.object({
+      id: z.string(),
+      inviteeActorId: z.string(),
+      inviterActorId: z.string(),
+      seat: seatKindSchema,
+      expiresAt: z.string(),
+    }),
     sql`select id,invitee_actor_id as "inviteeActorId",inviter_actor_id as "inviterActorId",seat,
         to_char(expires_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as "expiresAt"
       from room_invitations i where i.room_id=${roomId} and ${invitationPending(sql`${now}::timestamptz`, sql`i`)}
@@ -63,9 +71,10 @@ const lapse = async (tx: Tx, roomId: string, now: string) => {
 /** Whether a block stands between two actors, either way. */
 const blocked = async (tx: Tx, a: string, b: string) =>
   (
-    await rowsOf(
+    await query(
       tx,
-      sql`select 1 from contact_pairs where low_actor_id=${a < b ? a : b} and high_actor_id=${a < b ? b : a}
+      z.object({ present: z.literal(1) }),
+      sql`select 1 as present from contact_pairs where low_actor_id=${a < b ? a : b} and high_actor_id=${a < b ? b : a}
         and (low_blocks_high or high_blocks_low)`,
     )
   ).length > 0;
@@ -111,8 +120,15 @@ export const roomInvitationOperations = ({
     readonly now: string;
   }): Promise<readonly RoomInvitationView[]> {
     return instrumented(eventSink, 'readRoomInvitations', () =>
-      rowsOf<RoomInvitationView>(
+      query(
         database,
+        z.object({
+          id: z.string(),
+          seat: seatKindSchema,
+          invitee: z.string(),
+          inviter: z.string(),
+          expiresAt: z.string(),
+        }),
         sql`select i.id,i.seat,coalesce(iu.username,'') as invitee,coalesce(hu.username,'') as inviter,
             to_char(i.expires_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as "expiresAt"
           from room_invitations i join rooms r on r.id=i.room_id

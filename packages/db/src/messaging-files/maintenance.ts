@@ -9,6 +9,8 @@ import {
   pendingFileDeletions,
 } from './cleanup';
 import { inTransaction, type Tx, type TxSource } from '../tx';
+import { query } from '../raw-rows';
+import { z } from 'zod';
 
 async function dueOwners(
   tx: Tx,
@@ -142,11 +144,15 @@ export function createMessagingFileMaintenance(database: TxSource) {
       remove: (key: string) => Promise<void>;
     }) {
       validateRun(input.now, input.maxItems);
-      const selected = await database.execute(sql`
+      const selected = await query(
+        database,
+        z.object({ fileId: z.string(), channelId: z.string() }),
+        sql`
         select id as "fileId", channel_id as "channelId" from messaging_files
         where lifecycle in ('reserved','quarantined') and expires_at <= ${new Date(input.now)}
         order by expires_at, id limit ${input.maxItems}
-      `);
+      `,
+      );
       const channels = groupSelectedFiles(selected);
       let expiredChannels = 0;
       for (const [channelId, fileIds] of channels) {

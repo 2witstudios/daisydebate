@@ -29,7 +29,8 @@ import {
   type NextAttendanceWindow,
 } from './attendance-adjudication';
 import type { Tx } from './tx';
-import { run } from './raw-rows';
+import { run, query } from './raw-rows';
+import { z } from 'zod';
 
 /**
  * The read is capped, so an old window can still be decided on what it proves.
@@ -118,7 +119,9 @@ export function createAttendanceEvaluator(
         await requireCurrentWeb(tx, input.instanceId, true);
         if (round.checkpoint.incident.phase !== 'none')
           return { kind: 'held', reason: 'platform_incident' };
-        const pending = await tx.execute(
+        const pending = await query(
+          tx,
+          z.object({ attempt_id: z.string() }),
           sql`select attempt_id from round_check_in_attempts where round_id=${round.id} and state='pending' limit 1`,
         );
         if (pending.length > 0)
@@ -127,7 +130,13 @@ export function createAttendanceEvaluator(
           tx,
           round.id,
         );
-        const rows = await tx.execute(
+        const rows = await query(
+          tx,
+          z.object({
+            participant_id: z.string(),
+            segment_id: z.string(),
+            received_at: z.string(),
+          }),
           sql`select participant_id,segment_id,to_char(received_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as received_at from round_check_ins where round_id=${round.id}`,
         );
         const now = await sampleRoundExecutionTime(tx, roundTime);
@@ -139,13 +148,7 @@ export function createAttendanceEvaluator(
           botSeatIds: seats
             .filter((seat) => seat.kind === 'bot')
             .map((seat) => seat.id),
-          checkIns: (
-            rows as unknown as {
-              participant_id: string;
-              segment_id: string;
-              received_at: string;
-            }[]
-          ).map((row) => ({
+          checkIns: rows.map((row) => ({
             participantId: row.participant_id,
             segmentId: row.segment_id,
             receivedAt: row.received_at,

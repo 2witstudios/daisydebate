@@ -15,7 +15,8 @@ import {
 import { users } from './schema/users';
 import { lockOpenAccount } from './lock-open-account';
 import { inTransaction, type TxOpener } from './tx';
-import { run } from './raw-rows';
+import { run, query } from './raw-rows';
+import { z } from 'zod';
 
 /** One accepted age-step answer: an already-banded birth month and the Terms accepted. */
 export type AgeStepRecord = {
@@ -83,8 +84,10 @@ export const ageStepOperations = ({
     if (!idSchema.safeParse(userId).success) throw createAppError('VALIDATION');
     return instrumented(eventSink, 'hasRecordedAge', () =>
       inTransaction(database, async (tx) => {
-        const rows = await tx.execute(
-          sql`select 1 from ${accountAge} where user_id=${userId}`,
+        const rows = await query(
+          tx,
+          z.object({ present: z.literal(1) }),
+          sql`select 1 as present from ${accountAge} where user_id=${userId}`,
         );
         return rows.length > 0;
       }),
@@ -149,7 +152,13 @@ export const accountTermsPrivacyAdopter: PrivacyAdopter = {
   },
   export: async (tx, subject) => ({
     account_terms: exportRows(
-      await tx.execute(
+      await query(
+        tx,
+        z.object({
+          user_id: z.string(),
+          terms_version: z.string(),
+          accepted_at: z.date(),
+        }),
         sql`select user_id,terms_version,accepted_at from ${accountTerms} where user_id=${subject.userId}`,
       ),
     ),

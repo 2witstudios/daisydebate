@@ -8,12 +8,13 @@ import {
   type RatingDivision,
   type RatingStyle,
   type CompetitionType,
+  ratingDivisions,
 } from '@daisy/protocol';
 import type { ContactPairKey } from '../contacts/reactions';
 import type { ContactInput } from '../contacts/fence';
 import { oweNotifications } from '../notifications/owe';
 import { appendOutboxEvent } from '../outbox';
-import { rowsOf, run, query } from '../raw-rows';
+import { run, query } from '../raw-rows';
 import { readAvailability } from '../presence/availability';
 import { openRoomHostedBy } from '../room-open';
 import { challenges } from '../schema/challenges';
@@ -122,8 +123,9 @@ async function pairLobby(
   challenged: string,
   mode: 'ranked' | 'casual',
 ): Promise<RatingDivision | null> {
-  const rows = await rowsOf<{ division: RatingDivision | null }>(
+  const rows = await query(
     tx,
+    z.object({ division: z.enum(ratingDivisions).nullable() }),
     sql`select ${divisionOfBandSql(divisionAgeBand())} as division
       from actors member left join account_age on account_age.user_id = member.user_id
       where member.id in (${challenger}, ${challenged})`,

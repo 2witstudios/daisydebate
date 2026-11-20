@@ -1,7 +1,7 @@
 import type { TournamentNotificationKind } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import { loadLobbyAuthority } from '../tab/lobby-authority';
-import { rowsOf, query } from '../raw-rows';
+import { query } from '../raw-rows';
 import { inTransaction, type TxSource } from '../tx';
 import { z } from 'zod';
 
@@ -69,8 +69,23 @@ export async function standingTournamentNotifications(
         thing: string,
       ) => sql`exists(select 1 from releases rel where rel.tab_round_id=f.tab_round_id and rel.thing=${thing}
         and (rel.audience in ('participants','link','public') or (rel.audience='competitors' and ${competitor}) or (rel.audience='responsible_adults' and ${adult})))`;
-      const rows = await rowsOf<TournamentNotificationFacts & { id: string }>(
+      const rows = await query(
         tx,
+        z.object({
+          kind: z.enum([
+            'judge_assigned',
+            'judge_replaced',
+            'judge_unassigned',
+            'tournament_draw_changed',
+            'tournament_room_ready',
+            'tournament_results_released',
+          ]),
+          handle: z.string(),
+          eventId: z.string(),
+          tabRoundId: z.string(),
+          roomId: z.string().nullable(),
+          id: z.string(),
+        }),
         sql`select n.id,n.kind,${facts.lobby.handle}::text handle,f.event_id as "eventId",f.tab_round_id as "tabRoundId",f.room_id as "roomId"
         from notifications n join fixtures f on f.id=n.fixture_id and f.lobby_id=n.notification_lobby_id
         left join rooms ro on ro.id=f.room_id

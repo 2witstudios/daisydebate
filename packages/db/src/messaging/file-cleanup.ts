@@ -10,7 +10,8 @@ import {
   type FileToken,
 } from '../messaging-files';
 import { inTransaction, type Tx, type TxSource } from '../tx';
-import { run } from '../raw-rows';
+import { run, query } from '../raw-rows';
+import { z } from 'zod';
 
 type PendingFileFact = {
   readonly kind: 'pending_file';
@@ -54,7 +55,9 @@ export function createMessagingFileCleanup({
     if (!Number.isSafeInteger(token.generation) || token.generation < 1)
       throw createAppError('VALIDATION');
     await inTransaction(database, async (tx) => {
-      const pairs = await tx.execute(
+      const pairs = await query(
+        tx,
+        z.object({ low_actor_id: z.string(), high_actor_id: z.string() }),
         sql`select low_actor_id, high_actor_id from messaging_dm_pairs where channel_id=${scope.channelId}`,
       );
       const pair = pairs[0];

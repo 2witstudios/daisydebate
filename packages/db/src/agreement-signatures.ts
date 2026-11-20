@@ -8,6 +8,8 @@ import { seasons } from './schema/ratings';
 import { transactionNow } from './room-command-facts';
 import { divisionAgeBand, divisionOfBandSql } from './ladder-division-band';
 import { inTransaction, type Tx, type TxOpener } from './tx';
+import { query } from './raw-rows';
+import { z } from 'zod';
 
 /** Where a member stands on a version of their division's active season's waiver. */
 export type ContentWaiverStanding = 'signed' | 'unsigned' | 'no-active-season';
@@ -141,7 +143,17 @@ export const agreementSignaturePrivacyAdopter: PrivacyAdopter = {
   erase: async () => undefined,
   export: async (tx, subject) => ({
     agreement_signatures: exportRows(
-      await tx.execute(
+      await query(
+        tx,
+        z.object({
+          agreement: z.string(),
+          version: z.string(),
+          words: z.string(),
+          season_id: z.string().nullable(),
+          room_id: z.string().nullable(),
+          lobby_id: z.string().nullable(),
+          signed_at: z.date(),
+        }),
         sql`select agreement,version,words,season_id,room_id,lobby_id,signed_at from ${agreementSignatures} where user_id=${subject.userId} order by signed_at, id`,
       ),
     ),

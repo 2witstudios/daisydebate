@@ -2,7 +2,8 @@ import { sql } from 'drizzle-orm';
 import { idSchema } from '@daisy/protocol';
 import type { PrivacyAdopter, PrivacyExport } from '../privacy/contracts';
 import { exportRows } from '../privacy/export-rows';
-import { run } from '../raw-rows';
+import { run, query } from '../raw-rows';
+import { z } from 'zod';
 
 /** Presence's subject rights (ADR 0072): the member's own visibility choice. */
 export const presencePrivacyAdopter: PrivacyAdopter = {
@@ -16,7 +17,13 @@ export const presencePrivacyAdopter: PrivacyAdopter = {
     const actorId = idSchema.parse(subject.actorId);
     return {
       presence_settings: exportRows(
-        await tx.execute(
+        await query(
+          tx,
+          z.object({
+            actor_id: z.string(),
+            updated_at: z.date(),
+            chosen_status: z.string(),
+          }),
           sql`select * from presence_settings where actor_id=${actorId}`,
         ),
       ),

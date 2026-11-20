@@ -103,11 +103,12 @@ async function lockTarget(tx: Tx, userId: string) {
 
 /** A stored receipt's result for the same digest; a different digest conflicts. */
 async function storedResult(tx: Tx, input: BetaAccessCommandInput) {
-  const [receipt] = (await tx.execute(sql`select request_digest, result
-    from operator_command_receipts where command_id = ${input.commandId}`)) as unknown as {
-    request_digest: string;
-    result: unknown;
-  }[];
+  const [receipt] = await query(
+    tx,
+    z.object({ request_digest: z.string(), result: z.json() }),
+    sql`select request_digest, result
+    from operator_command_receipts where command_id = ${input.commandId}`,
+  );
   if (!receipt) return null;
   if (receipt.request_digest !== input.requestDigest)
     throw createAppError('CONFLICT');

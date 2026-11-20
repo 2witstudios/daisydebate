@@ -124,9 +124,9 @@ export function notificationDigestOperations({
       input: MailJobClaimInput,
     ): Promise<readonly NotificationDigestClaim[]> =>
       instrumented(eventSink, 'claimNotificationDigests', async () =>
-        (await queue.claimDue(database, input, sql`id, attempts`)).map(
-          ({ row, token }) => ({ ...claimRow.parse(row), token }),
-        ),
+        (
+          await queue.claimDue(database, input, sql`id, attempts`, claimRow)
+        ).map(({ row, token }) => ({ ...row, token })),
       ),
     /**
      * Reads what a claimed digest should say now: its notifications that are

@@ -6,12 +6,16 @@ import {
   type RatingStyle,
   type SeatKind,
   type TournamentNotificationKind,
+  seatKindSchema,
+  competitionTypes,
+  ratingDivisions,
+  notificationKinds,
 } from '@daisy/protocol';
 import { maskEmail } from '@daisy/protocol/media-release';
 import { sql, type SQL } from 'drizzle-orm';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
 import { appendOutboxEvent } from '../outbox';
-import { rowsOf, query } from '../raw-rows';
+import { query } from '../raw-rows';
 import { wants } from './preferences';
 import {
   notificationStands,
@@ -242,8 +246,27 @@ export const readInboxRows = async (
   },
 ): Promise<readonly InboxRow[]> =>
   (
-    await rowsOf<FlatRow>(
+    await query(
       database,
+      z.object({
+        id: z.string(),
+        kind: z.enum(notificationKinds),
+        roundId: z.string().nullable(),
+        roomId: z.string().nullable(),
+        challengeRoomId: z.string().nullable(),
+        seat: seatKindSchema.nullable(),
+        about: z.string().nullable(),
+        mode: z.enum(competitionTypes).nullable(),
+        format: z.literal('freestyle').nullable(),
+        division: z.enum(ratingDivisions).nullable(),
+        recipientEmail: z.string().nullable(),
+        requestExpiresAt: z.string().nullable(),
+        minor: z.string().nullable(),
+        ownRelease: z.boolean().nullable(),
+        clubHandle: z.string().nullable(),
+        readAt: z.string().nullable(),
+        surfacedAt: z.string(),
+      }),
       sql`select n.id,n.kind,n.round_id as "roundId",i.room_id as "roomId",
           c.room_id as "challengeRoomId",i.seat,
           u.username as about,c.mode,c.format_id as format,c.division,
@@ -308,8 +331,9 @@ export const notificationInboxOperations = ({
         limit: input.limit + 1,
         tournament,
       });
-      const [count] = await rowsOf<{ unread: number | string }>(
+      const [count] = await query(
         database,
+        z.object({ unread: z.union([z.string(), z.number()]) }),
         sql`select count(*) as unread from notifications n ${standingJoins}
           where ${shown} and n.read_at is null`,
       );
@@ -340,8 +364,9 @@ export const notificationInboxOperations = ({
           input.notificationIds === 'all'
             ? sql``
             : sql`and id in (select jsonb_array_elements_text(${JSON.stringify(input.notificationIds)}::text::jsonb))`;
-        const changed = await rowsOf(
+        const changed = await query(
           tx,
+          z.object({ id: z.string() }),
           sql`update notifications set read_at=${input.at}::timestamptz
             where user_id=${input.userId} and read_at is null ${some} returning id`,
         );
@@ -367,8 +392,9 @@ export const notificationInboxOperations = ({
     readonly limit: number;
   }) {
     return instrumented(eventSink, 'purgeReadNotifications', async () => {
-      const gone = await rowsOf(
+      const gone = await query(
         database,
+        z.object({ id: z.string() }),
         sql`delete from notifications where id in (select id from notifications
             where read_at < ${input.before}::timestamptz limit ${input.limit})
           returning id`,

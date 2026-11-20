@@ -1,8 +1,10 @@
 import { sql } from 'drizzle-orm';
-import type {
-  CompetitionType,
-  RatingDivision,
-  RatingStyle,
+import {
+  type CompetitionType,
+  type RatingDivision,
+  type RatingStyle,
+  competitionTypes,
+  ratingDivisions,
 } from '@daisy/protocol';
 import {
   readOwnCollection,
@@ -80,7 +82,21 @@ export function listChallenges(
 ): Promise<readonly ChallengeListRow[]> {
   requireOwnScope(scope);
   return readOwnCollection(database, scope, authorize, async (tx) => {
-    const rows = (await tx.execute(sql`
+    const rows = await query(
+      tx,
+      z.object({
+        format: z.literal('freestyle'),
+        id: z.string(),
+        division: z.enum(ratingDivisions),
+        mode: z.enum(competitionTypes),
+        actorId: z.string(),
+        direction: z.enum(['incoming', 'outgoing']),
+        username: z.string(),
+        roomId: z.string().nullable(),
+        createdAt: z.union([z.string(), z.date()]),
+        expiresAt: z.union([z.string(), z.date()]),
+      }),
+      sql`
       select c.id,
         case when c.challenged_actor_id = ${scope.actorId} then 'incoming' else 'outgoing' end as direction,
         a.id as "actorId", u.username, c.mode, c.format_id as format, c.division, c.room_id as "roomId",
@@ -98,14 +114,8 @@ export function listChallenges(
         and (${challengeOpen(sql`${new Date(now)}`, sql`c`)}
           or (c.room_id is not null and c.follow_until > ${new Date(now)} and ${roomIsOpen()}))
       order by c.created_at desc, c.id
-      limit ${CHALLENGE_LIST_MAX}`)) as unknown as (Omit<
-      ChallengeRowFacts,
-      'createdAt' | 'expiresAt'
-    > & {
-      roomId: string | null;
-      createdAt: Date | string;
-      expiresAt: Date | string;
-    })[];
+      limit ${CHALLENGE_LIST_MAX}`,
+    );
     return rows.map((row) => ({
       ...row,
       createdAt: new Date(row.createdAt).toISOString(),
@@ -119,12 +129,16 @@ export async function purgeExpiredChallenges(
   database: Tx,
   input: { readonly now: string; readonly limit: number },
 ): Promise<number> {
-  const rows = await database.execute(sql`
+  const rows = await query(
+    database,
+    z.object({ id: z.string() }),
+    sql`
     delete from challenges where id in (
       select id from challenges
       where room_id is null and expires_at <= ${new Date(input.now)}
       limit ${input.limit})
-    returning id`);
+    returning id`,
+  );
   return rows.length;
 }
 

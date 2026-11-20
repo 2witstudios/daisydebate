@@ -20,6 +20,8 @@ import { listSeasonRecords, type SeasonRecord } from './season-record';
 import { factReleasedSql, type SpectatorClock } from './spectator-release-sql';
 import { releasedStandings } from './standings-release';
 import { inTransaction, type TxSource } from './tx';
+import { query } from './raw-rows';
+import { z } from 'zod';
 
 /**
  * The leaderboard's reads (ADR 0055): the seasons a ladder can show, the
@@ -90,15 +92,16 @@ export const standingsOperations = ({
 }) => ({
   /** Ratings hidden from a member until their current judging assignment is ruled. */
   async readRatingBlindings(viewerActorId: string): Promise<readonly string[]> {
-    const rows =
-      await database.execute(sql`select distinct opponent.actor_id from round_participants judge
+    const rows = await query(
+      database,
+      z.object({ actor_id: z.string() }),
+      sql`select distinct opponent.actor_id from round_participants judge
       join rounds r on r.id=judge.round_id
       join round_participants opponent on opponent.round_id=r.id and ${isDebatingSeatSql(sql`opponent.seat_kind`)}
       where judge.actor_id=${viewerActorId} and judge.seat_kind='judge' and r.status in ('opening','active')
-      and not exists(select 1 from ballots b where b.judge_participant_id=judge.id)`);
-    return (rows as unknown as { actor_id: string }[]).map(
-      (row) => row.actor_id,
+      and not exists(select 1 from ballots b where b.judge_participant_id=judge.id)`,
     );
+    return rows.map((row) => row.actor_id);
   },
 
   /** The seasons a ladder can show, newest start first. */

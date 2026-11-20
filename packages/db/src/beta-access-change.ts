@@ -1,8 +1,9 @@
+import { z } from 'zod';
 import { createAppError } from '@daisy/errors';
 import type { BetaAccessDecision } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import { applyBetaEntitlementGrants } from './entitlement-grants';
-import { rowsOf, run } from './raw-rows';
+import { query, run } from './raw-rows';
 import type { Tx } from './tx';
 
 /**
@@ -22,8 +23,9 @@ export async function writeBetaAccessChange(
   },
 ): Promise<void> {
   const { change, userId } = input;
-  const moved = await rowsOf(
+  const moved = await query(
     tx,
+    z.object({ user_id: z.string() }),
     sql`update account_beta_access set state = ${change.to},
         revision = ${change.revision}, decided_at = now()
       where user_id = ${userId} and state = ${change.from}

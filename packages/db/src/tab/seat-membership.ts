@@ -4,6 +4,8 @@ import {
   type OrganizationWrite,
 } from './organization-writes';
 import type { Tx } from '../tx';
+import { query } from '../raw-rows';
+import { z } from 'zod';
 
 /**
  * Tab's published transition for a Club seat holder (ADR 0148): accepting a
@@ -21,10 +23,14 @@ export async function activateSeatMembership(
     readonly now: string;
   },
 ): Promise<void> {
-  const [organization] = await tx.execute(
+  const [organization] = await query(
+    tx,
+    z.object({ version: z.int() }),
     sql`select version from organizations where id=${input.organizationId}`,
   );
-  const [membership] = await tx.execute(
+  const [membership] = await query(
+    tx,
+    z.object({ status: z.string(), version: z.int() }),
     sql`select status, version from memberships
       where organization_id=${input.organizationId} and user_id=${input.userId}`,
   );

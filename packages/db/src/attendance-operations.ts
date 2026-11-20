@@ -44,7 +44,8 @@ import {
   selectAttendanceSeat,
 } from './attendance-decisions';
 import type { Tx } from './tx';
-import { run as runStatement } from './raw-rows';
+import { run as runStatement, query } from './raw-rows';
+import { z } from 'zod';
 
 type WorkerVerifier = (
   tx: Tx,
@@ -147,7 +148,9 @@ export function createAttendanceOperations(deps: {
           finalizedSegmentIds,
           samples: await attendanceSamples(tx, undecided?.startedAt ?? null),
         };
-        const recorded = await tx.execute(
+        const recorded = await query(
+          tx,
+          z.object({ segment_id: z.string(), received_at: z.string() }),
           sql`select segment_id,to_char(received_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as received_at from round_check_ins where round_id=${input.roundId} and participant_id=${seat.id} order by received_at,segment_id`,
         );
         return {
@@ -155,9 +158,7 @@ export function createAttendanceOperations(deps: {
           ...evidence,
           participantId: seat.id,
           eligibleParticipantIds: eligibleCompetitorIds(fenced.seats),
-          receipts: (
-            recorded as unknown as { segment_id: string; received_at: string }[]
-          ).map((row) => ({
+          receipts: recorded.map((row) => ({
             segmentId: row.segment_id,
             receivedAt: row.received_at,
           })),
@@ -208,12 +209,12 @@ export function createAttendanceOperations(deps: {
             input.acceptWindow({ ...facts, receivedAt: replay.receivedAt });
             return replay;
           }
-          const existing = await tx.execute(
+          const existing = await query(
+            tx,
+            z.object({ received_at: z.string() }),
             sql`select to_char(received_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as received_at from round_check_ins where round_id=${round.id} and segment_id=${segment.id} and participant_id=${seat.id}`,
           );
-          const stamp =
-            (existing as unknown as { received_at: string }[])[0]
-              ?.received_at ?? first.receivedAt;
+          const stamp = existing[0]?.received_at ?? first.receivedAt;
           input.acceptWindow({ ...facts, receivedAt: stamp });
           const receipt: AttendanceReceipt = {
             version: 1,

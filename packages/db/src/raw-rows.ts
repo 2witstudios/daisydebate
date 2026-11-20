@@ -1,15 +1,17 @@
 import type { SQL } from 'drizzle-orm';
 import { z } from 'zod';
 import { createAppError } from '@daisy/errors';
-import type { Tx } from './tx';
 
 type RawExecutor = {
   readonly execute: (statement: SQL) => PromiseLike<unknown>;
 };
 
-/** The rows of one raw statement, as the caller says they are. */
-export const rowsOf = async <T>(tx: Pick<Tx, 'execute'>, statement: SQL) =>
-  (await tx.execute(statement)) as unknown as T[];
+/** PostgreSQL int8 representations from Bun SQL and bounded writers. */
+export const postgresInt8 = z.union([
+  z.string().regex(/^-?\d+$/),
+  z.bigint(),
+  z.int(),
+]);
 
 /**
  * The rows of one raw statement, each parsed by `rowSchema`. A row the schema

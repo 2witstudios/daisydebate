@@ -55,7 +55,9 @@ export const organizationAuthorityPrivacyAdopter: PrivacyAdopter = {
         lobbyId: grant.lobby_id ?? undefined,
       });
       reached(
-        await tx.execute(
+        await query(
+          tx,
+          z.object({ id: z.string() }),
           sql`update grants set revoked_at = greatest(${now}::timestamptz, granted_at),
               revoked_by_user_id = ${subject.userId}
             where id = ${grant.id} and revoked_at is null returning id`,
@@ -66,7 +68,9 @@ export const organizationAuthorityPrivacyAdopter: PrivacyAdopter = {
     for (const { organization_id: organizationId } of memberships) {
       await scopeTransaction(tx, { organizationId });
       reached(
-        await tx.execute(
+        await query(
+          tx,
+          z.object({ user_id: z.string() }),
           sql`update memberships set
             status = case when status = 'active' then 'ended' else 'declined' end,
             ended_at = case when status = 'active' then ${now}::timestamptz end,
@@ -83,19 +87,43 @@ export const organizationAuthorityPrivacyAdopter: PrivacyAdopter = {
     await scopeTransaction(tx, { subjectUserId: subject.userId });
     const result = {
       memberships: exportRows(
-        await tx.execute(
+        await query(
+          tx,
+          z.object({
+            organization_id: z.string(),
+            status: z.string(),
+            joined_at: z.date().nullable(),
+            ended_at: z.date().nullable(),
+          }),
           sql`select organization_id, status, joined_at, ended_at from memberships
             where user_id = ${subject.userId} order by organization_id`,
         ),
       ),
       membershipPeriods: exportRows(
-        await tx.execute(
+        await query(
+          tx,
+          z.object({
+            organization_id: z.string(),
+            joined_at: z.date(),
+            ended_at: z.date().nullable(),
+          }),
           sql`select organization_id, joined_at, ended_at from membership_periods
             where user_id = ${subject.userId} order by organization_id, joined_at`,
         ),
       ),
       grants: exportRows(
-        await tx.execute(
+        await query(
+          tx,
+          z.object({
+            id: z.string(),
+            role_id: z.string(),
+            scope_kind: z.string(),
+            organization_id: z.string().nullable(),
+            lobby_id: z.string().nullable(),
+            granted_at: z.date(),
+            expires_at: z.date().nullable(),
+            revoked_at: z.date().nullable(),
+          }),
           sql`select id, role_id, scope_kind, organization_id, lobby_id,
               granted_at, expires_at, revoked_at
             from grants where user_id = ${subject.userId} order by granted_at, id`,

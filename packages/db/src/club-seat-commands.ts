@@ -33,7 +33,8 @@ import { normalizedEmailSql } from './email-identity';
 import { scopeTransaction } from './tenant-scope';
 import { activateSeatMembership } from './tab/seat-membership';
 import type { Tx } from './tx';
-import { run as runStatement } from './raw-rows';
+import { run as runStatement, query } from './raw-rows';
+import { z } from 'zod';
 
 /** The signed-in person acting: always their own account and actor. */
 export type ClubSeatSubject = {
@@ -98,7 +99,14 @@ async function readInvitations(
   tx: Tx,
   organizationId: string,
 ): Promise<readonly SeatInvitation[]> {
-  const rows = await tx.execute(
+  const rows = await query(
+    tx,
+    z.object({
+      id: z.string(),
+      email: z.string(),
+      created_at: z.date(),
+      expires_at: z.date(),
+    }),
     sql`select id, email, created_at, expires_at from club_seat_invitations
       where organization_id=${organizationId} order by created_at, id for update`,
   );
@@ -133,15 +141,19 @@ async function seatedElsewhere(tx: Tx, club: LockedClub, userId: string) {
     organizationId: club.id,
     subjectUserId: userId,
   });
-  const rows = await tx.execute(
-    sql`select 1 from club_seats where user_id=${userId} and organization_id<>${club.id}`,
+  const rows = await query(
+    tx,
+    z.object({ present: z.literal(1) }),
+    sql`select 1 as present from club_seats where user_id=${userId} and organization_id<>${club.id}`,
   );
   return rows.length > 0;
 }
 
 async function isActiveMember(tx: Tx, organizationId: string, userId: string) {
-  const rows = await tx.execute(
-    sql`select 1 from memberships where organization_id=${organizationId}
+  const rows = await query(
+    tx,
+    z.object({ present: z.literal(1) }),
+    sql`select 1 as present from memberships where organization_id=${organizationId}
       and user_id=${userId} and status='active'`,
   );
   return rows.length > 0;
@@ -177,21 +189,28 @@ async function invitationMailLimit(
   },
 ) {
   const club = `club-seat-invitation:${input.organizationId}:%`;
-  const [today] =
-    await tx.execute(sql`select count(*)::int as n from mail_intents
+  const [today] = await query(
+    tx,
+    z.object({ n: z.int() }),
+    sql`select count(*)::int as n from mail_intents
     where purpose = 'club-seat-invitation'
       and created_at > ${input.now}::timestamptz - interval '1 day'
-      and dedupe_key like ${club}`);
+      and dedupe_key like ${club}`,
+  );
   if (
     Number(today?.n ?? 0) >=
     clubSeatBounds.dailyInvitationMails + input.seatCount
   )
     return 'invitation-mail-limit' as const;
   if (input.invitationId === null) return null;
-  const [sent] = await tx.execute(sql`select count(*)::int as n,
+  const [sent] = await query(
+    tx,
+    z.object({ n: z.int(), recent: z.int() }),
+    sql`select count(*)::int as n,
       count(*) filter (where state in ('queued', 'leased')
         or created_at > ${input.now}::timestamptz - ${`${clubSeatBounds.resendAfterMs} milliseconds`}::interval)::int as recent
-    from mail_intents where club_seat_invitation_id=${input.invitationId}`);
+    from mail_intents where club_seat_invitation_id=${input.invitationId}`,
+  );
   if (Number(sent?.n ?? 0) >= clubSeatBounds.sendsPerInvitation)
     return 'invitation-mail-limit' as const;
   if (Number(sent?.recent ?? 0) > 0) return 'resend-too-soon' as const;
@@ -255,9 +274,13 @@ async function writeSeating(
     );
   }
   for (const seat of added) {
-    const inserted = await tx.execute(sql`insert into club_seats
+    const inserted = await query(
+      tx,
+      z.object({ user_id: z.string() }),
+      sql`insert into club_seats
       (organization_id, user_id, assigned_at) values (${club.id}, ${seat.userId}, ${seat.assignedAt})
-      on conflict do nothing returning user_id`);
+      on conflict do nothing returning user_id`,
+    );
     if (inserted.length !== 1) throw new Refused('seated-elsewhere');
   }
   for (const invitation of opened) {
@@ -635,11 +658,15 @@ export async function invitedAs(
   club: LockedClub,
   invitationId: string,
 ) {
-  const rows = await tx.execute(sql`select i.id, i.email, i.expires_at
+  const rows = await query(
+    tx,
+    z.object({ id: z.string(), email: z.string(), expires_at: z.date() }),
+    sql`select i.id, i.email, i.expires_at
     from club_seat_invitations i, users u
     where i.organization_id=${club.id} and i.id=${invitationId}
       and u.id=${subject.userId} and u.deleted_at is null and u.email_verified
-      and ${normalizedEmailSql(sql`u.email`)} = i.email`);
+      and ${normalizedEmailSql(sql`u.email`)} = i.email`,
+  );
   const [row] = rows;
   return row
     ? {

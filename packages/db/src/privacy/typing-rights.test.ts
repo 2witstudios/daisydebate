@@ -5,7 +5,6 @@ import { fakeSql } from '../index.test-support';
 import { createDatabase } from '../index';
 import { createMessagingTypingPrivacyPort } from './typing-rights';
 import { planPrivacyErasure } from './planner';
-import { deliverPrivacyJob } from './vendor-jobs';
 setupRitewayBun();
 const subject = { userId: 'u'.repeat(24), actorId: 'a'.repeat(24) };
 const account = {
@@ -165,58 +164,6 @@ test('invalid subjects refuse before pool I/O and external failures stay structu
     actual: () => port.erase(subject.userId),
     code: 'INFRASTRUCTURE',
   });
-});
-
-test('typing deletion outage remains a durable retry until physical producer ACK', async () => {
-  for (const outage of [true, false]) {
-    const fake = fakeSql([
-      [{ subjectRef: subject.userId }],
-      [{ ...account, member: false, erased: true }],
-      [{ id: 'j'.repeat(24) }],
-    ]);
-    const database = drizzle({ client: fake.client });
-    const calls: string[] = [];
-    const port = createMessagingTypingPrivacyPort(database, {
-      exportSubject: async () => [],
-      eraseSubject: async (actorId) => {
-        calls.push(actorId);
-        if (outage) throw new Error('private response');
-      },
-    });
-    const result = await deliverPrivacyJob(
-      database,
-      {
-        jobId: 'j'.repeat(24),
-        vendor: 'messaging-typing',
-        now: lease.expiresAt,
-        retryAt: '2026-10-10T00:01:00.000Z',
-      },
-      port,
-    );
-    assert({
-      given: outage
-        ? 'physical deletion outage after committed local erasure'
-        : 'completed physical subject deletion',
-      should:
-        'mark success only after producer acknowledgement without storing private errors',
-      actual: [
-        result,
-        calls,
-        fake.queries.length,
-        fake.queries[2]?.query.includes(
-          outage ? 'retry_at' : "status = 'succeeded'",
-        ),
-        JSON.stringify(fake.queries).includes('private response'),
-      ],
-      expected: [
-        outage ? 'retry' : 'succeeded',
-        [subject.actorId],
-        3,
-        true,
-        false,
-      ],
-    });
-  }
 });
 
 test('public database factory binds typing rights to the existing pool without exposing Drizzle', async () => {

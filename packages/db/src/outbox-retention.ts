@@ -1,6 +1,8 @@
 import { sql } from 'drizzle-orm';
 import type { RetentionBatch } from './retention';
 import type { Tx } from './tx';
+import { query } from './raw-rows';
+import { z } from 'zod';
 
 /** Prune only a final commit-ordered prefix. A locked oldest row refuses the
  * entire statement (NOWAIT), rather than silently leaving a historical hole.
@@ -17,7 +19,10 @@ export async function deleteExpiredOutboxPrefix(
     Number.isNaN(Date.parse(before))
   )
     throw new Error('Invalid retention bounds');
-  const deleted = await database.execute(sql`
+  const deleted = await query(
+    database,
+    z.object({ known: z.boolean(), count: z.number() }),
+    sql`
     with watermark as materialized (
       select txid, seq from public.outbox_retention_boundary
       where singleton = true for update nowait
@@ -45,11 +50,9 @@ export async function deleteExpiredOutboxPrefix(
     ) select exists(select 1 from watermark) as known,
       (select count(*)::int from deleted) as count,
       (select count(*)::int from advanced) as advanced
-  `);
-  const [result] = deleted as unknown as Array<{
-    known: boolean;
-    count: number;
-  }>;
+  `,
+  );
+  const [result] = deleted;
   if (!result?.known) throw new Error('Outbox retention boundary unavailable');
   return result.count;
 }

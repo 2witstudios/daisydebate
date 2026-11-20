@@ -13,6 +13,8 @@ import type {
   MessagingGroupCreationStore,
 } from './group-creation-contracts';
 import { inTransaction, type TxSource } from '../tx';
+import { query } from '../raw-rows';
+import { z } from 'zod';
 function proposalActors(scope: MessagingGroupCreationScope) {
   const actors = [...scope.proposedActorIds].sort();
   if (
@@ -84,7 +86,9 @@ export function createMessagingGroupCreationStore(
             await creation();
             throw createAppError('CONFLICT');
           }
-          const locked = await tx.execute(
+          const locked = await query(
+            tx,
+            z.object({ locked: z.boolean() }),
             sql`select public.daisy_messaging_channel_fence(${fact.channelId}::text,null::text,null::text) as locked`,
           );
           if (locked[0]?.locked !== true) throw createAppError('NOT_FOUND');

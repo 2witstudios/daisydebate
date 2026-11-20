@@ -2,7 +2,7 @@ import { SPECTATOR_MARGIN_MS, type NotificationKind } from '@daisy/protocol';
 import { isDebatingSeatSql } from '../seat-columns';
 import { sql } from 'drizzle-orm';
 import { blockedBetween } from '../debater-follows';
-import { rowsOf, query } from '../raw-rows';
+import { query } from '../raw-rows';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
 import {
   outcomeReleasedSql,
@@ -80,8 +80,9 @@ const claimFanout = async (
   roundId: string,
 ): Promise<boolean> =>
   (
-    await rowsOf(
+    await query(
       tx,
+      z.object({ round_id: z.string() }),
       sql`insert into notification_fanouts(kind,round_id) values(${kind},${roundId})
         on conflict do nothing returning round_id`,
     )

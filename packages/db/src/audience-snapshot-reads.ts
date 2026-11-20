@@ -3,14 +3,18 @@ import {
   type RoundStatus,
   type SeatKind,
   SPECTATOR_CHAT_WINDOW,
+  seatKindSchema,
+  roundStatusSchema,
+  competitionTypes,
 } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import { readReactionTotals } from './audience-reactions';
-import { rowsOf } from './raw-rows';
+import { query } from './raw-rows';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { readChatPage } from './messaging/spectator-chat';
 import { youthRoundSql } from './youth-round-sql';
 import { inTransaction, type TxSource } from './tx';
+import { z } from 'zod';
 
 /**
  * A Round's audience activity, in one snapshot, as it stands now: rows only, for
@@ -32,12 +36,13 @@ export const audienceSnapshotReads = ({
       inTransaction(
         database,
         async (tx) => {
-          const [round] = await rowsOf<{
-            visibility: 'public' | 'unlisted';
-            has_broadcast: boolean;
-            open: boolean;
-          }>(
+          const [round] = await query(
             tx,
+            z.object({
+              visibility: z.enum(['public', 'unlisted']),
+              has_broadcast: z.boolean(),
+              open: z.boolean(),
+            }),
             sql`select r.visibility,
                 b.id is not null as has_broadcast,
                 (b.completed_at is null and b.stopped_at is null) as open
@@ -75,13 +80,14 @@ export const audienceSnapshotReads = ({
     readonly actorId: string;
   }) {
     return instrumented(eventSink, 'readLiveRoomStanding', async () => {
-      const [row] = await rowsOf<{
-        seat_kind: SeatKind | null;
-        competition_type: 'ranked' | 'casual';
-        status: RoundStatus;
-        debaters_read_chat: boolean | null;
-      }>(
+      const [row] = await query(
         database,
+        z.object({
+          seat_kind: seatKindSchema.nullable(),
+          competition_type: z.enum(competitionTypes),
+          status: roundStatusSchema,
+          debaters_read_chat: z.boolean().nullable(),
+        }),
         sql`select p.seat_kind,r.competition_type,r.status,b.debaters_read_chat
           from rounds r
           left join round_participants p on p.round_id=r.id and p.actor_id=${input.actorId} and public.daisy_round_participant_is_current(p.id)
@@ -105,8 +111,9 @@ export const audienceSnapshotReads = ({
   /** Whose audience may count for this Round: null unless its Broadcast is open. */
   readOnAirAudience(input: { readonly roundId: string }) {
     return instrumented(eventSink, 'readOnAirAudience', async () => {
-      const [row] = await rowsOf<{ visibility: 'public' | 'unlisted' }>(
+      const [row] = await query(
         database,
+        z.object({ visibility: z.enum(['public', 'unlisted']) }),
         sql`select r.visibility from broadcasts b join rounds r on r.id=b.round_id
           where b.round_id=${input.roundId} and b.completed_at is null and b.stopped_at is null
             and r.visibility in ('public','unlisted') and r.room_id is not null

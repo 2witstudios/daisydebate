@@ -2,7 +2,7 @@ import { createAppError } from '@daisy/errors';
 import { sql, type SQL } from 'drizzle-orm';
 import type { PgColumn, PgTable } from 'drizzle-orm/pg-core';
 import { requireLeaseMs } from './lease-policy';
-import { rowsOf, run, query } from './raw-rows';
+import { run, query } from './raw-rows';
 import { isUniqueViolation } from './unique-violation';
 import { agentLeaseDigest } from './round-agent-lease';
 import type { mailJobColumns } from './schema/columns';
@@ -32,7 +32,7 @@ export type MailJobClaimInput = {
 };
 
 /** One claimed job's row as the table describes it, and its lease's bearer token. */
-type Claimed = { readonly row: unknown; readonly token: string };
+type Claimed<Row> = { readonly row: Row; readonly token: string };
 
 const MAX_CLAIM = 50;
 /** No retry policy needs more; a larger cap is a caller's mistake. */
@@ -66,11 +66,12 @@ export const mailQueue = (
      * claim cannot hold a job in the queue for ever. Its last holder never
      * settled and may only be slow, so such a job ends `delivery-unknown`.
      */
-    claimDue: (
+    claimDue: <Row extends z.ZodType>(
       database: TxOpener,
       input: MailJobClaimInput,
       returning: SQL,
-    ): Promise<readonly Claimed[]> => {
+      rowSchema: Row,
+    ): Promise<readonly Claimed<z.output<Row>>[]> => {
       requireLeaseMs(input.leaseMs);
       for (const [value, most] of [
         [input.limit, MAX_CLAIM],
@@ -89,7 +90,7 @@ export const mailQueue = (
             limit ${input.limit}
             for update skip locked`,
         );
-        const claims: Claimed[] = [];
+        const claims: Claimed<z.output<Row>>[] = [];
         for (const { id, spent } of due) {
           if (spent) {
             await run(
@@ -104,8 +105,9 @@ export const mailQueue = (
             continue;
           }
           const token = input.nextToken();
-          const [row] = await rowsOf(
+          const [row] = await query(
             tx,
+            rowSchema,
             sql`update ${table} set
                 last_error_code = ${unknownIfHeld(sql`last_error_code`)},
                 state = 'leased', attempts = attempts + 1,
@@ -114,6 +116,8 @@ export const mailQueue = (
               where id = ${id}
               returning ${returning}`,
           );
+          if (row === undefined)
+            throw createAppError('INVARIANT', 'Claimed mail job is missing');
           claims.push({ row, token });
         }
         return claims;
@@ -135,8 +139,9 @@ export const mailQueue = (
               next_attempt_at = ${outcome.nextAttemptAt}::timestamptz`
           : sql`state = ${outcome.kind}, completed_at = clock_timestamp(),
               last_error_code = ${outcome.kind === 'sent' ? sql`null` : keptUnknown(outcome.errorCode)}`;
-      const settled = await rowsOf(
+      const settled = await query(
         database,
+        z.object({ id: z.string() }),
         sql`update ${table} set ${moved}, lease_token_digest = null, lease_expires_at = null
           where id = ${input.id} and state = 'leased'
             and lease_token_digest = ${agentLeaseDigest(input.token)}
@@ -157,8 +162,9 @@ export const mailQueue = (
         readonly until: string;
       },
     ): Promise<boolean> => {
-      const moved = await rowsOf(
+      const moved = await query(
         database,
+        z.object({ id: z.string() }),
         sql`update ${table} set state = 'queued', attempts = attempts - 1,
             next_attempt_at = ${input.until}::timestamptz,
             lease_token_digest = null, lease_expires_at = null

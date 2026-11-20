@@ -1,3 +1,5 @@
+import { query, run as runStatement } from './raw-rows';
+import { z } from 'zod';
 import { testLane } from './testing-lane';
 import type { SQL } from 'bun';
 import { createAppError } from '@daisy/errors';
@@ -46,7 +48,11 @@ test('invalid execution budgets are refused before any reservation', async () =>
 test('a committed transaction returns its result, receipt and both connections', async () => {
   const { run, queries, reservations } = bounded({ script: [[{ one: 1 }]] });
   const result = await run(async (tx, signal, receipt) => {
-    const rows = await tx.execute(sql`select 1 as one`);
+    const rows = await query(
+      tx,
+      z.object({ one: z.int() }),
+      sql`select 1 as one`,
+    );
     return { rows: [...rows], aborted: signal.aborted, receipt };
   });
   assert({
@@ -210,7 +216,7 @@ test('the transaction facade refuses controls and use after its callback', async
     given: 'raw configuration through the facade',
     should: 'refuse the statement before it reaches the server',
     actual: () =>
-      run((tx) => tx.execute(sql.raw("select set_config('x','0',true)"))),
+      run((tx) => runStatement(tx, sql.raw("select set_config('x','0',true)"))),
     code: 'INVARIANT',
   });
   await run(async (tx) => {

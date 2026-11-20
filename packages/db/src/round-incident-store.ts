@@ -16,6 +16,8 @@ import { writeSpeakingProjection } from './round-speaking-writer';
 import { mediaRoomRotations } from './schema/media-sessions';
 import { roundIncidentWatches } from './schema/round-incident-watches';
 import type { Tx } from './tx';
+import { query } from './raw-rows';
+import { z } from 'zod';
 
 /** What a pass read from the vendor, as far as this store keeps it. */
 export type IncidentWatch = {
@@ -50,7 +52,10 @@ export type IncidentOutcome = {
  * speaking interval, whose close this becomes. Null when nobody holds an interval.
  */
 async function confirmedUntil(tx: Tx, roundId: string): Promise<string | null> {
-  const rows = (await tx.execute(sql`
+  const rows = await query(
+    tx,
+    z.object({ confirmed_until: z.union([z.string(), z.date()]).nullable() }),
+    sql`
     with holders as (
       select segment_id, round_participant_id, started_at
       from round_speaking_intervals
@@ -68,7 +73,8 @@ async function confirmedUntil(tx: Tx, roundId: string): Promise<string | null> {
         join holders h using (segment_id, round_participant_id)
         where u.round_id = ${roundId} and u.bot_phrase_id is not null)
     ) as confirmed_until
-  `)) as unknown as { confirmed_until: Date | string | null }[];
+  `,
+  );
   const value = rows[0]?.confirmed_until ?? null;
   return value === null ? null : new Date(value).toISOString();
 }
