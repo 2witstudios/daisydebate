@@ -24,6 +24,8 @@ const lock = (name: TransactionLockName, key: Statement): TransactionLock => ({
   key,
 });
 
+const samplerLockKey = 59003;
+
 /** The closed registry: a lock not named here cannot be taken. */
 export const transactionLocks = {
   /** One Room command id at a time (idempotent replay). */
@@ -140,25 +142,18 @@ export const sessionLocks = {
   },
   /** The availability sampler: one elected producer session. */
   availabilitySampler: {
+    key: samplerLockKey,
     /** Elected when this session holds the lock already or takes it now. */
     elect: async (session: ReservedSQL): Promise<boolean> => {
       const [row]: { elected: boolean }[] =
-        await session`select case when ${samplerHeld(session)}
-          then true else pg_try_advisory_lock(${SAMPLER_KEY}::bigint) end as elected`;
+        await session`select case when exists(select 1 from pg_locks
+          where locktype='advisory' and pid=pg_backend_pid() and classid=0
+            and objid=${samplerLockKey}::oid and objsubid=1 and granted)
+          then true else pg_try_advisory_lock(${samplerLockKey}::bigint) end as elected`;
       return row?.elected === true;
     },
-    /** A condition, true while this session holds the sampler lock. */
-    held: samplerHeld,
     release: async (session: ReservedSQL) => {
-      await session`select pg_advisory_unlock(${SAMPLER_KEY}::bigint)`;
+      await session`select pg_advisory_unlock(${samplerLockKey}::bigint)`;
     },
   },
 } as const;
-
-const SAMPLER_KEY = 59003;
-
-function samplerHeld(session: ReservedSQL) {
-  return session`exists(select 1 from pg_locks
-    where locktype='advisory' and pid=pg_backend_pid() and classid=0
-      and objid=${SAMPLER_KEY}::oid and objsubid=1 and granted)`;
-}

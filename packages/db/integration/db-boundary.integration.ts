@@ -228,7 +228,9 @@ test('session locks hold their old keys until released', async () => {
     const samplerBlocked =
       await theirs`select pg_try_advisory_lock(59003::bigint) as free`;
     const [row]: { holds: boolean }[] =
-      await mine`select ${sessionLocks.availabilitySampler.held(mine)} as holds`;
+      await mine`select exists(select 1 from pg_locks
+        where locktype='advisory' and pid=pg_backend_pid() and classid=0
+          and objid=59003 and objsubid=1 and granted) as holds`;
     await sessionLocks.availabilitySampler.release(mine);
     const handedOver = await sessionLocks.availabilitySampler.elect(theirs);
     await sessionLocks.availabilitySampler.release(theirs);
