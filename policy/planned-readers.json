@@ -1035,6 +1035,60 @@
       "adr": "docs/decisions/0057-planned-readers.md",
       "reason": "Daisy Tab contract (slice E, TAB-5) declared ahead of its wiring reader; the wiring slice's routes and stores read it.",
       "reviewBy": "2026-12-31"
+    },
+    {
+      "path": "apps/web/src/features/image-intake/image-sanitizer.ts",
+      "export": "sanitizeImage",
+      "task": "ISSUE-1105",
+      "owner": "messaging",
+      "adr": "docs/decisions/0057-planned-readers.md",
+      "reason": "The image sanitizer adapter is integration-tested. ISSUE-1105 wires it into private file uploads.",
+      "reviewBy": "2026-12-31"
+    },
+    {
+      "path": "apps/web/src/features/messaging/files/local-object-store.ts",
+      "export": "createLocalPrivateObjectStore",
+      "task": "ISSUE-1105",
+      "owner": "messaging",
+      "adr": "docs/decisions/0057-planned-readers.md",
+      "reason": "The local private object store adapter is integration-tested. ISSUE-1105 wires it into private file uploads.",
+      "reviewBy": "2026-12-31"
+    },
+    {
+      "path": "apps/web/src/features/media-capture/necessary-evidence-retirement/necessary-evidence-retirement.ts",
+      "export": "NecessaryEvidenceRetirement",
+      "task": "REL-1",
+      "owner": "media-capture",
+      "adr": "docs/decisions/0119-recoverable-round-evidence-and-result.md",
+      "reason": "Fenced retirement with fair bounded claims is integration-tested; its scheduler is part of the same incomplete recoverable-evidence slice as the declared custody and ingress readers, and production collection stays disabled.",
+      "reviewBy": "2026-12-07"
+    },
+    {
+      "path": "apps/web/src/features/transcription-recovery/service.ts",
+      "export": "startTranscriptionRecoveryService",
+      "task": "REL-1",
+      "owner": "media-capture",
+      "adr": "docs/decisions/0119-recoverable-round-evidence-and-result.md",
+      "reason": "Bounded local transcription recovery is integration-tested; no server composition starts it until the recoverable-evidence slice wires original-evidence restore, which is declared beside it.",
+      "reviewBy": "2026-12-07"
+    },
+    {
+      "path": "apps/web/src/features/transcription-recovery/attempt.ts",
+      "export": "createTranscriptionAttempt",
+      "task": "REL-1",
+      "owner": "media-capture",
+      "adr": "docs/decisions/0119-recoverable-round-evidence-and-result.md",
+      "reason": "The one-shot attempt executor is integration-tested. REL-1 wires it to the recovery scheduler and authenticated original-evidence restore.",
+      "reviewBy": "2026-12-07"
+    },
+    {
+      "path": "apps/web/src/features/tab/operations/tournament-sponsorship.ts",
+      "export": "tournamentSponsorshipCommand",
+      "task": "DEC409",
+      "owner": "tab",
+      "adr": "docs/decisions/0149-host-tiers.md",
+      "reason": "The funded-capture sponsorship command (DEC409 hosting versions and sponsorship consent) is integration-tested; no route posts it until the hosting-tier sponsorship flow is wired.",
+      "reviewBy": "2026-12-31"
     }
   ]
 }

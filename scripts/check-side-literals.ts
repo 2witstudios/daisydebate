@@ -39,7 +39,7 @@ const exempt: readonly RegExp[] = [
   /(^|\/)integration\//,
   /\.integration\.tsx?$/,
   /(^|\/)testing(-[a-z-]+)?\.ts$/,
-  /^apps\/web\/src\/features\/format-corpus\//,
+  /^apps\/web\/src\/test-support\/format-corpus\//,
   /^scripts\/check-side-literals\.ts$/,
   ...pairwise,
 ];
