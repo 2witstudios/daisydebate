@@ -13,7 +13,7 @@ import { expect, openPage, test } from './support/fixtures';
  * PYL-6 in a real browser, at phone width: a youth member asks a parent's
  * address to sign; the parent opens the emailed link with no account and
  * no session, signs, and sees the confirmation. The flow is live with no
- * release flag (ADR 0159).
+ * release flag (ADR 0161).
  */
 const mailBase = `http://127.0.0.1:${resolveE2EPorts(process.env).mail}`;
 

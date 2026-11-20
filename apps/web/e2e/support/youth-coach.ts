@@ -32,7 +32,7 @@ const seedYouthRound = async (
 
 /**
  * A minor debating a live private casual Youth Round, and their school coach
- * (ADR 0155, 0159): the Room is private, so only the coach's link sees it;
+ * (ADR 0155, 0161): the Room is private, so only the coach's link sees it;
  * the coach is `context`'s member, the student signs up in a context
  * of their own, which the caller closes, and `stop` ends the seeded Round.
  * A setup that fails closes the student and stops the Round itself.

@@ -1,9 +1,5 @@
 import type { ContentWaiverStanding } from '@daisy/db';
-import type {
-  RatingDivision,
-  RoomAssemblyState,
-  RoomRefusal,
-} from '@daisy/protocol';
+import type { AgeBand, RoomAssemblyState, RoomRefusal } from '@daisy/protocol';
 import {
   casualCaptureNotice,
   contentWaiverOf,
@@ -60,16 +56,16 @@ export const createNoticeOf = (
 
 /**
  * The waiver version a seat's Ready on this Room needs; only ranked needs
- * one. It follows the signer's own lobby, not the Room's (ADR 0159): a member
+ * one. It follows the signer's age band (ADR 0161): a member
  * under 18 signs the Youth waiver even judging an Open Room, and an adult
- * judging a Youth Room signs the Open one. No age record signs as Open.
+ * judging a Youth Room signs the Open one.
  */
 export const requiredContentWaiver = (
   room: CompetitionFact,
-  signer: RatingDivision | null,
+  signer: AgeBand | null,
 ) =>
   room.competitionType === 'ranked'
-    ? contentWaiverOf(signer ?? 'open').version
+    ? contentWaiverOf(signer ?? 'adult').version
     : null;
 
 /** Unsigned is refused; with no season open, ranked play is unavailable. */

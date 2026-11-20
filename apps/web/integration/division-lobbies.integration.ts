@@ -388,7 +388,7 @@ test('the Youth carry is bounded: no one is aged before their own record, nor mo
   );
 });
 
-test('a Youth Room’s live Round has the same public audience as an Open one (ADR 0159)', async () => {
+test('a Youth Room’s live Round has the same public audience as an Open one (ADR 0161)', async () => {
   await withRoomRuntime(async (f) => {
     // A fresh pair each: a member holds one active Room (ADR 0070).
     const liveRound = async (age: keyof typeof ages) => {

@@ -1,4 +1,5 @@
 import type { Identity } from '@daisy/auth';
+import type { AgeBand } from '@daisy/protocol';
 import { createAppError, createRefusal } from '@daisy/errors';
 import type { Logger } from '@daisy/logger';
 import type { ErrorReporter } from '@daisy/observability';
@@ -12,7 +13,7 @@ import {
   requireSignedIn,
 } from '../../server/http';
 import { consumeOrThrow, type RateLimiter } from '../../server/rate-limit';
-import { contentWaiverAt } from '../legal/agreements';
+import { contentWaiverOf } from '../legal/agreements';
 
 const signatureRequest = z.strictObject({
   version: z.string().min(1).max(64),
@@ -32,15 +33,15 @@ const SIGN_LIMIT = { max: 10, windowSeconds: 60 };
 /**
  * POST /api/agreements/content-waiver: a member signs the waiver for the
  * active season (WATCH-15). The version must be one served now (the Open or
- * the Youth waiver, ADR 0159), so nobody is recorded as signing words their
- * form did not show. Signing again is the
- * same signature. Any beta state may read the waiver; only a member signs.
+ * the Youth waiver, ADR 0161) for the member's current age band. Signing
+ * again is the same signature. Any beta state may read the waiver; only a member signs.
  */
 export function createContentWaiverHandler({
   logger,
   reporter,
   origin,
   identify,
+  readAgeBand,
   limiter,
   sign,
 }: {
@@ -48,6 +49,7 @@ export function createContentWaiverHandler({
   readonly reporter: ErrorReporter;
   readonly origin: () => string;
   readonly identify: (request: Request) => Promise<Identity>;
+  readonly readAgeBand: (userId: string) => Promise<AgeBand | null>;
   readonly limiter: () => RateLimiter;
   readonly sign: (
     userId: string,
@@ -74,7 +76,8 @@ export function createContentWaiverHandler({
           await readJson(request, MAX_BODY_BYTES),
         );
         try {
-          if (contentWaiverAt(version) === null)
+          const ageBand = await readAgeBand(userId);
+          if (ageBand === null || contentWaiverOf(ageBand).version !== version)
             throw createRefusal('CONFLICT', 'content-waiver-changed');
           if ((await sign(userId, version)) === 'no-active-season')
             throw createRefusal('CONFLICT', 'ranked-unavailable');

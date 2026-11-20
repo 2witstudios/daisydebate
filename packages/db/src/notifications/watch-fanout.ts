@@ -35,7 +35,7 @@ const followersOf = (roundId: string, kind: NotificationKind) =>
         where p.round_id=${roundId} and a.user_id=u.id)
     order by u.id,f.debater_actor_id`;
 
-/** A Youth Round's Recording reaches only its current seats (ADR 0157). */
+/** The seated accounts eligible for their recording-ready notice. */
 const seatedAccounts = (roundId: string) =>
   sql`select distinct u.id as user_id,null::text as actor_id
     from round_participants p join actors a on a.id=p.actor_id

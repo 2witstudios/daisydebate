@@ -108,6 +108,7 @@ const withReadyRecording = (
       readFloorIntervals: database.readRecordingFloorIntervals,
       readCoverageFacts: database.readRecordingCoverageFacts,
       holdsRecordingDownload: async () => true,
+      readReuseFenced: async () => false,
     };
     const inputs: RecordingInputs = { ...base, readRoundFresh: base.readRound };
     const port = createRecordingCapturePort({
@@ -199,6 +200,7 @@ test('an unlisted Recording opens only past its current link', async () => {
               readTranscript: async () => null,
               readBallots: async () => [],
               holdsRecordingDownload: inputs.holdsRecordingDownload,
+              readReuseFenced: inputs.readReuseFenced,
               findRecordingByRound: store.findByRound,
             },
             { roundId, viewer: stranger, presentedLinkHash, q: '' },
@@ -792,6 +794,7 @@ test('history reads the real Round and offers each panel on its own permission',
             readTranscript: async () => null,
             readBallots: async () => [],
             holdsRecordingDownload: inputs.holdsRecordingDownload,
+            readReuseFenced: inputs.readReuseFenced,
             findRecordingByRound: store.findByRound,
           },
           { roundId, viewer, presentedLinkHash: null, q: '' },

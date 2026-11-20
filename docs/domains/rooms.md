@@ -330,7 +330,7 @@ season, bounded by their own age record and a 12-month carry (ADR 0147 §3).
   and a league Room on its ladder also seats only members in that division.
   A caller's own claim there answers `other-division`, and a host's assignment
   answers `actor-ineligible`.
-- **Watching** ([ADR 0159](../decisions/0159-youth-rounds-follow-open-visibility.md)).
+- **Watching** ([ADR 0161](../decisions/0161-youth-rounds-follow-open-visibility.md)).
   A Youth Room's Round is watched, listed, broadcast and recorded exactly as
   an Open Room's: ranked is public, casual follows the Room's visibility and
   its host's broadcast and recording choices. The one difference: each youth

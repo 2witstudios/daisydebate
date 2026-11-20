@@ -3,7 +3,7 @@ import { audienceAdmits } from '../audience-link/audience-link';
 import {
   mayTakeDownYouthRecording,
   removableStatus,
-  type YouthRound,
+  type YouthRoundPeople,
 } from './youth-audience';
 import {
   SPECTATOR_MARGIN_MS,
@@ -47,12 +47,12 @@ export type RecordingRound = {
   /** The actors in the Round's judge and moderator seats. */
   readonly officialActorIds: readonly string[];
   /**
-   * A Youth Round's youth debaters, their linked adults and whether every one
-   * released it for reuse: any Round of a Youth Room, casual included (ADR
-   * 0157). It never narrows who may view the Round (ADR 0159). Null on every
-   * other Round.
+   * A Youth Round's youth debaters and their linked adults: any Round of a
+   * Youth Room, casual included (ADR 0157). Whether it may be reused is read
+   * apart (`readReuseFenced`), when deciding whether to offer a download
+   * (ADR 0161). Null on every other Round.
    */
-  readonly youth: YouthRound | null;
+  readonly youth: YouthRoundPeople | null;
 };
 
 /**
@@ -143,7 +143,7 @@ const officialsMedia = (
  * Under the officials policy only the officials and the host see the video, and
  * only until its deletion date; a debater, and a youth debater's linked adult,
  * keep the rest of the record, and the audience learns nothing of the Round.
- * A Youth Round answers exactly as an Open one (ADR 0159). `nowMs` is the
+ * A Youth Round answers exactly as an Open one (ADR 0161). `nowMs` is the
  * caller's clock.
  */
 export const roundEvidencePermissions = (
@@ -181,7 +181,7 @@ const releasedPermissions = (
   if (round.completedAtMs === null) return NOTHING;
   if (seated(round, viewer))
     return { open: true, media: true, transcript: true, result: true };
-  // The one Youth difference (ADR 0159): a youth debater's linked coach or
+  // The one Youth difference (ADR 0161): a youth debater's linked coach or
   // parent sees through unlisted and private, as a debater does, but never
   // past an operator's stop. It comes before the host's view, which it
   // contains: a coach hosting their own students loses nothing by hosting.
@@ -254,16 +254,17 @@ export const recordingMediaState = (
  * A subscriber may download any Recording they may watch, and no other. The
  * subscription is the WATCH-8 entitlement, read as a named input. A download
  * is reuse: a Youth Round's only once every youth debater released it (the
- * reuse fence, ADR 0159).
+ * reuse fence, ADR 0161).
  */
 export const mayDownload = (input: {
-  readonly round: Pick<RecordingRound, 'youth'>;
+  /** The reuse fence (`reuseFenced`), read for this Round. */
+  readonly reuseFenced: boolean;
   readonly viewer: RecordingViewer;
   readonly permissions: RoundEvidencePermissions;
   readonly status: RecordingStatus | null;
   readonly subscribed: boolean;
 }): boolean =>
-  (input.round.youth === null || input.round.youth.reusable) &&
+  !input.reuseFenced &&
   input.viewer.kind === 'account' &&
   input.subscribed &&
   input.permissions.media &&

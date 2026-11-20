@@ -1,6 +1,6 @@
 # Youth ranked content waiver — not reviewed by counsel
 
-**Not reviewed by counsel.** Version `youth-draft-1`. This file is the source of truth for the wording; the app shows the same text from `apps/web/src/features/legal/agreements.ts`, without the placeholders, and a change to one changes the other and the version. Owner decision 89 of 2026-11-19 set the deal ([ADR 0159](../decisions/0159-youth-rounds-follow-open-visibility.md)). Legal review blocks nothing: counsel can review this at any time, and the wording may change after that.
+**Not reviewed by counsel.** Version `youth-draft-1`. This file is the source of truth for the wording; the app shows the same text from `apps/web/src/features/legal/agreements.ts`, without the placeholders, and a change to one changes the other and the version. Owner decision 89 of 2026-11-19 set the deal ([ADR 0161](../decisions/0161-youth-rounds-follow-open-visibility.md)). Legal review blocks nothing: counsel can review this at any time, and the wording may change after that.
 
 Placeholders: **[COUNSEL: …]** is a question for counsel's review. An open one holds nothing back.
 

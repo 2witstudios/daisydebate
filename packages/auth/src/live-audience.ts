@@ -81,7 +81,7 @@ export const liveAudience = (
     case 'none':
       return denied('not_in_audience');
     case 'linked-adult':
-      // They see through the Room's visibility (ADR 0159), only while it
+      // They see through the Room's visibility (ADR 0161), only while it
       // runs; then they see it through its Recording.
       return running(round.status)
         ? watches('linked_adult')

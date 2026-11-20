@@ -13,6 +13,7 @@ import {
   isReleaseRequestOpen,
   maskEmail,
   mediaReleasePolicy,
+  mediaReleaseWording,
   parentHeldOf,
   releaseLinkVerdict,
   releaseRequestExpiry,
@@ -690,7 +691,11 @@ test('a club confirms', () => {
 test('reusing a Round', () => {
   const a = 'a'.repeat(24);
   const b = 'b'.repeat(24);
-  const active = (subjectUserId: string) => parentRelease({ subjectUserId });
+  const active = (subjectUserId: string) =>
+    parentRelease({
+      subjectUserId,
+      wordingVersion: mediaReleaseWording.version,
+    });
   const youth = { youth: true, debaterUserIds: [a, b] };
   assert({
     given: 'a Round with no youth debater',
@@ -711,6 +716,15 @@ test('reusing a Round', () => {
     expected: true,
   });
   assert({
+    given: 'a Youth Round with an old permission to publish',
+    should: 'stay fenced until consent covers reuse',
+    actual: reuseFenced({
+      ...youth,
+      releases: [active(a), parentRelease({ subjectUserId: b })],
+    }),
+    expected: true,
+  });
+  assert({
     given: 'a withdrawn release, or only paid ads',
     should: 'not count',
     actual: [
@@ -718,7 +732,7 @@ test('reusing a Round', () => {
         [a],
         [
           parentRelease({
-            subjectUserId: a,
+            ...active(a),
             withdrawnAt: iso(t0),
             withdrawnBy: 'parent',
           }),
@@ -726,7 +740,7 @@ test('reusing a Round', () => {
       ),
       everyDebaterReleased(
         [a],
-        [parentRelease({ subjectUserId: a, scope: 'paid_ads' })],
+        [parentRelease({ ...active(a), scope: 'paid_ads' })],
       ),
     ],
     expected: [false, false],

@@ -18,7 +18,7 @@ import { RoomAnswerForm } from './assembly-command-form';
  * refuses a post without the tick. The waiver stays on screen whatever the
  * answer: when one is lost the member signs again, which is the same
  * signature. A member under 18 signs the Youth waiver, which grants no
- * licence (ADR 0159); the server names which.
+ * licence (ADR 0161); the server names which.
  */
 export function ContentWaiverForm({
   action,

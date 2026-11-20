@@ -247,7 +247,7 @@ describe('recordingMediaState', () => {
 
 describe('mayDownload', () => {
   const allowed = {
-    round: { youth: null },
+    reuseFenced: false,
     viewer: account('stranger'),
     permissions: everything,
     status: 'ready',
@@ -370,16 +370,16 @@ describe('roundEvidencePermissions under the officials policy (TAB-6.15)', () =>
   });
 });
 
-describe('a Youth Round follows Open’s rules (ADR 0159)', () => {
+describe('a Youth Round follows Open’s rules (ADR 0161)', () => {
   const people = {
     debaters: [
       { actorId: 'aff', userId: 'user-aff', linkedAdultActorIds: ['coach'] },
       { actorId: 'neg', userId: 'user-neg', linkedAdultActorIds: ['parent'] },
     ],
   };
-  const youthOf = (open: RecordingRound, reusable = false): RecordingRound => ({
+  const youthOf = (open: RecordingRound): RecordingRound => ({
     ...open,
-    youth: { ...people, reusable },
+    youth: people,
   });
   const youthRound = youthOf(round);
   const hash = audienceLinkHash('token');
@@ -560,10 +560,10 @@ describe('a Youth Round follows Open’s rules (ADR 0159)', () => {
     });
   });
 
-  test('is downloaded only once every youth debater released it, and is taken down by its youth', () => {
-    const download = (input: RecordingRound) =>
+  test('is downloaded only past the reuse fence, and is taken down by its youth', () => {
+    const download = (reuseFenced: boolean) =>
       mayDownload({
-        round: input,
+        reuseFenced,
         viewer: account('stranger'),
         permissions: everything,
         status: 'ready',
@@ -571,15 +571,10 @@ describe('a Youth Round follows Open’s rules (ADR 0159)', () => {
       });
     assert({
       given:
-        'a subscriber who may watch a ready Youth Recording, without and with every release, and an Open one',
-      should:
-        'offer the download only on the released Youth one and the Open one',
-      actual: [
-        download(youthRound),
-        download(youthOf(round, true)),
-        download(round),
-      ],
-      expected: [false, true, true],
+        'a subscriber who may watch a ready Recording, fenced against reuse and not',
+      should: 'offer the download only past the fence',
+      actual: [download(true), download(false)],
+      expected: [false, true],
     });
     assert({
       given:

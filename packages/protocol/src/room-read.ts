@@ -139,7 +139,7 @@ const roomViewFields = z.strictObject({
   contentWaiver: z.enum(['signed', 'unsigned']).nullable(),
   /**
    * Which waiver that standing is on: the one this viewer's own lobby signs
-   * (ADR 0159), the Youth waiver for a member under 18 whatever Room they sit
+   * (ADR 0161), the Youth waiver for a member under 18 whatever Room they sit
    * in. Null exactly when `contentWaiver` is.
    */
   contentWaiverVersion: z.string().min(1).max(64).nullable(),

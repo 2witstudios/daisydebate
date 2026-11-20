@@ -77,7 +77,7 @@ const sectionLabels: Readonly<Record<RowState, string>> = {
 
 /**
  * Where someone without a seat watches a live Round: a public Round's public
- * page, in either lobby (ADR 0159). Only a seatless host lists a Round that is
+ * page, in either lobby (ADR 0161). Only a seatless host lists a Round that is
  * not public; that host keeps the Round's own guarded page, which admits them.
  */
 const watchHrefOf = (entry: RoomListEntry): string => {
@@ -99,7 +99,7 @@ const action = (
  * room. Otherwise Watch sits beside the seat action: Join in a Room of their
  * own lobby, Judge in the other lobby's Room while a judge seat is free, none
  * when neither fits. A Room before its Round is watched on its own page; a
- * live Round on its watch page, which decides, in either lobby (ADR 0159).
+ * live Round on its watch page, which decides, in either lobby (ADR 0161).
  */
 export function rowActions(
   viewer: LobbyViewer,
@@ -118,7 +118,7 @@ export function rowActions(
     ];
   if (state === 'live') {
     // A youth debater's linked coach or parent sees through a Room that is
-    // not public, in the Round's own live room (ADR 0155, 0159); its seatless
+    // not public, in the Round's own live room (ADR 0155, 0161); its seatless
     // host keeps its own page.
     const throughPrivate =
       round !== null &&

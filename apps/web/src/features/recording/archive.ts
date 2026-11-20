@@ -26,7 +26,7 @@ export const UNDRAWN_RESOLUTION = 'No topic drawn';
 
 /** One finished Round the archive store found for a query. */
 /**
- * A list admits nobody past Open's rules (ADR 0159): a linked adult opens the
+ * A list admits nobody past Open's rules (ADR 0161): a linked adult opens the
  * Round's own page, so a row carries no Youth people.
  */
 export type ArchiveRound = Omit<

@@ -7,7 +7,6 @@ import {
   plannedRecording,
 } from '@daisy/debate-engine';
 import { isJudgeSeat, isModeratorSeat } from '@daisy/protocol';
-import { reuseFenced } from '@daisy/protocol/media-release';
 import { identify } from '../../lib/identity';
 import type { App } from '../../server/app';
 import type { WorkerTimers } from '../../lib/worker-timers';
@@ -25,7 +24,7 @@ import type { RecordingRound } from './audience';
 import { createRecordingHandlers } from './handlers';
 import type { HistoryInputs, HistoryRound } from './history';
 import { recordingPersistence } from './persistence';
-import type { YouthRound, YouthRoundPeople } from './youth-audience';
+import type { YouthRoundPeople } from './youth-audience';
 import { youthPeopleFor } from '@daisy/db/youth-live';
 import type { RecordingInputs } from './ports';
 
@@ -40,7 +39,7 @@ type RoundRow = NonNullable<
 
 const asRound = (
   round: RoundRow,
-  youth: YouthRound | null,
+  youth: YouthRoundPeople | null,
 ): HistoryRound & RecordingRound => ({
   id: round.id,
   competitionType: round.competitionType,
@@ -81,17 +80,7 @@ const recordingInputs = (app: App): RecordingInputs & HistoryInputs => {
       if (!round) return null;
       // Any Round of a Youth Room, casual included (ADR 0157).
       if (!round.youthRound) return asRound(round, null);
-      const found = await people(roundId);
-      const debaterUserIds = found.debaters.map((debater) => debater.userId);
-      // The media releases feature's named output (ADR 0151): the reuse licence.
-      const releases =
-        await app.database.mediaReleases.readActivePublishReleases(
-          debaterUserIds,
-        );
-      return asRound(round, {
-        ...found,
-        reusable: !reuseFenced({ youth: true, debaterUserIds, releases }),
-      });
+      return asRound(round, await people(roundId));
     };
   const readHistoryRound = readRoundWith(youthPeople(app));
   const store = recordingPersistence(app);
@@ -117,6 +106,9 @@ const recordingInputs = (app: App): RecordingInputs & HistoryInputs => {
       now: () => app.clock.now(),
     }),
     findRecordingByRound: store.findByRound,
+    // The reuse fence in one statement, as Watch reads it (ADR 0161).
+    readReuseFenced: async ({ id, youth }) =>
+      youth !== null && app.database.readRoundReuseFenced(id),
   };
 };
 

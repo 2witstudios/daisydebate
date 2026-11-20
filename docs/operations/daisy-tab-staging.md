@@ -18,7 +18,7 @@ account unless a stored choice says otherwise ([ADR 0118](../decisions/0118-rele
 `/contact/league` exists, so `league-requests` stays open by the default
 (its requests and grants: [league requests](league-requests.md)); until the
 other routes land, staging's default links to pages that do not exist yet,
-so either store those `disabled` or accept the gap. `youth-publishing` retired with ADR 0159: Youth Rounds follow Open's visibility, and the release flow is live everywhere.
+so either store those `disabled` or accept the gap. `youth-publishing` retired with ADR 0161: Youth Rounds follow Open's visibility, and the release flow is live everywhere.
 Production never sets it and keeps each flag's safe default (off); the web app
 refuses to start if the variable is present without the staging operator
 audience.

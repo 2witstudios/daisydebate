@@ -382,7 +382,7 @@ test.describe('watching with no account', () => {
     await expect(panel).toHaveCount(0);
   });
 
-  test('a ranked Youth Round plays as an Open one does, with no Stream this Round (ADR 0159)', async ({
+  test('a ranked Youth Round plays as an Open one does, with no Stream this Round (ADR 0161)', async ({
     page,
   }) => {
     const round = await liveRound({ division: 'youth' });

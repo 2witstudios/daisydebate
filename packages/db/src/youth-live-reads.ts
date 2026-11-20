@@ -29,7 +29,7 @@ export const youthLiveReadOperations = ({
     readStudentLiveRounds(database, adultUserId),
   /**
    * Whether this Round's content may not leave Daisy (the reuse fence, ADR
-   * 0159). The web asks it beside the shared spectator read, which the
+   * 0161). The web asks it beside the shared spectator read, which the
    * audience publisher also runs and whose role never reads media releases.
    */
   readRoundReuseFenced: async (roundId: string): Promise<boolean> => {

@@ -1,4 +1,4 @@
-import type { RatingDivision } from '@daisy/protocol';
+import type { AgeBand } from '@daisy/protocol';
 import type { LegalDocument } from './documents';
 
 /**
@@ -11,7 +11,7 @@ import type { LegalDocument } from './documents';
  * docs/legal/ranked-content-policy.md.
  */
 export const CONTENT_WAIVER_VERSION = 'draft-4';
-/** The Youth lobby's waiver (ADR 0159): no licence, signed in place of the Open one. */
+/** The Youth lobby's waiver (ADR 0161): no licence, signed in place of the Open one. */
 export const YOUTH_CONTENT_WAIVER_VERSION = 'youth-draft-1';
 export const CONTENT_POLICY_VERSION = 'draft-4';
 
@@ -76,7 +76,7 @@ export const contentWaiverDocument: LegalDocument = {
 };
 
 /**
- * The Youth lobby's ranked waiver (decision 89, ADR 0159): ranked Rounds are
+ * The Youth lobby's ranked waiver (decision 89, ADR 0161): ranked Rounds are
  * public, watched and kept, and nothing more. It grants Daisy no ownership,
  * clips, likeness or stream-and-earn licence; a media release alone does.
  */
@@ -128,9 +128,9 @@ export const youthContentWaiverDocument: LegalDocument = {
   ],
 };
 
-/** The ranked waiver a lobby's members sign: Youth signs its own (ADR 0159). */
-export const contentWaiverOf = (division: RatingDivision): LegalDocument =>
-  division === 'youth' ? youthContentWaiverDocument : contentWaiverDocument;
+/** The ranked waiver selected by the signer's age band (ADR 0161). */
+export const contentWaiverOf = (ageBand: AgeBand): LegalDocument =>
+  ageBand === 'adult' ? contentWaiverDocument : youthContentWaiverDocument;
 
 /** The waiver served at this version, if it is one served now. */
 export const contentWaiverAt = (version: string): LegalDocument | null =>

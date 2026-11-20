@@ -27,7 +27,7 @@ export type AudienceSnapshot = {
   readonly feedKey: string | null;
   /**
    * Whether its feed may be offered for reuse (Stream this Round): every
-   * Round but one held by the Youth reuse fence (ADR 0159). Viewing never
+   * Round but one held by the Youth reuse fence (ADR 0161). Viewing never
    * asks it.
    */
   readonly streamable: boolean;

@@ -4,7 +4,7 @@ import type { RecordingRound, RecordingViewer } from './audience';
 /**
  * A Youth Round's Recording: any Round of a Youth Room, ranked or casual (ADR
  * 0157). It is recorded, listed and watched exactly as an Open Round's is
- * (ADR 0159). Three things differ: each youth debater's linked adults (a coach
+ * (ADR 0161). Three things differ: each youth debater's linked adults (a coach
  * of their school, or a guardian) see it whatever the Room's visibility; it is
  * reused (downloaded, streamed on) only once every youth debater holds an
  * active media release (ADR 0151); and any youth debater or linked adult may
@@ -23,13 +23,6 @@ export type YouthDebater = {
 export type YouthRoundPeople = {
   readonly debaters: readonly YouthDebater[];
 };
-
-/**
- * A Youth Round as recording reads it: its people, and whether every youth
- * debater released it for reuse (`reuseFenced` in
- * `@daisy/protocol/media-release`, ADR 0159).
- */
-export type YouthRound = YouthRoundPeople & { readonly reusable: boolean };
 
 /** A Youth Round as the takedown rule reads it. */
 export type YouthRecordingRound = Pick<RecordingRound, 'officialActorIds'> & {

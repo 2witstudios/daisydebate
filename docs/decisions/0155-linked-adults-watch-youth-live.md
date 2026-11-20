@@ -7,7 +7,7 @@ Amends [ADR 0150](0150-youth-recordings-private.md) §4 ("never live"):
 nobody outside a Youth Round watches it live, except its youth debaters'
 linked adults, without media. Extends [ADR 0099](0099-spectator-release-authority.md)'s
 undelayed observer.
-Amended by [ADR 0159](0159-youth-rounds-follow-open-visibility.md): generalised: linked adults see through private and unlisted, live and recordings, on Rounds that are otherwise viewed by Open's rules.
+Amended by [ADR 0161](0161-youth-rounds-follow-open-visibility.md): generalised: linked adults see through private and unlisted, live and recordings, on Rounds that are otherwise viewed by Open's rules.
 
 ## Context
 

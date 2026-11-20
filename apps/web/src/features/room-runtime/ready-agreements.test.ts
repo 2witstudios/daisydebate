@@ -27,13 +27,12 @@ describe('Ready agreements', () => {
     assert({
       given:
         'a ranked Room read by an adult, a minor and a member with no age record, and a casual Room',
-      should:
-        "require a waiver on ranked alone, by the signer's own lobby whatever the Room's",
+      should: "require a waiver on ranked alone, by the signer's age band",
       actual: [
-        requiredContentWaiver(ranked, 'open'),
-        requiredContentWaiver(ranked, 'youth'),
+        requiredContentWaiver(ranked, 'adult'),
+        requiredContentWaiver(ranked, '16-17'),
         requiredContentWaiver(ranked, null),
-        requiredContentWaiver(casual, 'youth'),
+        requiredContentWaiver(casual, '13-15'),
       ],
       expected: [
         CONTENT_WAIVER_VERSION,

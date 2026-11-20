@@ -171,7 +171,7 @@ test('an unsigned human judge cannot Ready a ranked Round until they sign', asyn
   );
 });
 
-test('a member under 18 judging an Open ranked Room signs the Youth waiver, not the Open one (ADR 0159)', async () => {
+test('a member under 18 judging an Open ranked Room signs the Youth waiver, not the Open one (ADR 0161)', async () => {
   await withRoomRuntime(async (f) =>
     withYouthSeason(f, async () => {
       await setAge(f, f.outsider, '16 years');

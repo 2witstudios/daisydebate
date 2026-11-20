@@ -91,7 +91,7 @@ test('a ranked seat signs the content waiver without JavaScript', async ({
   }
 });
 
-test('a Youth member’s ranked seat signs the Youth waiver, which licenses nothing (ADR 0159)', async ({
+test('a Youth member’s ranked seat signs the Youth waiver, which licenses nothing (ADR 0161)', async ({
   browser,
 }) => {
   await seasons();

@@ -132,7 +132,7 @@ describe('RecordingHistory', () => {
   });
 });
 
-describe('RecordingHistory, a Youth Round (ADR 0159)', () => {
+describe('RecordingHistory, a Youth Round (ADR 0161)', () => {
   const youth = render({
     ranked: true,
     visibility: 'public',

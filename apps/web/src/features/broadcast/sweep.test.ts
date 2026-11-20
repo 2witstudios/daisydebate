@@ -71,7 +71,7 @@ const world = (over: Partial<Record<string, unknown>> = {}) => {
 };
 
 describe('createBroadcastSweep', () => {
-  test('a ranked Youth Round opens its Broadcast as an Open one does (ADR 0159)', async () => {
+  test('a ranked Youth Round opens its Broadcast as an Open one does (ADR 0161)', async () => {
     const { deps, log } = world({
       discoverUnopened: async () => [
         { roundId: 'youth', competitionType: 'ranked', capture: null },

@@ -7,7 +7,7 @@ import { isDebatingSeat, type SeatRef } from './seats';
  * Room lives in: every Room still sits in its container, and carries the
  * division it was created in. These rules decide who lands where, which
  * division a new Room takes, and who may sit. Who may view a Round is the
- * same in both lobbies (ADR 0159).
+ * same in both lobbies (ADR 0161).
  */
 
 /**
@@ -78,7 +78,7 @@ export type LiveStanding = 'seat' | 'seatless-host' | 'linked-adult' | 'none';
  * Whether a Round is a Youth Round: any Round of a Room in the Youth lobby,
  * casual included (ADR 0157). It is Youth when either its Room or its frozen
  * ladder is Youth, so it fails closed; a Round with no Room has only its
- * ladder. It never decides who may view a Round (ADR 0159): it names whose
+ * ladder. It never decides who may view a Round (ADR 0161): it names whose
  * linked adults see through private, which content waiver its debaters sign,
  * the reuse fence and the Youth takedown. `youthRoundSql` in `@daisy/db` is
  * its SQL mirror.

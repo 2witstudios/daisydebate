@@ -120,7 +120,6 @@ describe('removal', () => {
             linkedAdultActorIds: coach ? ['coach'] : [],
           },
         ],
-        reusable: false,
       },
     });
     const take = async (freshlyLinked: boolean) => {

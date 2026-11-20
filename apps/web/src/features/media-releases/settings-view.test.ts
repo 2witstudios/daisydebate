@@ -69,7 +69,8 @@ test('the minor’s media release section', () => {
   });
   assert({
     given: 'a parent’s release with no paid ads',
-    should: 'name the signer and the day',
+    should:
+      'name the signer and show that the earlier wording leaves reuse fenced',
     actual: mediaReleaseSettingsView(
       read({
         standing: {
@@ -89,11 +90,13 @@ test('the minor’s media release section', () => {
       line: 'Signed by Elena Rivera, parent · 16 Nov 2026',
       paidAds: false,
       wordingVersion: '2026-11-v1',
+      reuseLicensed: false,
     },
   });
   assert({
     given: 'a club’s confirmation',
-    should: 'name the club and who confirmed',
+    should:
+      'name the club and who confirmed without treating the older wording as a reuse license',
     actual: mediaReleaseSettingsView(
       read({
         standing: {
@@ -114,6 +117,7 @@ test('the minor’s media release section', () => {
       kind: 'club',
       line: 'Lakeside Debate · confirmed by Dana Mensah, coach · 16 Nov 2026',
       paidAds: false,
+      reuseLicensed: false,
     },
   });
 });

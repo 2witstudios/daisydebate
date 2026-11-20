@@ -50,7 +50,7 @@ type CaptureFacts = Pick<RoomAssemblyState, 'competitionType' | 'capture'>;
 /**
  * The Broadcast a Round opens with, or null when nobody chose one: every
  * ranked Round, and a casual one its host chose to broadcast, in either lobby
- * (ADR 0159).
+ * (ADR 0161).
  */
 export const plannedBroadcast = (
   room: CaptureFacts,

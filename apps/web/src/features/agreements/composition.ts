@@ -12,6 +12,8 @@ export function composeAgreementRoutes(app: App) {
         reporter: app.reporter,
         origin: () => app.auth().config.PUBLIC_APP_URL,
         identify: (request) => identify(app.auth(), request.headers),
+        readAgeBand: async (userId) =>
+          (await app.auth().getParticipationByUserId(userId)).ageBand,
         limiter: () => app.limiter,
         sign: (userId, version) =>
           app.database.signContentWaiver({

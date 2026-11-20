@@ -83,7 +83,7 @@ export const standingBadgeWords: Record<StandingBadge, string> = {
 /**
  * What a standing means for the student's Rounds (coach view): whether they
  * may be clipped, downloaded and reused. Watching follows the Room's rules
- * either way (ADR 0159).
+ * either way (ADR 0161).
  */
 export const recordingLineWords: Record<StandingBadge, string> = {
   none: 'No reuse: no release',

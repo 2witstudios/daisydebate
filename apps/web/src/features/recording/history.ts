@@ -91,6 +91,8 @@ export type HistoryInputs = {
   ) => Promise<HistoryTranscript | null>;
   readonly readBallots: (roundId: string) => Promise<readonly HistoryBallot[]>;
   readonly holdsRecordingDownload: (userId: string) => Promise<boolean>;
+  /** The reuse fence (ADR 0161), read only when a download could be offered. */
+  readonly readReuseFenced: (round: HistoryRound) => Promise<boolean>;
   readonly findRecordingByRound: (
     roundId: string,
   ) => Promise<RecordingRecord | null>;
@@ -320,16 +322,17 @@ const recordingActions = (input: {
   readonly viewer: RecordingViewer;
   readonly permissions: RoundEvidencePermissions;
   readonly subscribed: boolean;
+  readonly reuseFenced: boolean;
 }): Pick<
   Extract<RecordingHistoryScreen, { kind: 'history' }>,
   'downloadHref' | 'removal'
 > => {
-  const { record, round, viewer, permissions, subscribed } = input;
+  const { record, round, viewer, permissions, subscribed, reuseFenced } = input;
   if (record === null) return { downloadHref: null, removal: null };
   const status = record.lifecycle.status;
   return {
     downloadHref: mayDownload({
-      round,
+      reuseFenced,
       viewer,
       permissions,
       status,
@@ -455,6 +458,11 @@ export const openRecordingHistory = async (
       viewer: input.viewer,
       permissions,
       subscribed,
+      // Read only when a subscriber could otherwise download it.
+      reuseFenced:
+        subscribed && round.youth !== null
+          ? await inputs.readReuseFenced(round)
+          : round.youth !== null,
     }),
   };
 };

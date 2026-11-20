@@ -1,5 +1,8 @@
 import type { MinorReleaseRead } from '@daisy/db';
-import { maskEmail } from '@daisy/protocol/media-release';
+import {
+  maskEmail,
+  reuseLicensingWordings,
+} from '@daisy/protocol/media-release';
 import {
   guardianRelationWords,
   releaseDate,
@@ -30,12 +33,14 @@ export type MediaReleaseSettingsView =
       readonly kind: 'parent';
       readonly line: string;
       readonly paidAds: boolean;
+      readonly reuseLicensed: boolean;
       readonly wordingVersion: string;
     }
   | {
       readonly kind: 'club';
       readonly line: string;
       readonly paidAds: boolean;
+      readonly reuseLicensed: boolean;
     };
 
 export const mediaReleaseSettingsView = (
@@ -65,17 +70,20 @@ export const mediaReleaseSettingsView = (
       };
     case 'on_file': {
       const { attestation, signedAt, wordingVersion } = standing.publish;
+      const reuseLicensed = reuseLicensingWordings.includes(wordingVersion);
       return attestation.kind === 'parent'
         ? {
             kind: 'parent',
             line: `Signed by ${attestation.name}, ${guardianRelationWords[attestation.relation]} · ${releaseDate(signedAt)}`,
             paidAds: standing.paidAds,
+            reuseLicensed,
             wordingVersion,
           }
         : {
             kind: 'club',
             line: `${attestation.organizationName} · confirmed by ${attestation.name}, ${attestation.role} · ${releaseDate(signedAt)}`,
             paidAds: standing.paidAds,
+            reuseLicensed,
           };
     }
   }

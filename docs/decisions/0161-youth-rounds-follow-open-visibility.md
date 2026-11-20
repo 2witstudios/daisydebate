@@ -1,4 +1,4 @@
-# 0159: Youth Rounds follow Open's visibility; Youth content is not licensed
+# 0161: Youth Rounds follow Open's visibility; Youth content is not licensed
 
 Status: accepted (owner decision 89, 2026-11-19, recorded on
 [10 — Direction and build order](https://pagespace.ai/dashboard/lguvh1y1ejhadk96xcftohha/jro30yyuynd11e7qzjfdby0u);
@@ -53,8 +53,8 @@ an open stream-and-earn grant, which a minor cannot give alone.
    debater (a person in a current debating seat) holds an active release, and
    fences no other Round; a Youth Round with no youth debater fails closed.
    `youthReuseFencedSql` in `@daisy/db` is its SQL mirror, held to it by an
-   integration test over every release standing. Download asks it through the
-   Recording's Youth people; the Watch page reads it beside the shared
+   integration test over every release standing. Download reads the same SQL fence when deciding whether to offer or issue a
+   download; the Watch page reads it beside the shared
    spectator read (the audience publisher's role never reads releases) and
    passes it to the viewer, which hides Stream this Round. It is read when
    the page renders: a release withdrawn mid-broadcast takes effect for a
@@ -64,11 +64,12 @@ an open stream-and-earn grant, which a minor cannot give alone.
 4. **The release is the reuse licence.** A media release (stored scope
    `publish`, unchanged) now allows Daisy and others to clip, download and
    reuse the minor's Rounds; paid ads stay a separate opt-in. Its wording is
-   version `2026-11-v2`. The release flow is live everywhere: the
+   version `2026-11-v2`. Older wording granted permission to publish and does
+   not lift the reuse fence. The release flow is live everywhere: the
    `youth-publishing` flag retires (kept as retired in `policy/flag-keys.json`).
 5. **A Youth waiver.** A ranked Ready by a member under 18, in any Room
    (debater or judge), asks for the Youth ranked content waiver (`youth-draft-1`, `docs/legal/youth-ranked-content-waiver.md`),
-   picked by the signer's own division in `requiredContentWaiver`, and an
+   picked by the signer's current age band in `requiredContentWaiver`, and an
    adult judging a Youth Room signs the Open one: ranked Rounds are
    public, watched and kept, and it grants no ownership, clips, likeness or
    streaming licence. A Youth member signs it once per season, so members who

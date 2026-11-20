@@ -161,7 +161,7 @@ describe('rowActions', () => {
     });
   });
 
-  test('a live Youth Round is watched as an Open one is (ADR 0159)', () => {
+  test('a live Youth Round is watched as an Open one is (ADR 0161)', () => {
     const youthLive = (over: Partial<RoomListEntry> = {}) =>
       live({ division: 'youth', ...over });
     const openLive = (over: Partial<RoomListEntry> = {}) =>

@@ -130,7 +130,7 @@ export const memberCardOperations = ({
   readonly database: BunSQLDatabase;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
-  /** Public Rounds only, never a Youth Round (ADR 0150), for any viewer. */
+  /** Public Rounds only, in either lobby, for any viewer. */
   readMemberCards: (actorIds: readonly string[], clock: SpectatorClock) =>
     instrumented(eventSink, 'readMemberCards', async () => {
       if (actorIds.length === 0) return { ratings: [], records: [] };

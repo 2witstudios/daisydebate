@@ -33,6 +33,7 @@ import { withSeatRatings } from '../ratings/room-seat-ratings';
 import type { createRedis } from '@daisy/redis';
 import type {
   ActiveRoom,
+  AgeBand,
   HostedRoom,
   RoomListQuery,
   RoomAssemblyState,
@@ -77,7 +78,6 @@ export type Store = Pick<
   | 'readActiveRoomFacts'
   | 'listHostedRooms'
   | 'readContentWaiverStanding'
-  | 'readMemberDivision'
   | 'readWatchableRoundOfRoom'
   | 'readMemberCardRatings'
   | 'readRatingBlindings'
@@ -184,11 +184,12 @@ export function createRoomRuntimeOperations({
   };
   /**
    * Only a seated human on an open ranked Room stands on the waiver: the one
-   * their own lobby signs (ADR 0159).
+   * their age band requires (ADR 0161).
    */
   const viewerContentWaiver = async (
     state: RoomAssemblyState,
     caller: Caller,
+    ageBand: AgeBand | null,
   ): Promise<Pick<RoomView, 'contentWaiver' | 'contentWaiverVersion'>> => {
     const none = { contentWaiver: null, contentWaiverVersion: null };
     if (
@@ -199,10 +200,7 @@ export function createRoomRuntimeOperations({
       )
     )
       return none;
-    const version = requiredContentWaiver(
-      state,
-      await store.readMemberDivision(caller.userId),
-    );
+    const version = requiredContentWaiver(state, ageBand);
     if (!version) return none;
     const standing = await store.readContentWaiverStanding(
       caller.userId,
@@ -247,7 +245,7 @@ export function createRoomRuntimeOperations({
           ),
         ),
       ),
-      ...(await viewerContentWaiver(state, caller)),
+      ...(await viewerContentWaiver(state, caller, facts.viewerAgeBand)),
       captureOffer: await roomCaptureOffer(state, caller.actorId, async () =>
         hostHoldsCasualCapture(
           await store.readOwnEntitlementGrants(caller),

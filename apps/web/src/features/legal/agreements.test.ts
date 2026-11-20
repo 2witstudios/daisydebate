@@ -84,7 +84,7 @@ describe('agreements', () => {
     });
   });
 
-  test('the Youth waiver licenses nothing (decision 89, ADR 0159)', () => {
+  test('the Youth waiver licenses nothing (decision 89, ADR 0161)', () => {
     const waiver = words(youthContentWaiverDocument);
     assert({
       given: 'the Youth waiver wording, and each lobby’s waiver',
@@ -106,7 +106,7 @@ describe('agreements', () => {
           'You may earn',
           'promote ranked play',
         ].filter((phrase) => waiver.includes(phrase)),
-        lobbies: [contentWaiverOf('open'), contentWaiverOf('youth')].map(
+        lobbies: [contentWaiverOf('adult'), contentWaiverOf('16-17')].map(
           (document) => document.version,
         ),
       },

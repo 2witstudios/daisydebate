@@ -73,7 +73,7 @@ const withOps = async (
   }
 };
 
-test('a ranked Youth Round is discovered for its Broadcast as an Open one is (ADR 0159)', async () => {
+test('a ranked Youth Round is discovered for its Broadcast as an Open one is (ADR 0161)', async () => {
   await withFixture(databaseUrl, async (f) => {
     const client = new SQL(databaseUrl, { max: 2 });
     try {

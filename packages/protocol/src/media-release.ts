@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { normalizeEmail } from './email';
 
 /**
- * Media releases (ADR 0151, amended by ADR 0159): a minor's Rounds are viewed
+ * Media releases (ADR 0151, amended by ADR 0161): a minor's Rounds are viewed
  * as anyone's are, but their content may not be reused (clipped, downloaded,
  * streamed on) until a parent or guardian signs a release, or a club that
  * already holds one confirms it on Daisy. A release is a durable, revocable
@@ -71,6 +71,13 @@ export const mediaReleaseWording = {
   version: '2026-11-v2',
   label: '2026-11 v2',
 } as const;
+
+/**
+ * The release wordings that license reuse (ADR 0161): clipping, download and
+ * reuse by Daisy and others. A release signed at an earlier wording granted
+ * publishing only and leaves the reuse fence in place.
+ */
+export const reuseLicensingWordings: readonly string[] = ['2026-11-v2'];
 
 /** A parent's or guardian's signature. */
 export type ParentSignature = {
@@ -556,16 +563,20 @@ export const decideClubConfirm = (
 
 // ----------------------------------------------------------------- reuse
 
+/** A release as the reuse fence reads it. */
+type ReuseRelease = Pick<
+  MediaReleaseRecord,
+  'subjectUserId' | 'scope' | 'withdrawnAt' | 'wordingVersion'
+>;
+
 /**
- * Whether every youth debater of a Round holds an active release. A Round
- * with no youth debater has nothing to release, so this is false for it.
+ * Whether every youth debater of a Round holds an active release at a
+ * wording that licenses reuse. A Round with no youth debater has nothing to
+ * release, so this is false for it.
  */
 export const everyDebaterReleased = (
   debaterUserIds: readonly string[],
-  releases: readonly Pick<
-    MediaReleaseRecord,
-    'subjectUserId' | 'scope' | 'withdrawnAt'
-  >[],
+  releases: readonly ReuseRelease[],
 ): boolean =>
   debaterUserIds.length > 0 &&
   debaterUserIds.every((userId) =>
@@ -573,16 +584,17 @@ export const everyDebaterReleased = (
       (release) =>
         release.subjectUserId === userId &&
         release.scope === 'publish' &&
+        reuseLicensingWordings.includes(release.wordingVersion) &&
         isReleaseActive(release),
     ),
   );
 
 /**
- * The reuse fence (ADR 0159): whether a Round's content may not leave Daisy
+ * The reuse fence (ADR 0161): whether a Round's content may not leave Daisy
  * (download, Stream this Round and its official feed, the ranked content
  * policy's stream-and-earn grant). Viewing never asks it. A Round with a youth
- * debater is fenced unless every youth debater holds an active release, the
- * reuse licence; Youth with no youth debater left fails closed. Any other
+ * debater is fenced unless every youth debater holds an active reuse licence.
+ * Youth with no youth debater left fails closed. Any other
  * Round is never fenced. `youthReuseFencedSql` in `@daisy/db` is its SQL
  * mirror.
  */
@@ -591,9 +603,6 @@ export const reuseFenced = (round: {
   readonly youth: boolean;
   /** The people in its current debating seats. */
   readonly debaterUserIds: readonly string[];
-  readonly releases: readonly Pick<
-    MediaReleaseRecord,
-    'subjectUserId' | 'scope' | 'withdrawnAt'
-  >[];
+  readonly releases: readonly ReuseRelease[];
 }): boolean =>
   round.youth && !everyDebaterReleased(round.debaterUserIds, round.releases);

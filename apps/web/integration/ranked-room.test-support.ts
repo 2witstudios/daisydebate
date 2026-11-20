@@ -28,7 +28,7 @@ export async function readyRankedRoom(
 ) {
   const [preset] =
     await f.sql`select format_version,version from format_presets where format_id=${ladder} and superseded_at is null`;
-  // Each member signs both lobbies' waivers: the Room's lobby asks for its own (ADR 0159).
+  // The fixture signs both versions so either signer's waiver can satisfy Ready (ADR 0161).
   for (const member of [f.host, f.guest, f.outsider])
     for (const waiver of [contentWaiverDocument, youthContentWaiverDocument])
       await f.store.signContentWaiver({

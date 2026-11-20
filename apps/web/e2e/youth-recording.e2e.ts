@@ -8,7 +8,7 @@ import { origin, signUpMember, youthBirth } from './support/accounts';
 import { expect, openPage, test } from './support/fixtures';
 
 /**
- * ADR 0159 in a real browser: a Youth Round is viewed exactly as an Open one.
+ * ADR 0161 in a real browser: a Youth Round is viewed exactly as an Open one.
  * A stranger finds a live ranked Youth Round on Watch, watches it, and finds
  * it ended in the archive and on its debater's profile; a public casual Youth
  * Room's Round is watchable as an Open one is (Stream this Round's reuse

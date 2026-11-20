@@ -187,7 +187,7 @@ export function BroadcastViewer({
   children,
 }: {
   readonly initial: SpectatorTimeline;
-  /** Whether Stream this Round may offer its feed: false past the Youth reuse fence (ADR 0159). */
+  /** Whether Stream this Round may offer its feed: false past the Youth reuse fence (ADR 0161). */
   readonly streamable: boolean;
   /** Where the published state is read; null with no Broadcast. */
   readonly stateUrl: string | null;

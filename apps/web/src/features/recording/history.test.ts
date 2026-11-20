@@ -91,6 +91,7 @@ const open = (
     transcript?: HistoryInputs['readTranscript'];
     viewer?: RecordingViewer;
     q?: string;
+    reuseFenced?: boolean;
   } = {},
 ) => {
   const calls: string[] = [];
@@ -112,6 +113,7 @@ const open = (
       return ballots;
     },
     holdsRecordingDownload: async () => over.subscribed ?? false,
+    readReuseFenced: async () => over.reuseFenced ?? false,
     readJobState: async () => over.job ?? null,
     nowMs: () => over.nowMs ?? Date.parse(at),
     findRecordingByRound: async () =>
@@ -453,16 +455,16 @@ describe('after moderation hides a Recording', () => {
   });
 });
 
-describe('a Youth Round’s history (ADR 0159)', () => {
+describe('a Youth Round’s history (ADR 0161)', () => {
   const people = {
     debaters: [
       { actorId: 'aff', userId: 'u-aff', linkedAdultActorIds: ['coach'] },
       { actorId: 'neg', userId: 'u-neg', linkedAdultActorIds: [] },
     ],
   };
-  const youthRound = (reusable: boolean): Partial<HistoryRound> => ({
+  const youthRound = (): Partial<HistoryRound> => ({
     ladder: { style: 'freestyle', division: 'youth' },
-    youth: { ...people, reusable },
+    youth: people,
   });
   const member = (actorId: string): RecordingViewer => ({
     kind: 'account',
@@ -472,14 +474,16 @@ describe('a Youth Round’s history (ADR 0159)', () => {
 
   test('is open to the public as an Open Round is, and downloaded only once released', async () => {
     const fenced = await history({
-      round: youthRound(false),
+      round: youthRound(),
       viewer: member('stranger'),
       subscribed: true,
+      reuseFenced: true,
     });
     const released = await history({
-      round: youthRound(true),
+      round: youthRound(),
       viewer: member('stranger'),
       subscribed: true,
+      reuseFenced: false,
     });
     assert({
       given:
@@ -507,11 +511,11 @@ describe('a Youth Round’s history (ADR 0159)', () => {
       given: 'a youth debater’s coach and a stranger',
       should: 'offer the takedown to the coach alone',
       actual: [
-        (await history({ round: youthRound(false), viewer: member('coach') }))
+        (await history({ round: youthRound(), viewer: member('coach') }))
           .removal !== null,
         (
           await history({
-            round: youthRound(false),
+            round: youthRound(),
             viewer: member('stranger'),
           })
         ).removal !== null,
@@ -521,7 +525,7 @@ describe('a Youth Round’s history (ADR 0159)', () => {
   });
 
   test('a private one is missing for a stranger and open to the linked coach', async () => {
-    const hidden = { ...youthRound(false), visibility: 'private' as const };
+    const hidden = { ...youthRound(), visibility: 'private' as const };
     assert({
       given: 'a stranger and a linked coach on a private Youth Round',
       should: 'answer missing to the stranger and show the coach its history',

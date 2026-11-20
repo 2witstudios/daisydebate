@@ -29,7 +29,7 @@ type Create = {
   readonly affUsername?: string;
   /**
    * The Room's division (its lobby), and a ranked Round's ladder. Either
-   * lobby broadcasts alike (ADR 0159).
+   * lobby broadcasts alike (ADR 0161).
    */
   readonly division?: 'open' | 'youth';
   readonly title: string;

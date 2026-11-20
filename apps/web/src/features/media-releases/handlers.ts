@@ -60,7 +60,7 @@ export type MediaReleaseRouteDependencies = {
 };
 
 /**
- * The media release routes (ADR 0151, amended by ADR 0159): the minor's
+ * The media release routes (ADR 0151, amended by ADR 0161): the minor's
  * request, the parent's link pages (no account, same origin, the token in
  * the body, never the URL) and the club's confirmation. A release is the
  * reuse licence for a minor's Rounds; viewing never needs one.

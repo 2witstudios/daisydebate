@@ -17,7 +17,7 @@ const scratch = scratchDatabase(url, 'youthopen');
 afterAll(() => scratch.drop());
 
 test(
-  'the migration retires Youth-only state: a private stop reads technical, Share publicly notices go (ADR 0159)',
+  'the migration retires Youth-only state: a private stop reads technical, Share publicly notices go (ADR 0161)',
   async () => {
     await scratch.create();
     await scratch.migrate((folder) => folder < migration);

@@ -40,7 +40,7 @@ describe('the content waiver form', () => {
     });
   });
 
-  test('a Youth Room’s debater signs the Youth waiver (ADR 0159)', () => {
+  test('a Youth Room’s debater signs the Youth waiver (ADR 0161)', () => {
     const youth = ContentWaiverForm({
       action: async () => idle(),
       version: YOUTH_CONTENT_WAIVER_VERSION,

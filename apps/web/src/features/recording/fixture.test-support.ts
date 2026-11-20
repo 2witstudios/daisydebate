@@ -60,7 +60,6 @@ export const youthRound: RecordingRound = {
       { actorId: 'aff', userId: 'u-aff', linkedAdultActorIds: ['coach'] },
       { actorId: 'neg', userId: 'u-neg', linkedAdultActorIds: ['parent'] },
     ],
-    reusable: false,
   },
 };
 export const account = (actorId: string): RecordingViewer => ({
@@ -72,7 +71,11 @@ export const visitor: RecordingViewer = { kind: 'visitor' };
 
 export const deps = (
   seed = record(),
-  over: { round?: RecordingRound; subscribed?: boolean } = {},
+  over: {
+    round?: RecordingRound;
+    subscribed?: boolean;
+    reuseFenced?: boolean;
+  } = {},
 ) => {
   const fake = fakeRecordingStore([seed]);
   const objects = fakeObjectStore([], {
@@ -90,6 +93,7 @@ export const deps = (
           stop: 'none',
         }) as const,
       holdsRecordingDownload: async () => over.subscribed ?? true,
+      readReuseFenced: async () => over.reuseFenced ?? false,
     },
   };
 };

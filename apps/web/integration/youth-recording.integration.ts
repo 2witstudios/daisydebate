@@ -7,7 +7,6 @@ import {
   judgeSeat,
   type RoomCapture,
 } from '@daisy/protocol';
-import { reuseFenced } from '@daisy/protocol/media-release';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
@@ -41,7 +40,7 @@ setupRitewayBun();
 requireTestServices(process.env);
 
 /**
- * ADR 0159: a Youth Round is viewed by Open's rules, against the real database
+ * ADR 0161: a Youth Round is viewed by Open's rules, against the real database
  * and its row-level security: a ranked one is public to anyone, live and in
  * the archive. Its youth debaters' linked coaches and parents see through a
  * private or unlisted Room, until their link lapses. Its Recording is reused
@@ -69,7 +68,7 @@ const recordingRoundOf = async (
       .map((seat) => seat.actorId),
     // As the web composes it: the Round's own youth fact decides (ADR 0157).
     youth: round.youthRound
-      ? { ...(await database.readYouthRoundPeople(roundId)), reusable: false }
+      ? await database.readYouthRoundPeople(roundId)
       : null,
   };
 };
@@ -406,7 +405,7 @@ const readyCasualRecording = (
     values (${id},${roundId},'casual',${{ kind: 'host_opt_in', hostActorId }},'ready',${lifecycle})`;
 };
 
-test('a public casual Round of a Youth Room is read exactly as an Open one, but its reuse and takedown (ADR 0159)', async () => {
+test('a public casual Round of a Youth Room is read exactly as an Open one, but its reuse and takedown (ADR 0161)', async () => {
   await withRoomRuntime(async (f) =>
     withLinks(f, async (made) => {
       const database = f.store as never as Database & BroadcastDiscovery;
@@ -481,7 +480,7 @@ test('a public casual Round of a Youth Room is read exactly as an Open one, but 
         },
         expected: { youth: 'read', open: 'read' },
       });
-      // Watch offers Stream this Round only past the reuse fence (ADR 0159).
+      // Watch offers Stream this Round only past the reuse fence (ADR 0161).
       const streamable = async (roundId: string) =>
         (
           await readAudienceSnapshot(f.store as never, {
@@ -675,34 +674,19 @@ test('a public casual Round of a Youth Room is read exactly as an Open one, but 
       const store = recordingPersistence({ database });
       const recordingOf = async (roundId: string) =>
         (await store.findByRound(roundId))!;
-      /** The Round as the web composes it, with its reuse licence read (ADR 0159). */
-      const composedRound = async (roundId: string) => {
-        const round = await recordingRoundOf(database, roundId);
-        if (round.youth === null) return round;
-        const ids = round.youth.debaters.map((debater) => debater.userId);
-        const held =
-          await database.mediaReleases.readActivePublishReleases(ids);
-        return {
-          ...round,
-          youth: {
-            ...round.youth,
-            reusable: !reuseFenced({
-              youth: true,
-              debaterUserIds: ids,
-              releases: held,
-            }),
-          },
-        };
-      };
       const downloads = async (roundId: string, member: Member) =>
         openDownload(
           {
             store,
             objects: { signedRead: () => 'https://storage.test/file' },
             inputs: {
-              readRound: composedRound,
+              readRound: (id) => recordingRoundOf(database, id),
               readBroadcastRelease: release,
               holdsRecordingDownload: async () => true,
+              // As the web composes it: the SQL fence, one statement.
+              readReuseFenced: async (round) =>
+                round.youth !== null &&
+                (await database.readRoundReuseFenced(round.id)),
             },
           },
           {

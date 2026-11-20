@@ -183,7 +183,7 @@ export function makeOperations(
       ) => boolean,
     ) => {
       if (!authorize(state, account)) throw createAppError('NOT_FOUND');
-      return { state, drawSeed: null };
+      return { state, viewerAgeBand: account.ageBand };
     },
     listRoomPage: async (
       _caller: typeof caller,

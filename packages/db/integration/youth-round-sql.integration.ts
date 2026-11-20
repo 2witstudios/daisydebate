@@ -4,7 +4,10 @@ import { createId } from '@paralleldrive/cuid2';
 import { sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { assert, test } from 'riteway/bun';
-import { reuseFenced } from '@daisy/protocol/media-release';
+import {
+  mediaReleaseWording,
+  reuseFenced,
+} from '@daisy/protocol/media-release';
 import { youthReuseFencedSql, youthRoundSql } from '../src/youth-round-sql';
 import { createAuthorizationSubject } from './authorization.test-support';
 import { withFixture } from './constraint-helpers';
@@ -104,7 +107,7 @@ test('youthRoundSql agrees with isYouthRound on every Room and ladder', async ()
 });
 
 /**
- * ADR 0159: `youthReuseFencedSql` is the SQL mirror of `reuseFenced`. A Youth
+ * ADR 0161: `youthReuseFencedSql` is the SQL mirror of `reuseFenced`. A Youth
  * Round and an Open Round, each with no debater, two unreleased, one released,
  * both released, one withdrawn and one holding paid ads alone, give the same
  * answer in SQL as in the rule; a release outside its seats never counts.
@@ -120,15 +123,17 @@ test('youthReuseFencedSql agrees with reuseFenced on every release standing', as
       'both released',
       'one withdrawn',
       'paid ads only',
+      'old wording',
     ] as const;
     type Standing = (typeof standings)[number];
     const release = (
       userId: string,
       scope: 'publish' | 'paid_ads',
       withdrawn = false,
+      wordingVersion: string = mediaReleaseWording.version,
     ) =>
       f.sql`insert into media_releases (id,user_id,scope,source,signer_name,signer_relation,signer_email,wording_version,signed_at,withdrawn_at,withdrawn_by)
-        values (${createId()},${userId},${scope},'parent','A Parent','parent','parent@example.test','2026-11-v2',now() - interval '1 day',${withdrawn ? new Date() : null},${withdrawn ? 'parent' : null})`;
+        values (${createId()},${userId},${scope},'parent','A Parent','parent','parent@example.test',${wordingVersion},now() - interval '1 day',${withdrawn ? new Date() : null},${withdrawn ? 'parent' : null})`;
     const facts: {
       readonly label: string;
       readonly roundId: string;
@@ -138,6 +143,7 @@ test('youthReuseFencedSql agrees with reuseFenced on every release standing', as
         readonly subjectUserId: string;
         readonly scope: 'publish' | 'paid_ads';
         readonly withdrawnAt: string | null;
+        readonly wordingVersion: string;
       }[];
     }[] = [];
     for (const division of ['open', 'youth'] as const)
@@ -171,11 +177,13 @@ test('youthReuseFencedSql agrees with reuseFenced on every release standing', as
           userId: string,
           scope: 'publish' | 'paid_ads',
           withdrawn = false,
+          wordingVersion: string = mediaReleaseWording.version,
         ) => {
-          await release(userId, scope, withdrawn);
+          await release(userId, scope, withdrawn, wordingVersion);
           releases.push({
             subjectUserId: userId,
             scope,
+            wordingVersion,
             withdrawnAt: withdrawn ? new Date().toISOString() : null,
           });
         };
@@ -191,6 +199,10 @@ test('youthReuseFencedSql agrees with reuseFenced on every release standing', as
         if (standing === 'paid ads only') {
           await grant(first!, 'paid_ads');
           await grant(second!, 'paid_ads');
+        }
+        if (standing === 'old wording') {
+          await grant(first!, 'publish');
+          await grant(second!, 'publish', false, '2026-11-v1');
         }
         facts.push({
           label: `${division} × ${standing}`,
@@ -230,6 +242,7 @@ test('youthReuseFencedSql agrees with reuseFenced on every release standing', as
         'youth × one released',
         'youth × one withdrawn',
         'youth × paid ads only',
+        'youth × old wording',
       ],
     });
   });

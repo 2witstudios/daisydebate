@@ -95,7 +95,7 @@ async function memberRow(tx: Tx, username: string): Promise<MemberRow | null> {
 /**
  * The member's debating seats in Rounds the scope shows: played from a Room
  * (a room-less service Round has no page to link to), and outside the owner's
- * scope public only and never a Youth Round, with a completed Round waiting
+ * scope public only in either lobby, with a completed Round waiting
  * for the spectator timeline. The tally and the history use this one filter.
  */
 const seatsShown = (

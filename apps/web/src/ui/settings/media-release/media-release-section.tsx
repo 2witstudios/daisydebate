@@ -301,10 +301,14 @@ export function MediaReleaseSection({
                   <strong className="min-w-0 flex-1 font-strong">
                     Clipping, download and reuse of your Rounds
                   </strong>
-                  <Badge tone="accent">
-                    <Icon name="check" size={12} />
-                    Allowed
-                  </Badge>
+                  {view.reuseLicensed ? (
+                    <Badge tone="accent">
+                      <Icon name="check" size={12} />
+                      Allowed
+                    </Badge>
+                  ) : (
+                    <Badge>Not allowed</Badge>
+                  )}
                 </li>
                 <li className="flex flex-wrap items-center gap-x-4 gap-y-3 border-t border-border px-4 py-3">
                   <div className="min-w-0 flex-1">
@@ -335,12 +339,16 @@ export function MediaReleaseSection({
             </p>
           )}
           <p className={muted}>
-            A Round may be reused only when every Youth debater in it has a
-            release. You can ask for any Round or clip to come down.
+            {view.reuseLicensed
+              ? 'A Round may be reused only when every Youth debater in it has a release.'
+              : 'The release on file covers publishing. Reuse needs a new release.'}{' '}
+            You can ask for any Round or clip to come down.
           </p>
           <div className="flex flex-wrap gap-2">
             {takedown}
-            {view.kind === 'parent' ? <SignedTerms /> : null}
+            {view.kind === 'parent' && view.reuseLicensed ? (
+              <SignedTerms />
+            ) : null}
           </div>
         </>
       );

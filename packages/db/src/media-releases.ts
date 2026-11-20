@@ -1,5 +1,4 @@
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
 import {
   decideAnswer,
   decideAsk,
@@ -39,9 +38,7 @@ import {
   readDivisionOf,
   readReleasesOf,
   readRequestsOf,
-  releaseOf,
   rows,
-  type ReleaseRow,
 } from './media-release-records';
 
 type Tx = BoundedTransactionContext;
@@ -582,33 +579,6 @@ export function createMediaReleases(input: {
               resolved_at = clock_timestamp()
             where recipient_hash = ${recipientHash} and outcome is null`,
         );
-      }),
-
-    /**
-     * The active publish releases of these minors, as recording reads them
-     * (ADR 0150's named input).
-     */
-    readActivePublishReleases: (
-      userIds: readonly string[],
-    ): Promise<readonly MediaReleaseRecord[]> =>
-      run(async (tx) => {
-        const valid = userIds.filter((id) => idSchema.safeParse(id).success);
-        if (valid.length === 0) return [];
-        const read = await rows<ReleaseRow>(
-          tx,
-          sql`select r.id, r.user_id, r.scope, r.source, r.signer_name,
-              r.signer_relation, r.signer_email, r.wording_version, r.signed_at,
-              r.withdrawn_at, r.withdrawn_by, null as organization_id,
-              null as organization_name, null as attested_by_user_id,
-              null as attester_name, null as attester_role
-            from media_releases r
-            where r.user_id in ${sql`(${sql.join(
-              valid.map((id) => sql`${id}`),
-              sql`, `,
-            )})`}
-              and r.withdrawn_at is null and r.scope = 'publish'`,
-        );
-        return read.map(releaseOf);
       }),
   };
 }
