@@ -5,7 +5,7 @@ import { buttonClass, type ButtonVariant } from './button-class';
 export type ButtonProps = {
   readonly variant?: ButtonVariant;
   readonly children: ReactNode;
-} & ButtonHTMLAttributes<HTMLButtonElement>;
+} & Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'formMethod'>;
 
 export function Button({
   variant = 'primary',
@@ -19,6 +19,7 @@ export function Button({
       type={type}
       className={cn(buttonClass(variant), className)}
       {...rest}
+      formMethod={undefined}
     >
       {children}
     </button>

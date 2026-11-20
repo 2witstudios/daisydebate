@@ -78,6 +78,18 @@ describe('a form before hydration (ADR 0114)', () => {
     });
   });
 
+  test('requires transport attributes to follow spreads', () => {
+    assert({
+      given:
+        'spreads that can override a form or its submitter and controls with explicit protection',
+      should: 'reject the two unprotected spreads',
+      actual: count(
+        'const a = <form action="/x" method="post" {...props} />; const b = <button {...props} />; const c = <form {...props} action="/x" method="post" />; const d = <button {...props} formMethod={undefined} />; const e = <input {...props} type="text" />;',
+      ),
+      expected: 2,
+    });
+  });
+
   test('accepts a React action, a POST and a dialog', () => {
     assert({
       given: 'an action function, a URL with method post, and method dialog',

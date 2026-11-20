@@ -30,5 +30,6 @@ native GET: one with no `action` (a spread does not count) unless it is
 outside the search primitives (`SearchForm` in web and in the operator app).
 A form's method and any submitter override must be explicit literals. The
 type-aware lint rule requires a callable React action if the form omits its
-method.
+method. Explicit transport attributes follow JSX spreads so the props in a
+spread cannot change the submission method.
 A form posted before hydration still gets its 303 from `moveOn`.

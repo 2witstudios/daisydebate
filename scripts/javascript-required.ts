@@ -19,6 +19,26 @@ const scanned = /\.[cm]?[jt]sx?$/;
 const attributeName = (attribute: ts.JsxAttributeLike): string | undefined =>
   ts.isJsxAttribute(attribute) ? attribute.name.getText() : undefined;
 
+const namedAttribute = (element: ts.JsxOpeningLikeElement, name: string) =>
+  element.attributes.properties.find(
+    (attribute): attribute is ts.JsxAttribute =>
+      attributeName(attribute)?.toLowerCase() === name,
+  );
+
+const canBeOverridden = (
+  element: ts.JsxOpeningLikeElement,
+  attribute: ts.JsxAttribute | undefined,
+) => {
+  const attributes = element.attributes.properties;
+  const after = attribute === undefined ? 0 : attributes.indexOf(attribute) + 1;
+  return attributes.slice(after).some(ts.isJsxSpreadAttribute);
+};
+
+const isUndefinedExpression = (expression: ts.Expression | undefined) =>
+  expression !== undefined &&
+  ts.isIdentifier(expression) &&
+  expression.text === 'undefined';
+
 const propertyName = (name: ts.PropertyName): string | undefined => {
   const key = ts.isComputedPropertyName(name) ? name.expression : name;
   if (ts.isStringLiteralLike(key)) return key.text;
@@ -65,7 +85,7 @@ const hasActionValue = (attribute: ts.JsxAttribute): boolean => {
     expression.kind !== ts.SyntaxKind.NullKeyword &&
     expression.kind !== ts.SyntaxKind.FalseKeyword &&
     expression.kind !== ts.SyntaxKind.TrueKeyword &&
-    !(ts.isIdentifier(expression) && expression.text === 'undefined') &&
+    !isUndefinedExpression(expression) &&
     !(ts.isStringLiteralLike(expression) && expression.text === '')
   );
 };
@@ -74,15 +94,16 @@ const formIssues = (
   element: ts.JsxOpeningLikeElement,
   primitive: boolean,
 ): readonly string[] => {
-  const attributes = element.attributes.properties;
-  const named = (name: string) =>
-    attributes.find(
-      (attribute): attribute is ts.JsxAttribute =>
-        attributeName(attribute) === name,
-    );
-  const action = named('action');
-  const methodAttribute = named('method');
+  const action = namedAttribute(element, 'action');
+  const methodAttribute = namedAttribute(element, 'method');
   const method = literalValue(methodAttribute);
+  if (
+    canBeOverridden(element, methodAttribute) ||
+    (method !== 'dialog' && canBeOverridden(element, action))
+  )
+    return [
+      'a form spread can change the action or method. Write both after spread props (ADR 0114)',
+    ];
   if (method === 'dialog') return [];
   if (action === undefined || !hasActionValue(action))
     return [
@@ -101,6 +122,37 @@ const formIssues = (
       'a form posting to a URL with no method submits as a native GET; add method="post" (ADR 0114)',
     ];
   return [];
+};
+
+const submitterIssue = (
+  element: ts.JsxOpeningLikeElement,
+  tag: 'button' | 'input',
+): string | undefined => {
+  const typeAttribute = namedAttribute(element, 'type');
+  const type = literalValue(typeAttribute);
+  const nonSubmitType =
+    tag === 'button'
+      ? type === 'button' || type === 'reset'
+      : type !== undefined && type !== 'submit' && type !== 'image';
+  if (nonSubmitType && !canBeOverridden(element, typeAttribute))
+    return undefined;
+
+  const override = namedAttribute(element, 'formmethod');
+  if (canBeOverridden(element, override))
+    return 'a submitter spread can override the form with GET. Write formMethod after spread props (ADR 0114)';
+  if (override === undefined) return undefined;
+
+  const method = literalValue(override);
+  const value = override.initializer;
+  if (
+    method === 'post' ||
+    method === 'dialog' ||
+    (value !== undefined &&
+      ts.isJsxExpression(value) &&
+      isUndefinedExpression(value.expression))
+  )
+    return undefined;
+  return 'a submitter can override the form with GET. Omit formMethod or use a literal POST or dialog method (ADR 0114)';
 };
 
 const scriptOff = {
@@ -137,19 +189,8 @@ export const javascriptRequiredIssues = (
       if (tag === 'form')
         for (const reason of formIssues(node, primitive)) report(node, reason);
       if (tag === 'button' || tag === 'input') {
-        for (const attribute of node.attributes.properties) {
-          if (
-            ts.isJsxAttribute(attribute) &&
-            attributeName(attribute)?.toLowerCase() === 'formmethod'
-          ) {
-            const override = literalValue(attribute);
-            if (override !== 'post' && override !== 'dialog')
-              report(
-                attribute,
-                'a submitter can override the form with GET. Omit formMethod or use a literal POST or dialog method (ADR 0114)',
-              );
-          }
-        }
+        const issue = submitterIssue(node, tag);
+        if (issue !== undefined) report(node, issue);
       }
       if (tag === 'noscript') report(node, scriptOff.noscript);
       const httpEquiv = node.attributes.properties.find(
