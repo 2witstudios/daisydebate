@@ -28,4 +28,7 @@ and the quick check. It fails on a `<noscript>`, a meta refresh, or a
 native GET: one with no `action` (a spread does not count) unless it is
 `method="dialog"`, one posting to a URL with no `method`, and a GET form
 outside the search primitives (`SearchForm` in web and in the operator app).
+A form's method and any submitter override must be explicit literals. The
+type-aware lint rule requires a callable React action if the form omits its
+method.
 A form posted before hydration still gets its 303 from `moveOn`.

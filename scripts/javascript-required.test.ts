@@ -55,6 +55,29 @@ describe('a form before hydration (ADR 0114)', () => {
     });
   });
 
+  test('rejects form markup that can fall back to GET', () => {
+    assert({
+      given:
+        'a missing action value, an empty method, an invalid method, and a dynamic method',
+      should: 'report each form',
+      actual: count(
+        'const a = <form action={undefined} />; const b = <form action="/x" method="" />; const c = <form action="/x" method="put" />; const d = <form action="/x" method={method} />;',
+      ),
+      expected: 4,
+    });
+  });
+
+  test('rejects a submitter that overrides the form with a GET', () => {
+    assert({
+      given: 'GET and unknown overrides on submitters of a POST form',
+      should: 'report both overrides and allow an explicit POST',
+      actual: count(
+        'const a = <form action="/x" method="post"><button formMethod="GET" /><input formMethod={method} /><button formMethod="post" /></form>;',
+      ),
+      expected: 2,
+    });
+  });
+
   test('accepts a React action, a POST and a dialog', () => {
     assert({
       given: 'an action function, a URL with method post, and method dialog',

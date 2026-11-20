@@ -425,12 +425,60 @@ const repoSyntaxRestrictions = [
   ...processMutationRestrictions,
 ];
 
+// The styling gate checks JSX attributes. Type information distinguishes a
+// URL variable from a callable React action, which supplies its own POST.
+const formActionPlugin = {
+  rules: {
+    'require-callable-action': {
+      meta: {
+        messages: {
+          method:
+            'Use method="post" for a form address. An omitted method requires a callable React action (ADR 0114).',
+        },
+      },
+      create(context) {
+        const { program, esTreeNodeToTSNodeMap } =
+          context.sourceCode.parserServices;
+        const checker = program.getTypeChecker();
+        return {
+          JSXOpeningElement(node) {
+            if (node.name.type !== 'JSXIdentifier' || node.name.name !== 'form')
+              return;
+            const named = (name) =>
+              node.attributes.find(
+                (attribute) =>
+                  attribute.type === 'JSXAttribute' &&
+                  attribute.name.type === 'JSXIdentifier' &&
+                  attribute.name.name === name,
+              );
+            if (named('method')) return;
+            const value = named('action')?.value;
+            if (
+              value?.type !== 'JSXExpressionContainer' ||
+              value.expression.type === 'JSXEmptyExpression'
+            )
+              return;
+            const expression = esTreeNodeToTSNodeMap.get(value.expression);
+            const type = checker.getTypeAtLocation(expression);
+            const members = type.isUnion() ? type.types : [type];
+            if (
+              members.some((member) => member.getCallSignatures().length === 0)
+            )
+              context.report({ node: value, messageId: 'method' });
+          },
+        };
+      },
+    },
+  },
+};
+
 /**
  * The rules that read types. They run on workspace source only, which a
  * TypeScript project owns; a probe under an invented path turns them off
  * (eslint.config.test-support.ts).
  */
 export const typedRules = {
+  'daisy-form/require-callable-action': 'error',
   '@typescript-eslint/switch-exhaustiveness-check': [
     'error',
     {
@@ -471,6 +519,7 @@ export default [
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
+  { plugins: { 'daisy-form': formActionPlugin } },
   {
     files: ['**/*.{js,mjs,ts,tsx}'],
     rules: {

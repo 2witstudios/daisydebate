@@ -54,6 +54,22 @@ const isAddress = (attribute: ts.JsxAttribute): boolean => {
   );
 };
 
+const hasActionValue = (attribute: ts.JsxAttribute): boolean => {
+  const value = attribute.initializer;
+  if (value === undefined) return false;
+  if (ts.isStringLiteral(value)) return value.text !== '';
+  if (!ts.isJsxExpression(value)) return true;
+  const { expression } = value;
+  return (
+    expression !== undefined &&
+    expression.kind !== ts.SyntaxKind.NullKeyword &&
+    expression.kind !== ts.SyntaxKind.FalseKeyword &&
+    expression.kind !== ts.SyntaxKind.TrueKeyword &&
+    !(ts.isIdentifier(expression) && expression.text === 'undefined') &&
+    !(ts.isStringLiteralLike(expression) && expression.text === '')
+  );
+};
+
 const formIssues = (
   element: ts.JsxOpeningLikeElement,
   primitive: boolean,
@@ -68,13 +84,17 @@ const formIssues = (
   const methodAttribute = named('method');
   const method = literalValue(methodAttribute);
   if (method === 'dialog') return [];
-  if (action === undefined)
+  if (action === undefined || !hasActionValue(action))
     return [
       'a form with no action attribute submits as a native GET to this page before hydration; pass `action` explicitly (a spread does not count) (ADR 0114)',
     ];
   if (method === 'get' && !primitive)
     return [
       'a GET form outside the search primitives; use SearchForm, or POST (ADR 0114)',
+    ];
+  if (methodAttribute !== undefined && method !== 'get' && method !== 'post')
+    return [
+      'an empty, invalid, or dynamic method can default to GET. Use a literal method (ADR 0114)',
     ];
   if (isAddress(action) && methodAttribute === undefined)
     return [
@@ -116,6 +136,21 @@ export const javascriptRequiredIssues = (
       const tag = node.tagName.getText(file);
       if (tag === 'form')
         for (const reason of formIssues(node, primitive)) report(node, reason);
+      if (tag === 'button' || tag === 'input') {
+        for (const attribute of node.attributes.properties) {
+          if (
+            ts.isJsxAttribute(attribute) &&
+            attributeName(attribute)?.toLowerCase() === 'formmethod'
+          ) {
+            const override = literalValue(attribute);
+            if (override !== 'post' && override !== 'dialog')
+              report(
+                attribute,
+                'a submitter can override the form with GET. Omit formMethod or use a literal POST or dialog method (ADR 0114)',
+              );
+          }
+        }
+      }
       if (tag === 'noscript') report(node, scriptOff.noscript);
       const httpEquiv = node.attributes.properties.find(
         (attribute): attribute is ts.JsxAttribute =>

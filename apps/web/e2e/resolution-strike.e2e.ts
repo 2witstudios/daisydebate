@@ -17,6 +17,7 @@ import { origin } from './support/accounts';
 import { foundationSelection } from '../integration/foundation-selection.test-support';
 import { createRoomLaunchAccounts } from './support/room-launch-accounts';
 import { readyUp, startRoundInBrowser } from './support/room-launch-flow';
+import { hydrated } from './support/hydration';
 import {
   assignSeat,
   claimSeat,
@@ -162,10 +163,13 @@ test('debaters strike to one resolution while a spectator never receives a drawn
     await expect(
       negative.page.getByRole('navigation', { name: 'Files' }),
     ).toBeVisible();
+    const strike = negative.page.getByRole('button', {
+      name: 'Strike this resolution',
+    });
+    await hydrated(strike);
     await negative.page.getByRole('radio').first().check();
-    await negative.page
-      .getByRole('button', { name: 'Strike this resolution' })
-      .click();
+    await strike.click();
+    await negative.page.getByRole('button', { name: 'Strike it' }).click();
     await expect(negative.page.getByText('You struck this')).toBeVisible();
 
     // The Affirmative lets its window run out; the page shows the reveal.
