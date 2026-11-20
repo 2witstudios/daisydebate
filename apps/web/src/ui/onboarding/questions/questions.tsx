@@ -23,7 +23,7 @@ import {
 export type QuestionStepProps = {
   readonly answers: OnboardingAnswers;
   /** The form's action (a server action, or useFormAction's wrapper). */
-  readonly action: string | ((form: FormData) => void);
+  readonly action: (form: FormData) => void;
   readonly pending: boolean;
   /** Set when the last post was refused or never arrived. */
   readonly refused?: boolean;
