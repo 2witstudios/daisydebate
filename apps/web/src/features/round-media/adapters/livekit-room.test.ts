@@ -319,7 +319,7 @@ test('a muted publication remains observable as present without claiming an open
   const published = {
     source: Track.Source.Microphone,
     isMuted: true,
-    track: { sid: 'muted-mic' },
+    track: { sid: 'muted-mic', mediaStreamTrack: { readyState: 'live' } },
   };
   room.localParticipant.trackPublications.set(
     'muted-mic',
