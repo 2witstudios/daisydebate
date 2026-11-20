@@ -8,6 +8,7 @@ import { openMessagingParticipants } from './messaging-fixture.test-support';
 import { composeMessagingDmStore } from '../src/features/messaging/dm-composition';
 import { decideMessagingDm } from '../src/features/messaging/decide-request';
 import { requestMessagingDm } from '../src/features/messaging/request';
+import { messageOfferFor } from '../src/features/messaging/request-offer';
 import { messagingCreationFence } from '../src/features/messaging/creation-authorization';
 import { messagingAuthorizationFence } from '../src/features/messaging/authorization-fence';
 import { sendMessagingMessage } from '../src/features/messaging/send';
@@ -69,6 +70,7 @@ function paths(opened: Opened) {
             principal: from,
             clock,
             operation: { kind: 'dm', policy: betaDmPolicy },
+            readingPolicy: reading,
           }),
         ),
       },
@@ -408,6 +410,13 @@ test('a message request notice stands while it is pending, and never across a bl
   try {
     await p.fresh();
     await p.request(sender, recipient);
+    const offer = () =>
+      messageOfferFor(
+        { database, clock: { now: () => fixture.now } },
+        recipient,
+        sender.userId,
+      );
+    const offered = await offer();
     const pending = await inbox();
     const account = await fixture.exportSubject(recipient.actorId);
     const exported = account.notifications?.flatMap((row) =>
@@ -420,9 +429,16 @@ test('a message request notice stands while it is pending, and never across a bl
     const blocked = await inbox();
     assert({
       given: 'a pending request, then a block between the pair',
-      should: 'show and export the recipient’s notice, then stop showing it',
-      actual: [pending, exported, blocked],
-      expected: [[[fixture.channelId, true]], [fixture.channelId], []],
+      should:
+        'show and export the recipient’s notice, then hide the notice and Message affordance across the block',
+      actual: [pending, exported, blocked, offered, await offer()],
+      expected: [
+        [[fixture.channelId, true]],
+        [fixture.channelId],
+        [],
+        'message',
+        'none',
+      ],
     });
   } finally {
     await p.cleanup();

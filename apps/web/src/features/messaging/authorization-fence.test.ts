@@ -1,6 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { messagingAuthorizationFence } from './authorization-fence';
+import { dmRequestQuestion } from './dm-composition';
 import {
   contactRowsOf,
   policyFactQuery,
@@ -87,6 +88,50 @@ test('channel fences consume minimal facts at the clock after their awaited prod
       queries.length,
       queries.every((query) => policyFactQuery(query.query)),
     ],
-    expected: [completedAt, 3, true],
+    expected: [completedAt, 2, true],
+  });
+});
+
+test('DM request reads, decline and cancel bypass an unavailable contact-fact producer', async () => {
+  const f = typingWorld();
+  const { authority } = f.channel;
+  if (authority.kind !== 'dm') throw new Error('DM fixture required');
+  const frame = {
+    fact: {
+      ...f.channel,
+      authority: { ...authority, state: 'pending' as const },
+    },
+    accounts: f.accounts.map((row) => row.account),
+  };
+  const attempted = [];
+  for (const [question, viewer] of [
+    ['read', 1],
+    ['decline', 1],
+    ['cancel', 0],
+  ] as const) {
+    const { actorId, userId } = f.accounts[viewer]!.account;
+    const { tx, queries } = createScriptedAuthorizationTransaction([
+      ...f.accounts.map((row) => [row.age]),
+      new Error('DM contact facts unavailable'),
+    ]);
+    await messagingAuthorizationFence({
+      principal: { kind: 'user', userId, actorId },
+      clock: { now: () => f.now },
+      postingPolicy: f.policy.posting,
+      readingPolicy: f.policy.reading,
+      ...dmRequestQuestion(question),
+    })(tx, { actorId, userId, channelId: f.channel.channelId }, frame);
+    attempted.push(
+      queries.some((query) =>
+        query.query.includes('messaging_request_settings'),
+      ),
+    );
+  }
+  assert({
+    given: 'an entitled recipient or sender and a failed contact-fact query',
+    should:
+      'leave reading, declining and cancelling available without querying contact facts',
+    actual: attempted,
+    expected: [false, false, false],
   });
 });

@@ -45,14 +45,16 @@ over, while minors stay protected from unsolicited contact by adults.
    everyone). It gates new requests only, never a conversation already
    accepted, and binds the minor's linked staff as it binds anyone. A new
    request tells the recipient through a `dm_request` notification; the
-   introduction stays in Messages. Opening an existing pending or accepted
+   introduction stays in Messages. Eligible away recipients can receive the
+   notice in their notification digest. Opening an existing pending or accepted
    DM uses its read permission, provided neither member has blocked the other.
    Setting writes take the same account lock as request admission.
 7. **Refusals stay masked.** A refused request answers as an unknown member
    (NOT_FOUND), as before. A profile offers Add friend in place of Message
    wherever only a friendship would open a request: an adult toward a minor
-   and a recipient taking requests from friends only look the same, so no age
-   shows.
+   and a recipient taking requests from friends only get the same copy. The
+   response shown to a viewer names no age or reason for refusal. Eligibility
+   can differ by viewer, so comparing two views can reveal that difference.
 8. **Policy revision 2.** `betaDmPolicy` mints revision 2 and honours revision 1
    (`earlierRevisions`). Every revision-1 channel joined two adults or two
    16-17s, which the rule also allows, so no existing DM changes.

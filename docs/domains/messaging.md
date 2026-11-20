@@ -357,15 +357,18 @@ age fact; a missing fact is closed. `betaDmPolicy` mints revision 2 and
 honours revision 1. A request writes the recipient a `dm_request`
 notification in its transaction; refusals answer NOT_FOUND, and a profile
 offers Add friend where only a friendship would open a request
-(`dmRequestOffer`), so no age shows.
+(`dmRequestOffer`). It gives the same copy wherever friendship would open
+the request and names no age or reason for refusal.
 
 ## Public username intent discovery
 
 The account adapter exposes `lookupHumanActorByUsername(input)`. Every feature
-reaches it only through the one username port (`discoverActor`,
+reaches it for contact commands through the one username port (`discoverActor`,
 `features/account/username-discovery.ts`): DM and group requests, blocks,
 friendships and challenges each spend the member's shared
-`username-discovery:<actor>` budget once per name first (ADR 0072). The single portable `parseUsername` rule validates and normalizes
+`username-discovery:<actor>` budget once per name first (ADR 0072). A profile
+can read the actor it already displays to offer Message without spending the
+command budget. The single portable `parseUsername` rule validates and normalizes
 the input before database I/O. Discovery returns only an actor ID bound to an
 existing human account with verified email and no deletion tombstone, or null.
 It returns no account profile, age, session or contact entitlement. The messaging

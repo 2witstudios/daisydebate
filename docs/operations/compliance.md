@@ -113,6 +113,12 @@ opens shortly before their clock and through any start hold, so capture has them
 told first, the other side can hear it, and the Broadcast stage does not subscribe to it. A bot hears its peers only in its own process memory, one
 10 ms frame at a time, never written anywhere (ISSUE-764).
 
+DM requests are part of the Notifications data class under
+[ADR 0160](../decisions/0160-dms-like-discord-with-consent.md). The notice records
+the recipient, requester, channel and notification timestamps. It follows the
+notification retention, export and erasure rules above and leaves the
+introduction in Messaging.
+
 ## Billing records (BILL-2, BILL-15-r1)
 
 Private Billing economics feeds and reports are operational aggregate projections
@@ -525,6 +531,12 @@ consent-evidence policy; those remain counsel-gated before activation.
 | Sentry                                    | Error tracking ([ADR 0037](../decisions/0037-error-tracking-and-product-analytics.md))                                                                                    | Scrubbed error events, `user.id` only                                                                                                                                               | Deploy-time                                                                                                                         | Wired and inert without keys ([ADR 0037](../decisions/0037-error-tracking-and-product-analytics.md)); DPA and account evidence stays PRIV-H before any deploy sets keys |
 | PostHog                                   | Consent-gated product analytics; replay disabled                                                                                                                          | Bounded product-area, Room-action, consent-change and playback-quality facts with browser or account identifiers; connection metadata, no content or raw URL enrichment             | US Cloud, 2witstudios Default project 699106; signed DPA includes DPF and applicable standard contractual clauses                   | Signed 2026-11-07; canonical copy PandaDoc/PostHog. Project-scoped person:write configured; live proof in runbook. Global PRIV-H open                                   |
 | Stripe                                    | Hosted Checkout, recurring collection and Customer Portal                                                                                                                 | Customer/payment details collected by Stripe; Daisy sends only its server-owned purchase references and configured price                                                            | Pending BILL-H / PRIV-H before live activation                                                                                      | Test-mode implementation/proof only; organization account, DPA and live terms remain human-controlled                                                                   |
+
+Resend delivers DM request notices in the existing batched notification digest
+to eligible recipients while they are away. The payload includes the recipient's
+email address, the fact of the request and, when available, the requester's
+public username. A single request can appear in the email subject. The digest
+links to the recipient's inbox and carries no introduction, age or channel ID.
 
 Owner authorization for the private-admin setup records operational scope only.
 It is not DPA, account-ownership or transfer-safeguard evidence, and grants no

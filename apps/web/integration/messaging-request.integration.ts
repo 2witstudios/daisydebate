@@ -3,6 +3,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { requireTestServices } from '@daisy/config';
+import { messagingTestReading } from '@daisy/auth/testing';
 import { requestMessagingDm } from '../src/features/messaging/request';
 import { messagingCreationFence } from '../src/features/messaging/creation-authorization';
 import { dec251ContactsPolicy } from '../src/features/contacts/request-policy';
@@ -27,6 +28,7 @@ const requestDeps = (
     messagingCreationFence({
       principal,
       clock,
+      readingPolicy: messagingTestReading,
       operation: {
         kind: 'dm',
         policy: {

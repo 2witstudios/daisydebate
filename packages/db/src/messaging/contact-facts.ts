@@ -88,8 +88,8 @@ export const bindMessagingContactFacts =
  * A read for what a page offers between two members (Message or Add friend,
  * decision 90): both accounts under shared fences, in one transaction, handed
  * to `work` with that transaction for their age and contact facts, and
- * whether the pair already has a pending or accepted DM (a request converges
- * on it). It grants nothing; a request still decides under its own locks.
+ * whether the pair is blocked or already has a pending or accepted DM. It
+ * grants nothing; a request still decides under its own locks.
  */
 export const createMessagingPairFactsRead =
   (database: BunSQLDatabase) =>
@@ -98,7 +98,7 @@ export const createMessagingPairFactsRead =
     work: (
       tx: AuthorizationTransaction,
       accounts: Awaited<ReturnType<typeof readAuthorizationActors>>,
-      openDm: boolean,
+      contact: 'blocked' | 'open_dm' | 'none',
     ) => Promise<T>,
   ): Promise<T> =>
     database.transaction(async (tx) => {
@@ -106,10 +106,18 @@ export const createMessagingPairFactsRead =
       const accounts = await readAuthorizationActors(tx, [low!, high!], {
         maxActors: 2,
       });
-      const [dm] = await rowsOf<{ open: boolean }>(
+      const [pair] = await rowsOf<{ blocked: boolean; open: boolean | null }>(
         tx,
-        sql`select request_state in ('pending','accepted') as open
-          from messaging_dm_pairs where low_actor_id=${low} and high_actor_id=${high}`,
+        sql`select p.low_blocks_high or p.high_blocks_low as blocked,
+            d.request_state in ('pending','accepted') as open
+          from contact_pairs p left join messaging_dm_pairs d
+            using (low_actor_id, high_actor_id)
+          where p.low_actor_id=${low} and p.high_actor_id=${high}`,
       );
-      return work(tx, accounts, dm?.open === true);
+      const contact = pair?.blocked
+        ? 'blocked'
+        : pair?.open
+          ? 'open_dm'
+          : 'none';
+      return work(tx, accounts, contact);
     });

@@ -12,11 +12,14 @@ export function loadAccountPolicyFacts(
   tx: AuthorizationTransaction,
   lockedAccounts: readonly (AccountAuthorizationFact | null)[],
   now: string,
+  purpose: 'reading' | 'posting' = 'posting',
 ) {
   return loadPolicyFacts({
     accounts: lockedAccounts,
     now,
     readAgeFact: bindAuthorizationAgeFact(tx),
-    readContactFacts: bindMessagingContactFacts(tx),
+    ...(purpose === 'posting'
+      ? { readContactFacts: bindMessagingContactFacts(tx) }
+      : {}),
   });
 }
