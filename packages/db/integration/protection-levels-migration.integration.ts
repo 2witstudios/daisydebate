@@ -7,7 +7,7 @@ import {
   protectionChoices,
 } from '../scripts/protection-policy-sql';
 import { requireTestServices } from '@daisy/config';
-import { withFixture } from './constraint-helpers';
+import { rejectedBy, withFixture } from './constraint-helpers';
 import {
   ddlTimeoutMs,
   scratchDatabase,
@@ -19,11 +19,7 @@ const folders = readdirSync(new URL('../migrations/', import.meta.url));
 const migration = folders.find((folder) =>
   folder.endsWith('_pc_2_protection_levels'),
 );
-const validation = folders.find((folder) =>
-  folder.endsWith('_pc_2_protection_checks_validated'),
-);
-if (!migration || !validation)
-  throw new Error('Protection migrations are missing');
+if (!migration) throw new Error('Protection migration is missing');
 afterAll(() => scratch.drop());
 
 test('the DM projection installs the canonical request rule', () => {
@@ -81,7 +77,7 @@ test(
         await f.sql`insert into notification_preferences(user_id,kind,channel,enabled)
       values(${recipientUser},'friend_request_received','email',false)`;
 
-        await scratch.migrate((folder) => folder <= validation);
+        await scratch.migrate((folder) => folder <= migration);
         expect<unknown>(
           await f.sql`select
             has_function_privilege('daisy_web', 'public.daisy_linked_adult_users_at(text,timestamptz)', 'EXECUTE') as web,
@@ -120,6 +116,22 @@ test(
         expect<unknown>(checks).toEqual(
           Array.from({ length: 3 }, () => ({ convalidated: true })),
         );
+        expect(
+          await rejectedBy(
+            () => f.sql`insert into notification_preferences(user_id,kind,channel,enabled)
+              values(${guardian},'friend_guardian_approval','email',true)`,
+          ),
+        ).toBe('notification_preferences_pair_check');
+        await f.sql`insert into notification_preferences(user_id,kind,channel,enabled)
+          values(${guardian},'friend_guardian_approval','in_app',true)`;
+        expect(
+          await rejectedBy(
+            () => f.sql`insert into notifications(id,user_id,kind,actor_id)
+              values(${createId()},${guardian},'friend_guardian_approval',${requester})`,
+          ),
+        ).toBe('notifications_subject_check');
+        await f.sql`insert into notifications(id,user_id,kind,actor_id,friendship_low_actor_id,friendship_high_actor_id)
+          values(${createId()},${guardian},'friend_guardian_approval',${requester},${low},${high})`;
       } finally {
         await f.sql`delete from contact_pairs where ${recipient} in (low_actor_id, high_actor_id)`;
       }
