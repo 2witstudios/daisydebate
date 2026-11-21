@@ -87,9 +87,10 @@ export async function PeopleShell({
         />
       </>
     ),
-    // A transient challenge refusal must leave the route subtree mounted.
+    // The member owns this provider tree. Optional reads only seed its data.
     wrap: (shell: ReactNode) => (
       <NotificationShellProvider
+        key={actorId}
         initialShell={notifications}
         actorId={actorId}
         socketUrl={socketUrl}

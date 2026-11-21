@@ -34,11 +34,12 @@ type Env = Readonly<Record<string, string | undefined>>;
 const prefix = 'daisy';
 const worktreeDatabasePrefix = `${prefix}_wt_`;
 const worktreeNamespacePrefix = `${prefix}-wt-`;
+const maxNamespaceLength = 41;
 // `daisy-wt-<id>-e2e` must fit REDIS_NAMESPACE (^[a-z][a-z0-9-]{0,40}$).
-const maxIdLength = 41 - worktreeNamespacePrefix.length - '-e2e'.length;
+const maxIdLength =
+  maxNamespaceLength - worktreeNamespacePrefix.length - '-e2e'.length;
 // Lowercase words joined by single underscores. The `_test`, `_e2e` and
-// `_admin` suffixes are reserved so every database and namespace name maps back to
-// exactly one slot.
+// `_admin` suffixes are reserved for slot resources.
 const slotIdPattern = /^[a-z0-9]+(?:_[a-z0-9]+)*$/;
 // `_test_run_<8 hex>` names one integration run's database (ISSUE-238).
 const reservedSuffix = /_(?:test|e2e|admin)$|_test_run_[0-9a-f]{8}$/;
@@ -227,19 +228,32 @@ const idOfDatabase = (name: string): string | undefined => {
   if (!name.startsWith(worktreeDatabasePrefix)) return undefined;
   const id = name
     .slice(worktreeDatabasePrefix.length)
-    .replace(/_test_run_[0-9a-f]{8}$/, '')
-    .replace(/_admin(?:_test|_e2e)?$|_(?:test|e2e)$/, '');
+    .replace(
+      /(?:_admin(?:_test|_e2e)?|_(?:test|e2e)|(?:_admin)?_test_run_[0-9a-f]{8})$/,
+      '',
+    );
   return isSlotId(id) ? id : undefined;
 };
 
-const idOfNamespace = (namespace: string): string | undefined => {
-  if (!namespace.startsWith(worktreeNamespacePrefix)) return undefined;
-  const id = namespace
+function idsOfNamespace(namespace: string): readonly string[] {
+  if (
+    !namespace.startsWith(worktreeNamespacePrefix) ||
+    namespace.length > maxNamespaceLength ||
+    /[^a-z0-9-]/.test(namespace)
+  )
+    return [];
+  const name = namespace
     .slice(worktreeNamespacePrefix.length)
-    .replace(/-e2e$/, '')
     .replaceAll('-', '_');
-  return isSlotId(id) ? id : undefined;
-};
+  const slotId = name.replace(/_e2e$/, '');
+  // Normal Playwright appends -realtime to the browser namespace when it fits.
+  // A valid worktree id can also have that literal ending.
+  const realtimeSuffix = '_e2e_realtime';
+  const candidates = name.endsWith(realtimeSuffix)
+    ? [name.slice(0, -realtimeSuffix.length), slotId]
+    : [slotId];
+  return candidates.filter(isSlotId);
+}
 
 /**
  * Worktree slots whose worktree is gone. Names that do not parse as a
@@ -260,17 +274,19 @@ export function findOrphans({
   const orphanDatabases = databases.filter((name) =>
     orphaned(idOfDatabase(name)),
   );
-  const orphanNamespaces = namespaces.filter((name) =>
-    orphaned(idOfNamespace(name)),
-  );
+  const orphanNamespaces = namespaces.flatMap((name) => {
+    const owners = idsOfNamespace(name);
+    const [id] = owners;
+    return id !== undefined && owners.every(orphaned) ? [{ id, name }] : [];
+  });
   const ids = new Set([
     ...orphanDatabases.map(idOfDatabase),
-    ...orphanNamespaces.map(idOfNamespace),
+    ...orphanNamespaces.map(({ id }) => id),
   ]);
   return {
     ids: [...ids].filter((id): id is string => id !== undefined).sort(),
     databases: [...orphanDatabases].sort(),
-    namespaces: [...orphanNamespaces].sort(),
+    namespaces: orphanNamespaces.map(({ name }) => name).sort(),
   };
 }
 

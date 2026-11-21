@@ -34,6 +34,7 @@ export const messagingRecoveryControlPath = (port: number) =>
  * substitutes a response, gate, policy, database or authorization decision.
  */
 export async function createMessagingRecoveryControl(app: App, port: number) {
+  const { floorDiscoveryRefusal } = await import('./floor-discovery-refusal');
   const database = app.database;
   const authority = database.messagingChannelAuthority.bind(database);
   const channelStore = database.messagingChannelStore.bind(database);
@@ -96,6 +97,7 @@ export async function createMessagingRecoveryControl(app: App, port: number) {
       'refuse-messaging-history': (request) => prepare(request, 'history'),
       'refuse-messaging-entry': (request) => prepare(request, 'entry'),
       'allow-messaging-reads': owner.allow,
+      'refuse-floor-discovery-once': floorDiscoveryRefusal(database),
     },
   });
   for (const signal of ['SIGTERM', 'SIGINT'] as const)
