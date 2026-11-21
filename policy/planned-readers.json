@@ -209,24 +209,6 @@
       "reviewBy": "2026-12-31"
     },
     {
-      "path": "apps/web/src/features/tab/commands/fixture.ts",
-      "export": "resultEntryWrite",
-      "task": "TAB-8.17",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab command or read operation (slice E, TAB-5) ahead of the wiring slice's server action, route or Postgres port, which reads it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
-      "path": "apps/web/src/features/tab/commands/fixture.ts",
-      "export": "resultRowWrite",
-      "task": "TAB-8.17",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab command or read operation (slice E, TAB-5) ahead of the wiring slice's server action, route or Postgres port, which reads it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
       "path": "apps/web/src/features/tab/commands/judges.ts",
       "export": "JudgeDecision",
       "task": "TAB-8.5",
