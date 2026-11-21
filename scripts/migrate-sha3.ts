@@ -37,8 +37,31 @@ function replacement(node: ts.Node): ts.Expression | undefined {
   if (encoding === undefined || literal(encoding, 'utf8')) return value;
 }
 
-function migrate(path: string, source: string): string {
+function digestImports(file: ts.SourceFile): ts.NamedImports | undefined {
+  for (const statement of file.statements) {
+    if (
+      !ts.isImportDeclaration(statement) ||
+      !literal(statement.moduleSpecifier, digestModule) ||
+      statement.importClause?.isTypeOnly
+    )
+      continue;
+    const named = statement.importClause?.namedBindings;
+    if (named && ts.isNamedImports(named)) return named;
+  }
+}
+
+export function migrateSha3(path: string, source: string): string {
   const file = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true);
+  const existing = digestImports(file)?.elements.find(
+    (item) =>
+      !item.isTypeOnly && (item.propertyName ?? item.name).text === 'sha3Hex',
+  );
+  let local = existing?.name.text ?? 'sha3Hex';
+  if (!existing && /\bsha3Hex\b/.test(source)) {
+    local = 'sharedSha3Hex';
+    for (let suffix = 2; new RegExp(`\\b${local}\\b`).test(source); suffix++)
+      local = `sharedSha3Hex${suffix}`;
+  }
   const edits: Array<{ start: number; end: number; text: string }> = [];
   const visit = (node: ts.Node) => {
     const value = replacement(node);
@@ -47,7 +70,7 @@ function migrate(path: string, source: string): string {
       edits.push({
         start: node.getStart(file),
         end: node.end,
-        text: `sha3Hex(${value.getText(file)})`,
+        text: `${local}(${value.getText(file)})`,
       });
   };
   visit(file);
@@ -109,16 +132,38 @@ function migrate(path: string, source: string): string {
         },
       ];
     });
-  const cleaned = imports
-    .reverse()
+  if (!existing) {
+    const imported = local === 'sha3Hex' ? local : `sha3Hex as ${local}`;
+    const named = digestImports(updated);
+    if (named) {
+      const first = named.elements[0];
+      const at = first?.getStart(updated) ?? named.getStart(updated) + 1;
+      imports.push({
+        start: at,
+        end: at,
+        text: first ? `${imported}, ` : ` ${imported} `,
+      });
+    } else {
+      const firstCode = updated.statements.find(
+        (statement) =>
+          !ts.isExpressionStatement(statement) ||
+          !ts.isStringLiteral(statement.expression),
+      );
+      const at = firstCode?.getStart(updated) ?? rewritten.length;
+      imports.push({
+        start: at,
+        end: at,
+        text: `import { ${imported} } from '${digestModule}';\n`,
+      });
+    }
+  }
+  return imports
+    .sort((a, b) => b.start - a.start || b.end - a.end)
     .reduce(
       (text, edit) =>
         text.slice(0, edit.start) + edit.text + text.slice(edit.end),
       rewritten,
     );
-  const firstImport = updated.statements.find(ts.isImportDeclaration);
-  const offset = firstImport?.getStart(updated) ?? 0;
-  return `${cleaned.slice(0, offset)}import { sha3Hex } from '${digestModule}';\n${cleaned.slice(offset)}`;
 }
 
 if (import.meta.main) {
@@ -146,7 +191,7 @@ if (import.meta.main) {
     if (!(await file.exists())) continue;
     const source = await file.text();
     if (!source.includes('sha3-256')) continue;
-    const migrated = migrate(path, source);
+    const migrated = migrateSha3(path, source);
     if (migrated === source) continue;
     changed++;
     if (mode === '--write') await Bun.write(path, migrated);
