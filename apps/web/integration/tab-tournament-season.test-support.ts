@@ -2,16 +2,17 @@ import { authorize } from '@daisy/auth/authorization';
 import { createTabStore } from '@daisy/db/tab';
 import { createId } from '@paralleldrive/cuid2';
 import { assert } from 'riteway/bun';
-import { lobbyAdministrationCommand } from '../src/features/tab/operations/lobby-administration';
-import { sanctionCommand } from '../src/features/tab/operations/sanction-command';
-import { settingCommand } from '../src/features/tab/operations/settings';
 import { readLeagueSeason } from '../src/features/tab/reads/league-season';
 import {
   as,
   deniedAsNotFound,
 } from './tab-tournament-organization-wiring.test-support';
-import type { World } from './tab-tournament.test-support';
 import { seasonCorrection } from './tab-tournament-season-correction.test-support';
+import {
+  tabCommand,
+  tabSanctionCommand,
+} from './tab-tournament-transport.test-support';
+import type { World } from './tab-tournament.test-support';
 
 export async function seasonStage(world: World) {
   const store = createTabStore(world.database),
@@ -20,12 +21,7 @@ export async function seasonStage(world: World) {
     lobbyId = world.made.get('tournament-lobby')!,
     eventId = world.made.get('event')!,
     templateId = world.made.get('league-template')!;
-  const administration = lobbyAdministrationCommand({
-    store,
-    authorize,
-    newId: createId,
-    now: world.clock.now,
-  });
+  const administration = tabCommand(world, 'lobbyAdministration');
   const season = await administration(principal, {
     version: 1,
     commandId: createId(),
@@ -62,7 +58,7 @@ export async function seasonStage(world: World) {
     actual: before?.view.standings.rows,
     expected: [],
   });
-  const send = sanctionCommand({ store, authorize, newId: createId });
+  const send = tabSanctionCommand(world);
   const request = {
     version: 1,
     commandId: createId(),
@@ -84,12 +80,7 @@ export async function seasonStage(world: World) {
   });
   const [guard] =
     await world.sql`select version,settings_version from lobbies where id=${lobbyId}`;
-  const configured = await settingCommand({
-    store,
-    authorize,
-    newId: createId,
-    now: world.clock.now,
-  })(principal, {
+  const configured = await tabCommand(world, 'settings')(principal, {
     version: 1,
     commandId: createId(),
     expected: { settings: Number(guard!.settings_version) },

@@ -1,38 +1,39 @@
+import { authorize } from '@daisy/auth/authorization';
+import type { LoadedDrawCommand } from '@daisy/db/tab';
+import { createTabStore } from '@daisy/db/tab';
+import { noopErrorReporter } from '@daisy/observability';
+import { lobbyCommandReceiptSchema } from '@daisy/protocol/lobby/command';
 import {
-  hostRoundViewSchema,
   hostDrawOverviewSchema,
+  hostRoundViewSchema,
 } from '@daisy/protocol/lobby/draw-read';
+import { createId } from '@paralleldrive/cuid2';
+import { assert } from 'riteway/bun';
+import { z } from 'zod';
+import { createDrawCommandRoute } from '../src/features/tab/draw-command-route';
+import { drawFormEnvelope } from '../src/features/tab/draw-form';
 import {
-  hostRoundPath,
   hostDrawOverviewPath,
+  hostRoundPath,
 } from '../src/features/tab/host-draw-route';
+import type { DrawCompetition } from '../src/features/tab/operations/draw-facts';
+import { readHostRound } from '../src/features/tab/reads/host-round';
+import { member, origin } from '../src/server/member-boundary.test-support';
+import { silentLogger } from '../src/server/test-loggers.test-support';
 import {
   hostDrawHttp,
   hostDrawRequest,
 } from './tab-tournament-host-draw.test-support';
-import { drawFormEnvelope } from '../src/features/tab/draw-form';
-import { readHostRound } from '../src/features/tab/reads/host-round';
-import { createDrawCommandRoute } from '../src/features/tab/draw-command-route';
-import { lobbyCommandReceiptSchema } from '@daisy/protocol/lobby/command';
-import { z } from 'zod';
-import { member, origin } from '../src/server/member-boundary.test-support';
-import { silentLogger } from '../src/server/test-loggers.test-support';
-import { noopErrorReporter } from '@daisy/observability';
-import { organizationCommand } from '../src/features/tab/operations/organization';
-import { drawCompetition } from '../src/features/tab/operations/draw-competition';
-import type { LoadedDrawCommand } from '@daisy/db/tab';
-import type { DrawCompetition } from '../src/features/tab/operations/draw-facts';
-import { authorize } from '@daisy/auth/authorization';
-import { createTabStore } from '@daisy/db/tab';
-import { createId } from '@paralleldrive/cuid2';
-import { assert } from 'riteway/bun';
-import { drawCommand } from '../src/features/tab/operations/draw-command';
-import { judgeRegistrationCommand } from '../src/features/tab/operations/judge-registration';
 import {
   as,
   deniedAsNotFound,
   presetStaffRoleId,
 } from './tab-tournament-organization-wiring.test-support';
+import {
+  tabCommand,
+  tabLobbyCommand,
+  tabRead,
+} from './tab-tournament-transport.test-support';
 import type { World } from './tab-tournament.test-support';
 
 export const firstDrawCompetition = (
@@ -100,27 +101,23 @@ export const acceptedDrawResponse = async (response: Response) => {
 export const draftDrawStage = async (world: World): Promise<void> => {
   const { database, sql } = world;
   const store = createTabStore(database);
-  const send = drawCommand({
-    store,
-    authorize,
-    now: world.clock.now,
-    newId: createId,
-    competition: drawCompetition,
-  });
+  const send = tabLobbyCommand(world, 'draw');
   const lobbyId = world.made.get('tournament-lobby')!;
   const roundId = world.made.get('tab-round')!;
   const eventId = world.made.get('event')!;
   const [event] =
     await sql`select entries_version, settings_version from events where id=${eventId}`;
   const address = { lobbyId, eventId, tabRoundId: roundId };
-  const http = hostDrawHttp(world, world.bots.Director!);
-  const undrawnResponse = await http.round(
-    hostDrawRequest(hostRoundPath(address)),
-  );
+  const director = world.bots.Director!;
+  const http = world.http;
+  const direct = hostDrawHttp(world, director);
+  const undrawnResponse = http
+    ? await http(director, hostRoundPath(address))
+    : await direct.round(hostDrawRequest(hostRoundPath(address)));
   const undrawn = hostRoundViewSchema.parse(await undrawnResponse.json());
-  const overviewResponse = await http.overview(
-    hostDrawRequest(hostDrawOverviewPath(lobbyId)),
-  );
+  const overviewResponse = http
+    ? await http(director, hostDrawOverviewPath(lobbyId))
+    : await direct.overview(hostDrawRequest(hostDrawOverviewPath(lobbyId)));
   const overview = hostDrawOverviewSchema.parse(await overviewResponse.json());
   assert({
     given: 'the actual host Draw HTTP reads before the first draft',
@@ -138,10 +135,11 @@ export const draftDrawStage = async (world: World): Promise<void> => {
           hostDrawRequest(hostRoundPath(address)),
         )
       ).status,
-      (
-        await hostDrawHttp(world, world.bots['Debater 1']!).round(
-          hostDrawRequest(hostRoundPath(address)),
-        )
+      (http
+        ? await http(world.bots['Debater 1']!, hostRoundPath(address))
+        : await hostDrawHttp(world, world.bots['Debater 1']!).round(
+            hostDrawRequest(hostRoundPath(address)),
+          )
       ).status,
     ],
     expected: ['undrawn', null, 'no-store', true, 404, 404],
@@ -228,9 +226,14 @@ export const draftDrawStage = async (world: World): Promise<void> => {
     ],
     expected: [404, 0],
   });
-  const generationResponse = await drawHttp(world)(
-    drawRequest(lobbyId, generate),
-  );
+  const generationRequest = drawRequest(lobbyId, generate);
+  const generationResponse = http
+    ? await http(
+        director,
+        `/api/tab/draw-command?${new URLSearchParams({ lobbyId })}`,
+        generate,
+      )
+    : await drawHttp(world)(generationRequest);
   const generated = await acceptedDrawResponse(generationResponse);
   assert({
     given: 'the real current owner at the production Draw HTTP boundary',
@@ -261,7 +264,13 @@ export const draftDrawStage = async (world: World): Promise<void> => {
   if (generated.kind !== 'accepted')
     throw new Error(`draw refused: ${JSON.stringify(generated)}`);
   const drawId = generated.receipt.aggregate.id;
-  const readRound = readHostRound({ store, authorize });
+  const readRound = tabRead(
+    world,
+    'host-round',
+    hostRoundViewSchema,
+    readHostRound({ store, authorize }),
+    (input) => ({ ...input }),
+  );
   const draftRead = await readRound(as(world.bots.Director!), {
     lobbyId,
     eventId,
@@ -354,13 +363,7 @@ export const draftDrawStage = async (world: World): Promise<void> => {
     actual: await send(as(world.bots.Director!), lobbyId, assign),
     expected: { kind: 'refused', refusal: 'judges-insufficient' },
   });
-  const register = judgeRegistrationCommand({
-    store,
-    authorize,
-    now: world.clock.now,
-    newId: createId,
-    minorsReleased: async () => false,
-  });
+  const register = tabLobbyCommand(world, 'judges');
   const invited = await register(as(world.bots.Director!), lobbyId, {
     version: 1,
     commandId: createId(),
@@ -431,12 +434,7 @@ export const draftDrawStage = async (world: World): Promise<void> => {
     expected: { draw: 2 },
     command: { type: 'discard-draft', drawId: edited.receipt.aggregate.id },
   };
-  const manage = organizationCommand({
-    store,
-    authorize,
-    now: world.clock.now,
-    newId: createId,
-  });
+  const manage = tabCommand(world, 'organization');
   const [lobbyGuard] =
     await sql`select version from lobbies where id=${lobbyId}`;
   const grant = await manage(as(world.bots.Director!), {

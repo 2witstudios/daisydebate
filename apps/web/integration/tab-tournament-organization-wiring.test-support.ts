@@ -1,20 +1,23 @@
-import { inTabTestTransaction } from './tab-test-transaction.test-support';
-import type { SQL } from 'bun';
 import { authorize } from '@daisy/auth/authorization';
 import { createTabStore } from '@daisy/db/tab';
-import { createId } from '@paralleldrive/cuid2';
 import type {
   CommandExpected,
+  LobbyCommandAnswer,
   LobbyCommandReceipt,
 } from '@daisy/protocol/lobby/command';
 import type { OrganizationCommand } from '@daisy/protocol/lobby/organization-command';
+import { organizationPeopleViewSchema } from '@daisy/protocol/lobby/organization-read';
+import { createId } from '@paralleldrive/cuid2';
+import type { SQL } from 'bun';
 import { CommandDenied } from '../src/features/tab/commands/run-command';
-import {
-  organizationCommand,
-  type OrganizationCommandAnswer,
-} from '../src/features/tab/operations/organization';
 import { readOrganizationPeople } from '../src/features/tab/reads/organization-people';
 import type { TabPrincipal } from '../src/features/tab/tab-principal';
+import { inTabTestTransaction } from './tab-test-transaction.test-support';
+import {
+  readTab,
+  tabCommand,
+  TournamentHttpError,
+} from './tab-tournament-transport.test-support';
 import type { Bot, World } from './tab-tournament.test-support';
 
 /**
@@ -55,7 +58,10 @@ export const deniedAsNotFound = async (work: () => Promise<unknown>) => {
     await work();
     return false;
   } catch (error) {
-    return error instanceof CommandDenied;
+    return (
+      error instanceof CommandDenied ||
+      (error instanceof TournamentHttpError && error.status === 404)
+    );
   }
 };
 
@@ -82,21 +88,36 @@ export type Cast = {
 /** What the stage drives: the wired command and people read over one store. */
 export const wiring = (world: World) => {
   const store = createTabStore(world.database);
+  const http = world.http;
+  const direct = readOrganizationPeople({
+    store,
+    authorize,
+    now: world.clock.now,
+  });
+  const people: typeof direct = http
+    ? (actor, organizationId) => {
+        const handle = world.made.get(`organization-handle:${organizationId}`);
+        if (!handle)
+          throw new StageFailed('organization handle was not recorded');
+        return readTab(
+          http,
+          actor,
+          'organization-people',
+          { handle },
+          organizationPeopleViewSchema,
+        );
+      }
+    : direct;
   return {
     store,
-    send: organizationCommand({
-      store,
-      authorize,
-      now: world.clock.now,
-      newId: createId,
-    }),
-    people: readOrganizationPeople({ store, authorize, now: world.clock.now }),
+    send: tabCommand(world, 'organization'),
+    people,
   };
 };
 export type Wiring = ReturnType<typeof wiring>;
 
 export const accepted = async (
-  answer: Promise<OrganizationCommandAnswer>,
+  answer: Promise<LobbyCommandAnswer>,
   what: string,
 ): Promise<LobbyCommandReceipt> => {
   const settled = await answer;
@@ -108,6 +129,7 @@ export const accepted = async (
 /** What the stage's first steps made: the league and Staff's first grant. */
 export type League = {
   readonly organizationId: string;
+  readonly handle: string;
   readonly give: Extract<OrganizationCommand, { type: 'give-grant' }>;
   readonly given: ReturnType<typeof envelope>;
   readonly granted: LobbyCommandReceipt;

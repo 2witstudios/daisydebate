@@ -2,13 +2,12 @@ import { authorize } from '@daisy/auth/authorization';
 import { createTabStore } from '@daisy/db/tab';
 import { createId } from '@paralleldrive/cuid2';
 import { assert } from 'riteway/bun';
-import { settingCommand } from '../src/features/tab/operations/settings';
-import { setupCommand } from '../src/features/tab/operations/setup';
 import { readStandingRoomDraft } from '../src/features/tab/reads/standing-room-draft';
 import {
   as,
   StageFailed,
 } from './tab-tournament-organization-wiring.test-support';
+import { tabCommand } from './tab-tournament-transport.test-support';
 import type { World } from './tab-tournament.test-support';
 
 export const leagueConfigurationStage = async (world: World): Promise<void> => {
@@ -16,12 +15,7 @@ export const leagueConfigurationStage = async (world: World): Promise<void> => {
   const organizationId = world.made.get('league')!;
   const director = world.bots.Director!;
   const store = createTabStore(world.database);
-  const send = settingCommand({
-    store,
-    authorize,
-    now: world.clock.now,
-    newId: createId,
-  });
+  const send = tabCommand(world, 'settings');
   const template = await send(as(director), {
     version: 1,
     commandId: createId(),
@@ -59,12 +53,7 @@ export const leagueConfigurationStage = async (world: World): Promise<void> => {
     command: { type: 'offer-template', lobbyId, templateId },
   });
   if (offer.kind !== 'accepted') throw new StageFailed('league offer failed');
-  const setup = setupCommand({
-    store,
-    authorize,
-    now: world.clock.now,
-    newId: createId,
-  });
+  const setup = tabCommand(world, 'setup');
   const pooled = await setup(as(director), {
     version: 1,
     commandId: createId(),

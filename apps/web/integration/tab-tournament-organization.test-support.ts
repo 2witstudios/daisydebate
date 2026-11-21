@@ -1,10 +1,10 @@
-import { seedHostingGrant } from './tab-hosting-grant.test-support';
 import { authorize } from '@daisy/auth/authorization';
 import { createId } from '@paralleldrive/cuid2';
+import { seedHostingGrant } from './tab-hosting-grant.test-support';
 import { lobbyGrantsComeAndGo } from './tab-tournament-lobby-grants.test-support';
 import {
-  commandIdTakenElsewhere,
   commandIdsReplay,
+  commandIdTakenElsewhere,
   recordStands,
 } from './tab-tournament-organization-record.test-support';
 import {
@@ -32,11 +32,12 @@ import type { Bot, World } from './tab-tournament.test-support';
 
 /** The league made, its two members in, and the Staff role given. */
 const formLeague = async ({ send }: Wiring, cast: Cast): Promise<League> => {
+  const handle = `valley-${createId().slice(0, 10)}`;
   const creation = envelope({
     type: 'create-organization',
     kind: 'league',
     name: 'Valley League',
-    handle: `valley-${createId().slice(0, 10)}`,
+    handle,
   });
   const created = await accepted(
     send(as(cast.director), creation),
@@ -85,7 +86,7 @@ const formLeague = async ({ send }: Wiring, cast: Cast): Promise<League> => {
     send(as(cast.director), given),
     'Staff is given the Staff role',
   );
-  return { organizationId, give, given, granted };
+  return { organizationId, handle, give, given, granted };
 };
 
 /** The Director reads the people from stored state; answers Staff's grant id. */
@@ -195,6 +196,7 @@ export const organizationStage = async (world: World): Promise<void> => {
   const wired = wiring(world);
   const league = await formLeague(wired, cast);
   world.made.set('league', league.organizationId);
+  world.made.set(`organization-handle:${league.organizationId}`, league.handle);
   const staffGrantId = await directorReadsPeople(wired, cast, league);
   await staffActsAsStaff(wired, cast, league, staffGrantId, world.clock.now());
   await commandIdsReplay(wired, cast, league);

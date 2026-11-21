@@ -1,9 +1,10 @@
-import type { SQL } from 'bun';
-import { createId } from '@paralleldrive/cuid2';
 import {
   admitParticipants,
   type SavepointTestDatabase,
 } from '@daisy/db/testing';
+import { createId } from '@paralleldrive/cuid2';
+import type { SQL } from 'bun';
+import type { TournamentHttp } from './tab-tournament-transport.test-support';
 
 /**
  * The scripted tournament's frame (TAB-8.18): bots on a real database, an
@@ -28,6 +29,7 @@ export type Bot = {
 export type World = {
   readonly database: SavepointTestDatabase;
   readonly runtimeDatabaseUrl?: string;
+  readonly http?: TournamentHttp;
   readonly sql: SQL;
   readonly clock: ScriptClock;
   readonly bots: Readonly<Record<string, Bot>>;
