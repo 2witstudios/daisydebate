@@ -564,28 +564,76 @@ const dbNativeRowsPlugin = {
         messages: { boundary: 'Validate native database rows with query.' },
       },
       create(context) {
+        const { program, esTreeNodeToTSNodeMap } =
+          context.sourceCode.parserServices;
+        if (!program) return {};
+        const checker = program.getTypeChecker();
+        // The bounded client's transport proxy forwards the driver's queries
+        // to Drizzle. Any row consumption inside it still needs query.
+        const forwardsQueries = context.filename.endsWith(
+          '/packages/db/src/transaction-client.ts',
+        );
+        const nativeQuery = (expression) => {
+          if (!expression) return false;
+          const type = checker.getTypeAtLocation(
+            esTreeNodeToTSNodeMap.get(expression),
+          );
+          const alternatives = type.isUnionOrIntersection()
+            ? type.types
+            : [type];
+          return alternatives.some((alternative) => {
+            const symbol = alternative.getSymbol();
+            return (
+              symbol?.name === 'Query' &&
+              symbol
+                .getDeclarations()
+                ?.some((declaration) =>
+                  declaration
+                    .getSourceFile()
+                    .fileName.endsWith('/bun-types/sql.d.ts'),
+                )
+            );
+          });
+        };
+        // COMMIT metadata lives on the Bun result outside the rows.
+        const commitReceipt = (statement) =>
+          statement.type === 'TaggedTemplateExpression' &&
+          statement.quasi.expressions.length === 0 &&
+          statement.quasi.quasis[0]?.value.raw === 'commit';
+        const report = (node) =>
+          context.report({ node, messageId: 'boundary' });
         return {
           AwaitExpression(node) {
-            if (node.parent.type === 'ExpressionStatement') return;
-            const statement = node.argument;
-            // The bounded writer and watchdog read COMMIT command metadata,
-            // which Bun returns on the result rather than in a row.
-            const nativeRead =
-              statement.type === 'TaggedTemplateExpression' &&
-              !(
-                statement.quasi.expressions.length === 0 &&
-                statement.quasi.quasis[0]?.value.raw === 'commit'
-              );
-            const rawCall =
-              statement.type === 'CallExpression' &&
-              statement.callee.type === 'MemberExpression' &&
-              (statement.callee.computed
-                ? statement.callee.property.type === 'Literal' &&
-                  statement.callee.property.value === 'unsafe'
-                : statement.callee.property.type === 'Identifier' &&
-                  statement.callee.property.name === 'unsafe');
-            if (nativeRead || rawCall)
-              context.report({ node, messageId: 'boundary' });
+            if (
+              node.parent.type !== 'ExpressionStatement' &&
+              !commitReceipt(node.argument) &&
+              nativeQuery(node.argument)
+            )
+              report(node);
+          },
+          ReturnStatement(node) {
+            if (!forwardsQueries && nativeQuery(node.argument)) report(node);
+          },
+          ArrowFunctionExpression(node) {
+            if (
+              node.async &&
+              node.expression &&
+              !forwardsQueries &&
+              nativeQuery(node.body)
+            )
+              report(node.body);
+          },
+          CallExpression(node) {
+            const callee = node.callee;
+            if (callee.type !== 'MemberExpression') return;
+            const method = callee.computed
+              ? callee.property.value
+              : callee.property.name;
+            if (
+              ['then', 'catch', 'finally'].includes(method) &&
+              nativeQuery(callee.object)
+            )
+              report(node);
           },
         };
       },

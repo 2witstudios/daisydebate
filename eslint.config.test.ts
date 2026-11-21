@@ -596,31 +596,62 @@ describe('database statement and lock boundaries', () => {
     });
   });
 
-  test('routes consumed native rows through query', async () => {
-    const lint = repositoryEslint();
-    const feature = 'packages/db/src/availability-operations.ts';
+  test('routes consumed and returned native rows through query', async () => {
+    const lint = typedRepositoryEslint();
     const rule = 'db-native-rows/require-query';
-    const tagged = 'export const rows = await client`select 1 as value`;';
+    const feature = 'packages/db/src/attendance-facts.ts';
+    const source = (body: string, imports = '') =>
+      'import type { SQL } from "bun";\n' +
+      imports +
+      'export async function read(client: SQL) { ' +
+      body +
+      ' }';
+    const tagged = 'client`select 1 as value`';
     const cases = [
-      [tagged, feature],
       [
-        "export const rows = await client.unsafe('select 1 as value');",
+        source(
+          'return z.array(availabilityEvidenceRow).parse(await availabilitySamplesFrom((strings, ...values) => client(strings, ...values), "2026-11-20T00:00:00Z"));',
+          'import { z } from "zod";\nimport { availabilityEvidenceRow, availabilitySamplesFrom } from "./availability-operations";\n',
+        ),
         feature,
       ],
+      [source('return ' + tagged + ';'), feature],
       [
-        "export const rows = await client['unsafe']('select 1 as value');",
+        'import type { SQL } from "bun"; export const read = async (client: SQL) => ' +
+          tagged +
+          ';',
         feature,
       ],
+      [source('return ' + tagged + '.then((rows) => rows);'), feature],
+      [source('return await ' + tagged + ';'), feature],
+      [source('return await client.unsafe("select 1 as value");'), feature],
+      [source('return await client["unsafe"]("select 1 as value");'), feature],
       [
-        'export const rows = await query(client`select 1 as value`, schema);',
+        source(
+          'return query(' + tagged + ', z.object({ value: z.int() }));',
+          'import { z } from "zod";\nimport { query } from "./raw-rows";\n',
+        ),
         feature,
       ],
-      ['await client`delete from fixture`;', feature],
+      [source('await client`delete from fixture`;'), feature],
       [
-        'export const receipt = await writer`commit`;',
+        source(
+          'const receipt = await client<{ command: string }>`commit`; return receipt.command;',
+        ),
         'packages/db/src/bounded-transaction.ts',
       ],
-      [tagged, 'packages/db/integration/probe.integration.ts'],
+      [
+        source('return ' + tagged + ';'),
+        'packages/db/integration/db-boundary.integration.ts',
+      ],
+      [
+        source('return ' + tagged + ';'),
+        'packages/db/src/transaction-client.ts',
+      ],
+      [
+        source('return await ' + tagged + ';'),
+        'packages/db/src/transaction-client.ts',
+      ],
     ] as const;
     const errors = await Promise.all(
       cases.map(async ([code, filePath]) => {
@@ -632,11 +663,11 @@ describe('database statement and lock boundaries', () => {
     );
     assert({
       given:
-        'native row reads, parsed rows, discarded results and commit metadata',
+        'the original availability wrapper, native returns and validated boundary controls',
       should:
-        'require the query boundary where runtime code consumes native rows',
+        'reject consumed native results and keep parsed rows, discarded writes and COMMIT metadata',
       actual: errors,
-      expected: [1, 1, 1, 0, 0, 0, 0],
+      expected: [1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 1],
     });
   });
 });
