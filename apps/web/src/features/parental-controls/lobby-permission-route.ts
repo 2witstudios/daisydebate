@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { sha3Hex } from '@daisy/digest';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import { z } from 'zod';
@@ -50,9 +50,7 @@ export const lobbyPermissionRoute =
         const waiver = contentWaiverDocument;
         if (command.version !== waiver.version)
           return Response.json({ accepted: false, changed: true });
-        const digest = createHash('sha3-256')
-          .update(agreementWords(waiver))
-          .digest('hex');
+        const digest = sha3Hex(agreementWords(waiver));
         const accepted = await app.database.lobbyPermissions.apply(caller, {
           ...command,
           digest,
