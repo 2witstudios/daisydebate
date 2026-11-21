@@ -876,6 +876,7 @@ describe('database statement and lock boundaries', () => {
        const all = Promise.all<[typeof parsed]>;
        const apply = (Reflect.apply<typeof Promise, [[typeof parsed]], ReturnType<typeof all>>).bind(Reflect, all, Promise);
        const [rows] = await apply([[parsed]]); return rows[0]?.value;`,
+      'const discard = async (connection: SQL) => { await connection`delete from fixture`; }; await discard(client);',
     ];
     const errors = await Promise.all(
       cases.map(async (body) => {
@@ -893,7 +894,7 @@ describe('database statement and lock boundaries', () => {
         'a typed Promise adapter accepting nested query inputs or a query callback',
       should: 'reject raw inputs while allowing values decoded before the call',
       actual: errors,
-      expected: [1, 1, 1, 0],
+      expected: [1, 1, 1, 0, 0],
     });
   });
 });

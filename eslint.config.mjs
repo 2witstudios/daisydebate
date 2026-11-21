@@ -664,16 +664,13 @@ const dbNativeRowsPlugin = {
               checker.isArrayType(part) || checker.isTupleType(part)
                 ? part.getNumberIndexType()
                 : undefined;
-            return (
-              (item !== undefined && containsNativeInput(item, seen)) ||
-              part
-                .getCallSignatures()
-                .some((candidate) =>
-                  containsNativeInput(candidate.getReturnType(), seen),
-                )
-            );
+            return item !== undefined && containsNativeInput(item, seen);
           });
         };
+        const returnsNativeRows = (callback) =>
+          callback
+            .getCallSignatures()
+            .some((signature) => nativeType(signature.getReturnType()));
         const builtInMethod = (signature) => {
           const declaration = signature?.getDeclaration();
           if (!declaration) return undefined;
@@ -839,8 +836,8 @@ const dbNativeRowsPlugin = {
             const invocation = builtInMethod(signature);
             const result = signature?.getReturnType();
             // Partial application can erase the original Promise method while
-            // keeping the input type. Check nested packed values and callbacks
-            // at the asynchronous adapter's call boundary.
+            // keeping the input type. Check nested packed values at the
+            // asynchronous adapter's call boundary.
             if (
               !forwardsQueries &&
               !boundary &&
@@ -861,6 +858,19 @@ const dbNativeRowsPlugin = {
                 );
                 return !nativeType(input) && containsNativeInput(input);
               })
+            ) {
+              report(node);
+              return;
+            }
+            if (
+              (invocation?.owner === 'Promise' ||
+                invocation?.owner === 'PromiseLike') &&
+              ['then', 'catch', 'finally'].includes(invocation.name) &&
+              node.arguments.some(
+                (argument) =>
+                  argument.type !== 'SpreadElement' &&
+                  returnsNativeRows(typeAt(argument)),
+              )
             ) {
               report(node);
               return;
@@ -911,12 +921,7 @@ const dbNativeRowsPlugin = {
               return;
             }
             if (method === 'try') {
-              if (
-                inputType
-                  .getCallSignatures()
-                  .some((callback) => nativeType(callback.getReturnType()))
-              )
-                report(node);
+              if (returnsNativeRows(inputType)) report(node);
               return;
             }
             if (nativeIterable(inputType, location)) report(node);
