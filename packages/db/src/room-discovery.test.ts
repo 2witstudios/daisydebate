@@ -169,7 +169,7 @@ test('discovery exposes only authorized ranked host pools to the publisher', asy
   const ranked = {
     ...entry,
     competitionType: 'ranked',
-    selectedLadderId: ids[1],
+    selectedLadderId: null,
     seatKind: null,
     side: null,
     slot: null,
@@ -177,15 +177,15 @@ test('discovery exposes only authorized ranked host pools to the publisher', asy
   const launched = {
     ...ranked,
     id: ids[1],
+    status: 'started',
     roundRef: { id: ids[0], status: 'active' },
     frozenLadderId: ids[0],
     frozenSeasonId: ids[2],
   };
-  const { database, queries } = discoveryFixture([
-    ranked,
-    launched,
-    { ...launched, id: ids[2] },
-  ]);
+  const { database, queries } = discoveryFixture(
+    [ranked, launched, { ...launched, id: ids[2] }],
+    [[[ids[0]]], [[ids[2]]]],
+  );
   const page = await database.listRoomPage(
     caller,
     { pageSize: 3, q: '', lobbyId: entry.lobbyId },
@@ -195,25 +195,29 @@ test('discovery exposes only authorized ranked host pools to the publisher', asy
     () => null,
   );
   assert({
-    given: 'a selected ladder, a frozen pool, and a hidden judge host',
+    given:
+      'waiting and launched ranked Rooms sharing a pool, and a hidden judge host',
     should:
-      'prefer the frozen pool when present and withhold the hidden host pool without a fallback read',
+      'name the concrete season for both visible hosts and withhold the hidden host pool',
     actual: [
       page.rooms.map(({ hostRatingPool }) => hostRatingPool ?? null),
       queries.length,
     ],
     expected: [
       [
-        { lobbyId: entry.lobbyId, ladderId: ids[1] },
+        { lobbyId: entry.lobbyId, ladderId: ids[0], seasonId: ids[2] },
         { lobbyId: entry.lobbyId, ladderId: ids[0], seasonId: ids[2] },
         null,
       ],
-      8,
+      10,
     ],
   });
 });
 
-function discoveryFixture(rows: readonly Record<string, unknown>[]) {
+function discoveryFixture(
+  rows: readonly Record<string, unknown>[],
+  poolRows: unknown[][] = [],
+) {
   return createTestDatabase([
     [accountRow()],
     [[entry.lobbyId, 'Open', 'open', 'adults', 'o'.repeat(24)]],
@@ -223,6 +227,7 @@ function discoveryFixture(rows: readonly Record<string, unknown>[]) {
     [accountRow()],
     [], // exact-lobby rating read scope
     rows,
+    ...poolRows,
   ]);
 }
 

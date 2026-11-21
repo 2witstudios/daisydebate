@@ -85,6 +85,24 @@ test('ranked discovery publishes the host rating from the Room pool', async () =
         });
 
         await launchRuntimeRound(f, room);
+        const judgePage = await f.operations.list(f.outsider, {
+          lobbyId,
+          q: room.title,
+          pageSize: 20,
+          status: 'live',
+        });
+        assert({
+          given:
+            'the live ranked Room listed by its judge before a ballot is submitted',
+          should:
+            'hide the debater host rating while leaving the Room discoverable to that participant',
+          actual: judgePage.rooms.map(({ id, hostActorId, hostRating }) => [
+            id,
+            hostActorId,
+            hostRating,
+          ]),
+          expected: [[room.id, host.actorId, null]],
+        });
         await sql`update seasons set status='closed',ends_at=now() where id=${seasonId}`;
         const nextSeason = await seedRatingSeason(sql, createId());
         const nextHost = await f.member();

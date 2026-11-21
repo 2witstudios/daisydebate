@@ -6,6 +6,7 @@ import {
   type RoomListQuery,
   type RoomListEntry,
   type RoomListPage,
+  type RoundRatingScope,
   type SeatKind,
   type SeatRef,
 } from '@daisy/protocol';
@@ -21,12 +22,11 @@ import { currentRoomTopic, type ReadOpeningTopic } from './round-opening-read';
 import { readOfficialStandingLobbies } from './official-standing-lobbies';
 import { readCompetitionAgeBand } from './ladder-division-band';
 import { scopeTransaction } from './tenant-scope';
-import { roomRatingPoolReader } from './ladder-season';
-import type { LobbyRatingSelection } from './standings';
+import { readActiveLobbySeason, roomRatingPoolReader } from './ladder-season';
 
 type DiscoveryPage = Omit<RoomListPage, 'rooms'> & {
   readonly rooms: readonly (RoomListEntry & {
-    readonly hostRatingPool?: LobbyRatingSelection;
+    readonly hostRatingPool?: NonNullable<RoundRatingScope>;
   })[];
 };
 type Seat = {
@@ -279,6 +279,7 @@ export async function discoverRooms(
     );
   // Resolve pools only for visible hosts after the Room and Round locks.
   const readPool = roomRatingPoolReader(tx, lobby.id);
+  let activeSeason: Promise<string | null> | undefined;
   const rooms: DiscoveryPage['rooms'][number][] = [];
   for (const {
     selectedLadderId,
@@ -295,10 +296,14 @@ export async function discoverRooms(
               : undefined,
           )
         : null;
+    const seasonId = pool
+      ? (pool.seasonId ??
+        (await (activeSeason ??= readActiveLobbySeason(tx, lobby.id))))
+      : null;
     rooms.push({
       ...entry,
       topic: await currentRoomTopic(tx, entry, readTopic),
-      ...(pool ? { hostRatingPool: pool } : {}),
+      ...(pool && seasonId ? { hostRatingPool: { ...pool, seasonId } } : {}),
     });
   }
   return {

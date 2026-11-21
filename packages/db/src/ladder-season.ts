@@ -40,16 +40,26 @@ export function roomRatingPoolReader(tx: Pick<Tx, 'select'>, lobbyId: string) {
   };
 }
 
+const activeLobbySeason = (tx: Pick<Tx, 'select'>, lobbyId: string) =>
+  tx
+    .select({ id: seasons.id })
+    .from(seasons)
+    .where(and(eq(seasons.lobbyId, lobbyId), eq(seasons.status, 'active')));
+
+export async function readActiveLobbySeason(
+  tx: Pick<Tx, 'select'>,
+  lobbyId: string,
+): Promise<string | null> {
+  const [season] = await activeLobbySeason(tx, lobbyId);
+  return season?.id ?? null;
+}
+
 /** Hold the season through the write that relies on it. */
 export async function lockActiveLobbySeason(
   tx: Pick<Tx, 'select'>,
   lobbyId: string,
 ): Promise<string | null> {
-  const [season] = await tx
-    .select({ id: seasons.id })
-    .from(seasons)
-    .where(and(eq(seasons.lobbyId, lobbyId), eq(seasons.status, 'active')))
-    .for('share');
+  const [season] = await activeLobbySeason(tx, lobbyId).for('share');
   return season?.id ?? null;
 }
 

@@ -17,6 +17,7 @@ import {
 } from './ready-agreements';
 import type { Database } from '@daisy/db';
 import { standardFormatIds } from '@daisy/db/catalog-formats';
+import { isTemporaryRefusal } from '@daisy/db/capacity';
 import {
   readRoundOpeningTopic,
   activeRoomMembers,
@@ -92,7 +93,6 @@ export function createRoomRuntimeOperations({
   store,
   redis,
   ids,
-  now,
   consentTtlMs,
   aiSeats,
   betaGrantsPremium,
@@ -102,8 +102,6 @@ export function createRoomRuntimeOperations({
   readonly store: Store;
   readonly redis: Redis;
   readonly ids: IdGenerator;
-  /** A listed host's rating waits for the spectator timeline. */
-  readonly now: () => string;
   readonly consentTtlMs: () => number;
   readonly aiSeats: () => AiSeatAvailability;
   /** Whether a beta-sourced premium grant counts (`PREMIUM_BETA_GRANT`). */
@@ -526,7 +524,6 @@ export function createRoomRuntimeOperations({
       );
     },
     async list(caller: Caller, query: RoomListQuery): Promise<RoomListPage> {
-      const clock = spectatorClockAt(now());
       const page = await store.listRoomPage(
         caller,
         query,
@@ -555,17 +552,33 @@ export function createRoomRuntimeOperations({
         groups.set(key, group);
       }
       const published = new Map<string, Map<string, number>>();
-      for (const [key, { pool, actors }] of groups) {
-        const ratings = await store.readMemberCardRatings(
-          [...actors],
-          clock,
-          replayPublishedStandings,
-          pool,
-        );
-        published.set(
-          key,
-          new Map(ratings.map((row) => [row.actorId, Math.round(row.rating)])),
-        );
+      if (groups.size > 0) {
+        const blinded = await store
+          .readRatingBlindings(caller.actorId)
+          .catch((error: unknown) => {
+            if (!isTemporaryRefusal(error)) throw error;
+            return null;
+          });
+        if (blinded) {
+          const hidden = new Set(blinded);
+          const clock = spectatorClockAt(await store.databaseNow());
+          for (const [key, { pool, actors }] of groups) {
+            const visible = [...actors].filter((id) => !hidden.has(id));
+            if (visible.length === 0) continue;
+            const ratings = await store.readMemberCardRatings(
+              visible,
+              clock,
+              replayPublishedStandings,
+              pool,
+            );
+            published.set(
+              key,
+              new Map(
+                ratings.map((row) => [row.actorId, Math.round(row.rating)]),
+              ),
+            );
+          }
+        }
       }
       return {
         ...page,
