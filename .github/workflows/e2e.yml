@@ -33,13 +33,12 @@ jobs:
   e2e:
     name: Playwright browser suite
     runs-on: ubuntu-24.04
-    # A manual dispatch runs the three-consecutive-run release
-    # qualification instead of the single run; three full suites
-    # reserve aggregate setup/reporting time too (ISSUE-1429). Individual test
-    # deadlines, retries and the complete three-pass inventory stay unchanged.
+    # Run 44834624902 completed its first two 601-test passes in 29.0 and
+    # 36.9 minutes. Reserve time for setup, the third pass and report upload
+    # on manual dispatch (ISSUE-1501).
     # The nightly run takes every Playwright project in turn; under the
     # 20-minute bound it was cancelled on every night it ran.
-    timeout-minutes: ${{ github.event_name == 'workflow_dispatch' && 75 || github.event_name == 'schedule' && 120 || 25 }}
+    timeout-minutes: ${{ github.event_name == 'workflow_dispatch' && 120 || github.event_name == 'schedule' && 120 || 25 }}
     # The read-only fixture admission CLI derives the canonical main slot
     # from this checkout. Dev/test URLs are identity metadata only; browser
     # connections use the separately provisioned DML-only E2E login below.

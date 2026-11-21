@@ -16,7 +16,6 @@ import {
 } from '../../../features/media-releases/parent-pages';
 import { inProcessFetch } from '../../../server/in-process-fetch';
 import { releaseNowMs } from '../../../lib/request-session';
-import { mediaReleasesReleased } from '../../../features/media-releases/route-release';
 import { processRoute } from '../../../server/process-app';
 
 /**
@@ -27,24 +26,12 @@ import { processRoute } from '../../../server/process-app';
  * the browser altered is only an unknown link.
  */
 const routes = {
-  sign: processRoute((all, app) =>
-    all.mediaReleases.sign(mediaReleasesReleased(app)),
-  ),
-  answer: processRoute((all, app) =>
-    all.mediaReleases.answer(mediaReleasesReleased(app)),
-  ),
-  withdraw: processRoute((all, app) =>
-    all.mediaReleases.withdraw(mediaReleasesReleased(app)),
-  ),
-  paidAds: processRoute((all, app) =>
-    all.mediaReleases.paidAds(mediaReleasesReleased(app)),
-  ),
-  manageLink: processRoute((all, app) =>
-    all.mediaReleases.manageLink(mediaReleasesReleased(app)),
-  ),
-  stop: processRoute((all, app) =>
-    all.mediaReleases.stop(mediaReleasesReleased(app)),
-  ),
+  sign: processRoute((all) => all.mediaReleases.sign),
+  answer: processRoute((all) => all.mediaReleases.answer),
+  withdraw: processRoute((all) => all.mediaReleases.withdraw),
+  paidAds: processRoute((all) => all.mediaReleases.paidAds),
+  manageLink: processRoute((all) => all.mediaReleases.manageLink),
+  stop: processRoute((all) => all.mediaReleases.stop),
 };
 
 const post = async (

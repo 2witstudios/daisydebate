@@ -15,7 +15,6 @@ import {
   outcomeReleasedSql,
   type SpectatorClock,
 } from './spectator-release-sql';
-import { youthRoundSql } from './youth-round-sql';
 
 /**
  * The profile's read (ISSUE-600): who a member is, their Rounds grouped for
@@ -96,7 +95,7 @@ async function memberRow(tx: Tx, username: string): Promise<MemberRow | null> {
 /**
  * The member's debating seats in Rounds the scope shows: played from a Room
  * (a room-less service Round has no page to link to), and outside the owner's
- * scope public only and never a Youth Round, with a completed Round waiting
+ * scope public only in either lobby, with a completed Round waiting
  * for the spectator timeline. The tally and the history use this one filter.
  */
 const seatsShown = (
@@ -110,12 +109,7 @@ const seatsShown = (
     isNotNull(rounds.roomId),
     scope === 'owner'
       ? undefined
-      : and(
-          eq(rounds.visibility, 'public'),
-          // A Youth Round is private to its people (ADR 0150, 0157): never listed or counted here.
-          sql`not ${youthRoundSql(sql`${rounds.id}`)}`,
-          outcomeReleasedSql(rounds, clock),
-        ),
+      : and(eq(rounds.visibility, 'public'), outcomeReleasedSql(rounds, clock)),
   );
 
 const recordGroups = async (

@@ -9,7 +9,6 @@ import {
   roundAliasR,
   type SpectatorClock,
 } from './spectator-release-sql';
-import { youthRoundSql } from './youth-round-sql';
 
 /**
  * What an account has watched (SPECT-1.4). It lists a Round's resolution only
@@ -33,7 +32,6 @@ export const watchHistoryOperations = ({
         select u.id,r.id,${input.at}::timestamptz
         from users u join rounds r on r.id=${input.roundId}
           and r.visibility in ('public','unlisted') and r.room_id is not null
-          and not ${youthRoundSql(sql`r.id`)}
         where u.id=${input.userId} and u.deleted_at is null
         on conflict (user_id,round_id) do update
           set watched_at=greatest(watch_history.watched_at,excluded.watched_at)`);
@@ -69,8 +67,6 @@ export const watchHistoryOperations = ({
             to_char(h.watched_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as "watchedAt"
           from watch_history h join rounds r on r.id=h.round_id
           where h.user_id=${input.userId} and r.visibility in ('public','unlisted')
-            -- A Youth Round has no audience to remember (ADR 0150, 0157).
-            and not ${youthRoundSql(sql`r.id`)}
           order by h.watched_at desc,r.id limit ${input.limit}`,
       ),
     );

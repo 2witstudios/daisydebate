@@ -132,4 +132,9 @@ export type RecordingInputs = {
   readonly readCoverageFacts: (roundId: string) => Promise<RoundCoverageFacts>;
   /** The WATCH-8 subscription entitlement: read here, granted there. */
   readonly holdsRecordingDownload: (userId: string) => Promise<boolean>;
+  /**
+   * Whether this Round's content may not leave Daisy (`reuseFenced`, ADR
+   * 0161): read only where a download is decided.
+   */
+  readonly readReuseFenced: (round: RecordingRound) => Promise<boolean>;
 };

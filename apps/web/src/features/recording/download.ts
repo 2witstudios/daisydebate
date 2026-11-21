@@ -18,8 +18,9 @@ export const recordingDownloadRule = { max: 10, windowSeconds: 3600 };
 
 /**
  * A short-lived link to the whole video, for a subscriber who may watch this
- * Recording. Anything else answers as if there were nothing to download, so the
- * refusal says nothing about a Recording they cannot see.
+ * Recording, past the reuse fence (ADR 0161). Anything else answers as if
+ * there were nothing to download, so the refusal says nothing about a
+ * Recording they cannot see.
  */
 export const openDownload = async (
   deps: {
@@ -27,7 +28,10 @@ export const openDownload = async (
     readonly objects: Pick<RecordingObjectStore, 'signedRead'>;
     readonly inputs: Pick<
       RecordingInputs,
-      'readRound' | 'readBroadcastRelease' | 'holdsRecordingDownload'
+      | 'readRound'
+      | 'readBroadcastRelease'
+      | 'holdsRecordingDownload'
+      | 'readReuseFenced'
     >;
   },
   input: {
@@ -42,8 +46,7 @@ export const openDownload = async (
   const record = await deps.store.find(input.recordingId);
   if (record === null) throw refused;
   const round = await deps.inputs.readRound(record.roundId);
-  // Nobody downloads a Youth Recording (ADR 0150): refuse before any other read.
-  if (round === null || round.youth !== null) throw refused;
+  if (round === null) throw refused;
   const permissions = roundEvidencePermissions(
     round,
     await deps.inputs.readBroadcastRelease(round.id),
@@ -52,7 +55,7 @@ export const openDownload = async (
     input.nowMs,
   );
   const allowed = mayDownload({
-    round,
+    reuseFenced: await deps.inputs.readReuseFenced(round).catch(() => true),
     viewer: input.viewer,
     permissions,
     status: record.lifecycle.status,

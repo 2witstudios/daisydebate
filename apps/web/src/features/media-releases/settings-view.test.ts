@@ -12,7 +12,6 @@ const read = (overrides: Partial<MinorReleaseRead> = {}): MinorReleaseRead => ({
   division: 'youth',
   standing: { kind: 'none' },
   clubs: [],
-  privateYouthRounds: 14,
   ...overrides,
 });
 const request: ReleaseRequest = {
@@ -33,7 +32,7 @@ const release = (
   subjectUserId: 'm'.repeat(24),
   scope: 'publish',
   attestation,
-  wordingVersion: '2026-11-v1',
+  wordingVersion: '2026-11-v2',
   signedAt: '2026-11-16T14:32:00.000Z',
   withdrawnAt: null,
   withdrawnBy: null,
@@ -42,7 +41,7 @@ const release = (
 test('the minor’s media release section', () => {
   assert({
     given: 'no release and a club',
-    should: 'count the private Rounds and offer the club',
+    should: 'offer the club',
     actual: mediaReleaseSettingsView(
       read({
         clubs: [{ id: 'c'.repeat(24), name: 'Lakeside Debate', askedAt: null }],
@@ -50,20 +49,9 @@ test('the minor’s media release section', () => {
     ),
     expected: {
       kind: 'none',
-      privateRounds: 'Your 14 Youth Rounds are private.',
       withdrawnNote: null,
       clubs: [{ id: 'c'.repeat(24), name: 'Lakeside Debate', asked: false }],
     },
-  });
-  assert({
-    given: 'one private Round',
-    should: 'say it in the singular',
-    actual: (
-      mediaReleaseSettingsView(read({ privateYouthRounds: 1 })) as {
-        privateRounds: string;
-      }
-    ).privateRounds,
-    expected: 'Your 1 Youth Round is private.',
   });
   assert({
     given: 'an open request',
@@ -100,7 +88,7 @@ test('the minor’s media release section', () => {
       kind: 'parent',
       line: 'Signed by Elena Rivera, parent · 16 Nov 2026',
       paidAds: false,
-      wordingVersion: '2026-11-v1',
+      wordingVersion: '2026-11-v2',
     },
   });
   assert({

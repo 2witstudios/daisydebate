@@ -68,7 +68,6 @@ export const createBroadcastSweep = (deps: {
     event:
       | Parameters<ReconcilePorts['report']>[0]
       | 'broadcast.reconcile_failed'
-      | 'broadcast.youth_round_stopped'
       | 'broadcast.release_delayed'
       | 'broadcast.egress.settled_absent',
   ) => void;
@@ -234,18 +233,6 @@ export const createBroadcastSweep = (deps: {
   /** One pass; it worked while any Broadcast is due, open or stopping. */
   const sweep = async (): Promise<LoopPass> => {
     let rows = 0;
-    // A Youth Round is never broadcast (ADR 0150), including one opened before that rule.
-    // A failure here is reported and retried next pass; it never holds up the
-    // other Broadcasts, and a Youth Round still opens none (plannedBroadcast).
-    try {
-      const youthStopped = await deps.store.endYouthBroadcasts(
-        new Date(deps.now()),
-      );
-      rows += youthStopped.length;
-      if (youthStopped.length > 0) deps.report('broadcast.youth_round_stopped');
-    } catch {
-      deps.report('broadcast.reconcile_failed');
-    }
     for (const round of await deps.store.discoverUnopened(BATCH)) {
       const plan = plannedBroadcast(round);
       if (plan) rows += 1;
@@ -269,9 +256,6 @@ export const createBroadcastSweep = (deps: {
           until: new Date(nowMs + RECONCILE_LEASE_MS),
         });
         if (!mine) return;
-        // Fail closed: a Youth Broadcast the cleanup has not yet stopped is
-        // never reconciled into a running Egress; once stopped, it is wound down.
-        if (broadcast.youthRound && broadcast.stoppedAt === null) return;
         watchRelease(broadcast);
         await reconcile(broadcast);
       },

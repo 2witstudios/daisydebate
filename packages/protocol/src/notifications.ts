@@ -131,11 +131,6 @@ const notificationCatalogue = {
     urgency: 'durable',
     email: 'none',
   },
-  youth_round_published: {
-    subject: 'round',
-    urgency: 'durable',
-    email: 'none',
-  },
 } as const satisfies Record<string, NotificationKindSpec>;
 
 type Catalogue = typeof notificationCatalogue;

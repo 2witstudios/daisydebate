@@ -24,7 +24,6 @@ import {
   timestampColumn,
 } from './columns';
 import { organizations } from './organizations';
-import { rounds } from './rounds';
 import { users } from './users';
 
 const emailNormalized = (column: Parameters<typeof oneOf>[0]) =>
@@ -315,34 +314,6 @@ export const mediaReleaseStops = pgTable(
     check(
       'media_release_stops_hash_check',
       sql`${table.recipientHash} ~ '^[0-9a-f]{64}$'`,
-    ),
-  ],
-);
-
-/**
- * A Youth Round's Recording shared publicly by one of its debaters once every
- * youth debater held a publish release (ADR 0151). A withdrawal ends it; it is
- * public only while it stands and the youth-publishing flag is open.
- */
-export const youthRoundPublications = pgTable(
-  'youth_round_publications',
-  {
-    roundId: text('round_id')
-      .primaryKey()
-      .references(() => rounds.id, { onDelete: 'cascade' }),
-    publishedByUserId: text('published_by_user_id').references(() => users.id, {
-      onDelete: 'set null',
-    }),
-    publishedAt: timestampColumn('published_at').notNull(),
-    endedAt: timestampColumn('ended_at'),
-  },
-  (table) => [
-    check(
-      'youth_round_publications_ended_check',
-      sql`isfinite(${table.publishedAt}) and (${table.endedAt} is null or ${table.endedAt} >= ${table.publishedAt})`,
-    ),
-    index('youth_round_publications_published_by_idx').on(
-      table.publishedByUserId,
     ),
   ],
 );
