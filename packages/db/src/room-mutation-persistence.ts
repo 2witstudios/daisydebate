@@ -1,4 +1,5 @@
 import { eq, sql } from 'drizzle-orm';
+import type { LobbyAgeRule } from '@daisy/protocol/lobby/eligibility';
 
 import type { RoomAssemblyState, RoomMutationOutcome } from '@daisy/protocol';
 import {
@@ -66,6 +67,7 @@ export const persistRoomMutation = async (
   now: string,
   /** True for an accepted participant command: it moves the idle anchor. */
   acceptedCommand: boolean,
+  tournamentAgeRule?: LobbyAgeRule,
 ) => {
   const next = mutation.state;
   const judging = mutation.freeze
@@ -157,9 +159,12 @@ export const persistRoomMutation = async (
       capture: next.capture,
       postRoundCall: freezePostRoundCall(next.postRoundCall, next.participants),
       visibility: next.visibility,
-      standingAgeRule: source?.lobbyKind === 'standing' ? next.ageRule : null,
-      standingYouthCast:
+      standingAgeRule:
         source?.lobbyKind === 'standing'
+          ? next.ageRule
+          : (tournamentAgeRule ?? null),
+      standingYouthCast:
+        source?.lobbyKind === 'standing' || tournamentAgeRule !== undefined
           ? sql`public.daisy_room_youth_recording_cast(${next.id})`
           : false,
       rulesSnapshot: next.rules,

@@ -1,5 +1,6 @@
 import { isMinorAgeBand } from './guardians/lobby-permissions';
 import { and, eq, sql } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 import type {
   RoomAssemblyState,
   RoomCommandReceipt,
@@ -231,13 +232,21 @@ const hydrateRoom = async (
     .from(roomParticipants)
     .where(eq(roomParticipants.roomId, row.id))
     .orderBy(...seatRowOrder(roomParticipants));
+  const standingParent = alias(lobbies, 'standing_parent');
   const [lobby] = await tx
     .select({
-      ageRule: sql<LobbyAgeRule>`case when ${lobbies.kind}='tournament'
-        and public.daisy_room_is_youth(${row.id}) then 'under-18'::lobby_age_rule
-        else ${lobbies.ageRule} end`,
+      // Room chat projects frozen and mixed-cast tournament privacy from this view.
+      ageRule: sql<LobbyAgeRule>`case
+        when ${row.legacyTournamentYouth === false}::boolean then 'adults'::lobby_age_rule
+        when ${lobbies.kind} = 'tournament' and public.daisy_room_is_youth(${row.id})
+          then 'under-18'::lobby_age_rule
+        else coalesce(
+          (select round.standing_age_rule from public.rounds round
+            where round.room_id = ${row.id} and ${lobbies.kind} = 'tournament'),
+          ${standingParent.ageRule}, ${lobbies.ageRule}) end`,
     })
     .from(lobbies)
+    .leftJoin(standingParent, eq(standingParent.id, lobbies.standingLobbyId))
     .where(eq(lobbies.id, row.lobbyId));
   if (!lobby) throw createAppError('INVARIANT');
   const participants = await Promise.all(

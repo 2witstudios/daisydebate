@@ -204,17 +204,26 @@ export const eventFormRefused = (
 ): EventFormState => refusedWith(formValues(form), message);
 export const eventFormUnacknowledged = (form: FormData): EventFormState =>
   unacknowledged(form);
+const eventRefusalWords = (refusal: string) => {
+  switch (refusal) {
+    case 'over-youth-age':
+      return 'This tournament is for debaters under 18.';
+    case 'under-open-age':
+      return 'You aren’t eligible to debate under this tournament’s age rule.';
+    case 'age-band':
+      return 'This tournament needs a current age record. Check your account settings.';
+    case 'version-conflict':
+      return 'The tournament changed. Reload and review the current event.';
+    default:
+      return `This change was refused: ${refusal.replaceAll('-', ' ')}.`;
+  }
+};
+
 export function eventFormAnswer(form: FormData, body: unknown) {
   return mapTabCommandAnswer(body, {
     accepted: (receipt) => ({ kind: 'accepted' as const, receipt }),
     unacknowledged: () => eventFormUnacknowledged(form),
-    refused: (reason) =>
-      eventFormRefused(
-        form,
-        reason === 'version-conflict'
-          ? 'The tournament changed. Reload and review the current event.'
-          : `This change was refused: ${reason.replaceAll('-', ' ')}.`,
-      ),
+    refused: (reason) => eventFormRefused(form, eventRefusalWords(reason)),
   });
 }
 

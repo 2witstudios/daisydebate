@@ -35,8 +35,10 @@ test('a grant expiring while facts load cannot authorize at request arrival time
       // This proof needs a tournament owned by the league so Staff's real org grant applies.
       await sql.unsafe('reset role');
       const tournamentId = createId();
-      await sql`insert into lobbies (id, handle, name, kind, owner_organization_id) values (${tournamentId}, ${`expiry-${tournamentId}`}, 'Expiry tournament', 'tournament', ${leagueId})`;
-      await sql`insert into tournaments (lobby_id, status, admits_minors) values (${tournamentId}, 'draft', false)`;
+      const standingLobbyId = createId();
+      await sql`insert into lobbies (id, handle, name, kind, owner_organization_id) values (${standingLobbyId}, ${`expiry-standing-${standingLobbyId}`}, 'Expiry standing lobby', 'standing', ${leagueId})`;
+      await sql`insert into lobbies (id, handle, name, kind, owner_organization_id, standing_lobby_id, age_rule) values (${tournamentId}, ${`expiry-${tournamentId}`}, 'Expiry tournament', 'tournament', ${leagueId}, ${standingLobbyId}, null)`;
+      await sql`insert into tournaments (lobby_id, status) values (${tournamentId}, 'draft')`;
 
       await sql.unsafe('set local role daisy_web');
       const original = createTabStore(database);

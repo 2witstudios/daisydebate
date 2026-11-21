@@ -10,6 +10,10 @@ import { readDatabaseTime } from '../database-clock';
 import { lockTabCommandAccounts } from './command-accounts';
 import { lockEventSettingContext } from './event-setting-context';
 import { loadAuthorityContext } from './authority-context';
+import {
+  loadTournamentEligibility,
+  tournamentDebatersAllowed,
+} from './tournament-eligibility';
 import { fixtureCommandPeople } from './fixture-command-people';
 import type { Tx } from '../tx';
 
@@ -20,6 +24,7 @@ export type FixtureContextInput = {
   readonly lobbyId: string;
   readonly fixtureId: string;
   readonly namedJudgeIds: readonly string[];
+  readonly checkDebaterEligibility?: boolean;
   readonly roundSource: 'current-round' | 'retained-result';
 };
 
@@ -53,6 +58,13 @@ export async function lockFixtureCommandContext(
     subjectUserId: input.senderUserId,
   });
   if (!configuration || configuration.lobby.kind !== 'tournament') return null;
+  const eligibility = input.checkDebaterEligibility
+    ? await loadTournamentEligibility(
+        tx,
+        configuration.scope,
+        configuration.lobby,
+      )
+    : null;
   const [tabRound] = await tx
     .select()
     .from(tabRounds)
@@ -159,6 +171,16 @@ export async function lockFixtureCommandContext(
     });
   return {
     accounts,
+    debatersAllowed: (actorIds: readonly string[], now: string) =>
+      eligibility === null
+        ? Promise.resolve(true)
+        : tournamentDebatersAllowed(
+            tx,
+            configuration.scope,
+            eligibility,
+            actorIds,
+            now,
+          ),
     roundSource: input.roundSource,
     configuration,
     fixture,

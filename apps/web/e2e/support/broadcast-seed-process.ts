@@ -76,11 +76,9 @@ const privateYouthTournament = async (
 ) => {
   const id = createId();
   await tx`select set_config('daisy.lobby_scope', ${id}, true)`;
-  await tx`insert into lobbies (id, kind, owner_user_id, name, handle)
-    select ${id}, 'tournament', user_id, 'Youth test tournament', ${id} from actors where id=${hostActor}`;
-  await tx`insert into tournaments (lobby_id, status, admits_minors) values (${id}, 'draft', true)`;
-  await tx`insert into settings (id, scope_kind, lobby_id, key, hold, value)
-    values (${createId()}, 'lobby', ${id}, 'entry.age_division', 'default', ${{ value: 'youth' }})`;
+  await tx`insert into lobbies (id, kind, owner_user_id, name, handle, age_rule)
+    select ${id}, 'tournament', user_id, 'Youth test tournament', ${id}, 'under-18' from actors where id=${hostActor}`;
+  await tx`insert into tournaments (lobby_id, status) values (${id}, 'draft')`;
   return { id };
 };
 

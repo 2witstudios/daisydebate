@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import { tournamentAgeRule } from '../../../../../../features/tab/tournament-age-rule';
 import { linkTo } from '../../../../../../features/tab/action';
 import { requireTabRelease } from '../../../../../../features/tab/release';
 import { hostRoutes } from '../../../../../../features/tab/routes';
@@ -29,10 +30,12 @@ export default async function Page({
     true,
   );
   if (!stored) notFound();
+  const ageRule = tournamentAgeRule(stored.view.eligibility);
   if (stored.kind === 'empty')
     return (
       <Setup
         rail={stored.rail}
+        ageRule={ageRule}
         empty={{
           addEvent: stored.view.capabilities.manage
             ? linkTo('Add an event', hostRoutes.events(slug))
@@ -43,6 +46,7 @@ export default async function Page({
   return (
     <Setup
       rail={stored.rail}
+      ageRule={ageRule}
       setup={stored.setup}
       panel={panel === 'pairing' ? 'pairing' : null}
       renderPairing={(pairing, action) => (

@@ -11,6 +11,7 @@ import { sanctions } from '../schema/sanctions';
 import { resolutionPools, poolResolutions } from '../schema/resolution-pools';
 import { scopeTransaction } from '../tenant-scope';
 import { loadAuthorityContext } from './authority-context';
+import { loadTournamentEligibility } from './tournament-eligibility';
 import { loadTemplateRows } from './setting-definition-rows';
 import { inTransaction, type Tx, type TxOpener } from '../tx';
 
@@ -138,6 +139,7 @@ export const loadTournamentSetupFacts = async (tx: Tx, input: Input) => {
   return {
     lobby,
     tournament,
+    eligibility: await loadTournamentEligibility(tx, scope, lobby),
     authorization,
     ownerActorId: owner?.id ?? null,
     events: currentEvents,

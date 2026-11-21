@@ -38,6 +38,10 @@ export const tournamentSetupView = (
       ? organizationRef(facts, facts.lobby.ownerOrganizationId)
       : null,
     status: facts.tournament.status,
+    eligibility:
+      facts.eligibility.kind === 'standing'
+        ? facts.eligibility
+        : { kind: 'own' as const, ageRule: facts.eligibility.ageRule },
     events: facts.events.map((event) => {
       const format = facts.formats.find((row) => row.id === event.formatId);
       const ballot = event.ballotDefinitionId

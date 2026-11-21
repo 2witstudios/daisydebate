@@ -267,7 +267,7 @@ export const settlePendingCommand =
                       newId: dependencies.newId,
                     }),
                   holdForConfirmation: noConfirmerConflict,
-                  apply: (writes, history, receipt) => {
+                  apply: async (writes, history, receipt) => {
                     const originalWrites = writes.filter(
                       (write) =>
                         write.table !== 'pending_commands' &&
@@ -281,7 +281,7 @@ export const settlePendingCommand =
                     ) {
                       if (!loaded.original.facts)
                         throw createAppError('INVARIANT');
-                      requireFixtureAdmissions(
+                      await requireFixtureAdmissions(
                         loaded.original.facts,
                         loaded.original.envelope.command,
                         originalWrites,

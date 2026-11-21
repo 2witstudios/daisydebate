@@ -18,11 +18,13 @@ export const entryEnrollmentFacts = (
     readonly now: string;
     readonly senderUserId: string;
     readonly host: boolean;
+    readonly guardianPermittedActors?: ReadonlySet<string>;
     readonly command: EntryEnrollmentCommand;
   },
 ): EntryFacts => {
-  const { event, configuration } = loaded;
-  if (!event || !configuration) throw new CommandDenied('not-found');
+  const { event, configuration, eligibility } = loaded;
+  if (!event || !configuration || !eligibility)
+    throw new CommandDenied('not-found');
   const chain = eventChain({
     template: configuration.template,
     leagueId: configuration.lobby.ownerOrganizationId,
@@ -56,8 +58,10 @@ export const entryEnrollmentFacts = (
   const people: EntryPersonFacts[] = loaded.people.map((person) => ({
     actorId: person.actorId,
     userId: person.userId,
-    minor: person.account?.ageBand !== 'adult',
-    bandOnFirstDay: person.bandOnFirstDay,
+    ageBand: person.competitionAgeBand,
+    ...(input.guardianPermittedActors?.has(person.actorId)
+      ? { guardianLobbyIds: [eligibility.lobbyId] }
+      : {}),
     withinAgeBand: Boolean(
       person.account?.member &&
       !person.account.erased &&
@@ -91,7 +95,6 @@ export const entryEnrollmentFacts = (
         (judge) =>
           judge.actorId === person.actorId && slots.has(judge.timeSlotId),
       ),
-    // Enrollment behind the closed minors gate does not reconstruct a guardian's provenance.
   }));
   const responsible =
     input.command.type === 'submit-entry' ? input.command.responsible : null;
@@ -107,8 +110,10 @@ export const entryEnrollmentFacts = (
       approval: resolveSetting('entry.approval', chain, rows, format).value
         .value,
       entryCap: resolveSetting('entry.cap', chain, rows, format).value.perEvent,
-      ageDivision: resolveSetting('entry.age_division', chain, rows, format)
-        .value.value,
+      eligibility: {
+        ageRule: eligibility.ageRule,
+        lobbyId: eligibility.lobbyId,
+      },
       entryCount: loaded.entries.filter(
         (entry) => entry.eventId === event.id && entry.status !== 'withdrawn',
       ).length,
@@ -140,7 +145,6 @@ export const entryEnrollmentFacts = (
           ? loaded.guardian
             ? {
                 ...responsible,
-                guardianUserId: loaded.guardian.guardianUserId,
                 minorUserId: loaded.guardian.minorUserId,
                 active: loaded.guardian.status === 'active',
               }
@@ -151,8 +155,6 @@ export const entryEnrollmentFacts = (
           id: loaded.entry.id,
           status: loaded.entry.status,
           division: loaded.entry.division,
-          responsibleKind: loaded.entry.responsibleKind,
-          guardianUserId: loaded.guardian?.guardianUserId ?? null,
           submittedByUserId: loaded.entry.submittedByUserId,
           version: loaded.entry.version,
           members: people,

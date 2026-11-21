@@ -58,7 +58,16 @@ export async function membershipCompetition(
         owner: input.owner,
         name: input.name,
         handle: `member-${createId()}`,
-        lobby: { kind: 'tournament', admitsMinors: false },
+        lobby: {
+          kind: 'tournament',
+          eligibility:
+            input.owner.kind === 'self'
+              ? { kind: 'own', ageRule: 'adults' }
+              : {
+                  kind: 'standing',
+                  lobbyId: world.made.get('standing-lobby')!,
+                },
+        },
       },
     }),
     'create tournament',

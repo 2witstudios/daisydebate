@@ -55,7 +55,10 @@ export async function lobbyPeopleFrame(
         owner: { kind: 'self' },
         name,
         handle: `people-${createId()}`,
-        lobby: { kind: 'tournament', admitsMinors: false },
+        lobby: {
+          kind: 'tournament',
+          eligibility: { kind: 'own', ageRule: 'adults' },
+        },
       },
     });
     if (answer.kind !== 'accepted') throw new Error('Personal lobby refused');

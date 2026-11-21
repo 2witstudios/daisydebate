@@ -70,7 +70,6 @@ const decisionFacts = (
         ...common,
         kind: 'tournament',
         status: lobby.status,
-        admitsMinors: lobby.admitsMinors,
       };
   }
   return {
@@ -78,6 +77,8 @@ const decisionFacts = (
     newId: input.newId,
     actorUserId: input.principal.userId,
     handleTaken: loaded.handleTaken,
+    ageRuleLocked: loaded.ageRuleLocked,
+    standingParent: loaded.standingParent,
     organization:
       organization.organization === null
         ? null

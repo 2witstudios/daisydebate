@@ -6,8 +6,11 @@ import type {
 } from '@daisy/protocol/lobby/entry-command';
 import type { entryStatuses, responsibleKinds } from '@daisy/protocol/lobby';
 import type { FixtureChange } from '@daisy/protocol/lobby/command';
-import type { AgeBand, RatingDivision } from '@daisy/protocol';
-import { divisionAdmission } from '@daisy/protocol/lobby/event-division';
+import {
+  mayDebate,
+  type DebaterEligibility,
+  type LobbyAgeRule,
+} from '@daisy/protocol/lobby/eligibility';
 import {
   eventAllowance,
   type HostingTier,
@@ -19,14 +22,11 @@ type EntryStatus = (typeof entryStatuses)[number];
 type ResponsibleKind = (typeof responsibleKinds)[number];
 
 /** A person a command enters, keeps or brings into an entry. */
-export type EntryPersonFacts = {
+export type EntryPersonFacts = DebaterEligibility & {
   readonly actorId: string;
   readonly userId: string | null;
-  readonly minor: boolean;
-  /** Within the event's `entry.age_band`, from the account's age facts. */
+  /** The account is currently admitted and has a valid age record. */
   readonly withinAgeBand: boolean;
-  /** Their age band on the tournament's first day; null with no valid record (ADR 0149). */
-  readonly bandOnFirstDay: AgeBand | null;
   /** The event's divisions this person may enter. */
   readonly divisions: readonly string[];
   /** In another entry of this event that is not withdrawn. */
@@ -51,14 +51,7 @@ export type EntryRowFacts = {
   readonly id: string;
   readonly status: EntryStatus;
   readonly division: string | null;
-  readonly responsibleKind: ResponsibleKind;
-  /** The guardian of the entry's guardian link, when it is a guardian's entry. */
-  readonly guardianUserId: string | null;
-  /**
-   * The immutable authenticated account that submitted the entry, or an
-   * explicitly unknown maker. Naming a guardian's link does not make it the maker:
-   * only the guardian's own submission is not awaited (TAB-5.23).
-   */
+  /** The original authenticated submitter, when known. */
   readonly submittedByUserId: string | null;
   readonly version: number;
   readonly members: readonly EntryPersonFacts[];
@@ -93,8 +86,10 @@ export type EntryFacts = {
     readonly approval: 'automatic' | 'host';
     /** `entry.cap`; null is none. */
     readonly entryCap: number | null;
-    /** `entry.age_division`: who may enter, aged on the first day. */
-    readonly ageDivision: RatingDivision;
+    readonly eligibility: {
+      readonly ageRule: LobbyAgeRule;
+      readonly lobbyId: string;
+    };
     /** Entries not withdrawn. */
     readonly entryCount: number;
     readonly registration: {
@@ -111,7 +106,7 @@ export type EntryFacts = {
   };
   /** The people a command names but who are not in the entry yet. */
   readonly people: readonly EntryPersonFacts[];
-  /** The responsible adult `submit-entry` names, as stored. */
+  /** The responsible party `submit-entry` names, as stored. */
   readonly responsible:
     | {
         readonly kind: 'school';
@@ -121,7 +116,6 @@ export type EntryFacts = {
     | {
         readonly kind: 'guardian';
         readonly guardianLinkId: string;
-        readonly guardianUserId: string;
         readonly minorUserId: string;
         readonly active: boolean;
       }
@@ -138,23 +132,25 @@ export type EntryFacts = {
   } | null;
 };
 
-/**
- * The first entrant outside the event's division, by the reason they are
- * (PYL-16); a missing age record is the age-band refusal's, already made.
- */
-const divisionRefusalOf = (
+const eligibilityRefusal = (
   facts: EntryFacts,
   people: readonly EntryPersonFacts[],
-): 'over-youth-age' | 'under-open-age' | null => {
-  for (const person of people) {
-    const admission = divisionAdmission(
-      person.bandOnFirstDay,
-      facts.event.ageDivision,
-    );
-    if (admission.kind === 'refused' && admission.reason !== 'no-age-record')
-      return admission.reason;
-  }
-  return null;
+): 'age-band' | 'over-youth-age' | 'under-open-age' | null => {
+  if (
+    people.some(
+      (person) =>
+        !person.withinAgeBand ||
+        person.ageBand === null ||
+        person.ageBand === 'under-13',
+    )
+  )
+    return 'age-band';
+  const lobby = {
+    ...facts.event.eligibility,
+    competitionType: 'casual' as const,
+  };
+  if (people.every((person) => mayDebate(person, lobby))) return null;
+  return lobby.ageRule === 'under-18' ? 'over-youth-age' : 'under-open-age';
 };
 
 /** Whether the tournament may hold one more accepted entry. */
@@ -240,7 +236,7 @@ const registrationOpen = (facts: EntryFacts): boolean => {
   );
 };
 
-const hasResponsibleAdult = (
+const hasResponsibleParty = (
   facts: EntryFacts,
   command: Extract<EntryCommand, { type: 'submit-entry' }>,
   members: readonly EntryPersonFacts[],
@@ -257,11 +253,7 @@ const hasResponsibleAdult = (
         members.some((member) => member.userId === responsible.minorUserId)
       );
     case 'self':
-      return (
-        members.length === 1 &&
-        !members[0]!.minor &&
-        members[0]!.userId === facts.sender.userId
-      );
+      return members.length === 1 && members[0]!.userId === facts.sender.userId;
   }
 };
 
@@ -306,10 +298,9 @@ const submitEntry = (
   if (!registrationOpen(facts)) return refuse('registration-closed');
   if (people.some((person) => person.enteredInEvent))
     return refuse('already-entered');
-  if (people.some((person) => !person.withinAgeBand)) return refuse('age-band');
-  const outsideDivision = divisionRefusalOf(facts, people);
-  if (outsideDivision) return refuse(outsideDivision);
-  if (!hasResponsibleAdult(facts, command, people))
+  const ineligible = eligibilityRefusal(facts, people);
+  if (ineligible) return refuse(ineligible);
+  if (!hasResponsibleParty(facts, command, people))
     return refuse('no-responsible-adult');
   const division = command.division;
   if (division !== null && !facts.event.divisions.includes(division))
@@ -385,6 +376,8 @@ const acceptEntry = (
   entry: EntryRowFacts,
 ): EntryDecision => {
   if (entry.status !== 'pending') return refuse('entry-settled');
+  const ineligible = eligibilityRefusal(facts, entry.members);
+  if (ineligible) return refuse(ineligible);
   if (entry.members.some((member) => member.enteredInSharedSlot))
     return refuse('slot-clash');
   if (!roomForEntry(facts)) return refuse('hosting-upgrade-required');
@@ -407,9 +400,8 @@ const replaceEntryMember = (
   if (entry.liveFixtures.some((fixture) => !isRepairable(fixture.state)))
     return refuse('fixture-started');
   if (incoming.enteredInEvent) return refuse('already-entered');
-  if (!incoming.withinAgeBand) return refuse('age-band');
-  const outsideDivision = divisionRefusalOf(facts, [incoming]);
-  if (outsideDivision) return refuse(outsideDivision);
+  const ineligible = eligibilityRefusal(facts, [incoming]);
+  if (ineligible) return refuse(ineligible);
   if (incoming.enteredInSharedSlot) return refuse('slot-clash');
   if (entry.division !== null && !incoming.divisions.includes(entry.division))
     return refuse('division-ineligible');

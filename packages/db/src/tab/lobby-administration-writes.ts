@@ -21,7 +21,7 @@ type Update<Table extends string, Row> = {
   readonly set: Partial<Row>;
 };
 type LobbyRow = {
-  readonly ageRule: LobbyAgeRule;
+  readonly ageRule: LobbyAgeRule | null;
   readonly name: string;
   readonly closedAt: string | null;
   readonly version: number;
@@ -46,7 +46,8 @@ export type LobbyAdministrationWrite =
         readonly ownerOrganizationId: string | null;
         readonly name: string;
         readonly handle: string;
-        readonly ageRule?: LobbyAgeRule;
+        readonly ageRule?: LobbyAgeRule | null;
+        readonly standingLobbyId?: string;
       }
     >
   | Update<'lobbies', LobbyRow>
@@ -55,13 +56,9 @@ export type LobbyAdministrationWrite =
       {
         readonly lobbyId: string;
         readonly status: TournamentStatus;
-        readonly admitsMinors: boolean;
       }
     >
-  | Update<
-      'tournaments',
-      { readonly status: TournamentStatus; readonly admitsMinors: boolean }
-    >
+  | Update<'tournaments', { readonly status: TournamentStatus }>
   | Insert<'seasons', Omit<SeasonRow, 'version'>>
   | Update<'seasons', SeasonRow>
   | Insert<

@@ -97,11 +97,7 @@ describe('settingCommandSchema', () => {
         ([key, value]) =>
           !settingCommandSchema.safeParse({
             type: 'set-setting',
-            scope: at(
-              key === 'entry.registration' || key === 'entry.age_division'
-                ? 'lobby'
-                : 'organization',
-            ),
+            scope: at(key === 'entry.registration' ? 'lobby' : 'organization'),
             key,
             value,
             hold: 'default',

@@ -1,7 +1,8 @@
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { inTransaction, type TxSource } from './tx';
 import { query } from './raw-rows';
 import { z } from 'zod';
+import type { LobbyAgeRule } from '@daisy/protocol/lobby/eligibility';
 import {
   type RatingDivision,
   type RatingStyle,
@@ -54,10 +55,15 @@ const readCardRatings = (
             await tx
               .select({
                 lobbyId: standingLobbies.id,
-                ageRule: standingLobbies.ageRule,
+                ageRule: sql<LobbyAgeRule>`${standingLobbies.ageRule}`,
               })
               .from(standingLobbies)
-              .where(eq(standingLobbies.id, pool.lobbyId))
+              .where(
+                and(
+                  eq(standingLobbies.id, pool.lobbyId),
+                  eq(standingLobbies.kind, 'standing'),
+                ),
+              )
           ).map((lobby) => ({ ...lobby, id: pool.ladderId }))
         : await readOfficialRatingLadderCatalog(tx);
       const requested = new Set(actorIds);

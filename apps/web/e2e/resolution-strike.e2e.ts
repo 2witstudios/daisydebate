@@ -192,8 +192,10 @@ test('debaters strike to one resolution while a spectator never receives a drawn
     await spectator.reload();
     expect(await spectator.content()).not.toContain(SENTINEL);
 
-    // With no prep to follow, the last strike started the Round.
-    expect((await revealed()).status).toBe('active');
+    // The clock can reveal the topic before maintenance commits activation.
+    await expect
+      .poll(async () => (await revealed()).status, { timeout: 60_000 })
+      .toBe('active');
   } finally {
     for (const context of opened) await context.close();
     await accounts.closeContexts();

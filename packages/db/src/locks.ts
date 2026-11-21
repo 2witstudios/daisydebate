@@ -82,6 +82,9 @@ export const transactionLocks = {
   /** Tab setting chains change one at a time. */
   tabSettingsChains: () =>
     lock('tabSettingsChains', sql`hashtextextended('tab-settings-chains', 0)`),
+  /** Prepare and apply a journaled backfill once per migration. */
+  migrationBackfill: (name: string) =>
+    lock('migrationBackfill', sql`hashtextextended(${name}, 0)`),
   /** One Tab lobby handle claim per handle, ignoring case. */
   tabLobbyHandle: (handle: string) =>
     lock(

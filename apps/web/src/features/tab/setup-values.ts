@@ -66,11 +66,6 @@ export const setupSettingWords = (view: ResolvedSettingsView) => {
           : 'A fixed resolution for each round',
     'pairing.preset': presetLabels[setupValue(view, 'pairing.preset').value],
     'standings.tiebreaks': `${tie.metrics.map(words).join(' → ')} · ${tie.terminal === 'lot' ? 'then lot' : 'then shared place'}${tie.minimumGames === null ? '' : ` · minimum ${tie.minimumGames} games`}`,
-    // PYL-16: aged on the tournament's first day.
-    'entry.age_division':
-      setupValue(view, 'entry.age_division').value === 'youth'
-        ? 'Freestyle · Youth: debaters under 18 on the first day'
-        : 'Freestyle · Open: debaters 18 and over on the first day',
     'recording.capture':
       setupValue(view, 'recording.capture').value === 'on'
         ? 'Recorded'
