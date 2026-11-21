@@ -12,7 +12,6 @@ import {
 } from '../../../features/leaderboard/query';
 import {
   requestLadder,
-  requestMemberDivision,
   requestOfficialRatingLadders,
   requestLandingLobby,
 } from '../../../lib/request-session';
@@ -26,9 +25,8 @@ export default async function LeaderboardPage({
 }: {
   searchParams: Promise<SearchParams>;
 }) {
-  const requested = parseLadderQuery(await searchParams);
+  const query = parseLadderQuery(await searchParams);
   const now = systemClock.now();
-  const query = requested;
   const available = await requestOfficialRatingLadders();
   const landingId =
     query.lobby || query.division ? null : (await requestLandingLobby())?.id;
@@ -45,11 +43,7 @@ export default async function LeaderboardPage({
     (await requestLadder({
       lobbyId: lobby.lobbyId,
       seasonId: query.season,
-      ladder: boardLadder(
-        query.division,
-        // A public page: a failed division read falls back to Open.
-        await requestMemberDivision().catch(() => null),
-      ),
+      ladder: boardLadder(ratingDivisionForAgeRule(lobby.ageRule), null),
       now,
     }));
   if (!read)

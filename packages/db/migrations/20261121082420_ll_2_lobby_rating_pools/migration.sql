@@ -34,6 +34,8 @@ ALTER TABLE "ratings" ADD COLUMN "lobby_id" text;--> statement-breakpoint
 ALTER TABLE "rounds" ADD COLUMN "season_id" text;--> statement-breakpoint
 ALTER TABLE "rounds" ADD COLUMN "rating_lobby_id" text;--> statement-breakpoint
 ALTER TABLE "rounds" ADD COLUMN "standing_age_rule" "lobby_age_rule";--> statement-breakpoint
+ALTER TABLE "rounds" ADD COLUMN "standing_youth_cast" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+ALTER TABLE "rounds" ADD COLUMN "legacy_league_rating" boolean DEFAULT false NOT NULL;--> statement-breakpoint
 ALTER TABLE "seasons" ADD COLUMN "lobby_id" text;--> statement-breakpoint
 ALTER TABLE "seasons" ADD COLUMN "lobby_kind" text GENERATED ALWAYS AS ('standing') STORED;--> statement-breakpoint
 ALTER TABLE "templates" ADD COLUMN "shared" boolean DEFAULT false NOT NULL;--> statement-breakpoint
@@ -46,7 +48,12 @@ UPDATE public.rounds rd SET standing_age_rule=CASE
   WHEN rd.ladder_division='youth' THEN 'under-18'::public.lobby_age_rule
   ELSE (SELECT l.age_rule FROM public.rooms r
     JOIN public.lobbies l ON l.id=r.lobby_id AND l.kind='standing' WHERE r.id=rd.room_id)
-END
+END,
+standing_youth_cast=coalesce(rd.ladder_division='youth',false) OR EXISTS (
+  SELECT 1 FROM public.rooms r WHERE r.id=rd.room_id AND r.lobby_kind='standing'
+    AND public.daisy_room_is_youth(r.id)
+),
+legacy_league_rating=rd.status='completed' AND rd.league_ladder_id IS NOT NULL
 WHERE rd.room_id IS NOT NULL OR rd.ladder_division='youth';
 --> statement-breakpoint
 UPDATE public.organizations SET operator_managed=true WHERE owner_user_id IS NULL;
@@ -134,13 +141,13 @@ WITH witnessed AS (
       (SELECT s.id
        FROM public.seasons s
        JOIN public.lobbies l ON l.id=r.rating_lobby_id
+       JOIN public.organizations o ON o.id=l.owner_organization_id
        WHERE s.organization_id=l.owner_organization_id
-         AND s.division=coalesce(r.ladder_division,CASE l.age_rule WHEN 'under-18' THEN 'youth' ELSE 'open' END)
-       ORDER BY (s.lobby_id=l.id) DESC,
-         (s.starts_at<=r.created_at AND (s.ends_at IS NULL OR r.created_at<s.ends_at)) DESC,
+         AND (r.ladder_division IS NULL OR s.division=r.ladder_division)
+       ORDER BY (s.starts_at<=r.created_at AND (s.ends_at IS NULL OR r.created_at<s.ends_at)) DESC,
          (s.starts_at<=r.created_at) DESC,
          CASE WHEN s.starts_at>r.created_at THEN s.starts_at END,
-         s.starts_at DESC,s.id LIMIT 1)
+         (s.division=o.league_division) DESC, s.starts_at DESC,(s.lobby_id=l.id) DESC,s.id LIMIT 1)
     ) AS source_id,
     r.id AS round_id
   FROM public.rounds r WHERE r.rating_lobby_id IS NOT NULL
@@ -283,7 +290,7 @@ AS $round_linked_adult_actors$
    AND public.daisy_round_participant_is_current(p.id) AND a.user_id IS NOT NULL
    AND EXISTS (SELECT 1 FROM public.rounds youth_r
     WHERE youth_r.id=requested_round_id
-     AND (public.daisy_room_is_youth(youth_r.room_id) OR youth_r.standing_age_rule='under-18'))
+     AND (public.daisy_room_is_youth(youth_r.room_id) OR youth_r.standing_youth_cast))
    AND NOT EXISTS (SELECT 1 FROM public.rounds rd
      JOIN public.rooms r ON r.id=rd.room_id JOIN public.lobbies l ON l.id=r.lobby_id
      WHERE rd.id=requested_round_id AND l.kind='standing'
@@ -321,8 +328,8 @@ $round_reuse_age_unknown$;
 CREATE FUNCTION public.daisy_guard_round_rating_pool() RETURNS trigger
 LANGUAGE plpgsql AS $guard_rating_pool$
 BEGIN
-  IF (NEW.ladder_id,NEW.season_id,NEW.rating_lobby_id,NEW.standing_age_rule)
-     IS DISTINCT FROM (OLD.ladder_id,OLD.season_id,OLD.rating_lobby_id,OLD.standing_age_rule) THEN
+  IF (NEW.ladder_id,NEW.season_id,NEW.rating_lobby_id,NEW.standing_age_rule,NEW.standing_youth_cast,NEW.legacy_league_rating)
+     IS DISTINCT FROM (OLD.ladder_id,OLD.season_id,OLD.rating_lobby_id,OLD.standing_age_rule,OLD.standing_youth_cast,OLD.legacy_league_rating) THEN
     RAISE EXCEPTION 'The Round rating pool is frozen at Start'
       USING ERRCODE='23514', CONSTRAINT='rounds_rating_pool_immutable';
   END IF;
@@ -331,7 +338,7 @@ END;
 $guard_rating_pool$;
 --> statement-breakpoint
 CREATE TRIGGER rounds_rating_pool_immutable
-BEFORE UPDATE OF ladder_id,season_id,rating_lobby_id,standing_age_rule ON public.rounds
+BEFORE UPDATE OF ladder_id,season_id,rating_lobby_id,standing_age_rule,standing_youth_cast,legacy_league_rating ON public.rounds
 FOR EACH ROW EXECUTE FUNCTION public.daisy_guard_round_rating_pool();
 --> statement-breakpoint
 -- Catalogue publication is managed independently of the organization that owns an item.

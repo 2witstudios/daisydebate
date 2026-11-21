@@ -12,7 +12,7 @@ import { reuseLicensingWordings } from '@daisy/protocol/media-release';
 export const youthRoundSql = (roundId: SQL): SQL<boolean> =>
   sql<boolean>`exists (select 1 from rounds youth_r
     where youth_r.id = ${roundId}
-      and (public.daisy_room_is_youth(youth_r.room_id) or youth_r.standing_age_rule='under-18'))`;
+      and (public.daisy_room_is_youth(youth_r.room_id) or youth_r.standing_youth_cast))`;
 
 /**
  * The reuse fence (ADR 0161), the SQL mirror of `reuseFenced` in

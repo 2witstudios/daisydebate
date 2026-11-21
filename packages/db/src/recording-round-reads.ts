@@ -56,6 +56,7 @@ export const recordingRoundReadOperations = ({
           capture: rounds.capture,
           ladderId: rounds.ladderId,
           ladderAgeRule: rounds.standingAgeRule,
+          standingYouthCast: rounds.standingYouthCast,
           roomYouth: sql<
             boolean | null
           >`public.daisy_room_is_youth(${rounds.roomId})`,
@@ -110,8 +111,7 @@ export const recordingRoundReadOperations = ({
         outcome,
         seats,
         /** A Youth Round: any Round of a Youth Room (ADR 0150, 0157). */
-        youthRound:
-          round.roomYouth === true || round.ladderAgeRule === 'under-18',
+        youthRound: round.roomYouth === true || round.standingYouthCast,
         /** The ladder a ranked Round rated on, frozen at Start (ADR 0147). */
         ladder: roundLadderOf(round),
         /** Both lists are in seat order, so they pair up. */

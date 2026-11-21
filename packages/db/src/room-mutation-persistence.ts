@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 
 import type { RoomAssemblyState, RoomMutationOutcome } from '@daisy/protocol';
 import {
@@ -160,6 +160,10 @@ export const persistRoomMutation = async (
       postRoundCall: freezePostRoundCall(next.postRoundCall, next.participants),
       visibility: next.visibility,
       standingAgeRule: source?.lobbyKind === 'standing' ? next.ageRule : null,
+      standingYouthCast:
+        source?.lobbyKind === 'standing'
+          ? sql`coalesce(public.daisy_room_is_youth(${next.id}), false)`
+          : false,
       rulesSnapshot: next.rules,
       judging,
       runtimeState: emptyRuntimeCheckpointFor(next.rules),

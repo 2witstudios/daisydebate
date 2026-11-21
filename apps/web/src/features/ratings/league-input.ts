@@ -41,7 +41,7 @@ export function leagueGames(input: LeagueRatingInputs): LadderGame[] {
       {
         result: round.id,
         source: 'league_room',
-        playedAt: round.postedAt.toISOString(),
+        playedAt: round.playedAt.toISOString(),
         sides: [sides[0]!, sides[1]!],
         winner: side === first.key ? 0 : 1,
       },
@@ -126,7 +126,17 @@ export const hasRateableTournament = (games: readonly LadderGame[]) =>
 
 export const leagueStandings = (input: LeagueRatingInputs) => {
   const games = leagueGames(input);
-  if (hasRateableTournament(games)) return foldLeagueRatings(games);
+  const legacyRooms = new Set(
+    input.roomRounds.filter(({ legacy }) => legacy).map(({ id }) => id),
+  );
+  if (
+    hasRateableTournament(games) ||
+    games.some(
+      ({ source, result }) =>
+        source === 'league_room' && legacyRooms.has(result),
+    )
+  )
+    return foldLeagueRatings(games);
   return input.standings.map(({ rating, deviation, volatility, ...row }) => ({
     ...row,
     state: { rating, deviation, volatility },

@@ -6,13 +6,22 @@ import { hasRateableTournament, orderedLeagueGames } from './league-input';
 
 /** Only results already released to this audience take part in its replay. */
 export function replayPublishedStandings(source: StandingsRead): StandingsRead {
-  if (!source.certified?.length) return source;
+  const replaySeasonIds = new Set(source.publicResults?.replaySeasonIds);
+  const seasons = new Set([
+    ...replaySeasonIds,
+    ...(source.certified ?? []).map(({ seasonId }) => seasonId),
+  ]);
+  if (seasons.size === 0) return source;
   const replayedSeasons = new Set<string>();
   const ratings: StandingsRead['ratings'][number][] = [];
   const changes: StandingsRead['changes'][number][] = [];
-  for (const { seasonId, records, people } of source.certified) {
-    const posted = new Map<string, StandingsRead['changes'][number][]>();
-    for (const change of source.changes) {
+  const publicRooms = source.publicResults?.rooms ?? source.changes;
+  for (const seasonId of seasons) {
+    const certified = source.certified?.find(
+      (row) => row.seasonId === seasonId,
+    );
+    const posted = new Map<string, (typeof publicRooms)[number][]>();
+    for (const change of publicRooms) {
       if (change.seasonId !== seasonId) continue;
       const group = posted.get(change.roundId) ?? [];
       group.push(change);
@@ -36,8 +45,9 @@ export function replayPublishedStandings(source: StandingsRead): StandingsRead {
         winner: 0,
       });
     }
-    const games = orderedLeagueGames(rooms, records);
-    if (!hasRateableTournament(games)) continue;
+    const games = orderedLeagueGames(rooms, certified?.records ?? []);
+    if (!replaySeasonIds.has(seasonId) && !hasRateableTournament(games))
+      continue;
     replayedSeasons.add(seasonId);
     const sides = [affirmativeSide, negativeSide] as const;
     const replay = foldLeagueRatings(
@@ -59,7 +69,8 @@ export function replayPublishedStandings(source: StandingsRead): StandingsRead {
     );
     const names = new Map(
       [
-        ...people,
+        ...(certified?.people ?? []),
+        ...(source.publicResults?.people ?? []),
         ...source.ratings.filter((row) => row.seasonId === seasonId),
       ].map((person) => [person.actorId, person]),
     );

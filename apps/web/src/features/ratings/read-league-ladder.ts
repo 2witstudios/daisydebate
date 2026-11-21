@@ -14,6 +14,9 @@ import {
 import { hostLobbyResource } from '../tab/operations/host-lobby-resource';
 import type { TabPrincipal } from '../tab/tab-principal';
 import { leagueStandings } from './league-input';
+import { replayPublishedStandings } from './replay-published-standings';
+import { summarizeStandings } from './summarize';
+import { spectatorClockAt } from '../spectating/spectator-clock';
 
 export const readLeagueLadder =
   (dependencies: {
@@ -63,20 +66,41 @@ export const readLeagueLadder =
             (audience) => posting[audience] !== 'never',
           ),
         };
-        if (
-          !dependencies.authorize({
+        const allowed = (capability: 'lobby.read' | 'lobby.host.read') =>
+          dependencies.authorize({
             principal,
-            capability: 'lobby.read',
+            capability,
             resource,
             context: {
               account: authority.authorization.account,
               grants: authority.authorization.grants,
               now: authority.checkedAt,
             },
-          }).allow
-        )
-          return null;
-        const sorted = leagueStandings(facts.input).sort(
+          }).allow;
+        if (!allowed('lobby.read')) return null;
+        const entries = allowed('lobby.host.read')
+          ? leagueStandings(facts.input).map((row) => ({
+              ...row,
+              username:
+                facts.input.actors.find(
+                  (actor) => actor.actorId === row.actorId,
+                )?.username ?? null,
+            }))
+          : summarizeStandings(
+              await facts.publicStandings(
+                spectatorClockAt(authority.checkedAt),
+                replayPublishedStandings,
+                authority.authorization.membership === 'active' &&
+                  posting.participants !== 'never',
+              ),
+              authority.checkedAt,
+            ).map((row) => ({
+              ...row,
+              games: row.played,
+              state: { rating: row.rating },
+              change: row.seasonChange,
+            }));
+        const sorted = entries.sort(
           (a, b) =>
             b.state.rating - a.state.rating ||
             a.actorId.localeCompare(b.actorId),
@@ -84,9 +108,7 @@ export const readLeagueLadder =
         const lines = sorted.map((row, index) => ({
           actorId: row.actorId,
           place: index + 1,
-          username:
-            facts.input.actors.find((actor) => actor.actorId === row.actorId)
-              ?.username ?? 'Deleted member',
+          username: row.username ?? 'Deleted member',
           school: null,
           wins: row.wins,
           losses: row.games - row.wins,
