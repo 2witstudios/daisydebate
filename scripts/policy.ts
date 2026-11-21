@@ -30,6 +30,7 @@ import { utcToday } from './review-date';
 import { collectWorkflowHardeningProblems } from './workflow-hardening';
 import { collectFlagPolicyProblems } from './flag-policy';
 import {
+  isDecisionCitationSource,
   overruledCitations,
   parseDecisionSnapshot,
   retiredAdr,
@@ -55,7 +56,6 @@ const scannedExtensions = new Set([
   '.ts',
   '.tsx',
 ]);
-const citationOnlyExtensions = /\.(?:[cm][jt]s|jsonc|sh|ya?ml)$/;
 const categories = new Set<PolicyCategory>([
   'framework',
   'integration-isolation',
@@ -378,20 +378,12 @@ export async function collectPolicy(): Promise<PolicyReport> {
   }
   const findings: PolicyFinding[] = [];
   for (const path of knownPaths) {
-    if (citationOnlyExtensions.test(path))
-      findings.push(
-        ...overruledCitations(
-          path,
-          await readFile(join(root, path), 'utf8'),
-          overruled,
-        ),
-      );
-  }
-  for (const file of repositoryFiles) {
-    const path = relative(root, file);
-    const source = await readFile(file, 'utf8');
+    const scanned = scannedExtensions.has(path.slice(path.lastIndexOf('.')));
+    if (!scanned && !isDecisionCitationSource(path)) continue;
+    const source = await readFile(join(root, path), 'utf8');
     findings.push(...overruledCitations(path, source, overruled));
-    if (/^scripts\/policy(-styling|\.test)?\.ts$/.test(path)) continue;
+    if (!scanned || /^scripts\/policy(-styling|\.test)?\.ts$/.test(path))
+      continue;
     for (const finding of scanPolicyText(path, source))
       if (!exceptions.has(`${finding.path}|${finding.rule}`))
         findings.push(finding);

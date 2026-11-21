@@ -9,13 +9,20 @@ const input = {
     path: '.github/workflows/e2e.yml',
     event: 'workflow_dispatch',
     status: 'completed',
+    run_attempt: 1,
     conclusion: 'success',
   },
   repositoryUrl: 'https://github.com/example/daisy',
   runId: '123',
   artifacts: [
     {
-      artifacts: [{ id: 456, name: 'browser-review-evidence', expired: false }],
+      artifacts: [
+        {
+          id: 456,
+          name: 'browser-review-evidence-attempt-1-success',
+          expired: false,
+        },
+      ],
     },
   ],
 };
@@ -26,6 +33,52 @@ test('links the retained media bundle and the run at the PR head', () => {
     'https://github.com/example/daisy/actions/runs/123/artifacts/456',
   );
   expect(comment).toContain(head);
+  expect(comment).toContain('attempts/1) · browser success · workflow success');
+});
+
+test('refuses the earlier artifact when a retry finishes without uploading', () => {
+  expect(() =>
+    reviewEvidenceComment({
+      ...input,
+      run: { ...input.run, run_attempt: 2, conclusion: 'failure' },
+    }),
+  ).toThrow('attempt 2');
+});
+
+test('links the producing retry and its browser outcome alongside earlier bundles', () => {
+  const comment = reviewEvidenceComment({
+    ...input,
+    run: { ...input.run, run_attempt: 2, conclusion: 'success' },
+    artifacts: [
+      ...input.artifacts,
+      {
+        artifacts: [
+          {
+            id: 789,
+            name: 'browser-review-evidence-attempt-2-failure',
+            expired: false,
+          },
+        ],
+      },
+    ],
+  });
+  expect(comment).toContain('artifacts/789');
+  expect(comment).toContain('attempts/2) · browser failure · workflow success');
+  expect(comment).not.toContain('artifacts/456');
+});
+
+test('the workflow names bundles with the producing attempt and browser outcome', async () => {
+  const workflow = Bun.YAML.parse(
+    await Bun.file('.github/workflows/e2e.yml').text(),
+  ) as {
+    jobs: { e2e: { steps: { name?: string; with?: { name?: string } }[] } };
+  };
+  const upload = workflow.jobs.e2e.steps.find(
+    ({ name }) => name === 'Upload browser review evidence',
+  );
+  expect(upload?.with?.name).toBe(
+    'browser-review-evidence-attempt-${{ github.run_attempt }}-${{ steps.review_evidence.outcome }}',
+  );
 });
 
 test('refuses stale run evidence and an expired or missing bundle', () => {

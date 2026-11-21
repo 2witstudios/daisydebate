@@ -539,8 +539,10 @@ For a PR review bundle, dispatch **Browser E2E** on the PR branch with
 `e2e/pricing.e2e.ts`. The run records video, trace and screenshots from the
 isolated fixture stack and uploads the sanitized bundle for seven days.
 Attach it to the PR with `bun review:evidence <pr-number> <run-id>`. The
-command checks the run's commit against the current PR head before posting
-the download link in a PR comment.
+command checks the run's commit against the current PR head and posts a
+bundle only when the latest workflow attempt uploaded it. The comment
+identifies that attempt and the browser and workflow results. The review dispatch reports
+the **Browser review evidence** check.
 
 ## CI task caching
 

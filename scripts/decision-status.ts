@@ -58,25 +58,45 @@ export function retiredAdr(path: string, text: string): string | undefined {
   return number && retired ? `ADR ${number}` : undefined;
 }
 
-const citations =
-  /\bDEC-[1-9][0-9]*\b|\bADR[ \t]*[-#]?0*([1-9][0-9]{0,3})\b|\bdocs\/decisions\/(\d{4})-[\w-]+\.md\b/gi;
+const decisionsAndLinks =
+  /\bDEC-[1-9][0-9]*\b|\bdocs\/decisions\/(\d{4})-[\w-]+\.md\b/gi;
+const adrGroups =
+  /\bADRs?[ \t]*[-#]?(0*[1-9][0-9]{0,3}\b(?:(?:[ \t]*,[ \t]*(?:and[ \t]+)?|[ \t]+and[ \t]+)\d{4}\b)*)/gi;
+
+const citationSourceExtension =
+  /\.(?:[cm]?[jt]sx?|jsonc?|sql|sh|py|ya?ml|toml)$/;
+
+export function isDecisionCitationSource(path: string): boolean {
+  // The status projection and immutable migration history record decisions.
+  if (
+    path === 'policy/decision-status.json' ||
+    path.startsWith('packages/db/migrations/')
+  )
+    return false;
+  return (
+    citationSourceExtension.test(path) ||
+    path.startsWith('.githooks/') ||
+    /(?:^|\/)Dockerfile(?:\.[^/]+)?$/.test(path)
+  );
+}
 
 export function overruledCitations(
   path: string,
   text: string,
   overruled: ReadonlySet<string>,
 ) {
-  if (path === 'policy/decision-status.json') return [];
-  // Applied migration text is historical. The architecture rules prohibit rewriting it.
-  if (path.startsWith('packages/db/migrations/')) return [];
+  if (!isDecisionCitationSource(path)) return [];
   return text.split('\n').flatMap((line, index) => {
-    const ids = new Set(
-      [...line.matchAll(citations)].map(([citation, number, fileNumber]) =>
-        number || fileNumber
-          ? `ADR ${(number ?? fileNumber).padStart(4, '0')}`
-          : citation.toUpperCase(),
+    const ids = new Set([
+      ...[...line.matchAll(decisionsAndLinks)].map(([citation, fileNumber]) =>
+        fileNumber ? `ADR ${fileNumber}` : citation.toUpperCase(),
       ),
-    );
+      ...[...line.matchAll(adrGroups)].flatMap(([, group]) =>
+        (group.match(/\d+/g) ?? []).map(
+          (number) => `ADR ${String(Number(number)).padStart(4, '0')}`,
+        ),
+      ),
+    ]);
     return [...ids]
       .filter((id) => overruled.has(id))
       .map((id) => ({

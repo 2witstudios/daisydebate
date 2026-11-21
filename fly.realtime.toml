@@ -1,7 +1,7 @@
 # Staging realtime service (ISSUE-528, DEC-228): apps/realtime, the web
 # app's WebSocket endpoint (REALTIME_PUBLIC_URL in fly.toml). Its image is
 # the `realtime` target of apps/web/Dockerfile, which skips the Next build.
-# It joins the org's default 6PN for Postgres and Redis (DEC-229).
+# It joins the org's default 6PN for Postgres and Redis (DEC-230).
 # DATABASE_URL (the SELECT-only daisy_realtime role) and REDIS_URL are Fly
 # secrets, never written here; start refuses a schema-altering role or a
 # MIGRATION_DATABASE_URL (docs/operations/production.md "Realtime service").

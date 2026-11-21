@@ -35,7 +35,7 @@ concurrency:
 # never cascades into browser reds (ADR 0083).
 jobs:
   e2e:
-    name: Playwright browser suite
+    name: ${{ inputs.review_spec && 'Browser review capture' || 'Playwright browser suite' }}
     runs-on: ubuntu-24.04
     # Run 44834624902 completed its first two 601-test passes in 29.0 and
     # 36.9 minutes. Reserve time for setup, the third pass and report upload
@@ -280,7 +280,7 @@ jobs:
         if: ${{ !cancelled() && steps.review_media.outcome == 'success' }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: browser-review-evidence
+          name: browser-review-evidence-attempt-${{ github.run_attempt }}-${{ steps.review_evidence.outcome }}
           path: apps/web/test-results/
           if-no-files-found: error
           retention-days: 7
@@ -631,7 +631,7 @@ jobs:
         run: bun --env-file=.env apps/web/e2e/support/room-launch-release.ts
 
   playwright-gate:
-    name: Playwright E2E
+    name: ${{ inputs.review_spec && 'Browser review evidence' || 'Playwright E2E' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     needs: [e2e]

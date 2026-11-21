@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import {
+  isDecisionCitationSource,
   overruledCitations,
   retiredAdr,
   snapshotDecisionList,
@@ -47,6 +48,38 @@ describe('source decision citations', () => {
     expect(retiredAdr(path, 'Status: superseded by another ADR')).toBe(
       'ADR 9990',
     );
+  });
+
+  test('discovers Python, hooks and grouped ADR citations with their exact source lines', () => {
+    const files = {
+      'scripts/ci-ffmpeg-proof/example.py':
+        '#!/usr/bin/env python3\n# DEC-900001',
+      '.githooks/pre-push': '#!/bin/sh\n\n# ADRs 9991 and 9990',
+      'apps/web/e2e/grouped.ts': '\n// (ADR 9991, 9990)',
+      'docs/development/history.md': 'See ADR 9990',
+    };
+    const findings = Object.entries(files)
+      .filter(([path]) => isDecisionCitationSource(path))
+      .flatMap(([path, text]) => overruledCitations(path, text, retired));
+    expect(
+      findings.map(({ path, line, detail }) => [path, line, detail]),
+    ).toEqual([
+      [
+        'scripts/ci-ffmpeg-proof/example.py',
+        2,
+        'DEC-900001 is retired; cite the decision currently in force',
+      ],
+      [
+        '.githooks/pre-push',
+        3,
+        'ADR 9990 is retired; cite the decision currently in force',
+      ],
+      [
+        'apps/web/e2e/grouped.ts',
+        2,
+        'ADR 9990 is retired; cite the decision currently in force',
+      ],
+    ]);
   });
 
   test('keeps board decisions by disposition and rejects unknown statuses or duplicate IDs', () => {

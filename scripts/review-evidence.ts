@@ -7,7 +7,8 @@ const runSchema = z.object({
   event: z.literal('workflow_dispatch'),
   path: z.string().regex(/^\.github\/workflows\/e2e\.yml(?:@.+)?$/),
   status: z.literal('completed'),
-  conclusion: z.enum(['success', 'failure']),
+  run_attempt: z.int().positive(),
+  conclusion: z.enum(['success', 'failure', 'cancelled', 'timed_out']),
 });
 const artifactPages = z.array(
   z.object({
@@ -38,22 +39,28 @@ export function reviewEvidenceComment({
   if (candidate.head_sha !== prHead)
     throw new Error('Browser evidence must match the current PR head');
 
+  const prefix = `browser-review-evidence-attempt-${candidate.run_attempt}`;
   const [artifact, ...others] = artifactPages
     .parse(artifacts)
     .flatMap((page) => page.artifacts)
     .filter(
-      ({ name, expired }) => name === 'browser-review-evidence' && !expired,
+      ({ name, expired }) =>
+        !expired &&
+        (name === `${prefix}-success` || name === `${prefix}-failure`),
     );
   if (!artifact || others.length > 0)
-    throw new Error('Expected one unexpired browser-review-evidence artifact');
+    throw new Error(
+      `Expected one unexpired browser review bundle from attempt ${candidate.run_attempt}`,
+    );
 
   const runUrl = `${repositoryUrl}/actions/runs/${runId}`;
+  const browserOutcome = artifact.name.slice(prefix.length + 1);
   return [
     '## Browser review evidence',
     '',
     `[Download video, trace and screenshots](${runUrl}/artifacts/${artifact.id})`,
     '',
-    `[Browser run](${runUrl}) · ${candidate.conclusion} · \`${prHead}\``,
+    `[Browser attempt ${candidate.run_attempt}](${runUrl}/attempts/${candidate.run_attempt}) · browser ${browserOutcome} · workflow ${candidate.conclusion} · \`${prHead}\``,
     '',
   ].join('\n');
 }
@@ -88,24 +95,22 @@ if (import.meta.main) {
       ).trim(),
     );
   const prHead = currentHead();
+  const runPath = `repos/${repository.nameWithOwner}/actions/runs/${runId}`;
+  const currentAttempt = () => runSchema.parse(JSON.parse(gh('api', runPath)));
+  const run = currentAttempt();
   const body = reviewEvidenceComment({
     prHead,
-    run: JSON.parse(
-      gh('api', `repos/${repository.nameWithOwner}/actions/runs/${runId}`),
-    ),
+    run,
     artifacts: JSON.parse(
-      gh(
-        'api',
-        '--paginate',
-        '--slurp',
-        `repos/${repository.nameWithOwner}/actions/runs/${runId}/artifacts`,
-      ),
+      gh('api', '--paginate', '--slurp', `${runPath}/artifacts`),
     ),
     repositoryUrl: repository.url,
     runId,
   });
   if (currentHead() !== prHead)
     throw new Error('PR head moved while reading browser evidence');
+  if (currentAttempt().run_attempt !== run.run_attempt)
+    throw new Error('Browser run was retried while reading evidence');
 
   const posted = Bun.spawnSync(
     [

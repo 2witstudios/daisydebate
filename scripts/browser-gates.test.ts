@@ -107,6 +107,7 @@ describe('browser workflow triggers', () => {
 
 describe('browser prerequisite outcomes', () => {
   type Job = {
+    name?: string;
     needs?: string | string[];
     if?: string;
     steps?: { run?: string }[];
@@ -152,6 +153,31 @@ describe('browser prerequisite outcomes', () => {
         condition: 'always()',
         needs: ['e2e'],
         results: [false, false, false, true],
+      },
+    });
+  });
+
+  test('a successful review-only run publishes a distinct check', async () => {
+    const gate = (await jobs())['playwright-gate'];
+    const name = (review_spec: string): string =>
+      String(
+        runInNewContext(
+          gate.name?.replace(/^\$\{\{\s*|\s*\}\}$/g, '') ?? '',
+          { inputs: { review_spec } },
+          { timeout: 500 },
+        ),
+      );
+    assert({
+      given: 'a successful review-only dispatch and successful full suite',
+      should:
+        'reserve the required Playwright E2E check name for full coverage',
+      actual: {
+        pass: passes(gate, { SUITE: 'success' }),
+        names: [name('e2e/pricing.e2e.ts'), name('')],
+      },
+      expected: {
+        pass: true,
+        names: ['Browser review evidence', 'Playwright E2E'],
       },
     });
   });

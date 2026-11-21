@@ -2,7 +2,7 @@
 # joins each live Round's LiveKit room hidden and posts transcribed speech
 # to the web app's signed internal route (docs/architecture/media-worker-runtime.md).
 # Its image is the `media-worker` target of apps/web/Dockerfile. It joins
-# the org's default 6PN for Postgres (DEC-229). MEDIA_WORKER_DATABASE_URL
+# the org's default 6PN for Postgres (DEC-230). MEDIA_WORKER_DATABASE_URL
 # (the SELECT-only daisy_media_worker role), MEDIA_WORKER_SECRET (shared
 # with the web app) and OPENROUTER_API_KEY are Fly secrets, never written here.
 app = "daisy-debate-staging-media-worker"
