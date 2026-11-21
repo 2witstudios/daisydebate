@@ -2,7 +2,6 @@ import type { SQL } from 'bun';
 import { systemId } from '@daisy/clock';
 import { requireTestServices } from '@daisy/config';
 import { foundationSettings } from '@daisy/db/reference-formats';
-import { publicLobbyId } from '@daisy/db/testing';
 import {
   buildChannelTopic,
   buildRoundTopic,
@@ -78,8 +77,11 @@ const youthRound = async (
     }
     await client`insert into format_revisions(format_id,version,definition) values(${formatId},1,${oneOnOneFormatFixture})`;
     await client`insert into formats(id,name,current_version) values(${formatId},'Linked adult fixture',1)`;
-    await client`insert into rooms(id,lobby_id,division,host_actor_id,title,topic,visibility,format_id,format_version,competition_type,config,execution_plan,rules_snapshot,status)
-      values(${roomId},${publicLobbyId},'youth',${studentActorId},'Thursday scrimmage','Cities should ban cars','public',${formatId},1,'casual',${foundationSettings},'{}'::jsonb,${rules}::jsonb,'assembling')`;
+    const [lobby] =
+      await client`select l.id from lobbies l join organizations o on o.id=l.owner_organization_id
+      where o.official and l.kind='standing' and l.age_rule='under-18'`;
+    await client`insert into rooms(id,lobby_id,host_actor_id,title,topic,visibility,format_id,format_version,competition_type,config,execution_plan,rules_snapshot,status)
+      values(${roomId},${lobby!.id},${studentActorId},'Thursday scrimmage','Cities should ban cars','public',${formatId},1,'casual',${foundationSettings},'{}'::jsonb,${rules}::jsonb,'assembling')`;
     // A Round's cast is fixed with it (round_participants_fixed_cast).
     await client.begin(async (tx) => {
       await tx`insert into rounds(id,room_id,room_config_snapshot,visibility,resolution,competition_type,format_id,format_version,rules_snapshot,runtime_state,status)

@@ -40,6 +40,7 @@ const seedYouthRound = async (
 export const coachedYouthRound = async (
   browser: Browser,
   context: BrowserContext,
+  { tournament = false }: { readonly tournament?: boolean } = {},
 ) => {
   const student = await browser.newContext({
     baseURL: origin,
@@ -61,6 +62,7 @@ export const coachedYouthRound = async (
       mode: 'casual',
       visibility: 'private',
       division: 'youth',
+      tournament,
       affUsername: studentName,
       title: `Thursday scrimmage ${tag}`,
       resolution: `Cities should ban cars ${tag}`,

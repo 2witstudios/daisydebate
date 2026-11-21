@@ -339,11 +339,12 @@ test('the web role can run the people list read', async () => {
     assert({
       given: 'the read running as the production web role',
       should:
-        'answer the row with its ladder division and no age or birth data (ADR 0147)',
+        'return the ladder division and eligible challenge modes without age or birth data',
       actual: rows.map((row) => Object.keys(row).sort()),
       expected: [
         [
           'actorId',
+          'challengeModes',
           'chosen',
           'division',
           'friend',

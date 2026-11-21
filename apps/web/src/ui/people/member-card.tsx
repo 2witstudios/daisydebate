@@ -1,4 +1,4 @@
-import { lobbyOf, type Person, type RatingDivision } from '@daisy/protocol';
+import { type Person, type RatingDivision } from '@daisy/protocol';
 import { styleLabels } from '../../features/ratings/ladder-labels';
 import { markedRating } from '../../features/ratings/provisional-mark';
 import { statusLabels } from '../components/presence-dot/status-labels';
@@ -32,7 +32,7 @@ export const ladderLine = (
   member: Person,
   viewer: RatingDivision | null,
 ): string | null => {
-  if (lobbyOf({ division: viewer }) !== lobbyOf(member)) return null;
+  if ((viewer ?? 'open') !== (member.division ?? 'open')) return null;
   const shown = ownLadderRating(member);
   if (shown === null || shown.hidden || shown.rating === null) return null;
   return markedRating(shown.rating, shown.provisional);

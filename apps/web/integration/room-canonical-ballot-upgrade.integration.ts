@@ -62,9 +62,21 @@ test('canonical source/storage migrations preserve a genuinely submitted and fin
     await sql`alter table seasons add column division text`;
     await sql`alter table ratings add column division text`;
     await sql`alter table rating_changes add column division text`;
-    await sql`alter table challenges add column division text`;
-    // ADR 0156: a Room's lobby, which the create writes.
-    await sql`alter table rooms add column division text`;
+    // The current adapters use the standing lobby catalog when creating Rooms.
+    await sql`alter table organizations add column official boolean not null default false`;
+    await sql`update organizations set official=true where id in
+      (select owner_organization_id from lobbies where kind='standing')`;
+    await sql`create type lobby_age_rule as enum ('adults', 'under-18', 'anyone')`;
+    await sql`alter table lobbies add column age_rule lobby_age_rule not null default 'adults'`;
+    await sql`alter table rooms add column legacy_tournament_youth boolean`;
+    // This journey only visits standing Rooms. The current query still resolves
+    // its classifier before PostgreSQL evaluates the Room kind.
+    await sql`create function public.daisy_room_is_youth(text) returns boolean
+      language sql stable as $$
+        select l.age_rule='under-18' from public.rooms r
+        join public.lobbies l on l.id=r.lobby_id
+        where r.id=$1 and l.kind='standing'
+      $$`;
     await sql`alter table ballots add column speaker_ranks jsonb`;
     // Empty decoder interface only: the real pre-upgrade ordinary journey has
     // no tournament hosting grant, version, issuer or inferred funding account.
@@ -131,8 +143,11 @@ test('canonical source/storage migrations preserve a genuinely submitted and fin
     await sql`alter table seasons drop column division`;
     await sql`alter table ratings drop column division`;
     await sql`alter table rating_changes drop column division`;
-    await sql`alter table challenges drop column division`;
-    await sql`alter table rooms drop column division`;
+    await sql`drop function public.daisy_room_is_youth(text)`;
+    await sql`alter table rooms drop column legacy_tournament_youth`;
+    await sql`alter table lobbies drop column age_rule`;
+    await sql`drop type lobby_age_rule`;
+    await sql`alter table organizations drop column official`;
     await sql`alter table ballots drop column speaker_ranks`;
     await sql`drop table account_hosting_versions`;
     await sql`alter table account_entitlement_grants drop column hosting_version_id,drop column revoked_at`;

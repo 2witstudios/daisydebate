@@ -134,7 +134,7 @@ test.describe('Room lobby with JavaScript off', () => {
       await page.getByRole('searchbox', { name: 'Search rooms' }).fill(title);
       await page.getByRole('button', { name: 'Apply', exact: true }).click();
       // The form keeps the lobby it filters (ADR 0156).
-      await expect(page).toHaveURL(/\/lobby\?lobby=open&q=/);
+      await expect(page).toHaveURL(/\/lobby\?lobby=[a-z0-9]{24}&q=/);
       await expect(roomRows(page)).toHaveCount(1);
       await expect(roomRows(page).first()).toContainText(title);
     } finally {

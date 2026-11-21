@@ -107,8 +107,7 @@ const recordingInputs = (app: App): RecordingInputs & HistoryInputs => {
     }),
     findRecordingByRound: store.findByRound,
     // The reuse fence in one statement, as Watch reads it (ADR 0161).
-    readReuseFenced: async ({ id, youth }) =>
-      youth !== null && app.database.readRoundReuseFenced(id),
+    readReuseFenced: app.database.readRoundReuseFenced,
   };
 };
 

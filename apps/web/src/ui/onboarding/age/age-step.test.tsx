@@ -54,7 +54,10 @@ test('under 13, a neutral signed-out page keeps nothing', () => {
 
 test('a member aged 13 to 17 is told they are in the Youth lobby, then goes on', () => {
   const html = renderToStaticMarkup(
-    <YouthLanding next="/onboarding/username?next=%2Flobby" />,
+    <YouthLanding
+      next="/onboarding/username?next=%2Flobby"
+      lobbyName="Youth"
+    />,
   );
   assert({
     given: 'the landing after the age step for a Youth member',

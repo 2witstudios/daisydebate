@@ -18,8 +18,6 @@ export function fixtureRestartRoom(
     room: {
       id: roomId,
       hostActorId: null,
-      // A restart stays in its Room's lobby (ADR 0156).
-      division: room.division,
       title: room.title,
       topic: room.topic,
       visibility: room.visibility,

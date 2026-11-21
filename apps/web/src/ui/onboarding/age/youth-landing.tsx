@@ -11,10 +11,19 @@ import {
  * YOnboardingAge board): one line naming where they play, then on to the
  * username. A plain link, so it works without JavaScript.
  */
-export function YouthLanding({ next }: { readonly next: string }) {
+export function YouthLanding({
+  next,
+  lobbyName,
+}: {
+  readonly next: string;
+  readonly lobbyName: string;
+}) {
   return (
     <AuthFrame panel={taglinePanel} footer="Next: choose your username.">
-      <AuthHeading eyebrow="Before you start" title="You’re in the Youth lobby">
+      <AuthHeading
+        eyebrow="Before you start"
+        title={`You’re in the ${lobbyName} lobby`}
+      >
         Thanks. Here’s where you’ll play.
       </AuthHeading>
       <a

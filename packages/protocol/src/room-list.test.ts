@@ -96,7 +96,8 @@ test('Lobby filters and discovery facts are a closed grammar', () => {
     waitingSince: null,
     live: { stage: 'live', startedAt: '2026-10-09T00:00:00.000Z' },
     hostRating: 1512,
-    division: 'open',
+    lobbyId: 'l'.repeat(24),
+    ageRule: 'adults',
     openJudgeSeats: 0,
   };
   const page = (rooms: readonly unknown[]) =>
@@ -135,7 +136,8 @@ test('a listed Room names its Round exactly once it has started', () => {
     waitingSince: null,
     live: { stage: 'live', startedAt: '2026-10-09T00:00:00.000Z' },
     hostRating: null,
-    division: 'youth',
+    lobbyId: 'y'.repeat(24),
+    ageRule: 'under-18',
     openJudgeSeats: 1,
   };
   const open = {

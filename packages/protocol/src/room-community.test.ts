@@ -67,8 +67,8 @@ describe('Room chat contracts', () => {
         'a Room of the Youth lobby and one of the Open lobby, ranked or casual',
       should: 'be a Youth Room exactly when it was created in the Youth lobby',
       actual: [
-        youthRoomOf({ division: 'youth' }),
-        youthRoomOf({ division: 'open' }),
+        youthRoomOf({ ageRule: 'under-18' }),
+        youthRoomOf({ ageRule: 'adults' }),
       ],
       expected: [true, false],
     });

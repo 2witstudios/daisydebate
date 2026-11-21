@@ -37,16 +37,11 @@ export {
   divisionOfAgeBand,
   ladderKey,
   ratingDivisions,
+  ratingDivisionForAgeRule,
   roundCompetition,
 } from './ladder';
 export type { AgeBand, Ladder, RatingDivision } from './ladder';
-export {
-  isYouthRound,
-  lobbyOf,
-  roomLobbyAtCreation,
-  seatAllowed,
-} from './division-lobby';
-export type { LiveStanding, RoomCreator } from './division-lobby';
+export { isYouthRound, type LiveStanding } from './youth-round';
 export { aiRoleFits, aiRoleOfSeat } from './ai-roles';
 export type { AiRole } from './ai-roles';
 export {

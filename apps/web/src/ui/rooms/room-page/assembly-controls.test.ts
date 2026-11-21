@@ -28,7 +28,7 @@ const participant = (role: 'affirmative' | 'judge') => ({
   teamOpen: false,
   positionOpen: false,
   rating: null,
-  division: null,
+  ageBand: null,
   needsReady: true,
   ready: 'not-ready' as const,
   eligible: true,

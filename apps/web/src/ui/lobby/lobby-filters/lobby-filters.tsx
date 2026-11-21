@@ -77,8 +77,8 @@ export function LobbyFilters({
       aria-label="Filter rooms"
       className={filterBarClass}
     >
-      {query.division ? (
-        <input type="hidden" name="lobby" value={query.division} />
+      {query.lobbyId ? (
+        <input type="hidden" name="lobby" value={query.lobbyId} />
       ) : null}
       {query.status ? (
         <input type="hidden" name="status" value={query.status} />
@@ -132,7 +132,7 @@ export function LobbyFilters({
                   pageSize: query.pageSize,
                   status: query.status,
                   sort: query.sort,
-                  division: query.division,
+                  lobbyId: query.lobbyId,
                 })
               : null
           }

@@ -22,12 +22,13 @@ test('Room create command writes its receipt and exactly one change event', asyn
     [],
     [],
     [],
-    // the creator's division, scope, club staff, scope back (ADR 0156)
+    // The creator's competition age, club staff under subject scope, then the official lobbies.
     [],
     [],
     [],
     [],
     [],
+    [[publicLobbyId, 'Open', 'open', 'adults', daisyOrganizationId]],
     [{ now: new Date('2026-10-09T00:00:00.000Z') }],
     [], // public lobby has no league ladder selection
     [],
@@ -49,13 +50,19 @@ test('Room create command writes its receipt and exactly one change event', asyn
     caller,
     authorize: (fact) => fact?.member === true && fact.erased === false,
   });
+  const roomWrite = queries.find(({ query }) =>
+    /insert into "rooms"/i.test(query),
+  );
 
   assert({
-    given: 'an authorized host held by no other Room',
-    should: 'persist an assembling Room with its accepted command receipt',
+    given: 'an authorized casual host with no age record and no active Room',
+    should:
+      'use the eligible adults lobby and persist the receipt with one change event',
     actual: [
       receipt,
       queries.filter(({ query }) => query.includes('pg_notify')).length,
+      roomWrite?.params.includes(publicLobbyId),
+      roomWrite?.query.includes('"division"'),
     ],
     expected: [
       {
@@ -66,6 +73,8 @@ test('Room create command writes its receipt and exactly one change event', asyn
         replayed: false,
       },
       1,
+      true,
+      false,
     ],
   });
 });
@@ -222,6 +231,7 @@ const startRows = (changeVersion = 1) => [
       0,
     ],
   ],
+  [['adults']], // the Room’s age rule
   [[caller.actorId, 'human', 'Host', null, true, null]],
   [[secondActorId, 'human', 'Other', null, true, null]],
   [[caller.actorId, 'human', 'Host', null, true, null]],
@@ -239,9 +249,9 @@ const startRows = (changeVersion = 1) => [
   [],
   [[readyRoom.id]], // the host's active membership is this Room's
   [
-    { id: caller.actorId, division: null },
-    { id: secondActorId, division: null },
-  ], // the seated debaters still fit the Room's lobby (ADR 0156)
+    { id: caller.actorId, ageBand: null },
+    { id: secondActorId, ageBand: null },
+  ], // the seated debaters still fit the Room's lobby
   [[null]], // the source Room has no league ladder selection to freeze
   [],
   [],
@@ -261,24 +271,24 @@ const attemptRows = (prepared: number, locked: number) => {
   return [
     [],
     [accountRow()],
-    ...before.slice(4, 11),
+    ...before.slice(4, 12),
     [], // no seat holds
-    before[12]!, // fresh authorization instant before preparation's receipt read
+    before[13]!, // fresh authorization instant before preparation's receipt read
     [],
-    before[12]!,
+    before[13]!,
     ...after.slice(0, 3),
-    ...after.slice(4, 11),
+    ...after.slice(4, 12),
     [], // no seat holds
-    after[12]!, // final authorization is sampled after account and Room fences
+    after[13]!, // final authorization is sampled after account and Room fences
   ];
 };
 /** A whole accepted start at `changeVersion`, through its receipt. */
 const successRows = (changeVersion = 1) => [
   ...attemptRows(changeVersion, changeVersion),
-  startRows(changeVersion)[13]!, // grants precede the mutation's authority clock
-  startRows(changeVersion)[12]!,
+  startRows(changeVersion)[14]!, // grants precede the mutation's authority clock
+  startRows(changeVersion)[13]!,
   [[readyRoom.id, publicLobbyId, null, null, daisyOrganizationId, null]], // exact locked Room ballot-source lookup, genuinely unpinned
-  ...startRows(changeVersion).slice(14),
+  ...startRows(changeVersion).slice(15),
 ];
 
 test('Start mutation commits one frozen Round, cast, receipt, and change signal', async () => {

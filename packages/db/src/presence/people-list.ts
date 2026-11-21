@@ -1,5 +1,11 @@
-import type { AgeBand, RatingDivision } from '@daisy/protocol';
-import { divisionAgeBand, divisionOfBandSql } from '../ladder-division-band';
+import type { AgeBand, RatingDivision, CompetitionType } from '@daisy/protocol';
+import { divisionOfAgeBand } from '@daisy/protocol';
+import { challengeModes } from '../challenges/lobby';
+import { readOfficialStandingLobbies } from '../official-standing-lobbies';
+import {
+  divisionAgeBand,
+  readCompetitionAgeBand,
+} from '../ladder-division-band';
 import { sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import {
@@ -33,6 +39,7 @@ export type PersonRow = {
    * record, so a card names it even before they are rated; never an age.
    */
   readonly division: RatingDivision | null;
+  readonly challengeModes: readonly CompetitionType[];
 };
 
 export type PeopleListCursor = {
@@ -145,12 +152,21 @@ export function readPeopleListPage(
         ${online} as online,
         f.requester_actor_id as "requesterActorId",
         f.state as "friendshipState",
-        (select ${divisionOfBandSql(divisionAgeBand())} from account_age where account_age.user_id = u.id) as division
+        (select ${divisionAgeBand()} from account_age where account_age.user_id = u.id) as "ageBand"
       ${from} ${named} ${friendsOnly} ${after}
       order by ${rank}, ${presence}, lower(u.username), a.id
-      limit ${input.limit}`)) as unknown as PersonRow[];
+      limit ${input.limit}`)) as unknown as (Omit<
+      PersonRow,
+      'division' | 'challengeModes'
+    > & { ageBand: AgeBand | null })[];
+    const lobbies = await readOfficialStandingLobbies(tx);
+    const ownBand = await readCompetitionAgeBand(tx, scope.userId);
     return {
-      rows: [...rows],
+      rows: rows.map(({ ageBand, ...row }) => ({
+        ...row,
+        division: divisionOfAgeBand(ageBand),
+        challengeModes: challengeModes(lobbies, ownBand, ageBand),
+      })),
       counts: counts ?? { everyone: 0, friends: 0, online: 0 },
       self,
     };

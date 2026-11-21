@@ -13,7 +13,6 @@ const seat = {
   teamOpen: false,
   positionOpen: false,
   rating: null,
-  division: null,
   needsReady: true,
   ready: 'ready',
   eligible: true,

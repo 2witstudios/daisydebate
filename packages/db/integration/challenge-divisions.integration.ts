@@ -21,6 +21,11 @@ test('a challenge stays inside one lobby and stores it (ADR 0156)', async () => 
   const fixture = await createMessagingTestFixture(client);
   const database = drizzle({ client });
   const store = createChallengeStore({ database, authorize: async () => {} });
+  const lobbies = await client<
+    { id: string; age_rule: string }[]
+  >`select l.id, l.age_rule from lobbies l join organizations o on o.id=l.owner_organization_id where o.official`;
+  const youth = lobbies.find((lobby) => lobby.age_rule === 'under-18')!.id;
+  const open = lobbies.find((lobby) => lobby.age_rule === 'adults')!.id;
   const now = new Date().toISOString();
   const expiresAt = new Date(Date.parse(now) + 600_000).toISOString();
   const send = (mode: CompetitionType) =>
@@ -44,10 +49,10 @@ test('a challenge stays inside one lobby and stores it (ADR 0156)', async () => 
       .then(
         async ({ challengeId }) => {
           const [row] =
-            (await client`select division from challenges where id=${challengeId}`) as {
-              division: string | null;
+            (await client`select lobby_id from challenges where id=${challengeId}`) as {
+              lobby_id: string;
             }[];
-          return row ? row.division : 'missing';
+          return row ? row.lobby_id : 'missing';
         },
         (error: unknown) => (isAppError(error) ? error.message : 'threw'),
       );
@@ -89,12 +94,12 @@ test('a challenge stays inside one lobby and stores it (ADR 0156)', async () => 
         casualNoRecord,
       },
       expected: {
-        bothAdults: 'open',
+        bothAdults: open,
         acrossLadders: 'other-division',
         casualAcross: 'other-division',
-        bothYouth: 'youth',
+        bothYouth: youth,
         noRecord: 'other-division',
-        casualNoRecord: 'open',
+        casualNoRecord: open,
       },
     });
   } finally {

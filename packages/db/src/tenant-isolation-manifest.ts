@@ -222,6 +222,11 @@ export const tenantIsolationManifest: TenantIsolationManifest = {
         'The existing inbox is owned and read by its recipient account. Fixture, lobby and command references provide notification provenance only; reads recheck current account, boundary and relationship authority before exposing a subject. They confer no tenant read authority.',
     },
     {
+      table: 'challenges',
+      reason:
+        'Only the two challenged members may act on or read the offer through the Contacts fence. Its lobby pins exactly where its Room will open and grants no tenant read authority.',
+    },
+    {
       table: 'rooms',
       reason:
         'The Room aggregate is read by the Room evaluator path, which filters by lobby in the query; a Room listing is not fenced by a policy.',
@@ -271,6 +276,18 @@ export const tenantIsolationManifest: TenantIsolationManifest = {
       executors: ['daisy_web'],
       reason:
         'ADR 0163: bounded expiration and contact scrubbing across guardian invitations. Returns only a count.',
+    },
+    {
+      name: 'daisy_room_is_youth',
+      executors: ['daisy_web', 'daisy_realtime', 'daisy_audience_publisher'],
+      reason:
+        'Returns the age-rule classification needed by linked-adult, recording and spectator readers without granting those readers access to lobby rows.',
+    },
+    {
+      name: 'daisy_round_reuse_age_unknown',
+      executors: ['daisy_web'],
+      reason:
+        'Returns whether missing age evidence on a debating seat in an anyone lobby prevents reuse of a Round. It grants no viewing authority.',
     },
     {
       name: 'daisy_linked_adult_users',

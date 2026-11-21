@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { competitionTypes } from './round';
 import { memberStatuses } from './presence-setting';
 import { idSchema } from './primitives';
 import { ladderSchema, ratingDivisions } from './ladder';
@@ -31,6 +32,7 @@ const personSchema = z.strictObject({
    * name exactly one; null when unknown. A ladder, never an age.
    */
   division: z.enum(ratingDivisions).nullable(),
+  challengeModes: z.array(z.enum(competitionTypes)).max(2),
   wins: count,
   losses: count,
 });

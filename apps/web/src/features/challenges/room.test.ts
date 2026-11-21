@@ -21,7 +21,7 @@ const form = (mode: 'ranked' | 'casual') =>
     opponent: 'ada',
     opponentActorId: 'a'.repeat(24),
     mode,
-    division: 'open',
+    lobbyId: 'l'.repeat(24),
     template,
     commandId: 'c'.repeat(24),
   });

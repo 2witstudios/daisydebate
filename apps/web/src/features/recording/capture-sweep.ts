@@ -533,7 +533,7 @@ export const createRecordingCaptureSweep = (deps: {
           roundId: round.roundId,
           competitionType: round.competitionType,
           ladderDivision: round.ladderDivision,
-          roomDivision: round.roomDivision,
+          roomYouth: round.roomYouth,
           hostActorId: round.hostActorId,
           hostOptedIn: (round.capture?.recordingPolicy ?? 'off') !== 'off',
           hostHoldsRecording: deps.holdsCapture(round.hostGrants),

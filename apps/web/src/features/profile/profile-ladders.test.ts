@@ -1,6 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { MemberStanding } from '../ratings/read-member';
-import { currentDivisionOf, profileLadders } from './profile-ladders';
+import { profileLadders } from './profile-ladders';
 
 setupRitewayBun();
 
@@ -48,28 +48,6 @@ describe('profileLadders', () => {
         profileLadders(unrated, null),
       ],
       expected: [['youth'], []],
-    });
-  });
-});
-
-describe('currentDivisionOf', () => {
-  test('the one ladder rated this season', () => {
-    assert({
-      given:
-        'a current Open rating beside Youth history, no rating, and ratings on both',
-      should: 'name Open, then unknown twice',
-      actual: [
-        currentDivisionOf([
-          standing('open', { rating: 1500 }),
-          standing('youth', { current: false, rating: 1604 }),
-        ]),
-        currentDivisionOf([standing('open'), standing('youth')]),
-        currentDivisionOf([
-          standing('open', { rating: 1500 }),
-          standing('youth', { rating: 1500 }),
-        ]),
-      ],
-      expected: ['open', null, null],
     });
   });
 });

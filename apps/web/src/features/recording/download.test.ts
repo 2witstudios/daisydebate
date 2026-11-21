@@ -57,6 +57,17 @@ describe('openDownload', () => {
           ),
       ],
       [
+        'a subscribed debater on a fenced mixed-age Round with no remaining Youth audience fact',
+        () =>
+          download(
+            deps(record(), {
+              round: { ...round, visibility: 'private', youth: null },
+              reuseFenced: true,
+            }),
+            account('aff'),
+          ),
+      ],
+      [
         'a subscriber who may not watch it',
         () =>
           download(

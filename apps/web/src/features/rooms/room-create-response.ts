@@ -43,9 +43,8 @@ const conflictAnswer = (
       return { kind: 'refused', reason: body.refusal };
     case 'command-conflict':
       return { kind: 'refused', reason: 'replayed' };
-    // The format and the resolution disagree, or the catalog moved on. The
-    // rest are a Room's later steps (a ranked Room's division among them: who
-    // sits sets it), which a create only meets as a bad request.
+    // These conflicts concern Room settings or later Room commands. The
+    // create form can only ask for settings it knows about.
     case 'illegal-config':
     case 'format-unavailable':
     case 'ballot-definition-unavailable':

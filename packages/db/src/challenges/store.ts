@@ -1,10 +1,6 @@
 import { sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
-import type {
-  CompetitionType,
-  RatingDivision,
-  RatingStyle,
-} from '@daisy/protocol';
+import type { CompetitionType, RatingStyle } from '@daisy/protocol';
 import {
   readOwnCollection,
   requireOwnScope,
@@ -55,7 +51,7 @@ type ChallengeRowFacts = {
   readonly mode: CompetitionType;
   readonly format: RatingStyle;
   /** The lobby both members share (ADR 0156); its Room opens there. */
-  readonly division: RatingDivision;
+  readonly lobbyId: string;
   readonly createdAt: string;
   readonly expiresAt: string;
 };
@@ -81,7 +77,7 @@ export function listChallenges(
     const rows = (await tx.execute(sql`
       select c.id,
         case when c.challenged_actor_id = ${scope.actorId} then 'incoming' else 'outgoing' end as direction,
-        a.id as "actorId", u.username, c.mode, c.format_id as format, c.division, c.room_id as "roomId",
+        a.id as "actorId", u.username, c.mode, c.format_id as format, c.lobby_id as "lobbyId", c.room_id as "roomId",
         c.created_at as "createdAt", c.expires_at as "expiresAt"
       from challenges c
       join actors a on a.id = case when c.challenged_actor_id = ${scope.actorId}

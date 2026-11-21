@@ -2,7 +2,6 @@ import {
   buildUserInboxTopic,
   type CompetitionType,
   type NotificationKind,
-  type RatingDivision,
   type RatingStyle,
   type SeatKind,
   type TournamentNotificationKind,
@@ -59,8 +58,6 @@ export type InboxRow = {
       readonly challenger: string | null;
       readonly mode: CompetitionType;
       readonly format: RatingStyle;
-      /** A ranked offer's ladder division (ADR 0147); null when casual. */
-      readonly division: RatingDivision | null;
     }
   | {
       readonly kind: 'challenge_accepted';
@@ -118,7 +115,6 @@ type FlatRow = {
   about: string | null;
   mode: CompetitionType | null;
   format: RatingStyle | null;
-  division: RatingDivision | null;
   recipientEmail: string | null;
   requestExpiresAt: string | null;
   minor: string | null;
@@ -171,7 +167,6 @@ const inboxRow = (
         challenger: row.about,
         mode: row.mode!,
         format: row.format!,
-        division: row.division,
       };
     case 'challenge_accepted':
       return {
@@ -252,7 +247,7 @@ export const readInboxRows = async (
       database,
       sql`select n.id,n.kind,n.round_id as "roundId",i.room_id as "roomId",
           c.room_id as "challengeRoomId",i.seat,
-          u.username as about,c.mode,c.format_id as format,c.division,
+          u.username as about,c.mode,c.format_id as format,
           mrq.recipient_email as "recipientEmail",
           ${iso('mrq.expires_at')} as "requestExpiresAt",
           mru.username as minor,(mr.user_id=n.user_id) as "ownRelease",

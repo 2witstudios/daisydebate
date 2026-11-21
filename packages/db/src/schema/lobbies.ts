@@ -1,4 +1,5 @@
 import { lobbyKinds, tournamentStatuses } from '@daisy/protocol/lobby';
+import { lobbyAgeRules } from '@daisy/protocol/lobby/eligibility';
 import { sql } from 'drizzle-orm';
 import {
   boolean,
@@ -6,6 +7,7 @@ import {
   foreignKey,
   index,
   integer,
+  pgEnum,
   pgTable,
   text,
   unique,
@@ -22,6 +24,8 @@ import {
 import { organizations } from './organizations';
 import { constantText, nonEmpty } from './tenant-keys';
 import { users } from './users';
+
+export const lobbyAgeRule = pgEnum('lobby_age_rule', lobbyAgeRules);
 
 /**
  * The one container of Rooms: `standing` (open-ended) or `tournament`
@@ -45,6 +49,7 @@ export const lobbies = pgTable(
     ownerOrganizationKind: constantText('owner_organization_kind', 'league'),
     name: text('name').notNull(),
     handle: text('handle').notNull(),
+    ageRule: lobbyAgeRule('age_rule').notNull().default('adults'),
     closedAt: timestampColumn('closed_at'),
     createdAt: createdAtColumn(),
     updatedAt: updatedAtColumn(),

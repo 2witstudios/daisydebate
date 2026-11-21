@@ -52,8 +52,8 @@ const view = {
     seat(bot, 'bot', 'judge', 1),
     anonymousJudge,
   ],
-  division: 'open',
-} as unknown as Pick<RoomView, 'participants' | 'division'>;
+  ageRule: 'adults',
+} as unknown as Pick<RoomView, 'participants' | 'ageRule'>;
 const rated = (
   actorId: string,
   rating: number,
@@ -163,8 +163,8 @@ test('a Room view reads ratings once for all its seated humans', async () => {
   });
   const botsOnly = {
     participants: [seat(bot, 'bot', 'affirmative')],
-    division: 'open',
-  } as unknown as Pick<RoomView, 'participants' | 'division'>;
+    ageRule: 'adults',
+  } as unknown as Pick<RoomView, 'participants' | 'ageRule'>;
   let read2 = 0;
   await withSeatRatings(
     botsOnly,

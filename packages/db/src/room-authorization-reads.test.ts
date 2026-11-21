@@ -50,6 +50,7 @@ test('Room assembly read hydrates its pinned definition and current host label',
     ],
     [[foundationDefinition]],
     [], // the Room has no claimed participants yet
+    [['adults']], // the Room’s age rule
     [[caller.actorId, 'human', 'current-host', null, true, null]],
     [], // no new Round exists
     [], // no seat holds

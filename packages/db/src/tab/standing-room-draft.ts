@@ -134,17 +134,10 @@ export const loadStandingRoomDraft = async (
         )
         .for('share')
     : [];
-  // A league's Rooms are in its division (ADR 0156); Daisy runs every
-  // division and carries none, so its own standing Rooms are Open.
-  const [owner] = await tx
-    .select({ division: organizations.leagueDivision })
-    .from(organizations)
-    .where(eq(organizations.id, found.ownerOrganizationId));
   return {
     lobby,
     authorization,
     offered: currentOffers,
-    division: owner?.division ?? ('open' as const),
     templateAuthorizations,
     ladder:
       (

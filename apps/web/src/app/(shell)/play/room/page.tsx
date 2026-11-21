@@ -8,7 +8,7 @@ import { roomTemplates } from '../actions';
 import {
   requestMemberDivision,
   requestRoomDraftAnswer,
-  requestStaffLobby,
+  requestRoomCreateLobbyChoice,
 } from '../../../../lib/request-session';
 
 export const metadata: Metadata = { title: 'Create a room' };
@@ -19,14 +19,19 @@ export default async function OpenRoomPage({
   searchParams: Promise<SearchParams>;
 }) {
   await requireAccess('/play/room', searchParams);
+  const query = await searchParams;
   const templates = await roomTemplates();
   if (templates.kind !== 'found') throw createAppError('INFRASTRUCTURE');
+  const draft = await requestRoomDraftAnswer(query.draft);
+  const lobbyId =
+    draft.values.lobby ??
+    (typeof query.lobby === 'string' ? query.lobby : undefined);
   return (
     <CreateRoomPage
-      initialRanked={(await searchParams).ranked === '1'}
+      initialRanked={query.ranked === '1'}
       memberDivision={await requestMemberDivision()}
-      staffLobby={await requestStaffLobby()}
-      initialState={await requestRoomDraftAnswer((await searchParams).draft)}
+      lobbyChoice={await requestRoomCreateLobbyChoice(lobbyId)}
+      initialState={draft}
       choices={templates.choices}
       commandId={systemId.next()}
     />

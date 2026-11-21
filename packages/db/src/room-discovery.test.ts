@@ -22,7 +22,8 @@ const entry = {
   waitingSince: '2026-10-09T00:00:00.000Z',
   live: null,
   hostRating: null,
-  division: 'open',
+  ageRule: 'adults',
+  lobbyId: 'l'.repeat(24),
   openJudgeSeats: 0,
 } as const;
 test('discovery bounds SQL before Room locks and reads no aggregate', async () => {
@@ -31,7 +32,7 @@ test('discovery bounds SQL before Room locks and reads no aggregate', async () =
   ]);
   const page = await database.listRoomPage(
     caller,
-    { pageSize: 2, q: '' },
+    { pageSize: 2, q: '', lobbyId: entry.lobbyId },
     () => true,
     () => true,
     () => false,
@@ -45,16 +46,16 @@ test('discovery bounds SQL before Room locks and reads no aggregate', async () =
     actual: [
       page,
       queries.slice(1).length,
-      queries[1]!.query.includes('limit'),
-      queries[1]!.query.includes('for share'),
-      queries[2]!.params.includes(ids[2]),
+      queries[2]!.query.includes('limit'),
+      queries[2]!.query.includes('for share'),
+      queries[3]!.params.includes(ids[2]),
       queries.some((q) =>
         /format_revisions|readiness_command_id/.test(q.query),
       ),
     ],
     expected: [
       { rooms: [entry], nextCursor: ids[0], retry: false },
-      5,
+      6,
       true,
       false,
       false,
@@ -70,7 +71,7 @@ test('adapter refuses malformed page before any SQL', async () => {
     actual: () =>
       database.listRoomPage(
         caller,
-        { pageSize: 51, q: '' },
+        { pageSize: 51, q: '', lobbyId: entry.lobbyId },
         () => true,
         () => true,
         () => false,
@@ -95,7 +96,7 @@ test('lock-wait privacy changes never disclose an inaccessible cursor', async ()
     const { database, queries } = discoveryFixture(rows);
     const page = await database.listRoomPage(
       caller,
-      { pageSize: 2, q: '' },
+      { pageSize: 2, q: '', lobbyId: entry.lobbyId },
       () => true,
       () => true,
       () => false,
@@ -107,7 +108,7 @@ test('lock-wait privacy changes never disclose an inaccessible cursor', async ()
       should:
         'continue only from a returned accessible id or request explicit retry',
       actual: [page.nextCursor, page.retry, queries.length],
-      expected: [rows.length ? ids[0] : null, rows.length === 0, 6],
+      expected: [rows.length ? ids[0] : null, rows.length === 0, 7],
     });
   }
 });
@@ -125,7 +126,7 @@ test('Lobby filters narrow the candidates and live facts read as ISO instants', 
     {
       ...started,
       hostRating: 1512,
-      division: 'youth',
+      ageRule: 'under-18',
       seatKind: null,
       side: null,
       slot: null,
@@ -133,7 +134,13 @@ test('Lobby filters narrow the candidates and live facts read as ISO instants', 
   ]);
   const page = await database.listRoomPage(
     caller,
-    { pageSize: 2, q: '', status: 'live', mode: 'ranked' },
+    {
+      pageSize: 2,
+      q: '',
+      lobbyId: entry.lobbyId,
+      status: 'live',
+      mode: 'ranked',
+    },
     () => true,
     () => true,
     () => true,
@@ -146,18 +153,18 @@ test('Lobby filters narrow the candidates and live facts read as ISO instants', 
     should:
       'bind the filters into the candidate SQL, normalize the start instant and hide the host rating with the host',
     actual: [
-      queries[1]!.params.includes('ranked'),
-      queries[1]!.query.includes('competition_type'),
+      queries[2]!.params.includes('ranked'),
+      queries[2]!.query.includes('competition_type'),
       page.rooms[0]?.live,
       [page.rooms[0]?.hostLabel, page.rooms[0]?.hostRating],
-      page.rooms[0]?.division,
+      page.rooms[0]?.ageRule,
     ],
     expected: [
       true,
       true,
       { stage: 'live', startedAt: '2026-10-09T00:05:00.000Z' },
       [null, null],
-      'youth',
+      'under-18',
     ],
   });
 });
@@ -165,6 +172,7 @@ test('Lobby filters narrow the candidates and live facts read as ISO instants', 
 function discoveryFixture(rows: readonly Record<string, unknown>[]) {
   return createTestDatabase([
     [accountRow()],
+    [[entry.lobbyId, 'Open', 'adults', 'o'.repeat(24)]],
     ids.map((id) => ({ id })),
     [],
     [],
@@ -180,7 +188,7 @@ test('discovery keys oldest and newest pages on immutable creation time and Room
     ]);
     await database.listRoomPage(
       caller,
-      { pageSize: 2, q: '', sort, cursor: ids[1] },
+      { pageSize: 2, q: '', lobbyId: entry.lobbyId, sort, cursor: ids[1] },
       () => true,
       () => true,
       () => false,
@@ -192,13 +200,13 @@ test('discovery keys oldest and newest pages on immutable creation time and Room
       should:
         'seek and order both discovery branches by the same immutable tuple',
       actual: [
-        queries[1]!.query.includes('(r.created_at, r.id collate "C")'),
-        queries[1]!.query.includes(sort === 'newest' ? '<' : '>'),
-        queries[1]!.query.includes(
+        queries[2]!.query.includes('(r.created_at, r.id collate "C")'),
+        queries[2]!.query.includes(sort === 'newest' ? '<' : '>'),
+        queries[2]!.query.includes(
           'select r.created_at, r.id collate "C" from rooms r',
         ),
-        queries[1]!.query.includes('order by created_at'),
-        queries[1]!.params.includes(ids[1]),
+        queries[2]!.query.includes('order by created_at'),
+        queries[2]!.params.includes(ids[1]),
         queries.at(-1)!.query.includes('order by r.created_at'),
       ],
       expected: [true, true, true, true, true, true],

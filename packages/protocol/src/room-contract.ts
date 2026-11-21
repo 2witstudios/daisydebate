@@ -1,9 +1,9 @@
+import { lobbyAgeRules, type LobbyAgeRule } from './lobby/eligibility';
 import type { FormatSettings } from './format-settings';
 import type { RoomView, roomRefusalSchema } from './room-read';
 export type { RoomView, RoomCatalogChoice, RoomCastChoice } from './room-read';
 import { z } from 'zod';
 import { idSchema } from './primitives';
-import { ratingDivisions, type RatingDivision } from './ladder';
 import {
   seatRefSchema,
   type SeatKind,
@@ -140,11 +140,9 @@ export const roomCreateSchema = z
     /** The capture notice the create form showed its host, to be recorded; only a casual create with capture states one. */
     noticeVersion: z.string().min(1).max(64).optional(),
     /**
-     * The lobby the Room opens in (ADR 0156). Omitted: the creator's own.
-     * Only club staff may name Youth from the Open lobby; any other lobby
-     * not the creator's own is refused `other-division`.
+     * The standing lobby the Room opens in. Omitted: the creator's landing lobby.
      */
-    lobby: z.enum(ratingDivisions).optional(),
+    lobby: idSchema.optional(),
   })
   .refine(
     (create) =>
@@ -449,10 +447,10 @@ export type RoomAssemblyState = RoomRoundLink & {
   readonly holdsHost?: boolean;
   readonly competitionType: CompetitionType;
   /**
-   * The lobby the Room was created in, fixed for its life (ADR 0156): its
-   * debater seats are for that division's members.
+   * The lobby the Room was created in, fixed for its life.
    */
-  readonly division: RatingDivision;
+  readonly lobbyId: string;
+  readonly ageRule: LobbyAgeRule;
   readonly definition: FormatDefinition;
   readonly config: RoomConfig;
   /** The casual host's capture choice; null when nothing is chosen, and always on ranked. */
@@ -524,11 +522,8 @@ export const roomListQuerySchema = z.strictObject({
    */
   status: z.enum(roomListStatuses).optional(),
   mode: z.enum(competitionTypes).optional(),
-  /**
-   * The lobby (ADR 0156): Rooms created in this division, casual and ranked.
-   * The Lobby page always names one; omitted lists both.
-   */
-  division: z.enum(ratingDivisions).optional(),
+  /** The selected standing lobby. Omitted selects the viewer's landing lobby. */
+  lobbyId: idSchema.optional(),
 });
 /** Active discovery carries the catalog label, not cast, full rules/configuration or consent. */
 const roomListEntryFields = z.strictObject({
@@ -566,8 +561,8 @@ const roomListEntryFields = z.strictObject({
    * otherwise, while no ladder is set, or hidden.
    */
   hostRating: z.int().nullable(),
-  /** The lobby the Room was created in (ADR 0156). */
-  division: z.enum(ratingDivisions),
+  lobbyId: idSchema,
+  ageRule: z.enum(lobbyAgeRules),
   /** Free judge seats: anyone may judge, whatever the lobby. */
   openJudgeSeats: z.int().nonnegative(),
 });

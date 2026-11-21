@@ -114,14 +114,18 @@ const seedRound = async (
       }
     : { format_id: await f.format() };
   const competition = { competition_type: ranked ? 'ranked' : 'casual' };
-  const roomId =
-    fixture.round.room === null
-      ? null
-      : await f.room(await f.actor(), format.format_id, {
-          division: fixture.round.room,
-          ...competition,
-          ...format,
-        });
+  let roomId: string | null = null;
+  if (fixture.round.room !== null) {
+    const ageRule = fixture.round.room === 'youth' ? 'under-18' : 'adults';
+    const [lobby] = await f.sql`select l.id from lobbies l
+      join organizations o on o.id=l.owner_organization_id
+      where l.kind='standing' and o.official and l.age_rule=${ageRule}`;
+    roomId = await f.room(await f.actor(), format.format_id, {
+      lobby_id: lobby!.id,
+      ...competition,
+      ...format,
+    });
+  }
   const roundId = await f.round({
     room_id: roomId,
     // A Room's Round freezes what the Room set (rounds_room_freeze_complete).

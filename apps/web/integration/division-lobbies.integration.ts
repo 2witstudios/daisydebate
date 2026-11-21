@@ -134,44 +134,53 @@ test('a Room belongs to the lobby it is created in (ADR 0156)', async () => {
       await setAge(f, f.host, 'seventeen');
       await setAge(f, f.guest, 'adult');
       await setAge(f, f.outsider, 'adult');
+      const { id: youthLobby } = (
+        await f.store.readOfficialStandingLobbies()
+      ).find((lobby) => lobby.ageRule === 'under-18')!;
+      const { id: openLobby } = (
+        await f.store.readOfficialStandingLobbies()
+      ).find((lobby) => lobby.ageRule === 'adults')!;
       const club = await makeClubStaff(f, f.outsider);
       try {
         const minorRanked = (await f.create(await ranked(f), f.host)).view;
         const minorCasual = (await f.create({}, f.host)).view;
         const adultCasual = (await f.create({}, f.guest)).view;
         const adultChoosesYouth = await refusalOf(
-          f.create({ lobby: 'youth' }, f.guest),
+          f.create({ lobby: youthLobby }, f.guest),
         );
         const minorChoosesOpen = await refusalOf(
-          f.create({ lobby: 'open' }, f.host),
+          f.create({ lobby: openLobby }, f.host),
         );
         const staffYouth = (
-          await f.create({ ...(await ranked(f)), lobby: 'youth' }, f.outsider)
+          await f.create(
+            { ...(await ranked(f)), lobby: youthLobby },
+            f.outsider,
+          )
         ).view;
-        const stored = await f.sql`select id, division from rooms
+        const stored = await f.sql`select id, lobby_id from rooms
           where id in (${minorRanked.id}, ${minorCasual.id}, ${adultCasual.id}, ${staffYouth.id})`;
-        const divisionOf = (id: string) =>
-          stored.find((row: { id: string }) => row.id === id)?.division;
+        const lobbyOf = (id: string) =>
+          stored.find((row: { id: string }) => row.id === id)?.lobby_id;
         assert({
           given:
             'a 17-year-old creating ranked and casual Rooms, an adult creating casual and asking for Youth, the minor asking for Open, and club staff asking for Youth',
           should:
             'open each member’s Room in their own lobby, casual included, refuse the other lobby, and let club staff open a Youth Room',
           actual: {
-            minorRanked: [minorRanked.division, divisionOf(minorRanked.id)],
-            minorCasual: minorCasual.division,
-            adultCasual: adultCasual.division,
+            minorRanked: [minorRanked.lobbyId, lobbyOf(minorRanked.id)],
+            minorCasual: minorCasual.lobbyId,
+            adultCasual: adultCasual.lobbyId,
             adultChoosesYouth,
             minorChoosesOpen,
-            staffYouth: divisionOf(staffYouth.id),
+            staffYouth: lobbyOf(staffYouth.id),
           },
           expected: {
-            minorRanked: ['youth', 'youth'],
-            minorCasual: 'youth',
-            adultCasual: 'open',
+            minorRanked: [youthLobby, youthLobby],
+            minorCasual: youthLobby,
+            adultCasual: openLobby,
             adultChoosesYouth: 'other-division',
             minorChoosesOpen: 'other-division',
-            staffYouth: 'youth',
+            staffYouth: youthLobby,
           },
         });
       } finally {
@@ -313,13 +322,13 @@ test('a Youth Room rates on the Youth season, and starts ranked only while it is
           'sign them on the Youth season, refuse ranked at Start and launch no Round',
         actual: {
           signedOn: signedOn.map((row: { division: string }) => row.division),
-          division: room.division,
+          ageRule: room.ageRule,
           started,
           rounds: rounds[0]!.c,
         },
         expected: {
           signedOn: ['youth', 'youth'],
-          division: 'youth',
+          ageRule: 'under-18',
           started: 'ranked-unavailable',
           rounds: 0,
         },
@@ -343,10 +352,10 @@ test('a member who turns 18 mid-season finishes it on Youth', async () => {
             'a member who turned 18 after the active Youth season began, sitting in a ranked Room, and an adult claiming beside them',
           should: 'seat them on Youth and refuse the adult',
           actual: {
-            division: room.division,
+            ageRule: room.ageRule,
             adultClaim: await claim(f, f.guest, room),
           },
-          expected: { division: 'youth', adultClaim: 'other-division' },
+          expected: { ageRule: 'under-18', adultClaim: 'other-division' },
         });
       },
       { youthStartedAgo: '3 months' },
@@ -365,7 +374,7 @@ test('the Youth carry is bounded: no one is aged before their own record, nor mo
         await setAge(f, f.guest, 'eighteenAndAHalf', '4 years');
         // On record since before the season, 19 and a month: past the carry.
         await setAge(f, f.outsider, 'nineteenAndAMonth', '4 years');
-        const lateSignUp = (await rankedRoomSetBy(f, f.host)).division;
+        const lateSignUp = (await rankedRoomSetBy(f, f.host)).ageRule;
         assert({
           given:
             'a Youth season begun three years ago, a member who recorded their age at 18 and a half, one on record since before it who is 18 and a half, and one who is 19 and a month',
@@ -373,13 +382,13 @@ test('the Youth carry is bounded: no one is aged before their own record, nor mo
             'put the late sign-up on Open, carry the 18-and-a-half on Youth, and put the 19-year-old on Open',
           actual: {
             lateSignUp,
-            carried: (await rankedRoomSetBy(f, f.guest)).division,
-            pastTheCarry: (await rankedRoomSetBy(f, f.outsider)).division,
+            carried: (await rankedRoomSetBy(f, f.guest)).ageRule,
+            pastTheCarry: (await rankedRoomSetBy(f, f.outsider)).ageRule,
           },
           expected: {
-            lateSignUp: 'open',
-            carried: 'youth',
-            pastTheCarry: 'open',
+            lateSignUp: 'adults',
+            carried: 'under-18',
+            pastTheCarry: 'adults',
           },
         });
       },

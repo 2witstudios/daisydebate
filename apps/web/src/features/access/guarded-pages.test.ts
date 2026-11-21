@@ -2,6 +2,7 @@ import { join } from 'node:path';
 import { mock } from 'bun:test';
 import { Glob } from 'bun';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import type { Identity } from '@daisy/auth';
 import { guardedAreaFor, isGuardedPath } from './decision';
 
 setupRitewayBun();
@@ -31,11 +32,22 @@ mock.module(join(import.meta.dir, '../../lib/access.ts'), () => ({
   },
 }));
 // Public pages that only read who is asking (the Watch and Recordings pages
-// and the leaderboard, which pins the viewer's line) get
-// an anonymous visitor instead of the request's cookies.
+// and the leaderboard, which pins the viewer's line) use this request fixture.
+const adultCoach = {
+  state: 'member',
+  username: 'coach',
+  principal: { kind: 'user', userId: 'coach-user', actorId: 'coach-actor' },
+} satisfies Identity;
+const studentReads: Array<{
+  userId: string;
+  actorId: string;
+  lobbyId?: string;
+}> = [];
+let onlyYouthLobby = false;
 mock.module(join(import.meta.dir, '../../lib/request-session.ts'), () => ({
   requestRoomDraftAnswer: async () => ({ values: {} }),
-  requestIdentity: async () => ({ state: 'anonymous' }),
+  requestIdentity: async () =>
+    onlyYouthLobby ? adultCoach : { state: 'anonymous' },
   // A stored league's people page words time by the process clock.
   requestNow: () => '2027-03-06T08:00:00.000Z',
   // The sample Room pages reach the release reader through their form action.
@@ -56,7 +68,10 @@ mock.module(join(import.meta.dir, '../../lib/request-session.ts'), () => ({
   requestLeadingLive: async () => [],
   requestSeasonGlance: async () => null,
   requestLiveRoundsOf: async () => new Map(),
-  requestStudentsLive: async () => [],
+  requestStudentsLive: async (member: (typeof studentReads)[number]) => {
+    studentReads.push(member);
+    return [];
+  },
   requestStudentRoundIds: async () => [],
   requestLiveListing: async () => ({
     featured: null,
@@ -78,7 +93,12 @@ mock.module(join(import.meta.dir, '../../lib/request-session.ts'), () => ({
   readRecordingHistory: async () => ({ kind: 'not-found' }),
   requestMemberStandings: async () => [],
   requestMemberDivision: async () => null,
-  requestStaffLobby: async () => null,
+  requestCompetitionAgeBand: async () => (onlyYouthLobby ? 'adult' : null),
+  requestOfficialStandingLobbies: async () =>
+    onlyYouthLobby
+      ? [{ id: 'youth-lobby', name: 'Youth', ageRule: 'under-18' }]
+      : [],
+  requestRoomCreateLobbyChoice: async () => null,
   privateGroupsOffered: () => false,
   messagingFilesAvailable: () => false,
   messagingLatestPageItems: () => 50,
@@ -359,6 +379,29 @@ describe('guarded pages', () => {
       should: 'not call requireAccess',
       actual: await requestsOf(spectator),
       expected: spectator.map(({ file }) => ({ file, requests: [] })),
+    });
+  });
+
+  test('Watch asks for a coach’s student Rounds with no eligible standing lobby', async () => {
+    onlyYouthLobby = true;
+    try {
+      const { default: watchPage } =
+        await import('../../app/(shell)/watch/page');
+      await watchPage({ searchParams: Promise.resolve({}) });
+    } finally {
+      onlyYouthLobby = false;
+    }
+    assert({
+      given: 'an adult visits bare /watch and the only official lobby is Youth',
+      should: 'read their student Rounds with no standing lobby selected',
+      actual: studentReads.splice(0),
+      expected: [
+        {
+          userId: adultCoach.principal.userId,
+          actorId: adultCoach.principal.actorId,
+          lobbyId: '',
+        },
+      ],
     });
   });
 

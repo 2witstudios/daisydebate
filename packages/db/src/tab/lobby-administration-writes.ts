@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import type { TournamentStatus } from '@daisy/protocol/lobby';
+import type { LobbyAgeRule } from '@daisy/protocol/lobby/eligibility';
 import { jsonObjectSchema } from '../schema/columns';
 import { ladders } from '../schema/ladders';
 import { lobbies, tournaments } from '../schema/lobbies';
@@ -44,6 +45,7 @@ export type LobbyAdministrationWrite =
         readonly ownerOrganizationId: string | null;
         readonly name: string;
         readonly handle: string;
+        readonly ageRule?: LobbyAgeRule;
       }
     >
   | Update<'lobbies', LobbyRow>
@@ -87,6 +89,7 @@ const one = (rows: readonly unknown[]) => {
     throw createAppError('INVARIANT', 'Tab write did not affect one row');
 };
 const at = (value: string | null) => (value === null ? null : new Date(value));
+
 const apply = async (
   tx: TabTransaction,
   write: LobbyAdministrationWrite,

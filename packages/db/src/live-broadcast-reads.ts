@@ -1,6 +1,5 @@
 import { and, desc, eq, inArray, sql, type SQL } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
-import type { Ladder } from '@daisy/protocol';
 import { actors } from './schema/actors';
 import { botProfiles } from './schema/bot-profiles';
 import { broadcasts } from './schema/broadcasts';
@@ -28,8 +27,7 @@ const escapeLike = (value: string) => value.replace(/[\\%_]/g, '\\$&');
 export type LiveBroadcastFilter = {
   readonly mode: 'any' | 'ranked' | 'casual';
   readonly q: string;
-  /** Narrows to one ladder's ranked Rounds; absent or null is every ladder. */
-  readonly ladder?: Ladder | null;
+  readonly lobbyId?: string;
 };
 
 /**
@@ -78,13 +76,13 @@ const seatedAny = (usernames: readonly string[] | undefined) =>
 const moded = (mode: LiveBroadcastFilter['mode']) =>
   mode === 'any' ? undefined : eq(rounds.competitionType, mode);
 
-const laddered = (ladder: LiveBroadcastFilter['ladder']) =>
-  ladder
-    ? and(
-        eq(rounds.ladderId, ladder.style),
-        eq(rounds.ladderDivision, ladder.division),
-      )
-    : undefined;
+const officialLobby = (room: SQL, lobbyId: string | undefined) =>
+  sql`exists (
+    select 1 from lobbies l join organizations o on o.id=l.owner_organization_id
+    where l.id=${room} and l.kind='standing' and l.closed_at is null
+      and o.official and o.closed_at is null
+      and ${lobbyId === undefined ? sql`true` : sql`l.id=${lobbyId}`}
+  )`;
 
 const cursorRound = {
   id: sql`c.id`,
@@ -94,11 +92,16 @@ const cursorRound = {
 };
 
 /** A cursor at a Round not yet on Live reads as a missing one: polling learns no start. */
-const afterCursor = (before: string, clock: SpectatorClock): SQL | undefined =>
+const afterCursor = (
+  before: string,
+  clock: SpectatorClock,
+  lobbyId: string | undefined,
+): SQL | undefined =>
   before === ''
     ? undefined
-    : sql`(${rounds.startedAt}, ${rounds.id}) < (select c.started_at, c.id from rounds c
+    : sql`(${rounds.startedAt}, ${rounds.id}) < (select c.started_at, c.id from rounds c join rooms cr on cr.id=c.room_id
         where c.id = ${before} and c.visibility = 'public'
+          and ${officialLobby(sql`cr.lobby_id`, lobbyId)}
           and ${factReleasedSql(sql`c.started_at`, cursorRound, clock)})`;
 
 /**
@@ -171,10 +174,10 @@ export const liveBroadcastReads = ({
             and(
               onLive(input.clock),
               moded(input.filter.mode),
-              laddered(input.filter.ladder),
+              officialLobby(sql`${rooms.lobbyId}`, input.filter.lobbyId),
               searched(input.filter.q),
               seatedAny(input.seatedUsernames),
-              afterCursor(input.before, input.clock),
+              afterCursor(input.before, input.clock, input.filter.lobbyId),
             ),
           )
           .orderBy(desc(rounds.startedAt), desc(rounds.id))
@@ -249,12 +252,21 @@ export const liveBroadcastReads = ({
       { isolationLevel: 'repeatable read', accessMode: 'read only' },
     );
   },
-  async countLiveBroadcasts(input: { readonly clock: SpectatorClock }) {
+  async countLiveBroadcasts(input: {
+    readonly clock: SpectatorClock;
+    readonly lobbyId?: string;
+  }) {
     const [row] = await database
       .select({ count: sql<number>`count(*)::int` })
       .from(rounds)
       .innerJoin(broadcasts, eq(broadcasts.roundId, rounds.id))
-      .where(onLive(input.clock));
+      .innerJoin(rooms, eq(rooms.id, rounds.roomId))
+      .where(
+        and(
+          onLive(input.clock),
+          officialLobby(sql`${rooms.lobbyId}`, input.lobbyId),
+        ),
+      );
     return row?.count ?? 0;
   },
 });

@@ -6,6 +6,7 @@ import {
   ballotDefinitionBodySchema,
 } from '../ballot-definition';
 import { roomCreateSchema } from '../room-contract';
+import { lobbyAgeRules } from './eligibility';
 import {
   lobbyCommandEnvelope,
   type LobbyCommandCatalogue,
@@ -80,7 +81,10 @@ const createLobby = z.strictObject({
   handle: lobbyHandleSchema,
   /** One command, both kinds: a tournament also gets its schedule extension. */
   lobby: z.discriminatedUnion('kind', [
-    z.strictObject({ kind: z.literal('standing') }),
+    z.strictObject({
+      kind: z.literal('standing'),
+      ageRule: z.enum(lobbyAgeRules).optional(),
+    }),
     z.strictObject({
       kind: z.literal('tournament'),
       admitsMinors: z.boolean(),
