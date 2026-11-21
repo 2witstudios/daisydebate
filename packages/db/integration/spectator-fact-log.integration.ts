@@ -11,7 +11,8 @@ import {
   recordFactReleases,
   spectatorFactLogOperations,
 } from '../src/spectator-fact-log';
-import { withFixture } from './constraint-helpers';
+import { scratchDatabase } from '../src/testing-scratch';
+import { Fixture, withFixture } from './constraint-helpers';
 
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
@@ -32,39 +33,42 @@ const withEndedRound = async (
     /** Another Round of the same shape, gone with the fixture. */
     readonly anotherRound: () => Promise<string>;
   }) => Promise<void>,
+  scratchUrl?: string,
 ) => {
-  const client = new SQL(databaseUrl, { max: 3 });
+  const client = new SQL(scratchUrl ?? databaseUrl, { max: 3 });
+  const exercise = async (f: Fixture) => {
+    const host = await f.actor(await f.user());
+    const endedRound = async () =>
+      f.round({
+        room_id: await f.room(host, await f.format()),
+        visibility: 'public',
+        room_config_snapshot: {},
+        resolution: null,
+        status: 'completed',
+        competition_type: 'ranked',
+        format_id: 'freestyle',
+        preset_version: 1,
+        ladder_id: 'freestyle',
+        ladder_division: 'open',
+        winning_side: 'affirmative',
+        started_at: started,
+        completed_at: ended,
+      });
+    const roundId = await endedRound();
+    try {
+      await run({
+        db: drizzle({ client }),
+        sql: client,
+        roundId,
+        anotherRound: endedRound,
+      });
+    } finally {
+      await client`delete from broadcasts where round_id=${roundId}`;
+    }
+  };
   try {
-    await withFixture(databaseUrl, async (f) => {
-      const host = await f.actor(await f.user());
-      const endedRound = async () =>
-        f.round({
-          room_id: await f.room(host, await f.format()),
-          visibility: 'public',
-          room_config_snapshot: {},
-          resolution: null,
-          status: 'completed',
-          competition_type: 'ranked',
-          format_id: 'freestyle',
-          preset_version: 1,
-          ladder_id: 'freestyle',
-          ladder_division: 'open',
-          winning_side: 'affirmative',
-          started_at: started,
-          completed_at: ended,
-        });
-      const roundId = await endedRound();
-      try {
-        await run({
-          db: drizzle({ client }),
-          sql: client,
-          roundId,
-          anotherRound: endedRound,
-        });
-      } finally {
-        await client`delete from broadcasts where round_id=${roundId}`;
-      }
-    });
+    if (scratchUrl) await exercise(new Fixture(client));
+    else await withFixture(databaseUrl, exercise);
   } finally {
     await client.close();
   }
@@ -358,22 +362,25 @@ const columnsOf = async (sql: SQL, table: string, except: readonly string[]) =>
     .map((name) => `"${name}"`)
     .join(',');
 
-// 2000 copied Rooms and Rounds, then one pass over them: past the default
-// 5 s on a busy runner, so the bound is this test's own.
+// The query plan depends on table statistics. Use a fresh database whose
+// history and open rows belong to this proof, then drop it as a unit.
 test('the sweep costs nothing for finished Rounds, however many there are', async () => {
   const history = 2000;
-  await withEndedRound(async ({ db, sql, roundId }) => {
-    const prefix = `${roundId.slice(0, 16)}`;
-    const roomColumns = await columnsOf(sql, 'rooms', ['id']);
-    const roundColumns = await columnsOf(sql, 'rounds', ['id', 'room_id']);
-    const [source] =
-      (await sql`select room_id from rounds where id=${roundId}`) as {
-        room_id: string;
-      }[];
-    const roomId = source!.room_id;
-    const ids = `generate_series(1, ${history}) n`;
-    const copied = (n: string) => `'${prefix}' || lpad(${n}::text, 8, '0')`;
-    try {
+  const scratch = scratchDatabase(databaseUrl, 'spectatorplan');
+  await scratch.create();
+  try {
+    await scratch.migrate(() => true);
+    await withEndedRound(async ({ db, sql, roundId }) => {
+      const prefix = `${roundId.slice(0, 16)}`;
+      const roomColumns = await columnsOf(sql, 'rooms', ['id']);
+      const roundColumns = await columnsOf(sql, 'rounds', ['id', 'room_id']);
+      const [source] =
+        (await sql`select room_id from rounds where id=${roundId}`) as {
+          room_id: string;
+        }[];
+      const roomId = source!.room_id;
+      const ids = `generate_series(1, ${history}) n`;
+      const copied = (n: string) => `'${prefix}' || lpad(${n}::text, 8, '0')`;
       await sql.unsafe(`insert into rooms (id, ${roomColumns})
         select ${copied('n')}, ${roomColumns} from rooms, ${ids} where rooms.id='${roomId}'`);
       await sql.unsafe(`insert into rounds (id, room_id, ${roundColumns})
@@ -439,15 +446,10 @@ test('the sweep costs nothing for finished Rounds, however many there are', asyn
         actual: await scanOfRounds(),
         expected: { fromOpenRows: true, seqScan: false, read: 1 },
       });
-    } finally {
-      await sql.unsafe(
-        `delete from rounds where id like '${prefix}%' and id <> '${roundId}'`,
-      );
-      await sql.unsafe(
-        `delete from rooms where id like '${prefix}%' and id <> '${roomId}'`,
-      );
-    }
-  });
+    }, scratch.url);
+  } finally {
+    await scratch.drop();
+  }
 }, 30000);
 
 test('a released resolution is logged at the Round start', async () => {
