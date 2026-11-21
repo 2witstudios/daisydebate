@@ -1,5 +1,8 @@
 import { SQL } from 'bun';
 import { requireTestServices } from '@daisy/config';
+import { assertRejects } from '@daisy/errors/testing';
+import { createAppError } from '@daisy/errors';
+import { drizzle } from 'drizzle-orm/bun-sql';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createMessagingTestFixture } from '../src/testing';
 import { listFriendships } from '../src/friends/reads';
@@ -158,11 +161,73 @@ test('the friendship row refuses an inconsistent state', async () => {
   }
 });
 
+test('a refusing reader issues no friendship query', async () => {
+  const { client, fixture } = await openPairStore(databaseUrl);
+  const { actorId, userId } = fixture;
+  const statements: string[] = [];
+  const database = drizzle({
+    client,
+    logger: { logQuery: (query) => statements.push(query) },
+  });
+  try {
+    await assertRejects({
+      given: 'a real account and a fence denying its reader',
+      should: 'refuse from the account fence',
+      actual: () =>
+        listFriendships(
+          database,
+          { actorId: actorId!, userId: userId! },
+          async () => {
+            throw createAppError('AUTHORIZATION');
+          },
+        ),
+      code: 'AUTHORIZATION',
+    });
+    assert({
+      given: 'the refused reader',
+      should: 'query the account and never select friends',
+      actual: [
+        statements.some((query) =>
+          query.includes('daisy_authorization_accounts'),
+        ),
+        statements.some((query) => query.includes('"friendships"')),
+      ],
+      expected: [true, false],
+    });
+    statements.length = 0;
+    await assertRejects({
+      given: 'a malformed actor',
+      should: 'refuse before SQL',
+      actual: () =>
+        listFriendships(
+          database,
+          { actorId: 'x', userId: userId! },
+          async () => {},
+        ),
+      code: 'VALIDATION',
+    });
+    assert({
+      given: 'the malformed scope',
+      should: 'issue no SQL',
+      actual: statements,
+      expected: [],
+    });
+  } finally {
+    await fixture.cleanup();
+    await client.close();
+  }
+});
+
 test('a friend’s hidden choice reaches the other member’s list as one stored row', async () => {
-  const { client, database, fixture } = await openPairStore(databaseUrl);
+  const { client, fixture } = await openPairStore(databaseUrl);
   const { userId, otherUserId, actorId, otherActorId, low, high, now } =
     fixture;
   const unfenced = async () => {};
+  const statements: string[] = [];
+  const database = drizzle({
+    client,
+    logger: { logQuery: (query) => statements.push(query) },
+  });
   const otherChosen = async () =>
     (
       await listFriendships(
@@ -195,6 +260,43 @@ test('a friend’s hidden choice reaches the other member’s list as one stored
     await hide(false);
     const shown = await otherChosen();
     await hide(true);
+    statements.length = 0;
+    const listed = await listFriendships(
+      database,
+      { userId: userId!, actorId: actorId! },
+      unfenced,
+    );
+    const rowQuery = statements.findIndex((query) =>
+      query.includes('"friendships"'),
+    );
+    const accountQuery = statements.findIndex((query) =>
+      query.includes('daisy_authorization_accounts'),
+    );
+    assert({
+      given: 'the accepted pair and its current hidden choice',
+      should:
+        'read the fresh account first and project a bounded list with the counterpart status and ISO timestamp',
+      actual: [
+        listed,
+        accountQuery >= 0 && accountQuery < rowQuery,
+        statements[rowQuery]?.includes('limit'),
+      ],
+      expected: [
+        [
+          {
+            otherActorId,
+            username: otherUserId,
+            state: 'accepted',
+            requesterActorId: actorId,
+            requestedAt: now,
+            otherChosen: 'appearing_offline',
+            otherPlacement: null,
+          },
+        ],
+        true,
+        true,
+      ],
+    });
     const [stored] = (await client.unsafe(
       'select count(*)::int as count from presence_settings where actor_id=$1',
       [otherActorId],
