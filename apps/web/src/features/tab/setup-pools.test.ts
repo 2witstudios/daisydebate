@@ -1,6 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { sampleSetup } from './sample/setup';
-import { AUTUMN } from './sample/moment';
+import { sampleSetup } from './test-support/sample/setup';
+import { AUTUMN } from './test-support/sample/moment';
 import { tournamentSetupOf } from './setup';
 setupRitewayBun();
 test('preliminary rounds consume their assigned pool only', () => {

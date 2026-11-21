@@ -4,7 +4,6 @@ import type {
   interestCategoryChoices,
   wantChoices,
 } from '@daisy/protocol';
-import { catalogFormats } from '@daisy/db/catalog-formats';
 
 /** The words on each onboarding choice, keyed by its stored value. */
 export const wantLabels: Record<(typeof wantChoices)[number], string> = {
@@ -31,10 +30,10 @@ export const experienceLabels: Record<
 /**
  * The leagues most debaters name, high school and collegiate, as one-tap
  * suggestions beside the open field. Affiliation outlives the formats
- * Daisy runs today, so this is a curated list — the governing bodies'
- * common abbreviations — unioned with the leagues the format catalog
- * carries, so a league Daisy adds a format for shows up on its own. The
- * field stays open either way.
+ * Daisy runs today, so this is a curated list: the governing bodies'
+ * common abbreviations. It holds every league the format catalog carries,
+ * which labels.test.ts checks, because a client module cannot read the
+ * catalog from the database package. The field stays open either way.
  */
 const knownLeagues = [
   // High school circuits and the homeschool leagues.
@@ -57,12 +56,7 @@ const knownLeagues = [
   'BP',
 ] as const;
 
-export const leagueSuggestions: readonly string[] = [
-  ...new Set([
-    ...knownLeagues,
-    ...catalogFormats.flatMap((format) => format.leagues),
-  ]),
-];
+export const leagueSuggestions: readonly string[] = knownLeagues;
 export const topicLabels: Record<
   (typeof interestCategoryChoices)[number],
   string

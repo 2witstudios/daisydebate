@@ -139,17 +139,21 @@ export const deepImportIssue = (
  * Suites, a workspace's integration and e2e folders, test support, and a
  * workspace's Playwright config, which only configures test runs.
  */
-const TEST_CODE =
+export const TEST_CODE =
   /^(?:apps|packages)\/[^/]+\/(?:(?:integration|e2e)\/|playwright\.config\.ts$)|(?:^|\/)test-support\/|\.(?:test|integration|e2e)\.tsx?$|\.test-support\.tsx?$/;
 
-/** A workspace's `./testing` subpath, or any `*.test-support` module. */
+/**
+ * A workspace's `./testing` subpath, any `*.test-support` module, or any
+ * module in a `test-support/` folder.
+ */
 const TEST_SUPPORT_SPECIFIER =
-  /^@daisy\/[^/]+\/testing$|\.test-support(?:\.tsx?)?$/;
+  /^@daisy\/[^/]+\/testing$|\.test-support(?:\.tsx?)?$|(?:^|\/)test-support(?:\/|$)/;
 
 /**
- * Test support (a workspace's `./testing` subpath or a `*.test-support`
- * module) builds fixtures and may import devDependencies such as riteway:
- * only test code may import it (ISSUE-167).
+ * Test support (a workspace's `./testing` subpath, a `*.test-support` module
+ * or a `test-support/` folder) builds fixtures and may import devDependencies
+ * such as riteway: only test code may import it (ISSUE-167). Tab's sample
+ * tournament is test support, so no production path serves it.
  */
 export const testSupportIssue = (
   specifier: string,

@@ -3,6 +3,8 @@
   // Run with `bun run knip` (under Bun, per the toolchain contract).
   "$schema": "./node_modules/knip/schema.json",
   "ignore": [
+    // Loaded as a Knip config by knip:production through the heavy queue.
+    "knip.production.ts",
     // Scenario documents are loaded by the `bun scenario <name>` CLI.
     "scenarios/*.ts",
     // Read as text by judge-bench/remote.ts and run on a deployed web

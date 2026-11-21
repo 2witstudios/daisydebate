@@ -235,18 +235,20 @@ report in CI's advisory job) is the live audit:
   `rejectionOf` reports the same outcome as a value. Other exception paths
   use `bun:test`'s `toThrow(message)` or the exact error, never a bare
   `.toThrow()` (ESLint rejects one). `scripts/check-boundaries.ts` (in
-  `bun lint`) admits an `@daisy/*/testing` or `*.test-support` import only
-  from suites, `integration/`, `e2e/` and test support, never production
-  source. Schema
+  `bun lint`) reserves `@daisy/*/testing`, `*.test-support` and
+  `test-support/` imports for suites, `integration/`, `e2e/` and test
+  support. Schema
   tests assert the parsed value or the issue paths, not a `.success`
   boolean. `given`/`should` read as a specification sentence:
   when the assertion fails, its message is the bug report.
 - **Dead code.** `bun run knip` fails a PR on unused files, exports and
   dependencies (ADR 0013, ADR 0159). A script started by path is an entry in
   `knip.jsonc`, with a comment saying what starts it; keep its ignores
-  limited to genuine implicit uses. `bun run knip:production` reports the
-  `apps/web` modules no deployed code reaches, including one only its own
-  test imports; it is a report until that list is empty.
+  limited to genuine implicit uses. `bun run knip:production` is required in
+  CI and `bun check`. It fails when an `apps/web` production module has no
+  deployed reader. Delete dead modules, keep fixtures in test support, and
+  declare foundations awaiting an approved reader in
+  `policy/planned-readers.json` (ADR 0057).
 - **Duplication.** `bun run duplication` reports copy-pasted blocks not in
   `.jscpd-baseline.json`, and copy-pasted test blocks not in
   `.jscpd-tests-baseline.json` (tests have their own scan and baseline). It

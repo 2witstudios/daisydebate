@@ -2,7 +2,6 @@ import { renderToString } from 'react-dom/server';
 import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { StatusLine } from './status-line';
-import { Stat } from '../stat/stat';
 import { PresenceDot } from '../presence-dot/presence-dot';
 
 setupRitewayBun();
@@ -17,20 +16,6 @@ describe('StatusLine', () => {
       should: 'render the count text',
       actual: html.includes('1,248 online'),
       expected: true,
-    });
-  });
-});
-
-describe('Stat', () => {
-  test('pairs an icon with the value', () => {
-    const html = renderToString(
-      h(Stat, { icon: 'chart', value: '1820', label: 'rating' }),
-    );
-    assert({
-      given: 'a stat with icon, value, and label',
-      should: 'render all three parts',
-      actual: [html.includes('1820'), html.includes('rating')],
-      expected: [true, true],
     });
   });
 });
