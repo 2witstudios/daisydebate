@@ -48,7 +48,8 @@ import {
   fetchPublicAttendanceProbe,
   processVendorFetch,
 } from './process-app';
-import { createRetentionSweep, retentionTargets } from './retention-sweep';
+import { createRetentionSweep } from './retention-sweep';
+import { retentionTargets } from './retention-targets';
 import { startProductionServer } from './listen-first';
 import { SHUTDOWN_DRAIN_DEADLINE_MS } from './shutdown-budget';
 import { waitForHealthy } from './wait-for-healthy';

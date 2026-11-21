@@ -30,7 +30,7 @@ import {
 } from './content-moderation';
 import {
   betaAccessCommandSchema,
-  matchOperatorRoute,
+  matchOperatorRoutePolicy,
   moderationLiftCommandSchema,
   operatorReportsPageSchema,
   operatorReportsQuerySchema,
@@ -44,6 +44,7 @@ import {
   operatorLimits,
   type OperatorAccountsPage,
   type OperatorCommandState,
+  type MatchedOperatorRoutePolicy,
 } from '@daisy/protocol/operator';
 
 /**
@@ -154,8 +155,8 @@ export function createOperatorApi(deps: OperatorApiDependencies) {
   };
   return async function handle(request: Request): Promise<Response> {
     const url = new URL(request.url);
-    const route = matchOperatorRoute(request.method, url.pathname);
-    if (!route) return refusal('NOT_FOUND');
+    const match = matchOperatorRoutePolicy(request.method, url.pathname);
+    if (!match) return refusal('NOT_FOUND');
     const malformed = transportRefusal(request);
     if (malformed) return refuse(malformed, 'VALIDATION');
     let body: Uint8Array;
@@ -188,7 +189,7 @@ export function createOperatorApi(deps: OperatorApiDependencies) {
     try {
       return json(
         200,
-        await dispatch(deps, principal, route, url, {
+        await dispatch(deps, principal, match, url, {
           body,
           signedAtMs: verified.timestampMs,
         }),
@@ -198,7 +199,7 @@ export function createOperatorApi(deps: OperatorApiDependencies) {
       // An unexpected failure is a defect, not a refusal (ISSUE-681).
       deps.reporter.capture(error, {
         requestId: deps.nextId(),
-        route: `operator.${route.route}`,
+        route: `operator.${match.endpoint.route}`,
         errorCode: 'INTERNAL',
       });
       return refuse('handler', 'INTERNAL');
@@ -227,74 +228,48 @@ async function nonceRefusal(
 function dispatch(
   deps: OperatorApiDependencies,
   principal: AuthorizationPrincipal,
-  route: NonNullable<ReturnType<typeof matchOperatorRoute>>,
+  match: MatchedOperatorRoutePolicy,
   url: URL,
   request: { readonly body: Uint8Array; readonly signedAtMs: number },
 ): Promise<unknown> {
-  // eslint-disable-next-line @typescript-eslint/switch-exhaustiveness-check -- the default is every ContentModerationRoute, which its handler's parameter type proves.
+  if (match.group === 'content-moderation') {
+    return contentModerationRoute(
+      {
+        store: deps.contentModeration,
+        profilePhotos: deps.profilePhotos,
+        crypto: deps.crypto,
+        nowMs: deps.nowMs,
+        logger: deps.logger,
+      },
+      principal,
+      match.endpoint,
+      url,
+      request,
+    );
+  }
+  const route = match.endpoint;
   switch (route.route) {
     case 'setFlagState':
     case 'setFlagOverride':
-    case 'setBetaAccess':
-    case 'resolveReport':
-    case 'liftModeration':
-    case 'readCommand':
-      return dispatchSubject(deps, principal, route.route, route.id, request);
+      return changeFlag(deps, principal, route.route, route.id, request);
     case 'listPreapprovals':
       return listPreapprovals(deps, principal, url);
     case 'updatePreapproval':
       return updatePreapproval(deps, principal, request);
     case 'listAccounts':
       return listAccounts(deps, principal, url);
+    case 'setBetaAccess':
+      return setBetaAccess(deps, principal, route.id, request);
     case 'listReports':
       return listReports(deps, principal, url);
+    case 'resolveReport':
+      return resolveReport(deps, principal, route.id, request);
     case 'listRestrictions':
       return listRestrictions(deps, principal, url);
-    default:
-      return contentModerationRoute(
-        {
-          store: deps.contentModeration,
-          profilePhotos: deps.profilePhotos,
-          crypto: deps.crypto,
-          nowMs: deps.nowMs,
-          logger: deps.logger,
-        },
-        principal,
-        route.route,
-        route.id,
-        url,
-        request,
-      );
-  }
-}
-
-/** A route whose path captures its subject's id; no capture finds nothing. */
-function dispatchSubject(
-  deps: OperatorApiDependencies,
-  principal: AuthorizationPrincipal,
-  route:
-    | 'setFlagState'
-    | 'setFlagOverride'
-    | 'setBetaAccess'
-    | 'resolveReport'
-    | 'liftModeration'
-    | 'readCommand',
-  id: string | null,
-  request: { readonly body: Uint8Array; readonly signedAtMs: number },
-): Promise<unknown> {
-  if (id === null) throw createAppError('NOT_FOUND');
-  switch (route) {
-    case 'setFlagState':
-    case 'setFlagOverride':
-      return changeFlag(deps, principal, route, id, request);
-    case 'setBetaAccess':
-      return setBetaAccess(deps, principal, id, request);
-    case 'resolveReport':
-      return resolveReport(deps, principal, id, request);
     case 'liftModeration':
-      return liftModeration(deps, principal, id, request);
+      return liftModeration(deps, principal, route.id, request);
     case 'readCommand':
-      return readCommand(deps, principal, id);
+      return readCommand(deps, principal, route.id);
   }
 }
 

@@ -8,26 +8,26 @@ import type { ContextChatFormState } from '../../../../../features/messaging/con
 import { submitContextChatChange } from '../../../../../features/messaging/context-chat/change-form';
 import { roomChatContext } from '../../../../../features/messaging/room-community/room-chat-context';
 
-const roomOf = (request: Request) =>
-  new URL(request.url).pathname.split('/')[3] ?? '';
-const send = processRoute(
-  (routes) => (request) => routes.roomCommunity.send(request, roomOf(request)),
-);
-const edit = processRoute(
-  (routes) => (request) => routes.roomCommunity.edit(request, roomOf(request)),
-);
-const remove = processRoute(
-  (routes) => (request) =>
-    routes.roomCommunity.remove(request, roomOf(request)),
-);
-const report = processRoute(
-  (routes) => (request) =>
-    routes.roomCommunity.report(request, roomOf(request)),
-);
-const discover = processRoute(
-  (routes) => (request) =>
-    routes.roomCommunity.discover(request, roomOf(request)),
-);
+const send = (roomId: string) =>
+  processRoute(
+    (routes) => (request) => routes.roomCommunity.send(request, roomId),
+  );
+const edit = (roomId: string) =>
+  processRoute(
+    (routes) => (request) => routes.roomCommunity.edit(request, roomId),
+  );
+const remove = (roomId: string) =>
+  processRoute(
+    (routes) => (request) => routes.roomCommunity.remove(request, roomId),
+  );
+const report = (roomId: string) =>
+  processRoute(
+    (routes) => (request) => routes.roomCommunity.report(request, roomId),
+  );
+const discover = (roomId: string) =>
+  processRoute(
+    (routes) => (request) => routes.roomCommunity.discover(request, roomId),
+  );
 
 /** Each Room chat form posts through the canonical route: origin, session, limits and authority. */
 export async function sendRoomChatMessageAction(
@@ -38,7 +38,7 @@ export async function sendRoomChatMessageAction(
 ): Promise<ContextChatFormState> {
   return submitContextChatMessage(
     roomChatContext,
-    inProcessFetch(send, new Headers(await headers())),
+    inProcessFetch(send(roomId), new Headers(await headers())),
     { ownerId: roomId, channelId },
     previous,
     form,
@@ -55,7 +55,10 @@ export async function mutateRoomChatMessageAction(
   return submitContextChatChange(
     roomChatContext,
     (kind, url, init) =>
-      inProcessFetch(kind === 'edit' ? edit : remove, incoming)(url, init),
+      inProcessFetch((kind === 'edit' ? edit : remove)(roomId), incoming)(
+        url,
+        init,
+      ),
     { ownerId: roomId, channelId },
     previous,
     form,
@@ -71,7 +74,7 @@ export async function reportRoomChatMessageAction(
   const incoming = new Headers(await headers());
   return submitContextChatChange(
     roomChatContext,
-    (_kind, url, init) => inProcessFetch(report, incoming)(url, init),
+    (_kind, url, init) => inProcessFetch(report(roomId), incoming)(url, init),
     { ownerId: roomId, channelId },
     previous,
     form,
@@ -81,7 +84,7 @@ export async function reportRoomChatMessageAction(
 }
 /** A read: it never opens the chat. */
 export async function discoverRoomChat(roomId: string): Promise<Response> {
-  return inProcessFetch(discover, new Headers(await headers()))(
+  return inProcessFetch(discover(roomId), new Headers(await headers()))(
     roomChatContext.address(roomId),
     { method: 'GET' },
   );

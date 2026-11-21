@@ -1,7 +1,10 @@
 import { toPublicError } from '@daisy/errors';
 import { requestId } from '@daisy/observability';
 
-type Handler = (request: Request) => Promise<Response>;
+type Handler<Args extends unknown[]> = (
+  request: Request,
+  ...args: Args
+) => Promise<Response>;
 
 /**
  * Binds route handlers to a lazily resolved route table, so importing a
@@ -10,9 +13,11 @@ type Handler = (request: Request) => Promise<Response>;
  * public error contract, with a correlation id and never the cause.
  */
 export function createRouteBinder<Routes>(resolve: () => Routes) {
-  return (pick: (routes: Routes) => Handler): Handler =>
-    async (request) => {
-      let handler: Handler;
+  return <Args extends unknown[]>(
+      pick: (routes: Routes) => Handler<Args>,
+    ): Handler<Args> =>
+    async (request, ...args) => {
+      let handler: Handler<Args>;
       try {
         handler = pick(resolve());
       } catch (error) {
@@ -23,6 +28,6 @@ export function createRouteBinder<Routes>(resolve: () => Routes) {
           headers: { 'x-request-id': id, 'Cache-Control': 'no-store' },
         });
       }
-      return handler(request);
+      return handler(request, ...args);
     };
 }

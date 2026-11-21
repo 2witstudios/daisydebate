@@ -34,7 +34,7 @@ export async function confirmClubReleasesAction(
     return refused(form, clubConfirmRefusalCopy.none_selected);
   try {
     const response = await inProcessFetch(
-      confirmRoute,
+      (request) => confirmRoute(request, { params: Promise.resolve({ club }) }),
       new Headers(await headers()),
     )(`/api/clubs/${club}/releases`, {
       method: 'POST',

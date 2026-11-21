@@ -191,14 +191,14 @@ export function composeMediaReleaseHandlers(
             const needing =
               await deps.store.mediaReleaseClubs.countClubReleasesNeeded(
                 caller.userId,
-                decodeURIComponent(club),
+                club,
               );
             if (needing === null) throw createAppError('NOT_FOUND');
             return { needing };
           }
           const read = await deps.store.mediaReleaseClubs.readClubReleases(
             caller.userId,
-            decodeURIComponent(club),
+            club,
           );
           if (read === null) throw createAppError('NOT_FOUND');
           return { read, nowMs: deps.nowMs() };
