@@ -1,6 +1,30 @@
-import { signUpMailCeilingsConfig } from './sign-up-mail-ceilings';
+import { analyticsFields } from './analytics-config';
+import {
+  competitiveFields,
+  requireCompetitiveBudget,
+} from './competitive-config';
+import { attendanceFields } from './attendance-config';
+import {
+  foundationFields,
+  requireFoundationProofDisabled,
+} from './foundation-config';
+import { webOriginFields, requireHttpsOrigin } from './web-origin-config';
+import { betaFields } from './beta-config';
+import {
+  realtimeEndpointFields,
+  requireSecureRealtime,
+} from './realtime-endpoint';
+import { mediaFields, refineMediaConfig } from './media-config';
+import { webTelemetryFields } from './telemetry-config';
+import { authFields, signUpFields } from './auth-config';
+import { mailFields } from './mail-config';
+import { migrationFields } from './migration-config';
+import { leagueRequestsFields } from './league-requests-config';
+import { debateBotFields } from './debate-bot-config';
+
 import {
   billingFields,
+  billingEconomicsFields,
   hostEventPriceFields,
   clubBillingFields,
   refineBillingConfig,
@@ -8,38 +32,28 @@ import {
 } from './billing-config';
 export type { BillingConfig, ClubBillingConfig } from './billing-config';
 import { z } from 'zod';
-import { databaseUrl } from './urls';
-import { roomPolicyConfig } from './room-policy';
-import { messagingPolicyConfig } from './messaging-policy';
-import { contactsPolicyConfig } from './contacts-policy';
-import { botWorkerPolicyConfig } from './bot-worker-policy';
-import { judgingPolicyConfig } from './judging-policy';
-import { roundAnalysisPolicyConfig } from './round-analysis-policy';
+import { roomFields } from './room-policy';
+import { messagingFields } from './messaging-policy';
+import { contactsFields } from './contacts-policy';
+import { roundAnalysisFields } from './round-analysis-policy';
 export type { RoundBotWorkerPolicy } from './bot-worker-policy';
 export type { RoundJudgingPolicy } from './judging-policy';
 export type { RoundAnalysisPolicy } from './round-analysis-policy';
 export type { MessagingPolicyOverride } from './messaging-policy';
 export type { ContactsPolicyOverride } from './contacts-policy';
-import {
-  mediaEndpoint,
-  mediaEndpointList,
-  mediaEndpointsOf,
-} from './media-endpoint';
-export { mediaEndpointsOf };
+export { mediaEndpointsOf } from './media-endpoint';
 import {
   deploymentIdentityFields,
   requireDeploymentIdentity,
 } from './deployment-identity';
-import { realtimePublicUrlSchema } from './realtime-endpoint';
-import { mediaWorkerSecret, withoutMigrationCredential } from './credentials';
-import { secret, secretKeysOf } from './secrets';
+import { withoutMigrationCredential } from './credentials';
+import { secretKeysOf } from './secrets';
 import { mediaWorkerFields } from './media-worker-config';
 import { operatorFields, refineOperatorConfig } from './operator-config';
 import {
   refineReleaseFlagDefault,
   releaseFlagDefaultFields,
 } from './release-flag-default';
-import { trustedProxyList } from './trusted-proxies';
 export {
   readMediaWorkerConfig,
   type MediaWorkerConfig,
@@ -67,156 +81,37 @@ export {
   TRUSTED_PROXY_GATEWAY,
 } from './trusted-proxies';
 
-const requireHttpsOrigin = (url: string, ctx: z.RefinementCtx) => {
-  if (!url.startsWith('https:'))
-    ctx.addIssue({
-      code: 'custom',
-      path: ['PUBLIC_APP_URL'],
-      message: 'Production requires HTTPS',
-    });
-};
+export { readBrowserConfig } from './web-origin-config';
+export { readAuthConfig, type AuthConfig } from './auth-config';
+export { readMailConfig, type MailConfig } from './mail-config';
+export { readMigrationConfig } from './migration-config';
+export { readRealtimeConfig } from './realtime-config';
+
 const serverFields = {
   ...billingFields,
   ...hostEventPriceFields,
   ...clubBillingFields,
-  BILLING_ECONOMICS_DIRECTORY: z
-    .string()
-    .min(1)
-    .max(4096)
-    .refine(
-      (path) =>
-        path.startsWith('/') &&
-        !['\0', '\r', '\n'].some((character) => path.includes(character)),
-    )
-    .optional(),
-  NEXT_PUBLIC_POSTHOG_KEY: z
-    .string()
-    .regex(/^phc_[A-Za-z0-9_-]+$/)
-    .optional(),
-  NEXT_PUBLIC_POSTHOG_HOST: z
-    .enum(['https://us.i.posthog.com', 'https://eu.i.posthog.com'])
-    .optional(),
-  POSTHOG_API_KEY: secret(z.string().regex(/^phc_[A-Za-z0-9_-]+$/)).optional(),
-  POSTHOG_PERSONAL_API_KEY: secret(
-    z.string().regex(/^phx_[A-Za-z0-9_-]+$/),
-  ).optional(),
-  POSTHOG_PROJECT_ID: z
-    .string()
-    .regex(/^[1-9][0-9]*$/)
-    .optional(),
-  AUTH_SIGN_UP_MAIL_CEILINGS: signUpMailCeilingsConfig,
-  AI_ROUND_BUSY_CAP: z.coerce.number().int().positive().optional(),
-  /**
-   * Concurrent provider calls for competitive work: AI judging and live bot
-   * speech share this one budget. Round analysis has its own.
-   */
-  COMPETITIVE_PROVIDER_CONCURRENCY: z.coerce
-    .number()
-    .int()
-    .positive()
-    .max(64)
-    .optional(),
-  ROUND_BOT_WORKER_POLICY: botWorkerPolicyConfig,
-  ROUND_JUDGING_POLICY: judgingPolicyConfig,
-  ROUND_ANALYSIS_POLICY: roundAnalysisPolicyConfig,
-  /** DEC-247: beta-sourced round analysis grants count as premium; false at launch. */
-  PREMIUM_BETA_GRANT: z
-    .enum(['true', 'false'])
-    .default('true')
-    .transform((value) => value === 'true'),
-  ROOM_POLICY: roomPolicyConfig,
-  /** DEC-251 tightening overrides for the composed beta messaging policy. */
-  MESSAGING_POLICY: messagingPolicyConfig,
-  CONTACTS_POLICY: contactsPolicyConfig,
-  /** Configured isolated member/session resource for the actual public check-in probe. */
-  ATTENDANCE_PUBLIC_PROBE: secret(z.string()).optional(),
+  ...billingEconomicsFields,
+  ...analyticsFields,
+  ...signUpFields,
+  ...competitiveFields,
+  ...roundAnalysisFields,
+  ...roomFields,
+  ...messagingFields,
+  ...contactsFields,
+  ...attendanceFields,
   ...deploymentIdentityFields,
-  FOUNDATION_PROOF_ENABLED: z
-    .enum(['true', 'false'])
-    .default('false')
-    .transform((value) => value === 'true'),
-  PUBLIC_APP_URL: z.url(),
-  /** Search engines stay out unless a deployment opens itself: staging never does. */
-  SEARCH_INDEXING: z.enum(['open', 'closed']).default('closed'),
-  /**
-   * ADR 0075: where the owner's beta request digest goes. Personal data, so
-   * it is set in the deploy's secret store, never committed; absent, owed
-   * digests are cancelled as unconfigured.
-   */
-  BETA_NOTIFY_EMAIL: z.email().optional(),
-  /**
-   * PYL-17: where League requests ("Talk to us") go. Personal data, so it is
-   * set in the deploy's secret store, never committed; absent, they go to
-   * BETA_NOTIFY_EMAIL, and with neither they are stored and their email
-   * waits until an address is set.
-   */
-  LEAGUE_REQUEST_NOTIFY_EMAIL: z.email().optional(),
+  ...foundationFields,
+  ...webOriginFields,
+  ...betaFields,
+  ...leagueRequestsFields,
   ...operatorFields,
   ...releaseFlagDefaultFields,
-  REALTIME_PUBLIC_URL: realtimePublicUrlSchema.optional(),
-  LIVEKIT_URL: mediaEndpointList(/^https?$/).optional(),
-  LIVEKIT_PUBLIC_URL: mediaEndpointList(/^wss?$/).optional(),
-  LIVEKIT_API_KEY: secret(z.string().regex(/^\S+$/)).optional(),
-  LIVEKIT_API_SECRET: secret(z.string().regex(/^\S+$/)).optional(),
-  MEDIA_WORKER_SECRET: secret(mediaWorkerSecret).optional(),
-  /**
-   * ADR 0099: the Broadcast control plane runs only when this is exactly `on`.
-   * Unset, merging or deploying this code captures nothing.
-   */
-  BROADCAST_CAPTURE: z.literal('on').optional(),
-  /**
-   * ADR 0107: Recording's capture sweep runs only when this is exactly `on`.
-   * Unset, no Round is requested a Recording and no Egress starts for one.
-   */
-  RECORDING_CAPTURE: z.literal('on').optional(),
-  /**
-   * Where signed Recording reads point. Not a secret: every signed URL names it.
-   * The replay page's browser policy names it, and no other page's does.
-   */
-  RECORDING_BUCKET_ENDPOINT: mediaEndpoint(/^https?$/).optional(),
-  /**
-   * The public bucket's read origin. Not a secret: every feed URL names it.
-   * Unset, no Round offers an official feed.
-   */
-  BROADCAST_PUBLIC_ORIGIN: mediaEndpoint(/^https?$/).optional(),
-  // AIDB: OpenRouter for AI debates (chat, TTS, STT). Optional: without it
-  // AI debates are unavailable and nothing calls out.
-  OPENROUTER_API_KEY: secret(z.string().regex(/^\S+$/)).optional(),
-  /**
-   * ADR 0037: the error tracker's gates. Optional and never secret — a DSN
-   * names where scrubbed events go and is designed to be public. With
-   * `SENTRY_DSN` unset, no server capture path makes any Sentry network
-   * call; `NEXT_PUBLIC_SENTRY_DSN` gates the browser capture only and reaches
-   * the browser at request time, never through the build (ISSUE-1008).
-   */
-  SENTRY_DSN: z.url().optional(),
-  SENTRY_ENVIRONMENT: z.string().min(1).optional(),
-  NEXT_PUBLIC_SENTRY_DSN: z.url().optional(),
+  ...realtimeEndpointFields,
+  ...mediaFields,
+  ...debateBotFields,
+  ...webTelemetryFields,
 };
-/**
- * AI judging and bot debaters run only inside the competitive provider
- * budget: a policy for either without the budget would boot, accept AI
- * seats and then never judge or speak, so the configuration is refused.
- */
-function requireCompetitiveBudget(
-  config: {
-    readonly COMPETITIVE_PROVIDER_CONCURRENCY?: number | undefined;
-    readonly ROUND_JUDGING_POLICY?: unknown;
-    readonly ROUND_BOT_WORKER_POLICY?: unknown;
-  },
-  ctx: z.RefinementCtx,
-) {
-  if (config.COMPETITIVE_PROVIDER_CONCURRENCY !== undefined) return;
-  if (
-    config.ROUND_JUDGING_POLICY !== undefined ||
-    config.ROUND_BOT_WORKER_POLICY !== undefined
-  )
-    ctx.addIssue({
-      code: 'custom',
-      path: ['COMPETITIVE_PROVIDER_CONCURRENCY'],
-      message: 'AI judging and bot workers need the competitive budget',
-    });
-}
 const serverConfigSchema = z
   .object(serverFields)
   .superRefine((config, ctx) => {
@@ -224,35 +119,12 @@ const serverConfigSchema = z
     refineOperatorConfig(config, ctx);
     refineReleaseFlagDefault(config, ctx);
     requireCompetitiveBudget(config, ctx);
-    if (
-      config.LIVEKIT_URL &&
-      config.LIVEKIT_PUBLIC_URL &&
-      mediaEndpointsOf(config.LIVEKIT_URL).length !==
-        mediaEndpointsOf(config.LIVEKIT_PUBLIC_URL).length
-    )
-      ctx.addIssue({
-        code: 'custom',
-        path: ['LIVEKIT_PUBLIC_URL'],
-        message: 'LIVEKIT_URL and LIVEKIT_PUBLIC_URL must list the same nodes',
-      });
+    refineMediaConfig(config, ctx);
     if (config.NODE_ENV !== 'production') return;
     requireHttpsOrigin(config.PUBLIC_APP_URL, ctx);
     requireDeploymentIdentity(config, ctx);
-    if (
-      config.REALTIME_PUBLIC_URL !== undefined &&
-      !config.REALTIME_PUBLIC_URL.startsWith('wss:')
-    )
-      ctx.addIssue({
-        code: 'custom',
-        path: ['REALTIME_PUBLIC_URL'],
-        message: 'Production requires WSS',
-      });
-    if (config.FOUNDATION_PROOF_ENABLED)
-      ctx.addIssue({
-        code: 'custom',
-        path: ['FOUNDATION_PROOF_ENABLED'],
-        message: 'Foundation proof is development-only',
-      });
+    requireSecureRealtime(config, ctx);
+    requireFoundationProofDisabled(config, ctx);
   })
   .transform(withoutMigrationCredential)
   .transform(withBillingConfig);
@@ -267,220 +139,6 @@ export function readServerConfig(
       `Invalid server configuration: ${result.error.issues.map((issue) => issue.path.join('.')).join(', ')}`,
     );
   return result.data;
-}
-/**
- * `apps/realtime`'s baseline configuration (ADR 0031): no public origin and
- * no foundation-proof flag, neither of which the realtime deployment has a
- * use for yet.
- */
-const realtimeConfigSchema = z
-  .object({
-    ...deploymentIdentityFields,
-    /**
-     * ADR 0037: realtime's own adapter reads the same variable names from
-     * its own process environment as a separate deployment.
-     */
-    SENTRY_DSN: z.url().optional(),
-    SENTRY_ENVIRONMENT: z.string().min(1).optional(),
-  })
-  .superRefine((config, ctx) => {
-    if (config.NODE_ENV !== 'production') return;
-    requireDeploymentIdentity(config, ctx);
-  })
-  .transform(withoutMigrationCredential);
-export type RealtimeConfig = z.output<typeof realtimeConfigSchema>;
-/** Validation reports field names only: never echo secret values. */
-export function readRealtimeConfig(
-  env: Record<string, string | undefined>,
-): RealtimeConfig {
-  const result = realtimeConfigSchema.safeParse(env);
-  if (!result.success)
-    throw new Error(
-      `Invalid realtime configuration: ${result.error.issues.map((issue) => issue.path.join('.')).join(', ')}`,
-    );
-  return result.data;
-}
-/**
- * Narrow server authentication configuration, validated only when the auth
- * composition is activated: baseline startup never requires auth variables.
- */
-const authFields = {
-  AUTH_SIGN_UP_MAIL_CEILINGS: signUpMailCeilingsConfig,
-  /** 64 characters from 32 random bytes (hex); see `bun auth:provision`. */
-  BETTER_AUTH_SECRET: secret(z.string().regex(/^\S{64}$/)),
-  PUBLIC_APP_URL: z.url().refine((value) => {
-    try {
-      return ['http:', 'https:'].includes(new URL(value).protocol);
-    } catch {
-      return false;
-    }
-  }, 'Expected HTTP(S) URL'),
-  /** Proxy IPs or CIDR ranges skipped when a trusted header holds a chain. */
-  AUTH_TRUSTED_PROXIES: trustedProxyList,
-  /**
-   * Bearer credential for the read-only `/api/ops/alerts` and
-   * `/api/ops/metrics` probes (AUTH-7.7); required in production so the
-   * scheduled alert workflow, and nothing else, can read them.
-   */
-  OPS_PROBE_TOKEN: secret(z.string().min(32)).optional(),
-  // Required, no default: see deploymentIdentityFields.NODE_ENV.
-  NODE_ENV: z.enum(['development', 'test', 'production']),
-};
-/** Fields that must be set once NODE_ENV is production, each reported by name only. */
-const REQUIRED_IN_PRODUCTION = [
-  ['OPS_PROBE_TOKEN', 'Production requires the ops probe token'],
-] as const;
-const authConfigSchema = z
-  .object(authFields)
-  .superRefine((config, ctx) => {
-    if (config.NODE_ENV !== 'production') return;
-    requireHttpsOrigin(config.PUBLIC_APP_URL, ctx);
-    for (const [field, message] of REQUIRED_IN_PRODUCTION)
-      if (config[field] === undefined)
-        ctx.addIssue({ code: 'custom', path: [field], message });
-  })
-  .transform(({ NODE_ENV: _nodeEnv, ...auth }) => auth);
-export type AuthConfig = z.infer<typeof authConfigSchema>;
-/** Validation reports field names only: never echo secret values. */
-export function readAuthConfig(
-  env: Record<string, string | undefined>,
-): AuthConfig {
-  const result = authConfigSchema.safeParse(env);
-  if (!result.success)
-    throw new Error(
-      `Invalid auth configuration: ${result.error.issues.map((issue) => issue.path.join('.')).join(', ')}`,
-    );
-  return result.data;
-}
-/**
- * The mail transport's own configuration (ISSUE-780): the sender, the
- * provider key, its webhook signing secret and the recipient hash secret.
- * Every mail purpose (auth, beta access) reads it, and nothing else, so an
- * auth-only misconfiguration never stops beta mail.
- */
-const mailFields = {
-  /**
-   * 64 characters from 32 random bytes (hex); see `bun auth:provision`.
-   * Keys `recipientKey` (the suppression ledger and per-recipient
-   * rate-limit buckets) independently of `BETTER_AUTH_SECRET`, so rotating
-   * the session-signing secret can never desynchronize them (ADR 0044,
-   * ISSUE-141).
-   */
-  RECIPIENT_HASH_SECRET: secret(z.string().regex(/^\S{64}$/)),
-  RESEND_API_KEY: secret(z.string().regex(/^\S+$/)),
-  /** Sender email header value; newlines and malformed mailboxes are rejected. */
-  EMAIL_FROM: z
-    .string()
-    .refine(
-      (value) =>
-        /^(?:[^<>\r\n]+ <[^\s@<>]+@[^\s@<>]+>|[^\s@<>]+@[^\s@<>]+)$/.test(
-          value,
-        ),
-      'Expected an email address or display name with an email address',
-    ),
-  /** Resend (Svix) signing secret for delivery webhooks; required in production. */
-  RESEND_WEBHOOK_SECRET: secret(
-    z.string().regex(/^whsec_[A-Za-z0-9+/=]{16,}$/),
-  ).optional(),
-  // Required, no default: see deploymentIdentityFields.NODE_ENV.
-  NODE_ENV: z.enum(['development', 'test', 'production']),
-};
-const mailConfigSchema = z
-  .object(mailFields)
-  .superRefine((config, ctx) => {
-    if (config.NODE_ENV === 'production' && !config.RESEND_WEBHOOK_SECRET)
-      ctx.addIssue({
-        code: 'custom',
-        path: ['RESEND_WEBHOOK_SECRET'],
-        message: 'Production requires the webhook signing secret',
-      });
-  })
-  .transform(({ NODE_ENV: _nodeEnv, ...mail }) => mail);
-export type MailConfig = z.infer<typeof mailConfigSchema>;
-/** Validation reports field names only: never echo secret values. */
-export function readMailConfig(
-  env: Record<string, string | undefined>,
-): MailConfig {
-  const result = mailConfigSchema.safeParse(env);
-  if (!result.success)
-    throw new Error(
-      `Invalid mail configuration: ${result.error.issues.map((issue) => issue.path.join('.')).join(', ')}`,
-    );
-  return result.data;
-}
-/**
- * The migration runner's credential (ISSUE-39). Production (the release
- * command runs in the image, which sets NODE_ENV=production) migrates only
- * through MIGRATION_DATABASE_URL, the schema owner, and refuses one that
- * names the same role as the runtime DATABASE_URL, which production holds
- * as the DML-only `daisy_web`. Local and test databases have one owner
- * login, so outside production DATABASE_URL serves unless a migration
- * credential is named.
- */
-const migrationFields = {
-  NODE_ENV: z.enum(['development', 'test', 'production']).optional(),
-  MIGRATION_DATABASE_URL: secret(databaseUrl).optional(),
-  DATABASE_URL: secret(databaseUrl).optional(),
-};
-const migrationConfigSchema = z
-  .object(migrationFields)
-  .superRefine((config, ctx) => {
-    const production = config.NODE_ENV === 'production';
-    const url = production
-      ? config.MIGRATION_DATABASE_URL
-      : (config.MIGRATION_DATABASE_URL ?? config.DATABASE_URL);
-    if (url === undefined) {
-      ctx.addIssue({
-        code: 'custom',
-        path: [production ? 'MIGRATION_DATABASE_URL' : 'DATABASE_URL'],
-        message: 'required',
-      });
-      return;
-    }
-    if (!production) return;
-    if (new URL(url).password === 'local-development-only')
-      ctx.addIssue({
-        code: 'custom',
-        path: ['MIGRATION_DATABASE_URL'],
-        message: 'production forbids local development credentials',
-      });
-    if (
-      config.DATABASE_URL !== undefined &&
-      new URL(config.DATABASE_URL).username === new URL(url).username
-    )
-      ctx.addIssue({
-        code: 'custom',
-        path: ['MIGRATION_DATABASE_URL'],
-        message: 'must name a different role than DATABASE_URL',
-      });
-  })
-  .transform((config) => ({
-    databaseUrl: (config.NODE_ENV === 'production'
-      ? config.MIGRATION_DATABASE_URL
-      : (config.MIGRATION_DATABASE_URL ?? config.DATABASE_URL)) as string,
-  }));
-export type MigrationConfig = z.infer<typeof migrationConfigSchema>;
-/** Validation reports field names only: never echo secret values. */
-export function readMigrationConfig(
-  env: Record<string, string | undefined>,
-): MigrationConfig {
-  const result = migrationConfigSchema.safeParse(env);
-  if (!result.success)
-    throw new Error(
-      `Invalid migration configuration: ${result.error.issues
-        .map((issue) =>
-          issue.code === 'custom' && issue.message !== 'required'
-            ? `${issue.path.join('.')} (${issue.message})`
-            : issue.path.join('.'),
-        )
-        .join(', ')}`,
-    );
-  return result.data;
-}
-export function readBrowserConfig(env: Record<string, string | undefined>) {
-  return z
-    .object({ PUBLIC_APP_URL: z.url() })
-    .parse({ PUBLIC_APP_URL: env.PUBLIC_APP_URL });
 }
 /**
  * Every configuration key marked secret in the server, realtime, auth,

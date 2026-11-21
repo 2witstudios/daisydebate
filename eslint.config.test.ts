@@ -16,6 +16,21 @@ setupRitewayBun();
 registerProcessEdgeTests();
 
 describe('repository ESLint configuration', () => {
+  test('rejects pathname splitting under the App Router', async () => {
+    const [result] = await repositoryEslint().lintText(
+      "const url = new URL('https://example.com'); url.pathname.split('/'); url['pathname']['split']('/'); url[`pathname`].split('/'); url.pathname[`split`]('/'); url.search.split('&'); const pathname = 'slug'; const lookup = { slug: 'a-b' }; lookup[pathname]?.split('-');",
+      { filePath: 'apps/web/src/app/api/rooms/[roomId]/route.ts' },
+    );
+    assert({
+      given: 'dot and bracket pathname splits and unrelated string splits',
+      should: 'reject the four pathname splits',
+      actual: result?.messages.map(({ message }) => message),
+      expected: Array<string>(4).fill(
+        'Use Next.js route params or pass the bound value to the server action.',
+      ),
+    });
+  });
+
   test('rejects ambient time and identity reads outside the allowlist', async () => {
     const eslint = repositoryEslint();
     const [result] = await eslint.lintText(

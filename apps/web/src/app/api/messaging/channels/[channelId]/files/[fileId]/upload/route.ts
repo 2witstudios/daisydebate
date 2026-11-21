@@ -1,6 +1,12 @@
 import { processRoute } from '../../../../../../../../server/process-app';
+type Params = Awaited<
+  RouteContext<'/api/messaging/channels/[channelId]/files/[fileId]/upload'>['params']
+>;
+
 export const runtime = 'nodejs';
-export const POST = processRoute((routes) => (request) => {
-  const parts = new URL(request.url).pathname.split('/');
-  return routes.messaging.files.upload(request, parts[4] ?? '', parts[6] ?? '');
-});
+export const POST = processRoute.withParams<Params>(
+  (routes) =>
+    (request, { channelId, fileId }) => {
+      return routes.messaging.files.upload(request, channelId, fileId);
+    },
+);

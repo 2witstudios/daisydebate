@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { retentionTargets } from './retention-sweep';
+import { retentionTargets } from './retention-targets';
 import { provisionalLinkPurposes } from '../features/auth/mail/provisional-mail';
 
 setupRitewayBun();

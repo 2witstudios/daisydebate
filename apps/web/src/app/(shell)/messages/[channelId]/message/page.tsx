@@ -23,6 +23,7 @@ export default async function OwnMessagePage(props: MessagingChannelPageProps) {
         `http://in-process.invalid/api/messaging/channels/${channelId}/messages?${query}`,
         { headers: incoming },
       ),
+      { params: props.params },
     ),
   );
   const conversation = read.kind === 'ready' ? read : null;

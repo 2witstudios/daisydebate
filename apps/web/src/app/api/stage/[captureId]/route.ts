@@ -1,6 +1,9 @@
 import { processRoute } from '../../../../server/process-app';
+type Params = Awaited<RouteContext<'/api/stage/[captureId]'>['params']>;
+
 export const runtime = 'nodejs';
-export const GET = processRoute(
-  (routes) => (request) =>
-    routes.stage(request, new URL(request.url).pathname.split('/')[3] ?? ''),
+export const GET = processRoute.withParams<Params>(
+  (routes) =>
+    (request, { captureId }) =>
+      routes.stage(request, captureId),
 );

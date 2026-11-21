@@ -36,7 +36,7 @@ export async function readClubReleasePage(
   const identity = await requireAccess(path, searchParams);
   if (identity.state !== 'member' || club.length > 80) notFound();
   const answer = await readOwnRoute(
-    releasesRoute,
+    (request) => releasesRoute(request, { params: Promise.resolve({ club }) }),
     `/api/clubs/${encodeURIComponent(club)}/releases`,
     releasesReadSchema,
   );
@@ -69,7 +69,8 @@ export async function readClubReleaseTabs(
   clubId: string,
 ): Promise<{ readonly needing: number } | null> {
   return readOwnRoute(
-    releasesRoute,
+    (request) =>
+      releasesRoute(request, { params: Promise.resolve({ club: clubId }) }),
     `/api/clubs/${encodeURIComponent(clubId)}/releases?count=needing`,
     z.object({ needing: z.number().int().nonnegative() }),
   );

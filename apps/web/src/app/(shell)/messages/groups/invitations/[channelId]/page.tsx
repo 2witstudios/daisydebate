@@ -22,6 +22,7 @@ export default async function GroupInvitationPage({
       `http://in-process.invalid/api/messaging/groups/${channel}/invitation`,
       { headers: new Headers(await headers()) },
     ),
+    { params },
   );
   if (response.status === 404) notFound();
   const result = response.ok

@@ -172,6 +172,7 @@ async function readChannelEntry(channelId: string) {
       `http://in-process.invalid/api/messaging/channels/${channelId}/entry`,
       { headers: new Headers(await headers()) },
     ),
+    { params: Promise.resolve({ channelId }) },
   );
   return readConversationEntryResponse(response);
 }
@@ -189,6 +190,7 @@ async function readPageConversation(channelId: string, query: SearchParams) {
       `http://in-process.invalid/api/messaging/channels/${channelId}/messages${searchQuery === undefined ? '' : '/search'}?${input}`,
       { headers: new Headers(await headers()) },
     ),
+    { params: Promise.resolve({ channelId }) },
   );
   return {
     searchQuery,

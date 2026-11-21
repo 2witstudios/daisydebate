@@ -34,3 +34,22 @@ export function readRealtimePublicUrl(
     throw new Error('Invalid server configuration: REALTIME_PUBLIC_URL');
   return parsed.data;
 }
+
+export const realtimeEndpointFields = {
+  REALTIME_PUBLIC_URL: realtimePublicUrlSchema.optional(),
+};
+
+export function requireSecureRealtime(
+  config: z.output<z.ZodObject<typeof realtimeEndpointFields>>,
+  ctx: z.RefinementCtx,
+) {
+  if (
+    config.REALTIME_PUBLIC_URL !== undefined &&
+    !config.REALTIME_PUBLIC_URL.startsWith('wss:')
+  )
+    ctx.addIssue({
+      code: 'custom',
+      path: ['REALTIME_PUBLIC_URL'],
+      message: 'Production requires WSS',
+    });
+}

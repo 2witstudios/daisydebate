@@ -50,7 +50,10 @@ export default async function Page({
   if (typeof query.round === 'string' && !selected) notFound();
   const view = selected
     ? await readOwnRoute(
-        ballotGET,
+        (request) =>
+          ballotGET(request, {
+            params: Promise.resolve({ roundId: selected.roundId }),
+          }),
         `/api/rounds/${selected.roundId}/ballots`,
         roundBallotReadSchema,
       )

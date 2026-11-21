@@ -61,15 +61,3 @@ export const flagCommandStateSchema = z.strictObject({
   action: z.enum(flagCommandActions),
   result: flagCommandResultSchema,
 });
-export const flagOperatorRoutes = {
-  setFlagState: {
-    method: 'PUT',
-    path: /^\/operator\/v1\/flags\/([a-z][a-z0-9-]{1,63})\/state$/,
-    query: [],
-  },
-  setFlagOverride: {
-    method: 'PUT',
-    path: /^\/operator\/v1\/flags\/([a-z][a-z0-9-]{1,63})\/account-override$/,
-    query: [],
-  },
-} as const;

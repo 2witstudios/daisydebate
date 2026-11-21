@@ -2,10 +2,8 @@ import { createId } from '@paralleldrive/cuid2';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { systemClock } from '@daisy/clock';
 import { requireTestServices } from '@daisy/config';
-import {
-  createRetentionSweep,
-  retentionTargets,
-} from '../src/server/retention-sweep';
+import { createRetentionSweep } from '../src/server/retention-sweep';
+import { retentionTargets } from '../src/server/retention-targets';
 import { createFaultedApp } from './fault-proxy';
 import { cookieHeader, createTestApp, linkFrom, tokenOf } from './fixtures';
 import { provisionalLinkPurposes } from '../src/features/auth/mail/provisional-mail';

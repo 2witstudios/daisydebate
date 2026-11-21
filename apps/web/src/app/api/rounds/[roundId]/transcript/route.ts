@@ -1,9 +1,11 @@
 import { processRoute } from '../../../../../server/process-app';
 
-export const GET = processRoute(
-  (routes) => (request) =>
-    routes.rounds.transcript(
-      request,
-      new URL(request.url).pathname.split('/')[3] ?? '',
-    ),
+type Params = Awaited<
+  RouteContext<'/api/rounds/[roundId]/transcript'>['params']
+>;
+
+export const GET = processRoute.withParams<Params>(
+  (routes) =>
+    (request, { roundId }) =>
+      routes.rounds.transcript(request, roundId),
 );
