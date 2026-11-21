@@ -13,9 +13,10 @@ export function registerClockDigestTests() {
     test('rejects Date parsing expressions and aliases outside the clock package', async () => {
       const old = [
         "const ms = Date.parse('2026-11-20T00:00:00Z');",
-        'const fn = globalThis.Date["parse"];',
+        'const fn = globalThis.Date[`parse`];',
+        'const indexed = Date["parse"];',
         'const { parse: alias } = Date;',
-        'export { ms, fn, alias };',
+        'export { ms, fn, indexed, alias };',
       ].join('\n');
       assert({
         given:
@@ -27,8 +28,8 @@ export function registerClockDigestTests() {
           lint('packages/clock/src/instant-probe.ts', old),
         ]),
         expected: [
-          Array<string>(3).fill('clock-digest/iso-instant'),
-          Array<string>(3).fill('clock-digest/iso-instant'),
+          Array<string>(4).fill('clock-digest/iso-instant'),
+          Array<string>(4).fill('clock-digest/iso-instant'),
           [],
         ],
       });
@@ -39,7 +40,7 @@ export function registerClockDigestTests() {
         "import { createHash as makeHash } from 'node:crypto';",
         "import { sha3_256 } from '@noble/hashes/sha3.js';",
         'export const hashes = [',
-        "  makeHash('sha3-256'), new Bun.CryptoHasher('sha3-256'), ",
+        "  makeHash(`sha3-256`), new Bun.CryptoHasher('sha3-256'), ",
         "  makeHash('sha256'), sha3_256(new Uint8Array()),",
         '];',
       ].join('\n');
@@ -51,10 +52,15 @@ export function registerClockDigestTests() {
           lint('packages/auth/src/digest-probe.ts', old),
           lint('scripts/digest-probe.ts', old),
           lint('packages/digest/src/digest-probe.ts', old),
+          lint(
+            'scripts/digest-512-probe.ts',
+            "import { sha3_512 } from '@noble/hashes/sha3.js'; sha3_512(new Uint8Array());",
+          ),
         ]),
         expected: [
           Array<string>(3).fill('clock-digest/sha3-digest'),
           Array<string>(3).fill('clock-digest/sha3-digest'),
+          [],
           [],
         ],
       });

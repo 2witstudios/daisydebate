@@ -1,10 +1,16 @@
 const dateMessage = 'Read an ISO instant through @daisy/clock.';
 const digestMessage = 'Use sha3Hex or commandDigest from @daisy/digest.';
 
+function staticText(node) {
+  if (node?.type === 'Literal') return node.value;
+  if (node?.type === 'TemplateLiteral' && node.expressions.length === 0)
+    return node.quasis[0]?.value.cooked;
+}
+
 const property = (node) =>
   node.type === 'MemberExpression'
     ? node.computed
-      ? node.property.value
+      ? staticText(node.property)
       : node.property.name
     : undefined;
 
@@ -27,7 +33,7 @@ const dateRule = {
           isDate(node.init) &&
           node.id.type === 'ObjectPattern' &&
           node.id.properties.some(
-            ({ key }) => key?.name === 'parse' || key?.value === 'parse',
+            ({ key }) => key?.name === 'parse' || staticText(key) === 'parse',
           )
         )
           report(node);
@@ -42,7 +48,7 @@ const hashRule = {
     const names = new Set(['createHash', 'CryptoHasher']);
     const report = (node) => context.report({ node, messageId: 'required' });
     const check = (node) => {
-      const algorithm = node.arguments[0]?.value;
+      const algorithm = staticText(node.arguments[0]);
       if (
         typeof algorithm === 'string' &&
         algorithm.toLowerCase() === 'sha3-256' &&
@@ -56,8 +62,14 @@ const hashRule = {
           if (statement.type !== 'ImportDeclaration') continue;
           const source = statement.source.value;
           if (
-            source === '@noble/hashes/sha3.js' ||
-            source === '@noble/hashes/sha3'
+            (source === '@noble/hashes/sha3.js' ||
+              source === '@noble/hashes/sha3') &&
+            statement.specifiers.some(
+              (specifier) =>
+                specifier.type !== 'ImportSpecifier' ||
+                (specifier.imported.name ?? specifier.imported.value) ===
+                  'sha3_256',
+            )
           )
             report(statement);
           if (!['crypto', 'node:crypto', 'bun'].includes(source)) continue;
