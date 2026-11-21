@@ -250,6 +250,9 @@ const createLobby = (
         owner.kind === 'organization' ? owner.organizationId : null,
       name: command.name,
       handle: command.handle,
+      ...(command.lobby.kind === 'standing' && command.lobby.ageRule
+        ? { ageRule: command.lobby.ageRule }
+        : {}),
     },
   };
   const schedule: readonly LobbyWrite[] =

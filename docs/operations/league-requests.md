@@ -115,30 +115,41 @@ write with the owner credential, posted on Delivery first:
    [ADR 0135](../decisions/0135-leagues-are-organizations.md)) from the host
    area and brings their schools in.
 
-### The league's division
+### A Youth standing lobby during the lobby migration
 
-A league carries one division (PYL-16, decision 79): **Open** (18 and over)
-or **Youth** (under 18). Its ladder shows it ("Youth – Freestyle"), its
-Rooms seat only debaters in it, and each of its seasons takes it when the
-season starts. Every league is created Open.
+The league's division still supplies the legacy rating and season key. Its
+standing lobbies store the age rule that governs Room eligibility. New leagues
+start Open. During the migration, a new standing lobby initially takes the
+league's existing rule.
 
 The division is fixed once the league is in use. The league's ladder replays
 every completed league Round, whatever season it fell in, so a league that
 had rated adults must never become Youth (Youth and Open never share a
 ladder). A Youth league is therefore set once, right after it is created and
-before its first season or Room, as an owner-approved data action. The
-statement changes nothing once either exists:
+before its first season or standing Room, as an owner-approved data action.
+Update the league's season key and any standing lobbies already created in the
+same transaction. Both updates skip leagues that are already in use:
 
 ```sql
-update organizations set league_division = 'youth'
-  where id = '<league id>' and kind = 'league'
-    and not exists (select 1 from seasons where organization_id = '<league id>')
-    and not exists (select 1 from rooms r join ladders l on l.id = r.league_ladder_id
-                    where l.organization_id = '<league id>');
+with changed_league as (
+  update organizations set league_division = 'youth'
+    where id = '<league id>' and kind = 'league'
+      and not exists (select 1 from seasons where organization_id = '<league id>')
+      and not exists (select 1 from rooms r join lobbies l on l.id = r.lobby_id
+                      where l.kind = 'standing' and l.owner_organization_id = '<league id>')
+    returning id
+), changed_lobbies as (
+  update lobbies set age_rule = 'under-18'
+    where kind = 'standing' and owner_organization_id in (select id from changed_league)
+    returning id
+)
+select (select count(*) from changed_league) as leagues_changed,
+       (select count(*) from changed_lobbies) as lobbies_changed;
 ```
 
-It must report `UPDATE 1`. `UPDATE 0` means the league is already in use:
-a league that needs the other division is a new league.
+It must report `leagues_changed = 1`. A result of zero means the league was
+ineligible. If the league already has competitive history, create a separate
+league for the other rating division during this stage.
 
 Revoke by deleting the `account_entitlement_grants` row (the version row
 stays as history); the account keeps the league it made but cannot create

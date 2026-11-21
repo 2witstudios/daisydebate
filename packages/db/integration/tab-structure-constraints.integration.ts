@@ -509,7 +509,6 @@ test('a template keeps its pins, is offered only by a standing lobby, and is fol
           format_id: 'nsda-policy',
           format_version: 1,
           competition_type: 'casual',
-          division: 'open',
           config: validConfig,
           execution_plan: {},
           rules_snapshot: validRules,

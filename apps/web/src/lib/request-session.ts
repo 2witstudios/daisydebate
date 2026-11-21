@@ -1,8 +1,13 @@
 import { nowMs, tryInstantMs } from '@daisy/clock';
+import {
+  defaultStandingLobby,
+  mayDebate,
+} from '@daisy/protocol/lobby/eligibility';
 import { readFamilySettings } from '../features/parental-controls/settings';
 import { evaluatedIdentity } from '../server/member-boundary';
 import { messageOfferFor } from '../features/messaging/request-offer';
 import { leaguePageAddress } from '../features/tab/reads/league-address';
+import { standingLobbyLabels } from '../features/lobby/standing-lobby-labels';
 import { readStandingRoomDraft } from '../features/tab/reads/standing-room-draft';
 import { authorize } from '@daisy/auth/authorization';
 import { readLeagueSeason } from '../features/tab/reads/league-season';
@@ -38,11 +43,7 @@ import { headers } from 'next/headers';
 import type { Identity } from '@daisy/auth';
 import type { PublicProfileCard } from '@daisy/db';
 import { admitsOptionalAnswers } from '@daisy/auth/account-age';
-import {
-  lobbyOf,
-  type MatchHistoryQuery,
-  type RatingDivision,
-} from '@daisy/protocol';
+import { type MatchHistoryQuery, type RatingDivision } from '@daisy/protocol';
 import type { OnboardingAnswers } from '../features/onboarding/answers';
 import { CLIENT_ID_HASH_HEADER } from '../features/auth/abuse/client-ip';
 import { readViewerAnalytics } from '../features/analytics/viewer-analytics';
@@ -268,28 +269,58 @@ const divisionWhen = async (
  */
 export const requestMemberDivision = cache(() => divisionWhen('member'));
 
-/**
- * The ladder division a provisional account's recorded age puts it on, for
- * the landing after the age step (YLS-8): `youth` for 13 to 17. Null for
- * anyone else or without a valid age record; it only shapes the page.
- */
-export const requestOnboardingDivision = cache(() =>
-  divisionWhen('provisional'),
+export const requestOfficialStandingLobbies = cache(async () =>
+  standingLobbyLabels(
+    await processApp().database.readOfficialStandingLobbies(),
+  ),
 );
 
-/**
- * Club staff's default lobby for the create form's Lobby choice (ADR 0156):
- * their own lobby; null for everyone else, who sees no choice. The create
- * command decides again under the creator's lock.
- */
-export const requestStaffLobby = cache(
-  async (): Promise<RatingDivision | null> => {
+export const requestCompetitionAgeBand = cache(async () => {
+  const identity = await requestIdentity();
+  return identity.state === 'member' || identity.state === 'provisional'
+    ? processApp().database.readCompetitionAgeBand(identity.principal.userId)
+    : null;
+});
+
+export const requestProfileChallengeModes = async (username: string) => {
+  const identity = await requestIdentity();
+  return identity.state === 'member'
+    ? processApp().database.readProfileChallengeModes(
+        identity.principal.userId,
+        username,
+      )
+    : [];
+};
+
+export const requestLandingLobby = cache(async () =>
+  defaultStandingLobby(
+    await requestOfficialStandingLobbies(),
+    await requestCompetitionAgeBand(),
+  ),
+);
+
+/** The lobby choices offered by the Room form, rechecked on submission. */
+export const requestRoomCreateLobbyChoice = cache(
+  async (sourceLobbyId?: string) => {
     const identity = await requestIdentity();
     if (identity.state !== 'member') return null;
     const creator = await processApp().database.readRoomCreatorFact(
       identity.principal.userId,
     );
-    return creator.clubStaff ? lobbyOf(creator) : null;
+    const choices = (await requestOfficialStandingLobbies()).filter(
+      (lobby) =>
+        (creator.clubStaff && lobby.ageRule === 'under-18') ||
+        mayDebate(
+          { ageBand: creator.ageBand, guardianAllowed: false },
+          { ...lobby, competitionType: 'casual' },
+        ),
+    );
+    const selected =
+      choices.find(({ id }) => id === sourceLobbyId) ??
+      (creator.clubStaff
+        ? (defaultStandingLobby(choices, creator.ageBand) ?? choices[0])
+        : null);
+    return selected ? { choices, defaultId: selected.id } : null;
   },
 );
 
@@ -408,7 +439,7 @@ const FOLLOWING_ROWS = 50;
 const RECENTLY_WATCHED_ROWS = 10;
 
 /** The Following tab for one account: who it follows, who is live, what it watched. */
-export const requestFollowing = async (userId: string) => {
+export const requestFollowing = async (userId: string, lobbyId: string) => {
   const { database, clock } = processApp();
   const now = clock.now();
   const [usernames, history] = await Promise.all([
@@ -422,7 +453,7 @@ export const requestFollowing = async (userId: string) => {
       limit: RECENTLY_WATCHED_ROWS,
     }),
   ]);
-  const live = await liveRoundsOf(database, { usernames, now });
+  const live = await liveRoundsOf(database, { usernames, now, lobbyId });
   return followingOf({ usernames, live, history });
 };
 
@@ -438,14 +469,17 @@ export const requestStudentRoundIds = (member: { readonly userId: string }) =>
 export const requestStudentsLive = (member: {
   readonly userId: string;
   readonly actorId: string;
+  readonly lobbyId?: string;
 }) => processApp().studentsLive(member);
 
 /** The numbers on the Watch tabs. */
-export const requestHubCounts = async (): Promise<HubCounts> => {
+export const requestHubCounts = async (
+  lobbyId?: string,
+): Promise<HubCounts> => {
   const app = processApp();
   const clock = spectatorClockAt(app.clock.now());
   const [live, recordings] = await Promise.all([
-    readUnlessRefused(() => app.liveReads.count(), 0),
+    readUnlessRefused(() => app.liveReads.count(lobbyId), 0),
     recordingReads(app).archive.countPublicArchive({ clock }),
   ]);
   return { live, recordings };

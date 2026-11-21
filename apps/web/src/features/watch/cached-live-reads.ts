@@ -35,15 +35,17 @@ export const createCachedLiveReads = (deps: {
   const total = createSnapshotMemo<number>(options);
   return {
     listing: (query: LiveQuery) =>
-      pages(JSON.stringify([query.mode, query.q, query.before]), () =>
-        listLive(deps.store, { query, now: deps.clock.now() }),
+      pages(
+        JSON.stringify([query.lobby, query.mode, query.q, query.before]),
+        () => listLive(deps.store, { query, now: deps.clock.now() }),
       ),
     leading: () =>
       lead('lead', () => leadingLive(deps.store, deps.clock.now())),
-    count: () =>
-      total('total', () =>
+    count: (lobbyId?: string) =>
+      total(JSON.stringify([lobbyId]), () =>
         deps.store.countLiveBroadcasts({
           clock: spectatorClockAt(deps.clock.now()),
+          ...(lobbyId === undefined ? {} : { lobbyId }),
         }),
       ),
   };

@@ -1,12 +1,13 @@
 import type { Metadata } from 'next';
 import { nowMs, systemClock } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
-import { lobbyOf } from '@daisy/protocol';
+import { defaultStandingLobby } from '@daisy/protocol/lobby/eligibility';
 import type { SearchParams } from '../../../features/access/decision';
 import { parseRoomDiscoveryQuery } from '../../../features/lobby/discovery-query';
 import { requireAccess } from '../../../lib/access';
 import {
-  requestMemberDivision,
+  requestCompetitionAgeBand,
+  requestOfficialStandingLobbies,
   requestStudentRoundIds,
 } from '../../../lib/request-session';
 import { Lobby } from '../../../ui/lobby/lobby';
@@ -29,25 +30,19 @@ export default async function LobbyPage({
     identity.state === 'member' ? identity.principal.actorId : null;
   const parsed = parseRoomDiscoveryQuery(await searchParams);
   if (!parsed.success) throw createAppError('VALIDATION');
-  // Only the rows' actions and the landing lobby read it; the Room's own seat
-  // check decides.
-  const division = requestMemberDivision().catch(() => null);
-  const others = Promise.all([
+  const [ageBand, lobbies] = await Promise.all([
+    requestCompetitionAgeBand(),
+    requestOfficialStandingLobbies(),
+  ]);
+  const lobby = parsed.data.lobbyId
+    ? lobbies.find(({ id }) => id === parsed.data.lobbyId)
+    : defaultStandingLobby(lobbies, ageBand);
+  const query = { ...parsed.data, lobbyId: lobby?.id ?? parsed.data.lobbyId };
+  const [listing, activeRoom, hosted, studentRoundIds] = await Promise.all([
+    roomListing(query),
     requestActiveRoom(),
     actorId === null ? [] : hostedRoomsRead(),
-  ]);
-  const viewerDivision = await division;
-  // A member lands in their own lobby unless the URL names one (ADR 0156).
-  const query = {
-    ...parsed.data,
-    division: parsed.data.division ?? lobbyOf({ division: viewerDivision }),
-  };
-  // Only the Youth lobby lists live Youth Rounds, whose linked coaches and
-  // parents get Watch on them (ADR 0155).
-  const [listing, [activeRoom, hosted], studentRoundIds] = await Promise.all([
-    roomListing(query),
-    others,
-    identity.state === 'member' && query.division === 'youth'
+    identity.state === 'member' && lobby?.ageRule === 'under-18'
       ? requestStudentRoundIds(identity.principal)
       : [],
   ]);
@@ -59,12 +54,13 @@ export default async function LobbyPage({
       <HostedRooms rooms={hosted} />
       <Lobby
         query={query}
+        lobbies={lobbies}
         rooms={listing.rooms}
         nextCursor={listing.nextCursor}
         retry={listing.retry}
         activeRoom={activeRoom}
         now={now}
-        viewer={{ actorId, division: viewerDivision, studentRoundIds }}
+        viewer={{ actorId, ageBand, studentRoundIds }}
       />
     </>
   );

@@ -1,18 +1,14 @@
 import { instantMs } from '@daisy/clock';
 import {
-  seatAllowed,
-  type RatingDivision,
+  type AgeBand,
   type RoomListEntry,
   type RoundStage,
-  type SeatRef,
 } from '@daisy/protocol';
+import { mayDebate } from '@daisy/protocol/lobby/eligibility';
 import { drawnTopicLabel } from '../debate-room/vocabulary';
 import { liveHref, liveRoomHref, watchRoutes } from '../watch/routes';
 
 type RowState = 'open' | 'starting' | 'live';
-
-/** A debater seat, for asking the lobby rule whether the viewer may debate here. */
-const anyDebaterSeat: SeatRef = { kind: 'speaker', slot: 0 };
 
 /**
  * One verb per meaning, so a row's button always says the same thing: Watch
@@ -25,10 +21,10 @@ export type LobbyAction = {
   readonly primary: boolean;
 };
 
-/** Who reads the Lobby: their actor and their own division (none without an age record). */
+/** Who reads the Lobby: their actor and their competition age band. */
 export type LobbyViewer = {
   readonly actorId: string | null;
-  readonly division: RatingDivision | null;
+  readonly ageBand: AgeBand | null;
   /**
    * The running Youth Rounds this viewer's students debate in, so a live row
    * offers its linked coach or parent Watch (ADR 0155). A proposal only: the
@@ -136,11 +132,9 @@ export function rowActions(
   }
   const watch = action('Watch', roomHref, false);
   if (state === 'starting') return [watch];
-  // Every debater seat answers alike, so one stands for them all.
-  const debates = seatAllowed(
-    { kind: 'human', division: viewer.division },
+  const debates = mayDebate(
+    { ageBand: viewer.ageBand, guardianAllowed: false },
     room,
-    anyDebaterSeat,
   );
   if (debates) return [watch, action('Join', roomHref, true)];
   return room.openJudgeSeats > 0

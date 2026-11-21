@@ -1,4 +1,3 @@
-import { publicLobbyId } from '@daisy/db/testing';
 import { systemClock } from '@daisy/clock';
 import { resolveRoomConfiguration } from '@daisy/debate-engine';
 import { oneOnOneSettings } from '@daisy/db/reference-formats';
@@ -11,7 +10,7 @@ import {
 } from '@daisy/protocol';
 import { mediaReleaseWording } from '@daisy/protocol/media-release';
 import { createId } from '@paralleldrive/cuid2';
-import { SQL } from 'bun';
+import { SQL, type TransactionSQL } from 'bun';
 import { seatJudges } from './seat-judges';
 
 /**
@@ -28,13 +27,80 @@ type Create = {
   readonly hostUsername?: string;
   /** A signed-up member seated as the affirmative, so a browser can act as a debater. */
   readonly affUsername?: string;
+  readonly negUsername?: string;
   /**
    * The Room's division (its lobby), and a ranked Round's ladder. Either
    * lobby broadcasts alike (ADR 0161).
    */
   readonly division?: 'open' | 'youth';
+  readonly lobbyId?: string;
+  readonly tournament?: boolean;
   readonly title: string;
   readonly resolution: string;
+};
+
+type LobbyFixture =
+  | {
+      readonly command: 'open-lobby';
+      readonly name: string;
+      readonly ageRule?: 'adults' | 'anyone';
+    }
+  | { readonly command: 'close-lobby'; readonly lobbyId: string };
+
+const fixtureLobby = async (sql: SQL, input: LobbyFixture) => {
+  if (input.command === 'close-lobby') {
+    await sql.begin(async (tx) => {
+      await tx`select set_config('daisy.lobby_scope', ${input.lobbyId}, true)`;
+      await tx`update lobbies set closed_at=now() where id=${input.lobbyId}`;
+    });
+    return;
+  }
+  const id = createId();
+  const organizationId = createId();
+  const ownerId = createId();
+  await sql.begin(async (tx) => {
+    await tx`insert into users (id, username, email_verified) values (${ownerId}, ${ownerId}, true)`;
+    await tx`select set_config('daisy.organization_scope', ${organizationId}, true),
+      set_config('daisy.lobby_scope', ${id}, true)`;
+    await tx`insert into organizations (id, kind, name, handle, official, owner_user_id, league_division)
+      values (${organizationId}, 'league', ${input.name}, ${organizationId}, true, ${ownerId}, 'open')`;
+    await tx`insert into lobbies (id, kind, name, handle, owner_organization_id, age_rule)
+      values (${id}, 'standing', ${input.name}, ${id}, ${organizationId}, ${input.ageRule ?? 'adults'})`;
+  });
+  return { lobbyId: id };
+};
+
+const privateYouthTournament = async (
+  tx: TransactionSQL,
+  hostActor: string,
+) => {
+  const id = createId();
+  await tx`select set_config('daisy.lobby_scope', ${id}, true)`;
+  await tx`insert into lobbies (id, kind, owner_user_id, name, handle)
+    select ${id}, 'tournament', user_id, 'Youth test tournament', ${id} from actors where id=${hostActor}`;
+  await tx`insert into tournaments (lobby_id, status, admits_minors) values (${id}, 'draft', true)`;
+  await tx`insert into settings (id, scope_kind, lobby_id, key, hold, value)
+    values (${createId()}, 'lobby', ${id}, 'entry.age_division', 'default', ${{ value: 'youth' }})`;
+  return { id };
+};
+
+const seedPublishedFixture = async (
+  tx: TransactionSQL,
+  lobbyId: string,
+  roomId: string,
+) => {
+  const eventId = createId();
+  const stageId = createId();
+  const tabRoundId = createId();
+  await tx`insert into events (id, lobby_id, name, format_id, format_version, entry_kind)
+    values (${eventId}, ${lobbyId}, 'Youth scrimmage', 'freestyle', 1, 'person')`;
+  await tx`insert into stages (id, lobby_id, event_id, kind, sequence, place, timing)
+    values (${stageId}, ${lobbyId}, ${eventId}, 'preliminary', 1, 'online', 'live')`;
+  await tx`insert into tab_rounds (id, lobby_id, event_id, stage_id, number)
+    values (${tabRoundId}, ${lobbyId}, ${eventId}, ${stageId}, 1)`;
+  // The fixture trigger records the retained Room source used by Round authorization.
+  await tx`insert into fixtures (id, lobby_id, event_id, tab_round_id, kind, status, published_at, room_id)
+    values (${createId()}, ${lobbyId}, ${eventId}, ${tabRoundId}, 'pairing', 'published', now(), ${roomId})`;
 };
 
 /**
@@ -101,6 +167,7 @@ const create = async (sql: SQL, input: Create) => {
   const [segment] = rules.segments;
   if (!segment) throw new Error('Fixture rules have no speech');
   const roomDivision = input.division ?? 'open';
+  const ageRule = roomDivision === 'youth' ? 'under-18' : 'adults';
   // Only a ranked Round has a ladder: its Room's division.
   const division = input.mode === 'ranked' ? roomDivision : null;
   await sql.begin(async (tx) => {
@@ -120,10 +187,24 @@ const create = async (sql: SQL, input: Create) => {
       input.mode === 'ranked'
         ? { format: 'freestyle', preset: 1, ladder: 'freestyle' }
         : { format: 'freestyle', preset: null, ladder: null };
-    await tx`insert into rooms (lobby_id,id,host_actor_id,title,topic,visibility,format_id,format_version,preset_version,competition_type,division,config,execution_plan,rules_snapshot,status)
-      values (${publicLobbyId},${roomId},${hostActor},${input.title},${input.resolution},${input.visibility},${formatColumns.format},1,${formatColumns.preset},${input.mode},${roomDivision},${{}},${{}},${rules},'started')`;
+    const [lobby] = input.tournament
+      ? [await privateYouthTournament(tx, hostActor)]
+      : input.lobbyId
+        ? await tx`select id from lobbies where id=${input.lobbyId}`
+        : await tx`select l.id from lobbies l join organizations o on o.id=l.owner_organization_id
+          where l.kind='standing' and o.official and l.age_rule=${ageRule} and l.closed_at is null
+          order by l.created_at, l.id limit 1`;
+    if (!lobby) throw new Error('The official fixture lobby is missing');
+    const roomHost = input.tournament ? null : hostActor;
+    const lobbyKind = input.tournament ? 'tournament' : 'standing';
+    const capture = input.tournament
+      ? { broadcast: null, recordingPolicy: 'off' }
+      : null;
+    await tx`insert into rooms (lobby_id,lobby_kind,id,host_actor_id,title,topic,visibility,format_id,format_version,preset_version,competition_type,config,execution_plan,rules_snapshot,capture,status)
+      values (${lobby.id},${lobbyKind},${roomId},${roomHost},${input.title},${input.resolution},${input.visibility},${formatColumns.format},1,${formatColumns.preset},${input.mode},${{}},${{}},${rules},${capture},'started')`;
+    if (input.tournament) await seedPublishedFixture(tx, lobby.id, roomId);
     await tx`insert into rounds (id,room_id,created_by_actor_id,resolution,competition_type,format_id,format_version,preset_version,ladder_id,ladder_division,rules_snapshot,runtime_state,status,current_stage,started_at,visibility,room_config_snapshot)
-      values (${roundId},${roomId},${hostActor},${input.resolution},${input.mode},${formatColumns.format},1,${formatColumns.preset},${formatColumns.ladder},${division},${rules},${emptyRuntimeCheckpointFor(rules)},'active','live',now()-interval '5 minutes',${input.visibility},${oneOnOneSettings})`;
+      values (${roundId},${roomId},${roomHost},${input.resolution},${input.mode},${formatColumns.format},1,${formatColumns.preset},${formatColumns.ladder},${division},${rules},${emptyRuntimeCheckpointFor(rules)},'active','live',now()-interval '5 minutes',${input.visibility},${oneOnOneSettings})`;
     const aff = await seat(
       tx as never,
       roundId,
@@ -131,7 +212,13 @@ const create = async (sql: SQL, input: Create) => {
       input.affUsername ?? `aff-${suffix}`,
       input.affUsername !== undefined,
     );
-    await seat(tx as never, roundId, negativeSide, `neg-${suffix}`);
+    await seat(
+      tx as never,
+      roundId,
+      negativeSide,
+      input.negUsername ?? `neg-${suffix}`,
+      input.negUsername !== undefined,
+    );
     await seatJudges(tx as never, roundId, rules.seats.judges);
     const segmentId = createId();
     await tx`insert into round_segments (id,round_id,sequence,type,rules_segment_key,started_at,duration_ms)
@@ -160,6 +247,28 @@ const userIdOf = async (sql: SQL, username: string) =>
       id: string;
     }
   ).id;
+
+type DownloadFixture =
+  | { readonly command: 'grant-download'; readonly username: string }
+  | { readonly command: 'erase-age-evidence'; readonly username: string };
+
+const prepareDownload = async (sql: SQL, input: DownloadFixture) => {
+  const userId = await userIdOf(sql, input.username);
+  if (input.command === 'grant-download') {
+    await sql`insert into account_entitlement_grants (user_id, entitlement, source, starts_at, expires_at)
+      values (${userId}, 'recording_download', 'subscription', now()-interval '1 day', now()+interval '1 day')`;
+    return;
+  }
+  await sql.begin(async (tx) => {
+    await tx`select set_config('daisy.subject_scope', ${userId}, true)`;
+    await tx`update media_releases set withdrawn_at=clock_timestamp(), withdrawn_by='erasure'
+      where user_id=${userId} and withdrawn_at is null`;
+    const deleted =
+      await tx`delete from account_age where user_id=${userId} returning user_id`;
+    if (deleted.length !== 1)
+      throw new Error('Expected to erase one age record');
+  });
+};
 
 const linkCoach = async (sql: SQL, input: LinkCoach) => {
   const coach = await userIdOf(sql, input.coachUsername);
@@ -274,7 +383,8 @@ const advance = async (sql: SQL, input: Advance) => {
 };
 
 if (import.meta.main) {
-  const input = JSON.parse(Bun.argv[2] ?? '{}') as Create | LinkCoach | Advance;
+  const input = JSON.parse(Bun.argv[2] ?? '{}') as
+    Create | LinkCoach | Advance | LobbyFixture | DownloadFixture;
   const sql = new SQL(process.env.E2E_DATABASE_URL ?? '', { max: 1 });
   try {
     const result =
@@ -282,7 +392,12 @@ if (import.meta.main) {
         ? await create(sql, input)
         : input.command === 'link-coach'
           ? await linkCoach(sql, input)
-          : await advance(sql, input);
+          : input.command === 'open-lobby' || input.command === 'close-lobby'
+            ? await fixtureLobby(sql, input)
+            : input.command === 'grant-download' ||
+                input.command === 'erase-age-evidence'
+              ? await prepareDownload(sql, input)
+              : await advance(sql, input);
     process.stdout.write(JSON.stringify(result ?? { ok: true }));
   } finally {
     await sql.close();

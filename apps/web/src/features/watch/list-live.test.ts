@@ -60,12 +60,12 @@ describe('listLive', () => {
         ...defaultLiveQuery,
         mode: 'casual',
         q: 'ana',
-        ladder: 'freestyle:youth',
+        lobby: 'y'.repeat(24),
       },
       now: NOW,
     });
     assert({
-      given: 'a mode, a search and a ladder',
+      given: 'a mode, a search and a lobby',
       should: 'ask the store for them under the release clock',
       actual: seen,
       expected: [
@@ -73,7 +73,7 @@ describe('listLive', () => {
           filter: {
             mode: 'casual',
             q: 'ana',
-            ladder: { style: 'freestyle', division: 'youth' },
+            lobbyId: 'y'.repeat(24),
           },
           before: '',
           clock: { now: NOW, rankedDelaySeconds: 60 },

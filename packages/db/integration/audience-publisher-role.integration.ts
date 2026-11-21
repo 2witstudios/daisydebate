@@ -30,7 +30,7 @@ test('the publisher reads what it publishes, and writes nothing else', async () 
     assert({
       given: 'the publisher role',
       should:
-        'read Rounds, never change one, read no address from a user, and read only a Room’s division (ADR 0156)',
+        'read Rounds, never change one, read no address from a user, and read a Room’s age-rule classification (ADR 0162)',
       actual: [
         await can('rounds', 'SELECT'),
         await can('rounds', 'UPDATE'),
@@ -41,7 +41,7 @@ test('the publisher reads what it publishes, and writes nothing else', async () 
         await column('username'),
         await column('email'),
         (
-          await sql`select has_column_privilege('daisy_audience_publisher', 'rooms', 'division', 'SELECT') as ok`
+          await sql`select has_function_privilege('daisy_audience_publisher', 'public.daisy_room_is_youth(text)', 'EXECUTE') as ok`
         )[0].ok as boolean,
         (
           await sql`select has_column_privilege('daisy_audience_publisher', 'rooms', 'title', 'SELECT') as ok`

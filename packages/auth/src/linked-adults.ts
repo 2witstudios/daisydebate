@@ -25,7 +25,7 @@ export type LinkedAdultFacts = {
   readonly round: {
     readonly ladderDivision: RatingDivision | null;
     /** The Round's Room; null for a Round with no Room. */
-    readonly room: { readonly division: RatingDivision } | null;
+    readonly roomYouth: boolean | null;
   };
   readonly seats: readonly {
     readonly actorId: string;
@@ -122,7 +122,8 @@ const linkedAdultsOf = (
 export const linkedAdultsOfRound = (
   facts: LinkedAdultFacts,
 ): RoundLinkedAdults => {
-  if (!isYouthRound(facts.round, facts.round.room)) return { debaters: [] };
+  if (!isYouthRound(facts.round, facts.round.roomYouth))
+    return { debaters: [] };
   const userOf = (actorId: string) =>
     facts.actors.find((actor) => actor.id === actorId)?.userId ?? null;
   const debaters = sorted(

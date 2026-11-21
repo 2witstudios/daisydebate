@@ -67,7 +67,7 @@ test('who may not be invited', () => {
         kind: 'human' as const,
         seat: sideSeat('negative'),
         eligible: true,
-        division: 'open' as const,
+        ageBand: 'adult' as const,
         teamOpen: false,
         positionOpen: false,
         consentVersion: 0,

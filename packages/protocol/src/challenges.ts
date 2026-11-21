@@ -1,6 +1,5 @@
 import { z } from 'zod';
 import { idSchema, ratingStyles } from './primitives';
-import { ratingDivisions } from './ladder';
 import { competitionTypes } from './round';
 import { usernameSchema as username } from './username';
 
@@ -35,7 +34,7 @@ const challengeSummary = {
   mode: z.enum(competitionTypes),
   format: z.enum(ratingStyles),
   /** The lobby both members share (ADR 0156), set at send; its Room opens there. */
-  division: z.enum(ratingDivisions),
+  lobbyId: idSchema,
   createdAt: z.iso.datetime(),
   expiresAt: z.iso.datetime(),
 };

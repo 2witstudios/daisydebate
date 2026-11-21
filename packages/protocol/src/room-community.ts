@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { idSchema } from './primitives';
 import type { RoomStatus, RoomView } from './room-contract';
-import type { RatingDivision } from './ladder';
+import type { LobbyAgeRule } from './lobby/eligibility';
 import type { SeatKind } from './seats';
 import {
   createMessagingCoreSchemas,
@@ -58,8 +58,8 @@ export const roomCommunitySeatReadsOnly = (
  * (ADR 0156). `daisy_room_community_fact` reads the same rule in SQL.
  */
 export const youthRoomOf = (room: {
-  readonly division: RatingDivision;
-}): boolean => room.division === 'youth';
+  readonly ageRule: LobbyAgeRule;
+}): boolean => room.ageRule === 'under-18';
 /**
  * Who reads Room chat while it gathers and never posts: a judge (DEC-174), and
  * in a Youth Room anyone without a seat there (decision 84), adult or minor,

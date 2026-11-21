@@ -1,3 +1,4 @@
+import type { CreateLobbyChoice } from '../../../features/rooms/create-lobby-choice';
 import type { RatingDivision } from '@daisy/protocol';
 import Link from 'next/link';
 import { buttonClass } from '../../components/button/button-class';
@@ -15,14 +16,14 @@ export function CreateRoomPage({
   freshRoom = false,
   initialRanked = false,
   memberDivision,
-  staffLobby,
+  lobbyChoice,
 }: {
   readonly freshRoom?: boolean;
   readonly initialRanked?: boolean;
   /** The member's ladder division (ADR 0147); null with no age on record, so no ranked play. */
   readonly memberDivision: RatingDivision | null;
-  /** Club staff's Lobby default; null hides the Lobby choice (ADR 0156). */
-  readonly staffLobby: RatingDivision | null;
+  /** The eligible lobby options and the selection carried into the form. */
+  readonly lobbyChoice: CreateLobbyChoice | null;
   readonly initialState?: RoomDraftAnswer;
   readonly sourceRoomId?: string;
   readonly commandId: string;
@@ -52,7 +53,7 @@ export function CreateRoomPage({
       <CreateAssemblyForm
         initialRanked={initialRanked}
         memberDivision={memberDivision}
-        staffLobby={staffLobby}
+        lobbyChoice={lobbyChoice}
         {...(initialState ? { initialState } : {})}
         {...(sourceRoomId ? { sourceRoomId } : {})}
         commandId={commandId}

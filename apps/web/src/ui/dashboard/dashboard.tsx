@@ -17,7 +17,9 @@ export function Dashboard({
   hero,
   liveNow,
   seasonGlance = null,
+  playLobbyId = null,
 }: {
+  readonly playLobbyId?: string | null;
   readonly audience: 'visitor' | 'member';
   readonly hero: ReactNode;
   /** Who is live; the page reads it. */
@@ -39,6 +41,11 @@ export function Dashboard({
           <li key={tile.href} className="min-w-0">
             <ActionTile
               {...tile}
+              href={
+                tile.destination === 'lobby' && playLobbyId
+                  ? `/lobby?lobby=${encodeURIComponent(playLobbyId)}`
+                  : tile.href
+              }
               seasonGlance={
                 tile.destination === 'seasons' ? seasonGlance : null
               }

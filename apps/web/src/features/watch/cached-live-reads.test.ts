@@ -9,7 +9,7 @@ const query = (over: Partial<LiveQuery> = {}): LiveQuery => ({
   tab: 'live',
   mode: 'any',
   q: '',
-  ladder: '',
+  lobby: '',
   before: '',
   ...over,
 });
@@ -24,9 +24,9 @@ const world = (failure?: () => Error) => {
         if (failure) throw failure();
         return { rows: [], nextBefore: null };
       },
-      countLiveBroadcasts: async () => {
+      countLiveBroadcasts: async ({ lobbyId }: { lobbyId?: string }) => {
         state.counts += 1;
-        return 0;
+        return lobbyId === undefined ? 4 : 0;
       },
     } as never,
   });
@@ -56,6 +56,27 @@ test('a crowd on the hub costs one read of each page per interval', async () => 
     actual: state.lists,
     expected: 3,
   });
+});
+
+test('global and empty-selection counts have separate cache keys', async () => {
+  for (const [first, second] of [
+    [undefined, ''],
+    ['', undefined],
+  ] as const) {
+    const { reads, state } = world();
+    const results = [await reads.count(first), await reads.count(second)];
+    const cached = [await reads.count(first), await reads.count(second)];
+    const expected = first === undefined ? [4, 0] : [0, 4];
+    assert({
+      given:
+        first === undefined
+          ? 'the global count first'
+          : 'the empty selection first',
+      should: 'read and cache the two counts separately',
+      actual: { results, cached, calls: state.counts },
+      expected: { results: expected, cached: expected, calls: 2 },
+    });
+  }
 });
 
 test('one search is never answered with another', async () => {

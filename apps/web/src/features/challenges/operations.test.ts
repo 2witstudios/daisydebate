@@ -256,7 +256,7 @@ describe('challengeListOf', () => {
     username: 'ada',
     mode: 'casual' as const,
     format: 'freestyle' as const,
-    division: 'open' as const,
+    lobbyId: 'l'.repeat(24),
     roomId: null,
     createdAt: now,
     expiresAt: now,

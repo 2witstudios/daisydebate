@@ -1,5 +1,4 @@
 import { instantMs } from '@daisy/clock';
-import { publicLobbyId } from './daisy-reference';
 import { leagueRoomSelection } from './league-room-selection';
 import { eq, inArray } from 'drizzle-orm';
 import { createAppError, createRefusal } from '@daisy/errors';
@@ -14,8 +13,6 @@ import type { CasualJudgeAdmission } from './casual-judge-admission';
 import { actors } from './schema/actors';
 import { botProfiles } from './schema/bot-profiles';
 import { aiJudgeProfiles } from './schema/ai-judge-profiles';
-import { seatableInRoom } from './league-ladder-seat';
-import { leagueRoomFacts } from './league-room-division';
 import { rooms, roomParticipants, roomSeatHolds } from './schema/rooms';
 import { columnsOfSeat } from './seat-columns';
 import { holdActiveRoomMembers } from './room-membership-persistence';
@@ -64,6 +61,7 @@ export const assembleRoom = async (
       readonly kind: 'standing' | 'tournament';
     };
     readonly templateId: string | null;
+    readonly legacyTournamentYouth?: boolean | null;
     readonly ballotDefinition: {
       readonly id: string;
       readonly version: number;
@@ -83,11 +81,6 @@ export const assembleRoom = async (
     readonly judgeAdmission?: CasualJudgeAdmission | undefined;
   },
 ): Promise<RoomAssemblyState | null> => {
-  if (
-    input.room.competitionType === 'ranked' &&
-    input.lobby.id !== publicLobbyId
-  )
-    throw createRefusal('CONFLICT', 'illegal-config');
   await tx.insert(rooms).values({
     ...newRoomValues(input.room),
     leagueLadderId:
@@ -101,6 +94,9 @@ export const assembleRoom = async (
         : null,
     lobbyId: input.lobby.id,
     lobbyKind: input.lobby.kind,
+    ...(input.legacyTournamentYouth == null
+      ? {}
+      : { legacyTournamentYouth: input.legacyTournamentYouth }),
     templateId: input.templateId,
     ballotDefinitionId: input.ballotDefinition?.id ?? null,
     ballotDefinitionVersion: input.ballotDefinition?.version ?? null,
@@ -210,10 +206,8 @@ const applyInitialCast = async (
   const [row] = await tx.select().from(rooms).where(eq(rooms.id, room.id));
   if (!row) throw createAppError('INFRASTRUCTURE');
   const { state } = await roomFacts(tx, row);
-  const league = await leagueRoomFacts(tx, row);
   const targets: (Actor | null)[] = [];
-  for (const seat of seats)
-    targets.push(seatableInRoom(league, await actorFact(tx, seat.actorId)));
+  for (const seat of seats) targets.push(await actorFact(tx, seat.actorId));
   const judgeQuote =
     judgeAdmission && targets.some((target) => target?.aiRole === 'judge')
       ? await judgeAdmission.quoteLocked(tx, {

@@ -35,7 +35,7 @@ const seated = {
       teamOpen: false,
       positionOpen: false,
       rating: null,
-      division: null,
+      ageBand: null,
       needsReady: true,
       ready: 'not-ready' as const,
       eligible: true,
@@ -216,7 +216,7 @@ test('the resolution is labelled as the resolution', () => {
 test('the header names no lobby, only that the Room is ranked (YRoomPreRound)', () => {
   const youth = renderToStaticMarkup(
     header(
-      { ...seated, competitionType: 'ranked', division: 'youth' },
+      { ...seated, competitionType: 'ranked', ageRule: 'under-18' },
       'v'.repeat(24),
     ),
   );

@@ -3,7 +3,7 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   judgeSeat,
   sideSeat,
-  type RatingDivision,
+  type AgeBand,
   type RoomView,
 } from '@daisy/protocol';
 import { assemblySnapshot } from '../../../features/rooms/assembly.test-support';
@@ -18,7 +18,7 @@ type Participant = RoomView['participants'][number];
 const viewer = {
   actorId: 'v'.repeat(24),
   label: 'Viewer',
-  division: 'open' as RatingDivision | null,
+  ageBand: 'adult' as AgeBand | null,
 };
 const judgeBot = {
   actorId: 't'.repeat(24),
@@ -875,22 +875,22 @@ describe('RoomRoster header count (main-sync-4)', () => {
 });
 
 describe('RoomRoster lobbies (ADR 0156)', () => {
-  const inLobby = (division: RatingDivision): RoomView => {
+  const inLobby = (ageRule: RoomView['ageRule']): RoomView => {
     const seats = seatsOf(1, 1, 1);
     return {
       ...sized(1, 1, []),
       definition: { ...assemblySnapshot.definition, seats },
       rules: { ...assemblySnapshot.rules, seats },
       competitionType: 'ranked',
-      division,
+      ageRule,
     };
   };
   const takes = (html: string) =>
     (html.match(/>Take seat<\/button>/g) ?? []).length;
 
   test('debater seats are for the Room’s own lobby, judge seats for anyone (YLRoomSpectator)', () => {
-    const own = render(inLobby('open'));
-    const other = render(inLobby('youth'));
+    const own = render(inLobby('adults'));
+    const other = render(inLobby('under-18'));
     assert({
       given:
         'an adult over an Open Room, then over a Youth Room, each with two debater seats and a judge seat open',

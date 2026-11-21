@@ -49,7 +49,7 @@ test.describe('dashboard shell chrome', () => {
     const tiles = page.getByRole('list', { name: 'Debate destinations' });
     await expect(tiles.getByRole('link', { name: /^Play/ })).toHaveAttribute(
       'href',
-      '/lobby',
+      /\/lobby\?lobby=[a-z0-9]{24}$/u,
     );
     await tiles.getByRole('link', { name: /^Seasons/ }).click();
     await expect(page).toHaveURL(/\/leaderboard\/seasons$/);
