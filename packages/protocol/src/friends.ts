@@ -10,10 +10,12 @@ import { usernameSchema as username } from './username';
  */
 
 /** Durable pair states; a declined or removed pair has no row at all. */
+export const storedFriendshipStates = ['pending', 'accepted'] as const;
+
+/** The command model includes pending requests that await a private hold. */
 export const friendshipStates = [
-  'pending',
+  ...storedFriendshipStates,
   'waiting-for-guardian',
-  'accepted',
 ] as const;
 export type FriendshipState = (typeof friendshipStates)[number];
 

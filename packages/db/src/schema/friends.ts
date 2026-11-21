@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { friendshipStates } from '@daisy/protocol';
+import { storedFriendshipStates } from '@daisy/protocol';
 import {
   boolean,
   check,
@@ -12,10 +12,6 @@ import {
 } from 'drizzle-orm/pg-core';
 import { oneOf, timestampColumn } from './columns';
 import { contactActorColumn, contactPairs } from './contacts';
-
-const storedFriendshipStates = friendshipStates.filter(
-  (state) => state !== 'waiting-for-guardian',
-);
 
 /**
  * The friendship producer (ADR 0072): one row per asked or accepted pair,

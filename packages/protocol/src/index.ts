@@ -563,6 +563,7 @@ export {
   friendListSchema,
   friendshipStates,
   onlineCountsSchema,
+  storedFriendshipStates,
 } from './friends';
 export {
   chosenStatuses,
