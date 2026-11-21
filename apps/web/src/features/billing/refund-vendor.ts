@@ -139,11 +139,14 @@ export function createRefundVendor(input: {
       if (!permitted(action, claimId)) return refuse;
       return observation(action, claimId, await input.port.retrieve(found.id));
     }
+    // validPage refused a page with more to come and no rows, so `last` is
+    // there whenever there is more.
+    const last = parsed.data.data.at(-1);
     return {
       kind: 'searched',
       claimId,
       beforeRefundId: cursor,
-      afterRefundId: parsed.data.has_more ? parsed.data.data.at(-1)!.id : null,
+      afterRefundId: parsed.data.has_more && last ? last.id : null,
     };
   }
   return {

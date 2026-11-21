@@ -1,4 +1,7 @@
+import { z } from 'zod';
 import type { FlagDefinition } from './model';
+
+const safeReleaseDefaultSchema = z.literal(false);
 
 const isDate = (value: string) =>
   /^\d{4}-\d{2}-\d{2}$/.test(value) &&
@@ -42,7 +45,10 @@ function definitionProblems(
     !isDate(entry.expiresOn)
   )
     problems.push('invalid definition');
-  if (entry.kind === 'release' && entry.safeDefault !== false)
+  if (
+    entry.kind === 'release' &&
+    !safeReleaseDefaultSchema.safeParse(entry.safeDefault).success
+  )
     problems.push('release must fail closed');
   if (new Set(entry.dependencies).size !== entry.dependencies.length)
     problems.push('duplicate dependency');

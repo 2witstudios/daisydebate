@@ -173,7 +173,10 @@ const bestExchange = (
   const keys = pairingKeys.filter(
     (key) => forceOf(facts.settings, key) !== 'off',
   );
-  let best: { gain: number[]; exchange: Exchange } | null = null;
+  // The callbacks below improve it; a holder keeps its type visible to them.
+  const search: { best: { gain: number[]; exchange: Exchange } | null } = {
+    best: null,
+  };
   placed.forEach((other, o) => {
     if (o === index || other.fixture.kind !== own.fixture.kind) return;
     const before = [
@@ -188,7 +191,11 @@ const bestExchange = (
         const delta = after[0]!.map(
           (v, k) => v + after[1]![k]! - before[0]![k]! - before[1]![k]!,
         );
-        if (best !== null && compareVectors(delta, best.gain) >= 0) return;
+        if (
+          search.best !== null &&
+          compareVectors(delta, search.best.gain) >= 0
+        )
+          return;
         const difference = keys.flatMap((key) => {
           const cost = (f: Fixture) => pairingTerms[key](facts, f) ?? [];
           const diff = [cost(a), cost(b)][0]!.map(
@@ -200,14 +207,14 @@ const bestExchange = (
           );
           return diff.some((d) => d !== 0) ? [{ key: key, cost: diff }] : [];
         });
-        best = {
+        search.best = {
           gain: delta,
           exchange: { with: other.ref, entries: [x, y], difference },
         };
       }),
     );
   });
-  return best === null ? null : (best as { exchange: Exchange }).exchange;
+  return search.best === null ? null : search.best.exchange;
 };
 
 /**

@@ -14,13 +14,14 @@ export async function within<T>(
   what: string,
   turns = 1_000,
 ): Promise<T> {
-  let settled = false;
+  const outcome = { settled: false };
   const watched = promise.finally(() => {
-    settled = true;
+    outcome.settled = true;
   });
   // A rejection is the caller's to see, from the returned promise.
   watched.catch(() => undefined);
-  for (let turn = 0; turn < turns && !settled; turn += 1) await nextTurn();
-  if (!settled) throw new Error(`${what} never happened`);
+  for (let turn = 0; turn < turns && !outcome.settled; turn += 1)
+    await nextTurn();
+  if (!outcome.settled) throw new Error(`${what} never happened`);
   return watched;
 }

@@ -18,11 +18,16 @@ export function useHistoryScroll(rows: readonly MessageRow[]) {
     const top = scroller.getBoundingClientRect().top;
     const visible = [
       ...scroller.querySelectorAll<HTMLElement>('[data-message-id]'),
-    ].find((row) => row.getBoundingClientRect().bottom > top);
+    ]
+      .flatMap((row) => {
+        const id = row.dataset.messageId;
+        return id === undefined ? [] : [{ row, id }];
+      })
+      .find(({ row }) => row.getBoundingClientRect().bottom > top);
     anchor.current = visible
       ? {
-          id: visible.dataset.messageId!,
-          offset: visible.getBoundingClientRect().top - top,
+          id: visible.id,
+          offset: visible.row.getBoundingClientRect().top - top,
         }
       : null;
   }, []);

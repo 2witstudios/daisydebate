@@ -36,7 +36,6 @@ export function ActiveRoomBar({
   const pathname = usePathname();
   const [room, setRoom] = useState(seed);
   useEffect(() => {
-    if (pathname === null) return;
     const controller = new AbortController();
     void refreshActiveRoom(fetch, controller.signal, setRoom);
     return () => controller.abort();

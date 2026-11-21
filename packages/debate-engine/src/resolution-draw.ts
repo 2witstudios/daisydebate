@@ -136,11 +136,31 @@ export const turnOf = (
 /** The survivor and the reveal instant, once revealed. */
 export const survivorOf = (draw: ResolutionDrawState) => {
   if (!revealed(draw)) return null;
-  const position = standingPositions(draw)[0]!;
-  return {
-    item: draw.items.find((i) => i.position === position)!,
-    at: draw.strikes.at(-1)!.at,
-  };
+  const struck = new Set(draw.strikes.map((s) => s.position));
+  const item = draw.items.find((i) => !struck.has(i.position));
+  const lastStrike = draw.strikes.at(-1);
+  if (item === undefined || lastStrike === undefined)
+    throw createAppError(
+      'INVARIANT',
+      'A revealed draw keeps one standing item after its last strike',
+    );
+  return { item, at: lastStrike.at };
+};
+
+/** A due strike's position: the seed's choice for an automatic side, else the lowest standing. */
+const strikePosition = (
+  automatic: boolean,
+  seed: Uint8Array | null,
+  ordinal: number,
+  standing: readonly number[],
+) => {
+  if (!automatic) return standing[0]!;
+  if (!seed)
+    throw createAppError(
+      'INVARIANT',
+      'An automatic strike needs the draw seed',
+    );
+  return automaticChoice(seed, ordinal, standing);
 };
 
 /**
@@ -159,17 +179,14 @@ export function settleDraw(
   for (;;) {
     const turn = turnOf(next, stops, Date.parse(now));
     if (!turn || Date.parse(now) < Date.parse(turn.dueAt)) return next;
-    const standing = standingPositions(next);
-    if (turn.automatic && !seed)
-      throw createAppError(
-        'INVARIANT',
-        'An automatic strike needs the draw seed',
-      );
     const strike: ResolutionStrike = {
       ordinal: turn.ordinal,
-      position: turn.automatic
-        ? automaticChoice(seed!, turn.ordinal, standing)
-        : standing[0]!,
+      position: strikePosition(
+        turn.automatic,
+        seed,
+        turn.ordinal,
+        standingPositions(next),
+      ),
       side: turn.side,
       kind: turn.automatic ? 'automatic' : 'timeout',
       actorId: null,

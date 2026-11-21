@@ -220,7 +220,7 @@ export const releaseStandingOf = (input: {
       request: open,
       afterParentWithdrawal: parentWithdrew,
     };
-  return parentWithdrew && last !== undefined
+  return parentWithdrew
     ? { kind: 'withdrawn', release: last }
     : { kind: 'none' };
 };

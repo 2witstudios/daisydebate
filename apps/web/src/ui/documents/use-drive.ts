@@ -347,7 +347,8 @@ export function useDrive({
             const documentIds = answer.deletedDocumentIds ?? [];
             sync?.forgetAll(documentIds);
             dispatch({ type: 'drive/folder-deleted', id, documentIds });
-          } else if (path === 'folders/create' && answer.folder) {
+          } else if (answer.folder) {
+            // The one path left is folders/create, the only one answering a folder.
             dispatch({
               type: 'drive/add',
               folderId: orNull(fields.parentFolderId),
@@ -380,7 +381,7 @@ export function useDrive({
                 targetId === null ||
                 found.some((folder) => folder.id === targetId);
               if (!sourceExists) missing(id);
-              if (!targetExists && targetId !== null) missing(targetId);
+              if (!targetExists) missing(targetId);
               setProblem({
                 kind: !sourceExists || !targetExists ? 'missing' : 'change',
                 message: !sourceExists

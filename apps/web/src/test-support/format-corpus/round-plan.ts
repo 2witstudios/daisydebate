@@ -8,6 +8,7 @@ import {
   type RoundCommand,
   type RoundPosition,
   type RoundRules,
+  type SeatRef,
 } from '@daisy/protocol';
 import { seatAt, type CorpusSeat } from './corpus-seats';
 import type { Durable } from './durable';
@@ -46,17 +47,29 @@ type OpenSegment = NonNullable<RoundPosition['openSegment']>;
 type Move = (state: ScriptState, open: OpenSegment) => Planned | null;
 
 /** The seat a segment is scheduled to: the speaker, or the asker. */
-const leadOf = (state: ScriptState, sequence: number) =>
-  leadSeatOf(state.rules.segments[sequence]!.speak)!;
+const leadOf = (state: ScriptState, sequence: number): SeatRef => {
+  const lead = leadSeatOf(state.rules.segments[sequence]!.speak);
+  if (!lead) throw new Error(`Segment ${sequence} has no lead seat`);
+  return lead;
+};
 const speakerOf = (state: ScriptState, sequence: number) =>
   seatAt(state.seats, leadOf(state, sequence));
-const opponentOf = (state: ScriptState, sequence: number) =>
-  seatAt(
-    state.seats,
-    sideSeat(
-      otherSide(state.rules.sides, sideOfSeat(leadOf(state, sequence))!),
-    ),
-  );
+/** The lead's opponent: a script only interrupts or refuses a side's segment. */
+const opponentOf = (state: ScriptState, sequence: number) => {
+  const lead = leadOf(state, sequence);
+  const side = sideOfSeat(lead);
+  if (!side) throw new Error(`Segment ${sequence} is led by a ${lead.kind}`);
+  return seatAt(state.seats, sideSeat(otherSide(state.rules.sides, side)));
+};
+/** The prep the lead's side has left; a seat on no side has none. */
+const prepLeftOf = (
+  lead: SeatRef | null,
+  budget: RoundPosition['prepBudgetRemainingMs'],
+): number => {
+  if (!lead) throw new Error('The prep target segment has no lead seat');
+  const side = sideOfSeat(lead);
+  return side === null ? 0 : (budget?.[side] ?? 0);
+};
 const command = (
   type: RoundCommand['type'],
   seat: CorpusSeat,
@@ -158,7 +171,7 @@ const beforeSegment = (
   if (
     !state.done.has('prep') &&
     next.sequence === prepTarget(state.rules) &&
-    (budget?.[sideOfSeat(next.lead!)!] ?? 0) > 0 &&
+    prepLeftOf(next.lead, budget) > 0 &&
     leftMs > 2_000
   )
     return {

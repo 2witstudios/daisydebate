@@ -9,7 +9,13 @@ import { contained, type CaptureState } from '../capture-history';
 import type { StagedFrame } from '../capture-staging';
 
 const MAX_FRAMES = 25;
-type Group = { readonly intervalId: string; readonly frames: StagedFrame[] };
+/** Consecutive frames, oldest first; a group is born with its first frame. */
+type Group = {
+  readonly intervalId: string;
+  readonly first: StagedFrame;
+  last: StagedFrame;
+  readonly frames: StagedFrame[];
+};
 const refused = () => ({ kind: 'refused' as const });
 /** The original signed samples, explicitly little-endian. No energy/speech heuristic runs here. */
 function pcm(frame: StagedFrame) {
@@ -83,30 +89,34 @@ export function prepare(input: {
       frame.clockEvidence.anchor,
     ]);
     let group = current.get(key);
-    const last = group?.frames.at(-1);
     if (
       !group ||
       group.frames.length === MAX_FRAMES ||
-      (last &&
-        (frame.clockEvidence.observation.sequence !==
-          last.clockEvidence.observation.sequence + 1 ||
-          frame.frame.nominalStartMs !== last.frame.nominalStartMs + 10))
+      frame.clockEvidence.observation.sequence !==
+        group.last.clockEvidence.observation.sequence + 1 ||
+      frame.frame.nominalStartMs !== group.last.frame.nominalStartMs + 10
     ) {
-      group = { intervalId: interval.id, frames: [] };
+      group = {
+        intervalId: interval.id,
+        first: frame,
+        last: frame,
+        frames: [frame],
+      };
       groups.push(group);
       current.set(key, group);
+    } else {
+      group.frames.push(frame);
+      group.last = frame;
     }
-    group.frames.push(frame);
   }
   const bodies: CaptureEvidenceBody[] = [];
   const ids = new Set<string>();
   for (const [index, group] of groups.entries()) {
-    const evidenceId = input.evidenceIds[index];
-    if (!idSchema.safeParse(evidenceId).success || ids.has(evidenceId!))
-      return refused();
-    ids.add(evidenceId!);
-    const first = group.frames[0]!,
-      last = group.frames.at(-1)!;
+    const evidence = idSchema.safeParse(input.evidenceIds[index]);
+    if (!evidence.success || ids.has(evidence.data)) return refused();
+    const evidenceId = evidence.data;
+    ids.add(evidenceId);
+    const { first, last } = group;
     const encoded = canonicalCaptureEvidenceBody({
       version: 1,
       evidenceId,

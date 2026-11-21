@@ -43,7 +43,6 @@ export function ConversationReconnecting({
     // while a held refresh is still on the wire.
     const originalFetch = window.fetch.bind(window);
     let pendingRefetches = 0;
-    let awaitingNetworkSettle = false;
     const isConversationRefetch = (
       input: Parameters<typeof window.fetch>[0],
       init: Parameters<typeof window.fetch>[1],
@@ -81,15 +80,12 @@ export function ConversationReconnecting({
       if (!isConversationRefetch(args[0], args[1]))
         return originalFetch(...args);
       pendingRefetches += 1;
-      awaitingNetworkSettle = true;
       try {
         return await originalFetch(...args);
       } finally {
         pendingRefetches -= 1;
-        if (pendingRefetches === 0 && awaitingNetworkSettle) {
-          awaitingNetworkSettle = false;
-          recovery.settled();
-        }
+        // The last refetch in flight settling settles the network.
+        if (pendingRefetches === 0) recovery.settled();
       }
     };
     window.fetch = wrappedFetch as typeof window.fetch;

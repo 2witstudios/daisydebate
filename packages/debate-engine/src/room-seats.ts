@@ -5,6 +5,7 @@ import type {
   RoomMutationOutcome,
   RoomRefusal,
   SeatDraw,
+  SideSeat,
   TwoSideKey,
 } from '@daisy/protocol';
 import {
@@ -48,15 +49,19 @@ type Placement = { readonly role: TwoSideKey; readonly slot: number };
 const isTeamSide = (side: string): side is TwoSideKey =>
   (twoSideKeys as readonly string[]).includes(side);
 
-/** A debater's placement, or null for a judge (or any seat that is no team's). */
-const placementOf = (p: Participant): Placement | null =>
-  p.seat.kind === 'side' && isTeamSide(p.seat.side)
-    ? { role: p.seat.side, slot: p.seat.slot }
-    : null;
+/** A participant in a team's side seat: a debater, not a judge. */
+type Debater = Participant & {
+  readonly seat: SideSeat & { readonly side: TwoSideKey };
+};
 
-const isDebater = (p: Participant): boolean => placementOf(p) !== null;
+const isDebater = (p: Participant): p is Debater =>
+  p.seat.kind === 'side' && isTeamSide(p.seat.side);
 
-const placed = (p: Participant): Placement => placementOf(p)!;
+/** A debater's placement: the side seat they hold before Start round. */
+const placed = (p: Debater): Placement => ({
+  role: p.seat.side,
+  slot: p.seat.slot,
+});
 
 /**
  * A Room no person hosts is a Tab event Room: its draw seated its teams on
@@ -92,10 +97,12 @@ export const setSeat = (
   const role =
     command.team === null ? from.role : teamPlacementOf(command.team);
   const capacity = room.rules.seats.sides[role] ?? 0;
-  const others = room.participants.filter((p) => p.id !== mover.id);
-  const inRole = (p: Participant) => placementOf(p)?.role === role;
+  const othersInRole = room.participants
+    .filter((p) => p.id !== mover.id)
+    .filter(isDebater)
+    .filter((p) => placed(p).role === role);
   const holder = (slot: number) =>
-    others.find((p) => inRole(p) && placed(p).slot === slot);
+    othersInRole.find((p) => placed(p).slot === slot);
   const movable = (p: Participant) =>
     role !== from.role ? p.teamOpen : p.positionOpen || p.teamOpen;
   const slot = (() => {
@@ -106,7 +113,7 @@ export const setSeat = (
       (i) => !holder(i),
     );
     if (free !== undefined) return free;
-    const swap = others.find((p) => inRole(p) && movable(p));
+    const swap = othersInRole.find(movable);
     return swap ? placed(swap).slot : undefined;
   })();
   if (slot === undefined || slot >= capacity) return refuse('seat-unavailable');
@@ -166,7 +173,7 @@ const shuffled = <T>(items: readonly T[], stream: WordStream, at: number) => {
   return { out, next };
 };
 
-const placementOrder = (a: Participant, b: Participant) => {
+const placementOrder = (a: Debater, b: Debater) => {
   const [x, y] = [placed(a), placed(b)];
   return x.role === y.role
     ? x.slot - y.slot
@@ -201,28 +208,25 @@ export function resolveSeats(
     };
   const stream = seatStream(input.seed);
   let at = 0;
-  const seats = new Map(
-    room.participants.filter(isDebater).map((p) => [p.id, placed(p)]),
-  );
+  const debaters = room.participants.filter(isDebater);
+  // The draws' moves; a debater no draw moved keeps the seat they hold.
+  const moves = new Map<string, Placement>();
+  const seatOf = (p: Debater) => moves.get(p.id) ?? placed(p);
 
-  const teamOpen = canonicalOrder(
-    room.participants.filter((p) => isDebater(p) && p.teamOpen),
-  );
+  const teamOpen = canonicalOrder(debaters.filter((p) => p.teamOpen));
   const teamSeats = [...teamOpen].sort(placementOrder);
   const teamDraw = shuffled(teamOpen, stream, at);
   at = teamDraw.next;
-  teamDraw.out.forEach((p, i) => seats.set(p.id, placed(teamSeats[i]!)));
+  teamDraw.out.forEach((p, i) => moves.set(p.id, placed(teamSeats[i]!)));
 
   for (const role of twoSideKeys) {
     const open = canonicalOrder(
-      room.participants.filter(
-        (p) => isDebater(p) && p.positionOpen && seats.get(p.id)!.role === role,
-      ),
+      debaters.filter((p) => p.positionOpen && seatOf(p).role === role),
     );
-    const slots = open.map((p) => seats.get(p.id)!.slot).sort((a, b) => a - b);
+    const slots = open.map((p) => seatOf(p).slot).sort((a, b) => a - b);
     const draw = shuffled(open, stream, at);
     at = draw.next;
-    draw.out.forEach((p, i) => seats.set(p.id, { role, slot: slots[i]! }));
+    draw.out.forEach((p, i) => moves.set(p.id, { role, slot: slots[i]! }));
   }
 
   const coin =
@@ -232,11 +236,7 @@ export function resolveSeats(
         : ('swapped' as const)
       : null;
   const teamOneSide: TwoSideKey =
-    coin === null
-      ? room.teamOneSide!
-      : coin === 'kept'
-        ? affirmativeSide
-        : negativeSide;
+    room.teamOneSide ?? (coin === 'kept' ? affirmativeSide : negativeSide);
   const sideOf = (placement: TwoSideKey): TwoSideKey =>
     teamOneSide === affirmativeSide
       ? placement
@@ -246,7 +246,7 @@ export function resolveSeats(
 
   const participants = room.participants.map((p) => {
     if (!isDebater(p)) return p;
-    const seat = seats.get(p.id)!;
+    const seat = seatOf(p);
     return {
       ...p,
       seat: sideSeat(sideOf(seat.role), seat.slot),
@@ -265,11 +265,10 @@ export function resolveSeats(
       positionOpen: p.positionOpen,
     }));
   const moved = canonicalOrder(
-    room.participants.filter(
-      (p) => isDebater(p) && (p.teamOpen || p.positionOpen),
-    ),
+    debaters.filter((p) => p.teamOpen || p.positionOpen),
   ).map((p) => {
-    const to = placed(participants.find((q) => q.id === p.id)!);
+    const seat = seatOf(p);
+    const to = { role: sideOf(seat.role), slot: seat.slot };
     return {
       participantId: p.id,
       open: p.teamOpen

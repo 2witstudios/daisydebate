@@ -83,7 +83,6 @@ export const startRound = (
       edges.hostHoldsCasualCapture ||
         (room.hostActorId === null &&
           edges.direction?.roomId === room.id &&
-          edges.direction.command === 'start-round' &&
           edges.direction.captureAdmitted),
     )
   )

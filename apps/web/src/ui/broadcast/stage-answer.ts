@@ -23,7 +23,7 @@ const showsItsPhase = (answer: Readonly<Record<string, unknown>>) => {
   switch (answer.phase) {
     case 'speech': {
       const clock = fieldsOf(answer.clock);
-      return isText(clock?.label) && isText(clock?.endsAt);
+      return isText(clock?.label) && isText(clock.endsAt);
     }
     case 'prep':
       return isWaitLeft(answer.remainingMs);

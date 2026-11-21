@@ -109,7 +109,8 @@ export async function createAudioSubscription(input: SubscriptionInput) {
       nowMs: input.nowMs,
       readStats: (options) => track.getStats(options),
     });
-    let finished = false;
+    /** Set once by `stop`, which any callback below may reach first. */
+    const lifecycle = { finished: false };
     const processor = new AudioFrameProcessor({
       identity,
       trackId,
@@ -138,8 +139,8 @@ export async function createAudioSubscription(input: SubscriptionInput) {
      * for the same track can only start after this close, never before it.
      */
     const stop = async (reason: ClosedTrack['reason']) => {
-      if (finished) return;
-      finished = true;
+      if (lifecycle.finished) return;
+      lifecycle.finished = true;
       transport.close();
       processor.close();
       streams.delete(trackId);
@@ -175,7 +176,7 @@ export async function createAudioSubscription(input: SubscriptionInput) {
     }
     void (async () => {
       try {
-        while (!finished) {
+        while (!lifecycle.finished) {
           const frame = await reader.read();
           if (frame.done) break;
         }

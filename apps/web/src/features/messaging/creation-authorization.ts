@@ -108,13 +108,18 @@ export function creationResource(
   if (policyRevision === undefined) throw createAppError('INFRASTRUCTURE');
   const revision = policyRevision;
   if (operation.kind === 'dm') {
-    if (members.length !== 2 || contacts.length !== 1)
+    const recipientActorId = members.find((id) => id !== actorId);
+    if (
+      members.length !== 2 ||
+      contacts.length !== 1 ||
+      recipientActorId === undefined
+    )
       throw createAppError('VALIDATION');
     return {
       kind: 'social_creation',
       mode: 'dm',
       initiatorActorId: actorId,
-      recipientActorId: members.find((id) => id !== actorId)!,
+      recipientActorId,
       policyKey: 'social.dm',
       policyRevision: revision,
       contactPair: contacts[0]!,

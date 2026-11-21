@@ -388,6 +388,8 @@ export {
   messagingDmResultSchema,
   messagingDmDecisionResultSchema,
   messagingChannelLifecycles,
+  messagingPrivateGroupPolicySchema,
+  messagingSocialCreationPolicySchema,
   messageRequestSettings,
   messageRequestSettingSchema,
 } from './messaging/social';

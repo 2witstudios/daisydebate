@@ -51,7 +51,8 @@ export function resolveFlag({
   readonly releaseDefault: boolean;
 }): FlagResolution {
   const entries = new Map(catalogue.map((entry) => [entry.key, entry]));
-  if (!entries.has(key)) return { enabled: false, reason: 'UNKNOWN' };
+  const target = entries.get(key);
+  if (!target) return { enabled: false, reason: 'UNKNOWN' };
   if (!Number.isFinite(now) || catalogueProblems(catalogue).length > 0)
     return { enabled: false, reason: 'ERROR' };
   const facts = new Map(
@@ -62,26 +63,29 @@ export function resolveFlag({
   if (snapshot.kind === 'available' && facts.size !== snapshot.flags.length)
     return { enabled: false, reason: 'ERROR' };
   const resolved = new Map<string, FlagResolution>();
-  const resolve = (name: string): FlagResolution => {
-    const previous = resolved.get(name);
+  const resolve = (entry: FlagDefinition): FlagResolution => {
+    const previous = resolved.get(entry.key);
     if (previous) return previous;
-    const entry = entries.get(name)!;
     let result = ownResolution(
       entry,
-      facts.get(name),
+      facts.get(entry.key),
       snapshot,
       now,
       releaseDefault,
     );
     if (
       result.enabled &&
-      !entry.dependencies.every((dependency) => resolve(dependency).enabled)
+      // catalogueProblems refused an unknown dependency, so each is found.
+      !entry.dependencies.every((key) => {
+        const dependency = entries.get(key);
+        return dependency !== undefined && resolve(dependency).enabled;
+      })
     )
       result = { enabled: false, reason: 'DEPENDENCY' };
-    resolved.set(name, result);
+    resolved.set(entry.key, result);
     return result;
   };
-  return resolve(key);
+  return resolve(target);
 }
 
 function targetingResolution(

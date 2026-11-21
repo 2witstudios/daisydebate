@@ -102,7 +102,8 @@ export function createRedis({
     async health() {
       try {
         await client.connect();
-        return (await client.ping()) === 'PONG';
+        await client.ping();
+        return true;
       } catch (error) {
         reportFailure('health');
         throw error;

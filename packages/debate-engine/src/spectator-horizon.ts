@@ -47,7 +47,6 @@ export const spectatorHorizon = (
   if (broadcast.completedAtMs === null && broadcast.stoppedAtMs === null)
     return broadcast.releasedThroughMs;
   const floor = finishedFloor(broadcast.policy, facts);
-  if (floor === null) return broadcast.releasedThroughMs;
   return Math.max(broadcast.releasedThroughMs ?? floor, floor);
 };
 

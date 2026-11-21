@@ -45,12 +45,12 @@ export function createContextChatDriver(context: ChatContext, ownerId: string) {
       state = step.state;
       for (const listener of listeners) listener();
     }
-    for (const effect of step.effects) run(effect);
+    for (const effect of step.effects) run(base, effect);
   };
 
-  const discover = async ({ request }: Effect<'discover'>) => {
+  const discover = async (base: string, { request }: Effect<'discover'>) => {
     try {
-      const response = await fetch(base!, { cache: 'no-store' });
+      const response = await fetch(base, { cache: 'no-store' });
       const found = response.ok
         ? parseContextChatDiscovery(context, await response.json(), ownerId)
         : null;
@@ -68,10 +68,10 @@ export function createContextChatDriver(context: ChatContext, ownerId: string) {
     }
   };
 
-  const open = async ({ request }: Effect<'open'>) => {
+  const open = async (base: string, { request }: Effect<'open'>) => {
     try {
       const response = await fetch(
-        base!,
+        base,
         json({ version: 1, [context.ownerKey]: ownerId }),
       );
       const metadata = response.ok
@@ -91,12 +91,15 @@ export function createContextChatDriver(context: ChatContext, ownerId: string) {
     }
   };
 
-  const read = async (effect: Effect<'read-latest' | 'read-older'>) => {
+  const read = async (
+    base: string,
+    effect: Effect<'read-latest' | 'read-older'>,
+  ) => {
     const { request, channelId } = effect;
     const kind = effect.type === 'read-latest' ? 'latest' : 'older';
     try {
       const response = await fetch(
-        `${base!}/messages?channelId=${channelId}${
+        `${base}/messages?channelId=${channelId}${
           effect.type === 'read-older' ? `&before=${effect.before}` : ''
         }`,
         { cache: 'no-store' },
@@ -122,11 +125,11 @@ export function createContextChatDriver(context: ChatContext, ownerId: string) {
     }
   };
 
-  const markRead = async (effect: Effect<'mark-read'>) => {
+  const markRead = async (base: string, effect: Effect<'mark-read'>) => {
     const { request, channelId, sequence } = effect;
     try {
       const response = await fetch(
-        `${base!}/read`,
+        `${base}/read`,
         json({ version: 1, channelId, cursor: { channelId, sequence } }),
       );
       const marked = response.ok
@@ -153,17 +156,18 @@ export function createContextChatDriver(context: ChatContext, ownerId: string) {
     expiry = setTimeout(check, 0);
   };
 
-  function run(effect: ContextChatEffect) {
+  /** Runs one effect against the chat's address, which only an addressable owner has. */
+  function run(base: string, effect: ContextChatEffect) {
     switch (effect.type) {
       case 'discover':
-        return void discover(effect);
+        return void discover(base, effect);
       case 'open':
-        return void open(effect);
+        return void open(base, effect);
       case 'read-latest':
       case 'read-older':
-        return void read(effect);
+        return void read(base, effect);
       case 'mark-read':
-        return void markRead(effect);
+        return void markRead(base, effect);
       case 'watch-expiry':
         return watchExpiry(effect);
     }

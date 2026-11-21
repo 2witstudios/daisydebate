@@ -11,9 +11,11 @@ export function createCleanupRechecks(input: {
 }) {
   let pass: Parameters<Store['rechecks']>[0],
     stopped = false;
+  /** Read afresh after every await: stop() lands between them. */
+  const isStopped = () => stopped;
   return {
     async run() {
-      if (stopped) return;
+      if (isStopped()) return;
       let page: Awaited<ReturnType<Store['rechecks']>>;
       try {
         page = await input.store.rechecks(pass);
@@ -22,14 +24,14 @@ export function createCleanupRechecks(input: {
         return;
       }
       for (const { jobId } of page.rows) {
-        if (stopped) return;
+        if (isStopped()) return;
         try {
           await input.store.reopen(jobId);
         } catch (error) {
           input.failed(error, 'reopen');
         }
       }
-      if (!stopped) pass = page.next ?? undefined;
+      if (!isStopped()) pass = page.next ?? undefined;
     },
     stop() {
       stopped = true;

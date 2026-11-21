@@ -31,19 +31,20 @@ export async function startMediaWorker(input: {
   readonly captureEntry: string;
 }) {
   let logger = createLogger({ service: 'media-worker' });
-  const refuse = (cause: string) => {
+  const refuse = (cause: string): never => {
     logger.log('server.shutdown', { cause }, 'Capture worker refused to start');
-    process.exit(1);
+    return process.exit(1);
   };
-  let config: MediaWorkerConfig;
-  try {
-    config = readMediaWorkerConfig(input.env);
-  } catch {
-    refuse('configuration');
-  }
-  logger = createWorkerLogger(config!);
+  const config = ((): MediaWorkerConfig => {
+    try {
+      return readMediaWorkerConfig(input.env);
+    } catch {
+      return refuse('configuration');
+    }
+  })();
+  logger = createWorkerLogger(config);
   const database = createMediaWorkerDatabase({
-    url: config!.MEDIA_WORKER_DATABASE_URL,
+    url: config.MEDIA_WORKER_DATABASE_URL,
   });
   try {
     if ((await database.privilegeProblems()).length > 0) refuse('privilege');
@@ -51,7 +52,7 @@ export async function startMediaWorker(input: {
     refuse('database');
   }
   const supervisor = createCaptureSupervisor({
-    maxSessions: config!.MEDIA_WORKER_MAX_SESSIONS,
+    maxSessions: config.MEDIA_WORKER_MAX_SESSIONS,
     // The wait after an exit; detection and reconnection are not bounded here.
     retryMs: { initial: 1000, max: 8000 },
     heldMs: 30000,
@@ -87,11 +88,11 @@ export async function startMediaWorker(input: {
               );
           },
           env: {
-            PUBLIC_APP_URL: config!.PUBLIC_APP_URL,
-            MEDIA_WORKER_SECRET: config!.MEDIA_WORKER_SECRET,
-            OPENROUTER_API_KEY: config!.OPENROUTER_API_KEY,
+            PUBLIC_APP_URL: config.PUBLIC_APP_URL,
+            MEDIA_WORKER_SECRET: config.MEDIA_WORKER_SECRET,
+            OPENROUTER_API_KEY: config.OPENROUTER_API_KEY,
             CAPTURE_PENDING_BYTES: String(
-              capturePendingBytes(config!.MEDIA_WORKER_MAX_SESSIONS),
+              capturePendingBytes(config.MEDIA_WORKER_MAX_SESSIONS),
             ),
           },
         },

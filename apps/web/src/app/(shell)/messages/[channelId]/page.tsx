@@ -8,10 +8,7 @@ import { notFound } from 'next/navigation';
 import { systemClock, systemId } from '@daisy/clock';
 import { idSchema, messagingBetaLimits } from '@daisy/protocol';
 import { requireAccess } from '../../../../lib/access';
-import {
-  messagingFilesAvailable,
-  messagingLatestPageItems,
-} from '../../../../lib/request-session';
+import { messagingLatestPageItems } from '../../../../lib/request-session';
 import type { SearchParams } from '../../../../features/access/decision';
 import {
   readConversationResponse,
@@ -72,7 +69,6 @@ export default async function ConversationPage({
           paging: typeof query.before === 'string',
         });
   const now = systemClock.now();
-  const filesAvailable = messagingFilesAvailable();
   const paging = typeof query.before === 'string';
   return (
     <ConversationNavigation key={id.data} requestId={requestId}>
@@ -148,7 +144,7 @@ export default async function ConversationPage({
                 viewer={conversation.viewer}
                 now={now}
                 typingName={names.isGroup ? 'Someone' : names.otherAuthor}
-                filesAvailable={filesAvailable}
+                filesAvailable
                 reactAction={reactToMessageAction}
               />
             ) : (
@@ -159,7 +155,7 @@ export default async function ConversationPage({
                 otherAuthor={names.otherAuthor}
                 viewer={viewerFrom(conversation.viewer, query.unread)}
                 now={now}
-                filesAvailable={filesAvailable}
+                filesAvailable
                 reactAction={reactToMessageAction}
                 latestLink={paging || searchQuery !== undefined}
                 {...(searchQuery === undefined ? {} : { searchQuery })}

@@ -18,7 +18,9 @@ export const context = (seconds: number): CleanupContext => ({
   closed: true,
 });
 export function initial() {
-  return startCleanup(job, at(0))!;
+  const state = startCleanup(job, at(0));
+  if (state === null) throw new Error('Cleanup fixture refused to start');
+  return state;
 }
 export function changed(
   value: CleanupState,
@@ -41,13 +43,11 @@ export const page = (
   ids: string[],
   more = false,
   claimId = first,
-): Extract<CleanupEvent, { kind: 'page' }> => ({
-  kind: 'page',
-  claimId,
-  work: cleanupWork(value)!,
-  ids,
-  more,
-});
+): Extract<CleanupEvent, { kind: 'page' }> => {
+  const work = cleanupWork(value);
+  if (work === null) throw new Error('Cleanup fixture has no work to page');
+  return { kind: 'page', claimId, work, ids, more };
+};
 export function empty(value: CleanupState, seconds: number) {
   const c = claimed(value, seconds);
   return changed(c, page(c, []), seconds + 0.1, {

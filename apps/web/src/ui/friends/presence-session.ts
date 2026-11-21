@@ -34,6 +34,8 @@ export function createPresenceSessions(ports: SessionPorts) {
   let stopSession: (() => void) | null = null;
   function start(): () => void {
     let stopped = false;
+    /** Read at each use: the session can stop while a read awaits. */
+    const isStopped = () => stopped;
     let stopBeacon: (() => void) | null = null;
     const read = async () => {
       try {
@@ -41,7 +43,7 @@ export function createPresenceSessions(ports: SessionPorts) {
           credentials: 'same-origin',
           cache: 'no-store',
         });
-        if (stopped || !response.ok) return;
+        if (isStopped() || !response.ok) return;
         // jitless: the strict CSP refuses Zod's eval-compiled parser.
         const counts = onlineCountsSchema.safeParse(await response.json(), {
           jitless: true,
@@ -49,7 +51,7 @@ export function createPresenceSessions(ports: SessionPorts) {
         if (!counts.success) return;
         for (const listener of listeners) listener(counts.data.friendsOnline);
         const endpoint = realtimeEndpointOf(response);
-        if (endpoint && !stopBeacon && !stopped)
+        if (endpoint && !stopBeacon && !isStopped())
           stopBeacon = ports.startBeacon(endpoint);
       } catch {
         // The next poll tries again.
