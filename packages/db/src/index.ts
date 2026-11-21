@@ -91,7 +91,6 @@ import {
   erasePrivacySubject as runSubjectRightsErasure,
   exportPrivacySubject as runSubjectRightsExport,
 } from './privacy/subject-rights';
-import type { PrivacyErasureInput } from './privacy/planner';
 import type { PrivacySubject } from './privacy/contracts';
 import type { PrivacyVerificationBinding } from './privacy/operations';
 import type { RoomClosureTransitions } from './room-account-closure';
@@ -404,7 +403,7 @@ export function createDatabase({
      * transitions and, for erasure, the verification bindings.
      */
     erasePrivacySubject: (
-      input: PrivacyErasureInput,
+      input: Parameters<typeof runSubjectRightsErasure>[1],
       rooms: RoomClosureTransitions,
       verificationBindings: readonly PrivacyVerificationBinding[],
     ) =>

@@ -7,11 +7,14 @@ import {
   type PrivacyVerificationBinding,
 } from './operations';
 import type { PrivacyErasureInput } from './planner';
+import type { GuardianChildAuthority } from '../guardians/active-child';
 
 /** Closes one member's account through every feature's erase step (ADR 0087). */
 export const erasePrivacySubject = (
   database: PrivacyDatabase,
-  input: PrivacyErasureInput,
+  input:
+    | PrivacyErasureInput
+    | (Omit<PrivacyErasureInput, 'subject'> & GuardianChildAuthority),
   rooms: RoomClosureTransitions,
   verificationBindings: readonly PrivacyVerificationBinding[],
 ) =>

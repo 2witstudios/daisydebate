@@ -53,8 +53,10 @@ const version = 1 as const;
 
 export async function FamilySettings({
   role,
+  childAccountClosed = false,
 }: {
   readonly role: 'adult' | 'child';
+  readonly childAccountClosed?: boolean;
 }) {
   const adult = role === 'adult';
   const [rows, approvals] = await Promise.all([
@@ -73,6 +75,9 @@ export async function FamilySettings({
         Settings
       </Link>
       <PageHeader title={adult ? 'Parental controls' : 'Your parents'} />
+      {childAccountClosed ? (
+        <p role="status">Your child’s account was closed.</p>
+      ) : null}
       {adult ? (
         <section
           id="waiting-for-you"
@@ -189,6 +194,15 @@ export async function FamilySettings({
                       secondary
                     />
                   </div>
+                ) : null}
+                {adult && row.status === 'active' ? (
+                  <Link
+                    href={`/settings/parental-controls/${row.id}`}
+                    aria-label={`More for ${row.label}`}
+                    className="self-start text-sm font-semibold"
+                  >
+                    More
+                  </Link>
                 ) : null}
                 {adult && row.status === 'active' ? (
                   <GuardianForm

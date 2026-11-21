@@ -365,7 +365,20 @@ export const decideSignature = (
   if (facts.link !== 'usable') return { ok: false, refusal: facts.link };
   if (!isReleaseRequestOpen(facts.request, facts.nowMs))
     return { ok: false, refusal: 'request_closed' };
-  if (facts.standing.kind === 'on_file')
+  return decideParentSignature(
+    facts.standing,
+    facts.request.recipientEmail,
+    form,
+  );
+};
+
+/** The attestation and scopes are identical for email and linked guardians. */
+export const decideParentSignature = (
+  standing: ReleaseStanding,
+  email: string,
+  form: unknown,
+): SignDecision => {
+  if (standing.kind === 'on_file')
     return { ok: false, refusal: 'already_released' };
   const parsed = signatureFormSchema.safeParse(form);
   if (!parsed.success) return { ok: false, refusal: 'invalid_form' };
@@ -377,7 +390,7 @@ export const decideSignature = (
       kind: 'parent',
       name: parsed.data.name,
       relation: parsed.data.relation,
-      email: facts.request.recipientEmail,
+      email,
     },
   };
 };

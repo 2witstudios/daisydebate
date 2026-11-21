@@ -49,6 +49,45 @@ export const exportSubjectData =
     };
   };
 
+const eraseSubject = (
+  app: App,
+  authority:
+    | { readonly subject: PrivacySubject }
+    | {
+        readonly guardian: PrivacySubject;
+        readonly linkId: string;
+      },
+  now: string,
+) => {
+  const vendors = configuredPrivacyJobVendors(app);
+  return app.database.erasePrivacySubject(
+    { ...authority, now, vendors, jobIds: vendors.map(() => app.ids.next()) },
+    roomTransitions,
+    subjectRightsVerificationBindings,
+  );
+};
+
+export async function closeChildAccount(
+  app: App,
+  guardian: PrivacySubject,
+  linkId: string,
+) {
+  const result = await eraseSubject(app, { guardian, linkId }, app.clock.now());
+  // Redis drafts are expendable and expiring. A cache outage cannot undo a
+  // committed closure or prevent its durable vendor cleanup.
+  if (result.subject) {
+    try {
+      await eraseRoomDraftAnswer(app.redis, result.subject.userId);
+    } catch {
+      app.logger.log(
+        'privacy.erase.failed',
+        { operation: 'privacy.erase' },
+        'Closed account room draft could not be cleared before expiry',
+      );
+    }
+  }
+}
+
 /**
  * The account's data-rights routes (ISSUE-833): export and erasure, each a
  * native form post behind the member gates. The erasure runs the whole
@@ -79,18 +118,8 @@ export function composeDataRightsRoutes(app: App) {
         limiter: () => app.limiter,
         clock: app.clock,
         eraseSubject: async (subject, now) => {
-          const privacyJobVendors = configuredPrivacyJobVendors(app);
           await eraseRoomDraftAnswer(app.redis, subject.userId);
-          return app.database.erasePrivacySubject(
-            {
-              subject,
-              now,
-              vendors: privacyJobVendors,
-              jobIds: privacyJobVendors.map(() => app.ids.next()),
-            },
-            roomTransitions,
-            subjectRightsVerificationBindings,
-          );
+          return eraseSubject(app, { subject }, now);
         },
       }),
     },

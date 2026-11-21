@@ -3,6 +3,7 @@ import {
   decideAnswer,
   decideAsk,
   decidePaidAdsChange,
+  decideParentSignature,
   decideResend,
   decideSignature,
   decideWithdrawal,
@@ -10,6 +11,7 @@ import {
   mediaReleasePolicy,
   parentHeldOf,
   releaseLinkVerdict,
+  releaseRecipientSchema,
   releaseRequestExpiry,
   releaseStandingOf,
   type AskRefusal,
@@ -19,12 +21,17 @@ import {
   type ReleaseRequest,
   type ReleaseStanding,
   type ResendRefusal,
+  type SignDecision,
 } from '@daisy/protocol/media-release';
 import { sql } from 'drizzle-orm';
 import type { BoundedTransaction } from './bounded-transaction';
 import { readDatabaseTime } from './database-clock';
 import { oweNotifications } from './notifications/owe';
 import { scopeTransaction } from './tenant-scope';
+import {
+  requireActiveGuardianChild,
+  type GuardianChildAuthority,
+} from './guardians/active-child';
 import type { BoundedTransactionContext } from './transaction-context';
 import { readLinkedAdultUserIds } from './youth-recording-people';
 
@@ -115,6 +122,19 @@ export function createMediaReleases(input: {
     lock = true,
   ) {
     if (!digestPattern.test(digest)) return null;
+    const [owner] = await rows<{ user_id: string }>(
+      tx,
+      sql`select r.user_id from media_release_links l
+        join media_release_requests r on r.id = l.request_id
+        where l.token_digest = ${digest}`,
+    );
+    if (!owner) return null;
+    if (lock)
+      await tx.execute(
+        sql`select 1 from users where id = ${owner.user_id} for update`,
+      );
+    const now = await readDatabaseTime(tx);
+    const facts = await minorFacts(tx, owner.user_id, now, lock);
     const [link] = await rows<{
       id: string;
       purpose: ReleaseLinkPurpose;
@@ -127,14 +147,7 @@ export function createMediaReleases(input: {
         from media_release_links where token_digest = ${digest}
         ${lock ? sql`for update` : sql``}`,
     );
-    if (link === undefined) return null;
-    const [owner] = await rows<{ user_id: string }>(
-      tx,
-      sql`select user_id from media_release_requests where id = ${link.request_id}`,
-    );
-    if (owner === undefined) return null;
-    const now = await readDatabaseTime(tx);
-    const facts = await minorFacts(tx, owner.user_id, now, lock);
+    if (!link) return null;
     const request = facts.requests.find((r) => r.id === link.request_id);
     if (request === undefined) return null;
     const verdict = releaseLinkVerdict(
@@ -181,7 +194,86 @@ export function createMediaReleases(input: {
     }));
   }
 
+  async function persistSignature(
+    tx: Tx,
+    userId: string,
+    requestId: string,
+    decision: Extract<SignDecision, { ok: true }>,
+    now: Date,
+  ) {
+    await supersedeOldRelease(tx, userId, now);
+    const publishId = nextId();
+    for (const scope of decision.scopes)
+      await insertMediaRelease(tx, {
+        id: scope === 'publish' ? publishId : nextId(),
+        userId,
+        scope,
+        wordingVersion: decision.wordingVersion,
+        parent: { requestId, ...decision.signature },
+        now,
+      });
+    await queueMediaReleaseMail(tx, {
+      id: nextId(),
+      kind: 'copy',
+      requestId,
+      at: nowSql,
+    });
+    await oweNotifications(tx, {
+      kind: 'media_release_signed',
+      subject: { media_release_id: publishId },
+      recipients: [{ userId, about: null }],
+      at: now.toISOString(),
+      nextId,
+    });
+  }
+
   return {
+    readGuardianRelease: (authority: GuardianChildAuthority) =>
+      run(async (tx) => {
+        const child = await requireActiveGuardianChild(tx, authority, 'read');
+        const now = await readDatabaseTime(tx);
+        const { standing } = await minorFacts(tx, child.userId, now, false);
+        return {
+          username: child.username,
+          signed: standing.kind === 'on_file',
+        };
+      }),
+
+    /** A linked guardian attests with their verified account address. */
+    signAsGuardian: (
+      authority: GuardianChildAuthority,
+      form: unknown,
+      recipientHash: (email: string) => string,
+    ): Promise<ParentAnswer> =>
+      run(async (tx) => {
+        const child = await requireActiveGuardianChild(tx, authority, 'write');
+        const [guardian] = await rows<{ email: string }>(
+          tx,
+          sql`select lower(btrim(email)) as email from users
+            where id = ${authority.guardian.userId} and email_verified and email is not null`,
+        );
+        const email = releaseRecipientSchema.safeParse(guardian?.email);
+        if (!email.success) throw createAppError('AUTHORIZATION');
+        const now = await readDatabaseTime(tx);
+        const { standing } = await minorFacts(tx, child.userId, now);
+        const decision = decideParentSignature(standing, email.data, form);
+        if (!decision.ok) return { kind: 'refused', reason: decision.refusal };
+        await tx.execute(sql`update media_release_requests
+          set outcome = case when expires_at > ${now.toISOString()}::timestamptz
+            then 'superseded' else 'expired' end,
+            resolved_at = ${now.toISOString()}
+          where user_id = ${child.userId} and outcome is null`);
+        const requestId = nextId();
+        // Record a signed delivery receipt so the existing copy and withdrawal
+        // links work. No sign link, request email or reminder is issued.
+        await tx.execute(sql`insert into media_release_requests
+          (id, user_id, recipient_email, recipient_hash, requested_at, expires_at, outcome, resolved_at)
+          values (${requestId}, ${child.userId}, ${email.data}, ${recipientHash(email.data)},
+            ${now.toISOString()}, ${releaseRequestExpiry(now.getTime())}, 'signed', ${now.toISOString()})`);
+        await persistSignature(tx, child.userId, requestId, decision, now);
+        return { kind: 'done', requestId };
+      }),
+
     /** The minor's Settings section. */
     readMinorRelease: (userId: string): Promise<MinorReleaseRead> =>
       run(async (tx) => {
@@ -242,6 +334,7 @@ export function createMediaReleases(input: {
         );
         const asksToday = facts.requests.filter(
           (r) =>
+            r.sends > 0 &&
             now.getTime() - Date.parse(r.requestedAt) < 24 * 60 * 60 * 1000,
         ).length;
         const decision = decideAsk(
@@ -373,37 +466,15 @@ export function createMediaReleases(input: {
         );
         if (!decision.ok) return { kind: 'refused', reason: decision.refusal };
         const userId = facts.request.subjectUserId;
-        await supersedeOldRelease(tx, userId, facts.now);
-        const ids = decision.scopes.map(() => nextId());
-        for (const [index, scope] of decision.scopes.entries())
-          await insertMediaRelease(tx, {
-            id: ids[index]!,
-            userId,
-            scope,
-            wordingVersion: decision.wordingVersion,
-            parent: {
-              requestId: facts.request.id,
-              name: decision.signature.name,
-              relation: decision.signature.relation,
-              email: decision.signature.email,
-            },
-            now: facts.now,
-          });
+        await persistSignature(
+          tx,
+          userId,
+          facts.request.id,
+          decision,
+          facts.now,
+        );
         await consume(tx, facts.linkId);
         await resolve(tx, facts.request.id, 'signed');
-        await queueMediaReleaseMail(tx, {
-          id: nextId(),
-          kind: 'copy',
-          requestId: facts.request.id,
-          at: nowSql,
-        });
-        await oweNotifications(tx, {
-          kind: 'media_release_signed',
-          subject: { media_release_id: ids[0]! },
-          recipients: [{ userId, about: null }],
-          at: facts.now.toISOString(),
-          nextId,
-        });
         return { kind: 'done', requestId: facts.request.id };
       }),
 

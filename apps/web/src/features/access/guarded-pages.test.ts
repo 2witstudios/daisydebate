@@ -250,6 +250,8 @@ const rendered: Readonly<Record<string, () => Promise<{ default: unknown }>>> =
       import('../../app/(shell)/settings/security/page'),
     '(shell)/settings/parental-controls/page.tsx': () =>
       import('../../app/(shell)/settings/parental-controls/page'),
+    '(shell)/settings/parental-controls/[linkId]/page.tsx': () =>
+      import('../../app/(shell)/settings/parental-controls/[linkId]/page'),
     '(shell)/settings/your-parents/page.tsx': () =>
       import('../../app/(shell)/settings/your-parents/page'),
     '(shell)/page.tsx': () => import('../../app/(shell)/page'),
@@ -271,6 +273,7 @@ const guardRequestsOf = async (file: string) => {
     await page({
       params: Promise.resolve({
         username: 'someone',
+        linkId: 'x',
         id: 'x',
         roundId: 'x',
         slug: 'x',
