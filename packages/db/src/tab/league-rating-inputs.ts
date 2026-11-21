@@ -16,6 +16,12 @@ import {
   loadLeagueCertifiedRatingInputs,
 } from './league-certified-rating-inputs';
 import { loadLobbyAuthority } from './lobby-authority';
+import {
+  readActivePublishedRatings,
+  type PublishStandings,
+  type StandingsRead,
+} from '../standings';
+import type { SpectatorClock } from '../spectator-release-sql';
 import type { TabDatabase, TabTransaction } from './tab-transaction';
 
 /** Supplies the lobby's active-season projections and certified competition inputs. */
@@ -69,21 +75,36 @@ export async function loadLeagueRatingInputs(
         eq(rounds.status, 'completed'),
       )
     : sql`false`;
-  const completedRounds = tournaments.length
-    ? await tx
-        .select({
-          id: rounds.id,
-          rules: rounds.rulesSnapshot,
-          postedAt: sql<Date>`max(${ratingChanges.occurredAt})`.mapWith(
-            ratingChanges.occurredAt,
-          ),
-        })
-        .from(rounds)
-        .innerJoin(ratingChanges, eq(ratingChanges.roundId, rounds.id))
-        .where(seasonRounds)
-        .groupBy(rounds.id)
-        .orderBy(asc(sql`max(${ratingChanges.occurredAt})`), asc(rounds.id))
-    : [];
+  const [hasLegacyRounds] = await tx
+    .select({ id: rounds.id })
+    .from(rounds)
+    .where(and(seasonRounds, eq(rounds.legacyLeagueRating, true)))
+    .limit(1);
+  const replayRounds = and(
+    seasonRounds,
+    or(
+      eq(rounds.legacyLeagueRating, true),
+      sql`exists (select 1 from ${ratingChanges} c where c.round_id=${rounds.id})`,
+    ),
+  );
+  const completedRounds =
+    tournaments.length || hasLegacyRounds
+      ? await tx
+          .select({
+            id: rounds.id,
+            rules: rounds.rulesSnapshot,
+            legacy: rounds.legacyLeagueRating,
+            playedAt:
+              sql<Date>`case when ${rounds.legacyLeagueRating} then ${rounds.completedAt}
+            else max(${ratingChanges.occurredAt}) end`.mapWith(
+                ratingChanges.occurredAt,
+              ),
+          })
+          .from(rounds)
+          .leftJoin(ratingChanges, eq(ratingChanges.roundId, rounds.id))
+          .where(replayRounds)
+          .groupBy(rounds.id)
+      : [];
   // The same ending facts Daisy's ratings read: the engine's `endingRating`
   // decides which of these Rounds the ladder counts.
   const endings = new Map(
@@ -112,15 +133,7 @@ export async function loadLeagueRatingInputs(
             // bound id per Round.
             inArray(
               roundParticipants.roundId,
-              tx
-                .select({ id: rounds.id })
-                .from(rounds)
-                .where(
-                  and(
-                    seasonRounds,
-                    sql`exists (select 1 from ${ratingChanges} c where c.round_id=${rounds.id})`,
-                  ),
-                ),
+              tx.select({ id: rounds.id }).from(rounds).where(replayRounds),
             ),
             eq(roundParticipants.seatKind, 'side'),
           ),
@@ -219,6 +232,11 @@ export const createLeagueRatingStore = (database: TabDatabase) => ({
           Awaited<ReturnType<typeof loadLobbyAuthority>>
         >;
         readonly input: LeagueRatingInputs;
+        readonly publicStandings: (
+          clock: SpectatorClock,
+          publish: PublishStandings,
+          receivedCertifications: boolean,
+        ) => Promise<StandingsRead>;
       } | null,
     ) => Promise<Answer>,
   ): Promise<Answer> =>
@@ -242,6 +260,26 @@ export const createLeagueRatingStore = (database: TabDatabase) => ({
             ladderId: ladder.id,
           })
         : null;
-      return work(facts ? { authority, input: facts } : null);
+      return work(
+        facts
+          ? {
+              authority,
+              input: facts,
+              publicStandings: async (clock, publish, receivedCertifications) =>
+                (
+                  await readActivePublishedRatings(
+                    tx,
+                    {
+                      lobbyId: authority.lobby.id,
+                      clock,
+                      leaguePublication: true,
+                      receivedCertifications,
+                    },
+                    publish,
+                  )
+                )?.standings ?? { ratings: [], changes: [] },
+            }
+          : null,
+      );
     }),
 });

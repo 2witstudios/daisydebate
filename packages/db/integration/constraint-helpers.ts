@@ -238,6 +238,7 @@ export class Fixture {
         season_id: seasonId,
         ladder_id: pool.ladder_id,
         standing_age_rule: ladder_division === 'youth' ? 'under-18' : 'adults',
+        standing_youth_cast: ladder_division === 'youth',
       };
     }
     return value;

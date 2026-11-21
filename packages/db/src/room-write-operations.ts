@@ -62,8 +62,6 @@ import { drawStartFacts } from './draw-start-facts';
 
 import { rooms, roomParticipants } from './schema/rooms';
 import { actors } from './schema/actors';
-import { accountAge } from './schema/account-age';
-import { divisionAgeBand } from './ladder-division-band';
 
 import {
   type Tx,
@@ -97,24 +95,23 @@ async function requireStartWaivers(
   const people = state.participants.filter(({ kind }) => kind === 'human');
   if (people.length === 0) return;
   const signers = await tx
-    .select({
-      actorId: actors.id,
-      userId: actors.userId,
-      ageBand: divisionAgeBand(),
-    })
+    .select({ userId: actors.userId })
     .from(actors)
-    .leftJoin(accountAge, eq(accountAge.userId, actors.userId))
     .where(
       inArray(
         actors.id,
         people.map(({ actorId }) => actorId),
       ),
     );
-  for (const { userId, ageBand } of signers) {
-    const version = agreementsOf(state, ageBand)?.contentWaiverVersion;
-    if (!version) continue;
+  for (const { userId } of signers) {
     if (userId === null)
       throw createAppError('INVARIANT', 'A human seat has no account');
+    const account = await loadAuthorizationAccount(tx, userId);
+    const version = agreementsOf(
+      state,
+      account?.ageBand ?? null,
+    )?.contentWaiverVersion;
+    if (!version) continue;
     const standing = await readRoomSeatContentWaiverStanding(
       tx,
       state,

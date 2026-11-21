@@ -10,6 +10,7 @@ import { Fixture, rejectedBy, sqlStateOf } from './constraint-helpers';
 import { validConfig } from './round-fixtures';
 import { loadSampleTournament, sampleInstant } from './tab.test-support';
 import { loadLeagueCertifiedRatingInputs } from '../src/tab/league-certified-rating-inputs';
+import { readRatingCandidates } from '../src/rating-discovery';
 import {
   ddlTimeoutMs,
   scratchDatabase,
@@ -223,10 +224,21 @@ test(
       });
       const olderLadder = createId();
       const laterLadder = createId();
-      const legacyLeagueRounds = [];
-      for (const [lobbyId, ladderId, count] of [
-        [league.standingLobby, olderLadder, 1],
-        [laterLobby, laterLadder, 2],
+      const successor = createId();
+      const cutoff = sampleInstant(45);
+      await client`update seasons set status='closed', ends_at=${cutoff} where id=${league.season}`;
+      await f.insert('seasons', {
+        id: successor,
+        organization_id: league.league,
+        name: 'Successor season',
+        division: 'open',
+        starts_at: cutoff,
+        status: 'active',
+      });
+      const legacyLeagueRounds: string[] = [];
+      for (const [lobbyId, ladderId, minutes] of [
+        [league.standingLobby, olderLadder, [15, 61, 62]],
+        [laterLobby, laterLadder, [16, 17, 63]],
       ] as const) {
         await f.insert('ladders', {
           id: ladderId,
@@ -234,7 +246,7 @@ test(
           organization_id: league.league,
           name: 'League ladder',
         });
-        for (let index = 0; index < count; index += 1) {
+        for (const minute of minutes) {
           const roomId = await f.room(league.debaters[0]!, 'freestyle', {
             lobby_id: lobbyId,
             league_ladder_id: ladderId,
@@ -246,9 +258,9 @@ test(
               visibility: 'public',
               room_config_snapshot: validConfig,
               league_ladder_id: ladderId,
-              created_at: sampleInstant(15 + index),
-              started_at: sampleInstant(20 + index),
-              completed_at: sampleInstant(30 + index),
+              created_at: sampleInstant(minute),
+              started_at: sampleInstant(minute + 2),
+              completed_at: sampleInstant(minute + 5),
               status: 'completed',
               winning_side: 'affirmative',
             }),
@@ -299,12 +311,13 @@ test(
       const [receivingSeason] =
         await client`select lobby_id from seasons where id=${league.season}`;
       const leagueScopes =
-        await client`select id, season_id, rating_lobby_id, ladder_id from rounds where id in ${client(legacyLeagueRounds)}`;
+        await client`select r.id, r.season_id, r.rating_lobby_id, r.ladder_id, s.name, r.legacy_league_rating
+          from rounds r join seasons s on s.id=r.season_id where r.id in ${client(legacyLeagueRounds)}`;
       assert({
         given:
-          'an approved sanction with certified results and completed selected Rooms on two standing lobbies',
+          'an approved sanction and selected Rooms spanning two periods with different primary lobbies',
         should:
-          'retain the sanctioned season with the stronger Room evidence and copy its interval for the other ladder',
+          'retain the sanction, choose each Round’s historical period, and flag pre-ledger games for replay',
         actual: {
           lobbyId: receivingSeason?.lobby_id,
           rooms: legacyLeagueRounds.map((id) => {
@@ -314,7 +327,9 @@ test(
             return [
               row.rating_lobby_id,
               row.ladder_id,
-              row.season_id === league.season,
+              row.name,
+              row.season_id === league.season || row.season_id === successor,
+              row.legacy_league_rating,
             ];
           }),
           certified: certified.some(({ id }) => id === league.decided),
@@ -322,9 +337,12 @@ test(
         expected: {
           lobbyId: laterLobby,
           rooms: [
-            [league.standingLobby, olderLadder, false],
-            [laterLobby, laterLadder, true],
-            [laterLobby, laterLadder, true],
+            [league.standingLobby, olderLadder, 'Sample season', false, true],
+            [league.standingLobby, olderLadder, 'Successor season', true, true],
+            [league.standingLobby, olderLadder, 'Successor season', true, true],
+            [laterLobby, laterLadder, 'Sample season', true, true],
+            [laterLobby, laterLadder, 'Sample season', true, true],
+            [laterLobby, laterLadder, 'Successor season', false, true],
           ],
           certified: true,
         },
@@ -368,6 +386,21 @@ test(
         expected: [thirdLobby, true, true, 1620, 1620],
       });
       const db = standingsOperations({ database: drizzle({ client }) });
+      const legacyFirst = await readRatingCandidates(drizzle({ client }), {
+        limit: 3,
+      });
+      const legacyRest = await readRatingCandidates(drizzle({ client }), {
+        limit: 3,
+        afterId: legacyFirst.at(-1)!.roundId,
+      });
+      assert({
+        given:
+          'legacy league Rounds spread across two seasons and two standing lobbies',
+        should:
+          'scan their completion order faithfully across a cursor boundary',
+        actual: [...legacyFirst, ...legacyRest].map(({ roundId }) => roundId),
+        expected: [0, 3, 4, 1, 2, 5].map((index) => legacyLeagueRounds[index]),
+      });
       const open = await db.readStandings({
         ladderId: 'freestyle',
         lobbyId: publicLobbyId,

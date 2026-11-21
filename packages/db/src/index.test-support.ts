@@ -106,6 +106,7 @@ export const roundRow = (record: {
   false,
   record.visibility ?? null,
   record.standingAgeRule ?? null,
+  false, // standing_youth_cast
   record.resolution,
   null,
   record.competitionType,
@@ -129,6 +130,7 @@ export const roundRow = (record: {
   record.ladderId,
   record.seasonId ?? null,
   record.ratingLobbyId ?? null,
+  false, // legacy_league_rating
   record.startedAt === null ? null : new Date(record.startedAt),
   record.completedAt === null ? null : new Date(record.completedAt),
   record.checkpoint,

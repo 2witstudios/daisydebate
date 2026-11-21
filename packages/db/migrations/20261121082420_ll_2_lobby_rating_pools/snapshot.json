@@ -21051,6 +21051,19 @@
       "table": "rounds"
     },
     {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "false",
+      "generated": null,
+      "identity": null,
+      "name": "standing_youth_cast",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "rounds"
+    },
+    {
       "type": "text",
       "typeSchema": null,
       "notNull": false,
@@ -21338,6 +21351,19 @@
       "generated": null,
       "identity": null,
       "name": "rating_lobby_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "rounds"
+    },
+    {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "false",
+      "generated": null,
+      "identity": null,
+      "name": "legacy_league_rating",
       "entityType": "columns",
       "schema": "public",
       "table": "rounds"

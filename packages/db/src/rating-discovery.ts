@@ -151,13 +151,21 @@ export async function readRatingCandidates(
     input.limit > 1000
   )
     throw createAppError('VALIDATION');
+  // Pre-ledger league Rounds were replayed by play time. Process those pools
+  // first in the same order, then use the regular stable Round ID cursor.
+  const key = (alias: 'r' | 'witness') =>
+    sql.raw(`(not ${alias}.legacy_league_rating,
+    case when ${alias}.legacy_league_rating then ${alias}.completed_at else 'infinity'::timestamptz end,
+    ${alias}.id)`);
   return readCandidates(
     db,
     sql`r.status='completed' and r.ladder_id is not null
       and jsonb_array_length(r.rules_snapshot->'sides')=2
-      and (${input.afterId ?? null}::text is null or r.id > ${input.afterId ?? null})
+      and (${input.afterId ?? null}::text is null or coalesce(
+        ${key('r')} > (select ${key('witness')} from rounds witness where witness.id=${input.afterId ?? null}),
+        r.id > ${input.afterId ?? null}))
       and not daisy_round_rating_posted(r.id)
-    order by r.id limit ${input.limit}`,
+    order by ${key('r')} limit ${input.limit}`,
   );
 }
 

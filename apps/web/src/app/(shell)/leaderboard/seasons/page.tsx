@@ -4,7 +4,6 @@ import type { Metadata } from 'next';
 import type { SearchParams } from '../../../../features/access/decision';
 import {
   requestLadder,
-  requestMemberDivision,
   requestOfficialRatingLadders,
   requestLandingLobby,
 } from '../../../../lib/request-session';
@@ -43,11 +42,7 @@ export default async function SeasonsRoute({
     (await requestLadder({
       lobbyId: lobby.lobbyId,
       seasonId: parseSeasonsQuery(params),
-      ladder: boardLadder(
-        query.division,
-        // A public page: a failed division read falls back to Open.
-        await requestMemberDivision().catch(() => null),
-      ),
+      ladder: boardLadder(ratingDivisionForAgeRule(lobby.ageRule), null),
       now,
     }));
   const view =

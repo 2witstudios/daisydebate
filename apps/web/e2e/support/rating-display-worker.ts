@@ -40,7 +40,7 @@ try {
     const id = createId(),
       command = createId();
     const roomId = rooms.find((r) => r.ladder === ladder)!.id;
-    await sql.begin(async (tx) => {
+    const lobbyId = await sql.begin(async (tx) => {
       const [room] =
         await tx`select rules_snapshot from rooms where id=${roomId} and host_actor_id=${member.id}`;
       if (!room) throw new Error('Display fixture room missing');
@@ -63,18 +63,27 @@ try {
       await tx`update rounds set status='completed',current_stage=null,winning_side=${affirmativeSide},completed_at=clock_timestamp()-interval '10 minutes' where id=${id}`;
       await tx`insert into round_commands(command_id,round_id,actor_id,type,payload_digest,result,resulting_version,applied_at) values(${command},${id},${member.id},'forfeit',${'a'.repeat(64)},${{}},1,clock_timestamp())`;
       await tx`insert into round_finalizations(round_id,command_id,resulting_version) values(${id},${command},1)`;
+      return String(pool.lobby_id);
     });
-    await rateCompletedRound(database, id, { next: createId });
+    const result = await rateCompletedRound(database, id, { next: createId });
+    if (result.kind !== 'rated')
+      throw new Error(`Display fixture did not post a rating: ${result.kind}`);
     // Long past the ranked delay: the standings hold a result until it has left.
-    await sql`update rating_changes set occurred_at=clock_timestamp()-interval '10 minutes' where round_id=${id}`;
-    const [posted] =
-      await sql`select rating_before,rating_after from rating_changes where round_id=${id} and actor_id=${member.id}`;
+    const [posted] = await sql.begin(async (tx) => {
+      await tx`select set_config('daisy.lobby_scope',${lobbyId},true)`;
+      await tx`update rating_changes set occurred_at=clock_timestamp()-interval '10 minutes' where round_id=${id}`;
+      return tx`select rating_before,rating_after from rating_changes where round_id=${id} and actor_id=${member.id}`;
+    });
+    if (!posted)
+      throw new Error(
+        'Display fixture posting is absent from its lobby ledger',
+      );
     evidence.push({
       ladder,
       roundId: id,
-      rating: Math.round(Number(posted!.rating_after)),
+      rating: Math.round(Number(posted.rating_after)),
       delta: Math.round(
-        Number(posted!.rating_after) - Number(posted!.rating_before),
+        Number(posted.rating_after) - Number(posted.rating_before),
       ),
     });
   }

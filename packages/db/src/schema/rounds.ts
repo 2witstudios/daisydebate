@@ -87,6 +87,8 @@ export const rounds = pgTable(
     visibility: text('visibility').$type<'public' | 'unlisted' | 'private'>(),
     /** The standing lobby's age rule at Start, kept for media reuse. */
     standingAgeRule: lobbyAgeRule('standing_age_rule'),
+    /** Whether this standing lobby's actual cast needs Youth media protection. */
+    standingYouthCast: boolean('standing_youth_cast').notNull().default(false),
     /** Null until a draw's reveal; stays null if the Round ended before it. */
     resolution: text('resolution'),
     /** Pre-round prep's full length, or null when the Round has none. */
@@ -150,6 +152,10 @@ export const rounds = pgTable(
     ladderId: text('ladder_id'),
     seasonId: text('season_id'),
     ratingLobbyId: text('rating_lobby_id'),
+    /** Completed league games that previously rated by replay, without a ledger. */
+    legacyLeagueRating: boolean('legacy_league_rating')
+      .notNull()
+      .default(false),
     startedAt: timestampColumn('started_at'),
     completedAt: timestampColumn('completed_at'),
     /** The Daisy checkpoint (ADR 0058 §4); only what has no durable row. */
