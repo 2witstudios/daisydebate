@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { z } from 'zod';
 import { idSchema } from './primitives';
 import { evidenceEnvelopeSchema } from './evidence-envelope';
@@ -20,8 +21,8 @@ export const evidenceIngressReplySchema: z.ZodType<NecessaryEvidenceIngressReply
         (reply) =>
           reply.evidenceId === reply.receipt.evidenceId &&
           reply.bindingDigest === reply.receipt.bindingDigest &&
-          Date.parse(reply.payloadAcceptedAt) >= reply.receipt.receivedAtMs &&
-          Date.parse(reply.payloadAcceptedAt) < reply.receipt.expiresAtMs,
+          instantMs(reply.payloadAcceptedAt) >= reply.receipt.receivedAtMs &&
+          instantMs(reply.payloadAcceptedAt) < reply.receipt.expiresAtMs,
       ),
     z.strictObject({ kind: z.literal('pending'), evidenceId: idSchema }),
     z.strictObject({

@@ -1,6 +1,6 @@
 'use client';
 import type { RoundView } from '@daisy/protocol';
-import { systemClock } from '@daisy/clock';
+import { nowMs, systemClock } from '@daisy/clock';
 import { useEffect, useRef, useState } from 'react';
 import { formatCountdown } from '../../../lib/clock-display';
 import {
@@ -11,7 +11,7 @@ import {
 } from '../../../features/round-ballots/settling';
 
 const deviceInstant = () => ({
-  wallMs: Date.parse(systemClock.now()),
+  wallMs: nowMs(systemClock),
   monotonicMs: performance.now(),
 });
 

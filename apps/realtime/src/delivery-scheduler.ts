@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import type { OutboxRow } from '@daisy/db/outbox';
 
 /** What a realtime instance still owes its subscribers, for readiness. */
@@ -135,7 +136,7 @@ export function createDeliveryScheduler({
       let oldest = Number.POSITIVE_INFINITY;
       for (const queue of queues.values()) {
         const first = queue.running ?? queue.rows[0];
-        if (first) oldest = Math.min(oldest, Date.parse(first.createdAt));
+        if (first) oldest = Math.min(oldest, instantMs(first.createdAt));
       }
       return {
         retained,

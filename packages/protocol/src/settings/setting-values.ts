@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { z } from 'zod';
 import { settingKeys, type SettingKey } from './keys';
 import { conflictHandlingSchema } from '../authorization';
@@ -180,7 +181,7 @@ export const settingValueSchemas = {
         closesAt: instant,
       })
       .refine(
-        (window) => Date.parse(window.opensAt) < Date.parse(window.closesAt),
+        (window) => instantMs(window.opensAt) < instantMs(window.closesAt),
         'A registration window closes after it opens.',
       ),
   ]),

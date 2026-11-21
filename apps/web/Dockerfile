@@ -27,6 +27,7 @@ COPY packages/clock/package.json packages/clock/package.json
 COPY packages/config/package.json packages/config/package.json
 COPY packages/db/package.json packages/db/package.json
 COPY packages/debate-engine/package.json packages/debate-engine/package.json
+COPY packages/digest/package.json packages/digest/package.json
 COPY packages/errors/package.json packages/errors/package.json
 COPY packages/ingress/package.json packages/ingress/package.json
 COPY packages/logger/package.json packages/logger/package.json
@@ -83,6 +84,7 @@ COPY packages/clock/package.json packages/clock/package.json
 COPY packages/config/package.json packages/config/package.json
 COPY packages/db/package.json packages/db/package.json
 COPY packages/debate-engine/package.json packages/debate-engine/package.json
+COPY packages/digest/package.json packages/digest/package.json
 COPY packages/errors/package.json packages/errors/package.json
 COPY packages/ingress/package.json packages/ingress/package.json
 COPY packages/logger/package.json packages/logger/package.json
@@ -134,6 +136,7 @@ COPY --chown=daisy:daisy scripts/season.ts scripts/season.ts
 COPY --chown=daisy:daisy packages/db/migrations packages/db/migrations
 COPY --chown=daisy:daisy packages/ai-voice/src packages/ai-voice/src
 COPY --chown=daisy:daisy packages/debate-engine/src packages/debate-engine/src
+COPY --chown=daisy:daisy packages/digest/src packages/digest/src
 COPY --chown=daisy:daisy packages/errors/src packages/errors/src
 COPY --chown=daisy:daisy packages/ingress/src packages/ingress/src
 COPY --chown=daisy:daisy packages/logger/src packages/logger/src
@@ -222,6 +225,7 @@ RUN groupadd --system --gid 1001 daisy \
 COPY --from=prod-deps --chown=root:root /app /app
 COPY --chown=root:root packages/auth/src/operator-signature.ts packages/auth/src/operator-signature.ts
 COPY --chown=root:root packages/clock/src packages/clock/src
+COPY --chown=root:root packages/digest/src packages/digest/src
 COPY --chown=root:root packages/logger/src packages/logger/src
 COPY --chown=root:root packages/protocol/src packages/protocol/src
 COPY --chown=root:root apps/admin/src apps/admin/src

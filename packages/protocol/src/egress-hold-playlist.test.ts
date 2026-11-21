@@ -1,9 +1,10 @@
+import { instantMs } from '@daisy/clock';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { parseHoldPlaylist } from './egress-hold-playlist';
 
 setupRitewayBun();
 
-const LATER = Date.parse('2030-01-01T00:00:00.000Z');
+const LATER = instantMs('2030-01-01T00:00:00.000Z');
 
 describe('parseHoldPlaylist', () => {
   test('reads each segment with its capture time and duration', () => {
@@ -17,12 +18,12 @@ describe('parseHoldPlaylist', () => {
       expected: [
         {
           name: 's_00000.ts',
-          capturedAtMs: Date.parse('2026-11-02T00:00:00.000Z'),
+          capturedAtMs: instantMs('2026-11-02T00:00:00.000Z'),
           durationMs: 4000,
         },
         {
           name: 's_00001.ts',
-          capturedAtMs: Date.parse('2026-11-02T00:00:04.000Z'),
+          capturedAtMs: instantMs('2026-11-02T00:00:04.000Z'),
           durationMs: 3500,
         },
       ],
@@ -64,7 +65,7 @@ describe('a held playlist is not believed past its first lie', () => {
       actual: [
         names(entry(t(4), 'a.ts') + entry(t(4), 'b.ts')),
         names(entry(t(4), 'a.ts') + entry(t(0), 'b.ts')),
-        names(entry(t(0), 'a.ts') + entry(t(4), 'b.ts'), Date.parse(t(7))),
+        names(entry(t(0), 'a.ts') + entry(t(4), 'b.ts'), instantMs(t(7))),
       ],
       expected: [['a.ts'], ['a.ts'], ['a.ts']],
     });

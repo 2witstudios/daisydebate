@@ -28,6 +28,7 @@
     ".": {
       "entry": [
         "scripts/**/*.test.ts",
+        "scripts/migrate-sha3.ts",
         "eslint.config.test.ts",
         "scripts/check-boundaries.ts",
         "scripts/check-styling.ts",

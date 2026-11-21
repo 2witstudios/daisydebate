@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import type {
   EntryListView,
   JudgeListView,
@@ -110,7 +111,7 @@ const dayMs = 86_400_000;
 function entryFacts(view: EntryListView, entry: ListedEntry): string {
   if (entry.invitation !== null) {
     const days = Math.floor(
-      (Date.parse(view.asOf) - Date.parse(entry.invitation.invitedAt)) / dayMs,
+      (instantMs(view.asOf) - instantMs(entry.invitation.invitedAt)) / dayMs,
     );
     return `no Daisy account yet · invited ${plural(days, 'day')} ago`;
   }

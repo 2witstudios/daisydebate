@@ -4,6 +4,7 @@
  * namespaces derived here from its folder, never chosen by hand. The
  * effectful CLI lives in slot.ts.
  */
+import { sha3Hex } from '@daisy/digest';
 import { basename } from 'node:path';
 import { e2eRole, mediaWorkerRole } from './test-logins';
 import { loopbackHosts } from './slot-services';
@@ -175,7 +176,7 @@ export const recordedStackOwner = (
 
 /** The mark for a repository, by its main checkout's path. */
 export const stackOwnerMark = (mainCheckout: string): string =>
-  `${STACK_OWNER_PREFIX}${new Bun.CryptoHasher('sha3-256').update(mainCheckout).digest('hex')}`;
+  `${STACK_OWNER_PREFIX}${sha3Hex(mainCheckout)}`;
 
 /** Parses `git worktree list --porcelain`; prunable entries are gone. */
 export function parseWorktreeList(porcelain: string): {

@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { isTransientProviderFailure, type OpenRouter } from '@daisy/ai-voice';
 import type { CutClip } from './capture-clips';
 import { isTransientControlFailure } from '@daisy/media/worker';
@@ -99,13 +100,13 @@ async function consumeClip(
     clip.segmentId,
   );
   const admitted = containingGrant(fresh.state, clip.roundParticipantId, {
-    beforeMs: Date.parse(clip.before),
-    afterMs: Date.parse(clip.after),
+    beforeMs: instantMs(clip.before),
+    afterMs: instantMs(clip.after),
   });
   const allowed = admitted !== null;
   if (
     admitted === null ||
-    Date.parse(clip.after) > Date.parse(fresh.state.serverNow)
+    instantMs(clip.after) > instantMs(fresh.state.serverNow)
   ) {
     input.dropped(clip.durationMs / 10);
     // Outside its grant it was never owed; inside it, it was heard and lost.
@@ -152,15 +153,15 @@ function clipObservation(
   clip: QueuedClip,
   straddles: readonly FrameWindow[],
 ) {
-  const firstNominalMs = Date.parse(segment.startedAt) + clip.startOffsetMs;
+  const firstNominalMs = instantMs(segment.startedAt) + clip.startOffsetMs;
   return observedWindow({
     clip: {
       firstNominalMs,
       lastNominalMs: firstNominalMs + clip.durationMs - 10,
     },
     grant: {
-      startMs: Date.parse(grant.startedAt),
-      endMs: grant.endedAt === null ? null : Date.parse(grant.endedAt),
+      startMs: instantMs(grant.startedAt),
+      endMs: grant.endedAt === null ? null : instantMs(grant.endedAt),
     },
     straddles,
   });

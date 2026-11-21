@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { z } from 'zod';
 import { normalizeEmail } from './email';
 
@@ -136,7 +137,7 @@ export const releaseRequestStanding = (
   nowMs: number,
 ): ReleaseRequestStanding =>
   request.outcome ??
-  (nowMs >= Date.parse(request.expiresAt) ? 'expired' : 'open');
+  (nowMs >= instantMs(request.expiresAt) ? 'expired' : 'open');
 
 /** Whether a request can still be answered. */
 export const isReleaseRequestOpen = (
@@ -186,7 +187,7 @@ export type ReleaseStanding =
   | { readonly kind: 'withdrawn'; readonly release: MediaReleaseRecord };
 
 const latestFirst = (a: MediaReleaseRecord, b: MediaReleaseRecord) =>
-  Date.parse(b.signedAt) - Date.parse(a.signedAt);
+  instantMs(b.signedAt) - instantMs(a.signedAt);
 
 export const releaseStandingOf = (input: {
   readonly subjectUserId: string;
@@ -299,7 +300,7 @@ export const decideResend = (
     return { ok: false, refusal: 'too_many' };
   if (
     request.lastSentAt !== null &&
-    nowMs - Date.parse(request.lastSentAt) < mediaReleasePolicy.resendAfterMs
+    nowMs - instantMs(request.lastSentAt) < mediaReleasePolicy.resendAfterMs
   )
     return { ok: false, refusal: 'too_soon' };
   return { ok: true };
@@ -327,7 +328,7 @@ export const releaseLinkVerdict = (
 ): ReleaseLinkVerdict => {
   if (link === null || link.purpose !== purpose) return 'unknown';
   if (link.consumedAt !== null) return 'used';
-  return nowMs >= Date.parse(link.expiresAt) ? 'expired' : 'usable';
+  return nowMs >= instantMs(link.expiresAt) ? 'expired' : 'usable';
 };
 
 // -------------------------------------------------------------- the parent

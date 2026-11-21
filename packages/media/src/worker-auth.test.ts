@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { createMediaWorkerAuthentication } from './worker-auth';
@@ -7,7 +8,7 @@ const roundId = 'r'.repeat(24),
   workerId = 'w'.repeat(24);
 const path = `/api/internal/media/${roundId}/capture/token`;
 const body = JSON.stringify({ workerId, sessionId: 's'.repeat(24), epoch: 1 });
-const instant = Date.parse('2026-10-22T12:00:00.000Z');
+const instant = instantMs('2026-10-22T12:00:00.000Z');
 const secret = Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString(
   'base64url',
 );

@@ -1,3 +1,4 @@
+import { addMs } from '@daisy/clock';
 import type { Database } from '@daisy/db';
 import type { StandingsRead } from '@daisy/db/ratings';
 import type { Ladder } from '@daisy/protocol';
@@ -70,7 +71,7 @@ export async function readRatingStandings(
         ratings: source.ratings.filter((r) => r.seasonId === s.id),
         changes: source.changes.filter((c) => c.seasonId === s.id),
       },
-      new Date(Date.parse(atBySeason[s.id]!) - 7 * 86400000).toISOString(),
+      addMs(atBySeason[s.id]!, -(7 * 86400000)),
     ),
   );
   const entriesBySeason = Object.fromEntries(

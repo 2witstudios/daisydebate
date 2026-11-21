@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { z } from 'zod';
 import { idSchema } from './primitives';
 import { closurePaymentDisposition } from './billing-refund';
@@ -16,7 +17,7 @@ const seconds = z
   .refine((value) => Number.isSafeInteger(value * 1000));
 const period = z
   .strictObject({ startsAt: instant, endsAt: instant })
-  .refine((value) => Date.parse(value.startsAt) < Date.parse(value.endsAt));
+  .refine((value) => instantMs(value.startsAt) < instantMs(value.endsAt));
 /** Unknown source knowledge never substitutes today's offer or an invented purchase. */
 export const paymentObservationSourceSchema = z.discriminatedUnion('kind', [
   z.strictObject({
@@ -192,10 +193,10 @@ function paymentOf(
 }
 function validObservationTime(value: BillingPaymentObservation) {
   return (
-    Date.parse(value.createdAt) >= Date.parse(value.closedAt) &&
-    Date.parse(value.observedAt) >= Date.parse(value.createdAt) &&
+    instantMs(value.createdAt) >= instantMs(value.closedAt) &&
+    instantMs(value.observedAt) >= instantMs(value.createdAt) &&
     (value.source.kind !== 'purchase' ||
-      Date.parse(value.source.admittedAt) <= Date.parse(value.closedAt))
+      instantMs(value.source.admittedAt) <= instantMs(value.closedAt))
   );
 }
 export function ownsObservedPayment(
@@ -269,7 +270,7 @@ function validPaymentObservation(
   if (value.state.kind === 'resolved') return resolvedChronology(value);
   const payment = paymentOf(value);
   if (payment === null || value.state.kind === 'owed') return true;
-  return payment.paidAtSeconds * 1000 <= Date.parse(value.observedAt);
+  return payment.paidAtSeconds * 1000 <= instantMs(value.observedAt);
 }
 export const billingPaymentObservationSchema = observation.refine(
   (value) =>
@@ -293,6 +294,6 @@ export function currentPaymentObservation(
     instant.safeParse(context.now).success &&
     value.userId === context.userId &&
     value.closedAt === context.closedAt &&
-    Date.parse(context.now) >= Date.parse(value.observedAt)
+    instantMs(context.now) >= instantMs(value.observedAt)
   );
 }

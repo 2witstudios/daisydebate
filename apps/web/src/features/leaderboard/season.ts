@@ -1,4 +1,6 @@
 /** A season: one ladder, renewed on a schedule (ADR 0029 `seasons`). */
+
+import { instantMs } from '@daisy/clock';
 export type Season = {
   readonly id: string;
   readonly name: string;
@@ -23,16 +25,16 @@ export type SeasonProgress = {
 
 /** How far through its schedule a season is at the injected `now`. */
 export function seasonProgress(season: Season, now: string): SeasonProgress {
-  const start = Date.parse(season.startsAt);
+  const start = instantMs(season.startsAt);
   if (season.endsAt === null) {
-    const day = Math.max(1, Math.floor((Date.parse(now) - start) / DAY_MS) + 1);
+    const day = Math.max(1, Math.floor((instantMs(now) - start) / DAY_MS) + 1);
     return { day, length: day, percent: 0 };
   }
   const length = Math.max(
     1,
-    Math.round((Date.parse(season.endsAt) - start) / DAY_MS),
+    Math.round((instantMs(season.endsAt) - start) / DAY_MS),
   );
-  const elapsed = Math.floor((Date.parse(now) - start) / DAY_MS);
+  const elapsed = Math.floor((instantMs(now) - start) / DAY_MS);
   const current = Math.min(length, Math.max(1, elapsed + 1));
   return {
     day: current,
@@ -66,7 +68,7 @@ const months = [
 ] as const;
 
 const day = (iso: string): string => {
-  const date = new Date(Date.parse(iso));
+  const date = new Date(instantMs(iso));
   return `${date.getUTCDate()} ${months[date.getUTCMonth()]} ${date.getUTCFullYear()}`;
 };
 
@@ -100,9 +102,9 @@ export function seasonGlance(
 ): SeasonGlance | null {
   const running = seasons.find((season) => season.status === 'active');
   if (running === undefined) return null;
-  const started = Date.parse(running.startsAt);
+  const started = instantMs(running.startsAt);
   return {
-    number: seasons.filter(({ startsAt }) => Date.parse(startsAt) <= started)
+    number: seasons.filter(({ startsAt }) => instantMs(startsAt) <= started)
       .length,
     line: timeLine(running, now),
   };

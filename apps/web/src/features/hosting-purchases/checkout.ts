@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import type Stripe from 'stripe';
 import { z } from 'zod';
 import type {
@@ -280,7 +281,7 @@ export const startHostingCheckout =
             return { kind: 'unavailable' };
         } else if (
           open.mode !== vendor.mode ||
-          Date.parse(step.checkedAt) - Date.parse(open.createdAt) >
+          instantMs(step.checkedAt) - instantMs(open.createdAt) >
             SESSIONLESS_LEASE_MS
         ) {
           // Another Stripe mode can never pay it, and a purchase still without

@@ -1,5 +1,5 @@
 import type { Page, Response } from '@playwright/test';
-import { systemClock } from '@daisy/clock';
+import { nowMs, systemClock } from '@daisy/clock';
 import { expect, test, openPage } from './fixtures';
 import { boundedStep } from './bounded-step';
 import {
@@ -105,7 +105,7 @@ export function testMessagingRecoveryNavigation() {
       });
       await control('allow-messaging-reads');
       release();
-      const deadline = Date.parse(systemClock.now()) + 5000;
+      const deadline = nowMs(systemClock) + 5000;
       const phase = () => ({
         phase: 'after-home-predicate' as const,
         response: destinationResponse,

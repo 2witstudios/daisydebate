@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { sha3Hex } from '@daisy/digest';
 import type { ReleaseLinkPurpose } from '@daisy/protocol/media-release';
 
 /**
@@ -20,7 +20,7 @@ export const isReleaseLinkToken = (value: unknown): value is string =>
 export const releaseLinkDigest = (
   purpose: ReleaseLinkPurpose,
   token: string,
-): string => `${purpose}:${createHash('sha3-256').update(token).digest('hex')}`;
+): string => `${purpose}:${sha3Hex(token)}`;
 
 /** The page a link opens: the token rides the query, never a path segment. */
 export const releaseLinkPath = (

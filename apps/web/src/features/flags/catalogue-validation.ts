@@ -1,3 +1,4 @@
+import { tryInstantMs } from '@daisy/clock';
 import { z } from 'zod';
 import type { FlagDefinition } from './model';
 
@@ -5,8 +6,7 @@ const safeReleaseDefaultSchema = z.literal(false);
 
 const isDate = (value: string) =>
   /^\d{4}-\d{2}-\d{2}$/.test(value) &&
-  Number.isFinite(Date.parse(value)) &&
-  new Date(value).toISOString().slice(0, 10) === value;
+  tryInstantMs(`${value}T00:00:00Z`) !== undefined;
 
 /** Also used at runtime: a broken graph never opens a gate. */
 export function catalogueProblems(

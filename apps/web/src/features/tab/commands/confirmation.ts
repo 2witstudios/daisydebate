@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import {
   versionsHold,
   type ActionHistoryEntry,
@@ -139,7 +140,7 @@ export const decideConfirm = <RerunRefusal extends string, RerunWrite>(
   if (command.pendingCommandId !== pending.commandId)
     return refuse('not-found');
   if (pending.status !== 'pending') return refuse('pending-settled');
-  if (Date.parse(facts.now) >= Date.parse(pending.expiresAt))
+  if (instantMs(facts.now) >= instantMs(pending.expiresAt))
     return refuse('pending-expired');
   if (facts.proposer.id !== pending.proposerUserId) return refuse('not-found');
   if (facts.proposer.deletedAt !== null) return refuse('proposer-closed');

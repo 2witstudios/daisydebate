@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { z } from 'zod';
 import { idSchema } from './primitives';
 import { subscriptionEvidenceSchema } from './billing';
@@ -38,14 +39,14 @@ const tournamentHostingVersionSchema = z
     coverage: tournamentHostingCoverageSchema,
   })
   .refine((value) => {
-    if (Date.parse(value.startsAt) >= Date.parse(value.expiresAt)) return false;
+    if (instantMs(value.startsAt) >= instantMs(value.expiresAt)) return false;
     if (value.issuer.kind === 'administrative') return true;
     const { settlement } = value.issuer.evidence;
     return (
       settlement.kind === 'paid' &&
       settlement.period.subscriptionId === value.issuer.subscriptionId &&
-      Date.parse(settlement.period.startsAt) <= Date.parse(value.startsAt) &&
-      Date.parse(value.expiresAt) <= Date.parse(settlement.period.endsAt)
+      instantMs(settlement.period.startsAt) <= instantMs(value.startsAt) &&
+      instantMs(value.expiresAt) <= instantMs(settlement.period.endsAt)
     );
   });
 

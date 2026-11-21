@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { unknownPaymentFacts } from './billing-payment-observation-facts';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { billingPaymentObservationSchema } from './billing-payment-observation';
@@ -17,7 +18,7 @@ import {
 } from './billing-payment-observation.test-support';
 setupRitewayBun();
 const paidSecond = (second: number) =>
-  Date.parse(`2026-11-05T00:00:0${second}.000Z`) / 1000;
+  instantMs(`2026-11-05T00:00:0${second}.000Z`) / 1000;
 
 test('exact owned paid chronology resolves only its pre-closure payment while amount, charge and period stay unknown', () => {
   const evidence = chronologyProof(paidSecond(1));

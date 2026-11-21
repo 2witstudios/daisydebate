@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import type { IdGenerator } from '@daisy/clock';
 import type { EmailMessage, EmailSender } from './types';
 
@@ -87,7 +88,7 @@ export function createResendSender({
   ) => {
     if (
       message.sendBefore !== undefined &&
-      nowMs() >= Date.parse(message.sendBefore)
+      nowMs() >= instantMs(message.sendBefore)
     )
       throw new DeliveryError(false, 408);
     let response: Response;

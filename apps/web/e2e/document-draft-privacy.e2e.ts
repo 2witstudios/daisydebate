@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { signUpMember } from './support/accounts';
 import { expect, test } from './support/fixtures';
 
@@ -22,8 +23,8 @@ test('retained private copies coalesce focus checks and cancel stale identity an
             baseRevision: 1,
             generation: 'retained',
             // Unexpired, or the root mount's retention prune removes it first.
-            savedAt: Date.parse('2099-01-01T00:00:00Z'),
-            expiresAt: Date.parse('2099-01-08T00:00:00Z'),
+            savedAt: instantMs('2099-01-01T00:00:00Z'),
+            expiresAt: instantMs('2099-01-08T00:00:00Z'),
           },
         }),
       ),
@@ -100,8 +101,8 @@ test('closing an account erases its private copies in this browser', async ({
             html: '<p>Copy of a closed account</p>',
             baseRevision: 1,
             generation: 'retained',
-            savedAt: Date.parse('2099-01-01T00:00:00Z'),
-            expiresAt: Date.parse('2099-01-08T00:00:00Z'),
+            savedAt: instantMs('2099-01-01T00:00:00Z'),
+            expiresAt: instantMs('2099-01-08T00:00:00Z'),
           },
         }),
       ),

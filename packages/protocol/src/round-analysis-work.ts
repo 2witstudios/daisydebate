@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { z } from 'zod';
 import { idSchema } from './primitives';
 import { roundAnalysisReportSchema } from './round-analysis';
@@ -108,7 +109,7 @@ export const analysisRequest = (state: AnalysisWork): AnalysisRequest | null =>
     : 'requestedAt' in state
       ? state
       : null;
-const at = (value: string) => Date.parse(value);
+const at = (value: string) => instantMs(value);
 const issue = (ctx: z.RefinementCtx, message: string) =>
   ctx.addIssue({ code: 'custom', message });
 

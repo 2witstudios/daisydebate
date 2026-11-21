@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import {
   clockStopsOf,
   otherSide,
@@ -104,7 +105,7 @@ const startSpeech = (c: CommandContext): void => {
     );
   const side = active.side;
   const elapsed = runningMs(
-    Date.parse(active.started_at),
+    instantMs(active.started_at),
     c.now,
     clockStopsOf(c.on.checkpoint()),
   );

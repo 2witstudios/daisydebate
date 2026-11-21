@@ -1,14 +1,10 @@
+import { sha3Hex } from '@daisy/digest';
 import { evidenceEnvelopeSchema, idSchema } from '@daisy/protocol';
 import { requirePrivateEvidenceDirectory } from './local-evidence-storage';
 import { createAppError } from '@daisy/errors';
 import { chmodSync } from 'node:fs';
 import { Database } from 'bun:sqlite';
-import {
-  createCipheriv,
-  createDecipheriv,
-  createHash,
-  randomBytes,
-} from 'node:crypto';
+import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
 import {
   necessaryEvidencePolicy,
   encodeEvidencePrivacyScope,
@@ -23,8 +19,7 @@ import type {
 import type { EvidenceAuthority } from './local-evidence-authority';
 
 type Material = { key: Uint8Array; nonce: Uint8Array };
-const digest = (bytes: Uint8Array) =>
-  createHash('sha3-256').update(bytes).digest('hex');
+const digest = (bytes: Uint8Array) => sha3Hex(bytes);
 const materialDigest = (material: Material) =>
   digest(Buffer.concat([material.key, material.nonce]));
 const refused = (reason: EvidenceRefusal['reason']): EvidenceRefusal => ({

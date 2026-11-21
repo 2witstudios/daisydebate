@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { unknownPaymentFacts } from './billing-payment-observation-facts';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { billingPaymentObservationSchema } from './billing-payment-observation';
@@ -207,7 +208,7 @@ test('another invoice/account/period cannot link or settle an observation throug
 
 test('retained boundary money effects can link for reconciliation without authorizing a fresh ambiguous refund', () => {
   const closedAt = '2026-11-05T00:00:02.000Z';
-  const boundary = { ...proof, paidAtSeconds: Date.parse(closedAt) / 1000 };
+  const boundary = { ...proof, paidAtSeconds: instantMs(closedAt) / 1000 };
   const value = { ...observation(), closedAt };
   const ready = {
     ...originalAction(),

@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import {
   CLIP_PAUSE_MS,
   MAX_CUT_FRAMES,
@@ -125,7 +126,7 @@ export async function validateCaptureBatch(input: {
       continue;
     }
     // The history authorizes frames up to its read time only (cutCaptureClips).
-    const readMs = Date.parse(history.state.serverNow);
+    const readMs = instantMs(history.state.serverNow);
     const valid = frames.filter((f) => f.frame.afterMs <= readMs);
     input.held(frames.filter((f) => f.frame.afterMs > readMs));
     for (const { frame } of valid)
@@ -177,13 +178,12 @@ function cutStream(
   const cut = cutCaptureClips({
     roundId: input.roundId,
     roundParticipantId: seat,
-    serverNowMs: Date.parse(state.serverNow),
+    serverNowMs: instantMs(state.serverNow),
     segments: [
       {
         id: segment.id,
-        startedAtMs: Date.parse(segment.startedAt),
-        endedAtMs:
-          segment.endedAt === null ? null : Date.parse(segment.endedAt),
+        startedAtMs: instantMs(segment.startedAt),
+        endedAtMs: segment.endedAt === null ? null : instantMs(segment.endedAt),
         durationMs: segment.durationMs,
         returnedMs: segment.returnedMs,
       },
@@ -191,8 +191,8 @@ function cutStream(
     intervals: state.intervals.map((i) => ({
       segmentId: segment.id,
       roundParticipantId: i.roundParticipantId,
-      startedAtMs: Date.parse(i.startedAt),
-      endedAtMs: i.endedAt === null ? null : Date.parse(i.endedAt),
+      startedAtMs: instantMs(i.startedAt),
+      endedAtMs: i.endedAt === null ? null : instantMs(i.endedAt),
     })),
     frames: frames.map((f) => f.frame),
     carry: input.carries.get(key) ?? null,

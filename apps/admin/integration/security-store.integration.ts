@@ -1,3 +1,4 @@
+import { addMs } from '@daisy/clock';
 import { randomBytes } from 'node:crypto';
 import { createClient } from '@clickhouse/client-web';
 import { requireTestClickHouse, requireTestServices } from '@daisy/config';
@@ -50,7 +51,7 @@ describe('the security store', () => {
     });
     const read = await security.view(
       'invariants',
-      windowBounds(new Date(Date.parse(now) + 1_000).toISOString(), '1h'),
+      windowBounds(addMs(now, 1_000), '1h'),
     );
     const rows = read.kind === 'ok' ? (read.value[0] ?? []) : [];
     assert({

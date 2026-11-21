@@ -18,7 +18,7 @@ import type { LobbyCommandAnswer } from '@daisy/protocol/lobby/command';
 import type { TabPrincipal } from '../tab-principal';
 import { decideSetting } from '../commands/settings';
 import { CommandDenied, runLobbyCommand } from '../commands/run-command';
-import { commandDigest } from './command-digest';
+import { commandDigest } from '@daisy/digest';
 import { settingFacts } from './setting-facts';
 import { settingAuthority } from './setting-authority';
 

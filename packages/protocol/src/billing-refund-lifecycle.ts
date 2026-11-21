@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { idSchema } from './primitives';
 import {
   currentRefund,
@@ -11,7 +12,7 @@ import {
   type RefundTransition,
   type RefundWork,
 } from './billing-refund';
-const at = Date.parse;
+const at = instantMs;
 const refuse = { kind: 'refuse' } as const;
 
 /** A known refund is read again even after success; later bank returns can reopen the obligation. */

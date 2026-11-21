@@ -1,3 +1,4 @@
+import { nowMs as clockNowMs } from '@daisy/clock';
 import { mediaEndpointsOf } from '@daisy/config';
 import {
   broadcastEgressOnNodes,
@@ -98,7 +99,7 @@ export const composeStage = (app: App) => {
     },
     observerToken: media.egress.observerToken,
     livekitUrlFor: (room) => media.nodes.urlsFor(room).publicUrl,
-    now: () => Date.parse(app.clock.now()),
+    now: () => clockNowMs(app.clock),
     nextId: () => app.ids.next(),
   });
 };
@@ -113,7 +114,7 @@ export const startStrayEgressSweep = (app: App, timers: WorkerTimers) => {
   )
     return null;
   const lease = () => {
-    const nowMs = Date.parse(app.clock.now());
+    const nowMs = clockNowMs(app.clock);
     return { now: new Date(nowMs), until: new Date(nowMs + STRAY_CLAIM_MS) };
   };
   const report = (event: Parameters<typeof app.logger.log>[0]) =>

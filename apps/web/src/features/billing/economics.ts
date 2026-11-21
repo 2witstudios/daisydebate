@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { z } from 'zod';
 import { economicsPlans } from './economics-input';
 
@@ -72,7 +73,7 @@ export function evaluateMonthlyMargin(value: unknown, now: string) {
   const input = parsed.data;
   if (!exactMonth(input.startsAt, input.endsAt))
     return unknown('invalid_month');
-  if (Date.parse(now) < Date.parse(input.startsAt))
+  if (instantMs(now) < instantMs(input.startsAt))
     return unknown('future_month');
   if (input.floorBasisPoints === null) return unknown('floor_missing');
   return assess(input, now, input.floorBasisPoints);
@@ -135,7 +136,7 @@ function assess(
     contribution < -BigInt(Number.MAX_SAFE_INTEGER)
   )
     return unknown('total_overflow');
-  const completed = Date.parse(input.endsAt) <= Date.parse(now);
+  const completed = instantMs(input.endsAt) <= instantMs(now);
   const projection = { ...totals, contributionMicros: Number(contribution) };
   if (!completed || !measured)
     return {

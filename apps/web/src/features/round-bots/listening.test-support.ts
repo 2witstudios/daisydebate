@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { createBotListening } from './listening';
 
 const id = (c: string) => c.repeat(24);
@@ -7,7 +8,7 @@ export const scope = {
 } as never;
 export const peer = id('p');
 export const latePeer = id('l');
-const T0 = Date.parse('2026-10-27T12:00:00.000Z');
+const T0 = instantMs('2026-10-27T12:00:00.000Z');
 
 /** One fake media session: grants, subscriptions and the frames a test plays into them. */
 export function session(

@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import type { AuthorityResources } from './authorization';
 import {
   authorizationPrincipal as principal,
@@ -25,7 +26,7 @@ for (const mode of [
     let sessions = 0;
     let projected: unknown;
     let factReads = 0;
-    const epoch = Date.parse('2026-10-09T00:00:00.000Z');
+    const epoch = instantMs('2026-10-09T00:00:00.000Z');
     const account = {
       userId: principal.userId,
       actorId: principal.actorId,

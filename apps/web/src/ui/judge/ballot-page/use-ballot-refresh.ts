@@ -1,5 +1,5 @@
 'use client';
-import { systemClock } from '@daisy/clock';
+import { nowMs, systemClock } from '@daisy/clock';
 import type { RoundBallotRead } from '@daisy/protocol';
 import { useEffect, useRef } from 'react';
 import {
@@ -74,7 +74,7 @@ export function refreshOnSchedule({
 }
 
 const deviceInstant = () => ({
-  wallMs: Date.parse(systemClock.now()),
+  wallMs: nowMs(systemClock),
   monotonicMs: performance.now(),
 });
 

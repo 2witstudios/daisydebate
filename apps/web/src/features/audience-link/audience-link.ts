@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { sha3Hex } from '@daisy/digest';
 import { z } from 'zod';
 import { liveHref } from '../watch/routes';
 
@@ -23,8 +23,7 @@ export const newAudienceLinkToken = (
     crypto.getRandomValues(new Uint8Array(bytes)),
 ): string => Buffer.from(random(TOKEN_BYTES)).toString('base64url');
 
-export const audienceLinkHash = (token: string): string =>
-  createHash('sha3-256').update(token).digest('hex');
+export const audienceLinkHash = (token: string): string => sha3Hex(token);
 
 export const isAudienceLinkToken = (value: unknown): value is string =>
   tokenSchema.safeParse(value).success;

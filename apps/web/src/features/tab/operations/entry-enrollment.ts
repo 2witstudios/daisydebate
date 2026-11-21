@@ -21,7 +21,7 @@ import type { LobbyCommandAnswer } from '@daisy/protocol/lobby/command';
 import { decideEntry } from '../commands/entries';
 import { CommandDenied, runLobbyCommand } from '../commands/run-command';
 import type { TabPrincipal } from '../tab-principal';
-import { commandDigest } from './command-digest';
+import { commandDigest } from '@daisy/digest';
 import { entryEnrollmentFacts } from './entry-enrollment-facts';
 import { entryEnrollmentAuthority } from './entry-enrollment-authority';
 import { hostLobbyResource } from './host-lobby-resource';

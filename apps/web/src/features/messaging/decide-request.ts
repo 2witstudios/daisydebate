@@ -1,3 +1,4 @@
+import { tryInstantMs, instantMs } from '@daisy/clock';
 import type { SocialRequestLimits } from '@daisy/db';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { MessagingDmStore } from '@daisy/db/messaging';
@@ -42,8 +43,8 @@ export async function decideMessagingDm(
       if (state.state !== 'pending') throw createAppError('AUTHORIZATION');
       const now = dependencies.clock.now();
       if (
-        !Number.isFinite(Date.parse(now)) ||
-        Date.parse(now) < Date.parse(state.requestedAt)
+        tryInstantMs(now) === undefined ||
+        instantMs(now) < instantMs(state.requestedAt)
       )
         throw createAppError('VALIDATION');
       // As send and block do: replays never spend the limiter; a new

@@ -1,3 +1,4 @@
+import { instantMs, addMs } from '@daisy/clock';
 import { normalizeEmail } from './email';
 
 /**
@@ -115,7 +116,7 @@ const changed = (state: ClubSeating): ClubSeatingDecision => ({
 });
 
 const isLive = (invitation: SeatInvitation, now: string) =>
-  Date.parse(now) < Date.parse(invitation.expiresAt);
+  instantMs(now) < instantMs(invitation.expiresAt);
 
 /** Invitations that still hold a seat at this instant. */
 export const liveInvitations = (state: ClubSeating, now: string) =>
@@ -171,9 +172,7 @@ function invite(
   )
     return refuse('already-invited');
   if (!hasFreeSeat(state, now)) return refuse('no-free-seat');
-  const expiresAt = new Date(
-    Date.parse(now) + clubSeatBounds.invitationTtlMs,
-  ).toISOString();
+  const expiresAt = addMs(now, clubSeatBounds.invitationTtlMs);
   return changed({
     ...state,
     invitations: [
@@ -300,7 +299,7 @@ export function fundedSeats(
   return [...seats]
     .sort(
       (a, b) =>
-        Date.parse(a.assignedAt) - Date.parse(b.assignedAt) ||
+        instantMs(a.assignedAt) - instantMs(b.assignedAt) ||
         (a.userId < b.userId ? -1 : a.userId > b.userId ? 1 : 0),
     )
     .slice(0, Math.max(0, seatCount));

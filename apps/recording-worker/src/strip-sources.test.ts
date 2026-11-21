@@ -1,9 +1,10 @@
+import { instantMs } from '@daisy/clock';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { stripSources } from './strip-sources';
 
 setupRitewayBun();
 
-const T0 = Date.parse('2026-11-03T10:00:00.000Z');
+const T0 = instantMs('2026-11-03T10:00:00.000Z');
 const line = (name: string, atMs: number) =>
   `#EXT-X-PROGRAM-DATE-TIME:${new Date(atMs).toISOString()}\n#EXTINF:4.000,\n${name}\n`;
 

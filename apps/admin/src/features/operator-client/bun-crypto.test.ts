@@ -1,3 +1,4 @@
+import { sha3Hex } from '@daisy/digest';
 import { createHash, createHmac } from 'node:crypto';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { bunOperatorCrypto } from './bun-crypto';
@@ -20,7 +21,7 @@ test('the admin edge hash primitives', () => {
     expected: [
       createHmac('sha256', key).update(text, 'utf8').digest('base64url'),
       createHash('sha256').update(bytes).digest('hex'),
-      createHash('sha3-256').update(text, 'utf8').digest('hex'),
+      sha3Hex(text),
     ],
   });
 });

@@ -1,3 +1,4 @@
+import { tryInstantMs } from '@daisy/clock';
 import { currentAgeFact } from './authorization-age';
 import type {
   ChannelAuthorizationFact,
@@ -20,11 +21,13 @@ function policyRevisionsMatch(
   );
 }
 function policyTimeCurrent(policy: SocialPolicyEvidence, now: string) {
-  const instant = Date.parse(now),
-    observed = Date.parse(policy.evaluatedAt),
-    expiry = Date.parse(policy.validUntil);
+  const instant = tryInstantMs(now),
+    observed = tryInstantMs(policy.evaluatedAt),
+    expiry = tryInstantMs(policy.validUntil);
   return (
-    [instant, observed, expiry].every(Number.isFinite) &&
+    instant !== undefined &&
+    observed !== undefined &&
+    expiry !== undefined &&
     observed <= instant &&
     instant < expiry
   );

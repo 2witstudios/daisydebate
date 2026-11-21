@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { attendanceTimingPolicy, type RoundView } from '@daisy/protocol';
 
 type SettlingRound = Pick<RoundView, 'rules' | 'segments'>;
@@ -19,7 +20,7 @@ export function attendanceSettlesAtMs(round: SettlingRound): number | null {
       (segment) =>
         segment.type === 'speech' && segment.rulesSegmentKey !== finalKey,
     )
-    .map((segment) => Date.parse(segment.startedAt));
+    .map((segment) => instantMs(segment.startedAt));
   if (starts.length === 0) return null;
   const { graceMs, finalizationBufferMs } = attendanceTimingPolicy;
   return Math.max(...starts) + graceMs + finalizationBufferMs;

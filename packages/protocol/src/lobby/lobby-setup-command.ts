@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { roomConfigSchema } from '../room';
 import { z } from 'zod';
 import { idSchema } from '../primitives';
@@ -122,7 +123,7 @@ const createSeason = z
   .refine(
     (season) =>
       season.endsAt === null ||
-      Date.parse(season.endsAt) > Date.parse(season.startsAt),
+      instantMs(season.endsAt) > instantMs(season.startsAt),
     { message: 'A season ends after it starts.', path: ['endsAt'] },
   );
 
@@ -229,7 +230,7 @@ const stageTimingSchema = z.discriminatedUnion('timing', [
       closesAt: instantSchema,
     })
     .refine(
-      (window) => Date.parse(window.closesAt) > Date.parse(window.opensAt),
+      (window) => instantMs(window.closesAt) > instantMs(window.opensAt),
       {
         message: 'A window closes after it opens.',
         path: ['closesAt'],

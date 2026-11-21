@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { botIdentity, createStreamTracker } from './capture-streams';
 import type { CaptureState } from './capture-history';
@@ -114,7 +115,7 @@ test('the tracker refuses to grow past its stream ceiling', () => {
 });
 
 const speaker = { segmentId: 'seg1', roundParticipantId: 'speaker' };
-const at = (iso: string) => Date.parse(iso);
+const at = (iso: string) => instantMs(iso);
 const due = (tracker: ReturnType<typeof createStreamTracker>, now: string) =>
   tracker
     .due(at(now), () => false)

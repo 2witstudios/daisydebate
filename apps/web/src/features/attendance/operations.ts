@@ -1,3 +1,5 @@
+import { commandDigest } from '@daisy/digest';
+import { instantMs } from '@daisy/clock';
 import { admitsPrincipalAccess } from '@daisy/auth/authorization';
 import {
   createRoundRuntime,
@@ -88,7 +90,7 @@ function resolveAttendanceWindow(
     finalized: false,
     segmentType: target.type,
     cutoffAtMs: resolutionCutoffOf(facts.round.rules, facts.round.segments),
-    nowMs: Date.parse(facts.now),
+    nowMs: instantMs(facts.now),
   };
   const decision = adjudicateAttendance(evidence);
   if (!decision) return null;
@@ -125,7 +127,7 @@ export function createAttendanceFeature(deps: {
       roundId,
       admits: admitsPrincipalAccess,
     });
-    const nowMs = Date.parse(facts.now);
+    const nowMs = instantMs(facts.now);
     const availability = availabilityOf(facts);
     const targets = facts.round.segments
       .filter(
@@ -175,9 +177,7 @@ export function createAttendanceFeature(deps: {
         roundId,
         principal,
         envelope,
-        payloadDigest: new Bun.CryptoHasher('sha3-256')
-          .update(JSON.stringify(envelope))
-          .digest('hex'),
+        payloadDigest: commandDigest(envelope),
         acceptWindow: (facts) =>
           acceptAttendanceReceipt(facts, envelope.segmentId),
         // ADR 0075: a human checks in only with participant access.

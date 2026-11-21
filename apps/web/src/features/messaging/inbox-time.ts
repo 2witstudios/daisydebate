@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 const minute = 60_000,
   hour = 60 * minute,
   day = 24 * hour;
@@ -15,8 +16,8 @@ const monthDayYear = new Intl.DateTimeFormat('en-US', {
 
 /** Compact inbox age: minutes, hours and days within a week, then a UTC date. */
 export function formatInboxTime(at: string, now: string): string {
-  const then = Date.parse(at),
-    elapsed = Date.parse(now) - then;
+  const then = instantMs(at),
+    elapsed = instantMs(now) - then;
   if (elapsed < minute) return 'now';
   if (elapsed < hour) return `${Math.floor(elapsed / minute)}m`;
   if (elapsed < day) return `${Math.floor(elapsed / hour)}h`;

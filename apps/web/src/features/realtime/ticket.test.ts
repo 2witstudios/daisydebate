@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { sha3Hex } from '@daisy/digest';
 import { noopErrorReporter } from '@daisy/observability';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { Identity } from '@daisy/auth';
@@ -239,9 +239,7 @@ describe('POST /api/realtime/ticket, the happy path', () => {
       ticket: string;
       expiresInSeconds: number;
     };
-    const expectedHash = createHash('sha3-256')
-      .update(body.ticket)
-      .digest('hex');
+    const expectedHash = sha3Hex(body.ticket);
     assert({
       given: 'a signed-in member with an actor row',
       should:

@@ -1,4 +1,5 @@
-import { canonicalJson, digestOf } from '@daisy/seeded-random';
+import { sha3Hex } from '@daisy/digest';
+import { canonicalJson } from '@daisy/seeded-random';
 import { breaks } from '../breaks';
 import { check, checkBreaks, checkStandings } from '../checker';
 import { draw } from '../draw';
@@ -63,7 +64,7 @@ const drawChecked = (
   } as DrawInput;
   log.kept.push({
     where,
-    digest: digestOf(canonicalJson(answer)),
+    digest: sha3Hex(canonicalJson(answer)),
     input: recorded,
   });
   log.calls += 1;
@@ -663,7 +664,7 @@ export const simulate = (
           ...corrections.map((c) => roundOf.get(c.fixture) ?? round),
         );
         const at = (history: EventState['history']) =>
-          digestOf(
+          sha3Hex(
             canonicalJson(
               standings({
                 ...standingsInput(plan, state, earliest - 1, null, seed),
@@ -715,7 +716,7 @@ export const simulate = (
    * value; nothing a later correction does can reach it.
    */
   for (const { where, digest, input } of log.kept)
-    if (digestOf(canonicalJson(draw(input))) !== digest)
+    if (sha3Hex(canonicalJson(draw(input))) !== digest)
       log.rejections.push({
         where: `replay ${where}`,
         violations: ['the same input gave another answer'],

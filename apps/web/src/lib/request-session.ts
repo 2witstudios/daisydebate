@@ -1,3 +1,4 @@
+import { nowMs } from '@daisy/clock';
 import { readFamilySettings } from '../features/parental-controls/settings';
 import { evaluatedIdentity } from '../server/member-boundary';
 import { messageOfferFor } from '../features/messaging/request-offer';
@@ -84,7 +85,7 @@ const requestFlagReader = cache(() => {
   const app = processApp();
   return createRequestFlagReader({
     read: (accountId, keys) => app.database.readFlagSnapshot(accountId, keys),
-    now: () => Date.parse(app.clock.now()),
+    now: () => nowMs(app.clock),
     diagnostic: () =>
       app.logger.log(
         'flags.read.failed',
@@ -141,7 +142,7 @@ export const readRecordingArchive = async (
     }),
     archive.countPublicArchive({ clock }),
   ]);
-  return { page, publicCount, nowMs: Date.parse(app.clock.now()) };
+  return { page, publicCount, nowMs: nowMs(app.clock) };
 };
 
 /** A finished Round's history screen for this viewer. */
@@ -708,7 +709,7 @@ export const readReleaseLink = async (
     : { kind: 'unknown' };
 
 /** The app's clock, for what a release page derives from a link's dates. */
-export const releaseNowMs = (): number => Date.parse(processApp().clock.now());
+export const releaseNowMs = (): number => nowMs(processApp().clock);
 
 /**
  * A youth member's media release section (ADR 0151), or null: only on Youth –

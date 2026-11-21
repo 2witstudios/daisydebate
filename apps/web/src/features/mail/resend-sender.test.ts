@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { sequentialId } from '@daisy/clock';
+import { instantMs, sequentialId } from '@daisy/clock';
 import { createResendSender } from './resend-sender';
 
 setupRitewayBun();
@@ -43,7 +43,7 @@ const create = (
     calls,
     sender: createResendSender({
       apiKey: 're_test_key',
-      nowMs: () => Date.parse('2026-11-06T00:00:00.000Z'),
+      nowMs: () => instantMs('2026-11-06T00:00:00.000Z'),
       from: 'Daisy Debate <no-reply@daisy.example.com>',
       ids: sequentialId('idem'),
       fetch: fetchImpl,
@@ -282,7 +282,7 @@ test('a resumed invitation checks its deadline immediately before HTTP delivery'
     apiKey: 'test',
     from: 'test@example.test',
     ids: { next: () => 'intent' },
-    nowMs: () => Date.parse('2026-11-06T00:00:00.000Z'),
+    nowMs: () => instantMs('2026-11-06T00:00:00.000Z'),
     fetch: async () => {
       calls += 1;
       return new Response(JSON.stringify({ id: 'sent' }));
@@ -311,7 +311,7 @@ test('a resumed invitation checks its deadline immediately before HTTP delivery'
 });
 
 test('an invitation retry cannot cross its send deadline after a lost response', async () => {
-  const deadline = Date.parse('2026-11-06T00:00:01.000Z');
+  const deadline = instantMs('2026-11-06T00:00:01.000Z');
   let now = deadline - 1;
   let calls = 0;
   const sender = createResendSender({

@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import type { RoundAnalysisReport } from './round-analysis';
 import {
   analysisRequest,
@@ -55,7 +56,7 @@ const changed = (state: AnalysisWork): AnalysisWorkTransition => {
   const parsed = analysisWorkSchema.safeParse(state);
   return parsed.success ? { kind: 'changed', state: parsed.data } : refuse;
 };
-const at = (value: string) => Date.parse(value);
+const at = (value: string) => instantMs(value);
 const requested = (state: AnalysisWork): state is RequestedAnalysis =>
   'requestedAt' in state;
 const active = (

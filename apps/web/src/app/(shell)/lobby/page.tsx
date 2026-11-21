@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { systemClock } from '@daisy/clock';
+import { nowMs, systemClock } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
 import { lobbyOf } from '@daisy/protocol';
 import type { SearchParams } from '../../../features/access/decision';
@@ -52,7 +52,7 @@ export default async function LobbyPage({
       : [],
   ]);
   if (listing.kind !== 'found') throw createAppError('INFRASTRUCTURE');
-  const now = Date.parse(systemClock.now());
+  const now = nowMs(systemClock);
   const rooms = (
     <>
       <ResumeRound room={activeRoom} actorId={actorId} />

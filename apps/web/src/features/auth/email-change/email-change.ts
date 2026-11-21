@@ -1,3 +1,4 @@
+import { nowMs } from '@daisy/clock';
 import type { BetterAuthPlugin, GenericEndpointContext } from 'better-auth';
 import {
   APIError,
@@ -121,8 +122,7 @@ export const emailChangePlugin = (dependencies: {
   };
   const expiresAt = () =>
     new Date(
-      Date.parse(dependencies.clock.now()) +
-        EMAIL_CHANGE_LINK_EXPIRES_IN_SECONDS * 1000,
+      nowMs(dependencies.clock) + EMAIL_CHANGE_LINK_EXPIRES_IN_SECONDS * 1000,
     );
 
   return {

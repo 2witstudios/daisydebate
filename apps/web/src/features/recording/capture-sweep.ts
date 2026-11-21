@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import {
   plannedBroadcast,
   plannedRecording,
@@ -201,7 +202,7 @@ export const createRecordingCaptureSweep = (deps: {
     roundEnded: isRoundOver(open.roundStatus),
     captureDeadlineAtMs:
       open.eligibility.kind === 'tournament_admission'
-        ? Date.parse(open.eligibility.deadlineAt)
+        ? instantMs(open.eligibility.deadlineAt)
         : null,
     path: {
       kind: 'own',

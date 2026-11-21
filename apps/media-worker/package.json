@@ -14,6 +14,7 @@
     "@daisy/clock": "workspace:*",
     "@daisy/config": "workspace:*",
     "@daisy/db": "workspace:*",
+    "@daisy/digest": "workspace:*",
     "@daisy/errors": "workspace:*",
     "@daisy/logger": "workspace:*",
     "@daisy/media": "workspace:*",

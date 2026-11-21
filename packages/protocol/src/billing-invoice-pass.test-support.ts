@@ -1,3 +1,4 @@
+import { instantMs, addMs } from '@daisy/clock';
 import { billingPaymentObservationSchema } from './billing-payment-observation';
 import {
   invoicePassOwnerSchema,
@@ -27,7 +28,7 @@ export const owner = invoicePassOwnerSchema.parse({
     endsAt: '2026-12-01T00:00:00.000Z',
   },
 });
-const time = Date.parse('2026-11-06T12:00:10.000Z');
+const time = instantMs('2026-11-06T12:00:10.000Z');
 export function authority(step = 0): InvoicePassAuthority {
   const claimed = time + step * 100;
   return {
@@ -142,10 +143,8 @@ export function head(
     passId: pass.id,
     jobId: pass.jobId,
     claimId: context.claim.id,
-    startedAt: new Date(Date.parse(context.claim.claimedAt) + 5).toISOString(),
-    observedAt: new Date(
-      Date.parse(context.claim.claimedAt) + 10,
-    ).toISOString(),
+    startedAt: addMs(context.claim.claimedAt, 5),
+    observedAt: addMs(context.claim.claimedAt, 10),
     owner: pass.owner,
     request: { invoiceId: pass.owner.invoiceId, limit: 20 },
     hasMore: false,
@@ -158,10 +157,8 @@ export function invoice(pass: InvoicePass, context: InvoicePassAuthority) {
     passId: pass.id,
     jobId: pass.jobId,
     claimId: context.claim.id,
-    startedAt: new Date(Date.parse(context.claim.claimedAt) + 5).toISOString(),
-    observedAt: new Date(
-      Date.parse(context.claim.claimedAt) + 10,
-    ).toISOString(),
+    startedAt: addMs(context.claim.claimedAt, 5),
+    observedAt: addMs(context.claim.claimedAt, 10),
     owner: pass.owner,
   };
 }

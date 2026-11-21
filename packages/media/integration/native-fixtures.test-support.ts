@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { SQL } from 'bun';
 import { createDatabase } from '@daisy/db';
 import { validRules } from '@daisy/db/testing';
@@ -48,7 +49,7 @@ export async function withHistoricalSeat(
       binding,
       calibrate: async () => {
         const sentAtMs = performance.now();
-        const serverNowMs = Date.parse(await db.databaseNow());
+        const serverNowMs = instantMs(await db.databaseNow());
         return {
           sentAtMs,
           receivedAtMs: performance.now(),

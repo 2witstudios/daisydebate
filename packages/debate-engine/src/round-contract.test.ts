@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { assertRejects } from '@daisy/errors/testing';
 import {
   roundLifecycleFault,
@@ -120,13 +121,13 @@ const walk = (
       pick([
         {
           kind: 'pause',
-          atMs: Date.parse(now),
+          atMs: instantMs(now),
           cause: 'vendor_unreachable',
           confirmedUntilMs: null,
         },
-        { kind: 'begin_resume', atMs: Date.parse(now), countdownMs: 5_000 },
+        { kind: 'begin_resume', atMs: instantMs(now), countdownMs: 5_000 },
         ...(seed % 7 === 0
-          ? [{ kind: 'end', atMs: Date.parse(now) } as const]
+          ? [{ kind: 'end', atMs: instantMs(now) } as const]
           : []),
       ] as const),
     );

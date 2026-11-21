@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { sideOfSeat } from '@daisy/protocol';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
@@ -93,7 +94,7 @@ test('late actual capture cannot bypass a missing cutoff after the scheduler has
         (p) => sideOfSeat(p.seat) === 'affirmative',
       )!.id,
     };
-    const start = Date.parse(before.startedAt!);
+    const start = instantMs(before.startedAt!);
     const trackId = createId();
     const pending = [
       () =>

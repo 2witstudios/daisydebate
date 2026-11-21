@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import type { AuthorityResources } from './authorization';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { buildChannelTopic } from '@daisy/protocol';
@@ -138,7 +139,7 @@ for (const mode of [
     } as unknown as AuthorityResources;
     const auth = createRealtimeAuthorization({
       resources,
-      now: () => Date.parse(instant),
+      now: () => instantMs(instant),
       ...(mode === 'missing-policy'
         ? { readingPolicy: refuseAllReading }
         : {
@@ -172,7 +173,7 @@ for (const mode of [
         queries: 4,
         deadline:
           mode === 'approved-test' || mode === 'production-policy'
-            ? Date.parse(expiry)
+            ? instantMs(expiry)
             : null,
       },
     });

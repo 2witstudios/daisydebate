@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { sha3Hex } from '@daisy/digest';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type {
   MessagingChannelStore,
@@ -19,9 +19,7 @@ const command = {
   messageId,
   text: 'Edited',
 };
-const digest = createHash('sha3-256')
-  .update(JSON.stringify([1, 'edit', messageId, command.text]))
-  .digest('hex');
+const digest = sha3Hex(JSON.stringify([1, 'edit', messageId, command.text]));
 const message = {
   id: messageId,
   channelId,

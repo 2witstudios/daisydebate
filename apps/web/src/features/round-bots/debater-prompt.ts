@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { roundDebaterMessages, roundSpeakerMessages } from '@daisy/ai-voice';
 import type {
   createBotPublicationOperations,
@@ -23,7 +24,7 @@ type Segment = Context['round']['segments'][number];
 type Rule = Context['round']['rules']['segments'][number];
 const dueAtOf = (segment: Segment) =>
   segmentDueAtMs({
-    startedAtMs: Date.parse(segment.startedAt),
+    startedAtMs: instantMs(segment.startedAt),
     durationMs: segment.durationMs,
     returnedMs: segment.returnedMs,
   });

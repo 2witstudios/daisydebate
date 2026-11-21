@@ -1,3 +1,4 @@
+import { tryInstantMs } from '@daisy/clock';
 // The one review-date rule shared by `bun policy` and `bun migrations:check`:
 // a time-bounded exception names a real UTC calendar day (YYYY-MM-DD) and
 // stays live through that day. Callers own their wording; the rule lives here.
@@ -12,8 +13,7 @@ export const utcToday = (now: Date = new Date()): string =>
 export const isIsoDate = (value: unknown): value is string =>
   typeof value === 'string' &&
   /^\d{4}-\d{2}-\d{2}$/.test(value) &&
-  !Number.isNaN(Date.parse(`${value}T00:00:00Z`)) &&
-  new Date(`${value}T00:00:00Z`).toISOString().startsWith(value);
+  tryInstantMs(`${value}T00:00:00Z`) !== undefined;
 
 export const reviewDateStatus = (
   reviewBy: unknown,

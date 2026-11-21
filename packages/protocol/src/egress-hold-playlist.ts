@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 /** One segment of an Egress attempt, as its held playlist states it. */
 export type HoldEntry = {
   readonly name: string;
@@ -27,7 +28,7 @@ export const parseHoldPlaylist = (
   let durationMs = Number.NaN;
   for (const line of text.split('\n')) {
     if (line.startsWith('#EXT-X-PROGRAM-DATE-TIME:'))
-      capturedAtMs = Date.parse(line.slice(25));
+      capturedAtMs = instantMs(line.slice(25));
     else if (line.startsWith('#EXTINF:'))
       durationMs = Math.round(parseFloat(line.slice(8)) * 1000);
     else if (line && !line.startsWith('#')) {

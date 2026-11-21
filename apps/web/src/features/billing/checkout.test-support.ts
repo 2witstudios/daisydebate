@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import type { Purchase } from '@daisy/protocol/billing';
 export const purchase: Purchase = {
   id: 'a'.repeat(24),
@@ -26,8 +27,8 @@ export const checkoutSession = {
   ui_mode: 'hosted_page',
   client_reference_id: purchase.id,
   metadata: { daisy_purchase_id: purchase.id },
-  created: Math.floor(Date.parse(purchase.admittedAt) / 1000) + 1,
-  expires_at: Math.floor(Date.parse(purchase.admittedAt) / 1000) + 3600,
+  created: Math.floor(instantMs(purchase.admittedAt) / 1000) + 1,
+  expires_at: Math.floor(instantMs(purchase.admittedAt) / 1000) + 3600,
   status: 'open',
   customer: null,
   subscription: null,

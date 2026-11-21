@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { utf8Bytes } from './observation';
 import { z } from 'zod';
 import { idSchema } from './primitives';
@@ -46,15 +47,15 @@ const captureEvidenceBodySchema = z
         last.clock.window.nominalStartMs -
           first.clock.window.nominalStartMs +
           10 &&
-      Date.parse(body.before) ===
+      instantMs(body.before) ===
         Math.floor(
           Math.min(...frames.map((frame) => frame.clock.window.beforeMs)),
         ) &&
-      Date.parse(body.after) ===
+      instantMs(body.after) ===
         Math.ceil(
           Math.max(...frames.map((frame) => frame.clock.window.afterMs)),
         ) &&
-      Date.parse(body.after) <= Date.parse(body.historyReadAt) &&
+      instantMs(body.after) <= instantMs(body.historyReadAt) &&
       frames.every(
         (frame, index) =>
           JSON.stringify(frame.clock.anchor) === anchor &&

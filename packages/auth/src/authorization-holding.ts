@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import type { Permission } from '@daisy/protocol/authorization';
 import { capabilityMetadata } from '@daisy/protocol/capability-metadata';
 import type { AgeBand } from '@daisy/protocol';
@@ -84,7 +85,7 @@ const live = (grant: GrantFact, now: string | undefined): boolean =>
   grant.revision > 0 &&
   grant.membershipActive &&
   (grant.expiresAt === null ||
-    (now !== undefined && Date.parse(grant.expiresAt) > Date.parse(now)));
+    (now !== undefined && instantMs(grant.expiresAt) > instantMs(now)));
 
 /** A grant covers a lobby from the lobby itself or from its owning organization. */
 const covers = (grant: GrantFact, target: AuthorityTarget): boolean =>

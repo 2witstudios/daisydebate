@@ -1,3 +1,4 @@
+import { instantMs, addMs } from '@daisy/clock';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createResendSender } from '../../mail/resend-sender';
 import { MAIL_MAX_ATTEMPTS, mailRetryDelayMs } from '../../mail/retry-policy';
@@ -80,7 +81,7 @@ const scripted = (input: {
 const rejectingSender = (response: 'lost' | 'rejected') =>
   createResendSender({
     apiKey: 'test-key',
-    nowMs: () => Date.parse(NOW),
+    nowMs: () => instantMs(NOW),
     from: 'test@example.test',
     ids: { next: () => 'id' },
     timeoutMs: 50,
@@ -249,8 +250,7 @@ describe('notification digest delivery (ADR 0144)', () => {
       await delivery.run(1);
       outcomes.push(settled[0]?.outcome);
     }
-    const at = (attempts: number) =>
-      new Date(Date.parse(NOW) + mailRetryDelayMs(attempts)).toISOString();
+    const at = (attempts: number) => addMs(NOW, mailRetryDelayMs(attempts));
     assert({
       given:
         'a definite rejection or a lost reply, before and at the attempt cap',

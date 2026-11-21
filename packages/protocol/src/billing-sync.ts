@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { z } from 'zod';
 import { idSchema } from './primitives';
 
@@ -9,7 +10,7 @@ const billingSyncBounds = {
 } as const;
 const instant = z.iso.datetime({ precision: 3 });
 const revision = z.number().int().positive().max(Number.MAX_SAFE_INTEGER);
-const at = Date.parse;
+const at = instantMs;
 export const billingSyncStateSchema = z.discriminatedUnion('kind', [
   z
     .strictObject({

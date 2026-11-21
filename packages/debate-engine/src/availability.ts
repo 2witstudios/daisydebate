@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { createInvariantError } from '@daisy/errors';
 import { availabilityRecoveryPolicy, type ClockStop } from '@daisy/protocol';
 
@@ -83,8 +84,8 @@ export function withClockStops(
     intervals: [
       ...availability.intervals,
       ...stops.map((stop) => ({
-        startMs: Date.parse(stop.from),
-        endMs: stop.to === null ? null : Date.parse(stop.to),
+        startMs: instantMs(stop.from),
+        endMs: stop.to === null ? null : instantMs(stop.to),
       })),
     ].sort((a, b) => a.startMs - b.startMs),
   };

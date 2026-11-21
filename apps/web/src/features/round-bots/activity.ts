@@ -1,3 +1,4 @@
+import { instantMs, tryInstantMs } from '@daisy/clock';
 import { createTurnTaking, turnTakingSettings } from '@daisy/ai-voice';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
@@ -43,9 +44,9 @@ export type BotAudioActivityEvent = {
     }
 );
 function freshFrame(frame: BotAudioActivityFrame, staleAfterMs: number) {
-  const oldest = Date.parse(frame.serverWindow.before),
-    latest = Date.parse(frame.serverWindow.after),
-    receipt = Date.parse(frame.receivedAt);
+  const oldest = instantMs(frame.serverWindow.before),
+    latest = instantMs(frame.serverWindow.after),
+    receipt = instantMs(frame.receivedAt);
   return (
     frame.pcm.length === 160 &&
     Number.isSafeInteger(frame.sequence) &&
@@ -80,7 +81,7 @@ function duplicate(
     previous?.trackId === frame.trackId &&
     frame.sequence === previous.sequence &&
     frame.afterMs === previous.afterMs &&
-    Date.parse(frame.serverWindow.before) === previous.oldestServerMs
+    instantMs(frame.serverWindow.before) === previous.oldestServerMs
   );
 }
 /**
@@ -150,7 +151,7 @@ export function createBotAudioActivity(input: {
     }
     const previous = heard.get(frame.roundParticipantId);
     if (duplicate(previous, frame)) return;
-    const at = Date.parse(frame.serverWindow.after);
+    const at = tryInstantMs(frame.serverWindow.after);
     const gapped = previous !== undefined && !follows(previous, frame);
     if (gapped)
       input.onEvent({
@@ -165,7 +166,7 @@ export function createBotAudioActivity(input: {
       trackId: frame.trackId,
       sequence: frame.sequence,
       afterMs: frame.afterMs,
-      oldestServerMs: Date.parse(frame.serverWindow.before),
+      oldestServerMs: instantMs(frame.serverWindow.before),
     });
     feed(frame.roundParticipantId, at, rms(frame.pcm));
   };
@@ -192,8 +193,8 @@ export function createBotAudioActivity(input: {
     },
     /** Actual PG time or a conservatively calibrated server bound; never local monotonic ingress time. */
     expire: (serverNow: string) => {
-      const at = Date.parse(serverNow);
-      if (!Number.isFinite(at)) throw createAppError('VALIDATION');
+      const at = tryInstantMs(serverNow);
+      if (at === undefined) throw createAppError('VALIDATION');
       for (const participantId of peers) {
         const state = heard.get(participantId);
         if (

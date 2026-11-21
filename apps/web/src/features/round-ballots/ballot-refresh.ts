@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import type { RoundBallotRead, RoundWaitingOn } from '@daisy/protocol';
 
 /** How soon the ballot page asks the server for the Round again while a change is due. */
@@ -78,7 +79,7 @@ const untilDeadline = (
   deadlineAt: string,
   { nowMs, renderedAtMs }: RefreshInstant,
 ): BallotRefresh => {
-  const overAtMs = Date.parse(deadlineAt) + ballotRefreshGraceMs;
+  const overAtMs = instantMs(deadlineAt) + ballotRefreshGraceMs;
   if (nowMs < overAtMs) return refreshIn(ballotRefreshEveryMs);
   return renderedAtMs < overAtMs ? refreshOnce : noRefresh;
 };

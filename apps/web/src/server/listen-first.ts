@@ -1,3 +1,4 @@
+import { nowMs, instantMs } from '@daisy/clock';
 import type { IncomingMessage, Server, ServerResponse } from 'node:http';
 import type { Clock } from '@daisy/clock';
 import { refuseUnisolatedTenantTables } from '@daisy/db';
@@ -94,7 +95,7 @@ async function listenThenPrepare({
     'server.ready',
     {
       operation: 'server.ready',
-      durationMs: Date.parse(clock.now()) - Date.parse(listeningAt),
+      durationMs: nowMs(clock) - instantMs(listeningAt),
     },
     'Server ready',
   );

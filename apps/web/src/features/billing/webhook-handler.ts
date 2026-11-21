@@ -1,3 +1,4 @@
+import { nowMs } from '@daisy/clock';
 import type { BillingConfig } from '@daisy/config';
 import type { Clock } from '@daisy/clock';
 import type { Database } from '@daisy/db';
@@ -34,7 +35,7 @@ export function createBillingWebhook(input: {
       signature,
       secret: input.config.webhookSecret,
       mode: input.config.mode,
-      receivedAt: Date.parse(input.clock.now()),
+      receivedAt: nowMs(input.clock),
     });
     if (verified.kind !== 'accepted')
       return new Response(null, {

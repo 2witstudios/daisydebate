@@ -9,6 +9,7 @@
     "start": "bun src/start.ts"
   },
   "dependencies": {
+    "@daisy/clock": "workspace:*",
     "@daisy/db": "workspace:*",
     "@daisy/debate-engine": "workspace:*",
     "@daisy/logger": "workspace:*",

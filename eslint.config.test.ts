@@ -1,3 +1,4 @@
+import { registerClockDigestTests } from './eslint.config-clock-digest.test-support';
 import { registerProcessEdgeTests } from './eslint.config-process.test-support';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
@@ -14,6 +15,7 @@ import {
 
 setupRitewayBun();
 registerProcessEdgeTests();
+registerClockDigestTests();
 
 describe('repository ESLint configuration', () => {
   test('rejects pathname splitting under the App Router', async () => {

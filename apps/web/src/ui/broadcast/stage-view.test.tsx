@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { pageColourClasses } from '../test-support/stage-palette';
@@ -43,7 +44,7 @@ const render = (
   renderToStaticMarkup(
     <StageView
       snapshot={snapshot}
-      nowMs={Date.parse('2026-11-02T00:00:00.000Z')}
+      nowMs={instantMs('2026-11-02T00:00:00.000Z')}
       siteLink="daisydebate.com"
       link={link}
       mediaOf={(seat) => media[seat.label] ?? 'video'}

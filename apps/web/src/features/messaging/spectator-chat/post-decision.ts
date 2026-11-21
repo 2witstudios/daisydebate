@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import type {
   MessagingSendCommand,
   MessagingSendState,
@@ -37,7 +38,7 @@ export const planSpectatorPost = (
   if (!account || account.erased || account.underThirteen)
     throw createAppError('AUTHORIZATION');
   if (account.restricted) throw createRefusal('CONFLICT', 'chat-banned');
-  const nowMs = Date.parse(resources.now);
+  const nowMs = instantMs(resources.now);
   const verdict = decideChatPost({
     banned: facts.banned,
     slowModeSeconds: broadcast?.slowModeSeconds ?? 0,

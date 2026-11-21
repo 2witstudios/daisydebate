@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { speakingChangesOf } from './round-speaking';
 import { closePlayedRound, startRound } from './round-commands';
 import { roundHoldsMembers } from './room-membership';
@@ -126,7 +127,7 @@ export function createRoundRuntime(input: {
   const onScratch = (now: string, apply: (c: CommandContext) => void) => {
     const scratch = restoreRoundStore(capture(store));
     const into = queues();
-    apply(contextOn(scratch, into, null, Date.parse(now)));
+    apply(contextOn(scratch, into, null, instantMs(now)));
     store = scratch;
     return project(into);
   };
@@ -313,17 +314,17 @@ export function createRoundRuntime(input: {
 
   return {
     position(now: string): RoundPosition {
-      return positionAtState(capture(store), rules, Date.parse(now));
+      return positionAtState(capture(store), rules, instantMs(now));
     },
     debateOverAt(now): boolean {
-      const at = Date.parse(now);
+      const at = instantMs(now);
       const scratch = restoreRoundStore(capture(store));
       const into = queues();
       advance(scratch, into, at);
       return debateIsOver(contextOn(scratch, into, null, at));
     },
     execute({ command, actorId, now }): RoundProjection {
-      const at = Date.parse(now);
+      const at = instantMs(now);
       const scratch = restoreRoundStore(capture(store));
       const into = queues();
       advance(scratch, into, at);
@@ -332,7 +333,7 @@ export function createRoundRuntime(input: {
       return project(into);
     },
     adjudicate(decision): RoundProjection {
-      const at = Date.parse(decision.now);
+      const at = instantMs(decision.now);
       const scratch = restoreRoundStore(capture(store));
       const into = queues();
       advance(scratch, into, at);
@@ -363,9 +364,9 @@ export function createRoundRuntime(input: {
     activate({ at, now }): RoundProjection {
       const scratch = restoreRoundStore(capture(store));
       const into = queues();
-      const c = contextOn(scratch, into, null, Date.parse(at));
+      const c = contextOn(scratch, into, null, instantMs(at));
       startRound(c);
-      advance(scratch, into, Date.parse(now));
+      advance(scratch, into, instantMs(now));
       store = scratch;
       return project(into);
     },
@@ -403,7 +404,7 @@ export function createRoundRuntime(input: {
     },
     tick(now): RoundProjection {
       const into = queues();
-      advance(store, into, Date.parse(now));
+      advance(store, into, instantMs(now));
       return project(into);
     },
     checkpoint(): RuntimeCheckpoint {

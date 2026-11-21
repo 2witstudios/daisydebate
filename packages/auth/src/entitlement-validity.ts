@@ -1,3 +1,4 @@
+import { instantMs, tryInstantMs } from '@daisy/clock';
 import type { EntitlementGrant } from '@daisy/protocol';
 
 export type EntitlementEvaluation = {
@@ -10,12 +11,12 @@ export function currentEntitlementGrants(
   grants: readonly EntitlementGrant[],
   evaluation: EntitlementEvaluation,
 ): readonly EntitlementGrant[] {
-  const now = Date.parse(evaluation.now);
-  if (!Number.isFinite(now)) return [];
+  const now = tryInstantMs(evaluation.now);
+  if (now === undefined) return [];
   return grants.filter((grant) => {
     if (grant.entitlement === 'tournament_hosting') {
-      const start = Date.parse(grant.hosting.startsAt);
-      const end = Date.parse(grant.hosting.expiresAt);
+      const start = instantMs(grant.hosting.startsAt);
+      const end = instantMs(grant.hosting.expiresAt);
       return (
         grant.source === grant.hosting.issuer.kind && start <= now && now < end
       );
@@ -25,8 +26,8 @@ export function currentEntitlementGrants(
         return evaluation.betaGrantsPremium;
       case 'subscription':
       case 'organization_seat': {
-        const start = Date.parse(grant.startsAt);
-        const end = Date.parse(grant.expiresAt);
+        const start = instantMs(grant.startsAt);
+        const end = instantMs(grant.expiresAt);
         return start <= now && now < end;
       }
     }

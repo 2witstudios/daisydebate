@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { withTimeout } from '@daisy/observability';
 import {
   SCHEDULED_WORKERS,
@@ -149,7 +150,7 @@ const runbook = (id: AlertConditionId) =>
   `docs/operations/auth-delivery.md${RUNBOOK_ANCHOR[id]}`;
 
 const elapsedMs = (sinceIso: string, nowIso: string): number =>
-  Date.parse(nowIso) - Date.parse(sinceIso);
+  instantMs(nowIso) - instantMs(sinceIso);
 
 const checkStorageUnavailable = (
   snapshot: ReadAlertSnapshot,
@@ -406,7 +407,7 @@ async function readRedisMarkers(
   windowMinutes: number,
   workers: readonly RunningWorker[],
 ): Promise<ReadAlertSnapshot> {
-  const currentBucket = Math.floor(Date.parse(nowIso) / MINUTE_MS);
+  const currentBucket = Math.floor(instantMs(nowIso) / MINUTE_MS);
   const trailing = (minutes: number) =>
     Array.from({ length: minutes }, (_, index) => currentBucket - index);
   const buckets = trailing(windowMinutes);

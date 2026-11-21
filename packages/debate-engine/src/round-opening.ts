@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { dueAfterStops } from '@daisy/protocol';
 import {
   isSideSeat,
@@ -43,7 +44,7 @@ export function openingStep(opening: RoundOpening, nowMs: number): OpeningStep {
         step: 'prep',
         startedAt: anchor,
         endsAt: new Date(
-          dueAfterStops(Date.parse(anchor), prepMs, stops, nowMs),
+          dueAfterStops(instantMs(anchor), prepMs, stops, nowMs),
         ).toISOString(),
       };
 }
@@ -62,11 +63,11 @@ export function settleOpening(
   const settled = opening.draw
     ? { ...opening, draw: settleDraw(opening.draw, seed, now, opening.stops) }
     : opening;
-  const step = openingStep(settled, Date.parse(now));
+  const step = openingStep(settled, instantMs(now));
   return {
     opening: settled,
     step:
-      step.step === 'prep' && Date.parse(now) >= Date.parse(step.endsAt)
+      step.step === 'prep' && instantMs(now) >= instantMs(step.endsAt)
         ? { step: 'complete', at: step.endsAt }
         : step,
   };
@@ -138,11 +139,9 @@ export function strikeOpening(
     (seat) => seat.actorId === actorId && isSideSeat(seat.seat),
   );
   if (!debater) return refuse('not-seated');
-  const nowMs = Date.parse(strike.now);
+  const nowMs = instantMs(strike.now);
   if (
-    opening.stops.some(
-      (stop) => stop.to === null || Date.parse(stop.to) > nowMs,
-    )
+    opening.stops.some((stop) => stop.to === null || instantMs(stop.to) > nowMs)
   )
     return refuse('platform-incident');
   const { draw } = opening;
@@ -187,12 +186,12 @@ const projectDraw = (
   now: string,
   stops: readonly ClockStop[],
 ): NonNullable<OpeningView['draw']> => {
-  const open = turnOf(draw, stops, Date.parse(now));
+  const open = turnOf(draw, stops, instantMs(now));
   const turn = open && {
     ordinal: open.ordinal,
     side: open.side,
     dueAt: open.dueAt,
-    remainingMs: Math.max(0, Date.parse(open.dueAt) - Date.parse(now)),
+    remainingMs: Math.max(0, instantMs(open.dueAt) - instantMs(now)),
   };
   const revealedAt = survivorOf(draw)?.at ?? null;
   if (!debater)
@@ -258,7 +257,7 @@ export function projectOpening(
                 ...step,
                 remainingMs: Math.max(
                   0,
-                  Date.parse(step.endsAt) - Date.parse(now),
+                  instantMs(step.endsAt) - instantMs(now),
                 ),
               }
             : step,

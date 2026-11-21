@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { createInvariantError } from '@daisy/errors';
 import {
   clockStopsOf,
@@ -64,7 +65,7 @@ const gapOpening = (
     active === null
       ? segmentStartsAt(state, rules.countdownMs, nowMs)
       : dueAfterStops(
-          Date.parse(active.started_at),
+          instantMs(active.started_at),
           Math.max(0, budget - prepConsumedOf(state.checkpoint, active.side)),
           stops,
           nowMs,

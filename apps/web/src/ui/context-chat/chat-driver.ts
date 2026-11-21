@@ -1,5 +1,5 @@
 import '../../lib/zod-jitless';
-import { systemClock } from '@daisy/clock';
+import { instantMs, nowMs, systemClock } from '@daisy/clock';
 import { idSchema } from '@daisy/protocol';
 import type { ChatContext } from '../../features/messaging/context-chat/chat-context';
 import type { ContextChatEffect } from '../../features/messaging/context-chat/chat-effects';
@@ -149,7 +149,7 @@ export function createContextChatDriver(context: ChatContext, ownerId: string) {
     clearTimeout(expiry);
     if (expiresAt === null) return;
     const check = () => {
-      const remaining = Date.parse(expiresAt) - Date.parse(systemClock.now());
+      const remaining = instantMs(expiresAt) - nowMs(systemClock);
       if (remaining <= 0) send({ type: 'expiry-reached', expiresAt });
       else expiry = setTimeout(check, Math.min(remaining, LONGEST_TIMER_MS));
     };

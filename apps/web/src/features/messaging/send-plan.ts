@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { commandDigest } from '@daisy/digest';
 import { createAppError } from '@daisy/errors';
 
 import type {
@@ -9,15 +9,11 @@ import type {
 
 /** Ordered fields, original text, no JSON property-order dependency. Never log it. */
 export function sendPayloadDigest(command: MessagingSendCommand): string {
-  return createHash('sha3-256')
-    .update(
-      JSON.stringify([
-        command.version,
-        command.text,
-        command.replyToMessageId ?? null,
-      ]),
-    )
-    .digest('hex');
+  return commandDigest([
+    command.version,
+    command.text,
+    command.replyToMessageId ?? null,
+  ]);
 }
 
 function availableMessage(

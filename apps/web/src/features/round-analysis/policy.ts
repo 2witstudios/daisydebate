@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import type { RoundAnalysisFacts } from '@daisy/db/rounds';
 import {
   remainingAnalysisCalls,
@@ -18,7 +19,7 @@ export function roundAnalysisView(input: {
   if (work?.kind === 'queued' || work?.kind === 'leased')
     return {
       status:
-        Date.parse(input.now) < Date.parse(work.deadlineAt)
+        instantMs(input.now) < instantMs(work.deadlineAt)
           ? 'pending'
           : 'unavailable',
     };

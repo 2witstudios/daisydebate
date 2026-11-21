@@ -1,3 +1,4 @@
+import { nowMs } from '@daisy/clock';
 import type Stripe from 'stripe';
 import { createId } from '@paralleldrive/cuid2';
 import {
@@ -41,7 +42,7 @@ export function composeClubs(
   const releaseDefault = releaseFlagDefault(app.config);
   const flags = createRequestFlagReader({
     read: app.database.readFlagSnapshot,
-    now: () => Date.parse(app.clock.now()),
+    now: () => nowMs(app.clock),
     diagnostic: () =>
       app.logger.log(
         'flags.read.failed',

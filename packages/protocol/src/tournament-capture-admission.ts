@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { z } from 'zod';
 import { idSchema } from './primitives';
 import { tournamentHostingGrantSchema } from './tournament-hosting';
@@ -77,8 +78,8 @@ export const tournamentCaptureAdmissionSchema = z
     }),
   })
   .refine((value) => {
-    const admitted = Date.parse(value.admittedAt),
-      deadline = Date.parse(value.deadlineAt);
+    const admitted = instantMs(value.admittedAt),
+      deadline = instantMs(value.deadlineAt);
     if (!(
       admitted < deadline && deadline <= admitted + value.executionBudgetMs
     ))
@@ -89,15 +90,15 @@ export const tournamentCaptureAdmissionSchema = z
       return (
         value.funding.kind === 'personal-owner' &&
         basis.purchase.lobbyId === value.lobbyId &&
-        Date.parse(basis.purchase.paidAt) <= admitted &&
+        instantMs(basis.purchase.paidAt) <= admitted &&
         value.capacity.sponsorLimit === limit &&
         value.capacity.tournamentLimit === limit
       );
     }
     const { hosting } = basis.grant;
     return (
-      Date.parse(hosting.startsAt) <= admitted &&
-      deadline <= Date.parse(hosting.expiresAt) &&
+      instantMs(hosting.startsAt) <= admitted &&
+      deadline <= instantMs(hosting.expiresAt) &&
       hosting.coverage.tournamentIds.includes(value.lobbyId) &&
       value.capacity.sponsorLimit ===
         hosting.coverage.sponsorConcurrencyLimit &&

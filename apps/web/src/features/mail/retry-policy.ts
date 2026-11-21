@@ -1,3 +1,4 @@
+import { addMs } from '@daisy/clock';
 /** Queued mail fails for good after this many delivery attempts (ADR 0075, ADR 0124). */
 export const MAIL_MAX_ATTEMPTS = 8;
 
@@ -39,8 +40,6 @@ export function retryOrFail<Code extends string>(
     : {
         kind: 'retry',
         errorCode,
-        nextAttemptAt: new Date(
-          Date.parse(now) + mailRetryDelayMs(attempts),
-        ).toISOString(),
+        nextAttemptAt: addMs(now, mailRetryDelayMs(attempts)),
       };
 }

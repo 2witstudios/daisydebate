@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { RealtimeApp } from './app';
 import { createRealtimeAuthorization } from './authorization';
@@ -126,7 +127,7 @@ test('principal validation keeps a socket only while it holds participant access
       createRealtimeAuthorization({
         readingPolicy: refuseAllReading,
         resources: lane(sessionReader(account)),
-        now: () => Date.parse(now),
+        now: () => instantMs(now),
       }).validatePrincipal(principal),
     ),
   );

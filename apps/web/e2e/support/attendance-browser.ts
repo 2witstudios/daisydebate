@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import type {
   Frame,
   APIRequestContext,
@@ -44,8 +45,8 @@ export async function pastOriginalAttendanceGrace(
   await expect
     .poll(
       async () =>
-        Date.parse((await attendanceEvidence(roundId)).observedAt) -
-        Date.parse(startedAt),
+        instantMs((await attendanceEvidence(roundId)).observedAt) -
+        instantMs(startedAt),
       { timeout: 50_000, intervals: [500] },
     )
     .toBeGreaterThan(45_000);

@@ -27,7 +27,7 @@ import {
 } from '../commands/judges';
 import { CommandDenied, runLobbyCommand } from '../commands/run-command';
 import type { TabPrincipal } from '../tab-principal';
-import { commandDigest } from './command-digest';
+import { commandDigest } from '@daisy/digest';
 import { hostLobbyResource } from './host-lobby-resource';
 
 type Loaded = LoadedJudgeRegistration & { readonly minorsAllowed: boolean };

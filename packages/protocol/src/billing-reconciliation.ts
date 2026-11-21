@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import {
   subscriptionEvidenceSchema,
   type SubscriptionEvidence,
@@ -45,7 +46,7 @@ function newestPayment(
 ) {
   if (!previous) return next;
   if (!next) return previous;
-  return Date.parse(next.period.endsAt) > Date.parse(previous.period.endsAt)
+  return instantMs(next.period.endsAt) > instantMs(previous.period.endsAt)
     ? next
     : previous;
 }

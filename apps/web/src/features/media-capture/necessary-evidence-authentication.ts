@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { sha3Hex } from '@daisy/digest';
 import { verifyFrameClockEvidence } from '@daisy/media/observation';
 import {
   canonicalCaptureEvidenceBody,
@@ -17,7 +17,7 @@ const refused = (reason: EvidenceRefusal['reason']): EvidenceRefusal => ({
   reason,
 });
 export const evidenceBodyDigest = (bytes: string | Uint8Array) =>
-  createHash('sha3-256').update(bytes).digest('hex');
+  sha3Hex(bytes);
 const receiptEqual = (a: EvidenceCustodyReceipt, b: EvidenceCustodyReceipt) =>
   a.evidenceId === b.evidenceId &&
   a.bindingDigest === b.bindingDigest &&

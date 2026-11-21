@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { sha3Hex } from '@daisy/digest';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   audienceAdmits,
@@ -27,7 +27,7 @@ describe('the audience link token', () => {
       given: 'a token',
       should: 'hash it with SHA3-256',
       actual: audienceLinkHash(token),
-      expected: createHash('sha3-256').update(token).digest('hex'),
+      expected: sha3Hex(token),
     });
     assert({
       given: 'the default entropy, twice',
