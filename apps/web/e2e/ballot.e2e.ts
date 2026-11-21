@@ -136,18 +136,21 @@ test.describe('actual frozen human ballots', () => {
         (response) =>
           new URL(response.url()).pathname === path &&
           response.request().headers()['rsc'] === '1',
+        { timeout: 15_000 },
       );
       await page
         .getByRole('link', { name: 'Refresh Round', exact: true })
         .click();
-      expect(await (await refresh).finished()).toBeNull();
+      expect((await refresh).status()).toBe(200);
       const repost = page.waitForResponse(
         (response) =>
           new URL(response.url()).pathname === path &&
-          response.request().method() === 'POST',
+          response.request().method() === 'POST' &&
+          Boolean(response.request().headers()['next-action']),
+        { timeout: 15_000 },
       );
       await submit(page);
-      expect(await (await repost).finished()).toBeNull();
+      expect((await repost).status()).toBe(200);
       await expect(refusal).toHaveText(lowPoint);
       await expect(command).toHaveValue(originalCommand);
       await expect(refusal).toBeFocused();
