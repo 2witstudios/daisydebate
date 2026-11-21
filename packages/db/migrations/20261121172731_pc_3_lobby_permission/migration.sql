@@ -22,6 +22,9 @@ ALTER TABLE "restriction_lobbies" ADD CONSTRAINT "restriction_lobbies_signature_
         and char_length("waiver_version") between 1 and 64
         and "waiver_digest" ~ '^[0-9a-f]{64}$');--> statement-breakpoint
 
+CREATE INDEX "restriction_lobby_waivers_guardian_link_idx" ON "restriction_lobby_waivers" ("guardian_link_id","guardian_user_id","minor_user_id");--> statement-breakpoint
+CREATE INDEX "restriction_lobby_waivers_season_idx" ON "restriction_lobby_waivers" ("season_id","lobby_id");--> statement-breakpoint
+
 GRANT INSERT (guardian_link_id, guardian_user_id, minor_user_id, lobby_id)
   ON restriction_lobbies TO daisy_web;--> statement-breakpoint
 GRANT UPDATE (signed_at, waiver_version, waiver_digest)

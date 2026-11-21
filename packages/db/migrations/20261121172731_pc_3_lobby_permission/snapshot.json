@@ -30218,6 +30218,69 @@
       "nameExplicit": true,
       "columns": [
         {
+          "value": "guardian_link_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "guardian_user_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "minor_user_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "restriction_lobby_waivers_guardian_link_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "restriction_lobby_waivers"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "season_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "lobby_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "restriction_lobby_waivers_season_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "restriction_lobby_waivers"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
           "value": "user_id",
           "isExpression": false,
           "asc": true,

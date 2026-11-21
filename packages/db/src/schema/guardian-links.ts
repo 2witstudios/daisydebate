@@ -305,6 +305,15 @@ export const restrictionLobbyWaivers = pgTable(
         table.waiverVersion,
       ],
     }),
+    index('restriction_lobby_waivers_guardian_link_idx').on(
+      table.guardianLinkId,
+      table.guardianUserId,
+      table.minorUserId,
+    ),
+    index('restriction_lobby_waivers_season_idx').on(
+      table.seasonId,
+      table.lobbyId,
+    ),
     foreignKey({
       name: 'restriction_lobby_waivers_permission_fk',
       columns: [table.guardianLinkId, table.lobbyId],
