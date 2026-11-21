@@ -50,6 +50,7 @@ import { formatRevisions } from './format-revisions';
 import { formats } from './formats';
 import { rooms } from './rooms';
 import { ladders } from './ladders';
+import { lobbyAgeRule } from './lobbies';
 import { seasons } from './seasons';
 import { resolutionDrawEvidenceSchema } from '@daisy/protocol/resolution-draw';
 
@@ -84,6 +85,8 @@ export const rounds = pgTable(
     /** The host took over from a restricted one, and names no human judge (DEC-331). */
     hostInherited: boolean('host_inherited').notNull().default(false),
     visibility: text('visibility').$type<'public' | 'unlisted' | 'private'>(),
+    /** The standing lobby's age rule at Start, kept for media reuse. */
+    standingAgeRule: lobbyAgeRule('standing_age_rule'),
     /** Null until a draw's reveal; stays null if the Round ended before it. */
     resolution: text('resolution'),
     /** Pre-round prep's full length, or null when the Round has none. */

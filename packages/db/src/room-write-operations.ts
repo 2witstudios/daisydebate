@@ -13,7 +13,7 @@ import type { RoundBotAdmission } from './round-bot-admission';
 import type { CasualJudgeAdmission } from './casual-judge-admission';
 import { persistRoomMutation } from './room-mutation-persistence';
 
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import type { roomCommandTransaction } from './room-command-transaction';
 import {
   readContentWaiverStanding,
@@ -60,6 +60,9 @@ import {
 import { drawStartFacts } from './draw-start-facts';
 
 import { rooms, roomParticipants } from './schema/rooms';
+import { actors } from './schema/actors';
+import { accountAge } from './schema/account-age';
+import { divisionAgeBand } from './ladder-division-band';
 
 import {
   type Tx,
@@ -75,6 +78,58 @@ import {
   acceptCommand,
   transactionNow,
 } from './room-command-facts';
+
+// Ready and launch check the same evidence for the seat, against the Room's standing lobby.
+const readRoomSeatContentWaiverStanding = (
+  tx: Tx,
+  state: RoomAssemblyState,
+  userId: string,
+  version: string,
+) => readContentWaiverStanding(tx, userId, version, state.lobbyId);
+
+async function requireStartWaivers(
+  tx: Tx,
+  state: RoomAssemblyState,
+  agreementsOf: CommandInput['readyAgreements'],
+) {
+  if (state.competitionType !== 'ranked') return;
+  const people = state.participants.filter(({ kind }) => kind === 'human');
+  if (people.length === 0) return;
+  const signers = await tx
+    .select({
+      actorId: actors.id,
+      userId: actors.userId,
+      ageBand: divisionAgeBand(),
+    })
+    .from(actors)
+    .leftJoin(accountAge, eq(accountAge.userId, actors.userId))
+    .where(
+      inArray(
+        actors.id,
+        people.map(({ actorId }) => actorId),
+      ),
+    );
+  for (const { userId, ageBand } of signers) {
+    const version = agreementsOf(state, ageBand)?.contentWaiverVersion;
+    if (!version) continue;
+    if (userId === null)
+      throw createAppError('INVARIANT', 'A human seat has no account');
+    const standing = await readRoomSeatContentWaiverStanding(
+      tx,
+      state,
+      userId,
+      version,
+    );
+    if (standing !== 'signed')
+      throw createRefusal(
+        'CONFLICT',
+        standing === 'no-active-season'
+          ? 'ranked-unavailable'
+          : 'content-waiver-required',
+      );
+  }
+}
+
 type CommandInput = {
   readonly caller: Caller;
   readonly authorizeRead: AuthorizeRoom;
@@ -261,11 +316,11 @@ async function executeOnce(
   const draw = await drawFacts(tx, input.type, state);
   const grants = await readEntitlementGrants(tx, input.caller.userId);
   const contentWaiver = agreements?.contentWaiverVersion
-    ? await readContentWaiverStanding(
+    ? await readRoomSeatContentWaiverStanding(
         tx,
+        state,
         input.caller.userId,
         agreements.contentWaiverVersion,
-        state.lobbyId,
       )
     : null;
   const judgeQuote =
@@ -311,6 +366,8 @@ async function executeOnce(
       'INVARIANT',
       'A Start round names the Round its command carries',
     );
+  if (outcome.mutation.freeze)
+    await requireStartWaivers(tx, state, input.readyAgreements);
   const roundRef = await persistRoomMutation(tx, outcome.mutation, now, true);
   await reserveBotFreeze(
     tx,

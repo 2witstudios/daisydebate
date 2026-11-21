@@ -6,7 +6,10 @@ import { drizzle } from 'drizzle-orm/bun-sql';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { standingsOperations } from '../src/standings';
 import { daisyOrganizationId, publicLobbyId } from '../src/daisy-reference';
-import { Fixture, rejectedBy } from './constraint-helpers';
+import { Fixture, rejectedBy, sqlStateOf } from './constraint-helpers';
+import { validConfig } from './round-fixtures';
+import { loadSampleTournament, sampleInstant } from './tab.test-support';
+import { loadLeagueCertifiedRatingInputs } from '../src/tab/league-certified-rating-inputs';
 import {
   ddlTimeoutMs,
   scratchDatabase,
@@ -39,6 +42,7 @@ test(
       const opponent = await f.actor();
       const orphanLeague = createId();
       const orphanSeason = createId();
+      const orphanClosed = createId();
       await f.insert('organizations', {
         id: orphanLeague,
         kind: 'league',
@@ -54,6 +58,15 @@ test(
         division: 'youth',
         starts_at: start,
         status: 'active',
+      });
+      await f.insert('seasons', {
+        id: orphanClosed,
+        organization_id: orphanLeague,
+        name: 'Closed before dates were required',
+        division: 'youth',
+        starts_at: start,
+        status: 'closed',
+        updated_at: finish,
       });
       const oldSeason = {
         organization_id: daisyOrganizationId,
@@ -131,12 +144,123 @@ test(
           volatility_after: 0.061,
         });
       }
+      const thirdLobby = createId();
+      const thirdActor = await f.actor();
+      await f.insert('lobbies', {
+        id: thirdLobby,
+        kind: 'standing',
+        owner_organization_id: daisyOrganizationId,
+        name: 'Adult practice league',
+        handle: thirdLobby,
+        age_rule: 'adults',
+      });
+      const thirdRoom = await f.room(thirdActor, 'freestyle', {
+        lobby_id: thirdLobby,
+        competition_type: 'ranked',
+        preset_version: 1,
+        basis_format_id: 'freestyle',
+        basis_preset_version: 1,
+      });
+      const { id: thirdRound } = await f.roundWithCast(
+        {
+          room_id: thirdRoom,
+          competition_type: 'ranked',
+          visibility: 'public',
+          room_config_snapshot: validConfig,
+          format_id: 'freestyle',
+          preset_version: 1,
+          ladder_id: 'freestyle',
+          ladder_division: 'open',
+          status: 'completed',
+          started_at: start,
+          completed_at: finish,
+          winning_side: 'affirmative',
+        },
+        [
+          { seat: 'affirmative', actorId: thirdActor },
+          { seat: 'negative', actorId: opponent },
+        ],
+      );
+      await f.insert(
+        'ratings',
+        {
+          actor_id: thirdActor,
+          season_id: season.open,
+          ladder: 'freestyle',
+          division: 'open',
+          rating: 1620,
+          deviation: 270,
+          volatility: 0.061,
+        },
+        'actor_id',
+      );
+      const thirdPosting = createId();
+      await f.insert('rating_changes', {
+        id: thirdPosting,
+        round_id: thirdRound,
+        actor_id: thirdActor,
+        ladder: 'freestyle',
+        season_id: season.open,
+        division: 'open',
+        format_id: 'freestyle',
+        calculation_version: 'glicko2-v1',
+        occurred_at: finish,
+        rating_before: 1500,
+        rating_after: 1620,
+        deviation_before: 350,
+        deviation_after: 270,
+        volatility_before: 0.06,
+        volatility_after: 0.061,
+      });
+      const league = await client.begin((tx) => loadSampleTournament(tx));
+      const laterLobby = createId();
+      await f.insert('lobbies', {
+        id: laterLobby,
+        kind: 'standing',
+        owner_organization_id: league.league,
+        name: 'Newer league lobby',
+        handle: laterLobby,
+      });
+      const olderLadder = createId();
+      const laterLadder = createId();
+      const legacyLeagueRounds = [];
+      for (const [lobbyId, ladderId, count] of [
+        [league.standingLobby, olderLadder, 1],
+        [laterLobby, laterLadder, 2],
+      ] as const) {
+        await f.insert('ladders', {
+          id: ladderId,
+          lobby_id: lobbyId,
+          organization_id: league.league,
+          name: 'League ladder',
+        });
+        for (let index = 0; index < count; index += 1) {
+          const roomId = await f.room(league.debaters[0]!, 'freestyle', {
+            lobby_id: lobbyId,
+            league_ladder_id: ladderId,
+          });
+          legacyLeagueRounds.push(
+            await f.round({
+              room_id: roomId,
+              format_id: 'freestyle',
+              visibility: 'public',
+              room_config_snapshot: validConfig,
+              league_ladder_id: ladderId,
+              created_at: sampleInstant(15 + index),
+              started_at: sampleInstant(20 + index),
+              completed_at: sampleInstant(30 + index),
+              status: 'completed',
+              winning_side: 'affirmative',
+            }),
+          );
+        }
+      }
       const data = () =>
         Promise.all([
-          client`select id, name, starts_at, ends_at, status from seasons order by id`,
-          client`select actor_id, season_id, rating, deviation, volatility,version from ratings order by actor_id, season_id`,
+          client`select id, name, starts_at, ends_at, status from seasons where id in ${client([...Object.values(season), orphanSeason])} order by id`,
+          client`select actor_id, season_id, rating, deviation, volatility,version from ratings where actor_id <> ${thirdActor} order by actor_id, season_id`,
           client`select id, round_id, season_id, actor_id, rating_before, rating_after, deviation_before, deviation_after,
-        volatility_before, volatility_after, calculation_version, occurred_at from rating_changes order by id`,
+        volatility_before, volatility_after, calculation_version, occurred_at from rating_changes where id <> ${thirdPosting} order by id`,
         ]);
       const before = await data();
       await scratch.migrate((name) => name <= migration);
@@ -156,8 +280,58 @@ test(
         actual: [relocated?.lobby_id, relocated?.age_rule],
         expected: [orphanLeague, 'under-18'],
       });
+      const [closed] =
+        await client`select ends_at from seasons where id=${orphanClosed}`;
+      assert({
+        given:
+          'a historical closed season without an end but with a last update',
+        should:
+          'recover the stored close time so published reads can freeze at it',
+        actual: closed?.ends_at,
+        expected: finish,
+      });
+      const certified = await drizzle({ client }).transaction((tx) =>
+        loadLeagueCertifiedRatingInputs(tx, {
+          organizationId: league.league,
+          seasonId: league.season,
+        }),
+      );
+      const [receivingSeason] =
+        await client`select lobby_id from seasons where id=${league.season}`;
+      const leagueScopes =
+        await client`select id, season_id, rating_lobby_id, ladder_id from rounds where id in ${client(legacyLeagueRounds)}`;
+      assert({
+        given:
+          'an approved sanction with certified results and completed selected Rooms on two standing lobbies',
+        should:
+          'retain the sanctioned season with the stronger Room evidence and copy its interval for the other ladder',
+        actual: {
+          lobbyId: receivingSeason?.lobby_id,
+          rooms: legacyLeagueRounds.map((id) => {
+            const row = leagueScopes.find(
+              (item: { id: string }) => item.id === id,
+            )!;
+            return [
+              row.rating_lobby_id,
+              row.ladder_id,
+              row.season_id === league.season,
+            ];
+          }),
+          certified: certified.some(({ id }) => id === league.decided),
+        },
+        expected: {
+          lobbyId: laterLobby,
+          rooms: [
+            [league.standingLobby, olderLadder, false],
+            [laterLobby, laterLadder, true],
+            [laterLobby, laterLadder, true],
+          ],
+          certified: true,
+        },
+      });
       const [youth] =
-        await client`select id as ladder, lobby_id from ladders where lobby_id <> ${publicLobbyId}`;
+        await client`select d.id as ladder, d.lobby_id from ladders d
+        join seasons s on s.lobby_id=d.lobby_id where s.id=${season.youth}`;
       const scopes =
         await client`select id, ladder_id, rating_lobby_id, season_id from rounds where id in ${client(roundIds)}`;
       assert({
@@ -173,6 +347,25 @@ test(
           [youth!.ladder, youth!.lobby_id, season.youth],
           ['freestyle', publicLobbyId, season.closed],
         ],
+      });
+      const [third] =
+        await client`select r.rating_lobby_id, r.ladder_id, r.season_id,
+        (select rating from ratings where actor_id=${thirdActor} and lobby_id=r.rating_lobby_id) as rating,
+        (select rating_after from rating_changes where id=${thirdPosting} and ladder=r.ladder_id and season_id=r.season_id) as posting
+        from rounds r where r.id=${thirdRound}`;
+      assert({
+        given:
+          'a historical ranked Round in a third official standing lobby using the old Open keys',
+        should:
+          'retain its rating and ledger on a separate ladder and copy of the period traced to its Room',
+        actual: [
+          third?.rating_lobby_id,
+          third?.ladder_id !== 'freestyle',
+          third?.season_id !== season.open,
+          third?.rating,
+          third?.posting,
+        ],
+        expected: [thirdLobby, true, true, 1620, 1620],
       });
       const db = standingsOperations({ database: drizzle({ client }) });
       const open = await db.readStandings({
@@ -205,6 +398,44 @@ test(
           ),
         ],
         expected: ['seasons_single_active', 'ratings_ladder_lobby_fk'],
+      });
+      const asOpen = <T>(work: (tx: SQL) => Promise<T>) =>
+        client.begin(async (tx) => {
+          await tx`set local role daisy_web`;
+          await tx`select set_config('daisy.lobby_scope',${publicLobbyId},true)`;
+          return work(tx);
+        });
+      const [isolated, denied] = await Promise.all([
+        asOpen(async (tx) => ({
+          ratings: (await tx`select distinct lobby_id from ratings`).map(
+            (row: { lobby_id: string }) => row.lobby_id,
+          ),
+          ledger: (await tx`select distinct lobby_id from rating_changes`).map(
+            (row: { lobby_id: string }) => row.lobby_id,
+          ),
+          updated: (
+            await tx`update ratings set rating = 1700 where lobby_id=${thirdLobby} returning actor_id`
+          ).length,
+        })),
+        sqlStateOf(() =>
+          asOpen(
+            (tx) => tx`insert into ratings
+          (actor_id,ladder,lobby_id,season_id,rating,deviation,volatility)
+          values (${opponent},${third!.ladder_id},${thirdLobby},${third!.season_id},1500,350,0.06)`,
+          ),
+        ),
+      ]);
+      assert({
+        given:
+          'the web database role scoped to Open and a valid rating pool in a third lobby',
+        should: 'read Open only and refuse writes to the other pool',
+        actual: { ...isolated, denied },
+        expected: {
+          ratings: [publicLobbyId],
+          ledger: [publicLobbyId],
+          updated: 0,
+          denied: '42501',
+        },
       });
     } finally {
       await client.close();

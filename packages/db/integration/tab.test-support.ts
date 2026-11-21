@@ -131,6 +131,7 @@ export const loadSampleTournament = async (sql: SQL) => {
     template: id(),
     ballotDefinition: id(),
     season: id(),
+    standingLobby: id(),
     lobby: id(),
     otherLobby: id(),
     slots: [id(), id(), id()] as const,
@@ -206,91 +207,104 @@ export const loadSampleTournament = async (sql: SQL) => {
       default: 50,
     },
   });
-  await asRuntime(sql, { organizationId: ids.league }, async () => {
-    await write('organizations', {
-      id: ids.league,
-      kind: 'league',
-      name: 'Sample League',
-      handle: `league-${ids.league}`,
-      owner_user_id: owner,
-      league_division: 'open',
-    });
-    for (const userId of [owner, staff])
-      await write('memberships', {
-        organization_id: ids.league,
-        user_id: userId,
-        status: 'active',
-        joined_at: at(0),
+  const legacySeason = !(await columnsOf(sql, 'seasons')).includes('lobby_id');
+  await asRuntime(
+    sql,
+    { organizationId: ids.league, lobbyId: ids.standingLobby },
+    async () => {
+      await write('organizations', {
+        id: ids.league,
+        kind: 'league',
+        name: 'Sample League',
+        handle: `league-${ids.league}`,
+        owner_user_id: owner,
+        ...(legacySeason ? { league_division: 'open' } : {}),
       });
-    await write('ballot_definitions', {
-      id: awardBallotId,
-      organization_id: ids.league,
-      name: 'Schema award half points',
-      current_version: 1,
-    });
-    await write('ballot_definition_versions', {
-      ballot_definition_id: awardBallotId,
-      version: 1,
-      organization_id: ids.league,
-      definition: awardDefinition,
-    });
-    await write('templates', {
-      id: ids.template,
-      organization_id: ids.league,
-      name: 'League Policy',
-      ballot_definition_id: awardBallotId,
-      ballot_definition_version: 1,
-      format_id: 'nsda-policy',
-      format_version: 1,
-    });
-    await write('settings', {
-      id: id(),
-      scope_kind: 'template',
-      organization_id: ids.league,
-      template_id: ids.template,
-      key: 'standings.tiebreaks',
-      hold: 'enforced',
-      value: { metrics: ['wins', 'total_points'], minimumGames: null },
-    });
-    await write('settings', {
-      id: id(),
-      scope_kind: 'organization',
-      organization_id: ids.league,
-      key: 'conflict.handling',
-      hold: 'default',
-      value: { value: 'second_confirms' },
-    });
-    await write('ballot_definitions', {
-      id: ids.ballotDefinition,
-      organization_id: ids.league,
-      name: 'Speech ballot',
-      current_version: 1,
-    });
-    await write('ballot_definition_versions', {
-      ballot_definition_id: ids.ballotDefinition,
-      version: 1,
-      organization_id: ids.league,
-      definition: {
-        ...daisyBallotDefinitions['rank-speakers@1'],
-        key: 'speech-ballot',
-      },
-    });
-    await write('seasons', {
-      id: ids.season,
-      organization_id: ids.league,
-      // The sample league is Open, so its season is too.
-      division: 'open',
-      name: 'Sample season',
-      starts_at: at(0),
-      status: 'active',
-    });
-    await write('season_standing_rules', {
-      season_id: ids.season,
-      organization_id: ids.league,
-      counting: 'sanction',
-      rule: { points: 'wins' },
-    });
-  });
+      await write('lobbies', {
+        id: ids.standingLobby,
+        kind: 'standing',
+        owner_organization_id: ids.league,
+        name: 'Sample League Lobby',
+        handle: `standing-${ids.standingLobby}`,
+      });
+      for (const userId of [owner, staff])
+        await write('memberships', {
+          organization_id: ids.league,
+          user_id: userId,
+          status: 'active',
+          joined_at: at(0),
+        });
+      await write('ballot_definitions', {
+        id: awardBallotId,
+        organization_id: ids.league,
+        name: 'Schema award half points',
+        current_version: 1,
+      });
+      await write('ballot_definition_versions', {
+        ballot_definition_id: awardBallotId,
+        version: 1,
+        organization_id: ids.league,
+        definition: awardDefinition,
+      });
+      await write('templates', {
+        id: ids.template,
+        organization_id: ids.league,
+        name: 'League Policy',
+        ballot_definition_id: awardBallotId,
+        ballot_definition_version: 1,
+        format_id: 'nsda-policy',
+        format_version: 1,
+      });
+      await write('settings', {
+        id: id(),
+        scope_kind: 'template',
+        organization_id: ids.league,
+        template_id: ids.template,
+        key: 'standings.tiebreaks',
+        hold: 'enforced',
+        value: { metrics: ['wins', 'total_points'], minimumGames: null },
+      });
+      await write('settings', {
+        id: id(),
+        scope_kind: 'organization',
+        organization_id: ids.league,
+        key: 'conflict.handling',
+        hold: 'default',
+        value: { value: 'second_confirms' },
+      });
+      await write('ballot_definitions', {
+        id: ids.ballotDefinition,
+        organization_id: ids.league,
+        name: 'Speech ballot',
+        current_version: 1,
+      });
+      await write('ballot_definition_versions', {
+        ballot_definition_id: ids.ballotDefinition,
+        version: 1,
+        organization_id: ids.league,
+        definition: {
+          ...daisyBallotDefinitions['rank-speakers@1'],
+          key: 'speech-ballot',
+        },
+      });
+      await write('seasons', {
+        id: ids.season,
+        organization_id: ids.league,
+        ...(legacySeason
+          ? { division: 'open' }
+          : { lobby_id: ids.standingLobby }),
+        name: 'Sample season',
+        starts_at: at(0),
+        status: 'active',
+      });
+      await write('season_standing_rules', {
+        season_id: ids.season,
+        organization_id: ids.league,
+        counting: 'sanction',
+        rule: { points: 'wins' },
+      });
+    },
+  );
 
   await asRuntime(sql, { organizationId: ids.school }, async () => {
     await write('organizations', {

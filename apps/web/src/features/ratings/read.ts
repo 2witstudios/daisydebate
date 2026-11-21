@@ -6,6 +6,7 @@ import { spectatorClockAt } from '../spectating/spectator-clock';
 import { rankRatingEntries } from './rank';
 import { ratingStanding } from './standing';
 import { summarizeStandings } from './summarize';
+import { replayPublishedStandings } from './replay-published-standings';
 
 export type RatingReadStore = Pick<
   Database,
@@ -26,7 +27,7 @@ type RatingSeason = {
 export async function readRatingStandings(
   store: RatingReadStore,
   input: {
-    /** The ladder (style and division); only its division's seasons count. */
+    /** The presentation used by this route and legacy URLs. */
     readonly ladder: Ladder;
     readonly lobbyId?: string;
     readonly frozenLadder?: {
@@ -62,13 +63,18 @@ export async function readRatingStandings(
     seasons.find((s) => s.status === 'active') ??
     seasons[0];
   if (!season) return null;
-  const source = await store.readStandings({
-    ladderId,
-    lobbyId: pool.lobbyId,
-    seasonIds: seasons.map((s) => s.id),
-    clock: spectatorClockAt(input.now),
-    ...(input.revealRoundId ? { revealRoundId: input.revealRoundId } : {}),
-  });
+  const source = replayPublishedStandings(
+    await store.readStandings({
+      ladderId,
+      lobbyId: pool.lobbyId,
+      seasonIds: seasons.map((s) => s.id),
+      clock: spectatorClockAt(input.now),
+      ...(!input.frozenLadder && !input.revealRoundId
+        ? { includeCertified: true }
+        : {}),
+      ...(input.revealRoundId ? { revealRoundId: input.revealRoundId } : {}),
+    }),
+  );
   const blindedActorIds = input.viewerActorId
     ? await store.readRatingBlindings(input.viewerActorId)
     : [];

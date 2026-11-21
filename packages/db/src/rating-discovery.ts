@@ -102,7 +102,7 @@ const readCandidates = async (
   const rows = (await db.execute(sql`select ${endingColumns},
       r.competition_type as "competitionType",
       case when r.ladder_id is null or jsonb_array_length(r.rules_snapshot->'sides') <> 2 then null else jsonb_build_object('lobbyId', r.rating_lobby_id, 'ladderId', r.ladder_id, 'seasonId', r.season_id) end as scope,
-      exists(select 1 from rating_changes l where l.round_id=r.id) as "alreadyRated"
+      daisy_round_rating_posted(r.id) as "alreadyRated"
     from rounds r ${recordedEndingJoins}
     where ${selection}`)) as unknown as FactsRow[];
   return rows.map(endingFacts);
@@ -156,7 +156,7 @@ export async function readRatingCandidates(
     sql`r.status='completed' and r.ladder_id is not null
       and jsonb_array_length(r.rules_snapshot->'sides')=2
       and (${input.afterId ?? null}::text is null or r.id > ${input.afterId ?? null})
-      and not exists(select 1 from rating_changes l where l.round_id=r.id)
+      and not daisy_round_rating_posted(r.id)
     order by r.id limit ${input.limit}`,
   );
 }

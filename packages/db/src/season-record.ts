@@ -30,7 +30,7 @@ export const toSeasonRecord = (
 
 /** Seasons for the requested lobby, newest first. The operator may list all. */
 export const listSeasonRecords = async (
-  database: BunSQLDatabase,
+  database: Pick<BunSQLDatabase, 'select'>,
   lobbyId?: string,
 ): Promise<readonly SeasonRecord[]> =>
   (

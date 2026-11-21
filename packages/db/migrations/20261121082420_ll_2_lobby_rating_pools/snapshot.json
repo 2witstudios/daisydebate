@@ -21038,6 +21038,19 @@
       "table": "rounds"
     },
     {
+      "type": "lobby_age_rule",
+      "typeSchema": "public",
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "standing_age_rule",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "rounds"
+    },
+    {
       "type": "text",
       "typeSchema": null,
       "notNull": false,

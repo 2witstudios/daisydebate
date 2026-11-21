@@ -22,6 +22,13 @@ import { users } from './schema/users';
 import { listSeasonRecords, type SeasonRecord } from './season-record';
 import { factReleasedSql, type SpectatorClock } from './spectator-release-sql';
 import { releasedStandings } from './standings-release';
+import { scopeTransaction } from './tenant-scope';
+import {
+  certifiedRatingActors,
+  loadLeagueCertifiedRatingInputs,
+  type CertifiedRatingResults,
+} from './tab/league-certified-rating-inputs';
+import type { TabTransaction } from './tab/tab-transaction';
 
 /**
  * The leaderboard's reads (ADR 0055): the seasons a ladder can show, the
@@ -61,6 +68,72 @@ export type StandingChange = {
 export type StandingsRead = {
   readonly ratings: readonly StandingRating[];
   readonly changes: readonly StandingChange[];
+  readonly certified?: readonly StandingCertification[];
+};
+
+type StandingCertification = {
+  readonly seasonId: string;
+  readonly records: CertifiedRatingResults;
+  readonly people: readonly Pick<
+    StandingRating,
+    'actorId' | 'username' | 'accountClosed'
+  >[];
+};
+
+const publishedCertifications = async (
+  tx: TabTransaction,
+  input: {
+    readonly lobbyId: string;
+    readonly seasonIds: readonly string[];
+    readonly publicAt: string;
+  },
+): Promise<StandingCertification[]> => {
+  const [owner] = await tx
+    .select({ id: organizations.id })
+    .from(lobbies)
+    .innerJoin(organizations, eq(organizations.id, lobbies.ownerOrganizationId))
+    .where(
+      and(
+        eq(lobbies.id, input.lobbyId),
+        eq(organizations.official, true),
+        isNull(lobbies.closedAt),
+        isNull(organizations.closedAt),
+      ),
+    );
+  if (!owner) return [];
+  const seasonRows = await listSeasonRecords(tx, input.lobbyId);
+  const published: StandingCertification[] = [];
+  for (const { id: seasonId } of seasonRows) {
+    if (!input.seasonIds.includes(seasonId)) continue;
+    const records = await loadLeagueCertifiedRatingInputs(tx, {
+      organizationId: owner.id,
+      seasonId,
+      publicAt: input.publicAt,
+    });
+    if (records.length === 0) continue;
+    const ids = [...new Set(certifiedRatingActors(records))];
+    const people =
+      ids.length === 0
+        ? []
+        : await tx
+            .select({
+              actorId: actors.id,
+              username: users.username,
+              closedAt: users.deletedAt,
+            })
+            .from(actors)
+            .leftJoin(users, eq(users.id, actors.userId))
+            .where(inArray(actors.id, ids));
+    published.push({
+      seasonId,
+      records,
+      people: people.map(({ closedAt, ...person }) => ({
+        ...person,
+        accountClosed: closedAt !== null,
+      })),
+    });
+  }
+  return published;
 };
 
 /**
@@ -168,7 +241,7 @@ export const standingsOperations = ({
   },
 
   /**
-   * One ladder's (style and division) ratings and ledger rows in the given seasons, as
+   * One ladder's ratings and ledger rows in the given seasons, as
    * the audience may know them at `now`: a posting waits for its Round's
    * spectator timeline, and a rating stands where its last released posting
    * left it. `revealRoundId` names a Round the caller already holds an
@@ -180,73 +253,83 @@ export const standingsOperations = ({
     readonly seasonIds: readonly string[];
     readonly clock: SpectatorClock;
     readonly revealRoundId?: string;
+    readonly includeCertified?: boolean;
   }): Promise<StandingsRead> {
     return instrumented(eventSink, 'readStandings', async () => {
       if (input.seasonIds.length === 0) return { ratings: [], changes: [] };
       // One snapshot: a rating committed between the two selects must not
       // appear in one set and not the other.
-      const { ratingRows, changeRows } = await database.transaction(
-        async (tx) => ({
-          ratingRows: await tx
-            .select({
-              seasonId: ratings.seasonId,
-              actorId: ratings.actorId,
-              username: users.username,
-              closedAt: users.deletedAt,
-              rating: ratings.rating,
-              deviation: ratings.deviation,
-              volatility: ratings.volatility,
-            })
-            .from(ratings)
-            .innerJoin(actors, eq(actors.id, ratings.actorId))
-            .leftJoin(users, eq(users.id, actors.userId))
-            .where(
-              and(
-                eq(ratings.ladder, input.ladderId),
-                eq(ratings.lobbyId, input.lobbyId),
-                inArray(ratings.seasonId, [...input.seasonIds]),
+      const { ratingRows, changeRows, certified } = await database.transaction(
+        async (tx) => {
+          await scopeTransaction(tx, { lobbyId: input.lobbyId });
+          return {
+            ratingRows: await tx
+              .select({
+                seasonId: ratings.seasonId,
+                actorId: ratings.actorId,
+                username: users.username,
+                closedAt: users.deletedAt,
+                rating: ratings.rating,
+                deviation: ratings.deviation,
+                volatility: ratings.volatility,
+              })
+              .from(ratings)
+              .innerJoin(actors, eq(actors.id, ratings.actorId))
+              .leftJoin(users, eq(users.id, actors.userId))
+              .where(
+                and(
+                  eq(ratings.ladder, input.ladderId),
+                  eq(ratings.lobbyId, input.lobbyId),
+                  inArray(ratings.seasonId, [...input.seasonIds]),
+                ),
               ),
-            ),
-          changeRows: await tx
-            .select({
-              seasonId: ratingChanges.seasonId,
-              actorId: ratingChanges.actorId,
-              roundId: ratingChanges.roundId,
-              ratingBefore: ratingChanges.ratingBefore,
-              ratingAfter: ratingChanges.ratingAfter,
-              deviationBefore: ratingChanges.deviationBefore,
-              deviationAfter: ratingChanges.deviationAfter,
-              volatilityBefore: ratingChanges.volatilityBefore,
-              occurredAt: ratingChanges.occurredAt,
-              side: roundParticipants.side,
-              winningSide: rounds.winningSide,
-              released: sql<boolean>`${factReleasedSql(
-                sql`greatest(${ratingChanges.occurredAt},${rounds.completedAt})`,
-                rounds,
-                input.clock,
-              )}`,
-            })
-            .from(ratingChanges)
-            .innerJoin(rounds, eq(rounds.id, ratingChanges.roundId))
-            .innerJoin(
-              roundParticipants,
-              and(
-                eq(roundParticipants.roundId, ratingChanges.roundId),
-                eq(roundParticipants.ratingActorId, ratingChanges.actorId),
+            changeRows: await tx
+              .select({
+                seasonId: ratingChanges.seasonId,
+                actorId: ratingChanges.actorId,
+                roundId: ratingChanges.roundId,
+                ratingBefore: ratingChanges.ratingBefore,
+                ratingAfter: ratingChanges.ratingAfter,
+                deviationBefore: ratingChanges.deviationBefore,
+                deviationAfter: ratingChanges.deviationAfter,
+                volatilityBefore: ratingChanges.volatilityBefore,
+                occurredAt: ratingChanges.occurredAt,
+                side: roundParticipants.side,
+                winningSide: rounds.winningSide,
+                released: sql<boolean>`${rounds.visibility} = 'public' and ${factReleasedSql(
+                  sql`greatest(${ratingChanges.occurredAt},${rounds.completedAt})`,
+                  rounds,
+                  input.clock,
+                )}`,
+              })
+              .from(ratingChanges)
+              .innerJoin(rounds, eq(rounds.id, ratingChanges.roundId))
+              .innerJoin(
+                roundParticipants,
+                and(
+                  eq(roundParticipants.roundId, ratingChanges.roundId),
+                  eq(roundParticipants.ratingActorId, ratingChanges.actorId),
+                ),
+              )
+              .where(
+                and(
+                  eq(ratingChanges.ladder, input.ladderId),
+                  eq(ratingChanges.lobbyId, input.lobbyId),
+                  inArray(ratingChanges.seasonId, [...input.seasonIds]),
+                  eq(roundParticipants.seatKind, 'side'),
+                ),
               ),
-            )
-            .where(
-              and(
-                eq(ratingChanges.ladder, input.ladderId),
-                eq(ratingChanges.lobbyId, input.lobbyId),
-                inArray(ratingChanges.seasonId, [...input.seasonIds]),
-                eq(roundParticipants.seatKind, 'side'),
-              ),
-            ),
-        }),
+            certified: input.includeCertified
+              ? await publishedCertifications(tx, {
+                  ...input,
+                  publicAt: input.clock.now,
+                })
+              : [],
+          };
+        },
         { isolationLevel: 'repeatable read', accessMode: 'read only' },
       );
-      return releasedStandings({
+      const source = releasedStandings({
         ratings: ratingRows.map(({ closedAt, ...row }) => ({
           ...row,
           username: row.username ?? null,
@@ -262,6 +345,7 @@ export const standingsOperations = ({
           }),
         ),
       });
+      return certified.length > 0 ? { ...source, certified } : source;
     });
   },
 });

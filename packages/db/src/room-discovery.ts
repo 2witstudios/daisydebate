@@ -21,6 +21,7 @@ import { factReleasedSql, type SpectatorClock } from './spectator-release-sql';
 import { currentRoomTopic, type ReadOpeningTopic } from './round-opening-read';
 import { readOfficialStandingLobbies } from './official-standing-lobbies';
 import { readCompetitionAgeBand } from './ladder-division-band';
+import { scopeTransaction } from './tenant-scope';
 type Seat = {
   readonly actorId: string;
   readonly seat: SeatRef;
@@ -83,12 +84,17 @@ const hostRating = (clock: SpectatorClock) => {
     competitionType: sql`c_r.competition_type`,
     completedAt: sql`c_r.completed_at`,
   };
-  const earliestHeld = sql`(select c.rating_before from rating_changes c join rounds c_r on c_r.id=c.round_id where c.actor_id=rt.actor_id and c.ladder=rt.ladder and c.season_id=rt.season_id and not ${factReleasedSql(sql`greatest(c.occurred_at,c_r.completed_at)`, held, clock)} order by c.occurred_at asc limit 1)`;
+  const earliestHeld = sql`select c.rating_before, c.occurred_at from rating_changes c join rounds c_r on c_r.id=c.round_id
+    where c.actor_id=rt.actor_id and c.ladder=rt.ladder and c.season_id=rt.season_id
+      and (c_r.visibility='public' and ${factReleasedSql(sql`greatest(c.occurred_at,c_r.completed_at)`, held, clock)}) is not true
+    order by c.occurred_at asc limit 1`;
   return sql`case when r.competition_type='ranked' then (
-    select round(coalesce(${earliestHeld},rt.rating))::int
+    select round(coalesce(h.rating_before,rt.rating))::int
     from ratings rt
     join seasons z on z.id=rt.season_id and z.status='active'
+    left join lateral (${earliestHeld}) h on true
     where rt.actor_id=r.host_actor_id and rt.lobby_id=r.lobby_id
+      and (h.occurred_at is null or exists(select 1 from rating_changes c where c.actor_id=rt.actor_id and c.ladder=rt.ladder and c.season_id=rt.season_id and c.occurred_at<h.occurred_at))
       and rt.ladder=(select l.id from ladders l where l.lobby_id=r.lobby_id
         order by l.created_at,l.id limit 1)
     ) end`;
@@ -175,6 +181,7 @@ export async function discoverRooms(
   // Producer facts are read again after every downstream lock wait.
   account = await loadAuthorizationAccount(tx, caller.userId);
   if (!authorizeCollection(account)) throw createAppError('AUTHORIZATION');
+  await scopeTransaction(tx, { lobbyId: lobby.id });
   const rows = (await tx.execute(sql`
   select r.id,r.version,r.title,${launchedTopic} as topic,r.visibility,r.host_actor_id as "hostActorId",
    ${hostLabel} as "hostLabel",${hostIsHumanJudge} as "hostIsHumanJudge",r.status,r.competition_type as "competitionType",

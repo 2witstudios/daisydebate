@@ -15,34 +15,36 @@ import {
 /**
  * Season operations for the `bun season` CLI (ADR 0055): a season is opened
  * from an operator's terminal, never from a route in `apps/web` (ADR 0043).
- * Each division has its own season (ADR 0147), one per division, never
- * closed, until DEC-111 decides how a debater carries into the next: a rating
- * refuses on a prior season's standing, so a second season on a division
- * would stop rating every returning debater there.
+ * Operator-managed seasons keep the DEC-111 rollover guard. The command
+ * resolves an official standing lobby before it reads or writes seasons.
  */
 
 export type { SeasonRecord } from './season-record';
 
-type NewSeason = {
+type SeasonLobby =
+  | { readonly lobbyId: string; readonly division?: never }
+  | { readonly division: RatingDivision; readonly lobbyId?: never };
+type NewSeason = SeasonLobby & {
   readonly id: string;
   readonly name: string;
-  readonly division: RatingDivision;
   readonly startsAt: Date;
 };
 
 type Tx = Parameters<Parameters<BunSQLDatabase['transaction']>[0]>[0];
 
 /** Resolve the existing operator CLI's flag through the official lobby catalog. */
-const seasonLobby = async (tx: Tx, division: RatingDivision) => {
-  const choices = (await readOfficialStandingLobbies(tx)).filter(
-    (lobby) => ratingDivisionForAgeRule(lobby.ageRule) === division,
+const seasonLobby = async (tx: Tx, selection: SeasonLobby) => {
+  const lobby = (await readOfficialStandingLobbies(tx)).find((lobby) =>
+    selection.lobbyId !== undefined
+      ? lobby.id === selection.lobbyId
+      : ratingDivisionForAgeRule(lobby.ageRule) === selection.division,
   );
-  if (choices.length !== 1)
+  if (!lobby)
     throw createAppError(
       'CONFLICT',
-      'Season activation requires one matching lobby',
+      'Season activation requires an official standing lobby',
     );
-  return choices[0]!;
+  return lobby;
 };
 
 /** Serializes opening and beta activation, each of which reads for any season. */
@@ -51,8 +53,7 @@ const lockSeasonCreation = (tx: Tx) =>
 
 async function open(tx: Tx, input: NewSeason): Promise<SeasonRecord> {
   await lockSeasonCreation(tx);
-  const { division, ...facts } = input;
-  const lobby = await seasonLobby(tx, division);
+  const lobby = await seasonLobby(tx, input);
   const [earlier] = await tx
     .select({ id: seasons.id })
     .from(seasons)
@@ -66,7 +67,9 @@ async function open(tx: Tx, input: NewSeason): Promise<SeasonRecord> {
   const [opened] = await tx
     .insert(seasons)
     .values({
-      ...facts,
+      id: input.id,
+      name: input.name,
+      startsAt: input.startsAt,
       lobbyId: lobby.id,
       organizationId: lobby.organizationId,
       status: 'active',
@@ -82,16 +85,17 @@ const seasonOperations = (database: BunSQLDatabase) => ({
   listSeasons: () => listSeasonRecords(database),
 
   /**
-   * Explicit activation of one division's Season 1 only. Retries preserve the
+   * Explicit activation of one lobby's Season 1 only. Retries preserve the
    * first actual activation.
    */
-  activateBetaSeason(input: {
-    readonly id: string;
-    readonly division: RatingDivision;
-  }): Promise<SeasonRecord> {
+  activateBetaSeason(
+    input: SeasonLobby & {
+      readonly id: string;
+    },
+  ): Promise<SeasonRecord> {
     return database.transaction(async (tx) => {
       await lockSeasonCreation(tx);
-      const lobby = await seasonLobby(tx, input.division);
+      const lobby = await seasonLobby(tx, input);
       const [existing] = await tx
         .select()
         .from(seasons)

@@ -6,6 +6,7 @@ import {
   validRules,
 } from './round-fixtures';
 import { createId } from '@paralleldrive/cuid2';
+import { pinRankedFixturePool } from '../src/testing-rating-pool';
 import { createDatabase } from '../src';
 import { daisyOrganizationId, publicLobbyId } from '../src/daisy-reference';
 import { createTestOnlyOperations } from '../src/test-only-operations';
@@ -236,6 +237,7 @@ export class Fixture {
         rating_lobby_id: pool.lobby_id,
         season_id: seasonId,
         ladder_id: pool.ladder_id,
+        standing_age_rule: ladder_division === 'youth' ? 'under-18' : 'adults',
       };
     }
     return value;
@@ -245,6 +247,11 @@ export class Fixture {
     const keys = this.tracked.get(table) ?? [];
     keys.push(key);
     this.tracked.set(table, keys);
+  }
+
+  async pinRanked(roundId: string) {
+    const archive = await pinRankedFixturePool(this.sql, roundId);
+    if (archive) this.track('seasons', archive);
   }
 
   /** Inserts one row with positional parameters; the key column is tracked. */

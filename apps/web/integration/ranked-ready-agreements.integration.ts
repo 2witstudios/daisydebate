@@ -14,6 +14,7 @@ import {
 } from '../src/features/legal/agreements';
 import { withRoomRuntime } from './room-runtime.test-support';
 import { setAge, withYouthSeason } from './youth-round.test-support';
+import { readyRankedRoom } from './ranked-room.test-support';
 
 setupRitewayBun();
 requireTestServices(process.env);
@@ -56,6 +57,46 @@ const refusalOf = (attempt: Promise<unknown>) =>
     () => 'accepted',
     (error: unknown) => (isAppError(error) ? error.message : 'threw'),
   );
+
+test('a Ready from an earlier season does not carry its waiver into Start', async () => {
+  await withRoomRuntime(async (f) =>
+    withSeason(f, async () => {
+      const ready = await readyRankedRoom(f, 'freestyle', 'human');
+      const nextSeason = createId();
+      await f.sql.begin(async (tx) => {
+        await tx`update seasons set status='closed', ends_at=now() where lobby_id=${publicLobbyId} and status='active'`;
+        await tx`insert into seasons (id, lobby_id, organization_id, name, status, starts_at)
+        values (${nextSeason},${publicLobbyId},${daisyOrganizationId},'New waiver season','active',now())`;
+      });
+      f.afterRooms(async () => {
+        await f.sql`delete from agreement_signatures where season_id=${nextSeason}`;
+        await f.sql`delete from seasons where id=${nextSeason}`;
+      });
+      const refused = await refusalOf(
+        f.command(f.host, ready, { type: 'start-round' }),
+      );
+      for (const person of [f.host, f.guest, f.outsider])
+        await f.store.signContentWaiver({
+          id: createId(),
+          roomId: ready.id,
+          userId: person.userId,
+          version: CONTENT_WAIVER_VERSION,
+          words: agreementWords(contentWaiverDocument),
+        });
+      await f.command(f.host, ready, { type: 'start-round' });
+      const [started] =
+        await f.sql`select season_id from rounds where room_id=${ready.id}`;
+      assert({
+        given:
+          'three Ready seats followed by a season rollover and signed replacement waivers',
+        should:
+          'refuse the first Start and freeze the replacement season once all waivers stand',
+        actual: [refused, started?.season_id],
+        expected: ['content-waiver-required', nextSeason],
+      });
+    }),
+  );
+});
 
 test('Ready on a ranked Round waits for the signed waiver alone, and records no notice', async () => {
   await withRoomRuntime(async (f) =>

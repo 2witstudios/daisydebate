@@ -302,13 +302,20 @@ test('a league sanctions an event once, naming its own template and season and s
     const otherLeague = createId();
     const otherTemplate = createId();
     const otherSeason = createId();
+    const otherStanding = createId();
     await insertRow(sql, 'organizations', {
       id: otherLeague,
       kind: 'league',
       name: 'Another League',
       handle: `league-${otherLeague}`,
       owner_user_id: await fixture.user(),
-      league_division: 'open',
+    });
+    await insertRow(sql, 'lobbies', {
+      id: otherStanding,
+      kind: 'standing',
+      owner_organization_id: otherLeague,
+      name: 'Another Standing Lobby',
+      handle: `standing-${otherStanding}`,
     });
     await insertRow(sql, 'templates', {
       id: otherTemplate,
@@ -318,7 +325,7 @@ test('a league sanctions an event once, naming its own template and season and s
       format_version: 1,
     });
     await insertRow(sql, 'seasons', {
-      division: 'open',
+      lobby_id: otherStanding,
       id: otherSeason,
       organization_id: otherLeague,
       name: 'Their season',

@@ -132,7 +132,10 @@ export const persistRoomMutation = async (
     const opens = next.roundRef.status === 'opening';
     if (!opens && next.topic === null) throw createAppError('INVARIANT');
     const [source] = await tx
-      .select({ leagueLadderId: rooms.leagueLadderId })
+      .select({
+        leagueLadderId: rooms.leagueLadderId,
+        lobbyKind: rooms.lobbyKind,
+      })
       .from(rooms)
       .where(eq(rooms.id, next.id));
     const selectedLadderId = source?.leagueLadderId ?? undefined;
@@ -156,6 +159,7 @@ export const persistRoomMutation = async (
       capture: next.capture,
       postRoundCall: freezePostRoundCall(next.postRoundCall, next.participants),
       visibility: next.visibility,
+      standingAgeRule: source?.lobbyKind === 'standing' ? next.ageRule : null,
       rulesSnapshot: next.rules,
       judging,
       runtimeState: emptyRuntimeCheckpointFor(next.rules),

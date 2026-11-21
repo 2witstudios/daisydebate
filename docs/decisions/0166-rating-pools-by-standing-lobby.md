@@ -8,8 +8,13 @@ A standing lobby owns its ladders and one active season. A Round freezes
 its own lobby's ladder and active season together at Start. Every rating
 posting names that pool and an eligible competitor on the Round. The ledger
 retains posted states and timestamps, and each projection uses the same
-actor, ladder and season identity. Each lobby can close or open a season
-independently. Historical posted Rounds keep their ledger's original season.
+actor, ladder and season identity. Historical postings keep their original
+season where it belongs to their Room's lobby. Where several standing
+lobbies shared an old rating period, the other lobbies receive their own
+copy of that period and each posting follows its Room. The original season
+retains its waiver signatures and sanction receipts. League-managed seasons
+start with the standard initial rating. The operator CLI retains its
+rollover guard while DEC-111 remains open.
 
 All eligible standing-lobby Rounds use the same posting transaction. A
 league's configured Room selection and the ranked preset path both resolve
@@ -23,6 +28,10 @@ certified record, requires the league standings to replace the old result
 rather than count a second game, and requires an existing draw's retained
 rating snapshot to survive both correction and rollback. Replaying the
 receiving season's corrected certification alongside its own Rooms
-preserves the effect on later competitive inputs. A season with no
-certifications reads the shared projections. A receiving league's sanction
-cannot affect another lobby's ladder or a retained tournament snapshot.
+preserves the effect on later competitive inputs. Room inputs keep ledger
+posting order, including games settled after subsequent Rounds. A season
+with no rateable effective certification reads the shared projections. The
+official leaderboard replays only public Room postings and certified
+tournament decisions released to the public. The league view follows its
+authorized audience. A receiving league's sanction remains in the receiving
+lobby and season, and retained tournament snapshots keep their seeded ratings.

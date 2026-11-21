@@ -117,7 +117,7 @@ async function readCompletionFacts(
   const freeze = await readTranscriptFreeze(tx, input.roundId);
   const [durable] =
     await tx.execute(sql`select final_segment_ended_at,transcript_admission_cutoff,ballot_deadline_at,
-    exists(select 1 from rating_changes where round_id=${input.roundId}) as ratings
+    daisy_round_rating_posted(id) as ratings
     from rounds where id=${input.roundId}`);
   const now = await sampleRoundExecutionTime(tx, roundTime);
   requirePanelRound(round);
