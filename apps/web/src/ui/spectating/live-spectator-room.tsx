@@ -1,6 +1,6 @@
 'use client';
-import { StatusRegion } from '../components/status-region/status-region';
 import '../../lib/zod-jitless';
+import { StatusRegion } from '../components/status-region/status-region';
 import { FloorChat, type FloorChatProps } from '../round-floor/floor-chat';
 import { OpeningStatus } from '../debate-room/opening-strike';
 import { drawnTopicLabel } from '../../features/debate-room/vocabulary';

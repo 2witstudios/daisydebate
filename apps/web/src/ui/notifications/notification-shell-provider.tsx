@@ -1,10 +1,10 @@
 'use client';
 
 // First: protocol schemas built after this load without Zod's eval probe.
+import '../../lib/zod-jitless';
 import { useBrowserEffect } from '../edge/browser-sync';
 import { browserFetch } from '../edge/browser-request';
 import { delay } from '../edge/browser-time';
-import '../../lib/zod-jitless';
 import {
   defaultNotificationPresentation,
   notificationShellSchema,

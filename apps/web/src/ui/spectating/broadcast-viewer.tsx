@@ -1,8 +1,8 @@
 'use client';
+import '../../lib/zod-jitless';
 import { useBrowserEffect, useBrowserLayoutEffect } from '../edge/browser-sync';
 import { Button } from '../components/button/button';
 import { StatusRegion } from '../components/status-region/status-region';
-import '../../lib/zod-jitless';
 import { type SpectatorTimeline } from '@daisy/protocol';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';

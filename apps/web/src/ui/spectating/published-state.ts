@@ -1,7 +1,7 @@
 'use client';
+import '../../lib/zod-jitless';
 import { useBrowserEffect } from '../edge/browser-sync';
 import { browserFetch } from '../edge/browser-request';
-import '../../lib/zod-jitless';
 import { audienceStateSchema, type AudienceState } from '@daisy/protocol';
 import { createContext, useContext, useState } from 'react';
 import { answerOfResponse } from '../../features/spectating/poll-pace';

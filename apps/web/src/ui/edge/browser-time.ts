@@ -20,16 +20,18 @@ export function scheduleDelay(run: () => void, ms: number): () => void {
   return () => cancelDelay(timer);
 }
 
-export function scheduleTick(run: () => void, ms: number): () => void {
+export function scheduleTick(
+  run: () => void,
+  ms: number,
+  host?: Pick<Window, 'setInterval' | 'clearInterval'>,
+): () => void {
+  if (host !== undefined) {
+    const timer = host.setInterval(run, ms);
+    return () => host.clearInterval(timer);
+  }
   const timer = startTick(run, ms);
   return () => stopTick(timer);
 }
-
-export const startWindowTick = (run: () => void, ms: number): number =>
-  window.setInterval(run, ms);
-
-export const stopWindowTick = (timer: number): void =>
-  window.clearInterval(timer);
 
 export const windowDelay = (run: () => void, ms: number): number =>
   window.setTimeout(run, ms);

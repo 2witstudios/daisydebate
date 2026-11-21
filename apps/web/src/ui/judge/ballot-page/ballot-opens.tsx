@@ -51,6 +51,7 @@ export function useServerAnchoredNow(
           }),
         }),
       1000,
+      window,
     );
   }, [running, renderedAtMs]);
   return now;

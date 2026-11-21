@@ -1,8 +1,8 @@
 'use client';
 
 // First: protocol schemas built after this load without Zod's eval probe.
-import { browserFetch } from '../edge/browser-request';
 import '../../lib/zod-jitless';
+import { browserFetch } from '../edge/browser-request';
 import { messagingUnreadSchema, type MessagingUnread } from '@daisy/protocol';
 import {
   createContext,

@@ -1,6 +1,6 @@
+import '../../lib/zod-jitless';
 import { cancelDelay, delay } from '../edge/browser-time';
 import { browserFetch } from '../edge/browser-request';
-import '../../lib/zod-jitless';
 import { instantMs, nowMs, systemClock } from '@daisy/clock';
 import { idSchema } from '@daisy/protocol';
 import type { ChatContext } from '../../features/messaging/context-chat/chat-context';

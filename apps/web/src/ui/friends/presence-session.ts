@@ -1,9 +1,9 @@
 'use client';
 
 // First: protocol schemas built after this load without Zod's eval probe.
+import '../../lib/zod-jitless';
 import { browserFetch } from '../edge/browser-request';
 import { startTick, stopTick } from '../edge/browser-time';
-import '../../lib/zod-jitless';
 import { onlineCountsSchema } from '@daisy/protocol';
 import {
   browserTabPresence,

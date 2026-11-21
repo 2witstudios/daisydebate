@@ -1,9 +1,9 @@
 'use client';
+import '../../lib/zod-jitless';
 import { useBrowserEffect } from '../edge/browser-sync';
 import { browserFetch } from '../edge/browser-request';
 import { scheduleDelay } from '../edge/browser-time';
 import { StatusRegion } from '../components/status-region/status-region';
-import '../../lib/zod-jitless';
 import { useRef, useState, useSyncExternalStore } from 'react';
 import { isRoundOver, type RoundView } from '@daisy/protocol';
 import { postRoundCallChosen } from '../../features/post-round-call/offered';

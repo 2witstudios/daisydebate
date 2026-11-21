@@ -1,8 +1,8 @@
 'use client';
 
 // First: protocol schemas built after this load without Zod's eval probe.
-import { useBrowserEffect } from '../edge/browser-sync';
 import '../../lib/zod-jitless';
+import { useBrowserEffect } from '../edge/browser-sync';
 
 import { useUiState, useUiUpdate } from '../store/store';
 import { retainPresenceSession } from './presence-session';

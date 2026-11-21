@@ -1,4 +1,3 @@
-import Image from 'next/image';
 import { shareFormats } from '../../../ui/brand/share-canvas';
 import { prose } from '../../ui/prose-class';
 
@@ -31,8 +30,9 @@ export function ShareSheet() {
                     Open {scheme} PNG · {width} × {height}
                   </a>
                   <div className="overflow-auto rounded-lg border border-border">
-                    <Image
-                      unoptimized
+                    {/* Exact raster dimensions are intentional; next/image resizes export artwork. */}
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
                       src={src}
                       alt={`${label}, ${scheme}: Daisy Debate. The arena for competitive debate. Better arguments. A more thoughtful world.`}
                       width={width}
