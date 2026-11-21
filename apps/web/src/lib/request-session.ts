@@ -798,6 +798,16 @@ export async function requestFamilyRows(role: 'adult' | 'child') {
   );
 }
 
+export async function requestGuardianRelease(
+  guardian: { readonly userId: string; readonly actorId: string },
+  linkId: string,
+) {
+  return processApp().database.mediaReleases.readGuardianRelease({
+    guardian,
+    linkId,
+  });
+}
+
 export async function requestFriendApprovals() {
   const viewer = await requestFamilyViewer();
   if (viewer?.role !== 'adult') return [];

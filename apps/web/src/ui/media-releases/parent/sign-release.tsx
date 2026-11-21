@@ -1,7 +1,5 @@
 'use client';
 
-import { mediaReleaseWording } from '@daisy/protocol/media-release';
-
 import {
   initialSignState,
   parentUnacknowledged,
@@ -9,17 +7,16 @@ import {
 } from '../../../features/media-releases/parent-forms';
 import { releaseDay } from '../../../features/media-releases/release-words';
 import { Button } from '../../components/button/button';
-import {
-  controlClass,
-  errorClass,
-  fieldClass,
-  labelClass,
-} from '../../components/form-field/form-field-class';
+import { errorClass } from '../../components/form-field/form-field-class';
 import { useFormAction, type FormAction } from '../../form-action/form-action';
 import { problemOf } from './problem';
 import { ReleaseNotice } from './release-frame';
 import { Avatar, NotMe, RequestFacts, Signed } from './sign-release-parts';
-import { Counsel, ReleaseTerms, ReleaseUnchanged } from './release-terms';
+import { ReleaseTerms, ReleaseUnchanged } from './release-terms';
+import {
+  ReleasePaidAdsFields,
+  ReleaseSignatureFields,
+} from './release-signature-fields';
 
 export type SignReleaseProps = {
   readonly minor: string;
@@ -31,8 +28,6 @@ export type SignReleaseProps = {
   readonly decline: FormAction<SignState>;
   readonly notMe: FormAction<SignState>;
 };
-
-const checkbox = 'mt-0.5 size-5 shrink-0 accent-accent';
 
 /**
  * The parent signs (board "Parent signs", desktop and phone): the release,
@@ -110,87 +105,10 @@ export function SignRelease(props: SignReleaseProps) {
         <ReleaseTerms minor={props.minor} />
         <ReleaseUnchanged minor={props.minor} />
         <form action={sign} className="flex flex-col gap-8">
-          <input
-            type="hidden"
-            name="wordingVersion"
-            value={mediaReleaseWording.version}
-          />
-          <fieldset className="flex flex-col gap-3 rounded-lg border border-border-strong bg-surface p-5">
-            <legend className="px-1 font-bold">
-              Paid advertising{' '}
-              <span className="font-book text-ink-muted">
-                · optional, separate
-              </span>
-            </legend>
-            <p className="text-sm text-ink-muted">
-              Daisy may want to use a clip of @{props.minor} in an ad we pay to
-              show. Signing the release above does not allow this.
-            </p>
-            <label className="flex min-h-release-target cursor-pointer items-start gap-3">
-              <input
-                type="checkbox"
-                name="paidAds"
-                defaultChecked={values['paidAds'] === 'on'}
-                className={checkbox}
-              />
-              <span className="min-w-0">
-                Also allow clips of @{props.minor} in Daisy’s paid advertising
-                <span className="block text-sm text-ink-muted">
-                  Off unless you tick it.{' '}
-                  <Counsel>ad-use terms and any compensation</Counsel>
-                </span>
-              </span>
-            </label>
-          </fieldset>
+          <ReleasePaidAdsFields minor={props.minor} values={values} />
           <section className="flex flex-col gap-4 rounded-lg border border-border bg-surface-raised p-5">
             <h2 className="font-display text-xl font-bold">Sign</h2>
-            <div className="flex flex-wrap gap-4">
-              <div className={`${fieldClass} flex-2 basis-release-name`}>
-                <label htmlFor="release-signer" className={labelClass}>
-                  Your full name
-                </label>
-                <input
-                  id="release-signer"
-                  name="name"
-                  type="text"
-                  autoComplete="name"
-                  required
-                  maxLength={120}
-                  defaultValue={values['name'] ?? ''}
-                  className={controlClass}
-                />
-              </div>
-              <div className={`${fieldClass} flex-1 basis-release-relation`}>
-                <label htmlFor="release-relation" className={labelClass}>
-                  You are @{props.minor}’s
-                </label>
-                <select
-                  id="release-relation"
-                  name="relation"
-                  defaultValue={values['relation'] ?? 'parent'}
-                  className={controlClass}
-                >
-                  <option value="parent">Parent</option>
-                  <option value="legal_guardian">Legal guardian</option>
-                </select>
-              </div>
-            </div>
-            <label className="flex min-h-release-target cursor-pointer items-start gap-3">
-              <input
-                type="checkbox"
-                name="attests"
-                required
-                defaultChecked={values['attests'] === 'on'}
-                className={checkbox}
-              />
-              <span className="min-w-0">
-                I am @{props.minor}’s parent or legal guardian, I have read the
-                release, and I agree to it.
-                <span className="block text-sm text-ink-muted">
-                  <Counsel>signature and attestation wording</Counsel>
-                </span>
-              </span>
-            </label>
+            <ReleaseSignatureFields minor={props.minor} values={values} />
             {refusal === undefined ? null : (
               <p role="alert" className={errorClass}>
                 {refusal}

@@ -10,5 +10,6 @@ export default async function ParentalControlsPage({
   readonly searchParams: Promise<SearchParams>;
 }) {
   await requireAccess('/settings/parental-controls', searchParams);
-  return <FamilySettings role="adult" />;
+  const closed = (await searchParams)['childAccount'] === 'closed';
+  return <FamilySettings role="adult" childAccountClosed={closed} />;
 }

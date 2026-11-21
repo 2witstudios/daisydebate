@@ -443,3 +443,104 @@ test('a guardian clears a Guided hold, then Supervised locks messages and ranked
     await Promise.all([childContext.close(), peerContext.close()]);
   }
 });
+
+test('a linked guardian signs the media release and closes the child account from More', async ({
+  page,
+  browser,
+}) => {
+  test.setTimeout(120_000);
+  const parent = await signUpMember(page.request);
+  const childContext = await browser.newContext({
+    baseURL: origin,
+    ignoreHTTPSErrors: true,
+  });
+  const outsiderContext = await browser.newContext({
+    baseURL: origin,
+    ignoreHTTPSErrors: true,
+  });
+  try {
+    const child = await openPage(childContext, 'linked child');
+    const account = await signUpMember(
+      child.request,
+      youthBirth(systemClock.now()),
+    );
+    await page.goto('/settings/parental-controls');
+    await page.getByText('Link an existing account', { exact: true }).click();
+    const linkForm = page.locator('form').filter({
+      has: page.getByLabel('Child’s username'),
+    });
+    await linkForm.getByLabel('Child’s username').fill(account.username);
+    await agree(linkForm);
+    await linkForm.getByRole('button', { name: 'Ask to link' }).click();
+    const more = page.getByRole('link', {
+      name: `More for @${account.username}`,
+    });
+    await expect(
+      page.getByText('Request sent.', { exact: true }),
+    ).toBeVisible();
+    await expect(more).toHaveCount(0);
+
+    await child.goto('/settings/your-parents');
+    const request = familyRow(parentsOf(child), parent.username);
+    await agree(request);
+    await request
+      .getByRole('button', { name: 'Yes, this is my parent' })
+      .click();
+    await expect(request.getByText('Linked', { exact: true })).toBeVisible();
+
+    await page.reload();
+    await more.click();
+    await expect(
+      page.getByRole('heading', { name: `More for @${account.username}` }),
+    ).toBeVisible();
+    const linkId = new URL(page.url()).pathname.split('/').at(-1);
+    expect(linkId).toBeTruthy();
+    const outsider = await openPage(outsiderContext, 'unlinked adult');
+    await signUpMember(outsider.request);
+    await outsider.goto(page.url());
+    await expect(
+      outsider.getByRole('heading', { name: 'Not found' }),
+    ).toBeVisible();
+    const rejected = await outsider.request.post(
+      '/api/parental-controls/more',
+      {
+        headers: { origin },
+        data: { type: 'close', linkId, confirmed: true },
+      },
+    );
+    expect(rejected.status()).toBe(404);
+
+    await page
+      .getByText('Review and sign media release', { exact: true })
+      .click();
+    await page.getByLabel('Your full name').fill('Taylor Guardian');
+    await page.getByLabel(/I am @.*parent or legal guardian/).check();
+    await page.getByRole('button', { name: 'Sign release' }).click();
+    await expect(
+      page.getByRole('status').filter({ hasText: 'Media release signed.' }),
+    ).toBeVisible();
+    await page.reload();
+    await expect(page.getByText('A media release is on file.')).toBeVisible();
+
+    const unconfirmed = await page.request.post('/api/parental-controls/more', {
+      headers: { origin },
+      data: { type: 'close', linkId, confirmed: false },
+    });
+    expect(unconfirmed.status()).toBe(400);
+    await page.getByLabel(/I withdraw my consent and confirm/).check();
+    await page
+      .getByRole('button', { name: 'Withdraw consent and close account' })
+      .click();
+    await expect(
+      page
+        .getByRole('status')
+        .filter({ hasText: 'Your child’s account was closed.' }),
+    ).toBeVisible();
+    await expect(more).toHaveCount(0);
+    await child.goto('/settings/your-parents');
+    await expect(child).toHaveURL(/\/sign-in(?:$|\?)/);
+  } finally {
+    await childContext.close();
+    await outsiderContext.close();
+  }
+});

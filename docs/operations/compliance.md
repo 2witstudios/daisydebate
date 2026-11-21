@@ -509,8 +509,11 @@ likeness or streaming right (owner decision 89,
   reads and signs, or declines, without an account, through a single-use
   emailed link whose token is stored only as a SHA3-256 digest. They record
   their name, relation and an attestation; paid advertising is a separate
-  opt-in. They can withdraw, or change the paid-ads choice, from the link in
-  their copy, and ask for a new link by address. A club's owner or a
+  opt-in. A signed-in, actively linked guardian can also sign under More in
+  Parental controls. Daisy records the same evidence with their verified
+  account address and queues the signed copy with its manage link. They can
+  withdraw, or change the paid-ads choice, from the link in their copy, and
+  ask for a new link by address. A club's owner or a
   school's staff can instead confirm a release the club already holds, with
   a warranty; a release a parent withdrew can only be signed again by the
   parent. A withdrawal fences that minor's Rounds against reuse again. The
@@ -530,7 +533,13 @@ likeness or streaming right (owner decision 89,
   contact details only for the guardian flow and never places them in logs or
   analytics. Evidence is append-only. Coaches and schools establish their
   own relationships through school membership and staff grants. Both draft
-  notices and the family screens are behind `parental-controls`. Production
+  notices and the family screens are behind `parental-controls`. A linked
+  guardian can confirm withdrawal of parental consent and closure of the
+  child's account under More. Closure uses the subject-rights transaction,
+  removes sign-in and private account details, ends media releases and
+  guardian links, and keeps the account identifier, reserved username,
+  competitive record and necessary evidence. Stripe cleanup is queued in the
+  same transaction and delivered asynchronously. Production
   activation requires the owner’s sign-off.
 
 ## Processors
