@@ -50,7 +50,8 @@ export const guardianMoreRoute = (app: App) => (request: Request) =>
         await readJson(request),
       );
       if (type === 'close') {
-        await closeChildAccount(app, guardian, linkId);
+        if (!(await closeChildAccount(app, guardian, linkId)))
+          throw createAppError('NOT_FOUND');
         return Response.json({ kind: 'done' });
       }
       const key = deriveRecipientSubkey(app.mailConfig().RECIPIENT_HASH_SECRET);
@@ -59,6 +60,11 @@ export const guardianMoreRoute = (app: App) => (request: Request) =>
         form,
         (email) => recipientKey(key, email),
       );
+      if (
+        result.kind === 'refused' &&
+        result.reason === 'guardian-link-unavailable'
+      )
+        throw createAppError('NOT_FOUND');
       return Response.json(result.kind === 'done' ? { kind: 'done' } : result);
     },
   );

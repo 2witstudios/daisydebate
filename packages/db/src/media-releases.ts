@@ -29,7 +29,7 @@ import { readDatabaseTime } from './database-clock';
 import { oweNotifications } from './notifications/owe';
 import { scopeTransaction } from './tenant-scope';
 import {
-  requireActiveGuardianChild,
+  findActiveGuardianChild,
   type GuardianChildAuthority,
 } from './guardians/active-child';
 import type { BoundedTransactionContext } from './transaction-context';
@@ -230,7 +230,8 @@ export function createMediaReleases(input: {
   return {
     readGuardianRelease: (authority: GuardianChildAuthority) =>
       run(async (tx) => {
-        const child = await requireActiveGuardianChild(tx, authority, 'read');
+        const child = await findActiveGuardianChild(tx, authority, 'read');
+        if (!child) return null;
         const now = await readDatabaseTime(tx);
         const { standing } = await minorFacts(tx, child.userId, now, false);
         return {
@@ -246,14 +247,17 @@ export function createMediaReleases(input: {
       recipientHash: (email: string) => string,
     ): Promise<ParentAnswer> =>
       run(async (tx) => {
-        const child = await requireActiveGuardianChild(tx, authority, 'write');
+        const child = await findActiveGuardianChild(tx, authority, 'write');
+        if (!child)
+          return { kind: 'refused', reason: 'guardian-link-unavailable' };
         const [guardian] = await rows<{ email: string }>(
           tx,
           sql`select lower(btrim(email)) as email from users
             where id = ${authority.guardian.userId} and email_verified and email is not null`,
         );
         const email = releaseRecipientSchema.safeParse(guardian?.email);
-        if (!email.success) throw createAppError('AUTHORIZATION');
+        if (!email.success)
+          return { kind: 'refused', reason: 'guardian-link-unavailable' };
         const now = await readDatabaseTime(tx);
         const { standing } = await minorFacts(tx, child.userId, now);
         const decision = decideParentSignature(standing, email.data, form);

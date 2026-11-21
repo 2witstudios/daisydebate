@@ -1,7 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { idSchema } from '@daisy/protocol';
-import { errorCodeOf } from '@daisy/errors';
 import type { SearchParams } from '../../../../../features/access/decision';
 import { requireAccess } from '../../../../../lib/access';
 import {
@@ -40,13 +39,8 @@ export default async function GuardianMorePage({
     !idSchema.safeParse(linkId).success
   )
     notFound();
-  const release = await requestGuardianRelease(caller.principal, linkId).catch(
-    (error) => {
-      const code = errorCodeOf(error, 'INTERNAL');
-      if (code === 'NOT_FOUND' || code === 'AUTHORIZATION') notFound();
-      throw error;
-    },
-  );
+  const release = await requestGuardianRelease(caller.principal, linkId);
+  if (!release) notFound();
   const name = release.username ? `@${release.username}` : 'your child';
   return (
     <main className="mx-auto flex w-full max-w-dash-column flex-col gap-5 px-6 py-5 max-compact:px-4">

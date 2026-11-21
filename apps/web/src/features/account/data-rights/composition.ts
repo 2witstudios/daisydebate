@@ -49,43 +49,33 @@ export const exportSubjectData =
     };
   };
 
-const eraseSubject = (
-  app: App,
-  authority:
-    | { readonly subject: PrivacySubject }
-    | {
-        readonly guardian: PrivacySubject;
-        readonly linkId: string;
-      },
-  now: string,
-) => {
+const erasureJobs = (app: App) => {
   const vendors = configuredPrivacyJobVendors(app);
-  return app.database.erasePrivacySubject(
-    { ...authority, now, vendors, jobIds: vendors.map(() => app.ids.next()) },
-    roomTransitions,
-    subjectRightsVerificationBindings,
-  );
+  return { vendors, jobIds: vendors.map(() => app.ids.next()) };
 };
 
 export async function closeChildAccount(
   app: App,
   guardian: PrivacySubject,
   linkId: string,
-) {
-  const result = await eraseSubject(app, { guardian, linkId }, app.clock.now());
-  // Redis drafts are expendable and expiring. A cache outage cannot undo a
-  // committed closure or prevent its durable vendor cleanup.
-  if (result.subject) {
-    try {
-      await eraseRoomDraftAnswer(app.redis, result.subject.userId);
-    } catch {
-      app.logger.log(
-        'privacy.erase.failed',
-        { operation: 'privacy.erase' },
-        'Closed account room draft could not be cleared before expiry',
-      );
-    }
+): Promise<boolean> {
+  const child = await app.database.eraseGuardianChild(
+    { guardian, linkId, now: app.clock.now(), ...erasureJobs(app) },
+    roomTransitions,
+    subjectRightsVerificationBindings,
+  );
+  if (!child) return false;
+  // A cache outage cannot undo a committed closure or prevent durable cleanup.
+  try {
+    await eraseRoomDraftAnswer(app.redis, child.userId);
+  } catch {
+    app.logger.log(
+      'privacy.erase.failed',
+      { operation: 'privacy.erase' },
+      'Closed account room draft could not be cleared before expiry',
+    );
   }
+  return true;
 }
 
 /**
@@ -119,7 +109,11 @@ export function composeDataRightsRoutes(app: App) {
         clock: app.clock,
         eraseSubject: async (subject, now) => {
           await eraseRoomDraftAnswer(app.redis, subject.userId);
-          return eraseSubject(app, { subject }, now);
+          return app.database.erasePrivacySubject(
+            { subject, now, ...erasureJobs(app) },
+            roomTransitions,
+            subjectRightsVerificationBindings,
+          );
         },
       }),
     },

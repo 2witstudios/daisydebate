@@ -7,7 +7,7 @@ import {
   type AuthorizationTransaction,
 } from '../authorization';
 import {
-  requireActiveGuardianChild,
+  findActiveGuardianChild,
   type GuardianChildAuthority,
 } from '../guardians/active-child';
 import type {
@@ -110,8 +110,9 @@ export async function runPrivacyErasure(
   return database.transaction(async (tx) => {
     const subject =
       'guardian' in input
-        ? await requireActiveGuardianChild(tx, input, 'write')
+        ? await findActiveGuardianChild(tx, input, 'write')
         : input.subject;
+    if (!subject) throw createAppError('NOT_FOUND');
     const plan =
       selfPlan ??
       planPrivacyErasure(

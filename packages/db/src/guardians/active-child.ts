@@ -1,5 +1,4 @@
 import { sql } from 'drizzle-orm';
-import { createAppError } from '@daisy/errors';
 import {
   lockAuthorizationActors,
   readAuthorizationActors,
@@ -13,7 +12,7 @@ export type GuardianChildAuthority = {
 };
 
 /** Resolve the child from the guardian's link and recheck it under the account fence. */
-export async function requireActiveGuardianChild(
+export async function findActiveGuardianChild(
   tx: AuthorizationTransaction,
   { guardian, linkId }: GuardianChildAuthority,
   mode: 'read' | 'write',
@@ -36,8 +35,7 @@ export async function requireActiveGuardianChild(
   };
   try {
     const candidate = await readLink();
-    if (!candidate || guardian.actorId === candidate.actorId)
-      throw createAppError('NOT_FOUND');
+    if (!candidate || guardian.actorId === candidate.actorId) return null;
     const accounts =
       mode === 'write' ? lockAuthorizationActors : readAuthorizationActors;
     const [parent, minor] = await accounts(
@@ -52,7 +50,7 @@ export async function requireActiveGuardianChild(
       parent.userId !== guardian.userId ||
       parent.ageBand !== 'adult'
     )
-      throw createAppError('AUTHORIZATION');
+      return null;
     const child = await readLink();
     if (
       !minor?.member ||
@@ -61,7 +59,7 @@ export async function requireActiveGuardianChild(
       minor.actorId !== child.actorId ||
       (minor.ageBand !== '13-15' && minor.ageBand !== '16-17')
     )
-      throw createAppError('NOT_FOUND');
+      return null;
     return child;
   } finally {
     await scopeTransaction(tx, {});

@@ -1,17 +1,14 @@
 import { afterAll, expect, test } from 'bun:test';
 import { SQL } from 'bun';
 import { requireTestServices } from '@daisy/config';
-import { errorCodeOf } from '@daisy/errors';
 import { mediaReleaseWording } from '@daisy/protocol/media-release';
 import { createId } from '@paralleldrive/cuid2';
 import { sql as statement } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/bun-sql';
+import { eraseGuardianChild } from '../src/privacy/subject-rights';
 import type { BoundedTransaction } from '../src/bounded-transaction';
 import { createMediaReleases } from '../src/media-releases';
-import {
-  erasePrivacySubject,
-  subjectRightsVerificationBindings,
-} from '../src/privacy';
+import { subjectRightsVerificationBindings } from '../src/privacy';
 import { Fixture } from './constraint-helpers';
 import {
   ddlTimeoutMs,
@@ -93,7 +90,7 @@ test(
           () => 'a'.repeat(64),
         );
       const close = (caller: typeof authority) =>
-        erasePrivacySubject(
+        eraseGuardianChild(
           { transaction },
           {
             ...caller,
@@ -108,19 +105,17 @@ test(
           },
           subjectRightsVerificationBindings,
         );
-      const outcome = (operation: Promise<unknown>) =>
-        operation.then(
-          () => 'accepted',
-          (failure: unknown) => errorCodeOf(failure, 'INTERNAL'),
-        );
-
-      expect(await outcome(sign(authority))).toBe('NOT_FOUND');
-      expect(await outcome(close(authority))).toBe('NOT_FOUND');
+      const unavailable = {
+        kind: 'refused',
+        reason: 'guardian-link-unavailable',
+      };
+      expect(await sign(authority)).toEqual(unavailable);
+      expect(await close(authority)).toBeNull();
       await sql`update guardian_links set status = 'active', activation = 'created-account',
       activated_at = ${now} where id = ${linkId}`;
       const foreign = { guardian: other, linkId };
-      expect(await outcome(sign(foreign))).toBe('NOT_FOUND');
-      expect(await outcome(close(foreign))).toBe('NOT_FOUND');
+      expect(await sign(foreign)).toEqual(unavailable);
+      expect(await close(foreign)).toBeNull();
       const signed = await sign(authority);
       expect(signed.kind).toBe('done');
       expect(await sign(authority)).toEqual({
@@ -145,7 +140,10 @@ test(
       where r.user_id = ${child.userId}`,
       ).toEqual([{ kind: 'copy' }]);
 
-      expect((await close(authority)).alreadyErased).toBe(false);
+      expect(await close(authority)).toEqual({
+        userId: child.userId,
+        actorId: child.actorId,
+      });
       expect(
         await sql<
           { username: string; email: string | null; closed: boolean }[]
