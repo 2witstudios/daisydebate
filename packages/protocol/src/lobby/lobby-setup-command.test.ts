@@ -134,6 +134,30 @@ const valid = {
     },
   ],
   'close-season': [{ type: 'close-season', seasonId: id('s') }],
+  'edit-standing-lobby': [
+    {
+      type: 'edit-standing-lobby',
+      organizationId: id('o'),
+      lobbyId,
+      name: 'Junior debate',
+      ageRule: 'under-18',
+    },
+  ],
+  'save-ladder': [null, id('d')].map((ladderId) => ({
+    type: 'save-ladder',
+    organizationId: id('o'),
+    lobbyId,
+    ladderId,
+    name: 'Junior ladder',
+  })),
+  'edit-season': [null, at(20)].map((endsAt) => ({
+    type: 'edit-season',
+    organizationId: id('o'),
+    lobbyId,
+    seasonId: id('s'),
+    name: 'Season 1',
+    endsAt,
+  })),
   'set-ladder': [
     {
       type: 'set-ladder',

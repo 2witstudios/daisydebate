@@ -14,6 +14,8 @@ export type SegmentedProps = {
   readonly segments: readonly Segment[];
   /** Fill the width on a phone, each segment an equal share (the lobby switch). */
   readonly fillOnPhone?: boolean;
+  /** Labels entered by hosts can be long and the list can grow. */
+  readonly wrap?: boolean;
 };
 
 /**
@@ -24,6 +26,7 @@ export function Segmented({
   label,
   segments,
   fillOnPhone = false,
+  wrap = false,
 }: SegmentedProps) {
   return (
     <nav
@@ -31,6 +34,7 @@ export function Segmented({
       className={cn(
         'inline-flex items-center gap-1 self-start rounded-md bg-surface-overlay p-1',
         fillOnPhone && 'max-narrow:flex max-narrow:self-stretch',
+        wrap && 'max-w-full flex-wrap',
       )}
     >
       {segments.map((segment) => (
@@ -39,7 +43,12 @@ export function Segmented({
           href={segment.href}
           aria-current={segment.selected ? 'page' : undefined}
           className={cn(
-            segmentClass(segment.selected),
+            wrap
+              ? segmentClass(segment.selected).replace(
+                  'whitespace-nowrap',
+                  'max-w-full wrap-anywhere',
+                )
+              : segmentClass(segment.selected),
             fillOnPhone && 'max-narrow:flex-1 max-narrow:justify-center',
           )}
         >

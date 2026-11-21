@@ -60,7 +60,11 @@ export function parseRoomDiscoveryQuery(raw: SearchParams) {
  * The Lobby URL for a query, carrying only non-default values. A cursor is
  * kept only when given: changing a tab or filter starts from the first page.
  */
-export function lobbyHref(query: RoomListQuery, cursor?: string): string {
+export function lobbyHref(
+  query: RoomListQuery,
+  cursor?: string,
+  view?: 'rooms',
+): string {
   const params = new URLSearchParams();
   if (query.q !== '') params.set('q', query.q);
   if (query.pageSize !== roomListDefaultPageSize)
@@ -70,6 +74,7 @@ export function lobbyHref(query: RoomListQuery, cursor?: string): string {
   if (query.lobbyId) params.set('lobby', query.lobbyId);
   if (query.sort) params.set('sort', query.sort);
   if (cursor !== undefined) params.set('cursor', cursor);
+  if (view) params.set('view', view);
   const search = params.toString();
   return search === '' ? '/lobby' : `/lobby?${search}`;
 }

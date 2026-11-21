@@ -9,10 +9,9 @@ import {
   roundWaitingOn,
 } from '@daisy/debate-engine';
 import type { Database } from '@daisy/db';
-import { withSeasons } from '@daisy/db/seasons';
+import { seedRatingSeason } from '@daisy/db/testing';
 import { recoverRankedResults } from './ranked-room.test-support';
 import { randomBytes } from 'node:crypto';
-import { requireTestServices } from '@daisy/config';
 import {
   buildRoundTopic,
   type Ballot,
@@ -45,7 +44,6 @@ import {
 } from './round-runtime.test-support';
 
 setupRitewayBun();
-const { databaseUrl } = requireTestServices(process.env);
 type Fixture = Parameters<Parameters<typeof withRoomRuntime>[0]>[0];
 const ruling = (winner: Ballot['winner']) =>
   fixtureBallot('The decisive clash was answered by this side.', winner);
@@ -363,9 +361,7 @@ for (const captured of [true, false])
       const seat = started.participants.find(
         (p) => p.actorId === judges[0]!.actorId,
       )!;
-      await withSeasons(databaseUrl, (s) =>
-        s.activateBetaSeason({ id: seasonId, division: 'open' }),
-      );
+      await seedRatingSeason(f.sql, seasonId);
       await f.markRanked(roundId);
       await playOut(f, roundId, captured);
       if ((await finalizeAsWeb(f, roundId)).status !== 'frozen')

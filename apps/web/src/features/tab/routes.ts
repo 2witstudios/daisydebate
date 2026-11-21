@@ -35,6 +35,15 @@ const hostEvent = (slug: string, event: string) =>
 export const hostRoutes = {
   home: '/host',
   league: (slug: string) => `/host${league(slug)}`,
+  standingLobbies: (
+    slug: string,
+    selection: {
+      readonly lobby?: string;
+      readonly panel?: string;
+      readonly item?: string;
+    },
+  ) =>
+    `/host${league(slug)}?${new URLSearchParams({ area: 'lobbies', ...selection })}`,
   leaguePeople: (slug: string) => `/host${league(slug)}/people`,
   tournament: hostTournament,
   setup: (slug: string, panel: 'pairing' | null = null) =>

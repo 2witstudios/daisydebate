@@ -74,6 +74,8 @@ mock.module(join(import.meta.dir, '../../lib/request-session.ts'), () => ({
   requestLandingLobby: async () => ({ id: openRatingLobby.lobbyId }),
   // A stored league read answers no league for the placeholder slug.
   requestLeaguePage: async () => null,
+  requestStandingLobbyManagement: async () => null,
+  requestHostedLeagues: async () => [],
   requestStandingRoomPage: async () => null,
   requestRoundRatings: async () => null,
   requestWatchRound: async () => null,
@@ -116,7 +118,13 @@ mock.module(join(import.meta.dir, '../../lib/request-session.ts'), () => ({
   requestOfficialStandingLobbies: async () =>
     onlyYouthLobby
       ? [{ id: 'youth-lobby', name: 'Youth', ageRule: 'under-18' }]
-      : [],
+      : [openRatingLobby, youthRatingLobby].map(
+          ({ lobbyId: id, lobbyName: name, ageRule }) => ({
+            id,
+            name,
+            ageRule,
+          }),
+        ),
   requestRoomCreateLobbyChoice: async () => null,
   privateGroupsOffered: () => false,
   messagingFilesAvailable: () => false,

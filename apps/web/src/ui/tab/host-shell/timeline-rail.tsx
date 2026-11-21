@@ -81,7 +81,12 @@ export function TimelineRail({
           <span className="text-sm text-ink-muted">{rail.subtitle}</span>
         )}
       </div>
-      <div className="flex flex-col gap-1">
+      <div
+        className={cn(
+          'flex flex-col gap-1',
+          rail.compactTimeline && 'max-compact:hidden',
+        )}
+      >
         {rail.heading === null ? null : (
           <p className={cn('px-3', eyebrowClass)}>{rail.heading}</p>
         )}
@@ -103,7 +108,12 @@ export function TimelineRail({
         {rail.footHeading === null ? null : (
           <p className={cn('px-3', eyebrowClass)}>{rail.footHeading}</p>
         )}
-        <ul className="flex flex-col gap-1">
+        <ul
+          className={cn(
+            'flex flex-col gap-1',
+            rail.compactTimeline && 'max-compact:flex-row',
+          )}
+        >
           {rail.foot.map((item) => (
             <li key={item.id}>
               <Stop item={item} current={item.id === current} />

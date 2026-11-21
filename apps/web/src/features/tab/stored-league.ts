@@ -235,15 +235,42 @@ export function storedHostLeagueOf(
     lobby: read.rooms?.settings ?? [],
   };
 }
+const railDate = new Intl.DateTimeFormat('en-GB', {
+  day: 'numeric',
+  month: 'short',
+  timeZone: 'UTC',
+});
+
 export const storedLeagueRail = (
   handle: string,
-  read: LeagueSeasonProjection,
+  league: { readonly name: string; readonly canReadPeople: boolean },
+  read: LeagueSeasonProjection | null,
 ): TimelineRail => ({
-  title: read.view.organization.name,
-  subtitle: read.view.name,
+  title: league.name,
+  subtitle: read?.view.name ?? null,
   heading: null,
   footHeading: null,
-  items: [
+  compactTimeline: true,
+  items: (read?.view.calendar ?? []).map((row) => ({
+    id: row.lobbyId,
+    label: row.name,
+    time: null,
+    standing: row.completed
+      ? { kind: 'done' }
+      : {
+          kind: 'note',
+          text:
+            row.sanction === 'requested'
+              ? 'asks to count'
+              : row.when.precision === 'month'
+                ? row.when.month
+                : row.when.startsAt.slice(0, 10) === read?.asOf.slice(0, 10)
+                  ? 'today'
+                  : railDate.format(new Date(row.when.startsAt)),
+        },
+    action: linkTo(row.name, tabRoutes.tournament(row.handle)),
+  })),
+  foot: [
     {
       id: 'league',
       label: 'League',
@@ -251,8 +278,18 @@ export const storedLeagueRail = (
       standing: null,
       action: linkTo('League', hostRoutes.league(handle)),
     },
+    ...(league.canReadPeople
+      ? [
+          {
+            id: 'people',
+            label: 'People',
+            time: null,
+            standing: null,
+            action: linkTo('People', hostRoutes.leaguePeople(handle)),
+          },
+        ]
+      : []),
   ],
-  foot: [],
 });
 
 function templateLine(

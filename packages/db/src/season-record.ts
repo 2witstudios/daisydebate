@@ -2,10 +2,7 @@ import { desc, eq } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { seasons, type seasonStatuses } from './schema/seasons';
 
-/**
- * A season as the season operations and the standings reads return it.
- * Package-internal: `@daisy/db/seasons` re-exports only the type.
- */
+/** A season as the standings reads return it. */
 export type SeasonRecord = {
   readonly id: string;
   readonly name: string;
@@ -16,9 +13,7 @@ export type SeasonRecord = {
   readonly version: number;
 };
 
-export const toSeasonRecord = (
-  row: typeof seasons.$inferSelect,
-): SeasonRecord => ({
+const toSeasonRecord = (row: typeof seasons.$inferSelect): SeasonRecord => ({
   id: row.id,
   name: row.name,
   lobbyId: row.lobbyId,

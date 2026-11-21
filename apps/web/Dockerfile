@@ -130,7 +130,6 @@ COPY --chown=daisy:daisy packages/db/src packages/db/src
 # migrations it applies are not otherwise reachable from the runtime stage.
 COPY --chown=daisy:daisy packages/db/scripts packages/db/scripts
 # Explicit operator command; never invoked by application startup.
-COPY --chown=daisy:daisy scripts/season.ts scripts/season.ts
 COPY --chown=daisy:daisy packages/db/migrations packages/db/migrations
 COPY --chown=daisy:daisy packages/ai-voice/src packages/ai-voice/src
 COPY --chown=daisy:daisy packages/debate-engine/src packages/debate-engine/src

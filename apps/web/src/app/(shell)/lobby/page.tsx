@@ -28,7 +28,9 @@ export default async function LobbyPage({
   const identity = await requireAccess('/lobby', searchParams);
   const actorId =
     identity.state === 'member' ? identity.principal.actorId : null;
-  const parsed = parseRoomDiscoveryQuery(await searchParams);
+  const search = await searchParams;
+  const view = search.view === 'rooms' ? 'rooms' : 'people';
+  const parsed = parseRoomDiscoveryQuery(search);
   if (!parsed.success) throw createAppError('VALIDATION');
   const [ageBand, lobbies] = await Promise.all([
     requestCompetitionAgeBand(),
@@ -55,6 +57,7 @@ export default async function LobbyPage({
       <Lobby
         query={query}
         lobbies={lobbies}
+        {...(view === 'rooms' ? { view } : {})}
         rooms={listing.rooms}
         nextCursor={listing.nextCursor}
         retry={listing.retry}
@@ -67,7 +70,7 @@ export default async function LobbyPage({
   // A phone has no rail: the Lobby's switch holds the people list instead.
   return identity.state === 'member' ? (
     <LobbyViews
-      view={(await searchParams).view === 'rooms' ? 'rooms' : 'people'}
+      view={view}
       rooms={rooms}
       people={<PeoplePanel actions={personActions} />}
       onlineCount={<OnlineCount />}
