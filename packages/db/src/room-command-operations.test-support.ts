@@ -35,18 +35,6 @@ export const accountRow = (
   ageBand: 'adult',
   restricted: false,
 });
-/** The checked fact a canonical account row validates to. */
-export const factOfRow = <
-  Row extends { betaState: string | null; betaRevision: number | null },
->({
-  betaState,
-  betaRevision,
-  ...rest
-}: Row) => ({
-  ...rest,
-  beta:
-    betaState === null ? null : { state: betaState, revision: betaRevision },
-});
 export const room = {
   id: 'c7a5d3f1h9j2k4m6n8p1r3t5',
   hostActorId: caller.actorId,
