@@ -55,10 +55,12 @@ const noChallenges = {
  */
 export async function PeopleShell({
   actorId,
+  socketUrl,
   preference,
   activeRoomId,
 }: {
   readonly actorId: string;
+  readonly socketUrl: string | null;
   readonly preference: PeopleRailPreference;
   readonly activeRoomId: string | null;
 }) {
@@ -69,7 +71,6 @@ export async function PeopleShell({
     // Unread is no ladder: ranked stays off until the next render.
     requestMemberDivision().catch(() => null),
   ]);
-  const socketUrl = challenges?.socketUrl ?? null;
   return {
     preference,
     rail: (
@@ -96,8 +97,8 @@ export async function PeopleShell({
         <MessagesUnreadProvider actorId={actorId} socketUrl={socketUrl}>
           <PeopleProvider initialList={list ?? empty} socketUrl={socketUrl}>
             <ChallengeProvider
-              initialChallenges={challenges?.list ?? noChallenges}
-              actorId={challenges?.actorId ?? null}
+              initialChallenges={challenges ?? noChallenges}
+              actorId={actorId}
               socketUrl={socketUrl}
               memberDivision={memberDivision}
             >

@@ -10,6 +10,7 @@ import { expectNotInUrl } from './support/forms';
 import { effectsRan, holdScripts } from './support/hydration';
 import { controlLaunch } from './support/room-launch-settled';
 import { gotoWithTheme } from './support/theme';
+import { RAIL_COOKIE } from '../src/ui/layout/app-shell/rail-preference';
 
 /**
  * The judge's ballot (ISSUE-348): one real POST that works before and after
@@ -115,8 +116,8 @@ test.describe('actual frozen human ballots', () => {
     // A later change leaves the earlier input alone, and the refusal keeps it.
     await slider(page, 'Delivery', negativeName).fill('4');
     await expect(radio(page, negativeName)).toBeChecked();
-    const reason = 'A close round.';
-    await page.getByLabel('Reason for decision').fill(reason);
+    const reasonField = page.getByLabel('Reason for decision');
+    await reasonField.fill('A close round.');
     const refusal = page.locator('#round-ballot-refusal');
     const lowPoint = 'Confirm the low-point win, or change the scores.';
     const command = page.locator(
@@ -127,11 +128,30 @@ test.describe('actual frozen human ballots', () => {
     await expect(refusal).toHaveText(lowPoint);
     await expect(slider(page, 'Delivery', affirmativeName)).toBeVisible();
 
+    const reason = 'The negative compared the decisive impacts.';
+    await reasonField.fill(reason);
+    const expectEntries = async () => {
+      await expect(refusal).toHaveText(lowPoint);
+      await expect(command).toHaveValue(originalCommand);
+      await expect(radio(page, negativeName)).toBeChecked();
+      await expect(slider(page, 'Thesis', affirmativeName)).toHaveValue('5');
+      await expect(slider(page, 'Delivery', negativeName)).toHaveValue('4');
+      await expect(feedback).toHaveValue('Slow down.');
+      await expect(reasonField).toHaveValue(reason);
+    };
+    const rail = page.getByRole('navigation', { name: 'Primary' });
+    await expect(rail.getByRole('button', { name: 'Minimize' })).toBeVisible();
     await controlLaunch('refuse-challenge-reads');
     try {
       // Force the shell read refusal observed during the Launch-1 refresh.
       const challengeRead = await page.request.get('/api/challenges');
       expect(challengeRead.status()).toBe(503);
+      // The new rail label shows when React has applied the refreshed shell.
+      await page
+        .context()
+        .addCookies([
+          { name: RAIL_COOKIE, value: 'mini', url: new URL(page.url()).origin },
+        ]);
       const refresh = page.waitForResponse(
         (response) =>
           new URL(response.url()).pathname === path &&
@@ -142,6 +162,8 @@ test.describe('actual frozen human ballots', () => {
         .getByRole('link', { name: 'Refresh Round', exact: true })
         .click();
       expect((await refresh).status()).toBe(200);
+      await expect(rail.getByRole('button', { name: 'Expand' })).toBeVisible();
+      await expectEntries();
       const repost = page.waitForResponse(
         (response) =>
           new URL(response.url()).pathname === path &&
@@ -151,15 +173,9 @@ test.describe('actual frozen human ballots', () => {
       );
       await submit(page);
       expect((await repost).status()).toBe(200);
-      await expect(refusal).toHaveText(lowPoint);
-      await expect(command).toHaveValue(originalCommand);
+      await expectEntries();
       await expect(refusal).toBeFocused();
       await expect(slider(page, 'Delivery', affirmativeName)).toBeVisible();
-      await expect(radio(page, negativeName)).toBeChecked();
-      await expect(slider(page, 'Thesis', affirmativeName)).toHaveValue('5');
-      await expect(slider(page, 'Delivery', negativeName)).toHaveValue('4');
-      await expect(feedback).toHaveValue('Slow down.');
-      await expect(page.getByLabel('Reason for decision')).toHaveValue(reason);
       await expect(page.getByLabel('Confirm the decision')).toBeVisible();
     } finally {
       await controlLaunch('allow-challenge-reads');
