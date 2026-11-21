@@ -108,7 +108,7 @@ test(
       const unavailable = {
         kind: 'refused',
         reason: 'guardian-link-unavailable',
-      };
+      } satisfies Awaited<ReturnType<typeof sign>>;
       expect(await sign(authority)).toEqual(unavailable);
       expect(await close(authority)).toBeNull();
       await sql`update guardian_links set status = 'active', activation = 'created-account',
