@@ -147,8 +147,10 @@ export const sessionLocks = {
    */
   testRun: {
     tryTake: async (admin: SQL, name: string): Promise<boolean> => {
-      const [row]: { free: boolean }[] =
-        await admin`select pg_try_advisory_lock(hashtextextended(${name}, 0)) as free`;
+      const [row] = await query(
+        admin`select pg_try_advisory_lock(hashtextextended(${name}, 0)) as free`,
+        z.object({ free: z.boolean() }),
+      );
       return row?.free === true;
     },
     release: async (admin: SQL, name: string) => {
@@ -160,11 +162,13 @@ export const sessionLocks = {
     key: samplerLockKey,
     /** Elected when this session holds the lock already or takes it now. */
     elect: async (session: ReservedSQL): Promise<boolean> => {
-      const [row]: { elected: boolean }[] =
-        await session`select case when exists(select 1 from pg_locks
+      const [row] = await query(
+        session`select case when exists(select 1 from pg_locks
           where locktype='advisory' and pid=pg_backend_pid() and classid=0
             and objid=${samplerLockKey}::oid and objsubid=1 and granted)
-          then true else pg_try_advisory_lock(${samplerLockKey}::bigint) end as elected`;
+          then true else pg_try_advisory_lock(${samplerLockKey}::bigint) end as elected`,
+        z.object({ elected: z.boolean() }),
+      );
       return row?.elected === true;
     },
     release: async (session: ReservedSQL) => {

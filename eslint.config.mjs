@@ -557,6 +557,42 @@ const dbBoundaryRestrictions = {
   'locks.ts': dbAdvisoryLockRestrictions,
 };
 
+const dbNativeRowsPlugin = {
+  rules: {
+    'require-query': {
+      meta: {
+        messages: { boundary: 'Validate native database rows with query.' },
+      },
+      create(context) {
+        return {
+          AwaitExpression(node) {
+            if (node.parent.type === 'ExpressionStatement') return;
+            const statement = node.argument;
+            // The bounded writer and watchdog read COMMIT command metadata,
+            // which Bun returns on the result rather than in a row.
+            const nativeRead =
+              statement.type === 'TaggedTemplateExpression' &&
+              !(
+                statement.quasi.expressions.length === 0 &&
+                statement.quasi.quasis[0]?.value.raw === 'commit'
+              );
+            const rawCall =
+              statement.type === 'CallExpression' &&
+              statement.callee.type === 'MemberExpression' &&
+              (statement.callee.computed
+                ? statement.callee.property.type === 'Literal' &&
+                  statement.callee.property.value === 'unsafe'
+                : statement.callee.property.type === 'Identifier' &&
+                  statement.callee.property.name === 'unsafe');
+            if (nativeRead || rawCall)
+              context.report({ node, messageId: 'boundary' });
+          },
+        };
+      },
+    },
+  },
+};
+
 /**
  * The rules that read types. They run on workspace source only, which a
  * TypeScript project owns; a probe under an invented path turns them off
@@ -986,6 +1022,19 @@ export default [
       ],
     },
   })),
+  {
+    files: ['packages/db/src/**/*.ts'],
+    ignores: [
+      'packages/db/src/raw-rows.ts',
+      'packages/db/src/**/testing*.ts',
+      'packages/db/src/**/*-testing.ts',
+      'packages/db/src/**/*-fixture.ts',
+      'packages/db/src/**/*.test.ts',
+      'packages/db/src/**/*.test-support.ts',
+    ],
+    plugins: { 'db-native-rows': dbNativeRowsPlugin },
+    rules: { 'db-native-rows/require-query': 'error' },
+  },
   {
     files: ['apps/web/src/app/**/route.ts', 'apps/web/src/app/**/actions.ts'],
     rules: {

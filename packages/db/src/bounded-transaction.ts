@@ -16,6 +16,8 @@ import {
   type OwnedBackend,
 } from './transaction-watchdog';
 import type { Tx } from './tx';
+import { z } from 'zod';
+import { query } from './raw-rows';
 
 const TRANSACTION_MS = 3000;
 /** A writer's work connection plus the watchdog that can terminate it. */
@@ -95,12 +97,17 @@ class TransactionAttempt {
     const writer = await this.client.reserve(options);
     this.work = writer;
     this.checkBudget();
-    const [identity] = await this.work<
-      (OwnedBackend & { receivedAt: string })[]
-    >`select pg_backend_pid() as pid,
+    const [identity] = await query(
+      writer`select pg_backend_pid() as pid,
       backend_start::text as started,
       to_char(statement_timestamp() at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as "receivedAt"
-      from pg_stat_activity where pid=pg_backend_pid()`;
+      from pg_stat_activity where pid=pg_backend_pid()`,
+      z.object({
+        pid: z.int().positive(),
+        started: z.string(),
+        receivedAt: z.string(),
+      }),
+    );
     if (!identity)
       throw createAppError('INFRASTRUCTURE', 'Transaction backend unavailable');
     this.backend = { pid: identity.pid, started: identity.started };

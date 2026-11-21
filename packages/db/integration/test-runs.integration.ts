@@ -110,8 +110,21 @@ test(
   'ISSUE-238: rows written to a killed run’s database vanish with it',
   async () => {
     const sweeper = connect('postgres');
+    const observer = connect('postgres');
     const run = await startRun();
+    const canTakeRunLock = async () => {
+      const [row] =
+        await observer`select pg_try_advisory_lock(hashtextextended(${run.name}, 0)) as free`;
+      if (row?.free)
+        await observer`select pg_advisory_unlock(hashtextextended(${run.name}, 0))`;
+      return row?.free === true;
+    };
     try {
+      const [sweeperBackend] = await sweeper`select pg_backend_pid() as pid`;
+      const [observerBackend] = await observer`select pg_backend_pid() as pid`;
+      if (!sweeperBackend || !observerBackend)
+        throw new Error('Expected both proof backends');
+      const freeWhileRunning = await canTakeRunLock();
       const inRun = connect(run.name);
       await inRun`create table leaked (id int)`;
       await inRun`insert into leaked select generate_series(1, 730)`;
@@ -119,14 +132,8 @@ test(
       await run.runner.close();
       // Wait until Postgres has freed the dead runner's lock, so that only
       // the open suite connection can be what keeps the database.
-      const key = `hashtextextended('${run.name}', 0)`;
       const deadline = Date.now() + 5_000;
-      for (;;) {
-        const [{ free }] = (await sweeper.unsafe(
-          `select pg_try_advisory_lock(${key}) as free`,
-        )) as [{ free: boolean }];
-        if (free) await sweeper.unsafe(`select pg_advisory_unlock(${key})`);
-        if (free || Date.now() > deadline) break;
+      while (!(await canTakeRunLock()) && Date.now() < deadline) {
         await Bun.sleep(25);
       }
       const whileConnected = await sweepTestRunDatabases(
@@ -135,10 +142,7 @@ test(
         RUN_BOUND,
       );
       const keptWhileConnected = await exists(sweeper, run.name);
-      const [afterSweep] =
-        await sweeper`select pg_try_advisory_lock(hashtextextended(${run.name}, 0)) as free`;
-      if (afterSweep?.free)
-        await sweeper`select pg_advisory_unlock(hashtextextended(${run.name}, 0))`;
+      const releasedAfterSweep = await canTakeRunLock();
 
       await inRun.close();
 
@@ -150,13 +154,17 @@ test(
         should:
           'be kept while the suite is connected (a live run that lost its lock is never dropped under it), then dropped with its rows once the connection ends',
         actual: {
+          distinctBackends: sweeperBackend.pid !== observerBackend.pid,
+          freeWhileRunning,
           whileConnected,
           keptWhileConnected,
-          releasedAfterSweep: afterSweep?.free,
+          releasedAfterSweep,
           dropped,
           left: await exists(sweeper, run.name),
         },
         expected: {
+          distinctBackends: true,
+          freeWhileRunning: false,
           whileConnected: [],
           keptWhileConnected: true,
           releasedAfterSweep: true,
@@ -167,6 +175,7 @@ test(
     } finally {
       await dropAllTestRunDatabases(sweeper, base);
       await sweeper.close();
+      await observer.close();
     }
   },
   ddlTimeoutMs,

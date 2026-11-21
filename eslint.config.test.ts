@@ -595,4 +595,48 @@ describe('database statement and lock boundaries', () => {
       expected,
     });
   });
+
+  test('routes consumed native rows through query', async () => {
+    const lint = repositoryEslint();
+    const feature = 'packages/db/src/availability-operations.ts';
+    const rule = 'db-native-rows/require-query';
+    const tagged = 'export const rows = await client`select 1 as value`;';
+    const cases = [
+      [tagged, feature],
+      [
+        "export const rows = await client.unsafe('select 1 as value');",
+        feature,
+      ],
+      [
+        "export const rows = await client['unsafe']('select 1 as value');",
+        feature,
+      ],
+      [
+        'export const rows = await query(client`select 1 as value`, schema);',
+        feature,
+      ],
+      ['await client`delete from fixture`;', feature],
+      [
+        'export const receipt = await writer`commit`;',
+        'packages/db/src/bounded-transaction.ts',
+      ],
+      [tagged, 'packages/db/integration/probe.integration.ts'],
+    ] as const;
+    const errors = await Promise.all(
+      cases.map(async ([code, filePath]) => {
+        const [result] = await lint.lintText(code, { filePath });
+        return (
+          result?.messages.filter(({ ruleId }) => ruleId === rule).length ?? 0
+        );
+      }),
+    );
+    assert({
+      given:
+        'native row reads, parsed rows, discarded results and commit metadata',
+      should:
+        'require the query boundary where runtime code consumes native rows',
+      actual: errors,
+      expected: [1, 1, 1, 0, 0, 0, 0],
+    });
+  });
 });
