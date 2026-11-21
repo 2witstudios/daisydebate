@@ -1,6 +1,6 @@
 # Ranked content waiver — not reviewed by counsel
 
-**Not reviewed by counsel.** Version `draft-3`. This file is the source of truth for the wording; the app shows the same text from `apps/web/src/features/legal/agreements.ts`, without the placeholders, and a change to one changes the other and the version. Owner decisions of 2026-11-02 set the deal. Legal review blocks nothing: counsel can review this at any time, and the wording may change after that.
+**Not reviewed by counsel.** Version `draft-5`. This file is the source of truth for the wording; the app shows the same text from `apps/web/src/features/legal/agreements.ts`, without the placeholders, and a change to one changes the other and the version. Owner decisions of 2026-11-02 set the deal. Legal review blocks nothing: counsel can review this at any time, and the wording may change after that.
 
 Placeholders: **[COUNSEL: …]** is a question for counsel's review. An open one holds nothing back.
 
@@ -12,11 +12,15 @@ Ranked rounds are always public, and they are broadcast and recorded. If every c
 
 ## In-round content
 
-Daisy owns what is said and shown in a ranked round, including its video and transcript. [COUNSEL: the form of the grant: assignment, exclusive licence or other.] It stays after you close your account, because ranked season rounds are qualifying artifacts for tournaments.
+Daisy owns what is said and shown by adult debaters in a ranked round, including their contributions to its video and transcript. [COUNSEL: the form of the grant: assignment, exclusive licence or other.] The round stays after you close your account, because ranked season rounds are qualifying artifacts for tournaments.
+
+## Youth debaters
+
+For a debater under 18, this waiver covers ranked play, public viewing on Daisy and keeping the round on Daisy. It gives Daisy no ownership of that debater’s contribution. Clipping, streaming, posting or otherwise reusing the round requires a separate media release covering every youth debater in it, including in an adult lobby.
 
 ## Clips and other media
 
-Daisy may edit ranked rounds into clips and other media, and use your name and likeness in them, to broadcast and promote ranked play. This includes clips made by hand from this release on. [COUNSEL: name-and-likeness wording, by jurisdiction, and for members under 18.]
+Where the Youth debaters section permits reuse, Daisy may edit ranked rounds into clips and other media, and use your name and likeness in them, to broadcast and promote ranked play. This includes clips made by hand from this release on. [COUNSEL: name-and-likeness wording, by jurisdiction.]
 
 ## Payment
 

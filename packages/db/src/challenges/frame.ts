@@ -1,12 +1,10 @@
 import { rankedProtectionAllows } from '../guardians/ranked-protection';
 import { and, eq, or, sql } from 'drizzle-orm';
 import { createAppError, createRefusal } from '@daisy/errors';
-import { divisionAgeBand } from '../ladder-division-band';
-import { sharedChallengeLobby } from './lobby';
+import { readChallengeDebaters, sharedChallengeLobby } from './lobby';
 import { readOfficialStandingLobbies } from '../official-standing-lobbies';
 import {
   buildUserInboxTopic,
-  ageBands,
   idSchema,
   type RatingStyle,
   type CompetitionType,
@@ -123,10 +121,13 @@ async function pairLobby(
 ): Promise<string | null> {
   const members = await query(
     tx,
-    z.object({ id: z.string(), ageBand: z.enum(ageBands).nullable() }),
-    sql`select member.id, ${divisionAgeBand()} as "ageBand"
-      from actors member left join account_age on account_age.user_id=member.user_id
-      where member.id in (${challenger}, ${challenged})`,
+    z.object({
+      id: z.string(),
+      userId: z.string(),
+    }),
+    sql`select member.id, member.user_id as "userId"
+      from actors member
+      where member.user_id is not null and member.id in (${challenger}, ${challenged})`,
   );
   const first = members.find(({ id }) => id === challenger);
   const second = members.find(({ id }) => id === challenged);
@@ -134,10 +135,16 @@ async function pairLobby(
   const choices = (await readOfficialStandingLobbies(tx)).filter(
     (lobby) => lobbyId === undefined || lobby.id === lobbyId,
   );
-  return (
-    sharedChallengeLobby(choices, first.ageBand, second.ageBand, mode)?.id ??
-    null
+  const debaters = await readChallengeDebaters(
+    tx,
+    [first.userId, second.userId],
+    choices,
   );
+  const firstFacts = debaters.get(first.userId);
+  const secondFacts = debaters.get(second.userId);
+  return firstFacts && secondFacts
+    ? (sharedChallengeLobby(choices, firstFacts, secondFacts, mode)?.id ?? null)
+    : null;
 }
 
 /**

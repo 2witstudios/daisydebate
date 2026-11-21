@@ -80,6 +80,7 @@ import {
 import { mediaCaptureOperations } from './media-capture';
 import { roundSpeakingRead } from './round-speaking-read';
 import { createBoundedTransaction } from './bounded-transaction';
+import { inTransaction } from './tx';
 import { readRatingCandidates, readRatingFacts } from './rating-discovery';
 import {
   deliverObservationPurges,
@@ -160,6 +161,11 @@ import { documentOperations } from './document-operations';
 import { onboardingOperations } from './onboarding-operations';
 import { ageStepOperations } from './age-step';
 import { expireGuardianRequests } from './guardians/retention';
+import {
+  readGuardianLobbyIds,
+  hasGuardianLobbyWaiver,
+} from './guardians/lobby-permissions';
+import { createLobbyPermissionStore } from './guardians/lobby-requests';
 import { createGuardianStore } from './guardians/store';
 export type { GuardianLinkRow, GuardianSession } from './guardians/store';
 import { actorOperations } from './actor-operations';
@@ -450,6 +456,7 @@ export function createDatabase({
     /** Daisy Tab's commands and reads, each in one transaction fenced to its tenant. */
     tabCommands: createTabStore(database),
     guardians: createGuardianStore(control),
+    lobbyPermissions: createLobbyPermissionStore(control),
     expireGuardianRequests: (limit: number) =>
       expireGuardianRequests(control, limit),
     ...friendshipReadOperations({ database: social, eventSink }),
@@ -562,11 +569,18 @@ export function createDatabase({
     ...memberProfileReadOperations({ database: browse, eventSink }),
     ...spectatorTimelineReads({ database: audience, eventSink }),
     ...liveBroadcastReads({ database: audience }),
+    readGuardianLobbyIds: (userId: string) =>
+      inTransaction(browse, (tx) => readGuardianLobbyIds(tx, userId)),
+    hasGuardianLobbyWaiver: (
+      input: Parameters<typeof hasGuardianLobbyWaiver>[1],
+    ) => inTransaction(browse, (tx) => hasGuardianLobbyWaiver(tx, input)),
     readOfficialStandingLobbies: () => readOfficialStandingLobbies(browse),
     readProfileChallengeModes: (userId: string, username: string) =>
-      readProfileChallengeModes(browse, userId, username),
-    readCompetitionAgeBand: (userId: string) =>
-      readCompetitionAgeBand(browse, userId),
+      inTransaction(browse, (tx) =>
+        readProfileChallengeModes(tx, userId, username),
+      ),
+    readCompetitionAgeBand: (userId: string, lobbyId?: string) =>
+      readCompetitionAgeBand(browse, userId, lobbyId),
     ...watchableRoundOfRoomRead({ database }),
     ...audienceSnapshotReads({ database: audience, eventSink }),
     ...spectatorChatOperations({ database: social, eventSink }),

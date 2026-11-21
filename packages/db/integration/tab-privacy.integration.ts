@@ -141,6 +141,7 @@ test('closing an account ends its authority everywhere and keeps the tournament 
           guardian_links: [],
           guardian_consent_evidence: [],
           restriction_lobbies: [],
+          restriction_lobby_waivers: [],
         },
       },
     });

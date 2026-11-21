@@ -1,61 +1,130 @@
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import {
+  ageBands,
   competitionTypes,
-  type AgeBand,
   type CompetitionType,
 } from '@daisy/protocol';
+import { z } from 'zod';
 import {
   defaultStandingLobby,
   mayDebate,
   type StandingLobbyChoice,
 } from '@daisy/protocol/lobby/eligibility';
-import {
-  divisionAgeBand,
-  readCompetitionAgeBand,
-} from '../ladder-division-band';
+import { divisionAgeBand } from '../ladder-division-band';
 import { readOfficialStandingLobbies } from '../official-standing-lobbies';
+import {
+  isMinorAgeBand,
+  readGuardianLobbyIds,
+} from '../guardians/lobby-permissions';
+import type { AgeBand } from '@daisy/protocol';
 import { actors } from '../schema/actors';
-import { accountAge } from '../schema/account-age';
+import { query } from '../raw-rows';
 import { users } from '../schema/users';
 import type { Tx } from '../tx';
 
+type ChallengeDebater = {
+  readonly preferredAgeBand: AgeBand | null;
+  readonly ageByLobby: ReadonlyMap<string, AgeBand | null>;
+  readonly guardianLobbyIds: readonly string[];
+};
+
 export const sharedChallengeLobby = (
   choices: readonly StandingLobbyChoice[],
-  first: AgeBand | null,
-  second: AgeBand | null,
+  first: ChallengeDebater,
+  second: ChallengeDebater,
   mode: CompetitionType,
-) =>
-  defaultStandingLobby(
-    choices.filter((lobby) =>
-      [first, second].every((ageBand) =>
-        mayDebate(
-          { ageBand, guardianAllowed: false },
-          { ageRule: lobby.ageRule, competitionType: mode },
-        ),
+) => {
+  const shared = choices.filter((lobby) =>
+    [first, second].every((member) =>
+      mayDebate(
+        {
+          ageBand: member.ageByLobby.get(lobby.id) ?? null,
+          guardianLobbyIds: member.guardianLobbyIds,
+        },
+        {
+          lobbyId: lobby.id,
+          ageRule: lobby.ageRule,
+          competitionType: mode,
+        },
       ),
     ),
-    first,
   );
+  return (
+    defaultStandingLobby(shared, first.preferredAgeBand) ?? shared[0] ?? null
+  );
+};
 
 export const challengeModes = (
   choices: readonly StandingLobbyChoice[],
-  own: AgeBand | null,
-  their: AgeBand | null,
+  own: ChallengeDebater | undefined,
+  their: ChallengeDebater | undefined,
 ) =>
-  competitionTypes.filter((mode) =>
-    sharedChallengeLobby(choices, own, their, mode),
+  own && their
+    ? competitionTypes.filter((mode) =>
+        sharedChallengeLobby(choices, own, their, mode),
+      )
+    : [];
+
+/** Read each candidate's age using that candidate's season, with one query
+ * for the whole pair or People page. The default band only orders choices. */
+export async function readChallengeDebaters(
+  tx: Pick<Tx, 'execute'>,
+  userIds: readonly string[],
+  choices: readonly StandingLobbyChoice[],
+): Promise<ReadonlyMap<string, ChallengeDebater>> {
+  const result = new Map<string, ChallengeDebater>();
+  if (userIds.length === 0 || choices.length === 0) return result;
+  const rows = await query(
+    tx,
+    z.object({
+      userId: z.string(),
+      lobbyId: z.string(),
+      ageBand: z.enum(ageBands).nullable(),
+      preferredAgeBand: z.enum(ageBands).nullable(),
+    }),
+    sql`select subject.user_id as "userId", lobby.id as "lobbyId",
+           ${divisionAgeBand(sql`lobby.id`)} as "ageBand",
+           ${divisionAgeBand()} as "preferredAgeBand"
+    from (values ${sql.join(
+      userIds.map((id) => sql`(${id}::text)`),
+      sql`, `,
+    )}) subject(user_id)
+    cross join lobbies lobby
+    left join account_age on account_age.user_id = subject.user_id
+    where lobby.id in (${sql.join(
+      choices.map(({ id }) => sql`${id}`),
+      sql`, `,
+    )})`,
   );
+  const subjects = new Map<string, typeof rows>();
+  for (const row of rows) {
+    const bands = subjects.get(row.userId);
+    if (bands) bands.push(row);
+    else subjects.set(row.userId, [row]);
+  }
+  for (const [userId, bands] of subjects) {
+    result.set(userId, {
+      preferredAgeBand: bands[0]?.preferredAgeBand ?? null,
+      ageByLobby: new Map(
+        bands.map(({ lobbyId, ageBand }) => [lobbyId, ageBand]),
+      ),
+      guardianLobbyIds: bands.some(({ ageBand }) => isMinorAgeBand(ageBand))
+        ? await readGuardianLobbyIds(tx, userId)
+        : [],
+    });
+  }
+  return result;
+}
 
 export async function readProfileChallengeModes(
-  tx: Pick<Tx, 'select'>,
+  tx: Pick<Tx, 'select' | 'execute'>,
   userId: string,
   username: string,
 ): Promise<readonly CompetitionType[]> {
   const [other] = await tx
-    .select({ ageBand: divisionAgeBand() })
+    .select({ userId: users.id })
     .from(users)
     .innerJoin(actors, eq(actors.userId, users.id))
-    .leftJoin(accountAge, eq(accountAge.userId, users.id))
     .where(
       and(
         isNull(users.deletedAt),
@@ -71,9 +140,15 @@ export async function readProfileChallengeModes(
       ),
     );
   if (!other) return [];
+  const lobbies = await readOfficialStandingLobbies(tx);
+  const debaters = await readChallengeDebaters(
+    tx,
+    [userId, other.userId],
+    lobbies,
+  );
   return challengeModes(
-    await readOfficialStandingLobbies(tx),
-    await readCompetitionAgeBand(tx, userId),
-    other.ageBand,
+    lobbies,
+    debaters.get(userId),
+    debaters.get(other.userId),
   );
 }

@@ -19,8 +19,8 @@ export const youthRoundSql = (roundId: SQL): SQL<boolean> =>
  * `@daisy/protocol/media-release`: a Youth Round is fenced unless it has a
  * youth debater (a person in a current debating seat) and every one of them
  * holds an active release at a wording that licenses reuse. Download and
- * Stream this Round ask it; viewing never does. Missing age evidence in an
- * anyone lobby leaves reuse fenced even if the stored age was erased.
+ * Stream this Round ask it; viewing never does. Missing age evidence leaves
+ * reuse fenced for anyone lobbies and adult-lobby Rounds that froze a youth cast.
  */
 export const youthReuseFencedSql = (roundId: SQL): SQL<boolean> =>
   sql<boolean>`(public.daisy_round_reuse_age_unknown(${roundId}) or (${youthRoundSql(roundId)} and (with debaters as (

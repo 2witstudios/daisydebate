@@ -1,3 +1,4 @@
+import { isMinorAgeBand } from './guardians/lobby-permissions';
 import { and, eq, sql } from 'drizzle-orm';
 import type {
   RoomAssemblyState,
@@ -86,6 +87,7 @@ export const sharedAccount = async (
   return authorizationAccountFact(rows[0] ?? null);
 };
 export type Actor = {
+  readonly guardianLobbyIds?: readonly string[] | undefined;
   readonly actorId: string;
   readonly kind: RoomParticipant['kind'];
   readonly label: string;
@@ -110,6 +112,10 @@ const aiRoleOf = (
 export const actorFact = async (
   tx: Tx,
   actorId: string,
+  eligibility?: {
+    readonly lobbyId: string;
+    readonly readPermissions: (userId: string) => Promise<readonly string[]>;
+  },
 ): Promise<Actor | null> => {
   const [row] = await tx
     .select({
@@ -120,7 +126,8 @@ export const actorFact = async (
       verified: users.emailVerified,
       botName: botProfiles.name,
       judgeName: aiJudgeProfiles.name,
-      ageBand: divisionAgeBand(),
+      ageBand: divisionAgeBand(eligibility?.lobbyId),
+      ...(eligibility ? { userId: actors.userId } : {}),
     })
     .from(actors)
     .leftJoin(users, eq(users.id, actors.userId))
@@ -139,6 +146,9 @@ export const actorFact = async (
         row.username !== null &&
         row.deletedAt === null,
       ageBand: row.ageBand,
+      ...(eligibility && row.userId && isMinorAgeBand(row.ageBand)
+        ? { guardianLobbyIds: await eligibility.readPermissions(row.userId) }
+        : {}),
       aiRole: null,
     };
   const aiRole = aiRoleOf(row.botName, row.judgeName);

@@ -292,6 +292,15 @@ test('daisy_web has the exact runtime DML scope on every public table and sequen
           and not has_table_privilege('daisy_web', c.oid, 'INSERT')
           and not has_table_privilege('daisy_web', c.oid, 'UPDATE')
           and not has_table_privilege('daisy_web', c.oid, 'DELETE')
+        when c.relname = 'restriction_lobby_waivers' then
+          has_table_privilege('daisy_web', c.oid, 'SELECT')
+          and not has_table_privilege('daisy_web', c.oid, 'INSERT,UPDATE,DELETE')
+          and (select bool_and(
+            has_column_privilege('daisy_web', c.oid, a.attnum, 'INSERT') = (a.attname in (
+              'guardian_link_id', 'guardian_user_id', 'minor_user_id', 'lobby_id',
+              'season_id', 'waiver_version', 'waiver_digest'
+            )) and not has_column_privilege('daisy_web', c.oid, a.attnum, 'UPDATE')
+          ) from pg_attribute a where a.attrelid = c.oid and a.attnum > 0 and not a.attisdropped)
         else
           has_table_privilege('daisy_web', c.oid, 'SELECT')
           and has_table_privilege('daisy_web', c.oid, 'INSERT')

@@ -1,14 +1,14 @@
 # Ranked content policy — not reviewed by counsel
 
-**Not reviewed by counsel.** Version `draft-4`. The app shows the same text from `apps/web/src/features/legal/agreements.ts`, without the placeholders. Owner decisions of 2026-11-02 set the intent. Legal review blocks nothing: counsel can review this at any time, and the wording may change after that.
+**Not reviewed by counsel.** Version `draft-5`. The app shows the same text from `apps/web/src/features/legal/agreements.ts`, without the placeholders. Owner decisions of 2026-11-02 set the intent. Legal review blocks nothing: counsel can review this at any time, and the wording may change after that.
 
 ## Stream and post it
 
-Anyone may stream and post ranked rounds, with or without an account, anywhere. You may earn from it, and Daisy charges no royalty. We ask for good faith: say where it came from, and do not present it as something it was not.
+Anyone may stream and post ranked rounds covered by this policy, with or without an account, anywhere. You may earn from it, and Daisy charges no royalty. We ask for good faith: say where it came from, and do not present it as something it was not.
 
 ## Stream this Round
 
-The easiest way to stream a ranked round is Stream this Round: the round's page on Daisy offers its official feed, with Daisy's branding and a link back already in the video, and needs no stream key from Daisy. Add your own camera and commentary if you like. On the ranked ladder you may also stream with your own tools or by screen capture.
+For ranked rounds covered by this policy, the easiest way to stream is Stream this Round. The round's page on Daisy offers its official feed, with Daisy's branding and a link back already in the video, and needs no stream key from Daisy. Add your own camera and commentary if you like. You may also stream eligible rounds with your own tools or by screen capture, subject to the Youth rounds section.
 
 ## What Daisy keeps
 
@@ -24,4 +24,4 @@ This policy does not cover non-ranked rounds. Their content stays with their par
 
 ## Youth rounds
 
-This policy does not cover a round with a debater in the Youth lobby. Its content may be streamed, posted or reused only while a media release covers every youth debater in it, and Daisy offers no Stream this Round feed of it until then.
+This policy does not grant permission to stream, post or reuse a round with a debater under 18, including in an adult lobby. That requires a separate media release covering every youth debater in the round. Until then, Daisy offers no download or Stream this Round feed.

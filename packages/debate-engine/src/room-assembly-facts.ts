@@ -1,3 +1,4 @@
+import type { DebaterEligibility } from '@daisy/protocol/lobby/eligibility';
 import { topicInvariantHolds } from './resolution-draw';
 import type {
   RoomAssemblyState,
@@ -6,7 +7,6 @@ import type {
   RoomParticipant,
   RoomRefusal,
   AiRole,
-  AgeBand,
 } from '@daisy/protocol';
 import {
   formatDefinitionSchema,
@@ -19,15 +19,15 @@ import { activeRoomMembers } from './room-membership';
 import type { FormatSelectionFacts } from './format-selection';
 import type { DrawStartFacts } from './room-draw-start';
 
-type Target = RoomParticipant & {
-  readonly eligible: boolean;
-  readonly ageBand: AgeBand | null;
-  /**
-   * Which AI the actor is (ISSUE-750), and so which seats it may hold: a bot
-   * debater a competitor's, the AI judge a judge's. Null for a human.
-   */
-  readonly aiRole: AiRole | null;
-};
+type Target = RoomParticipant &
+  DebaterEligibility & {
+    readonly eligible: boolean;
+    /**
+     * Which AI the actor is (ISSUE-750), and so which seats it may hold: a bot
+     * debater a competitor's, the AI judge a judge's. Null for a human.
+     */
+    readonly aiRole: AiRole | null;
+  };
 export type Edges = {
   /** A trusted adapter's exact direction, checked against the real caller and Room. */
   readonly direction?: {

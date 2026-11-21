@@ -279,19 +279,15 @@ const seatAdmission = (
     return 'actor-ineligible';
   if (unassignableHuman(room, actorId, command.type, target))
     return 'actor-ineligible';
-  // Debater seats are for the Room's own lobby, judges for anyone (ADR 0162):
-  // a member's claim and a host's assignment alike. An event Room (no host
-  // person) seats its organiser's cast, whose entries were already admitted
-  // to the event's division aged on its first day (ADR 0149 PYL-16).
+  // Standing lobby eligibility covers self-claims and host assignments.
+  // Event Room casts have already been admitted through tournament enrollment.
   if (
     room.hostActorId === null ||
     !isDebatingSeat(command.seat) ||
     target.kind === 'bot'
   )
     return null;
-  return mayDebate({ ageBand: target.ageBand, guardianAllowed: false }, room)
-    ? null
-    : 'other-division';
+  return mayDebate(target, room) ? null : 'other-division';
 };
 export const claimSeat = (
   room: RoomAssemblyState,
