@@ -54,7 +54,7 @@ async function loadStandingLobbies(tx: Tx, organizationId: string) {
 
 export const createStandingLobbyManagementStore = (database: TxOpener) => ({
   hostedLeagueCandidates: (viewerUserId: string) =>
-    inTransaction(database,async (tx) => {
+    inTransaction(database, async (tx) => {
       await scopeTransaction(tx, { subjectUserId: viewerUserId });
       const assigned = tx
         .select({ id: grants.organizationId })
@@ -89,7 +89,7 @@ export const createStandingLobbyManagementStore = (database: TxOpener) => ({
       read: () => ReturnType<typeof loadStandingLobbies>,
     ) => Promise<Answer>,
   ) =>
-    inTransaction(database,async (tx) => {
+    inTransaction(database, async (tx) => {
       const scope = await fenceOrganizationRead(tx, input);
       const [organization] = await tx
         .select({ name: organizations.name })

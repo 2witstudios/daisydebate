@@ -21,14 +21,22 @@ export async function findActiveGuardianChild(
 ) {
   await scopeTransaction(tx, { subjectUserId: guardian.userId });
   const readLink = async () => {
-    const [link] = await query(tx, z.object({userId:z.string(),actorId:z.string(),username:z.string().nullable()}), sql`
+    const [link] = await query(
+      tx,
+      z.object({
+        userId: z.string(),
+        actorId: z.string(),
+        username: z.string().nullable(),
+      }),
+      sql`
       select l.minor_user_id as "userId", a.id as "actorId", u.username
       from guardian_links l
       join actors a on a.user_id = l.minor_user_id
       join users u on u.id = l.minor_user_id
       where l.id = ${linkId} and l.guardian_user_id = ${guardian.userId}
         and l.status = 'active'
-    `);
+    `,
+    );
     return link;
   };
   try {
