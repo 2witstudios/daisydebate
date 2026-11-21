@@ -12,6 +12,132 @@ import { invalidateChannelInboxes } from '../src/messaging/inbox-change';
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
 
+test('send binds a real observed receipt, advances once and refuses protected discovery without authority', async () => {
+  const client = new SQL(databaseUrl);
+  const fixture = await createMessagingTestFixture(client);
+  const { actorId, userId, channelId, now } = fixture;
+  const scope = { actorId, userId, channelId };
+  const statements: string[] = [];
+  const database = drizzle({
+    client,
+    logger: { logQuery: (query) => statements.push(query.trim()) },
+  });
+  const requestId = createId();
+  const messageId = createId();
+  const command = {
+    version: 1 as const,
+    channelId,
+    requestId,
+    text: 'Proof send',
+  };
+  let checks = 0;
+  const allow = createMessagingStore({
+    database,
+    authorize: async () => {
+      checks++;
+    },
+  });
+  const deny = createMessagingStore({
+    database,
+    authorize: async () => {
+      throw createAppError('AUTHORIZATION');
+    },
+  });
+  try {
+    await assertRejects({
+      given: 'fresh authority loss',
+      should: 'refuse before receipt discovery',
+      actual: () =>
+        deny.withChannel(scope, (frame) => frame.readSendState(command)),
+      code: 'AUTHORIZATION',
+    });
+    const blocked = statements.splice(0);
+    await allow.withChannel(scope, async (frame) => {
+      for (const invalid of [
+        { ...command, channelId: createId() },
+        { ...command, requestId: 'invalid' },
+      ])
+        await assertRejects({
+          given: 'foreign channel or invalid receipt',
+          should: 'refuse before receipt discovery',
+          actual: () => frame.readSendState(invalid),
+          code: 'VALIDATION',
+        });
+    });
+    const malformed = statements.splice(0);
+    checks = 0;
+    const written = await allow.withChannel(scope, async (frame) => {
+      const plan = {
+        kind: 'create' as const,
+        message: {
+          id: messageId,
+          channelId,
+          authorActorId: actorId,
+          sequence: 1,
+          changeVersion: 1,
+          text: command.text,
+          createdAt: now,
+          editedAt: null,
+          removedAt: null,
+        },
+        receipt: { messageId, payloadDigest: 'd'.repeat(64) },
+      };
+      await assertRejects({
+        given: 'a plan without a read receipt in this frame',
+        should: 'refuse an unbound send',
+        actual: () => frame.commitSend(plan),
+        code: 'CONFLICT',
+      });
+      const state = await frame.readSendState(command);
+      await assertRejects({
+        given: 'an observed plan with an unrelated actor',
+        should: 'refuse mismatched message provenance',
+        actual: () =>
+          frame.commitSend({
+            ...plan,
+            message: { ...plan.message, authorActorId: createId() },
+          }),
+        code: 'CONFLICT',
+      });
+      await frame.commitSend(plan);
+      return [
+        state.receipt,
+        state.existingMessage,
+        state.reply,
+        frame.counters,
+      ];
+    });
+    const [stored] =
+      await client`select m.text, m.sequence::int as sequence, m.change_version::int as version, r.message_id from messaging_messages m join messaging_receipts r on r.message_id=m.id where r.request_id=${requestId}`;
+    const [channelBells] =
+      await client`select count(*)::int as count from outbox where topic=${`channel:${channelId}`}`;
+    assert({
+      given: 'refusal, malformed requests and one valid send in a real channel',
+      should:
+        'leave protected reads untouched on refusal and persist exactly the observed receipt and counter advance without a channel bell',
+      actual: [
+        [blocked, malformed].map((rows) =>
+          rows.some((query) => query.includes('messaging_receipts')),
+        ),
+        written,
+        checks,
+        stored,
+        channelBells?.count,
+      ],
+      expected: [
+        [false, false],
+        [null, null, null, { channelId, messageSequence: 1, changeVersion: 1 }],
+        4,
+        { text: command.text, sequence: 1, version: 1, message_id: messageId },
+        0,
+      ],
+    });
+  } finally {
+    await fixture.cleanup();
+    await client.close();
+  }
+});
+
 test('fresh messaging transactions bind the canonical actor and acquire current authority', async () => {
   const client = new SQL(databaseUrl);
   const database = drizzle({ client });
