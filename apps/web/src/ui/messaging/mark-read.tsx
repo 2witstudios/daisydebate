@@ -1,5 +1,7 @@
 'use client';
-import { useEffect } from 'react';
+import { useBrowserEffect } from '../edge/browser-sync';
+import { browserFetch } from '../edge/browser-request';
+
 import { messagingMarkReadBody } from '../../features/messaging/mark-read';
 
 /**
@@ -14,8 +16,8 @@ export function MarkConversationRead({
   readonly channelId: string;
   readonly sequence: number;
 }) {
-  useEffect(() => {
-    void fetch('/api/messaging/read', {
+  useBrowserEffect(() => {
+    void browserFetch('/api/messaging/read', {
       method: 'POST',
       credentials: 'same-origin',
       headers: { 'content-type': 'application/json' },

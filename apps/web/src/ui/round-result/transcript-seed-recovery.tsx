@@ -1,5 +1,10 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useBrowserEffect } from '../edge/browser-sync';
+import { currentBrowserFetch } from '../edge/browser-request';
+import { scheduleDelay } from '../edge/browser-time';
+import { StatusRegion } from '../components/status-region/status-region';
+import { Button } from '../components/button/button';
+import { useState } from 'react';
 import { readTranscript } from '../../features/round-runtime/read-transcript';
 import {
   askForTranscriptSeed,
@@ -25,13 +30,12 @@ export function TranscriptSeedRecovery({
   readonly placement: TranscriptPlacement;
 }) {
   const [state, setState] = useState<TranscriptSeed>({ kind: 'asking' });
-  useEffect(
+  useBrowserEffect(
     () =>
       askForTranscriptSeed({
-        read: () => readTranscript(window.fetch.bind(window), roundId),
+        read: () => readTranscript(currentBrowserFetch(), roundId),
         schedule: (attempt, asked) => {
-          const timer = window.setTimeout(attempt, nextAskMs(asked));
-          return () => window.clearTimeout(timer);
+          return scheduleDelay(attempt, nextAskMs(asked));
         },
         settled: setState,
       }),
@@ -66,25 +70,26 @@ export function TranscriptSeedAnswer({
     );
   if (state.kind === 'denied')
     return placement === 'sidebar' ? (
-      <p role="status" className="p-4 text-sm text-ink-muted">
+      <StatusRegion as="p" role="status" className="p-4 text-sm text-ink-muted">
         Transcript unavailable.
-      </p>
+      </StatusRegion>
     ) : null;
   return (
-    <p role="status" className="p-4 text-sm">
+    <StatusRegion as="p" role="status" className="p-4 text-sm">
       Transcript unavailable.
       {state.kind === 'outdated' ? (
         <>
           {' '}
-          <button
+          <Button
+            variant="unstyled"
             type="button"
             className="cursor-pointer font-strong underline"
             onClick={() => window.location.reload()}
           >
             Reload
-          </button>
+          </Button>
         </>
       ) : null}
-    </p>
+    </StatusRegion>
   );
 }

@@ -1,11 +1,13 @@
 'use client';
 
+import { useBrowserEffect } from '../../edge/browser-sync';
+import { StatusRegion } from '../../components/status-region/status-region';
+import { Button } from '../../components/button/button';
 import type { RoomFormState } from '../../../features/rooms/command-answer';
 import type { FormAction } from '../../form-action/form-action';
 
 import {
   useContext,
-  useEffect,
   useState,
   useSyncExternalStore,
   useRef,
@@ -14,7 +16,7 @@ import {
 import { systemId } from '@daisy/clock';
 import { isJudgeSeat, type RoomView } from '@daisy/protocol';
 import { createLocalConsent } from '../../../features/rooms/local-consent';
-import { createBrowserDeviceChecks } from '../../../features/video/browser-device-checks';
+import { createBrowserDeviceChecks } from '../../round-media/browser-device-checks';
 import { rememberCheckedDevices } from '../../../features/video/device-selection';
 import type { DeviceKind } from '../../../features/video/device-check-controller';
 import type { RoomRead } from '../../../features/rooms/read-assembly';
@@ -108,7 +110,7 @@ function LiveDevices({
     consent.readSnapshot,
     consent.readSnapshot,
   );
-  useEffect(() => {
+  useBrowserEffect(() => {
     consent.updateView(props.view);
   }, [consent, props.view]);
   const [inputs, setInputs] = useState<readonly MediaDeviceInfo[]>([]);
@@ -160,16 +162,21 @@ function LiveDevices({
             </div>
           ) : null}
           {local.problem ? (
-            <div role="alert" className="flex flex-wrap items-center gap-3">
+            <StatusRegion
+              as="div"
+              role="alert"
+              className="flex flex-wrap items-center gap-3"
+            >
               <p className="text-sm text-live">Ready didn’t go through.</p>
-              <button
+              <Button
+                variant="unstyled"
                 type="button"
                 onClick={() => void consent.retry()}
                 className={buttonClass('secondary')}
               >
                 Try again
-              </button>
-            </div>
+              </Button>
+            </StatusRegion>
           ) : null}
         </>
       }
@@ -184,7 +191,7 @@ export function AssemblyDeviceReadiness(props: Props) {
   const latest = useRef(props);
   const sync = useContext(RoomSyncContext);
   const latestSync = useRef(sync);
-  useEffect(() => {
+  useBrowserEffect(() => {
     latest.current = props;
     latestSync.current = sync;
   }, [props, sync]);
@@ -194,7 +201,7 @@ export function AssemblyDeviceReadiness(props: Props) {
     devices: Devices;
     consent: Consent;
   } | null>(null);
-  useEffect(() => {
+  useBrowserEffect(() => {
     if (!needsDevices) return;
     const devices = createBrowserDeviceChecks();
     const consent = createLocalConsent({

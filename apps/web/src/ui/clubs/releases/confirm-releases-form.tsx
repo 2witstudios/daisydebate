@@ -1,5 +1,6 @@
 'use client';
 
+import { StatusRegion } from '../../components/status-region/status-region';
 import { useState } from 'react';
 import { mediaReleaseWording } from '@daisy/protocol/media-release';
 import type { StandingBadge } from '../../../features/media-releases/release-words';
@@ -290,9 +291,13 @@ export function ConfirmReleasesForm({
               </Button>
             </div>
             {done ? (
-              <p role="status" className="text-sm text-ink-muted">
+              <StatusRegion
+                as="p"
+                role="status"
+                className="text-sm text-ink-muted"
+              >
                 Releases confirmed.
-              </p>
+              </StatusRegion>
             ) : null}
             <p className="text-sm text-ink-muted">
               We record who confirmed, when and the wording. A student’s pending

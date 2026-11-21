@@ -1,4 +1,5 @@
 'use client';
+import { StatusRegion } from '../components/status-region/status-region';
 import { ActionForm, type FormStateAction } from '../form-action/action-form';
 import { Button } from '../components/button/button';
 
@@ -23,9 +24,9 @@ export function FollowButton({
             {following ? 'Following' : 'Follow'}
           </Button>
           {error ? (
-            <p role="alert" className="text-sm text-live">
+            <StatusRegion as="p" role="alert" className="text-sm text-live">
               {error}
-            </p>
+            </StatusRegion>
           ) : null}
         </>
       )}

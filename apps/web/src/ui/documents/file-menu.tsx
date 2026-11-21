@@ -1,10 +1,13 @@
 'use client';
 
+import { observeResize } from '../edge/use-browser-bindings';
+import { useBrowserEffect, useBrowserLayoutEffect } from '../edge/browser-sync';
+import { cancelFrame, nextFrame } from '../edge/browser-time';
+import { Button } from '../components/button/button';
+import { StatusRegion } from '../components/status-region/status-region';
 import {
   useCallback,
-  useEffect,
   useId,
-  useLayoutEffect,
   useRef,
   useState,
   type KeyboardEvent,
@@ -95,10 +98,9 @@ export function FileMenu({
   const [view, setView] = useState<View>('main');
   const [isOpen, setIsOpen] = useState(false);
   const openingFrame = useRef<number | null>(null);
-  useEffect(
+  useBrowserEffect(
     () => () => {
-      if (openingFrame.current !== null)
-        cancelAnimationFrame(openingFrame.current);
+      if (openingFrame.current !== null) cancelFrame(openingFrame.current);
     },
     [],
   );
@@ -128,18 +130,17 @@ export function FileMenu({
     menu.current.style.setProperty('--file-menu-left', `${location.left}px`);
     menu.current.style.setProperty('--file-menu-top', `${location.top}px`);
   }, []);
-  useLayoutEffect(() => {
+  useBrowserLayoutEffect(() => {
     place();
     if (menu.current?.matches(':popover-open')) focusMenuStart(menu.current);
   }, [isOpen, view, place]);
-  useEffect(() => {
+  useBrowserEffect(() => {
     const element = menu.current;
     if (!element || !isOpen) return;
-    const observer = new ResizeObserver(place);
-    observer.observe(element);
+    const stopObserving = observeResize(element, place);
     window.addEventListener('resize', place);
     return () => {
-      observer.disconnect();
+      stopObserving();
       window.removeEventListener('resize', place);
     };
   }, [isOpen, place]);
@@ -154,7 +155,8 @@ export function FileMenu({
     );
   return (
     <>
-      <button
+      <Button
+        variant="unstyled"
         ref={trigger}
         type="button"
         popoverTarget={id}
@@ -162,7 +164,7 @@ export function FileMenu({
         className="mr-px flex size-dense-target shrink-0 cursor-pointer items-center justify-center rounded-sm file-action"
       >
         <Icon name="dots" size={14} />
-      </button>
+      </Button>
       <PopoverMenu
         ref={menu}
         id={id}
@@ -178,8 +180,7 @@ export function FileMenu({
           }
         }}
         onBeforeToggle={(event) => {
-          if (openingFrame.current !== null)
-            cancelAnimationFrame(openingFrame.current);
+          if (openingFrame.current !== null) cancelFrame(openingFrame.current);
           if (event.newState !== 'open') return;
           // Native opening must not paint an empty shell while toggle waits in
           // its event queue. Commit the contents before entering the top layer.
@@ -202,7 +203,7 @@ export function FileMenu({
               `${initial.top}px`,
             );
           }
-          openingFrame.current = requestAnimationFrame(() => {
+          openingFrame.current = nextFrame(() => {
             openingFrame.current = null;
             if (!menu.current?.matches(':popover-open')) return;
             place();
@@ -257,9 +258,13 @@ export function FileMenu({
               Move {label} to
             </p>
             {drive.folderProblem ? (
-              <p role="alert" className="px-2 py-1 text-xs text-live">
+              <StatusRegion
+                as="p"
+                role="alert"
+                className="px-2 py-1 text-xs text-live"
+              >
                 {drive.folderProblem}
-              </p>
+              </StatusRegion>
             ) : null}
             <Item icon="folder" onClick={() => moveTo(null)}>
               My drive

@@ -1,4 +1,5 @@
 'use client';
+import { navigateDocument } from '../edge/browser-navigation';
 import {
   useState,
   type FormEvent,
@@ -44,8 +45,7 @@ export function ConversationList({
     void inbox.more(after).then((read) => {
       setReading(false);
       // A refused read still has the link's native answer to offer.
-      if (!read)
-        window.location.assign(inboxPageHref(after, inbox.appliedSearch));
+      if (!read) navigateDocument(inboxPageHref(after, inbox.appliedSearch));
     });
   };
   return (

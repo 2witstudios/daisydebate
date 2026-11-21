@@ -1,6 +1,9 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useBrowserEffect } from '../edge/browser-sync';
+import { StatusRegion } from '../components/status-region/status-region';
+import { Button } from '../components/button/button';
+import { useRef } from 'react';
 import { contextChatFormUnavailable } from '../../features/messaging/context-chat/form';
 import {
   contextChatAcceptedMessage,
@@ -41,7 +44,7 @@ export function ContextChatComposer({
   );
   const sent = contextChatAcceptedMessage(answer);
   const seen = useRef(contextChatAcceptedMessage(initial));
-  useEffect(() => {
+  useBrowserEffect(() => {
     if (sent !== undefined && seen.current !== sent) {
       seen.current = sent;
       onSent(sent);
@@ -84,16 +87,18 @@ export function ContextChatComposer({
         }}
       />
       {fields.notice ? (
-        <p
+        <StatusRegion
+          as="p"
           id={noticeId}
           role="status"
           tabIndex={-1}
           className="text-sm text-ink-muted"
         >
           {fields.notice}
-        </p>
+        </StatusRegion>
       ) : null}
-      <button
+      <Button
+        variant="unstyled"
         type="submit"
         disabled={pending || locked}
         aria-label={fields.retrying ? 'Retry message' : 'Send message'}
@@ -101,7 +106,7 @@ export function ContextChatComposer({
       >
         <Icon name="send" size={16} />
         {pending ? 'Sending…' : fields.retrying ? 'Retry message' : 'Send'}
-      </button>
+      </Button>
     </form>
   );
 }

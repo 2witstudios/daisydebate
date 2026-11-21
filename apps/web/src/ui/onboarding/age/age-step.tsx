@@ -1,5 +1,6 @@
 'use client';
 
+import { StatusRegion } from '../../components/status-region/status-region';
 import {
   ageFields,
   ageFormUnavailable,
@@ -151,7 +152,11 @@ export function AgeStep({
             .
           </span>
         </label>
-        <div role="alert" className="flex flex-col gap-1 empty:hidden">
+        <StatusRegion
+          as="div"
+          role="alert"
+          className="flex flex-col gap-1 empty:hidden"
+        >
           {errors.map((error) => (
             <p key={error} className="text-sm font-semibold text-live">
               {error}
@@ -162,7 +167,7 @@ export function AgeStep({
               That didn’t save. Try again.
             </p>
           ) : null}
-        </div>
+        </StatusRegion>
         <Button
           type="submit"
           disabled={pending}

@@ -1,10 +1,14 @@
 'use client';
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useBrowserEffect } from '../edge/browser-sync';
+import { currentBrowserFetch } from '../edge/browser-request';
+import { StatusRegion } from '../components/status-region/status-region';
+import { Button } from '../components/button/button';
+import { useCallback, useState, type ReactNode } from 'react';
 import type { LiveTranscriptRead } from '@daisy/protocol';
-import { browserSyncEdges } from '../../features/resource-sync/browser';
+import { browserSyncEdges } from '../resource-sync/browser';
 import { readTranscript } from '../../features/round-runtime/read-transcript';
 import { createTranscriptHolder } from '../../features/round-runtime/transcript-sync';
-import { useResourceSync } from '../resource-sync/use-resource-sync';
+import { useDriver } from '../edge/use-driver';
 import { liveTranscriptSections, transcriptState } from './result-view';
 import {
   TranscriptContent,
@@ -36,39 +40,44 @@ export function LiveTranscript({
   const roundId = seed.round.id;
   const [holder] = useState(() =>
     createTranscriptHolder(seed, () =>
-      readTranscript(window.fetch.bind(window), roundId),
+      readTranscript(currentBrowserFetch(), roundId),
     ),
   );
   const start = useCallback(
     () => holder.start(browserSyncEdges(socketUrl)),
     [holder, socketUrl],
   );
-  const [synced, driver] = useResourceSync(holder.seed, start);
-  useEffect(() => holder.offer(seed), [holder, seed]);
+  const [synced, driver] = useDriver(holder.seed, start);
+  useBrowserEffect(() => holder.offer(seed), [holder, seed]);
   // Whatever rendered this page may be old: durable history decides.
-  useEffect(() => driver?.signal(), [driver]);
+  useBrowserEffect(() => driver?.signal(), [driver]);
   if (synced.freshness === 'gone')
     return placement === 'sidebar' ? (
-      <p role="status" className="p-4 text-sm text-ink-muted">
+      <StatusRegion as="p" role="status" className="p-4 text-sm text-ink-muted">
         Transcript unavailable.
-      </p>
+      </StatusRegion>
     ) : null;
   const sections = liveTranscriptSections(synced.value);
   const status: ReactNode = (
-    <div role="status" className="flex gap-2 text-sm text-ink-muted">
+    <StatusRegion
+      as="div"
+      role="status"
+      className="flex gap-2 text-sm text-ink-muted"
+    >
       <p>{labels[transcriptState(synced.value)]}</p>
       {synced.freshness !== 'stale' ? null : holder.outdated() ? (
-        <button
+        <Button
+          variant="unstyled"
           type="button"
           className="cursor-pointer font-strong underline"
           onClick={() => window.location.reload()}
         >
           Reload
-        </button>
+        </Button>
       ) : (
         <p>Reconnecting</p>
       )}
-    </div>
+    </StatusRegion>
   );
   if (placement === 'sidebar')
     return (

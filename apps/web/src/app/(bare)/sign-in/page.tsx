@@ -1,3 +1,4 @@
+import { StatusRegion } from '../../../ui/components/status-region/status-region';
 import type { Metadata } from 'next';
 import { claimedUsername } from '@daisy/auth';
 import { redirect } from 'next/navigation';
@@ -36,13 +37,17 @@ export default async function SignInPage({
   return (
     <>
       {closed ? (
-        <p role="status" className="px-6 pt-4 text-center text-base text-ink">
+        <StatusRegion
+          as="p"
+          role="status"
+          className="px-6 pt-4 text-center text-base text-ink"
+        >
           Your account is closed. Read the{' '}
           <a href="/privacy" className="underline">
             privacy policy
           </a>{' '}
           for what erasure keeps.
-        </p>
+        </StatusRegion>
       ) : null}
       <SignIn
         destination={destination}

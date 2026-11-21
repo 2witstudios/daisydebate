@@ -1,6 +1,7 @@
 'use client';
+import { useBrowserEffect } from '../edge/browser-sync';
 import type { BroadcastStream } from '@daisy/protocol';
-import { useEffect, useRef, type RefObject } from 'react';
+import { useRef, type RefObject } from 'react';
 import { trackClient } from '../../features/analytics/client-adapter';
 import { browserDocument } from '../round-media/browser-document';
 import { watchPlayback } from './playback-session';
@@ -57,7 +58,7 @@ export function StreamVideo({
     documentStale,
     surface,
   });
-  useEffect(() => {
+  useBrowserEffect(() => {
     latest.current = {
       onFinished,
       onFailed,
@@ -67,7 +68,7 @@ export function StreamVideo({
     };
   });
   const { path, manifestUrl } = stream;
-  useEffect(() => {
+  useBrowserEffect(() => {
     const element = video.current;
     if (!element) return;
     if (

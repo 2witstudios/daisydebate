@@ -1,3 +1,4 @@
+import { StatusRegion } from '../components/status-region/status-region';
 import Link from 'next/link';
 import type { ClubInvitationView } from '../../features/clubs/views';
 import type { FormAction } from '../form-action/form-action';
@@ -81,14 +82,16 @@ function InvitationBody({
       );
     case 'expired':
       return (
-        <p role="status">
+        <StatusRegion as="p" role="status">
           This invitation has expired. Ask {view.manager} to send a new one.
-        </p>
+        </StatusRegion>
       );
     case 'seated-here':
       return (
         <>
-          <p role="status">You already hold a seat in {view.club.name}.</p>
+          <StatusRegion as="p" role="status">
+            You already hold a seat in {view.club.name}.
+          </StatusRegion>
           <Link
             href="/settings/billing"
             className={`${buttonClass('secondary')} self-start`}
@@ -99,10 +102,10 @@ function InvitationBody({
       );
     case 'seated-elsewhere':
       return (
-        <p role="status">
+        <StatusRegion as="p" role="status">
           You already hold a seat in another club. One person can hold one seat,
           so leave that seat before accepting this one.
-        </p>
+        </StatusRegion>
       );
   }
 }

@@ -1,11 +1,11 @@
 'use client';
 
+import { useBrowserEffect } from '../edge/browser-sync';
 import { ShellLink as Link } from '../layout/app-shell/shell-link';
 import { useRouter } from 'next/navigation';
 import {
   createContext,
   useContext,
-  useEffect,
   useRef,
   useState,
   useSyncExternalStore,
@@ -81,8 +81,8 @@ export function ConversationNavigation({
   readonly requestId: string;
 }) {
   const [holder] = useState(() => createLifetime(requestId));
-  useEffect(() => holder.mount(), [holder]);
-  useEffect(() => {
+  useBrowserEffect(() => holder.mount(), [holder]);
+  useBrowserEffect(() => {
     holder.current().accept({ type: 'rendered', requestId });
   }, [holder, requestId]);
   return <Navigation value={holder}>{children}</Navigation>;
@@ -148,7 +148,7 @@ export function useConversationAction(
 ): FormAction<CompletionAnswer> {
   const navigation = useNavigation();
   const latest = useRef<Origin | null>(null);
-  useEffect(() => {
+  useBrowserEffect(() => {
     return () => {
       const captured = latest.current;
       if (captured !== null)
@@ -178,7 +178,7 @@ export function useConversationCompletion(
 ) {
   const router = useRouter();
   const seen = useRef(answer);
-  useEffect(() => {
+  useBrowserEffect(() => {
     if (pending || seen.current === answer) return;
     seen.current = answer;
     const captured = answer.completion;

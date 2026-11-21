@@ -1,5 +1,6 @@
 'use client';
 
+import { Button } from '../components/button/button';
 import type { Dispatch } from 'react';
 import {
   phonePanels,
@@ -55,7 +56,8 @@ export function RoundTabs({
         const current = phonePanelOf(state) === panel;
         const dot = panel === 'channels' && !current && unread > 0;
         return (
-          <button
+          <Button
+            variant="unstyled"
             key={panel}
             type="button"
             aria-current={current ? 'page' : undefined}
@@ -71,7 +73,7 @@ export function RoundTabs({
             {dot ? (
               <span className="absolute top-1 right-1/4 size-2 rounded-round bg-live" />
             ) : null}
-          </button>
+          </Button>
         );
       })}
     </nav>

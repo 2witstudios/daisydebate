@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useMount } from '../edge/use-mount';
+
 import { mediaDocumentStale } from '../../features/round-media/browser-policy';
 import { browserDocument } from './browser-document';
 
@@ -10,9 +11,9 @@ import { browserDocument } from './browser-document';
  * rather than the camera and microphone deny it inherited (ISSUE-564).
  */
 export function MediaDocument() {
-  useEffect(() => {
+  useMount(() => {
     if (mediaDocumentStale(browserDocument().url, window.location.pathname))
       window.location.reload();
-  }, []);
+  });
   return null;
 }

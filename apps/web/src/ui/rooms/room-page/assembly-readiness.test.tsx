@@ -1,3 +1,5 @@
+import { StatusRegion } from '../../components/status-region/status-region';
+import { Button } from '../../components/button/button';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { AssemblyCommandForm } from './assembly-command-form';
 import { idle } from '../../../features/forms/form-state';
@@ -117,7 +119,7 @@ describe('native room readiness and Start round controls', () => {
       findElements(
         ReadyControl({ ...props, view }),
         (element) =>
-          element.type === 'button' &&
+          element.type === Button &&
           element.props.popoverTarget === 'ready-confirm' &&
           element.props.popoverTargetAction === undefined,
       ).length;
@@ -143,7 +145,7 @@ describe('native room readiness and Start round controls', () => {
         [
           opener(base),
           popovers(base),
-          byText(ReadyControl(props), 'button', 'I’m ready')?.props.type,
+          byText(ReadyControl(props), Button, 'I’m ready')?.props.type,
         ],
       ],
       expected: [
@@ -172,9 +174,9 @@ describe('native room readiness and Start round controls', () => {
       should:
         'offer Turn on camera and mic in place of Start round, and keep Not ready',
       actual: [
-        Boolean(byText(tree, 'button', 'Turn on camera and mic')),
-        Boolean(byText(tree, 'button', 'Start round')),
-        Boolean(byText(tree, 'button', 'Not ready')),
+        Boolean(byText(tree, Button, 'Turn on camera and mic')),
+        Boolean(byText(tree, Button, 'Start round')),
+        Boolean(byText(tree, Button, 'Not ready')),
       ],
       expected: [true, false, true],
     });
@@ -193,7 +195,7 @@ describe('native room readiness and Start round controls', () => {
               capabilities: { ...base.capabilities, host },
             },
           }),
-          'button',
+          Button,
           'Start round',
         ),
       );
@@ -255,7 +257,7 @@ describe('native room readiness and Start round controls', () => {
         findElements(form, (element) => element.type === 'input').map(
           (input) => [input.props.name, input.props.value],
         ),
-        byText(tree, 'button', 'I’m ready')?.props.disabled,
+        byText(tree, Button, 'I’m ready')?.props.disabled,
       ],
       expected: [
         true,
@@ -315,13 +317,13 @@ describe('native room readiness and Start round controls', () => {
       should:
         'block Start round immediately without changing the server projection',
       actual: [
-        byText(controls(allowed), 'button', 'Start round')?.props.disabled,
+        byText(controls(allowed), Button, 'Start round')?.props.disabled,
         byText(
           controls({
             ...allowed,
             local: { devicesPassed: true, unreadyPending: true },
           }),
-          'button',
+          Button,
           'Start round',
         )?.props.disabled,
         allowed.view.capabilities.canStart,
@@ -342,8 +344,8 @@ describe('native room readiness and Start round controls', () => {
       given: 'a seated participant without host authority',
       should: 'render Ready but no Start round submission',
       actual: [
-        Boolean(byText(tree, 'button', 'I’m ready')),
-        Boolean(byText(tree, 'button', 'Start round')),
+        Boolean(byText(tree, Button, 'I’m ready')),
+        Boolean(byText(tree, Button, 'Start round')),
       ],
       expected: [true, false],
     });
@@ -368,8 +370,8 @@ describe('native room readiness and Start round controls', () => {
         'CAP still reports ready while the human host has lost device checks',
       should: 'block Start round synchronously and still offer Unready',
       actual: [
-        byText(tree, 'button', 'Start round')?.props.disabled,
-        byText(tree, 'button', 'Not ready')?.props.disabled,
+        byText(tree, Button, 'Start round')?.props.disabled,
+        byText(tree, Button, 'Not ready')?.props.disabled,
         view.participants[0]?.ready,
       ],
       expected: [true, false, 'ready'],
@@ -406,8 +408,8 @@ describe('native room readiness and Start round controls', () => {
       given: 'open debater seats and the unready viewer, then a ready room',
       should: 'list the seats and the viewer, then nothing',
       actual: [
-        byText(waiting, 'p', 'Waiting on')?.props.children,
-        byText(clear, 'p', 'Waiting on'),
+        byText(waiting, StatusRegion, 'Waiting on')?.props.children,
+        byText(clear, StatusRegion, 'Waiting on'),
       ],
       expected: ['Waiting on Affirmative, Negative, You', undefined],
     });
@@ -452,7 +454,7 @@ describe('native room readiness and Start round controls', () => {
             startRefusal: null,
           },
         }),
-        'p',
+        StatusRegion,
         'Waiting on',
       )?.props.children;
     assert({
@@ -474,7 +476,7 @@ test('host Start round refuses unavailable admission without changing Ready or c
       capabilities: { ...base.capabilities, canStart: true },
     },
   });
-  const button = byText(tree, 'button', 'Start round');
+  const button = byText(tree, Button, 'Start round');
   assert({
     given: 'an otherwise startable host Room with unavailable bot admission',
     should: 'disable only the Start round submission',
@@ -498,7 +500,7 @@ describe('the tile’s one button (ADR 0145)', () => {
     };
     const unchecked = ReadyControl({ ...props, view: debater, turnOnDevices });
     const before = renderToStaticMarkup(<>{unchecked}</>);
-    const button = byText(unchecked, 'button', 'Turn on camera and mic');
+    const button = byText(unchecked, Button, 'Turn on camera and mic');
     (button?.props as { onClick?: () => void } | undefined)?.onClick?.();
     const after = renderToStaticMarkup(
       <>

@@ -1,10 +1,12 @@
 'use client';
+import { useBrowserEffect } from '../../edge/browser-sync';
+import { StatusRegion } from '../../components/status-region/status-region';
 import { roomWatchHref } from '../../../features/watch/routes';
 import { roundEntry } from '../../../features/rooms/round-entry';
 import { canOfferFreshRoom } from '../../../features/room-runtime/fresh-room';
 import { roundLinkOf } from '../../../features/room-runtime/round-link';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { browserDocument } from '../../round-media/browser-document';
@@ -17,8 +19,8 @@ import type {
   RoomCatalogChoice,
   RoomView,
 } from '@daisy/protocol';
-import { systemScheduler } from '../../../features/realtime/browser-adapters';
-import { browserSyncEdges } from '../../../features/resource-sync/browser';
+import { systemScheduler } from '../../edge/realtime-browser';
+import { browserSyncEdges } from '../../resource-sync/browser';
 import {
   roomNoticeText,
   type RoomFormState,
@@ -31,7 +33,7 @@ import { seedRoomSync } from '../../../features/rooms/room-sync';
 import { createRoomSyncDriver } from '../../../features/rooms/room-sync-driver';
 import type { FormAction } from '../../form-action/form-action';
 import { FreshnessNotice } from '../../resource-sync/freshness-notice';
-import { useResourceSync } from '../../resource-sync/use-resource-sync';
+import { useDriver } from '../../edge/use-driver';
 import { AssemblyHeader, RoomResolution } from './assembly-header';
 import { RoomSetup } from './room-setup';
 import { InvitedNotice } from './invited-notice';
@@ -94,7 +96,7 @@ export function RoomLive(props: Props) {
       }),
     [seedView, seedIds, read, socketUrl],
   );
-  const [sync, driver] = useResourceSync(
+  const [sync, driver] = useDriver(
     () => seedRoomSync(seedView, seedIds, 0),
     start,
   );
@@ -118,7 +120,7 @@ export function RoomLive(props: Props) {
   );
   const { ids } = sync.value;
   const router = useRouter();
-  useEffect(() => {
+  useBrowserEffect(() => {
     if (entry.href) replaceRoute(router, browserDocument(), entry.href);
   }, [entry.href, router]);
   return (
@@ -152,7 +154,11 @@ export function RoomLive(props: Props) {
       ) : null}
       <RoomResolution view={view} />
       <FreshnessNotice freshness={sync.freshness} noun="room" />
-      {props.notice ? <p role="alert">{roomNoticeText(props.notice)}</p> : null}
+      {props.notice ? (
+        <StatusRegion as="p" role="alert">
+          {roomNoticeText(props.notice)}
+        </StatusRegion>
+      ) : null}
       <AssemblyDeviceReadiness
         chat={
           // The chat ends with the gathering: an open tab drops it at Start.

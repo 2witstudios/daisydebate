@@ -1,5 +1,6 @@
 'use client';
 
+import { StatusRegion } from '../../components/status-region/status-region';
 import { BIO_MAX, DISPLAY_NAME_MAX } from '@daisy/protocol/public-profile';
 import { useState } from 'react';
 import { initialSaveForm, saveNotice } from '../../../features/forms/save-form';
@@ -91,9 +92,9 @@ export function PublicProfileForm({
           Save
         </Button>
         {notice ? (
-          <p role="status" className="text-sm text-ink-muted">
+          <StatusRegion as="p" role="status" className="text-sm text-ink-muted">
             {notice}
-          </p>
+          </StatusRegion>
         ) : null}
       </div>
     </form>

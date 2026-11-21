@@ -1,11 +1,12 @@
 'use client';
+import { cancelDelay, delay } from '../edge/browser-time';
+import { browserFetch } from '../edge/browser-request';
 import type { ConnectionStore } from '../../features/realtime/connection-store';
 import { attachTypingReader } from '../../features/messaging/typing-reader';
 import { createTypingWriter } from '../../features/messaging/typing-writer';
 const timers = {
-  setTimeout: (callback: () => void, ms: number) => setTimeout(callback, ms),
-  clearTimeout: (id: unknown) =>
-    clearTimeout(id as ReturnType<typeof setTimeout>),
+  setTimeout: (callback: () => void, ms: number) => delay(callback, ms),
+  clearTimeout: (id: unknown) => cancelDelay(id as ReturnType<typeof delay>),
 };
 /** Native browser I/O edges; neither adapter receives message content. Renewal follows the server's timing; a transient failure (dropped, 408, 429, 5xx) backs off up to TYPING_RETRY_MAX_MS, and a refusal (other 4xx) stops. */
 export const createBrowserTypingReader = (
@@ -21,7 +22,7 @@ export const createBrowserTypingReader = (
     publish,
     recoveryAfterMs,
     read: () =>
-      fetch(`/api/messaging/channels/${channelId}/typing`, {
+      browserFetch(`/api/messaging/channels/${channelId}/typing`, {
         credentials: 'same-origin',
       }),
   });
@@ -30,7 +31,7 @@ export const createBrowserTypingWriter = (channelId: string) =>
     channelId,
     timers,
     write: (typing) =>
-      fetch('/api/messaging/typing', {
+      browserFetch('/api/messaging/typing', {
         method: 'POST',
         credentials: 'same-origin',
         keepalive: true,

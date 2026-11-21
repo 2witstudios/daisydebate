@@ -1,3 +1,4 @@
+import { Button } from '../components/button/button';
 import type { ReactNode } from 'react';
 import { Icon, type IconName } from '../components/icon/icon';
 
@@ -21,7 +22,8 @@ export function FileMenuItem({
   readonly children: ReactNode;
 }) {
   return (
-    <button
+    <Button
+      variant="unstyled"
       type="button"
       disabled={disabled}
       role="menuitem"
@@ -38,6 +40,6 @@ export function FileMenuItem({
     >
       {icon ? <Icon name={icon} size={14} /> : null}
       <span className="min-w-0 flex-1 truncate">{children}</span>
-    </button>
+    </Button>
   );
 }

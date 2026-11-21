@@ -1,13 +1,9 @@
 'use client';
 
-import {
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-  useSyncExternalStore,
-  type ReactNode,
-} from 'react';
+import { useResizeObserver } from '../edge/use-browser-bindings';
+import { useBrowserLayoutEffect } from '../edge/browser-sync';
+import { Button } from '../components/button/button';
+import { useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import {
   followNext,
   initialFollow,
@@ -64,17 +60,11 @@ export function TranscriptFollow({
     follow.following,
     () => true,
   );
-  useLayoutEffect(() => {
+  useBrowserLayoutEffect(() => {
     if (scroller.current) follow.changed(scroller.current);
   }, [children, follow]);
   // A resize moves the end, and a panel shown again has one to return to.
-  useEffect(() => {
-    const node = scroller.current;
-    if (!node) return;
-    const observer = new ResizeObserver(() => follow.changed(node));
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [follow]);
+  useResizeObserver(scroller, (node) => follow.changed(node));
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
       <div
@@ -88,7 +78,8 @@ export function TranscriptFollow({
         {children}
       </div>
       {following ? null : (
-        <button
+        <Button
+          variant="unstyled"
           type="button"
           onClick={() => {
             // This button goes away with the click, so focus moves to the lines.
@@ -98,7 +89,7 @@ export function TranscriptFollow({
           className="absolute right-4 bottom-3 h-room-target cursor-pointer rounded-round border border-border-strong bg-surface-raised px-4 text-sm font-strong shadow-2"
         >
           Latest
-        </button>
+        </Button>
       )}
     </div>
   );

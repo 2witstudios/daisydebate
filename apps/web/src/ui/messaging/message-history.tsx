@@ -126,16 +126,17 @@ export function MessageHistory({
       : knownFirstUnread(boundary, history.messages, actorId);
   if (boundary !== null && known !== boundary.firstUnreadSequence)
     setOpened({ ...boundary, firstUnreadSequence: known });
+  const readSequence = boundary?.readSequence;
   const { dividerSequence, jumpToSequence } = useMemo(
     () =>
-      boundary === null
+      readSequence === undefined
         ? { dividerSequence: null, jumpToSequence: null }
         : unreadPlacement(
-            { readSequence: boundary.readSequence, firstUnreadSequence: known },
+            { readSequence, firstUnreadSequence: known },
             history.messages,
             actorId,
           ),
-    [boundary?.readSequence, known, history.messages, actorId],
+    [readSequence, known, history.messages, actorId],
   );
   const [own, reacted] = useOwnReactions(viewer);
   const rows = useMemo(

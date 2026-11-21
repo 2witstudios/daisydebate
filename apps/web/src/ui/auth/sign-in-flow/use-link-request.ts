@@ -1,12 +1,8 @@
 'use client';
 
-import {
-  startTransition,
-  useEffect,
-  useReducer,
-  useState,
-  type Dispatch,
-} from 'react';
+import { useBrowserEffect } from '../../edge/browser-sync';
+import { scheduleTick } from '../../edge/browser-time';
+import { startTransition, useReducer, useState, type Dispatch } from 'react';
 import type { Clock } from '@daisy/clock';
 import {
   useFocusAfterAnswer,
@@ -40,10 +36,9 @@ export type RequestLinkAction = (
 function useNow(clock: Clock, state: SignInState): string {
   const ticking = state.step === 'check-inbox';
   const [now, setNow] = useState(() => (ticking ? state.sentAt : ''));
-  useEffect(() => {
+  useBrowserEffect(() => {
     if (!ticking) return;
-    const timer = setInterval(() => setNow(clock.now()), 1000);
-    return () => clearInterval(timer);
+    return scheduleTick(() => setNow(clock.now()), 1000);
   }, [clock, ticking]);
   return now;
 }
@@ -83,7 +78,7 @@ export function useLinkRequest(
 
   // The answer a page was rendered with settles nothing: no request is in
   // flight then.
-  useEffect(() => {
+  useBrowserEffect(() => {
     switch (answered.kind) {
       case 'idle':
         return;

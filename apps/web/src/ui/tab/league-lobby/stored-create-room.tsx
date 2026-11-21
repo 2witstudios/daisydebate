@@ -1,4 +1,5 @@
 'use client';
+import { StatusRegion } from '../../components/status-region/status-region';
 import { useId, useState } from 'react';
 import type { StandingRoomView } from '../../../features/tab/standing-room-view';
 import { standingRoomUnavailableReason } from '../../../features/tab/standing-room-view';
@@ -247,15 +248,16 @@ export function StoredCreateRoom({
           </p>
         </fieldset>
         {unavailable ? (
-          <p role="status" className="text-sm text-ink-muted">
+          <StatusRegion as="p" role="status" className="text-sm text-ink-muted">
             {unavailable}
-          </p>
+          </StatusRegion>
         ) : null}
         <Button type="submit" disabled={disabled || !!unavailable}>
           {frozen ? 'Retry create room' : 'Create room'}
         </Button>
         {fields.error || frozen ? (
-          <p
+          <StatusRegion
+            as="p"
             id={notice}
             tabIndex={-1}
             role="status"
@@ -264,7 +266,7 @@ export function StoredCreateRoom({
             {frozen
               ? 'The answer was lost. Retry the same room, or reload to check whether it was created.'
               : fields.error}
-          </p>
+          </StatusRegion>
         ) : null}
       </form>
     </ReadingPage>

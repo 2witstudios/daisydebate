@@ -1,5 +1,6 @@
 'use client';
 
+import { Button } from '../../components/button/button';
 import type { RoomView } from '@daisy/protocol';
 import type { FormFields } from '../../../features/forms/form-state';
 import type { RoomFormState } from '../../../features/rooms/command-answer';
@@ -75,13 +76,14 @@ export function AssemblyDetailsFields({
       />
       <AssemblyEditFeedback state={state} roomId={view.id} />
       {view.capabilities.canEdit ? (
-        <button
+        <Button
+          variant="unstyled"
           type="submit"
           disabled={pending}
           className={buttonClass('primary')}
         >
           Save room
-        </button>
+        </Button>
       ) : (
         <p>Only the host can edit this room.</p>
       )}

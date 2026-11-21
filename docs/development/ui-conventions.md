@@ -48,6 +48,20 @@ Tests of a popover assert what the reader sees: the popover, found with
 `includeHidden`, is hidden until its opener is pressed and visible after, not
 a `:popover-open` count.
 
+## Browser lifetimes and native controls
+
+Browser effects, timers and requests enter through `apps/web/src/ui/edge/`.
+Give the edge hook the dependencies that own the lifetime. Use the driver,
+answer, focus, event, tick or navigation hook where it owns the whole binding.
+Driver state and feature decisions stay with their feature.
+
+Markup uses `Dialog`, `StatusRegion` and `Button` from `ui/components`.
+Keep the intentional host element and announcement role. Use a native dialog
+when the platform owns its lifecycle, a labelled shell for an existing
+feature-owned overlay, and the popover components for popovers. A submit button
+keeps its form, name and value. Use the styled button variants for standard
+actions and the unstyled variant where the control owns its layout.
+
 ## Mutating forms
 
 The signed-in shell uses the authenticated member to mount its providers.

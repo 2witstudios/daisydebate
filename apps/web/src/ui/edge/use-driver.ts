@@ -1,21 +1,19 @@
 'use client';
 
 import { useEffect, useState, useSyncExternalStore } from 'react';
-import type { ResourceSync } from '../../features/resource-sync/resource-sync';
 
 type Driver<T> = {
-  readonly readSnapshot: () => ResourceSync<T>;
+  readonly readSnapshot: () => T;
   readonly subscribe: (listener: () => void) => () => void;
   readonly dispose: () => void;
 };
 
 type Held<T, D> = {
-  readonly state: ResourceSync<T>;
+  readonly state: T;
   readonly driver: D | null;
 };
 
-/** Where the running driver's snapshots meet React's render. */
-function createHolder<T, D>(seed: ResourceSync<T>) {
+function createHolder<T, D>(seed: T) {
   let held: Held<T, D> = { state: seed, driver: null };
   const listeners = new Set<() => void>();
   const initial = held;
@@ -35,13 +33,9 @@ function createHolder<T, D>(seed: ResourceSync<T>) {
   };
 }
 
-/**
- * Holds a synced resource for a page (ADR 0066). The first render shows the
- * server's seed, so hydration matches; the driver `start` makes after
- * hydration takes over. A changed `start` replaces the driver.
- */
-export function useResourceSync<T, D extends Driver<T>>(
-  seed: () => ResourceSync<T>,
+/** First render reads the server seed. After hydration the driver owns the snapshots. */
+export function useDriver<T, D extends Driver<T>>(
+  seed: () => T,
   start: () => D,
 ) {
   const [holder] = useState(() => createHolder<T, D>(seed()));

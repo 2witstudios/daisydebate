@@ -1,5 +1,7 @@
 'use client';
 
+import { Button } from '../../components/button/button';
+import { Dialog } from '../../components/dialog/dialog';
 import { useRef, type ReactNode } from 'react';
 import { buttonClass } from '../../components/button/button-class';
 
@@ -25,15 +27,16 @@ export function RoomDialog({
   const dialog = useRef<HTMLDialogElement>(null);
   return (
     <>
-      <button
+      <Button
+        variant="unstyled"
         type="button"
         aria-haspopup="dialog"
         onClick={() => dialog.current?.showModal()}
         className={buttonClass('secondary')}
       >
         {label}
-      </button>
-      <dialog
+      </Button>
+      <Dialog
         ref={dialog}
         aria-labelledby={titleId}
         onClose={onClose}
@@ -43,7 +46,7 @@ export function RoomDialog({
           {title}
         </h2>
         {children}
-      </dialog>
+      </Dialog>
     </>
   );
 }
@@ -52,9 +55,9 @@ export function RoomDialog({
 export function RoomDialogClose({ children }: { readonly children: string }) {
   return (
     <form method="dialog">
-      <button type="submit" className={buttonClass('secondary')}>
+      <Button variant="secondary" type="submit">
         {children}
-      </button>
+      </Button>
     </form>
   );
 }

@@ -1,3 +1,5 @@
+import { Button } from '../../components/button/button';
+import { StatusRegion } from '../../components/status-region/status-region';
 import { BotAdmissionNotice } from './bot-admission-notice';
 import { AssemblyCommandForm } from './assembly-command-form';
 import { CaptureSummary } from './capture-choice';
@@ -112,9 +114,14 @@ function CommandForm({
       {noticeVersion !== null ? (
         <input type="hidden" name="noticeVersion" value={noticeVersion} />
       ) : null}
-      <button type="submit" disabled={!enabled} className={className}>
+      <Button
+        variant="unstyled"
+        type="submit"
+        disabled={!enabled}
+        className={className}
+      >
         {label}
-      </button>
+      </Button>
     </AssemblyCommandForm>
   );
 }
@@ -163,14 +170,15 @@ function ReadyConfirm({
           ) : null}
           {call ? <p className="text-sm">{postRoundCallText}</p> : null}
           <div className="flex flex-wrap justify-end gap-2">
-            <button
+            <Button
+              variant="unstyled"
               type="button"
               popoverTarget={confirmId}
               popoverTargetAction="hide"
               className={buttonClass('secondary')}
             >
               Cancel
-            </button>
+            </Button>
             {ready}
           </div>
         </>
@@ -238,9 +246,14 @@ export function ReadyControl({
     return (
       <div className="flex flex-col gap-2">
         {turnOn ? (
-          <button type="button" onClick={turnOn} className={full('primary')}>
+          <Button
+            variant="unstyled"
+            type="button"
+            onClick={turnOn}
+            className={full('primary')}
+          >
             Turn on camera and mic
-          </button>
+          </Button>
         ) : (
           start
         )}
@@ -261,9 +274,14 @@ export function ReadyControl({
   // The only refusal the viewer can clear from here is their own devices.
   if (ready.blocker === 'devices' && turnOn)
     return (
-      <button type="button" onClick={turnOn} className={full('primary')}>
+      <Button
+        variant="unstyled"
+        type="button"
+        onClick={turnOn}
+        className={full('primary')}
+      >
         Turn on camera and mic
-      </button>
+      </Button>
     );
   const readyForm = (className: string) =>
     CommandForm({
@@ -287,22 +305,23 @@ export function ReadyControl({
     <div className="flex flex-col gap-2">
       {confirm && askable ? (
         <>
-          <button
+          <Button
+            variant="unstyled"
             type="button"
             popoverTarget={confirmId}
             className={full('primary')}
           >
             I’m ready
-          </button>
+          </Button>
           {confirm}
         </>
       ) : (
         readyForm(full('primary'))
       )}
       {ready.reason && !askable ? (
-        <p role="status" className="text-sm text-ink-muted">
+        <StatusRegion as="p" role="status" className="text-sm text-ink-muted">
           {ready.reason}
-        </p>
+        </StatusRegion>
       ) : null}
     </div>
   );
@@ -324,9 +343,13 @@ export function StartControl({ view, actorId, local }: Props) {
       {view.capabilities.host ? (
         <BotAdmissionNotice admission={view.botAdmission} />
       ) : null}
-      <p role="status" className="text-right text-sm text-ink-muted">
+      <StatusRegion
+        as="p"
+        role="status"
+        className="text-right text-sm text-ink-muted"
+      >
         {notice}
-      </p>
+      </StatusRegion>
     </div>
   );
 }

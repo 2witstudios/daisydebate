@@ -2,7 +2,7 @@ import {
   onDocumentVisibilityChange,
   systemScheduler,
   tabConnection,
-} from '../realtime/browser-adapters';
+} from '../edge/realtime-browser';
 
 /**
  * The real browser edges of resource sync: the monotonic clock, the

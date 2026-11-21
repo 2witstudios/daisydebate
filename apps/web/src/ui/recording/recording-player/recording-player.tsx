@@ -1,4 +1,5 @@
 'use client';
+import { Button } from '../../components/button/button';
 import { useRef, useState } from 'react';
 import { recordingDocumentStale } from '../../../features/recording/browser-policy';
 import type { RecordingMediaPanel } from '../../../features/recording/history';
@@ -84,7 +85,8 @@ export function RecordingPlayer({ media }: { readonly media: Watchable }) {
           <ol className="flex flex-col divide-y divide-border">
             {media.speeches.map((speech) => (
               <li key={`${speech.startMs}-${speech.speaker}`}>
-                <button
+                <Button
+                  variant="unstyled"
                   type="button"
                   onClick={() => seek(speech.startMs)}
                   className="flex w-full justify-between gap-3 py-2 text-left text-sm text-ink"
@@ -93,7 +95,7 @@ export function RecordingPlayer({ media }: { readonly media: Watchable }) {
                   <span className="text-ink-muted tabular-nums">
                     {`${clockTime(speech.startMs)} to ${clockTime(speech.endMs)}`}
                   </span>
-                </button>
+                </Button>
               </li>
             ))}
           </ol>

@@ -1,9 +1,11 @@
 'use client';
+import { useBrowserEffect } from '../../edge/browser-sync';
+import { StatusRegion } from '../../components/status-region/status-region';
 import { drawnTopicLabel } from '../../../features/debate-room/vocabulary';
 import Link from 'next/link';
 import { StoredBallotScores } from '../../ballot/stored-ballot-scores';
 import { useRouter } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { idle } from '../../../features/forms/form-state';
 import type { RoundBallotRead } from '@daisy/protocol';
 import {
@@ -59,7 +61,7 @@ export function BallotPage({
   if (rendered.answer !== answer)
     setRendered({ answer, revision: rendered.revision + 1 });
   useFocusAfterAnswer(answer, fields.error ? errorId : undefined, !pending);
-  useEffect(() => {
+  useBrowserEffect(() => {
     if (answer.kind === 'recorded') router.refresh();
   }, [answer, router]);
   useBallotRefresh(
@@ -125,12 +127,12 @@ export function BallotPage({
         />
       ) : null}
       {display !== 'retry' && view.round.status === 'completed' ? (
-        <p role="status">
+        <StatusRegion as="p" role="status">
           Round outcome:{' '}
           {view.round.outcome
             ? outcomeText(plan, view.round.outcome)
             : 'No competitive outcome'}
-        </p>
+        </StatusRegion>
       ) : null}
       {postRoundCallOffered(view.round, renderedAtMs) ? (
         <MediaPageLink

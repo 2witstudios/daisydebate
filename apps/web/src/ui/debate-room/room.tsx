@@ -1,14 +1,10 @@
 'use client';
 
+import { useBrowserLayoutEffect } from '../edge/browser-sync';
+import { StatusRegion } from '../components/status-region/status-region';
 import type { FloorChatProps } from '../round-floor/floor-chat';
 import type { LocalPublication } from '../../features/round-media/model/media-publication';
-import {
-  useLayoutEffect,
-  useReducer,
-  useState,
-  useRef,
-  type ReactNode,
-} from 'react';
+import { useReducer, useState, useRef, type ReactNode } from 'react';
 import { tileHeightFor } from '../../features/debate-room/layout';
 import type { PhonePanel } from '../../features/debate-room/workspace';
 import { cn } from '../cn';
@@ -51,7 +47,7 @@ import { useDocumentSync } from '../documents/use-document-sync';
 /** Writes the tile height as a custom property (CSSOM, so the CSP allows it). */
 function useTileHeight(height: number) {
   const root = useRef<HTMLDivElement>(null);
-  useLayoutEffect(() => {
+  useBrowserLayoutEffect(() => {
     root.current?.style.setProperty('--room-tile-height', `${height}px`);
   }, [height]);
   return root;
@@ -84,7 +80,7 @@ const focusTargets = () => [
  */
 function useFocusReturn(filesOpen: boolean, phone: PhonePanel) {
   const phoneLayout = usePhoneBreakpoint();
-  useLayoutEffect(() => {
+  useBrowserLayoutEffect(() => {
     focusReturnTarget(
       document.activeElement,
       focusRegions(),
@@ -92,7 +88,7 @@ function useFocusReturn(filesOpen: boolean, phone: PhonePanel) {
     )?.focus();
   }, [filesOpen, phone]);
   const crossed = useRef(phoneLayout);
-  useLayoutEffect(() => {
+  useBrowserLayoutEffect(() => {
     if (crossed.current === phoneLayout) return;
     crossed.current = phoneLayout;
     const active = document.activeElement;
@@ -181,13 +177,14 @@ export function DebateRoom({ round, sync, ...props }: RoomProps) {
         />
       </section>
       {alerts.map((message) => (
-        <p
+        <StatusRegion
+          as="p"
           key={message}
           role="alert"
           className="shrink-0 px-4 py-1 text-sm text-live"
         >
           {message}
-        </p>
+        </StatusRegion>
       ))}
       <BallotStatus round={round} />
       <div

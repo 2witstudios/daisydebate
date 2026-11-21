@@ -1,4 +1,6 @@
-import { useEffect } from 'react';
+import { useBrowserEffect } from '../edge/browser-sync';
+import { StatusRegion } from '../components/status-region/status-region';
+
 import { MediaPageLink } from '../round-media/media-page-link';
 import {
   clearMutePreference,
@@ -27,15 +29,19 @@ export function RoundEndedNotice({
    * own terminal effect cannot: the records are done once this Round's life
    * ends (ISSUE-879). No personal data leaves this tab.
    */
-  useEffect(() => {
+  useBrowserEffect(() => {
     if (roomId) clearRoundMediaPreferences(actorId, roomId, roundId);
     else clearMutePreference(actorId, roundId);
   }, [actorId, roundId, roomId]);
   return (
     <div className="mx-auto flex w-full max-w-dash-column flex-col gap-3 p-6">
-      <p role="status" className="text-lg font-strong text-ink">
+      <StatusRegion
+        as="p"
+        role="status"
+        className="text-lg font-strong text-ink"
+      >
         This round is over.
-      </p>
+      </StatusRegion>
       {detail ? <p>{detail}</p> : null}
       <MediaPageLink href={`/rounds/${roundId}`}>See the result</MediaPageLink>
     </div>

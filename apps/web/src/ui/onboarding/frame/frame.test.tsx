@@ -23,7 +23,10 @@ describe('OnboardingFrame', () => {
     assert({
       given: 'the second step',
       should: 'be a dialog labelled by the step heading',
-      actual: html.includes('role="dialog" aria-labelledby="step-title"'),
+      actual:
+        /<section(?=[^>]* role="dialog")(?=[^>]* aria-labelledby="step-title")[^>]*>/.test(
+          html,
+        ),
       expected: true,
     });
     assert({

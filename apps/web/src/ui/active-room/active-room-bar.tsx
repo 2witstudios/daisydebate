@@ -1,6 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useBrowserEffect } from '../edge/browser-sync';
+import { browserFetch } from '../edge/browser-request';
+import { useState } from 'react';
 import { refreshActiveRoom } from './refresh-membership';
 import { usePathname } from 'next/navigation';
 import { matchesRoute } from '../components/nav-item/nav-item';
@@ -35,9 +37,9 @@ export function ActiveRoomBar({
 }) {
   const pathname = usePathname();
   const [room, setRoom] = useState(seed);
-  useEffect(() => {
+  useBrowserEffect(() => {
     const controller = new AbortController();
-    void refreshActiveRoom(fetch, controller.signal, setRoom);
+    void refreshActiveRoom(browserFetch, controller.signal, setRoom);
     return () => controller.abort();
   }, [pathname, seed]);
   if (!room || !showsActiveRoomBar(pathname, room)) return null;

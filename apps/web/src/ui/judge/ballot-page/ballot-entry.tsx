@@ -1,3 +1,5 @@
+import { StatusRegion } from '../../components/status-region/status-region';
+import { Button } from '../../components/button/button';
 import { isRoundOver } from '@daisy/protocol';
 import { HiddenFields } from '../../form-action/hidden-fields';
 import { createAppError } from '@daisy/errors';
@@ -39,24 +41,26 @@ export function BallotEntry(props: EntryProps) {
       );
     case 'recorded':
       return (
-        <p role="status">
+        <StatusRegion as="p" role="status">
           Ballot submitted.{' '}
           {props.view.round.status === 'completed'
             ? 'The round is over and its result is recorded. Both debaters now see your decision and reason, and each sees their own feedback.'
             : 'The result is recorded once any other ballots and attendance for the last speeches settle.'}
-        </p>
+        </StatusRegion>
       );
     case 'open':
       return <OpenBallot {...props} />;
     case 'waiting':
       return (
-        <p role="status">
+        <StatusRegion as="p" role="status">
           Your ballot opens when the recorded transcript is frozen.
-        </p>
+        </StatusRegion>
       );
     case 'decided':
       return (
-        <p role="status">This Round is already decided. No ballot is due.</p>
+        <StatusRegion as="p" role="status">
+          This Round is already decided. No ballot is due.
+        </StatusRegion>
       );
   }
 }
@@ -79,21 +83,22 @@ function RetryBallot({
           This Round has ended. Your original submission can still be retried.
         </p>
       ) : null}
-      <p id={roundBallotErrorId} tabIndex={-1} role="alert">
+      <StatusRegion as="p" id={roundBallotErrorId} tabIndex={-1} role="alert">
         {answer.error}
-      </p>
+      </StatusRegion>
       <HiddenFields
         entries={Object.entries(answer.values).filter(
           ([name]) => !name.startsWith('$ACTION_'),
         )}
       />
-      <button
+      <Button
+        variant="unstyled"
         type="submit"
         disabled={pending}
         className={buttonClass('primary')}
       >
         {pending ? 'Retrying…' : 'Retry original ballot'}
-      </button>
+      </Button>
     </form>
   );
 }

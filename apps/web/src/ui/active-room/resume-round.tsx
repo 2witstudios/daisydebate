@@ -1,15 +1,16 @@
 'use client';
 
+import { useBrowserEffect } from '../edge/browser-sync';
 import type { ActiveRoom } from '@daisy/protocol';
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { departedInSession } from '../../features/rooms/resume-departure';
 import { resumeRoundHrefOf } from '../../features/rooms/resume';
 import {
   attemptedResume,
   markResumeAttempt,
 } from '../../features/rooms/resume-attempt';
-import { TabElsewhere } from '../../features/rooms/tab-elsewhere';
-import { useResumeLifetime } from '../../features/rooms/use-resume-lifetime';
+import { TabElsewhere } from './tab-elsewhere';
+import { useResumeLifetime } from './use-resume-lifetime';
 
 /** Round id inside the signed href, when the Round actually launched. */
 const roundIdOf = (href: string): string | null => {
@@ -51,7 +52,7 @@ export function ResumeRound({
     window.location.reload(),
   );
   const waited = useRef(false);
-  useEffect(() => {
+  useBrowserEffect(() => {
     if (resuming === null || ownership.owns === null) return;
     if (!ownership.owns) waited.current = true;
     else if (waited.current) window.location.reload();

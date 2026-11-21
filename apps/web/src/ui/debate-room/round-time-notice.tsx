@@ -1,5 +1,8 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useBrowserEffect } from '../edge/browser-sync';
+import { startTick, stopTick } from '../edge/browser-time';
+import { StatusRegion } from '../components/status-region/status-region';
+import { useState } from 'react';
 import type {
   RoundTime,
   RoundTimeStatus,
@@ -16,14 +19,14 @@ export function RoundTimeNotice({
     kind: 'seed',
     uncertaintyMs: null,
   });
-  useEffect(() => {
+  useBrowserEffect(() => {
     const update = () => setStatus(roundTime.status());
     update();
     const unsubscribe = roundTime.subscribe(update);
-    const timer = window.setInterval(update, 1000);
+    const timer = startTick(update, 1000);
     return () => {
       unsubscribe();
-      window.clearInterval(timer);
+      stopTick(timer);
     };
   }, [roundTime]);
   const { announcement, detail } = roundTimeNotice(status);
@@ -32,7 +35,9 @@ export function RoundTimeNotice({
       className="px-4 py-1 text-sm text-ink-muted"
       data-round-time={status.kind}
     >
-      <span role="status">{announcement}</span>
+      <StatusRegion as="span" role="status">
+        {announcement}
+      </StatusRegion>
       {detail ? ` · ${detail}` : null}
     </p>
   );

@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useBrowserEffect } from '../../edge/browser-sync';
+
 import { topicFromHash } from './topic-from-hash';
 
 /**
@@ -15,7 +16,7 @@ export function OpenTopicFromHash({
 }: {
   readonly topicIds: readonly string[];
 }) {
-  useEffect(() => {
+  useBrowserEffect(() => {
     const open = () => {
       const id = topicFromHash(window.location.hash, topicIds);
       const details = id

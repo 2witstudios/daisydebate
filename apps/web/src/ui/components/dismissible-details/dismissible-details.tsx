@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useMount } from '../../edge/use-mount';
+import { useRef, type ReactNode } from 'react';
 import { cn } from '../../cn';
 
 /**
@@ -27,7 +28,7 @@ export function DismissibleDetails({
   const ref = useRef<HTMLDetailsElement>(null);
   const summaryRef = useRef<HTMLElement>(null);
 
-  useEffect(() => {
+  useMount(() => {
     const element = ref.current;
     if (!element) return;
 
@@ -55,7 +56,7 @@ export function DismissibleDetails({
       document.removeEventListener('click', onDocumentClick);
       document.removeEventListener('keydown', onKeydown);
     };
-  }, []);
+  });
 
   return (
     <details ref={ref} className={cn(className)}>

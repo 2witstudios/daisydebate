@@ -1,3 +1,4 @@
+import { Button } from '../../components/button/button';
 import type { RoomView } from '@daisy/protocol';
 import type { RoomFormState } from '../../../features/rooms/command-answer';
 import {
@@ -54,9 +55,13 @@ export function CaptureChoice({
               version={view.version}
               commandId={commandId}
             />
-            <button type="submit" className="self-start text-sm font-strong">
+            <Button
+              variant="unstyled"
+              type="submit"
+              className="self-start text-sm font-strong"
+            >
               Turn off broadcast and recording
-            </button>
+            </Button>
           </AssemblyCommandForm>
         ) : null}
       </>
@@ -111,9 +116,13 @@ export function CaptureChoice({
           />
           Record this round
         </label>
-        <button type="submit" className="self-start text-sm font-strong">
+        <Button
+          variant="unstyled"
+          type="submit"
+          className="self-start text-sm font-strong"
+        >
           Save broadcast and recording
-        </button>
+        </Button>
       </div>
     </AssemblyCommandForm>
   );

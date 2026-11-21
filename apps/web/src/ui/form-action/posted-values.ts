@@ -1,11 +1,6 @@
 'use client';
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-  type RefObject,
-} from 'react';
+import { useBrowserEffect } from '../edge/browser-sync';
+import { createContext, useContext, useState, type RefObject } from 'react';
 import type { FormValues } from '../../features/forms/form-state';
 
 /**
@@ -42,7 +37,7 @@ export function useFormResets(
   onReset?: (form: HTMLFormElement) => void,
 ): number {
   const [resets, setResets] = useState(0);
-  useEffect(() => {
+  useBrowserEffect(() => {
     const form = anchor.current?.closest('form');
     if (!form) return;
     const reset = () => {

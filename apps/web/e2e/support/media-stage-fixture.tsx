@@ -1,7 +1,7 @@
 import { isJudgeSeat } from '@daisy/protocol';
 import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
-import { MediaStage } from '../../src/features/round-media/media-stage';
+import { MediaStage } from '../../src/ui/round-media/media-stage';
 import { view } from '../../src/ui/debate-room/live-round.test-support';
 import type { TrackHandle } from '../../src/features/round-media/adapters/livekit-room';
 const root = createRoot(document.getElementById('root')!);

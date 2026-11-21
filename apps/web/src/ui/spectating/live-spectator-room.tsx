@@ -1,5 +1,6 @@
 'use client';
 import '../../lib/zod-jitless';
+import { StatusRegion } from '../components/status-region/status-region';
 import { FloorChat, type FloorChatProps } from '../round-floor/floor-chat';
 import { OpeningStatus } from '../debate-room/opening-strike';
 import { drawnTopicLabel } from '../../features/debate-room/vocabulary';
@@ -52,9 +53,9 @@ export function LinkedAdultEndNotice({
 }) {
   return (
     <div className="mx-auto flex w-full max-w-dash-column flex-col gap-3 px-6 py-8 max-narrow:px-4">
-      <p role="status" className="font-strong">
+      <StatusRegion as="p" role="status" className="font-strong">
         You can no longer watch this round live.
-      </p>
+      </StatusRegion>
       <p className="text-sm text-ink-muted">
         It has ended, or your link to its debaters has. If you can still see it,
         its recording, transcript and result open here once they are ready.
@@ -201,7 +202,11 @@ export function LiveSpectatorRoom(props: {
       <FreshnessNotice freshness={synced.freshness} noun="round" />
       <RoundTimeNotice roundTime={roundTime} />
       <RoundIncidentBanner checkpoint={view.checkpoint} nowMs={now} />
-      {note ? <p role="status">{note}</p> : null}
+      {note ? (
+        <StatusRegion as="p" role="status">
+          {note}
+        </StatusRegion>
+      ) : null}
       <ul
         aria-label="Debaters"
         className="grid grid-cols-2 gap-4 max-narrow:gap-3"

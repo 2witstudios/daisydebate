@@ -24,7 +24,7 @@ declare global {
 }
 const adapter = resolve(
   import.meta.dirname,
-  '../../src/features/realtime/browser-adapters.ts',
+  '../../src/ui/edge/realtime-browser.ts',
 );
 const parser = resolve(
   import.meta.dirname,

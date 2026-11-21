@@ -40,7 +40,7 @@ const said = (overview: SecurityOverview) => {
     rows: (html.match(/<li/g) ?? []).length,
     unavailable: ['passkeys-load-notice', 'sessions-load-notice'].filter((id) =>
       new RegExp(
-        `id="${id}" role="alert"[^>]*>.*?${OUTCOME_NOTICES.unavailable}`,
+        `<div(?=[^>]* id="${id}")(?=[^>]* role="alert")[^>]*>.*?${OUTCOME_NOTICES.unavailable}`,
       ).test(html),
     ),
   };

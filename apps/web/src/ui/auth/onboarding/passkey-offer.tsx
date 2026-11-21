@@ -1,6 +1,8 @@
 'use client';
 
-import { useEffect, useReducer } from 'react';
+import { useBrowserEffect } from '../../edge/browser-sync';
+import { navigateDocument } from '../../edge/browser-navigation';
+import { useReducer } from 'react';
 import { useRouter } from 'next/navigation';
 import { destinationOf } from '../../../features/forms/form-state';
 import { authClient } from '../../../lib/auth-client';
@@ -59,11 +61,11 @@ export function PasskeyOffer({
     declineUnavailable,
   );
   const router = useRouter();
-  useEffect(() => {
-    if (state.step === 'done') window.location.assign(destination);
+  useBrowserEffect(() => {
+    if (state.step === 'done') navigateDocument(destination);
   }, [state.step, destination]);
   const declinedTo = destinationOf(declined);
-  useEffect(() => {
+  useBrowserEffect(() => {
     if (declinedTo !== undefined)
       replaceRoute(router, browserDocument(), declinedTo);
   }, [declinedTo, router]);

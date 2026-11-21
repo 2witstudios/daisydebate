@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Icon, type IconName } from '../icon/icon';
+import { StatusRegion } from '../status-region/status-region';
 import { noticeClass, noticeIconClass, type NoticeTone } from './notice-class';
 
 export type NoticeProps = {
@@ -14,7 +15,7 @@ export type NoticeProps = {
 /** A short callout: an icon, a bold line and an optional explanation. */
 export function Notice({ tone, icon, title, role, children }: NoticeProps) {
   return (
-    <div role={role} className={noticeClass(tone)}>
+    <StatusRegion as="div" role={role} className={noticeClass(tone)}>
       <Icon name={icon} size={18} className={noticeIconClass(tone)} />
       <div className="flex min-w-0 flex-col gap-1">
         <p className="text-base font-strong text-ink">{title}</p>
@@ -22,6 +23,6 @@ export function Notice({ tone, icon, title, role, children }: NoticeProps) {
           <p className="text-base leading-normal text-ink-muted">{children}</p>
         ) : null}
       </div>
-    </div>
+    </StatusRegion>
   );
 }

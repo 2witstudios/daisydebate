@@ -1,3 +1,4 @@
+import { Button } from '../components/button/button';
 import { HiddenFields } from '../form-action/hidden-fields';
 import type { RoundFormState } from '../../features/round-runtime/command-form';
 import { roundCommandFields } from '../../features/round-runtime/command-fields';
@@ -40,13 +41,14 @@ export function UnacknowledgedCommand({
           fields.has(name),
         )}
       />
-      <button
+      <Button
+        variant="unstyled"
         type="submit"
         disabled={pending}
         className="inline-flex h-room-target items-center rounded-sm border border-border-strong px-4 text-sm font-strong disabled:opacity-60"
       >
         {pending ? 'Retrying…' : 'Retry command'}
-      </button>
+      </Button>
     </form>
   );
 }

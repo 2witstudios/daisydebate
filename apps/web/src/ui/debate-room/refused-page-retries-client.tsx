@@ -1,6 +1,8 @@
 'use client';
+import { useBrowserEffect } from '../edge/browser-sync';
+import { scheduleDelay } from '../edge/browser-time';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+
 import { startRefusedPageRetries } from './refused-page-retries';
 
 /** The server is asked again in place until this page is replaced or left. */
@@ -10,14 +12,13 @@ export function RefusedPageRetries({
   readonly firstWaitMs: number;
 }) {
   const router = useRouter();
-  useEffect(
+  useBrowserEffect(
     () =>
       startRefusedPageRetries({
         firstWaitMs,
         refresh: () => router.refresh(),
         schedule: (next, waitMs) => {
-          const timer = window.setTimeout(next, waitMs);
-          return () => window.clearTimeout(timer);
+          return scheduleDelay(next, waitMs);
         },
       }),
     [firstWaitMs, router],

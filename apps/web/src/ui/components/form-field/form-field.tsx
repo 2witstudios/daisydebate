@@ -1,3 +1,4 @@
+import { StatusRegion } from '../status-region/status-region';
 import type { ReactNode } from 'react';
 import {
   errorClass,
@@ -36,8 +37,8 @@ export function FormField({
 /** The refusal under a form: shown as an alert, absent when there is none. */
 export function FormError({ error }: { readonly error: string | undefined }) {
   return error === undefined ? null : (
-    <p role="alert" className={errorClass}>
+    <StatusRegion as="p" role="alert" className={errorClass}>
       {error}
-    </p>
+    </StatusRegion>
   );
 }

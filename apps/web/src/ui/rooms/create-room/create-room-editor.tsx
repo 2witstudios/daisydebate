@@ -1,5 +1,7 @@
 'use client';
 
+import { StatusRegion } from '../../components/status-region/status-region';
+import { Button } from '../../components/button/button';
 import type { CreateLobbyChoice } from '../../../features/rooms/create-lobby-choice';
 
 import { useState } from 'react';
@@ -230,13 +232,13 @@ export function CreateRoomEditor({
           {isRanked && values.recording === 'on' ? (
             <input type="hidden" name="recording" value="on" />
           ) : null}
-          <p id="create-recording-notice" role="status">
+          <StatusRegion as="p" id="create-recording-notice" role="status">
             {isRanked
               ? 'Recording is on for ranked matches.'
               : values.recording === 'on'
                 ? 'Recording is subject to available capacity.'
                 : null}
-          </p>
+          </StatusRegion>
           {!isRanked && values.recording === 'on' ? (
             <>
               <p>{casualCaptureNotice.text}</p>
@@ -378,7 +380,8 @@ export function CreateRoomEditor({
           )}
         </section>
         <div className="create-room-actions">
-          <button
+          <Button
+            variant="unstyled"
             type="submit"
             name="intent"
             value="create"
@@ -386,7 +389,7 @@ export function CreateRoomEditor({
             disabled={pending}
           >
             {pending ? 'Creating…' : 'Create room'}
-          </button>
+          </Button>
         </div>
       </fieldset>
       <DraftPreview

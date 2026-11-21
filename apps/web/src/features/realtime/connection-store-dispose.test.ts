@@ -14,7 +14,7 @@ import {
   flush,
   validTicket,
 } from './connection-store.test-support';
-import { onDocumentVisibilityChange } from './browser-adapters';
+import { onDocumentVisibilityChange } from '../../ui/edge/realtime-browser';
 
 setupRitewayBun();
 

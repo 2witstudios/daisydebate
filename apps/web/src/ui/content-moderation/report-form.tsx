@@ -1,3 +1,4 @@
+import { Button } from '../components/button/button';
 import {
   reasonsForTarget,
   type ContentReportTargetKind,
@@ -35,9 +36,9 @@ export function ReportForm({
             ))}
           </select>
         </label>
-        <button type="submit" className="font-strong">
+        <Button variant="unstyled" type="submit" className="font-strong">
           Send report
-        </button>
+        </Button>
       </form>
     </details>
   );

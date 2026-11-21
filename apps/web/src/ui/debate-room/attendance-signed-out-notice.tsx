@@ -1,3 +1,4 @@
+import { StatusRegion } from '../components/status-region/status-region';
 import { signInHref } from '../../features/access/decision';
 
 /**
@@ -10,11 +11,11 @@ export function AttendanceSignedOutNotice({
   readonly roundId: string;
 }) {
   return (
-    <p role="alert" className="px-4 py-1 text-sm text-ink">
+    <StatusRegion as="p" role="alert" className="px-4 py-1 text-sm text-ink">
       You were signed out, so your check-ins stopped.{' '}
       <a href={signInHref(`/rounds/${roundId}`)} className="font-semibold">
         Sign in again
       </a>
-    </p>
+    </StatusRegion>
   );
 }

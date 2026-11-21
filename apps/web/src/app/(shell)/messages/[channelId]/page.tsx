@@ -1,3 +1,4 @@
+import { StatusRegion } from '../../../../ui/components/status-region/status-region';
 import { headers } from 'next/headers';
 import {
   ConversationNavigation,
@@ -103,9 +104,13 @@ export default async function ConversationPage({
             }
           />
         ) : conversation === null ? (
-          <p role="status" className="flex-1 p-6 text-ink-muted">
+          <StatusRegion
+            as="p"
+            role="status"
+            className="flex-1 p-6 text-ink-muted"
+          >
             This conversation is unavailable. Refresh to try again.
-          </p>
+          </StatusRegion>
         ) : (
           <>
             {searchQuery === undefined && !paging ? (

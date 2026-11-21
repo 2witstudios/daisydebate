@@ -1,6 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useBrowserEffect } from '../../edge/browser-sync';
+import { startTick, stopTick } from '../../edge/browser-time';
+import { useState } from 'react';
 
 const BAR_COUNT = 5;
 const BAR_STEP = 0.04;
@@ -16,7 +18,7 @@ export function micBars(rms: number): number {
 /** Reads the checked microphone's local preview; never connects to speakers or a transport. */
 export function MicLevel({ stream }: { readonly stream: MediaStream | null }) {
   const [lit, setLit] = useState(0);
-  useEffect(() => {
+  useBrowserEffect(() => {
     if (!stream) return;
     const context = new AudioContext();
     const source = context.createMediaStreamSource(stream);
@@ -24,7 +26,7 @@ export function MicLevel({ stream }: { readonly stream: MediaStream | null }) {
     analyser.fftSize = 1024;
     source.connect(analyser);
     const samples = new Float32Array(analyser.fftSize);
-    const timer = window.setInterval(() => {
+    const timer = startTick(() => {
       analyser.getFloatTimeDomainData(samples);
       setLit(
         micBars(
@@ -37,7 +39,7 @@ export function MicLevel({ stream }: { readonly stream: MediaStream | null }) {
     }, 100);
     void context.resume().catch(() => {});
     return () => {
-      window.clearInterval(timer);
+      stopTick(timer);
       source.disconnect();
       analyser.disconnect();
       void context.close().catch(() => {});

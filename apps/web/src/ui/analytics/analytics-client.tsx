@@ -1,6 +1,8 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useBrowserEffect } from '../edge/browser-sync';
+import { browserFetch } from '../edge/browser-request';
+
 import { usePathname, useRouter } from 'next/navigation';
 import {
   syncAnalytics,
@@ -13,22 +15,29 @@ import type { Capture } from '../../features/analytics/viewer-analytics';
 import { watchConsent } from '../../features/analytics/consent-sync';
 
 /** Visitor-page lifecycle binding (ADR 0123); never passes browser locations or participant content to capture. */
-export function AnalyticsClient(
-  props: Capture & { readonly consent: Consent },
-) {
+export function AnalyticsClient({
+  consent: { version, necessary, analytics, replay },
+  userId,
+  needsAdoption,
+  keyValue,
+  host,
+}: Capture & { readonly consent: Consent }) {
   const pathname = usePathname();
   const router = useRouter();
-  useEffect(() => {
-    return watchConsent(props, () => {
-      stopAnalytics();
-      router.refresh();
-    });
-  }, [props.consent.analytics, props.consent.replay, props.userId, router]);
-  useEffect(() => {
-    if (props.needsAdoption) {
+  useBrowserEffect(() => {
+    return watchConsent(
+      { consent: { version, necessary, analytics, replay }, userId },
+      () => {
+        stopAnalytics();
+        router.refresh();
+      },
+    );
+  }, [version, necessary, analytics, replay, userId, router]);
+  useBrowserEffect(() => {
+    if (needsAdoption) {
       stopAnalytics();
       let active = true;
-      void fetch('/api/analytics/consent', {
+      void browserFetch('/api/analytics/consent', {
         method: 'POST',
         headers: { 'content-type': 'application/x-www-form-urlencoded' },
         body: 'choice=adopt',
@@ -43,18 +52,25 @@ export function AnalyticsClient(
         active = false;
       };
     }
-    syncAnalytics({ ...props, key: props.keyValue });
+    syncAnalytics({
+      consent: { version, necessary, analytics, replay },
+      userId,
+      host,
+      key: keyValue,
+    });
     const area = pageArea(pathname);
     if (area) trackClient({ event: 'page_viewed', properties: { area } });
     return stopAnalytics;
   }, [
-    props.consent.analytics,
-    props.consent.replay,
-    props.keyValue,
-    props.host,
-    props.userId,
+    version,
+    necessary,
+    analytics,
+    replay,
+    keyValue,
+    host,
+    userId,
     pathname,
-    props.needsAdoption,
+    needsAdoption,
     router,
   ]);
   return null;

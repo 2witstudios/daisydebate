@@ -1,5 +1,6 @@
 'use client';
 
+import { Button } from '../../components/button/button';
 import { buttonClass } from '../../components/button/button-class';
 import { useClipboardCopy } from './use-clipboard-copy';
 
@@ -24,13 +25,14 @@ export function CopyLink({ path }: CopyLinkProps) {
           className="h-10 min-w-0 flex-1 rounded-sm border border-border bg-surface px-2 text-sm text-ink"
         />
         {ready ? (
-          <button
+          <Button
+            variant="unstyled"
             type="button"
             onClick={() => copy(`${window.location.origin}${path}`)}
             className={buttonClass('primary')}
           >
             Copy
-          </button>
+          </Button>
         ) : null}
       </div>
     </details>

@@ -1,7 +1,7 @@
 'use client';
 
+import { useNavigation } from '../edge/use-navigation';
 import { useRouter } from 'next/navigation';
-import { useEffect, useRef } from 'react';
 import { browserDocument } from '../round-media/browser-document';
 import { replaceRoute } from '../round-media/replace-route';
 
@@ -22,14 +22,8 @@ export function useMovedOn(
   beforeNavigate?: () => void,
 ): void {
   const router = useRouter();
-  const before = useRef(beforeNavigate);
-  useEffect(() => {
-    before.current = beforeNavigate;
-  }, [beforeNavigate]);
-  useEffect(() => {
-    if (next !== undefined) {
-      before.current?.();
-      followAnswer(router, next);
-    }
-  }, [next, router]);
+  useNavigation(router, next, (navigator, destination) => {
+    beforeNavigate?.();
+    followAnswer(navigator, destination);
+  });
 }
