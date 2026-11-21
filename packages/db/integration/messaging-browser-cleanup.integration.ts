@@ -2,11 +2,127 @@ import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { cleanupMessagingBrowserData } from '../src/messaging/browser-fixture';
+import { seedMessagingTestDm } from '../src/messaging/test-fixture';
 import { createAuthorizationSubject } from './authorization.test-support';
 import { withFixture } from './constraint-helpers';
 
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
+
+test('browser cleanup finds a committed DM when the journey never receives its channel ID', async () => {
+  await withFixture(databaseUrl, async (fixture) => {
+    const accounts = await Promise.all(
+      Array.from({ length: 3 }, () => createAuthorizationSubject(fixture)),
+    );
+    const [sender, recipient, outsider] = accounts;
+    if (!sender || !recipient || !outsider)
+      throw new Error('Three test accounts required');
+    const pairs = [
+      { actorId: sender.actorId, otherActorId: recipient.actorId, expected: 0 },
+      {
+        actorId: recipient.actorId,
+        otherActorId: outsider.actorId,
+        expected: 1,
+      },
+    ].map((pair) => ({
+      ...pair,
+      channelId: createId(),
+      requestId: createId(),
+    }));
+    const now = '2026-10-09T18:00:00.000Z';
+    const digest = 'a'.repeat(64);
+    try {
+      for (const { actorId, otherActorId, channelId, requestId } of pairs) {
+        await seedMessagingTestDm(fixture.sql, {
+          actorId,
+          otherActorId,
+          channelId,
+          now,
+        });
+        await fixture.sql`update messaging_dm_pairs set request_state='pending', decided_at=null where channel_id=${channelId}`;
+        await fixture.sql`insert into messaging_social_commands(actor_id,request_id,counterpart_actor_id,kind,digest,result_channel_id,created_at)
+          values(${actorId},${requestId},${otherActorId},'dm.request',${digest},${channelId},${now})`;
+        await fixture.sql`insert into social_requests(actor_id,request_id,counterpart_actor_id,kind,unrelated,created_at)
+          values(${actorId},${requestId},${otherActorId},'dm',true,${now})`;
+        await fixture.sql`insert into contact_commands(actor_id,request_id,counterpart_actor_id,kind,digest,created_at)
+          values(${actorId},${requestId},${otherActorId},'contact.block',${digest},${now})`;
+        await fixture.sql`insert into outbox(topic,kind,version,payload)
+          values(${`channel:${channelId}`},'channel.changed',1,jsonb_build_object('channelId',${channelId}::text))`;
+      }
+      await cleanupMessagingBrowserData(
+        fixture.sql,
+        [sender, recipient].map((account) => ({
+          ...account,
+          username: account.userId,
+        })),
+        [],
+      );
+      for (const {
+        actorId,
+        otherActorId,
+        channelId,
+        requestId,
+        expected,
+      } of pairs) {
+        const [low, high] = [actorId, otherActorId].sort();
+        const [pair] =
+          await fixture.sql`select count(*)::int as count from contact_pairs where low_actor_id=${low} and high_actor_id=${high}`;
+        assert({
+          given:
+            expected === 0
+              ? 'an unreported fixture DM'
+              : 'a DM with an outsider',
+          should:
+            expected === 0
+              ? 'remove the channel, pair, receipts and outbox rows'
+              : 'preserve the channel, pair, receipts and outbox rows',
+          actual: {
+            channel: await fixture.count('messaging_channels', 'id', channelId),
+            pair: pair?.count,
+            messagingReceipt: await fixture.count(
+              'messaging_social_commands',
+              'request_id',
+              requestId,
+            ),
+            contactReceipt: await fixture.count(
+              'contact_commands',
+              'request_id',
+              requestId,
+            ),
+            requestBudget: await fixture.count(
+              'social_requests',
+              'request_id',
+              requestId,
+            ),
+            outbox: await fixture.count(
+              'outbox',
+              'topic',
+              `channel:${channelId}`,
+            ),
+          },
+          expected: {
+            channel: expected,
+            pair: expected,
+            messagingReceipt: expected,
+            contactReceipt: expected,
+            requestBudget: expected,
+            outbox: expected,
+          },
+        });
+      }
+    } finally {
+      for (const { actorId, otherActorId, channelId, requestId } of pairs) {
+        const [low, high] = [actorId, otherActorId].sort();
+        await fixture.sql`delete from outbox where topic=${`channel:${channelId}`}`;
+        await fixture.sql`delete from messaging_social_commands where request_id=${requestId}`;
+        await fixture.sql`delete from contact_commands where request_id=${requestId}`;
+        await fixture.sql`delete from social_requests where request_id=${requestId}`;
+        await fixture.sql`delete from messaging_channels where id=${channelId}`;
+        await fixture.sql`delete from contact_pairs where low_actor_id=${low} and high_actor_id=${high}`;
+      }
+    }
+  });
+});
 
 test('browser cleanup accepts owned group provenance and refuses foreign invitation associations atomically', async () => {
   await withFixture(databaseUrl, async (fixture) => {
