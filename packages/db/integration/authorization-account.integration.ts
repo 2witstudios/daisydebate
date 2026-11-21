@@ -3,6 +3,7 @@ import { drizzle } from 'drizzle-orm/bun-sql';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
+import { authOperations } from '../src/auth-operations';
 import { sql } from 'drizzle-orm';
 import {
   lockAuthorizationActors,
@@ -156,6 +157,59 @@ test("a live session carries its account's beta and age facts (ADR 0075)", async
         'adult',
         { state: 'approved', revision: 2 },
       ],
+    });
+  });
+});
+
+test('a sign-in session is revoked in one guarded statement only when its address moved', async () => {
+  await withFixture(url, async (fixture) => {
+    const userId = await fixture.user();
+    const oldAddress = `${createId()}@example.test`;
+    const newAddress = `${createId()}@example.test`;
+    const id = createId();
+    const token = createId();
+    fixture.track('session', id);
+    await fixture.sql`update users set email=${oldAddress} where id=${userId}`;
+    await fixture.sql`insert into session(id,user_id,token,expires_at)
+      values(${id},${userId},${token},'2099-01-01T00:00:00Z')`;
+    const queries: { query: string; params: unknown[] }[] = [];
+    const database = drizzle({
+      client: fixture.sql,
+      logger: { logQuery: (query, params) => queries.push({ query, params }) },
+    });
+    const auth = authOperations({ database });
+    const retained = await auth.revokeSessionUnlessAddressHeld({
+      token,
+      email: oldAddress,
+    });
+    await fixture.sql`update users set email=${newAddress} where id=${userId}`;
+    const removed = await auth.revokeSessionUnlessAddressHeld({
+      token,
+      email: oldAddress,
+    });
+    assert({
+      given:
+        'the verified old address, then an account that has moved to a new address',
+      should:
+        'retain then delete the exact session using one guarded query each',
+      actual: {
+        results: [retained, removed],
+        queries: queries.map(({ query, params }) => [
+          query.startsWith('delete from "session"') &&
+            query.includes('not exists') &&
+            query.includes('"users"'),
+          params,
+        ]),
+        remaining: await fixture.count('session', 'id', id),
+      },
+      expected: {
+        results: [false, true],
+        queries: [
+          [true, [token, oldAddress]],
+          [true, [token, oldAddress]],
+        ],
+        remaining: 0,
+      },
     });
   });
 });

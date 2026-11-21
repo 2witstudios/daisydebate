@@ -44,8 +44,16 @@ describe('season operations (RATE-1.2)', () => {
         assert({
           given: 'no active season',
           should: 'open the season as active at version 1',
-          actual: [opened.status, opened.name, opened.version, opened.endsAt],
-          expected: ['active', 'Season 1', 1, null],
+          actual: opened,
+          expected: {
+            id: first,
+            name: 'Season 1',
+            division: 'open',
+            status: 'active',
+            version: 1,
+            startsAt: october.toISOString(),
+            endsAt: null,
+          },
         });
         await assertRejects({
           given: 'an active season already open',
@@ -81,9 +89,9 @@ describe('season operations (RATE-1.2)', () => {
         });
         assert({
           given: 'the open season',
-          should: 'list it',
-          actual: (await seasons.listSeasons()).some(({ id }) => id === first),
-          expected: true,
+          should: 'list its complete record',
+          actual: (await seasons.listSeasons()).find(({ id }) => id === first),
+          expected: opened,
         });
       });
     });
@@ -94,7 +102,7 @@ describe('season operations (RATE-1.2)', () => {
       const current = tracked(fixture);
       const next = tracked(fixture);
       await withSeasons(url, async (seasons) => {
-        await seasons.openSeason({
+        const opened = await seasons.openSeason({
           id: current,
           name: 'Season 1',
           division: 'open',
@@ -115,6 +123,16 @@ describe('season operations (RATE-1.2)', () => {
         });
         await fixture.sql`update seasons set status='closed', ends_at=${january} where id=${current}`;
         const before = await seasons.listSeasons();
+        assert({
+          given: 'a closed season',
+          should: 'return its persisted end instant and status',
+          actual: before.find(({ id }) => id === current),
+          expected: {
+            ...opened,
+            status: 'closed',
+            endsAt: january.toISOString(),
+          },
+        });
         await assertRejects({
           given: 'a closed earlier season and unresolved DEC-111',
           should: 'refuse to open another',

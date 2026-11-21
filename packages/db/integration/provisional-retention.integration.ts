@@ -6,7 +6,10 @@ import { expect } from 'bun:test';
 import { withFixture } from './constraint-helpers';
 import { createDatabase } from '../src';
 import { ownLinksDelete } from '../src/provisional-cleanup';
-import { abandonedCandidatesRead } from '../src/provisional-retention';
+import {
+  abandonedCandidatesRead,
+  provisionalRetentionOperations,
+} from '../src/provisional-retention';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { sql, type SQL } from 'drizzle-orm';
 
@@ -118,6 +121,95 @@ test('retention deletes only old unclaimed unanswered accounts and their owned m
       await f.sql`delete from account_age where user_id=${aged}`;
       await f.sql`delete from account_terms where user_id=${termed}`;
     }
+  });
+});
+
+test('the sweep rechecks a protection committed after the unlocked scan', async () => {
+  await withFixture(url, async (fixture) => {
+    const id = createId();
+    await fixture.insert('users', {
+      id,
+      email: `${id}@example.test`,
+      created_at: old,
+    });
+    const statements: string[] = [];
+    const db = drizzle({
+      client: fixture.sql,
+      logger: { logQuery: (statement) => statements.push(statement) },
+    });
+    const transaction = db.transaction.bind(db);
+    db.transaction = async (work, config) => {
+      await fixture.sql`insert into account_age(user_id,birth_month,recorded_at) values(${id},'1980-01',${old})`;
+      return transaction(work, config);
+    };
+    try {
+      const operations = provisionalRetentionOperations({
+        database: db,
+        eventSink: undefined,
+      });
+      const removed = await operations.purgeExpiredProvisionalUsers({
+        ...options,
+        limit: 1,
+      });
+      const [scan, lock, recheck] = statements;
+      assert({
+        given:
+          'an age recorded after scanning and before locking the candidate',
+        should:
+          'scan once without a lock, lock only its candidate, then recheck and preserve the account',
+        actual: {
+          removed,
+          kept: await fixture.count('users', 'id', id),
+          count: statements.length,
+          unlocked: !scan?.includes('for update'),
+          bounded: /order by created_at, id limit \$\d+/.test(scan ?? ''),
+          skipsLocks: lock?.includes('for update skip locked'),
+          rechecksAge: recheck?.includes('account_age'),
+          rechecksSessions: recheck?.includes('from session'),
+        },
+        expected: {
+          removed: 0,
+          kept: 1,
+          count: 3,
+          unlocked: true,
+          bounded: true,
+          skipsLocks: true,
+          rechecksAge: true,
+          rechecksSessions: true,
+        },
+      });
+    } finally {
+      await fixture.sql`delete from account_age where user_id = ${id}`;
+    }
+  });
+});
+
+test('invalid retention bounds are refused before sending any SQL', async () => {
+  await withFixture(url, async (fixture) => {
+    const statements: string[] = [];
+    const db = drizzle({
+      client: fixture.sql,
+      logger: { logQuery: (statement) => statements.push(statement) },
+    });
+    const operations = provisionalRetentionOperations({
+      database: db,
+      eventSink: undefined,
+    });
+    for (const bounds of [
+      { before: 'invalid', limit: 2 },
+      { before, limit: 0 },
+      { before, limit: 1001 },
+    ]) {
+      await expect(
+        operations.purgeExpiredProvisionalUsers({ ...options, ...bounds }),
+      ).rejects.toThrow('Invalid retention bounds');
+    }
+    assert({
+      given: 'an invalid cutoff and two limits outside the allowed range',
+      should: 'issue no SQL',
+      actual: statements,
+      expected: [],
+    });
   });
 });
 

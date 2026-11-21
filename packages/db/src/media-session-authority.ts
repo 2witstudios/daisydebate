@@ -117,7 +117,7 @@ export async function lockMediaRound(
 }
 
 /** The one refusal a human gets for a Round it holds no live seat in, or that does not exist. */
-export const unseatedRefusal = () => createAppError('AUTHORIZATION');
+const unseatedRefusal = () => createAppError('AUTHORIZATION');
 
 /** The engine's decision (`mediaPhase`); the adapter only applies it. */
 export type MediaWindowRule = (facts: MediaWindowFacts) => MediaPhase;

@@ -2,7 +2,7 @@ import type { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import type { CompetitionType, RoundStatus } from '@daisy/protocol';
 import { createDatabase } from './index';
-import { foundationDefinition, oneOnOneSettings } from './reference-formats';
+import { oneOnOneSettings } from './reference-formats';
 import { createTestOnlyOperations } from './test-only-operations';
 import type { DatabaseEventSink } from './instrumented';
 import { validRules } from './testing-rules';
@@ -141,21 +141,6 @@ export const roundRow = (record: {
   new Date(record.updatedAt),
   record.version,
 ];
-
-// The columns `getFormat` selects, in selection order.
-export const formatRow = (record: {
-  id: string;
-  name: string;
-  version: number;
-  definition: unknown;
-}): unknown[] => [record.id, record.name, record.version, record.definition];
-
-export const sampleFormat = () => ({
-  id: 'foundation',
-  name: 'Foundation (architectural proof)',
-  version: 1,
-  definition: foundationDefinition,
-});
 
 export const roomRow = (overrides: Record<string, unknown> = {}) => {
   const row = {

@@ -10,6 +10,7 @@ import {
   isRoundEndState,
   type EndingRatingFacts,
   type RatingEligibilityFacts,
+  type RecordedEnding,
 } from '@daisy/protocol';
 import { roundOutcomeSql } from './round-outcome-sql';
 import { sql, type SQL } from 'drizzle-orm';
@@ -57,7 +58,7 @@ const recordedEndingValue = z.enum([
   'forfeit',
   'unjudged',
   'judged',
-]);
+] satisfies readonly RecordedEnding[]);
 type EndingRow = z.output<typeof endingRow>;
 
 /** A Round's ending facts, or why its row is unreadable: it is never rated. */

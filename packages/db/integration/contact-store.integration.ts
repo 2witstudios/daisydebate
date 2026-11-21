@@ -6,6 +6,7 @@ import { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { contactReactions } from '../src/contact-composition';
+import { challengeContactReactions } from '../src/challenges/frame';
 import { createContactStore } from '../src/contacts/store';
 import { createMessagingTestFixture } from '../src/testing';
 
@@ -161,6 +162,35 @@ test('contact updates keep the opposite direction and bind the receipt without a
       should: 'avoid reading or writing receipts',
       actual: statements.some((query) => query.includes('contact_commands')),
       expected: false,
+    });
+  } finally {
+    await fixture.cleanup();
+    await client.close();
+  }
+});
+
+test('an actual challenge is deleted only by the block reaction', async () => {
+  const client = new SQL(databaseUrl);
+  const fixture = await createMessagingTestFixture(client);
+  const { low, high } = fixture;
+  if (!low || !high) throw new Error('Missing fixture pair');
+  const id = createId();
+  const db = drizzle({ client });
+  const pair = { lowActorId: low, highActorId: high };
+  try {
+    await client`insert into challenges
+      (id,challenger_actor_id,challenged_actor_id,mode,format_id,division,created_at,expires_at)
+      values(${id},${low},${high},'casual','freestyle','open',${fixture.now},'2026-10-09T19:00:00Z')`;
+    const remaining = async () =>
+      (await client`select id from challenges where id=${id}`).length;
+    await challengeContactReactions.onBlock(db, pair, false);
+    const afterUnblock = await remaining();
+    await challengeContactReactions.onBlock(db, pair, true);
+    assert({
+      given: 'a stored challenge and the unblock and block reactions',
+      should: 'keep the challenge on unblock and remove it on block',
+      actual: [afterUnblock, await remaining()],
+      expected: [1, 0],
     });
   } finally {
     await fixture.cleanup();

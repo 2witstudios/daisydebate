@@ -1,8 +1,12 @@
 import { assertRejects } from '@daisy/errors/testing';
-import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { setupRitewayBun, test } from 'riteway/bun';
 import { createRoundAnalysisJobs } from './round-analysis-jobs';
-import { scripted } from './bounded-script.test-support';
+import type { BoundedTransaction } from './bounded-transaction';
 setupRitewayBun();
+
+const refuseDatabaseAccess: BoundedTransaction = async () => {
+  throw new Error('Validation must precede database access');
+};
 
 test('analysis worker bounds refuse invalid configuration before touching a resource', async () => {
   for (const [leaseMs, model] of [
@@ -10,14 +14,13 @@ test('analysis worker bounds refuse invalid configuration before touching a reso
     [180001, 'model'],
     [30000, ' '],
   ] as const) {
-    const script = scripted([]);
     await assertRejects({
       given: `lease ${leaseMs} and model ${JSON.stringify(model)}`,
       should: 'refuse an unusable worker configuration',
       code: 'VALIDATION',
       actual: async () =>
         createRoundAnalysisJobs({
-          run: script.run,
+          run: refuseDatabaseAccess,
           nextToken: () => 't'.repeat(43),
           nextId: () => 'i'.repeat(24),
           leaseMs,
@@ -25,19 +28,12 @@ test('analysis worker bounds refuse invalid configuration before touching a reso
           accountEligible: () => true,
         }),
     });
-    assert({
-      given: 'the refused worker configuration',
-      should: 'perform no database work',
-      actual: script.left(),
-      expected: 0,
-    });
   }
 });
 
 test('requested analysis discovery has a finite page bound', async () => {
-  const script = scripted([]);
   const jobs = createRoundAnalysisJobs({
-    run: script.run,
+    run: refuseDatabaseAccess,
     nextToken: () => 't'.repeat(43),
     nextId: () => 'i'.repeat(24),
     leaseMs: 30000,
