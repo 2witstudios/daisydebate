@@ -56,6 +56,7 @@ export function RoomChat({
         {...props}
         ownerId={roomId}
         context={roomChatContext}
+        retryDiscovery
         labels={labels[reader ?? 'other']}
         authorLabel={authorLabel}
       />
