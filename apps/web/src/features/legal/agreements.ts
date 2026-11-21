@@ -10,10 +10,10 @@ import type { LegalDocument } from './documents';
  * docs/legal/youth-ranked-content-waiver.md and
  * docs/legal/ranked-content-policy.md.
  */
-export const CONTENT_WAIVER_VERSION = 'draft-4';
+export const CONTENT_WAIVER_VERSION = 'draft-5';
 /** The Youth lobby's waiver (ADR 0161): no licence, signed in place of the Open one. */
 export const YOUTH_CONTENT_WAIVER_VERSION = 'youth-draft-1';
-const CONTENT_POLICY_VERSION = 'draft-4';
+const CONTENT_POLICY_VERSION = 'draft-5';
 
 const notReviewed =
   'This text has not been reviewed by counsel, and its wording may change after any review.';
@@ -34,14 +34,21 @@ export const contentWaiverDocument: LegalDocument = {
       id: 'in-round-content',
       heading: 'In-round content',
       paragraphs: [
-        'Daisy owns what is said and shown in a ranked round, including its video and transcript. It stays after you close your account, because ranked season rounds are qualifying artifacts for tournaments.',
+        'Daisy owns what is said and shown by adult debaters in a ranked round, including their contributions to its video and transcript. The round stays after you close your account, because ranked season rounds are qualifying artifacts for tournaments.',
+      ],
+    },
+    {
+      id: 'youth-debaters',
+      heading: 'Youth debaters',
+      paragraphs: [
+        'For a debater under 18, this waiver covers ranked play, public viewing on Daisy and keeping the round on Daisy. It gives Daisy no ownership of that debater’s contribution. Clipping, streaming, posting or otherwise reusing the round requires a separate media release covering every youth debater in it, including in an adult lobby.',
       ],
     },
     {
       id: 'clips-and-media',
       heading: 'Clips and other media',
       paragraphs: [
-        'Daisy may edit ranked rounds into clips and other media, and use your name and likeness in them, to broadcast and promote ranked play. This includes clips made by hand from this release on.',
+        'Where the Youth debaters section permits reuse, Daisy may edit ranked rounds into clips and other media, and use your name and likeness in them, to broadcast and promote ranked play. This includes clips made by hand from this release on.',
       ],
     },
     {
@@ -147,7 +154,7 @@ export const contentPolicyDocument: LegalDocument = {
       id: 'stream-and-post',
       heading: 'Stream and post it',
       paragraphs: [
-        'Anyone may stream and post ranked rounds, with or without an account, anywhere. You may earn from it, and Daisy charges no royalty. We ask for good faith: say where it came from, and do not present it as something it was not.',
+        'Anyone may stream and post ranked rounds covered by this policy, with or without an account, anywhere. You may earn from it, and Daisy charges no royalty. We ask for good faith: say where it came from, and do not present it as something it was not.',
       ],
     },
     {
@@ -182,7 +189,7 @@ export const contentPolicyDocument: LegalDocument = {
       id: 'youth-rounds',
       heading: 'Youth rounds',
       paragraphs: [
-        'This policy does not cover a round with a debater in the Youth lobby. Its content may be streamed, posted or reused only while a media release covers every youth debater in it, and Daisy offers no Stream this Round feed of it until then.',
+        'This policy does not grant permission to stream, post or reuse a round with a debater under 18, including in an adult lobby. That requires a separate media release covering every youth debater in the round. Until then, Daisy offers no download or Stream this Round feed.',
       ],
     },
   ],

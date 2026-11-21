@@ -100,31 +100,24 @@ CREATE POLICY restriction_lobby_waivers_sign ON restriction_lobby_waivers
     )
   );
 --> statement-breakpoint
--- A signed play permission leaves the actual mixed-age cast subject to release.
-CREATE OR REPLACE FUNCTION public.daisy_room_is_youth(requested_room_id text) RETURNS boolean
+-- Freeze the recording's cast at Start without changing Room chat authority.
+CREATE FUNCTION public.daisy_room_youth_recording_cast(requested_room_id text) RETURNS boolean
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp
-AS $room_youth$
-  SELECT CASE
-    WHEN l.kind='standing' AND (l.age_rule='under-18' OR rd.standing_age_rule='under-18') THEN true
-    WHEN l.kind='standing' THEN
-      CASE WHEN rd.id IS NULL THEN EXISTS (
+AS $room_youth_recording_cast$
+  SELECT EXISTS (
+    SELECT 1 FROM public.rooms r JOIN public.lobbies l ON l.id=r.lobby_id
+    WHERE r.id=requested_room_id AND l.kind='standing'
+      AND (l.age_rule='under-18' OR EXISTS (
         SELECT 1 FROM public.room_participants p JOIN public.actors a ON a.id=p.actor_id
         WHERE p.room_id=r.id AND p.seat_kind IN ('side','speaker')
           AND public.daisy_debater_was_under_18(a.user_id, statement_timestamp())
-      ) ELSE EXISTS (
-        SELECT 1 FROM public.round_participants p JOIN public.actors a ON a.id=p.actor_id
-        WHERE p.round_id=rd.id AND p.seat_kind IN ('side','speaker')
-          AND public.daisy_round_participant_is_current(p.id)
-          AND public.daisy_debater_was_under_18(a.user_id, rd.created_at)
-      ) END
-    ELSE coalesce(r.legacy_tournament_youth, EXISTS (
-      SELECT 1 FROM public.settings s WHERE s.scope_kind='lobby' AND s.lobby_id=l.id
-        AND s.key='entry.age_division' AND s.value->>'value'='youth'
-    )) END
-  FROM public.rooms r JOIN public.lobbies l ON l.id=r.lobby_id
-  LEFT JOIN public.rounds rd ON rd.room_id=r.id
-  WHERE r.id=requested_room_id
-$room_youth$;
+      ))
+  )
+$room_youth_recording_cast$;
+--> statement-breakpoint
+REVOKE ALL ON FUNCTION public.daisy_room_youth_recording_cast(text) FROM PUBLIC;
+--> statement-breakpoint
+GRANT EXECUTE ON FUNCTION public.daisy_room_youth_recording_cast(text) TO daisy_web;
 --> statement-breakpoint
 CREATE OR REPLACE FUNCTION public.daisy_round_linked_adult_actors(requested_round_id text)
 RETURNS TABLE(debater_actor_id text, debater_user_id text, linked_adult_actor_ids text[])
@@ -142,8 +135,7 @@ AS $round_linked_adult_actors$
    AND NOT EXISTS (SELECT 1 FROM public.rounds rd
      JOIN public.rooms r ON r.id=rd.room_id JOIN public.lobbies l ON l.id=r.lobby_id
      WHERE rd.id=requested_round_id AND l.kind='standing'
-       AND (rd.standing_age_rule='anyone' OR l.age_rule='anyone'
-         OR (coalesce(rd.standing_age_rule,l.age_rule)='adults' AND l.age_rule<>'under-18'))
+       AND coalesce(rd.standing_age_rule,l.age_rule) IN ('anyone','adults')
        AND NOT public.daisy_debater_was_under_18(a.user_id, rd.created_at))
  )
  SELECT d.actor_id, d.user_id,

@@ -699,7 +699,16 @@ test('a 14-year-old plays Youth and gets their guardian’s waiver to play Open 
     await guardian.reload();
     const childRow = familyRow(childrenOf(guardian), player.username);
     await childRow.getByText(/^Ranked content waiver \(/).click();
-    await expect(childRow.getByText(/^Daisy owns what is said/)).toBeVisible();
+    await expect(
+      childRow.getByText(
+        /^Daisy owns what is said and shown by adult debaters/,
+      ),
+    ).toBeVisible();
+    await expect(
+      childRow.getByText(
+        /a separate media release covering every youth debater/,
+      ),
+    ).toBeVisible();
     await childRow
       .getByRole('checkbox', { name: /I sign this waiver for my child/ })
       .check();

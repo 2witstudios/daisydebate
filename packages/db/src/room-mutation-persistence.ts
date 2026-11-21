@@ -162,7 +162,7 @@ export const persistRoomMutation = async (
       standingAgeRule: source?.lobbyKind === 'standing' ? next.ageRule : null,
       standingYouthCast:
         source?.lobbyKind === 'standing'
-          ? sql`coalesce(public.daisy_room_is_youth(${next.id}), false)`
+          ? sql`public.daisy_room_youth_recording_cast(${next.id})`
           : false,
       rulesSnapshot: next.rules,
       judging,

@@ -114,7 +114,9 @@ const seedRound = async (
       }
     : { format_id: await f.format() };
   const competition = { competition_type: ranked ? 'ranked' : 'casual' };
+  const debaters = fixture.seats.filter((seat) => seat.kind === 'debater');
   let roomId: string | null = null;
+  let standingCast = {};
   if (fixture.round.room !== null) {
     const ageRule = fixture.round.room === 'youth' ? 'under-18' : 'adults';
     const [lobby] = await f.sql`select l.id from lobbies l
@@ -125,6 +127,21 @@ const seedRound = async (
       ...competition,
       ...format,
     });
+    for (const [index, seat] of debaters.entries())
+      await f.insert('room_participants', {
+        id: createId(),
+        room_id: roomId,
+        actor_id: people[seat.person]!.actorId,
+        seat_kind: 'side',
+        side: index % 2 === 0 ? 'affirmative' : 'negative',
+        slot: Math.floor(index / 2),
+      });
+    const [cast] =
+      await f.sql`select public.daisy_room_youth_recording_cast(${roomId}) as youth`;
+    standingCast = {
+      standing_age_rule: ageRule,
+      standing_youth_cast: cast!.youth,
+    };
   }
   const roundId = await f.round({
     room_id: roomId,
@@ -134,10 +151,10 @@ const seedRound = async (
       : { room_config_snapshot: validConfig, visibility: 'public' }),
     ...format,
     ...competition,
+    ...standingCast,
     ladder_id: ranked ? 'freestyle' : null,
     ladder_division: fixture.round.ladder,
   });
-  const debaters = fixture.seats.filter((seat) => seat.kind === 'debater');
   for (const [index, seat] of debaters.entries())
     await f.seat(
       roundId,

@@ -414,10 +414,16 @@ export const tenantIsolationManifest: TenantIsolationManifest = {
         'Returns the age-rule classification needed by linked-adult, recording and spectator readers without granting those readers access to lobby rows.',
     },
     {
+      name: 'daisy_room_youth_recording_cast',
+      executors: ['daisy_web'],
+      reason:
+        'Freezes whether a standing Room has youth debaters at Start for recording reuse. It returns no person or chat authority.',
+    },
+    {
       name: 'daisy_round_reuse_age_unknown',
       executors: ['daisy_web'],
       reason:
-        'Returns whether missing age evidence on a debating seat in an anyone lobby prevents reuse of a Round. It grants no viewing authority.',
+        'Returns whether missing age evidence on a debating seat prevents reuse of a Round from an anyone lobby or an adult lobby with a frozen youth cast. It grants no viewing authority.',
     },
     {
       name: 'daisy_linked_adult_users',

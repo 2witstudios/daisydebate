@@ -32,6 +32,7 @@ test('guardian play permission in an adult lobby never supplies media release', 
     const f = new Fixture(client);
     const adult = await createAuthorizationSubject(f);
     const minor = await createAuthorizationSubject(f);
+    const visitor = await createAuthorizationSubject(f);
     await f.sql`update account_age set birth_month=to_char(now()-interval '14 years','YYYY-MM')
       where user_id=${minor.userId}`;
     const [owner] = await f.sql`select id from organizations where official`;
@@ -82,12 +83,23 @@ test('guardian play permission in an adult lobby never supplies media release', 
       digest: 'a'.repeat(64),
     });
     const formatId = await f.format();
-    const roomId = await f.room(adult.actorId, formatId, { lobby_id: lobbyId });
+    const roomId = await f.room(adult.actorId, formatId, {
+      lobby_id: lobbyId,
+      visibility: 'public',
+    });
     await f.sql`insert into room_participants(id,room_id,actor_id,seat_kind,side,slot) values
       (${createId()},${roomId},${adult.actorId},'side','affirmative',0),
       (${createId()},${roomId},${minor.actorId},'side','negative',0)`;
+    const [chat] = await f.sql`select youth_room, youth_staff
+      from public.daisy_room_community_fact(${roomId}, ${visitor.actorId})`;
+    assert({
+      given: 'a seated youth debater and a seatless visitor in an adult lobby',
+      should: 'preserve the Open Room chat policy',
+      actual: chat,
+      expected: { youth_room: false, youth_staff: false },
+    });
     const [cast] =
-      await f.sql`select public.daisy_room_is_youth(${roomId}) as youth`;
+      await f.sql`select public.daisy_room_youth_recording_cast(${roomId}) as youth`;
     const { id: roundId } = await f.roundWithCast(
       {
         room_id: roomId,
@@ -121,6 +133,19 @@ test('guardian play permission in an adult lobby never supplies media release', 
       signed_at: new Date(),
     });
     const withRelease = await fence();
+    await f.sql`update lobbies set age_rule='under-18' where id=${lobbyId}`;
+    const afterLobbyChange = await fence();
+    const { debaters } = await readYouthRecordingPeople(db, roundId);
+    assert({
+      given: 'the adult lobby changed to under-18 after a mixed-age Round',
+      should:
+        'keep the recorded youth debater as the only linked-adult and release subject',
+      actual: {
+        fenced: afterLobbyChange,
+        users: debaters.map(({ userId }) => userId),
+      },
+      expected: { fenced: false, users: [minor.userId] },
+    });
     await db.transaction(async (tx) => {
       const context = { now: new Date().toISOString() };
       await mediaReleasePrivacyAdopter.erase(tx, minor, context);
