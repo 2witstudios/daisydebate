@@ -17,7 +17,6 @@ import {
   type Tx,
 } from './room-command-facts';
 import { loadAuthorizationAccount } from './authorization';
-import { factReleasedSql, type SpectatorClock } from './spectator-release-sql';
 import { currentRoomTopic, type ReadOpeningTopic } from './round-opening-read';
 import { readOfficialStandingLobbies } from './official-standing-lobbies';
 import { readCompetitionAgeBand } from './ladder-division-band';
@@ -76,28 +75,6 @@ const openJudgeSeats = sql`greatest(0, (r.rules_snapshot->'seats'->>'judges')::i
 /** Seat totals and the format label, read with the page; never a lock target. */
 const seatCount = sql`((select coalesce(sum(n.count::int),0) from jsonb_each_text(r.rules_snapshot->'seats'->'sides') as n(side,count))::int+(r.rules_snapshot->'seats'->>'speakers')::int+(r.rules_snapshot->'seats'->>'judges')::int+(r.rules_snapshot->'seats'->>'moderators')::int)`;
 const seatsTaken = sql`case when r.status='started' then (select count(*)::int from round_participants s where s.round_id=d.id) else (select count(*)::int from room_participants s where s.room_id=r.id) end`;
-/** The host's rating where the audience may know it: before any posting still held by the timeline. */
-const hostRating = (clock: SpectatorClock) => {
-  const held = {
-    id: sql`c_r.id`,
-    status: sql`c_r.status`,
-    competitionType: sql`c_r.competition_type`,
-    completedAt: sql`c_r.completed_at`,
-  };
-  const earliestHeld = sql`select c.rating_before, c.occurred_at from rating_changes c join rounds c_r on c_r.id=c.round_id
-    where c.actor_id=rt.actor_id and c.ladder=rt.ladder and c.season_id=rt.season_id
-      and (c_r.visibility='public' and ${factReleasedSql(sql`greatest(c.occurred_at,c_r.completed_at)`, held, clock)}) is not true
-    order by c.occurred_at asc limit 1`;
-  return sql`case when r.competition_type='ranked' then (
-    select round(coalesce(h.rating_before,rt.rating))::int
-    from ratings rt
-    join seasons z on z.id=rt.season_id and z.status='active'
-    left join lateral (${earliestHeld}) h on true
-    where rt.actor_id=r.host_actor_id and rt.lobby_id=r.lobby_id
-      and rt.ladder=(select l.id from ladders l where l.lobby_id=r.lobby_id
-        order by l.created_at,l.id limit 1)
-    ) end`;
-};
 const search = (q: string, topic: SQL) =>
   sql`(${q}='' or strpos(lower(r.title),lower(${q}))>0 or strpos(lower(${topic}),lower(${q}))>0 or (strpos(lower(${hostLabel}),lower(${q}))>0 and not ${hostIsHumanJudge}))`;
 // Hostless event Rooms publish their waiting topic through Tab's scoped read.
@@ -134,7 +111,6 @@ export async function discoverRooms(
   authorize: (fact: RoomDiscoveryFact, account: Account) => boolean,
   authorizeCollection: (account: Account) => boolean,
   hostHidden: (fact: RoomDiscoveryFact) => boolean,
-  clock: SpectatorClock,
   readTopic: ReadOpeningTopic,
 ): Promise<RoomListPage> {
   const parsed = roomListQuerySchema.safeParse(input);
@@ -190,7 +166,7 @@ export async function discoverRooms(
    f.name as "formatLabel",${seatsTaken} as "seatsTaken",${seatCount} as "seatCount",
    case when r.status in ('assembling','ready') then r.created_at end as "waitingSince",
    case when r.status='started' then json_build_object('stage',d.current_stage,'startedAt',d.started_at) else null end as "live",
-   ${hostRating(clock)} as "hostRating",r.lobby_id as "lobbyId",lb.age_rule as "ageRule",
+   null::int as "hostRating",r.lobby_id as "lobbyId",lb.age_rule as "ageRule",
    ${openJudgeSeats} as "openJudgeSeats"
   from rooms r ${joins}
   join formats f on f.id=r.format_id

@@ -31,14 +31,13 @@ test(
         // column. A column a later folder adds is lent to the baseline for the
         // seeding alone and taken back before that folder applies.
         await f.sql`alter table rounds add column post_round_call boolean not null default false`;
-        // Today's decoder also sees the future nullable league selection. The
-        // predecessor owns no such selection; remove the loan before migrating.
-        await f.sql`alter table rounds add column league_ladder_id text`;
+        await f.sql`alter table rounds add column standing_age_rule text,
+          add column standing_youth_cast boolean not null default false,
+          add column legacy_league_rating boolean not null default false,
+          add column rating_lobby_id text, add column season_id text`;
         await f.sql`alter table rounds add column decision_release text not null default 'on_finalize'`;
         // ADR 0145's frozen seat draw, which the predecessor never wrote.
         await f.sql`alter table rounds add column seat_draw jsonb`;
-        // ADR 0147's ladder division beside the style.
-        await f.sql`alter table rounds add column ladder_division text`;
         // TAB-6's seat and outcome columns too, beside the role and outcome
         // columns it backfills them from.
         await f.sql`alter table rounds add column winning_side text, add column ranking jsonb, add column judging jsonb`;
@@ -90,10 +89,11 @@ test(
             await f.sql`select id,actor_id,round_id,kind,source,state,reserved_at from usage_reservations order by id`;
           const freezes =
             await f.sql`select round_id,revision,frontier,completeness from round_transcript_freezes order by round_id`;
-          await f.sql`alter table rounds drop column post_round_call, drop column league_ladder_id`;
+          await f.sql`alter table rounds drop column post_round_call, drop column standing_age_rule,
+            drop column standing_youth_cast, drop column legacy_league_rating,
+            drop column rating_lobby_id, drop column season_id`;
           await f.sql`alter table rounds drop column decision_release`;
           await f.sql`alter table rounds drop column seat_draw`;
-          await f.sql`alter table rounds drop column ladder_division`;
           await f.sql`alter table rounds drop column winning_side, drop column ranking, drop column judging`;
           await removeAssignmentInterface();
           await f.sql`alter table round_participants drop column seat_kind, drop column side`;
@@ -115,13 +115,16 @@ test(
             given:
               'historical queued, failed and held-ballot Rounds after the real tail migration',
             should:
-              'leave every new league selection empty without inventing rating provenance',
+              'leave every frozen rating pool empty without inventing provenance',
             actual: Array.from(
-              await f.sql`select id,league_ladder_id from rounds where id=any(${f.sql.array([queuedId, failedId, held.roundId], 'text')}::text[]) order by id`,
+              await f.sql`select id,ladder_id,season_id,rating_lobby_id from rounds where id=any(${f.sql.array([queuedId, failedId, held.roundId], 'text')}::text[]) order by id`,
             ),
-            expected: [queuedId, failedId, held.roundId]
-              .sort()
-              .map((id) => ({ id, league_ladder_id: null })),
+            expected: [queuedId, failedId, held.roundId].sort().map((id) => ({
+              id,
+              ladder_id: null,
+              season_id: null,
+              rating_lobby_id: null,
+            })),
           });
           await f.sql`update round_judging_jobs set status='recovering',recovery_reason='attempt_window',retry_at=clock_timestamp()+interval '1 second' where round_id=${queuedId}`;
           const [states] =

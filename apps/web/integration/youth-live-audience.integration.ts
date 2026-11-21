@@ -316,7 +316,7 @@ test('an Open Round gains no linked adults', async () => {
           coach: people.coach,
           student: f.host,
         });
-        const [division] =
+        const [standing] =
           await f.sql`select l.age_rule from rounds r join lobbies l on l.id=r.rating_lobby_id where r.id=${roundId}`;
         assert({
           given:
@@ -324,13 +324,13 @@ test('an Open Round gains no linked adults', async () => {
           should:
             'refuse the coach as for any member outside it, and keep the host and debater as they were',
           actual: {
-            division: division!.age_rule,
+            ageRule: standing!.age_rule,
             coach: await watches(f, people.coach, roundId),
             debater: await watches(f, f.host, roundId),
             linked: await f.linkedAdults(roundId),
           },
           expected: {
-            division: 'open',
+            ageRule: 'adults',
             coach: 'NOT_FOUND',
             debater: false,
             linked: null,

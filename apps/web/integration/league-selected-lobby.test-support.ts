@@ -7,6 +7,8 @@ import { settingCommand } from '../src/features/tab/operations/settings';
 import { createLobbyRoom } from '../src/features/tab/operations/create-lobby-room';
 import { readStandingRoomDraft } from '../src/features/tab/reads/standing-room-draft';
 import { readLeagueSeason } from '../src/features/tab/reads/league-season';
+import { sideSeat } from '@daisy/protocol';
+import { withRoomRuntime } from './room-runtime.test-support';
 import { as } from './tab-tournament-organization-wiring.test-support';
 import type { World } from './tab-tournament.test-support';
 
@@ -57,42 +59,69 @@ export async function selectedLobbyCases(world: World) {
     });
     if (season.kind !== 'accepted') throw new Error(JSON.stringify(season));
   }
-  const lobbyId = siblings.sort()[1]!;
-  const offered = await settingCommand(dependencies)(principal, {
-    version: 1,
-    commandId: createId(),
-    expected: { lobby: 1 },
-    command: { type: 'offer-template', lobbyId, templateId },
-  });
-  if (offered.kind !== 'accepted') throw new Error(JSON.stringify(offered));
-  const draft = await readStandingRoomDraft(dependencies)(principal, {
-    lobbyId,
-    templateId,
-  });
-  if (!draft?.creation) throw new Error('Missing sibling creation read');
-  const commandId = createId();
-  const created = await createLobbyRoom(dependencies)(principal, {
-    version: 1,
-    commandId,
-    expected: {},
-    command: {
-      type: 'create-lobby-room',
-      lobbyId,
+  const [otherLobbyId, lobbyId] = siblings.sort() as [string, string];
+  const settings = settingCommand(dependencies);
+  const otherLadder = createId();
+  const primaryLadder = createId();
+  const selectedLadder = createId();
+  await world.sql`insert into ladders(id,lobby_id,organization_id,name,created_at)
+    values (${otherLadder},${otherLobbyId},${organizationId},'Other lobby',now()-interval '2 days'),
+      (${primaryLadder},${lobbyId},${organizationId},'Primary ladder',now()-interval '1 day'),
+      (${selectedLadder},${lobbyId},${organizationId},'Selected ladder',now())`;
+  const createInLobby = async (roomLobbyId: string, ladderId: string) => {
+    const offered = await settings(principal, {
+      version: 1,
+      commandId: createId(),
+      expected: { lobby: 1 },
+      command: { type: 'offer-template', lobbyId: roomLobbyId, templateId },
+    });
+    if (offered.kind !== 'accepted') throw new Error(JSON.stringify(offered));
+    const [lobby] =
+      await world.sql`select settings_version from lobbies where id=${roomLobbyId}`;
+    const selected = await settings(principal, {
+      version: 1,
+      commandId: createId(),
+      expected: { settings: Number(lobby!.settings_version) },
+      command: {
+        type: 'set-setting',
+        scope: { kind: 'lobby', id: roomLobbyId },
+        key: 'standings.rating_ladder',
+        hold: 'default',
+        value: { ladderId },
+      },
+    });
+    if (selected.kind !== 'accepted') throw new Error(JSON.stringify(selected));
+    const draft = await readStandingRoomDraft(dependencies)(principal, {
+      lobbyId: roomLobbyId,
       templateId,
-      config: draft.creation.config,
-      room: {
-        commandId,
-        title: 'Selected sibling Room',
-        visibility: draft.creation.visibility.value,
-        selection: draft.creation.selection,
-        resolution: {
-          kind: 'custom',
-          text: 'Resolved: this is the selected sibling.',
+    });
+    if (!draft?.creation) throw new Error('Missing sibling creation read');
+    const commandId = createId();
+    const created = await createLobbyRoom(dependencies)(principal, {
+      version: 1,
+      commandId,
+      expected: {},
+      command: {
+        type: 'create-lobby-room',
+        lobbyId: roomLobbyId,
+        templateId,
+        config: draft.creation.config,
+        room: {
+          commandId,
+          title: 'Selected sibling Room',
+          visibility: draft.creation.visibility.value,
+          selection: draft.creation.selection,
+          resolution: {
+            kind: 'custom',
+            text: 'Resolved: this is the selected sibling.',
+          },
         },
       },
-    },
-  });
-  if (created.kind !== 'accepted') throw new Error(JSON.stringify(created));
+    });
+    if (created.kind !== 'accepted') throw new Error(JSON.stringify(created));
+    return created;
+  };
+  const created = await createInLobby(lobbyId, selectedLadder);
   const [first] =
     await world.sql`select id from lobbies where owner_organization_id=${organizationId} and kind='standing' order by id limit 1`;
   const facts = await store.leagueSeason(
@@ -181,4 +210,67 @@ export async function selectedLobbyCases(world: World) {
     actual: host,
     expected: first!.id,
   });
+  if (!world.runtimeDatabaseUrl)
+    throw new Error('Missing Room runtime database');
+  const other = await createInLobby(otherLobbyId, otherLadder);
+  const [owner] =
+    await world.sql`select official from organizations where id=${organizationId}`;
+  await world.sql`update organizations set official=true where id=${organizationId}`;
+  try {
+    const debater = world.bots['Debater 1']!;
+    const project = (
+      lobby: string,
+      ladder: string,
+      rating: number,
+    ) => world.sql`
+      insert into ratings(actor_id,lobby_id,ladder,season_id,rating,deviation,volatility)
+      select ${debater.actorId},${lobby},${ladder},id,${rating},60,0.06
+      from seasons where lobby_id=${lobby} and status='active'`;
+    await project(otherLobbyId, otherLadder, 1788);
+    await project(lobbyId, primaryLadder, 1666);
+    await withRoomRuntime(
+      async (f) => {
+        const seat = async (id: string) => {
+          const view = await f.operations.view(debater, id);
+          await f.command(debater, view, {
+            type: 'claim-seat',
+            seat: sideSeat('affirmative'),
+          });
+        };
+        const rating = async (id: string) => {
+          const view = await f.operations.view(debater, id);
+          const person = view.participants.find(
+            (p) => !('anonymous' in p) && p.actorId === debater.actorId,
+          );
+          return person && !('anonymous' in person)
+            ? (person.rating?.value ?? null)
+            : null;
+        };
+        const otherId = other.receipt.aggregate.id;
+        const selectedId = created.receipt.aggregate.id;
+        await seat(otherId);
+        const fromOther = await rating(otherId);
+        await f.command(debater, await f.operations.view(debater, otherId), {
+          type: 'leave-seat',
+        });
+        await seat(selectedId);
+        const before = await rating(selectedId);
+        await project(lobbyId, selectedLadder, 1555);
+        assert({
+          given:
+            'actual Room views in two adult lobbies, with the second Room pinned to its secondary ladder',
+          should:
+            'wait for a rating on that exact ladder without borrowing either available alternative',
+          actual: [fromOther, before, await rating(selectedId)],
+          expected: [1788, null, 1555],
+        });
+        await f.command(debater, await f.operations.view(debater, selectedId), {
+          type: 'leave-seat',
+        });
+      },
+      { databaseUrl: world.runtimeDatabaseUrl },
+    );
+  } finally {
+    await world.sql`update organizations set official=${owner!.official} where id=${organizationId}`;
+  }
 }

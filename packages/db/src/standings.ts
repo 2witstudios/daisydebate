@@ -298,10 +298,19 @@ type StandingsInput = {
 
 export type PublishStandings = (source: StandingsRead) => StandingsRead;
 
-/** Active-season cards and Room discovery use the same published rating read. */
-export async function readActivePublishedRatings(
+export type LobbyRatingSelection = {
+  readonly lobbyId: string;
+  readonly ladderId: string;
+  readonly seasonId?: string;
+};
+
+/** Use the lobby's active pool by default, or the Room's exact frozen pool. */
+export async function readLobbyPublishedRatings(
   tx: TabTransaction,
-  input: Pick<StandingsInput, 'lobbyId' | 'clock' | 'leaguePublication'>,
+  input: Pick<StandingsInput, 'lobbyId' | 'clock' | 'leaguePublication'> & {
+    readonly ladderId?: string;
+    readonly seasonId?: string;
+  },
   publish?: PublishStandings,
 ) {
   const [pool] = await tx
@@ -309,7 +318,13 @@ export async function readActivePublishedRatings(
     .from(seasons)
     .innerJoin(ladders, eq(ladders.lobbyId, seasons.lobbyId))
     .where(
-      and(eq(seasons.lobbyId, input.lobbyId), eq(seasons.status, 'active')),
+      and(
+        eq(seasons.lobbyId, input.lobbyId),
+        input.seasonId
+          ? eq(seasons.id, input.seasonId)
+          : eq(seasons.status, 'active'),
+        input.ladderId ? eq(ladders.id, input.ladderId) : undefined,
+      ),
     )
     .orderBy(asc(ladders.createdAt), asc(ladders.id))
     .limit(1);
