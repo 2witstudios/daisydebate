@@ -1,11 +1,21 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "f6c0231e-b021-4310-80a9-e2b16eb98363",
+  "id": "deabd41a-8708-4fef-ab54-78842365f423",
   "prevIds": [
-    "e1bebbbb-ade8-476e-9840-468069e3a297"
+    "46d3e129-7574-4cd3-9292-7b86bdf28ce0"
   ],
   "ddl": [
+    {
+      "values": [
+        "adults",
+        "under-18",
+        "anyone"
+      ],
+      "name": "lobby_age_rule",
+      "entityType": "enums",
+      "schema": "public"
+    },
     {
       "isRlsEnabled": false,
       "name": "account_age",
@@ -4710,7 +4720,7 @@
       "default": null,
       "generated": null,
       "identity": null,
-      "name": "division",
+      "name": "lobby_id",
       "entityType": "columns",
       "schema": "public",
       "table": "challenges"
@@ -10268,6 +10278,19 @@
       "table": "lobbies"
     },
     {
+      "type": "lobby_age_rule",
+      "typeSchema": "public",
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'adults'",
+      "generated": null,
+      "identity": null,
+      "name": "age_rule",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "lobbies"
+    },
+    {
       "type": "timestamp with time zone",
       "typeSchema": null,
       "notNull": false,
@@ -15016,6 +15039,19 @@
       "table": "organizations"
     },
     {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "false",
+      "generated": null,
+      "identity": null,
+      "name": "official",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "organizations"
+    },
+    {
       "type": "text",
       "typeSchema": null,
       "notNull": false,
@@ -18755,19 +18791,6 @@
     {
       "type": "text",
       "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "division",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "rooms"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
       "notNull": false,
       "dimensions": 0,
       "default": null,
@@ -18930,6 +18953,19 @@
       "generated": null,
       "identity": null,
       "name": "lobby_kind",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "rooms"
+    },
+    {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "legacy_tournament_youth",
       "entityType": "columns",
       "schema": "public",
       "table": "rooms"
@@ -26884,6 +26920,55 @@
       "method": "btree",
       "concurrently": false,
       "name": "challenges_one_pending_per_direction",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "challenges"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "lobby_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "challenges_lobby_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "challenges"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "room_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "lobby_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "challenges_room_lobby_idx",
       "entityType": "indexes",
       "schema": "public",
       "table": "challenges"
@@ -35061,6 +35146,20 @@
       "nameExplicit": true,
       "columns": [
         {
+          "value": "lobby_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "created_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
           "value": "\"id\" collate \"C\"",
           "isExpression": true,
           "asc": true,
@@ -40358,16 +40457,35 @@
     {
       "nameExplicit": false,
       "columns": [
-        "room_id"
+        "lobby_id"
       ],
       "schemaTo": "public",
-      "tableTo": "rooms",
+      "tableTo": "lobbies",
       "columnsTo": [
         "id"
       ],
       "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "challenges_lobby_id_lobbies_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "challenges"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "room_id",
+        "lobby_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "rooms",
+      "columnsTo": [
+        "id",
+        "lobby_id"
+      ],
+      "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
-      "name": "challenges_room_id_rooms_id_fkey",
+      "name": "challenges_room_lobby_fk",
       "entityType": "fks",
       "schema": "public",
       "table": "challenges"
@@ -51393,13 +51511,6 @@
       "table": "challenges"
     },
     {
-      "value": "\"division\" in ('open', 'youth')",
-      "name": "challenges_division_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "challenges"
-    },
-    {
       "value": "\"email\" = lower(btrim(\"email\")) and length(\"email\") between 3 and 320",
       "name": "club_seat_invitations_email_normalized",
       "entityType": "checks",
@@ -54424,6 +54535,13 @@
       "table": "rooms"
     },
     {
+      "value": "\"legacy_tournament_youth\" is null or \"lobby_kind\" = 'tournament'",
+      "name": "rooms_legacy_tournament_youth_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "rooms"
+    },
+    {
       "value": "\"lobby_kind\" <> 'tournament' or \"competition_type\" = 'casual'",
       "name": "rooms_event_is_casual",
       "entityType": "checks",
@@ -54461,13 +54579,6 @@
     {
       "value": "\"competition_type\" <> 'ranked' or \"visibility\" = 'public'",
       "name": "rooms_ranked_public_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "rooms"
-    },
-    {
-      "value": "\"division\" in ('open', 'youth')",
-      "name": "rooms_division_check",
       "entityType": "checks",
       "schema": "public",
       "table": "rooms"
