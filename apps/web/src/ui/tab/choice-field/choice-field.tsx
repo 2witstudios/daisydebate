@@ -8,7 +8,7 @@ import {
 } from '../../components/form-field/form-field-class';
 
 /** A select beside its label: as wide as its options, never the whole row. */
-export const inlineSelectClass =
+const inlineSelectClass =
   'h-12 max-w-full min-w-0 rounded-md border border-border bg-surface-raised px-3 text-base text-ink';
 
 /** A labelled select drawn from a read's choice. */

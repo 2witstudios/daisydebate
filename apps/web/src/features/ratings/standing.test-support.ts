@@ -1,4 +1,4 @@
-import type { RatingEntry } from '../ratings/rank';
+import type { RatingEntry } from './rank';
 
 /** An established entry with overrides, for tests. */
 export const entry = (overrides: Partial<RatingEntry> = {}): RatingEntry => ({

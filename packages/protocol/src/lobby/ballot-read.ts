@@ -43,7 +43,6 @@ export const eventBallotViewSchema = z.strictObject({
   screening: z.enum(['hold', 'off']),
   capabilities: z.strictObject({ setScreening: z.boolean() }),
 });
-export type EventBallotView = z.infer<typeof eventBallotViewSchema>;
 
 /** Actual host authoring, immutable version selection and release policy guards. */
 export const eventBallotAuthoringViewSchema = z.strictObject({
@@ -132,7 +131,6 @@ export const judgeBallotViewSchema = z.strictObject({
   /** The audiences the event's `audience.reason` opens the reason to. */
   reasonAudiences: z.array(releaseAudienceSchema),
 });
-export type JudgeBallotView = z.infer<typeof judgeBallotViewSchema>;
 
 /** A part of a submitted ballot an audience may or may not have been released. */
 const releasedPart = <Value extends z.ZodType>(value: Value) =>

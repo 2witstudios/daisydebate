@@ -29,7 +29,6 @@ export const postedJudgeSchema = z.strictObject({
   name,
   chair: z.boolean(),
 });
-export type PostedJudge = z.infer<typeof postedJudgeSchema>;
 
 const postedFixtureSchema = z.strictObject({
   fixtureId: idSchema,
@@ -50,7 +49,6 @@ const postedFixtureSchema = z.strictObject({
   /** Whether the viewer's audiences may watch this fixture's video. */
   video: z.boolean(),
 });
-export type PostedFixture = z.infer<typeof postedFixtureSchema>;
 
 export const postingViewSchema = z.strictObject({
   lobbyId: idSchema,
@@ -68,7 +66,6 @@ export const postingViewSchema = z.strictObject({
   /** Null until the round's resolution is released. */
   resolution: z.strictObject({ text: z.string().trim().min(1) }).nullable(),
 });
-export type PostingView = z.infer<typeof postingViewSchema>;
 
 export const postingReadCatalogue = {
   PostingView: { gate: ['posting.read'] },

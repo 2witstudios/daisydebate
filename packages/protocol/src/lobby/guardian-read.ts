@@ -75,8 +75,6 @@ export const guardianViewSchema = z.strictObject({
     }),
   ),
 });
-export type GuardianView = z.infer<typeof guardianViewSchema>;
-export type WardEntry = z.infer<typeof wardEntrySchema>;
 
 /** One ward's restriction: the lobbies they may enter and who may watch them. */
 export const wardAccountViewSchema = z.strictObject({
@@ -92,7 +90,6 @@ export const wardAccountViewSchema = z.strictObject({
   videoAudienceCap: z.enum(videoAudienceCaps),
   capabilities: z.strictObject({ manage: z.boolean() }),
 });
-export type WardAccountView = z.infer<typeof wardAccountViewSchema>;
 
 /** A tournament outside the allowed lobbies that a ward's entry waits on. */
 export const wardEntryRequestViewSchema = z.strictObject({
@@ -118,7 +115,6 @@ export const wardEntryRequestViewSchema = z.strictObject({
   videoAudienceCap: z.enum(videoAudienceCaps),
   capabilities: z.strictObject({ decide: z.boolean() }),
 });
-export type WardEntryRequestView = z.infer<typeof wardEntryRequestViewSchema>;
 
 /** Minimal attributed actions for one protected person, never an organization history. */
 export const familyHistoryViewSchema = z.strictObject({
