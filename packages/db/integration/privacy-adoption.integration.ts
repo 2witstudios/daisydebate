@@ -1,5 +1,7 @@
 import { accountAgePrivacyAdopter } from '../src/account-age';
 import { sql } from 'drizzle-orm';
+import { drizzle } from 'drizzle-orm/bun-sql';
+import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { expect } from 'bun:test';
@@ -15,6 +17,105 @@ import {
 setupRitewayBun();
 requireTestServices(process.env);
 const adoption: readonly PrivacyAdopter[] = [];
+test('erasure fences the account, runs its adopters in phase and queues the vendor last', async () => {
+  await withPrivacySubject(async ({ client, userId, actorId, otherId }) => {
+    const statements: string[] = [];
+    const database = drizzle({
+      client,
+      logger: { logQuery: (query) => statements.push(query.trim()) },
+    });
+    const subject = { userId, actorId };
+    const jobId = createId();
+    const input = { subject, now, vendors: ['posthog'], jobIds: [jobId] };
+    const phase = (name: PrivacyAdopter['phase']): PrivacyAdopter => ({
+      id: name,
+      phase: name,
+      export: async () => ({}),
+      erase: async (tx) => {
+        const [state] = await tx.execute(
+          sql`select deleted_at is not null as erased from users where id = ${userId}`,
+        );
+        const [session] = await tx.execute(
+          sql`select count(*)::int as found from session where user_id = ${userId}`,
+        );
+        const [jobs] = await tx.execute(
+          sql`select count(*)::int as found from privacy_jobs where subject_ref = ${userId}`,
+        );
+        assert({
+          given: `the ${name} adopter`,
+          should:
+            'see its phase’s account and auth state before vendor jobs exist',
+          actual: [state?.erased, session?.found, jobs?.found],
+          expected: name === 'before-auth' ? [false, 1, 0] : [true, 0, 0],
+        });
+      },
+    });
+    const adopted = [phase('before-auth'), phase('after-close')];
+    for (const refusedSubject of [
+      { ...subject, userId: otherId },
+      { ...subject, actorId: createId() },
+    ]) {
+      statements.length = 0;
+      await assertRejects({
+        given: 'a real account and an invalid user-actor relationship',
+        should: 'refuse before cleanup',
+        actual: () =>
+          runPrivacyErasure(
+            database,
+            { ...input, subject: refusedSubject },
+            adopted,
+            bindings,
+          ),
+        code: 'AUTHORIZATION',
+      });
+      assert({
+        given: 'the refused canonical erasure',
+        should: 'issue only the account fence',
+        actual: [
+          statements.length,
+          statements[0]?.includes('daisy_authorization_accounts'),
+        ],
+        expected: [1, true],
+      });
+    }
+    statements.length = 0;
+    try {
+      const first = await runPrivacyErasure(database, input, adopted, bindings);
+      const firstReads = statements.splice(0);
+      const replay = await runPrivacyErasure(
+        database,
+        input,
+        adopted,
+        bindings,
+      );
+      assert({
+        given: 'successful canonical erasure and its replay',
+        should:
+          'fence first, preserve the guarded verification query, queue one vendor last, then return the erased replay with no further cleanup',
+        actual: [
+          first.alreadyErased,
+          first.jobs.length,
+          firstReads[0]?.includes('daisy_authorization_accounts'),
+          firstReads.some((query) => query.includes('value is json object')),
+          firstReads.at(-1)?.includes('insert into privacy_jobs'),
+          replay,
+          statements.length,
+        ],
+        expected: [
+          false,
+          1,
+          true,
+          true,
+          true,
+          { alreadyErased: true, jobs: [] },
+          1,
+        ],
+      });
+    } finally {
+      await client`delete from privacy_jobs where id = ${jobId}`;
+    }
+  });
+});
 test('local erasure is atomic and removes only bound auth subjects', async () => {
   await withPrivacySubject(
     async ({ client, database, userId, actorId, otherId }) => {
