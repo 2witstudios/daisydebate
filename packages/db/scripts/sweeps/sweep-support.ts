@@ -64,7 +64,11 @@ export function ensureNamedImport(
     const head = keepTypeOnly ? 'import type' : 'import';
     const rebuilt = `${head} { ${parts.join(', ')} } from '${specifier}';`;
     return applyEdits(text, [
-      { start: existing.getStart(source), end: existing.getEnd(), text: rebuilt },
+      {
+        start: existing.getStart(source),
+        end: existing.getEnd(),
+        text: rebuilt,
+      },
     ]);
   }
   const line = `import ${typeOnly ? 'type ' : ''}{ ${name} } from '${specifier}';\n`;
