@@ -3,7 +3,12 @@ import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import type { Page } from '@playwright/test';
 import { createId } from '@paralleldrive/cuid2';
-import { affirmativeSide, isNamedSeat, sideSeat } from '@daisy/protocol';
+import {
+  affirmativeSide,
+  isNamedSeat,
+  negativeSide,
+  sideSeat,
+} from '@daisy/protocol';
 import { systemClock } from '@daisy/clock';
 import {
   confirmSignIn,
@@ -307,11 +312,21 @@ test('a guardian clears a Guided hold, then Supervised locks messages and ranked
     ).toContainText(`@${parent.username}`);
 
     const family = familyRow(childrenOf(page), account.username);
-    await family
-      .getByLabel(`Protection level for @${account.username}`)
-      .selectOption('supervised');
-    await family.getByRole('button', { name: 'Save protection level' }).click();
-    await expect(family.getByText('Saved.', { exact: true })).toBeVisible();
+    const setLevel = async (level: 'Guided' | 'Supervised') => {
+      await family
+        .getByLabel(`Protection level for @${account.username}`)
+        .selectOption(level.toLowerCase());
+      await family
+        .getByRole('button', { name: 'Save protection level' })
+        .click();
+      await expect(async () => {
+        await child.goto('/settings/your-parents');
+        await expect(
+          child.getByText(`Protection level: ${level}`, { exact: true }),
+        ).toBeVisible({ timeout: 1000 });
+      }).toPass({ timeout: 15_000 });
+    };
+    await setLevel('Supervised');
 
     await child.goto('/settings');
     const messaging = child.getByRole('form', { name: 'Message requests' });
@@ -363,28 +378,6 @@ test('a guardian clears a Guided hold, then Supervised locks messages and ranked
     ).toHaveCount(0);
 
     await peer.goto('/play/room');
-    const casual = await submitCreateRoom(
-      peer,
-      `Casual protection ${createId().slice(0, 8)}`,
-    );
-    let childActorId: string;
-    try {
-      const seated = await claim(child, casual, 'Affirmative 1');
-      const childSeat = seated.participants
-        .filter(isNamedSeat)
-        .find(
-          (participant) =>
-            participant.kind === 'human' &&
-            participant.actorId !== casual.hostActorId,
-        );
-      if (!childSeat)
-        throw new Error('The supervised child did not take the casual seat');
-      childActorId = childSeat.actorId;
-    } finally {
-      await closeRoom(peer.request, casual.id);
-    }
-
-    await peer.goto('/play/room');
     const ranked = await submitCreateRoom(
       peer,
       `Ranked protection ${createId().slice(0, 8)}`,
@@ -414,17 +407,29 @@ test('a guardian clears a Guided hold, then Supervised locks messages and ranked
       expect(await denied.json()).toMatchObject({
         refusal: 'ranked-unavailable',
       });
-      const assigned = await deniedCommand(peer.request, ranked, {
+      await setLevel('Guided');
+      const seated = await claim(child, ranked, 'Affirmative 1');
+      const childSeat = seated.participants
+        .filter(isNamedSeat)
+        .find((participant) => participant.actorId !== ranked.hostActorId);
+      if (!childSeat)
+        throw new Error('The child did not take the ranked seat on Guided');
+      await setLevel('Supervised');
+
+      // A host can move a seated human. Use that normal entry point so the
+      // refusal comes from protection rather than ordinary seat eligibility.
+      const before = await reread(peer.request, ranked.id);
+      const assigned = await deniedCommand(peer.request, before, {
         type: 'assign-seat',
-        actorId: childActorId,
-        seat: sideSeat(affirmativeSide),
+        actorId: childSeat.actorId,
+        seat: sideSeat(negativeSide),
       });
       expect(assigned.status()).toBe(409);
       expect(await assigned.json()).toMatchObject({
         refusal: 'ranked-unavailable',
       });
       expect((await reread(peer.request, ranked.id)).participants).toEqual(
-        ranked.participants,
+        before.participants,
       );
     } finally {
       await closeRoom(peer.request, ranked.id);
