@@ -8,6 +8,7 @@ import {
   roomInvitationStates,
   roomStatuses,
   roundStatuses,
+  runningRoundStatuses,
 } from '@daisy/protocol';
 import { contentReportStatuses } from '@daisy/protocol/content-moderation';
 import { flagStates } from '@daisy/protocol/flags';
@@ -178,3 +179,29 @@ for (const [table, name, column, statuses] of [
     }
   });
 }
+
+test('installed nonranked capture admission uses the running Round statuses', async () => {
+  const sql = new SQL(databaseUrl, { max: 1 });
+  try {
+    const rows = await sql<{ definition: string | null }[]>`
+      select pg_get_functiondef(to_regprocedure(
+        'public.daisy_nonranked_capture_capacity(text,text,text,text)'
+      )) as definition
+    `;
+    const definition = rows[0]?.definition ?? '';
+    const statusLists = [
+      ...definition.matchAll(/\br\.status\s+in\s*\(([^)]+)\)/gi),
+    ].map(([, values]) =>
+      [...(values ?? '').matchAll(/'([^']+)'/g)].map(([, value]) => value),
+    );
+    assert({
+      given:
+        'the tenant-boundary function installed by 20261117122353_tab_wiring',
+      should: 'count the exact protocol vocabulary for a running Round',
+      actual: statusLists,
+      expected: [[...runningRoundStatuses]],
+    });
+  } finally {
+    await sql.close();
+  }
+});
