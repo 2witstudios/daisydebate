@@ -112,6 +112,11 @@ export const notificationWords = (
         text: `${subject.friend ? `@${subject.friend}` : 'A member'} accepted your friend request.`,
         href: '/friends',
       };
+    case 'friend_guardian_approval':
+      return {
+        text: 'A friend request is waiting for your approval.',
+        href: '/settings/parental-controls#waiting-for-you',
+      };
     case 'dm_request':
       return {
         text: `${subject.from ? `@${subject.from}` : 'A member'} sent you a message request.`,

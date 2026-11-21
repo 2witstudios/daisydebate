@@ -148,6 +148,7 @@ export async function readyOwnSeat(
       (
         await member.context.request.post('/api/agreements/content-waiver', {
           data: {
+            roomId: own.id,
             version: own.contentWaiverVersion,
             accepted: 'yes',
           },

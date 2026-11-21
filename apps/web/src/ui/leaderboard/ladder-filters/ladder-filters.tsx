@@ -12,6 +12,7 @@ import {
   clearFiltersHref,
   divisionHref,
   isFiltered,
+  lobbyHref,
   scopeHref,
   type LadderQuery,
 } from '../../../features/leaderboard/query';
@@ -33,6 +34,7 @@ export type LadderFiltersProps = {
   readonly query: LadderQuery;
   /** The ladder on screen, which Division and Style show. */
   readonly ladder: Ladder;
+  readonly lobbies?: readonly { readonly id: string; readonly name: string }[];
   readonly seasons: readonly Season[];
   /** The season on screen, which the season select shows. */
   readonly season: Season;
@@ -106,6 +108,7 @@ const statusOptions: readonly Option[] = [
 export function LadderFilters({
   query,
   ladder,
+  lobbies = [],
   seasons,
   season,
   hasStanding,
@@ -124,7 +127,9 @@ export function LadderFilters({
       aria-label="Filter the ladder"
       className="flex flex-wrap items-center gap-x-3 gap-y-0"
     >
-      {query.division === null ? null : (
+      {query.lobby ? (
+        <input type="hidden" name="lobby" value={query.lobby} />
+      ) : query.division === null ? null : (
         <input type="hidden" name="division" value={query.division} />
       )}
       {query.scope === 'around' ? (
@@ -132,11 +137,20 @@ export function LadderFilters({
       ) : null}
       <Segmented
         label="Lobby"
-        segments={divisionOrder.map((division) => ({
-          label: divisionLabels[division],
-          href: divisionHref(query, division),
-          selected: ladder.division === division,
-        }))}
+        wrap
+        segments={
+          lobbies.length
+            ? lobbies.map((lobby) => ({
+                label: lobby.name,
+                href: lobbyHref(query, lobby.id),
+                selected: query.lobby === lobby.id,
+              }))
+            : divisionOrder.map((division) => ({
+                label: divisionLabels[division],
+                href: divisionHref(query, division),
+                selected: ladder.division === division,
+              }))
+        }
       />
       <label className="flex items-center gap-2 text-sm text-ink-faint">
         <span>Style</span>

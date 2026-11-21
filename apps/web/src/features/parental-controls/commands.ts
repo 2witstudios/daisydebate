@@ -1,6 +1,6 @@
 import { createId } from '@paralleldrive/cuid2';
 import { createAppError } from '@daisy/errors';
-import type { Database, GuardianSession } from '@daisy/db';
+import type { Database, GuardianSession, SocialRequestLimits } from '@daisy/db';
 import type {
   ConsentMethod,
   GuardianCommand,
@@ -18,6 +18,7 @@ type Context = {
   readonly caller: Caller;
   readonly session: GuardianSession;
   readonly at: string;
+  readonly requestLimits?: SocialRequestLimits;
 };
 type Delivery =
   | { readonly kind: 'sign-in'; readonly email: string }
@@ -417,6 +418,41 @@ async function actOnRequest(
   return accepted;
 }
 
+async function setProtectionLevel(
+  context: Context,
+  command: Extract<GuardianCommand, { type: 'set-protection-level' }>,
+): Promise<Result> {
+  const { caller, session } = context;
+  const first = await session.link(command.linkId);
+  if (!first || first.guardianUserId !== caller.userId)
+    return refused('not-found');
+  const child = await session.personById(first.minorUserId);
+  if (!child?.actorId) return refused('not-found');
+  const [parent, minor] = await session.lockAccounts([
+    caller.actorId,
+    child.actorId,
+  ]);
+  if (
+    !parent?.member ||
+    parent.erased ||
+    parent.restricted ||
+    parent.userId !== caller.userId ||
+    parent.ageBand !== 'adult'
+  )
+    throw createAppError('AUTHORIZATION');
+  if (!minor?.member || minor.erased || !isMinor(minor.ageBand))
+    return refused('not-found');
+  const link = await session.link(command.linkId);
+  if (link?.status !== 'active') return refused('not-active');
+  await session.setProtectionLevel(
+    link.minorUserId,
+    command.choice,
+    context.at,
+    createId,
+  );
+  return accepted;
+}
+
 export function runGuardianCommand(
   context: Context,
   command: GuardianCommand,
@@ -441,6 +477,20 @@ export function runGuardianCommand(
       );
     case 'refuse-parent':
       return actOnLink(context, command.linkId, 'refuse');
+    case 'answer-friend-approval':
+      if (!context.requestLimits) throw createAppError('INVARIANT');
+      return context.session
+        .answerFriendApproval({
+          approvalId: command.approvalId,
+          caller: context.caller,
+          decision: command.decision,
+          at: context.at,
+          limits: context.requestLimits,
+          nextId: createId,
+        })
+        .then((answered) => (answered ? accepted : refused('not-waiting')));
+    case 'set-protection-level':
+      return setProtectionLevel(context, command);
     case 'end-link':
       return actOnLink(context, command.linkId, 'end');
   }
@@ -452,10 +502,14 @@ export async function submitGuardianCommand(
   caller: Caller,
   at: string,
   command: GuardianCommand,
+  requestLimits?: SocialRequestLimits,
 ): Promise<Result> {
   try {
     return await store.forSubject(caller.userId, (session) =>
-      runGuardianCommand({ session, caller, at }, command),
+      runGuardianCommand(
+        { session, caller, at, ...(requestLimits ? { requestLimits } : {}) },
+        command,
+      ),
     );
   } catch (error) {
     if (error === reservationLost && command.type === 'create-child-account')

@@ -592,7 +592,7 @@ test('anyone in the live room is refused by name, and a viewer posts on', async 
         { store: f.store },
         { roundId, actorId: f.host.actorId, presentedHash: null },
       );
-      await f.sql`update rounds set competition_type='ranked',format_id='freestyle',preset_version=1,ladder_id='freestyle',ladder_division='open' where id=${roundId}`;
+      await f.markRanked(roundId);
       const ranked = await readAudienceForViewer(
         { store: f.store },
         { roundId, actorId: f.host.actorId, presentedHash: null },

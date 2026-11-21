@@ -3,7 +3,7 @@ import type { FriendRelation, FriendshipState } from '@daisy/protocol';
 /**
  * Friendship between two members (ADR 0072): one unordered pair, asked by
  * one member and accepted by the other. Declining or removing deletes the
- * pair, so a pair is either pending or accepted. A block on either side
+ * pair. A request can wait for guardian approval before acceptance. A block on either side
  * (messaging's contact pair, ADR 0061) refuses every new request and
  * acceptance; removing always works.
  */
@@ -23,6 +23,7 @@ export type FriendshipFacts = {
   readonly otherActorId: string;
   readonly pair: FriendshipPair | null;
   readonly blocked: boolean;
+  readonly guardianHolds?: readonly string[];
   readonly actorPendingOutgoing: number;
   readonly actorFriends: number;
   readonly otherFriends: number;
@@ -65,12 +66,15 @@ function acceptIncoming(
   pair: FriendshipPair,
 ): FriendshipDecision {
   if (facts.blocked) return refuse('unavailable');
+  if (facts.guardianHolds?.length)
+    return become({ ...pair, state: 'waiting-for-guardian' });
   if (atFriendLimit(facts)) return refuse('limit');
   return become({ state: 'accepted', requesterActorId: pair.requesterActorId });
 }
 
 const incomingOf = (facts: FriendshipFacts): FriendshipPair | null =>
-  facts.pair?.state === 'pending' &&
+  facts.pair &&
+  facts.pair.state !== 'accepted' &&
   facts.pair.requesterActorId !== facts.actorId
     ? facts.pair
     : null;
@@ -80,11 +84,20 @@ function decideRequest(facts: FriendshipFacts): FriendshipDecision {
   if (pair?.state === 'accepted') return keep(pair);
   const incoming = incomingOf(facts);
   if (incoming) return acceptIncoming(facts, incoming);
-  if (pair) return keep(pair);
+  if (pair) {
+    if (facts.guardianHolds?.length)
+      return become({ ...pair, state: 'waiting-for-guardian' });
+    return pair.state === 'waiting-for-guardian'
+      ? become({ ...pair, state: 'pending' })
+      : keep(pair);
+  }
   if (facts.blocked) return refuse('unavailable');
   if (facts.actorPendingOutgoing >= friendshipPolicy.maxPendingOutgoing)
     return refuse('limit');
-  return become({ state: 'pending', requesterActorId: facts.actorId });
+  return become({
+    state: facts.guardianHolds?.length ? 'waiting-for-guardian' : 'pending',
+    requesterActorId: facts.actorId,
+  });
 }
 
 function decideAccept(facts: FriendshipFacts): FriendshipDecision {
@@ -119,8 +132,11 @@ export function decideFriendship(
 export function friendRelationOf(
   viewerActorId: string,
   pair: FriendshipPair | null,
+  holds: readonly string[] = [],
 ): FriendRelation {
   if (pair?.state === 'accepted') return 'friends';
+  if (pair?.state === 'waiting-for-guardian')
+    return holds.includes(viewerActorId) ? 'waiting-for-guardian' : 'waiting';
   if (pair?.state === 'pending')
     return pair.requesterActorId === viewerActorId ? 'outgoing' : 'incoming';
   return 'none';

@@ -1,10 +1,15 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import type { GuardianCommand } from '@daisy/protocol/guardians';
 import type { LegalDocument } from '../../../../features/legal/documents';
 import { guardianNoticeDocument } from '../../../../features/legal/guardian-notices';
-import { requestFamilyRows } from '../../../../lib/request-session';
+import {
+  requestFamilyRows,
+  requestFriendApprovals,
+} from '../../../../lib/request-session';
+import { ProtectionLevelForm } from '../../../../ui/settings/parental-controls/protection-level-form';
+import { protectionLevelLabels } from '../../../../features/parental-controls/protection-level-labels';
 import { GuardianForm } from '../../../../ui/settings/parental-controls/guardian-form';
+import { StatusRegion } from '../../../../ui/components/status-region/status-region';
 import { PageHeader } from '../../../../ui/components/page-header/page-header';
 import { controlClass } from '../../../../ui/components/form-field/form-field-class';
 import { parentalControlsAction } from './actions';
@@ -49,16 +54,21 @@ const version = 1 as const;
 
 export async function FamilySettings({
   role,
+  childAccountClosed = false,
 }: {
   readonly role: 'adult' | 'child';
+  readonly childAccountClosed?: boolean;
 }) {
   const adult = role === 'adult';
-  const rows = await requestFamilyRows(role);
+  const [rows, approvals] = await Promise.all([
+    requestFamilyRows(role),
+    adult ? requestFriendApprovals() : [],
+  ]);
   if (!rows) notFound();
   const notice = guardianNoticeDocument(
     adult ? 'parental-consent' : 'child-confirmation',
   );
-  const action = (command: Pick<GuardianCommand, 'type'> | GuardianCommand) =>
+  const action = (command: Parameters<typeof parentalControlsAction>[0]) =>
     parentalControlsAction.bind(null, command);
   return (
     <main className="mx-auto flex w-full max-w-dash-column flex-col gap-5 px-6 py-5 max-compact:px-4">
@@ -66,6 +76,60 @@ export async function FamilySettings({
         Settings
       </Link>
       <PageHeader title={adult ? 'Parental controls' : 'Your parents'} />
+      {childAccountClosed ? (
+        <StatusRegion as="p" role="status">
+          Your child’s account was closed.
+        </StatusRegion>
+      ) : null}
+      {adult ? (
+        <section
+          id="waiting-for-you"
+          className={card}
+          aria-labelledby="waiting-title"
+        >
+          <h2 id="waiting-title" className={title}>
+            Waiting for you
+          </h2>
+          {approvals.length ? (
+            <ul className="flex flex-col gap-3">
+              {approvals.map((item) => (
+                <li key={item.id} className="flex flex-col gap-2">
+                  <p>
+                    {item.direction === 'incoming'
+                      ? `@${item.counterpart} sent @${item.child} a friend request.`
+                      : `@${item.child} asked to be friends with @${item.counterpart}.`}
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <GuardianForm
+                      action={action({
+                        type: 'answer-friend-approval',
+                        version,
+                        approvalId: item.id,
+                        decision: 'approve',
+                      })}
+                      label="Approve friend request"
+                    />
+                    <GuardianForm
+                      action={action({
+                        type: 'answer-friend-approval',
+                        version,
+                        approvalId: item.id,
+                        decision: 'decline',
+                      })}
+                      label="Decline friend request"
+                      secondary
+                    />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-ink-muted">
+              No friend requests need approval.
+            </p>
+          )}
+        </section>
+      ) : null}
       <section className={card} aria-labelledby="family-title">
         <h2 id="family-title" className={title}>
           {adult ? 'Your children' : 'Linked parents and requests'}
@@ -95,6 +159,23 @@ export async function FamilySettings({
                           : 'Asked to link as your parent'}
                   </p>
                 </div>
+                {row.protectionLevel ? (
+                  adult ? (
+                    <ProtectionLevelForm
+                      action={action({
+                        type: 'set-protection-level',
+                        linkId: row.id,
+                      })}
+                      choice={row.protectionLevel}
+                      child={row.label}
+                    />
+                  ) : (
+                    <p className="text-sm text-ink-muted">
+                      Protection level:{' '}
+                      {protectionLevelLabels[row.protectionLevel.level]}
+                    </p>
+                  )
+                ) : null}
                 {adult && row.request ? (
                   <div className="flex flex-wrap gap-2">
                     <GuardianForm
@@ -116,6 +197,15 @@ export async function FamilySettings({
                       secondary
                     />
                   </div>
+                ) : null}
+                {adult && row.status === 'active' ? (
+                  <Link
+                    href={`/settings/parental-controls/${row.id}`}
+                    aria-label={`More for ${row.label}`}
+                    className="self-start text-sm font-semibold"
+                  >
+                    More
+                  </Link>
                 ) : null}
                 {adult && row.status === 'active' ? (
                   <GuardianForm

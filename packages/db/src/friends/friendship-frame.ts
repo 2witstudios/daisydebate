@@ -1,4 +1,4 @@
-import { and, count, eq, or, sql } from 'drizzle-orm';
+import { and, count, eq, ne, or } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import { contactPairs } from '../schema/contacts';
 import { friendships } from '../schema/friends';
@@ -10,10 +10,11 @@ import {
   spendSocialRequest,
 } from '../contacts/request-budget';
 import type { ContactReactions } from '../contacts/reactions';
-import { oweNotifications } from '../notifications/owe';
-import { query } from '../raw-rows';
 import type { Tx } from '../tx';
-import { z } from 'zod';
+import type { lockAuthorizationActors } from '../authorization';
+import { guardianHoldsForRequest } from './guardian-approval-facts';
+import { holdForGuardian } from './hold-for-guardian';
+import { tellFriend } from './request-notice';
 
 const accepted = (actorId: string) =>
   and(
@@ -43,6 +44,7 @@ export function friendshipFrame(
   rows: readonly (typeof contactPairs.$inferSelect)[],
   authorize: () => Promise<void>,
   relations: ContactReactions['relations'],
+  accounts: Readonly<Awaited<ReturnType<typeof lockAuthorizationActors>>>,
 ): Pick<FriendFrame, 'readFriendship' | 'commitFriendship'> {
   const pairOf = () => {
     if (rows.length !== 1) throw createAppError('VALIDATION');
@@ -66,18 +68,26 @@ export function friendshipFrame(
         .from(friendships)
         .where(where(pair))
         .for('update');
+      const guardianHolds =
+        current?.state === 'accepted' ||
+        !accounts.some(
+          (account) =>
+            account?.ageBand === '13-15' || account?.ageBand === '16-17',
+        )
+          ? []
+          : await guardianHoldsForRequest(
+              tx,
+              pair,
+              current?.requesterActorId ?? input.actorId,
+            );
       return {
         otherActorId,
-        pair: current
-          ? {
-              state: current.state as 'pending' | 'accepted',
-              requesterActorId: current.requesterActorId,
-            }
-          : null,
+        pair: current ?? null,
+        ...(guardianHolds.length ? { guardianHolds } : {}),
         actorPendingOutgoing: await countWhere(
           tx,
           and(
-            eq(friendships.state, 'pending'),
+            ne(friendships.state, 'accepted'),
             eq(friendships.requesterActorId, input.actorId),
           ),
         ),
@@ -85,40 +95,37 @@ export function friendshipFrame(
         otherFriends: await countWhere(tx, accepted(otherActorId)),
       };
     },
-    async commitFriendship({ previous, next, requestId, now, limits, nextId }) {
+    async commitFriendship({
+      previous,
+      next,
+      requestId,
+      now,
+      limits,
+      nextId,
+      guardianHolds = [],
+    }) {
       await authorize();
       const pair = pairOf();
       const otherActorId =
         pair.lowActorId === input.actorId ? pair.highActorId : pair.lowActorId;
-      /** Tells `actorId`'s member about the caller, through the one writer. */
-      const tell = async (
+      const tell = (
         kind: 'friend_request_received' | 'friend_request_accepted',
-        actorId: string,
-      ) => {
-        const members = await query(
-          tx,
-          z.object({ user_id: z.string() }),
-          sql`select user_id from actors where id=${actorId} and user_id is not null`,
-        );
-        await oweNotifications(tx, {
+        recipientActorId: string,
+      ) =>
+        tellFriend(tx, {
           kind,
-          subject: {
-            friendship_low_actor_id: pair.lowActorId,
-            friendship_high_actor_id: pair.highActorId,
-          },
-          recipients: members.map((member) => ({
-            userId: member.user_id,
-            about: input.actorId,
-          })),
+          pair,
+          recipientActorId,
+          about: input.actorId,
           at: now,
           nextId,
         });
-      };
       if (!next) {
         await tx.delete(friendships).where(where(pair));
         // Ending someone else's pending request is a decline (DEC-251).
         if (
-          previous?.state === 'pending' &&
+          previous &&
+          previous.state !== 'accepted' &&
           previous.requesterActorId !== input.actorId
         )
           await recordSocialDecline(tx, {
@@ -131,8 +138,10 @@ export function friendshipFrame(
       }
       if (next.state === 'accepted')
         await clearSocialDeclines(tx, input.actorId, otherActorId);
+      // The approval record carries family state. The shared friendship stores an ordinary request.
+      const storedState = next.state === 'accepted' ? 'accepted' : 'pending';
       if (!previous) {
-        if (next.state === 'pending')
+        if (next.state !== 'accepted')
           await (
             await spendSocialRequest(
               tx,
@@ -151,25 +160,32 @@ export function friendshipFrame(
           lowActorId: pair.lowActorId,
           highActorId: pair.highActorId,
           requesterActorId: next.requesterActorId,
-          state: next.state,
+          state: storedState,
           requestedAt: new Date(now),
           acceptedAt: next.state === 'accepted' ? new Date(now) : null,
         });
-        if (next.state === 'pending')
-          await tell('friend_request_received', otherActorId);
-        return;
+      } else {
+        await tx
+          .update(friendships)
+          .set({
+            state: storedState,
+            requesterActorId: next.requesterActorId,
+            acceptedAt: next.state === 'accepted' ? new Date(now) : null,
+          })
+          .where(where(pair));
       }
-      await tx
-        .update(friendships)
-        .set({
-          state: next.state,
-          requesterActorId: next.requesterActorId,
-          acceptedAt: next.state === 'accepted' ? new Date(now) : null,
-        })
-        .where(where(pair));
+      if (
+        next.state === 'pending' &&
+        (!previous || previous.state === 'waiting-for-guardian')
+      )
+        await tell('friend_request_received', otherActorId);
+      if (next.state === 'waiting-for-guardian')
+        for (const childActorId of guardianHolds)
+          await holdForGuardian(tx, { pair, childActorId, at: now, nextId });
       // Answering someone else's request tells them it was accepted.
       if (
-        previous.state === 'pending' &&
+        previous &&
+        previous.state !== 'accepted' &&
         next.state === 'accepted' &&
         previous.requesterActorId !== input.actorId
       )

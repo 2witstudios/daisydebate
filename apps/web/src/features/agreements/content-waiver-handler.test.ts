@@ -11,6 +11,7 @@ import { createContentWaiverHandler } from './content-waiver-handler';
 setupRitewayBun();
 
 const origin = 'https://daisy.test';
+const roomId = 'r'.repeat(24);
 const principal = { userId: 'u'.repeat(24), actorId: 'a'.repeat(24) };
 
 const handler = ({
@@ -24,7 +25,7 @@ const handler = ({
   readonly limited?: boolean;
   readonly ageBand?: AgeBand;
 } = {}) => {
-  const signed: (readonly [string, string])[] = [];
+  const signed: (readonly [string, string, string])[] = [];
   const handle = createContentWaiverHandler({
     logger: silentLogger,
     reporter: noopErrorReporter,
@@ -35,8 +36,8 @@ const handler = ({
       ({
         consume: async () => ({ allowed: !limited, retryAfterSeconds: 1 }),
       }) as never,
-    sign: async (userId, version) => {
-      signed.push([userId, version]);
+    sign: async (userId, version, roomId) => {
+      signed.push([userId, version, roomId]);
       return outcome;
     },
   });
@@ -50,7 +51,7 @@ const post = (body: unknown, from = origin) =>
     body: JSON.stringify(body),
   });
 
-const valid = { version: CONTENT_WAIVER_VERSION, accepted: 'yes' };
+const valid = { roomId, version: CONTENT_WAIVER_VERSION, accepted: 'yes' };
 
 describe('signing the content waiver', () => {
   test('a member signs the served version', async () => {
@@ -60,7 +61,7 @@ describe('signing the content waiver', () => {
       given: 'a member, the served version and a ticked box',
       should: 'record the signature for that account and version',
       actual: [response.status, signed],
-      expected: [200, [[principal.userId, CONTENT_WAIVER_VERSION]]],
+      expected: [200, [[principal.userId, CONTENT_WAIVER_VERSION, roomId]]],
     });
   });
 
@@ -74,7 +75,11 @@ describe('signing the content waiver', () => {
       given: 'a minor posting the current Open and Youth waiver versions',
       should: 'refuse the Open waiver and record the Youth waiver',
       actual: [open.status, youth.status, signed],
-      expected: [409, 200, [[principal.userId, YOUTH_CONTENT_WAIVER_VERSION]]],
+      expected: [
+        409,
+        200,
+        [[principal.userId, YOUTH_CONTENT_WAIVER_VERSION, roomId]],
+      ],
     });
   });
 

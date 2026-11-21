@@ -8,7 +8,6 @@ import { formatPresets } from '../schema/format-presets';
 import { formats } from '../schema/formats';
 import { templates } from '../schema/templates';
 import { organizations } from '../schema/organizations';
-import { daisyOrganizationId } from '../daisy-reference';
 import { readDatabaseTime } from '../database-clock';
 import { loadTournamentSetupFacts } from './tournament-setup-read';
 import { inTransaction, type Tx, type TxOpener } from '../tx';
@@ -74,7 +73,7 @@ async function load(tx: Tx, input: Input) {
       and(
         isNull(templates.retiredAt),
         or(
-          eq(templates.organizationId, daisyOrganizationId),
+          eq(templates.shared, true),
           ...(setup.lobby.ownerOrganizationId
             ? [eq(templates.organizationId, setup.lobby.ownerOrganizationId)]
             : []),

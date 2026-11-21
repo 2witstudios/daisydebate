@@ -180,50 +180,82 @@ const twoSidedWinner = (outcome: WinnerOutcome): TwoSideKey => {
   throw createAppError('CONFLICT', 'A rated debate is two-sided');
 };
 
-/**
- * Rates one decided debate as one period for each side. Both sides are
- * widened for idle time to `occurredAt`, then each is rated against the
- * other's widened state from before this debate, never against its result.
- * `before` is each side's stored state, so a ledger chain within a season
- * reads `before(n) == after(n - 1)`.
- */
+const meanState = (side: readonly Glicko2State[]): Glicko2State => {
+  const mean = (key: keyof Glicko2State) =>
+    side.reduce((sum, state) => sum + state[key], 0) / side.length;
+  return {
+    rating: mean('rating'),
+    deviation: mean('deviation'),
+    volatility: mean('volatility'),
+  };
+};
+
+/** One rating period against the opposing side's mean widened pre-game state. */
+export function rateDebateSides(input: {
+  readonly affirmative: readonly DebaterRating[];
+  readonly negative: readonly DebaterRating[];
+  readonly outcome: WinnerOutcome;
+  readonly occurredAt: string;
+}) {
+  const { affirmative, negative, occurredAt } = input;
+  if (affirmative.length === 0 || negative.length === 0)
+    throw createAppError('CONFLICT', 'A rated debate needs two occupied sides');
+  const outcome = twoSidedWinner(input.outcome);
+  // Validate the posting time even when every participant is a newcomer.
+  instant(occurredAt);
+  const widen = (side: readonly DebaterRating[]) =>
+    side.map(({ state, lastRatedAt }) => {
+      assertBounded(state);
+      return inflateDeviation(state, lastRatedAt, occurredAt);
+    });
+  const affirmativeNow = widen(affirmative);
+  const negativeNow = widen(negative);
+  const rate = (
+    side: readonly DebaterRating[],
+    widened: readonly Glicko2State[],
+    opponents: readonly Glicko2State[],
+    score: Glicko2Game['score'],
+  ): RatedSide[] => {
+    const opponent = meanState(opponents);
+    return side.map(({ state }, index) => ({
+      before: state,
+      after: toBounds(
+        ratePeriod(widened[index]!, [{ opponent, score }], ratingPolicy),
+      ),
+    }));
+  };
+  return {
+    calculationVersion: RATING_CALCULATION_VERSION,
+    affirmative: rate(
+      affirmative,
+      affirmativeNow,
+      negativeNow,
+      scores[outcome].affirmative,
+    ),
+    negative: rate(
+      negative,
+      negativeNow,
+      affirmativeNow,
+      scores[outcome].negative,
+    ),
+  };
+}
+
+/** The head-to-head case of the shared two-sided rating period. */
 export function rateDebate(input: {
   readonly affirmative: DebaterRating;
   readonly negative: DebaterRating;
-  /** A two-sided Round's winner: the only outcome a rating compares. */
   readonly outcome: WinnerOutcome;
   readonly occurredAt: string;
 }): RatedDebate {
-  const { affirmative, negative, occurredAt } = input;
-  const outcome = twoSidedWinner(input.outcome);
-  // Validated here, not only while widening: two newcomers never widen.
-  instant(occurredAt);
-  assertBounded(affirmative.state);
-  assertBounded(negative.state);
-  const affirmativeNow = inflateDeviation(
-    affirmative.state,
-    affirmative.lastRatedAt,
-    occurredAt,
-  );
-  const negativeNow = inflateDeviation(
-    negative.state,
-    negative.lastRatedAt,
-    occurredAt,
-  );
-  const rate = (
-    player: Glicko2State,
-    opponent: Glicko2State,
-    score: Glicko2Game['score'],
-  ) => toBounds(ratePeriod(player, [{ opponent, score }], ratingPolicy));
+  const rated = rateDebateSides({
+    ...input,
+    affirmative: [input.affirmative],
+    negative: [input.negative],
+  });
   return {
-    calculationVersion: RATING_CALCULATION_VERSION,
-    affirmative: {
-      before: affirmative.state,
-      after: rate(affirmativeNow, negativeNow, scores[outcome].affirmative),
-    },
-    negative: {
-      before: negative.state,
-      after: rate(negativeNow, affirmativeNow, scores[outcome].negative),
-    },
+    calculationVersion: rated.calculationVersion,
+    affirmative: rated.affirmative[0]!,
+    negative: rated.negative[0]!,
   };
 }

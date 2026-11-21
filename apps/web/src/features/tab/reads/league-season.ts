@@ -141,9 +141,11 @@ function projectLeagueSeason(
         organizationId: facts.organization.id,
         name: facts.organization.name,
       },
-      // The league's own division; Daisy (kind league) has none, and its
-      // season's is the one it rates.
-      division: facts.organization.leagueDivision ?? facts.season.division,
+      lobby: {
+        lobbyId: facts.standingLobby.id,
+        name: facts.standingLobby.name,
+        ageRule: facts.standingLobby.ageRule,
+      },
       counting: facts.rule.counting,
       calendar: projectLeagueCalendar(facts, template.id),
       standings: {
@@ -242,13 +244,11 @@ export const readLeagueSeason =
         return {
           ...projected,
           handle: facts.organization.handle,
-          standingLobby: facts.standingLobby
-            ? {
-                id: facts.standingLobby.id,
-                handle: facts.standingLobby.handle,
-                name: facts.standingLobby.name,
-              }
-            : null,
+          standingLobby: {
+            id: facts.standingLobby.id,
+            handle: facts.standingLobby.handle,
+            name: facts.standingLobby.name,
+          },
           template: (() => {
             const template = facts.series.find(
               (row) => row.id === projected.view.standings.series.templateId,

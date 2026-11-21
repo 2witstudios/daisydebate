@@ -40,6 +40,7 @@ test('NotificationPreferencesForm', () => {
       'Someone asks to be friends | In Daisy',
       'Someone asks to be friends | Email',
       'Someone accepts my friend request | In Daisy',
+      'A friend request needs my approval | In Daisy',
       'Someone sends me a message request | In Daisy',
       'Someone sends me a message request | Email',
       'I am assigned to judge | In Daisy',

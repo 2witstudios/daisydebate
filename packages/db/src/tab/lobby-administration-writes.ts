@@ -1,12 +1,11 @@
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import type { TournamentStatus } from '@daisy/protocol/lobby';
 import type { LobbyAgeRule } from '@daisy/protocol/lobby/eligibility';
 import { jsonObjectSchema } from '../schema/columns';
 import { ladders } from '../schema/ladders';
 import { lobbies, tournaments } from '../schema/lobbies';
-import { organizations } from '../schema/organizations';
-import { seasons } from '../schema/ratings';
+import { seasons } from '../schema/seasons';
 import { seasonStandingRules } from '../schema/sanctions';
 import type { Tx } from '../tx';
 
@@ -22,6 +21,7 @@ type Update<Table extends string, Row> = {
   readonly set: Partial<Row>;
 };
 type LobbyRow = {
+  readonly ageRule: LobbyAgeRule;
   readonly name: string;
   readonly closedAt: string | null;
   readonly version: number;
@@ -29,6 +29,7 @@ type LobbyRow = {
 type SeasonRow = {
   readonly id: string;
   readonly organizationId: string;
+  readonly lobbyId: string;
   readonly name: string;
   readonly startsAt: string;
   readonly endsAt: string | null;
@@ -82,6 +83,7 @@ export type LobbyAdministrationWrite =
         readonly name: string;
       }
     >
+  | Update<'ladders', { readonly name: string }>
   | { readonly table: 'ladders'; readonly op: 'delete'; readonly id: string };
 
 const one = (rows: readonly unknown[]) => {
@@ -127,20 +129,8 @@ const apply = async (
       );
     case 'seasons':
       if (write.op === 'insert') {
-        // A league's season rates its league's division (PYL-16), fixed
-        // when the season starts (decision 79).
-        const [league] = await tx
-          .select({ division: organizations.leagueDivision })
-          .from(organizations)
-          .where(eq(organizations.id, write.row.organizationId));
-        if (!league) throw createAppError('INVARIANT');
-        // Daisy (kind league) carries no division: its seasons are opened
-        // only by the operator's season command (ADR 0055), so a lobby
-        // command naming it finds nothing to open.
-        if (!league.division) throw createAppError('NOT_FOUND');
         await tx.insert(seasons).values({
           ...write.row,
-          division: league.division,
           startsAt: new Date(write.row.startsAt),
           endsAt: at(write.row.endsAt),
         });
@@ -149,7 +139,17 @@ const apply = async (
       return one(
         await tx
           .update(seasons)
-          .set({ status: write.set.status, version: write.set.version })
+          .set({
+            name: write.set.name,
+            status: write.set.status,
+            version: write.set.version,
+            endsAt:
+              write.set.status === 'closed'
+                ? sql`greatest(statement_timestamp(), ${seasons.startsAt} + interval '1 millisecond')`
+                : write.set.endsAt === undefined
+                  ? undefined
+                  : at(write.set.endsAt),
+          })
           .where(eq(seasons.id, write.id))
           .returning({ id: seasons.id }),
       );
@@ -163,6 +163,14 @@ const apply = async (
         await tx.insert(ladders).values(write.row);
         return;
       }
+      if (write.op === 'update')
+        return one(
+          await tx
+            .update(ladders)
+            .set(write.set)
+            .where(eq(ladders.id, write.id))
+            .returning({ id: ladders.id }),
+        );
       return one(
         await tx
           .delete(ladders)

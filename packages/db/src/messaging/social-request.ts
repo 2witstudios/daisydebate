@@ -8,10 +8,7 @@ import {
   messagingSocialCommands,
 } from '../schema/messaging-social';
 import { contactPairs } from '../schema/contacts';
-import {
-  refuseDeclineBlock,
-  spendSocialRequest,
-} from '../contacts/request-budget';
+import { spendSocialRequest } from '../contacts/request-budget';
 import { advanceSocialChannelAuthority } from './social-channel-change';
 import { openStream } from './stream';
 import type { ContactInput } from '../contacts/fence';
@@ -65,7 +62,7 @@ export function dmRequestFrame(
     // An existing pending or accepted DM is no new request: asking again
     // converges on it without spending DEC-251's budgets or writing a ledger
     // row (the convergence is idempotent, so no receipt is needed).
-    async screenDmRequest(now) {
+    async screenDmRequest() {
       await authorize();
       const current = await read();
       if (current && converges(current))
@@ -74,7 +71,6 @@ export function dmRequestFrame(
         if (!canReopen(current)) throw createAppError('AUTHORIZATION');
         await activeChannel(current.channelId);
       }
-      await refuseDeclineBlock(tx, input.actorId, counterpartOf(input), now);
       return null;
     },
     async readDmRequest() {

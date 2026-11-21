@@ -5,7 +5,8 @@ import {
   negativeSide,
   rateableOutcome,
   sideOfSeat,
-  type TwoSideKey,
+  winnerOutcome,
+  type SideKey,
 } from '@daisy/protocol';
 import type {
   DebaterStanding,
@@ -18,7 +19,12 @@ import type {
   RatingState,
 } from '@daisy/protocol';
 import { attendanceSettled } from './attendance-order';
-import { carryOver, rateDebate, postingInstant, ratingPolicy } from './rating';
+import {
+  carryOver,
+  rateDebateSides,
+  postingInstant,
+  ratingPolicy,
+} from './rating';
 
 /**
  * The domain decisions behind rating one completed round (ADR 0055,
@@ -28,16 +34,7 @@ import { carryOver, rateDebate, postingInstant, ratingPolicy } from './rating';
  * decided here.
  */
 
-/**
- * Whether a round rates, and on which ladder. Ratedness has one authority:
- * the round's frozen `ladder_id`, whose derivation the schema constrains —
- * a casual round carries none and never rates. Ranked
- * eligibility was decided when the round was constructed from a sanctioned
- * preset, so this check re-decides nothing about the format; a mismatch
- * there is corruption and fails as an invariant in the adapter's
- * `assertRankedRoundIntegrity`, never as an unrated reason. Whether the
- * ending itself rates is `endingRating`'s.
- */
+/** A Round rates on its frozen pool when its ending supports a result. */
 export function ratingEligibility(
   input: RatingEligibilityFacts,
 ): RatingEligibility {
@@ -47,9 +44,9 @@ export function ratingEligibility(
     throw createAppError('CONFLICT', 'Only a completed round can be rated');
   // Before the ladder: a rerun after the ledger moved is still a rerun.
   if (input.alreadyRated) return { kind: 'already-rated' };
-  if (input.ladder === null) return { kind: 'unrated', reason: 'competition' };
+  if (input.scope === null) return { kind: 'unrated', reason: 'competition' };
   const ending = endingRating(input);
-  return ending.kind === 'rated' ? { ...ending, ladder: input.ladder } : ending;
+  return ending.kind === 'rated' ? { ...ending, scope: input.scope } : ending;
 }
 
 /**
@@ -96,69 +93,68 @@ export function ratingAwaited(input: RatingEligibilityFacts): boolean {
 const startingState = ({ current, previous }: DebaterStanding): RatingState =>
   current?.state ?? (previous ? carryOver(previous) : ratingPolicy.initial);
 
-/**
- * The ledger changes for a rated debate: one per side, in side order, each
- * starting from the debater's standing and computed by `rateDebate`.
- */
+/** Plans one ledger change per debater from both sides' pre-game states. */
 export function planRating(input: RatingPlanFacts): RatingPlan {
-  if (input.seasonId === null)
-    throw createAppError('CONFLICT', 'No season is active');
-  const seatOf = (side: TwoSideKey) => {
-    const held = input.seats.filter((seat) => sideOfSeat(seat.seat) === side);
-    if (held.length !== 1 || !held[0])
-      throw createAppError(
-        'CONFLICT',
-        'A rated debate needs one debater on each side',
-      );
-    return held[0].actorId;
-  };
-  const affirmative = seatOf(affirmativeSide);
-  const negative = seatOf(negativeSide);
-  if (affirmative === negative)
-    throw createAppError('CONFLICT', 'A debater cannot hold both sides');
-  const standingOf = (actorId: string): DebaterStanding => {
+  const standingOf = (actorId: string) => {
     const standing = input.standings[actorId];
-    if (!standing)
-      throw createAppError('INTERNAL', 'A seated debater has no standing');
-    return standing;
+    const changeId = input.changeIds[actorId];
+    if (!standing || !changeId)
+      throw createAppError(
+        'INTERNAL',
+        'A seated debater has incomplete rating facts',
+      );
+    return {
+      actorId,
+      changeId,
+      state: startingState(standing),
+      lastRatedAt: standing.lastRatedAt,
+      expectedVersion: standing.current?.version ?? null,
+    };
   };
-  const affirmativeStanding = standingOf(affirmative);
-  const negativeStanding = standingOf(negative);
+  const onSide = (side: SideKey) =>
+    input.seats.filter((seat) => sideOfSeat(seat.seat) === side);
+  const [first, second] = input.sides;
+  const winner = input.outcome.side;
+  if (first === second || (winner !== first && winner !== second))
+    throw createAppError('CONFLICT', 'A rated debate needs a winning side');
+  const affirmativeSeats = onSide(first);
+  const negativeSeats = onSide(second);
+  const actors = [...affirmativeSeats, ...negativeSeats].map(
+    ({ actorId }) => actorId,
+  );
+  if (actors.length !== new Set(actors).size)
+    throw createAppError('CONFLICT', 'A debater cannot hold multiple seats');
+  const affirmative = affirmativeSeats.map(({ actorId }) =>
+    standingOf(actorId),
+  );
+  const negative = negativeSeats.map(({ actorId }) => standingOf(actorId));
   const postedAt = postingInstant(input.occurredAt, [
-    affirmativeStanding.lastRatedAt,
-    negativeStanding.lastRatedAt,
+    ...affirmative.map(({ lastRatedAt }) => lastRatedAt),
+    ...negative.map(({ lastRatedAt }) => lastRatedAt),
   ]);
-  const rated = rateDebate({
-    affirmative: {
-      state: startingState(affirmativeStanding),
-      lastRatedAt: affirmativeStanding.lastRatedAt,
-    },
-    negative: {
-      state: startingState(negativeStanding),
-      lastRatedAt: negativeStanding.lastRatedAt,
-    },
-    outcome: input.outcome,
+  const rated = rateDebateSides({
+    affirmative,
+    negative,
+    outcome: winnerOutcome(winner === first ? affirmativeSide : negativeSide),
     occurredAt: postedAt,
   });
-  const [affirmativeId, negativeId] = input.changeIds;
+  const ledger = (
+    side: typeof affirmative,
+    changes: typeof rated.affirmative,
+  ) =>
+    side.map(({ actorId, changeId, expectedVersion }, index) => ({
+      actorId,
+      changeId,
+      ...changes[index]!,
+      expectedVersion,
+    }));
   return {
-    ladder: input.ladder,
-    seasonId: input.seasonId,
+    scope: input.scope,
     occurredAt: postedAt,
     calculationVersion: rated.calculationVersion,
     changes: [
-      {
-        changeId: affirmativeId,
-        actorId: affirmative,
-        ...rated.affirmative,
-        expectedVersion: affirmativeStanding.current?.version ?? null,
-      },
-      {
-        changeId: negativeId,
-        actorId: negative,
-        ...rated.negative,
-        expectedVersion: negativeStanding.current?.version ?? null,
-      },
+      ...ledger(affirmative, rated.affirmative),
+      ...ledger(negative, rated.negative),
     ],
   };
 }

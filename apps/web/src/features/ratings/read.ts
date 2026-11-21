@@ -1,16 +1,20 @@
 import { addMs } from '@daisy/clock';
 import type { Database } from '@daisy/db';
 import type { StandingsRead } from '@daisy/db/ratings';
-import type { Ladder } from '@daisy/protocol';
+import { ratingDivisionForAgeRule, type Ladder } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
 import { spectatorClockAt } from '../spectating/spectator-clock';
 import { rankRatingEntries } from './rank';
 import { ratingStanding } from './standing';
 import { summarizeStandings } from './summarize';
+import { replayPublishedStandings } from './replay-published-standings';
 
 export type RatingReadStore = Pick<
   Database,
-  'listLadderSeasons' | 'readStandings' | 'readRatingBlindings'
+  | 'listLadderSeasons'
+  | 'readStandings'
+  | 'readRatingBlindings'
+  | 'listOfficialRatingLadders'
 >;
 type RatingSeason = {
   readonly id: string;
@@ -24,8 +28,13 @@ type RatingSeason = {
 export async function readRatingStandings(
   store: RatingReadStore,
   input: {
-    /** The ladder (style and division); only its division's seasons count. */
+    /** The presentation used by this route and legacy URLs. */
     readonly ladder: Ladder;
+    readonly lobbyId?: string;
+    readonly frozenLadder?: {
+      readonly lobbyId: string;
+      readonly ladderId: string;
+    };
     readonly seasonId: string | null;
     readonly now: string;
     readonly viewerActorId?: string;
@@ -33,9 +42,16 @@ export async function readRatingStandings(
     readonly revealRoundId?: string;
   },
 ) {
-  const records = (await store.listLadderSeasons()).filter(
-    (s) => s.division === input.ladder.division,
-  );
+  const pool =
+    input.frozenLadder ??
+    (await store.listOfficialRatingLadders()).find((item) =>
+      input.lobbyId
+        ? item.lobbyId === input.lobbyId
+        : ratingDivisionForAgeRule(item.ageRule) === input.ladder.division,
+    );
+  if (!pool) return null;
+  const ladderId = 'ladderId' in pool ? pool.ladderId : pool.id;
+  const records = await store.listLadderSeasons(pool.lobbyId);
   const seasons: readonly RatingSeason[] = records.map((s) => ({
     id: s.id,
     name: s.name,
@@ -48,12 +64,18 @@ export async function readRatingStandings(
     seasons.find((s) => s.status === 'active') ??
     seasons[0];
   if (!season) return null;
-  const source = await store.readStandings({
-    ladder: input.ladder,
-    seasonIds: seasons.map((s) => s.id),
-    clock: spectatorClockAt(input.now),
-    ...(input.revealRoundId ? { revealRoundId: input.revealRoundId } : {}),
-  });
+  const source = replayPublishedStandings(
+    await store.readStandings({
+      ladderId,
+      lobbyId: pool.lobbyId,
+      seasonIds: seasons.map((s) => s.id),
+      clock: spectatorClockAt(input.now),
+      ...(!input.frozenLadder && !input.revealRoundId
+        ? { includeCertified: true }
+        : {}),
+      ...(input.revealRoundId ? { revealRoundId: input.revealRoundId } : {}),
+    }),
+  );
   const blindedActorIds = input.viewerActorId
     ? await store.readRatingBlindings(input.viewerActorId)
     : [];

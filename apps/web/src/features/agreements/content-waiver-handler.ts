@@ -1,5 +1,5 @@
 import type { Identity } from '@daisy/auth';
-import type { AgeBand } from '@daisy/protocol';
+import { idSchema, type AgeBand } from '@daisy/protocol';
 import { createAppError, createRefusal } from '@daisy/errors';
 import type { Logger } from '@daisy/logger';
 import type { ErrorReporter } from '@daisy/observability';
@@ -16,6 +16,7 @@ import { consumeOrThrow, type RateLimiter } from '../../server/rate-limit';
 import { contentWaiverOf } from '../legal/agreements';
 
 const signatureRequest = z.strictObject({
+  roomId: idSchema,
   version: z.string().min(1).max(64),
   /** The member ticked the box; a post without it signs nothing. */
   accepted: z.literal('yes'),
@@ -54,6 +55,7 @@ export function createContentWaiverHandler({
   readonly sign: (
     userId: string,
     version: string,
+    roomId: string,
   ) => Promise<'signed' | 'no-active-season'>;
 }) {
   return (request: Request) =>
@@ -71,7 +73,7 @@ export function createContentWaiverHandler({
           `agreements:content-waiver:${userId}`,
           SIGN_LIMIT,
         );
-        const { version } = parseValidated(
+        const { roomId, version } = parseValidated(
           signatureRequest,
           await readJson(request, MAX_BODY_BYTES),
         );
@@ -79,7 +81,7 @@ export function createContentWaiverHandler({
           const ageBand = await readAgeBand(userId);
           if (ageBand === null || contentWaiverOf(ageBand).version !== version)
             throw createRefusal('CONFLICT', 'content-waiver-changed');
-          if ((await sign(userId, version)) === 'no-active-season')
+          if ((await sign(userId, version, roomId)) === 'no-active-season')
             throw createRefusal('CONFLICT', 'ranked-unavailable');
           return Response.json({ signed: true });
         } catch (error) {

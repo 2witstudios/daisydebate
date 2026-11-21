@@ -10,11 +10,20 @@ import { usernameSchema as username } from './username';
  */
 
 /** Durable pair states; a declined or removed pair has no row at all. */
-export const friendshipStates = ['pending', 'accepted'] as const;
-export type FriendshipState = (typeof friendshipStates)[number];
+export const storedFriendshipStates = ['pending', 'accepted'] as const;
+
+export type FriendshipState =
+  (typeof storedFriendshipStates)[number] | 'waiting-for-guardian';
 
 /** One pair as the viewer sees it. */
-const friendRelations = ['none', 'friends', 'outgoing', 'incoming'] as const;
+const friendRelations = [
+  'none',
+  'friends',
+  'outgoing',
+  'incoming',
+  'waiting',
+  'waiting-for-guardian',
+] as const;
 export type FriendRelation = (typeof friendRelations)[number];
 
 const command = { version: z.literal(1), username };
@@ -37,6 +46,12 @@ export type FriendCommandResult = z.infer<typeof friendCommandResultSchema>;
 
 const count = z.number().int().nonnegative().safe();
 
+const friendRequest = z.strictObject({
+  username: z.string(),
+  requestedAt: z.iso.datetime(),
+  waiting: z.enum(['waiting', 'waiting-for-guardian']).optional(),
+});
+
 export const friendListSchema = z.strictObject({
   version: z.literal(1),
   friends: z.array(
@@ -49,12 +64,8 @@ export const friendListSchema = z.strictObject({
       photoId: idSchema.nullable(),
     }),
   ),
-  incoming: z.array(
-    z.strictObject({ username: z.string(), requestedAt: z.iso.datetime() }),
-  ),
-  outgoing: z.array(
-    z.strictObject({ username: z.string(), requestedAt: z.iso.datetime() }),
-  ),
+  incoming: z.array(friendRequest),
+  outgoing: z.array(friendRequest),
 });
 export type FriendList = z.infer<typeof friendListSchema>;
 

@@ -19,6 +19,7 @@ test('competitive record erasure preserves the ledger and export scopes every ta
       affirmative: actorId,
       negative: peer,
       outcome: 'affirmative',
+      seasonId,
     });
     for (const participant of [actorId, peer])
       await rating(fixture, {

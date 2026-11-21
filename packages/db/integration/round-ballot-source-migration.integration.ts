@@ -31,8 +31,10 @@ test(
       const [before] =
         await sql`select to_jsonb(r) as row from rounds r where id=${roundId}`;
       await scratch.migrate(() => true);
-      const [after] =
-        await sql`select to_jsonb(r)-'ballot_definition_id'-'ballot_definition_version'-'league_ladder_id'-'ladder_division' as row from rounds r where id=${roundId}`;
+      const [after] = await sql`select to_jsonb(r)-array[
+          'ballot_definition_id','ballot_definition_version','season_id',
+          'rating_lobby_id','standing_age_rule','standing_youth_cast'
+        ] as row from rounds r where id=${roundId}`;
       const id = createId();
       await sql.unsafe('begin');
       await fixture.insert('ballot_definitions', {
@@ -72,13 +74,16 @@ test(
         given:
           'the migrated historical Daisy Round and the new stored-ballot Round',
         should:
-          'leave league rating selection null for both without fabricating provenance',
+          'leave the rating pool empty for both without fabricating provenance',
         actual: Array.from(
-          await sql`select id,league_ladder_id from rounds where id=any(${sql.array([roundId, storedRound], 'text')}::text[]) order by id`,
+          await sql`select id,ladder_id,season_id,rating_lobby_id from rounds where id=any(${sql.array([roundId, storedRound], 'text')}::text[]) order by id`,
         ),
-        expected: [roundId, storedRound]
-          .sort()
-          .map((id) => ({ id, league_ladder_id: null })),
+        expected: [roundId, storedRound].sort().map((id) => ({
+          id,
+          ladder_id: null,
+          season_id: null,
+          rating_lobby_id: null,
+        })),
       });
       const constraint = async (judging: unknown) => {
         try {

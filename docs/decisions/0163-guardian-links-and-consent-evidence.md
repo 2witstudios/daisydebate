@@ -36,6 +36,13 @@ used guardian restrictions to fence tournament visibility.
 - Settings exposes Parental controls and Your parents behind the
   `parental-controls` release flag. Staging uses its release default.
   Production activation and any counsel-directed changes require owner sign-off.
+- Under a linked child's More controls, the guardian can sign the media release
+  (ADR 0151), or explicitly withdraw parental consent and close the child's
+  account. Both operations recheck the active link and current ages under
+  the ordered account locks. Closure runs the same subject-rights transaction
+  as self-closure (ADR 0087), ends active links and releases, revokes sign-in
+  and preserves required evidence and the competitive record. The same durable
+  vendor queue handles Stripe cleanup after local closure (DEC-365).
 - Coaches run teams. They gain no guardian relationship from an organization
   role. Drop `restrictions` and its video and lobby fields. Leave
   `restriction_lobbies` attached to a guardian link for PC-3. Tournament
@@ -44,3 +51,6 @@ used guardian restrictions to fence tournament visibility.
 This supersedes the guardian commands and closed family read surface in
 [ADR 0130](0130-organizations-grants-and-action-history.md) and the guardian restrictions in
 [ADR 0136](0136-person-scoped-family-action-history.md). The league and lobby model is defined by [ADR 0162](0162-daisy-is-a-league-open-and-youth-are-lobbies.md).
+
+[ADR 0165](0165-guardian-protection-levels.md) applies protection levels to
+active guardian links.

@@ -1,3 +1,4 @@
+import { officialRatingLadders } from '../ratings/standing.test-support';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { readLadder } from './read-leaderboard';
 setupRitewayBun();
@@ -10,6 +11,7 @@ test('a season without postings is empty, and no season invents no dates or stan
   const empty = await readLadder(
     {
       readRatingBlindings: async () => [],
+      listOfficialRatingLadders: officialRatingLadders,
       listLadderSeasons: async () => [],
       readStandings: async () => ({ ratings: [], changes: [] }),
     },
@@ -18,6 +20,7 @@ test('a season without postings is empty, and no season invents no dates or stan
   const active = await readLadder(
     {
       readRatingBlindings: async () => [],
+      listOfficialRatingLadders: officialRatingLadders,
       listLadderSeasons: async () => [
         {
           id,
@@ -25,7 +28,7 @@ test('a season without postings is empty, and no season invents no dates or stan
           startsAt: now,
           endsAt: null,
           status: 'active',
-          division: 'open',
+          lobbyId: 'open',
           version: 1,
         },
       ],
@@ -66,17 +69,20 @@ test('each division reads its own seasons', async () => {
   const youthId = 'y2v9x0f4m8q3w1z7c5n6b4d2';
   const store = {
     readRatingBlindings: async () => [],
-    listLadderSeasons: async () =>
+    listOfficialRatingLadders: officialRatingLadders,
+    listLadderSeasons: async (lobbyId?: string) =>
       [
-        { id, name: 'Fall 2026', division: 'open' },
-        { id: youthId, name: 'Youth Fall 2026', division: 'youth' },
-      ].map((season) => ({
-        ...season,
-        startsAt: now,
-        endsAt: null,
-        status: 'active' as const,
-        version: 1,
-      })) as never,
+        { id, name: 'Fall 2026', lobbyId: 'open' },
+        { id: youthId, name: 'Youth Fall 2026', lobbyId: 'youth' },
+      ]
+        .filter((season) => season.lobbyId === lobbyId)
+        .map((season) => ({
+          ...season,
+          startsAt: now,
+          endsAt: null,
+          status: 'active' as const,
+          version: 1,
+        })) as never,
     readStandings: async () => ({ ratings: [], changes: [] }),
   };
   const read = (ladder: typeof open | typeof youth, seasonId: string | null) =>

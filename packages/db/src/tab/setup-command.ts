@@ -4,7 +4,6 @@ import type {
   ActionHistoryEntry,
   LobbyCommandReceipt,
 } from '@daisy/protocol/lobby/command';
-import { daisyOrganizationId } from '../daisy-reference';
 import { actors } from '../schema/actors';
 import { lobbies } from '../schema/lobbies';
 import { ballotDefinitions } from '../schema/ballot-definitions';
@@ -95,7 +94,7 @@ const load = async (tx: Tx, input: SetupCommandInput) => {
       .where(
         or(
           eq(ballotDefinitions.lobbyId, lobbyId),
-          eq(ballotDefinitions.organizationId, daisyOrganizationId),
+          eq(ballotDefinitions.shared, true),
           ...(scope.organizationId
             ? [eq(ballotDefinitions.organizationId, scope.organizationId)]
             : []),

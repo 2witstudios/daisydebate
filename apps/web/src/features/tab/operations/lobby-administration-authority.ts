@@ -34,6 +34,9 @@ const resourceOf = (
   if (
     command.type === 'create-season' ||
     command.type === 'close-season' ||
+    command.type === 'edit-season' ||
+    command.type === 'edit-standing-lobby' ||
+    command.type === 'save-ladder' ||
     command.type === 'set-ladder'
   ) {
     if (!organization) throw new CommandDenied('not-found');

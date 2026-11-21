@@ -5,12 +5,15 @@ import {
   negativeSide,
   sideOfSeat,
   winnerOutcome,
-  type TwoSideKey,
 } from '@daisy/protocol';
 import type { Database } from '@daisy/db';
 import { createAppError } from '@daisy/errors';
 import type { Ladder, RoundView } from '@daisy/protocol';
-import { rateDebate, ratingAwaited } from '@daisy/debate-engine';
+import {
+  postingInstant,
+  rateDebateSides,
+  ratingAwaited,
+} from '@daisy/debate-engine';
 import { ratingClassification, ratingStanding } from './standing';
 import { readRatingStandings } from './read';
 
@@ -44,6 +47,7 @@ export async function readRoundRatings(
   store: Pick<
     Database,
     | 'listLadderSeasons'
+    | 'listOfficialRatingLadders'
     | 'readStandings'
     | 'readRatingBlindings'
     | 'readRatingFacts'
@@ -55,7 +59,7 @@ export async function readRoundRatings(
   },
 ): Promise<RoundRatingsView | null> {
   const { round, now } = input;
-  if (round.ladder === null) return null;
+  if (round.ladder === null || !round.ratingScope) return null;
   const noSeason: RoundRatingsView = {
     ladder: round.ladder,
     season: 'No active season',
@@ -64,7 +68,8 @@ export async function readRoundRatings(
   };
   const published = await readRatingStandings(store, {
     ladder: round.ladder,
-    seasonId: null,
+    seasonId: round.ratingScope.seasonId,
+    frozenLadder: round.ratingScope,
     now,
     revealRoundId: round.id,
     ...(input.viewerActorId ? { viewerActorId: input.viewerActorId } : {}),
@@ -72,6 +77,7 @@ export async function readRoundRatings(
   if (!published) return noSeason;
   const postings = published.postings.filter((c) => c.roundId === round.id);
   const season =
+    published.seasons.find((s) => s.id === round.ratingScope?.seasonId) ??
     published.seasons.find((s) => s.id === postings[0]?.seasonId) ??
     published.seasons.find((s) => s.status === 'active');
   if (!season) return noSeason;
@@ -82,34 +88,61 @@ export async function readRoundRatings(
     ratedAt = season.endsAt;
   }
   const summaries = published.summaries.filter((s) => s.seasonId === season.id);
-  const seats = round.participants.filter(
-    (p) => !('anonymous' in p) && isDebatingSeat(p.seat),
-  );
+  const seats = round.participants.filter((p) => isDebatingSeat(p.seat));
   const standing = (actorId: string) =>
     summaries.find((s) => s.actorId === actorId);
-  const onSide = (side: TwoSideKey) =>
-    seats.find((p) => sideOfSeat(p.seat) === side);
-  const affirmative = onSide(affirmativeSide);
-  const negative = onSide(negativeSide);
-  const a =
-    affirmative && 'actorId' in affirmative
-      ? standing(affirmative.actorId)
-      : undefined;
-  const n =
-    negative && 'actorId' in negative ? standing(negative.actorId) : undefined;
-  const calculate = (side: TwoSideKey) =>
-    a && n
-      ? rateDebate({
-          affirmative: { state: a, lastRatedAt: a.lastRatedAt },
-          negative: { state: n, lastRatedAt: n.lastRatedAt },
-          occurredAt: now,
-          outcome: winnerOutcome(side),
-        })
-      : null;
   const rated = postings.length > 0;
-  const staked = !rated && !isRoundOver(round.status);
-  const winA = staked ? calculate(affirmativeSide) : null;
-  const winN = staked ? calculate(negativeSide) : null;
+  const stakes = new Map<string, { win: number; loss: number }>();
+  if (!rated && !isRoundOver(round.status) && round.rules.sides.length === 2) {
+    const sides = round.rules.sides.map(({ key }) =>
+      seats
+        .filter((p) => sideOfSeat(p.seat) === key)
+        .map((p) => ('actorId' in p ? standing(p.actorId) : undefined)),
+    );
+    const [first, second] = sides;
+    // Every opposing state must be visible to compute a team's public stakes.
+    const visible = (
+      side: typeof first,
+    ): side is NonNullable<ReturnType<typeof standing>>[] =>
+      side !== undefined &&
+      side.length > 0 &&
+      side.every((row) => row !== undefined);
+    if (visible(first) && visible(second)) {
+      const participants = [...first, ...second];
+      const input = {
+        affirmative: first.map((state) => ({
+          state,
+          lastRatedAt: state.lastRatedAt,
+        })),
+        negative: second.map((state) => ({
+          state,
+          lastRatedAt: state.lastRatedAt,
+        })),
+        occurredAt: postingInstant(
+          now,
+          participants.map(({ lastRatedAt }) => lastRatedAt),
+        ),
+      };
+      const left = rateDebateSides({
+        ...input,
+        outcome: winnerOutcome(affirmativeSide),
+      });
+      const right = rateDebateSides({
+        ...input,
+        outcome: winnerOutcome(negativeSide),
+      });
+      for (const [actors, wins, losses] of [
+        [first, left.affirmative, right.affirmative],
+        [second, right.negative, left.negative],
+      ] as const) {
+        for (const [index, actor] of actors.entries())
+          stakes.set(actor.actorId, {
+            win: Math.round(wins[index]!.after.rating - actor.rating),
+            loss: Math.round(losses[index]!.after.rating - actor.rating),
+          });
+      }
+    }
+  }
   return {
     ladder: round.ladder,
     season: season.name,
@@ -139,11 +172,7 @@ export async function readRoundRatings(
       const view = current
         ? ratingStanding(current, current.lastRatedAt, ratedAt)
         : null;
-      const onAffirmative = sideOfSeat(seat.seat) === affirmativeSide;
-      const after = (rated: typeof winA) =>
-        rated && (onAffirmative ? rated.affirmative : rated.negative);
-      const winning = after(onAffirmative ? winA : winN);
-      const losing = after(onAffirmative ? winN : winA);
+      const stake = stakes.get(seat.actorId);
       return [
         {
           label: seat.label,
@@ -156,14 +185,8 @@ export async function readRoundRatings(
           delta: posted
             ? Math.round(posted.ratingAfter - posted.ratingBefore)
             : null,
-          win:
-            winning && current
-              ? Math.round(winning.after.rating - current.rating)
-              : null,
-          loss:
-            losing && current
-              ? Math.round(losing.after.rating - current.rating)
-              : null,
+          win: stake?.win ?? null,
+          loss: stake?.loss ?? null,
         },
       ];
     }),

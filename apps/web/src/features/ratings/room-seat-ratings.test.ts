@@ -10,6 +10,10 @@ import {
 setupRitewayBun();
 
 const now = '2026-11-01T00:00:00.000Z';
+const pool = {
+  lobbyId: 'second-adult-lobby',
+  ladderId: 'selected-league-ladder',
+};
 const seatState = {
   needsReady: true,
   ready: 'not-ready' as const,
@@ -60,8 +64,7 @@ const rated = (
   deviation: number,
 ): SeatRatingState => ({
   actorId,
-  ladder: 'freestyle',
-  division: 'open',
+  ...pool,
   rating,
   deviation,
   volatility: 0.06,
@@ -78,6 +81,7 @@ const overlaid = overlaySeatRatings(view, {
   ratings,
   blinded: [blinded],
   now,
+  pool,
 });
 const ratingOf = (index: number) => {
   const p = overlaid.participants[index]!;
@@ -123,6 +127,38 @@ test('a Room view carries each seated human rating under the viewer blinding', (
   });
 });
 
+test('a Room uses the exact lobby and selected ladder for its seats', () => {
+  const foreign = {
+    ...rated(established, 1912, 60),
+    lobbyId: 'first-adult-lobby',
+  };
+  const otherLadder = {
+    ...rated(established, 1780, 60),
+    ladderId: 'primary-ladder',
+  };
+  const selected = rated(established, 1613, 60);
+  const rating = (rows: readonly SeatRatingState[]) => {
+    const [participant] = overlaySeatRatings(view, {
+      ratings: rows,
+      blinded: [],
+      now,
+      pool,
+    }).participants;
+    return participant && !('anonymous' in participant)
+      ? participant.rating
+      : null;
+  };
+  assert({
+    given: 'two adult lobbies and a Room pinned to its secondary league ladder',
+    should: 'show only the stored pool and otherwise keep the seat unrated',
+    actual: [
+      rating([foreign, otherLadder, selected]),
+      rating([foreign, otherLadder]),
+    ],
+    expected: [{ value: 1613, provisional: false }, null],
+  });
+});
+
 test('a Room view reads ratings once for all its seated humans', async () => {
   assert({
     given: 'a view with humans, a bot and an anonymous judge',
@@ -145,6 +181,7 @@ test('a Room view reads ratings once for all its seated humans', async () => {
       },
     },
     now,
+    pool,
   );
   assert({
     given: 'four seated humans',
@@ -179,6 +216,7 @@ test('a Room view reads ratings once for all its seated humans', async () => {
       },
     },
     now,
+    pool,
   );
   assert({
     given: 'a view with no seated human',
@@ -202,6 +240,7 @@ test('a social lane refusal for now shows the Room without seat ratings', async 
         blinded: failing === 'blinded' ? error : async () => [blinded],
       },
       now,
+      pool,
     );
   assert({
     given: 'a ratings read the social lane refused after its wait',

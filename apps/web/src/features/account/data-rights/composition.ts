@@ -49,6 +49,35 @@ export const exportSubjectData =
     };
   };
 
+const erasureJobs = (app: App) => {
+  const vendors = configuredPrivacyJobVendors(app);
+  return { vendors, jobIds: vendors.map(() => app.ids.next()) };
+};
+
+export async function closeChildAccount(
+  app: App,
+  guardian: PrivacySubject,
+  linkId: string,
+): Promise<boolean> {
+  const child = await app.database.eraseGuardianChild(
+    { guardian, linkId, now: app.clock.now(), ...erasureJobs(app) },
+    roomTransitions,
+    subjectRightsVerificationBindings,
+  );
+  if (!child) return false;
+  // A cache outage cannot undo a committed closure or prevent durable cleanup.
+  try {
+    await eraseRoomDraftAnswer(app.redis, child.userId);
+  } catch {
+    app.logger.log(
+      'privacy.erase.failed',
+      { operation: 'privacy.erase' },
+      'Closed account room draft could not be cleared before expiry',
+    );
+  }
+  return true;
+}
+
 /**
  * The account's data-rights routes (ISSUE-833): export and erasure, each a
  * native form post behind the member gates. The erasure runs the whole
@@ -79,15 +108,9 @@ export function composeDataRightsRoutes(app: App) {
         limiter: () => app.limiter,
         clock: app.clock,
         eraseSubject: async (subject, now) => {
-          const privacyJobVendors = configuredPrivacyJobVendors(app);
           await eraseRoomDraftAnswer(app.redis, subject.userId);
           return app.database.erasePrivacySubject(
-            {
-              subject,
-              now,
-              vendors: privacyJobVendors,
-              jobIds: privacyJobVendors.map(() => app.ids.next()),
-            },
+            { subject, now, ...erasureJobs(app) },
             roomTransitions,
             subjectRightsVerificationBindings,
           );

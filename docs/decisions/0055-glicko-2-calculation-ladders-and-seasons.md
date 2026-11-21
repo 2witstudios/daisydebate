@@ -87,17 +87,16 @@ provenance, never to the standing key. Frozen Round `ladder_id` is the sole
 authority; a database constraint binds each canonical format ID to its identical
 ladder ID. Casual has no ladder.
 
-### 6. Season activation and unresolved carry-over
+### 6. Season lifecycle and carry-over
 
-`bun season activate-beta` opens the shared Season 1 at the database's actual
-activation instant under key `beta-season-1`. Concurrent invocations return the
-same record. A retry returns even a closed Season 1 unchanged; another season
-causes refusal. Startup never activates a season.
+The standing lobby owns its season lifecycle ([ADR 0162](0162-daisy-is-a-league-open-and-youth-are-lobbies.md)).
+A league manager opens or closes a season in the league host. Each lobby has
+at most one active season. Closing keeps the standings available and pauses
+new ranked starts until the next season opens.
 
-A debate posts to the active season with DEC-119 ordering. New actors start
-from the confirmed initial parameters. Prior-season carry-over refuses and a
-second season cannot be opened pending DEC-111: the proposed floor150 is not authorized by beta RD110
-policy. No prior-season history is invented.
+A debate posts to its frozen season with DEC-119 ordering. Ratings start from
+the confirmed initial parameters in each season. Prior-season carry-over
+remains undecided under DEC-111.
 
 ### 7. Provisional is derived from the deviation
 

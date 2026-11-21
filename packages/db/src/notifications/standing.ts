@@ -1,7 +1,11 @@
 import { notificationKinds, type NotificationKind } from '@daisy/protocol';
 import { sql, type SQL } from 'drizzle-orm';
 import { challengeAccepted, challengeOpen } from '../challenges/open';
-import { friendRequestOpen, friendshipAccepted } from '../friends/standing';
+import {
+  friendRequestOpen,
+  friendshipAccepted,
+  guardianApprovalStanding,
+} from '../friends/standing';
 import { broadcastOnAir } from '../live-broadcast-reads';
 import { recordingReady } from '../recording-round-reads';
 import { roundDecisionReleased, roundUnderway } from '../round-standing';
@@ -74,6 +78,8 @@ const subjectStands = (
       return friendRequestOpen(sql`fr`);
     case 'friend_request_accepted':
       return friendshipAccepted(sql`fr`);
+    case 'friend_guardian_approval':
+      return guardianApprovalStanding(sql`n`, sql`fr`);
     case 'dm_request':
       // Until the request is answered or withdrawn, only as its sender's,
       // and never across a block either way.

@@ -169,8 +169,7 @@ test('exporting a member includes their competitive record and nothing of anothe
     });
     // A ledger row stands only on a rated Round of its own ladder (ADR 0147):
     // both played Rounds rated on Open – Freestyle.
-    for (const round of [mine, theirs])
-      await fixture.sql`update rounds set competition_type='ranked',format_id='freestyle',format_version=1,preset_version=1,ladder_id='freestyle',ladder_division='open' where id=${round.id}`;
+    for (const round of [mine, theirs]) await fixture.pinRanked(round.id);
     // A rating change posts to its round's own format (the composite FK),
     // so each side reads the format its played Round resolved against.
     const roundFormat = async (roundId: string) =>

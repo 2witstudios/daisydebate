@@ -29,6 +29,7 @@ export async function seasonStage(world: World) {
     command: {
       type: 'create-season',
       organizationId,
+      lobbyId: world.made.get('standing-lobby')!,
       name: 'League championship season',
       startsAt: new Date(Date.now() - 86400000).toISOString(),
       endsAt: null,

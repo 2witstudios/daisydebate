@@ -116,6 +116,7 @@ describe('summarizeStandings', () => {
           losses: 0,
           weekChange: 14,
           seasonChange: 30,
+          lastChange: 14,
           lastRatedAt: '2026-10-04T12:00:00.000Z',
         },
         {
@@ -131,6 +132,7 @@ describe('summarizeStandings', () => {
           losses: 2,
           weekChange: -14,
           seasonChange: -30,
+          lastChange: -14,
           lastRatedAt: '2026-10-05T12:00:00.000Z',
         },
         {
@@ -146,6 +148,7 @@ describe('summarizeStandings', () => {
           losses: 0,
           weekChange: 0,
           seasonChange: 0,
+          lastChange: 0,
           lastRatedAt: null,
         },
       ],

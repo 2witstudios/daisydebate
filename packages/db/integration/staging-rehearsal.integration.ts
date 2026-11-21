@@ -21,6 +21,7 @@ import {
   scratchDatabase,
 } from './scratch-migrations.test-support';
 import { integrationSuite } from './suite.test-support';
+import { publicLobbyId } from '../src/daisy-reference';
 
 const { databaseUrl } = integrationSuite();
 const scratch = scratchDatabase(databaseUrl, 'stagingrehearsal');
@@ -605,18 +606,19 @@ test(
       assert({
         given: 'every Room assembly seat and rating season',
         should:
-          'retain seats and all season fields while assigning Daisy ownership and the Open division (ADR 0147)',
+          'retain seats and the season while assigning its Open standing lobby',
         actual: {
           seats:
             await sql`select id, case when seat_kind = 'side' then side else seat_kind end as role, slot from room_participants order by id`,
           seasons:
-            await sql`select to_jsonb(s) - 'organization_id' - 'division' as row from seasons s order by id`,
-          divisions: await sql`select distinct division from seasons`,
+            await sql`select to_jsonb(s) - array['organization_id','organization_kind','lobby_id','lobby_kind'] as row from seasons s order by id`,
+          lobbies:
+            await sql`select s.lobby_id,l.age_rule from seasons s join lobbies l on l.id=s.lobby_id where s.id=${season}`,
         },
         expected: {
           seats: roomSeatsBefore,
           seasons: seasonsBefore,
-          divisions: [{ division: 'open' }],
+          lobbies: [{ lobby_id: publicLobbyId, age_rule: 'adults' }],
         },
       });
       assert({
@@ -635,7 +637,7 @@ test(
         rooms:
           await sql`select to_jsonb(r) - array['rules_snapshot','capture','lobby_id','lobby_kind','template_id','standing_template_id','ballot_definition_id','ballot_definition_version','league_ladder_id','holds_host','legacy_tournament_youth'] as row from rooms r order by id`,
         rounds:
-          await sql`select to_jsonb(r) - array['rules_snapshot','capture','winning_side','ranking','judging','ballot_definition_id','ballot_definition_version','league_ladder_id','ladder_division'] as row from rounds r order by id`,
+          await sql`select to_jsonb(r) - array['rules_snapshot','capture','winning_side','ranking','judging','ballot_definition_id','ballot_definition_version','season_id','rating_lobby_id','standing_age_rule','standing_youth_cast'] as row from rounds r order by id`,
         roomParticipants:
           await sql`select to_jsonb(p) - array['seat_kind','side'] as row from room_participants p order by id`,
         roundParticipants:
@@ -705,7 +707,7 @@ test(
             await sql`select count(*)::int n from rooms where league_ladder_id is not null`
           )[0]!.n,
           (
-            await sql`select count(*)::int n from rounds where league_ladder_id is not null`
+            await sql`select count(*)::int n from rounds where competition_type<>'ranked' and ladder_id is not null`
           )[0]!.n,
         ],
         expected: [0, 0],
@@ -804,6 +806,51 @@ test(
             sql`select daisy_round_judge_slot_count(rules_snapshot) from rounds where id=${[...legacyRules.keys()][0]!}`,
         ),
         expected: 'round_judge_slots_frozen_count',
+      });
+      const [historicalEnding] =
+        await sql`select r.id,r.status,r.season_id,r.rating_lobby_id
+        from rounds r join round_judge_slots j on j.round_id=r.id
+        where r.season_id=${season} and j.participant_id is null order by r.id limit 1`;
+      const [completionGuard] = await sql`select tgenabled from pg_trigger
+        where tgrelid='public.rounds'::regclass and tgname='rounds_judge_slots_complete'`;
+      const future = await f.round({
+        format_id: baseFormat.id,
+        format_version: baseFormat.version,
+        rules_snapshot: compiledLegacy.rules,
+      });
+      const refusal = await rejectedBy(() =>
+        sql.begin(async (tx) => {
+          await tx`set local role daisy_web`;
+          await tx`update rounds set status='completed',
+          started_at=${at},completed_at=${at},winning_side='negative' where id=${future}`;
+        }),
+      );
+      const [futureState] =
+        await sql`select status from rounds where id=${future}`;
+      assert({
+        given:
+          'legacy rated history and a new Round with an unfilled required judge slot after upgrade',
+        should:
+          'preserve the original ending and restore enforcement for the new write',
+        actual: [
+          roundsBefore.some(
+            (r: { id: string; status: string }) =>
+              r.id === historicalEnding?.id && r.status === 'completed',
+          ),
+          historicalEnding?.status,
+          historicalEnding?.rating_lobby_id,
+          completionGuard?.tgenabled,
+          refusal,
+          futureState?.status,
+        ],
+        expected: [
+          true,
+          'completed',
+          publicLobbyId,
+          'O',
+          'rounds_judge_slots_complete',
+          'opening',
+        ],
       });
       const [invalid] =
         await sql`select count(*)::int as count from pg_constraint where connamespace = 'public'::regnamespace and not convalidated`;

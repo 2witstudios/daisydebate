@@ -24,7 +24,7 @@ export async function refuseIneligibleDebaters(
   const rows = await query(
     tx,
     z.object({ id: z.string(), ageBand: z.enum(ageBands).nullable() }),
-    sql`select a.id, ${divisionAgeBand()} as "ageBand"
+    sql`select a.id, ${divisionAgeBand(room.lobbyId)} as "ageBand"
       from actors a left join account_age on account_age.user_id=a.user_id
       where a.id in (${sql.join(
         debaters.map((p) => sql`${p.actorId}`),

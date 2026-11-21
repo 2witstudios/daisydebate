@@ -6,7 +6,7 @@ import { loadLobbyActivity } from './lobby-activity';
 import { and, eq, ne, sql } from 'drizzle-orm';
 import { lobbies, tournaments } from '../schema/lobbies';
 import { organizations } from '../schema/organizations';
-import { seasons } from '../schema/ratings';
+import { seasons } from '../schema/seasons';
 import { scopeTransaction, type TenantScope } from '../tenant-scope';
 import { appendHistory, storedCommand } from './command-record';
 import { loadAuthorityContext } from './authority-context';
@@ -19,6 +19,7 @@ import type {
   LobbyAdministrationSession,
 } from './lobby-administration-facts';
 import { actors } from '../schema/actors';
+import { grants } from '../schema/grants';
 
 const fence = async (tx: Tx, input: LobbyAdministrationInput) => {
   const { command } = input;
@@ -29,18 +30,29 @@ const fence = async (tx: Tx, input: LobbyAdministrationInput) => {
     // retries can find the receipt, and competing creates answer handle-taken.
     await takeLock(tx, transactionLocks.tabLobbyHandle(command.handle));
   }
+  const addressedOrganization =
+    'organizationId' in command ? command.organizationId : undefined;
   const [lobby] =
     'lobbyId' in command
-      ? await tx.select().from(lobbies).where(eq(lobbies.id, command.lobbyId))
+      ? await tx
+          .select({
+            id: lobbies.id,
+            ownerOrganizationId: lobbies.ownerOrganizationId,
+          })
+          .from(lobbies)
+          .where(
+            and(
+              eq(lobbies.id, command.lobbyId),
+              addressedOrganization === undefined
+                ? undefined
+                : eq(lobbies.ownerOrganizationId, addressedOrganization),
+            ),
+          )
       : [];
   const organizationId =
-    command.type === 'create-lobby'
-      ? command.owner.kind === 'organization'
-        ? command.owner.organizationId
-        : null
-      : 'organizationId' in command
-        ? command.organizationId
-        : lobby?.ownerOrganizationId;
+    command.type === 'create-lobby' && command.owner.kind === 'organization'
+      ? command.owner.organizationId
+      : (addressedOrganization ?? lobby?.ownerOrganizationId);
   const [organization] = organizationId
     ? await tx
         .select({ id: organizations.id })
@@ -84,11 +96,16 @@ const load = async (
     ].sort()) {
       await scopeTransaction(tx, { ...initialScope, organizationId });
       const [found] = await tx
-        .select({ id: seasons.id })
+        .select({ id: seasons.id, lobbyId: seasons.lobbyId })
         .from(seasons)
-        .where(eq(seasons.id, command.seasonId));
+        .where(
+          and(
+            eq(seasons.id, command.seasonId),
+            eq(seasons.organizationId, organizationId),
+          ),
+        );
       if (found) {
-        scope = { ...initialScope, organizationId };
+        scope = { ...initialScope, organizationId, lobbyId: found.lobbyId };
         break;
       }
     }
@@ -122,29 +139,39 @@ const load = async (
         .where(eq(actors.userId, row.ownerUserId))
     : [];
   const [season] =
-    command.type === 'close-season'
+    'seasonId' in command
       ? await tx
           .select()
           .from(seasons)
-          .where(eq(seasons.id, command.seasonId))
+          .where(
+            and(
+              eq(seasons.id, command.seasonId),
+              eq(seasons.lobbyId, row?.id ?? ''),
+              eq(seasons.organizationId, scope.organizationId ?? ''),
+            ),
+          )
           .for('update')
       : [];
-  const [active] = organization
-    ? await tx
-        .select({ id: seasons.id })
-        .from(seasons)
-        .where(
-          and(
-            eq(seasons.organizationId, organization.organizationId),
-            eq(seasons.status, 'active'),
-          ),
-        )
-    : [];
+  const [active] =
+    row && organization
+      ? await tx
+          .select({ id: seasons.id })
+          .from(seasons)
+          .where(and(eq(seasons.lobbyId, row.id), eq(seasons.status, 'active')))
+      : [];
   const [ladder] = row
     ? await tx
         .select({ id: ladders.id })
         .from(ladders)
-        .where(eq(ladders.lobbyId, row.id))
+        .where(
+          and(
+            eq(ladders.lobbyId, row.id),
+            command.type === 'save-ladder' && command.ladderId !== null
+              ? eq(ladders.id, command.ladderId)
+              : undefined,
+          ),
+        )
+        .limit(1)
     : [];
   const [referencedRoom] = ladder
     ? await tx
@@ -188,6 +215,7 @@ const load = async (
           id: season.id,
           organizationId: season.organizationId,
           status: season.status as 'active' | 'closed',
+          startsAt: season.startsAt.toISOString(),
           version: season.version,
         }
       : null,
@@ -199,7 +227,6 @@ const load = async (
   };
 };
 
-import { grants } from '../schema/grants';
 import { inTransaction, type Tx, type TxOpener } from '../tx';
 import { takeLock, transactionLocks } from '../locks';
 

@@ -1,19 +1,15 @@
 import { createId } from '@paralleldrive/cuid2';
-import { withSeasons } from '@daisy/db/seasons';
-import { requireTestServices } from '@daisy/config';
+import { seedRatingSeason } from '@daisy/db/testing';
 import { assertRejects } from '@daisy/errors/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { withRoomRuntime } from './room-runtime.test-support';
 setupRitewayBun();
-const { databaseUrl } = requireTestServices(process.env);
 
 test('only Freestyle is creatable ranked: generic One-on-one and a league template refuse', async () => {
   await withRoomRuntime(async (f) => {
     const seasonId = createId();
     try {
-      await withSeasons(databaseUrl, (s) =>
-        s.activateBetaSeason({ id: seasonId, division: 'open' }),
-      );
+      await seedRatingSeason(f.sql, seasonId);
       const [current] =
         await f.sql`select f.current_version as "formatVersion", p.version as "presetVersion" from formats f join format_presets p on p.format_id=f.id and p.format_version=f.current_version and p.superseded_at is null where f.id='one-on-one'`;
       await assertRejects({
@@ -64,7 +60,9 @@ test('only Freestyle is creatable ranked: generic One-on-one and a league templa
         expected: ['ranked', 'freestyle', null, false],
       });
     } finally {
-      await f.sql`delete from seasons where id=${seasonId}`;
+      f.afterRooms(async () => {
+        await f.sql`delete from seasons where id=${seasonId}`;
+      });
     }
   });
 });
@@ -73,9 +71,7 @@ test('a ranked Room is refused on each casual template: only one seat a side, on
   await withRoomRuntime(async (f) => {
     const seasonId = createId();
     try {
-      await withSeasons(databaseUrl, (s) =>
-        s.activateBetaSeason({ id: seasonId, division: 'open' }),
-      );
+      await seedRatingSeason(f.sql, seasonId);
       const templates = [
         'panel-debate',
         'four-team',
@@ -109,7 +105,9 @@ test('a ranked Room is refused on each casual template: only one seat a side, on
         expected: { refusals: Array(4).fill('VALIDATION'), rooms: 0 },
       });
     } finally {
-      await f.sql`delete from seasons where id=${seasonId}`;
+      f.afterRooms(async () => {
+        await f.sql`delete from seasons where id=${seasonId}`;
+      });
     }
   });
 });

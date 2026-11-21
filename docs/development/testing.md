@@ -160,10 +160,11 @@ a failure or an empty test selection.
 A retry-pass or a single green run is not this gate; all three outcomes are
 retained as artifacts.
 
-The manual Browser E2E job reserves 120 minutes for setup, all three complete
-passes and artifact retention (ISSUE-1501). Run 44834624902 completed its first
-two passes with 601 tests each in 29.0 and 36.9 minutes. It reached the third
-pass before the aggregate deadline interrupted it. The qualification contract
+The manual Browser E2E job reserves 180 minutes for setup, all three complete
+passes and artifact retention (ISSUE-1501). The qualification step has a
+165-minute deadline so artifact processing can follow it. Run 44896579773
+completed its first two 612-test passes in 32 and 42 minutes and reached the
+third pass before the previous 120-minute job deadline. The qualification contract
 requires the full inventory with zero retries and the configured per-test
 deadlines. The single-run push and PR jobs have a 25-minute limit.
 

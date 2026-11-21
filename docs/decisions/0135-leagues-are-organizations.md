@@ -90,3 +90,7 @@ standings and breaks consume that retained snapshot; later certifications,
 corrections, setting changes and newly introduced actors cannot refresh it.
 The snapshot is a retained tournament input, not another stored league standing.
 It has lobby-scoped RLS; identity metadata's open-read policy does not expose it.
+
+[ADR 0166](0166-rating-pools-by-standing-lobby.md) moves standing-lobby Round
+posting to the shared ledger and limits replay to seasons combining those
+Rooms with certified tournament results.

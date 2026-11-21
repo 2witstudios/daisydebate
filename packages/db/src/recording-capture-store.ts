@@ -1,4 +1,5 @@
 import { instantMs } from '@daisy/clock';
+import { youthRoundSql } from './youth-round-sql';
 import {
   listExpiredRecordingAdmissions,
   settleUndispatchedRecordingAdmission,
@@ -67,10 +68,7 @@ export const createRecordingCaptureStore = (database: TxSource) => ({
       .select({
         roundId: rounds.id,
         competitionType: rounds.competitionType,
-        ladderDivision: rounds.ladderDivision,
-        roomYouth: sql<
-          boolean | null
-        >`public.daisy_room_is_youth(${rounds.roomId})`,
+        youthRound: youthRoundSql(sql`${rounds.id}`),
         capture: rounds.capture,
         hostActorId: rounds.createdByActorId,
         hostUserId: actors.userId,

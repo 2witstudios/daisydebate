@@ -404,12 +404,12 @@ test('action history names one tenant, one principal and the authority it ran un
   });
 });
 
-test('Daisy and its preset roles are there after migrating, and only Daisy holds presets', async () => {
+test('the migrated role catalogue is present and the runtime cannot publish a preset', async () => {
   await withSample(url, async (sql, ids) => {
     assert({
       given: 'a migrated database',
       should:
-        'hold Daisy as a league with four ranked preset roles, and refuse a preset role or a second role of one rank elsewhere',
+        'keep the four preset roles and refuse runtime publication or a second role of the same rank',
       actual: {
         daisy: (
           await sql.unsafe(
@@ -423,14 +423,19 @@ test('Daisy and its preset roles are there after migrating, and only Daisy holds
            where r.organization_id = $1 and r.preset group by r.name, r.rank order by r.rank`,
           [daisy.organization],
         ),
-        presetElsewhere: await refusedBy(sql, () =>
-          insertRow(sql, 'roles', {
-            id: createId(),
-            organization_id: ids.league,
-            name: 'Preset',
-            rank: 1,
-            preset: true,
-          }),
+        presetElsewhere: await asRuntime(
+          sql,
+          { organizationId: ids.league },
+          () =>
+            refusedBy(sql, () =>
+              insertRow(sql, 'roles', {
+                id: createId(),
+                organization_id: ids.league,
+                name: 'Preset',
+                rank: 1,
+                preset: true,
+              }),
+            ),
         ),
         sameRank: await refusedBy(sql, () =>
           insertRow(sql, 'roles', {
@@ -456,7 +461,7 @@ test('Daisy and its preset roles are there after migrating, and only Daisy holds
           { name: 'Coach', rank: 3, permissions: 2 },
           { name: 'Assistant', rank: 4, permissions: 1 },
         ],
-        presetElsewhere: 'roles_preset_is_daisy',
+        presetElsewhere: 'catalogue_publication_authority',
         sameRank: 'roles_rank_unique',
         unknownPermission: 'role_permissions_permission_check',
       },

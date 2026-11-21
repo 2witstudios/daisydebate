@@ -1,7 +1,7 @@
 import type {
   RatingEligibility,
   RatingEligibilityFacts,
-  Ladder,
+  RoundRatingScope,
   RatingPlan,
   RatingPlanFacts,
   RatingState,
@@ -22,8 +22,7 @@ export type RatingDecision = {
 export type RateDebateResult =
   | {
       readonly kind: 'rated';
-      readonly ladder: Ladder;
-      readonly seasonId: string;
+      readonly scope: NonNullable<RoundRatingScope>;
       readonly changes: readonly {
         readonly id: string;
         readonly actorId: string;
@@ -36,7 +35,6 @@ export type RateDebateResult =
 
 export type RateDebateInput = {
   readonly roundId: string;
-  /** cuid2 ids for the two ledger rows, affirmative first. */
-  readonly changeIds: readonly [string, string];
+  readonly nextChangeId: () => string;
   readonly decide: RatingDecision;
 };

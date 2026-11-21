@@ -25,7 +25,10 @@ export type MemberStanding = {
 export async function readMemberStandings(
   store: Pick<
     Database,
-    'listLadderSeasons' | 'readStandings' | 'readRatingBlindings'
+    | 'listLadderSeasons'
+    | 'readStandings'
+    | 'readRatingBlindings'
+    | 'listOfficialRatingLadders'
   >,
   input: {
     readonly username: string;

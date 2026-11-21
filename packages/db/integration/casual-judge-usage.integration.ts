@@ -274,7 +274,7 @@ test('ranked AI judge dispatch remains free with no Premium grant or usage reser
   await withJudgingJob(async ({ fixture: f, roundId, target, jobs }) => {
     await f.sql`delete from usage_reservations where round_id=${roundId}`;
     await f.sql`delete from account_entitlement_grants where user_id=(select a.user_id from rounds r join actors a on a.id=r.created_by_actor_id where r.id=${roundId})`;
-    await f.sql`update rounds set competition_type='ranked',format_id='freestyle',format_version=1,preset_version=1,ladder_id='freestyle',ladder_division='open' where id=${roundId}`;
+    await f.pinRanked(roundId);
     const claim = await jobs.claim(target);
     const begun = await jobs.beginModelCall(claim.scope, claim.token, 'final');
     const [facts] =

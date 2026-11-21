@@ -27,6 +27,7 @@ test('notification kinds', () => {
       'challenge_accepted',
       'friend_request_received',
       'friend_request_accepted',
+      'friend_guardian_approval',
       'dm_request',
       'judge_assigned',
       'judge_replaced',
@@ -64,6 +65,7 @@ test('choice pairs', () => {
       'friend_request_received.in_app',
       'friend_request_received.email',
       'friend_request_accepted.in_app',
+      'friend_guardian_approval.in_app',
       'dm_request.in_app',
       'dm_request.email',
       'judge_assigned.in_app',
@@ -149,7 +151,11 @@ test('catalogue', () => {
         'round_decision_released',
       ],
       ['challenge_received', 'challenge_accepted'],
-      ['friend_request_received', 'friend_request_accepted'],
+      [
+        'friend_request_received',
+        'friend_request_accepted',
+        'friend_guardian_approval',
+      ],
       [
         'judge_assigned',
         'judge_replaced',
