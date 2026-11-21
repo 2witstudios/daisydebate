@@ -5,7 +5,7 @@ type Job = {
   needs?: string | string[];
   if?: string;
   uses?: string;
-  strategy?: { matrix: Record<string, string[]> };
+  strategy?: { matrix: Record<string, string[] | string> };
   steps?: { run?: string }[];
 };
 const readJobs = async (name: string) =>
@@ -16,8 +16,11 @@ const readJobs = async (name: string) =>
   ).jobs;
 const width = (job: Job) =>
   job.strategy
-    ? Object.values(job.strategy.matrix).reduce(
-        (total, dimension) => total * dimension.length,
+    ? Object.entries(job.strategy.matrix).reduce(
+        (total, [name, dimension]) =>
+          name === 'include' || name === 'exclude' || !Array.isArray(dimension)
+            ? total
+            : total * dimension.length,
         1,
       )
     : 1;
