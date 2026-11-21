@@ -84,6 +84,7 @@ mock.module(join(import.meta.dir, '../../lib/request-session.ts'), () => ({
   requestAudienceSettings: async () => ({
     preferences: { followed_debater_live: true, recording_ready: true },
     history: [],
+    messageRequestSetting: { setting: 'everyone', locked: false },
   }),
   requestDebaterFollow: async () => null,
   readRecordingArchive: async () => ({
@@ -107,6 +108,7 @@ mock.module(join(import.meta.dir, '../../lib/request-session.ts'), () => ({
   requestOnboardingAnswers: async () => null,
   requestFamilyViewer: async () => null,
   requestFamilyRows: async () => null,
+  requestFriendApprovals: async () => [],
   requestAnalytics: async () => ({
     choice: {
       kind: 'known',

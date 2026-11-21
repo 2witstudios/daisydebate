@@ -241,7 +241,7 @@ describe('retention targets', () => {
           { name: 'retention.round_analyses', batchSize: 500, maxBatches: 20 },
           { name: 'retention.social_declines', batchSize: 500, maxBatches: 20 },
           { name: 'retention.social_requests', batchSize: 500, maxBatches: 20 },
-          { name: 'retention.notifications', batchSize: 1000, maxBatches: 20 },
+          { name: 'retention.notifications', batchSize: 500, maxBatches: 40 },
           {
             name: 'retention.messaging_unread_emails',
             batchSize: 500,
@@ -344,7 +344,7 @@ describe('retention targets', () => {
           round_analyses: [{ before: '2026-03-24T12:00:00.000Z', limit: 500 }],
           social_declines: [{ before: now, limit: 500 }],
           social_requests: [{ before: '2026-09-19T12:00:00.000Z', limit: 500 }],
-          notifications: [{ before: '2026-06-22T12:00:00.000Z', limit: 1000 }],
+          notifications: [{ before: '2026-06-22T12:00:00.000Z', limit: 500 }],
           messaging_unread_emails: [
             { before: '2026-08-21T12:00:00.000Z', limit: 500 },
           ],

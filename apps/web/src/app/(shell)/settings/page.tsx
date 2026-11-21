@@ -81,7 +81,8 @@ async function audienceSections(userId: string) {
     messageRequests: (
       <MessageRequestSettingForm
         action={saveMessageRequestSettingAction}
-        setting={messageRequestSetting}
+        setting={messageRequestSetting.setting}
+        locked={messageRequestSetting.locked}
       />
     ),
     notifications: (

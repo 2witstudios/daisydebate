@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { normalizeEmail } from './email';
 import { idSchema } from './primitives';
+import { protectionLevelSchema } from './protection-level';
 import { usernameSchema } from './username';
 
 /**
@@ -147,6 +148,18 @@ export const guardianCommandSchema = z.discriminatedUnion('type', [
     version: z.literal(1),
     type: z.literal('refuse-parent'),
     linkId: idSchema,
+  }),
+  z.strictObject({
+    version: z.literal(1),
+    type: z.literal('set-protection-level'),
+    linkId: idSchema,
+    choice: protectionLevelSchema,
+  }),
+  z.strictObject({
+    version: z.literal(1),
+    type: z.literal('answer-friend-approval'),
+    approvalId: idSchema,
+    decision: z.enum(['approve', 'decline']),
   }),
   /** The parent ends an active link. */
   z.strictObject({

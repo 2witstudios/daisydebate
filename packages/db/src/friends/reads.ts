@@ -4,7 +4,7 @@ import { actors } from '../schema/actors';
 import { users } from '../schema/users';
 import { contactPairs } from '../schema/contacts';
 import { friendships } from '../schema/friends';
-import type { ChosenStatus } from '@daisy/protocol';
+import type { ChosenStatus, FriendshipState } from '@daisy/protocol';
 import { chosenStatusOf } from '../presence/settings';
 import type { MemberPlacement } from '@daisy/protocol';
 import { placementOf } from '../presence/availability';
@@ -13,13 +13,16 @@ import {
   requireOwnScope,
   type OwnCollectionFence,
 } from '../authorization';
+import { scopeTransaction } from '../tenant-scope';
+import { guardianWaitingLabel } from './guardian-approval-standing';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
-import type { TxSource, Tx } from '../tx';
+import type { TxOpener, TxSource, Tx } from '../tx';
 
 export type FriendshipRow = {
   readonly otherActorId: string;
   readonly username: string;
-  readonly state: 'pending' | 'accepted';
+  readonly state: FriendshipState;
+  readonly waiting?: 'waiting' | 'waiting-for-guardian';
   readonly requesterActorId: string;
   readonly requestedAt: string;
   /** The status the counterpart chose. */
@@ -43,14 +46,15 @@ type FriendshipListScope = {
  * reloads the pair under the contact fence (ADR 0072).
  */
 export async function listFriendships(
-  database: TxSource,
+  database: TxOpener,
   scope: FriendshipListScope,
   authorize: OwnCollectionFence<FriendshipListScope>,
 ): Promise<readonly FriendshipRow[]> {
   requireOwnScope(scope);
-  return readOwnCollection(database, scope, authorize, (tx) =>
-    readRows(tx, scope.actorId),
-  );
+  return readOwnCollection(database, scope, authorize, async (tx) => {
+    await scopeTransaction(tx, { subjectUserId: scope.userId });
+    return readRows(tx, scope.actorId);
+  });
 }
 
 /** The database's friendship reads, instrumented like its other operations. */
@@ -83,6 +87,7 @@ async function readRows(
       otherChosen: chosenStatusOf(other),
       otherPlacement: placementOf(other),
       state: friendships.state,
+      waiting: guardianWaitingLabel(sql`friendships`),
       requesterActorId: friendships.requesterActorId,
       requestedAt: friendships.requestedAt,
     })
@@ -115,7 +120,8 @@ async function readRows(
     return {
       otherActorId: row.otherActorId,
       username: row.username,
-      state: row.state as 'pending' | 'accepted',
+      state: row.state,
+      ...(row.waiting ? { waiting: row.waiting } : {}),
       requesterActorId: row.requesterActorId,
       requestedAt: row.requestedAt.toISOString(),
       otherChosen: row.otherChosen,

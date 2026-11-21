@@ -1,4 +1,5 @@
 import type { GuardianSession } from '@daisy/db';
+import type { ProtectionLevel } from '@daisy/protocol/protection-level';
 import type { GuardianRequestRef } from '@daisy/protocol/guardians';
 
 export type FamilyRow = {
@@ -6,6 +7,7 @@ export type FamilyRow = {
   readonly label: string;
   readonly status: 'waiting' | 'active' | 'not-confirmed';
   readonly request: GuardianRequestRef | null;
+  readonly protectionLevel?: ProtectionLevel;
 };
 
 export async function readFamilySettings(
@@ -28,7 +30,7 @@ export async function readFamilySettings(
   const privateLinks = new Set(
     requests.flatMap(({ requestedLinkId }) => requestedLinkId ?? []),
   );
-  return [
+  const rows: FamilyRow[] = [
     ...links.flatMap(({ link, username }): FamilyRow[] => {
       if (role === 'adult') {
         if (
@@ -84,4 +86,15 @@ export async function readFamilySettings(
       ];
     }),
   ];
+  return Promise.all(
+    rows.map(async (row) => {
+      if (row.status !== 'active') return row;
+      const linked = links.find(({ link }) => link.id === row.id);
+      if (!linked) return row;
+      const protectionLevel = await session.protectionLevel(
+        linked.link.minorUserId,
+      );
+      return protectionLevel ? { ...row, protectionLevel } : row;
+    }),
+  );
 }

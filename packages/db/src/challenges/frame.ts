@@ -1,3 +1,4 @@
+import { rankedProtectionAllows } from '../guardians/ranked-protection';
 import { and, eq, or, sql } from 'drizzle-orm';
 import { createAppError, createRefusal } from '@daisy/errors';
 import { divisionAgeBand } from '../ladder-division-band';
@@ -169,6 +170,11 @@ export function challengeFrame(
       // One answer with a block, no such member and no lease: never which.
       if (theirs.placement !== null || theirs.chosen !== 'online')
         throw createAppError('NOT_FOUND');
+      if (
+        mode === 'ranked' &&
+        !(await rankedProtectionAllows(tx, [input.actorId, other], input))
+      )
+        throw createAppError('NOT_FOUND');
       // Choose a lobby both members may debate in under the pair's lock.
       const lobbyId = await pairLobby(tx, input.actorId, other, mode);
       if (lobbyId === null) throw createRefusal('CONFLICT', 'other-division');
@@ -276,6 +282,8 @@ export function challengeFrame(
         );
       if (
         !offer ||
+        (offer.mode === 'ranked' &&
+          !(await rankedProtectionAllows(tx, [input.actorId, other], input))) ||
         !(await pairLobby(tx, other, input.actorId, offer.mode, offer.lobbyId))
       )
         throw createAppError('NOT_FOUND');

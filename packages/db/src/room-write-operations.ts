@@ -1,3 +1,4 @@
+import { requireRankedProtection } from './guardians/ranked-protection';
 import { reserveTournamentCapture } from './tab/tournament-capture-admission';
 import {
   locateTournamentCaptureFunder,
@@ -32,7 +33,7 @@ import type {
 } from '@daisy/protocol';
 
 import { createAppError, createRefusal } from '@daisy/errors';
-import { isJudgeSeat } from '@daisy/protocol';
+import { isJudgeSeat, sameSeat } from '@daisy/protocol';
 
 /**
  * The host a Room's admission or capture charges. A Room no person hosts
@@ -304,6 +305,30 @@ async function executeOnce(
   if (!outcome.ok)
     throw createRefusal(refusalCode(outcome.refusal), outcome.refusal);
   const next = outcome.mutation.state;
+  if (next.competitionType === 'ranked') {
+    const entering = next.participants.filter(
+      (participant) =>
+        outcome.mutation.freeze ||
+        state.competitionType !== 'ranked' ||
+        !state.participants.some(
+          (before) =>
+            before.actorId === participant.actorId &&
+            sameSeat(before.seat, participant.seat),
+        ) ||
+        (input.type === 'ready' &&
+          participant.actorId === input.caller.actorId),
+    );
+    const entrants = entering.map(({ actorId }) => actorId);
+    if (
+      (outcome.mutation.freeze || state.competitionType !== 'ranked') &&
+      next.hostActorId
+    )
+      entrants.push(next.hostActorId);
+    await requireRankedProtection(tx, entrants, {
+      userId: input.caller.userId,
+      roomId: input.roomId,
+    });
+  }
   // Admission, allowance and capture below all name the Round by this id.
   if (outcome.mutation.freeze && next.roundRef?.id !== input.roundId)
     throw createAppError(

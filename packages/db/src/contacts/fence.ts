@@ -30,8 +30,10 @@ export type ContactAuthorizationFence = (
   },
 ) => Promise<void>;
 type ContactPairRow = typeof contactPairs.$inferSelect;
+type ContactAccount = ReturnType<typeof authorizationAccountFact>;
 /** What a capability's frame is built on: the locked pairs and a re-fence. */
 export type LockedContacts = {
+  readonly accounts: readonly ContactAccount[];
   readonly rows: readonly ContactPairRow[];
   readonly contacts: readonly ContactFact[];
   readonly refresh: () => Promise<void>;
@@ -81,7 +83,7 @@ async function lockContactPairs(
   }));
   const refresh = () => authorize(tx, input, { contacts, accounts });
   await refresh();
-  return { rows, contacts, refresh };
+  return { rows, contacts, refresh, accounts };
 }
 
 /**

@@ -2,11 +2,14 @@ import {
   messageRequestSettingSchema,
   type MessageRequestSetting,
 } from '@daisy/protocol';
+import { createAppError } from '@daisy/errors';
+import { messageRequestsFriendsOnly } from '../guardians/protection-level';
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
 import { query, run } from '../raw-rows';
 import { inTransaction, type TxSource } from '../tx';
+import { scopeTransaction } from '../tenant-scope';
 
 /**
  * A member's own "who can send me message requests" (decision 90, ADR 0160).
@@ -31,6 +34,23 @@ export const messageRequestSettingOperations = ({
       return row?.setting ?? 'everyone';
     });
   },
+  readMessageRequestPolicy({ userId }: { readonly userId: string }) {
+    return instrumented(eventSink, 'readMessageRequestPolicy', () =>
+      inTransaction(database, async (tx) => {
+        await scopeTransaction(tx, { subjectUserId: userId });
+        const [stored] = await query(
+          tx,
+          z.object({ setting: messageRequestSettingSchema.shape.setting }),
+          sql`select setting from messaging_request_settings where user_id=${userId}`,
+        );
+        const locked = await messageRequestsFriendsOnly(tx, userId);
+        const setting: MessageRequestSetting = locked
+          ? 'friends'
+          : (stored?.setting ?? 'everyone');
+        return { setting, locked };
+      }),
+    );
+  },
   writeMessageRequestSetting(input: {
     readonly userId: string;
     readonly setting: MessageRequestSetting;
@@ -43,6 +63,9 @@ export const messageRequestSettingOperations = ({
           tx,
           sql`select id from users where id=${input.userId} for update`,
         );
+        await scopeTransaction(tx, { subjectUserId: input.userId });
+        if (await messageRequestsFriendsOnly(tx, input.userId))
+          throw createAppError('AUTHORIZATION');
         if (input.setting === 'everyone') {
           await run(
             tx,

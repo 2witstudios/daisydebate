@@ -1,3 +1,4 @@
+import { requireRankedProtection } from './guardians/ranked-protection';
 import {
   assembleRoom,
   type InitialCastSeat,
@@ -122,6 +123,12 @@ export const roomCreateOperations = ({
           input.payloadDigest,
         );
         if (replay) return replay;
+        if (input.room.competitionType === 'ranked')
+          await requireRankedProtection(
+            tx,
+            [input.caller.actorId],
+            input.caller,
+          );
         if (
           input.selection &&
           !input.selection.admits(

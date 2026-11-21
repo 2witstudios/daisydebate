@@ -88,6 +88,9 @@ export async function changeFriendship(
             await frame.commitFriendship({
               previous: facts.pair,
               next: decision.next,
+              ...(facts.guardianHolds
+                ? { guardianHolds: facts.guardianHolds }
+                : {}),
               requestId: dependencies.ids.next(),
               now: dependencies.clock.now(),
               limits: dependencies.limits,
@@ -95,7 +98,11 @@ export async function changeFriendship(
             });
           return {
             username,
-            relation: friendRelationOf(actorId, decision.next),
+            relation: friendRelationOf(
+              actorId,
+              decision.next,
+              facts.guardianHolds,
+            ),
           };
         },
       );
@@ -207,10 +214,14 @@ export async function readFriendList(
     rows
       .filter(
         (row) =>
-          row.state === 'pending' &&
+          row.state !== 'accepted' &&
           (row.requesterActorId !== actorId) === incoming,
       )
-      .map(({ username, requestedAt }) => ({ username, requestedAt }));
+      .map(({ username, requestedAt, waiting }) => ({
+        username,
+        requestedAt,
+        ...(waiting ? { waiting } : {}),
+      }));
   return {
     friends: friends.map(({ actorId: friendId, username, presence }) => ({
       username,
