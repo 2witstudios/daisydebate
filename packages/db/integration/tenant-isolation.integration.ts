@@ -90,6 +90,9 @@ test(
             'media_release_club_attestations',
             'guardian_consent_evidence',
             'child_account_requests',
+            // Protection levels and approval holds arrive later (ADR 0165).
+            'protection_levels',
+            'friend_guardian_approvals',
           ].includes(table.table),
       )
       .map((table) =>
@@ -127,11 +130,8 @@ test(
         afterAllFolders,
       },
       expected: {
-        before:
-          tenantIsolationManifest.tables.length +
-          // rooms, seasons and the other altered tables exist already; the
-          // media release club asks (exempt, ADR 0151) arrive later.
-          1,
+        // Media release club asks (exempt, ADR 0151) arrive later as well.
+        before: tenantIsolationManifest.tables.length + 1,
         firstBefore: 'organizations is declared but does not exist',
         afterSchema: [],
         afterAllFolders: [],
