@@ -45,8 +45,9 @@ const declinesOf = async (client: SQL, decliner: string) =>
     [decliner],
   )) as { count: number; blocked: boolean }[];
 
+// Round fractional fixture days to whole milliseconds before adding them.
 const day = (offset: number) =>
-  addMs('2026-10-09T18:00:00.000Z', offset * 86_400_000);
+  addMs('2026-10-09T18:00:00.000Z', Math.round(offset * 86_400_000));
 
 /** Runs `work` over a fresh fixture pair, then removes it. */
 const withPair = async (
