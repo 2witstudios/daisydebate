@@ -27,7 +27,7 @@ import { lockTabCommandAccounts } from './command-accounts';
 import { fenceTabAccountsRead } from './account-read-fence';
 import { lockEventSettingContext } from './event-setting-context';
 import { loadAuthorityContext } from './authority-context';
-import { loadTabCounterpart } from './boundary';
+import { loadTabCounterpart } from './account';
 import { loadDrawResolutionPool } from './draw-resolution-pool';
 import type { Tx } from '../tx';
 

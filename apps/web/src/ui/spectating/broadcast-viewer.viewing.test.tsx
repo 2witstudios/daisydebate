@@ -80,6 +80,7 @@ const mount = async () => {
             { value: router },
             client.createElement(client.BroadcastViewer, {
               initial,
+              visibility: 'public',
               stateUrl: null,
               refreshHref: '/watch/r',
               streamable: true,

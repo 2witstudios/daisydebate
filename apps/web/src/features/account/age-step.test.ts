@@ -20,9 +20,13 @@ const provisional: Identity = {
 const handlerWith = ({
   identity = provisional,
   forgets = 'deleted' as const,
+  parentalControls,
 }: {
   identity?: Identity;
   forgets?: 'deleted' | 'refused';
+  parentalControls?: NonNullable<
+    Parameters<typeof createAgeStepHandler>[0]['parentalControls']
+  >;
 } = {}) => {
   const recorded: unknown[] = [];
   const forgotten: string[] = [];
@@ -34,6 +38,7 @@ const handlerWith = ({
     limiter: () => ({ consume: allowEvery }),
     clock: { now: () => NOW },
     termsVersion: 'draft-0',
+    ...(parentalControls ? { parentalControls } : {}),
     record: async (input) => {
       recorded.push(input);
       return 'recorded';
@@ -81,6 +86,39 @@ describe('POST /api/account/age', () => {
         ],
         [],
       ],
+    });
+  });
+
+  test('a changed invitation must be shown before the age answer is applied', async () => {
+    const requestId = 'c'.repeat(24);
+    const active = handlerWith({
+      parentalControls: {
+        released: async () => true,
+        binding: async () => ({ requestId, birthMonth: '2011-10' }),
+      },
+    });
+    const withdrawn = handlerWith({
+      parentalControls: {
+        released: async () => true,
+        binding: async () => null,
+      },
+    });
+    const staleSelfReport = await active.handler(post(answer(1990)));
+    const staleInvitation = await withdrawn.handler(
+      post({ invitationId: requestId, terms: true }),
+    );
+    assert({
+      given:
+        'an invitation that appeared or disappeared after the age screen rendered',
+      should:
+        'ask both children to review their current age screen before storing anything',
+      actual: [
+        staleSelfReport.status,
+        staleInvitation.status,
+        active.recorded,
+        withdrawn.recorded,
+      ],
+      expected: [400, 400, [], []],
     });
   });
 

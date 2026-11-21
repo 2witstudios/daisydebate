@@ -15,7 +15,7 @@ import {
 import { fixtureJudges, fixtureEntries, fixtures } from '../schema/fixtures';
 import { scopeTransaction } from '../tenant-scope';
 import { lockTabCommandAccounts } from './command-accounts';
-import { loadTabCounterpart } from './boundary';
+import { loadTabCounterpart } from './account';
 import { loadAuthorityContext } from './authority-context';
 import {
   appendHistory,

@@ -20,10 +20,6 @@ import {
   fixtureCommandSchema,
 } from './fixture-command';
 import {
-  guardianCommandCatalogue,
-  guardianCommandSchema,
-} from './guardian-command';
-import {
   lobbySetupCommandCatalogue,
   lobbySetupCommandSchema,
 } from './lobby-setup-command';
@@ -53,7 +49,6 @@ import {
 export const lobbyCommandGroups = {
   organization: [organizationCommandSchema, organizationCommandCatalogue],
   leagueSchool: [leagueSchoolCommandSchema, leagueSchoolCommandCatalogue],
-  guardian: [guardianCommandSchema, guardianCommandCatalogue],
   setting: [settingCommandSchema, settingCommandCatalogue],
   lobbySetup: [lobbySetupCommandSchema, lobbySetupCommandCatalogue],
   entry: [entryCommandSchema, entryCommandCatalogue],

@@ -10,17 +10,12 @@ import type { Tx } from './tx';
 export const DIGEST_WINDOW = sql.raw(`interval '10 minutes'`);
 const windowStart = sql`date_bin(${DIGEST_WINDOW}, now(), timestamptz '2000-01-01 00:00:00+00')`;
 
-/**
- * Runs inside the username claim's transaction (ADR 0075): the account
- * joins the beta list as `pending`, its audit event is written, and the
- * current window's owner digest is owed. Only the first claim inserts; a
- * later call changes nothing. Gating reads this state; nothing here does.
- */
-export async function enrolPendingBetaAccess(
+/** Records the pending state and its audit event once under the account fence. */
+export async function insertPendingBetaAccess(
   tx: Tx,
   userId: string,
-  nextId: () => string,
-): Promise<void> {
+  eventId: () => string,
+): Promise<boolean> {
   const enrolled = await tx
     .insert(accountBetaAccess)
     .values({
@@ -31,14 +26,24 @@ export async function enrolPendingBetaAccess(
     })
     .onConflictDoNothing()
     .returning({ userId: accountBetaAccess.userId });
-  if (enrolled.length === 0) return;
+  if (enrolled.length === 0) return false;
   await tx.insert(accountAccessEvents).values({
-    id: nextId(),
+    id: eventId(),
     userId,
     toState: 'pending',
     revision: 1,
     principal: 'signup',
   });
+  return true;
+}
+
+/** The first username claim opens a beta request and queues its owner digest. */
+export async function enrolPendingBetaAccess(
+  tx: Tx,
+  userId: string,
+  nextId: () => string,
+): Promise<void> {
+  if (!(await insertPendingBetaAccess(tx, userId, nextId))) return;
   if (await claimBetaPreapproval(tx, userId)) return;
   await tx
     .insert(mailIntents)

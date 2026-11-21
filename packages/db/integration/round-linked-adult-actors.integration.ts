@@ -83,10 +83,16 @@ const seedLinks = async (
         'organization', ${organizations[g.organization]!}, now() - interval '2 days',
         ${g.state === 'expired' ? new Date(Date.now() - 86_400_000) : null},
         ${g.state === 'revoked' ? new Date() : null}, ${g.state === 'revoked' ? user(g.person) : null})`;
-  for (const link of fixture.guardianLinks ?? [])
-    await sql`insert into guardian_links(id, guardian_user_id, minor_user_id, kind, status, ended_at)
-      values(${createId()}, ${user(link.guardian)}, ${user(link.minor)},
-        'parent', ${link.active ? 'active' : 'ended'}, ${ended(link.active)})`;
+  for (const link of fixture.guardianLinks ?? []) {
+    const consent = createId();
+    await sql`insert into guardian_consent_evidence
+      (id, person_user_id, role, method, notice_kind, notice_version, notice_digest, recorded_at)
+      values (${consent}, ${user(link.guardian)}, 'guardian', 'created-account', 'parental-consent', 'fixture', repeat('0', 64), now())`;
+    await sql`insert into guardian_links
+      (id, guardian_user_id, minor_user_id, guardian_consent_id, status, activation, activated_at, closed_at)
+      values (${createId()}, ${user(link.guardian)}, ${user(link.minor)}, ${consent},
+        ${link.active ? 'active' : 'ended'}, 'created-account', now(), case when ${link.active} then null else now() end)`;
+  }
   return organizations;
 };
 

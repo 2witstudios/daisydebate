@@ -39,11 +39,10 @@ const membership = (
   actorId: 'person',
   status,
 });
-const link = (via: typeof school | null = null): Resource => ({
+const link = (): Resource => ({
   kind: 'guardian_link',
   guardianActorId: 'person',
   wardActorId: 'ward',
-  via,
 });
 const entry = (
   responsible: Extract<Resource, { kind: 'entry' }>['responsible'],
@@ -170,21 +169,19 @@ describe('organizations and memberships', () => {
 });
 
 describe('guardian links', () => {
-  test('are a relationship an adult makes, or a school’s roster manager', () => {
+  test('can only be made by the adult guardian', () => {
     assert({
       given:
-        'the adult guardian, a minor as guardian, a stranger, and a link through a school',
-      should: 'allow the adult guardian, the roster manager, and nobody else',
+        'the adult guardian, a minor as guardian, a stranger, and a roster manager outside the family',
+      should: 'allow only the adult guardian',
       actual: [
         ask('guardian.link.create', link()),
         reason(ask('guardian.link.create', link(), teen)),
         reason(ask('guardian.link.create', link(), { actorId: 'other' })),
-        reason(ask('guardian.link.create', link(school), {})),
-        reason(ask('guardian.link.create', link(school), rosterManager)),
         reason(
-          ask('guardian.link.create', link(school), {
+          ask('guardian.link.create', link(), {
             ...rosterManager,
-            ...teen,
+            actorId: 'coach',
           }),
         ),
       ],
@@ -197,8 +194,6 @@ describe('guardian links', () => {
         'age-band',
         'missing-capability',
         'missing-capability',
-        'allow',
-        'age-band',
       ],
     });
   });
@@ -219,42 +214,6 @@ describe('guardian links', () => {
         [true, true],
         [false, true],
         [false, false],
-      ],
-    });
-  });
-  test('made through a school are also the roster manager’s to end', () => {
-    const coachLink: Resource = {
-      kind: 'guardian_link',
-      guardianActorId: 'coach',
-      wardActorId: 'ward',
-      via: school,
-    };
-    assert({
-      given:
-        'a link a school made naming a coach, managed by the coach, the school’s roster manager, a stranger, and a roster manager asked of a parent’s link',
-      should:
-        'let the coach and the roster manager manage it, and leave a parent’s link to the parent',
-      actual: [
-        reason(ask('guardian.link.manage', coachLink, { actorId: 'coach' })),
-        ask('guardian.link.manage', coachLink, rosterManager),
-        reason(ask('guardian.link.manage', coachLink, {})),
-        reason(
-          ask(
-            'guardian.link.manage',
-            { ...coachLink, via: null },
-            rosterManager,
-          ),
-        ),
-      ],
-      expected: [
-        'allow',
-        {
-          allow: true,
-          authority: { kind: 'grant', grantId: 'grant-1' },
-          conflict: null,
-        },
-        'missing-capability',
-        'missing-capability',
       ],
     });
   });

@@ -57,16 +57,6 @@ export const commandAuthorities = [
   'service',
 ] as const;
 
-/** A guardian link is a relationship between two people, never a role. */
-export const guardianLinkKinds = ['parent', 'coach'] as const;
-export const guardianLinkStatuses = ['pending', 'active', 'ended'] as const;
-
-/**
- * Who may see video of a guardian's child: officials only, or whoever the
- * lobby's `audience.video` setting opens it to.
- */
-export const videoAudienceCaps = ['officials', 'lobby'] as const;
-
 /** The one container of Rooms: open-ended, or bounded with a schedule. */
 export const lobbyKinds = ['standing', 'tournament'] as const;
 export type LobbyKind = (typeof lobbyKinds)[number];

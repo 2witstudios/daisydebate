@@ -28,21 +28,14 @@ const person = (
   divisions: ['Novice', 'Open'],
   enteredInEvent: false,
   enteredInSharedSlot: false,
-  boundary: null,
   bandOnFirstDay: 'adult',
   ...overrides,
 });
 const ada = person('ada');
 const ben = person('ben');
-/** A minor whose parent allows only another lobby. */
+/** A minor entrant. */
 const minor = person('min', {
   minor: true,
-  boundary: {
-    guardianLinkId: id('link'),
-    guardianUserId: parent,
-    allowedLobbyIds: [id('otherlobby')],
-    version: 4,
-  },
 });
 
 const entry = (overrides: Partial<EntryRowFacts> = {}): EntryRowFacts => ({
@@ -276,121 +269,6 @@ describe('submit-entry', () => {
         ),
       ].map(refusalOf),
       expected: ['accepted', 'no-responsible-adult', 'accepted'],
-    });
-  });
-});
-
-describe('a minor outside the guardian allowed lobbies (TAB-5.23)', () => {
-  const coachEntersMinor = submit({
-    memberActorIds: [minor.actorId, ada.actorId],
-  });
-  const pendingEntry = entry({ members: [minor, ada] });
-
-  test('an entry a coach makes stays pending even when the host sends it', () => {
-    const decision = decideEntry(
-      facts({
-        sender: { userId: coach, host: true },
-        event: { ...facts().event, approval: 'automatic' },
-      }),
-      coachEntersMinor,
-    );
-    const write = insertedEntry(decision);
-    assert({
-      given: 'a coach entering a minor whose parent does not allow this lobby',
-      should: 'insert the entry pending',
-      actual:
-        write?.op === 'insert' && write.table === 'entries'
-          ? write.row.status
-          : null,
-      expected: 'pending',
-    });
-  });
-
-  test('it cannot be accepted until the guardian allows the lobby', () => {
-    const allowed = {
-      ...minor,
-      boundary: {
-        ...minor.boundary!,
-        allowedLobbyIds: [id('otherlobby'), lobbyId],
-      },
-    };
-    const accepting = decideEntry(
-      facts({ entry: entry({ members: [allowed, ada] }) }),
-      { type: 'accept-entry', entryId },
-    );
-    assert({
-      given: 'accepting it before and after the parent allows the lobby',
-      should:
-        'refuse guardian-pending, then accept and bump the boundary revision',
-      actual: {
-        before: refusalOf(
-          decideEntry(facts({ entry: pendingEntry }), {
-            type: 'accept-entry',
-            entryId,
-          }),
-        ),
-        after: writesOf(accepting).filter((write) => write.table !== 'events'),
-      },
-      expected: {
-        before: 'guardian-pending',
-        after: [
-          {
-            table: 'entries',
-            op: 'update',
-            where: { id: entryId },
-            set: { status: 'accepted' },
-          },
-          {
-            table: 'restrictions',
-            op: 'update',
-            where: { guardianLinkId: id('link') },
-            set: { version: 5 },
-          },
-        ],
-      },
-    });
-  });
-
-  test('the guardian own entry is not awaited', () => {
-    assert({
-      given: "an entry whose responsible adult is the minor's parent",
-      should: 'be acceptable',
-      actual: refusalOf(
-        decideEntry(
-          facts({
-            entry: entry({
-              members: [minor],
-              responsibleKind: 'guardian',
-              guardianUserId: parent,
-              submittedByUserId: parent,
-            }),
-          }),
-          { type: 'accept-entry', entryId },
-        ),
-      ),
-      expected: 'accepted',
-    });
-  });
-
-  test('a host who names the parent link cannot accept for the guardian', () => {
-    assert({
-      given:
-        "an entry a host submitted naming the minor's parent link as responsible",
-      should: 'stay guardian-pending at acceptance',
-      actual: refusalOf(
-        decideEntry(
-          facts({
-            entry: entry({
-              members: [minor],
-              responsibleKind: 'guardian',
-              guardianUserId: parent,
-              submittedByUserId: id('host'),
-            }),
-          }),
-          { type: 'accept-entry', entryId },
-        ),
-      ),
-      expected: 'guardian-pending',
     });
   });
 });
@@ -717,23 +595,6 @@ describe('replace-entry-member', () => {
         'division-ineligible',
         'not-found',
       ],
-    });
-  });
-
-  test('a minor the guardian has not allowed cannot join an accepted entry', () => {
-    const decision = decideEntry(
-      facts({
-        people: [minor],
-        entry: entry({ status: 'accepted', liveFixtures: [] }),
-      }),
-      { ...replace, inActorId: minor.actorId },
-    );
-    assert({
-      given:
-        "a coach replacing a member with a minor outside the guardian's lobbies",
-      should: 'refuse guardian-pending',
-      actual: decision.kind === 'refused' ? decision.refusal : decision.kind,
-      expected: 'guardian-pending',
     });
   });
 });

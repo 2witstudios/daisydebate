@@ -263,12 +263,7 @@ export const createEntryEnrollmentStore = (database: TxOpener) => ({
               'INVARIANT',
               'Entry command facts were not loaded',
             );
-          await applyEntryEnrollmentWrites(
-            tx,
-            writes,
-            loaded.scope,
-            loaded.people,
-          );
+          await applyEntryEnrollmentWrites(tx, writes);
           await appendHistory(tx, history, receipt);
         },
       });

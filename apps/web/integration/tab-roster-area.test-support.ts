@@ -153,8 +153,7 @@ export async function proveRosterArea(world: World) {
               p.actorId === j.actorId &&
               p.account?.member &&
               !p.account.erased &&
-              p.account.ageBand === 'adult' &&
-              p.account.boundary === null,
+              p.account.ageBand === 'adult',
           ),
       ).length,
       view.judges.groups.flatMap((g) => g.judges).length,
