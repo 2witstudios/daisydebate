@@ -1,3 +1,4 @@
+import { createMessageRequestSettingRoute } from './request-setting-route';
 import { consumeMessagingRead } from './handler-boundary';
 import { composeMessagingReactionRoute } from './reaction-route';
 import { composeMessagingTypingRoutes } from './typing-route';
@@ -191,6 +192,14 @@ export function composeMessagingRoutes(app: App) {
     preferences: composeMessagingPreferenceRoutes(app),
     typing: composeMessagingTypingRoutes(app),
     reactions: composeMessagingReactionRoute(app),
+    requestSetting: createMessageRequestSettingRoute({
+      logger: app.logger,
+      reporter: app.reporter,
+      origin: () => app.auth().config.PUBLIC_APP_URL,
+      identify: (request) => identify(app.auth(), request.headers),
+      limiter: () => app.limiter,
+      store: app.database,
+    }),
     send: (request: Request) => run(request, 'send'),
     edit: (request: Request) => run(request, 'edit'),
     remove: (request: Request) => run(request, 'remove'),

@@ -7,17 +7,11 @@ import { notificationPresentationOperations } from './presentation';
 import { watchNotificationOperations } from './watch-fanout';
 
 export {
-  type NotificationDigestClaim,
   type NotificationDigestDelivery,
   type NotificationDigestOutcome,
 } from './digests';
 export { type InboxCursor, type InboxRow } from './inbox';
-export {
-  oweNotifications,
-  resurfaceNotifications,
-  type NotificationRecipient,
-  type OwedNotifications,
-} from './owe';
+export { oweNotifications } from './owe';
 export { notificationPrivacyAdopter } from './privacy';
 
 /**

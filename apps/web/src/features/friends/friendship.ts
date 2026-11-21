@@ -120,7 +120,8 @@ export function friendRelationOf(
   viewerActorId: string,
   pair: FriendshipPair | null,
 ): FriendRelation {
-  if (!pair) return 'none';
-  if (pair.state === 'accepted') return 'friends';
-  return pair.requesterActorId === viewerActorId ? 'outgoing' : 'incoming';
+  if (pair?.state === 'accepted') return 'friends';
+  if (pair?.state === 'pending')
+    return pair.requesterActorId === viewerActorId ? 'outgoing' : 'incoming';
+  return 'none';
 }

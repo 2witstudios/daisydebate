@@ -212,6 +212,10 @@ export function createMessagingPrivacyAdopter(): PrivacyAdopter {
       await tx.execute(
         sql`delete from messaging_unread_emails where user_id=${subject.userId}`,
       );
+      // Erasure keeps the user row (ADR 0087), so its own choice goes here.
+      await tx.execute(
+        sql`delete from messaging_request_settings where user_id=${subject.userId}`,
+      );
     },
     async export(tx, subject): Promise<PrivacyExport> {
       await lockSubjectMessaging(tx, subject.actorId);
@@ -279,6 +283,12 @@ export function createMessagingPrivacyAdopter(): PrivacyAdopter {
         ),
       );
       const files = await exportSubjectFiles(tx, actorId);
+      const requestSettings = rowsOf<Record<string, unknown>>(
+        await tx.execute(
+          sql`select setting,updated_at from messaging_request_settings
+            where user_id=(select user_id from actors where id=${actorId})`,
+        ),
+      );
       // Read last: Messaging's own email jobs, after every other table.
       const unreadEmails = rowsOf<Record<string, unknown>>(
         await tx.execute(
@@ -301,6 +311,7 @@ export function createMessagingPrivacyAdopter(): PrivacyAdopter {
           messaging_retained_authors: retained,
           messaging_social_command_subjects: commandSubjects,
           messaging_group_invitations: invitations,
+          messaging_request_settings: requestSettings,
           messaging_unread_emails: unreadEmails,
         }).map(([table, rows]) => [table, exportRows(rows)]),
       );

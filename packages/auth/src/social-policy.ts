@@ -1,9 +1,9 @@
 import { currentAgeFact } from './authorization-age';
 import type { AccountAgeFact } from './account-age';
-import type { AgeBand } from '@daisy/protocol';
+import type { AgeBand, MessageRequestSetting } from '@daisy/protocol';
 import type {
-  AccountAuthorizationFact,
   ChannelAuthorizationFact,
+  SocialAccountFact,
   SocialPolicyEvidence,
 } from './authorization';
 export type SocialContactPolicy =
@@ -12,16 +12,56 @@ export type SocialContactPolicy =
       readonly state: 'approved';
       readonly decision: string;
       readonly key: string;
+      /** The revision a new channel is minted under. */
       readonly revision: number;
-      readonly allowedBandPairs: readonly (readonly [
-        Exclude<AgeBand, 'under-13'>,
-        Exclude<AgeBand, 'under-13'>,
-      ])[];
+      /** Earlier revisions whose channels stay readable and postable. */
+      readonly earlierRevisions: readonly number[];
     };
 
-type SocialAccount = {
-  readonly account: AccountAuthorizationFact;
-  readonly age: AccountAgeFact;
+/**
+ * One question to the DM rule (decision 90). `request` opens a new message
+ * request; `conversation` is everything on an existing DM (accepting it,
+ * posting, typing), whose initiator is the request's sender.
+ */
+export type DmQuestion = {
+  readonly stage: 'request' | 'conversation';
+  readonly initiator: AgeBand;
+  readonly recipient: AgeBand;
+  /** The pair is an accepted friendship. */
+  readonly friends: boolean;
+  /** The initiator is one of the recipient's linked adults (ADR 0158). */
+  readonly linkedStaff: boolean;
+  /** The recipient's own choice; read only for a new request. */
+  readonly recipientSetting: MessageRequestSetting;
+};
+
+/**
+ * Decision 90, DMs like Discord: any member 13 or over may DM any other
+ * through a message request, under the recipient's request setting. An
+ * adult's first contact with a minor is a friendship, so an adult may ask a
+ * minor, or keep posting to one, only while they are friends or the adult is
+ * the minor's own linked staff. A minor may always ask an adult. Total: every
+ * question has one answer, and an under-13 party is always refused.
+ */
+export function dmAllowed(question: DmQuestion): boolean {
+  const { initiator, recipient, friends, linkedStaff } = question;
+  if (initiator === 'under-13' || recipient === 'under-13') return false;
+  if (question.stage === 'request') {
+    if (question.recipientSetting === 'none') return false;
+    if (question.recipientSetting === 'friends' && !friends) return false;
+  }
+  const adultToMinor = initiator === 'adult' && recipient !== 'adult';
+  return !adultToMinor || friends || linkedStaff;
+}
+
+type SocialAccount = SocialAccountFact;
+type CurrentAccount = SocialAccount & {
+  age: Extract<AccountAgeFact, { state: 'known' }>;
+};
+/** Who asks on a DM: the initiator and the stage; a group has neither. */
+type DmInitiation = {
+  readonly stage: DmQuestion['stage'];
+  readonly initiatorActorId: string;
 };
 type PostingInput = {
   readonly channel: ChannelAuthorizationFact;
@@ -37,7 +77,16 @@ function policyMatches(
     policy.state === 'approved' &&
     policy.decision.trim().length > 0 &&
     policy.key === channel.policyKey &&
-    policy.revision === channel.policyRevision
+    honoursRevision(policy, channel.policyRevision)
+  );
+}
+/** The current revision, or an earlier one the policy still honours. */
+export function honoursRevision(
+  policy: Extract<SocialContactPolicy, { state: 'approved' }>,
+  revision: number,
+) {
+  return (
+    policy.revision === revision || policy.earlierRevisions.includes(revision)
   );
 }
 function memberSetMatches(
@@ -54,7 +103,7 @@ function memberSetMatches(
 function currentAccount(
   row: SocialAccount | undefined,
   instant: number,
-): row is SocialAccount & { age: Extract<AccountAgeFact, { state: 'known' }> } {
+): row is CurrentAccount {
   return (
     row !== undefined &&
     row.account.member &&
@@ -66,14 +115,44 @@ function currentAccount(
     row.age.band !== 'under-13'
   );
 }
-function allowsPair(
-  policy: Extract<SocialContactPolicy, { state: 'approved' }>,
-  band: AgeBand,
-  other: AgeBand,
-) {
-  return policy.allowedBandPairs.some(
-    ([a, b]) => (band === a && other === b) || (band === b && other === a),
-  );
+/** The rule's question for one asker and one asked, from their own facts. */
+function dmQuestionOf(
+  stage: DmQuestion['stage'],
+  initiator: CurrentAccount,
+  recipient: CurrentAccount,
+): DmQuestion {
+  return {
+    stage,
+    initiator: initiator.age.band,
+    recipient: recipient.age.band,
+    friends:
+      initiator.contact?.friendActorIds.includes(
+        recipient.account.actorId ?? '',
+      ) === true,
+    linkedStaff:
+      recipient.contact?.linkedAdultUserIds.includes(
+        initiator.account.userId,
+      ) === true,
+    // A recipient whose setting was not read is asked as if they chose no one.
+    recipientSetting: recipient.contact?.requestSetting ?? 'none',
+  };
+}
+/**
+ * A group pair carries no friendship, staff link or setting, and must be
+ * allowed whichever of the two asks: so a group never mixes an adult and a
+ * minor (private groups are off, DEC-127).
+ */
+function groupPairAllowed(a: CurrentAccount, b: CurrentAccount) {
+  const plain = (initiator: CurrentAccount, recipient: CurrentAccount) =>
+    dmAllowed({
+      stage: 'conversation',
+      initiator: initiator.age.band,
+      recipient: recipient.age.band,
+      friends: false,
+      linkedStaff: false,
+      recipientSetting: 'none',
+    });
+  return plain(a, b) && plain(b, a);
 }
 /** No numeric, legal, youth or cross-band defaults. Approved configuration is injected at the edge. */
 export function socialPostingPolicy({
@@ -99,15 +178,31 @@ export function socialPostingPolicy({
     return result;
   return {
     ...result,
-    allowed: socialAccountsEligible(members, accounts, now, policy),
+    allowed: socialAccountsEligible(
+      members,
+      accounts,
+      now,
+      policy,
+      authority.kind === 'dm'
+        ? {
+            stage: 'conversation',
+            initiatorActorId: authority.requestSenderActorId,
+          }
+        : null,
+    ),
   };
 }
-/** Evaluate prospective participants directly; no channel or grant is minted. */
+/**
+ * Evaluate prospective participants directly; no channel or grant is minted.
+ * A DM (two members and an initiation) answers `dmAllowed`; a group holds
+ * every pair to it with no relation.
+ */
 export function socialAccountsEligible(
   members: readonly string[],
   accounts: readonly SocialAccount[],
   now: string,
   policy: SocialContactPolicy,
+  initiation: DmInitiation | null,
 ): boolean {
   const instant = Date.parse(now);
   if (
@@ -121,9 +216,20 @@ export function socialAccountsEligible(
   );
   const valid = current.filter((row) => currentAccount(row, instant));
   if (valid.length !== current.length) return false;
-  const bands = valid.map((row) => row.age.band);
-  return bands.every((band, i) =>
-    bands.slice(i + 1).every((other) => allowsPair(policy, band, other)),
+  if (initiation !== null) {
+    const initiator = valid.find(
+      (row) => row.account.actorId === initiation.initiatorActorId,
+    );
+    const recipient = valid.find((row) => row !== initiator);
+    return (
+      valid.length === 2 &&
+      initiator !== undefined &&
+      recipient !== undefined &&
+      dmAllowed(dmQuestionOf(initiation.stage, initiator, recipient))
+    );
+  }
+  return valid.every((row, i) =>
+    valid.slice(i + 1).every((other) => groupPairAllowed(row, other)),
   );
 }
 
@@ -186,20 +292,51 @@ function invalidPolicyEvidence(
 }
 
 /**
- * DEC-251's beta DM contact policy: admitted (beta approved) participants
- * aged 16 or over, within one age band. Members aged 13 to 15 (decision 88)
- * get no DM pair until one is decided for them: the conservative default. ADR 0061 allows no cross-band
- * contact without a separately approved guardian policy, so 16-17 and adult
- * never meet. One value for every process that evaluates DM posting or
- * reading (web commands, realtime subscriptions and observation permits), so they cannot diverge.
+ * The DM contact policy: DEC-251's bounds under decision 90's `dmAllowed`
+ * (ADR 0160). Revision 2 replaces revision 1's same-band pairs; every
+ * revision-1 channel joined two adults or two 16-17s, which `dmAllowed` also
+ * allows, so those channels stay readable and postable. One value for every
+ * process that evaluates DM posting or reading (web commands, realtime
+ * subscriptions and observation permits), so they cannot diverge.
  */
 export const betaDmPolicy = {
   state: 'approved',
-  decision: 'DEC-251',
+  decision: 'DEC-251, decision 90',
   key: 'social.dm',
-  revision: 1,
-  allowedBandPairs: [
-    ['adult', 'adult'],
-    ['16-17', '16-17'],
-  ],
+  revision: 2,
+  earlierRevisions: [1],
 } as const satisfies SocialContactPolicy;
+
+/**
+ * What a page offers one member toward another (decision 90): `message` when
+ * a request would be allowed now, `befriend` when only a friendship would
+ * open it (an adult toward a minor, or a recipient taking requests from
+ * friends only; the two read the same, so nothing shows an age), and `none`
+ * otherwise. It grants nothing: the request decides under its own locks.
+ */
+export function dmRequestOffer(
+  accounts: readonly SocialAccount[],
+  now: string,
+  initiatorActorId: string,
+  recipientActorId: string,
+): 'message' | 'befriend' | 'none' {
+  const instant = Date.parse(now);
+  const initiator = accounts.find(
+    (row) => row.account.actorId === initiatorActorId,
+  );
+  const recipient = accounts.find(
+    (row) => row.account.actorId === recipientActorId,
+  );
+  if (
+    initiatorActorId === recipientActorId ||
+    !Number.isFinite(instant) ||
+    !currentAccount(initiator, instant) ||
+    !currentAccount(recipient, instant)
+  )
+    return 'none';
+  const question = dmQuestionOf('request', initiator, recipient);
+  if (dmAllowed(question)) return 'message';
+  return !question.friends && dmAllowed({ ...question, friends: true })
+    ? 'befriend'
+    : 'none';
+}

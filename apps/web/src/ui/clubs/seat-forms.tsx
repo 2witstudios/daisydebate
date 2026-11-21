@@ -12,7 +12,7 @@ type Action = FormAction<ClubFormState>;
 type Person = { readonly userId: string; readonly name: string };
 
 /** The consequence of giving up a seat, said before the member confirms it. */
-export const endsTodayCopy = (name: string) =>
+const endsTodayCopy = (name: string) =>
   `${name} stays a member and keeps their ratings and Rounds, and drops to the free plan at the end of today (UTC).`;
 
 /** Invite someone to a seat by email; the invitation holds a seat for 14 days. */

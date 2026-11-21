@@ -21,7 +21,7 @@ import type { TabPrincipal } from '../tab-principal';
 type SeasonEvent = Parameters<typeof seasonStandings>[0][number];
 type SeasonFormula = Parameters<typeof seasonStandings>[1];
 const count = z.int().nonnegative();
-export const seasonFormulaSchema = z.strictObject({
+const seasonFormulaSchema = z.strictObject({
   preliminaryWin: z.strictObject({ points: count, cap: count.nullable() }),
   eliminationRound: z.strictObject({ points: count }),
   bestEvents: z.int().positive().nullable(),
@@ -76,7 +76,7 @@ const history = (
     division: null,
     seed: new Uint8Array(32),
   }).history;
-export function projectLeagueSeason(
+function projectLeagueSeason(
   facts: LeagueSeasonFacts,
   viewerActorId: string | null,
   templateId?: string,

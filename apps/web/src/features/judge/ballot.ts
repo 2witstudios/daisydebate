@@ -92,7 +92,7 @@ export const subjectScale = (points: BallotPoints, subject: string) => {
     );
   return resolved;
 };
-export const postedPoints = (
+const postedPoints = (
   points: BallotPoints,
   subject: string,
   read: (name: string) => string | undefined,

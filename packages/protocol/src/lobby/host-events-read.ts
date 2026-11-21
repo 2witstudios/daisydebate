@@ -5,7 +5,6 @@ import {
   eventPinSchema,
   tabRoundResolutionSchema,
 } from './lobby-setup-command';
-import type { LobbyReadCatalogue } from './read';
 export const eventPinOptionSchema = z.strictObject({
   key: z.string().min(1).max(256),
   label: z.string().min(1).max(600),
@@ -38,6 +37,3 @@ export const hostEventsViewSchema = z.strictObject({
   resolutionChoices: z.array(eventResolutionChoiceSchema),
 });
 export type HostEventsView = z.infer<typeof hostEventsViewSchema>;
-export const hostEventsReadCatalogue = {
-  HostEventsView: { gate: ['lobby.setup.manage'] },
-} as const satisfies LobbyReadCatalogue<'HostEventsView'>;

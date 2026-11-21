@@ -29,7 +29,7 @@ import {
 } from './media-commands';
 import { verificationProblem } from './verify';
 
-export type MediaProbe = {
+type MediaProbe = {
   readonly durationMs: number;
   readonly hasVideo: boolean;
   readonly hasAudio: boolean;

@@ -9,7 +9,6 @@ import { ageBand } from './age-band';
 export {
   ACCOUNT_AGE_FLOOR,
   ADMITTED_AGE_BANDS,
-  type AgeFloor,
 } from '@daisy/protocol/age-floor';
 
 /** The refusal below the floor; the age step stores nothing for it. */

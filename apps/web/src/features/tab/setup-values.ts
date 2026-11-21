@@ -30,9 +30,7 @@ const releaseLabels = {
   after_event: 'after the event',
   never: 'never',
 };
-export const audienceWords = (
-  values: Readonly<Record<string, string>>,
-): string =>
+const audienceWords = (values: Readonly<Record<string, string>>): string =>
   Object.entries(values)
     .map(
       ([audience, release]) =>

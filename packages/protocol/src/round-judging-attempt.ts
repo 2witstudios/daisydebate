@@ -55,7 +55,7 @@ const judgingIssueCodes = [
 export type JudgingIssueCode = (typeof judgingIssueCodes)[number];
 
 /** How a provider's answer ended, reduced to facts that hold no answer text. */
-export const judgingFinishes = [
+const judgingFinishes = [
   'stop',
   'length',
   'content_filter',

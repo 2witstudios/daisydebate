@@ -13,7 +13,7 @@ export type SeatKind = (typeof seatKinds)[number];
  * A side's stored identity: a short lowercase key a format declares. It is
  * never a seat-kind word, so a seat key cannot be read two ways.
  */
-export const sideKeyPattern = /^[a-z][a-z_]{0,23}$/;
+const sideKeyPattern = /^[a-z][a-z_]{0,23}$/;
 export const sideKeySchema = z
   .string()
   .regex(sideKeyPattern)

@@ -45,7 +45,7 @@ function certifiedAt(
     : null;
 }
 
-export function hostResultsView(
+function hostResultsView(
   facts: HostResultsFacts,
   capabilities: { readonly release: boolean; readonly certify: boolean },
   viewerUserId: string,

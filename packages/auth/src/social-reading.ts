@@ -4,6 +4,7 @@ import type {
 } from './authorization-facts';
 import { policyEvidenceCurrent } from './authorization-policy';
 import {
+  honoursRevision,
   socialPolicyEvidence,
   type SocialContactPolicy,
 } from './social-policy';
@@ -43,7 +44,7 @@ export const socialMemberReading =
       policy.state === 'approved' &&
       `social.${channel.authority.kind}` === policy.key &&
       channel.policyKey === policy.key &&
-      channel.policyRevision === policy.revision &&
+      honoursRevision(policy, channel.policyRevision) &&
       accounts.every(currentBoundMember) &&
       policyEvidenceCurrent(
         channel,

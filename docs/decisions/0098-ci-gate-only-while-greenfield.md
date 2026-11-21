@@ -1,6 +1,7 @@
 # 0098: CI gate only while greenfield
 
-Status: accepted (owner, 2026-11-02). Amends the required checks and the
+Status: superseded by [ADR 0159](0159-signals-that-gate.md) (2026-11-19).
+Accepted by the owner on 2026-11-02. Amends the required checks and the
 Playwright and Isolated Room Launch gates of
 [ADR 0083](0083-lean-gates-and-slice-process.md). Temporary: strict gating
 returns before real users.

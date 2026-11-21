@@ -230,6 +230,79 @@ test('the prune loop keeps readable installed versions and reports a changed set
   }
 });
 
+test('a retry waits for the killed attempt to release the package lock', async () => {
+  const { mkdtempSync, writeFileSync, chmodSync, readFileSync, rmSync } =
+    await import('node:fs');
+  const { join } = await import('node:path');
+  const { tmpdir } = await import('node:os');
+  const script = await read('scripts/ci-browsers.sh');
+  const lock = script.slice(
+    script.indexOf('await_package_lock() {'),
+    script.indexOf('mkdir -p "$deb_cache"'),
+  );
+  const retry = script.slice(
+    script.indexOf('echo "Retrying browser OS dependencies'),
+    script.indexOf('# ubuntu-24.04 runners resolve'),
+  );
+  // `holds` is how many polls still find the earlier dpkg alive.
+  const run = (holds: number) => {
+    const root = mkdtempSync(join(tmpdir(), 'daisy-browser-lock-'));
+    try {
+      const calls = join(root, 'calls');
+      const left = join(root, 'left');
+      writeFileSync(calls, '');
+      writeFileSync(left, String(holds));
+      const stub = (name: string, body: string) => {
+        writeFileSync(join(root, name), `#!/bin/sh\n${body}\n`);
+        chmodSync(join(root, name), 0o755);
+      };
+      stub(
+        'pgrep',
+        `n=$(cat ${left}); [ "$n" -gt 0 ] || exit 1; echo $((n - 1)) > ${left}`,
+      );
+      stub('sleep', `echo sleep >> ${calls}`);
+      stub('sudo', `echo "$@" >> ${calls}`);
+      const result = Bun.spawnSync(
+        ['sh', '-euc', `${lock}\nattempt=2\n${retry}`],
+        {
+          env: {
+            ...process.env,
+            PATH: `${root}:${process.env.PATH}`,
+            LOCK_WAIT_SECONDS: '3',
+          },
+        },
+      );
+      return {
+        exit: result.exitCode,
+        calls: readFileSync(calls, 'utf8').trim().split('\n'),
+      };
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  };
+  assert({
+    given: "a retry while the killed attempt's dpkg lives for two more polls",
+    should: 'wait for it to exit and only then repair the package database',
+    actual: run(2),
+    expected: { exit: 0, calls: ['sleep', 'sleep', 'dpkg --configure -a'] },
+  });
+  assert({
+    given: 'a retry while that dpkg outlives the wait',
+    should: 'end it after the bound, then repair the package database',
+    actual: run(99),
+    expected: {
+      exit: 0,
+      calls: [
+        'sleep',
+        'sleep',
+        'sleep',
+        'pkill -KILL -x dpkg|apt-get',
+        'dpkg --configure -a',
+      ],
+    },
+  });
+});
+
 test('apt is bounded per request and per attempt, with at most three attempts', async () => {
   const script = await read('scripts/ci-browsers.sh');
   assert({

@@ -37,7 +37,7 @@ const seatState = {
   eligible: z.boolean(),
 };
 /** Where someone outside a started Room watches its Round. */
-export const roomWatchSchema = z.discriminatedUnion('kind', [
+const roomWatchSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('broadcast'), roundId: idSchema }),
   z.strictObject({ kind: z.literal('live_room'), roundId: idSchema }),
 ]);

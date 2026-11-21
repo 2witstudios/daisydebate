@@ -74,6 +74,7 @@ export async function requestMessagingDm(
           now,
           policyRevision: dependencies.policyRevision,
           limits: dependencies.limits,
+          nextId: () => dependencies.ids.next(),
         });
       },
     )

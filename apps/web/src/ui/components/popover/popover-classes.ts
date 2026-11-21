@@ -42,7 +42,7 @@ const directionUtilities = [
   'flex-row-reverse',
 ] as const;
 
-export const primitiveOwnedUtilities: readonly string[] = [
+const primitiveOwnedUtilities: readonly string[] = [
   ...displayUtilities,
   ...directionUtilities,
 ];

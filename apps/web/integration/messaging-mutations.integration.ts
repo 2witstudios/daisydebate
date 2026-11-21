@@ -38,7 +38,7 @@ test('canonical message mutations serialize retries and scrub removed retry fing
     decision: 'Test injection only',
     key: 'social.dm',
     revision: 1,
-    allowedBandPairs: [['adult', 'adult']],
+    earlierRevisions: [],
   };
   const storeFor = (
     principal: AuthorizationPrincipal,

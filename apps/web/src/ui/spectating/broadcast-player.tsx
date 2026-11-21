@@ -49,7 +49,7 @@ const useInterruptionSlate = (video: RefObject<HTMLVideoElement | null>) => {
 };
 
 /** Hides the last frame, so a viewer never reads it as what is happening now. */
-export function InterruptionSlate() {
+function InterruptionSlate() {
   return (
     <div
       role="status"

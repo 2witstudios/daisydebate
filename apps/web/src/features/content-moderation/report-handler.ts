@@ -19,7 +19,7 @@ import { consumeOrThrow, type RateLimiter } from '../../server/rate-limit';
 import { presentedLinkHash } from '../audience-link/audience-link';
 import { reportRefusal, type ReportTargetFacts } from './report-eligibility';
 
-export const reportRefusals = [
+const reportRefusals = [
   'report-not-eligible',
   'account-restricted',
   'audience-needs-username',

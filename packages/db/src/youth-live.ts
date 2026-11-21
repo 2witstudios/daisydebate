@@ -11,7 +11,6 @@ import {
  * per set of reads, so the web's Recording playback and live watchers share
  * a cache, and the realtime server keeps its own on its own lanes.
  */
-export { YOUTH_PEOPLE_TTL_MS, youthPeopleCache } from './youth-people-cache';
 export { youthRoundLinkedAdults } from './youth-round-linked-adults';
 export type { LinkedAdults } from './youth-round-linked-adults';
 export type { YouthPeopleCache } from './youth-people-cache';

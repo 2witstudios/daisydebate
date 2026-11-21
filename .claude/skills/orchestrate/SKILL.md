@@ -20,12 +20,14 @@ confirmation and merging within it; planning-only requests stay planning-only.
    Claude Code's Stop hook). Hand each builder its inherited PRs and branches; tell retiring sessions
    to finish or hand over, then `pu kill` and `pu clean` them in one pass.
 4. **Confirm once.** When a builder posts its plan on the Delivery channel, confirm or
-   redirect within minutes, alongside the architecture reviewer. Answer product,
+   redirect within minutes. Answer product,
    architecture and scope questions on the Delivery channel immediately and record each
    with `bun decision:record`. There is no later approval relay.
 5. **Merge.** The flow sweep merges a PR when its builder has emitted `PR_READY`
-   and the required checks are green at the exact head, at most two per cycle.
-   After a batch, run a local typecheck and knip on main. Only main receives
+   and the required checks (CI gate and both browser gates) are green at the
+   exact head, at most two per cycle. While main's latest Browser E2E run on a
+   push is red, merge only the PR that fixes it or reverts what broke it.
+   Only main receives
    merged PRs, except slices of a feature with a parent branch, which that
    feature's point guard merges into the parent one at a time (ADR 0128).
 6. **Retire.** When a slice merges, its builder posts `SLICE DONE` or its next plan;

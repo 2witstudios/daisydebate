@@ -65,15 +65,29 @@ describe('CI workflow concurrency', () => {
     });
   });
 
-  test('e2e has no concurrency group, so no run cancels another', async () => {
+  test("e2e cancels only a PR's superseded run", async () => {
     const workflow = Bun.YAML.parse(
       await Bun.file('.github/workflows/e2e.yml').text(),
-    ) as { concurrency?: unknown };
+    ) as { concurrency?: { group?: string; 'cancel-in-progress'?: string } };
+    const group = workflow.concurrency?.group ?? '';
     assert({
       given: 'the browser workflow',
-      should: 'let every run finish independently',
-      actual: workflow.concurrency,
-      expected: undefined,
+      should:
+        "group a PR's runs by its number and every other run by itself, cancelling in progress on a PR alone",
+      actual: {
+        prGroup: group.includes(
+          "github.event_name == 'pull_request' && format('browser-pr-{0}', github.event.pull_request.number)",
+        ),
+        otherwiseOwnRun: group.includes(
+          "|| format('browser-run-{0}', github.run_id)",
+        ),
+        cancels: workflow.concurrency?.['cancel-in-progress'],
+      },
+      expected: {
+        prGroup: true,
+        otherwiseOwnRun: true,
+        cancels: "${{ github.event_name == 'pull_request' }}",
+      },
     });
   });
 });

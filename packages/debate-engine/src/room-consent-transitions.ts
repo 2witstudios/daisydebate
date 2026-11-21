@@ -1,4 +1,5 @@
 import { createAppError } from '@daisy/errors';
+import { affirmativeSide } from '@daisy/protocol';
 import { captureUnadmitted } from './room-capture';
 import { castHoldsUnadmittedAiJudge } from './ai-judge-seating';
 import { castSeatsBotDebater } from './ai-round-cast';
@@ -106,7 +107,7 @@ export const startRound = (
     // Resolved seats are sides, so the started Room's team 1 is whoever now
     // sits Affirmative; the draw keeps which team that was.
     participants: seats.participants,
-    teamOneSide: 'affirmative',
+    teamOneSide: affirmativeSide,
   };
   const draw = seated.executionPlan.resolutionDraw.enabled
     ? startRoundDraw(seated, edges)

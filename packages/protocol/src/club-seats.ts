@@ -37,7 +37,7 @@ export type ClubSeating = {
 };
 
 /** A club member who may receive a seat, with the facts the rules need. */
-export type SeatMember = {
+type SeatMember = {
   readonly kind: 'member';
   readonly userId: string;
   /** An active member of this club. */
@@ -45,7 +45,7 @@ export type SeatMember = {
   /** Holds a seat in another club: one seat per account. */
   readonly seatedElsewhere: boolean;
 };
-export type SeatInvitee = {
+type SeatInvitee = {
   readonly kind: 'invite';
   readonly invitationId: string;
   readonly email: string;
@@ -81,27 +81,25 @@ export type ClubSeatingCommand =
       };
     };
 
-export const clubSeatingRefusals = [
-  'no-free-seat',
-  'already-invited',
-  'invitation-not-found',
-  'invitation-expired',
-  'already-seated',
-  'seated-elsewhere',
-  'not-a-member',
-  'not-seated',
-  'seat-count-out-of-range',
-  'choose-released-seats',
-  'unexpected-release',
+export type ClubSeatingRefusal =
+  | 'no-free-seat'
+  | 'already-invited'
+  | 'invitation-not-found'
+  | 'invitation-expired'
+  | 'already-seated'
+  | 'seated-elsewhere'
+  | 'not-a-member'
+  | 'not-seated'
+  | 'seat-count-out-of-range'
+  | 'choose-released-seats'
+  | 'unexpected-release'
   // Decided where the plan and mail are read, not by these pure rules:
   /** The club has no paid plan that grants access now. */
-  'no-active-plan',
+  | 'no-active-plan'
   /** This invitation was sent within the hour, or its mail is still waiting. */
-  'resend-too-soon',
+  | 'resend-too-soon'
   /** This invitation, or this club today, has sent as many invitations as allowed. */
-  'invitation-mail-limit',
-] as const;
-export type ClubSeatingRefusal = (typeof clubSeatingRefusals)[number];
+  | 'invitation-mail-limit';
 
 export type ClubSeatingDecision =
   | { readonly kind: 'changed'; readonly state: ClubSeating }

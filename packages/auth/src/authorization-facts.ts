@@ -1,6 +1,7 @@
 import type { MessagingChannelLifecycle } from '@daisy/protocol';
 import type { AuthorizationCapability } from '@daisy/protocol/authorization';
 import type { BetaAccessState, SeatRef } from '@daisy/protocol';
+import type { CounterpartFact } from './authorization-lobby-facts';
 /** Current producer facts only. Neither preferences nor client claims grant access. */
 export type AuthorizationPrincipal =
   | { readonly kind: 'anonymous' }
@@ -345,7 +346,7 @@ export type AuthorizationInput = {
      */
     readonly answer?: 'accept' | 'decline';
     /** The other people the action reaches, for a minor with a boundary. */
-    readonly counterparts?: readonly import('./authorization-lobby-facts').CounterpartFact[];
+    readonly counterparts?: readonly CounterpartFact[];
   };
 };
 export type { AuthorizationDecision } from './authorization-decision';
@@ -353,6 +354,20 @@ export type { AuthorizationDecision } from './authorization-decision';
 export type SocialAccountFact = {
   readonly account: AccountAuthorizationFact;
   readonly age: import('./account-age').AccountAgeFact;
+  /**
+   * What the DM rule reads about this account's contacts (decision 90), read
+   * under the same fences; absent where no DM rule runs (reading), and then
+   * no friendship, no staff link and a setting of no one.
+   */
+  readonly contact?: SocialContactFact;
+};
+export type SocialContactFact = {
+  /** Who may send this account a new message request. */
+  readonly requestSetting: import('@daisy/protocol').MessageRequestSetting;
+  /** The other accounts in the cast it holds an accepted friendship with. */
+  readonly friendActorIds: readonly string[];
+  /** Its linked adults (`daisy_linked_adult_users`); empty for an adult. */
+  readonly linkedAdultUserIds: readonly string[];
 };
 export type SocialPolicyEvidence = {
   readonly channelId: string;

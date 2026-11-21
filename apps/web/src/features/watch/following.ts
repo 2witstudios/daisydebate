@@ -1,13 +1,13 @@
 import type { LiveCard } from './live-card';
 
 /** One person a viewer follows, and the live Round they are in, if any. */
-export type Followed = {
+type Followed = {
   readonly handle: string;
   readonly live: { readonly id: string; readonly title: string } | null;
 };
 
 /** One Round the viewer watched. */
-export type WatchedItem = {
+type WatchedItem = {
   readonly id: string;
   readonly title: string;
   /** The UTC day they last watched it. */
