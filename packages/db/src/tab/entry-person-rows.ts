@@ -20,6 +20,7 @@ export const loadEntryPeople = async (
         readonly lobbyId: string;
       }
     | { readonly kind: 'own'; readonly ageAsOf: string },
+  guardianLinkId: string | null,
 ) => {
   const people = actorIds.length
     ? await tx
@@ -36,14 +37,19 @@ export const loadEntryPeople = async (
       person.userId === null
         ? null
         : await loadAuthorizationAccount(tx, person.userId);
-    const links =
-      person.userId === null
+    const [guardian] =
+      person.userId === null || guardianLinkId === null
         ? []
         : await tx
-            .select()
+            .select({
+              guardianUserId: guardianLinks.guardianUserId,
+              minorUserId: guardianLinks.minorUserId,
+              status: guardianLinks.status,
+            })
             .from(guardianLinks)
             .where(
               and(
+                eq(guardianLinks.id, guardianLinkId),
                 eq(guardianLinks.minorUserId, person.userId),
                 eq(guardianLinks.status, 'active'),
               ),
@@ -73,7 +79,7 @@ export const loadEntryPeople = async (
     loaded.push({
       ...person,
       account,
-      links,
+      guardian: guardian ?? null,
       previousEntries,
       competitionAgeBand: atCompetition?.band ?? null,
     });

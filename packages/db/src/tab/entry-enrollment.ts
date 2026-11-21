@@ -162,6 +162,13 @@ const load = async (tx: TabTransaction, input: EntryEnrollmentInput) => {
           .from(timeSlots)
           .where(eq(timeSlots.lobbyId, input.lobbyId))
       : [];
+  const guardianLinkId =
+    input.command.type === 'submit-entry' &&
+    input.command.responsible.kind === 'guardian'
+      ? input.command.responsible.guardianLinkId
+      : input.command.type === 'withdraw-entry'
+        ? currentEntry?.guardianLinkId
+        : null;
   const people = await loadEntryPeople(
     tx,
     scope,
@@ -178,6 +185,7 @@ const load = async (tx: TabTransaction, input: EntryEnrollmentInput) => {
             input.now,
           ),
         },
+    guardianLinkId ?? null,
   );
   const [school] = schoolId
     ? await tx
@@ -199,15 +207,8 @@ const load = async (tx: TabTransaction, input: EntryEnrollmentInput) => {
     : null;
   // The school's grants are read under its scope, then the entry's scope is restored.
   await scopeTransaction(tx, scope);
-  const guardianLinkId =
-    input.command.type === 'submit-entry' &&
-    input.command.responsible.kind === 'guardian'
-      ? input.command.responsible.guardianLinkId
-      : currentEntry?.guardianLinkId;
   const guardian =
-    people
-      .flatMap((person) => person.links)
-      .find((link) => link.id === guardianLinkId) ?? null;
+    people.find((person) => person.guardian !== null)?.guardian ?? null;
   const [guardianActor] = guardian
     ? await tx
         .select({ id: actors.id })
