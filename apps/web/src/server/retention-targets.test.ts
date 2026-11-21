@@ -49,6 +49,8 @@ describe('retention targets', () => {
         purgeLapsedClubSeatInvitations: record('club_seat_invitations'),
         purgeExpiredSessions: record('session'),
         purgeExpiredProvisionalUsers: record('provisional_user'),
+        expireGuardianRequests: async (limit: number) =>
+          record('child_account_requests')({ before: now, limit }),
         purgeExpiredRoomCommands: record('room_commands'),
         purgeExpiredRoundCommands: record('round_commands'),
         purgeExpiredRoundCheckInAttempts: record('round_check_in_attempts'),
@@ -187,6 +189,11 @@ describe('retention targets', () => {
           { name: 'retention.outbox', batchSize: 200, maxBatches: 200 },
           { name: 'retention.session', batchSize: 500, maxBatches: 20 },
           { name: 'retention.provisional_user', batchSize: 50, maxBatches: 20 },
+          {
+            name: 'retention.child_account_requests',
+            batchSize: 200,
+            maxBatches: 20,
+          },
           { name: 'retention.room_commands', batchSize: 500, maxBatches: 20 },
           { name: 'retention.round_commands', batchSize: 500, maxBatches: 20 },
           {
@@ -304,6 +311,7 @@ describe('retention targets', () => {
           verification: [{ before: '2026-09-19T12:00:00.000Z', limit: 500 }],
           session: [{ before: '2026-09-19T12:00:00.000Z', limit: 500 }],
           provisional_user: [{ before: '2026-09-19T12:00:00.000Z', limit: 50 }],
+          child_account_requests: [{ before: now, limit: 200 }],
           room_commands: [{ before: '2026-09-19T12:00:00.000Z', limit: 500 }],
           round_commands: [{ before: '2026-09-19T12:00:00.000Z', limit: 500 }],
           round_check_in_attempts: [
@@ -405,6 +413,7 @@ describe('retention targets', () => {
           ['retention.outbox', false],
           ['retention.session', false],
           ['retention.provisional_user', false],
+          ['retention.child_account_requests', true],
           ['retention.room_commands', false],
           ['retention.round_commands', false],
           ['retention.round_check_in_attempts', false],
@@ -441,7 +450,7 @@ describe('retention targets', () => {
           ['retention.moderation', false],
           ['retention.presence_online', true],
         ],
-        calls: {},
+        calls: { child_account_requests: [{ before: now, limit: 200 }] },
         sweeps: [1000],
         failed: 40,
       },

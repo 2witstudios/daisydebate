@@ -26,10 +26,6 @@ export const tabRoutes = {
   room,
   liveRoom: (id: string) => `${room(id)}/live`,
   ballot: (id: string) => `${room(id)}/ballot`,
-  family: '/family',
-  minor: (id: string) => `/family/${id}`,
-  allowTournament: (minor: string, slug: string) =>
-    `/family/${minor}/allow/${slug}`,
 } as const;
 
 const hostTournament = (slug: string) => `/host${tournament(slug)}`;

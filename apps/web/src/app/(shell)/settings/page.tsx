@@ -5,6 +5,7 @@ import { requireAccess } from '../../../lib/access';
 import { parseDataRightsQuery } from '../../../features/account/data-rights/notices';
 import {
   requestIdentity,
+  requestFamilyViewer,
   requestAnalytics,
   requestAudienceSettings,
   requestOnboardingAnswers,
@@ -122,6 +123,7 @@ export default async function SettingsRoute({
   ]);
   const answers = admitted ? ownAnswers : null;
   const username = claimedUsername(identity);
+  const family = await requestFamilyViewer();
   // A restricted member may still read and clear what they show (ADR 0143);
   // the route decides, and answers nothing to anyone else.
   const [publicProfile, chosen, mediaRelease] = await Promise.all([
@@ -139,6 +141,7 @@ export default async function SettingsRoute({
         ? await audienceSections(identity.principal.userId)
         : {})}
       username={username}
+      familySettings={family?.role ?? null}
       publicProfile={publicProfile}
       mediaRelease={
         mediaRelease ? (

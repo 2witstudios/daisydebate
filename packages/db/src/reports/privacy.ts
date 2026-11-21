@@ -11,7 +11,8 @@ const rowsOf = (rows: unknown) => rows as Record<string, unknown>[];
  * (DEC-298), and a report they filed stays with its reporter removed, so one
  * member's erasure cannot empty another's report from the queue. Export gives a
  * subject reports they filed, without another member's sanction, and those
- * about them without who filed them.
+ * about them without who filed them. A guardian refusal stays with Safety
+ * and the person who filed it.
  */
 export const reportsPrivacyAdopter: PrivacyAdopter = {
   id: 'reports',
@@ -35,7 +36,8 @@ export const reportsPrivacyAdopter: PrivacyAdopter = {
       reports_about: exportRows(
         rowsOf(
           await tx.execute(
-            sql`select id, reason, surface, created_at, closed_at, outcome from reports where subject_actor_id=${actorId} order by created_at,id`,
+            sql`select id, reason, surface, created_at, closed_at, outcome from reports
+              where subject_actor_id=${actorId} and surface <> 'guardian-link' order by created_at,id`,
           ),
         ),
       ),

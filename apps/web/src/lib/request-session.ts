@@ -1,3 +1,5 @@
+import { readFamilySettings } from '../features/parental-controls/settings';
+import { evaluatedIdentity } from '../server/member-boundary';
 import { messageOfferFor } from '../features/messaging/request-offer';
 import { leaguePageAddress } from '../features/tab/reads/league-address';
 import { readStandingRoomDraft } from '../features/tab/reads/standing-room-draft';
@@ -724,6 +726,35 @@ export const requestMediaReleaseSettings = async (
     await processApp().database.mediaReleases.readMinorRelease(userId);
   return read.division === 'youth' ? mediaReleaseSettingsView(read) : null;
 };
+
+/** The parental-controls flag gates even the bound birth-month read. */
+export async function requestGuardianAgeBinding(userId: string) {
+  if (!(await requestReleaseEnabled('parental-controls', userId))) return null;
+  const { database, clock } = processApp();
+  return database.childAccountBinding(userId, clock.now());
+}
+
+export const requestFamilyViewer = cache(async () => {
+  const identity = await requestIdentity();
+  if (!evaluatedIdentity(identity)) return null;
+  const { userId } = identity.principal;
+  if (!(await requestReleaseEnabled('parental-controls', userId))) return null;
+  const { ageBand } =
+    await processApp().database.getParticipationByUserId(userId);
+  if (ageBand === 'adult') return { userId, role: 'adult' as const };
+  if (ageBand === '13-15' || ageBand === '16-17')
+    return { userId, role: 'child' as const };
+  return null;
+});
+
+export async function requestFamilyRows(role: 'adult' | 'child') {
+  const viewer = await requestFamilyViewer();
+  if (viewer?.role !== role) return null;
+  const { database, clock } = processApp();
+  return database.guardians.forSubject(viewer.userId, (session) =>
+    readFamilySettings(session, viewer.userId, role, new Date(clock.now())),
+  );
+}
 
 /** What this member's profile view offers toward `username` (decision 90). */
 export const requestMessageOffer = async (username: string) => {

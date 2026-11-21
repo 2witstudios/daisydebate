@@ -8,7 +8,8 @@ import type {
 import { actors } from '../schema/actors';
 import { lobbies } from '../schema/lobbies';
 import type { TenantScope } from '../tenant-scope';
-import { loadTabAccount, type TabAccount } from './boundary';
+import { loadAuthorizationAccount } from '../authorization';
+import type { TabAccount } from './account';
 import type { GrantRow } from './grant-rows';
 import type { MembershipRow, OrganizationRow } from './organization-facts';
 import { roleSeniority } from './role-seniority';
@@ -144,13 +145,13 @@ const loadOrganizationAuthority = async (
 };
 
 /**
- * The person's account with their boundary, the organization and the
+ * The person's account, the organization and the
  * person's usable grants, from the grant and membership rows already loaded
  * in this transaction, whose subject is the person.
  */
 export const loadTabAuthorization = async (
   tx: TabTransaction,
-  scope: TenantScope,
+  _scope: TenantScope,
   input: {
     readonly userId: string;
     readonly organization: OrganizationRow | null;
@@ -159,7 +160,7 @@ export const loadTabAuthorization = async (
     readonly staffMinimumBand: StaffMinimumBand;
   },
 ): Promise<TabAuthorization> => {
-  const account = await loadTabAccount(tx, input.userId, scope);
+  const account = await loadAuthorizationAccount(tx, input.userId);
   const membership =
     input.memberships.find(
       (row) =>

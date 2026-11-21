@@ -21,14 +21,13 @@ export const flagCatalogue = [
     dependencies: [],
   },
   {
-    // Minors' accounts and guardian links, closed until counsel answers.
-    key: 'daisy-tab-minors',
+    key: 'parental-controls',
     kind: 'release',
     owner: 'Daisy Tab (@2witstudios)',
-    taskCode: 'TAB-8.2',
+    taskCode: 'PC-1.3',
     expiresOn: '2027-03-31',
     safeDefault: false,
-    dependencies: ['daisy-tab'],
+    dependencies: [],
   },
   {
     // /pricing and the links to it; opens once the owner approves pricing

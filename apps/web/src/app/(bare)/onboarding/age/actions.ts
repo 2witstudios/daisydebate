@@ -1,5 +1,6 @@
 'use server';
 
+import { revalidatePath } from 'next/cache';
 import { cookies, headers } from 'next/headers';
 import {
   ageAnswerHref,
@@ -15,9 +16,14 @@ import {
 import { returnableDestination } from '../../../../features/auth/redirect';
 import { moveOn } from '../../../../server/form-action';
 import { inProcessFetch } from '../../../../server/in-process-fetch';
+import { routeReleaseFor } from '../../../../features/flags/route-release';
 import { processRoute } from '../../../../server/process-app';
 
-const ageRoute = processRoute((routes) => routes.age.POST);
+const ageRoute = processRoute((routes, app) =>
+  routes.age.withParentalControls((id) =>
+    routeReleaseFor(app)('parental-controls', id),
+  ),
+);
 
 /**
  * The age form's POST, as a server action: it works before hydration and
@@ -49,12 +55,13 @@ export async function ageStepAction(
       body: JSON.stringify(read.body),
     },
   );
+  if (response.status === 400) revalidatePath('/onboarding/age');
   const answer = await readAgeAnswer(response);
   const href = ageAnswerHref(answer, destination);
   if (href === null)
     return ageUnavailable({
-      month: String(read.body.month),
-      year: String(read.body.year),
+      month: 'month' in read.body ? String(read.body.month) : '',
+      year: 'year' in read.body ? String(read.body.year) : '',
       terms: true,
     });
   if (answer.kind === 'refused')

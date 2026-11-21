@@ -3,13 +3,9 @@ import type { AgeBand } from '@daisy/protocol';
 import { accountAge } from '../schema/account-age';
 import { actors } from '../schema/actors';
 import { entryMembers } from '../schema/entries';
-import {
-  guardianLinks,
-  restrictions,
-  restrictionLobbies,
-} from '../schema/guardian-links';
+import { guardianLinks } from '../schema/guardian-links';
 import { scopeTransaction, type TenantScope } from '../tenant-scope';
-import { loadTabAccount } from './boundary';
+import { loadAuthorizationAccount } from '../authorization';
 import type { TabTransaction } from './tab-transaction';
 
 /** Counterpart facts are read under the actual account's subject fence. */
@@ -34,45 +30,19 @@ export const loadEntryPeople = async (
     const account =
       person.userId === null
         ? null
-        : await loadTabAccount(tx, person.userId, subject);
+        : await loadAuthorizationAccount(tx, person.userId);
     const links =
       person.userId === null
         ? []
         : await tx
             .select()
             .from(guardianLinks)
-            .where(eq(guardianLinks.minorUserId, person.userId));
-    const limiting =
-      person.userId === null
-        ? []
-        : await tx
-            .select({
-              guardianLinkId: restrictions.guardianLinkId,
-              guardianUserId: restrictions.guardianUserId,
-              minorUserId: restrictions.minorUserId,
-              version: restrictions.version,
-              lobbyId: restrictionLobbies.lobbyId,
-            })
-            .from(restrictions)
-            .innerJoin(
-              guardianLinks,
-              eq(guardianLinks.id, restrictions.guardianLinkId),
-            )
-            .leftJoin(
-              restrictionLobbies,
-              eq(
-                restrictionLobbies.guardianLinkId,
-                restrictions.guardianLinkId,
-              ),
-            )
             .where(
               and(
-                eq(restrictions.minorUserId, person.userId),
-                eq(restrictions.limitsLobbies, true),
+                eq(guardianLinks.minorUserId, person.userId),
                 eq(guardianLinks.status, 'active'),
               ),
-            )
-            .orderBy(asc(restrictions.guardianLinkId));
+            );
     const previousEntries = await tx
       .select({
         entryId: entryMembers.entryId,
@@ -96,7 +66,6 @@ export const loadEntryPeople = async (
       ...person,
       account,
       links,
-      limiting,
       previousEntries,
       bandOnFirstDay: onFirstDay?.band ?? null,
     });
@@ -104,6 +73,3 @@ export const loadEntryPeople = async (
   await scopeTransaction(tx, scope);
   return loaded;
 };
-export type EntryPersonRow = Awaited<
-  ReturnType<typeof loadEntryPeople>
->[number];

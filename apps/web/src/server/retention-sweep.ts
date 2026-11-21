@@ -84,6 +84,7 @@ export function retentionTargets({
     readonly purgeExpiredProvisionalUsers: (
       batch: Batch & ProvisionalLinkPurposes,
     ) => Promise<number>;
+    readonly expireGuardianRequests: (limit: number) => Promise<number>;
     readonly purgeExpiredSessions: (batch: Batch) => Promise<number>;
     readonly purgeExpiredUtterances: (batch: Batch) => Promise<number>;
     readonly clearExpiredPendingBallots: (batch: Batch) => Promise<number>;
@@ -201,6 +202,12 @@ export function retentionTargets({
           limit,
           ...provisionalLinks,
         }),
+    },
+    {
+      name: 'retention.child_account_requests',
+      batchSize: 200,
+      maxBatches: 20,
+      purge: ({ limit }) => database.expireGuardianRequests(limit),
     },
     // ADR0059/DEC-81: accepted command receipts dedupe for 24 hours.
     ...dailyTargets(database),

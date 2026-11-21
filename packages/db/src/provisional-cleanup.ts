@@ -3,7 +3,7 @@ import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { verifications } from './schema/auth';
 import { emailDeliveries } from './schema/email-delivery';
 
-type Transaction = Parameters<Parameters<BunSQLDatabase['transaction']>[0]>[0];
+type Transaction = Pick<BunSQLDatabase, 'execute' | 'delete'>;
 /**
  * The app's emailed-link purposes and keyed recipient hash: @daisy/db holds
  * neither the purpose names nor the key, so a renamed purpose cannot
@@ -59,7 +59,7 @@ export const ownLinksDelete = (
  * and has freshly established provisional authority.
  */
 export async function clearProvisionalLinks(
-  tx: Transaction,
+  tx: Pick<Transaction, 'execute'>,
   user: { readonly id: string; readonly email: string | null },
   input: ProvisionalLinkPurposes,
 ): Promise<void> {

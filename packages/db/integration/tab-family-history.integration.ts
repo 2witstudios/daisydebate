@@ -125,13 +125,21 @@ test(
             : replay,
         expected: [person.commandId, true, 1],
       });
-      const [closed] =
-        await client`select has_table_privilege('daisy_web','guardian_links','INSERT') as links, has_table_privilege('daisy_web','restrictions','UPDATE') as restrictions`;
+      const [family] = await client`
+        select has_table_privilege('daisy_web', 'guardian_links', 'INSERT') as links,
+          to_regclass('public.restrictions') is null as restrictions_retired,
+          has_table_privilege('daisy_web', 'restriction_lobbies', 'UPDATE') as lobby_writes
+      `;
       assert({
-        given: 'the production web role after the scope migration',
-        should: 'retain closed family write privileges',
-        actual: [closed?.links, closed?.restrictions],
-        expected: [false, false],
+        given: 'the web role after the guardian controls migration',
+        should:
+          'have link inserts and keep the remaining lobby restrictions read-only',
+        actual: [
+          family?.links,
+          family?.restrictions_retired,
+          family?.lobby_writes,
+        ],
+        expected: [true, true, false],
       });
       await client.unsafe('reset role');
       assert({

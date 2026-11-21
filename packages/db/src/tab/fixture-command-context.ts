@@ -1,5 +1,5 @@
 import { and, eq } from 'drizzle-orm';
-import { loadTabCounterpart } from './boundary';
+import { loadTabCounterpart } from './account';
 import { fixtures } from '../schema/fixtures';
 import { tabRounds, stages, timeSlots } from '../schema/events';
 import { rooms } from '../schema/rooms';

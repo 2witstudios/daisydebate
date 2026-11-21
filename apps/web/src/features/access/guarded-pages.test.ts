@@ -86,6 +86,8 @@ mock.module(join(import.meta.dir, '../../lib/request-session.ts'), () => ({
   // visitor has none admitted.
   requestOptionalAnswersAdmitted: async () => false,
   requestOnboardingAnswers: async () => null,
+  requestFamilyViewer: async () => null,
+  requestFamilyRows: async () => null,
   requestAnalytics: async () => ({
     choice: {
       kind: 'known',
@@ -222,6 +224,10 @@ const rendered: Readonly<Record<string, () => Promise<{ default: unknown }>>> =
       import('../../app/(shell)/settings/billing/page'),
     '(shell)/settings/security/page.tsx': () =>
       import('../../app/(shell)/settings/security/page'),
+    '(shell)/settings/parental-controls/page.tsx': () =>
+      import('../../app/(shell)/settings/parental-controls/page'),
+    '(shell)/settings/your-parents/page.tsx': () =>
+      import('../../app/(shell)/settings/your-parents/page'),
     '(shell)/page.tsx': () => import('../../app/(shell)/page'),
     '(shell)/watch/page.tsx': () => import('../../app/(shell)/watch/page'),
     '(shell)/watch/[roundId]/page.tsx': () =>
