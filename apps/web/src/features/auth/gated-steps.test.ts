@@ -29,13 +29,15 @@ describe('ISSUE-247 every handed-off database step goes through the gate', () =>
   test('with the gate at one step, no two handed-off database steps ever run at once', async () => {
     const harness = saturated();
     harness.db.user.push(existingAccount);
-    const { steps } = harness;
-    await Promise.all(
-      requests().map((request) => harness.server.instance.handler(request)),
+    const { steps, clock } = harness;
+    await clock.run(
+      Promise.all(
+        requests().map((request) => harness.server.instance.handler(request)),
+      ),
     );
     // Every answer is in, so only handed-off work makes steps from here.
     steps?.measure();
-    await harness.server.settled();
+    await clock.run(harness.server.settled());
     const started = steps?.started() ?? [];
     assert({
       given:
@@ -59,19 +61,22 @@ describe('ISSUE-247 every handed-off database step goes through the gate', () =>
 
   test('a held step keeps a second task’s database step waiting for it', async () => {
     const harness = saturated();
-    const { steps } = harness;
+    const { steps, clock } = harness;
     const lookups = () =>
       (steps?.started() ?? []).filter((name) => name === 'lookup').length;
     // The first task's lookup is held inside the gate of one.
     const release = steps?.holdNext('lookup') ?? (() => {});
-    await harness.server.instance.handler(magicLinkRequest());
-    await harness.server.instance.handler(
-      magicLinkRequest({}, 'second@daisy.example.com'),
+    await clock.run(harness.server.instance.handler(magicLinkRequest()));
+    await clock.run(
+      harness.server.instance.handler(
+        magicLinkRequest({}, 'second@daisy.example.com'),
+      ),
     );
-    await new Promise((resolve) => setTimeout(resolve, 20));
+    // Long enough for every unheld step to finish many times over.
+    await clock.advance(20);
     const whileHeld = lookups();
     release();
-    await harness.server.settled();
+    await clock.run(harness.server.settled());
     assert({
       given:
         'a gate of one, the first handed-off task’s lookup held, and a second saturated request',

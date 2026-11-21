@@ -28,6 +28,8 @@ type Dependencies = {
   readonly sttModel: string;
   readonly nowMs: () => number;
   readonly waitUntilMs: (due: number, signal: AbortSignal) => Promise<void>;
+  /** Each loop history read's deadline; by default its own timeout (capture-history.ts). */
+  readonly historyDeadline?: () => AbortSignal;
   /** The LiveKit subscription and the clip consumer (capture-run.ts). */
   readonly subscribe: typeof createAudioSubscription;
   readonly consume: typeof consumeCaptureClips;
@@ -103,9 +105,12 @@ async function captureSession(
   const dropped = (n: number) => {
     stats.droppedFrames += n;
   };
+  const reads = input.historyDeadline
+    ? { deadlineSignal: input.historyDeadline }
+    : {};
   let current = await atStage(
     'history',
-    readCaptureHistory(input.client, epoch, signal, input),
+    readCaptureHistory(input.client, epoch, signal, input, undefined, reads),
   );
   const token = await issueCaptureToken(input.client, epoch, signal);
   const budget = captureMemoryBudget(input.pendingBytes);
@@ -211,7 +216,14 @@ async function captureSession(
       const due = input.nowMs() + CAPTURE_BATCH_INTERVAL_MS;
       current = await atStage(
         'refresh',
-        readCaptureHistory(input.client, epoch, signal, input),
+        readCaptureHistory(
+          input.client,
+          epoch,
+          signal,
+          input,
+          undefined,
+          reads,
+        ),
       );
       streams.remember(current.state);
       staging.refresh(current.calibration);

@@ -1,4 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { virtualClock } from '@daisy/clock/testing';
 import { assertRejects } from '@daisy/errors/testing';
 import { createStreamingAudioWriter } from './audio-stream';
 
@@ -74,59 +75,38 @@ test('the writer hands frames over on a 10 ms schedule, `leadMs` ahead', async (
 });
 
 test('the writer keeps its cadence while a concurrent call stalls 200 ms (ADR 0122)', async () => {
-  // Real time: the stall is another promise on the same event loop.
+  // The stall is another promise on the same clock, which the writer never awaits.
+  const clock = virtualClock();
   const stamps: number[] = [];
-  const waits: { due: number; enteredAt: number; resumedAt: number }[] = [];
   const write = createStreamingAudioWriter({
     target: {
       capture10ms: async () => {
-        stamps.push(performance.now());
+        stamps.push(clock.nowMs());
       },
       queuedMs: () => 0,
       clearQueue: () => undefined,
     },
     sampleRate: 24000,
     channels: 1,
-    nowMs: () => performance.now(),
-    waitUntilMs: async (due) => {
-      const enteredAt = performance.now();
-      while (performance.now() < due)
-        await Bun.sleep(Math.max(1, due - performance.now()));
-      waits.push({ due, enteredAt, resumedAt: performance.now() });
-    },
+    nowMs: clock.nowMs,
+    waitUntilMs: clock.waitUntilMs,
     leadMs: 0,
   });
   let stalled = false;
-  const stall = Bun.sleep(200).then(() => {
+  const stall = clock.sleep(200).then(() => {
     stalled = true;
   });
-  const start = performance.now();
-  await write(pcm(30), new AbortController().signal);
-  await stall;
-  const beforeStallEnded = stamps.filter((at) => at - start < 190).length;
-  const gaps = stamps.slice(1).map((at, index) => at - stamps[index]!);
-  process.stderr.write(
-    JSON.stringify({
-      event: 'audio_stream_cadence_observation',
-      maxGapMs: Math.max(...gaps),
-      stamps: stamps.map((at) => at - start),
-      waits: waits.map((wait) => ({
-        due: wait.due - start,
-        enteredAt: wait.enteredAt - start,
-        resumedAt: wait.resumedAt - start,
-      })),
-    }) + '\n',
+  await clock.run(
+    Promise.all([write(pcm(30), new AbortController().signal), stall]),
   );
   assert({
     given: 'a 300 ms stream and a concurrent 200 ms stall it never awaits',
-    should:
-      'send the stall-time frames on time with no gap anywhere near 100 ms',
-    actual: {
-      stalled,
-      onTime: beforeStallEnded >= 15,
-      maxGapUnder60: Math.max(...gaps) < 60,
+    should: 'send every frame on its 10 ms slot, through the stall and after',
+    actual: { stalled, stamps },
+    expected: {
+      stalled: true,
+      stamps: Array.from({ length: 30 }, (_, index) => index * 10),
     },
-    expected: { stalled: true, onTime: true, maxGapUnder60: true },
   });
 });
 

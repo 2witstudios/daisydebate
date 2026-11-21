@@ -175,10 +175,8 @@ test('a browser close before the upstream opens reaches the upstream with its co
   try {
     const browser = await browserSocket(edge.port!, certificates.ca, 'logout');
     upgrade.resolve();
-    // A bound for the failure case only: a dropped close never arrives.
-    const unseen = setTimeout(() => closed.resolve('never closed'), 3000);
+    // A dropped close never arrives: the test runner's timeout fails it.
     const received = await closed.promise;
-    clearTimeout(unseen);
     assert({
       given:
         'a browser that logs out while the bridge is still dialling upstream',

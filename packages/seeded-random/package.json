@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./testing": "./src/testing.ts"
   },
   "scripts": {
     "typecheck": "tsgo --noEmit && tsgo --noEmit -p tsconfig.test.json",
@@ -14,6 +15,7 @@
     "@noble/hashes": "2.4.0"
   },
   "devDependencies": {
+    "fast-check": "4.10.2",
     "riteway": "9.3.0"
   }
 }

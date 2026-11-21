@@ -1,3 +1,4 @@
+import { virtualClock, type VirtualClock } from '@daisy/clock/testing';
 import { dispatchDocumentationEvent } from './docs-consult';
 import type { ConsultOptions } from './docs-consult-options';
 import { createDocumentationEvent } from './docs-pipeline';
@@ -41,20 +42,53 @@ export const hangUntilAborted = (init?: RequestInit): Promise<Response> =>
     );
   });
 
-// Answers after `ms`, unless the request's signal aborts it first.
+/**
+ * A virtual clock and the dispatch options that run on it: `now`, the
+ * waits between polls and every request's deadline signal. A dispatch run
+ * with them is driven by `clock.run` and takes no real time.
+ */
+export const virtualTime = () => {
+  const clock = virtualClock();
+  const timeoutSignal = (ms: number) => {
+    const timeout = new AbortController();
+    void clock
+      .sleep(ms)
+      .then(() =>
+        timeout.abort(
+          new DOMException('The operation timed out.', 'TimeoutError'),
+        ),
+      );
+    return timeout.signal;
+  };
+  return {
+    clock,
+    options: {
+      now: clock.nowMs,
+      delay: (ms: number) => clock.sleep(ms),
+      timeoutSignal,
+      // A wait of zero would never move the virtual clock towards a deadline.
+      pollIntervalMs: 1_000,
+    },
+  } as const;
+};
+
+// Answers after `ms` on `clock`, unless the request's signal aborts it first.
 const answerAfter = (
   answer: Response,
   ms: number | undefined,
-  init?: RequestInit,
-): Promise<Response> =>
-  !ms
-    ? Promise.resolve(answer)
-    : new Promise<Response>((resolve, reject) => {
-        init?.signal?.addEventListener('abort', () =>
-          reject(new DOMException('aborted', 'AbortError')),
-        );
-        setTimeout(() => resolve(answer), ms);
-      });
+  init: RequestInit | undefined,
+  clock: VirtualClock | undefined,
+): Promise<Response> => {
+  if (!ms) return Promise.resolve(answer);
+  if (!clock)
+    throw new Error('A delayed answer needs the stub clock (virtualTime)');
+  return new Promise<Response>((resolve, reject) => {
+    init?.signal?.addEventListener('abort', () =>
+      reject(new DOMException('aborted', 'AbortError')),
+    );
+    void clock.sleep(ms).then(() => resolve(answer));
+  });
+};
 
 // The consult route's own failure: it answers only after its run has ended.
 export const routeFailure = (status = 500) =>
@@ -84,6 +118,8 @@ type Stub = {
   readonly appendBody?: unknown;
   /** Endpoints that accept the request and never answer until aborted. */
   readonly hang?: readonly ('reads' | 'append')[];
+  /** The virtual clock `readDelayMs` and `appendDelayMs` wait on. */
+  readonly clock?: VirtualClock;
   /** Conversation reads answer after this long (still abortable). */
   readonly readDelayMs?: number;
   /** The receipt-row append answers after this long (still abortable). */
@@ -123,7 +159,7 @@ export const routedFetch = (stub: Stub) => {
     const answer = json(
       stub.appendBody ?? { firstRowIndex: index, appended: 1 },
     );
-    return answerAfter(answer, stub.appendDelayMs, init);
+    return answerAfter(answer, stub.appendDelayMs, init, stub.clock);
   };
   const read = (path: string, init?: RequestInit) => {
     if (stub.hang?.includes('reads')) return hangUntilAborted(init);
@@ -136,7 +172,7 @@ export const routedFetch = (stub: Stub) => {
     if (sent && failWith) return new Response('', { status: failWith });
     const roles = sent ? (stub.roles?.() ?? []) : (stub.existing ?? []);
     const answer = json({ messages: roles.map((role) => ({ role })) });
-    return answerAfter(answer, stub.readDelayMs, init);
+    return answerAfter(answer, stub.readDelayMs, init, stub.clock);
   };
   const fetchImpl = (async (url: unknown, init?: RequestInit) => {
     const path = new URL(String(url)).pathname;

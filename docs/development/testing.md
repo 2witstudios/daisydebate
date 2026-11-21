@@ -256,11 +256,19 @@ report in CI's advisory job) is the live audit:
   loop's `/simplify` pass by extracting the shared function, component or data
   table into the owning module. Never raise `minTokens`, add an ignore, or
   re-baseline to quiet it (ADR 0026, ADR 0083).
+- **Generated inputs.** A property over generated inputs uses fast-check
+  through `@daisy/seeded-random/testing` (ADR 0161): `seededCheck` for an
+  arbitrary, `seededDraws` for an input built from draws, `seededWalk` for a
+  walk over the moves each state allows. Each run has a fixed seed and
+  reports its shrunk failure. The round engine's oracle,
+  `scripts/round-oracle.test.ts`, walks the public runtime in every format.
 - **Size and complexity.** `bun metrics` reports each file's size, churn and
   complexity. They are not lint rules: `bun lint` prints errors only, so a
   line of its output is always something to fix.
 - Tests are deterministic: inject clocks/IDs; never sleep-and-hope; no
-  cross-test shared state; use deterministic unit IDs and CSPRNG isolation IDs
+  cross-test shared state; a unit test drives timed code on `virtualClock`
+  from `@daisy/clock/testing`, and `test-time/no-real-sleep` fails a timed
+  `Bun.sleep`, `setTimeout` or `setInterval` in one (ADR 0161); use deterministic unit IDs and CSPRNG isolation IDs
   only in real-service integration tests; clean only records you created.
   The runner enforces it: `scripts/test-integration.ts` counts every table
   in the run's database before and after a workspace's run and fails the
