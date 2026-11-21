@@ -5,7 +5,7 @@ import type {
   LobbyCommandReceipt,
 } from '@daisy/protocol/lobby/command';
 import { sanctions } from '../schema/sanctions';
-import { seasons } from '../schema/ratings';
+import { seasons } from '../schema/seasons';
 import { templates } from '../schema/templates';
 import { settings } from '../schema/settings';
 import { certifications } from '../schema/certifications';

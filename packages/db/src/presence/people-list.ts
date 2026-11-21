@@ -1,11 +1,8 @@
 import type { AgeBand, RatingDivision, CompetitionType } from '@daisy/protocol';
 import { ageBands, divisionOfAgeBand } from '@daisy/protocol';
-import { challengeModes } from '../challenges/lobby';
+import { challengeModes, readChallengeDebaters } from '../challenges/lobby';
 import { readOfficialStandingLobbies } from '../official-standing-lobbies';
-import {
-  divisionAgeBand,
-  readCompetitionAgeBand,
-} from '../ladder-division-band';
+import { divisionAgeBand } from '../ladder-division-band';
 import { sql } from 'drizzle-orm';
 import {
   idSchema,
@@ -156,6 +153,7 @@ export function readPeopleListPage(
       tx,
       z.object({
         actorId: z.string(),
+        userId: z.string(),
         username: z.string(),
         chosen: z.enum(['online', 'busy', 'appearing_offline']),
         placement: z.enum(['round', 'room']).nullable(),
@@ -166,7 +164,7 @@ export function readPeopleListPage(
         ageBand: z.enum(ageBands).nullable(),
       }),
       sql`
-      select a.id as "actorId", u.username,
+      select a.id as "actorId", u.id as "userId", u.username,
         coalesce(ps.chosen_status, 'online') as chosen,
         ${placementOf(sql`a.id`)} as placement,
         ${isFriend} as friend,
@@ -179,13 +177,19 @@ export function readPeopleListPage(
       limit ${input.limit}`,
     );
     const lobbies = await readOfficialStandingLobbies(tx);
-    const ownBand = await readCompetitionAgeBand(tx, scope.userId);
+    const debaters = await readChallengeDebaters(
+      tx,
+      [scope.userId, ...rows.map(({ userId }) => userId)],
+      lobbies,
+    );
+    const own = debaters.get(scope.userId);
+    const people = rows.map(({ ageBand, userId, ...row }) => ({
+      ...row,
+      division: divisionOfAgeBand(ageBand),
+      challengeModes: challengeModes(lobbies, own, debaters.get(userId)),
+    }));
     return {
-      rows: rows.map(({ ageBand, ...row }) => ({
-        ...row,
-        division: divisionOfAgeBand(ageBand),
-        challengeModes: challengeModes(lobbies, ownBand, ageBand),
-      })),
+      rows: people,
       counts: counts ?? { everyone: 0, friends: 0, online: 0 },
       self,
     };

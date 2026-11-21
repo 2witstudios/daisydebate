@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import type { RoomCreate } from '@daisy/protocol';
 import type { SharedLobbyRefusal } from '@daisy/protocol/lobby/command';
 import {
@@ -11,6 +12,7 @@ import type {
   OrganizationKind,
   TournamentStatus,
 } from '@daisy/protocol/lobby';
+import type { LobbyAgeRule } from '@daisy/protocol/lobby/eligibility';
 import type { SettingValues } from '@daisy/protocol/setting-values';
 import { refuse, type CommandDecision } from './run-command';
 
@@ -44,6 +46,7 @@ type SeasonFact = {
   readonly organizationId: string;
   /** The `seasons.status` values. */
   readonly status: 'active' | 'closed';
+  readonly startsAt: string;
   readonly version: number;
 };
 
@@ -89,7 +92,7 @@ export type LobbyFacts = {
     /** Event Rooms whose Round has not started. */
     readonly unstartedEventRoomIds: readonly string[];
   };
-  /** The organization's active season, and the season the command names. */
+  /** The lobby's active season, and the season the command names. */
   readonly activeSeasonId: string | null;
   readonly season: SeasonFact | null;
   /** The lobby's ladder, if it has one. */
@@ -121,6 +124,7 @@ type LobbyRow = {
   readonly ownerOrganizationId: string | null;
   readonly name: string;
   readonly handle: string;
+  readonly ageRule?: LobbyAgeRule;
   readonly closedAt: string | null;
   readonly version: number;
 };
@@ -132,6 +136,7 @@ type TournamentRow = {
 type SeasonRow = {
   readonly id: string;
   readonly organizationId: string;
+  readonly lobbyId: string;
   readonly name: string;
   readonly startsAt: string;
   readonly endsAt: string | null;
@@ -184,6 +189,7 @@ type LobbyWrite =
         readonly name: string;
       }
     >
+  | Update<'ladders', { readonly name: string }>
   | Delete<'ladders'>;
 
 type LobbyRefusal = LobbySetupRefusal | SharedLobbyRefusal;
@@ -362,6 +368,58 @@ const closeLobby = (facts: LobbyFacts): LobbyDecision =>
     ]);
   });
 
+const onManagedStandingLobby = (
+  facts: LobbyFacts,
+  address: { readonly organizationId: string; readonly lobbyId: string },
+  decide: (lobby: LobbyFact, version: number) => LobbyDecision,
+): LobbyDecision =>
+  onOpenLobby(facts, (lobby, version) => {
+    if (
+      lobby.id !== address.lobbyId ||
+      lobby.ownerOrganizationId !== address.organizationId
+    )
+      return refuse('not-found');
+    if (lobby.kind !== 'standing') return refuse('lobby-not-standing');
+    return decide(lobby, version);
+  });
+
+const editStandingLobby = (
+  facts: LobbyFacts,
+  command: Extract<LobbyCommand, { type: 'edit-standing-lobby' }>,
+): LobbyDecision =>
+  onManagedStandingLobby(facts, command, (lobby, version) =>
+    accepted({ kind: 'lobby', id: lobby.id }, version, [
+      {
+        table: 'lobbies',
+        op: 'update',
+        id: lobby.id,
+        set: { name: command.name, ageRule: command.ageRule, version },
+      },
+    ]),
+  );
+
+const saveLadder = (
+  facts: LobbyFacts,
+  command: Extract<LobbyCommand, { type: 'save-ladder' }>,
+): LobbyDecision =>
+  onManagedStandingLobby(facts, command, (lobby, version) => {
+    const { ladderId, name, organizationId } = command;
+    if (ladderId !== null && facts.ladder?.id !== ladderId)
+      return refuse('not-found');
+    const write: LobbyWrite =
+      ladderId === null
+        ? {
+            table: 'ladders',
+            op: 'insert',
+            row: { id: facts.newId, lobbyId: lobby.id, organizationId, name },
+          }
+        : { table: 'ladders', op: 'update', id: ladderId, set: { name } };
+    return accepted({ kind: 'lobby', id: lobby.id }, version, [
+      write,
+      bump(lobby, version),
+    ]);
+  });
+
 const createSeason = (
   facts: LobbyFacts,
   command: Extract<LobbyCommand, { type: 'create-season' }>,
@@ -369,6 +427,13 @@ const createSeason = (
   if (facts.organization?.id !== command.organizationId)
     return refuse('not-found');
   if (facts.organization.kind !== 'league') return refuse('owner-not-league');
+  if (
+    facts.lobby?.ownerOrganizationId !== command.organizationId ||
+    facts.lobby.id !== command.lobbyId
+  )
+    return refuse('not-found');
+  if (facts.lobby.kind !== 'standing') return refuse('lobby-not-standing');
+  if (facts.lobby.closedAt !== null) return refuse('lobby-closed');
   if (facts.activeSeasonId !== null) return refuse('season-open');
   const seasonId = facts.newId;
   return accepted({ kind: 'season', id: seasonId }, 1, [
@@ -378,6 +443,7 @@ const createSeason = (
       row: {
         id: seasonId,
         organizationId: command.organizationId,
+        lobbyId: facts.lobby.id,
         name: command.name,
         startsAt: command.startsAt,
         endsAt: command.endsAt,
@@ -397,6 +463,30 @@ const createSeason = (
     },
   ]);
 };
+
+const editSeason = (
+  facts: LobbyFacts,
+  command: Extract<LobbyCommand, { type: 'edit-season' }>,
+): LobbyDecision =>
+  onManagedStandingLobby(facts, command, () => {
+    const { season } = facts;
+    if (season?.id !== command.seasonId) return refuse('not-found');
+    if (season.status === 'closed') return refuse('season-closed');
+    if (
+      command.endsAt !== null &&
+      instantMs(command.endsAt) <= instantMs(season.startsAt)
+    )
+      return refuse('season-end-before-start');
+    const version = season.version + 1;
+    return accepted({ kind: 'season', id: season.id }, version, [
+      {
+        table: 'seasons',
+        op: 'update',
+        id: season.id,
+        set: { name: command.name, endsAt: command.endsAt, version },
+      },
+    ]);
+  });
 
 /** Closing freezes the season's standings inputs. */
 const closeSeason = (
@@ -551,6 +641,12 @@ export const decideLobby = (
       return closeLobby(facts);
     case 'create-season':
       return createSeason(facts, command);
+    case 'edit-standing-lobby':
+      return editStandingLobby(facts, command);
+    case 'save-ladder':
+      return saveLadder(facts, command);
+    case 'edit-season':
+      return editSeason(facts, command);
     case 'close-season':
       return closeSeason(facts, command);
     case 'set-ladder':

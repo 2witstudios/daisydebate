@@ -58,16 +58,18 @@ test('canonical source/storage migrations preserve a genuinely submitted and fin
     await sql`alter table rooms add column holds_host boolean not null default false`;
     await sql`alter table rounds add column league_ladder_id text`;
     // ADR 0147's ladder divisions, which today's Room and rating reads name.
-    await sql`alter table rounds add column ladder_division text`;
-    await sql`alter table seasons add column division text`;
-    await sql`alter table ratings add column division text`;
-    await sql`alter table rating_changes add column division text`;
     // The current adapters use the standing lobby catalog when creating Rooms.
-    await sql`alter table organizations add column official boolean not null default false`;
+    await sql`alter table organizations add column official boolean not null default false,
+      add column operator_managed boolean not null default false`;
     await sql`update organizations set official=true where id in
       (select owner_organization_id from lobbies where kind='standing')`;
     await sql`create type lobby_age_rule as enum ('adults', 'under-18', 'anyone')`;
     await sql`alter table lobbies add column age_rule lobby_age_rule not null default 'adults'`;
+    await sql`alter table seasons add column lobby_id text`;
+    await sql`alter table rounds add column season_id text, add column rating_lobby_id text,
+      add column standing_age_rule lobby_age_rule, add column standing_youth_cast boolean not null default false`;
+    await sql`alter table templates add column shared boolean not null default false`;
+    await sql`alter table ballot_definitions add column shared boolean not null default false`;
     await sql`alter table rooms add column legacy_tournament_youth boolean`;
     // This journey only visits standing Rooms. The current query still resolves
     // its classifier before PostgreSQL evaluates the Room kind.
@@ -77,6 +79,10 @@ test('canonical source/storage migrations preserve a genuinely submitted and fin
         join public.lobbies l on l.id=r.lobby_id
         where r.id=$1 and l.kind='standing'
       $$`;
+    // The historical cast consists of adults. Today's Start still calls the
+    // separate recording classifier before recording that fact.
+    await sql`create function public.daisy_room_youth_recording_cast(text) returns boolean
+      language sql stable as $$ select coalesce(public.daisy_room_is_youth($1), false) $$`;
     await sql`alter table ballots add column speaker_ranks jsonb`;
     // Empty decoder interface only: the real pre-upgrade ordinary journey has
     // no tournament hosting grant, version, issuer or inferred funding account.
@@ -133,21 +139,23 @@ test('canonical source/storage migrations preserve a genuinely submitted and fin
     if (!completed.value) throw new Error('Missing real completed fixture');
     const { roundId, ballotId } = completed.value;
     const read = () =>
-      sql`select (select to_jsonb(r) from rounds r where id=${roundId}) as round,(select to_jsonb(b) from ballots b where id=${ballotId}) as ballot,(select to_jsonb(f) from round_finalizations f where round_id=${roundId}) as finalization,(select to_jsonb(c) from round_commands c join round_finalizations f on f.command_id=c.command_id where f.round_id=${roundId}) as receipt,(select to_jsonb(f) from round_finalization_ballots f where ballot_id=${ballotId}) as consumed`;
+      sql`select (select to_jsonb(r) - 'league_ladder_id' from rounds r where id=${roundId}) as round,(select to_jsonb(b) from ballots b where id=${ballotId}) as ballot,(select to_jsonb(f) from round_finalizations f where round_id=${roundId}) as finalization,(select to_jsonb(c) from round_commands c join round_finalizations f on f.command_id=c.command_id where f.round_id=${roundId}) as receipt,(select to_jsonb(f) from round_finalization_ballots f where ballot_id=${ballotId}) as consumed`;
     const before = await read();
     await sql`alter table rounds drop column ballot_definition_id,drop column ballot_definition_version`;
     await sql`alter table rooms drop column league_ladder_id`;
     await sql`alter table rooms drop column holds_host`;
     await sql`alter table rounds drop column league_ladder_id`;
-    await sql`alter table rounds drop column ladder_division`;
-    await sql`alter table seasons drop column division`;
-    await sql`alter table ratings drop column division`;
-    await sql`alter table rating_changes drop column division`;
+    await sql`alter table rounds drop column season_id, drop column rating_lobby_id,
+      drop column standing_age_rule, drop column standing_youth_cast`;
+    await sql`alter table seasons drop column lobby_id`;
+    await sql`alter table templates drop column shared`;
+    await sql`alter table ballot_definitions drop column shared`;
+    await sql`drop function public.daisy_room_youth_recording_cast(text)`;
     await sql`drop function public.daisy_room_is_youth(text)`;
     await sql`alter table rooms drop column legacy_tournament_youth`;
     await sql`alter table lobbies drop column age_rule`;
     await sql`drop type lobby_age_rule`;
-    await sql`alter table organizations drop column official`;
+    await sql`alter table organizations drop column official, drop column operator_managed`;
     await sql`alter table ballots drop column speaker_ranks`;
     await sql`drop table account_hosting_versions`;
     await sql`alter table account_entitlement_grants drop column hosting_version_id,drop column revoked_at`;

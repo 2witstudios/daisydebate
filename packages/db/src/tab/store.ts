@@ -11,6 +11,7 @@ export type {
 import { and, eq, sql } from 'drizzle-orm';
 import { lobbies } from '../schema/lobbies';
 import { createLeagueSeasonStore } from './league-season';
+import { createStandingLobbyManagementStore } from './standing-lobby-management';
 export type { LeagueSeasonFacts } from './league-season';
 import { createLeagueRatingStore } from './league-rating-inputs';
 export type { LeagueRatingInputs } from './league-rating-inputs';
@@ -205,6 +206,7 @@ export const createTabStore = (database: TxOpener) => ({
   ...createParticipantTournamentStore(database),
   ...createSanctionCommandStore(database),
   ...createLeagueSeasonStore(database),
+  ...createStandingLobbyManagementStore(database),
   ...createLeagueSchoolCommandStore(database),
   ...createResultCommandStore(database),
   ...createFixtureCommandStore(database),

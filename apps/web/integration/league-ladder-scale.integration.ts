@@ -1,4 +1,7 @@
-import { leagueRoomRating } from './league-room-rating.test-support';
+import {
+  leagueRoomRating,
+  openLeagueRatingSeason,
+} from './league-room-rating.test-support';
 import { requireTestServices } from '@daisy/config';
 import {
   scratchDatabase,
@@ -18,8 +21,7 @@ import { leagueAdministrationStage } from './tab-tournament-league-administratio
 import { leagueConfigurationStage } from './tab-tournament-league-configuration.test-support';
 import { as } from './tab-tournament-organization-wiring.test-support';
 import { readLeagueLadder } from '../src/features/ratings/read-league-ladder';
-import { foldLeagueRatings } from '../src/features/ratings/league-fold';
-import { leagueGames } from '../src/features/ratings/league-input';
+import { leagueStandings } from '../src/features/ratings/league-input';
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
 
@@ -70,7 +72,7 @@ const id = (kind: string) => `'z' || substr(md5('${kind}:' || g), 1, 23)`;
 const percentile = (sorted: readonly number[], p: number) =>
   sorted[Math.min(sorted.length - 1, Math.ceil(p * sorted.length) - 1)]!;
 
-test('a league ladder of 5,000 replayed games reads well under a second', async () => {
+test('a league ladder of 5,000 posted games reads well under a second', async () => {
   const scratch = scratchDatabase(databaseUrl, 'leaguescale');
   await scratch.create();
   const owner = new SQL(scratch.url, { max: 4 });
@@ -104,12 +106,13 @@ test('a league ladder of 5,000 replayed games reads well under a second', async 
       await run(world);
     // One league-rated Round made by the real Room Ready, Start and forfeit
     // operations is the template every seeded game copies.
+    await openLeagueRatingSeason(world);
     await leagueRoomRating(world);
     const lobbyId = world.made.get('standing-lobby')!;
     const [ladder] =
       await owner`select id from ladders where lobby_id=${lobbyId}`;
     const [template] =
-      await owner`select r.id, r.room_id, f.command_id, f.freeze_revision from rounds r join round_finalizations f on f.round_id=r.id where r.league_ladder_id=${ladder!.id}`;
+      await owner`select r.id, r.room_id, f.command_id, f.freeze_revision from rounds r join round_finalizations f on f.round_id=r.id where r.ladder_id=${ladder!.id}`;
     if (!template || template.freeze_revision !== null)
       throw new Error(`Unexpected template Round: ${JSON.stringify(template)}`);
     // Every per-Round row the template holds must be copied, or a clone's
@@ -136,7 +139,11 @@ test('a league ladder of 5,000 replayed games reads well under a second', async 
     // the draw seed every Start round mints (ADR 0145), read only by Start's
     // seat and resolution draws; and the notifications its start and decision
     // owe its members (ADR 0144), which tell people and rate nothing.
-    const notEnding = new Set(['round_draw_seeds', 'notifications']);
+    const notEnding = new Set([
+      'round_draw_seeds',
+      'notifications',
+      'rating_changes',
+    ]);
     const uncopied = Object.keys(held).filter(
       (table) => !copied.has(table) && !notEnding.has(table),
     );
@@ -191,7 +198,7 @@ test('a league ladder of 5,000 replayed games reads well under a second', async 
                 : null,
       });
       await tx.unsafe(
-        `update rounds r set status='completed', current_stage=null, completed_at=r.started_at + (t.completed_at - t.started_at), winning_side=case when md5('winner:' || r.id) < '8' then 'affirmative' else 'negative' end, ranking=t.ranking, resolution=t.resolution, version=t.version from rounds t where t.id='${template.id}' and r.id<>t.id and r.status='active' and r.league_ladder_id=t.league_ladder_id`,
+        `update rounds r set status='completed', current_stage=null, completed_at=r.started_at + (t.completed_at - t.started_at), winning_side=case when md5('winner:' || r.id) < '8' then 'affirmative' else 'negative' end, ranking=t.ranking, resolution=t.resolution, version=t.version from rounds t where t.id='${template.id}' and r.id<>t.id and r.status='active' and r.ladder_id=t.ladder_id`,
       );
       await clone(tx, {
         table: 'round_commands',
@@ -230,10 +237,27 @@ test('a league ladder of 5,000 replayed games reads well under a second', async 
                 : null,
       });
     });
+    // The real Room above proved transactional posting. Seed the remaining
+    // ledger and projection rows here so this proof measures only the read.
+    await owner.begin(async (tx) => {
+      await tx`insert into rating_changes
+        (id,round_id,actor_id,season_id,ladder,lobby_id,format_id,
+         rating_before,rating_after,deviation_before,deviation_after,
+         volatility_before,volatility_after,calculation_version,occurred_at)
+        select 'z'||substr(md5(p.id),1,23),r.id,p.actor_id,r.season_id,r.ladder_id,r.rating_lobby_id,r.format_id,
+               1500,1500,300,300,0.06,0.06,'glicko2-v1',r.completed_at
+        from rounds r join round_participants p on p.round_id=r.id and p.seat_kind='side'
+        where r.ladder_id=${ladder!.id} and r.id<>${template.id}`;
+      await tx`insert into ratings
+        (actor_id,season_id,ladder,lobby_id,rating,deviation,volatility)
+        select distinct actor_id,season_id,ladder,lobby_id,1500,300,0.06
+        from rating_changes where ladder=${ladder!.id} and round_id<>${template.id}
+        on conflict do nothing`;
+    });
     const seedMs = performance.now() - seededAt;
     await owner`analyze`;
     const [count] =
-      await owner`select count(*)::int as rounds, (select count(*)::int from round_participants p join rounds r on r.id=p.round_id where r.league_ladder_id=${ladder!.id} and p.seat_kind='side') as seats from rounds r join round_finalizations f on f.round_id=r.id where r.league_ladder_id=${ladder!.id} and r.status='completed'`;
+      await owner`select count(*)::int as rounds, (select count(*)::int from round_participants p join rounds r on r.id=p.round_id where r.ladder_id=${ladder!.id} and p.seat_kind='side') as seats from rounds r join round_finalizations f on f.round_id=r.id where r.ladder_id=${ladder!.id} and r.status='completed'`;
     assert({
       given: 'the seeded league',
       should: 'hold 5,000 finalized league-rated Rounds with two seats each',
@@ -261,7 +285,7 @@ test('a league ladder of 5,000 replayed games reads well under a second', async 
         async (facts) => {
           loads.push(performance.now() - started);
           const folding = performance.now();
-          foldLeagueRatings(leagueGames(facts!.input));
+          leagueStandings(facts!.input);
           folds.push(performance.now() - folding);
         },
       );
@@ -293,7 +317,7 @@ test('a league ladder of 5,000 replayed games reads well under a second', async 
       expected: [pool + 2, games * 2],
     });
     assert({
-      given: 'the replayed ladder read at 5,000 games',
+      given: 'the shared ledger read at 5,000 games',
       should: 'answer in under one second at the median',
       actual: median < 1_000,
       expected: true,

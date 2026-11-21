@@ -93,14 +93,19 @@ test(
             // Protection levels and approval holds arrive later (ADR 0165).
             'protection_levels',
             'friend_guardian_approvals',
+            'restriction_lobby_waivers',
+            // Rating state gains a lobby key and isolation in LL-2.
+            'ratings',
+            'rating_changes',
           ].includes(table.table),
       )
       .map((table) =>
         table.table === 'action_history'
           ? { ...table, key: 'either' as const }
-          : table.table === 'guardian_links'
+          : table.table === 'guardian_links' ||
+              table.table === 'restriction_lobbies'
             ? {
-                table: 'guardian_links',
+                table: table.table,
                 key: 'person' as const,
                 subject: 'guardian' as const,
               }
@@ -112,9 +117,19 @@ test(
         ...originalTables,
         { table: 'restrictions', key: 'person', subject: 'guardian' },
       ],
-      exempt: tenantIsolationManifest.exempt.filter(
-        (entry) => entry.table !== 'media_release_club_asks',
-      ),
+      exempt: [
+        ...tenantIsolationManifest.exempt.filter(
+          (entry) => entry.table !== 'media_release_club_asks',
+        ),
+        {
+          table: 'ratings',
+          reason: 'The pre-LL-2 projection was public across ladders.',
+        },
+        {
+          table: 'rating_changes',
+          reason: 'The pre-LL-2 ledger had no tenant key.',
+        },
+      ],
     });
     await scratch.migrate(() => true);
     const afterAllFolders = await problemsOf(scratch.url);
@@ -130,8 +145,11 @@ test(
         afterAllFolders,
       },
       expected: {
-        // Media release club asks (exempt, ADR 0151) arrive later as well.
-        before: tenantIsolationManifest.tables.length + 1,
+        before:
+          tenantIsolationManifest.tables.length +
+          // The media release club asks arrive later. Ratings and the ledger
+          // already exist here, with one additional unfenced-key diagnostic each.
+          3,
         firstBefore: 'organizations is declared but does not exist',
         afterSchema: [],
         afterAllFolders: [],

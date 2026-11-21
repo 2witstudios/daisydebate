@@ -43,6 +43,18 @@ const studentReads: Array<{
   actorId: string;
   lobbyId?: string;
 }> = [];
+const openRatingLobby = {
+  lobbyId: 'o'.repeat(24),
+  lobbyName: 'Open',
+  ageRule: 'adults',
+} as const;
+const youthRatingLobby = {
+  lobbyId: 'y'.repeat(24),
+  lobbyName: 'Youth',
+  ageRule: 'under-18',
+} as const;
+const ladderReads: Array<{ lobbyId: string; ladder: { division: string } }> =
+  [];
 let onlyYouthLobby = false;
 mock.module(join(import.meta.dir, '../../lib/request-session.ts'), () => ({
   requestRoomDraftAnswer: async () => ({ values: {} }),
@@ -54,9 +66,16 @@ mock.module(join(import.meta.dir, '../../lib/request-session.ts'), () => ({
   requestReleaseEnabled: async () => false,
   requestMediaReleaseSettings: async () => null,
   requestMemberDrive: () => null,
-  requestLadder: async () => null,
+  requestLadder: async (input: (typeof ladderReads)[number]) => {
+    ladderReads.push(input);
+    return null;
+  },
+  requestOfficialRatingLadders: async () => [openRatingLobby, youthRatingLobby],
+  requestLandingLobby: async () => ({ id: openRatingLobby.lobbyId }),
   // A stored league read answers no league for the placeholder slug.
   requestLeaguePage: async () => null,
+  requestStandingLobbyManagement: async () => null,
+  requestHostedLeagues: async () => [],
   requestStandingRoomPage: async () => null,
   requestRoundRatings: async () => null,
   requestWatchRound: async () => null,
@@ -94,11 +113,19 @@ mock.module(join(import.meta.dir, '../../lib/request-session.ts'), () => ({
   readRecordingHistory: async () => ({ kind: 'not-found' }),
   requestMemberStandings: async () => [],
   requestMemberDivision: async () => null,
+  requestRealtimeSocketUrl: () => undefined,
   requestCompetitionAgeBand: async () => (onlyYouthLobby ? 'adult' : null),
+  requestGuardianLobbyIds: async () => [],
   requestOfficialStandingLobbies: async () =>
     onlyYouthLobby
       ? [{ id: 'youth-lobby', name: 'Youth', ageRule: 'under-18' }]
-      : [],
+      : [openRatingLobby, youthRatingLobby].map(
+          ({ lobbyId: id, lobbyName: name, ageRule }) => ({
+            id,
+            name,
+            ageRule,
+          }),
+        ),
   requestRoomCreateLobbyChoice: async () => null,
   privateGroupsOffered: () => false,
   messagingLatestPageItems: () => 50,
@@ -107,8 +134,10 @@ mock.module(join(import.meta.dir, '../../lib/request-session.ts'), () => ({
   requestOptionalAnswersAdmitted: async () => false,
   requestOnboardingAnswers: async () => null,
   requestFamilyViewer: async () => null,
+  requestGuardianRelease: async () => null,
   requestFamilyRows: async () => null,
   requestFriendApprovals: async () => [],
+  requestFamilyLobbyPermissions: async () => null,
   requestAnalytics: async () => ({
     choice: {
       kind: 'known',
@@ -249,6 +278,8 @@ const rendered: Readonly<Record<string, () => Promise<{ default: unknown }>>> =
       import('../../app/(shell)/settings/security/page'),
     '(shell)/settings/parental-controls/page.tsx': () =>
       import('../../app/(shell)/settings/parental-controls/page'),
+    '(shell)/settings/parental-controls/[linkId]/page.tsx': () =>
+      import('../../app/(shell)/settings/parental-controls/[linkId]/page'),
     '(shell)/settings/your-parents/page.tsx': () =>
       import('../../app/(shell)/settings/your-parents/page'),
     '(shell)/page.tsx': () => import('../../app/(shell)/page'),
@@ -270,6 +301,7 @@ const guardRequestsOf = async (file: string) => {
     await page({
       params: Promise.resolve({
         username: 'someone',
+        linkId: 'x',
         id: 'x',
         roundId: 'x',
         slug: 'x',
@@ -383,6 +415,27 @@ describe('guarded pages', () => {
       should: 'not call requireAccess',
       actual: await requestsOf(spectator),
       expected: spectator.map(({ file }) => ({ file, requests: [] })),
+    });
+  });
+
+  test('a signed-out leaderboard reads only the requested official lobby', async () => {
+    const { default: page } =
+      await import('../../app/(shell)/leaderboard/page');
+    ladderReads.length = 0;
+    guardCalls.length = 0;
+    await page({
+      searchParams: Promise.resolve({ lobby: youthRatingLobby.lobbyId }),
+    });
+    await page({ searchParams: Promise.resolve({ lobby: 'p'.repeat(24) }) });
+    assert({
+      given:
+        'a signed-out visitor who selects Youth and then supplies an unknown lobby ID',
+      should: 'read just the public Youth ladder without requiring a session',
+      actual: [
+        ladderReads.map(({ lobbyId, ladder }) => [lobbyId, ladder.division]),
+        guardCalls.length,
+      ],
+      expected: [[[youthRatingLobby.lobbyId, 'youth']], 0],
     });
   });
 

@@ -137,6 +137,13 @@ export const lobbyAdministrationCommand =
                   stored: session.stored,
                   facts: async () => {
                     const loaded = await session.load();
+                    if (
+                      ('organizationId' in command &&
+                        'lobbyId' in command &&
+                        !loaded.lobby) ||
+                      ('seasonId' in command && !loaded.season)
+                    )
+                      throw new CommandDenied('not-found');
                     now = loaded.hosting.checkedAt;
                     return loaded;
                   },
@@ -168,6 +175,8 @@ export const lobbyAdministrationCommand =
                     if (
                       command.type === 'update-lobby' ||
                       command.type === 'set-ladder' ||
+                      command.type === 'save-ladder' ||
+                      command.type === 'edit-standing-lobby' ||
                       command.type === 'set-tournament-status'
                     )
                       return { kind: 'lobby', lobbyId: command.lobbyId };
@@ -220,4 +229,7 @@ export const isLobbyAdministration = (command: {
     'create-season',
     'close-season',
     'set-ladder',
+    'save-ladder',
+    'edit-season',
+    'edit-standing-lobby',
   ].includes(command.type);

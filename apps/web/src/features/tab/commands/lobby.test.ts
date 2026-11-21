@@ -391,6 +391,7 @@ describe('seasons', () => {
   const create: Extract<LobbyCommand, { type: 'create-season' }> = {
     type: 'create-season',
     organizationId: leagueId,
+    lobbyId: standing.id,
     name: '2027 season',
     startsAt: '2027-01-01T00:00:00Z',
     endsAt: null,
@@ -403,6 +404,7 @@ describe('seasons', () => {
     id: id('s'),
     organizationId: leagueId,
     status: 'active',
+    startsAt: now,
     version: 2,
   } as const;
   test('creates a season with its counting rule, and closes it', () => {
@@ -421,6 +423,7 @@ describe('seasons', () => {
               row: {
                 id: id('n'),
                 organizationId: leagueId,
+                lobbyId: standing.id,
                 name: '2027 season',
                 startsAt: '2027-01-01T00:00:00Z',
                 endsAt: null,
@@ -686,5 +689,73 @@ describe('create-lobby-room', () => {
         'lobby-closed',
       ],
     });
+  });
+});
+
+test('standing lobby editing changes the name and age rule without changing its address', () => {
+  assert({
+    given: 'an open standing lobby owned by the addressed league',
+    should: 'write its name and age rule and bump its version',
+    actual: writesOf(facts(), {
+      type: 'edit-standing-lobby',
+      organizationId: leagueId,
+      lobbyId: standing.id,
+      name: 'Junior debate',
+      ageRule: 'under-18',
+    }),
+    expected: {
+      aggregate: { kind: 'lobby', id: standing.id },
+      version: 5,
+      writes: [
+        {
+          table: 'lobbies',
+          op: 'update',
+          id: standing.id,
+          set: { name: 'Junior debate', ageRule: 'under-18', version: 5 },
+        },
+      ],
+    },
+  });
+});
+
+test('a ladder edit can only name a ladder in the selected lobby', () => {
+  assert({
+    given: 'a ladder ID absent from the selected lobby',
+    should: 'refuse without writing',
+    actual: refusalOf(facts(), {
+      type: 'save-ladder',
+      organizationId: leagueId,
+      lobbyId: standing.id,
+      ladderId: id('x'),
+      name: 'Junior ladder',
+    }),
+    expected: 'not-found',
+  });
+});
+
+test('a closed season cannot be edited', () => {
+  assert({
+    given: 'a closed season',
+    should: 'refuse edits',
+    actual: refusalOf(
+      facts({
+        season: {
+          id: id('s'),
+          organizationId: leagueId,
+          status: 'closed',
+          startsAt: now,
+          version: 1,
+        },
+      }),
+      {
+        type: 'edit-season',
+        organizationId: leagueId,
+        lobbyId: standing.id,
+        seasonId: id('s'),
+        name: 'Season One',
+        endsAt: null,
+      },
+    ),
+    expected: 'season-closed',
   });
 });

@@ -93,6 +93,7 @@ export function makeOperations(
       reason: 'free-judge-unbound',
     }),
     readContentWaiverStanding: async () => 'signed',
+    hasGuardianLobbyWaiver: async () => false,
     readMemberCardRatings: async () => [],
     readRatingBlindings: async () => [],
     listRoomCatalogSources: async (
@@ -184,7 +185,13 @@ export function makeOperations(
       ) => boolean,
     ) => {
       if (!authorize(state, account)) throw createAppError('NOT_FOUND');
-      return { state, viewerAgeBand: account.ageBand };
+      return {
+        state,
+        viewerAgeBand: account.ageBand,
+        viewerCompetitionAgeBand: account.ageBand,
+        viewerMayDebate: account.ageBand === 'adult',
+        ratingPool: { lobbyId: state.lobbyId, ladderId: 'freestyle' },
+      };
     },
     listRoomPage: async (
       _caller: typeof caller,
@@ -213,7 +220,6 @@ export function makeOperations(
   } as unknown as Store;
   const operations = createRoomRuntimeOperations({
     linkedAdults: noLinkedAdults,
-    now: () => '2026-11-02T00:00:00.000Z',
     store: base,
     redis: {
       setRoomConsent: async () => undefined,

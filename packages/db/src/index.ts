@@ -80,6 +80,7 @@ import {
 import { mediaCaptureOperations } from './media-capture';
 import { roundSpeakingRead } from './round-speaking-read';
 import { createBoundedTransaction } from './bounded-transaction';
+import { inTransaction } from './tx';
 import { readRatingCandidates, readRatingFacts } from './rating-discovery';
 import {
   deliverObservationPurges,
@@ -91,7 +92,6 @@ import {
   erasePrivacySubject as runSubjectRightsErasure,
   exportPrivacySubject as runSubjectRightsExport,
 } from './privacy/subject-rights';
-import type { PrivacyErasureInput } from './privacy/planner';
 import type { PrivacySubject } from './privacy/contracts';
 import type { PrivacyVerificationBinding } from './privacy/operations';
 import type { RoomClosureTransitions } from './room-account-closure';
@@ -106,6 +106,7 @@ import {
 import { claimUsername } from './username-claim';
 import { mailIntentOperations } from './mail-intents';
 import { leagueRequestOperations } from './league-requests';
+import { eraseGuardianChild } from './privacy/subject-rights';
 import { createMediaReleases } from './media-releases';
 import { createMediaReleaseClubs } from './media-release-club';
 import { mediaReleaseMailOperations } from './media-release-mail';
@@ -160,6 +161,11 @@ import { documentOperations } from './document-operations';
 import { onboardingOperations } from './onboarding-operations';
 import { ageStepOperations } from './age-step';
 import { expireGuardianRequests } from './guardians/retention';
+import {
+  readGuardianLobbyIds,
+  hasGuardianLobbyWaiver,
+} from './guardians/lobby-permissions';
+import { createLobbyPermissionStore } from './guardians/lobby-requests';
 import { createGuardianStore } from './guardians/store';
 export type { GuardianLinkRow, GuardianSession } from './guardians/store';
 import { actorOperations } from './actor-operations';
@@ -404,12 +410,20 @@ export function createDatabase({
      * transitions and, for erasure, the verification bindings.
      */
     erasePrivacySubject: (
-      input: PrivacyErasureInput,
+      input: Parameters<typeof runSubjectRightsErasure>[1],
       rooms: RoomClosureTransitions,
       verificationBindings: readonly PrivacyVerificationBinding[],
     ) =>
       instrumented(eventSink, 'erasePrivacySubject', () =>
         runSubjectRightsErasure(control, input, rooms, verificationBindings),
+      ),
+    eraseGuardianChild: (
+      input: Parameters<typeof eraseGuardianChild>[1],
+      rooms: RoomClosureTransitions,
+      verificationBindings: readonly PrivacyVerificationBinding[],
+    ) =>
+      instrumented(eventSink, 'eraseGuardianChild', () =>
+        eraseGuardianChild(control, input, rooms, verificationBindings),
       ),
     exportPrivacySubject: (
       subject: PrivacySubject,
@@ -442,13 +456,18 @@ export function createDatabase({
     /** Daisy Tab's commands and reads, each in one transaction fenced to its tenant. */
     tabCommands: createTabStore(database),
     guardians: createGuardianStore(control),
+    lobbyPermissions: createLobbyPermissionStore(control),
     expireGuardianRequests: (limit: number) =>
       expireGuardianRequests(control, limit),
     ...friendshipReadOperations({ database: social, eventSink }),
     ...presenceSettingOperations({ database: social, eventSink }),
     ...peopleListOperations({ database: social, eventSink }),
     ...publicProfileOperations({ database: social, eventSink }),
-    ...memberCardOperations({ database: social, eventSink }),
+    ...memberCardOperations({
+      database: social,
+      ratingDatabase: browse,
+      eventSink,
+    }),
     ...challengeReadOperations({ database: social, eventSink }),
     ...reportOperations({ database: control, eventSink, moderationReactions }),
     ...moderationOperations({ database: control, eventSink }),
@@ -550,11 +569,18 @@ export function createDatabase({
     ...memberProfileReadOperations({ database: browse, eventSink }),
     ...spectatorTimelineReads({ database: audience, eventSink }),
     ...liveBroadcastReads({ database: audience }),
+    readGuardianLobbyIds: (userId: string) =>
+      inTransaction(browse, (tx) => readGuardianLobbyIds(tx, userId)),
+    hasGuardianLobbyWaiver: (
+      input: Parameters<typeof hasGuardianLobbyWaiver>[1],
+    ) => inTransaction(browse, (tx) => hasGuardianLobbyWaiver(tx, input)),
     readOfficialStandingLobbies: () => readOfficialStandingLobbies(browse),
     readProfileChallengeModes: (userId: string, username: string) =>
-      readProfileChallengeModes(browse, userId, username),
-    readCompetitionAgeBand: (userId: string) =>
-      readCompetitionAgeBand(browse, userId),
+      inTransaction(browse, (tx) =>
+        readProfileChallengeModes(tx, userId, username),
+      ),
+    readCompetitionAgeBand: (userId: string, lobbyId?: string) =>
+      readCompetitionAgeBand(browse, userId, lobbyId),
     ...watchableRoundOfRoomRead({ database }),
     ...audienceSnapshotReads({ database: audience, eventSink }),
     ...spectatorChatOperations({ database: social, eventSink }),

@@ -107,9 +107,9 @@ the style. Nothing recorded who may play.
 - The PR 789 ranked age floor (`RANKED_AGE_FLOOR`, `rankedAgeAdmitted`,
   `ranked-age`, the challenge send fence) is removed: division routing replaces
   it.
-- `bun season activate-beta` opens each division's Season 1. `bun season open`
-  takes `--division`. Opening the Youth season on staging is a builder's proof;
-  on production it keeps human sign-off.
+- [ADR 0162](0162-daisy-is-a-league-open-and-youth-are-lobbies.md) puts
+  season operations in the league host. The first production season keeps
+  human sign-off.
 - The ranked content waiver is signed per member against their own division's
   season.
 - Youth recordings, broadcast and media releases are later slices (PYL S3,

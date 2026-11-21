@@ -1,3 +1,4 @@
+import { rateCompletedRound } from '../src/features/ratings/rate-debate';
 import { withRoomRuntime } from './room-runtime.test-support';
 import { createRoundRuntimeOperations } from '../src/features/round-runtime/operations';
 import { lobbyAdministrationCommand } from '../src/features/tab/operations/lobby-administration';
@@ -14,8 +15,41 @@ import { readLeagueLadder } from '../src/features/ratings/read-league-ladder';
 import { as } from './tab-tournament-organization-wiring.test-support';
 import type { World } from './tab-tournament.test-support';
 
+/** Use the same operator-facing command to create the league's test season. */
+export async function openLeagueRatingSeason(world: World) {
+  const answer = await lobbyAdministrationCommand({
+    store: createTabStore(world.database),
+    authorize,
+    now: world.clock.now,
+    newId: createId,
+  })(as(world.bots.Director!), {
+    version: 1,
+    commandId: createId(),
+    expected: {},
+    command: {
+      type: 'create-season',
+      organizationId: world.made.get('league')!,
+      lobbyId: world.made.get('standing-lobby')!,
+      name: 'League rating season',
+      startsAt: world.clock.now(),
+      endsAt: null,
+      counting: 'sanction',
+      countsLobbyRooms: true,
+      rule: {},
+    },
+  });
+  if (answer.kind !== 'accepted')
+    throw new Error(`League rating season: ${JSON.stringify(answer)}`);
+  return answer.receipt.aggregate.id;
+}
+
 /** Exercise Room assembly, Ready, Start and forfeit through their actual owners. */
-export async function leagueRoomRating(world: World) {
+export async function leagueRoomRating(
+  world: World,
+  sideSize = 1,
+  visibility: 'public' | 'unlisted' = 'unlisted',
+  awaitingPosting?: { readonly forfeit: 'Debater 1' | 'Debater 2' },
+) {
   const lobbyId = world.made.get('standing-lobby')!;
   const [ladder] =
     await world.sql`select id from ladders where lobby_id=${lobbyId}`;
@@ -59,7 +93,7 @@ export async function leagueRoomRating(world: World) {
         hostActorId: principal.actorId,
         title: 'League ladder Room',
         topic: 'League ladder proof',
-        visibility: 'unlisted',
+        visibility,
         formatId: 'freestyle',
         formatVersion: 1,
         presetVersion: null,
@@ -71,7 +105,13 @@ export async function leagueRoomRating(world: World) {
           preRoundPrep: config.preRoundPrep,
           resolutionDraw: config.resolutionDraw,
         },
-        rules: validRules,
+        rules: {
+          ...validRules,
+          seats: {
+            ...validRules.seats,
+            sides: { affirmative: sideSize, negative: sideSize },
+          },
+        },
       },
       lobby: { id: lobbyId, kind: 'standing' },
       templateId: world.made.get('league-template')!,
@@ -127,6 +167,16 @@ export async function leagueRoomRating(world: World) {
   if (!world.runtimeDatabaseUrl)
     throw new Error('League Room proof needs its committed runtime resource');
   let roundId = '';
+  const competitors = [
+    [sideSeat('affirmative'), world.bots['Debater 1']!],
+    [sideSeat('negative'), world.bots['Debater 2']!],
+    ...(sideSize === 2
+      ? ([
+          [sideSeat('affirmative', 1), world.bots['Debater 3']!],
+          [sideSeat('negative', 1), world.bots['Debater 4']!],
+        ] as const)
+      : []),
+  ] as const;
   await withRoomRuntime(
     async (f) => {
       const host = world.bots.Director!;
@@ -154,61 +204,37 @@ export async function leagueRoomRating(world: World) {
         actual: underAge,
         expected: 'other-division',
       });
-      // The old organization division only selects its rating season. It
-      // cannot change eligibility in a Room belonging to an adult lobby.
-      const [league] =
-        await world.sql`select l.organization_id from rooms r join ladders l on l.id = r.league_ladder_id where r.id = ${roomId}`;
-      try {
-        await world.sql`update organizations set league_division = 'youth' where id = ${league!.organization_id}`;
-        await world.sql`update account_age set birth_month=to_char(now() - interval '17 years 11 months','YYYY-MM'), version=version+1 where user_id=${minor.userId}`;
-        const claim = await f
-          .command(minor, view, {
-            type: 'claim-seat',
-            seat: sideSeat('negative'),
-          })
-          .then(
-            () => 'accepted',
-            (error: Error) => error.message,
-          );
-        assert({
-          given:
-            'the league changes its legacy season division after creating an adult Room',
-          should: 'continue to use the Room’s lobby rule for debater seats',
-          actual: claim,
-          expected: 'other-division',
-        });
-      } finally {
-        await world.sql`update organizations set league_division = 'open' where id = ${league!.organization_id}`;
-        await world.sql`update account_age set birth_month=${kept!.birth_month}, version=version+1 where user_id=${minor.userId}`;
-      }
-      for (const [side, person] of [
-        ['affirmative', world.bots['Debater 1']!],
-        ['negative', world.bots['Debater 2']!],
-      ] as const) {
+      for (const [seat, person] of competitors) {
         view = (
           await f.command(person, view, {
             type: 'claim-seat',
-            seat: sideSeat(side),
+            seat,
           })
         ).view;
       }
-      for (const person of [world.bots['Debater 1']!, world.bots['Debater 2']!])
+      for (const [, person] of competitors)
         view = (await f.consent(person, view, 'ready')).view;
       await f.command(host, view, { type: 'start-round' });
       const [frozen] =
-        await world.sql`select id,league_ladder_id,ladder_id from rounds where room_id=${roomId}`;
+        await world.sql`select id,ladder_id,season_id,rating_lobby_id from rounds where room_id=${roomId}`;
       if (!frozen) throw new Error('League Room Start did not create a Round');
       roundId = String(frozen.id);
       assert({
         given: 'the actual ordinary Room Ready and Start operations',
         should:
-          'copy the selected league ladder and leave Daisy ratedness empty',
-        actual: [frozen.league_ladder_id, frozen.ladder_id],
-        expected: [ladder!.id, null],
+          'freeze the selected ladder together with its own lobby and season',
+        actual: [
+          frozen.ladder_id,
+          frozen.rating_lobby_id,
+          typeof frozen.season_id,
+        ],
+        expected: [ladder!.id, lobbyId, 'string'],
       });
       const round = (await f.store.getRound(roundId))!;
       const debater = round.participants.find(
-        (person) => person.actorId === world.bots['Debater 1']!.actorId,
+        (person) =>
+          person.actorId ===
+          world.bots[awaitingPosting?.forfeit ?? 'Debater 1']!.actorId,
       )!;
       await createRoundRuntimeOperations({
         store: f.store,
@@ -222,6 +248,7 @@ export async function leagueRoomRating(world: World) {
     },
     { databaseUrl: world.runtimeDatabaseUrl },
   );
+  if (awaitingPosting) return roundId;
   const games = (actorId: string, lines: typeof before) => {
     const row = lines?.lines.find((row) => row.actorId === actorId);
     return row ? row.wins + row.losses : 0;
@@ -235,27 +262,44 @@ export async function leagueRoomRating(world: World) {
   assert({
     given: 'a forfeited league Round whose check-in writer is still in doubt',
     should: 'count on the league ladder for no competitor, as Daisy rates it',
-    actual: [world.bots['Debater 1']!, world.bots['Debater 2']!].map(
-      (person) =>
+    actual: competitors.map(
+      ([, person]) =>
         games(person.actorId, pending) - games(person.actorId, before),
     ),
-    expected: [0, 0],
+    expected: competitors.map(() => 0),
   });
   await world.sql`update round_check_in_attempts set state='aborted',resolved_at=now() where attempt_id=${attemptId}`;
+  await withRoomRuntime(
+    async ({ store }) => {
+      const first = await rateCompletedRound(store, roundId, {
+        next: createId,
+      });
+      const retry = await rateCompletedRound(store, roundId, {
+        next: createId,
+      });
+      assert({
+        given: 'a finalized rated league Round and a retry',
+        should: 'write through the common ledger exactly once',
+        actual: [first.kind, retry.kind],
+        expected: ['rated', 'already-rated'],
+      });
+    },
+    { databaseUrl: world.runtimeDatabaseUrl },
+  );
   const after = await read(principal, { lobbyId });
   assert({
     given: 'a finalized own-lobby result and its frozen actor seats',
-    should:
-      'add exactly one league game per competitor without a Daisy ledger write',
+    should: 'add one game per competitor and one posting for each seat',
     actual: [
-      games(world.bots['Debater 1']!.actorId, after) -
-        games(world.bots['Debater 1']!.actorId, before),
-      games(world.bots['Debater 2']!.actorId, after) -
-        games(world.bots['Debater 2']!.actorId, before),
+      ...competitors.map(
+        ([, person]) =>
+          games(person.actorId, after) - games(person.actorId, before),
+      ),
       (
         await world.sql`select count(*)::int as count from rating_changes where round_id=${roundId}`
       )[0]!.count,
     ],
-    expected: [1, 1, 0],
+    expected: [...competitors.map(() => 1), competitors.length],
   });
+  return roundId;
 }

@@ -1,6 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { schemaRules as rules } from './schema.test-support';
-import { ratingChanges, ratings, seasons } from './schema/ratings';
+import { seasons } from './schema/seasons';
+import { ratingChanges, ratings } from './schema/ratings';
 import {
   memberInterests,
   memberLeagues,
@@ -26,23 +27,18 @@ describe('ratings schema rules', () => {
       },
       expected: {
         seasons: [
-          'seasons_division_check',
           'seasons_ends_after_starts',
           'seasons_status_check',
           'seasons_version_positive',
         ],
         ratings: [
           'ratings_deviation_positive',
-          'ratings_division_check',
-          'ratings_ladder_check',
           'ratings_rating_range',
           'ratings_version_positive',
           'ratings_volatility_positive',
         ],
         changes: [
           'rating_changes_deviation_positive',
-          'rating_changes_division_check',
-          'rating_changes_ladder_check',
           'rating_changes_rating_range',
           'rating_changes_volatility_positive',
         ],

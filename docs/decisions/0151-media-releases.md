@@ -51,6 +51,11 @@ release wording (PYL-8).
    use and lasts 30 days; a paid-ads change mails a fresh one. A used sign
    link, or `/release/manage` with the signer's address, mails a new manage
    link, with the same answer whether or not a release was found.
+   A signed-in adult with a confirmed guardian link ([ADR 0163](0163-guardian-links-and-consent-evidence.md))
+   can also sign in Parental controls › More. The same attestation, scope
+   decision and durable signature use the guardian's verified account address.
+   The signed delivery record supports the existing copy and withdrawal link.
+   This path issues no request email or sign token.
 4. **Mail.** `media_release_mails` is the parent's mail job table (the
    request, the reminder, the signed copy, a manage link), sent through the
    one suppression-honouring path under the transport purpose

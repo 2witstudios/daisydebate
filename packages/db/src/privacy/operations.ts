@@ -3,6 +3,10 @@ import { createAppError } from '@daisy/errors';
 import { z } from 'zod';
 import { enqueuePrivacyJob } from './enqueue-job';
 import { lockAuthorizationActors } from '../authorization';
+import {
+  findActiveGuardianChild,
+  type GuardianChildAuthority,
+} from '../guardians/active-child';
 import type {
   PrivacyAdopter,
   PrivacyExport,
@@ -89,15 +93,35 @@ async function eraseAdopters(
  */
 export async function runPrivacyErasure(
   database: TxOpener,
-  input: PrivacyErasureInput,
+  input:
+    | PrivacyErasureInput
+    | (Omit<PrivacyErasureInput, 'subject'> & GuardianChildAuthority),
   adoption: PrivacyAdoption,
   verificationBindings: readonly PrivacyVerificationBinding[],
 ) {
-  const plan = planPrivacyErasure(input, adoption);
+  const selfPlan =
+    'guardian' in input ? null : planPrivacyErasure(input, adoption);
   checkBindings(verificationBindings);
   return inTransaction(database, async (tx) => {
-    const account = await lockSubject(tx, plan.subject);
-    if (account.erased) return { alreadyErased: true, jobs: [] };
+    const subject =
+      'guardian' in input
+        ? await findActiveGuardianChild(tx, input, 'write')
+        : input.subject;
+    if (!subject) throw createAppError('NOT_FOUND');
+    const plan =
+      selfPlan ??
+      planPrivacyErasure(
+        {
+          ...input,
+          subject: {
+            userId: subject.userId,
+            actorId: subject.actorId,
+          },
+        },
+        adoption,
+      );
+    if (!('guardian' in input) && (await lockSubject(tx, plan.subject)).erased)
+      return { alreadyErased: true, jobs: [] };
     await eraseAdopters(tx, plan.subject, plan.now, adoption, 'before-auth');
     for (const binding of verificationBindings) {
       if ('purpose' in binding) {
@@ -143,7 +167,11 @@ export async function runPrivacyErasure(
     );
     await eraseAdopters(tx, plan.subject, plan.now, adoption, 'after-close');
     for (const job of plan.jobs) await enqueuePrivacyJob(tx, job);
-    return { alreadyErased: false, jobs: plan.jobs };
+    return {
+      alreadyErased: false,
+      jobs: plan.jobs,
+      ...('guardian' in input ? { subject: plan.subject } : {}),
+    };
   });
 }
 

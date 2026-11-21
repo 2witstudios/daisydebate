@@ -99,7 +99,7 @@ Every table that carries an isolation key (`organization_id` or `lobby_id`), or 
 
 The scope is three transaction-local settings (`daisy.organization_scope`, `daisy.lobby_scope`, `daisy.subject_scope`), read by `daisy_organization_scope()` and its siblings and set only by `withScope` and `scopeTransaction` in `packages/db/src/tenant-scope.ts`, with ids taken from rows loaded by id after `authorize` allowed the operation. With none set every predicate is null, so the runtime role reads and writes no fenced row. A scope does not survive its transaction, so a fenced read outside one sees nothing. The fence stops a query that forgot its `WHERE`; it does not stop SQL injection, since the runtime role can set the same settings.
 
-Row-level security is `ENABLE`d, not `FORCE`d: the migration owner keeps access for migrations and fixtures, and the runtime roles own no table, so the policies bind them. A runtime role must not be able to bypass them: `runtimeRoleProblems` reports a `BYPASSRLS` role with the other refusals. `daisy_realtime` holds no privilege on any tenant-owned table.
+Tables generally enable row-level security and let the migration owner inspect rows during migrations and fixtures. `restriction_lobby_waivers` also forces row-level security. An owner without `BYPASSRLS` needs the guardian or child subject scope to inspect that person's waiver evidence. A runtime role must not bypass policies. `runtimeRoleProblems` reports a `BYPASSRLS` role with the other refusals. `daisy_realtime` holds no privilege on any tenant-owned table.
 
 **The check.** `tenantIsolationProblems` (`packages/db/src/tenant-isolation.ts`) compares the catalog with the manifest and reports a tenant-owned table without row-level security or with a policy that differs from its declared shape, an undeclared table that carries a key or references a tenant-owned table, a nullable key outside the `<table>_one_tenant_key` CHECK, any `tournament_id` column, a privilege held by `PUBLIC` or `daisy_realtime`, and a declaration that names no table. It runs in `tenant-isolation.integration.ts` (which also proves it passes after each migration folder), in `bun doctor` (`tenant-isolation`) and at production start-up, where `startProductionServer` refuses to serve after the runtime-role refusal and before Next is prepared.
 
@@ -114,6 +114,12 @@ history never excuses an undeclared tenant table. This establishes additive
 version tolerance, not compatibility with removed columns or changed stored
 contracts. Doctor and integration authoring checks remain exact over the whole
 catalogue.
+
+The PC-3 staging release applies the lobby-permission migration and then starts
+the current web image. That image declares the new `restriction_lobbies` write
+policies and the waiver evidence fence. A pre-PC-3 image refuses to restart
+against the migrated schema because its manifest lacks the new policies. After
+the migration, recovery uses the current image or a forward fix.
 
 The release runner owns the journal and refreshes a narrow read grant after
 successful migration, including a release with no pending folders:
@@ -130,7 +136,7 @@ irreversible seat/outcome rewrite.
 
 **Adding a cross-tenant read.** Write it as a `SECURITY DEFINER` function with `SET search_path = pg_catalog, public, pg_temp` (`pg_temp` last: unlisted, it is searched first), `REVOKE ALL ... FROM PUBLIC` and `GRANT EXECUTE` to exactly the runtime roles that call it, and register it in the manifest's `definers` with those roles and why its output discloses no more than its callers may know. `tenantDefinerProblems` fails any definer, in any schema, whose definition names a tenant-owned table or calls a registered definer without a registration of its own, and a registered one that is missing, not pinned with `pg_catalog` first and `pg_temp` last, open to `PUBLIC` or run by other roles ([ADR 0158](../decisions/0158-linked-adults-in-one-registered-function.md)).
 
-**Refusals the database makes itself.** Triggers refuse, for every role, an UPDATE or DELETE of `action_history`, `results`, `result_entries`, `result_speakers`, `certifications`, `certification_results`, `releases`, `conflicts` and `ballot_definition_versions`; any change to a grant but its one revocation; a change to a template's pins or a pool resolution's wording; any change to a published draw or to the fixtures and results it holds; a fixture moving any way but draft to published to withdrawn; a change to a published fixture's entries; a second settlement of a held command; a Room moved to another lobby; and a ballot screening whose lobby is not that of its ballot's Room. Each raises SQLSTATE 23514 with a constraint name, as a CHECK would. `daisy_web` also holds no UPDATE or DELETE on the append-only tables, no DELETE on `grants` or `pending_commands`, and no INSERT, UPDATE or DELETE on `restriction_lobbies`. Guardian links and child-account requests have subject-scoped INSERT and UPDATE. Guardian consent evidence has subject-scoped INSERT and SELECT, with an immutability trigger covering UPDATE and DELETE (ADR 0163).
+**Refusals the database makes itself.** Triggers refuse, for every role, an UPDATE or DELETE of `action_history`, `results`, `result_entries`, `result_speakers`, `certifications`, `certification_results`, `releases`, `conflicts` and `ballot_definition_versions`; any change to a grant but its one revocation; a change to a template's pins or a pool resolution's wording; any change to a published draw or to the fixtures and results it holds; a fixture moving any way but draft to published to withdrawn; a change to a published fixture's entries; a second settlement of a held command; a Room moved to another lobby; and a ballot screening whose lobby is not that of its ballot's Room. Each raises SQLSTATE 23514 with a constraint name, as a CHECK would. `daisy_web` also holds no UPDATE or DELETE on the append-only tables, no DELETE on `grants` or `pending_commands`, and no DELETE on `restriction_lobbies`. A child can insert the identity of their pending adult-lobby request and the addressed guardian can fill its signature columns once, under the active link and exact lobby scopes. Guardian links and child-account requests have subject-scoped INSERT and UPDATE. Guardian consent evidence has subject-scoped INSERT and SELECT, with an immutability trigger covering UPDATE and DELETE (ADR 0163).
 
 **Tests over these tables never commit.** The tab record cannot be deleted, so a suite cannot clean up after itself: it runs in one transaction that is rolled back (`inRolledBackTransaction` in `packages/db/integration/tab.test-support.ts`), acts as the runtime role with `SET LOCAL ROLE`, and builds on the sample tournament that file loads through the runtime role under scope.
 
@@ -155,7 +161,7 @@ of 200 rows, up to 200 batches per run (40,000 rows/run), sized against an
 expected write rate of 10 rows/s (36,000 rows/hour) so one run always clears
 a full hour's growth with headroom.
 
-**Rating seasons (ADR 0055).** Being retired by [ADR 0162](../decisions/0162-daisy-is-a-league-open-and-youth-are-lobbies.md): a league manager will create seasons per standing lobby in the league host area. Until that slice lands: `bun season list | activate-beta | open | close` is the only way to change a season; there is no route for it in `apps/web` (ADR 0043). Each ladder division has its own seasons ([ADR 0147](../decisions/0147-ladder-style-and-division.md)): `activate-beta` opens the Open and the Youth Season 1 (each idempotent under the `beta-season-1` key per division). `open --name "<name>" --division <open|youth> [--starts <ISO>]` opens a season on that division as active and is refused while any season on that division exists, active or closed, until DEC-111 decides how a debater carries over; `close` is refused for the same reason, since it would leave rating with no season. Ids come from cuid2 and the default time is now. Opening the first production season is a human-only task (RATE-H.1).
+**Rating seasons (ADR 0055 and ADR 0162).** A league manager opens, edits and closes a season through Tournaments → Browse tournaments → Your leagues → Standing lobbies → Manage. Each lobby has at most one active season. Closing pauses ranked play in that lobby and preserves its standings. Opening the first production season remains a human-only task (RATE-H.1).
 
 Database availability is necessary but not sufficient readiness. Deployers must ensure migrations are applied, monitor storage/replication/backup lag, enforce TLS for remote database and Redis connections, and set network access policy. Local plaintext credentials are intentionally confined to loopback. Redis persistence is off locally to expose accidental reliance on durable cache state.
 
@@ -350,35 +356,7 @@ verify workflow `DEPLOY_SHA`, image `GIT_COMMIT` and the health response deploym
 the eligible merged candidate. A branch image or an unreviewed newer main tip
 is not the approved operation.
 
-On that deployed staging web image, the authorized operator runs:
-
-```sh
-fly ssh console -a daisy-debate-staging -C 'bun /app/scripts/season.ts activate-beta'
-fly ssh console -a daisy-debate-staging -C 'bun /app/scripts/season.ts list'
-```
-
-The image includes the command; it uses the existing `daisy_web` runtime
-`DATABASE_URL`, never migration-owner credentials. Record each returned season's cuid2
-ID, division, status, actual UTC database start instant and `beta-season-1` activation
-key (verify the key with an authorized read). On a database whose Open season is
-already active, the first run opens only the Youth season. Run activate-beta again and
-verify exactly the same IDs/starts/statuses, unchanged standing/ledger counts and
-no new season. Compare the full standing rows before and after the retry in the
-authorized local operator session, not only their counts; publish scrubbed proof.
-These nonmutating verification queries run in a read-only transaction:
-
-```sql
-BEGIN READ ONLY;
-SELECT id, name, activation_key, starts_at, ends_at, status, version
-FROM seasons ORDER BY starts_at, id;
-SELECT ladder, season_id, count(*) FROM ratings GROUP BY ladder, season_id;
-SELECT ladder, season_id, count(*) FROM rating_changes GROUP BY ladder, season_id;
-SELECT actor_id, ladder, season_id, rating, deviation, volatility, version
-FROM ratings ORDER BY actor_id, ladder, season_id;
-COMMIT;
-```
-
-An existing closed Season 1 is returned closed; it is never reopened. Any competing season refuses. No start date can be supplied.
+In the deployed staging app, a league manager opens the season through Tournaments → Browse tournaments → Your leagues → Standing lobbies → Manage. Check the name, start date and active status on the specific lobby and verify that the member leaderboard shows its season. Keep competitive records intact if an operation needs investigation.
 
 Authorized beta checks cover the Freestyle ladder (ADR 0142): native opt-in setup,
 selected resolution/strike freeze, eligible human/AI judged and forfeit result,
@@ -390,13 +368,9 @@ RATE-5 until this operation occurs after deployment; isolated proofs and code
 merge-readiness do not claim it.
 
 If preflight refuses, stop migration and obtain explicit disposition. If a
-migration fails, retain its transactional failure evidence and repair forward;
-do not reset or change journal rows. If deployment/version verification fails,
-stop before activation and use the existing deploy incident process. If
-activation times out, inspect/list and retry the identical command: never
-close the season to compensate. Once competitive data commits, preserve
-it and repair forward. A second season and carry-over require DEC-111 resolution;
-RATE-H.1 still gates the first production activation.
+migration fails, retain its transactional failure evidence and repair forward.
+If deployment verification fails, use the existing deploy incident process.
+RATE-H.1 gates the first production season.
 
 The main99 Billing candidate uses ordinary `SET CONSTRAINTS ALL IMMEDIATE`
 before final usage/analysis DDL and installs immutable guards after conversion.

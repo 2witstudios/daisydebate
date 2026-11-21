@@ -11,6 +11,7 @@ import {
 
 export { daisyOrganizationId, publicLobbyId } from './daisy-reference';
 export { validRules } from './testing-rules';
+export { seedRatingSeason } from './testing-rating-season';
 export { completeControlledStripeCleanup } from './testing-billing';
 export { completeControlledBillingPurchase } from './testing-billing-purchase';
 export { fundTestClub } from './testing-club';
@@ -189,3 +190,9 @@ export { friendsPrivacyAdopter } from './friends/privacy';
 export { holdForGuardian } from './friends/hold-for-guardian';
 export { listFriendships } from './friends/reads';
 export { notificationInboxOperations } from './notifications/inbox';
+export { pinRankedFixturePool } from './testing-rating-pool';
+export { createLobbyPermissionStore } from './guardians/lobby-requests';
+export {
+  readGuardianLobbyIds,
+  hasGuardianLobbyWaiver,
+} from './guardians/lobby-permissions';

@@ -27,7 +27,7 @@ describe('rateCompletedRound', () => {
       actual: {
         result,
         roundId: calls[0]?.roundId,
-        changeIds: calls[0]?.changeIds,
+        changeIds: [calls[0]?.nextChangeId(), calls[0]?.nextChangeId()],
         eligibility: calls[0]?.decide.eligibility === ratingEligibility,
         plan: calls[0]?.decide.plan === planRating,
       },

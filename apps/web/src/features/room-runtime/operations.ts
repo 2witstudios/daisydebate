@@ -13,11 +13,13 @@ import { can, digest } from './authority';
 import { resolveRoomSelection } from './selection';
 import {
   createNoticeOf,
+  needsGuardianContentWaiver,
   requiredContentWaiver,
   roomCaptureNotice,
 } from './ready-agreements';
 import type { Database } from '@daisy/db';
 import { standardFormatIds } from '@daisy/db/catalog-formats';
+import { isTemporaryRefusal } from '@daisy/db/capacity';
 import {
   readRoundOpeningTopic,
   activeRoomMembers,
@@ -31,11 +33,13 @@ import {
 import type { IdGenerator } from '@daisy/clock';
 import { spectatorClockAt } from '../spectating/spectator-clock';
 import { withSeatRatings } from '../ratings/room-seat-ratings';
+import { replayPublishedStandings } from '../ratings/replay-published-standings';
 import type { createRedis } from '@daisy/redis';
 import type {
   ActiveRoom,
   AgeBand,
   HostedRoom,
+  RoomListPage,
   RoomListQuery,
   RoomAssemblyState,
   RoomCatalogChoice,
@@ -79,6 +83,7 @@ export type Store = Pick<
   | 'readActiveRoomFacts'
   | 'listHostedRooms'
   | 'readContentWaiverStanding'
+  | 'hasGuardianLobbyWaiver'
   | 'readWatchableRoundOfRoom'
   | 'readMemberCardRatings'
   | 'readRatingBlindings'
@@ -91,7 +96,6 @@ export function createRoomRuntimeOperations({
   store,
   redis,
   ids,
-  now,
   consentTtlMs,
   aiSeats,
   betaGrantsPremium,
@@ -101,8 +105,6 @@ export function createRoomRuntimeOperations({
   readonly store: Store;
   readonly redis: Redis;
   readonly ids: IdGenerator;
-  /** A listed host's rating waits for the spectator timeline. */
-  readonly now: () => string;
   readonly consentTtlMs: () => number;
   readonly aiSeats: () => AiSeatAvailability;
   /** Whether a beta-sourced premium grant counts (`PREMIUM_BETA_GRANT`). */
@@ -188,6 +190,7 @@ export function createRoomRuntimeOperations({
     state: RoomAssemblyState,
     caller: Caller,
     ageBand: AgeBand | null,
+    competitionAgeBand: AgeBand | null,
   ): Promise<Pick<RoomView, 'contentWaiver' | 'contentWaiverVersion'>> => {
     const none = { contentWaiver: null, contentWaiverVersion: null };
     if (
@@ -198,17 +201,36 @@ export function createRoomRuntimeOperations({
       )
     )
       return none;
-    const version = requiredContentWaiver(state, ageBand);
+    const guardianSigns = needsGuardianContentWaiver(
+      state,
+      competitionAgeBand,
+      caller.actorId,
+    );
+    const version = requiredContentWaiver(state, ageBand, guardianSigns);
     if (!version) return none;
     const standing = await store.readContentWaiverStanding(
       caller.userId,
       version,
+      state.lobbyId,
     );
-    return standing === 'no-active-season'
-      ? none
-      : { contentWaiver: standing, contentWaiverVersion: version };
+    if (standing === 'no-active-season') return none;
+    if (guardianSigns) {
+      const signed = await store.hasGuardianLobbyWaiver({
+        minorUserId: caller.userId,
+        lobbyId: state.lobbyId,
+        waiverVersion: version,
+      });
+      return signed
+        ? { contentWaiver: 'signed', contentWaiverVersion: version }
+        : { contentWaiver: 'guardian-required', contentWaiverVersion: version };
+    }
+    return { contentWaiver: standing, contentWaiverVersion: version };
   };
-  const view = async (caller: Caller, roomId: string, eventOnly = false) => {
+  const view = async (
+    caller: Caller,
+    roomId: string,
+    eventOnly = false,
+  ): Promise<RoomView> => {
     const facts = await store.readRoomAssemblyFacts(
       roomId,
       caller,
@@ -232,10 +254,16 @@ export function createRoomRuntimeOperations({
         {
           // A seat's rating waits for the spectator timeline, as a card's does.
           ratings: (actorIds) =>
-            store.readMemberCardRatings(actorIds, spectatorClockAt(now)),
+            store.readMemberCardRatings(
+              actorIds,
+              spectatorClockAt(now),
+              replayPublishedStandings,
+              facts.ratingPool ?? undefined,
+            ),
           blinded: () => store.readRatingBlindings(caller.actorId),
         },
         now,
+        facts.ratingPool,
       )),
       aiJudgeSeating: await roomAiJudgeSeating(state, caller.actorId, () =>
         store.readOwnCasualJudgeAllowance(
@@ -245,7 +273,13 @@ export function createRoomRuntimeOperations({
           ),
         ),
       ),
-      ...(await viewerContentWaiver(state, caller, facts.viewerAgeBand)),
+      viewerMayDebate: facts.viewerMayDebate,
+      ...(await viewerContentWaiver(
+        state,
+        caller,
+        facts.viewerAgeBand,
+        facts.viewerCompetitionAgeBand,
+      )),
       captureOffer: await roomCaptureOffer(state, caller.actorId, async () =>
         hostHoldsCasualCapture(
           await store.readOwnEntitlementGrants(caller),
@@ -515,8 +549,8 @@ export function createRoomRuntimeOperations({
           : [],
       );
     },
-    async list(caller: Caller, query: RoomListQuery) {
-      return store.listRoomPage(
+    async list(caller: Caller, query: RoomListQuery): Promise<RoomListPage> {
+      const page = await store.listRoomPage(
         caller,
         query,
         (fact, account) =>
@@ -530,9 +564,58 @@ export function createRoomRuntimeOperations({
             }).allow),
         (account) => can(caller, 'room.list', account),
         (fact) => hostIdentityHidden(fact, caller.actorId),
-        spectatorClockAt(now()),
         readRoundOpeningTopic,
       );
+      type Pool = NonNullable<(typeof page.rooms)[number]['hostRatingPool']>;
+      const poolKey = (pool: Pool) =>
+        JSON.stringify([pool.lobbyId, pool.ladderId, pool.seasonId]);
+      const groups = new Map<string, { pool: Pool; actors: Set<string> }>();
+      for (const { hostRatingPool: pool, hostActorId } of page.rooms) {
+        if (!pool || !hostActorId) continue;
+        const key = poolKey(pool);
+        const group = groups.get(key) ?? { pool, actors: new Set<string>() };
+        group.actors.add(hostActorId);
+        groups.set(key, group);
+      }
+      const published = new Map<string, Map<string, number>>();
+      if (groups.size > 0) {
+        const blinded = await store
+          .readRatingBlindings(caller.actorId)
+          .catch((error: unknown) => {
+            if (!isTemporaryRefusal(error)) throw error;
+            return null;
+          });
+        if (blinded) {
+          const hidden = new Set(blinded);
+          const clock = spectatorClockAt(await store.databaseNow());
+          for (const [key, { pool, actors }] of groups) {
+            const visible = [...actors].filter((id) => !hidden.has(id));
+            if (visible.length === 0) continue;
+            const ratings = await store.readMemberCardRatings(
+              visible,
+              clock,
+              replayPublishedStandings,
+              pool,
+            );
+            published.set(
+              key,
+              new Map(
+                ratings.map((row) => [row.actorId, Math.round(row.rating)]),
+              ),
+            );
+          }
+        }
+      }
+      return {
+        ...page,
+        rooms: page.rooms.map(({ hostRatingPool: pool, ...room }) => ({
+          ...room,
+          hostRating:
+            pool && room.hostActorId
+              ? (published.get(poolKey(pool))?.get(room.hostActorId) ?? null)
+              : null,
+        })),
+      };
     },
     create,
     async rematch(caller: Caller, sourceRoomId: string, body: RoomCreate) {

@@ -1,3 +1,4 @@
+import { officialRatingLadders } from '../ratings/standing.test-support';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { NOW } from './ladder.test-support';
 import { readLadder as readStoredLadder } from './read-leaderboard';
@@ -112,6 +113,7 @@ describe('a season with none active', () => {
     const read = await readStoredLadder(
       {
         readRatingBlindings: async () => [],
+        listOfficialRatingLadders: officialRatingLadders,
         listLadderSeasons: async () => [
           {
             id: 'k2v9x0f4m8q3w1z7c5n6b4d2',
@@ -119,7 +121,7 @@ describe('a season with none active', () => {
             startsAt: '2026-09-01T00:00:00.000Z',
             endsAt: '2026-10-01T00:00:00.000Z',
             status: 'closed',
-            division: 'open',
+            lobbyId: 'open',
             version: 2,
           },
         ],

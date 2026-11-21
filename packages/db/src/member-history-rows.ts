@@ -1,12 +1,12 @@
 import { createAppError } from '@daisy/errors';
 import {
   isDebatingSeat,
-  ratingDivisions,
-  ratingStyles,
+  ratingDivisionForAgeRule,
   type Ladder,
   type RoundOutcome,
   type SeatRef,
 } from '@daisy/protocol';
+import type { LobbyAgeRule } from '@daisy/protocol/lobby/eligibility';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { actors } from './schema/actors';
 import { botProfiles } from './schema/bot-profiles';
@@ -78,23 +78,19 @@ const forfeitedRounds = async (tx: Tx, ids: readonly string[]) => {
   return new Set(rows.map((r) => r.roundId));
 };
 
-/**
- * A Round's ladder from its frozen columns: both set on a ranked Round, both
- * null otherwise (`rounds_ladder_division_check`). A value outside the
- * vocabulary names no ladder Daisy shows.
- */
+/** The frozen competition label survives even when a ranked Round has no posting pool. */
 export const roundLadderOf = (columns: {
   readonly ladderId: string | null;
-  readonly ladderDivision: string | null;
-}): Ladder | null => {
-  const style = ratingStyles.find((each) => each === columns.ladderId);
-  const division = ratingDivisions.find(
-    (each) => each === columns.ladderDivision,
-  );
-  return style === undefined || division === undefined
+  readonly ladderAgeRule: LobbyAgeRule | null;
+  readonly competitionType: (typeof rounds.$inferSelect)['competitionType'];
+}): Ladder | null =>
+  columns.ladderAgeRule === null ||
+  (columns.ladderId === null && columns.competitionType !== 'ranked')
     ? null
-    : { style, division };
-};
+    : {
+        style: 'freestyle',
+        division: ratingDivisionForAgeRule(columns.ladderAgeRule),
+      };
 
 /** Each listed Round's ladder, by id. */
 const roundLadders = async (
@@ -105,7 +101,8 @@ const roundLadders = async (
     .select({
       roundId: rounds.id,
       ladderId: rounds.ladderId,
-      ladderDivision: rounds.ladderDivision,
+      ladderAgeRule: rounds.standingAgeRule,
+      competitionType: rounds.competitionType,
     })
     .from(rounds)
     .where(inArray(rounds.id, ids));

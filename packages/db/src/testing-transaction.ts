@@ -1,6 +1,13 @@
 import type { SQL, TransactionSQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
-import type { Tx, TxSource } from './tx';
+import { sql } from 'drizzle-orm';
+import { run } from './raw-rows';
+import {
+  inTransaction,
+  type TransactionConfig,
+  type Tx,
+  type TxSource,
+} from './tx';
 
 /** The enclosing proof chooses commit or rollback for every operation. */
 export type SavepointTestDatabase = {
@@ -37,11 +44,18 @@ export const withRuntimeTestTransaction = <T>(
 
 /** Each call is a separately committed runtime request, including its decision callback. */
 export const committingRuntimeTestDatabase = (client: SQL) => ({
-  transaction: <T>(work: (tx: TxSource) => Promise<T>): Promise<T> =>
-    client.begin(async (sql) => {
-      await sql`set local role daisy_web`;
-      return work(drizzle({ client: sql }));
-    }),
+  transaction: <T>(
+    work: (tx: TxSource) => Promise<T>,
+    config?: TransactionConfig,
+  ): Promise<T> =>
+    inTransaction(
+      drizzle({ client }),
+      async (tx) => {
+        await run(tx, sql`set local role daisy_web`);
+        return work(tx);
+      },
+      config,
+    ),
 });
 
 const unexpected = (): never => {

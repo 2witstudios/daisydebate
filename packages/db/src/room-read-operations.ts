@@ -10,16 +10,17 @@ import {
   type ReadOpeningTopic,
 } from './round-opening-read';
 import { discoverRooms, type RoomDiscoveryFact } from './room-discovery';
-import type { SpectatorClock } from './spectator-release-sql';
 import type { roomCommandTransaction } from './room-command-transaction';
 import type { CasualJudgeAdmission } from './casual-judge-admission';
 import type { AllowanceDecision } from '@daisy/protocol/billing';
 import { readEntitlementGrants } from './entitlement-grants';
+import { mayDebate } from '@daisy/protocol/lobby/eligibility';
+import { readCompetitionAgeBand } from './ladder-division-band';
 import {
-  roomListQuerySchema,
-  type RoomListQuery,
-  type RoomListPage,
-} from '@daisy/protocol';
+  isMinorAgeBand,
+  readGuardianLobbyIds,
+} from './guardians/lobby-permissions';
+import { roomListQuerySchema, type RoomListQuery } from '@daisy/protocol';
 import { and, eq, isNotNull, or } from 'drizzle-orm';
 import { readWaitingOn } from './round-waiting-read';
 import type {
@@ -41,6 +42,9 @@ import { botProfiles } from './schema/bot-profiles';
 import { aiJudgeProfiles } from './schema/ai-judge-profiles';
 
 import { rooms } from './schema/rooms';
+import { rounds } from './schema/rounds';
+import { roomRatingPoolReader } from './ladder-season';
+import type { LobbyRatingSelection } from './standings';
 import { roundViewFor } from './round-view-projection';
 import { formats } from './schema/formats';
 
@@ -160,6 +164,9 @@ export const roomReadOperations = ({
     readonly state: RoomAssemblyState;
     readonly resolutionHeld: boolean;
     readonly viewerAgeBand: NonNullable<Account>['ageBand'];
+    readonly viewerCompetitionAgeBand: NonNullable<Account>['ageBand'];
+    readonly viewerMayDebate: boolean;
+    readonly ratingPool: LobbyRatingSelection | null;
   }> {
     return instrumented(eventSink, 'readRoomAssembly', () =>
       inTransaction(database, async (tx) => {
@@ -186,6 +193,32 @@ export const roomReadOperations = ({
           !authorize(facts.state, account, direction, await transactionNow(tx))
         )
           throw createAppError('NOT_FOUND');
+        const [frozen] =
+          row.lobbyKind === 'standing' && facts.state.roundRef
+            ? await tx
+                .select({
+                  ladderId: rounds.ladderId,
+                  seasonId: rounds.seasonId,
+                })
+                .from(rounds)
+                .where(eq(rounds.id, facts.state.roundRef.id))
+            : [];
+        const ratingPool =
+          row.lobbyKind === 'standing'
+            ? await roomRatingPoolReader(tx, row.lobbyId)(
+                row.leagueLadderId,
+                frozen,
+              )
+            : null;
+        const viewerCompetitionAgeBand =
+          row.lobbyKind === 'standing'
+            ? await readCompetitionAgeBand(tx, caller.userId, row.lobbyId)
+            : null;
+        const guardianLobbyIds =
+          facts.state.ageRule === 'adults' &&
+          isMinorAgeBand(viewerCompetitionAgeBand)
+            ? await readGuardianLobbyIds(tx, caller.userId)
+            : [];
         return {
           viewerAgeBand: account?.ageBand ?? null,
           resolutionHeld:
@@ -193,6 +226,14 @@ export const roomReadOperations = ({
             !direction?.resolutionReleasedAt &&
             facts.state.roundRef === null &&
             facts.state.topic !== null,
+          viewerCompetitionAgeBand,
+          viewerMayDebate:
+            row.lobbyKind === 'standing' &&
+            mayDebate(
+              { ageBand: viewerCompetitionAgeBand, guardianLobbyIds },
+              facts.state,
+            ),
+          ratingPool,
           state: {
             ...facts.state,
             topic: await currentRoomTopic(tx, facts.state, readTopic),
@@ -207,9 +248,8 @@ export const roomReadOperations = ({
     authorize: (fact: RoomDiscoveryFact, account: Account) => boolean,
     authorizeCollection: (account: Account) => boolean,
     hostHidden: (fact: RoomDiscoveryFact) => boolean,
-    clock: SpectatorClock,
     readTopic: ReadOpeningTopic,
-  ): Promise<RoomListPage> {
+  ) {
     if (!roomListQuerySchema.safeParse(query).success)
       throw createAppError('VALIDATION');
     return instrumented(eventSink, 'listRoomPage', () =>
@@ -221,7 +261,6 @@ export const roomReadOperations = ({
           authorize,
           authorizeCollection,
           hostHidden,
-          clock,
           readTopic,
         ),
       ),

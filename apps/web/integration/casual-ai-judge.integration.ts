@@ -7,9 +7,8 @@ import {
 import { canUseAiAllowance } from '@daisy/auth/authorization';
 import { atFinalJudgingStage } from '@daisy/db/testing';
 import { randomBytes } from 'node:crypto';
-import { requireTestServices } from '@daisy/config';
 import { judgingJobRules } from '@daisy/debate-engine';
-import { withSeasons } from '@daisy/db/seasons';
+import { seedRatingSeason } from '@daisy/db/testing';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
@@ -26,7 +25,6 @@ import {
 } from './round-judging.test-support';
 import { finalizeByMaintenance } from './round-maintenance.test-support';
 import { seedSettledAttendanceLedger } from './round-attendance-fixture.test-support';
-const { databaseUrl } = requireTestServices(process.env);
 setupRitewayBun();
 
 const casualTemplate = {
@@ -161,9 +159,7 @@ test('the catalog tells a member whether they hold the casual AI judge', async (
 test('a ranked AI judge seat is free: a host holding no grant at all seats it', async () => {
   await withRoomRuntime(async (f) => {
     const seasonId = createId();
-    await withSeasons(databaseUrl, (seasons) =>
-      seasons.activateBetaSeason({ id: seasonId, division: 'open' }),
-    );
+    await seedRatingSeason(f.sql, seasonId);
     try {
       await f.sql`delete from account_entitlement_grants where user_id=${f.host.userId}`;
       const room = await readyRankedRoom(f, 'freestyle', 'ai');
@@ -180,7 +176,9 @@ test('a ranked AI judge seat is free: a host holding no grant at all seats it', 
       });
     } finally {
       await f.sql`delete from agreement_signatures where season_id=${seasonId}`;
-      await f.sql`delete from seasons where id=${seasonId}`;
+      f.afterRooms(async () => {
+        await f.sql`delete from seasons where id=${seasonId}`;
+      });
     }
   });
 });

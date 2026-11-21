@@ -61,20 +61,29 @@ const standings: Readonly<
   },
 };
 
+const scope = {
+  lobbyId: 'lobby0000000000000000001',
+  ladderId: 'freestyle',
+  seasonId: 'season000000000000000001',
+};
+
 const plan = (name: string, outcome: WinnerOutcome) => {
   const pair = standings[name]!;
   const result = attempt(() =>
     planRating({
-      ladder: { style: 'freestyle', division: 'open' },
+      scope,
+      sides: ['affirmative', 'negative'],
       outcome,
       occurredAt: completedAt,
-      seasonId: 'season000000000000000001',
       seats: [
         { actorId: affirmative, seat: sideSeat('affirmative') },
         { actorId: negative, seat: sideSeat('negative') },
       ],
       standings: pair,
-      changeIds: ['change000000000000000001', 'change000000000000000002'],
+      changeIds: {
+        [affirmative]: 'change000000000000000001',
+        [negative]: 'change000000000000000002',
+      },
     }),
   );
   return {
@@ -91,7 +100,7 @@ const plan = (name: string, outcome: WinnerOutcome) => {
 
 const completed: RatingEligibilityFacts = {
   competitionType: 'ranked',
-  ladder: { style: 'freestyle', division: 'open' },
+  scope,
   status: 'completed',
   outcome: winnerOutcome('affirmative'),
   completedAt,
@@ -112,7 +121,7 @@ const eligibility = () => {
     ['rated', completed],
     ['negative-wins', { ...completed, outcome: winnerOutcome('negative') }],
     ['null-outcome', { ...completed, outcome: null }],
-    ['casual', { ...completed, competitionType: 'casual', ladder: null }],
+    ['casual', { ...completed, competitionType: 'casual', scope: null }],
     ['abandoned', { ...completed, status: 'abandoned', outcome: null }],
     ['already-rated', { ...completed, alreadyRated: true }],
     ['forfeit', { ...completed, ending: 'forfeit' }],

@@ -1,4 +1,13 @@
 import { requireRankedProtection } from './guardians/ranked-protection';
+import { lockActiveLobbySeason } from './ladder-season';
+import {
+  readGuardianWaiverAgeBand,
+  refuseIneligibleDebaters,
+} from './room-start-eligibility';
+import {
+  hasGuardianLobbyWaiver,
+  readGuardianLobbyIds,
+} from './guardians/lobby-permissions';
 import { reserveTournamentCapture } from './tab/tournament-capture-admission';
 import {
   locateTournamentCaptureFunder,
@@ -14,7 +23,7 @@ import type { RoundBotAdmission } from './round-bot-admission';
 import type { CasualJudgeAdmission } from './casual-judge-admission';
 import { persistRoomMutation } from './room-mutation-persistence';
 
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import type { roomCommandTransaction } from './room-command-transaction';
 import {
   readContentWaiverStanding,
@@ -61,6 +70,7 @@ import {
 import { drawStartFacts } from './draw-start-facts';
 
 import { rooms, roomParticipants } from './schema/rooms';
+import { actors } from './schema/actors';
 
 import {
   type Caller,
@@ -76,6 +86,76 @@ import {
   transactionNow,
 } from './room-command-facts';
 import type { Tx } from './tx';
+
+/** Ready and Start require the same evidence for the seat's own lobby. */
+const readRoomSeatContentWaiverStanding = async (
+  tx: Tx,
+  state: RoomAssemblyState,
+  userId: string,
+  waiverVersion: string,
+  guardianSigns = false,
+): Promise<ContentWaiverStanding> => {
+  if (!guardianSigns)
+    return readContentWaiverStanding(tx, userId, waiverVersion, state.lobbyId);
+  const seasonId = await lockActiveLobbySeason(tx, state.lobbyId);
+  if (!seasonId) return 'no-active-season';
+  return (await hasGuardianLobbyWaiver(tx, {
+    minorUserId: userId,
+    lobbyId: state.lobbyId,
+    waiverVersion,
+    seasonId,
+  }))
+    ? 'signed'
+    : 'unsigned';
+};
+
+async function requireStartWaivers(
+  tx: Tx,
+  state: RoomAssemblyState,
+  agreementsOf: CommandInput['readyAgreements'],
+) {
+  if (state.competitionType !== 'ranked') return;
+  const people = state.participants.filter(({ kind }) => kind === 'human');
+  if (people.length === 0) return;
+  const signers = await tx
+    .select({ userId: actors.userId })
+    .from(actors)
+    .where(
+      inArray(
+        actors.id,
+        people.map(({ actorId }) => actorId),
+      ),
+    );
+  for (const { userId } of signers) {
+    if (userId === null)
+      throw createAppError('INVARIANT', 'A human seat has no account');
+    const account = await loadAuthorizationAccount(tx, userId);
+    const agreements = agreementsOf(state, {
+      currentAgeBand: account?.ageBand ?? null,
+      competitionAgeBand: account?.actorId
+        ? await readGuardianWaiverAgeBand(tx, state, userId, account.actorId)
+        : null,
+      actorId: account?.actorId ?? null,
+    });
+    const version = agreements?.contentWaiverVersion;
+    if (!version) continue;
+    const standing = await readRoomSeatContentWaiverStanding(
+      tx,
+      state,
+      userId,
+      version,
+      agreements.guardianSigns,
+    );
+    if (standing !== 'signed')
+      throw createRefusal(
+        'CONFLICT',
+        standing === 'no-active-season'
+          ? 'ranked-unavailable'
+          : 'content-waiver-required',
+      );
+  }
+}
+
 type CommandInput = {
   readonly caller: Caller;
   readonly authorizeRead: AuthorizeRoom;
@@ -107,10 +187,14 @@ type CommandInput = {
    */
   readonly readyAgreements: (
     state: RoomAssemblyState,
-    /** The caller's age band: which ranked waiver they sign (ADR 0161). */
-    signer: AgeBand | null,
+    signer: {
+      readonly currentAgeBand: AgeBand | null;
+      readonly competitionAgeBand: AgeBand | null;
+      readonly actorId: string | null;
+    },
   ) => {
     readonly contentWaiverVersion: string | null;
+    readonly guardianSigns?: boolean;
     readonly notice: {
       readonly id: string;
       readonly version: string;
@@ -246,8 +330,20 @@ async function executeOnce(
     throw new RoomMoved('Cast changed while acquiring authority');
   if (state.changeVersion !== prepared.changeVersion)
     throw new RoomMoved('Room changed while preparing consent');
+  if (
+    (input.type === 'ready' || input.type === 'start-round') &&
+    state.competitionType === 'ranked' &&
+    state.ageRule === 'adults' &&
+    !(await lockActiveLobbySeason(tx, state.lobbyId))
+  )
+    throw createRefusal('CONFLICT', 'ranked-unavailable');
+  if (input.type === 'ready')
+    await refuseIneligibleDebaters(tx, state, input.caller.actorId);
   const target = input.targetActorId
-    ? await actorFact(tx, input.targetActorId)
+    ? await actorFact(tx, input.targetActorId, {
+        lobbyId: state.lobbyId,
+        readPermissions: (userId) => readGuardianLobbyIds(tx, userId),
+      })
     : null;
   // FOR SHARE: a concurrent publication (FOR UPDATE on the format
   // row) serializes with this selection, so the policy judges facts
@@ -257,15 +353,26 @@ async function executeOnce(
     : null;
   const agreements =
     input.type === 'ready'
-      ? input.readyAgreements(state, account?.ageBand ?? null)
+      ? input.readyAgreements(state, {
+          currentAgeBand: account?.ageBand ?? null,
+          competitionAgeBand: await readGuardianWaiverAgeBand(
+            tx,
+            state,
+            input.caller.userId,
+            input.caller.actorId,
+          ),
+          actorId: input.caller.actorId,
+        })
       : null;
   const draw = await drawFacts(tx, input.type, state);
   const grants = await readEntitlementGrants(tx, input.caller.userId);
   const contentWaiver = agreements?.contentWaiverVersion
-    ? await readContentWaiverStanding(
+    ? await readRoomSeatContentWaiverStanding(
         tx,
+        state,
         input.caller.userId,
         agreements.contentWaiverVersion,
+        agreements.guardianSigns,
       )
     : null;
   const judgeQuote =
@@ -335,6 +442,8 @@ async function executeOnce(
       'INVARIANT',
       'A Start round names the Round its command carries',
     );
+  if (outcome.mutation.freeze)
+    await requireStartWaivers(tx, state, input.readyAgreements);
   const roundRef = await persistRoomMutation(tx, outcome.mutation, now, true);
   await reserveBotFreeze(
     tx,

@@ -13,6 +13,8 @@ import { judgeSeat, sideSeat } from '@daisy/protocol';
 import type { SettingCommand } from '@daisy/protocol/lobby/setting-command';
 import { as } from './tab-tournament-organization-wiring.test-support';
 import type { World } from './tab-tournament.test-support';
+import { openLeagueRatingSeason } from './league-room-rating.test-support';
+import { rateCompletedRound } from '../src/features/ratings/rate-debate';
 
 export async function nativeRoomCases(
   world: World,
@@ -348,9 +350,23 @@ export async function nativeRoomCases(
             'ready',
           )
         ).view;
+      assert({
+        given:
+          'a Room created and readied before its own lobby has an active rating season',
+        should: 'refuse Start until that exact lobby opens a season',
+        actual: await f
+          .command(world.bots.Coach!, view, { type: 'start-round' })
+          .then(
+            () => 'accepted',
+            (error: Error) => error.message,
+          ),
+        expected: 'ranked-unavailable',
+      });
+      const seasonId = await openLeagueRatingSeason(world);
       await f.command(world.bots.Coach!, view, { type: 'start-round' });
       const [frozen] =
-        await world.sql`select id,league_ladder_id,ladder_id from rounds where room_id=${roomId}`;
+        await world.sql`select r.id,r.rating_lobby_id,r.ladder_id,r.season_id,rm.league_ladder_id
+          from rounds r join rooms rm on rm.id=r.room_id where r.room_id=${roomId}`;
       const round = (await f.store.getRound(String(frozen!.id)))!;
       const debater = round.participants.find(
         (person) => person.actorId === world.bots['Debater 1']!.actorId,
@@ -364,21 +380,26 @@ export async function nativeRoomCases(
         expectedVersion: round.version,
         command: { type: 'forfeit', participantId: debater.id },
       });
+      const posted = await rateCompletedRound(f.store, round.id, {
+        next: createId,
+      });
       assert({
         given:
           'a Room made by the native Tab command, then real Ready/Start/forfeit',
         should:
-          'freeze only its own league ladder and publish two league standings without a Daisy ledger write',
+          'freeze its own pool and post both competitors once through the shared ledger',
         actual: [
-          frozen!.league_ladder_id !== null,
-          frozen!.ladder_id,
-          (await readLeagueLadder({ store, authorize })(principal, { lobbyId }))
+          frozen!.ladder_id === frozen!.league_ladder_id,
+          frozen!.rating_lobby_id,
+          frozen!.season_id,
+          posted.kind,
+          (await readLeagueLadder({ store, authorize })(director, { lobbyId }))
             ?.entrants,
           (
             await world.sql`select count(*)::int n from rating_changes where round_id=${round.id}`
           )[0]!.n,
         ],
-        expected: [true, null, 2, 0],
+        expected: [true, lobbyId, seasonId, 'rated', 2, 2],
       });
     },
     { databaseUrl: world.runtimeDatabaseUrl },

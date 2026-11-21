@@ -1,3 +1,4 @@
+import { roundRatingScopeSchema } from './rating-ladder';
 import type { AttendanceLedgerFacts } from './attendance';
 import type { JudgingPanelFacts } from './round-panel-completion';
 import { z } from 'zod';
@@ -113,6 +114,7 @@ const roundViewFields = z.strictObject({
   competitionType: z.enum(competitionTypes),
   /** The ladder the Round rates on (ADR 0147); null when it never rates. */
   ladder: ladderSchema.nullable(),
+  ratingScope: roundRatingScopeSchema.optional(),
   /** Null until a draw's reveal; stays null when a Round ended before its reveal. */
   topic: z.string().min(1).nullable(),
   /** Where the opening stands for this viewer; null once the Round leaves it. */

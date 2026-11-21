@@ -6,7 +6,7 @@ export type LobbyAgeRule = (typeof lobbyAgeRules)[number];
 
 export type DebaterEligibility = {
   readonly ageBand: AgeBand | null;
-  readonly guardianAllowed: boolean;
+  readonly guardianLobbyIds?: readonly string[] | undefined;
 };
 
 export type StandingLobbyChoice = {
@@ -31,17 +31,22 @@ export function defaultStandingLobby<Lobby extends StandingLobbyChoice>(
 
 /** Room debater eligibility. Account admission and permission to judge are separate. */
 export function mayDebate(
-  { ageBand, guardianAllowed }: DebaterEligibility,
+  { ageBand, guardianLobbyIds }: DebaterEligibility,
   lobby: {
+    readonly lobbyId: string;
     readonly ageRule: LobbyAgeRule;
     readonly competitionType: CompetitionType;
   },
 ): boolean {
   if (ageBand === null)
     return lobby.ageRule !== 'under-18' && lobby.competitionType === 'casual';
+  if (ageBand === 'under-13') return false;
   switch (lobby.ageRule) {
     case 'adults':
-      return ageBand === 'adult' || guardianAllowed;
+      return (
+        ageBand === 'adult' ||
+        guardianLobbyIds?.includes(lobby.lobbyId) === true
+      );
     case 'under-18':
       return ageBand !== 'adult';
     case 'anyone':

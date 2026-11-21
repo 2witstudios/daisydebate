@@ -16,7 +16,7 @@ import {
 } from './columns';
 import { lobbies } from './lobbies';
 import { organizations } from './organizations';
-import { seasons } from './ratings';
+import { seasons } from './seasons';
 import { nonEmpty, oneTenantKey } from './tenant-keys';
 
 /**

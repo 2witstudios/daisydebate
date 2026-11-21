@@ -12,7 +12,10 @@ import {
 import { hostRoundViewSchema } from '@daisy/protocol/lobby/draw-read';
 import { hostEventsViewSchema } from '@daisy/protocol/lobby/host-events-read';
 import { hostNavigationViewSchema } from '@daisy/protocol/lobby/host-navigation-read';
-import type { TournamentSetupCommand } from '@daisy/protocol/lobby/lobby-setup-command';
+import type {
+  LobbyCommand,
+  TournamentSetupCommand,
+} from '@daisy/protocol/lobby/lobby-setup-command';
 import { tournamentEventSettingsViewSchema } from '@daisy/protocol/lobby/resolved-settings-read';
 import type { ResultCommand } from '@daisy/protocol/lobby/result-command';
 import { createId } from '@paralleldrive/cuid2';
@@ -463,9 +466,21 @@ export async function createOracleLeague(
     ballotDefinition: null,
   };
   await command(request, 'settings-command', template);
+  const { aggregate: standingLobby } = await command<LobbyCommand>(
+    request,
+    'lobby-command',
+    {
+      type: 'create-lobby',
+      owner: { kind: 'organization', organizationId: aggregate.id },
+      name,
+      handle,
+      lobby: { kind: 'standing' },
+    },
+  );
   const season = {
     type: 'create-season',
     organizationId: aggregate.id,
+    lobbyId: standingLobby.id,
     name: 'Oracle league season',
     startsAt: new Date(
       new Date(systemClock.now()).getTime() - 86_400_000,
@@ -479,7 +494,7 @@ export async function createOracleLeague(
       bestEvents: null,
       topPerSchool: null,
     },
-  };
+  } satisfies LobbyCommand;
   await command(request, 'lobby-command', season);
   return { handle, name };
 }

@@ -7,6 +7,7 @@ import { parseRoomDiscoveryQuery } from '../../../features/lobby/discovery-query
 import { requireAccess } from '../../../lib/access';
 import {
   requestCompetitionAgeBand,
+  requestGuardianLobbyIds,
   requestOfficialStandingLobbies,
   requestStudentRoundIds,
 } from '../../../lib/request-session';
@@ -28,23 +29,34 @@ export default async function LobbyPage({
   const identity = await requireAccess('/lobby', searchParams);
   const actorId =
     identity.state === 'member' ? identity.principal.actorId : null;
-  const parsed = parseRoomDiscoveryQuery(await searchParams);
+  const search = await searchParams;
+  const view = search.view === 'rooms' ? 'rooms' : 'people';
+  const parsed = parseRoomDiscoveryQuery(search);
   if (!parsed.success) throw createAppError('VALIDATION');
-  const [ageBand, lobbies] = await Promise.all([
+  const [landingAgeBand, lobbies] = await Promise.all([
     requestCompetitionAgeBand(),
     requestOfficialStandingLobbies(),
   ]);
   const lobby = parsed.data.lobbyId
     ? lobbies.find(({ id }) => id === parsed.data.lobbyId)
-    : defaultStandingLobby(lobbies, ageBand);
+    : defaultStandingLobby(lobbies, landingAgeBand);
   const query = { ...parsed.data, lobbyId: lobby?.id ?? parsed.data.lobbyId };
-  const [listing, activeRoom, hosted, studentRoundIds] = await Promise.all([
+  const [
+    listing,
+    activeRoom,
+    hosted,
+    studentRoundIds,
+    ageBand,
+    guardianLobbyIds,
+  ] = await Promise.all([
     roomListing(query),
     requestActiveRoom(),
     actorId === null ? [] : hostedRoomsRead(),
     identity.state === 'member' && lobby?.ageRule === 'under-18'
       ? requestStudentRoundIds(identity.principal)
       : [],
+    requestCompetitionAgeBand(lobby?.id),
+    requestGuardianLobbyIds(lobby?.id),
   ]);
   if (listing.kind !== 'found') throw createAppError('INFRASTRUCTURE');
   const now = nowMs(systemClock);
@@ -55,19 +67,20 @@ export default async function LobbyPage({
       <Lobby
         query={query}
         lobbies={lobbies}
+        {...(view === 'rooms' ? { view } : {})}
         rooms={listing.rooms}
         nextCursor={listing.nextCursor}
         retry={listing.retry}
         activeRoom={activeRoom}
         now={now}
-        viewer={{ actorId, ageBand, studentRoundIds }}
+        viewer={{ actorId, ageBand, studentRoundIds, guardianLobbyIds }}
       />
     </>
   );
   // A phone has no rail: the Lobby's switch holds the people list instead.
   return identity.state === 'member' ? (
     <LobbyViews
-      view={(await searchParams).view === 'rooms' ? 'rooms' : 'people'}
+      view={view}
       rooms={rooms}
       people={<PeoplePanel actions={personActions} />}
       onlineCount={<OnlineCount />}

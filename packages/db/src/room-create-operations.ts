@@ -18,7 +18,8 @@ import type {
 } from '@daisy/protocol';
 import { defaultStandingLobby } from '@daisy/protocol/lobby/eligibility';
 import { readOfficialStandingLobbies } from './official-standing-lobbies';
-import { legacyRoomCompetition, lockLadderSeason } from './ladder-season';
+import { lockLadderSeason } from './ladder-season';
+import { readCompetitionAgeBand } from './ladder-division-band';
 import { mayHostStandingRoom, readRoomCreator } from './room-creator';
 import {
   readFormatSelectionFacts,
@@ -144,26 +145,30 @@ export const roomCreateOperations = ({
             input.definition,
           );
         const room = input.room;
-        const creator = await readRoomCreator(tx, input.caller.userId);
         const choices = await readOfficialStandingLobbies(tx);
         const lobby =
           input.lobbyChoice === null
-            ? defaultStandingLobby(choices, creator.ageBand)
+            ? defaultStandingLobby(
+                choices,
+                await readCompetitionAgeBand(tx, input.caller.userId),
+              )
             : choices.find(({ id }) => id === input.lobbyChoice);
+        if (!lobby) throw createRefusal('CONFLICT', 'other-division');
+        const creator = await readRoomCreator(
+          tx,
+          input.caller.userId,
+          lobby.id,
+        );
         if (
-          !lobby ||
           !mayHostStandingRoom(creator, {
+            lobbyId: lobby.id,
             ageRule: lobby.ageRule,
             competitionType: room.competitionType,
           })
         )
           throw createRefusal('CONFLICT', 'other-division');
-        const competition = legacyRoomCompetition({
-          ...room,
-          ageRule: lobby.ageRule,
-        });
-        if (competition.ladder)
-          await lockLadderSeason(tx, competition.ladder, lobby.organizationId);
+        if (room.competitionType === 'ranked')
+          await lockLadderSeason(tx, lobby.id);
         if (
           (input.recording || input.postRoundCall) &&
           input.room.competitionType === 'ranked'

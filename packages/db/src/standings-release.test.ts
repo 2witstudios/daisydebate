@@ -63,6 +63,23 @@ const publicFirst = {
 };
 
 describe('releasedStandings', () => {
+  test('a projection without postings is only available for authorized Round scoring', () => {
+    assert({
+      given: 'a stored projection with no ledger rows',
+      should:
+        'exclude it from publication and retain it for authorized scoring',
+      actual: [
+        releasedStandings({ ratings: [rating], changes: [] }).ratings,
+        releasedStandings({
+          ratings: [rating],
+          changes: [],
+          includeUnposted: true,
+        }).ratings,
+      ],
+      expected: [[], [rating]],
+    });
+  });
+
   test('every posting released: the stored rating stands', () => {
     const read = releasedStandings({ ratings: [rating], changes: [first] });
     assert({
@@ -97,6 +114,30 @@ describe('releasedStandings', () => {
       should: 'show no rating at all',
       actual: releasedStandings({ ratings: [rating], changes: [second] }),
       expected: { ratings: [], changes: [] },
+    });
+  });
+
+  test('later postings depend on the ratings of earlier held games', () => {
+    const later = { ...third, released: true };
+    assert({
+      given: 'a publicly released game after a private or delayed posting',
+      should: 'expose only the ledger prefix preceding the held posting',
+      actual: [
+        releasedStandings({ ratings: [rating], changes: [later, second] }),
+        releasedStandings({
+          ratings: [rating],
+          changes: [later, second, first],
+        }),
+      ],
+      expected: [
+        { ratings: [], changes: [] },
+        {
+          ratings: [
+            { ...rating, rating: 1550, deviation: 155, volatility: 0.06 },
+          ],
+          changes: [publicFirst],
+        },
+      ],
     });
   });
 });

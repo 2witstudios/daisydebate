@@ -36,10 +36,26 @@ used guardian restrictions to fence tournament visibility.
 - Settings exposes Parental controls and Your parents behind the
   `parental-controls` release flag. Staging uses its release default.
   Production activation and any counsel-directed changes require owner sign-off.
+- Under a linked child's More controls, the guardian can sign the media release
+  (ADR 0151), or explicitly withdraw parental consent and close the child's
+  account. Both operations recheck the active link and current ages under
+  the ordered account locks. Closure runs the same subject-rights transaction
+  as self-closure (ADR 0087), ends active links and releases, revokes sign-in
+  and preserves required evidence and the competitive record. The same durable
+  vendor queue handles Stripe cleanup after local closure (DEC-365).
 - Coaches run teams. They gain no guardian relationship from an organization
   role. Drop `restrictions` and its video and lobby fields. Leave
-  `restriction_lobbies` attached to a guardian link for PC-3. Tournament
-  entry remains adult-only until TF-2.
+  `restriction_lobbies` attached to a guardian link. It records the child’s
+  request for an adult standing lobby and the guardian’s ranked content
+  waiver signature. Permission stands only for the signed lobby and while
+  the link stays active. Ranked play additionally requires the guardian’s
+  signature for the active season and current waiver version. Each signature
+  is retained in `restriction_lobby_waivers`. Tournament entry inherits the
+  standing lobby’s permission when TF-2 lands. Media reuse requires its own
+  release for each youth debater, including in an adult lobby.
+  The lobby-season age determines whether an adult-lobby debater needs a
+  guardian signature. A participant who signs personally uses their current
+  age to select the wording under ADR 0161.
 
 This supersedes the guardian commands and closed family read surface in
 [ADR 0130](0130-organizations-grants-and-action-history.md) and the guardian restrictions in
