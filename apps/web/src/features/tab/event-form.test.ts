@@ -16,7 +16,7 @@ test('tournament age refusals keep the participant’s entry details', () => {
       'age-band',
       'This tournament needs a current age record. Check your account settings.',
     ],
-  ];
+  ] as const;
   assert({
     given: 'a stored entry submission refused by the tournament age rule',
     should: 'show the eligibility reason and retain the submitted fields',
@@ -24,7 +24,7 @@ test('tournament age refusals keep the participant’s entry details', () => {
       eventFormAnswer(form, { kind: 'refused', refusal }),
     ),
     expected: ageRefusals.map(([, error]) => ({
-      kind: 'refused',
+      kind: 'refused' as const,
       values: { name: 'League entry' },
       error,
     })),
