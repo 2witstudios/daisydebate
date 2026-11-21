@@ -1,8 +1,14 @@
 import type { ContentWaiverStanding } from '@daisy/db';
-import type { AgeBand, RoomAssemblyState, RoomRefusal } from '@daisy/protocol';
+import {
+  isDebatingSeat,
+  type AgeBand,
+  type RoomAssemblyState,
+  type RoomRefusal,
+} from '@daisy/protocol';
 import {
   casualCaptureNotice,
   contentWaiverOf,
+  CONTENT_WAIVER_VERSION,
   type RoundCaptureNotice,
 } from '../legal/agreements';
 
@@ -54,18 +60,37 @@ export const createNoticeOf = (
     : { kind: 'refused' };
 };
 
+export const needsGuardianContentWaiver = (
+  room: Pick<RoomAssemblyState, 'ageRule' | 'competitionType'> & {
+    readonly participants: readonly Pick<
+      RoomAssemblyState['participants'][number],
+      'actorId' | 'seat'
+    >[];
+  },
+  signer: AgeBand | null,
+  actorId: string | null,
+) =>
+  room.competitionType === 'ranked' &&
+  room.ageRule === 'adults' &&
+  (signer === '13-15' || signer === '16-17') &&
+  room.participants.some(
+    (seat) => seat.actorId === actorId && isDebatingSeat(seat.seat),
+  );
+
 /**
  * The waiver version a seat's Ready on this Room needs; only ranked needs
- * one. It follows the signer's age band (ADR 0161): a member
- * under 18 signs the Youth waiver even judging an Open Room, and an adult
- * judging a Youth Room signs the Open one.
+ * one. A guardian signs an adult lobby's waiver for a minor debater.
+ * The participant's own waiver follows their age band (ADR 0161).
  */
 export const requiredContentWaiver = (
   room: CompetitionFact,
   signer: AgeBand | null,
+  guardianSigns = false,
 ) =>
   room.competitionType === 'ranked'
-    ? contentWaiverOf(signer ?? 'adult').version
+    ? guardianSigns
+      ? CONTENT_WAIVER_VERSION
+      : contentWaiverOf(signer ?? 'adult').version
     : null;
 
 /** Unsigned is refused; with no season open, ranked play is unavailable. */

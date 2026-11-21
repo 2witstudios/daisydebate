@@ -93,6 +93,7 @@ test(
             // Protection levels and approval holds arrive later (ADR 0165).
             'protection_levels',
             'friend_guardian_approvals',
+            'restriction_lobby_waivers',
             // Rating state gains a lobby key and isolation in LL-2.
             'ratings',
             'rating_changes',
@@ -101,9 +102,10 @@ test(
       .map((table) =>
         table.table === 'action_history'
           ? { ...table, key: 'either' as const }
-          : table.table === 'guardian_links'
+          : table.table === 'guardian_links' ||
+              table.table === 'restriction_lobbies'
             ? {
-                table: 'guardian_links',
+                table: table.table,
                 key: 'person' as const,
                 subject: 'guardian' as const,
               }

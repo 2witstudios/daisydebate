@@ -5,18 +5,61 @@ import { ladders } from './schema/ladders';
 import { lobbies } from './schema/lobbies';
 import { seasons } from './schema/seasons';
 import { currentTenantScope, scopeTransaction } from './tenant-scope';
+import type { LobbyRatingSelection } from './standings';
 import type { Tx } from './tx';
+
+const roomLadderOrder = [asc(ladders.createdAt), asc(ladders.id)] as const;
+
+/** Share Room pool precedence and reuse the fallback across a lobby's discovery page. */
+export function roomRatingPoolReader(tx: Pick<Tx, 'select'>, lobbyId: string) {
+  let primary: Promise<string | undefined> | undefined;
+  return async (
+    selectedLadderId: string | null,
+    frozen?: {
+      readonly ladderId: string | null;
+      readonly seasonId: string | null;
+    },
+  ): Promise<LobbyRatingSelection | null> => {
+    const ladderId =
+      frozen?.ladderId ??
+      selectedLadderId ??
+      (await (primary ??= tx
+        .select({ id: ladders.id })
+        .from(ladders)
+        .where(eq(ladders.lobbyId, lobbyId))
+        .orderBy(...roomLadderOrder)
+        .limit(1)
+        .then(([row]) => row?.id)));
+    return ladderId
+      ? {
+          lobbyId,
+          ladderId,
+          ...(frozen?.seasonId ? { seasonId: frozen.seasonId } : {}),
+        }
+      : null;
+  };
+}
+
+const activeLobbySeason = (tx: Pick<Tx, 'select'>, lobbyId: string) =>
+  tx
+    .select({ id: seasons.id })
+    .from(seasons)
+    .where(and(eq(seasons.lobbyId, lobbyId), eq(seasons.status, 'active')));
+
+export async function readActiveLobbySeason(
+  tx: Pick<Tx, 'select'>,
+  lobbyId: string,
+): Promise<string | null> {
+  const [season] = await activeLobbySeason(tx, lobbyId);
+  return season?.id ?? null;
+}
 
 /** Hold the season through the write that relies on it. */
 export async function lockActiveLobbySeason(
   tx: Pick<Tx, 'select'>,
   lobbyId: string,
 ): Promise<string | null> {
-  const [season] = await tx
-    .select({ id: seasons.id })
-    .from(seasons)
-    .where(and(eq(seasons.lobbyId, lobbyId), eq(seasons.status, 'active')))
-    .for('share');
+  const [season] = await activeLobbySeason(tx, lobbyId).for('share');
   return season?.id ?? null;
 }
 
@@ -57,7 +100,7 @@ export async function lockLadderSeason(
           : eq(ladders.id, selectedLadderId),
       ),
     )
-    .orderBy(asc(ladders.createdAt), asc(ladders.id))
+    .orderBy(...roomLadderOrder)
     .limit(1)
     .for('share', { of: [seasons, ladders] });
   await scopeTransaction(tx, priorScope);

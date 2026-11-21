@@ -108,6 +108,8 @@ const roomViewFields = z.strictObject({
   /** Redacted to null for a viewer who may not name a judge seat the host occupies (DEC-174). */
   hostActorId: idSchema.nullable(),
   hostLabel: z.string().nullable(),
+  /** The member's current eligibility for this lobby's debating seats. */
+  viewerMayDebate: z.boolean().optional(),
   /**
    * Host-only display of what seating an AI judge means here (WATCH-16):
    * free (ranked, or the free bot Round's judge), included (Premium),
@@ -131,7 +133,7 @@ const roomViewFields = z.strictObject({
    * seated human on an open ranked Room. Ready rechecks it under the Room's
    * lock. Null for anyone else.
    */
-  contentWaiver: z.enum(['signed', 'unsigned']).nullable(),
+  contentWaiver: z.enum(['signed', 'unsigned', 'guardian-required']).nullable(),
   /**
    * Which waiver that standing is on: the one this viewer's own lobby signs
    * (ADR 0161), the Youth waiver for a member under 18 whatever Room they sit

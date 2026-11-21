@@ -61,11 +61,22 @@ export const linkedAdultFactsOf = (
   organizations: Readonly<Record<string, string>>,
 ): LinkedAdultFacts => {
   const user = (name: string) => people[name]!.userId;
+  const openRoom = fixture.round.room === 'open';
+  const youthDebaterUserIds = fixture.seats.flatMap(({ person, kind }) => {
+    const age = fixture.people[person];
+    return kind === 'debater' && age != null && age !== 'adult'
+      ? [user(person)]
+      : [];
+  });
   return {
     round: {
       ladderDivision: fixture.round.ladder,
       roomYouth:
-        fixture.round.room === null ? null : fixture.round.room === 'youth',
+        fixture.round.room === null
+          ? null
+          : fixture.round.room === 'youth' ||
+            (openRoom && youthDebaterUserIds.length > 0),
+      youthDebaterUserIds: openRoom ? youthDebaterUserIds : null,
     },
     seats: fixture.seats.map((seat) => ({
       actorId: people[seat.person]!.actorId,
@@ -172,17 +183,26 @@ export const linkedAdultFixtures: readonly LinkedAdultFixture[] = [
     expected: { student: ['coach', 'owner', 'parent'], opponent: [] },
   },
   {
-    given: 'the same people in a casual Open Room Round',
-    should: 'name no debater at all: an Open Round has no linked adults',
+    given: 'the same youth debaters in a casual Open Room Round',
+    should: 'name their linked adults as in a Youth Round',
     round: { room: 'open', ladder: null },
     ...everyKind,
-    expected: {},
+    expected: { student: ['coach', 'owner', 'parent'], opponent: [] },
   },
   {
-    given: 'the same people in a ranked Open Room Round',
-    should: 'name no debater at all',
+    given: 'a youth debater and adult opponent in a ranked Open Room Round',
+    should: 'name only the youth debater and their linked adults',
     round: { room: 'open', ladder: 'open' },
     ...everyKind,
+    people: { ...everyKind.people, opponent: 'adult' },
+    expected: { student: ['coach', 'owner', 'parent'] },
+  },
+  {
+    given: 'two adult debaters in a ranked Open Room Round',
+    should: 'return an empty list of linked adults',
+    round: { room: 'open', ladder: 'open' },
+    ...everyKind,
+    people: { ...everyKind.people, student: 'adult', opponent: 'adult' },
     expected: {},
   },
   {

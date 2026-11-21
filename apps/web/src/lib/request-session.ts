@@ -6,6 +6,7 @@ import {
   mayDebate,
 } from '@daisy/protocol/lobby/eligibility';
 import { readFamilySettings } from '../features/parental-controls/settings';
+import { CONTENT_WAIVER_VERSION } from '../features/legal/agreements';
 import { evaluatedIdentity } from '../server/member-boundary';
 import { messageOfferFor } from '../features/messaging/request-offer';
 import { leaguePageAddress } from '../features/tab/reads/league-address';
@@ -277,11 +278,23 @@ export const requestOfficialStandingLobbies = cache(async () =>
   ),
 );
 
-export const requestCompetitionAgeBand = cache(async () => {
+export const requestCompetitionAgeBand = cache(async (lobbyId?: string) => {
   const identity = await requestIdentity();
   return identity.state === 'member' || identity.state === 'provisional'
-    ? processApp().database.readCompetitionAgeBand(identity.principal.userId)
+    ? processApp().database.readCompetitionAgeBand(
+        identity.principal.userId,
+        lobbyId,
+      )
     : null;
+});
+
+export const requestGuardianLobbyIds = cache(async (lobbyId?: string) => {
+  const identity = await requestIdentity();
+  if (identity.state !== 'member') return [];
+  const ageBand = await requestCompetitionAgeBand(lobbyId);
+  return ageBand === '13-15' || ageBand === '16-17'
+    ? processApp().database.readGuardianLobbyIds(identity.principal.userId)
+    : [];
 });
 
 export const requestProfileChallengeModes = async (username: string) => {
@@ -309,17 +322,21 @@ export const requestRoomCreateLobbyChoice = cache(
     const creator = await processApp().database.readRoomCreatorFact(
       identity.principal.userId,
     );
-    const choices = (await requestOfficialStandingLobbies()).filter(
-      (lobby) =>
+    const lobbies = await requestOfficialStandingLobbies();
+    const ages = await Promise.all(
+      lobbies.map(({ id }) => requestCompetitionAgeBand(id)),
+    );
+    const choices = lobbies.filter(
+      (lobby, index) =>
         (creator.clubStaff && lobby.ageRule === 'under-18') ||
         mayDebate(
-          { ageBand: creator.ageBand, guardianAllowed: false },
-          { ...lobby, competitionType: 'casual' },
+          { ...creator, ageBand: ages[index] ?? null },
+          { ...lobby, lobbyId: lobby.id, competitionType: 'casual' },
         ),
     );
     const selected =
       choices.find(({ id }) => id === sourceLobbyId) ??
-      (creator.clubStaff
+      (creator.clubStaff || (creator.guardianLobbyIds?.length ?? 0) > 0
         ? (defaultStandingLobby(choices, creator.ageBand) ?? choices[0])
         : null);
     return selected ? { choices, defaultId: selected.id } : null;
@@ -829,11 +846,21 @@ export const requestFamilyViewer = cache(async () => {
 
 export async function requestFamilyRows(role: 'adult' | 'child') {
   const viewer = await requestFamilyViewer();
-  if (viewer?.role !== role) return null;
+  if (!viewer || (role === 'adult' && viewer.role !== 'adult')) return null;
+  const lobbyPermissionOnly = viewer.role !== role;
+  if (lobbyPermissionOnly && !(await requestFamilyLobbyPermissions('child')))
+    return null;
   const { database, clock } = processApp();
-  return database.guardians.forSubject(viewer.userId, (session) =>
-    readFamilySettings(session, viewer.userId, role, new Date(clock.now())),
+  const rows = await database.guardians.forSubject(viewer.userId, (session) =>
+    readFamilySettings(
+      session,
+      viewer.userId,
+      role,
+      new Date(clock.now()),
+      lobbyPermissionOnly,
+    ),
   );
+  return { rows, lobbyPermissionOnly };
 }
 
 export async function requestGuardianRelease(
@@ -853,6 +880,22 @@ export async function requestFriendApprovals() {
     session.waitingFriendApprovals(),
   );
 }
+
+export const requestFamilyLobbyPermissions = cache(
+  async (role: 'adult' | 'child') => {
+    const viewer = await requestFamilyViewer();
+    if (!viewer || (role === 'adult' && viewer.role !== 'adult')) return null;
+    const view = await processApp().database.lobbyPermissions.read(
+      viewer.userId,
+      CONTENT_WAIVER_VERSION,
+      role,
+    );
+    return viewer.role === role ||
+      (view.hasActiveParent && view.choices.length > 0)
+      ? view
+      : null;
+  },
+);
 
 /** What this member's profile view offers toward `username` (decision 90). */
 export const requestMessageOffer = async (username: string) => {

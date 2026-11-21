@@ -40,11 +40,14 @@ type ReadinessView = Pick<
 };
 
 /** Why Ready is refused, in order: the first failing check wins. */
-type ReadyBlocker = 'unavailable' | 'ineligible' | 'waiver' | 'devices';
+type ReadyBlocker =
+  'unavailable' | 'ineligible' | 'waiver' | 'guardian-waiver' | 'devices';
 const blockerText: Readonly<Record<ReadyBlocker, string>> = {
   unavailable: 'Readiness is unavailable. Refresh the room and try again.',
   ineligible: 'This seat is not eligible to ready.',
   waiver: 'Sign the ranked content waiver before readying.',
+  'guardian-waiver':
+    'Ask your linked guardian to sign this lobby’s current ranked waiver in Parental controls.',
   devices: 'Check your camera and microphone before readying.',
 };
 
@@ -57,6 +60,7 @@ function readyBlocker(
     return 'unavailable';
   if (!own.eligible || !view.capabilities.canReady) return 'ineligible';
   if (view.contentWaiver === 'unsigned') return 'waiver';
+  if (view.contentWaiver === 'guardian-required') return 'guardian-waiver';
   if (!isJudgeSeat(own.seat) && !local.devicesPassed) return 'devices';
   return null;
 }

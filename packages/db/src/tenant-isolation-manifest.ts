@@ -31,6 +31,8 @@ export type TenantSubject =
   /** `guardian_user_id` and `minor_user_id` are the two people. */
   | 'guardian'
   | 'friend-approval'
+  | 'lobby-permission'
+  | 'lobby-waiver'
   | 'consent-signer'
   | 'child-account-request'
   /** The funding account or the person who acted on its named consent. */
@@ -146,7 +148,16 @@ export const tenantIsolationManifest: TenantIsolationManifest = {
       key: 'person',
       subject: 'friend-approval',
     },
-    { table: 'restriction_lobbies', key: 'person', subject: 'guardian' },
+    {
+      table: 'restriction_lobbies',
+      key: 'person',
+      subject: 'lobby-permission',
+    },
+    {
+      table: 'restriction_lobby_waivers',
+      key: 'person',
+      subject: 'lobby-waiver',
+    },
     { table: 'action_history', key: 'history' },
     lobby('lobbies', { keyColumn: 'id', openRead: true }),
     organization('templates', { openRead: true }),
@@ -403,10 +414,16 @@ export const tenantIsolationManifest: TenantIsolationManifest = {
         'Returns the age-rule classification needed by linked-adult, recording and spectator readers without granting those readers access to lobby rows.',
     },
     {
+      name: 'daisy_room_youth_recording_cast',
+      executors: ['daisy_web'],
+      reason:
+        'Freezes whether a standing Room has youth debaters at Start for recording reuse. It returns no person or chat authority.',
+    },
+    {
       name: 'daisy_round_reuse_age_unknown',
       executors: ['daisy_web'],
       reason:
-        'Returns whether missing age evidence on a debating seat in an anyone lobby prevents reuse of a Round. It grants no viewing authority.',
+        'Returns whether missing age evidence on a debating seat prevents reuse of a Round from an anyone lobby or an adult lobby with a frozen youth cast. It grants no viewing authority.',
     },
     {
       name: 'daisy_linked_adult_users',

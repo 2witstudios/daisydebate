@@ -27,6 +27,7 @@ import {
   versionPositive,
 } from './columns';
 import { lobbies } from './lobbies';
+import { seasons } from './seasons';
 import { constantText } from './tenant-keys';
 import { users } from './users';
 
@@ -251,6 +252,9 @@ export const restrictionLobbies = pgTable(
       .notNull()
       .references(() => lobbies.id, { onDelete: 'cascade' }),
     createdAt: createdAtColumn(),
+    signedAt: timestampColumn('signed_at'),
+    waiverVersion: text('waiver_version'),
+    waiverDigest: text('waiver_digest'),
   },
   (table) => [
     primaryKey({ columns: [table.guardianLinkId, table.lobbyId] }),
@@ -260,6 +264,13 @@ export const restrictionLobbies = pgTable(
       table.minorUserId,
     ),
     index('restriction_lobbies_lobby_idx').on(table.lobbyId),
+    check(
+      'restriction_lobbies_signature_check',
+      sql`num_nonnulls(${table.signedAt}, ${table.waiverVersion}, ${table.waiverDigest}) in (0, 3)
+        and (${notBefore(table.signedAt, table.createdAt)})
+        and char_length(${table.waiverVersion}) between 1 and 64
+        and ${table.waiverDigest} ~ '^[0-9a-f]{64}$'`,
+    ),
     foreignKey({
       name: 'restriction_lobbies_guardian_link_fk',
       columns: [table.guardianLinkId, table.guardianUserId, table.minorUserId],
@@ -269,5 +280,67 @@ export const restrictionLobbies = pgTable(
         guardianLinks.minorUserId,
       ],
     }).onDelete('cascade'),
+  ],
+);
+
+/** An addressed guardian's immutable ranked waiver for one lobby season. */
+export const restrictionLobbyWaivers = pgTable(
+  'restriction_lobby_waivers',
+  {
+    guardianLinkId: text('guardian_link_id').notNull(),
+    guardianUserId: text('guardian_user_id').notNull(),
+    minorUserId: text('minor_user_id').notNull(),
+    lobbyId: text('lobby_id').notNull(),
+    seasonId: text('season_id').notNull(),
+    waiverVersion: text('waiver_version').notNull(),
+    waiverDigest: text('waiver_digest').notNull(),
+    signedAt: timestampColumn('signed_at')
+      .notNull()
+      .default(sql`clock_timestamp()`),
+  },
+  (table) => [
+    primaryKey({
+      columns: [
+        table.guardianLinkId,
+        table.lobbyId,
+        table.seasonId,
+        table.waiverVersion,
+      ],
+    }),
+    index('restriction_lobby_waivers_guardian_link_idx').on(
+      table.guardianLinkId,
+      table.guardianUserId,
+      table.minorUserId,
+    ),
+    index('restriction_lobby_waivers_season_idx').on(
+      table.seasonId,
+      table.lobbyId,
+    ),
+    foreignKey({
+      name: 'restriction_lobby_waivers_permission_fk',
+      columns: [table.guardianLinkId, table.lobbyId],
+      foreignColumns: [
+        restrictionLobbies.guardianLinkId,
+        restrictionLobbies.lobbyId,
+      ],
+    }).onDelete('restrict'),
+    foreignKey({
+      name: 'restriction_lobby_waivers_guardian_link_fk',
+      columns: [table.guardianLinkId, table.guardianUserId, table.minorUserId],
+      foreignColumns: [
+        guardianLinks.id,
+        guardianLinks.guardianUserId,
+        guardianLinks.minorUserId,
+      ],
+    }).onDelete('restrict'),
+    foreignKey({
+      name: 'restriction_lobby_waivers_season_fk',
+      columns: [table.seasonId, table.lobbyId],
+      foreignColumns: [seasons.id, seasons.lobbyId],
+    }).onDelete('restrict'),
+    check(
+      'restriction_lobby_waivers_evidence_check',
+      sql`char_length(${table.waiverVersion}) between 1 and 64 and ${table.waiverDigest} ~ '^[0-9a-f]{64}$'`,
+    ),
   ],
 );

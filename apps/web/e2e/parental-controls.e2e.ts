@@ -5,12 +5,15 @@ import type { Page } from '@playwright/test';
 import { createId } from '@paralleldrive/cuid2';
 import {
   affirmativeSide,
+  isOpenRoomStatus,
   isNamedSeat,
+  judgeSeat,
   negativeSide,
   sideSeat,
 } from '@daisy/protocol';
 import { systemClock } from '@daisy/clock';
 import {
+  birthAged,
   confirmSignIn,
   emailedLink,
   freshEmail,
@@ -22,11 +25,19 @@ import {
 } from './support/accounts';
 import { expect, openPage, test } from './support/fixtures';
 import { claimUsername } from './support/forms';
+import { settleLeftRounds } from './support/settle-left-round';
+import { aiCast, readRoomBotRoster } from './support/ai-cast';
+import {
+  assignSeat,
+  readyOwnSeat,
+  startAdmittedRound,
+} from './support/human-ballot-round';
 import {
   claim,
   closeRoom,
   deniedCommand,
   reread,
+  rosterSeatName,
   submitCreateRoom,
 } from './support/room-launch-flow';
 
@@ -542,5 +553,315 @@ test('a linked guardian signs the media release and closes the child account fro
   } finally {
     await childContext.close();
     await outsiderContext.close();
+  }
+});
+
+async function signPersonalWaiver(page: Page, roomId: string) {
+  const view = await reread(page.request, roomId);
+  const signature = await page.request.post('/api/agreements/content-waiver', {
+    headers: { origin },
+    data: { accepted: 'yes', version: view.contentWaiverVersion, roomId },
+  });
+  expect(signature.status()).toBe(200);
+  return view;
+}
+
+test('a 14-year-old plays Youth and gets their guardian’s waiver to play Open ranked', async ({
+  page: guardian,
+  browser,
+}) => {
+  test.setTimeout(210_000);
+  const seasonWorker = fileURLToPath(
+    new URL('./support/rating-season-worker.ts', import.meta.url),
+  );
+  await promisify(execFile)('bun', [seasonWorker], { timeout: 20_000 });
+  await resetRateLimits(guardian.request);
+  const parent = await signUpMember(guardian.request);
+  const context = await browser.newContext({
+    baseURL: origin,
+    ignoreHTTPSErrors: true,
+  });
+  const youthPeerContext = await browser.newContext({
+    baseURL: origin,
+    ignoreHTTPSErrors: true,
+  });
+  const rooms: { readonly page: Page; readonly id: string }[] = [];
+  const members: Parameters<typeof settleLeftRounds>[0][number][] = [
+    { context: guardian.context(), username: parent.username },
+  ];
+  try {
+    const child = await openPage(context, '14-year-old debater');
+    const player = await signUpMember(
+      child.request,
+      birthAged(systemClock.now(), 14),
+    );
+    const token = createId().slice(0, 8);
+
+    await child.goto('/play/room');
+    const youth = await submitCreateRoom(
+      child,
+      `Youth ${token}`,
+      'freestyle',
+      true,
+    );
+    rooms.push({ page: child, id: youth.id });
+    expect(youth.ageRule).toBe('under-18');
+    const youthHost = { context, username: player.username };
+    members.push(youthHost);
+    const youthSeated = await claim(child, youth, 'Affirmative 1');
+    const youthPeer = await openPage(youthPeerContext, 'Youth opponent');
+    const youthOpponent = await signUpMember(
+      youthPeer.request,
+      birthAged(systemClock.now(), 15),
+    );
+    const youthGuest = {
+      context: youthPeerContext,
+      username: youthOpponent.username,
+    };
+    members.push(youthGuest);
+    const { aiJudge } = aiCast({
+      bots: await readRoomBotRoster(child.request),
+    });
+    await assignSeat(youthHost, youthSeated, {
+      seat: judgeSeat(),
+      actorId: aiJudge.actorId,
+    });
+    await youthPeer.goto(`/rooms/${youth.id}`);
+    await claim(
+      youthPeer,
+      await reread(youthPeer.request, youth.id),
+      'Negative 1',
+    );
+    await readyOwnSeat(
+      youthGuest,
+      await signPersonalWaiver(youthPeer, youth.id),
+      sideSeat('negative'),
+    );
+    const youthReady = await readyOwnSeat(
+      youthHost,
+      await signPersonalWaiver(child, youth.id),
+      sideSeat('affirmative'),
+    );
+    const youthRound = await startAdmittedRound(youthHost, youthReady);
+    expect(
+      youthRound.participants.some(
+        (seat) => 'actorId' in seat && seat.actorId === youthSeated.hostActorId,
+      ),
+    ).toBe(true);
+    rooms.pop();
+    await settleLeftRounds([youthHost, youthGuest]);
+
+    await guardian.goto('/play/room');
+    const open = await submitCreateRoom(
+      guardian,
+      `Open ${token}`,
+      'freestyle',
+      true,
+    );
+    rooms.push({ page: guardian, id: open.id });
+    expect(open.ageRule).toBe('adults');
+    const negative = rosterSeatName(open, 'Negative 1');
+    const childRoom = await openPage(context, 'Open Room before approval');
+    await childRoom.goto(`/rooms/${open.id}`);
+    const takeSeat = childRoom.getByRole('button', {
+      name: `Take ${negative}`,
+      exact: true,
+    });
+    await expect(takeSeat).toHaveCount(0);
+    const refused = await deniedCommand(child.request, open, {
+      type: 'claim-seat',
+      seat: sideSeat('negative'),
+    });
+    expect(refused.status()).toBe(409);
+    expect(await refused.json()).toMatchObject({ refusal: 'other-division' });
+
+    await guardian.goto('/settings/parental-controls');
+    await guardian
+      .getByText('Link an existing account', { exact: true })
+      .click();
+    const linkForm = guardian
+      .locator('form')
+      .filter({ has: guardian.getByLabel('Child’s username') });
+    await linkForm.getByLabel('Child’s username').fill(player.username);
+    await agree(linkForm);
+    await linkForm.getByRole('button', { name: 'Ask to link' }).click();
+    await expect(
+      guardian.getByText('Request sent.', { exact: true }),
+    ).toBeVisible();
+
+    await child.goto('/settings/your-parents');
+    const parentRow = familyRow(parentsOf(child), parent.username);
+    await agree(parentRow);
+    await parentRow
+      .getByRole('button', { name: 'Yes, this is my parent' })
+      .click();
+    await parentRow.getByLabel('Adult lobby').selectOption(open.lobbyId);
+    await parentRow.getByRole('button', { name: 'Ask to play' }).click();
+    await expect(
+      parentRow.getByText(/Open.*Waiting for approval/),
+    ).toBeVisible();
+
+    await guardian.reload();
+    const childRow = familyRow(childrenOf(guardian), player.username);
+    await childRow.getByText(/^Ranked content waiver \(/).click();
+    await expect(
+      childRow.getByText(
+        /^Daisy owns what is said and shown by adult debaters/,
+      ),
+    ).toBeVisible();
+    await expect(
+      childRow.getByText(
+        /a separate media release covering every youth debater/,
+      ),
+    ).toBeVisible();
+    await childRow
+      .getByRole('checkbox', { name: /I sign this waiver for my child/ })
+      .check();
+    await childRow
+      .getByRole('button', { name: 'Sign waiver and allow Open' })
+      .click();
+    await expect(childRow.getByText(/Open.*Allowed/)).toBeVisible();
+
+    const setProtection = async (level: 'supervised' | 'guided') => {
+      await childRow
+        .getByLabel(`Protection level for @${player.username}`)
+        .selectOption(level);
+      await childRow
+        .getByRole('button', { name: 'Save protection level' })
+        .click();
+      await expect(async () => {
+        await child.goto('/settings/your-parents');
+        await expect(
+          parentRow.getByText(
+            `Protection level: ${level === 'guided' ? 'Guided' : 'Supervised'}`,
+          ),
+        ).toBeVisible({ timeout: 1000 });
+      }).toPass({ timeout: 15_000 });
+    };
+    await setProtection('supervised');
+    const supervised = await deniedCommand(
+      child.request,
+      await reread(child.request, open.id),
+      {
+        type: 'claim-seat',
+        seat: sideSeat('negative'),
+      },
+    );
+    expect(supervised.status()).toBe(409);
+    expect(await supervised.json()).toMatchObject({
+      refusal: 'ranked-unavailable',
+    });
+    await setProtection('guided');
+
+    const host = { context: guardian.context(), username: parent.username };
+    const withHost = await claim(
+      guardian,
+      await reread(guardian.request, open.id),
+      'Affirmative 1',
+    );
+    await assignSeat(host, withHost, {
+      seat: judgeSeat(),
+      actorId: aiJudge.actorId,
+    });
+    await expect(takeSeat).toBeVisible({ timeout: 35_000 });
+
+    await child.reload();
+    await expect(parentRow.getByText(/Open.*Allowed/)).toBeVisible();
+    await child.goto(`/lobby?lobby=${open.lobbyId}&q=${token}&view=rooms`);
+    await child
+      .getByRole('link', { name: `Join: ${open.title}`, exact: true })
+      .click();
+    const seated = await claim(
+      child,
+      await reread(child.request, open.id),
+      'Negative 1',
+    );
+    expect(seated.contentWaiver).toBe('signed');
+    const childActor = seated.participants.find(
+      (seat) => isNamedSeat(seat) && seat.label === player.username,
+    );
+    if (!childActor || !isNamedSeat(childActor))
+      throw new Error('The child’s seat is missing');
+    await readyOwnSeat(
+      { context, username: player.username },
+      seated,
+      sideSeat('negative'),
+    );
+
+    const hostView = await signPersonalWaiver(guardian, open.id);
+    const ready = await readyOwnSeat(host, hostView, sideSeat('affirmative'));
+    const round = await startAdmittedRound(host, ready);
+    rooms.pop();
+    expect(
+      round.participants.some(
+        (seat) => 'actorId' in seat && seat.actorId === childActor.actorId,
+      ),
+    ).toBe(true);
+
+    await settleLeftRounds([host, youthHost]);
+    const { stdout } = await promisify(execFile)(
+      'bun',
+      [
+        fileURLToPath(
+          new URL('./support/guardian-birthday-fixture.ts', import.meta.url),
+        ),
+        player.username,
+      ],
+      { timeout: 20_000 },
+    );
+    const birthdayLobby = JSON.parse(stdout) as { id: string; name: string };
+    await child.goto('/settings');
+    const settings = child.getByRole('navigation', {
+      name: 'Settings sections',
+    });
+    await expect(
+      settings.getByRole('link', { name: 'Parental controls' }),
+    ).toBeVisible();
+    await settings.getByRole('link', { name: 'Your parents' }).click();
+    await expect(
+      child.getByRole('heading', { name: 'Lobby permission', exact: true }),
+    ).toBeVisible();
+    const carriedParent = familyRow(
+      child.getByRole('region', { name: 'Lobby permission' }),
+      parent.username,
+    );
+    await expect(carriedParent.getByText(/Protection level:/)).toHaveCount(0);
+    await carriedParent
+      .getByLabel('Adult lobby')
+      .selectOption(birthdayLobby.id);
+    await carriedParent.getByRole('button', { name: 'Ask to play' }).click();
+    await expect(
+      carriedParent.getByText(
+        new RegExp(`${birthdayLobby.name}.*Waiting for approval`),
+      ),
+    ).toBeVisible();
+
+    await guardian.goto('/settings/parental-controls');
+    const birthdayApproval = childRow.locator('form').filter({
+      has: guardian.getByRole('button', {
+        name: `Sign waiver and allow ${birthdayLobby.name}`,
+      }),
+    });
+    await birthdayApproval
+      .getByRole('checkbox', { name: /I sign this waiver for my child/ })
+      .check();
+    await birthdayApproval
+      .getByRole('button', {
+        name: `Sign waiver and allow ${birthdayLobby.name}`,
+      })
+      .click();
+    const allowedBirthdayLobby = new RegExp(`${birthdayLobby.name}.*Allowed`);
+    await expect(childRow.getByText(allowedBirthdayLobby)).toBeVisible();
+    await child.reload();
+    await expect(carriedParent.getByText(allowedBirthdayLobby)).toBeVisible();
+  } finally {
+    try {
+      await settleLeftRounds(members);
+      for (const { page, id } of rooms)
+        if (isOpenRoomStatus((await reread(page.request, id)).status))
+          await closeRoom(page.request, id);
+    } finally {
+      await Promise.all([context.close(), youthPeerContext.close()]);
+    }
   }
 });

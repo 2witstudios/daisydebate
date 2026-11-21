@@ -115,6 +115,7 @@ mock.module(join(import.meta.dir, '../../lib/request-session.ts'), () => ({
   requestMemberDivision: async () => null,
   requestRealtimeSocketUrl: () => undefined,
   requestCompetitionAgeBand: async () => (onlyYouthLobby ? 'adult' : null),
+  requestGuardianLobbyIds: async () => [],
   requestOfficialStandingLobbies: async () =>
     onlyYouthLobby
       ? [{ id: 'youth-lobby', name: 'Youth', ageRule: 'under-18' }]
@@ -136,6 +137,7 @@ mock.module(join(import.meta.dir, '../../lib/request-session.ts'), () => ({
   requestGuardianRelease: async () => null,
   requestFamilyRows: async () => null,
   requestFriendApprovals: async () => [],
+  requestFamilyLobbyPermissions: async () => null,
   requestAnalytics: async () => ({
     choice: {
       kind: 'known',

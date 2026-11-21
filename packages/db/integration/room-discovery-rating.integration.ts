@@ -65,7 +65,8 @@ test('starting ranked discovery selects ready ranked Rooms and leaves ratings to
         room.hostActorId,
         room.hostLabel,
         room.hostRating,
+        room.hostRatingPool ?? null,
       ]),
-      expected: [[null, null, null]],
+      expected: [[null, null, null, null]],
     });
   }));

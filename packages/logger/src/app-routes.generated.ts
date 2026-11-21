@@ -119,6 +119,7 @@ export const appRoutes: readonly string[] = [
   '/api/ops/alerts',
   '/api/ops/metrics',
   '/api/parental-controls/command',
+  '/api/parental-controls/lobby-permission',
   '/api/parental-controls/more',
   '/api/people',
   '/api/presence',

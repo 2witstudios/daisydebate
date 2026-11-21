@@ -31,7 +31,6 @@ const render = (
         ids: roomCommandIds(view, () => ids.next()),
         actorId: 'v'.repeat(24),
         viewerLabel,
-        viewerAgeBand: null,
         bots: [],
         choices: [],
         socketUrl: null,

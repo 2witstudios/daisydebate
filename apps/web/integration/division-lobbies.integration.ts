@@ -12,8 +12,11 @@ import {
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { withRoomRuntime } from './room-runtime.test-support';
 import { everyoneReady } from './round-judging.test-support';
+import { seedGuardianLink } from './guardian-link.test-support';
 import {
   agreementWords,
+  contentWaiverDocument,
+  CONTENT_WAIVER_VERSION,
   youthContentWaiverDocument,
   YOUTH_CONTENT_WAIVER_VERSION,
 } from '../src/features/legal/agreements';
@@ -54,10 +57,18 @@ const setAge = (
 const withSeasons = async (
   f: Fixture,
   run: () => Promise<void>,
-  options: { readonly youth?: boolean; readonly youthStartedAgo?: string } = {},
+  options: {
+    readonly youth?: boolean;
+    readonly youthStartedAgo?: string;
+    readonly openStartedAgo?: string;
+  } = {},
 ) => {
   const seasons = [
-    { id: createId(), division: 'open', ago: '1 day' },
+    {
+      id: createId(),
+      division: 'open',
+      ago: options.openStartedAgo ?? '1 day',
+    },
     ...(options.youth === false
       ? []
       : [
@@ -122,6 +133,40 @@ const claim = (f: Fixture, member: Member, room: RoomView, judge = false) =>
       seat: judge ? judgeSeat() : sideSeat(negativeSide),
     }),
   );
+
+test('older Open and newer Youth seasons agree across Open admission paths', async () => {
+  await withRoomRuntime(async (f) =>
+    withSeasons(
+      f,
+      async () => {
+        await setAge(f, f.host, 'adult');
+        await setAge(f, f.guest, 'eighteen', '1 year');
+        const open = (await f.store.readOfficialStandingLobbies()).find(
+          (lobby) => lobby.ageRule === 'adults',
+        )!;
+        const profileModes = await f.store.readProfileChallengeModes(
+          f.guest.userId,
+          `u-${f.host.userId}`,
+        );
+        const create = await refusalOf(f.create({ lobby: open.id }, f.guest));
+        const room = (await f.create({ lobby: open.id }, f.host)).view;
+        assert({
+          given:
+            'a member who turned 18 between active Open and Youth season starts',
+          should:
+            'use the Open season age for creation, challenges and seating',
+          actual: { create, profileModes, seat: await claim(f, f.guest, room) },
+          expected: {
+            create: 'other-division',
+            profileModes: [],
+            seat: 'other-division',
+          },
+        });
+      },
+      { openStartedAgo: '2 months', youthStartedAgo: '1 second' },
+    ),
+  );
+});
 
 /** Makes `member` the owner of a school club: club staff (ADR 0151, ADR 0162). */
 const makeClubStaff = async (f: Fixture, member: Member) => {
@@ -367,6 +412,72 @@ test('a member who turns 18 mid-season finishes it on Youth', async () => {
   );
 });
 
+test('a Youth season carry uses current age for personal waivers', async () => {
+  await withRoomRuntime(async (f) =>
+    withSeasons(
+      f,
+      async () => {
+        await setAge(f, f.host, 'eighteen', '1 year');
+        await setAge(f, f.guest, 'seventeen');
+        await setAge(f, f.outsider, 'eighteen', '1 year');
+        let room = await f.assemble(await ranked(f), undefined, false);
+        room = (
+          await f.command(f.outsider, room, {
+            type: 'claim-seat',
+            seat: judgeSeat(),
+          })
+        ).view;
+        const current = [
+          { member: f.host, document: contentWaiverDocument },
+          { member: f.guest, document: youthContentWaiverDocument },
+          { member: f.outsider, document: contentWaiverDocument },
+        ];
+        const offered = [];
+        for (const { member, document } of current) {
+          offered.push(
+            (await f.operations.view(member, room.id)).contentWaiverVersion,
+          );
+          await f.store.signContentWaiver({
+            id: createId(),
+            userId: member.userId,
+            roomId: room.id,
+            version: document.version,
+            words: agreementWords(document),
+          });
+        }
+        const ready = await everyoneReady(f, room, [
+          f.host,
+          f.guest,
+          f.outsider,
+        ]);
+        assert({
+          given:
+            'a Youth debater and judge who are now 18 during the same season',
+          should:
+            'keep the debater on Youth while requiring the current-age personal waivers',
+          actual: {
+            ageRule: room.ageRule,
+            offered,
+            start: await refusalOf(
+              f.command(f.host, ready, { type: 'start-round' }),
+            ),
+          },
+          expected: {
+            ageRule: 'under-18',
+            offered: [
+              CONTENT_WAIVER_VERSION,
+              YOUTH_CONTENT_WAIVER_VERSION,
+              CONTENT_WAIVER_VERSION,
+            ],
+            start: 'accepted',
+          },
+        });
+      },
+      { youthStartedAgo: '3 months' },
+    ),
+  );
+});
+
 test('the Youth carry is bounded: no one is aged before their own record, nor more than a year back', async () => {
   await withRoomRuntime(async (f) =>
     withSeasons(
@@ -453,6 +564,322 @@ test('Start refuses a seated debater who no longer fits the Room’s lobby', asy
       expected: { started: 'other-division', rounds: 0 },
     });
   });
+});
+
+test('ending a guardian link refuses a previously admitted adult-lobby seat at Ready', async () => {
+  const scratch = scratchDatabase(databaseUrl, 'lobbypermissionready');
+  await scratch.create();
+  try {
+    await scratch.migrate(() => true);
+    await withRoomRuntime(
+      async (f) => {
+        await setAge(f, f.host, 'adult');
+        await setAge(f, f.guest, 'seventeen');
+        await setAge(f, f.outsider, 'adult');
+        await seedGuardianLink(f.sql, f.outsider.userId, f.guest.userId);
+        const [link] =
+          await f.sql`select id from guardian_links where minor_user_id=${f.guest.userId}`;
+        const room = (await f.create({}, f.host)).view;
+        const permission = { linkId: String(link!.id), lobbyId: room.lobbyId };
+        await f.store.lobbyPermissions.apply(f.guest, {
+          ...permission,
+          type: 'request',
+        });
+        await f.store.lobbyPermissions.apply(f.outsider, {
+          ...permission,
+          type: 'sign',
+          version: 'fixture',
+          digest: 'a'.repeat(64),
+        });
+        const seated = (
+          await f.command(f.guest, room, {
+            type: 'claim-seat',
+            seat: sideSeat(negativeSide),
+          })
+        ).view;
+        await f.sql`update guardian_links set status='ended', version=version+1, closed_at=now(), updated_at=now() where id=${permission.linkId}`;
+        assert({
+          given:
+            'a guardian ends the link after a minor took a casual seat in the adult lobby',
+          should:
+            'refuse Ready under the same lobby permission check as seat admission and Start',
+          actual: await refusalOf(
+            f.command(f.guest, seated, { type: 'ready' }),
+          ),
+          expected: 'other-division',
+        });
+      },
+      { databaseUrl: scratch.url },
+    );
+  } finally {
+    await scratch.drop();
+  }
+});
+
+test('a ranked adult-lobby seat and Start require the guardian waiver for the active season', async () => {
+  const scratch = scratchDatabase(databaseUrl, 'guardianwaiverseason');
+  await scratch.create();
+  try {
+    await scratch.migrate(() => true);
+    await withRoomRuntime(
+      async (f) =>
+        withSeasons(f, async () => {
+          await setAge(f, f.host, 'adult');
+          await setAge(f, f.guest, 'seventeen');
+          await setAge(f, f.outsider, 'adult');
+          await seedGuardianLink(f.sql, f.outsider.userId, f.guest.userId);
+          const [link] =
+            await f.sql`select id from guardian_links where minor_user_id=${f.guest.userId}`;
+          const open = (await f.store.readOfficialStandingLobbies()).find(
+            (lobby) => lobby.ageRule === 'adults',
+          )!;
+          const permission = { linkId: String(link!.id), lobbyId: open.id };
+          await f.store.lobbyPermissions.apply(f.guest, {
+            ...permission,
+            type: 'request',
+          });
+          const signGuardian = () =>
+            f.store.lobbyPermissions.apply(f.outsider, {
+              ...permission,
+              type: 'sign',
+              version: CONTENT_WAIVER_VERSION,
+              digest: 'a'.repeat(64),
+            });
+          await signGuardian();
+          let room = await f.assemble(await ranked(f), undefined, false);
+          room = (
+            await f.command(f.host, room, {
+              type: 'assign-seat',
+              actorId: (await f.aiJudge()).actorId,
+              seat: judgeSeat(),
+            })
+          ).view;
+          const signHost = () =>
+            f.store.signContentWaiver({
+              id: createId(),
+              roomId: room.id,
+              userId: f.host.userId,
+              version: CONTENT_WAIVER_VERSION,
+              words: agreementWords(contentWaiverDocument),
+            });
+          await signHost();
+          const ready = await everyoneReady(f, room, [f.host, f.guest]);
+          await f.sql`update seasons set status='closed' where lobby_id=${open.id} and status='active'`;
+          await f.sql`insert into seasons(id,lobby_id,organization_id,name,starts_at,status)
+        values (${createId()},${open.id},${open.organizationId},'Replacement Open',now(),'active')`;
+          await signHost();
+          const childView = await f.operations.view(f.guest, room.id);
+          assert({
+            given:
+              'a ready ranked cast when Open rolls to a new season with the same waiver version',
+            should: 'require a fresh guardian signature before Start',
+            actual: {
+              standing: childView.contentWaiver,
+              start: await refusalOf(
+                f.command(f.host, ready, { type: 'start-round' }),
+              ),
+            },
+            expected: {
+              standing: 'guardian-required',
+              start: 'content-waiver-required',
+            },
+          });
+          const unready = (await f.consent(f.guest, childView, 'unready')).view;
+          const before = await refusalOf(f.consent(f.guest, unready, 'ready'));
+          const renewed = await signGuardian();
+          const resumed = (await f.consent(f.guest, unready, 'ready')).view;
+          assert({
+            given: 'the same seated child and a renewed guardian signature',
+            should:
+              'refuse Ready before renewal and admit the ranked Round after it',
+            actual: [
+              before,
+              renewed,
+              await refusalOf(
+                f.command(f.host, resumed, { type: 'start-round' }),
+              ),
+            ],
+            expected: ['content-waiver-required', true, 'accepted'],
+          });
+        }),
+      { databaseUrl: scratch.url },
+    );
+  } finally {
+    await scratch.drop();
+  }
+});
+
+test('a carried minor in Open cannot substitute a personal signature for a guardian waiver', async () => {
+  const scratch = scratchDatabase(databaseUrl, 'guardianwaivercarry');
+  await scratch.create();
+  try {
+    await scratch.migrate(() => true);
+    await withRoomRuntime(
+      async (f) =>
+        withSeasons(
+          f,
+          async () => {
+            await setAge(f, f.host, 'adult');
+            await setAge(f, f.guest, 'seventeen', '1 year');
+            await setAge(f, f.outsider, 'adult');
+            await seedGuardianLink(f.sql, f.outsider.userId, f.guest.userId);
+            const [link] =
+              await f.sql`select id from guardian_links where minor_user_id=${f.guest.userId}`;
+            const open = (await f.store.readOfficialStandingLobbies()).find(
+              (lobby) => lobby.ageRule === 'adults',
+            )!;
+            const permission = { linkId: String(link!.id), lobbyId: open.id };
+            await setAge(f, f.guest, 'eighteen', '1 year');
+            const requesterView = () =>
+              f.store.lobbyPermissions.read(
+                f.guest.userId,
+                CONTENT_WAIVER_VERSION,
+                'child',
+              );
+            const carried = await requesterView();
+            assert({
+              given:
+                'the same active parent link and a member whose current age is adult',
+              should:
+                'offer the exact adult lobby whose season carries them as youth',
+              actual: [
+                carried.hasActiveParent,
+                carried.choices.some(({ id }) => id === open.id),
+              ],
+              expected: [true, true],
+            });
+            let room = (await f.create(await ranked(f))).view;
+            const beforeGrant = await f.operations.view(f.guest, room.id);
+            const requested = await f.store.lobbyPermissions.apply(f.guest, {
+              ...permission,
+              type: 'request',
+            });
+            assert({
+              given: 'an 18-year-old carried as youth in the Open season',
+              should: 'accept their first guardian request for this lobby',
+              actual: requested,
+              expected: true,
+            });
+            const sign = (version: string) =>
+              f.store.lobbyPermissions.apply(f.outsider, {
+                ...permission,
+                type: 'sign',
+                version,
+                digest: 'a'.repeat(64),
+              });
+            const approved = await sign('previous-version');
+            const afterGrant = await f.operations.view(f.guest, room.id);
+            assert({
+              given:
+                'the same Room read before and after the guardian approves',
+              should: 'refresh the debater control for the carried child',
+              actual: [
+                beforeGrant.viewerMayDebate,
+                approved,
+                afterGrant.viewerMayDebate,
+                beforeGrant.changeVersion === afterGrant.changeVersion,
+              ],
+              expected: [false, true, true, true],
+            });
+            room = (
+              await f.command(f.host, room, {
+                type: 'claim-seat',
+                seat: sideSeat(affirmativeSide),
+              })
+            ).view;
+            room = (
+              await f.command(f.guest, room, {
+                type: 'claim-seat',
+                seat: sideSeat(negativeSide),
+              })
+            ).view;
+            room = (
+              await f.command(f.host, room, {
+                type: 'assign-seat',
+                actorId: (await f.aiJudge()).actorId,
+                seat: judgeSeat(),
+              })
+            ).view;
+            for (const member of [f.host, f.guest])
+              await f.store.signContentWaiver({
+                id: createId(),
+                roomId: room.id,
+                userId: member.userId,
+                version: CONTENT_WAIVER_VERSION,
+                words: agreementWords(contentWaiverDocument),
+              });
+            const seated = await f.operations.view(f.guest, room.id);
+            const refused = await refusalOf(
+              f.consent(f.guest, seated, 'ready'),
+            );
+            assert({
+              given:
+                'a newly 18-year-old eligible in Open through an existing guardian grant and holding a personal signature',
+              should:
+                'still require the guardian’s current waiver while the Open season carries their eligibility age',
+              actual: [seated.contentWaiver, refused],
+              expected: ['guardian-required', 'content-waiver-required'],
+            });
+            const renewed = await sign(CONTENT_WAIVER_VERSION);
+            const requesterAfter = await requesterView();
+            const guardianAfter = await f.store.lobbyPermissions.read(
+              f.outsider.userId,
+              CONTENT_WAIVER_VERSION,
+              'adult',
+            );
+            assert({
+              given:
+                'the addressed guardian signed the carried player’s current Open waiver',
+              should:
+                'read the persisted grant and ranked evidence from both Family Settings roles',
+              actual: [requesterAfter, guardianAfter].map(({ requests }) =>
+                requests.some(
+                  (request) =>
+                    request.lobbyId === open.id &&
+                    request.signedAt !== null &&
+                    request.rankedWaiverSigned,
+                ),
+              ),
+              expected: [true, true],
+            });
+            const ready = await everyoneReady(f, room, [f.host, f.guest]);
+            assert({
+              given: 'a continuing active guardian link and the current waiver',
+              should:
+                'let that guardian renew the waiver and the cast start the Round',
+              actual: [
+                renewed,
+                await refusalOf(
+                  f.command(f.host, ready, { type: 'start-round' }),
+                ),
+              ],
+              expected: [true, 'accepted'],
+            });
+            await setAge(f, f.guest, 'adult');
+            assert({
+              given:
+                'the same active link when age evidence makes the debater adult in Open',
+              should: 'refuse both a request and a guardian signature',
+              actual: [
+                await f.store.lobbyPermissions.apply(f.guest, {
+                  ...permission,
+                  type: 'request',
+                }),
+                await sign(CONTENT_WAIVER_VERSION),
+                (await requesterView()).choices.some(
+                  ({ id }) => id === open.id,
+                ),
+              ],
+              expected: [false, false, false],
+            });
+          },
+          { openStartedAgo: '2 months' },
+        ),
+      { databaseUrl: scratch.url },
+    );
+  } finally {
+    await scratch.drop();
+  }
 });
 
 test('a ranked Start rechecks both a seatless host and a ready debater after a protection change', async () => {
