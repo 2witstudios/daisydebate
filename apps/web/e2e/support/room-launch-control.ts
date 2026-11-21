@@ -11,6 +11,7 @@ export type LaunchControlOperation =
   | 'allow-identity-reads'
   | 'refuse-messaging-history'
   | 'refuse-messaging-entry'
+  | 'refuse-floor-discovery-once'
   | 'allow-messaging-reads'
   | 'stop-realtime'
   | 'start-realtime'
