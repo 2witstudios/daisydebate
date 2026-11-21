@@ -1,16 +1,18 @@
 import { expect, type Page } from '@playwright/test';
 /**
- * The selects already show the user's own choices, so only the form POST's
- * response proves the save committed before the API is read (ISSUE-518).
+ * The selects already show the user's choices. Wait for the form POST and
+ * for the browser to apply its answer before the independent API read.
  */
 async function submit(page: Page, channelId: string, name: string) {
-  const committed = page.waitForResponse(
+  const button = page.getByRole('button', { name, exact: true });
+  const submitted = page.waitForResponse(
     (response) =>
       response.request().method() === 'POST' &&
       new URL(response.url()).pathname === `/messages/${channelId}/preferences`,
   );
-  await page.getByRole('button', { name, exact: true }).click();
-  await committed;
+  await button.click();
+  await submitted;
+  await expect(button).toBeEnabled();
 }
 /**
  * Both native DM modes exercise the same current authorized state and
