@@ -1,6 +1,8 @@
 # 0156: A Room's division is its lobby's
 
-Status: accepted (owner decision 85, 2026-11-18; slice YLS S1 + S2,
+Status: superseded by [ADR 0162](0162-daisy-is-a-league-open-and-youth-are-lobbies.md):
+Open and Youth are standing lobbies of the Daisy league, not a Room column.
+Was: accepted (owner decision 85, 2026-11-18; slice YLS S1 + S2,
 [plan](https://pagespace.ai/dashboard/lguvh1y1ejhadk96xcftohha/hw2qw76pqfg7129vwteleik0),
 epic [Plan — youth-lobbies](https://pagespace.ai/dashboard/lguvh1y1ejhadk96xcftohha/rvkfigx2w9tkwio3hc0uqhhk)).
 Amends [ADR 0147](0147-ladder-style-and-division.md) §4, §5 and §6.

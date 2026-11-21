@@ -23,7 +23,7 @@ const policy = {
   decision: 'test-only prospective policy; no activation',
   key: 'social.dm',
   revision: 1,
-  allowedBandPairs: [['adult', 'adult'] as const],
+  earlierRevisions: [],
 };
 test('prospective requests consume facts without fabricating channel membership', () => {
   const input = {

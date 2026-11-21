@@ -22,6 +22,7 @@ export const command = {
   digest: 'd'.repeat(64),
   now,
   policyRevision: 1,
+  nextId: () => 'n'.repeat(24),
   limits: {
     daily: 20,
     unrelatedHourly: 5,

@@ -37,6 +37,7 @@ export function composeMessagingCreationOperation(
             principal,
             clock: app.clock,
             operation: { kind: 'dm', policy: social.creation },
+            readingPolicy: policy.reading,
           }),
         ),
         policyRevision: social.creation.revision,

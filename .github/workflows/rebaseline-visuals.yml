@@ -263,11 +263,13 @@ jobs:
   # It runs even if nothing was committed or the render failed: an earlier
   # dispatch this one cancelled may have pushed the head and never approved CI.
   start-checks:
-    name: Start CI on the rebaselined head
+    name: Start CI and Browser E2E on the rebaselined head
     needs: [resolve, render, commit]
     if: ${{ !cancelled() && needs.resolve.result == 'success' }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 8
+    # Two workflows are waited for in turn, each for up to 24 passes ten
+    # seconds apart.
+    timeout-minutes: 12
     permissions:
       actions: write
       pull-requests: read

@@ -13,7 +13,11 @@ import {
 } from '../../../lib/request-session';
 import { answerEditHrefs } from '../../../ui/onboarding/answer-summary/answer-summary';
 import { SettingsPage } from '../../../ui/settings/preferences/settings-page';
-import { savePublicProfileAction } from './actions';
+import {
+  saveMessageRequestSettingAction,
+  savePublicProfileAction,
+} from './actions';
+import { MessageRequestSettingForm } from '../../../ui/messaging/message-request-setting-form';
 import {
   clearWatchHistoryAction,
   forgetWatchedAction,
@@ -70,9 +74,15 @@ async function publicProfileSection(username: string | null) {
 
 /** The member's stored notification choices and their watch history. */
 async function audienceSections(userId: string) {
-  const { preferences, presentation, history } =
+  const { preferences, presentation, history, messageRequestSetting } =
     await requestAudienceSettings(userId);
   return {
+    messageRequests: (
+      <MessageRequestSettingForm
+        action={saveMessageRequestSettingAction}
+        setting={messageRequestSetting}
+      />
+    ),
     notifications: (
       <>
         <NotificationPresentationForm
