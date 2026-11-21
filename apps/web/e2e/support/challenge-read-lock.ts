@@ -14,7 +14,7 @@ export async function withChallengeReadLocked<T>(run: () => Promise<T>) {
   const settled = completed.catch(() => {
     throw new Error('Challenge read lock process failed');
   });
-  try {
+  const runAfterLock = async () => {
     const [ready] = await Promise.race([
       once(child.stdout!, 'data'),
       settled.then(() => {
@@ -27,9 +27,21 @@ export async function withChallengeReadLocked<T>(run: () => Promise<T>) {
       throw new Error(
         'Challenge read lock process did not acknowledge the lock',
       );
-    return await run();
-  } finally {
-    child.stdin?.end();
-    await settled;
-  }
+    return run();
+  };
+  const [proof] = await Promise.allSettled([runAfterLock()]);
+  child.stdin?.end();
+  const [cleanup] = await Promise.allSettled([settled]);
+  if (
+    proof.status === 'rejected' &&
+    cleanup.status === 'rejected' &&
+    proof.reason !== cleanup.reason
+  )
+    throw new AggregateError(
+      [proof.reason, cleanup.reason],
+      'Challenge read proof and lock cleanup both failed',
+    );
+  if (proof.status === 'rejected') throw proof.reason;
+  if (cleanup.status === 'rejected') throw cleanup.reason;
+  return proof.value;
 }
