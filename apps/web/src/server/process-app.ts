@@ -1,4 +1,3 @@
-import { browserFetch } from '../ui/edge/browser-request';
 import { systemClock, systemId } from '@daisy/clock';
 import { createApp, type App } from './app';
 import { betaMessagingPolicy } from '../features/messaging/beta-policy';
@@ -65,9 +64,9 @@ const stateFor = (
 const outboundFetch = (env: Record<string, string | undefined>): Fetch => {
   const file = readDevMailFile(env);
   return file === null
-    ? browserFetch
+    ? globalThis.fetch
     : captureMail({
-        downstream: browserFetch,
+        downstream: globalThis.fetch,
         record: fileRecorder(file),
         clock: systemClock,
       });
@@ -75,7 +74,7 @@ const outboundFetch = (env: Record<string, string | undefined>): Fetch => {
 
 /** Public probe reaches real ingress, independently of captured outbound mail. */
 export const fetchPublicAttendanceProbe = (url: string, init: RequestInit) =>
-  fetchWithoutTracing(url, init, browserFetch);
+  fetchWithoutTracing(url, init, globalThis.fetch);
 
 /** Process-owned vendor transport; workers receive it explicitly and never read globals. */
 export const processVendorFetch = (): typeof globalThis.fetch =>
@@ -93,7 +92,7 @@ const edge = createProcessEdge(
         nextWorkerToken,
         messagingPolicy: betaMessagingPolicy,
       }),
-      browserFetch,
+      globalThis.fetch,
     ),
 );
 
@@ -139,7 +138,7 @@ export const processRoute = Object.assign(bindRequestRoute, {
  */
 export const adoptProcessApp = (
   app: App,
-  vendorFetch: typeof globalThis.fetch = browserFetch,
+  vendorFetch: typeof globalThis.fetch = globalThis.fetch,
 ) => edge.adopt(stateFor(app, vendorFetch));
 
 /** Closes this process's app if one was built. */

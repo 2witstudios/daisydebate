@@ -19,6 +19,7 @@ const browserEdge = {
     messages: {
       effect: 'Import a browser lifecycle hook from ui/edge.',
       operation: 'Use the browser operation in ui/edge.',
+      server: 'Keep server transport in the server boundary.',
     },
   },
   create(context) {
@@ -44,7 +45,14 @@ const browserEdge = {
       }
     };
     return {
-      ImportDeclaration: reactBindings,
+      ImportDeclaration(node) {
+        if (
+          path.includes('/src/server/') &&
+          /(?:^|\/)ui\/edge(?:\/|$)/.test(node.source.value)
+        )
+          report(node, 'server');
+        reactBindings(node);
+      },
       ExportNamedDeclaration: reactBindings,
       'MemberExpression:exit'(node) {
         if (node.object.type !== 'Identifier') return;

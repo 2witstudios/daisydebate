@@ -1125,6 +1125,18 @@ describe('browser edges', () => {
     });
   });
 
+  test('keeps the browser transport out of server process composition', async () => {
+    assert({
+      given: 'a server module that imports the browser fetch adapter',
+      should: 'report the cross-boundary import',
+      actual: await probe(
+        web('server/probe.ts'),
+        "import { browserFetch } from '../ui/edge/browser-request'; export const transport = browserFetch;",
+      ),
+      expected: 1,
+    });
+  });
+
   test('accepts the owner, injected ports and a server request', async () => {
     assert({
       given: 'edge code, a client’s injected ports and a server’s fetch',
