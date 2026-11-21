@@ -29,6 +29,8 @@ export type ContextChatProps = {
    * while the page is open (a Room's seat change); the thread then enters again.
    */
   readonly readOnlyHint: boolean;
+  /** Whether entry retries one discovery GET after the server's admission wait. */
+  readonly retryDiscovery?: boolean;
   /**
    * The owner's revision as the page knows it, where the page follows one. A
    * change re-reads the latest page: what this reader may be told about its
@@ -84,7 +86,7 @@ export function useContextChat({
   readonly openingCheck?: OpeningCheck | undefined;
 }) {
   const [driver] = useState(() =>
-    createContextChatDriver(context, props.ownerId),
+    createContextChatDriver(context, props.ownerId, props.retryDiscovery),
   );
   const { standing: state } = useSyncExternalStore(
     driver.subscribe,

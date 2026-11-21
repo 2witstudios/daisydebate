@@ -37,7 +37,7 @@ export default async function RoundFloorPage({
     <main className="mx-auto flex w-full max-w-reading flex-col gap-4 p-4">
       <MediaPageLink href={`/rounds/${id}`}>Back to Round</MediaPageLink>
       <h1 className="text-xl font-strong">Round chat</h1>
-      <FloorChat {...floor.props} />
+      <FloorChat {...floor.props} retryDiscovery />
     </main>
   );
 }

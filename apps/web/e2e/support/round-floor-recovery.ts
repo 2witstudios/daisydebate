@@ -1,4 +1,4 @@
-import type { Page, Route } from '@playwright/test';
+import type { Page, Response, Route } from '@playwright/test';
 import { expect } from './fixtures';
 import { messagingRecoveryControlPath } from './messaging-recovery-control';
 import { callLaunchControl } from './room-launch-settled';
@@ -23,22 +23,34 @@ export async function openFloorThroughRefusals(
     await route.continue();
   };
   await page.route(path, refuseBrowserDiscovery, { times: 1 });
-  const discovery = page.waitForResponse(
-    (response) =>
-      response.request().method() === 'GET' &&
-      new URL(response.url()).pathname === `/api/rounds/${roundId}/floor`,
+  const isDiscovery = (response: Response) =>
+    response.request().method() === 'GET' &&
+    new URL(response.url()).pathname === `/api/rounds/${roundId}/floor`;
+  const refused = page.waitForResponse(
+    (response) => isDiscovery(response) && response.status() === 503,
+    { timeout: 15_000 },
   );
-  // An early navigation failure may leave this waiter pending until teardown.
-  void discovery.catch(() => undefined);
+  const retried = page.waitForResponse(
+    (response) => isDiscovery(response) && response.status() === 200,
+    { timeout: 15_000 },
+  );
+  // A failing document may leave the browser response waiters pending.
+  void Promise.allSettled([refused, retried]);
   try {
     const document = await page.goto(`/rounds/${roundId}/floor`);
     expect(document?.status()).toBe(200);
-    await expect(
-      page.getByRole('heading', { name: 'Reconnecting to the Round' }),
-    ).toBeVisible();
-    const refusal = await discovery;
-    expect(refusal.status()).toBe(503);
+    expect(
+      (await document?.text())?.includes('Reconnecting to the Round'),
+    ).toBe(true);
+    const refusal = await refused;
     expect(refusal.headers()['retry-after']).toBe('1');
+    const first = refusal.request().timing();
+    expect(first.responseStart).toBeGreaterThanOrEqual(0);
+    const retry = (await retried).request().timing();
+    // Both timestamps come from Chromium. Allow 10 ms for timestamp rounding.
+    expect(
+      retry.startTime - (first.startTime + first.responseStart),
+    ).toBeGreaterThanOrEqual(990);
   } finally {
     await page.unroute(path, refuseBrowserDiscovery);
   }
