@@ -34,7 +34,30 @@ export const readLeagueLadder =
   ): Promise<LobbyLadder | null> => {
     if (!idSchema.safeParse(input.lobbyId).success) return null;
     return dependencies.store.leagueRatings(
-      { viewerUserId: principal.userId, lobbyId: input.lobbyId },
+      {
+        viewerUserId: principal.userId,
+        lobbyId: input.lobbyId,
+        canReadSource: (authority) => {
+          const resource = hostLobbyResource(
+            authority.lobby,
+            authority.authorization.organization,
+            authority.ownerActorId,
+          );
+          return (
+            resource.kind === 'lobby' &&
+            dependencies.authorize({
+              principal,
+              capability: 'lobby.host.read',
+              resource,
+              context: {
+                account: authority.authorization.account,
+                grants: authority.authorization.grants,
+                now: authority.checkedAt,
+              },
+            }).allow
+          );
+        },
+      },
       async (facts) => {
         if (!facts) return null;
         const { authority } = facts;
@@ -90,8 +113,6 @@ export const readLeagueLadder =
               await facts.publicStandings(
                 spectatorClockAt(authority.checkedAt),
                 replayPublishedStandings,
-                authority.authorization.membership === 'active' &&
-                  posting.participants !== 'never',
               ),
               authority.checkedAt,
             ).map((row) => ({

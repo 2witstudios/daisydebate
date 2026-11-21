@@ -38,7 +38,6 @@ export {
   ladderKey,
   ratingDivisions,
   ratingDivisionForAgeRule,
-  roundCompetition,
 } from './ladder';
 export type { AgeBand, Ladder, RatingDivision } from './ladder';
 export { isYouthRound, type LiveStanding } from './youth-round';

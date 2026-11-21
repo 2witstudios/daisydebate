@@ -58,6 +58,7 @@ test('every public and member read holds a ranked outcome until release', async 
     const seasonId = createId();
     const follower = createId();
     let roundId: string | undefined;
+    const openRoomId = createId();
     try {
       const season = await withSeasons(process.env['TEST_DATABASE_URL']!, (s) =>
         s.activateBetaSeason({ id: seasonId, division: 'open' }),
@@ -129,7 +130,6 @@ test('every public and member read holds a ranked outcome until release', async 
           : Response.json({}, { status: 404 });
       };
       // A Room the rated host opens while the Round is still held.
-      const openRoomId = createId();
       await f.sql`insert into rooms (lobby_id,id,host_actor_id,title,topic,visibility,format_id,format_version,preset_version,competition_type,config,execution_plan,rules_snapshot,status)
         select lobby_id,${openRoomId},host_actor_id,title,null,'public',format_id,format_version,preset_version,competition_type,config,execution_plan,rules_snapshot,'assembling'
         from rooms where id=${frozen.room.id}`;
@@ -429,9 +429,9 @@ test('every public and member read holds a ranked outcome until release', async 
           record: ledgerSide === 'affirmative' ? [1, 0] : [0, 1],
         },
       });
+    } finally {
       await f.sql`delete from rooms where id=${openRoomId}`;
       await deleteOrphanNotificationSignals(f.sql);
-    } finally {
       await f.sql`delete from users where id=${follower}`;
       if (roundId) {
         await f.sql`delete from notifications where round_id=${roundId}`;

@@ -2,6 +2,7 @@ import { createAppError } from '@daisy/errors';
 import {
   ratingStyles,
   sideKeySchema,
+  type EndingRatingFacts,
   type SideKey,
   type WinnerOutcome,
 } from '@daisy/protocol';
@@ -12,6 +13,7 @@ import { isDebatingSeatSql } from './seat-columns';
 import { actors } from './schema/actors';
 import { roundParticipants } from './schema/round-participants';
 import { rounds } from './schema/rounds';
+import { readEndingRatingFacts } from './rating-discovery';
 import { formatPresets } from './schema/format-presets';
 import { formats } from './schema/formats';
 import { ladders } from './schema/ladders';
@@ -74,6 +76,7 @@ export type StandingsRead = {
     readonly replaySeasonIds: readonly string[];
     readonly rooms: readonly ReleasedRoomResult[];
     readonly people: readonly StandingPerson[];
+    readonly legacyRooms?: readonly ReleasedLegacyRoom[];
   };
 };
 
@@ -84,7 +87,17 @@ type StandingPerson = Pick<
 type ReleasedRoomResult = Pick<
   StandingChange,
   'seasonId' | 'roundId' | 'actorId' | 'occurredAt' | 'side' | 'outcome'
->;
+> & { readonly playedAt?: string };
+type ReleasedLegacyRoom = {
+  readonly id: string;
+  readonly seasonId: string;
+  readonly rules: (typeof rounds.$inferSelect)['rulesSnapshot'];
+  readonly playedAt: Date;
+  readonly ending: EndingRatingFacts | null;
+  readonly participants: readonly (StandingPerson & {
+    readonly side: string | null;
+  })[];
+};
 
 type StandingCertification = {
   readonly seasonId: string;
@@ -99,7 +112,6 @@ const publishedCertifications = async (
     readonly seasonIds: readonly string[];
     readonly publicAt: string;
     readonly leaguePublication?: boolean;
-    readonly receivedCertifications?: boolean;
   },
 ): Promise<StandingCertification[]> => {
   const [owner] = await tx
@@ -122,7 +134,7 @@ const publishedCertifications = async (
     const records = await loadLeagueCertifiedRatingInputs(tx, {
       organizationId: owner.id,
       seasonId,
-      ...(input.receivedCertifications ? {} : { publicAt: input.publicAt }),
+      publicAt: input.publicAt,
     });
     if (records.length === 0) continue;
     const ids = [...new Set(certifiedRatingActors(records))];
@@ -282,7 +294,6 @@ type StandingsInput = {
   readonly includeCertified?: boolean;
   /** The caller has authorized publication on a league's own lobby page. */
   readonly leaguePublication?: boolean;
-  readonly receivedCertifications?: boolean;
 };
 
 export type PublishStandings = (source: StandingsRead) => StandingsRead;
@@ -290,10 +301,7 @@ export type PublishStandings = (source: StandingsRead) => StandingsRead;
 /** Active-season cards and Room discovery use the same published rating read. */
 export async function readActivePublishedRatings(
   tx: TabTransaction,
-  input: Pick<
-    StandingsInput,
-    'lobbyId' | 'clock' | 'leaguePublication' | 'receivedCertifications'
-  >,
+  input: Pick<StandingsInput, 'lobbyId' | 'clock' | 'leaguePublication'>,
   publish?: PublishStandings,
 ) {
   const [pool] = await tx
@@ -316,7 +324,7 @@ export async function readActivePublishedRatings(
 }
 
 /** Load projections and their inputs from the caller's one database snapshot. */
-export async function readStandingsWithin(
+async function readStandingsWithin(
   tx: TabTransaction,
   input: StandingsInput,
 ): Promise<StandingsRead> {
@@ -353,10 +361,13 @@ export async function readStandingsWithin(
       deviationAfter: ratingChanges.deviationAfter,
       volatilityBefore: ratingChanges.volatilityBefore,
       occurredAt: ratingChanges.occurredAt,
+      legacyPlayedAt: sql<Date | null>`case when ${rounds.legacyLeagueRating}
+        then ${rounds.completedAt} end`.mapWith(rounds.completedAt),
       side: roundParticipants.side,
       winningSide: rounds.winningSide,
       released: sql<boolean>`${rounds.visibility} = 'public' and ${factReleasedSql(
-        sql`greatest(${ratingChanges.occurredAt},${rounds.completedAt})`,
+        sql`case when ${rounds.legacyLeagueRating} then ${rounds.completedAt}
+          else greatest(${ratingChanges.occurredAt},${rounds.completedAt}) end`,
         rounds,
         input.clock,
       )}`,
@@ -378,6 +389,9 @@ export async function readStandingsWithin(
         eq(roundParticipants.seatKind, 'side'),
       ),
     );
+  const legacyRooms = input.includeCertified
+    ? await releasedLegacyRooms(tx, input)
+    : [];
   const certified = input.includeCertified
     ? await publishedCertifications(tx, {
         ...input,
@@ -389,14 +403,26 @@ export async function readStandingsWithin(
     username: row.username ?? null,
     accountClosed: closedAt !== null,
   }));
+  const legacyTimes = new Map<string, string>();
   const ledger = changeRows.map(
-    ({ released, volatilityBefore, side, winningSide, ...row }) => ({
-      ...row,
-      occurredAt: row.occurredAt.toISOString(),
-      ...ratedSeat(side, winningSide),
-      released: released === true || row.roundId === input.revealRoundId,
+    ({
+      released,
       volatilityBefore,
-    }),
+      side,
+      winningSide,
+      legacyPlayedAt,
+      ...row
+    }) => {
+      if (legacyPlayedAt)
+        legacyTimes.set(row.roundId, legacyPlayedAt.toISOString());
+      return {
+        ...row,
+        occurredAt: row.occurredAt.toISOString(),
+        ...ratedSeat(side, winningSide),
+        released: released === true || row.roundId === input.revealRoundId,
+        volatilityBefore,
+      };
+    },
   );
   const source = releasedStandings({ ratings: standings, changes: ledger });
   const replaySeasonIds = [
@@ -408,7 +434,9 @@ export async function readStandingsWithin(
   ];
   if (
     !input.includeCertified ||
-    (certified.length === 0 && replaySeasonIds.length === 0)
+    (certified.length === 0 &&
+      replaySeasonIds.length === 0 &&
+      legacyRooms.length === 0)
   )
     return source;
   const rooms = ledger
@@ -420,6 +448,7 @@ export async function readStandingsWithin(
       occurredAt,
       side,
       outcome,
+      playedAt: legacyTimes.get(roundId) ?? occurredAt,
     }));
   const releasedActors = new Set(rooms.map(({ actorId }) => actorId));
   const people = standings
@@ -432,6 +461,68 @@ export async function readStandingsWithin(
   return {
     ...source,
     certified,
-    publicResults: { rooms, people, replaySeasonIds },
+    publicResults: { rooms, people, replaySeasonIds, legacyRooms },
   };
+}
+
+/** Publicly released Rooms that predate the ledger keep their place during recovery. */
+async function releasedLegacyRooms(
+  tx: TabTransaction,
+  input: StandingsInput,
+): Promise<ReleasedLegacyRoom[]> {
+  const selected = and(
+    eq(rounds.ratingLobbyId, input.lobbyId),
+    eq(rounds.ladderId, input.ladderId),
+    inArray(rounds.seasonId, [...input.seasonIds]),
+    eq(rounds.legacyLeagueRating, true),
+    eq(rounds.status, 'completed'),
+    eq(rounds.visibility, 'public'),
+    factReleasedSql(rounds.completedAt, rounds, input.clock),
+    sql`not exists (select 1 from ${ratingChanges} where ${ratingChanges.roundId} = ${rounds.id})`,
+  );
+  const rows = await tx
+    .select({
+      id: rounds.id,
+      seasonId: rounds.seasonId,
+      rules: rounds.rulesSnapshot,
+      playedAt: rounds.completedAt,
+      side: roundParticipants.side,
+      actorId: actors.id,
+      username: users.username,
+      closedAt: users.deletedAt,
+    })
+    .from(rounds)
+    .innerJoin(
+      roundParticipants,
+      and(
+        eq(roundParticipants.roundId, rounds.id),
+        eq(roundParticipants.seatKind, 'side'),
+      ),
+    )
+    .innerJoin(actors, eq(actors.id, roundParticipants.actorId))
+    .leftJoin(users, eq(users.id, actors.userId))
+    .where(selected);
+  const byRound = new Map<
+    string,
+    {
+      room: Omit<ReleasedLegacyRoom, 'ending' | 'participants'>;
+      participants: ReleasedLegacyRoom['participants'][number][];
+    }
+  >();
+  for (const { id, seasonId, rules, playedAt, closedAt, ...seat } of rows) {
+    if (!seasonId || !playedAt) continue;
+    const group = byRound.get(id) ?? {
+      room: { id, seasonId, rules, playedAt },
+      participants: [],
+    };
+    group.participants.push({ ...seat, accountClosed: closedAt !== null });
+    byRound.set(id, group);
+  }
+  const endings = await readEndingRatingFacts(tx, [...byRound.keys()]);
+  return endings.flatMap(({ roundId, facts }) => {
+    const group = byRound.get(roundId);
+    return group
+      ? [{ ...group.room, ending: facts, participants: group.participants }]
+      : [];
+  });
 }

@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray } from 'drizzle-orm';
 import { seasons } from '../schema/seasons';
 import { seasonStandingRules, sanctions } from '../schema/sanctions';
 import { organizations } from '../schema/organizations';
@@ -46,7 +46,7 @@ async function load(tx: TabTransaction, input: Input) {
         ...(input.seasonId ? [eq(seasons.id, input.seasonId)] : []),
       ),
     )
-    .orderBy(desc(seasons.startsAt))
+    .orderBy(asc(seasons.lobbyId), desc(seasons.startsAt), asc(seasons.id))
     .limit(1)
     .for('share');
   if (!organization || !season) return null;

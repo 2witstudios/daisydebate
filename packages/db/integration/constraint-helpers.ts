@@ -218,8 +218,10 @@ export class Fixture {
           d.id as ladder_id, (select s.id from seasons s where s.lobby_id=l.id
             order by (s.status='active') desc, s.starts_at desc, s.id limit 1) as season_id
         from lobbies l join ladders d on d.lobby_id=l.id where l.kind='standing'
-          and l.owner_organization_id=${daisyOrganizationId}
-          and l.age_rule=${ladder_division === 'youth' ? 'under-18' : 'adults'}::lobby_age_rule
+          and (case when ${value.room_id ?? null}::text is not null then
+            l.id=(select r.lobby_id from rooms r where r.id=${value.room_id ?? null})
+          else l.owner_organization_id=${daisyOrganizationId}
+            and l.age_rule=${ladder_division === 'youth' ? 'under-18' : 'adults'}::lobby_age_rule end)
         order by l.created_at,l.id,d.created_at,d.id limit 1`;
       if (!pool) return value;
       const seasonId = pool.season_id ?? createId();

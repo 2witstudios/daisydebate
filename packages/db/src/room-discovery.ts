@@ -94,7 +94,6 @@ const hostRating = (clock: SpectatorClock) => {
     join seasons z on z.id=rt.season_id and z.status='active'
     left join lateral (${earliestHeld}) h on true
     where rt.actor_id=r.host_actor_id and rt.lobby_id=r.lobby_id
-      and (h.occurred_at is null or exists(select 1 from rating_changes c where c.actor_id=rt.actor_id and c.ladder=rt.ladder and c.season_id=rt.season_id and c.occurred_at<h.occurred_at))
       and rt.ladder=(select l.id from ladders l where l.lobby_id=r.lobby_id
         order by l.created_at,l.id limit 1)
     ) end`;

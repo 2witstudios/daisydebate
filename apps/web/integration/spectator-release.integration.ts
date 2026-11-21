@@ -53,6 +53,7 @@ const ratedRound = async (a: Arena) => {
     affirmative,
     negative,
     outcome: 'affirmative',
+    visibility: 'public',
   });
   await a.rate(roundId);
   return { affirmative, negative, roundId };
@@ -193,6 +194,7 @@ test('a later Round rewinds a rating without hiding what is already public', asy
       negative,
       outcome: 'affirmative',
       completedAt: minute(40),
+      visibility: 'public',
     });
     await a.rate(heldId);
     try {
@@ -229,6 +231,7 @@ test('a member card holds a rating as the standings do', async () => {
       negative,
       outcome: 'affirmative',
       completedAt: minute(40),
+      visibility: 'public',
     });
     await a.rate(heldId);
     try {

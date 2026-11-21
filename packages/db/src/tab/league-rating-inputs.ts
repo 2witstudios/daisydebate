@@ -14,6 +14,7 @@ import { scopeTransaction } from '../tenant-scope';
 import {
   certifiedRatingActors,
   loadLeagueCertifiedRatingInputs,
+  type CertifiedSourceAuthority,
 } from './league-certified-rating-inputs';
 import { loadLobbyAuthority } from './lobby-authority';
 import {
@@ -31,6 +32,8 @@ export async function loadLeagueRatingInputs(
     readonly viewerUserId: string;
     readonly ladderId: string;
     readonly allowedOrganizationIds?: readonly string[];
+    readonly publicAt?: string;
+    readonly canReadSource?: (source: CertifiedSourceAuthority) => boolean;
   },
 ) {
   const [home] = await tx
@@ -65,6 +68,8 @@ export async function loadLeagueRatingInputs(
         viewerUserId: input.viewerUserId,
         organizationId: home.ladder.organizationId,
         seasonId: season.id,
+        ...(input.publicAt ? { publicAt: input.publicAt } : {}),
+        ...(input.canReadSource ? { canReadSource: input.canReadSource } : {}),
       })
     : [];
   await scopeTransaction(tx, scope);
@@ -225,7 +230,11 @@ export type LeagueRatingInputs = NonNullable<
 >;
 export const createLeagueRatingStore = (database: TabDatabase) => ({
   leagueRatings: <Answer>(
-    input: { readonly viewerUserId: string; readonly lobbyId: string },
+    input: {
+      readonly viewerUserId: string;
+      readonly lobbyId: string;
+      readonly canReadSource?: (source: CertifiedSourceAuthority) => boolean;
+    },
     work: (
       facts: {
         readonly authority: NonNullable<
@@ -235,7 +244,6 @@ export const createLeagueRatingStore = (database: TabDatabase) => ({
         readonly publicStandings: (
           clock: SpectatorClock,
           publish: PublishStandings,
-          receivedCertifications: boolean,
         ) => Promise<StandingsRead>;
       } | null,
     ) => Promise<Answer>,
@@ -258,6 +266,10 @@ export const createLeagueRatingStore = (database: TabDatabase) => ({
         ? await loadLeagueRatingInputs(tx, {
             viewerUserId: input.viewerUserId,
             ladderId: ladder.id,
+            publicAt: authority.checkedAt,
+            ...(input.canReadSource
+              ? { canReadSource: input.canReadSource }
+              : {}),
           })
         : null;
       return work(
@@ -265,7 +277,7 @@ export const createLeagueRatingStore = (database: TabDatabase) => ({
           ? {
               authority,
               input: facts,
-              publicStandings: async (clock, publish, receivedCertifications) =>
+              publicStandings: async (clock, publish) =>
                 (
                   await readActivePublishedRatings(
                     tx,
@@ -273,7 +285,6 @@ export const createLeagueRatingStore = (database: TabDatabase) => ({
                       lobbyId: authority.lobby.id,
                       clock,
                       leaguePublication: true,
-                      receivedCertifications,
                     },
                     publish,
                   )

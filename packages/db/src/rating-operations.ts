@@ -14,12 +14,15 @@ import {
   ratedResult,
   ratingChangeRows,
 } from './rating-decisions';
-import { readRatingFacts } from './rating-discovery';
+import { readEarlierLegacyRatings, readRatingFacts } from './rating-discovery';
 import { retryStale } from './retry-stale';
 import { seatOfColumns } from './seat-columns';
 import { roundParticipants } from './schema/round-participants';
 import { rounds } from './schema/rounds';
 import { ratingChanges, ratings } from './schema/ratings';
+import { seasons } from './schema/seasons';
+import { lobbies } from './schema/lobbies';
+import { seasonStandingRules } from './schema/sanctions';
 import { scopeTransaction } from './tenant-scope';
 
 /**
@@ -60,6 +63,26 @@ async function loadStanding(
     .select()
     .from(ratings)
     .where(and(onLadder, eq(ratings.seasonId, scope.pool.seasonId)));
+  if (!current) {
+    const [previousBetaStanding] = await tx
+      .select({ actorId: ratings.actorId })
+      .from(ratings)
+      .innerJoin(seasons, eq(seasons.id, ratings.seasonId))
+      .where(
+        and(
+          onLadder,
+          eq(ratings.lobbyId, scope.pool.lobbyId),
+          sql`${seasons.startsAt} < (select current_season.starts_at from ${seasons} current_season where current_season.id = ${scope.pool.seasonId})`,
+          sql`not exists (select 1 from ${seasonStandingRules} rules where rules.season_id = ${scope.pool.seasonId})`,
+        ),
+      )
+      .limit(1);
+    if (previousBetaStanding)
+      throw createAppError(
+        'CONFLICT',
+        'Season carry-over requires DEC-111 resolution',
+      );
+  }
   const [last] = await tx
     .select({ at: max(ratingChanges.occurredAt) })
     .from(ratingChanges)
@@ -127,8 +150,16 @@ async function rateOnce(
     .for('no key update');
   if (!round) throw createAppError('NOT_FOUND', 'No such round');
   assertRoundRatingIntegrity(round);
-  if (round.ratingLobbyId !== null)
-    await scopeTransaction(tx, { lobbyId: round.ratingLobbyId });
+  if (round.ratingLobbyId !== null) {
+    const [home] = await tx
+      .select({ organizationId: lobbies.ownerOrganizationId })
+      .from(lobbies)
+      .where(eq(lobbies.id, round.ratingLobbyId));
+    await scopeTransaction(tx, {
+      lobbyId: round.ratingLobbyId,
+      organizationId: home?.organizationId ?? undefined,
+    });
+  }
   const facts = await readRatingFacts(tx, roundId);
   if (!facts) throw createAppError('NOT_FOUND', 'No such round');
   const eligibility = decide.eligibility(facts);
@@ -172,6 +203,21 @@ async function rateOnce(
     order by locks.key`);
   for (const { key } of keys as unknown as { key: string }[])
     await tx.execute(sql`select pg_advisory_xact_lock(59090, ${key}::integer)`);
+  const earlier = await readEarlierLegacyRatings(tx, {
+    roundId,
+    ...eligibility.scope,
+    legacy: round.legacyLeagueRating,
+  });
+  for (const candidate of earlier) {
+    const prior = candidate.facts && decide.eligibility(candidate.facts);
+    if (
+      !prior ||
+      prior.kind === 'rated' ||
+      prior.kind === 'attendance-unsettled' ||
+      (prior.kind === 'unrated' && prior.reason === 'check-in-pending')
+    )
+      return { kind: 'deferred', reason: 'earlier-legacy-rating-pending' };
+  }
   const standings: Record<string, DebaterStanding> = {};
   for (const { actorId } of seats)
     standings[actorId] = await loadStanding(tx, {

@@ -11,10 +11,11 @@ retains posted states and timestamps, and each projection uses the same
 actor, ladder and season identity. Historical postings keep their original
 season where it belongs to their Room's lobby. Where several standing
 lobbies shared an old rating period, the other lobbies receive their own
-copy of that period and each posting follows its Room. The original season
-retains its waiver signatures and sanction receipts. League-managed seasons
-start with the standard initial rating. The operator CLI retains its
-rollover guard while DEC-111 remains open.
+copy of that period and its standings rule. Each posting follows its Room.
+The original season retains its waiver signatures and sanction receipts.
+Seasons opened through the league's managed standings rules start with the
+standard initial rating. The operator beta path retains its activation and
+posting guards while DEC-111 remains open.
 
 All eligible standing-lobby Rounds use the same posting transaction. A
 league's configured Room selection and the ranked preset path both resolve
@@ -30,15 +31,19 @@ rating snapshot to survive both correction and rollback. Replaying the
 receiving season's corrected certification alongside its own Rooms
 preserves the effect on later competitive inputs. New Room inputs keep
 ledger posting order, including games settled after subsequent Rounds.
-Completed league Rooms from before the ledger retain their completion order
-in replay and in recovery. A season with no eligible legacy or certified
-input reads the shared projections.
+Released league Rooms from before the ledger appear in public history during
+recovery. Earlier eligible legacy games settle before later games in their
+pool can post. A transient failure leaves the rest of that pool for a later
+pass while independent pools continue. A season with no replay inputs reads
+the shared projections.
 
 The official leaderboard, member cards and Room discovery use the same
 public rating history. When a private or delayed result affects the stored
 projection, the public calculation uses the complete released games so
 later public results remain visible. An approved tournament result counts
 in that view when its posting and decision have been released to the public.
-The league view follows its authorized audience. A receiving league's
-sanction remains in its receiving lobby and season, and retained tournament
-snapshots keep their seeded ratings.
+The receiving league's host can include withheld certified games only when
+they also have the source tournament's host-read authority. League members
+and outsiders who may read the receiving ladder see the publicly released
+games. A sanction remains in its receiving lobby and season, and retained
+tournament snapshots keep their seeded ratings.

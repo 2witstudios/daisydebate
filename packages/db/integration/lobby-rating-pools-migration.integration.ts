@@ -313,6 +313,12 @@ test(
       const leagueScopes =
         await client`select r.id, r.season_id, r.rating_lobby_id, r.ladder_id, s.name, r.legacy_league_rating
           from rounds r join seasons s on s.id=r.season_id where r.id in ${client(legacyLeagueRounds)}`;
+      const [copiedRule] = await client`select copied.counting=original.counting
+          and copied.counts_lobby_rooms=original.counts_lobby_rooms
+          and copied.rule=original.rule as matches
+        from rounds r join season_standing_rules copied on copied.season_id=r.season_id
+        join season_standing_rules original on original.season_id=${league.season}
+        where r.id=${legacyLeagueRounds[0]}`;
       assert({
         given:
           'an approved sanction and selected Rooms spanning two periods with different primary lobbies',
@@ -333,6 +339,7 @@ test(
             ];
           }),
           certified: certified.some(({ id }) => id === league.decided),
+          copiedRule: copiedRule?.matches,
         },
         expected: {
           lobbyId: laterLobby,
@@ -345,6 +352,7 @@ test(
             [laterLobby, laterLadder, 'Successor season', false, true],
           ],
           certified: true,
+          copiedRule: true,
         },
       });
       const [youth] =
