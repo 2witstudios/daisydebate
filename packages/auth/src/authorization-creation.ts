@@ -1,3 +1,4 @@
+import { messagingSocialCreationPolicySchema } from '@daisy/protocol';
 import { contactPairValid } from './authorization-contact';
 import { policySelfCurrent } from './authorization-policy';
 import type {
@@ -51,7 +52,11 @@ function intentCurrent(
   resource: SocialCreationFact,
   policy: SocialCreationPolicy,
 ) {
-  if (actorId !== resource.initiatorActorId) return false;
+  if (
+    actorId !== resource.initiatorActorId ||
+    !messagingSocialCreationPolicySchema.safeParse(resource).success
+  )
+    return false;
   if (resource.mode === 'dm')
     return (
       capability === 'channel.dm.request' &&

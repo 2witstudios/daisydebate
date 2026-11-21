@@ -574,14 +574,20 @@ const nonNullAssertion = {
   create: (context) => ({
     TSNonNullExpression(node) {
       const { expression } = node;
-      if (
-        expression.type === 'MemberExpression' &&
-        expression.computed &&
-        expression.property.type !== 'TemplateLiteral' &&
-        (expression.property.type !== 'Literal' ||
-          typeof expression.property.value === 'number')
-      ) {
-        return;
+      if (expression.type === 'MemberExpression' && expression.computed) {
+        let key = expression.property;
+        while (
+          key.type === 'TSAsExpression' ||
+          key.type === 'TSSatisfiesExpression' ||
+          key.type === 'TSTypeAssertion' ||
+          key.type === 'TSNonNullExpression'
+        )
+          key = key.expression;
+        if (
+          key.type !== 'TemplateLiteral' &&
+          (key.type !== 'Literal' || typeof key.value === 'number')
+        )
+          return;
       }
       context.report({ node, messageId: 'assertion' });
     },

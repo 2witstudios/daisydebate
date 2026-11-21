@@ -1,5 +1,6 @@
 import { isRoundOver } from '@daisy/protocol';
 import {
+  roundFloorPolicySchema,
   roundFloorRetentionMs,
   type RoundFloorFact,
 } from '@daisy/protocol/round-floor';
@@ -27,6 +28,7 @@ const boundEligibleAccount = ({
 const currentAudience = ({ fact, principal }: FloorDecisionInput) =>
   fact.actorId === principal.actorId &&
   fact.audience !== null &&
+  roundFloorPolicySchema.safeParse(fact).success &&
   Number.isSafeInteger(fact.revision) &&
   fact.revision > 0;
 

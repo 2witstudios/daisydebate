@@ -544,19 +544,22 @@ describe('a non-null assertion is refused except on an index', () => {
     const path = 'packages/protocol/src/x.ts';
     assert({
       given:
-        'an assertion on a value, a named property in three spellings, a map read, a call, and two array indices',
+        'assertions on a value, a named property with or without type syntax, a map read, a call, and array indices',
       should: 'report the value, property and call assertions',
       actual: [
         await count(source('value!'), path),
         await count(source('record.name!'), path),
         await count(source("record['name']!"), path),
         await count(source('record[`name`]!'), path),
+        await count(source("record['name' as const]!"), path),
+        await count(source("record['name' satisfies string]!"), path),
         await count(source("names.get('a')!"), path),
         await count(source('find()!'), path),
         await count(source('list[index]!'), path),
         await count(source('list[0]!'), path),
+        await count(source('list[0 as const]!'), path),
       ],
-      expected: [1, 1, 1, 1, 1, 1, 0, 0],
+      expected: [1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0],
     });
   });
   test('the rule covers app and package source; tests and packages/db/src are outside it', async () => {

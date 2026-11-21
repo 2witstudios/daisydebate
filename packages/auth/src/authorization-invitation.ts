@@ -1,3 +1,4 @@
+import { messagingPrivateGroupPolicySchema } from '@daisy/protocol';
 import {
   contactSafetyAllowed,
   sameAuthorizationAccount,
@@ -14,6 +15,7 @@ const identifier = (value: string) =>
 function channelCurrent(channel: GroupInvitationAuthorizationFact['channel']) {
   return (
     identifier(channel.channelId) &&
+    messagingPrivateGroupPolicySchema.safeParse(channel).success &&
     positive(channel.policyRevision) &&
     positive(channel.revision) &&
     ['active', 'archived'].includes(channel.lifecycle) &&

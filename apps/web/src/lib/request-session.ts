@@ -122,10 +122,6 @@ export const messagingLatestPageItems = (): number =>
     processApp().messagingPolicy.bounds.pageItems,
   );
 
-/** Whether this deployment has a file runtime; without one no file control shows. */
-export const messagingFilesAvailable = (): boolean =>
-  processApp().messagingFiles !== null;
-
 /** One archive page for this viewer, and how many Recordings are public. */
 export const readRecordingArchive = async (
   query: RecordingsQuery,
