@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { releaseAudienceSchema } from '../release-audience';
 import { idSchema } from '../primitives';
 import { tournamentSetupViewSchema } from './lobby-setup-read';
 import {
@@ -35,5 +36,12 @@ export const hostEventsViewSchema = z.strictObject({
   ),
   pinOptions: z.array(eventPinOptionSchema),
   resolutionChoices: z.array(eventResolutionChoiceSchema),
+  releasedResolutionRoundIds: z.array(idSchema).optional(),
+  publishedRoundIds: z.array(idSchema).optional(),
+  postingReleases: z
+    .array(
+      z.strictObject({ tabRoundId: idSchema, audience: releaseAudienceSchema }),
+    )
+    .optional(),
 });
 export type HostEventsView = z.infer<typeof hostEventsViewSchema>;

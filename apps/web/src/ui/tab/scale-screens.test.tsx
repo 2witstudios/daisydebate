@@ -127,9 +127,11 @@ describe('Tab screens at scale', () => {
     );
     const results = html(
       <Results
-        rail={railOf(atElims)}
-        event={readSetup(slug, atElims)!.event}
-        results={readEventResults(slug, atElims)!}
+        screen={{
+          rail: railOf(atElims),
+          event: readSetup(slug, atElims)!.event,
+          results: readEventResults(slug, atElims)!,
+        }}
       />,
     );
     assert({

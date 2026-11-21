@@ -1,3 +1,5 @@
+import type { CommandAction } from '../../../features/tab/action';
+import type { CompletionContext } from '../../../features/tab/completion-form';
 import { Fragment, type ReactNode } from 'react';
 import { sourceLabel } from '../../../features/tab/settings';
 import type { StandingsTable as Read } from '../../../features/tab/standings';
@@ -17,12 +19,14 @@ export function HostStandings({
   rail,
   event,
   table,
-  announcement,
+  renderCommand,
 }: {
   readonly rail: TimelineRail;
   readonly event: EventSwitch;
   readonly table: Read;
-  readonly announcement?: ReactNode;
+  readonly renderCommand?: (
+    action: CommandAction<CompletionContext>,
+  ) => ReactNode;
 }) {
   return (
     <HostShell rail={rail} current="break">
@@ -31,10 +35,12 @@ export function HostStandings({
         title={table.title}
         lede={table.lede}
         actions={
-          announcement ??
-          (table.announce === null ? undefined : (
+          table.announce === null ? undefined : table.announce.kind ===
+            'command' ? (
+            renderCommand?.(table.announce)
+          ) : (
             <ActionButton action={table.announce} />
-          ))
+          )
         }
       />
       <p className="rounded-lg border border-border bg-surface-raised px-4 py-3 text-sm">

@@ -1,4 +1,6 @@
 import Image from 'next/image';
+import Link from 'next/link';
+import { buttonClass } from '../../components/button/button-class';
 import { art } from '../../assets';
 
 const events = [
@@ -36,6 +38,14 @@ export function TournamentsInfo({
           Here is what we&apos;re planning, from our opening tournament through
           to season championships.
         </p>
+        {tabReleased ? (
+          <Link
+            href="/tournaments/directory"
+            className={buttonClass('primary')}
+          >
+            Browse tournaments
+          </Link>
+        ) : null}
       </header>
       <section className="relative flex min-h-teaser-min items-stretch overflow-hidden rounded-xl border border-border bg-hue-clay-soft text-ink shadow-1">
         <div className="relative z-1 flex shrink grow basis-teaser-body flex-col justify-center gap-2 p-6 max-narrow:basis-full max-narrow:p-5">

@@ -13,14 +13,15 @@ import {
 } from '../../../../../features/tab/completion-form';
 import { hostRoutes } from '../../../../../features/tab/routes';
 import { inProcessFetch } from '../../../../../server/in-process-fetch';
-import { moveOn } from '../../../../../server/form-action';
+import { moveOn, stayOn } from '../../../../../server/form-action';
+import { done, type Done } from '../../../../../features/forms/form-state';
 import { POST } from '../../../../api/tab/result-command/route';
 
 export async function eventCompletionAction(
   value: CompletionContext,
   _previous: CompletionFormState,
   form: FormData,
-): Promise<CompletionFormState> {
+): Promise<CompletionFormState | Done> {
   const parsed = completionContextSchema.safeParse(value);
   if (!parsed.success)
     return completionRefused(form, 'Reload this event before trying again.');
@@ -79,5 +80,9 @@ export async function eventCompletionAction(
       ? { round: context.target.roundId }
       : {}),
   });
-  return moveOn(incoming, `${path}?${query}`);
+  const target = `${path}?${query}`;
+  return context.target.type === 'open-audience' &&
+    context.target.thing === 'posting'
+    ? (stayOn(incoming, target) ?? done())
+    : moveOn(incoming, target);
 }

@@ -167,6 +167,7 @@ const refusalText: Readonly<Record<RoomRefusal, string>> = {
   'not-seated': 'every seat to be filled',
   'incomplete-cast': 'every seat to be filled',
   'not-ready': 'everyone to be ready',
+  'resolution-not-released': 'the tournament to release the resolution',
   'readiness-unavailable': 'everyone’s camera and microphone check',
   'command-conflict': 'the latest room changes',
   'consent-conflict': 'the latest readiness changes',

@@ -15,7 +15,7 @@ const storedPages = hostPages.filter((file) => {
   const source = readFileSync(join(app, file), 'utf8');
   return (
     source.includes('readStoredHostNavigation(') &&
-    source.includes('readOwnRoute(') &&
+    /(?:readOwnRoute|readStoredHostEvents)\(/.test(source) &&
     !source.includes('requireGrant(')
   );
 });
@@ -56,7 +56,9 @@ describe('the host area', () => {
             source.indexOf('await requireHostTiersRelease()'),
           ),
           navigation = source.indexOf('await readStoredHostNavigation('),
-          read = source.indexOf('await readOwnRoute(');
+          read = source.search(
+            /(?:await (?:readOwnRoute|readStoredHostEvents)|=>\s*readOwnRoute)\(/,
+          );
         return [
           file,
           release >= 0 && release < navigation && navigation < read,
@@ -83,6 +85,13 @@ describe('the host area', () => {
           true,
         ],
         [
+          '(host)/host/tournaments/[slug]/events/[event]/resolutions/page.tsx',
+          true,
+          true,
+          true,
+          true,
+        ],
+        [
           '(host)/host/tournaments/[slug]/people/page.tsx',
           true,
           true,
@@ -91,6 +100,13 @@ describe('the host area', () => {
         ],
         [
           '(host)/host/tournaments/[slug]/results/page.tsx',
+          true,
+          true,
+          true,
+          true,
+        ],
+        [
+          '(host)/host/tournaments/[slug]/slots/[slot]/page.tsx',
           true,
           true,
           true,

@@ -1,12 +1,24 @@
+import type { CompletionContext } from './completion-form';
 import type {
   AudienceOpenings,
   BallotPart,
   EventResultsView,
+  HostResultsView,
   ResultsCorrection,
 } from '@daisy/protocol/lobby/results-read';
 import type { BracketView } from '@daisy/protocol/lobby/standings-read';
 import type { Audience } from '@daisy/protocol/lobby';
-import { unavailableAction, type TabAction } from './action';
+import type { HostNavigationView } from '@daisy/protocol/lobby/host-navigation-read';
+import {
+  commandAction,
+  linkTo,
+  unavailableAction,
+  type TabAction,
+} from './action';
+import { hostRoutes, tabRoutes } from './routes';
+import { hostNavigationRail } from './host-navigation';
+import type { TimelineRail } from './tournament';
+import type { EventSwitch } from './setup';
 import { countWord, type WallClock } from './tab-round';
 import { shownName } from './shown-entrant';
 
@@ -43,11 +55,12 @@ export type Bracket = { readonly stages: readonly BracketStage[] };
 /** One audience of a ballot part, and whether it has opened. */
 type AudienceOpening = {
   readonly id: string;
-  readonly status: 'open' | 'openable';
+  readonly status: 'open' | 'openable' | 'closed';
   readonly audience: string;
   readonly detail: string;
   /** Null once a release records the opening. */
   readonly open: TabAction | null;
+  readonly release?: readonly TabAction<CompletionContext>[];
 };
 
 type CertifyCheck = {
@@ -61,7 +74,7 @@ type CertifyCheck = {
 /** Where certifying the event stands for this host. */
 export type Certification =
   | { readonly kind: 'blocked'; readonly reason: string }
-  | { readonly kind: 'ready'; readonly certify: TabAction }
+  | { readonly kind: 'ready'; readonly certify: TabAction<CompletionContext> }
   | { readonly kind: 'certified'; readonly at: string };
 
 export type EventResults = {
@@ -69,9 +82,71 @@ export type EventResults = {
   readonly certification: Certification;
   readonly bracket: Bracket;
   readonly audiencesHeading: string;
+  readonly postingOpenings?: readonly {
+    readonly id: string;
+    readonly label: string;
+    readonly release: TabAction<CompletionContext>;
+  }[];
   readonly audiences: readonly AudienceOpening[];
   readonly checks: readonly CertifyCheck[];
 };
+
+export type ResultsScreen = {
+  readonly rail: TimelineRail;
+  readonly event: EventSwitch;
+  readonly results: EventResults;
+};
+
+export function hostResultsScreenOf(
+  navigation: HostNavigationView & { readonly billing?: boolean },
+  read: HostResultsView,
+  nextId: () => string,
+): ResultsScreen | null {
+  const index = navigation.events.findIndex(
+    (event) => event.eventId === read.results.eventId,
+  );
+  const selected = navigation.events[index];
+  if (!selected || read.results.lobbyId !== navigation.id) return null;
+  const address = hostRoutes.results(navigation.handle);
+  const wallClock = (at: string) =>
+    new Intl.DateTimeFormat('en', {
+      timeZone: 'UTC',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(new Date(at)) + ' UTC';
+  return {
+    rail: hostNavigationRail(navigation),
+    event: {
+      current: selected.name,
+      position: `${index + 1} of ${navigation.events.length}`,
+      others: navigation.events
+        .filter((event) => event.eventId !== selected.eventId)
+        .map((event) =>
+          linkTo(event.name, `${address}?event=${event.eventId}`),
+        ),
+    },
+    results: eventResultsOf(read.results, {
+      wallClock,
+      bracket: {
+        stages: read.stages.flatMap(
+          (stage) => bracketOf(stage, wallClock).stages,
+        ),
+      },
+      bind: (label, target) =>
+        commandAction(
+          label,
+          {
+            lobbyId: navigation.id,
+            eventId: selected.eventId,
+            handle: navigation.handle,
+            commandId: nextId(),
+            target,
+          },
+          target.type === 'certify-event',
+        ),
+    }),
+  };
+}
 
 const capitalized = (word: string) =>
   `${word.slice(0, 1).toUpperCase()}${word.slice(1)}`;
@@ -121,7 +196,7 @@ export const bracketOf = (
         room: fixture.state.kind === 'live' ? fixture.state.room.name : null,
         watch:
           fixture.state.kind === 'live' && fixture.state.watchable
-            ? unavailableAction('Watch')
+            ? linkTo('Watch', tabRoutes.liveRoom(fixture.state.room.roomId))
             : null,
       })),
       note:
@@ -132,7 +207,7 @@ export const bracketOf = (
   }),
 });
 
-const audienceLabels: Readonly<Record<Audience, string>> = {
+export const audienceLabels: Readonly<Record<Audience, string>> = {
   responsible_adults: 'Coaches and parents',
   competitors: 'Competitors',
   participants: 'Participants',
@@ -172,10 +247,16 @@ const fullBallotsOf = (audience: Audience) => {
   }
 };
 
+type BindCompletion = (
+  label: string,
+  target: CompletionContext['target'],
+) => TabAction<CompletionContext>;
+
 /** What an audience can see of a preliminary ballot, and whether it may be opened to it now. */
 const openingOf = (
   read: EventResultsView,
   row: AudienceOpenings,
+  bind?: BindCompletion,
 ): AudienceOpening => {
   const open = row.openings.flatMap((opening) =>
     opening.state.kind === 'open'
@@ -225,11 +306,23 @@ const openingOf = (
   const label = audienceLabels[row.audience];
   return {
     id: `${row.tabRoundId}:${row.audience}`,
-    status: openable.length > 0 ? 'openable' : 'open',
+    status: openable.length > 0 ? 'openable' : open.length ? 'open' : 'closed',
     audience: `${row.tabRoundName} · ${label}`,
     detail,
+    ...(bind && read.capabilities.release
+      ? {
+          release: openable.map((part) =>
+            bind(`Open ${part}`, {
+              type: 'open-audience',
+              tabRoundId: row.tabRoundId,
+              thing: part,
+              audience: row.audience,
+            }),
+          ),
+        }
+      : {}),
     open:
-      openable.length > 0 && read.capabilities.release
+      !bind && openable.length > 0 && read.capabilities.release
         ? unavailableAction(`Open to ${label.toLowerCase()}`, true)
         : null,
   };
@@ -262,6 +355,7 @@ const correctionLine = (correction: ResultsCorrection): string => {
 const certificationOf = (
   read: EventResultsView,
   wallClock: WallClock,
+  bind?: BindCompletion,
 ): Certification => {
   const { certification } = read;
   switch (certification.kind) {
@@ -290,7 +384,11 @@ const certificationOf = (
       return read.capabilities.certify
         ? {
             kind: 'ready',
-            certify: unavailableAction('Certify the event', true),
+            certify:
+              bind?.('Certify current results', {
+                type: 'certify-event',
+                resultsVersion: read.resultsVersion,
+              }) ?? unavailableAction('Certify the event', true),
           }
         : {
             kind: 'blocked',
@@ -303,9 +401,14 @@ const certificationOf = (
 /** An event's results for its host: a projection of `EventResultsView`. */
 export const eventResultsOf = (
   read: EventResultsView,
-  context: { readonly bracket: Bracket; readonly wallClock: WallClock },
+  context: {
+    readonly bracket: Bracket;
+    readonly wallClock: WallClock;
+    readonly bind?: BindCompletion;
+  },
 ): EventResults => {
   const { sanctions, corrections, wallClock } = { ...read, ...context };
+  const { bind } = context;
   const certified = read.certification.kind === 'certified';
   const holds = read.ballotAccess === 'unreleased' ? read.screeningHolds : null;
   return {
@@ -324,9 +427,23 @@ export const eventResultsOf = (
                 ? 'Written feedback needs review before certification.'
                 : 'Results are still being recorded.'
             : `Prelims certified at ${wallClock(read.prelimsCertifiedAt)}. Elimination rounds are still running.`,
-    certification: certificationOf(read, wallClock),
+    certification: certificationOf(read, wallClock, context.bind),
     bracket: context.bracket,
     audiencesHeading: 'Who can see ballots',
+    ...(bind && read.capabilities.release && read.postingOpenings?.length
+      ? {
+          postingOpenings: read.postingOpenings.map((opening) => ({
+            id: `${opening.tabRoundId}:${opening.audience}`,
+            label: `${opening.tabRoundName} · ${audienceLabels[opening.audience]}`,
+            release: bind('Open posting', {
+              type: 'open-audience',
+              tabRoundId: opening.tabRoundId,
+              thing: 'posting',
+              audience: opening.audience,
+            }),
+          })),
+        }
+      : {}),
     audiences: [
       ...(read.ballotAccess === 'unreleased'
         ? [
@@ -339,7 +456,7 @@ export const eventResultsOf = (
             },
           ]
         : []),
-      ...read.audiences.map((row) => openingOf(read, row)),
+      ...read.audiences.map((row) => openingOf(read, row, context.bind)),
     ],
     checks: [
       ...(holds === null || holds.count === 0

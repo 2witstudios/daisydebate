@@ -10,11 +10,12 @@ export async function readOwnRoute<T>(
   get: (request: Request) => Promise<Response>,
   path: string,
   schema: ZodType<T>,
+  requestHeaders?: Headers,
 ): Promise<T | null> {
   try {
     const response = await get(
       new Request(`http://in-process.invalid${path}`, {
-        headers: new Headers(await headers()),
+        headers: requestHeaders ?? new Headers(await headers()),
       }),
     );
     if (!response.ok) return null;

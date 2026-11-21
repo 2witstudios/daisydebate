@@ -136,7 +136,6 @@ test('the host reads actual event setting sources and locks and cannot change an
           rail: setupRailOf(metadata),
           setup: projected,
           panel: null,
-          pairingForm: null,
         }),
       );
       assert({

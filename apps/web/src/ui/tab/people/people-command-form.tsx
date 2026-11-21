@@ -13,7 +13,7 @@ import {
 } from '../../../features/tab/organization-people-forms';
 import { PeopleCommandFields } from './people-command-fields';
 
-import type { PeopleCommandModel } from './people-command-model';
+import type { PeopleCommandModel } from '../../../features/tab/people-command-model';
 export type PeopleCommandAction = (
   previous: PeopleCommandState,
   form: FormData,

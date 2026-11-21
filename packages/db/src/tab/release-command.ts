@@ -1,3 +1,4 @@
+import { releasePostingResolution } from './posting-resolution';
 import { notifyTournamentRelease } from '../notifications/tournament';
 import { and, asc, eq } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
@@ -118,6 +119,7 @@ export type ReleaseCommandWrite =
   | {
       readonly table: 'releases';
       readonly op: 'insert';
+      readonly releasePinnedResolution?: boolean;
       readonly row: Omit<typeof releases.$inferInsert, 'openedAt'> & {
         readonly openedAt: string;
       };
@@ -171,6 +173,11 @@ export const createReleaseCommandStore = (database: TabDatabase) => ({
                 ...write.row,
                 openedAt: new Date(write.row.openedAt),
               });
+              if (
+                write.releasePinnedResolution &&
+                write.row.thing === 'posting'
+              )
+                await releasePostingResolution(tx, write.row);
               await notifyTournamentRelease(
                 tx,
                 write.row,

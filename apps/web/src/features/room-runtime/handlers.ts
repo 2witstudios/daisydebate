@@ -142,6 +142,7 @@ export function createRoomHandlers(dependencies: Dependencies) {
           dependencies.operations.view(
             caller,
             parseValidated(idSchema, roomId),
+            new URL(request.url).searchParams.get('kind') === 'event',
           ),
         doorbell,
       ),

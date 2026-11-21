@@ -89,8 +89,11 @@ const hostRating = (clock: SpectatorClock) => {
 };
 const search = (q: string, topic: SQL) =>
   sql`(${q}='' or strpos(lower(r.title),lower(${q}))>0 or strpos(lower(${topic}),lower(${q}))>0 or (strpos(lower(${hostLabel}),lower(${q}))>0 and not ${hostIsHumanJudge}))`;
-/** A launched Room's row shows its Round's resolution, so search reads the same text. */
-const launchedTopic = sql`coalesce(d.resolution,r.topic)`;
+// Hostless event Rooms publish their waiting topic through Tab's scoped read.
+// Discovery search uses the same topic as its response. An existing Round
+// supplies its own opening resolution.
+const waitingTopic = sql`case when r.lobby_kind <> 'tournament' then r.topic end`;
+const launchedTopic = sql`coalesce(d.resolution,${waitingTopic})`;
 /** The driver returns a timestamp, or JSON's string for one, as a canonical ISO instant. */
 const isoOrNull = (value: Date | string | null) =>
   value === null ? null : new Date(value).toISOString();
@@ -141,7 +144,7 @@ export async function discoverRooms(
   const candidates = (await tx.execute(sql`
   select id from (
     (select r.id,r.created_at from rooms r ${joins}
-      where ${assembly} and r.status in ${assemblyStatuses(status)} and ${modeMatches(mode)} and ${lobbyMatches(lobby.id)} and ${order.after} and ${visible(caller)} and ${search(q, sql`r.topic`)}
+      where ${assembly} and r.status in ${assemblyStatuses(status)} and ${modeMatches(mode)} and ${lobbyMatches(lobby.id)} and ${order.after} and ${visible(caller)} and ${search(q, waitingTopic)}
       order by r.created_at ${order.direction},r.id collate "C" ${order.direction} limit ${pageSize + 1})
     union all
     (select r.id,r.created_at from rounds d join rooms r on r.id=d.room_id ${joins}
@@ -167,7 +170,7 @@ export async function discoverRooms(
   account = await loadAuthorizationAccount(tx, caller.userId);
   if (!authorizeCollection(account)) throw createAppError('AUTHORIZATION');
   const rows = (await tx.execute(sql`
-  select r.id,r.version,r.title,coalesce(d.resolution,r.topic) as topic,r.visibility,r.host_actor_id as "hostActorId",
+  select r.id,r.version,r.title,${launchedTopic} as topic,r.visibility,r.host_actor_id as "hostActorId",
    ${hostLabel} as "hostLabel",${hostIsHumanJudge} as "hostIsHumanJudge",r.status,r.competition_type as "competitionType",
    p.actor_id is not null as seated,p.seat_kind as "seatKind",p.side,p.slot,
    case when r.status='started' then json_build_object('id',d.id,'status',d.status) else null end as "roundRef",

@@ -87,8 +87,12 @@ export async function roomInvitationAction(
   return answer;
 }
 
-export async function roomAssembly(id: string) {
-  return readAssembly(inProcessFetch(read, new Headers(await headers())), id);
+export async function roomAssembly(id: string, kind?: 'event') {
+  return readAssembly(
+    inProcessFetch(read, new Headers(await headers())),
+    id,
+    kind,
+  );
 }
 
 async function submitRoomCommand(id: string, form: FormData) {

@@ -63,6 +63,8 @@ export type TabRoundFact = {
   readonly poolResolutionId: string | null;
   readonly version: number;
   readonly drawPublished: boolean;
+  readonly resolutionReleased: boolean;
+  readonly resolutionPoolId: string | null;
 };
 
 type TimeSlotFact = {
@@ -617,6 +619,12 @@ const updateTabRound = (
   );
   if (round === undefined || event === undefined) return 'not-found';
   if (round.drawPublished) return 'draw-published';
+  if (
+    round.resolutionReleased &&
+    ((command.resolution?.poolId ?? null) !== round.resolutionPoolId ||
+      (command.resolution?.poolResolutionId ?? null) !== round.poolResolutionId)
+  )
+    return 'resolution-released';
   const refusal = resolutionRefusal(facts, event, command.resolution);
   if (refusal !== null) return refusal;
   return writes(lobby, [

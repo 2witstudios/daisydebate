@@ -1,3 +1,4 @@
+import { systemId } from '@daisy/clock';
 import { organizationPeopleViewSchema } from '@daisy/protocol/lobby/organization-read';
 import { organizationPeoplePage } from '../../../../../../features/tab/organization';
 import { organizationPeoplePath } from '../../../../../../features/tab/organization-people-route';
@@ -31,13 +32,14 @@ export async function readStoredPeople(
   );
   if (view === null) return null;
   return {
-    view,
     rail: hostNavigationRail(navigation),
     people: organizationPeoplePage(view, {
       role,
       basePath,
       viewerId: identity.principal.userId,
       now: requestNow(),
+      handle,
+      nextId: systemId.next,
     }),
   };
 }

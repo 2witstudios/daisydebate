@@ -210,11 +210,12 @@ export function createRoomRuntimeOperations({
       ? none
       : { contentWaiver: standing, contentWaiverVersion: version };
   };
-  const view = async (caller: Caller, roomId: string) => {
+  const view = async (caller: Caller, roomId: string, eventOnly = false) => {
     const facts = await store.readRoomAssemblyFacts(
       roomId,
       caller,
       (state, account, direction, now) =>
+        (!eventOnly || direction != null) &&
         can(caller, 'room.read', account, state, direction, now),
       readRoundOpeningTopic,
     );
