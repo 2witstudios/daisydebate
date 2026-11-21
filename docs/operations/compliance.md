@@ -483,9 +483,12 @@ likeness or streaming right (owner decision 89,
   Rooms are unchanged. No new data: the Room chat fact derives both from the
   Room's lobby rule, its seats and school grants in `daisy_room_community_fact`,
   and only whether the caller may post leaves SQL.
-- **Leagues and tournaments.** Standing lobby age rules apply to the
-  league's Rooms. Tournament entries continue to refuse every entrant under
-  18 (the closed minors rule above).
+- **Leagues and tournaments.** A league tournament inherits the age rule and
+  guardian permissions of its own standing lobby (ADR 0162, decision 92).
+  Tab checks eligibility before creating or accepting an entry. Eligible
+  entrants can enter themselves. A self-run tournament applies its own age
+  rule. Guardians authorize access to a standing lobby through that lobby’s
+  waiver and retain their ability to submit an entry for their child.
 - **Guardian links** ([ADR 0163](../decisions/0163-guardian-links-and-consent-evidence.md)).
   A guardian’s data export describes the consent they gave with the same label
   for every email invitation. Daisy keeps the original method with the immutable

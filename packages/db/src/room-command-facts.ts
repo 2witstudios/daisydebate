@@ -1,5 +1,6 @@
 import { isMinorAgeBand } from './guardians/lobby-permissions';
 import { and, eq, sql } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type {
   RoomAssemblyState,
@@ -230,13 +231,13 @@ const hydrateRoom = async (
     .from(roomParticipants)
     .where(eq(roomParticipants.roomId, row.id))
     .orderBy(...seatRowOrder(roomParticipants));
+  const standingParent = alias(lobbies, 'standing_parent');
   const [lobby] = await tx
     .select({
-      ageRule: sql<LobbyAgeRule>`case when ${lobbies.kind}='tournament'
-        and public.daisy_room_is_youth(${row.id}) then 'under-18'::lobby_age_rule
-        else ${lobbies.ageRule} end`,
+      ageRule: sql<LobbyAgeRule>`coalesce(${standingParent.ageRule}, ${lobbies.ageRule})`,
     })
     .from(lobbies)
+    .leftJoin(standingParent, eq(standingParent.id, lobbies.standingLobbyId))
     .where(eq(lobbies.id, row.lobbyId));
   if (!lobby) throw createAppError('INVARIANT');
   const participants = await Promise.all(

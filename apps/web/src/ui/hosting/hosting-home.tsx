@@ -1,3 +1,4 @@
+import { ageRuleLabels } from '../../features/tab/tournament-age-rule';
 import type { ReactNode } from 'react';
 import type { HostedTournamentsView } from '@daisy/protocol/lobby/hosting-read';
 import type { TimelineRail } from '../../features/tab/tournament';
@@ -101,7 +102,7 @@ export function HostingHome({
                 key={tournament.handle}
                 title={tournament.name}
                 facts="· hosted by you"
-                detail={`Freestyle · ${tournament.division === 'youth' ? 'Youth' : 'Open'} · ${hostingTierWords[tournament.tier]} · ${entriesOfCap(tournament.acceptedEntries, tournament.entryCap)}`}
+                detail={`Freestyle · ${ageRuleLabels[tournament.ageRule]} · ${hostingTierWords[tournament.tier]} · ${entriesOfCap(tournament.acceptedEntries, tournament.entryCap)}`}
                 trailing={
                   <a
                     href={addressOf(tournament.handle)}

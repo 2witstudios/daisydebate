@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { idSchema } from '../primitives';
+import { lobbyAgeRules } from './eligibility';
 import { hostingTiers, paidHostingTiers } from './hosting-tier';
 
 const tier = z.enum(hostingTiers);
@@ -46,7 +47,7 @@ export const hostedTournamentsViewSchema = z.strictObject({
         handle: z.string().min(1).max(80),
         name: z.string().min(1).max(200),
         tier,
-        division: z.enum(['open', 'youth']),
+        ageRule: z.enum(lobbyAgeRules),
         acceptedEntries: count,
         entryCap: count.nullable(),
       }),

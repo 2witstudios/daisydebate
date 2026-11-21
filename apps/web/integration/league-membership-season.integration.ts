@@ -189,6 +189,7 @@ test('membership seasons admit actual league/member hosts and only eligible entr
       });
       if (standing.kind !== 'accepted')
         throw new Error('Standing lobby refused');
+      world.made.set('standing-lobby', standing.receipt.aggregate.id);
       const season = await requireAccepted(
         lobbyAdministrationCommand(common)(as(director), {
           version: 1,

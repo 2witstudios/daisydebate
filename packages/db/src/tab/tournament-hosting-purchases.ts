@@ -1,6 +1,6 @@
+import { createAppError } from '@daisy/errors';
 import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { lobbies } from '../schema/lobbies';
-import { settings } from '../schema/settings';
 import { fenceTabAccountRead } from './account-read-fence';
 import { loadAccountHostingFacts } from './account-hosting-facts';
 import type { PaidHostingTier } from '@daisy/protocol/lobby/hosting-tier';
@@ -201,7 +201,12 @@ const loadHostedTournaments = async (
   await scopeTransaction(tx, { subjectUserId: viewerUserId });
   await fenceTabAccountRead(tx, viewerUserId);
   const owned = await tx
-    .select({ id: lobbies.id, handle: lobbies.handle, name: lobbies.name })
+    .select({
+      id: lobbies.id,
+      handle: lobbies.handle,
+      name: lobbies.name,
+      ageRule: lobbies.ageRule,
+    })
     .from(lobbies)
     .where(
       and(
@@ -233,24 +238,14 @@ const loadHostedTournaments = async (
       .where(
         and(eq(entries.lobbyId, lobby.id), eq(entries.status, 'accepted')),
       );
-    // A personal tournament sets its division at its own lobby (PYL-16).
-    const [division] = await tx
-      .select({ value: settings.value })
-      .from(settings)
-      .where(
-        and(
-          eq(settings.lobbyId, lobby.id),
-          eq(settings.scopeKind, 'lobby'),
-          eq(settings.key, 'entry.age_division'),
-        ),
+    if (lobby.ageRule === null)
+      throw createAppError(
+        'INVARIANT',
+        'A self-run tournament has no age rule',
       );
     hosted.push({
       ...lobby,
-      division:
-        (division?.value as { readonly value?: unknown } | undefined)?.value ===
-        'youth'
-          ? ('youth' as const)
-          : ('open' as const),
+      ageRule: lobby.ageRule,
       paidTiers: paid.map((row) => row.tier),
       acceptedEntries: accepted?.count ?? 0,
     });

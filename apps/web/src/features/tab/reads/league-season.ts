@@ -53,6 +53,7 @@ export type LeagueSeasonRead = LeagueSeasonProjection & {
     }[];
   };
   readonly rooms: LeagueRoomsRead | null;
+  readonly tournamentLobbies: LeagueSeasonFacts['tournamentLobbies'];
   readonly canHost: boolean;
   readonly canManage: boolean;
   readonly requests: readonly {
@@ -239,6 +240,27 @@ export const readLeagueSeason =
           }).allow;
         const canHost = ask('organization.host.read');
         const canManage = ask('organization.manage');
+        const canCreateTournament =
+          canHost &&
+          dependencies.authorize({
+            principal,
+            resource: {
+              kind: 'lobby_collection',
+              proposed: {
+                lobbyKind: 'tournament',
+                owner: {
+                  kind: 'organization',
+                  organization: facts.authorization.organization!,
+                },
+              },
+            },
+            context: {
+              account: facts.authorization.account,
+              grants: facts.authorization.grants,
+              now: facts.now,
+            },
+            capability: 'lobby.create',
+          }).allow;
         return {
           ...projected,
           handle: facts.organization.handle,
@@ -268,6 +290,7 @@ export const readLeagueSeason =
             };
           })(),
           rooms: readLeagueRooms(facts, principal, dependencies.authorize),
+          tournamentLobbies: canCreateTournament ? facts.tournamentLobbies : [],
           canHost,
           canManage,
           requests: canHost

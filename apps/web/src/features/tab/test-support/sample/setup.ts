@@ -158,6 +158,12 @@ export function sampleAutumnSetup(scene: SampleScene): TournamentSetupView {
     handle: AUTUMN,
     name: 'Autumn Open',
     owner: league,
+    eligibility: {
+      kind: 'standing',
+      lobbyId: sampleIds.autumn,
+      lobbyName: 'Open',
+      ageRule: 'adults',
+    },
     status: before ? 'open' : 'running',
     events: [
       sampleEvent('varsitydebate', 'Varsity debate', {

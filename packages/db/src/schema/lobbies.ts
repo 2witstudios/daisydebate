@@ -2,7 +2,6 @@ import { lobbyKinds, tournamentStatuses } from '@daisy/protocol/lobby';
 import { lobbyAgeRules } from '@daisy/protocol/lobby/eligibility';
 import { sql } from 'drizzle-orm';
 import {
-  boolean,
   check,
   foreignKey,
   index,
@@ -49,7 +48,9 @@ export const lobbies = pgTable(
     ownerOrganizationKind: constantText('owner_organization_kind', 'league'),
     name: text('name').notNull(),
     handle: text('handle').notNull(),
-    ageRule: lobbyAgeRule('age_rule').notNull().default('adults'),
+    ageRule: lobbyAgeRule('age_rule').default('adults'),
+    standingLobbyId: text('standing_lobby_id'),
+    standingLobbyKind: constantText('standing_lobby_kind', 'standing'),
     closedAt: timestampColumn('closed_at'),
     createdAt: createdAtColumn(),
     updatedAt: updatedAtColumn(),
@@ -73,6 +74,23 @@ export const lobbies = pgTable(
       columns: [table.ownerOrganizationId, table.ownerOrganizationKind],
       foreignColumns: [organizations.id, organizations.kind],
     }).onDelete('restrict'),
+    foreignKey({
+      name: 'lobbies_standing_parent_kind_fk',
+      columns: [table.standingLobbyId, table.standingLobbyKind],
+      foreignColumns: [table.id, table.kind],
+    }).onDelete('restrict'),
+    foreignKey({
+      name: 'lobbies_standing_parent_league_fk',
+      columns: [table.standingLobbyId, table.ownerOrganizationId],
+      foreignColumns: [table.id, table.ownerOrganizationId],
+    }).onDelete('restrict'),
+    index('lobbies_standing_parent_idx').on(table.standingLobbyId),
+    check(
+      'lobbies_age_rule_source',
+      sql`case when ${table.kind} = 'tournament' and ${table.ownerOrganizationId} is not null
+        then ${table.standingLobbyId} is not null and ${table.ageRule} is null
+        else ${table.standingLobbyId} is null and ${table.ageRule} is not null end`,
+    ),
     check('lobbies_kind_check', oneOf(table.kind, lobbyKinds)),
     check(
       'lobbies_one_owner',
@@ -91,8 +109,7 @@ export const lobbies = pgTable(
 
 /**
  * The schedule extension of a tournament lobby, one to one. It holds only
- * schedule state: the status, the host's declaration that minors are
- * admitted (not anyone's age) and the SHA3-256 of the tournament's link.
+ * schedule state: the status and the SHA3-256 of the tournament's link.
  * Owner, name, handle and version are the lobby's; every choice is a
  * setting. The competition tables reference this row, so the foreign key
  * itself proves their lobby is a tournament.
@@ -106,7 +123,6 @@ export const tournaments = pgTable(
       .$type<(typeof tournamentStatuses)[number]>()
       .notNull()
       .default('draft'),
-    admitsMinors: boolean('admits_minors').notNull().default(false),
     linkHash: text('link_hash'),
     createdAt: createdAtColumn(),
     updatedAt: updatedAtColumn(),

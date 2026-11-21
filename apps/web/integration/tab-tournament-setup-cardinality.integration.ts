@@ -36,6 +36,7 @@ test('a real zero-event setup is readable without inventing its first event', as
         made: new Map<string, string>(),
       };
       await organizationStage(world);
+      await leagueAdministrationStage(world);
       const store = createTabStore(database),
         common = { store, authorize, now: world.clock.now, newId: createId };
       const created = await lobbyAdministrationCommand({
@@ -52,7 +53,13 @@ test('a real zero-event setup is readable without inventing its first event', as
           },
           name: 'Empty tournament',
           handle: `empty-${createId()}`,
-          lobby: { kind: 'tournament', admitsMinors: false },
+          lobby: {
+            kind: 'tournament',
+            eligibility: {
+              kind: 'standing',
+              lobbyId: world.made.get('standing-lobby')!,
+            },
+          },
         },
       });
       if (created.kind !== 'accepted')

@@ -17,6 +17,8 @@ import { HostShell } from '../../../../../ui/tab/host-shell/host-shell';
 import { PageHeader } from '../../../../../ui/components/page-header/page-header';
 import { StandingLobbies } from '../../../../../ui/tab/standing-lobby-management/lobbies';
 import { StandingLobbyPage } from './standing-lobby-page';
+import { CreateTournamentForm } from '../../../../../ui/hosting/create-tournament-form';
+import { createTournamentAction } from '../../actions';
 import { sanctionDecisionAction } from './actions';
 export const metadata: Metadata = { title: 'League' };
 export default async function Page({
@@ -71,6 +73,19 @@ export default async function Page({
       rail={rail}
       standingLobbies={lobbies}
       league={league}
+      createTournament={
+        read.season.tournamentLobbies.length ? (
+          <CreateTournamentForm
+            standingLobbies={read.season.tournamentLobbies}
+            action={createTournamentAction.bind(null, {
+              leagueId: read.season.view.organization.organizationId,
+              lobbyCommandId: createId(),
+              eventCommandId: createId(),
+              suffix: createId().slice(-6),
+            })}
+          />
+        ) : null
+      }
       requestControls={(request) => {
         const row = read.season.requests.find(
           (row) => row.sanctionId === request.id,

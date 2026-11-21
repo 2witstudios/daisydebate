@@ -42,7 +42,6 @@ test('a tournament is only the schedule extension of a tournament lobby', async 
         twice: 'tournaments_pkey',
         badLinkHash: 'tournaments_link_hash_check',
         columns: [
-          'admits_minors',
           'created_at',
           'link_hash',
           'lobby_id',

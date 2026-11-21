@@ -1,4 +1,4 @@
-import { tournamentFirstDay } from '@daisy/protocol/lobby/event-division';
+import { tournamentFirstDay } from '@daisy/protocol/lobby/tournament-schedule';
 import { and, eq, inArray } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import type { EntryCommand } from '@daisy/protocol/lobby/entry-command';
@@ -18,6 +18,7 @@ import { scopeTransaction } from '../tenant-scope';
 import { lockTabCommandAccounts } from './command-accounts';
 import { loadAuthorityContext } from './authority-context';
 import { loadEntryPeople } from './entry-person-rows';
+import { loadTournamentEligibility } from './tournament-eligibility';
 import { lockEventSettingContext } from './event-setting-context';
 import {
   appendHistory,
@@ -146,15 +147,35 @@ const load = async (tx: TabTransaction, input: EntryEnrollmentInput) => {
           .map((member) => member.actorId);
   if (currentActorIds.some((id) => !namedActorIds.includes(id)))
     throw new EntryEnrollmentChanged();
-  const slots = await tx
-    .select({ startsAt: timeSlots.startsAt })
-    .from(timeSlots)
-    .where(eq(timeSlots.lobbyId, input.lobbyId));
-  const firstDay = tournamentFirstDay(
-    slots.map((slot) => slot.startsAt.toISOString()),
-    input.now,
+  const eligibility =
+    lobby?.kind === 'tournament'
+      ? await loadTournamentEligibility(tx, scope, lobby)
+      : null;
+  const slots =
+    eligibility?.kind === 'own'
+      ? await tx
+          .select({ startsAt: timeSlots.startsAt })
+          .from(timeSlots)
+          .where(eq(timeSlots.lobbyId, input.lobbyId))
+      : [];
+  const people = await loadEntryPeople(
+    tx,
+    scope,
+    currentActorIds,
+    eligibility?.kind === 'standing'
+      ? {
+          kind: 'standing',
+          lobbyId: eligibility.lobbyId,
+          ageRule: eligibility.ageRule,
+        }
+      : {
+          kind: 'own',
+          ageAsOf: tournamentFirstDay(
+            slots.map((slot) => slot.startsAt.toISOString()),
+            input.now,
+          ),
+        },
   );
-  const people = await loadEntryPeople(tx, scope, currentActorIds, firstDay);
   const [school] = schoolId
     ? await tx
         .select({ id: organizations.id })
@@ -203,7 +224,7 @@ const load = async (tx: TabTransaction, input: EntryEnrollmentInput) => {
     ownerActorId: owner?.id ?? null,
     configuration,
     hosting,
-    firstDay,
+    eligibility,
     entries: currentEntries,
     members,
     rounds: await tx

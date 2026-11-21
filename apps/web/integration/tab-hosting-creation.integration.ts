@@ -63,7 +63,10 @@ test('actual creation reads canonical finite hosting, replays once, and denies r
         owner: { kind: 'self' },
         name: 'Free tournament',
         handle: `free-${createId()}`,
-        lobby: { kind: 'tournament', admitsMinors: false },
+        lobby: {
+          kind: 'tournament',
+          eligibility: { kind: 'own', ageRule: 'adults' },
+        },
       },
     };
     assert({
@@ -94,7 +97,10 @@ test('actual creation reads canonical finite hosting, replays once, and denies r
         owner: { kind: 'self' },
         name: 'Personally funded tournament',
         handle: `funded-${createId()}`,
-        lobby: { kind: 'tournament', admitsMinors: false },
+        lobby: {
+          kind: 'tournament',
+          eligibility: { kind: 'own', ageRule: 'adults' },
+        },
       },
     };
     const lobby = await personal(as(director), lobbyEnvelope);

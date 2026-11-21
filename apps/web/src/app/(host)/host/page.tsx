@@ -64,7 +64,6 @@ export default async function Page({
           action={createTournamentAction.bind(null, {
             lobbyCommandId: createId(),
             eventCommandId: createId(),
-            divisionCommandId: createId(),
             suffix: handleSuffix(),
           })}
         />

@@ -153,7 +153,10 @@ export const createLobbyRoom =
             return { kind: 'refused', refusal: 'command-conflict' };
           if (replay.kind === 'pending' || replay.kind === 'settled')
             return replay;
-          if (!(await session.mayHost(loaded.lobby.ageRule)))
+          if (
+            loaded.lobby.ageRule === null ||
+            !(await session.mayHost(loaded.lobby.ageRule))
+          )
             throw new CommandDenied('not-found');
           const selected = await resolveRoomSelection(
             command.room,
@@ -172,6 +175,7 @@ export const createLobbyRoom =
             newId: dependencies.newId(),
             actorUserId: principal.userId,
             handleTaken: false,
+            standingParent: null,
             organization: {
               id: loaded.lobby.ownerOrganizationId,
               kind: 'league',

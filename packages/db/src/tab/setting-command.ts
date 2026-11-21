@@ -1,6 +1,5 @@
 import { lockTabCommandAccounts } from './command-accounts';
-import { and, eq, ne, sql } from 'drizzle-orm';
-import { entries } from '../schema/entries';
+import { and, eq, sql } from 'drizzle-orm';
 import type { SettingCommand } from '@daisy/protocol/lobby/setting-command';
 import type {
   ActionHistoryEntry,
@@ -119,20 +118,6 @@ const load = async (tx: TabTransaction, input: SettingCommandInput) => {
       named.lobby?.kind === 'tournament'
         ? await loadTournamentHostingFacts(tx, named.lobby.id)
         : null,
-    tournamentEntries:
-      named.lobby?.kind === 'tournament'
-        ? ((
-            await tx
-              .select({ count: sql<number>`count(*)::int` })
-              .from(entries)
-              .where(
-                and(
-                  eq(entries.lobbyId, named.lobby.id),
-                  ne(entries.status, 'withdrawn'),
-                ),
-              )
-          )[0]?.count ?? 0)
-        : 0,
     authorization,
     scope,
     ownerActorId: owner?.id ?? null,

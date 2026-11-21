@@ -108,12 +108,6 @@ export const entryEnrollmentCommand =
             return { kind: 'refused', refusal: 'not-found' };
           if (loaded.lobby.closedAt !== null && !exit)
             return { kind: 'refused', refusal: 'lobby-closed' };
-          // Tournament entry remains adult-only.
-          if (
-            !exit &&
-            loaded.people.some((person) => person.account?.ageBand !== 'adult')
-          )
-            throw new CommandDenied('not-found');
           const host = dependencies.authorize({
             capability: 'tournament.entries.manage',
             principal,

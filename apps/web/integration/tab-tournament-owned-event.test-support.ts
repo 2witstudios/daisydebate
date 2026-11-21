@@ -13,21 +13,41 @@ export const createOwnedTournament = async (world: World) => {
     now: world.clock.now,
     newId: createId,
   };
-  const created = await lobbyAdministrationCommand({
-    ...common,
-  })(as(world.bots.Director!), {
+  const organizationId = world.made.get('league')!;
+  const director = as(world.bots.Director!);
+  const send = lobbyAdministrationCommand(common);
+  const owner = { kind: 'organization' as const, organizationId };
+  let standingLobbyId = world.made.get('standing-lobby');
+  if (!standingLobbyId) {
+    const standing = await send(director, {
+      version: 1,
+      commandId: createId(),
+      expected: {},
+      command: {
+        type: 'create-lobby',
+        owner,
+        name: 'Standing lobby',
+        handle: `standing-${createId()}`,
+        lobby: { kind: 'standing' },
+      },
+    });
+    if (standing.kind !== 'accepted') throw new Error('Standing lobby refused');
+    standingLobbyId = standing.receipt.aggregate.id;
+    world.made.set('standing-lobby', standingLobbyId);
+  }
+  const created = await send(director, {
     version: 1,
     commandId: createId(),
     expected: {},
     command: {
       type: 'create-lobby',
-      owner: {
-        kind: 'organization',
-        organizationId: world.made.get('league')!,
-      },
+      owner,
       name: 'League-owned setup',
       handle: `setup-${createId()}`,
-      lobby: { kind: 'tournament', admitsMinors: false },
+      lobby: {
+        kind: 'tournament',
+        eligibility: { kind: 'standing', lobbyId: standingLobbyId },
+      },
     },
   });
   if (created.kind !== 'accepted') throw new Error('League tournament refused');

@@ -16,12 +16,14 @@ import { SettingRow } from '../setting-row/setting-row';
 export function HostLeague({
   rail,
   league,
+  createTournament,
   requestControls,
   standingLobbies,
 }: {
   readonly rail: TimelineRail;
   readonly league: Read;
   readonly standingLobbies?: ReactNode;
+  readonly createTournament?: ReactNode;
   readonly requestControls?: (request: Read['requests'][number]) => ReactNode;
 }) {
   return (
@@ -36,6 +38,7 @@ export function HostLeague({
         }
       />
       {standingLobbies}
+      {createTournament}
       {league.requests.length === 0 ? null : (
         <ListCard>
           <ListHeading>Asking to count for the season</ListHeading>
