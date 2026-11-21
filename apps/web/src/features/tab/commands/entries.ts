@@ -24,7 +24,7 @@ type ResponsibleKind = (typeof responsibleKinds)[number];
 export type EntryPersonFacts = DebaterEligibility & {
   readonly actorId: string;
   readonly userId: string | null;
-  /** Within the event's `entry.age_band`, from the account's age facts. */
+  /** The account is currently admitted and has a valid age record. */
   readonly withinAgeBand: boolean;
   /** The event's divisions this person may enter. */
   readonly divisions: readonly string[];
@@ -243,7 +243,7 @@ const registrationOpen = (facts: EntryFacts): boolean => {
   );
 };
 
-const hasResponsibleEntrant = (
+const hasResponsibleParty = (
   facts: EntryFacts,
   command: Extract<EntryCommand, { type: 'submit-entry' }>,
   members: readonly EntryPersonFacts[],
@@ -307,7 +307,7 @@ const submitEntry = (
     return refuse('already-entered');
   const ineligible = eligibilityRefusal(facts, people);
   if (ineligible) return refuse(ineligible);
-  if (!hasResponsibleEntrant(facts, command, people))
+  if (!hasResponsibleParty(facts, command, people))
     return refuse('no-responsible-adult');
   const division = command.division;
   if (division !== null && !facts.event.divisions.includes(division))

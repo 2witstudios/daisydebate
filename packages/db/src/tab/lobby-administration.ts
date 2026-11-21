@@ -202,16 +202,10 @@ const load = async (
     command.lobby.eligibility.kind === 'standing'
       ? command.lobby.eligibility.lobbyId
       : null;
-  if (parentId && scope.organizationId)
-    await scopeTransaction(tx, { ...scope, lobbyId: parentId });
-  const [standingParent] =
+  const [parent] =
     parentId && scope.organizationId
       ? await tx
-          .select({
-            id: lobbies.id,
-            ownerOrganizationId: lobbies.ownerOrganizationId,
-            closedAt: lobbies.closedAt,
-          })
+          .select({ id: lobbies.id })
           .from(lobbies)
           .where(
             and(
@@ -220,9 +214,20 @@ const load = async (
               eq(lobbies.ownerOrganizationId, scope.organizationId),
             ),
           )
-          .for('share')
       : [];
-  if (parentId && scope.organizationId) await scopeTransaction(tx, scope);
+  if (parent) await scopeTransaction(tx, { ...scope, lobbyId: parent.id });
+  const [standingParent] = parent
+    ? await tx
+        .select({
+          id: lobbies.id,
+          ownerOrganizationId: lobbies.ownerOrganizationId,
+          closedAt: lobbies.closedAt,
+        })
+        .from(lobbies)
+        .where(eq(lobbies.id, parent.id))
+        .for('share')
+    : [];
+  if (parent) await scopeTransaction(tx, scope);
   const [registeredEntry] =
     command.type === 'update-lobby' && command.ageRule !== undefined && row
       ? await tx

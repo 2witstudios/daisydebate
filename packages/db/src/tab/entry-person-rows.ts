@@ -90,7 +90,7 @@ export const loadEntryPeople = async (
           ? (await readGuardianLobbyIds(tx, person.userId)).filter(
               (id) => id === eligibility.lobbyId,
             )
-          : [],
+          : undefined,
     });
   }
   await scopeTransaction(tx, scope);

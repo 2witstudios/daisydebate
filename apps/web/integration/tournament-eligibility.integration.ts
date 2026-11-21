@@ -10,7 +10,10 @@ import { entryEnrollmentCommand } from '../src/features/tab/operations/entry-enr
 import { lobbyAdministrationCommand } from '../src/features/tab/operations/lobby-administration';
 import { settingCommand } from '../src/features/tab/operations/settings';
 import { setupCommand } from '../src/features/tab/operations/setup';
-import { as } from './tab-tournament-organization-wiring.test-support';
+import {
+  as,
+  deniedAsNotFound,
+} from './tab-tournament-organization-wiring.test-support';
 import { createBots, type Bot } from './tab-tournament.test-support';
 
 setupRitewayBun();
@@ -128,20 +131,28 @@ test('Tab enrollment uses the exact standing lobby and authorizes each entrant',
         const [event] =
           await sql`select id from events where lobby_id=${lobbyId}`;
         const eventId = String(event!.id);
-        const opened = await settingCommand(common)(as(host), {
-          version: 1,
-          commandId: createId(),
-          expected: { settings: 1 },
-          command: {
-            type: 'set-setting',
-            scope: { kind: 'event', id: eventId },
-            key: 'entry.registration',
-            value: { state: 'open' },
-            hold: 'default',
-          },
-        });
-        if (opened.kind !== 'accepted')
-          throw new Error(`Registration refused: ${JSON.stringify(opened)}`);
+        const configure = settingCommand(common);
+        for (const [index, [key, value]] of [
+          ['entry.registration', { state: 'open' }],
+          ['entry.approval', { value: 'automatic' }],
+        ].entries()) {
+          const changed = await configure(as(host), {
+            version: 1,
+            commandId: createId(),
+            expected: { settings: index + 1 },
+            command: {
+              type: 'set-setting',
+              scope: { kind: 'event', id: eventId },
+              key,
+              value,
+              hold: 'default',
+            },
+          });
+          if (changed.kind !== 'accepted')
+            throw new Error(
+              `Event setting refused: ${JSON.stringify(changed)}`,
+            );
+        }
         return { lobbyId, eventId };
       };
       const inScope = (lobbyId: string) =>
@@ -149,12 +160,13 @@ test('Tab enrollment uses the exact standing lobby and authorizes each entrant',
       const enter = async (
         target: { lobbyId: string; eventId: string },
         member: Bot,
+        caller = member,
       ) => {
         await inScope(target.lobbyId);
         const [row] =
           await sql`select entries_version v from events where id=${target.eventId}`;
         const answer = await entryEnrollmentCommand(common)(
-          as(member),
+          as(caller),
           target.lobbyId,
           {
             version: 1,
@@ -200,6 +212,22 @@ test('Tab enrollment uses the exact standing lobby and authorizes each entrant',
       await inScope(youth.lobbyId);
       const [count] =
         await sql`select count(*)::int n from entries where lobby_id=${youth.lobbyId}`;
+      const impersonation = await deniedAsNotFound(() =>
+        enter(youth, minor, adult),
+      );
+      const cases = [youth, permitted, unpermitted, personal];
+      const outcomes = [];
+      for (const target of cases) {
+        const answer = await enter(target, minor);
+        await inScope(target.lobbyId);
+        const stored =
+          await sql`select status, submitted_by_user_id as "submittedBy" from entries where lobby_id=${target.lobbyId}`;
+        outcomes.push({ answer, stored });
+      }
+      const accepted = {
+        answer: 'accepted',
+        stored: [{ status: 'accepted', submittedBy: minor.userId }],
+      };
       assert({
         given:
           'a minor with one standing-lobby permission and an adult applying to a Youth tournament',
@@ -209,19 +237,20 @@ test('Tab enrollment uses the exact standing lobby and authorizes each entrant',
           foreign,
           adultRefusal,
           rejectedRows: Number(count!.n),
-          youthMinor: await enter(youth, minor),
-          permittedMinor: await enter(permitted, minor),
-          unpermittedMinor: await enter(unpermitted, minor),
-          personalMinor: await enter(personal, minor),
+          impersonation,
+          outcomes,
         },
         expected: {
           foreign: { kind: 'refused', refusal: 'standing-lobby-required' },
           adultRefusal: 'over-youth-age',
           rejectedRows: 0,
-          youthMinor: 'accepted',
-          permittedMinor: 'accepted',
-          unpermittedMinor: 'under-open-age',
-          personalMinor: 'accepted',
+          impersonation: true,
+          outcomes: [
+            accepted,
+            accepted,
+            { answer: 'under-open-age', stored: [] },
+            accepted,
+          ],
         },
       });
     },

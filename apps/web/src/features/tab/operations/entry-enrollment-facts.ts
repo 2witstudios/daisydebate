@@ -58,7 +58,9 @@ export const entryEnrollmentFacts = (
     actorId: person.actorId,
     userId: person.userId,
     ageBand: person.competitionAgeBand,
-    guardianLobbyIds: person.guardianLobbyIds,
+    ...(person.guardianLobbyIds
+      ? { guardianLobbyIds: person.guardianLobbyIds }
+      : {}),
     withinAgeBand: Boolean(
       person.account?.member &&
       !person.account.erased &&
