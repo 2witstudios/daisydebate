@@ -5,6 +5,10 @@ import { reportingTeardown, runEveryStep } from './journey-teardown';
 import { createRoomAccounts } from './room-accounts';
 import { origin } from './accounts';
 import { openMessagingBrowserData } from './messaging-data';
+import { hydrated } from './hydration';
+
+/** The journey contexts whose pages run scripts, so a form there hydrates. */
+const scripted = new WeakSet<BrowserContext>();
 
 /** Actual signup/cookies, explicit isolated age policy inputs, and scoped teardown. */
 async function openJourney(
@@ -37,14 +41,14 @@ async function openJourney(
   try {
     data = await openMessagingBrowserData(signup.members);
     for (const member of signup.members) {
-      contexts.push(
-        await browser.newContext({
-          baseURL: origin,
-          ignoreHTTPSErrors: true,
-          javaScriptEnabled,
-          storageState: await member.context.storageState(),
-        }),
-      );
+      const context = await browser.newContext({
+        baseURL: origin,
+        ignoreHTTPSErrors: true,
+        javaScriptEnabled,
+        storageState: await member.context.storageState(),
+      });
+      if (javaScriptEnabled) scripted.add(context);
+      contexts.push(context);
     }
     const [sender, recipient, outsider] = contexts;
     const recipientAccount = data.accounts.find(
@@ -191,11 +195,17 @@ export async function manageNativeMessagingGroup(
   await page.goto(
     `/messages/groups/${channelId}/manage?operation=${operation}`,
   );
+  const submit = page.getByRole('button', {
+    name: labels[operation],
+    exact: true,
+  });
+  // A username typed before the form hydrates is lost when it does, and the
+  // empty required field then refuses the submit without a word (PR 816's
+  // run 44566778836). Where scripts run, the form is hydrated first.
+  if (scripted.has(page.context())) await hydrated(submit);
   if (target !== undefined)
     await page.getByLabel('Member username', { exact: true }).fill(target);
-  await page
-    .getByRole('button', { name: labels[operation], exact: true })
-    .click();
+  await submit.click();
   await expect(page).toHaveURL(
     operation === 'leave'
       ? /\/messages$/

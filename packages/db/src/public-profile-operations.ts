@@ -116,7 +116,7 @@ export const changedNow = sql`date_trunc('milliseconds', clock_timestamp()) + in
  * instance that records and the worker that sweeps read different clocks,
  * so recording stops this far before the sweep may take the row.
  */
-export const RECORD_MARGIN_SECONDS = 300;
+const RECORD_MARGIN_SECONDS = 300;
 
 /** Ends live photos: their image is owed deletion from `now`. */
 const endPhotos = (
@@ -474,7 +474,3 @@ export const publicProfileOperations = ({
       return row?.owed ?? 0;
     }),
 });
-
-export type PublicProfileOperations = ReturnType<
-  typeof publicProfileOperations
->;

@@ -13,7 +13,7 @@ import {
   type Unacknowledged,
   type Moved,
 } from '../forms/form-state';
-export const judgeObligationContextSchema = z.strictObject({
+const judgeObligationContextSchema = z.strictObject({
   eventId: idSchema,
   settingsVersion: z.int().positive(),
   commandId: idSchema,

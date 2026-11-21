@@ -19,7 +19,7 @@ const FOOTER_NOTE =
  * Messaging's unread-messages email (ADR 0144): how many conversations wait,
  * and nothing about who wrote or what. Its one link opens Messages.
  */
-export function renderUnreadMessagesEmail(input: {
+function renderUnreadMessagesEmail(input: {
   readonly delivery: Sendable;
   readonly appUrl: string;
   readonly unsubscribeUrl: string;

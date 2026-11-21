@@ -16,7 +16,7 @@ export const ratingText = (rating: ShownRating): string => {
  * The rating a card shows: the one on the ladder this person debates on now
  * (ADR 0147), or none while their ladder is unknown.
  */
-export const ownLadderRating = (member: Person): ShownRating | null =>
+const ownLadderRating = (member: Person): ShownRating | null =>
   member.division === null
     ? null
     : (member.ratings.find(

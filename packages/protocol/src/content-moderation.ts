@@ -170,7 +170,7 @@ export type ContentReportsPage = z.infer<typeof contentReportsPageSchema>;
  * What the operator reads about a reported thing. Private feedback appears
  * here only because it was reported, and only the reported side's text.
  */
-export const contentModerationSubjectSchema = z.discriminatedUnion('kind', [
+const contentModerationSubjectSchema = z.discriminatedUnion('kind', [
   z.strictObject({
     kind: z.literal('round'),
     roundId: idSchema,

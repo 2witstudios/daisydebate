@@ -45,7 +45,7 @@ const anonymousJudgeSchema = z.strictObject({
 });
 
 /** What a played Round is waiting on. Only a state with a persisted deadline carries one. */
-export const roundWaitingOnSchema = z.discriminatedUnion('state', [
+const roundWaitingOnSchema = z.discriminatedUnion('state', [
   z.strictObject({ state: z.literal('closing_transcript') }),
   z.strictObject({ state: z.literal('human_window'), deadlineAt: instant }),
   z.strictObject({ state: z.literal('ai_processing'), deadlineAt: instant }),

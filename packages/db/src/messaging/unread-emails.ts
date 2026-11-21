@@ -22,9 +22,9 @@ import {
 type Database = Pick<BunSQLDatabase, 'transaction' | 'execute'>;
 
 /** An unread-messages email waits this long after the latest message... */
-export const UNREAD_EMAIL_QUIET_MS = 30 * 60_000;
+const UNREAD_EMAIL_QUIET_MS = 30 * 60_000;
 /** ...but never longer than this after the first. */
-export const UNREAD_EMAIL_LONGEST_WAIT_MS = 2 * 60 * 60_000;
+const UNREAD_EMAIL_LONGEST_WAIT_MS = 2 * 60 * 60_000;
 
 type ErrorCode = (typeof messagingUnreadEmailErrorCodes)[number];
 

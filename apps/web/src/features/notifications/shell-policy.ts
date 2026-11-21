@@ -66,7 +66,7 @@ export const toastWaits = (kind: NotificationKind): boolean => {
  * it on every page, and a toast over them would hide their answer. It still
  * chimes and raises a desktop alert.
  */
-export const toasted = (kind: NotificationKind): boolean => {
+const toasted = (kind: NotificationKind): boolean => {
   switch (kind) {
     case 'challenge_received':
     case 'challenge_accepted':

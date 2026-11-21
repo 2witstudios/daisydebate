@@ -31,7 +31,7 @@ import {
 } from './open-documents';
 
 /** A pane choice and its optional focus effect, decided by one pure transition. */
-export type ManagerNavigation =
+type ManagerNavigation =
   | { readonly pane: 'unselected' | 'files'; readonly focus: 'files' | null }
   | {
       readonly pane: 'document';

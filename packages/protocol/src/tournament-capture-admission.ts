@@ -12,7 +12,7 @@ const scope = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('organization'), organizationId: idSchema }),
   z.strictObject({ kind: z.literal('lobby'), lobbyId: idSchema }),
 ]);
-export const tournamentOfficialAuthoritySchema = z.discriminatedUnion('kind', [
+const tournamentOfficialAuthoritySchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('owner'), scope }),
   z.strictObject({
     kind: z.literal('grant'),

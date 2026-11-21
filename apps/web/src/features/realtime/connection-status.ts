@@ -5,7 +5,7 @@ import type { TerminalReason } from './close-code-policy';
  * the store was disposed for good, or the server gave a reason that forbids
  * retrying.
  */
-export type ClosedWhy = 'left' | 'disposed' | TerminalReason;
+type ClosedWhy = 'left' | 'disposed' | TerminalReason;
 
 /**
  * Where one tab's realtime connection is. `ticketing`: the socket is being

@@ -3,10 +3,8 @@ import { RECORDING_RENDITIONS } from './media-commands';
 /** Encoders round durations; anything past this is media gone missing. */
 const DURATION_TOLERANCE_MS = 1000;
 
-export type VerificationFailure = { readonly problem: string };
-
 /** The segment names a finished VOD playlist promises, or why it is not finished. */
-export const playlistSegments = (
+const playlistSegments = (
   text: string,
 ): {
   readonly names: readonly string[];

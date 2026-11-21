@@ -13,8 +13,8 @@ export const teamSideSchema = z.enum(twoSideKeys);
 
 /**
  * A Room's two teams (ADR 0145). A Room seat's role names its team's
- * placement, not its side: team 1 sits in the `affirmative` seats and team 2
- * in the `negative` ones until Start round, when the Room's side rule decides
+ * placement, not its side: team 1 sits in the Affirmative seats and team 2
+ * in the Negative ones until Start round, when the Room's side rule decides
  * which side each team argues. A Round's role is always the side.
  */
 export type RoomTeam = 1 | 2;

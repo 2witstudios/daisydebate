@@ -46,19 +46,20 @@ describe('CI quick prerequisite topology', () => {
         prerequisites: Array(3).fill('quick-check'),
         reusable: './.github/workflows/quick-check.yml',
         browserQuickCheck: false,
-        // quick-check, audit, migrations, reports; e2e, admin, three native cohorts.
-        initial: 9,
+        // quick-check, audit, migrations, reports; e2e, admin, seven native
+        // cohorts (five Launch shards, realtime, messaging).
+        initial: 13,
       },
     });
     assert({
       given: 'the checks matrix after quick success',
       should: 'run only what the quick check does not',
       actual: ci.checks.strategy?.matrix.task,
-      expected: ['policy', 'invariants', 'build'],
+      expected: ['policy', 'invariants', 'build', 'knip'],
     });
   });
 
-  test('reports warn without holding the gate, except knip on the nightly run', async () => {
+  test('reports warn without holding the gate, while knip is a required check', async () => {
     const ci = await readJobs('ci');
     const steps = (ci.reports.steps ?? []) as {
       run?: string;
@@ -67,22 +68,27 @@ describe('CI quick prerequisite topology', () => {
     const allowance = (run: string) =>
       steps.find((step) => step.run === run)?.['continue-on-error'];
     assert({
-      given: 'the advisory reports job',
+      given: 'the advisory reports job and the checks matrix',
       should:
-        'never gate CI and tolerate findings, with knip strict only when scheduled',
+        'never gate CI on a report, and run the dead-code check among the required checks',
       actual: {
         gated: ci.gate.needs?.includes('reports'),
-        knip: allowance('bun run knip'),
-        others: [
+        reports: [
+          'bun run knip:production',
           'bun run duplication',
           'bun run evidence',
           'bun run metrics:check',
         ].map(allowance),
+        knipIsRequired:
+          ci.checks.strategy?.matrix.task.includes('knip') &&
+          ci.gate.needs?.includes('checks'),
+        knipIsAReport: steps.some((step) => step.run === 'bun run knip'),
       },
       expected: {
         gated: false,
-        knip: "${{ github.event_name != 'schedule' }}",
-        others: [true, true, true],
+        reports: [true, true, true, true],
+        knipIsRequired: true,
+        knipIsAReport: false,
       },
     });
   });

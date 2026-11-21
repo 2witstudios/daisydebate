@@ -39,7 +39,7 @@ const lengthSchema = z.strictObject({
   max: z.int().min(1).max(5000),
 });
 
-export const ballotDecisionSchema = z.discriminatedUnion('kind', [
+const ballotDecisionSchema = z.discriminatedUnion('kind', [
   z.strictObject({
     kind: z.literal('winner'),
     /** Whether the winner may hold fewer points than the loser. */
@@ -54,9 +54,8 @@ export const ballotDecisionSchema = z.discriminatedUnion('kind', [
     ties: z.boolean(),
   }),
 ]);
-export type BallotDecision = z.infer<typeof ballotDecisionSchema>;
 
-export const ballotPointsSchema = z.strictObject({
+const ballotPointsSchema = z.strictObject({
   /** What one score is given to: a side, a speaker's seat, or one speech. */
   per: z.enum(['side', 'seat', 'speech']),
   scale: scaleSchema,
@@ -251,7 +250,7 @@ export const daisyBallotFor = (
 };
 
 /** How a panel turns its ballots into a Round outcome, frozen with the definition. */
-export const panelRuleSchema = z.strictObject({
+const panelRuleSchema = z.strictObject({
   decision: z.enum(['majority', 'rank_sum']),
   /** Fewer submitted ballots than this gives no outcome. */
   quorum: z.int().min(1).max(256),
@@ -263,7 +262,6 @@ export const ballotDefinitionPinSchema = z.strictObject({
   id: idSchema,
   version: z.int().positive(),
 });
-export type BallotDefinitionPin = z.infer<typeof ballotDefinitionPinSchema>;
 
 /** The immutable source answered by every human or AI ballot. */
 export const ballotDefinitionSourceSchema = z.discriminatedUnion('kind', [

@@ -18,7 +18,7 @@ This skill covers the planning half; `/pr` and `/handoff` cover the rest.
 Constraints {
 AGENTS.md governs. Read it first for the drive id, the board, the Delivery channel and the task-code prefixes in use. No drive declared => keep the plan in the PR description and say so.
 Discovery is yours. A mission brief names the outcome, the owning intent pages and ADRs, and the PRs and branches you inherit; it never contains research, so do the research yourself.
-One plan, one confirmation. Post the plan link on the PageSpace Delivery channel; the architecture reviewer and the point guard confirm or redirect. Never wait for another approval after that, and never wait on the owner: product, architecture or scope questions go to the point guard on the Delivery channel.
+One plan, one confirmation. Post the plan link on the PageSpace Delivery channel; the point guard confirms or redirects. Never wait for another approval after that, and never wait on the owner: product, architecture or scope questions go to the point guard on the Delivery channel.
 One PR per slice. A task is a provable outcome, not a PR: there is no file-count, line-count or one-PR-per-task rule. Split off an earlier PR only when a piece must ship first.
 A decision you make on someone's behalf is recorded (`bun decision:record` when present, otherwise the plan's Decisions list). Never bury one as "please confirm".
 Never edit the criteria of a task someone else delegated to you; take a change to whoever owns it.
@@ -53,7 +53,7 @@ plan() {
    - The repository's architecture rules (Daisy: AGENTS.md "Architecture rules") are blockers.
 2. Board: one leaf per task code under the slice's epic in Roadmap (`bun board:create` when present), so the merge automation can move them. Reuse existing leaves; never duplicate a code. A finding outside the slice is an issue, always in a bucket: `bun board:create --issue --bucket <name>`.
    - Name the areas the slice advances in the plan, and update their Score blocks on the area pages when the slice merges.
-3. Post one channel message: `pagespace channels send <Delivery channel id> "<slice> (<agent id>) → point guard + architecture reviewer: PLAN <url> — <one-paragraph summary>; questions: …"`.
+3. Post one channel message: `pagespace channels send <Delivery channel id> "<slice> (<agent id>) → point guard: PLAN <url> — <one-paragraph summary>; questions: …"`.
 4. Start building at once on anything the open questions do not touch. The confirmation arrives on the Delivery channel (read it with `pagespace pages read <Delivery channel id>`; AGENTS.md names the id); apply any redirect to the plan and keep going.
    }
 

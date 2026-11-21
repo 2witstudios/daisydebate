@@ -21,7 +21,7 @@ export type DriveFolderNode = {
   readonly expanded: boolean;
   readonly contents: FolderContents;
 };
-export type DriveDocumentNode = {
+type DriveDocumentNode = {
   readonly kind: 'document';
   readonly id: string;
   readonly title: string;

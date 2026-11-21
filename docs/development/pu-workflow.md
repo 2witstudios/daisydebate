@@ -47,8 +47,8 @@ pu kill --agent <agent> && pu clean
 - **Services.** Run `bun install --frozen-lockfile` and `bun slot:up` in a
   worktree when the work needs dependencies or services
   ([ADR 0034](../decisions/0034-shared-stack-slots.md)).
-- **Channel traffic.** Plans, decisions, the architecture reviewer and the
-  point guard's confirmations go through the PageSpace Delivery channel;
+- **Channel traffic.** Plans, decisions and the point guard's confirmations
+  go through the PageSpace Delivery channel;
   incidents go to Incidents. The pu channel is retired. Agents report to
   whoever spawned them, so the owner never relays status.
 - **Decisions on the owner's behalf** are recorded with `bun decision:record`
@@ -68,17 +68,17 @@ pu kill --agent <agent> && pu clean
   feature the owner has given a parent branch
   ([ADR 0128](../decisions/0128-feature-parent-branch.md)): its PR targets
   the parent, one point guard merges into the parent one PR at a time, and
-  it runs PR Loop (Feature slice), which stops at the first review with no
-  blocker and no major.
+  it runs PR Loop (Feature slice). Every loop stops at the first review with
+  no blocker and no major ([reviews](reviews.md#when-the-loop-stops)).
   - The point guard's flow sweep merges a PR when its builder has emitted
-    `PR_READY` and the required check (CI gate) is green at the exact head.
-    Browser E2E runs on main after merge
-    ([ADR 0098](../decisions/0098-ci-gate-only-while-greenfield.md)).
-  - A red Browser E2E run on main belongs to the merging point guard at once,
-    who fixes forward or reverts.
+    `PR_READY` and the required checks (CI gate, Playwright E2E and Isolated
+    Room Launch E2E) are green at the exact head
+    ([ADR 0159](../decisions/0159-signals-that-gate.md)).
+  - While main's latest Browser E2E run on a push is red, only the PR that
+    fixes it or reverts what broke it merges. That run belongs to the point
+    guard whose merge turned it red.
   - The sweep merges at most two PRs per cycle into main. A feature parent
     takes one PR at a time (ADR 0128).
-  - After a batch, the point guard runs a local typecheck and knip on main.
 - **After a merge.** The tasks the PR names move to Done when its latest
   review verdict approves ([reviews](reviews.md)); otherwise they move to
   Merged.

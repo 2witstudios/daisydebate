@@ -208,7 +208,7 @@ const dayMs = 24 * 60 * 60 * 1000;
 const FIRST = Date.parse('2026-10-10T00:00:00.000Z');
 const LAST_DAY = 82;
 /** The sample's today: Autumn Open's day. */
-export const CATALOGUE_TODAY = '2026-11-14';
+const CATALOGUE_TODAY = '2026-11-14';
 const TODAY_INDEX =
   (Date.parse(`${CATALOGUE_TODAY}T00:00:00.000Z`) - FIRST) / dayMs;
 const LIVE_TODAY = 5;

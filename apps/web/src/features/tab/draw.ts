@@ -13,7 +13,7 @@ import {
 import type { EventSwitch } from './setup';
 
 /** What the engine reports about a fixture; a broken rule is never relaxed. */
-export type FixtureFlag = {
+type FixtureFlag = {
   readonly severity: DrawFindingSeverity;
   readonly text: string;
 };

@@ -5,7 +5,7 @@ import {
   type MediaSdk,
   type TrackHandle,
 } from './adapters/livekit-room';
-import { requestFailureOf, transientMediaFailure } from './media-failure';
+import { requestFailureOf } from './media-failure';
 import type { MediaReadEvent } from './media-read-intent';
 import { createMediaRuntime } from './media-runtime';
 import {
@@ -548,5 +548,3 @@ export function createBrowserMediaTransport(
     },
   };
 }
-
-export { transientMediaFailure };

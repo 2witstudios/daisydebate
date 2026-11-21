@@ -29,8 +29,8 @@ writer. Each stayed correct only while its copies agreed.
 2. **A Round read belongs to Rounds.** `GET /api/rounds/:id` is served by
    `round-runtime` from `roundViewReader`, with its own `round-member:view`
    budget. The Room feature neither serves nor composes it.
-3. **One vocabulary.** Protocol exports `roundOutcomeSchema`, `judgeRulingSchema`
-   and `panelRulingSchema` with their types. A judge ruling is one seat's winner;
+3. **One vocabulary.** Protocol holds `roundOutcomeSchema` and
+   `panelRulingSchema` with their types, and the `JudgeRuling` type. A judge ruling is one seat's winner;
    a panel ruling is why panel completion ended the Round.
 4. **The media window is its own policy.** `roundMediaPolicy` holds it, and the
    engine's `mediaWindowClosed` is the one decision. `packages/db` applies the

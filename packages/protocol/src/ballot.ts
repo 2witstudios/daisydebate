@@ -9,9 +9,6 @@ import { ballotRubrics, type BallotRubricVersion } from './ballot-rubrics';
  * one is written.
  */
 export { ballotRubrics, type BallotRubricVersion };
-export const ballotRubricVersions = Object.keys(
-  ballotRubrics,
-) as readonly BallotRubricVersion[];
 
 /** The rubric every new ballot is written on. */
 export const ballotRubricVersion = 'speaker-10@2' satisfies BallotRubricVersion;

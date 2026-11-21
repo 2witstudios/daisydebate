@@ -86,7 +86,7 @@ export type OperatorReportRow = {
 const iso = (value: Date | string) => new Date(value).toISOString();
 
 /** How a reviewer closes a report: a length only where one means something. */
-export type ReportResolution =
+type ReportResolution =
   | { readonly outcome: 'dismissed' | 'warned' | 'banned' }
   | { readonly outcome: 'suspended'; readonly suspendUntil: string };
 

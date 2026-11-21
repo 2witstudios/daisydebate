@@ -74,7 +74,7 @@ export const platformIncidentCauses = [
   'vendor_unreachable',
   'room_retired',
 ] as const;
-export const platformIncidentCauseSchema = z.enum(platformIncidentCauses);
+const platformIncidentCauseSchema = z.enum(platformIncidentCauses);
 
 /**
  * Why the platform, not the debate, ended a Round: it never recovered within the bound,

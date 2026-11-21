@@ -482,56 +482,6 @@ const unseat = (facts: FixtureFacts, judgeId: string): Unseating => {
   };
 };
 
-/** One result row, as every command that records a result writes it. */
-export const resultRowWrite = (
-  record: FixtureRecord,
-  context: {
-    readonly id: string;
-    readonly commandId: string;
-    readonly now: string;
-  },
-  result: Pick<
-    ResultRowWrite['row'],
-    | 'kind'
-    | 'administrativeReason'
-    | 'roundId'
-    | 'supersedesResultId'
-    | 'correctionReason'
-    | 'competitionRecord'
-  >,
-): ResultRowWrite => ({
-  table: 'results',
-  op: 'insert',
-  row: {
-    id: context.id,
-    lobbyId: record.fixture.lobbyId,
-    eventId: record.fixture.eventId,
-    tabRoundId: record.fixture.tabRoundId,
-    fixtureId: record.fixture.id,
-    ...result,
-    commandId: context.commandId,
-    recordedAt: context.now,
-  },
-});
-
-export const resultEntryWrite = (
-  record: FixtureRecord,
-  resultId: string,
-  outcome: Pick<
-    ResultEntryWrite['row'],
-    'entryId' | 'won' | 'rank' | 'ballotsWon'
-  >,
-): ResultEntryWrite => ({
-  table: 'result_entries',
-  op: 'insert',
-  row: {
-    resultId,
-    fixtureId: record.fixture.id,
-    lobbyId: record.fixture.lobbyId,
-    ...outcome,
-  },
-});
-
 const accepted = (
   facts: FixtureFacts,
   type: FixtureCommand['type'],

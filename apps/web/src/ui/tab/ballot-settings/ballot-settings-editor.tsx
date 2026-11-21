@@ -24,7 +24,7 @@ const chosenOf = (settings: BallotSettings): Chosen =>
   );
 
 /** The definition the chosen options make, from the event's saved one. */
-export const definitionOf = (settings: BallotSettings, chosen: Chosen) =>
+const definitionOf = (settings: BallotSettings, chosen: Chosen) =>
   (Object.entries(chosen) as [BallotOption['id'], string][]).reduce(
     (definition, [id, value]) => applyBallotOption(definition, id, value),
     settings.definition,

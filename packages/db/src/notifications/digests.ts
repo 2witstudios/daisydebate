@@ -25,9 +25,9 @@ import { notificationStands } from './standing';
 type Database = Pick<BunSQLDatabase, 'transaction' | 'execute'>;
 
 /** A digest waits this long after its latest notification, so a burst is one email. */
-export const DIGEST_QUIET_MS = 15 * 60_000;
+const DIGEST_QUIET_MS = 15 * 60_000;
 /** ...but never longer than this after its first. */
-export const DIGEST_LONGEST_WAIT_MS = 60 * 60_000;
+const DIGEST_LONGEST_WAIT_MS = 60 * 60_000;
 
 export type NotificationDigestClaim = {
   readonly id: string;

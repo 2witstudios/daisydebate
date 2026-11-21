@@ -6,7 +6,7 @@ type Pins = {
   readonly formatVersionId: string;
   readonly ballotDefinitionVersionId: string;
 };
-export type SanctionMismatch = 'format' | 'ballot_definition' | SettingKey;
+type SanctionMismatch = 'format' | 'ballot_definition' | SettingKey;
 export type SanctionCheck =
   | { readonly passes: true }
   | {

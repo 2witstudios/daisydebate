@@ -48,7 +48,7 @@ export type RatingEligibilityFacts = EndingRatingFacts & {
 };
 
 /** Why a Round's ending rates on no ladder. */
-export type EndingUnrated = {
+type EndingUnrated = {
   readonly kind: 'unrated';
   readonly reason:
     | 'abandoned'

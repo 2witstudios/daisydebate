@@ -4,7 +4,7 @@
  * in flight when the four holders queue can expire the fourth. Nothing was
  * held or targeted, and each attempt is released and reported before the next.
  */
-export const PRESSURE_SETUP_ATTEMPTS = 3;
+const PRESSURE_SETUP_ATTEMPTS = 3;
 
 /** The entire private control transition owns parsing, release, ACK and publication. */
 export function createMessagingPressureControl<Scope>(

@@ -8,7 +8,7 @@ import { currentTenantScope, scopeTransaction } from './tenant-scope';
 type Tx = Pick<BunSQLDatabase, 'execute'>;
 
 /** At most this many: the newest running Rounds first. Watch shows a handful. */
-export const STUDENT_LIVE_ROUNDS = 12;
+const STUDENT_LIVE_ROUNDS = 12;
 
 /** A running Youth Round one of the adult's students debates in, and its Room's title. */
 export type StudentLiveRound = {
@@ -27,7 +27,7 @@ export type StudentLiveRound = {
  * is the live audience rule's, on that Round's own linked adults. The
  * caller's scope comes back at the end.
  */
-export const readStudentLiveRoundCandidates = async (
+const readStudentLiveRoundCandidates = async (
   tx: Tx,
   adultUserId: string,
 ): Promise<readonly StudentLiveRound[]> => {

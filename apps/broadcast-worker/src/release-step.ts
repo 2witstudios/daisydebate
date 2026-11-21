@@ -21,12 +21,12 @@ const NOT_LISTED_YET_MS = 10_000;
 /** Egress finishes writing its last segments this long after a stop (measured: 2 s). */
 const HOLD_SETTLE_MS = 10_000;
 
-export type EncodedRendition = {
+type EncodedRendition = {
   readonly rendition: string;
   readonly file: string;
 };
 
-export type Clip = PublicClip<HoldEntry, StageInterval>;
+type Clip = PublicClip<HoldEntry, StageInterval>;
 
 export type ReleasePorts = {
   readonly readHoldPlaylist: () => Promise<string>;

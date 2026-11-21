@@ -43,7 +43,7 @@ type ClubRow = {
  * organisation grant whose role carries `school.roster.manage` (ADR 0151).
  * A family club has only its owner. Read under the club's scope.
  */
-export async function clubReleaseRole(
+async function clubReleaseRole(
   tx: Tx,
   club: ClubRow,
   userId: string,

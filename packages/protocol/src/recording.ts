@@ -98,7 +98,7 @@ export type RecordingSpeech = z.infer<typeof speechSchema>;
  * Where a Recording's source video waits, in the private hold bucket. Named by
  * kind, never as a free path, so a source outside these two cannot be recorded.
  */
-export const recordingSourceSchema = z.discriminatedUnion('kind', [
+const recordingSourceSchema = z.discriminatedUnion('kind', [
   /** The Round's Broadcast already runs an Egress; its output is read, not owned. */
   z.strictObject({ kind: z.literal('broadcast_hold'), broadcastId: idSchema }),
   /** A casual opted-in Recording with no Broadcast runs its own Egress. */
@@ -160,7 +160,7 @@ export const recordingLegalRemovalReasons = [
 ] as const;
 
 /** Who asked for the whole Recording to go. */
-export const recordingRemovalCauses = [
+const recordingRemovalCauses = [
   'participant_request',
   'moderation',
   /** Some content must go whatever an evidence hold says: an operator's legal removal. */

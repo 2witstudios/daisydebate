@@ -45,7 +45,7 @@ export type NotificationKindSpec =
  * Watch's fan-out writes the first two from released facts (WATCH-12); the
  * others are written in the transaction that produced them (ADR 0124).
  */
-export const notificationCatalogue = {
+const notificationCatalogue = {
   followed_debater_live: {
     subject: 'round',
     urgency: 'durable',
@@ -172,8 +172,7 @@ export const isUrgentNotificationKind = (kind: NotificationKind): boolean =>
   specOf(kind).urgency === 'urgent';
 
 /** How a notification reaches a member: the inbox, or an email. */
-export const notificationChannels = ['in_app', 'email'] as const;
-export type NotificationChannel = (typeof notificationChannels)[number];
+export type NotificationChannel = 'in_app' | 'email';
 
 /** Kinds gathered into the member's email. */
 export type EmailedNotificationKind = {
@@ -205,7 +204,7 @@ export const notificationChannelsOf = (
   emailsKind(kind) ? ['in_app', 'email'] : ['in_app'];
 
 /** The most notifications one read names: the rows one inbox page shows. */
-export const NOTIFICATIONS_READ_AT_ONCE = 50;
+const NOTIFICATIONS_READ_AT_ONCE = 50;
 
 /**
  * Marks some of a member's own notifications read (one the member opened, or
@@ -236,7 +235,7 @@ const inAppAndEmail = z.strictObject({
   email: z.boolean(),
 });
 
-export const notificationChoicesSchema = z.strictObject(
+const notificationChoicesSchema = z.strictObject(
   Object.fromEntries(
     notificationKinds.map((kind) => [
       kind,
@@ -250,9 +249,6 @@ export const notificationPreferencesSchema = z.strictObject({
   version: z.literal(2),
   choices: notificationChoicesSchema,
 });
-export type NotificationPreferences = z.infer<
-  typeof notificationPreferencesSchema
->;
 
 /** Every channel on: what a member who never chose receives. */
 export const defaultNotificationChoices = Object.fromEntries(

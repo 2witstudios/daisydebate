@@ -51,7 +51,6 @@ export const audienceMapSchema = whens.refine(
   narrowerOpensFirst,
   'A wider audience never opens before a narrower one.',
 );
-export type AudienceMap = z.infer<typeof audienceMapSchema>;
 
 /** Scores, reasons and feedback never go wider than participants. */
 export const participantAudienceMapSchema = audienceMapSchema.refine(

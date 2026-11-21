@@ -19,7 +19,7 @@ export type AccountPendingCommand = {
   readonly expectedRevision: number;
 };
 
-export type PreapprovalPendingCommand = {
+type PreapprovalPendingCommand = {
   readonly commandId: string;
   readonly operatorId: string;
   readonly targetUserId: null;

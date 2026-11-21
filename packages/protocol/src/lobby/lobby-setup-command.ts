@@ -62,10 +62,7 @@ const resolutionTextSchema = z.string().trim().min(1).max(300);
 const jsonObjectSchema = z.record(z.string().min(1), z.json());
 
 /** The one canonical ballot body; identity and revision belong to the server. */
-export const ballotDefinitionSettingsSchema = ballotDefinitionBodySchema;
-export type BallotDefinitionSettings = z.infer<
-  typeof ballotDefinitionSettingsSchema
->;
+const ballotDefinitionSettingsSchema = ballotDefinitionBodySchema;
 
 // ---------------------------------------------------------------------------
 // Lobby, season, ladder and a standing lobby's Room.

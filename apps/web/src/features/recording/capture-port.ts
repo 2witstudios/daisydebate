@@ -67,7 +67,7 @@ export type RecordingCapturePort = {
 };
 
 /** `refused` tells capture to stop and delete nothing itself: the sweep owns that. */
-export type RecordingOutcome = 'moved' | 'unchanged' | 'refused';
+type RecordingOutcome = 'moved' | 'unchanged' | 'refused';
 
 export const createRecordingCapturePort = ({
   store,

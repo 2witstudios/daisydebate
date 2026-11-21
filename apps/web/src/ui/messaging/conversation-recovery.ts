@@ -31,10 +31,10 @@ type Effect =
   | { readonly kind: 'none' | 'refresh' | 'stop' | 'exhausted' }
   | { readonly kind: 'wait'; readonly answer: string; readonly waitMs: number };
 
-export const initialConversationRecovery = (): Recovery => ({ kind: 'new' });
+const initialConversationRecovery = (): Recovery => ({ kind: 'new' });
 
 /** Total recovery decisions; timers and the router remain at the edge. */
-export function conversationRecovery(
+function conversationRecovery(
   state: Recovery,
   event: Event,
 ): {

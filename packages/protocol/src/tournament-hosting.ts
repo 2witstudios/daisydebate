@@ -11,7 +11,7 @@ export const tournamentHostingCoverageSchema = z.strictObject({
   tournamentConcurrencyLimit: z.number().int().positive(),
 });
 
-export const tournamentHostingIssuerSchema = z.discriminatedUnion('kind', [
+const tournamentHostingIssuerSchema = z.discriminatedUnion('kind', [
   z.strictObject({
     kind: z.literal('administrative'),
     decisionReference: z.string().trim().min(1).max(500),
@@ -27,7 +27,7 @@ export const tournamentHostingIssuerSchema = z.discriminatedUnion('kind', [
 ]);
 
 /** The selected immutable canonical grant version, frozen into capture admission. */
-export const tournamentHostingVersionSchema = z
+const tournamentHostingVersionSchema = z
   .strictObject({
     id: idSchema,
     userId: idSchema,
@@ -56,10 +56,6 @@ export const tournamentHostingGrantSchema = z
     hosting: tournamentHostingVersionSchema,
   })
   .refine((value) => value.source === value.hosting.issuer.kind);
-
-export type TournamentHostingVersion = z.infer<
-  typeof tournamentHostingVersionSchema
->;
 export type TournamentHostingGrant = z.infer<
   typeof tournamentHostingGrantSchema
 >;

@@ -15,19 +15,15 @@ export type {
 export type { BroadcastAction, BroadcastFacts } from './broadcast-lifecycle';
 export {
   RANKED_DELAY_SECONDS,
-  debatersReadChat,
   delayAlert,
   factReleased,
   releasedThrough,
-  resolveReleasePolicy,
   segmentDue,
 } from './broadcast-release';
-export type { HeldSegment } from './broadcast-release';
 export {
   spectatorHorizon,
   spectatorTimelineHorizon,
 } from './spectator-horizon';
-export type { SpectatorHorizonFacts } from './spectator-horizon';
 export { plannedBroadcast, plannedRecording } from './room-capture';
 export { debateInvariantIds } from './invariant-ids';
 export { createRoundRuntime } from './round-runtime';
@@ -37,7 +33,7 @@ export {
 } from './round-incident-decision';
 export type { MediaObservation } from './round-incident-decision';
 export { mediaGrants, changedMediaGrants } from './media-grants';
-export { mediaPhase, mediaWindowClosed } from './media-window';
+export { mediaPhase } from './media-window';
 export { nextRoomVacancy, postRoundCallGrants } from './post-round-call';
 export { mediaRoomFate, mediaRoomLost } from './media-room-fate';
 export type { RoundMediaGrants } from './media-grants';
@@ -59,7 +55,7 @@ export {
   ratingAwaited,
   ratingEligibility,
 } from './rating-decision';
-export { namesHumanJudge, type JudgeNamingFacts } from './room-assembly-facts';
+export { namesHumanJudge } from './room-assembly-facts';
 export {
   eraseSeats,
   executeRoomCommand,
@@ -100,7 +96,7 @@ export {
   onTimeSpeakerReceipt,
   resolutionCutoffOf,
 } from './attendance';
-export type { AttendanceDecision, AttendanceWindow } from './attendance';
+export type { AttendanceWindow } from './attendance';
 export {
   deriveOutageIntervals,
   withClockStops,
@@ -114,7 +110,6 @@ export { decideFormatSelection } from './format-selection';
 export { decideRoomResolution } from './room-resolution';
 export { hasOpenQuestioning } from './round-speaking';
 export {
-  aiSeatStanding,
   judgingEndIsReported,
   judgingJobEndReason,
   judgingJobRules,
@@ -127,14 +122,6 @@ export {
 export type { RoundEndingDecision } from './attendance';
 export { captureRule } from './capture-verdict';
 export { botGrantUnused } from './bot-grant';
-export {
-  BROADCAST_INTERRUPTED_AFTER_MS,
-  projectSpectatorTimeline,
-  releasedStage,
-} from './spectator-timeline';
-export type {
-  SpectatorTimelineContext,
-  SpectatorTimelineRead,
-} from './spectator-timeline';
+export { projectSpectatorTimeline, releasedStage } from './spectator-timeline';
+export type { SpectatorTimelineContext } from './spectator-timeline';
 export { projectAudienceSnapshot } from './audience-snapshot';
-export type { AudienceSnapshotRead } from './audience-snapshot';

@@ -2,7 +2,6 @@ export type {
   DocumentRecord,
   DocumentSearchHit,
   DriveAdmission,
-  DriveCursor,
   DriveEntry,
 } from './document-operations';
 export {

@@ -1,17 +1,86 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 setupRitewayBun();
 
-// The Browser E2E workflow's triggers and gate shells (ADR 0098).
+// The Browser E2E workflow's triggers and gate shells (ADR 0159).
 describe('browser workflow triggers', () => {
-  test('it runs after merge or by choice, never as a PR check', async () => {
+  test('it runs on every PR, on main, nightly and by choice', async () => {
     const workflow = Bun.YAML.parse(
       await Bun.file('.github/workflows/e2e.yml').text(),
-    ) as { on: Record<string, { branches?: string[] }> };
+    ) as {
+      on: Record<string, { branches?: string[] } | null>;
+      concurrency: { group: string; 'cancel-in-progress': string };
+    };
     assert({
       given: 'the browser workflow',
-      should: 'run on main pushes, the nightly schedule and manual dispatch',
+      should:
+        'run on PRs, main pushes, the nightly schedule and manual dispatch',
       actual: [Object.keys(workflow.on).sort(), workflow.on.push?.branches],
-      expected: [['push', 'schedule', 'workflow_dispatch'], ['main']],
+      expected: [
+        ['pull_request', 'push', 'schedule', 'workflow_dispatch'],
+        ['main'],
+      ],
+    });
+    assert({
+      given: 'a newer push to a PR and a later merge to main',
+      should:
+        "replace only the PR's superseded run, never a main, nightly or dispatched one",
+      actual: workflow.concurrency,
+      expected: {
+        group:
+          "${{ github.event_name == 'pull_request' && format('browser-pr-{0}', github.event.pull_request.number) || format('browser-run-{0}', github.run_id) }}",
+        'cancel-in-progress': "${{ github.event_name == 'pull_request' }}",
+      },
+    });
+  });
+
+  test('the Launch suite runs as shards that together cover every case once', async () => {
+    type Step = { id?: string; if?: string; run?: string };
+    const workflow = Bun.YAML.parse(
+      await Bun.file('.github/workflows/e2e.yml').text(),
+    ) as {
+      jobs: Record<
+        string,
+        {
+          'timeout-minutes': number;
+          strategy: { matrix: { cohort: string[] } };
+          steps: Step[];
+        }
+      >;
+    };
+    const job = workflow.jobs['room-launch']!;
+    const launch = job.strategy.matrix.cohort.filter((cohort) =>
+      cohort.startsWith('launch-'),
+    );
+    const step = job.steps.find((candidate) => candidate.id === 'launch');
+    // The step's own shell works the shard out of the cohort's name.
+    const shards = launch.map((cohort) =>
+      Bun.spawnSync(
+        [
+          'bash',
+          '-c',
+          (step?.run ?? '').replace('bun test:e2e:room-launch', 'echo'),
+        ],
+        { env: { ...process.env, LAUNCH_COHORT: cohort } },
+      )
+        .stdout.toString()
+        .trim(),
+    );
+    assert({
+      given: 'the Launch cohorts',
+      should:
+        'each run one shard of the same total, inside a job bound a PR can wait for',
+      actual: {
+        shards,
+        onlyLaunch: step?.if,
+        bounded: job['timeout-minutes'] <= 45,
+      },
+      expected: {
+        shards: launch.map(
+          (_, index) => `--shard=${index + 1}/${launch.length}`,
+        ),
+        onlyLaunch: "${{ startsWith(matrix.cohort, 'launch-') }}",
+        bounded: true,
+      },
     });
   });
 });
