@@ -39,6 +39,7 @@ const render = (over: Partial<SpectatorTimeline>, streamable = true) =>
       { value: router },
       h(BroadcastViewer, {
         initial: timeline(over),
+        visibility: 'public',
         stateUrl: 'https://feed.daisy.invalid/state/k.json',
         refreshHref: '/watch/r',
         streamable,
@@ -55,6 +56,7 @@ describe('BroadcastViewer', () => {
         { value: router },
         h(BroadcastViewer, {
           initial: timeline({ stage: { kind: 'upcoming' } }),
+          visibility: 'public',
           stateUrl: null,
           refreshHref: '/watch/r',
           streamable: true,

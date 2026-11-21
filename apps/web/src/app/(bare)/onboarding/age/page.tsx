@@ -13,7 +13,10 @@ import {
   holdRefusal,
 } from '../../../../features/account/age-step';
 import { readOnboardingEntry } from '../../../../lib/auth-entry';
-import { requestHasRecordedAge } from '../../../../lib/request-session';
+import {
+  requestGuardianAgeBinding,
+  requestHasRecordedAge,
+} from '../../../../lib/request-session';
 import { AgeRefusalStep } from '../../../../ui/onboarding/age/age-refusal';
 import { AgeStep } from '../../../../ui/onboarding/age/age-step';
 import { ageStepAction } from './actions';
@@ -46,10 +49,15 @@ export default async function OnboardingAgePage({
   // Answered already: on through the lobby landing, so a Youth member who
   // left before it still sees it (YLS-8).
   if (await requestHasRecordedAge()) redirect(lobbyLandingHref(destination));
+  const binding =
+    identity.state === 'provisional'
+      ? await requestGuardianAgeBinding(identity.principal.userId)
+      : null;
   return (
     <AgeStep
       action={ageStepAction.bind(null, destination)}
       years={birthYears(systemClock.now())}
+      binding={binding}
     />
   );
 }

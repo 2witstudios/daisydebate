@@ -170,8 +170,7 @@ export const judgeRegistrationCommand =
                     const loaded = await session.load();
                     const minorsAllowed =
                       isExit(command) ||
-                      (loaded.account?.ageBand === 'adult' &&
-                        loaded.account.boundary === null) ||
+                      loaded.account?.ageBand === 'adult' ||
                       (loaded.account !== null &&
                         (await dependencies.minorsReleased(
                           loaded.account.userId,

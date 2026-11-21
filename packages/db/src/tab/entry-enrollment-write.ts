@@ -40,10 +40,4 @@ export type EntryEnrollmentWrite =
       readonly where: { readonly id: string };
       readonly set: { readonly entriesVersion: number };
     }
-  | {
-      readonly table: 'restrictions';
-      readonly op: 'update';
-      readonly where: { readonly guardianLinkId: string };
-      readonly set: { readonly version: number };
-    }
   | AccountRevisionWrite;

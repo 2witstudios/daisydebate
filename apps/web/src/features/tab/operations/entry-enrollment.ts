@@ -108,14 +108,10 @@ export const entryEnrollmentCommand =
             return { kind: 'refused', refusal: 'not-found' };
           if (loaded.lobby.closedAt !== null && !exit)
             return { kind: 'refused', refusal: 'lobby-closed' };
-          // Guardian-dependent additions wait for the provenance/history decisions and counsel gate.
+          // Tournament entry remains adult-only.
           if (
             !exit &&
-            loaded.people.some(
-              (person) =>
-                person.account?.ageBand !== 'adult' ||
-                person.account.boundary !== null,
-            )
+            loaded.people.some((person) => person.account?.ageBand !== 'adult')
           )
             throw new CommandDenied('not-found');
           const host = dependencies.authorize({

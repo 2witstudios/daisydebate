@@ -19,7 +19,6 @@ type Held = {
   readonly url: string;
   readonly state: AudienceState | null;
   readonly sinceMovedMs: number;
-  readonly gone: boolean;
   readonly serverAsks: number;
 };
 
@@ -29,15 +28,14 @@ export type PublishedState = Omit<Held, 'url'>;
 const NOTHING_READ: PublishedState = {
   state: null,
   sinceMovedMs: 0,
-  gone: false,
   serverAsks: 0,
 };
 
 /**
  * Polls a Round's published state from the public bucket. No cookie goes with it. Every
  * attempt, answered or not, updates how long the object has stood still, measured here
- * on the tab's own clock. `gone` asks the page to read the server again, and `serverAsks`
- * counts how often it should have by now. What was read
+ * on the tab's own clock. `serverAsks` counts the requested server refreshes
+ * during a run of missing reads. What was read
  * belongs to its address: a replaced link starts from nothing. While an address is gone
  * the reads go on, so one that comes back is seen, but slow down as misses do.
  * The page says, of what has been read, whether there is anything left to read for.
@@ -45,6 +43,7 @@ const NOTHING_READ: PublishedState = {
 export function usePublishedState(
   url: string | null,
   keepReading: (published: PublishedState) => boolean,
+  recheckBeforePublication = false,
 ): PublishedState {
   const [held, setHeld] = useState<Held | null>(null);
   const published = held !== null && held.url === url ? held : NOTHING_READ;
@@ -56,11 +55,10 @@ export function usePublishedState(
     const settle = (read: PublishedRead) => {
       if (stopped) return;
       const now = performance.now();
-      reads = nextPublishedReads(reads, read, now);
+      reads = nextPublishedReads(reads, read, now, recheckBeforePublication);
       setHeld({
         url,
         state: reads.state,
-        gone: reads.gone,
         serverAsks: serverAsksOf(reads),
         sinceMovedMs: now - reads.movedAtMs,
       });
@@ -92,7 +90,7 @@ export function usePublishedState(
       stopped = true;
       stop();
     };
-  }, [url, polling]);
+  }, [url, polling, recheckBeforePublication]);
   return published;
 }
 

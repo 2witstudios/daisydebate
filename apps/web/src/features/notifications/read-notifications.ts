@@ -1,4 +1,4 @@
-import { participantAccess, insideBoundary } from '@daisy/auth/authorization';
+import { participantAccess } from '@daisy/auth/authorization';
 import { hostLobbyResource } from '../tab/operations/host-lobby-resource';
 import type { Database } from '@daisy/db';
 import type {
@@ -26,10 +26,7 @@ export const canReadTournamentInbox: NonNullable<
     facts.authorization.organization,
     facts.ownerActorId,
   );
-  return (
-    resource.kind === 'lobby' &&
-    insideBoundary(account.boundary, resource.scope)
-  );
+  return resource.kind === 'lobby';
 };
 
 /** An account's stored notifications as its list reads them. */

@@ -60,7 +60,6 @@ export {
   participantAccess,
 } from './participant-access';
 export type { ContactPairCapability } from './authorization-contact';
-export { insideBoundary } from './authorization-boundary';
 export type { GrantFact, RoomOwnerFact } from './authorization-lobby-facts';
 export type {
   AuthorizationPrincipal,

@@ -108,12 +108,22 @@ const field = (form: FormData, name: string): string => {
 export function readAgeForm(form: FormData):
   | {
       readonly ok: true;
-      readonly body: { month: number; year: number; terms: true };
+      readonly body:
+        | { month: number; year: number; terms: true }
+        | { invitationId: string; terms: true };
     }
   | { readonly ok: false; readonly state: AgeIncomplete } {
+  const terms = field(form, 'terms') === 'accepted';
+  const invitationId = field(form, 'invitationId');
+  if (invitationId)
+    return terms
+      ? { ok: true, body: { invitationId, terms: true } }
+      : {
+          ok: false,
+          state: ageIncomplete({ month: '', year: '', terms }, ['terms']),
+        };
   const month = field(form, 'month');
   const year = field(form, 'year');
-  const terms = field(form, 'terms') === 'accepted';
   const missing = [
     ...(/^(?:[1-9]|1[0-2])$/.test(month) ? [] : ['month' as const]),
     ...(/^[0-9]{4}$/.test(year) ? [] : ['year' as const]),

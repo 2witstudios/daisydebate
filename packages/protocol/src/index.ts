@@ -608,6 +608,7 @@ export {
   reportOutcomes,
   reportReasonLabels,
   reportReasons,
+  storedReportReasons,
   reportResultSchema,
   reportSurfaces,
 } from './reports';

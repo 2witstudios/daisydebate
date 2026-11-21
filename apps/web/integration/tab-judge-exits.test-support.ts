@@ -1,5 +1,6 @@
+import { seedGuardianLink } from './guardian-link.test-support';
 import { inTabTestTransaction } from './tab-test-transaction.test-support';
-import { authorize, type AuthorizationInput } from '@daisy/auth/authorization';
+import { authorize } from '@daisy/auth/authorization';
 import { createTabStore } from '@daisy/db/tab';
 import { createId } from '@paralleldrive/cuid2';
 import { assert } from 'riteway/bun';
@@ -16,19 +17,12 @@ const seventeenYearsAgo = () => {
   const now = new Date();
   return `${now.getUTCFullYear() - 17}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
 };
-const withoutAnswer = (input: AuthorizationInput) => {
-  const { answer, ...context } = input.context;
-  void answer;
-  return authorize({ ...input, context });
-};
-
-/** Closed minors flows still let a bounded member decline an old invitation. */
+/** A minor can decline their own old invitation while the minors flag is closed. */
 export const judgeExitStage = async (world: World): Promise<void> => {
   const minor = world.bots['Judge B']!;
   const parent = world.bots.Coach!;
   const director = world.bots.Director!;
   const lobbyId = world.made.get('tournament-lobby')!;
-  const allowedLobbyId = world.made.get('standing-lobby')!;
   const store = createTabStore(world.database);
   const dependencies = {
     store,
@@ -64,12 +58,7 @@ export const judgeExitStage = async (world: World): Promise<void> => {
   const judgeId = createId();
   await inTabTestTransaction(world.sql, async (sql) => {
     await sql`reset role`;
-    const linkId = createId();
-    await sql`insert into guardian_links (id, guardian_user_id, minor_user_id, kind, status) values (${linkId}, ${parent.userId}, ${minor.userId}, 'parent', 'active')`;
-    await sql`insert into restrictions (guardian_link_id, guardian_user_id, minor_user_id, limits_lobbies) values (${linkId}, ${parent.userId}, ${minor.userId}, true)`;
-    await sql`insert into restriction_lobbies (guardian_link_id, guardian_user_id, minor_user_id, lobby_id) values (${linkId}, ${parent.userId}, ${minor.userId}, ${allowedLobbyId})`;
-    // This represents an existing footprint; guardian writes and new minor
-    // invitations remain closed to the runtime role and the application.
+    await seedGuardianLink(sql, parent.userId, minor.userId);
     await sql`insert into tournament_judges (id, lobby_id, actor_id, status) values (${judgeId}, ${lobbyId}, ${minor.actorId}, 'invited')`;
     await sql`update users set version = version + 1 where id = ${minor.userId}`;
     await sql`set local role daisy_web`;
@@ -80,27 +69,39 @@ export const judgeExitStage = async (world: World): Promise<void> => {
     expected: {},
     command: { type: 'decline-judge-invitation', tournamentJudgeId: judgeId },
   };
-  const missingAnswer = judgeRegistrationCommand({
-    ...dependencies,
-    authorize: withoutAnswer,
+  assert({
+    given:
+      'a linked minor with a stored invitation while the minors flag is closed',
+    should: 'refuse accepting the invitation',
+    actual: await deniedAsNotFound(() =>
+      send(as(minor), lobbyId, {
+        ...decline,
+        commandId: createId(),
+        command: {
+          type: 'accept-judge-invitation',
+          tournamentJudgeId: judgeId,
+        },
+      }),
+    ),
+    expected: true,
   });
   assert({
-    given: 'the same stored boundary and a missing decision answer',
-    should: 'expose the original restricted-decline failure',
+    given: 'a parent linked to the minor who was invited',
+    should: 'refuse the parent declining the invitation on the minor’s behalf',
     actual: await deniedAsNotFound(() =>
-      missingAnswer(as(minor), lobbyId, decline),
+      send(as(parent), lobbyId, { ...decline, commandId: createId() }),
     ),
     expected: true,
   });
   const answer = await send(as(minor), lobbyId, decline);
   if (answer.kind !== 'accepted')
-    throw new StageFailed('restricted minor decline refused');
+    throw new StageFailed('minor decline refused');
   const [stored] =
     await world.sql`select status from tournament_judges where id = ${judgeId}`;
   assert({
-    given: 'the actual decline answer passed into the evaluator',
+    given: 'the invited minor declines',
     should:
-      'allow the bounded member to leave the invitation while the minors flag stays closed',
+      'allow them to leave the invitation while the minors flag stays closed',
     actual: stored?.status,
     expected: 'declined',
   });

@@ -16,7 +16,7 @@ import {
   contentModerationCommandStateSchema,
 } from './content-moderation';
 import { idSchema } from './primitives';
-import { reportOutcomes, reportReasons, reportSurfaces } from './reports';
+import { reportOutcomes, storedReportReasons, reportSurfaces } from './reports';
 import { moderationKinds } from './moderation';
 
 /**
@@ -113,7 +113,7 @@ const operatorReportSchema = z.strictObject({
   reporter: z.string().nullable(),
   subject: z.string().nullable(),
   subjectUserId: idSchema,
-  reason: z.enum(reportReasons),
+  reason: z.enum(storedReportReasons),
   surface: z.enum(reportSurfaces),
   createdAt: z.iso.datetime(),
   reportsOnSubject: z.number().int().positive(),
