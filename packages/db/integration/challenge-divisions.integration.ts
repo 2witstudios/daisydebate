@@ -131,7 +131,9 @@ test(
         [guardian, '40 years'],
       ]) {
         await client`insert into account_age(user_id,birth_month,version,recorded_at)
-        values(${userId},to_char(now() - ${years}::interval,'YYYY-MM'),1,now())`;
+        values(${userId},to_char(now() - ${years}::interval,'YYYY-MM'),1,now())
+        on conflict (user_id) do update set birth_month=excluded.birth_month,
+          version=account_age.version+1, recorded_at=excluded.recorded_at`;
       }
       const evidence = createId();
       await f.insert('guardian_consent_evidence', {

@@ -100,10 +100,14 @@ test(
         await Promise.all([firstClose, secondClose]);
       }
       expect(
-        await sql`select status from guardian_links where minor_user_id=${child} order by id`,
+        await sql<
+          { status: string }[]
+        >`select status from guardian_links where minor_user_id=${child} order by id`,
       ).toEqual([{ status: 'ended' }, { status: 'ended' }]);
       expect(
-        await sql`select choice from protection_levels where user_id=${child}`,
+        await sql<
+          { choice: unknown }[]
+        >`select choice from protection_levels where user_id=${child}`,
       ).toEqual([]);
       await guardian();
       const [choice] = await db.transaction(async (tx) => {
