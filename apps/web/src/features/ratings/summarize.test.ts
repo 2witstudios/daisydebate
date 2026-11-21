@@ -1,6 +1,6 @@
 import type { StandingsRead } from '@daisy/db/ratings';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { summarizeStandings } from '../ratings/summarize';
+import { summarizeStandings } from './summarize';
 
 setupRitewayBun();
 

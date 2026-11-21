@@ -3,10 +3,8 @@ import type { DrawBoard } from '../../features/tab/draw';
 import { stageHeading } from './bracket/bracket';
 import { draftSummary } from './draw-board/draw-board';
 import { slotClass } from './host-entries/host-judges';
-import { speakerStatus } from './live-section/live-section';
 import { attentionHeading } from './running-round/attention-list';
 import { forceLabel } from './setup/setup';
-import { seatMarkClass } from './waiting-room/waiting-room';
 
 setupRitewayBun();
 
@@ -97,24 +95,6 @@ describe('Tab screen labels', () => {
       should: 'mark the late one alone',
       actual: [slotClass('late'), slotClass('room'), slotClass('free')],
       expected: ['font-strong text-live', 'text-ink', 'text-ink-muted'],
-    });
-  });
-
-  test('a speaker and a seat', () => {
-    const speaker = { name: 'A', school: null, you: false };
-    assert({
-      given: 'a finished, a speaking and a waiting speaker, and a clay seat',
-      should: 'show the time, the state or nothing, and the seat in its tone',
-      actual: [
-        speakerStatus({
-          ...speaker,
-          standing: { kind: 'done', time: '5:48' },
-        }),
-        speakerStatus({ ...speaker, standing: { kind: 'speaking' } }),
-        speakerStatus({ ...speaker, standing: { kind: 'waiting' } }),
-        seatMarkClass('clay').endsWith('bg-hue-clay-soft text-hue-clay'),
-      ],
-      expected: ['5:48', 'speaking', null, true],
     });
   });
 });

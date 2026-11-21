@@ -1,6 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { rankRatingEntries } from '../ratings/rank';
-import { entry } from '../ratings/standing.test-support';
+import { rankRatingEntries } from './rank';
+import { entry } from './standing.test-support';
 
 setupRitewayBun();
 
