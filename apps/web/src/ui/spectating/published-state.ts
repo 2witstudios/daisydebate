@@ -45,6 +45,7 @@ const NOTHING_READ: PublishedState = {
 export function usePublishedState(
   url: string | null,
   keepReading: (published: PublishedState) => boolean,
+  recheckBeforePublication = false,
 ): PublishedState {
   const [held, setHeld] = useState<Held | null>(null);
   const published = held !== null && held.url === url ? held : NOTHING_READ;
@@ -56,7 +57,7 @@ export function usePublishedState(
     const settle = (read: PublishedRead) => {
       if (stopped) return;
       const now = performance.now();
-      reads = nextPublishedReads(reads, read, now);
+      reads = nextPublishedReads(reads, read, now, recheckBeforePublication);
       setHeld({
         url,
         state: reads.state,
@@ -92,7 +93,7 @@ export function usePublishedState(
       stopped = true;
       stop();
     };
-  }, [url, polling]);
+  }, [url, polling, recheckBeforePublication]);
   return published;
 }
 

@@ -181,12 +181,14 @@ const timelineRead = (
  */
 export function BroadcastViewer({
   initial,
+  visibility,
   stateUrl,
   refreshHref,
   streamable,
   children,
 }: {
   readonly initial: SpectatorTimeline;
+  readonly visibility: 'public' | 'unlisted';
   /** Whether Stream this Round may offer its feed: false past the Youth reuse fence (ADR 0161). */
   readonly streamable: boolean;
   /** Where the published state is read; null with no Broadcast. */
@@ -202,6 +204,7 @@ export function BroadcastViewer({
   const published = usePublishedState(
     stateUrl,
     (read) => !viewerSettled(timelineRead(initial, read)),
+    visibility === 'unlisted',
   );
   const { serverAsks } = published;
   const timeline = timelineRead(initial, published);

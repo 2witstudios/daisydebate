@@ -46,7 +46,7 @@ test('a failed read does not move the state', () => {
   });
 });
 
-test('a missing object means something only after a state', () => {
+test('by default a missing object only rechecks the server after a state', () => {
   const read = nextPublishedReads(
     first,
     { kind: 'state', state: stateAt(5) },
@@ -60,6 +60,26 @@ test('a missing object means something only after a state', () => {
       nextPublishedReads(read, { kind: 'missing' }, 20).gone,
     ],
     expected: [false, true],
+  });
+});
+
+test('an unlisted Watch address asks the server before its first state', () => {
+  const missing = nextPublishedReads(first, { kind: 'missing' }, 5, true);
+  const back = nextPublishedReads(
+    missing,
+    { kind: 'state', state: stateAt(6) },
+    10,
+    true,
+  );
+  assert({
+    given: 'the first unlisted state missing, then published',
+    should: 'ask the server on the miss and clear the request once published',
+    actual: [
+      serverAsksOf(missing),
+      paceOfPublishedRead(missing, { kind: 'answered' }),
+      serverAsksOf(back),
+    ],
+    expected: [1, { kind: 'failed' }, 0],
   });
 });
 
