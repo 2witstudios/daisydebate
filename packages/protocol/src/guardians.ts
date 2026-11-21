@@ -23,14 +23,12 @@ export const guardianLinkStatuses = [
   'cancelled',
   'ended',
 ] as const;
-export type GuardianLinkStatus = (typeof guardianLinkStatuses)[number];
 
 /** How a link became (or will become) active. */
 export const guardianLinkActivations = [
   'created-account',
   'child-confirmed',
 ] as const;
-export type GuardianLinkActivation = (typeof guardianLinkActivations)[number];
 
 /** Who a piece of consent evidence records agreeing. */
 export const consentRoles = ['guardian', 'child'] as const;
@@ -63,7 +61,7 @@ export const noticeOfConsentRole = (role: ConsentRole): GuardianNoticeKind =>
   role === 'guardian' ? 'parental-consent' : 'child-confirmation';
 
 /** A first name as a parent types it: trimmed, 1 to 40 characters, no controls. */
-export const childFirstNameSchema = z
+const childFirstNameSchema = z
   .string()
   .trim()
   .min(1)
@@ -71,11 +69,9 @@ export const childFirstNameSchema = z
   .regex(/^[^\p{Cc}\p{Cf}]+$/u);
 
 /** `YYYY-MM`. */
-export const birthMonthSchema = z
-  .string()
-  .regex(/^[1-9]\d{3}-(0[1-9]|1[0-2])$/);
+const birthMonthSchema = z.string().regex(/^[1-9]\d{3}-(0[1-9]|1[0-2])$/);
 
-export const guardianEmailSchema = z
+const guardianEmailSchema = z
   .string()
   .max(320)
   .transform(normalizeEmail)
@@ -86,7 +82,7 @@ export const guardianEmailSchema = z
  * child's account does not exist yet, as far as the parent knows), or a
  * link request to a named account.
  */
-export const guardianRequestRefSchema = z.discriminatedUnion('kind', [
+const guardianRequestRefSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('invitation'), id: idSchema }),
   z.strictObject({ kind: z.literal('link'), id: idSchema }),
 ]);
@@ -103,8 +99,6 @@ export const guardianInvitationStatuses = [
   'linked',
   'cancelled',
 ] as const;
-export type GuardianInvitationStatus =
-  (typeof guardianInvitationStatuses)[number];
 
 /**
  * Every guardian command. The acting person always comes from the
@@ -162,10 +156,9 @@ export const guardianCommandSchema = z.discriminatedUnion('type', [
   }),
 ]);
 export type GuardianCommand = z.infer<typeof guardianCommandSchema>;
-export type GuardianCommandType = GuardianCommand['type'];
 
 /** Every refusal a guardian command can give. */
-export const guardianRefusals = [
+const guardianRefusals = [
   /** The acting person is not an adult, so they cannot be anyone's guardian. */
   'not-an-adult',
   /** The birth month is under 13: Daisy is not for children under 13. */
@@ -195,4 +188,3 @@ export const guardianCommandAnswerSchema = z.discriminatedUnion('kind', [
     refusal: z.enum(guardianRefusals),
   }),
 ]);
-export type GuardianCommandAnswer = z.infer<typeof guardianCommandAnswerSchema>;

@@ -16,7 +16,7 @@ type People = {
 };
 
 /** How an active link became active, with the evidence each way needs. */
-export type Activation =
+type Activation =
   | { readonly kind: 'created-account' }
   | {
       readonly kind: 'child-confirmed';

@@ -73,6 +73,3 @@ export const loadEntryPeople = async (
   await scopeTransaction(tx, scope);
   return loaded;
 };
-export type EntryPersonRow = Awaited<
-  ReturnType<typeof loadEntryPeople>
->[number];

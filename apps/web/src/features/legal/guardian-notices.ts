@@ -13,7 +13,7 @@ import { agreementWords } from './agreements';
 const notReviewed =
   'This text has not been reviewed by counsel, and its wording may change after any review.';
 
-export const parentalConsentNotice: LegalDocument = {
+const parentalConsentNotice: LegalDocument = {
   title: 'Parental consent notice',
   version: 'draft-1',
   lede: `What you agree to as the parent or legal guardian of a child aged 13 to 17 on Daisy. ${notReviewed}`,
@@ -56,7 +56,7 @@ export const parentalConsentNotice: LegalDocument = {
   ],
 };
 
-export const childConfirmationNotice: LegalDocument = {
+const childConfirmationNotice: LegalDocument = {
   title: 'Confirming your parent',
   version: 'draft-1',
   lede: `What happens when you confirm that someone is your parent or guardian on Daisy. ${notReviewed}`,
