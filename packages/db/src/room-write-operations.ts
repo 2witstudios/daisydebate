@@ -23,6 +23,7 @@ import {
 import { readEntitlementGrants } from './entitlement-grants';
 import type {
   EntitlementGrant,
+  AgeBand,
   RoomAssemblyState,
   RoomCommandReceipt,
   RoomMutationOutcome,
@@ -105,7 +106,11 @@ type CommandInput = {
    * What a Ready on this Room stands on (WATCH-15, WATCH-9): the waiver version
    * it needs and the notice it records. Null when it needs neither.
    */
-  readonly readyAgreements: (state: RoomAssemblyState) => {
+  readonly readyAgreements: (
+    state: RoomAssemblyState,
+    /** The caller's age band: which ranked waiver they sign (ADR 0161). */
+    signer: AgeBand | null,
+  ) => {
     readonly contentWaiverVersion: string | null;
     readonly notice: {
       readonly id: string;
@@ -257,7 +262,9 @@ async function executeOnce(
     ? await readFormatSelectionFacts(tx, input.formatTuple)
     : null;
   const agreements =
-    input.type === 'ready' ? input.readyAgreements(state) : null;
+    input.type === 'ready'
+      ? input.readyAgreements(state, account?.ageBand ?? null)
+      : null;
   const draw = await drawFacts(tx, input.type, state);
   const grants = await readEntitlementGrants(tx, input.caller.userId);
   const contentWaiver = agreements?.contentWaiverVersion

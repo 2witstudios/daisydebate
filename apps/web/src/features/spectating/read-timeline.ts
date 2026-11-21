@@ -11,7 +11,10 @@ import {
   type SpectatorTimelineContext,
 } from '@daisy/debate-engine';
 
-type Store = Pick<Database, 'readSpectatorTimeline' | 'readRoundAudienceLink'>;
+type Store = Pick<
+  Database,
+  'readSpectatorTimeline' | 'readRoundAudienceLink' | 'readRoundReuseFenced'
+>;
 
 const SNAPSHOT_TTL_MS = 1000;
 const SNAPSHOT_ROUNDS = 5000;
@@ -22,6 +25,12 @@ export type AudienceSnapshot = {
   readonly timeline: SpectatorTimeline;
   /** Null with no Broadcast: then nothing is published to read. */
   readonly feedKey: string | null;
+  /**
+   * Whether its feed may be offered for reuse (Stream this Round): every
+   * Round but one held by the Youth reuse fence (ADR 0161). Viewing never
+   * asks it.
+   */
+  readonly streamable: boolean;
 };
 
 /**
@@ -31,7 +40,7 @@ export type AudienceSnapshot = {
  * readers, and never to answer one without `admitAudience`.
  */
 export async function readAudienceSnapshot(
-  store: Pick<Store, 'readSpectatorTimeline'>,
+  store: Pick<Store, 'readSpectatorTimeline' | 'readRoundReuseFenced'>,
   input: {
     readonly roundId: string;
     readonly now: string;
@@ -50,6 +59,9 @@ export async function readAudienceSnapshot(
   return {
     visibility,
     feedKey: read.broadcast?.feedKey ?? null,
+    streamable: !(await store
+      .readRoundReuseFenced(input.roundId)
+      .catch(() => true)),
     timeline: projectSpectatorTimeline(read, {
       nowMs,
       feedUrlOf: input.feedUrlOf,
@@ -80,7 +92,7 @@ export const admitAudience = async (
  * same second, so a crowd asks it once.
  */
 export const createWatchRoundSnapshots = (deps: {
-  readonly store: Pick<Store, 'readSpectatorTimeline'>;
+  readonly store: Pick<Store, 'readSpectatorTimeline' | 'readRoundReuseFenced'>;
   readonly clock: Pick<Clock, 'now'>;
   readonly feedUrlOf: SpectatorTimelineContext['feedUrlOf'];
 }) => {
@@ -126,6 +138,7 @@ export const readWatchRound = async (
     return null;
   return {
     timeline: snapshot.timeline,
+    streamable: snapshot.streamable,
     stateUrl: publishedStateUrl(
       deps.publicOrigin,
       snapshot.feedKey,

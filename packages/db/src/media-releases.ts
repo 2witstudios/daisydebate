@@ -1,5 +1,4 @@
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
 import {
   decideAnswer,
   decideAsk,
@@ -14,7 +13,6 @@ import {
   releaseRequestExpiry,
   releaseStandingOf,
   type AskRefusal,
-  type MediaReleaseRecord,
   type ParentHeld,
   type ReleaseLinkPurpose,
   type ReleaseLinkVerdict,
@@ -26,13 +24,12 @@ import { sql } from 'drizzle-orm';
 import type { BoundedTransaction } from './bounded-transaction';
 import { readDatabaseTime } from './database-clock';
 import { oweNotifications } from './notifications/owe';
-import { isDebatingSeatSql } from './seat-columns';
 import { scopeTransaction } from './tenant-scope';
 import { readLinkedAdultUserIds } from './youth-recording-people';
 
 import {
-  endPublicationsOf,
   insertMediaRelease,
+  supersedeOldRelease,
   isoOrNull,
   iso,
   nowSql,
@@ -40,9 +37,7 @@ import {
   readDivisionOf,
   readReleasesOf,
   readRequestsOf,
-  releaseOf,
 } from './media-release-records';
-import { youthRoundShareableSql, youthRoundSql } from './youth-round-sql';
 import type { Tx } from './tx';
 import { run as runStatement, query } from './raw-rows';
 import { z } from 'zod';
@@ -58,7 +53,6 @@ export type MinorReleaseRead = {
     /** When the minor last asked this club, if in the last 7 days. */
     readonly askedAt: string | null;
   }[];
-  readonly privateYouthRounds: number;
 };
 
 /** A parent's link, as the sign and manage pages read it. */
@@ -215,19 +209,6 @@ export function createMediaReleases(input: {
               and o.kind in ('school', 'family') and o.closed_at is null
             order by o.name, o.id`,
         );
-        const [count] = await query(
-          tx,
-          z.object({ n: z.number() }),
-          sql`select count(distinct r.id)::int as n from rounds r
-            join recordings rc on rc.round_id = r.id
-            join round_participants rp on rp.round_id = r.id
-            join actors a on a.id = rp.actor_id
-            left join youth_round_publications p on p.round_id = r.id and p.ended_at is null
-            where a.user_id = ${userId} and ${isDebatingSeatSql(sql`rp.seat_kind`)}
-              and public.daisy_round_participant_is_current(rp.id)
-              and ${youthRoundSql(sql`r.id`)} and p.round_id is null
-              and ${youthRoundShareableSql(sql`r`)}`,
-        );
         return {
           division: await readDivisionOf(tx, userId),
           standing: releaseStandingOf({
@@ -241,7 +222,6 @@ export function createMediaReleases(input: {
             name: club.name,
             askedAt: isoOrNull(club.asked_at),
           })),
-          privateYouthRounds: count?.n ?? 0,
         };
       }),
 
@@ -402,12 +382,14 @@ export function createMediaReleases(input: {
         );
         if (!decision.ok) return { kind: 'refused', reason: decision.refusal };
         const userId = facts.request.subjectUserId;
+        await supersedeOldRelease(tx, userId, facts.now);
         const ids = decision.scopes.map(() => nextId());
         for (const [index, scope] of decision.scopes.entries())
           await insertMediaRelease(tx, {
             id: ids[index]!,
             userId,
             scope,
+            wordingVersion: decision.wordingVersion,
             parent: {
               requestId: facts.request.id,
               name: decision.signature.name,
@@ -488,7 +470,6 @@ export function createMediaReleases(input: {
         const userId = facts.request.subjectUserId;
         const publish = facts.held.publish;
         if (publish && decision.withdraw.includes(publish.id)) {
-          await endPublicationsOf(tx, userId);
           await oweNotifications(tx, {
             kind: 'media_release_withdrawn',
             subject: { media_release_id: publish.id },
@@ -526,6 +507,7 @@ export function createMediaReleases(input: {
             id: nextId(),
             userId: facts.request.subjectUserId,
             scope: 'paid_ads',
+            wordingVersion: publish.wordingVersion,
             parent: {
               requestId: facts.request.id,
               name: signer.name,
@@ -615,51 +597,6 @@ export function createMediaReleases(input: {
               resolved_at = clock_timestamp()
             where recipient_hash = ${recipientHash} and outcome is null`,
         );
-      }),
-
-    /**
-     * The active publish releases of these minors, as recording reads them
-     * (ADR 0150's named input).
-     */
-    readActivePublishReleases: (
-      userIds: readonly string[],
-    ): Promise<readonly MediaReleaseRecord[]> =>
-      run(async (tx) => {
-        const valid = userIds.filter((id) => idSchema.safeParse(id).success);
-        if (valid.length === 0) return [];
-        const read = await query(
-          tx,
-          z.object({
-            id: z.string(),
-            user_id: z.string(),
-            scope: z.enum(['publish', 'paid_ads']),
-            source: z.enum(['parent', 'club']),
-            signer_name: z.string().nullable(),
-            signer_relation: z.enum(['parent', 'legal_guardian']).nullable(),
-            signer_email: z.string().nullable(),
-            wording_version: z.string(),
-            signed_at: z.union([z.string(), z.date()]),
-            withdrawn_at: z.union([z.string(), z.date()]).nullable(),
-            withdrawn_by: z.enum(['parent', 'club', 'erasure']).nullable(),
-            organization_id: z.string().nullable(),
-            organization_name: z.string().nullable(),
-            attested_by_user_id: z.string().nullable(),
-            attester_name: z.string().nullable(),
-            attester_role: z.string().nullable(),
-          }),
-          sql`select r.id, r.user_id, r.scope, r.source, r.signer_name,
-              r.signer_relation, r.signer_email, r.wording_version, r.signed_at,
-              r.withdrawn_at, r.withdrawn_by, null as organization_id,
-              null as organization_name, null as attested_by_user_id,
-              null as attester_name, null as attester_role
-            from media_releases r
-            where r.user_id in ${sql`(${sql.join(
-              valid.map((id) => sql`${id}`),
-              sql`, `,
-            )})`}
-              and r.withdrawn_at is null and r.scope = 'publish'`,
-        );
-        return read.map(releaseOf);
       }),
   };
 }

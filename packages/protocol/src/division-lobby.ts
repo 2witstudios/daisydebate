@@ -6,7 +6,8 @@ import { isDebatingSeat, type SeatRef } from './seats';
  * divisions of ADR 0147 as members browse them, not the `lobbies` container a
  * Room lives in: every Room still sits in its container, and carries the
  * division it was created in. These rules decide who lands where, which
- * division a new Room takes, who may sit, and who may watch a Round live.
+ * division a new Room takes, and who may sit. Who may view a Round is the
+ * same in both lobbies (ADR 0161).
  */
 
 /**
@@ -74,23 +75,13 @@ export function seatAllowed(
 export type LiveStanding = 'seat' | 'seatless-host' | 'linked-adult' | 'none';
 
 /**
- * Whether a member may watch a Round while it runs. An Open Round is for
- * every member. A Youth Round is for its own audience only: its seats, its
- * seatless host, and its youth debaters' linked coaches and parents
- * (ADR 0155, amending ADR 0150 §4).
- */
-export const canWatchLive = (
-  viewer: { readonly standing: LiveStanding },
-  round: { readonly division: RatingDivision },
-): boolean => round.division === 'open' || viewer.standing !== 'none';
-
-/**
- * Whether a Round is a Youth Round for every privacy fence (ADR 0150, 0151,
- * amended by ADR 0157): any Round of a Room in the Youth lobby, casual
- * included. It is Youth when either its Room or its frozen ladder is Youth,
- * so it fails closed; the two agree for every ranked Round since ADR 0156,
- * and a Round with no Room has only its ladder. `youthRoundSql` in
- * `@daisy/db` is its SQL mirror.
+ * Whether a Round is a Youth Round: any Round of a Room in the Youth lobby,
+ * casual included (ADR 0157). It is Youth when either its Room or its frozen
+ * ladder is Youth, so it fails closed; a Round with no Room has only its
+ * ladder. It never decides who may view a Round (ADR 0161): it names whose
+ * linked adults see through private, which content waiver its debaters sign,
+ * the reuse fence and the Youth takedown. `youthRoundSql` in `@daisy/db` is
+ * its SQL mirror.
  */
 export const isYouthRound = (
   round: { readonly ladderDivision: RatingDivision | null },

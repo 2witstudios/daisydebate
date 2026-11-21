@@ -6,6 +6,7 @@ epic [Plan — youth-lobbies](https://pagespace.ai/dashboard/lguvh1y1ejhadk96xcf
 Amends [ADR 0150](0150-youth-recordings-private.md) §1 and, through it,
 [ADR 0151](0151-media-releases.md). Builds on
 [ADR 0156](0156-room-division-from-its-lobby.md).
+Amended by [ADR 0161](0161-youth-rounds-follow-open-visibility.md): the Youth predicate no longer fences who may view a Round; it picks linked adults, the Youth waiver, the reuse fence and takedown.
 
 ## Context
 

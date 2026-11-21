@@ -7,7 +7,7 @@ import { createId } from '@paralleldrive/cuid2';
 import {
   agreementWords,
   contentWaiverDocument,
-  CONTENT_WAIVER_VERSION,
+  youthContentWaiverDocument,
 } from '../src/features/legal/agreements';
 import { createRatingSweep } from '../src/features/ratings/sweep';
 import { createRoundJudgingOperations } from '../src/features/round-judging/operations';
@@ -28,13 +28,15 @@ export async function readyRankedRoom(
 ) {
   const [preset] =
     await f.sql`select format_version,version from format_presets where format_id=${ladder} and superseded_at is null`;
+  // The fixture signs both versions so either signer's waiver can satisfy Ready (ADR 0161).
   for (const member of [f.host, f.guest, f.outsider])
-    await f.store.signContentWaiver({
-      id: createId(),
-      userId: member.userId,
-      version: CONTENT_WAIVER_VERSION,
-      words: agreementWords(contentWaiverDocument),
-    });
+    for (const waiver of [contentWaiverDocument, youthContentWaiverDocument])
+      await f.store.signContentWaiver({
+        id: createId(),
+        userId: member.userId,
+        version: waiver.version,
+        words: agreementWords(waiver),
+      });
   let room = await f.assemble({
     resolution: { kind: 'strike' },
     selection: {

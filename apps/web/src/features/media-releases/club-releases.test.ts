@@ -85,11 +85,9 @@ const onFile: ReleaseStanding = {
 const student = (
   standing: ReleaseStanding,
   username: string,
-  youthRounds = { public: 0, private: 0 },
-): Pick<ClubReleaseStudent, 'standing' | 'username' | 'youthRounds'> => ({
+): Pick<ClubReleaseStudent, 'standing' | 'username'> => ({
   standing,
   username,
-  youthRounds,
 });
 
 test('the release filters', () => {
@@ -193,40 +191,36 @@ test('the source line', () => {
 
 test('the coach view', () => {
   const students = [
-    student(onFile, 'sam', { public: 2, private: 2 }),
-    student(waiting, 'theo', { public: 0, private: 3 }),
-    student(none, 'priya', { public: 0, private: 4 }),
+    student(onFile, 'sam'),
+    student(waiting, 'theo'),
+    student(none, 'priya'),
     student(withdrawn, 'kai'),
   ];
   assert({
     given: 'four Youth students',
-    should:
-      'count releases on file, those waiting on a parent, and private Rounds',
+    should: 'count releases on file and those waiting on a parent',
     actual: youthStudentTallies(students),
     expected: {
       onFile: 1,
       youth: 4,
       waiting: 1,
       waitingNames: ['@theo'],
-      privateRounds: 9,
     },
   });
   assert({
-    given: 'a student with Recordings, and one without',
-    should: 'count them, or say what the release means',
+    given: 'each release standing',
+    should: 'say whether the student’s Rounds may be reused',
     actual: [
-      recordingsLineOf(students[0]!),
-      recordingsLineOf(students[1]!),
       recordingsLineOf(student(onFile, 'x')),
       recordingsLineOf(student(waiting, 'y')),
       recordingsLineOf(student(none, 'z')),
+      recordingsLineOf(student(withdrawn, 'w')),
     ],
     expected: [
-      '2 public · 2 private',
-      '3 private',
-      'Publishable',
-      'Private until signed',
-      'Private: no release',
+      'Clipping and reuse allowed',
+      'No reuse until signed',
+      'No reuse: no release',
+      'No reuse: withdrawn',
     ],
   });
   assert({

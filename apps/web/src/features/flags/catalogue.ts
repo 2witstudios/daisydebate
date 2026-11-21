@@ -72,20 +72,6 @@ export const flagCatalogue = [
     safeDefault: false,
     dependencies: [],
   },
-  {
-    // Media releases and publishing Youth Rounds (PYL-5, ADR 0151): the
-    // minor's request, the parent's pages, a club's confirmation and Share
-    // publicly; closed in production until counsel approves the release
-    // wording (decision 81, PYL-8). An opt-out from release requests works
-    // whatever it says.
-    key: 'youth-publishing',
-    kind: 'release',
-    owner: 'Recording (@2witstudios)',
-    taskCode: 'PYL-8',
-    expiresOn: '2027-03-31',
-    safeDefault: false,
-    dependencies: [],
-  },
 ] as const satisfies readonly FlagDefinition[];
 
 export type ReleaseFlagKey = Extract<

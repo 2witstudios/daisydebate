@@ -108,6 +108,7 @@ const withReadyRecording = (
       readFloorIntervals: database.readRecordingFloorIntervals,
       readCoverageFacts: database.readRecordingCoverageFacts,
       holdsRecordingDownload: async () => true,
+      readReuseFenced: async () => false,
     };
     const inputs: RecordingInputs = { ...base, readRoundFresh: base.readRound };
     const port = createRecordingCapturePort({
@@ -184,7 +185,6 @@ test('an unlisted Recording opens only past its current link', async () => {
         inputs.readRound(roundId).then((round) =>
           openRecordingHistory(
             {
-              readMediaReleases: async () => [],
               readJobState: async () => null,
               nowMs: () => nowMs,
               readHistoryRound: async () => ({
@@ -200,6 +200,7 @@ test('an unlisted Recording opens only past its current link', async () => {
               readTranscript: async () => null,
               readBallots: async () => [],
               holdsRecordingDownload: inputs.holdsRecordingDownload,
+              readReuseFenced: inputs.readReuseFenced,
               findRecordingByRound: store.findByRound,
             },
             { roundId, viewer: stranger, presentedLinkHash, q: '' },
@@ -302,7 +303,6 @@ test('a Recording taken down during an open Broadcast comes back to its audience
             viewerActorId: null,
             clock: spectatorClockAt(new Date().toISOString()),
             limit: 50,
-            youthPublishing: false,
           })
         ).rows
           .filter((row) => row.id === roundId)
@@ -382,7 +382,6 @@ test('a Recording of an abandoned Round can be found, and a participant can remo
             viewerActorId,
             clock: spectatorClockAt(new Date().toISOString()),
             limit: 50,
-            youthPublishing: false,
           })
         ).rows.map((row) => row.id);
       const actorOf = (viewer: RecordingViewer) =>
@@ -780,7 +779,6 @@ test('history reads the real Round and offers each panel on its own permission',
       const open = (viewer: RecordingViewer) =>
         openRecordingHistory(
           {
-            readMediaReleases: async () => [],
             readJobState: async () => null,
             nowMs: () => nowMs,
             readHistoryRound: async () => ({
@@ -796,6 +794,7 @@ test('history reads the real Round and offers each panel on its own permission',
             readTranscript: async () => null,
             readBallots: async () => [],
             holdsRecordingDownload: inputs.holdsRecordingDownload,
+            readReuseFenced: inputs.readReuseFenced,
             findRecordingByRound: store.findByRound,
           },
           { roundId, viewer, presentedLinkHash: null, q: '' },

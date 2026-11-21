@@ -1,7 +1,11 @@
+import { sql } from 'drizzle-orm';
+import { z } from 'zod';
+import { query } from './raw-rows';
 import { readRoundYouth } from './round-youth-read';
 import { readYouthRecordingPeople } from './youth-recording-people';
 import { readStudentLiveRounds } from './youth-students-live';
 import type { TxSource } from './tx';
+import { youthReuseFencedSql } from './youth-round-sql';
 
 /**
  * The live audience's own reads (ADR 0155): whether a Round is a Youth one,
@@ -24,4 +28,17 @@ export const youthLiveReadOperations = ({
     readYouthRecordingPeople(database, roundId),
   readStudentLiveRounds: (adultUserId: string) =>
     readStudentLiveRounds(database, adultUserId),
+  /**
+   * Whether this Round's content may not leave Daisy (the reuse fence, ADR
+   * 0161). The web asks it beside the shared spectator read, which the
+   * audience publisher also runs and whose role never reads media releases.
+   */
+  readRoundReuseFenced: async (roundId: string): Promise<boolean> => {
+    const [row] = await query(
+      database,
+      z.object({ fenced: z.boolean() }),
+      sql`select ${youthReuseFencedSql(sql`${roundId}`)} as fenced`,
+    );
+    return row?.fenced ?? true;
+  },
 });

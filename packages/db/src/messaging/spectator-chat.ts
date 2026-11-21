@@ -17,7 +17,6 @@ import type {
   MessagingSendState,
 } from './records';
 import { appendStream, lockStream, openStream } from './stream';
-import { youthRoundSql } from '../youth-round-sql';
 import { inTransaction, type Tx, type TxSource } from '../tx';
 import { z } from 'zod';
 
@@ -122,8 +121,7 @@ const receiptOf = async (
 
 const audienceRound = (roundId: string, actorId: string) =>
   sql`select r.visibility,r.audience_link_hash,${inLiveRoomSql(liveRoomOfR, actorId)} as in_live_room
-    from rounds r where r.id=${roundId} and r.visibility in ('public','unlisted') and r.room_id is not null
-      and not ${youthRoundSql(sql`r.id`)}`;
+    from rounds r where r.id=${roundId} and r.visibility in ('public','unlisted') and r.room_id is not null`;
 
 /**
  * Spectator chat over Messaging's own channel, stream and message tables

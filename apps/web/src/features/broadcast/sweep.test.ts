@@ -26,7 +26,6 @@ const world = (over: Partial<Record<string, unknown>> = {}) => {
   const log: string[] = [];
   const store = {
     discoverUnopened: async () => [],
-    endYouthBroadcasts: async () => [] as string[],
     open: async (input: {
       roundId: string;
       feedKey: string;
@@ -72,45 +71,18 @@ const world = (over: Partial<Record<string, unknown>> = {}) => {
 };
 
 describe('createBroadcastSweep', () => {
-  test('a failed Youth cleanup is reported and the pass goes on', async () => {
+  test('a ranked Youth Round opens its Broadcast as an Open one does (ADR 0161)', async () => {
     const { deps, log } = world({
-      endYouthBroadcasts: async () => {
-        throw new Error('down');
-      },
       discoverUnopened: async () => [
-        { roundId: 'r1', competitionType: 'ranked', capture: null },
+        { roundId: 'youth', competitionType: 'ranked', capture: null },
       ],
     });
     await createBroadcastSweep(deps)();
     assert({
-      given: 'the Youth cleanup failing',
-      should: 'report it and still open the ranked Round’s Broadcast',
+      given: 'a running ranked Round of a Youth Room with no Broadcast',
+      should: 'open it at the fixed ranked policy',
       actual: log,
-      expected: [
-        'report broadcast.reconcile_failed',
-        'open r1 random-key {"kind":"delay","seconds":60}',
-      ],
-    });
-  });
-
-  test('a Youth Round opens no Broadcast, and one opened earlier is stopped (ADR 0150)', async () => {
-    const { deps, log } = world({
-      endYouthBroadcasts: async () => ['b-youth'],
-      discoverUnopened: async () => [
-        {
-          roundId: 'youth',
-          competitionType: 'ranked',
-          capture: null,
-          ladderDivision: 'youth',
-        },
-      ],
-    });
-    await createBroadcastSweep(deps)();
-    assert({
-      given: 'an open Youth Broadcast and a running Youth Round with none',
-      should: 'report the stop and open nothing',
-      actual: log,
-      expected: ['report broadcast.youth_round_stopped'],
+      expected: ['open youth random-key {"kind":"delay","seconds":60}'],
     });
   });
 
@@ -194,31 +166,6 @@ describe('createBroadcastSweep', () => {
       expected: ['report broadcast.release_delayed'],
     });
   });
-  test('with the Youth cleanup down, an unstopped Youth Broadcast is left idle and Open ones go on (ADR 0150)', async () => {
-    const reads: string[] = [];
-    const { deps } = world({
-      endYouthBroadcasts: async () => {
-        throw new Error('down');
-      },
-      listOpen: async () => [
-        open({ id: 'youth', roundId: 'youth', youthRound: true }),
-        open({ id: 'open', roundId: 'open', youthRound: false }),
-      ],
-      readRound: async (roundId: string) => {
-        reads.push(roundId);
-        return null;
-      },
-    });
-    await createBroadcastSweep(deps)();
-    assert({
-      given:
-        'a failed cleanup, an open Youth Broadcast not yet stopped, and an Open one',
-      should: 'reconcile only the Open Broadcast, so no Youth Egress starts',
-      actual: reads,
-      expected: ['open'],
-    });
-  });
-
   test('an instance that loses the claim leaves the Broadcast alone', async () => {
     const reads: string[] = [];
     const { deps } = world({

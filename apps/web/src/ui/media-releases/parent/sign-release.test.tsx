@@ -21,7 +21,9 @@ test('SignRelease', () => {
   assert({
     given: 'an open request',
     should: 'ask about the minor by username',
-    actual: html.includes('Let Daisy share @sam.rivera’s debate Rounds?'),
+    actual: html.includes(
+      'Let Daisy and others reuse @sam.rivera’s debate Rounds?',
+    ),
     expected: true,
   });
   assert({

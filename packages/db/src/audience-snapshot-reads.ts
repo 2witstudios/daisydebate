@@ -10,7 +10,6 @@ import { readReactionTotals } from './audience-reactions';
 import { query } from './raw-rows';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { readChatPage } from './messaging/spectator-chat';
-import { youthRoundSql } from './youth-round-sql';
 import { inTransaction, type TxSource } from './tx';
 import { z } from 'zod';
 
@@ -45,8 +44,7 @@ export const audienceSnapshotReads = ({
                 b.id is not null as has_broadcast,
                 (b.completed_at is null and b.stopped_at is null) as open
               from rounds r left join broadcasts b on b.round_id=r.id
-              where r.id=${input.roundId} and r.visibility in ('public','unlisted') and r.room_id is not null
-                and not ${youthRoundSql(sql`r.id`)}`,
+              where r.id=${input.roundId} and r.visibility in ('public','unlisted') and r.room_id is not null`,
           );
           if (!round) return null;
           return {
@@ -114,8 +112,7 @@ export const audienceSnapshotReads = ({
         z.object({ visibility: z.enum(['public', 'unlisted']) }),
         sql`select r.visibility from broadcasts b join rounds r on r.id=b.round_id
           where b.round_id=${input.roundId} and b.completed_at is null and b.stopped_at is null
-            and r.visibility in ('public','unlisted') and r.room_id is not null
-            and not ${youthRoundSql(sql`r.id`)}`,
+            and r.visibility in ('public','unlisted') and r.room_id is not null`,
       );
       return row ? { visibility: row.visibility } : null;
     });

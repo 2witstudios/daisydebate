@@ -7,7 +7,6 @@ import { rooms } from './schema/rooms';
 import { roundParticipants } from './schema/round-participants';
 import { roundSegments } from './schema/round-segments';
 import { rounds } from './schema/rounds';
-import { youthRoundSql } from './youth-round-sql';
 import { users } from './schema/users';
 import { isDebatingSeatSql, seatOfColumns, seatRowOrder } from './seat-columns';
 import {
@@ -34,12 +33,6 @@ export type LiveBroadcastFilter = {
 };
 
 /**
- * A Youth Round, any Round of a Youth Room (ADR 0157), is private (ADR 0107,
- * PYL-5): never listed, counted or sent to Watch.
- */
-const notYouth = sql`not ${youthRoundSql(sql`${rounds.id}`)}`;
-
-/**
  * On the Live listing: a public Round whose Broadcast is open, once its start has
  * been released and until its end is. A held Broadcast has released nothing and
  * so is absent, and what the audience has not reached never narrows a search.
@@ -47,7 +40,6 @@ const notYouth = sql`not ${youthRoundSql(sql`${rounds.id}`)}`;
 const onLive = (clock: SpectatorClock) =>
   and(
     eq(rounds.visibility, 'public'),
-    notYouth,
     sql`${broadcasts.stoppedAt} is null`,
     sql`${broadcasts.completedAt} is null`,
     factReleasedSql(rounds.startedAt, roundColumns, clock),
@@ -107,7 +99,6 @@ const afterCursor = (before: string, clock: SpectatorClock): SQL | undefined =>
     ? undefined
     : sql`(${rounds.startedAt}, ${rounds.id}) < (select c.started_at, c.id from rounds c
         where c.id = ${before} and c.visibility = 'public'
-          and not ${youthRoundSql(sql`c.id`)}
           and ${factReleasedSql(sql`c.started_at`, cursorRound, clock)})`;
 
 /**
@@ -132,7 +123,6 @@ export const watchableRoundOfRoomRead = ({
         and(
           eq(rounds.roomId, roomId),
           eq(rounds.visibility, 'public'),
-          notYouth,
           factReleasedSql(rounds.startedAt, roundColumns, clock),
         ),
       );

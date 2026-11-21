@@ -161,29 +161,45 @@ describe('rowActions', () => {
     });
   });
 
-  test('a live Youth Round is watched only by its audience', () => {
-    const youth = live({ division: 'youth' });
+  test('a live Youth Round is watched as an Open one is (ADR 0161)', () => {
+    const youthLive = (over: Partial<RoomListEntry> = {}) =>
+      live({ division: 'youth', ...over });
+    const openLive = (over: Partial<RoomListEntry> = {}) =>
+      live({ division: 'open', ...over });
     assert({
       given:
-        'a live Youth Round read by an outsider, then by its seatless host',
-      should:
-        'offer no action to the outsider, and Watch on the Round’s own page to the host',
+        'a public and an unlisted live Round in each lobby, read by an outsider',
+      should: 'offer the same Watch in both lobbies',
       actual: [
-        rowActions(minor, youth, 'live'),
-        rowActions({ actorId: id('b'), division: 'open' }, youth, 'live'),
+        rowActions(minor, youthLive(), 'live'),
+        rowActions(minor, youthLive({ visibility: 'unlisted' }), 'live'),
       ],
-      expected: [[], [watch(`/rounds/${id('c')}`)]],
+      expected: [
+        rowActions(minor, openLive(), 'live'),
+        rowActions(minor, openLive({ visibility: 'unlisted' }), 'live'),
+      ],
     });
     assert({
       given:
-        "the same live Youth Round read by a debater's linked coach, and by another student's coach (ADR 0155)",
+        "an unlisted live Youth Round read by a debater's linked coach, and the public one",
       should:
-        "offer the linked coach Watch in the Round's live room, and the other nothing",
+        "send the coach through to the Round's live room, and to the public page like anyone",
       actual: [
-        rowActions({ ...adult, studentRoundIds: [id('c')] }, youth, 'live'),
-        rowActions({ ...adult, studentRoundIds: [id('z')] }, youth, 'live'),
+        rowActions(
+          { ...adult, studentRoundIds: [id('c')] },
+          youthLive({ visibility: 'unlisted' }),
+          'live',
+        ),
+        rowActions(
+          { ...adult, studentRoundIds: [id('c')] },
+          youthLive(),
+          'live',
+        ),
       ],
-      expected: [[watch(`/rounds/${id('c')}/room`)], []],
+      expected: [
+        [watch(`/rounds/${id('c')}/room`)],
+        rowActions(adult, youthLive(), 'live'),
+      ],
     });
   });
 

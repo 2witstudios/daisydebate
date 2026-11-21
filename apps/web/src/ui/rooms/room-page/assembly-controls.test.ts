@@ -41,6 +41,7 @@ const view = (
   readiness: { available: true, version: 4, readyActorIds: [] },
   version: 4,
   contentWaiver: null,
+  contentWaiverVersion: null,
   capabilities: { canReady: true },
 });
 

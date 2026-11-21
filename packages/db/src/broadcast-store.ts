@@ -9,7 +9,6 @@ import {
   claimBroadcastReconcile,
   completeBroadcast,
   discoverUnopenedBroadcastRounds,
-  endYouthBroadcasts,
   holdBroadcastReconcile,
   listOpenBroadcasts,
   openBroadcast,
@@ -35,9 +34,6 @@ import { inTransaction, type TxSource } from './tx';
 export const createBroadcastStore = (database: TxSource) => ({
   discoverUnopened: (limit: number) =>
     discoverUnopenedBroadcastRounds(database, limit),
-  /** Stops any Broadcast a Youth Round opened before ADR 0150 shipped. */
-  endYouthBroadcasts: (now: Date) =>
-    inTransaction(database, (tx) => endYouthBroadcasts(tx, now)),
   open: (input: {
     readonly id: string;
     readonly roundId: string;

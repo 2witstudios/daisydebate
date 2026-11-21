@@ -103,7 +103,12 @@ const mount = async () => {
           { value: router },
           client.createElement(
             client.BroadcastViewer,
-            { initial: timeline, stateUrl, refreshHref: '/watch/r' },
+            {
+              initial: timeline,
+              stateUrl,
+              refreshHref: '/watch/r',
+              streamable: true,
+            },
             client.createElement('input', { id: 'beside' }),
           ),
         ),

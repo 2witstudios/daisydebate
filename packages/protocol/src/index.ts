@@ -41,7 +41,6 @@ export {
 } from './ladder';
 export type { AgeBand, Ladder, RatingDivision } from './ladder';
 export {
-  canWatchLive,
   isYouthRound,
   lobbyOf,
   roomLobbyAtCreation,

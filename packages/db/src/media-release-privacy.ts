@@ -1,5 +1,4 @@
 import { sql } from 'drizzle-orm';
-import { endPublicationsOf } from './media-release-records';
 import type { PrivacyAdopter } from './privacy/contracts';
 import { exportRows } from './privacy/export-rows';
 import { scopeTransaction } from './tenant-scope';
@@ -41,8 +40,8 @@ async function eachClub(
 
 /**
  * Media releases (ADR 0151). Erasing a minor ends their releases (withdrawn
- * by erasure, kept as consent evidence for what was already public) and every
- * public Youth Recording they debated in, and deletes their requests (with
+ * by erasure, kept as consent evidence for what was already reused), and
+ * deletes their requests (with
  * the parent's address, links and mail) and their asks to clubs. Erasing a
  * club's staff member keeps the club's attestation but drops their name and
  * account from it. Export returns the minor's requests, releases and asks.
@@ -51,9 +50,7 @@ export const mediaReleasePrivacyAdopter: PrivacyAdopter = {
   id: 'media-releases',
   phase: 'before-auth',
   erase: async (tx, subject) => {
-    // The minor's account row orders every release command about them, so a
-    // co-debater's share either commits first (and is ended below) or waits
-    // and then finds the releases withdrawn.
+    // The minor's account row orders every release command about them.
     await run(
       tx,
       sql`select 1 from users where id = ${subject.userId} for update`,
@@ -64,7 +61,6 @@ export const mediaReleasePrivacyAdopter: PrivacyAdopter = {
           withdrawn_by = 'erasure'
         where user_id = ${subject.userId} and withdrawn_at is null`,
     );
-    await endPublicationsOf(tx, subject.userId);
     await run(
       tx,
       sql`delete from media_release_requests where user_id = ${subject.userId}`,

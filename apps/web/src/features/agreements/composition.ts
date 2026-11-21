@@ -1,6 +1,6 @@
 import { identify } from '../../lib/identity';
 import type { App } from '../../server/app';
-import { agreementWords, contentWaiverDocument } from '../legal/agreements';
+import { agreementWords, contentWaiverAt } from '../legal/agreements';
 import { createContentWaiverHandler } from './content-waiver-handler';
 
 /** The agreement routes: a member's signature, recorded with its version. */
@@ -12,13 +12,16 @@ export function composeAgreementRoutes(app: App) {
         reporter: app.reporter,
         origin: () => app.auth().config.PUBLIC_APP_URL,
         identify: (request) => identify(app.auth(), request.headers),
+        readAgeBand: async (userId) =>
+          (await app.auth().getParticipationByUserId(userId)).ageBand,
         limiter: () => app.limiter,
         sign: (userId, version) =>
           app.database.signContentWaiver({
             id: app.ids.next(),
             userId,
             version,
-            words: agreementWords(contentWaiverDocument),
+            // The handler admits only a version served now.
+            words: agreementWords(contentWaiverAt(version)!),
           }),
       }),
     },

@@ -34,12 +34,12 @@ function SignedTerms() {
       </summary>
       <ul className="mt-2 flex list-disc flex-col gap-1 pl-5 text-ink-muted">
         <li>
-          Daisy may publish your ranked Youth Rounds once every Youth debater in
-          a Round has a release.
+          Daisy and others may clip, download and reuse your Rounds once every
+          Youth debater in a Round has a release.
         </li>
         <li>
-          Daisy may make and share clips, on Daisy and Daisy’s social media
-          accounts.
+          Daisy may make and share clips, on Daisy, Daisy’s social media
+          accounts and in streams of the Round.
         </li>
         <li>
           You or your parent can ask for any Round or clip to come down, any
@@ -171,13 +171,13 @@ export function MediaReleaseSection({
               <Icon name="lock" size={12} />
               No release
             </Badge>
-            <span className={muted}>{view.privateRounds}</span>
           </div>
           <p className="text-base text-ink">
-            You are under 18, so your ranked Rounds are in the Youth lobby. They
-            are recorded but private: only you, the debaters and judges in the
-            Round, your coach and your parent can watch. A media release lets
-            Daisy publish them and make clips.
+            You are under 18, so you debate in the Youth lobby. Your Rounds can
+            be watched like anyone&apos;s: ranked Rounds are public, and casual
+            ones follow the Room&apos;s settings. Without a media release,
+            nobody may clip, download or reuse them. A release lets Daisy and
+            others do that.
           </p>
           {view.withdrawnNote ? (
             <p className={muted}>{view.withdrawnNote}</p>
@@ -250,7 +250,7 @@ export function MediaReleaseSection({
           </div>
           <p className="text-base text-ink">
             We emailed <strong className="font-strong">{view.recipient}</strong>
-            . Your Rounds stay private until they sign.
+            . Nobody may clip, download or reuse your Rounds until they sign.
           </p>
           <div className="flex flex-wrap gap-2">
             <ActionButton
@@ -299,7 +299,7 @@ export function MediaReleaseSection({
               <ul className="m-0 list-none p-0">
                 <li className="flex flex-wrap items-center gap-x-4 gap-y-3 px-4 py-3">
                   <strong className="min-w-0 flex-1 font-strong">
-                    Publish Rounds and clips on Daisy and social media
+                    Clipping, download and reuse of your Rounds
                   </strong>
                   <Badge tone="accent">
                     <Icon name="check" size={12} />
@@ -335,7 +335,7 @@ export function MediaReleaseSection({
             </p>
           )}
           <p className={muted}>
-            A Round goes public only when every Youth debater in it has a
+            A Round may be reused only when every Youth debater in it has a
             release. You can ask for any Round or clip to come down.
           </p>
           <div className="flex flex-wrap gap-2">

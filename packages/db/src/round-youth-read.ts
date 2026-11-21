@@ -7,7 +7,7 @@ import type { Tx } from './tx';
  * Whether a Round's Room is in the Youth lobby (ADR 0156): a Room's division
  * is fixed when it is created, so its Round's is too. Null when there is no
  * such Round, or it has no Room. A live audience reads this before reading
- * anyone's links (ADR 0155), the same division `canWatchLive` decides by.
+ * anyone's links (ADR 0155): only a Youth Round's youth debaters have them.
  */
 export const readRoundYouth = async (
   database: Tx,
