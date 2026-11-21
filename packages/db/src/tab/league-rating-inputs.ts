@@ -9,7 +9,6 @@ import { seasons } from '../schema/seasons';
 import { ratings, ratingChanges } from '../schema/ratings';
 import { rounds } from '../schema/rounds';
 import { roundParticipants } from '../schema/round-participants';
-import { readEndingRatingFacts } from '../rating-discovery';
 import { scopeTransaction } from '../tenant-scope';
 import {
   certifiedRatingActors,
@@ -19,6 +18,7 @@ import {
 import { loadLobbyAuthority } from './lobby-authority';
 import { configuredStandingLadder } from '../league-room-selection';
 import {
+  ratedSeat,
   readLobbyPublishedRatings,
   type PublishStandings,
   type StandingsRead,
@@ -74,77 +74,42 @@ export async function loadLeagueRatingInputs(
       })
     : [];
   await scopeTransaction(tx, scope);
-  const seasonRounds = season
-    ? and(
-        eq(rounds.ladderId, home.ladder.id),
-        eq(rounds.seasonId, season.id),
-        eq(rounds.status, 'completed'),
-      )
-    : sql`false`;
-  const [hasLegacyRounds] = await tx
-    .select({ id: rounds.id })
-    .from(rounds)
-    .where(and(seasonRounds, eq(rounds.legacyLeagueRating, true)))
-    .limit(1);
-  const replayRounds = and(
-    seasonRounds,
-    or(
-      eq(rounds.legacyLeagueRating, true),
-      sql`exists (select 1 from ${ratingChanges} c where c.round_id=${rounds.id})`,
-    ),
-  );
-  const completedRounds =
-    tournaments.length || hasLegacyRounds
+  const postings =
+    season && tournaments.length
       ? await tx
           .select({
-            id: rounds.id,
-            rules: rounds.rulesSnapshot,
-            legacy: rounds.legacyLeagueRating,
-            playedAt:
-              sql<Date>`case when ${rounds.legacyLeagueRating} then ${rounds.completedAt}
-            else max(${ratingChanges.occurredAt}) end`.mapWith(
-                ratingChanges.occurredAt,
-              ),
+            seasonId: ratingChanges.seasonId,
+            roundId: ratingChanges.roundId,
+            actorId: ratingChanges.actorId,
+            occurredAt: ratingChanges.occurredAt,
+            side: roundParticipants.side,
+            winningSide: rounds.winningSide,
           })
-          .from(rounds)
-          .leftJoin(ratingChanges, eq(ratingChanges.roundId, rounds.id))
-          .where(replayRounds)
-          .groupBy(rounds.id)
-      : [];
-  // The same ending facts Daisy's ratings read: the engine's `endingRating`
-  // decides which of these Rounds the ladder counts.
-  const endings = new Map(
-    (
-      await readEndingRatingFacts(
-        tx,
-        completedRounds.map((round) => round.id),
-      )
-    ).map((read) => [read.roundId, read.facts]),
-  );
-  const roomRounds = completedRounds.map((round) => ({
-    ...round,
-    ending: endings.get(round.id) ?? null,
-  }));
-  const participants = roomRounds.length
-    ? await tx
-        .select({
-          roundId: roundParticipants.roundId,
-          actorId: roundParticipants.actorId,
-          side: roundParticipants.side,
-        })
-        .from(roundParticipants)
-        .where(
-          and(
-            // The same completed league Rounds, by subquery rather than a
-            // bound id per Round.
-            inArray(
-              roundParticipants.roundId,
-              tx.select({ id: rounds.id }).from(rounds).where(replayRounds),
+          .from(ratingChanges)
+          .innerJoin(rounds, eq(rounds.id, ratingChanges.roundId))
+          .innerJoin(
+            roundParticipants,
+            and(
+              eq(roundParticipants.roundId, rounds.id),
+              eq(roundParticipants.ratingActorId, ratingChanges.actorId),
             ),
-            eq(roundParticipants.seatKind, 'side'),
-          ),
-        )
-    : [];
+          )
+          .where(
+            and(
+              eq(ratingChanges.lobbyId, home.lobby.id),
+              eq(ratingChanges.ladder, home.ladder.id),
+              eq(ratingChanges.seasonId, season.id),
+              eq(roundParticipants.seatKind, 'side'),
+            ),
+          )
+      : [];
+  const roomPostings = postings.map(
+    ({ occurredAt, side, winningSide, ...row }) => ({
+      ...row,
+      occurredAt: occurredAt.toISOString(),
+      ...ratedSeat(side, winningSide),
+    }),
+  );
   const standings = season
     ? await tx
         .select({
@@ -180,6 +145,7 @@ export async function loadLeagueRatingInputs(
           and(
             eq(ratings.ladder, home.ladder.id),
             eq(ratings.seasonId, season.id),
+            eq(roundParticipants.seatKind, 'side'),
           ),
         )
         .groupBy(ratings.actorId, ratings.ladder, ratings.seasonId)
@@ -187,7 +153,7 @@ export async function loadLeagueRatingInputs(
   const actorIds = [
     ...new Set([
       ...standings.map((row) => row.actorId),
-      ...participants.map((row) => row.actorId),
+      ...roomPostings.map((row) => row.actorId),
       ...certifiedRatingActors(tournaments),
     ]),
   ];
@@ -219,8 +185,7 @@ export async function loadLeagueRatingInputs(
   return {
     ...home,
     standings,
-    roomRounds,
-    participants,
+    roomPostings,
     tournaments,
     actors: actorRows,
     postingSettings,

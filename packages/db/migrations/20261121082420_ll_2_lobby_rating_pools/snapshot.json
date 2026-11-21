@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "f7010782-f2ba-4671-b345-ab3df2436b63",
+  "id": "5de822f5-e1c4-4d5a-8f47-702c041cc7f3",
   "prevIds": [
     "46d3e129-7574-4cd3-9292-7b86bdf28ce0"
   ],
@@ -21351,19 +21351,6 @@
       "generated": null,
       "identity": null,
       "name": "rating_lobby_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "rounds"
-    },
-    {
-      "type": "boolean",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "false",
-      "generated": null,
-      "identity": null,
-      "name": "legacy_league_rating",
       "entityType": "columns",
       "schema": "public",
       "table": "rounds"
@@ -55294,7 +55281,7 @@
       "table": "rounds"
     },
     {
-      "value": "\"competition_type\" <> 'ranked' or \"ladder_id\" is not null",
+      "value": "\"competition_type\" <> 'ranked' or \"ladder_id\" is not null or \"status\" in ('completed','abandoned')",
       "name": "rounds_ranked_ladder_check",
       "entityType": "checks",
       "schema": "public",

@@ -1,6 +1,5 @@
 import type { StandingsRead } from '@daisy/db/ratings';
 import { affirmativeSide, negativeSide, winnerOutcome } from '@daisy/protocol';
-import type { LadderGame } from '@daisy/tab-engine';
 import { foldLeagueRatings } from './league-fold';
 import {
   hasRateableTournament,
@@ -11,11 +10,9 @@ import {
 /** Only results already released to this audience take part in its replay. */
 export function replayPublishedStandings(source: StandingsRead): StandingsRead {
   const replaySeasonIds = new Set(source.publicResults?.replaySeasonIds);
-  const legacyRooms = source.publicResults?.legacyRooms ?? [];
   const seasons = new Set([
     ...replaySeasonIds,
     ...(source.certified ?? []).map(({ seasonId }) => seasonId),
-    ...legacyRooms.map(({ seasonId }) => seasonId),
   ]);
   if (seasons.size === 0) return source;
   const replayedSeasons = new Set<string>();
@@ -26,49 +23,11 @@ export function replayPublishedStandings(source: StandingsRead): StandingsRead {
     const certified = source.certified?.find(
       (row) => row.seasonId === seasonId,
     );
-    const posted = new Map<string, (typeof publicRooms)[number][]>();
-    for (const change of publicRooms) {
-      if (change.seasonId !== seasonId) continue;
-      const group = posted.get(change.roundId) ?? [];
-      group.push(change);
-      posted.set(change.roundId, group);
-    }
-    const rooms: LadderGame[] = [];
-    for (const [roundId, rows] of posted) {
-      const first = rows[0]!;
-      const winner = first.outcome.side;
-      const winners = rows
-        .filter(({ side }) => side === winner)
-        .map(({ actorId }) => actorId);
-      const opposition = rows
-        .filter(({ side }) => side !== winner)
-        .map(({ actorId }) => actorId);
-      rooms.push({
-        source: 'league_room',
-        result: roundId,
-        playedAt: ('playedAt' in first && first.playedAt) || first.occurredAt,
-        sides: [winners, opposition],
-        winner: 0,
-      });
-    }
-    const beforeLedger = legacyRooms.filter(
-      (room) => room.seasonId === seasonId && !posted.has(room.id),
+    const rooms = leagueRoomGames(
+      publicRooms.filter((row) => row.seasonId === seasonId),
     );
-    const legacyGames = leagueRoomGames({
-      roomRounds: beforeLedger,
-      participants: beforeLedger.flatMap(({ id, participants }) =>
-        participants.map((person) => ({ ...person, roundId: id })),
-      ),
-    });
-    const games = orderedLeagueGames(
-      [...rooms, ...legacyGames],
-      certified?.records ?? [],
-    );
-    if (
-      legacyGames.length === 0 &&
-      !replaySeasonIds.has(seasonId) &&
-      !hasRateableTournament(games)
-    )
+    const games = orderedLeagueGames(rooms, certified?.records ?? []);
+    if (!replaySeasonIds.has(seasonId) && !hasRateableTournament(games))
       continue;
     replayedSeasons.add(seasonId);
     const sides = [affirmativeSide, negativeSide] as const;
@@ -93,7 +52,6 @@ export function replayPublishedStandings(source: StandingsRead): StandingsRead {
       [
         ...(certified?.people ?? []),
         ...(source.publicResults?.people ?? []),
-        ...beforeLedger.flatMap(({ participants }) => participants),
         ...source.ratings.filter((row) => row.seasonId === seasonId),
       ].map((person) => [person.actorId, person]),
     );

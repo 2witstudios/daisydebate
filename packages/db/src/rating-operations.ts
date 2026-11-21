@@ -14,7 +14,7 @@ import {
   ratedResult,
   ratingChangeRows,
 } from './rating-decisions';
-import { readEarlierLegacyRatings, readRatingFacts } from './rating-discovery';
+import { readRatingFacts } from './rating-discovery';
 import { retryStale } from './retry-stale';
 import { seatOfColumns } from './seat-columns';
 import { roundParticipants } from './schema/round-participants';
@@ -217,21 +217,6 @@ async function rateOnce(
     order by locks.key`);
   for (const { key } of keys as unknown as { key: string }[])
     await tx.execute(sql`select pg_advisory_xact_lock(59090, ${key}::integer)`);
-  const earlier = await readEarlierLegacyRatings(tx, {
-    roundId,
-    ...eligibility.scope,
-    legacy: round.legacyLeagueRating,
-  });
-  for (const candidate of earlier) {
-    const prior = candidate.facts && decide.eligibility(candidate.facts);
-    if (
-      !prior ||
-      prior.kind === 'rated' ||
-      prior.kind === 'attendance-unsettled' ||
-      (prior.kind === 'unrated' && prior.reason === 'check-in-pending')
-    )
-      return { kind: 'deferred', reason: 'earlier-legacy-rating-pending' };
-  }
   const standings: Record<string, DebaterStanding> = {};
   for (const { actorId } of seats)
     standings[actorId] = await loadStanding(tx, {

@@ -109,32 +109,6 @@ const readCandidates = async (
 };
 
 /**
- * The ending facts of these Rounds, the same Daisy's ratings read, for a
- * ladder outside Daisy's own (a league's) to ask `endingRating` of.
- */
-const endingReadBatch = 10_000;
-
-export async function readEndingRatingFacts(
-  db: Execute,
-  roundIds: readonly string[],
-): Promise<readonly EndingRead<EndingRatingFacts>[]> {
-  if (!roundIds.every((id) => idSchema.safeParse(id).success))
-    throw createAppError('VALIDATION');
-  // Bound each query well below PostgreSQL's 65,535 bind parameters.
-  const rows: EndingRow[] = [];
-  for (let at = 0; at < roundIds.length; at += endingReadBatch)
-    rows.push(
-      ...((await db.execute(sql`select ${endingColumns}
-    from rounds r ${recordedEndingJoins}
-    where r.id = any(array[${sql.join(
-      roundIds.slice(at, at + endingReadBatch).map((id) => sql`${id}`),
-      sql`, `,
-    )}]::text[])`)) as unknown as EndingRow[]),
-    );
-  return rows.map(endingFacts);
-}
-
-/**
  * One bounded page of completed Rounds on a ladder with no ledger rows, and
  * their facts. A page is over candidates, so a Round the engine leaves unrated
  * still advances the cursor.
@@ -151,21 +125,13 @@ export async function readRatingCandidates(
     input.limit > 1000
   )
     throw createAppError('VALIDATION');
-  // Pre-ledger league Rounds were replayed by play time. Process those pools
-  // first in the same order, then use the regular stable Round ID cursor.
-  const key = (alias: 'r' | 'witness') =>
-    sql.raw(`not ${alias}.legacy_league_rating,
-    case when ${alias}.legacy_league_rating then date_trunc('milliseconds', ${alias}.completed_at) else 'infinity'::timestamptz end,
-    ${alias}.id`);
   return readCandidates(
     db,
     sql`r.status='completed' and r.ladder_id is not null
       and jsonb_array_length(r.rules_snapshot->'sides')=2
-      and (${input.afterId ?? null}::text is null or coalesce(
-        (${key('r')}) > (select ${key('witness')} from rounds witness where witness.id=${input.afterId ?? null}),
-        r.id > ${input.afterId ?? null}))
+      and (${input.afterId ?? null}::text is null or r.id > ${input.afterId ?? null})
       and not daisy_round_rating_posted(r.id)
-    order by ${key('r')} limit ${input.limit}`,
+    order by r.id limit ${input.limit}`,
   );
 }
 
@@ -179,25 +145,3 @@ export async function readRatingFacts(
   if (candidate?.facts === null) throw candidate.unreadable;
   return candidate?.facts ?? null;
 }
-
-/** Earlier pre-ledger games must settle before their pool rates a later one. */
-export const readEarlierLegacyRatings = (
-  db: Execute,
-  input: {
-    readonly roundId: string;
-    readonly lobbyId: string;
-    readonly ladderId: string;
-    readonly seasonId: string;
-    readonly legacy: boolean;
-  },
-) =>
-  readCandidates(
-    db,
-    sql`
-  r.status='completed' and r.legacy_league_rating and r.rating_lobby_id=${input.lobbyId}
-  and r.ladder_id=${input.ladderId}
-  and r.season_id=${input.seasonId} and not daisy_round_rating_posted(r.id)
-  and (${!input.legacy} or (date_trunc('milliseconds',r.completed_at),r.id)<
-    (select date_trunc('milliseconds',witness.completed_at),witness.id from rounds witness where witness.id=${input.roundId}))
-  order by date_trunc('milliseconds',r.completed_at),r.id`,
-  );

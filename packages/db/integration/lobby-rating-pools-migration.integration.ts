@@ -7,8 +7,8 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { standingsOperations } from '../src/standings';
 import { daisyOrganizationId, publicLobbyId } from '../src/daisy-reference';
 import { Fixture, rejectedBy, sqlStateOf } from './constraint-helpers';
-import { validConfig, validRules } from './round-fixtures';
-import { loadSampleTournament, sampleInstant } from './tab.test-support';
+import { validConfig } from './round-fixtures';
+import { loadSampleTournament } from './tab.test-support';
 import { loadLeagueCertifiedRatingInputs } from '../src/tab/league-certified-rating-inputs';
 import { readRatingCandidates } from '../src/rating-discovery';
 import {
@@ -41,34 +41,6 @@ test(
       };
       const actor = { open: await f.actor(), youth: await f.actor() };
       const opponent = await f.actor();
-      const orphanLeague = createId();
-      const orphanSeason = createId();
-      const orphanClosed = createId();
-      await f.insert('organizations', {
-        id: orphanLeague,
-        kind: 'league',
-        name: 'Spring league',
-        handle: orphanLeague,
-        owner_user_id: await f.user(),
-        league_division: 'youth',
-      });
-      await f.insert('seasons', {
-        id: orphanSeason,
-        organization_id: orphanLeague,
-        name: 'Spring',
-        division: 'youth',
-        starts_at: start,
-        status: 'active',
-      });
-      await f.insert('seasons', {
-        id: orphanClosed,
-        organization_id: orphanLeague,
-        name: 'Closed before dates were required',
-        division: 'youth',
-        starts_at: start,
-        status: 'closed',
-        updated_at: finish,
-      });
       const oldSeason = {
         organization_id: daisyOrganizationId,
         name: 'Season 1',
@@ -145,165 +117,61 @@ test(
           volatility_after: 0.061,
         });
       }
-      const thirdLobby = createId();
-      const thirdActor = await f.actor();
-      await f.insert('lobbies', {
-        id: thirdLobby,
-        kind: 'standing',
-        owner_organization_id: daisyOrganizationId,
-        name: 'Adult practice league',
-        handle: thirdLobby,
-        age_rule: 'adults',
-      });
-      const thirdRoom = await f.room(thirdActor, 'freestyle', {
-        lobby_id: thirdLobby,
-        competition_type: 'ranked',
-        preset_version: 1,
-        basis_format_id: 'freestyle',
-        basis_preset_version: 1,
-      });
-      const { id: thirdRound } = await f.roundWithCast(
-        {
-          room_id: thirdRoom,
-          competition_type: 'ranked',
-          visibility: 'public',
-          room_config_snapshot: validConfig,
-          format_id: 'freestyle',
-          preset_version: 1,
-          ladder_id: 'freestyle',
-          ladder_division: 'open',
-          status: 'completed',
-          started_at: start,
-          completed_at: finish,
-          winning_side: 'affirmative',
-        },
-        [
-          { seat: 'affirmative', actorId: thirdActor },
-          { seat: 'negative', actorId: opponent },
-          { seat: 'judge', actorId: actor.open },
-        ],
-        { rules: { ...validRules, seats: { ...validRules.seats, judges: 1 } } },
-      );
-      await f.insert(
-        'ratings',
-        {
-          actor_id: thirdActor,
-          season_id: season.open,
-          ladder: 'freestyle',
-          division: 'open',
-          rating: 1620,
-          deviation: 270,
-          volatility: 0.061,
-        },
-        'actor_id',
-      );
-      const thirdPosting = createId();
-      await f.insert('rating_changes', {
-        id: thirdPosting,
-        round_id: thirdRound,
-        actor_id: thirdActor,
-        ladder: 'freestyle',
-        season_id: season.open,
-        division: 'open',
-        format_id: 'freestyle',
-        calculation_version: 'glicko2-v1',
-        occurred_at: finish,
-        rating_before: 1500,
-        rating_after: 1620,
-        deviation_before: 350,
-        deviation_after: 270,
-        volatility_before: 0.06,
-        volatility_after: 0.061,
-      });
-      const judgePosting = createId();
-      // This scratch predecessor starts after Tab's historical observation.
-      // Recreate the mark Tab would already have set on this old judge row.
-      await client.begin(async (tx) => {
-        await tx`alter table round_participants disable trigger round_participants_identity_guard`;
-        await tx`update round_participants set legacy_rating_participant=true
-          where round_id=${thirdRound} and actor_id=${actor.open} and seat_kind='judge'`;
-        await tx`set constraints all immediate`;
-        await tx`alter table round_participants enable trigger round_participants_identity_guard`;
-      });
-      await f.insert('rating_changes', {
-        id: judgePosting,
-        round_id: thirdRound,
-        actor_id: actor.open,
-        ladder: 'freestyle',
-        season_id: season.open,
-        division: 'open',
-        format_id: 'freestyle',
-        calculation_version: 'glicko2-v1',
-        occurred_at: new Date(finish.getTime() + 1000),
-        rating_before: 1600.25,
-        rating_after: 1777,
-        deviation_before: 250.5,
-        deviation_after: 240,
-        volatility_before: 0.061,
-        volatility_after: 0.062,
-      });
       const league = await client.begin((tx) => loadSampleTournament(tx));
-      const laterLobby = createId();
-      await f.insert('lobbies', {
-        id: laterLobby,
-        kind: 'standing',
-        owner_organization_id: league.league,
-        name: 'Newer league lobby',
-        handle: laterLobby,
-      });
-      const olderLadder = createId();
-      const laterLadder = createId();
-      const successor = createId();
-      const cutoff = sampleInstant(45);
-      await client`update seasons set status='closed', ends_at=${cutoff} where id=${league.season}`;
-      await f.insert('seasons', {
-        id: successor,
+      const ladder = createId();
+      await f.insert('ladders', {
+        id: ladder,
+        lobby_id: league.standingLobby,
         organization_id: league.league,
-        name: 'Successor season',
-        division: 'open',
-        starts_at: cutoff,
-        status: 'active',
+        name: 'League ladder',
       });
-      const legacyLeagueRounds: string[] = [];
-      for (const [lobbyId, ladderId, minutes] of [
-        [league.standingLobby, olderLadder, [15, 61, 62]],
-        [laterLobby, laterLadder, [16, 17, 63]],
-      ] as const) {
-        await f.insert('ladders', {
-          id: ladderId,
-          lobby_id: lobbyId,
-          organization_id: league.league,
-          name: 'League ladder',
-        });
-        for (const minute of minutes) {
-          const roomId = await f.room(league.debaters[0]!, 'freestyle', {
-            lobby_id: lobbyId,
-            league_ladder_id: ladderId,
-          });
-          legacyLeagueRounds.push(
-            await f.round({
-              room_id: roomId,
-              format_id: 'freestyle',
-              visibility: 'public',
-              room_config_snapshot: validConfig,
-              league_ladder_id: ladderId,
-              created_at: sampleInstant(minute),
-              started_at: sampleInstant(minute + 2),
-              completed_at: sampleInstant(minute + 5),
-              status: 'completed',
-              winning_side: 'affirmative',
-            }),
-          );
-        }
-      }
+      const leagueRoom = await f.room(league.debaters[0]!, 'freestyle', {
+        lobby_id: league.standingLobby,
+        league_ladder_id: ladder,
+      });
+      const unposted = await f.round({
+        room_id: leagueRoom,
+        format_id: 'freestyle',
+        visibility: 'public',
+        room_config_snapshot: validConfig,
+        league_ladder_id: ladder,
+        started_at: start,
+        completed_at: finish,
+        status: 'completed',
+        winning_side: 'affirmative',
+      });
       const data = () =>
         Promise.all([
-          client`select id, name, starts_at, ends_at, status from seasons where id in ${client([...Object.values(season), orphanSeason])} order by id`,
-          client`select actor_id, season_id, rating, deviation, volatility,version from ratings where actor_id <> ${thirdActor} order by actor_id, season_id`,
+          client`select id, name, starts_at, ends_at, status from seasons where id in ${client([...Object.values(season), league.season])} order by id`,
+          client`select actor_id, season_id, rating, deviation, volatility,version from ratings order by actor_id, season_id`,
           client`select id, round_id, season_id, actor_id, rating_before, rating_after, deviation_before, deviation_after,
-        volatility_before, volatility_after, calculation_version, occurred_at from rating_changes where id not in (${thirdPosting},${judgePosting}) order by id`,
+        volatility_before, volatility_after, calculation_version, occurred_at from rating_changes order by id`,
         ]);
       const before = await data();
+      const ambiguousLobby = createId();
+      await f.insert('lobbies', {
+        id: ambiguousLobby,
+        kind: 'standing',
+        owner_organization_id: league.league,
+        name: 'Second standing lobby',
+        handle: ambiguousLobby,
+      });
+      const rejected = await scratch
+        .migrate((name) => name <= migration)
+        .then(
+          () => false,
+          (error: Error) =>
+            String(error.cause ?? error).includes(
+              'Rating pool adoption requires explicit',
+            ),
+        );
+      assert({
+        given: 'an old season with two possible standing lobbies',
+        should: 'stop the upgrade and retain the stored competitive data',
+        actual: [rejected, (await data()).map((rows) => Array.from(rows))],
+        expected: [true, before.map((rows) => Array.from(rows))],
+      });
+      await client`delete from lobbies where id=${ambiguousLobby}`;
       await scratch.migrate((name) => name <= migration);
       assert({
         given:
@@ -311,25 +179,6 @@ test(
         should: 'keep every historical season and Glicko state and posting',
         actual: (await data()).map((rows) => Array.from(rows)),
         expected: before.map((rows) => Array.from(rows)),
-      });
-      const [relocated] = await client`select s.lobby_id,l.age_rule
-        from seasons s join lobbies l on l.id=s.lobby_id where s.id=${orphanSeason}`;
-      assert({
-        given: 'a league season created before any standing lobby',
-        should:
-          'give that season a standing lobby in the same league with the historical age rule',
-        actual: [relocated?.lobby_id, relocated?.age_rule],
-        expected: [orphanLeague, 'under-18'],
-      });
-      const [closed] =
-        await client`select ends_at from seasons where id=${orphanClosed}`;
-      assert({
-        given:
-          'a historical closed season without an end but with a last update',
-        should:
-          'recover the stored close time so published reads can freeze at it',
-        actual: closed?.ends_at,
-        expected: finish,
       });
       const certified = await drizzle({ client }).transaction((tx) =>
         loadLeagueCertifiedRatingInputs(tx, {
@@ -339,50 +188,33 @@ test(
       );
       const [receivingSeason] =
         await client`select lobby_id from seasons where id=${league.season}`;
-      const leagueScopes =
-        await client`select r.id, r.season_id, r.rating_lobby_id, r.ladder_id, s.name, r.legacy_league_rating
-          from rounds r join seasons s on s.id=r.season_id where r.id in ${client(legacyLeagueRounds)}`;
-      const [copiedRule] = await client`select copied.counting=original.counting
-          and copied.counts_lobby_rooms=original.counts_lobby_rooms
-          and copied.rule=original.rule as matches
-        from rounds r join season_standing_rules copied on copied.season_id=r.season_id
-        join season_standing_rules original on original.season_id=${league.season}
-        where r.id=${legacyLeagueRounds[0]}`;
+      const [oldRound] =
+        await client`select season_id, ladder_id, rating_lobby_id from rounds where id=${unposted}`;
+      const candidates = await readRatingCandidates(drizzle({ client }), {
+        limit: 100,
+      });
+      const [inventory] = await client`select
+        (select count(*)::int from ladders where organization_id=${league.league}) as ladders,
+        (select count(*)::int from seasons where organization_id=${league.league}) as seasons`;
       assert({
         given:
-          'an approved sanction and selected Rooms spanning two periods with different primary lobbies',
+          'a league with one standing lobby, one season, an approved sanction and a completed old Room without postings',
         should:
-          'retain the sanction, choose each Round’s historical period, and flag pre-ledger games for replay',
-        actual: {
-          lobbyId: receivingSeason?.lobby_id,
-          rooms: legacyLeagueRounds.map((id) => {
-            const row = leagueScopes.find(
-              (item: { id: string }) => item.id === id,
-            )!;
-            return [
-              row.rating_lobby_id,
-              row.ladder_id,
-              row.name,
-              row.season_id === league.season || row.season_id === successor,
-              row.legacy_league_rating,
-            ];
-          }),
-          certified: certified.some(({ id }) => id === league.decided),
-          copiedRule: copiedRule?.matches,
-        },
-        expected: {
-          lobbyId: laterLobby,
-          rooms: [
-            [league.standingLobby, olderLadder, 'Sample season', false, true],
-            [league.standingLobby, olderLadder, 'Successor season', true, true],
-            [league.standingLobby, olderLadder, 'Successor season', true, true],
-            [laterLobby, laterLadder, 'Sample season', true, true],
-            [laterLobby, laterLadder, 'Sample season', true, true],
-            [laterLobby, laterLadder, 'Successor season', false, true],
-          ],
-          certified: true,
-          copiedRule: true,
-        },
+          'retain the real receiving season and certification without making the old Room rateable',
+        actual: [
+          receivingSeason?.lobby_id,
+          certified.some(({ id }) => id === league.decided),
+          oldRound,
+          candidates.some(({ roundId }) => roundId === unposted),
+          inventory,
+        ],
+        expected: [
+          league.standingLobby,
+          true,
+          { season_id: null, ladder_id: null, rating_lobby_id: null },
+          false,
+          { ladders: 1, seasons: 1 },
+        ],
       });
       const [youth] =
         await client`select d.id as ladder, d.lobby_id from ladders d
@@ -408,61 +240,7 @@ test(
           ['freestyle', publicLobbyId, season.closed, 'adults'],
         ],
       });
-      const [third] =
-        await client`select r.rating_lobby_id, r.ladder_id, r.season_id,
-        (select rating from ratings where actor_id=${thirdActor} and lobby_id=r.rating_lobby_id) as rating,
-        (select rating_after from rating_changes where id=${thirdPosting} and ladder=r.ladder_id and season_id=r.season_id) as posting
-        from rounds r where r.id=${thirdRound}`;
-      assert({
-        given:
-          'a historical ranked Round in a third official standing lobby using the old Open keys',
-        should:
-          'retain its rating and ledger on a separate ladder and copy of the period traced to its Room',
-        actual: [
-          third?.rating_lobby_id,
-          third?.ladder_id !== 'freestyle',
-          third?.season_id !== season.open,
-          third?.rating,
-          third?.posting,
-        ],
-        expected: [thirdLobby, true, true, 1620, 1620],
-      });
       const db = standingsOperations({ database: drizzle({ client }) });
-      const [retainedJudge] =
-        await client`select c.lobby_id,c.rating_after,p.legacy_rating_participant,
-        (select rating from ratings where actor_id=${actor.open} and lobby_id=${publicLobbyId} and season_id=${season.open}) as open_rating,
-        exists(select 1 from ratings where actor_id=${actor.open} and lobby_id=${thirdLobby}) as judge_rating
-        from rating_changes c join round_participants p on p.round_id=c.round_id and p.actor_id=c.actor_id
-        where c.id=${judgePosting}`;
-      assert({
-        given:
-          'one legacy actor who debated in Open and later had a judge-only posting on another ladder',
-        should:
-          'retain both histories while leaving their projection in the lobby where they debated',
-        actual: [
-          retainedJudge?.lobby_id,
-          retainedJudge?.rating_after,
-          retainedJudge?.legacy_rating_participant,
-          retainedJudge?.open_rating,
-          retainedJudge?.judge_rating,
-        ],
-        expected: [thirdLobby, 1777, true, 1600.25, false],
-      });
-      const legacyFirst = await readRatingCandidates(drizzle({ client }), {
-        limit: 3,
-      });
-      const legacyRest = await readRatingCandidates(drizzle({ client }), {
-        limit: 3,
-        afterId: legacyFirst.at(-1)!.roundId,
-      });
-      assert({
-        given:
-          'legacy league Rounds spread across two seasons and two standing lobbies',
-        should:
-          'scan their completion order faithfully across a cursor boundary',
-        actual: [...legacyFirst, ...legacyRest].map(({ roundId }) => roundId),
-        expected: [0, 3, 4, 1, 2, 5].map((index) => legacyLeagueRounds[index]),
-      });
       const open = await db.readStandings({
         ladderId: 'freestyle',
         lobbyId: publicLobbyId,
@@ -509,20 +287,19 @@ test(
             (row: { lobby_id: string }) => row.lobby_id,
           ),
           updated: (
-            await tx`update ratings set rating = 1700 where lobby_id=${thirdLobby} returning actor_id`
+            await tx`update ratings set rating = 1700 where lobby_id=${youth!.lobby_id} returning actor_id`
           ).length,
         })),
         sqlStateOf(() =>
           asOpen(
             (tx) => tx`insert into ratings
           (actor_id,ladder,lobby_id,season_id,rating,deviation,volatility)
-          values (${opponent},${third!.ladder_id},${thirdLobby},${third!.season_id},1500,350,0.06)`,
+          values (${opponent},${youth!.ladder},${youth!.lobby_id},${season.youth},1500,350,0.06)`,
           ),
         ),
       ]);
       assert({
-        given:
-          'the web database role scoped to Open and a valid rating pool in a third lobby',
+        given: 'the web database role scoped to Open and the Youth rating pool',
         should: 'read Open only and refuse writes to the other pool',
         actual: { ...isolated, denied },
         expected: {

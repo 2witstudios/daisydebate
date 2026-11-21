@@ -2,7 +2,6 @@ import { createAppError } from '@daisy/errors';
 import {
   ratingStyles,
   sideKeySchema,
-  type EndingRatingFacts,
   type SideKey,
   type WinnerOutcome,
 } from '@daisy/protocol';
@@ -14,7 +13,6 @@ import { isDebatingSeatSql } from './seat-columns';
 import { actors } from './schema/actors';
 import { roundParticipants } from './schema/round-participants';
 import { rounds } from './schema/rounds';
-import { readEndingRatingFacts } from './rating-discovery';
 import { formatPresets } from './schema/format-presets';
 import { formats } from './schema/formats';
 import { ladders } from './schema/ladders';
@@ -75,9 +73,8 @@ export type StandingsRead = {
   readonly certified?: readonly StandingCertification[];
   readonly publicResults?: {
     readonly replaySeasonIds: readonly string[];
-    readonly rooms: readonly ReleasedRoomResult[];
+    readonly rooms: readonly RoomRatingPosting[];
     readonly people: readonly StandingPerson[];
-    readonly legacyRooms?: readonly ReleasedLegacyRoom[];
   };
 };
 
@@ -85,20 +82,10 @@ type StandingPerson = Pick<
   StandingRating,
   'actorId' | 'username' | 'accountClosed'
 >;
-type ReleasedRoomResult = Pick<
+type RoomRatingPosting = Pick<
   StandingChange,
   'seasonId' | 'roundId' | 'actorId' | 'occurredAt' | 'side' | 'outcome'
-> & { readonly playedAt?: string };
-type ReleasedLegacyRoom = {
-  readonly id: string;
-  readonly seasonId: string;
-  readonly rules: (typeof rounds.$inferSelect)['rulesSnapshot'];
-  readonly playedAt: Date;
-  readonly ending: EndingRatingFacts | null;
-  readonly participants: readonly (StandingPerson & {
-    readonly side: string | null;
-  })[];
-};
+>;
 
 type StandingCertification = {
   readonly seasonId: string;
@@ -168,7 +155,7 @@ const publishedCertifications = async (
  * written for a debater's side of a Round a side won, so anything else is
  * corrupt data and is refused rather than guessed.
  */
-function ratedSeat(
+export function ratedSeat(
   side: string | null,
   winningSide: string | null,
 ): Pick<StandingChange, 'side' | 'outcome'> {
@@ -351,13 +338,10 @@ async function readStandingsWithin(
       deviationAfter: ratingChanges.deviationAfter,
       volatilityBefore: ratingChanges.volatilityBefore,
       occurredAt: ratingChanges.occurredAt,
-      legacyPlayedAt: sql<Date | null>`case when ${rounds.legacyLeagueRating}
-        then ${rounds.completedAt} end`.mapWith(rounds.completedAt),
       side: roundParticipants.side,
       winningSide: rounds.winningSide,
       released: sql<boolean>`${rounds.visibility} = 'public' and ${factReleasedSql(
-        sql`case when ${rounds.legacyLeagueRating} then ${rounds.completedAt}
-          else greatest(${ratingChanges.occurredAt},${rounds.completedAt}) end`,
+        sql`greatest(${ratingChanges.occurredAt}, ${rounds.completedAt})`,
         rounds,
         input.clock,
       )}`,
@@ -379,9 +363,6 @@ async function readStandingsWithin(
         eq(roundParticipants.seatKind, 'side'),
       ),
     );
-  const legacyRooms = input.includeCertified
-    ? await releasedLegacyRooms(tx, input)
-    : [];
   const certified = input.includeCertified
     ? await publishedCertifications(tx, {
         ...input,
@@ -393,26 +374,14 @@ async function readStandingsWithin(
     username: row.username ?? null,
     accountClosed: closedAt !== null,
   }));
-  const legacyTimes = new Map<string, string>();
   const ledger = changeRows.map(
-    ({
-      released,
+    ({ released, volatilityBefore, side, winningSide, ...row }) => ({
+      ...row,
+      occurredAt: row.occurredAt.toISOString(),
+      ...ratedSeat(side, winningSide),
+      released: released === true || row.roundId === input.revealRoundId,
       volatilityBefore,
-      side,
-      winningSide,
-      legacyPlayedAt,
-      ...row
-    }) => {
-      if (legacyPlayedAt)
-        legacyTimes.set(row.roundId, legacyPlayedAt.toISOString());
-      return {
-        ...row,
-        occurredAt: row.occurredAt.toISOString(),
-        ...ratedSeat(side, winningSide),
-        released: released === true || row.roundId === input.revealRoundId,
-        volatilityBefore,
-      };
-    },
+    }),
   );
   const source = releasedStandings({ ratings: standings, changes: ledger });
   const replaySeasonIds = [
@@ -424,9 +393,7 @@ async function readStandingsWithin(
   ];
   if (
     !input.includeCertified ||
-    (certified.length === 0 &&
-      replaySeasonIds.length === 0 &&
-      legacyRooms.length === 0)
+    (certified.length === 0 && replaySeasonIds.length === 0)
   )
     return source;
   const rooms = ledger
@@ -438,7 +405,6 @@ async function readStandingsWithin(
       occurredAt,
       side,
       outcome,
-      playedAt: legacyTimes.get(roundId) ?? occurredAt,
     }));
   const releasedActors = new Set(rooms.map(({ actorId }) => actorId));
   const people = standings
@@ -451,68 +417,6 @@ async function readStandingsWithin(
   return {
     ...source,
     certified,
-    publicResults: { rooms, people, replaySeasonIds, legacyRooms },
+    publicResults: { rooms, people, replaySeasonIds },
   };
-}
-
-/** Publicly released Rooms that predate the ledger keep their place during recovery. */
-async function releasedLegacyRooms(
-  tx: TabTransaction,
-  input: StandingsInput,
-): Promise<ReleasedLegacyRoom[]> {
-  const selected = and(
-    eq(rounds.ratingLobbyId, input.lobbyId),
-    eq(rounds.ladderId, input.ladderId),
-    inArray(rounds.seasonId, [...input.seasonIds]),
-    eq(rounds.legacyLeagueRating, true),
-    eq(rounds.status, 'completed'),
-    eq(rounds.visibility, 'public'),
-    factReleasedSql(rounds.completedAt, rounds, input.clock),
-    sql`not exists (select 1 from ${ratingChanges} where ${ratingChanges.roundId} = ${rounds.id})`,
-  );
-  const rows = await tx
-    .select({
-      id: rounds.id,
-      seasonId: rounds.seasonId,
-      rules: rounds.rulesSnapshot,
-      playedAt: rounds.completedAt,
-      side: roundParticipants.side,
-      actorId: actors.id,
-      username: users.username,
-      closedAt: users.deletedAt,
-    })
-    .from(rounds)
-    .innerJoin(
-      roundParticipants,
-      and(
-        eq(roundParticipants.roundId, rounds.id),
-        eq(roundParticipants.seatKind, 'side'),
-      ),
-    )
-    .innerJoin(actors, eq(actors.id, roundParticipants.actorId))
-    .leftJoin(users, eq(users.id, actors.userId))
-    .where(selected);
-  const byRound = new Map<
-    string,
-    {
-      room: Omit<ReleasedLegacyRoom, 'ending' | 'participants'>;
-      participants: ReleasedLegacyRoom['participants'][number][];
-    }
-  >();
-  for (const { id, seasonId, rules, playedAt, closedAt, ...seat } of rows) {
-    if (!seasonId || !playedAt) continue;
-    const group = byRound.get(id) ?? {
-      room: { id, seasonId, rules, playedAt },
-      participants: [],
-    };
-    group.participants.push({ ...seat, accountClosed: closedAt !== null });
-    byRound.set(id, group);
-  }
-  const endings = await readEndingRatingFacts(tx, [...byRound.keys()]);
-  return endings.flatMap(({ roundId, facts }) => {
-    const group = byRound.get(roundId);
-    return group
-      ? [{ ...group.room, ending: facts, participants: group.participants }]
-      : [];
-  });
 }

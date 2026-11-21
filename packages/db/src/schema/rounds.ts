@@ -152,10 +152,6 @@ export const rounds = pgTable(
     ladderId: text('ladder_id'),
     seasonId: text('season_id'),
     ratingLobbyId: text('rating_lobby_id'),
-    /** Completed league games that previously rated by replay, without a ledger. */
-    legacyLeagueRating: boolean('legacy_league_rating')
-      .notNull()
-      .default(false),
     startedAt: timestampColumn('started_at'),
     completedAt: timestampColumn('completed_at'),
     /** The Daisy checkpoint (ADR 0058 §4); only what has no durable row. */
@@ -356,7 +352,7 @@ export const rounds = pgTable(
       ),
       check(
         'rounds_ranked_ladder_check',
-        sql`${table.competitionType} <> 'ranked' or ${table.ladderId} is not null`,
+        sql`${table.competitionType} <> 'ranked' or ${table.ladderId} is not null or ${table.status} in ('completed','abandoned')`,
       ),
       check(
         'rounds_ranked_has_preset_check',

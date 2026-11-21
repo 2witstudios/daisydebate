@@ -31,10 +31,6 @@ export type RateDebateResult =
       }[];
     }
   | { readonly kind: 'already-rated' }
-  | {
-      readonly kind: 'deferred';
-      readonly reason: 'earlier-legacy-rating-pending';
-    }
   | RatingUnrated;
 
 export type RateDebateInput = {

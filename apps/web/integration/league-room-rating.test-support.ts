@@ -48,7 +48,7 @@ export async function leagueRoomRating(
   world: World,
   sideSize = 1,
   visibility: 'public' | 'unlisted' = 'unlisted',
-  legacy?: { readonly forfeit: 'Debater 1' | 'Debater 2' },
+  awaitingPosting?: { readonly forfeit: 'Debater 1' | 'Debater 2' },
 ) {
   const lobbyId = world.made.get('standing-lobby')!;
   const [ladder] =
@@ -234,7 +234,7 @@ export async function leagueRoomRating(
       const debater = round.participants.find(
         (person) =>
           person.actorId ===
-          world.bots[legacy?.forfeit ?? 'Debater 1']!.actorId,
+          world.bots[awaitingPosting?.forfeit ?? 'Debater 1']!.actorId,
       )!;
       await createRoundRuntimeOperations({
         store: f.store,
@@ -248,17 +248,7 @@ export async function leagueRoomRating(
     },
     { databaseUrl: world.runtimeDatabaseUrl },
   );
-  if (legacy) {
-    // This Room follows all current runtime paths up to the pre-ledger state
-    // the migration identifies. Change the frozen marker only in this scratch DB.
-    await world.sql.begin(async (tx) => {
-      await tx`alter table rounds disable trigger rounds_rating_pool_immutable`;
-      await tx`update rounds set legacy_league_rating=true where id=${roundId}`;
-      await tx`set constraints all immediate`;
-      await tx`alter table rounds enable trigger rounds_rating_pool_immutable`;
-    });
-    return roundId;
-  }
+  if (awaitingPosting) return roundId;
   const games = (actorId: string, lines: typeof before) => {
     const row = lines?.lines.find((row) => row.actorId === actorId);
     return row ? row.wins + row.losses : 0;

@@ -130,7 +130,6 @@ export const roundRow = (record: {
   record.ladderId,
   record.seasonId ?? null,
   record.ratingLobbyId ?? null,
-  false, // legacy_league_rating
   record.startedAt === null ? null : new Date(record.startedAt),
   record.completedAt === null ? null : new Date(record.completedAt),
   record.checkpoint,

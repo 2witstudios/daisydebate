@@ -637,7 +637,7 @@ test(
         rooms:
           await sql`select to_jsonb(r) - array['rules_snapshot','capture','lobby_id','lobby_kind','template_id','standing_template_id','ballot_definition_id','ballot_definition_version','league_ladder_id','holds_host','legacy_tournament_youth'] as row from rooms r order by id`,
         rounds:
-          await sql`select to_jsonb(r) - array['rules_snapshot','capture','winning_side','ranking','judging','ballot_definition_id','ballot_definition_version','season_id','rating_lobby_id','standing_age_rule','standing_youth_cast','legacy_league_rating'] as row from rounds r order by id`,
+          await sql`select to_jsonb(r) - array['rules_snapshot','capture','winning_side','ranking','judging','ballot_definition_id','ballot_definition_version','season_id','rating_lobby_id','standing_age_rule','standing_youth_cast'] as row from rounds r order by id`,
         roomParticipants:
           await sql`select to_jsonb(p) - array['seat_kind','side'] as row from room_participants p order by id`,
         roundParticipants:
@@ -707,7 +707,7 @@ test(
             await sql`select count(*)::int n from rooms where league_ladder_id is not null`
           )[0]!.n,
           (
-            await sql`select count(*)::int n from rounds where legacy_league_rating`
+            await sql`select count(*)::int n from rounds where competition_type<>'ranked' and ladder_id is not null`
           )[0]!.n,
         ],
         expected: [0, 0],

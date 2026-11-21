@@ -35,7 +35,6 @@ ALTER TABLE "rounds" ADD COLUMN "season_id" text;--> statement-breakpoint
 ALTER TABLE "rounds" ADD COLUMN "rating_lobby_id" text;--> statement-breakpoint
 ALTER TABLE "rounds" ADD COLUMN "standing_age_rule" "lobby_age_rule";--> statement-breakpoint
 ALTER TABLE "rounds" ADD COLUMN "standing_youth_cast" boolean DEFAULT false NOT NULL;--> statement-breakpoint
-ALTER TABLE "rounds" ADD COLUMN "legacy_league_rating" boolean DEFAULT false NOT NULL;--> statement-breakpoint
 ALTER TABLE "seasons" ADD COLUMN "lobby_id" text;--> statement-breakpoint
 ALTER TABLE "seasons" ADD COLUMN "lobby_kind" text GENERATED ALWAYS AS ('standing') STORED;--> statement-breakpoint
 ALTER TABLE "templates" ADD COLUMN "shared" boolean DEFAULT false NOT NULL;--> statement-breakpoint
@@ -57,8 +56,7 @@ END,
 standing_youth_cast=coalesce(rd.ladder_division='youth',false) OR EXISTS (
   SELECT 1 FROM public.rooms r WHERE r.id=rd.room_id AND r.lobby_kind='standing'
     AND public.daisy_room_is_youth(r.id)
-),
-legacy_league_rating=rd.status='completed' AND rd.league_ladder_id IS NOT NULL
+)
 WHERE rd.room_id IS NOT NULL OR rd.ladder_division IS NOT NULL;
 --> statement-breakpoint
 UPDATE public.organizations SET operator_managed=true WHERE owner_user_id IS NULL;
@@ -72,37 +70,16 @@ WHERE organization_id='fo05z182lha0a3usciy9wr2r';
 INSERT INTO public.ladders (id,lobby_id,organization_id,name)
 VALUES ('b4bcwbtct1ufmo5ng71fn2i6','m30okvqrv5tzkyci5of5dfav','fo05z182lha0a3usciy9wr2r','Freestyle');
 --> statement-breakpoint
--- League seasons could be opened before their first standing lobby existed.
--- Give those histories a home using the existing organization identifier.
-INSERT INTO public.lobbies (id,kind,owner_organization_id,name,handle,age_rule)
-SELECT o.id,'standing',o.id,o.name,'season-' || o.id,
-       CASE WHEN o.league_division='youth' THEN 'under-18' ELSE 'adults' END::public.lobby_age_rule
-FROM public.organizations o
-WHERE o.kind='league'
-  AND EXISTS (SELECT 1 FROM public.seasons s WHERE s.organization_id=o.id)
-  AND NOT EXISTS (
-    SELECT 1 FROM public.lobbies l WHERE l.owner_organization_id=o.id AND l.kind='standing'
-  );
---> statement-breakpoint
--- An existing league season follows the standing lobby with the most
--- selected Rooms in that season. Rating selection was stored on the Room
--- and frozen on the Round. The reference pair retains its division history.
+-- The reference seasons already have a documented Open or Youth home. Elsewhere,
+-- assign a season only when its league already has exactly one standing lobby.
 UPDATE public.seasons s SET lobby_id=CASE
   WHEN s.organization_id='fo05z182lha0a3usciy9wr2r' THEN
     CASE s.division WHEN 'youth' THEN 'm30okvqrv5tzkyci5of5dfav'
       ELSE 'rhkgl9vjor1cmyr855wb62ku' END
   ELSE (
-    SELECT l.id FROM public.lobbies l
+    SELECT min(l.id) FROM public.lobbies l
     WHERE l.kind='standing' AND l.owner_organization_id=s.organization_id
-    ORDER BY (s.status='active' AND l.closed_at IS NULL) DESC,
-             (SELECT count(*) FROM public.rounds d
-               JOIN public.ladders ld ON ld.id=d.league_ladder_id
-               WHERE ld.lobby_id=l.id AND d.created_at>=s.starts_at
-                 AND (s.ends_at IS NULL OR d.created_at<s.ends_at)) DESC,
-             (CASE l.age_rule WHEN 'under-18' THEN 'youth' ELSE 'open' END=s.division) DESC,
-             EXISTS (SELECT 1 FROM public.ladders ld WHERE ld.lobby_id=l.id) DESC,
-             l.created_at,l.id
-    LIMIT 1
+    HAVING count(*)=1
   ) END;
 --> statement-breakpoint
 UPDATE public.seasons s SET ends_at=greatest(s.starts_at+interval '1 millisecond', coalesce(
@@ -112,153 +89,52 @@ UPDATE public.seasons s SET ends_at=greatest(s.starts_at+interval '1 millisecond
 ))
 WHERE s.status='closed' AND s.ends_at IS NULL;
 --> statement-breakpoint
--- A parented Round follows its actual Room. A legacy parentless ranked
--- Round still follows the reference ladder named by its division.
-UPDATE public.rounds r SET rating_lobby_id=coalesce(
-  (SELECT rm.lobby_id FROM public.rooms rm WHERE rm.id=r.room_id AND rm.lobby_kind='standing'),
-  (SELECT ld.lobby_id FROM public.ladders ld WHERE ld.id=r.league_ladder_id),
-  CASE r.ladder_division WHEN 'youth' THEN 'm30okvqrv5tzkyci5of5dfav'
-    ELSE 'rhkgl9vjor1cmyr855wb62ku' END
+-- Only the old ledger attests to an already posted Round. Preserve its exact
+-- recorded season and accept a ladder only if it already belongs to that lobby.
+WITH posted AS (
+  SELECT c.round_id, min(c.season_id) AS season_id, min(c.ladder) AS ladder
+  FROM public.rating_changes c GROUP BY c.round_id
+  HAVING count(DISTINCT c.season_id)=1 AND count(DISTINCT c.ladder)=1
 )
-WHERE r.ladder_id IS NOT NULL OR r.league_ladder_id IS NOT NULL;
+UPDATE public.rounds r SET ladder_id=d.id, season_id=s.id, rating_lobby_id=s.lobby_id
+FROM posted c JOIN public.seasons s ON s.id=c.season_id
+JOIN public.ladders d ON d.lobby_id=s.lobby_id AND d.id=CASE
+  WHEN s.lobby_id='m30okvqrv5tzkyci5of5dfav' AND c.ladder='freestyle'
+    THEN 'b4bcwbtct1ufmo5ng71fn2i6' ELSE c.ladder END
+WHERE r.id=c.round_id
+  AND (r.room_id IS NULL OR EXISTS (
+    SELECT 1 FROM public.rooms rm WHERE rm.id=r.room_id AND rm.lobby_id=s.lobby_id
+  ));
 --> statement-breakpoint
-INSERT INTO public.ladders (id,lobby_id,organization_id,name)
-SELECT 'l'||left(md5('legacy-ranked:'||l.id),23),l.id,l.owner_organization_id,'Freestyle'
-FROM public.lobbies l
-WHERE EXISTS (SELECT 1 FROM public.rounds r WHERE r.rating_lobby_id=l.id)
-  AND NOT EXISTS (SELECT 1 FROM public.ladders ld WHERE ld.lobby_id=l.id);
+UPDATE public.ratings r SET lobby_id=s.lobby_id, ladder=d.id
+FROM public.seasons s, public.ladders d
+WHERE r.season_id=s.id AND d.lobby_id=s.lobby_id AND d.id=CASE
+  WHEN s.lobby_id='m30okvqrv5tzkyci5of5dfav' AND r.ladder='freestyle'
+    THEN 'b4bcwbtct1ufmo5ng71fn2i6' ELSE r.ladder END;
 --> statement-breakpoint
-UPDATE public.rounds r SET ladder_id=coalesce(
-  r.league_ladder_id,
-  (SELECT ld.id FROM public.ladders ld WHERE ld.lobby_id=r.rating_lobby_id
-    ORDER BY ld.created_at,ld.id LIMIT 1)
-)
-WHERE r.rating_lobby_id IS NOT NULL;
+UPDATE public.rating_changes c SET lobby_id=r.rating_lobby_id,ladder=r.ladder_id
+FROM public.rounds r WHERE r.id=c.round_id AND r.season_id=c.season_id;
 --> statement-breakpoint
--- Keep the original season ID for existing signatures and sanctions. A
--- second lobby with actual Round history receives its own copy of the
--- period, and postings follow the Round rather than the canonical copy.
-CREATE TEMP TABLE ll2_season_destinations ON COMMIT DROP AS
-WITH witnessed AS (
-  SELECT DISTINCT r.rating_lobby_id AS lobby_id,
-    coalesce(
-      (SELECT c.season_id FROM public.rating_changes c WHERE c.round_id=r.id ORDER BY c.id LIMIT 1),
-      (SELECT s.id
-       FROM public.seasons s
-       JOIN public.lobbies l ON l.id=r.rating_lobby_id
-       JOIN public.organizations o ON o.id=l.owner_organization_id
-       WHERE s.organization_id=l.owner_organization_id
-         AND (r.ladder_division IS NULL OR s.division=r.ladder_division)
-       ORDER BY (s.starts_at<=r.created_at AND (s.ends_at IS NULL OR r.created_at<s.ends_at)) DESC,
-         (s.starts_at<=r.created_at) DESC,
-         CASE WHEN s.starts_at>r.created_at THEN s.starts_at END,
-         (s.division=o.league_division) DESC, s.starts_at DESC,(s.lobby_id=l.id) DESC,s.id LIMIT 1)
-    ) AS source_id,
-    r.id AS round_id
-  FROM public.rounds r WHERE r.rating_lobby_id IS NOT NULL
-)
-SELECT w.*,CASE WHEN s.lobby_id=w.lobby_id THEN s.id
-  ELSE 's'||left(md5(s.id||':'||w.lobby_id),23) END AS season_id
-FROM witnessed w LEFT JOIN public.seasons s ON s.id=w.source_id;
+-- Preserve the context of completed and abandoned ranked Rounds without a
+-- posting. They have no pool to settle, replay or assign to an invented season.
+UPDATE public.rounds SET ladder_id=NULL WHERE season_id IS NULL AND ladder_id IS NOT NULL;
 --> statement-breakpoint
-INSERT INTO public.seasons (id,lobby_id,organization_id,name,status,starts_at,ends_at,division,created_at,updated_at,version)
-SELECT DISTINCT d.season_id,l.id,l.owner_organization_id,s.name,
-  CASE WHEN s.status='active'
-    AND NOT EXISTS (SELECT 1 FROM public.seasons local WHERE local.lobby_id=l.id AND local.status='active')
-    AND NOT EXISTS (SELECT 1 FROM ll2_season_destinations other
-      JOIN public.seasons os ON os.id=other.source_id WHERE other.lobby_id=l.id AND os.status='active'
-         AND (os.starts_at,os.id)>(s.starts_at,s.id))
-  THEN 'active' ELSE 'closed' END,
-  s.starts_at,s.ends_at,s.division,s.created_at,s.updated_at,s.version
-FROM ll2_season_destinations d JOIN public.seasons s ON s.id=d.source_id
-JOIN public.lobbies l ON l.id=d.lobby_id
-WHERE d.season_id<>d.source_id;
---> statement-breakpoint
-INSERT INTO public.season_standing_rules
-  (season_id,organization_id,counting,counts_lobby_rooms,rule,created_at,updated_at,version)
-SELECT DISTINCT d.season_id,r.organization_id,r.counting,r.counts_lobby_rooms,
-  r.rule,r.created_at,r.updated_at,r.version
-FROM ll2_season_destinations d
-JOIN public.season_standing_rules r ON r.season_id=d.source_id
-JOIN public.seasons destination ON destination.id=d.season_id
-  AND destination.organization_id=r.organization_id
-WHERE d.season_id<>d.source_id;
---> statement-breakpoint
--- A legacy selected league Round could rate without a season. Preserve an
--- active period for that established ladder when it has no prior season.
--- Other unseasoned legacy games stay in a closed archive where needed.
-INSERT INTO public.seasons (id,lobby_id,organization_id,name,status,starts_at,ends_at,division)
-SELECT 's'||left(md5('legacy-unseasoned:'||l.id),23),l.id,l.owner_organization_id,
-       CASE WHEN bool_or(r.league_ladder_id IS NOT NULL) THEN 'Season 1' ELSE 'Archived rounds' END,
-       CASE WHEN bool_or(r.league_ladder_id IS NOT NULL) AND NOT EXISTS (
-         SELECT 1 FROM public.seasons local WHERE local.lobby_id=l.id) THEN 'active' ELSE 'closed' END,
-       min(r.created_at),
-       CASE WHEN bool_or(r.league_ladder_id IS NOT NULL) AND NOT EXISTS (
-         SELECT 1 FROM public.seasons local WHERE local.lobby_id=l.id) THEN NULL
-         ELSE greatest(max(coalesce(r.completed_at,r.created_at)),min(r.created_at)+interval '1 millisecond') END,
-       CASE WHEN l.age_rule='under-18' THEN 'youth' ELSE 'open' END
-FROM ll2_season_destinations d JOIN public.rounds r ON r.id=d.round_id
-JOIN public.lobbies l ON l.id=d.lobby_id
-WHERE d.season_id IS NULL
-GROUP BY l.id,l.owner_organization_id,l.age_rule;
---> statement-breakpoint
-UPDATE public.rounds r SET season_id=coalesce(
-  d.season_id,'s'||left(md5('legacy-unseasoned:'||d.lobby_id),23)
-)
-FROM ll2_season_destinations d WHERE d.round_id=r.id;
---> statement-breakpoint
--- The original projection follows its newest posting. Fill other pools
--- from their own last recorded transition. Legacy ledger-only identities
--- remain ledger-only, including historical non-debating participants.
-CREATE TEMP TABLE ll2_rating_tip ON COMMIT DROP AS
-SELECT DISTINCT ON (c.actor_id,c.ladder,c.season_id,r.ladder_id,r.season_id)
-  c.actor_id,c.ladder AS legacy_ladder,c.season_id AS legacy_season,
-  r.ladder_id,r.season_id,r.rating_lobby_id,
-  c.rating_after,c.deviation_after,c.volatility_after,c.occurred_at,c.id,
-  count(*) OVER (PARTITION BY c.actor_id,r.ladder_id,r.season_id)::integer AS version
-FROM public.rating_changes c JOIN public.rounds r ON r.id=c.round_id
-WHERE EXISTS (
-  SELECT 1 FROM public.ratings p
-  WHERE p.actor_id=c.actor_id AND p.ladder=c.ladder AND p.season_id=c.season_id
-)
-AND EXISTS (
-  SELECT 1 FROM public.round_participants p
-  WHERE p.round_id=c.round_id AND p.actor_id=c.actor_id
-    AND p.seat_kind IN ('side','speaker')
-)
-ORDER BY c.actor_id,c.ladder,c.season_id,r.ladder_id,r.season_id,c.occurred_at DESC,c.id DESC;
---> statement-breakpoint
-WITH tips AS (
-  SELECT DISTINCT ON (actor_id,legacy_ladder,legacy_season) *
-  FROM ll2_rating_tip ORDER BY actor_id,legacy_ladder,legacy_season,occurred_at DESC,id DESC
-)
-UPDATE public.ratings r
-SET lobby_id=coalesce(t.rating_lobby_id,s.lobby_id),
-    season_id=coalesce(t.season_id,s.id),
-    ladder=coalesce(t.ladder_id,CASE r.division WHEN 'youth' THEN 'b4bcwbtct1ufmo5ng71fn2i6' ELSE r.ladder END)
-FROM public.seasons s LEFT JOIN tips t ON t.legacy_season=s.id
-WHERE s.id=r.season_id AND ((t.actor_id=r.actor_id AND t.legacy_ladder=r.ladder) OR t.actor_id IS NULL);
---> statement-breakpoint
--- When some actors had postings and others had only a projection, the
--- latter keep their original season and receive its canonical ladder.
-UPDATE public.ratings r SET lobby_id=s.lobby_id,
-  ladder=CASE r.division WHEN 'youth' THEN 'b4bcwbtct1ufmo5ng71fn2i6' ELSE r.ladder END
-FROM public.seasons s WHERE r.lobby_id IS NULL AND s.id=r.season_id;
---> statement-breakpoint
-INSERT INTO public.ratings (actor_id,ladder,season_id,lobby_id,division,rating,deviation,volatility,updated_at,version)
-SELECT t.actor_id,t.ladder_id,t.season_id,t.rating_lobby_id,s.division,
-  t.rating_after,t.deviation_after,t.volatility_after,t.occurred_at,t.version
-FROM ll2_rating_tip t JOIN public.seasons s ON s.id=t.season_id
-ON CONFLICT (actor_id,ladder,season_id) DO NOTHING;
---> statement-breakpoint
-UPDATE public.rating_changes c SET lobby_id=r.rating_lobby_id,ladder=r.ladder_id,season_id=r.season_id
-FROM public.rounds r WHERE r.id=c.round_id;
---> statement-breakpoint
-UPDATE public.seasons s SET ends_at=greatest(
-  s.starts_at+interval '1 millisecond', s.updated_at,
-  (SELECT max(c.occurred_at) FROM public.rating_changes c WHERE c.season_id=s.id)
-)
-WHERE s.status='closed' AND s.ends_at IS NULL;
+DO $adoption$
+BEGIN
+  IF EXISTS (SELECT 1 FROM public.seasons WHERE lobby_id IS NULL)
+    OR EXISTS (SELECT 1 FROM public.seasons WHERE status='active' GROUP BY lobby_id HAVING count(*)>1)
+    OR EXISTS (SELECT 1 FROM public.seasons s JOIN public.lobbies l ON l.id=s.lobby_id
+      WHERE s.status='active' AND l.closed_at IS NOT NULL)
+    OR EXISTS (SELECT 1 FROM public.ratings WHERE lobby_id IS NULL)
+    OR EXISTS (SELECT 1 FROM public.rating_changes WHERE lobby_id IS NULL)
+    OR EXISTS (SELECT 1 FROM public.rounds
+      WHERE (competition_type='ranked' OR league_ladder_id IS NOT NULL)
+        AND season_id IS NULL AND status NOT IN ('completed','abandoned'))
+  THEN
+    RAISE EXCEPTION 'Rating pool adoption requires explicit standing-lobby assignments or settlement of live rated Rounds';
+  END IF;
+END;
+$adoption$;
 --> statement-breakpoint
 SET CONSTRAINTS ALL IMMEDIATE;
 --> statement-breakpoint
@@ -303,7 +179,7 @@ ALTER TABLE "seasons" ADD CONSTRAINT "seasons_lobby_owner_fk" FOREIGN KEY ("lobb
 ALTER TABLE "seasons" ADD CONSTRAINT "seasons_standing_lobby_fk" FOREIGN KEY ("lobby_id","lobby_kind") REFERENCES "lobbies"("id","kind") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "rounds" ADD CONSTRAINT "rounds_rating_pool_complete" CHECK (num_nonnulls("ladder_id", "season_id", "rating_lobby_id") in (0, 3));--> statement-breakpoint
 ALTER TABLE "organizations" DROP CONSTRAINT "organizations_has_owner", ADD CONSTRAINT "organizations_has_owner" CHECK ("owner_user_id" is not null or "operator_managed");--> statement-breakpoint
-ALTER TABLE "rounds" ADD CONSTRAINT "rounds_ranked_ladder_check" CHECK ("competition_type" <> 'ranked' or "ladder_id" is not null);
+ALTER TABLE "rounds" ADD CONSTRAINT "rounds_ranked_ladder_check" CHECK ("competition_type" <> 'ranked' or "ladder_id" is not null or "status" in ('completed','abandoned'));
 --> statement-breakpoint
 CREATE OR REPLACE FUNCTION public.daisy_round_linked_adult_actors(requested_round_id text)
 RETURNS TABLE(debater_actor_id text, debater_user_id text, linked_adult_actor_ids text[])
@@ -355,8 +231,8 @@ $round_reuse_age_unknown$;
 CREATE FUNCTION public.daisy_guard_round_rating_pool() RETURNS trigger
 LANGUAGE plpgsql AS $guard_rating_pool$
 BEGIN
-  IF (NEW.ladder_id,NEW.season_id,NEW.rating_lobby_id,NEW.standing_age_rule,NEW.standing_youth_cast,NEW.legacy_league_rating)
-     IS DISTINCT FROM (OLD.ladder_id,OLD.season_id,OLD.rating_lobby_id,OLD.standing_age_rule,OLD.standing_youth_cast,OLD.legacy_league_rating) THEN
+  IF (NEW.ladder_id,NEW.season_id,NEW.rating_lobby_id,NEW.standing_age_rule,NEW.standing_youth_cast)
+     IS DISTINCT FROM (OLD.ladder_id,OLD.season_id,OLD.rating_lobby_id,OLD.standing_age_rule,OLD.standing_youth_cast) THEN
     RAISE EXCEPTION 'The Round rating pool is frozen at Start'
       USING ERRCODE='23514', CONSTRAINT='rounds_rating_pool_immutable';
   END IF;
@@ -365,7 +241,7 @@ END;
 $guard_rating_pool$;
 --> statement-breakpoint
 CREATE TRIGGER rounds_rating_pool_immutable
-BEFORE UPDATE OF ladder_id,season_id,rating_lobby_id,standing_age_rule,standing_youth_cast,legacy_league_rating ON public.rounds
+BEFORE UPDATE OF ladder_id,season_id,rating_lobby_id,standing_age_rule,standing_youth_cast ON public.rounds
 FOR EACH ROW EXECUTE FUNCTION public.daisy_guard_round_rating_pool();
 --> statement-breakpoint
 -- Catalogue publication is managed independently of the organization that owns an item.

@@ -10,11 +10,14 @@ posting names that pool and an eligible competitor on the Round. The ledger
 retains posted states and timestamps, and each projection uses the same
 actor, ladder and season identity. Closing the season waits for in-flight
 postings. Rounds already frozen to that season can settle there afterward.
-Historical postings keep their original
-season where it belongs to their Room's lobby. Where several standing
-lobbies shared an old rating period, the other lobbies receive their own
-copy of that period and its standings rule. Each posting follows its Room.
-The original season retains its waiver signatures and sanction receipts.
+Existing postings keep their recorded season and move only to an existing
+canonical lobby and ladder. The Open and Youth reference seasons use
+their respective reference pools. A league season with no unambiguous
+standing lobby requires an explicit adoption decision. The schema upgrade
+creates no historical pool, period copy or rating posting. A Round without
+a posting keeps its result and audience classification. Old completed league
+Rooms do not acquire new ratings. An in-flight ranked Round without a
+canonical pool requires separate handling before adoption.
 Seasons opened through the league's managed standings rules start with the
 standard initial rating. The operator beta path retains its activation and
 posting guards while DEC-111 remains open.
@@ -33,15 +36,12 @@ rating snapshot to survive both correction and rollback. Replaying the
 receiving season's corrected certification alongside its own Rooms
 preserves the effect on later competitive inputs. New Room inputs keep
 ledger posting order, including games settled after subsequent Rounds.
-Released league Rooms from before the ledger appear in public history during
-recovery. Earlier eligible legacy games settle before later games in their
-pool can post. A transient failure leaves the rest of that pool for a later
-pass while independent pools continue. A season with no replay inputs reads
-the shared projections.
+A season with no rateable certified inputs reads the shared projections.
+Current completed Rounds still recover through the shared ledger writer.
 
 The official leaderboard, member cards and Room discovery use the same
 public rating history. The receiving ladder reads projections, postings and
-pre-ledger results from one snapshot. A Room shows each seat's rating from
+certifications from one snapshot. A Room shows each seat's rating from
 its selected ladder and uses its frozen season once the Round has started.
 Discovery has no host rating until that host has a published standing.
 When a private or delayed result affects the stored

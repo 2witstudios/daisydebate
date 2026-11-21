@@ -67,8 +67,7 @@ test('canonical source/storage migrations preserve a genuinely submitted and fin
     await sql`alter table lobbies add column age_rule lobby_age_rule not null default 'adults'`;
     await sql`alter table seasons add column lobby_id text`;
     await sql`alter table rounds add column season_id text, add column rating_lobby_id text,
-      add column standing_age_rule lobby_age_rule, add column standing_youth_cast boolean not null default false,
-      add column legacy_league_rating boolean not null default false`;
+      add column standing_age_rule lobby_age_rule, add column standing_youth_cast boolean not null default false`;
     await sql`alter table templates add column shared boolean not null default false`;
     await sql`alter table ballot_definitions add column shared boolean not null default false`;
     await sql`alter table rooms add column legacy_tournament_youth boolean`;
@@ -143,7 +142,7 @@ test('canonical source/storage migrations preserve a genuinely submitted and fin
     await sql`alter table rooms drop column holds_host`;
     await sql`alter table rounds drop column league_ladder_id`;
     await sql`alter table rounds drop column season_id, drop column rating_lobby_id,
-      drop column standing_age_rule, drop column standing_youth_cast, drop column legacy_league_rating`;
+      drop column standing_age_rule, drop column standing_youth_cast`;
     await sql`alter table seasons drop column lobby_id`;
     await sql`alter table templates drop column shared`;
     await sql`alter table ballot_definitions drop column shared`;

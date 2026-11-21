@@ -124,7 +124,7 @@ test('league ratings replay certified inputs and freeze the later tournament see
     await ratingStage(world);
     await leagueRatingCorrection(world);
     await publicRatingProgression(world);
-    await legacyRatingRecovery(world, seasonId);
+    await currentPostingRecovery(world, seasonId);
   } finally {
     await owner.close();
     await scratch.drop();
@@ -339,7 +339,7 @@ async function publicRatingProgression(world: World) {
   );
 }
 
-async function legacyRatingRecovery(world: World, priorSeasonId: string) {
+async function currentPostingRecovery(world: World, priorSeasonId: string) {
   const lobbyId = world.made.get('standing-lobby')!;
   const closed = await lobbyAdministrationCommand({
     store: createTabStore(world.database),
@@ -354,37 +354,34 @@ async function legacyRatingRecovery(world: World, priorSeasonId: string) {
   });
   if (closed.kind !== 'accepted') throw new Error(JSON.stringify(closed));
   await openLeagueRatingSeason(world);
-  const early = await leagueRoomRating(world, 1, 'public', {
-    forfeit: 'Debater 2',
-  });
+  const early = await leagueRoomRating(world, 1, 'public');
   const late = await leagueRoomRating(world, 1, 'public', {
-    forfeit: 'Debater 1',
+    forfeit: 'Debater 2',
   });
   const actorId = world.bots['Debater 1']!.actorId;
   await withRoomRuntime(
     async ({ store }) => {
-      const publicStanding = async () => {
-        const board = await readLadder(store, {
-          lobbyId,
-          seasonId: null,
-          now: new Date(Date.now() + 60_000).toISOString(),
-          username: null,
-          ladder: { style: 'freestyle', division: 'open' },
-        });
-        const row = board?.data.entries.find(({ id }) => id === actorId);
-        return row && { games: row.played, wins: row.wins, rating: row.rating };
-      };
-      const changes = () => world.sql<
-        { round_id: string; rating_before: number; rating_after: number }[]
-      >`select round_id,rating_before,rating_after
-      from rating_changes where actor_id=${actorId} and round_id in (${early},${late}) order by occurred_at`;
-      const before = await publicStanding();
-      assert({
-        given: 'two released pre-ledger Rooms before recovery',
-        should: 'publish both wins and losses without requiring ledger rows',
-        actual: [before?.games, before?.wins, [...(await changes())]],
-        expected: [2, 1, []],
-      });
+      const tab = createTabStore(world.database);
+      const clock = spectatorClockAt(
+        new Date(Date.now() + 60_000).toISOString(),
+      );
+      const publication = () =>
+        tab.leagueRatings(
+          { viewerUserId: world.bots.Director!.userId, lobbyId },
+          async (facts) => {
+            if (!facts) throw new Error('Missing receiving ladder');
+            const result = await facts.publicStandings(
+              clock,
+              replayPublishedStandings,
+            );
+            return {
+              rounds: result.changes
+                .filter((row) => row.actorId === actorId)
+                .map((row) => row.roundId),
+              standing: result.ratings.find((row) => row.actorId === actorId),
+            };
+          },
+        );
       let failFirstWrite = true;
       const failures: string[] = [];
       const sweep = createRatingSweep({
@@ -393,101 +390,45 @@ async function legacyRatingRecovery(world: World, priorSeasonId: string) {
           next: () => {
             if (failFirstWrite) {
               failFirstWrite = false;
-              throw new Error('injected first ledger write failure');
+              throw new Error('injected ledger write failure');
             }
             return createId();
           },
         },
         onFailure: (roundId) => failures.push(roundId),
       });
+      const before = await publication();
       await sweep({ limit: 100 });
       assert({
-        given: 'the first pre-ledger posting fails on a recovery pass',
-        should:
-          'leave the later game unposted and keep both public games available',
-        actual: [failures, [...(await changes())], await publicStanding()],
-        expected: [[early], [], before],
+        given:
+          'one posted Round and a second completed Round whose posting fails',
+        should: 'publish only the posted game and preserve its standing',
+        actual: [before.rounds, failures, await publication()],
+        expected: [[early], [late], before],
       });
-      const tab = createTabStore(world.database);
-      const [recovered, beforeCommit, afterCommit] = await tab.leagueRatings(
+      const during = await tab.leagueRatings(
         { viewerUserId: world.bots.Director!.userId, lobbyId },
         async (facts) => {
           if (!facts) throw new Error('Missing receiving ladder');
-          const clock = spectatorClockAt(new Date().toISOString());
-          const publication = async () => {
-            let legacy: number | undefined;
-            const result = await facts.publicStandings(clock, (source) => {
-              legacy = source.publicResults?.legacyRooms?.length;
-              return replayPublishedStandings(source);
-            });
-            return {
-              legacy,
-              roundIds: result.changes
-                .filter((row) => row.actorId === actorId)
-                .map((row) => row.roundId),
-              standing: result.ratings.find((row) => row.actorId === actorId),
-            };
-          };
-          const initial = await publication();
-          const recovered = await sweep({ limit: 1 });
-          return [recovered, initial, await publication()] as const;
+          await facts.publicStandings(clock, replayPublishedStandings);
+          await sweep({ limit: 100 });
+          return facts.publicStandings(clock, replayPublishedStandings);
         },
       );
+      const fresh = await publication();
       assert({
         given:
-          'the worker settles one Room on another connection during a receiving ladder read',
-        should: 'hold one publication snapshot throughout the request',
-        actual: [
-          beforeCommit.legacy,
-          beforeCommit.roundIds,
-          beforeCommit.standing?.rating,
-          afterCommit,
-        ],
-        expected: [2, [early, late], before?.rating, beforeCommit],
-      });
-      assert({
-        given:
-          'the earlier Room has posted and the second is still unmaterialized',
-        should: 'publish the same history once per Room',
-        actual: [
-          (await changes()).map(({ round_id }) => round_id),
-          await publicStanding(),
-        ],
-        expected: [[early], before],
-      });
-      await sweep({ limit: 100, afterId: recovered.afterId! });
-      const posted = await changes();
-      assert({
-        given: 'the next recovery pass after that first write failure',
+          'a recovery worker commits a new current posting during a publication request',
         should:
-          'settle both games in completion order and preserve the published rating',
+          'keep the original snapshot and show the new posting once on the next request',
         actual: [
-          posted.map(({ round_id }) => round_id),
-          posted[0]?.rating_after === posted[1]?.rating_before,
-          await publicStanding(),
+          during.changes
+            .filter((row) => row.actorId === actorId)
+            .map((row) => row.roundId),
+          during.ratings.find((row) => row.actorId === actorId),
+          [...fresh.rounds].sort(),
         ],
-        expected: [[early, late], true, before],
-      });
-      const league = readLeagueLadder({ store: tab, authorize });
-      const changesShown = await Promise.all(
-        ['Director', 'Coach', 'Judge A'].map(
-          async (name) =>
-            (await league(as(world.bots[name]!), { lobbyId }))?.lines.find(
-              (line) => line.actorId === actorId,
-            )?.change,
-        ),
-      );
-      const latest = posted[1]!;
-      assert({
-        given:
-          'a source-visible host, a league member and an outsider with the same two public games',
-        should: 'show the latest game movement on all three reads',
-        actual: changesShown,
-        expected: [
-          changesShown[0],
-          changesShown[0],
-          Math.round(latest.rating_after - latest.rating_before),
-        ],
+        expected: [[early], before.standing, [early, late].sort()],
       });
     },
     { databaseUrl: world.runtimeDatabaseUrl! },

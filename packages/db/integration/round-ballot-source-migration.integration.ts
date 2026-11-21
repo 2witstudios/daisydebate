@@ -33,7 +33,7 @@ test(
       await scratch.migrate(() => true);
       const [after] = await sql`select to_jsonb(r)-array[
           'ballot_definition_id','ballot_definition_version','season_id',
-          'rating_lobby_id','standing_age_rule','standing_youth_cast','legacy_league_rating'
+          'rating_lobby_id','standing_age_rule','standing_youth_cast'
         ] as row from rounds r where id=${roundId}`;
       const id = createId();
       await sql.unsafe('begin');

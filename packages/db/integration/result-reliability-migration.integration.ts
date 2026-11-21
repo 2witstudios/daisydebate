@@ -33,7 +33,6 @@ test(
         await f.sql`alter table rounds add column post_round_call boolean not null default false`;
         await f.sql`alter table rounds add column standing_age_rule text,
           add column standing_youth_cast boolean not null default false,
-          add column legacy_league_rating boolean not null default false,
           add column rating_lobby_id text, add column season_id text`;
         await f.sql`alter table rounds add column decision_release text not null default 'on_finalize'`;
         // ADR 0145's frozen seat draw, which the predecessor never wrote.
@@ -90,7 +89,7 @@ test(
           const freezes =
             await f.sql`select round_id,revision,frontier,completeness from round_transcript_freezes order by round_id`;
           await f.sql`alter table rounds drop column post_round_call, drop column standing_age_rule,
-            drop column standing_youth_cast, drop column legacy_league_rating,
+            drop column standing_youth_cast,
             drop column rating_lobby_id, drop column season_id`;
           await f.sql`alter table rounds drop column decision_release`;
           await f.sql`alter table rounds drop column seat_draw`;
