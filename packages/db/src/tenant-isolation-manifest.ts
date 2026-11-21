@@ -344,6 +344,18 @@ export const tenantIsolationManifest: TenantIsolationManifest = {
         'Returns the offered action for an eligible new DM from the scoped sender.',
     },
     {
+      name: 'daisy_prune_outbox_prefix',
+      executors: ['daisy_web'],
+      reason:
+        'Prunes a final expired prefix, including private guardian signals, and returns only batch status and a count.',
+    },
+    {
+      name: 'daisy_prune_read_notifications',
+      executors: ['daisy_web'],
+      reason:
+        'Expires read notifications past the retention deadline without returning private notice data.',
+    },
+    {
       name: 'daisy_own_friend_guardian_hold_live',
       executors: ['daisy_web'],
       reason:

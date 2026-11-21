@@ -1,3 +1,4 @@
+import { createAppError } from '@daisy/errors';
 import {
   buildUserInboxTopic,
   type CompetitionType,
@@ -376,13 +377,13 @@ export const notificationInboxOperations = ({
     readonly limit: number;
   }) {
     return instrumented(eventSink, 'purgeReadNotifications', async () => {
-      const gone = await rowsOf(
+      const [gone] = await rowsOf<{ count: number }>(
         database,
-        sql`delete from notifications where id in (select id from notifications
-            where read_at < ${input.before}::timestamptz limit ${input.limit})
-          returning id`,
+        sql`select public.daisy_prune_read_notifications(
+          ${input.before}::timestamptz, ${input.limit}) as count`,
       );
-      return gone.length;
+      if (!gone) throw createAppError('INFRASTRUCTURE');
+      return gone.count;
     });
   },
 });

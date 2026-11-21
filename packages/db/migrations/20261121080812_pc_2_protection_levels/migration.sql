@@ -375,6 +375,81 @@ CREATE POLICY notifications_guardian_recipient ON public.notifications AS RESTRI
   USING (kind <> 'friend_guardian_approval' OR user_id = public.daisy_subject_scope())
   WITH CHECK (kind <> 'friend_guardian_approval' OR user_id = public.daisy_subject_scope());
 --> statement-breakpoint
+-- Private inbox payloads are visible only to the delivery reader. The web
+-- role retains its existing access to other outbox events.
+ALTER TABLE public.outbox ENABLE ROW LEVEL SECURITY;
+--> statement-breakpoint
+CREATE POLICY outbox_standard_access ON public.outbox FOR ALL
+  USING (coalesce(payload->>'notificationType', '') <> 'friend_guardian_approval')
+  WITH CHECK (coalesce(payload->>'notificationType', '') <> 'friend_guardian_approval');
+--> statement-breakpoint
+CREATE POLICY outbox_realtime_delivery ON public.outbox FOR SELECT TO daisy_realtime
+  USING (true);
+--> statement-breakpoint
+-- Web maintenance may delete a final prefix without reading private rows.
+CREATE FUNCTION public.daisy_prune_outbox_prefix(cutoff timestamptz, batch_size integer)
+RETURNS TABLE(known boolean, count integer)
+LANGUAGE sql VOLATILE SECURITY DEFINER
+SET search_path = pg_catalog, public, pg_temp
+AS $$
+    with watermark as materialized (
+      select txid, seq from public.outbox_retention_boundary
+      where singleton = true and isfinite(cutoff)
+        and batch_size between 1 and 500 for update nowait
+    ), boundary as (
+      select txid, seq from public.outbox
+      where txid < pg_snapshot_xmin(pg_current_snapshot())
+        and (created_at >= cutoff OR (
+          payload->>'notificationType' = 'friend_guardian_approval'
+          AND created_at >= statement_timestamp() - interval '24 hours'))
+      order by txid, seq limit 1
+    ), prefix as (
+      select o.seq from public.outbox o cross join watermark
+      where o.txid < pg_snapshot_xmin(pg_current_snapshot())
+        and o.created_at < cutoff
+        and not exists (select 1 from boundary b where (o.txid, o.seq) >= (b.txid, b.seq))
+      order by o.txid, o.seq limit greatest(0, least(500, coalesce(batch_size, 0)))
+      for update of o nowait
+    ), deleted as (
+      delete from public.outbox where seq in (select seq from prefix) returning txid, seq
+    ), maximum as (
+      select txid, seq from deleted order by txid desc, seq desc limit 1
+    ), advanced as (
+      update public.outbox_retention_boundary b
+      set txid = m.txid, seq = m.seq from maximum m
+      where b.singleton = true and (b.txid, b.seq) < (m.txid, m.seq)
+      returning b.seq
+    ) select exists(select 1 from watermark) as known,
+      (select count(*)::int from deleted) as count
+$$;
+--> statement-breakpoint
+REVOKE ALL ON FUNCTION public.daisy_prune_outbox_prefix(timestamptz, integer) FROM PUBLIC;
+--> statement-breakpoint
+GRANT EXECUTE ON FUNCTION public.daisy_prune_outbox_prefix(timestamptz, integer) TO daisy_web;
+--> statement-breakpoint
+-- Read guardian notices remain private while the retention job expires them.
+CREATE FUNCTION public.daisy_prune_read_notifications(cutoff timestamptz, batch_size integer)
+RETURNS integer
+LANGUAGE sql VOLATILE SECURITY DEFINER
+SET search_path = pg_catalog, public, pg_temp
+AS $$
+  WITH expired AS (
+    SELECT id FROM public.notifications
+    WHERE isfinite(cutoff) AND batch_size BETWEEN 1 AND 500
+      AND read_at < cutoff AND (kind <> 'friend_guardian_approval'
+        OR read_at < statement_timestamp() - interval '90 days')
+    ORDER BY read_at, id LIMIT greatest(0, least(500, coalesce(batch_size, 0)))
+    FOR UPDATE SKIP LOCKED
+  ), removed AS (
+    DELETE FROM public.notifications notice
+    USING expired WHERE notice.id = expired.id RETURNING 1
+  ) SELECT count(*)::integer FROM removed
+$$;
+--> statement-breakpoint
+REVOKE ALL ON FUNCTION public.daisy_prune_read_notifications(timestamptz, integer) FROM PUBLIC;
+--> statement-breakpoint
+GRANT EXECUTE ON FUNCTION public.daisy_prune_read_notifications(timestamptz, integer) TO daisy_web;
+--> statement-breakpoint
 CREATE FUNCTION public.daisy_guardian_notice(hold_id text, happened_at timestamptz, notice_ids text[] DEFAULT NULL)
 RETURNS void
 LANGUAGE plpgsql VOLATILE

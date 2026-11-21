@@ -267,6 +267,29 @@ test('a decline block refuses a new DM request before the limiter, yet an existi
         pairs: 0,
       },
     });
+    // The application clock is still before this deadline. PostgreSQL has
+    // already crossed it, and the request and offer must agree.
+    await client.unsafe(
+      "update social_request_declines set blocked_until=statement_timestamp() - interval '1 second' where decliner_actor_id=$1 and requester_actor_id=$2",
+      [fixture.otherActorId, fixture.actorId],
+    );
+    const afterExpiry = await ask();
+    const [budget] = await client.unsafe(
+      "select count(*)::int as n from social_requests where actor_id=$1 and kind='dm'",
+      [fixture.actorId],
+    );
+    assert({
+      given:
+        'a decline block expired at the database instant but active at the earlier application instant',
+      should:
+        'allow the offered request to create one pending DM and spend once',
+      actual: { afterExpiry, spends, budget: budget.n },
+      expected: {
+        afterExpiry: { channelId: fixture.channelId, state: 'pending' },
+        spends: [fixture.actorId],
+        budget: 1,
+      },
+    });
   } finally {
     await fixture.cleanup();
     await db.close();

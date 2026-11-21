@@ -21,6 +21,7 @@ import { readInboxRows, type InboxRow } from './inbox';
 import { wants } from './preferences';
 import { emailsMember } from './presentation';
 import { notificationStands } from './standing';
+import { scopeTransaction } from '../tenant-scope';
 
 type Database = Pick<BunSQLDatabase, 'transaction' | 'execute'>;
 
@@ -157,11 +158,14 @@ export function notificationDigestOperations({
         if (!member.email || !member.verified || !member.actor_id)
           return { kind: 'cancel', errorCode: 'recipient-gone' };
         if (!member.emails) return { kind: 'cancel', errorCode: 'not-owed' };
-        const items = await readInboxRows(database, {
-          where: sql`n.digest_id=${id} and n.read_at is null
-            and ${notificationStands(sql`clock_timestamp()`)}
-            and ${wants(sql`n.kind`, 'email', sql`n.user_id`)}`,
-          limit: DIGEST_ITEMS,
+        const items = await database.transaction(async (tx) => {
+          await scopeTransaction(tx, { subjectUserId: member.user_id });
+          return readInboxRows(tx, {
+            where: sql`n.digest_id=${id} and n.user_id=${member.user_id} and n.read_at is null
+                and ${notificationStands(sql`clock_timestamp()`)}
+                and ${wants(sql`n.kind`, 'email', sql`n.user_id`)}`,
+            limit: DIGEST_ITEMS,
+          });
         });
         return items.length === 0
           ? { kind: 'cancel', errorCode: 'not-owed' }

@@ -58,24 +58,6 @@ const declineBlocks = (
     where decliner_actor_id=${counterpartActorId} and requester_actor_id=${actorId}
       and blocked_until > ${now}::timestamptz)`;
 
-/** Refuses a request the counterpart's declines block, exactly as a block is. */
-export async function refuseDeclineBlock(
-  tx: Tx,
-  actorId: string,
-  counterpartActorId: string,
-  now: string,
-) {
-  const instant = Date.parse(now);
-  if (!Number.isFinite(instant)) throw createAppError('VALIDATION');
-  const [row] = rowsOf<{ blocked: boolean }>(
-    await tx.execute(
-      sql`select ${declineBlocks(actorId, counterpartActorId, at(instant))} as "blocked"`,
-    ),
-  );
-  if (!row) throw createAppError('INFRASTRUCTURE');
-  if (row.blocked) throw createAppError('AUTHORIZATION');
-}
-
 /**
  * Whether no registered relation (an accepted friendship, an accepted DM)
  * holds for the pair: Contacts asks its consumers and names none of them.
@@ -94,8 +76,9 @@ const unrelated = (
 /**
  * Spends one DEC-251 social request from `actorId` to `counterpartActorId`,
  * under the requester's account lock and the pair lock the caller holds.
- * A request the recipient's declines block is refused exactly as a block
- * is (AUTHORIZATION), so neither is told apart from the other. Only an
+ * A friend request the recipient's declines block is refused as AUTHORIZATION.
+ * The DM fence has already checked declines at the scoped database instant.
+ * Only an
  * accepted friendship or DM relates a pair: a pending or declined request
  * leaves it unrelated, so re-asking spends the unrelated budget. Otherwise
  * the request is appended to `social_requests`, which is the only thing the
@@ -116,6 +99,10 @@ export async function spendSocialRequest(
   const now = requireLimits(command.limits, command.now);
   const { actorId, counterpartActorId, limits } = command;
   const [low, high] = ordered(actorId, counterpartActorId);
+  const declined =
+    command.kind === 'friend'
+      ? declineBlocks(actorId, counterpartActorId, at(now))
+      : sql`false`;
   const [facts] = rowsOf<{
     declined: boolean;
     unrelated: boolean;
@@ -123,7 +110,7 @@ export async function spendSocialRequest(
     hourly: number;
   }>(
     await tx.execute(sql`select
-      ${declineBlocks(actorId, counterpartActorId, at(now))} as "declined",
+      ${declined} as "declined",
       ${unrelated(relations, { lowActorId: low!, highActorId: high! })} as "unrelated",
       (select count(*)::int from social_requests
         where actor_id=${actorId}

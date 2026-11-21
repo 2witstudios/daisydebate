@@ -34,6 +34,12 @@ recipients inside the private write. Subject scope fences approval reads, and th
 writer grants no direct updates. Approval records go when a request
 ends, including by block or erasure.
 
+Guardian inbox signals are read by the realtime delivery role and routed to
+the guardian's authenticated inbox topic. The web runtime expires read
+notices after 90 days through a bounded operation that returns a count.
+Email digests recheck a queued friend request under the recipient's scope,
+so an active hold suppresses the ordinary request email while it waits.
+
 A message-request lock overrides the child's stored preference in the account
 fence. The preference applies again when the lock is lifted. Conversations
 already accepted keep the rules in ADR 0160. Ranked room creation, challenges,

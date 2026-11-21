@@ -63,7 +63,7 @@ export async function requestMessagingDm(
         const now = dependencies.clock.now();
         // An existing pending or accepted DM is no new request: it converges
         // without spending any limiter.
-        const converged = await frame.screenDmRequest(now);
+        const converged = await frame.screenDmRequest();
         if (converged) return converged;
         await dependencies.limit(actorId);
         return frame.commitDmRequest({
