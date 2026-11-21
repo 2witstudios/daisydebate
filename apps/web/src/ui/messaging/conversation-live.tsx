@@ -3,8 +3,8 @@ import { useBrowserEffect } from '../edge/browser-sync';
 import { StatusRegion } from '../components/status-region/status-region';
 import { useMemo, useState } from 'react';
 import { createBrowserTypingReader } from './typing-browser';
-import { tabConnection } from '../../features/realtime/browser-adapters';
-import { useRealtime } from '../../features/realtime/use-realtime';
+import { tabConnection } from '../edge/realtime-browser';
+import { useRealtime } from '../realtime/use-realtime';
 import { channelMessages } from '../../features/messaging/channel-messages';
 import {
   readThroughSequence,

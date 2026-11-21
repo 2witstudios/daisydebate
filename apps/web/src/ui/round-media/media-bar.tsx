@@ -1,9 +1,12 @@
 'use client';
-import { StatusRegion } from '../../ui/components/status-region/status-region';
-import { Button } from '../../ui/components/button/button';
-import type { MediaRuntime } from './media-runtime';
-import type { MediaState } from './model/media-state';
-import { controlsOf, statusOf } from './model/media-status';
+import { StatusRegion } from '../components/status-region/status-region';
+import { Button } from '../components/button/button';
+import type { MediaRuntime } from '../../features/round-media/media-runtime';
+import type { MediaState } from '../../features/round-media/model/media-state';
+import {
+  controlsOf,
+  statusOf,
+} from '../../features/round-media/model/media-status';
 
 const button =
   'min-h-room-target rounded-md border border-border px-3 text-sm focus-visible:outline-2 focus-visible:outline-offset-2';

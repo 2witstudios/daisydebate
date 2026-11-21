@@ -1,12 +1,15 @@
 'use client';
-import { useBrowserEffect } from '../../ui/edge/browser-sync';
-import { browserFetch } from '../../ui/edge/browser-request';
-import { startTick, stopTick } from '../../ui/edge/browser-time';
+import { useBrowserEffect } from '../edge/browser-sync';
+import { browserFetch } from '../edge/browser-request';
+import { startTick, stopTick } from '../edge/browser-time';
 import { useRef, useState } from 'react';
 import { systemId } from '@daisy/clock';
 import { isDebatingSeat, type RoundView } from '@daisy/protocol';
-import { createAttendanceHttpClient } from './http-client';
-import { ATTENDANCE_HEARTBEAT_MS, createAttendanceClient } from './client';
+import { createAttendanceHttpClient } from '../../features/attendance/http-client';
+import {
+  ATTENDANCE_HEARTBEAT_MS,
+  createAttendanceClient,
+} from '../../features/attendance/client';
 
 /**
  * HTTP receipt production is independent of realtime, visibility and

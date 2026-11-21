@@ -9,8 +9,8 @@ import {
   attemptedResume,
   markResumeAttempt,
 } from '../../features/rooms/resume-attempt';
-import { TabElsewhere } from '../../features/rooms/tab-elsewhere';
-import { useResumeLifetime } from '../../features/rooms/use-resume-lifetime';
+import { TabElsewhere } from './tab-elsewhere';
+import { useResumeLifetime } from './use-resume-lifetime';
 
 /** Round id inside the signed href, when the Round actually launched. */
 const roundIdOf = (href: string): string | null => {

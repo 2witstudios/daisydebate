@@ -1,17 +1,20 @@
-import { cancelDelay, delay } from '../../ui/edge/browser-time';
-import { browserFetch } from '../../ui/edge/browser-request';
+import { cancelDelay, delay } from './browser-time';
+import { browserFetch } from './browser-request';
 import type {
   ConnectionStoreDeps,
   Scheduler,
   WebSocketLike,
-} from './connection-store';
+} from '../../features/realtime/connection-store';
 import {
   createConnectionStore,
   type ConnectionStore,
-} from './connection-store';
-import { fetchRealtimeTicket } from './ticket-client';
-import { createTabPresence, type TabPresence } from './tab-presence';
-import { sharedConnections } from './shared-connection';
+} from '../../features/realtime/connection-store';
+import { fetchRealtimeTicket } from '../../features/realtime/ticket-client';
+import {
+  createTabPresence,
+  type TabPresence,
+} from '../../features/realtime/tab-presence';
+import { sharedConnections } from '../../features/realtime/shared-connection';
 
 /**
  * The real browser clock and timer queue (production `Scheduler`). Elapsed

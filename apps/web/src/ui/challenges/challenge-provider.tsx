@@ -25,7 +25,7 @@ import {
   endedOffersOf,
   type EndedOffer,
 } from '../../features/challenges/challenges-held';
-import { browserSyncEdges } from '../../features/resource-sync/browser';
+import { browserSyncEdges } from '../resource-sync/browser';
 import type { ResourceRead } from '../../features/resource-sync/driver';
 import { useDriver } from '../edge/use-driver';
 

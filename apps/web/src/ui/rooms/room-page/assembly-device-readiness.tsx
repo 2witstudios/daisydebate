@@ -16,7 +16,7 @@ import {
 import { systemId } from '@daisy/clock';
 import { isJudgeSeat, type RoomView } from '@daisy/protocol';
 import { createLocalConsent } from '../../../features/rooms/local-consent';
-import { createBrowserDeviceChecks } from '../../../features/video/browser-device-checks';
+import { createBrowserDeviceChecks } from '../../round-media/browser-device-checks';
 import { rememberCheckedDevices } from '../../../features/video/device-selection';
 import type { DeviceKind } from '../../../features/video/device-check-controller';
 import type { RoomRead } from '../../../features/rooms/read-assembly';

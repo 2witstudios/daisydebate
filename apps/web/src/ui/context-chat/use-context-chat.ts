@@ -12,7 +12,7 @@ import {
   useSyncExternalStore,
 } from 'react';
 import { channelMessages } from '../../features/messaging/channel-messages';
-import { useRealtime } from '../../features/realtime/use-realtime';
+import { useRealtime } from '../realtime/use-realtime';
 import { contextChatUnread } from '../../features/messaging/context-chat/history';
 import {
   contextChatIdle,

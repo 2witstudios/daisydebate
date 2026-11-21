@@ -1,11 +1,11 @@
 'use client';
 
 import { systemId } from '@daisy/clock';
-import { systemScheduler, tabConnection } from './browser-adapters';
+import { systemScheduler, tabConnection } from '../edge/realtime-browser';
 import {
   createObservationProvider,
   type ObservationProvider,
-} from './observation-provider';
+} from '../../features/realtime/observation-provider';
 
 const providers = new Map<string, ObservationProvider>();
 /**

@@ -10,7 +10,7 @@ import {
   judgeBallotDue,
   judgeRoomStageOf,
 } from '../../features/judge/judge-room-stage';
-import { roundMediaSlot } from '../../features/round-media/media-session';
+import { roundMediaSlot } from '../round-media/media-session';
 import {
   clearAccountResumeRecords,
   leaveRound,

@@ -1,7 +1,7 @@
 'use client';
 
-import { StatusRegion } from '../../ui/components/status-region/status-region';
-import { Button } from '../../ui/components/button/button';
+import { StatusRegion } from '../components/status-region/status-region';
+import { Button } from '../components/button/button';
 /** The Round is live in another tab of this browser; only an explicit press moves it. */
 export function TabElsewhere({ takeOver }: { readonly takeOver: () => void }) {
   return (

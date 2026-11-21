@@ -31,7 +31,7 @@ import {
   secureRandom,
   systemScheduler,
   tabConnection,
-} from '../../features/realtime/browser-adapters';
+} from '../edge/realtime-browser';
 import {
   nextReadDelayMs,
   PEOPLE_READ_CEILING_MS,

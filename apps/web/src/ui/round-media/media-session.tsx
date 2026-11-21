@@ -1,46 +1,52 @@
 'use client';
-import { useBrowserEffect } from '../../ui/edge/browser-sync';
-import { browserFetch } from '../../ui/edge/browser-request';
-import { scheduleDelay } from '../../ui/edge/browser-time';
-import { StatusRegion } from '../../ui/components/status-region/status-region';
+import { useBrowserEffect } from '../edge/browser-sync';
+import { browserFetch } from '../edge/browser-request';
+import { scheduleDelay } from '../edge/browser-time';
+import { StatusRegion } from '../components/status-region/status-region';
 import '../../lib/zod-jitless';
 import { useRef, useState, useSyncExternalStore } from 'react';
 import { isRoundOver, type RoundView } from '@daisy/protocol';
-import { postRoundCallChosen } from '../post-round-call/offered';
+import { postRoundCallChosen } from '../../features/post-round-call/offered';
 import { hasOpenQuestioning } from '@daisy/debate-engine';
-import { selectMediaAccount } from './account-signout-cleanup';
-import { subscribeBrowserPageEvents } from './adapters/browser-page-events';
-import { createLiveKitRoom, RESUME_BUDGET_MS } from './adapters/livekit-room';
-import { createRoundViewFollower } from './follow-round-view';
+import { selectMediaAccount } from '../../features/round-media/account-signout-cleanup';
+import { subscribeBrowserPageEvents } from '../../features/round-media/adapters/browser-page-events';
+import {
+  createLiveKitRoom,
+  RESUME_BUDGET_MS,
+} from '../../features/round-media/adapters/livekit-room';
+import { createRoundViewFollower } from '../../features/round-media/follow-round-view';
 import { MediaBar } from './media-bar';
 import {
   clearMutePreference,
   readMutePreference,
   writeMutePreference,
-} from './media-preferences';
-import { createMediaRuntime } from './media-runtime';
+} from '../../features/round-media/media-preferences';
+import { createMediaRuntime } from '../../features/round-media/media-runtime';
 import { MediaStage } from './media-stage';
-import { initialMediaState, type MediaPolicy } from './model/media-state';
+import {
+  initialMediaState,
+  type MediaPolicy,
+} from '../../features/round-media/model/media-state';
 import {
   publicationOf,
   type LocalPublication,
-} from './model/media-publication';
-import { stageOf, tabOf } from './model/media-status';
+} from '../../features/round-media/model/media-publication';
+import { stageOf, tabOf } from '../../features/round-media/model/media-status';
 import {
   createMediaRequest,
   MEDIA_READ_BUDGET_MS,
   MEDIA_RETRY_DELAYS_MS,
-} from './request-media';
+} from '../../features/round-media/request-media';
 
-import { roundTimeMediaClock } from './schedule-deadline';
-import { systemScheduler } from '../realtime/browser-adapters';
-import type { RoundTime } from '../round-runtime/round-time';
-import { TabElsewhere } from '../rooms/tab-elsewhere';
+import { roundTimeMediaClock } from '../../features/round-media/schedule-deadline';
+import { systemScheduler } from '../edge/realtime-browser';
+import type { RoundTime } from '../../features/round-runtime/round-time';
+import { TabElsewhere } from '../active-room/tab-elsewhere';
 import {
   clearCheckedDevices,
   forgetCheckedDevices,
   readCheckedDevices,
-} from '../video/device-selection';
+} from '../../features/video/device-selection';
 
 const MEDIA_POLICY: MediaPolicy = {
   requestRetryDelaysMs: MEDIA_RETRY_DELAYS_MS,

@@ -19,7 +19,7 @@ import {
 } from '../../features/messaging/inbox-view';
 import { createInboxReads } from '../../features/messaging/inbox-reads';
 import { attachMessagingInboxDoorbells } from '../../features/messaging/doorbells';
-import { tabConnection } from '../../features/realtime/browser-adapters';
+import { tabConnection } from '../edge/realtime-browser';
 import { terminalReason } from '../../features/realtime/connection-status';
 
 type InboxState = MessagingInboxPageAnswer & {

@@ -9,11 +9,8 @@ import {
   createRoundTime,
 } from '../../features/round-runtime/round-time';
 import { runRoundClock } from '../../features/round-runtime/run-round-clock';
-import { browserSyncEdges } from '../../features/resource-sync/browser';
-import {
-  secureRandom,
-  systemScheduler,
-} from '../../features/realtime/browser-adapters';
+import { browserSyncEdges } from '../resource-sync/browser';
+import { secureRandom, systemScheduler } from '../edge/realtime-browser';
 
 const noWake = () => {};
 

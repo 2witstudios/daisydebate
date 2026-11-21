@@ -2,9 +2,9 @@ import { createElement } from 'react';
 import { renderToString } from 'react-dom/server';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { MediaStage } from './media-stage';
-import type { ObservedPeer as RemotePeer } from './model/media-state';
-import type { MediaConnectionLabel as MediaConnectionState } from './model/media-status';
-import { aff, view } from '../../ui/debate-room/live-round.test-support';
+import type { ObservedPeer as RemotePeer } from '../../features/round-media/model/media-state';
+import type { MediaConnectionLabel as MediaConnectionState } from '../../features/round-media/model/media-status';
+import { aff, view } from '../debate-room/live-round.test-support';
 
 setupRitewayBun();
 

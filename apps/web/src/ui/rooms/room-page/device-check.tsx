@@ -3,7 +3,7 @@
 import { useBrowserEffect } from '../../edge/browser-sync';
 import { StatusRegion } from '../../components/status-region/status-region';
 import { useRef } from 'react';
-import type { createBrowserDeviceChecks } from '../../../features/video/browser-device-checks';
+import type { createBrowserDeviceChecks } from '../../round-media/browser-device-checks';
 import type { DeviceKind } from '../../../features/video/device-check-controller';
 import { Icon } from '../../components/icon/icon';
 import { MicLevel } from './mic-level';

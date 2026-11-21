@@ -8,7 +8,7 @@ import { onlineCountsSchema } from '@daisy/protocol';
 import {
   browserTabPresence,
   createBrowserConnectionStore,
-} from '../../features/realtime/browser-adapters';
+} from '../edge/realtime-browser';
 import { realtimeEndpointOf } from '../../features/realtime/endpoint-header';
 import { keepPresenceConnection } from '../../features/realtime/tab-presence';
 

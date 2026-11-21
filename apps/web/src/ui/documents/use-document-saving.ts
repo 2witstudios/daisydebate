@@ -5,7 +5,7 @@ import { cancelDelay, delay } from '../edge/browser-time';
 import { nowMs, systemClock, systemId } from '@daisy/clock';
 import { useMemo, useReducer, useRef } from 'react';
 import type { SaveState } from './document-pane';
-import { tabConnection } from '../../features/realtime/browser-adapters';
+import { tabConnection } from '../edge/realtime-browser';
 import { terminalReason } from '../../features/realtime/connection-status';
 import { createDocumentsApi } from './documents-api';
 import {

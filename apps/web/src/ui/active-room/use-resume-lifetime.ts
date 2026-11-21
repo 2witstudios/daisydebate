@@ -1,17 +1,17 @@
 'use client';
 
-import { useBrowserEffect } from '../../ui/edge/browser-sync';
-import { scheduleTick } from '../../ui/edge/browser-time';
+import { useBrowserEffect } from '../edge/browser-sync';
+import { scheduleTick } from '../edge/browser-time';
 import { nowMs, systemClock } from '@daisy/clock';
 import { useCallback, useRef, useState } from 'react';
-import { documentTabId } from './document-tab';
-import { markDeparture } from './resume-departure';
-import { createResumeLifetime } from './resume-lifetime';
+import { documentTabId } from '../../features/rooms/document-tab';
+import { markDeparture } from '../../features/rooms/resume-departure';
+import { createResumeLifetime } from '../../features/rooms/resume-lifetime';
 import {
   resumeHeirKey,
   resumeOwnershipHeartbeatMs,
   subscribeOwnership,
-} from './resume-ownership';
+} from '../../features/rooms/resume-ownership';
 
 /** Blocked storage means no coordination, which must never mean no media. */
 const advisoryStorage = () => {

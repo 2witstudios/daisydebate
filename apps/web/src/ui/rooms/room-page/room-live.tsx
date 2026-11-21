@@ -19,8 +19,8 @@ import type {
   RoomCatalogChoice,
   RoomView,
 } from '@daisy/protocol';
-import { systemScheduler } from '../../../features/realtime/browser-adapters';
-import { browserSyncEdges } from '../../../features/resource-sync/browser';
+import { systemScheduler } from '../../edge/realtime-browser';
+import { browserSyncEdges } from '../../resource-sync/browser';
 import {
   roomNoticeText,
   type RoomFormState,

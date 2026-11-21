@@ -31,7 +31,7 @@ import {
   createNotificationShellSyncDriver,
   seedNotificationShellSync,
 } from '../../features/notifications/shell-sync-driver';
-import { browserSyncEdges } from '../../features/resource-sync/browser';
+import { browserSyncEdges } from '../resource-sync/browser';
 import type { ResourceRead } from '../../features/resource-sync/driver';
 import { useDriver } from '../edge/use-driver';
 import { NotificationToast } from './notification-toast';

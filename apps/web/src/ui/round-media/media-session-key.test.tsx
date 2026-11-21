@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { view } from '../../ui/debate-room/live-round.test-support';
+import { view } from '../debate-room/live-round.test-support';
 import { roundMediaSlot } from './media-session';
 
 setupRitewayBun();

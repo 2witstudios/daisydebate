@@ -1,15 +1,10 @@
-import {
-  cancelDelay,
-  delay,
-  startTick,
-  stopTick,
-} from '../../ui/edge/browser-time';
+import { cancelDelay, delay, startTick, stopTick } from '../edge/browser-time';
 import {
   createDeviceCheckController,
   type DeviceCapture,
   type DeviceKind,
   type DeviceLoss,
-} from './device-check-controller';
+} from '../../features/video/device-check-controller';
 
 const CHECK_TIMEOUT_MS = 10_000;
 const MIC_LEVEL = 0.01;

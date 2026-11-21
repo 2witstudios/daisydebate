@@ -1,4 +1,4 @@
-import { MediaAccount } from '../../features/round-media/media-account';
+import { MediaAccount } from '../../ui/round-media/media-account';
 import { cookies } from 'next/headers';
 import { AppShell } from '../../ui/layout/app-shell/app-shell';
 import {

@@ -1,12 +1,12 @@
 'use client';
 
-import { useBrowserEffect } from '../../ui/edge/browser-sync';
+import { useBrowserEffect } from '../edge/browser-sync';
 import { useCallback, useRef, useSyncExternalStore } from 'react';
 import { tabObservations } from './observation-browser';
 import type {
   ObservationDescriptor,
   ObservationView,
-} from './observation-provider';
+} from '../../features/realtime/observation-provider';
 
 type Held<Body> = {
   readonly view: () => ObservationView<Body>;

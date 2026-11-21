@@ -5,7 +5,7 @@ import { StatusRegion } from '../components/status-region/status-region';
 import { Button } from '../components/button/button';
 import { useCallback, useState, type ReactNode } from 'react';
 import type { LiveTranscriptRead } from '@daisy/protocol';
-import { browserSyncEdges } from '../../features/resource-sync/browser';
+import { browserSyncEdges } from '../resource-sync/browser';
 import { readTranscript } from '../../features/round-runtime/read-transcript';
 import { createTranscriptHolder } from '../../features/round-runtime/transcript-sync';
 import { useDriver } from '../edge/use-driver';
