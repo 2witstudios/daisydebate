@@ -193,6 +193,7 @@ export function createRoomRuntimeOperations({
     state: RoomAssemblyState,
     caller: Caller,
     ageBand: AgeBand | null,
+    competitionAgeBand: AgeBand | null,
   ): Promise<Pick<RoomView, 'contentWaiver' | 'contentWaiverVersion'>> => {
     const none = { contentWaiver: null, contentWaiverVersion: null };
     if (
@@ -205,7 +206,7 @@ export function createRoomRuntimeOperations({
       return none;
     const guardianSigns = needsGuardianContentWaiver(
       state,
-      ageBand,
+      competitionAgeBand,
       caller.actorId,
     );
     const version = requiredContentWaiver(state, ageBand, guardianSigns);
@@ -270,7 +271,12 @@ export function createRoomRuntimeOperations({
           ),
         ),
       ),
-      ...(await viewerContentWaiver(state, caller, facts.viewerAgeBand)),
+      ...(await viewerContentWaiver(
+        state,
+        caller,
+        facts.viewerAgeBand,
+        facts.viewerCompetitionAgeBand,
+      )),
       captureOffer: await roomCaptureOffer(state, caller.actorId, async () =>
         hostHoldsCasualCapture(
           await store.readOwnEntitlementGrants(caller),

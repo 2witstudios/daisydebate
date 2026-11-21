@@ -188,6 +188,7 @@ export function makeOperations(
       return {
         state,
         viewerAgeBand: account.ageBand,
+        viewerCompetitionAgeBand: account.ageBand,
         ratingPool: { lobbyId: state.lobbyId, ladderId: 'freestyle' },
       };
     },

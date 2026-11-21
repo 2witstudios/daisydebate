@@ -11,6 +11,7 @@ import {
 import { lobbies } from '../schema/lobbies';
 import { organizations } from '../schema/organizations';
 import { lockActiveLobbySeason } from '../ladder-season';
+import { readCompetitionAgeBand } from '../ladder-division-band';
 import { scopeTransaction } from '../tenant-scope';
 import { inTransaction, type Tx, type TxOpener } from '../tx';
 import { isMinorAgeBand } from './lobby-permissions';
@@ -66,7 +67,7 @@ async function lobbyPermissionParticipant(
     !child?.member ||
     child.erased ||
     child.restricted ||
-    !isMinorAgeBand(child.ageBand) ||
+    (command.type === 'request' && !isMinorAgeBand(child.ageBand)) ||
     !parent?.member ||
     parent.erased ||
     parent.restricted ||
@@ -180,6 +181,12 @@ export function createLobbyPermissionStore(database: TxOpener) {
           .where(request);
         if (!existing) return false;
         const seasonId = await lockActiveLobbySeason(tx, lobby.id);
+        if (
+          !isMinorAgeBand(
+            await readCompetitionAgeBand(tx, link.minorUserId, lobby.id),
+          )
+        )
+          return false;
         if (!existing.signedAt)
           await tx
             .update(restrictionLobbies)

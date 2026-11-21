@@ -22,13 +22,13 @@ test('Room create command writes its receipt and exactly one change event', asyn
     [],
     [],
     [],
-    // The creator's competition age, club staff under subject scope, then the official lobbies.
-    [],
-    [],
-    [],
-    [],
-    [],
     [[publicLobbyId, 'Open', 'open', 'adults', daisyOrganizationId]],
+    [], // No age record to pick the default lobby.
+    [], // No age record for the selected lobby either.
+    [], // Read the prior subject scope.
+    [],
+    [],
+    [],
     [{ now: new Date('2026-10-09T00:00:00.000Z') }],
     [], // public lobby has no league ladder selection
     [],

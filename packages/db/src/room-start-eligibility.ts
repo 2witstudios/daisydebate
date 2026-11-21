@@ -11,9 +11,28 @@ import {
   isMinorAgeBand,
   readGuardianLobbyIds,
 } from './guardians/lobby-permissions';
-import { divisionAgeBand } from './ladder-division-band';
+import {
+  divisionAgeBand,
+  readCompetitionAgeBand,
+} from './ladder-division-band';
 import { query } from './raw-rows';
 import type { Tx } from './tx';
+
+/** Guardian evidence follows the debater's eligibility age in an adult lobby. */
+export function readGuardianWaiverAgeBand(
+  tx: Pick<Tx, 'select'>,
+  room: RoomAssemblyState,
+  userId: string,
+  actorId: string,
+) {
+  return room.competitionType === 'ranked' &&
+    room.ageRule === 'adults' &&
+    room.participants.some(
+      (seat) => seat.actorId === actorId && isDebatingSeat(seat.seat),
+    )
+    ? readCompetitionAgeBand(tx, userId, room.lobbyId)
+    : null;
+}
 
 /** Recheck the caller at Ready, or the standing Room's whole cast at Start. */
 export async function refuseIneligibleDebaters(

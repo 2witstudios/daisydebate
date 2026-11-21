@@ -53,6 +53,9 @@ used guardian restrictions to fence tournament visibility.
   is retained in `restriction_lobby_waivers`. Tournament entry inherits the
   standing lobby’s permission when TF-2 lands. Media reuse requires its own
   release for each youth debater, including in an adult lobby.
+  The lobby-season age determines whether an adult-lobby debater needs a
+  guardian signature. A participant who signs personally uses their current
+  age to select the wording under ADR 0161.
 
 This supersedes the guardian commands and closed family read surface in
 [ADR 0130](0130-organizations-grants-and-action-history.md) and the guardian restrictions in

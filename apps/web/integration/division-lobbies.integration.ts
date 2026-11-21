@@ -709,6 +709,91 @@ test('a ranked adult-lobby seat and Start require the guardian waiver for the ac
   }
 });
 
+test('a carried minor in Open cannot substitute a personal signature for a guardian waiver', async () => {
+  const scratch = scratchDatabase(databaseUrl, 'guardianwaivercarry');
+  await scratch.create();
+  try {
+    await scratch.migrate(() => true);
+    await withRoomRuntime(
+      async (f) =>
+        withSeasons(
+          f,
+          async () => {
+            await setAge(f, f.host, 'adult');
+            await setAge(f, f.guest, 'seventeen', '1 year');
+            await setAge(f, f.outsider, 'adult');
+            await seedGuardianLink(f.sql, f.outsider.userId, f.guest.userId);
+            const [link] =
+              await f.sql`select id from guardian_links where minor_user_id=${f.guest.userId}`;
+            const open = (await f.store.readOfficialStandingLobbies()).find(
+              (lobby) => lobby.ageRule === 'adults',
+            )!;
+            const permission = { linkId: String(link!.id), lobbyId: open.id };
+            await f.store.lobbyPermissions.apply(f.guest, {
+              ...permission,
+              type: 'request',
+            });
+            const sign = (version: string) =>
+              f.store.lobbyPermissions.apply(f.outsider, {
+                ...permission,
+                type: 'sign',
+                version,
+                digest: 'a'.repeat(64),
+              });
+            await sign('previous-version');
+            await setAge(f, f.guest, 'eighteen', '1 year');
+            let room = await f.assemble(await ranked(f), undefined, false);
+            room = (
+              await f.command(f.host, room, {
+                type: 'assign-seat',
+                actorId: (await f.aiJudge()).actorId,
+                seat: judgeSeat(),
+              })
+            ).view;
+            for (const member of [f.host, f.guest])
+              await f.store.signContentWaiver({
+                id: createId(),
+                roomId: room.id,
+                userId: member.userId,
+                version: CONTENT_WAIVER_VERSION,
+                words: agreementWords(contentWaiverDocument),
+              });
+            const seated = await f.operations.view(f.guest, room.id);
+            const refused = await refusalOf(
+              f.consent(f.guest, seated, 'ready'),
+            );
+            assert({
+              given:
+                'a newly 18-year-old eligible in Open through an existing guardian grant and holding a personal signature',
+              should:
+                'still require the guardian’s current waiver while the Open season carries their eligibility age',
+              actual: [seated.contentWaiver, refused],
+              expected: ['guardian-required', 'content-waiver-required'],
+            });
+            const renewed = await sign(CONTENT_WAIVER_VERSION);
+            const ready = await everyoneReady(f, room, [f.host, f.guest]);
+            assert({
+              given: 'a continuing active guardian link and the current waiver',
+              should:
+                'let that guardian renew the waiver and the cast start the Round',
+              actual: [
+                renewed,
+                await refusalOf(
+                  f.command(f.host, ready, { type: 'start-round' }),
+                ),
+              ],
+              expected: [true, 'accepted'],
+            });
+          },
+          { openStartedAgo: '2 months' },
+        ),
+      { databaseUrl: scratch.url },
+    );
+  } finally {
+    await scratch.drop();
+  }
+});
+
 test('a ranked Start rechecks both a seatless host and a ready debater after a protection change', async () => {
   const scratch = scratchDatabase(databaseUrl, 'rankedprotection');
   await scratch.create();

@@ -95,16 +95,16 @@ export function roomCommandOperation({
           : null,
       roundId,
       seatsBotDebater: castSeatsBotDebater,
-      readyAgreements: (state, signer, signerActorId) => {
+      readyAgreements: (state, signer) => {
         const notice = roomCaptureNotice(state);
         const guardianSigns = needsGuardianContentWaiver(
           state,
-          signer,
-          signerActorId,
+          signer.competitionAgeBand,
+          signer.actorId,
         );
         const contentWaiverVersion = requiredContentWaiver(
           state,
-          signer,
+          signer.currentAgeBand,
           guardianSigns,
         );
         return notice || contentWaiverVersion

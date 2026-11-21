@@ -47,7 +47,7 @@ const blockerText: Readonly<Record<ReadyBlocker, string>> = {
   ineligible: 'This seat is not eligible to ready.',
   waiver: 'Sign the ranked content waiver before readying.',
   'guardian-waiver':
-    'Ask your guardian to sign the current ranked waiver in Your parents.',
+    'Ask your linked guardian to sign this lobby’s current ranked waiver in Parental controls.',
   devices: 'Check your camera and microphone before readying.',
 };
 

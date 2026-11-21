@@ -14,6 +14,7 @@ import type { roomCommandTransaction } from './room-command-transaction';
 import type { CasualJudgeAdmission } from './casual-judge-admission';
 import type { AllowanceDecision } from '@daisy/protocol/billing';
 import { readEntitlementGrants } from './entitlement-grants';
+import { readGuardianWaiverAgeBand } from './room-start-eligibility';
 import {
   roomListQuerySchema,
   type RoomListQuery,
@@ -157,6 +158,7 @@ export const roomReadOperations = ({
   ): Promise<{
     readonly state: RoomAssemblyState;
     readonly viewerAgeBand: NonNullable<Account>['ageBand'];
+    readonly viewerCompetitionAgeBand: NonNullable<Account>['ageBand'];
     readonly ratingPool: LobbyRatingSelection | null;
   }> {
     return instrumented(eventSink, 'readRoomAssembly', () =>
@@ -215,6 +217,12 @@ export const roomReadOperations = ({
         }
         return {
           viewerAgeBand: account?.ageBand ?? null,
+          viewerCompetitionAgeBand: await readGuardianWaiverAgeBand(
+            tx,
+            facts.state,
+            caller.userId,
+            caller.actorId,
+          ),
           ratingPool,
           state: {
             ...facts.state,
