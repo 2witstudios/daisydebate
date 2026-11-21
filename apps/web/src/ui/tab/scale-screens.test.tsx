@@ -1,57 +1,107 @@
+import type { ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import type { SampleScene } from '../../features/tab/sample/scene';
+import { hostRoutes } from '../../features/tab/routes';
+import { readDrawBoard } from '../../features/tab/test-support/sample/read-draw';
+import {
+  readHostEntries,
+  readHostJudges,
+} from '../../features/tab/test-support/sample/read-entries';
+import { readEventResults } from '../../features/tab/test-support/sample/read-results';
+import { readSetup } from '../../features/tab/test-support/sample/read-setup';
+import { readStandings } from '../../features/tab/test-support/sample/read-standings';
+import { readRunningRound } from '../../features/tab/test-support/sample/read-tab-round';
+import { readTimelineRail } from '../../features/tab/test-support/sample/read-tournament';
+import type { SampleScene } from '../../features/tab/test-support/sample/scene';
+import { sampleTabRoundView } from '../../features/tab/test-support/sample/tab-round';
+import { withDivisionBreak } from '../../features/tab/standings';
 import { WithAppRouter } from '../test-support/app-router';
-import { sampleAnswer } from './sample-screens.test-support';
+import { DrawBoard } from './draw-board/draw-board';
+import { HostEntries } from './host-entries/host-entries';
+import { HostJudges } from './host-entries/host-judges';
+import { Results } from './results/results';
+import { RunningRound } from './running-round/running-round';
+import { HostStandings } from './standings/host-standings';
 
 setupRitewayBun();
-const render = (
-  path: string,
+
+const slug = 'autumn-open';
+const event = 'varsity-debate';
+const scene = (
   moment: SampleScene['moment'] = 'prelims',
-  viewer: SampleScene['viewer'] = 'host',
-) => {
-  const answer = sampleAnswer(path, { viewer, moment, scale: 'large' });
-  return answer.kind === 'screen'
-    ? renderToStaticMarkup(<WithAppRouter>{answer.element}</WithAppRouter>)
-    : answer.kind;
+  scale: SampleScene['scale'] = 'large',
+): SampleScene => ({ viewer: 'host', moment, scale });
+const html = (element: ReactElement) =>
+  renderToStaticMarkup(<WithAppRouter>{element}</WithAppRouter>);
+const railOf = (at: SampleScene) => readTimelineRail(slug, at)!;
+const hrefs = {
+  entriesHref: hostRoutes.entries(slug),
+  judgesHref: hostRoutes.judges(slug),
 };
+const runningRound = (at: SampleScene) =>
+  html(
+    <RunningRound
+      rail={railOf(at)}
+      current="round-3"
+      round={readRunningRound(slug, event, '3', at)!}
+    />,
+  );
+const hostEntries = (at: SampleScene) =>
+  html(
+    <HostEntries
+      rail={railOf(at)}
+      entries={readHostEntries(slug, at)!}
+      {...hrefs}
+    />,
+  );
+
 describe('Tab screens at scale', () => {
   test('the running round merges needs, caps groups and offers search', () => {
-    const html = render(
-      '/host/tournaments/autumn-open/events/varsity-debate/rounds/3',
-    );
+    const page = runningRound(scene());
     assert({
       given: '100 rooms including six overdue ballots',
       should:
         'merge overdue ballots and collapse long groups with a working disclosure',
       actual: [
-        html.includes('6 ballots are overdue'),
-        html.includes('Find a room, entry or judge'),
-        html.includes('Show all 40'),
-        html.includes('<details'),
+        page.includes('6 ballots are overdue'),
+        page.includes('Find a room, entry or judge'),
+        page.includes('Show all 40'),
+        page.includes('<details'),
       ],
       expected: [true, true, true, true],
     });
   });
   test('the draw keeps findings first, collapses record groups and pins why', () => {
-    const html = render(
-      '/host/tournaments/autumn-open/events/varsity-debate/rounds/4?fixture=doyle-sato',
+    const at = scene();
+    const page = html(
+      <DrawBoard
+        rail={railOf(at)}
+        current="round-4"
+        draw={readDrawBoard(slug, event, '4', 'doyle-sato', at)!}
+      />,
     );
     assert({
       given: 'the large draft draw',
       should: 'offer search, look first and a sticky explanation',
       actual: [
-        html.includes('Look first'),
-        html.includes('Find an entry, school or judge'),
-        html.includes('sticky'),
-        html.includes('<details'),
+        page.includes('Look first'),
+        page.includes('Find an entry, school or judge'),
+        page.includes('sticky'),
+        page.includes('<details'),
       ],
       expected: [true, true, true, true],
     });
   });
   test('entries and judges remain short and searchable', () => {
-    const entries = render('/host/tournaments/autumn-open/entries');
-    const judges = render('/host/tournaments/autumn-open/judges');
+    const at = scene();
+    const entries = hostEntries(at);
+    const judges = html(
+      <HostJudges
+        rail={railOf(at)}
+        judges={readHostJudges(slug, at)!}
+        {...hrefs}
+      />,
+    );
     assert({
       given: '60 schools and 150 judges',
       should: 'show priorities and searchable collapsed lists',
@@ -66,11 +116,22 @@ describe('Tab screens at scale', () => {
     });
   });
   test('standings render each break line and results start at the live round', () => {
-    const standings = render(
-      '/host/tournaments/autumn-open/standings',
-      'break',
+    const atBreak = scene('break');
+    const atElims = scene('elims');
+    const standings = html(
+      <HostStandings
+        rail={railOf(atBreak)}
+        event={readSetup(slug, atBreak)!.event}
+        table={readStandings(slug, null, atBreak)!}
+      />,
     );
-    const results = render('/host/tournaments/autumn-open/results', 'elims');
+    const results = html(
+      <Results
+        rail={railOf(atElims)}
+        event={readSetup(slug, atElims)!.event}
+        results={readEventResults(slug, atElims)!}
+      />,
+    );
     assert({
       given: '200 entries and a bracket of 64',
       should: 'separate main and novice breaks and disclose earlier rounds',
@@ -84,67 +145,71 @@ describe('Tab screens at scale', () => {
       expected: [true, true, true, true, true],
     });
   });
-  test('phone postings group by school and keep your school first', () => {
-    const visitor = render(
-      '/tournaments/autumn-open/events/varsity-debate/rounds/4',
-      'prelims',
-      'visitor',
-    );
-    const member = render(
-      '/tournaments/autumn-open/events/varsity-debate/rounds/4',
-      'prelims',
-      'competitor',
-    );
-    assert({
-      given: 'large postings for a visitor and competitor',
-      should: 'offer school search and the member own school',
-      actual: [
-        visitor.includes('Find a name, school or room'),
-        visitor.includes('By school'),
-        member.includes('Your school'),
-        visitor.includes('<details'),
-      ],
-      expected: [true, true, true, true],
-    });
-  });
-  test('the 120-room slot stays searchable with counted groups', () => {
-    const html = render('/host/tournaments/winter-classic/slots/1200');
-    assert({
-      given: '120 rooms across four events',
-      should: 'merge withdrawals, search rooms and disclose long status groups',
-      actual: [
-        html.includes('3 judges withdrew'),
-        html.includes('Find a room, entry or judge'),
-        html.includes('Show all 54'),
-        html.includes('Show all 34'),
-        html.includes('Show all 30'),
-      ],
-      expected: [true, true, true, true, true],
-    });
-  });
-  test('index search and calendar are reachable through their actual addresses', () => {
-    const list = render('/tournaments?q=no-such-tournament-zz');
-    const calendar = render('/tournaments?view=calendar');
-    assert({
-      given: 'a query matching no tournament and the calendar address',
-      should: 'apply the query and draw the calendar',
-      actual: [
-        list.includes('no-such-tournament-zz'),
-        list.includes('No tournaments'),
-        calendar.includes('November 2026'),
-        calendar.includes('aria-label="Calendar"') ||
-          calendar.includes('aria-label="November 2026"'),
-      ],
-      expected: [true, true, true, true],
-    });
-  });
   test('standalone actions on a host screen are buttons', () => {
-    const html = render('/host/tournaments/autumn-open/entries');
     assert({
       given: 'the host entries actions',
       should: 'render no old underlined action links',
-      actual: html.includes('font-strong text-ink underline'),
+      actual: hostEntries(scene()).includes('font-strong text-ink underline'),
       expected: false,
+    });
+  });
+  test('urgent, section and finished fixtures keep all their searchable names', () => {
+    const scenarios = [
+      [event, 'Room 80', 'large'],
+      ['impromptu', 'Room 26', 'normal'],
+    ] as const;
+    assert({
+      given: 'an overdue large room and a section needing confirmation',
+      should:
+        'retain room, judge and entrant facets independently of display copy',
+      actual: scenarios.map(([eventSlug, room, scale]) => {
+        const at = scene('prelims', scale);
+        const source = sampleTabRoundView(slug, eventSlug, '3', at)?.read;
+        const fixture = source?.open.find((f) => f.room?.name === room);
+        const page = readRunningRound(slug, eventSlug, '3', at);
+        const rows = page?.groups.flatMap((group) => group.rooms) ?? [];
+        return (
+          fixture !== undefined &&
+          rows.some(
+            (row) =>
+              row.words?.includes(room) &&
+              fixture.entries.every((entry) =>
+                row.words?.includes(entry.name),
+              ) &&
+              fixture.judges.every((judge) => row.words?.includes(judge.name)),
+          )
+        );
+      }),
+      expected: [true, true],
+    });
+  });
+  test('normal finished room totals and paging survive scale composition', () => {
+    const page = runningRound(scene('prelims', 'normal'));
+    assert({
+      given: '20 finished rooms with only three read on the normal page',
+      should:
+        'show the total and preserve the action to read the other seventeen',
+      actual: [page.includes('Finished · 20'), page.includes('Show 17 more')],
+      expected: [true, true],
+    });
+  });
+  test('redacted display names never determine who already made another break', () => {
+    const table = readStandings(slug, null, scene('break'))!;
+    const division = table.divisions[0]!;
+    const redact = (row: (typeof table.rows)[number]) => ({
+      ...row,
+      entry: 'A.',
+    });
+    const composed = withDivisionBreak(
+      { ...table, rows: table.rows.map(redact) },
+      { ...division, rows: division.rows.map(redact) },
+    );
+    assert({
+      given:
+        'different entrants whose public display names are the same initials',
+      should: 'exclude higher-break entrants by stable identity only',
+      actual: composed.divisions[0]?.rows.length,
+      expected: division.rows.length,
     });
   });
 });

@@ -1,12 +1,10 @@
-import { Suspense, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import type { TimelineRail as Rail } from '../../../features/tab/tournament';
-import { SampleActionNotice } from '../../components/sample-action/sample-action-notice';
 import { TimelineRail } from './timeline-rail';
 
 /**
  * The host area's own shell: the timeline rail beside one page. It owns the
- * page's single main landmark, and the sample-action banner sits above every
- * page, as it does in the product shell.
+ * page's single main landmark.
  */
 export function HostShell({
   rail,
@@ -27,9 +25,6 @@ export function HostShell({
       <TimelineRail rail={rail} current={current} />
       <main className="min-w-0 flex-1 px-10 py-8 max-compact:px-4 max-compact:py-5">
         <div className="mx-auto flex max-w-host-column flex-col gap-5">
-          <Suspense fallback={null}>
-            <SampleActionNotice />
-          </Suspense>
           {aside === undefined ? (
             children
           ) : (

@@ -1,7 +1,5 @@
 import { MediaAccount } from '../../features/round-media/media-account';
-import { Suspense } from 'react';
 import { cookies } from 'next/headers';
-import { SampleActionNotice } from '../../ui/components/sample-action/sample-action-notice';
 import { AppShell } from '../../ui/layout/app-shell/app-shell';
 import {
   PEOPLE_RAIL_COOKIE,
@@ -111,9 +109,6 @@ export default async function ShellLayout({
             notices={notices}
             acknowledge={acknowledgeNoticeAction}
           />
-          <Suspense fallback={null}>
-            <SampleActionNotice />
-          </Suspense>
           {children}
         </AppShell>
       </UiStoreProvider>

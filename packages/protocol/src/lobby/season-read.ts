@@ -32,7 +32,6 @@ const seasonTournamentSchema = z.strictObject({
   /** Its sanction by the league, or null where the season counts by membership. */
   sanction: z.enum(sanctionStatuses).nullable(),
 });
-export type SeasonTournament = z.infer<typeof seasonTournamentSchema>;
 
 const seasonStandingRowSchema = z.strictObject({
   place: z.int().min(1),
@@ -87,14 +86,12 @@ const sanctionSchema = z
     message: 'An event that follows the template always meets it.',
     path: ['mismatches'],
   });
-export type Sanction = z.infer<typeof sanctionSchema>;
 
 export const sanctionListSchema = z.strictObject({
   organizationId: idSchema,
   sanctions: z.array(sanctionSchema),
   capabilities: z.strictObject({ decide: z.boolean() }),
 });
-export type SanctionList = z.infer<typeof sanctionListSchema>;
 
 export const seasonReadCatalogue = {
   SeasonView: { gate: ['standings.read'] },

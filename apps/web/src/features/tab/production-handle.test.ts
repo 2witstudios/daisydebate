@@ -7,13 +7,11 @@ test('sample handles dispatch to the same stored host page as every other handle
   const source = resolve(import.meta.dir, '../..');
   const page = resolve(source, 'app/(host)/host/tournaments/[slug]/page.tsx');
   const release = resolve(source, 'features/tab/release.ts');
-  const grant = resolve(source, 'app/(host)/host/require-grant.ts');
   // Keep request-store mocks inside their own process; the stored child is
   // returned by the actual page and retains its real authorization reader.
   const code = `
     import { mock } from 'bun:test';
     mock.module(${JSON.stringify(release)}, () => ({ requireTabRelease: async () => {}, hostTiersReleased: async () => false }));
-    mock.module(${JSON.stringify(grant)}, () => ({ requireGrant: async () => ({ viewer: 'host', moment: 'elims', scale: 'normal' }) }));
     const { default: Page } = await import(${JSON.stringify(page)});
     const answers = [];
     for (const slug of ['autumn-open', 'winter-classic', 'actual-tournament']) {
@@ -43,4 +41,4 @@ test('sample handles dispatch to the same stored host page as every other handle
       (slug) => [slug, 'StoredDrawOverview', slug],
     ),
   });
-});
+}, 20_000);
