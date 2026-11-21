@@ -179,3 +179,4 @@ export {
 export { createGuardianStore } from './guardians/store';
 export { ageStepOperations } from './age-step';
 export { guardianLinksPrivacyAdopter } from './guardians/privacy';
+export { pinRankedFixturePool } from './testing-rating-pool';

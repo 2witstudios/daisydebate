@@ -36,7 +36,7 @@ test('a standing lobby owns its age rule independently of the league’s legacy 
   await withRolledBackDatabase(databaseUrl, {
     seed: async (sql) => {
       const [director] = await createBots(sql, ['Director']);
-      await sql`insert into organizations (id, kind, name, handle, owner_user_id, league_division)
+      await sql`insert into organizations (id, kind, name, handle, owner_user_id)
         values (${organizationId}, 'league', 'Youth league', ${organizationId}, ${director!.userId}, 'youth')`;
       return director!;
     },

@@ -64,7 +64,9 @@ test('only Freestyle is creatable ranked: generic One-on-one and a league templa
         expected: ['ranked', 'freestyle', null, false],
       });
     } finally {
-      await f.sql`delete from seasons where id=${seasonId}`;
+      f.afterRooms(async () => {
+        await f.sql`delete from seasons where id=${seasonId}`;
+      });
     }
   });
 });
@@ -109,7 +111,9 @@ test('a ranked Room is refused on each casual template: only one seat a side, on
         expected: { refusals: Array(4).fill('VALIDATION'), rooms: 0 },
       });
     } finally {
-      await f.sql`delete from seasons where id=${seasonId}`;
+      f.afterRooms(async () => {
+        await f.sql`delete from seasons where id=${seasonId}`;
+      });
     }
   });
 });

@@ -1,3 +1,4 @@
+import { pinRankedFixturePool } from '@daisy/db/testing';
 import { SQL } from 'bun';
 import { admitParticipants } from '@daisy/db/testing';
 import { createId } from '@paralleldrive/cuid2';
@@ -275,6 +276,13 @@ async function fixture(
   return {
     sql,
     store,
+    markRanked: async (roundId: string) => {
+      const archive = await pinRankedFixturePool(sql, roundId);
+      if (archive)
+        afterRooms.push(async () => {
+          await sql`delete from seasons where id=${archive}`;
+        });
+    },
     afterRooms: (cleanup: () => Promise<void>) => {
       afterRooms.push(cleanup);
     },
