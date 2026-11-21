@@ -7,6 +7,7 @@ import { contactReactions } from '../src/contact-composition';
 import { createMessagingTestFixture } from '../src/testing';
 import { SQL } from 'bun';
 import { friendCommand } from './contact-pair-store.test-support';
+import { publicLobbyId } from '../src/daisy-reference';
 
 setupRitewayBun();
 const { databaseUrl: url } = requireTestServices(process.env);
@@ -70,7 +71,7 @@ test('friendship writes recheck account authority, preserve unrelated Challenges
     await client`update messaging_dm_pairs set request_state='declined', decided_at=${now} where channel_id=${fixture.channelId}`;
     await client`insert into contact_pairs(low_actor_id,high_actor_id) values(${neighbourLow},${neighbourHigh})`;
     await client`insert into friendships(low_actor_id,high_actor_id,requester_actor_id,state,requested_at,accepted_at) values(${neighbourLow},${neighbourHigh},${neighbour},'accepted',${now},${now})`;
-    await client`insert into challenges(id,challenger_actor_id,challenged_actor_id,mode,format_id,division,created_at,expires_at) values(${challenge},${actorId},${otherActorId},'casual','freestyle','open',${now},${now}::timestamptz+interval '1 hour')`;
+    await client`insert into challenges(id,challenger_actor_id,challenged_actor_id,mode,format_id,lobby_id,created_at,expires_at) values(${challenge},${actorId},${otherActorId},'casual','freestyle',${publicLobbyId},${now},${now}::timestamptz+interval '1 hour')`;
     const asked = await write(false, pending);
     const counts = await use(true, (frame) => frame.readFriendship());
     const locked = statements.some(
