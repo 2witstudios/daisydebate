@@ -752,7 +752,7 @@ describe('database statement and lock boundaries', () => {
     const typedStatement = 'client<{ value: number }[]>`select 1 as value`';
     const parsedStatement =
       'query(' + tagged + ', z.object({ value: z.int() }))';
-    const cases = [
+    const directCases = [
       [
         1,
         source(
@@ -808,382 +808,200 @@ describe('database statement and lock boundaries', () => {
         source('return await ' + tagged + ';'),
         'packages/db/src/transaction-client.ts',
       ],
+    ] as const;
+    const settlementCases = [
+      [1, `const [rows] = await Promise.all([${tagged}]); return rows[0];`],
+      [1, `return Promise.resolve(${tagged});`],
       [
         1,
-        source(
-          `const [rows] = await Promise.all([${tagged}]); return rows[0];`,
-          imports,
-        ),
-        feature,
+        `return z.array(availabilityEvidenceRow).parse(await Promise.resolve(availabilitySamplesFrom((strings, ...values) => client(strings, ...values), '2026-11-20T00:00:00Z')));`,
       ],
-      [1, source(`return Promise.resolve(${tagged});`, imports), feature],
+      [1, `return Promise.allSettled([${tagged}]);`],
+      [1, `return globalThis.Promise.any(new Set([${tagged}]));`],
       [
         1,
-        source(
-          `return z.array(availabilityEvidenceRow).parse(await Promise.resolve(availabilitySamplesFrom((strings, ...values) => client(strings, ...values), '2026-11-20T00:00:00Z')));`,
-          imports,
-        ),
-        feature,
-      ],
-      [1, source(`return Promise.allSettled([${tagged}]);`, imports), feature],
-      [
-        1,
-        source(`return globalThis.Promise.any(new Set([${tagged}]));`, imports),
-        feature,
+        `const queries = [${tagged}] as const; const settle = Promise; return settle['race'](queries);`,
       ],
       [
         1,
-        source(
-          `const queries = [${tagged}] as const; const settle = Promise; return settle['race'](queries);`,
-          imports,
-        ),
-        feature,
+        `const resolve = Promise.resolve.bind(Promise); return resolve(${tagged});`,
+      ],
+      [1, `return Promise.all(...[[${tagged}]] as const);`],
+      [
+        1,
+        `function* queries() { yield ${tagged}; } return Promise.all(queries());`,
+      ],
+      [1, `return Promise.resolve.call(Promise, ${tagged});`],
+      [1, `return Promise.all.apply(Promise, [[${tagged}]]);`],
+      [
+        1,
+        'const raw = client<{ value: number }[]>`select 1 as value`; const [rows] = await (Promise.all<[typeof raw]>).bind(Promise, [raw])(); return rows[0]?.value;',
       ],
       [
         1,
-        source(
-          `const resolve = Promise.resolve.bind(Promise); return resolve(${tagged});`,
-          imports,
-        ),
-        feature,
+        'const raw = client<{ value: number }[]>`select 1 as value`; return (Promise.try<Awaited<typeof raw>>).bind(Promise, () => raw)();',
       ],
       [
         1,
-        source(`return Promise.all(...[[${tagged}]] as const);`, imports),
-        feature,
+        'const raw = client<{ value: number }[]>`select 1 as value`; return Promise.all.call(...[Promise, [raw]] as const);',
+      ],
+      [1, `return Reflect.apply(Promise.all, Promise, [[${tagged}]]);`],
+      [
+        1,
+        `const iterator: typeof Symbol.iterator = Symbol.iterator; return Promise.all({ *[iterator]() { yield ${tagged}; } });`,
       ],
       [
         1,
-        source(
-          `function* queries() { yield ${tagged}; } return Promise.all(queries());`,
-          imports,
-        ),
-        feature,
+        `const settle = <T extends SQL.Query<unknown>>(value: T) => Promise.resolve(value); return settle(${tagged});`,
+      ],
+      [1, `const rows = await Promise.try(() => ${tagged}); return rows[0];`],
+      [
+        1,
+        `return z.array(availabilityEvidenceRow).parse(await Promise.try(() => availabilitySamplesFrom((strings, ...values) => client(strings, ...values), '2026-11-20T00:00:00Z')));`,
       ],
       [
         1,
-        source(`return Promise.resolve.call(Promise, ${tagged});`, imports),
-        feature,
+        `const raw = ${tagged}; const rows = await new Promise<Awaited<typeof raw>>((resolve) => resolve(raw)); return rows[0];`,
+      ],
+      [0, `return Promise.all([${parsedStatement}]);`],
+      [0, `return Promise.resolve(${parsedStatement});`],
+      [0, `return Promise.all.bind(Promise, [${parsedStatement}])();`],
+      [
+        0,
+        `const rows = await Promise.try(() => ${parsedStatement}); return rows[0];`,
       ],
       [
         1,
-        source(`return Promise.all.apply(Promise, [[${tagged}]]);`, imports),
-        feature,
-      ],
-      [
-        1,
-        source(
-          'const raw = client<{ value: number }[]>`select 1 as value`; const [rows] = await (Promise.all<[typeof raw]>).bind(Promise, [raw])(); return rows[0]?.value;',
-          imports,
-        ),
-        feature,
-      ],
-      [
-        1,
-        source(
-          'const raw = client<{ value: number }[]>`select 1 as value`; return (Promise.try<Awaited<typeof raw>>).bind(Promise, () => raw)();',
-          imports,
-        ),
-        feature,
-      ],
-      [
-        1,
-        source(
-          'const raw = client<{ value: number }[]>`select 1 as value`; return Promise.all.call(...[Promise, [raw]] as const);',
-          imports,
-        ),
-        feature,
-      ],
-      [
-        1,
-        source(
-          `return Reflect.apply(Promise.all, Promise, [[${tagged}]]);`,
-          imports,
-        ),
-        feature,
-      ],
-      [
-        1,
-        source(
-          `const iterator: typeof Symbol.iterator = Symbol.iterator; return Promise.all({ *[iterator]() { yield ${tagged}; } });`,
-          imports,
-        ),
-        feature,
-      ],
-      [
-        1,
-        source(
-          `const settle = <T extends SQL.Query<unknown>>(value: T) => Promise.resolve(value); return settle(${tagged});`,
-          imports,
-        ),
-        feature,
-      ],
-      [
-        1,
-        source(
-          `const rows = await Promise.try(() => ${tagged}); return rows[0];`,
-          imports,
-        ),
-        feature,
-      ],
-      [
-        1,
-        source(
-          `return z.array(availabilityEvidenceRow).parse(await Promise.try(() => availabilitySamplesFrom((strings, ...values) => client(strings, ...values), '2026-11-20T00:00:00Z')));`,
-          imports,
-        ),
-        feature,
-      ],
-      [
-        1,
-        source(
-          `const raw = ${tagged}; const rows = await new Promise<Awaited<typeof raw>>((resolve) => resolve(raw)); return rows[0];`,
-          imports,
-        ),
-        feature,
+        `function* values() { yield 1; return ${tagged}; } return Promise.all(values());`,
       ],
       [
         0,
-        source(`return Promise.all([${parsedStatement}]);`, imports),
-        feature,
+        'const writer = async () => { await client`delete from fixture`; }; return Promise.all([writer()]);',
       ],
       [
         0,
-        source(`return Promise.resolve(${parsedStatement});`, imports),
-        feature,
-      ],
-      [
-        0,
-        source(
-          `return Promise.all.bind(Promise, [${parsedStatement}])();`,
-          imports,
-        ),
-        feature,
-      ],
-      [
-        0,
-        source(
-          `const rows = await Promise.try(() => ${parsedStatement}); return rows[0];`,
-          imports,
-        ),
-        feature,
+        'const receipt = await client<{ command: string }>`commit`; return Promise.resolve(receipt.command);',
       ],
       [
         1,
-        source(
-          `function* values() { yield 1; return ${tagged}; } return Promise.all(values());`,
-          imports,
-        ),
-        feature,
-      ],
-      [
-        0,
-        source(
-          'const writer = async () => { await client`delete from fixture`; }; return Promise.all([writer()]);',
-          imports,
-        ),
-        feature,
-      ],
-      [
-        0,
-        source(
-          'const receipt = await client<{ command: string }>`commit`; return Promise.resolve(receipt.command);',
-          imports,
-        ),
-        feature,
-      ],
-      [
-        1,
-        source(
-          `const raw = ${typedStatement};
+        `const raw = ${typedStatement};
        const all = Promise.all<[typeof raw]>;
        const apply = (Reflect.apply<typeof Promise, [[typeof raw]], ReturnType<typeof all>>).bind(Reflect, all, Promise);
        const [rows] = await apply([[raw]]); return rows[0]?.value;`,
-          imports,
-        ),
-        feature,
       ],
       [
         1,
-        source(
-          `const raw = ${typedStatement}; const all = Promise.all<[typeof raw]>;
+        `const raw = ${typedStatement}; const all = Promise.all<[typeof raw]>;
        return Reflect.apply(all.bind, all, [Promise, [raw]])();`,
-          imports,
-        ),
-        feature,
       ],
       [
         1,
-        source(
-          `const raw = ${typedStatement};
+        `const raw = ${typedStatement};
        const all: (input: Iterable<typeof raw>) => Promise<Awaited<typeof raw>[]> = Promise.all;
        const apply = (Reflect.apply<typeof Promise, [Set<typeof raw>], ReturnType<typeof all>>).bind(Reflect, all, Promise);
        const [rows] = await apply([new Set([raw])]); return rows?.[0]?.value;`,
-          imports,
-        ),
-        feature,
       ],
       [
         1,
-        source(
-          `const raw = ${typedStatement}; const attempt = Promise.try<Awaited<typeof raw>>;
+        `const raw = ${typedStatement}; const attempt = Promise.try<Awaited<typeof raw>>;
        const apply = (Reflect.apply<typeof Promise, [() => typeof raw], ReturnType<typeof attempt>>).bind(Reflect, attempt, Promise);
        const rows = await apply([() => raw]); return rows[0]?.value;`,
-          imports,
-        ),
-        feature,
       ],
       [
         1,
-        source(
-          `const raw = ${typedStatement}; const all = Promise.all<[typeof raw, [typeof raw]]>;
+        `const raw = ${typedStatement}; const all = Promise.all<[typeof raw, [typeof raw]]>;
        const apply = (Reflect.apply<typeof Promise, [[typeof raw, [typeof raw]]], ReturnType<typeof all>>).bind(Reflect, all, Promise);
        const [rows] = await apply([[raw, [raw]]]); return rows[0]?.value;`,
-          imports,
-        ),
-        feature,
       ],
       [
         1,
-        source(
-          `const raw = ${typedStatement};
+        `const raw = ${typedStatement};
        const all: (input: Set<typeof raw>) => Promise<Awaited<typeof raw>[]> = Promise.all;
        const invoke: (target: typeof all, receiver: typeof Promise, args: [Set<typeof raw>]) => ReturnType<typeof all> = Reflect.apply;
        const [rows] = await invoke(all, Promise, [new Set([raw])]); return rows?.[0]?.value;`,
-          imports,
-        ),
-        feature,
       ],
       [
         1,
-        source(
-          `const raw = ${typedStatement};
+        `const raw = ${typedStatement};
        const all: (input: Set<typeof raw>) => Promise<Awaited<typeof raw>[]> = Promise.all;
        const args = [Reflect, all, Promise] as const;
        const apply = (Reflect.apply<typeof Promise, [Set<typeof raw>], ReturnType<typeof all>>).bind(...args);
        const [rows] = await apply([new Set([raw])]); return rows?.[0]?.value;`,
-          imports,
-        ),
-        feature,
       ],
-      [
-        1,
-        source(
-          `return Promise.resolve().then(() => ${typedStatement});`,
-          imports,
-        ),
-        feature,
-      ],
+      [1, `return Promise.resolve().then(() => ${typedStatement});`],
       [
         0,
-        source(
-          `const parsed = query(${typedStatement}, z.object({ value: z.int() }));
+        `const parsed = query(${typedStatement}, z.object({ value: z.int() }));
        const all = Promise.all<[typeof parsed]>;
        const apply = (Reflect.apply<typeof Promise, [[typeof parsed]], ReturnType<typeof all>>).bind(Reflect, all, Promise);
        const [rows] = await apply([[parsed]]); return rows[0]?.value;`,
-          imports,
-        ),
-        feature,
       ],
       [
         0,
-        source(
-          'const discard = async (connection: SQL) => { await connection`delete from fixture`; }; await discard(client);',
-          imports,
-        ),
-        feature,
+        'const discard = async (connection: SQL) => { await connection`delete from fixture`; }; await discard(client);',
       ],
       [
         0,
-        source(
-          `const raw = ${typedStatement}; const decode = async (inputs: Set<typeof raw>) =>
+        `const raw = ${typedStatement}; const decode = async (inputs: Set<typeof raw>) =>
          Promise.all([...inputs].map((input) => query(input, z.object({ value: z.int() }))));
        return decode(new Set([raw]));`,
-          imports,
-        ),
-        feature,
       ],
       [
         0,
-        source(
-          `const raw = ${typedStatement}; const keep = (inputs: Set<typeof raw>) => inputs;
+        `const raw = ${typedStatement}; const keep = (inputs: Set<typeof raw>) => inputs;
        const preserved = Reflect.apply(keep, undefined, [new Set([raw])]);
        for (const input of preserved) return query(input, z.object({ value: z.int() }));
        return [];`,
-          imports,
-        ),
-        feature,
       ],
       [
         0,
-        source(
-          `const raw = ${typedStatement}; const [input] = await Promise.resolve([raw] as const);
+        `const raw = ${typedStatement}; const [input] = await Promise.resolve([raw] as const);
        return query(input, z.object({ value: z.int() }));`,
-          imports,
-        ),
-        feature,
       ],
       [
         1,
-        source(
-          'const raw = ' +
-            typedStatement +
-            '; const all: (input: (typeof raw)[]) => Promise<Awaited<typeof raw>[]> = Promise.all; const settle = all.bind(Promise); const [rows] = await settle([raw]); return rows?.[0]?.value;',
-          imports,
-        ),
-        feature,
+        'const raw = ' +
+          typedStatement +
+          '; const all: (input: (typeof raw)[]) => Promise<Awaited<typeof raw>[]> = Promise.all; const settle = all.bind(Promise); const [rows] = await settle([raw]); return rows?.[0]?.value;',
       ],
       [
         1,
-        source(
-          'const raw = ' +
-            typedStatement +
-            '; const all: (input: Set<typeof raw>) => Promise<Awaited<typeof raw>[]> = Promise.all; const settle = all.bind(Promise); const [rows] = await settle(new Set([raw])); return rows?.[0]?.value;',
-          imports,
-        ),
-        feature,
+        'const raw = ' +
+          typedStatement +
+          '; const all: (input: Set<typeof raw>) => Promise<Awaited<typeof raw>[]> = Promise.all; const settle = all.bind(Promise); const [rows] = await settle(new Set([raw])); return rows?.[0]?.value;',
       ],
       [
         1,
-        source(
-          'const raw = ' +
-            typedStatement +
-            '; const all: (input: (typeof raw)[]) => Promise<Awaited<typeof raw>[]> = Promise.all; const apply = Reflect.apply<typeof Promise, [(typeof raw)[]], ReturnType<typeof all>>; const [rows] = await apply.call(Reflect, all, Promise, [[raw]]); return rows?.[0]?.value;',
-          imports,
-        ),
-        feature,
+        'const raw = ' +
+          typedStatement +
+          '; const all: (input: (typeof raw)[]) => Promise<Awaited<typeof raw>[]> = Promise.all; const apply = Reflect.apply<typeof Promise, [(typeof raw)[]], ReturnType<typeof all>>; const [rows] = await apply.call(Reflect, all, Promise, [[raw]]); return rows?.[0]?.value;',
       ],
       [
         1,
-        source(
-          'const raw = ' +
-            typedStatement +
-            '; const all = Promise.all<[typeof raw]>; const apply = (Reflect.apply<typeof Promise, [[typeof raw]], ReturnType<typeof all>>).bind(Reflect, all, Promise); const [rows] = await apply.call(undefined, [[raw]]); return rows[0]?.value;',
-          imports,
-        ),
-        feature,
+        'const raw = ' +
+          typedStatement +
+          '; const all = Promise.all<[typeof raw]>; const apply = (Reflect.apply<typeof Promise, [[typeof raw]], ReturnType<typeof all>>).bind(Reflect, all, Promise); const [rows] = await apply.call(undefined, [[raw]]); return rows[0]?.value;',
       ],
       [
         1,
-        source(
-          'const raw = ' +
-            typedStatement +
-            '; const all = Promise.all<[typeof raw]>; const apply = (Reflect.apply<typeof Promise, [[typeof raw]], ReturnType<typeof all>>).bind(Reflect, all, Promise); const [rows] = await Reflect.apply(apply, undefined, [[[raw]]]); return rows[0]?.value;',
-          imports,
-        ),
-        feature,
+        'const raw = ' +
+          typedStatement +
+          '; const all = Promise.all<[typeof raw]>; const apply = (Reflect.apply<typeof Promise, [[typeof raw]], ReturnType<typeof all>>).bind(Reflect, all, Promise); const [rows] = await Reflect.apply(apply, undefined, [[[raw]]]); return rows[0]?.value;',
       ],
       [
         0,
-        source(
-          'const decoded = query(' +
-            typedStatement +
-            ', z.object({ value: z.int() })); const all = Promise.all<[typeof decoded]>; const apply = (Reflect.apply<typeof Promise, [[typeof decoded]], ReturnType<typeof all>>).bind(Reflect, all, Promise); const [rows] = await Reflect.apply(apply, undefined, [[[decoded]]]); return rows[0]?.value;',
-          imports,
-        ),
-        feature,
+        'const decoded = query(' +
+          typedStatement +
+          ', z.object({ value: z.int() })); const all = Promise.all<[typeof decoded]>; const apply = (Reflect.apply<typeof Promise, [[typeof decoded]], ReturnType<typeof all>>).bind(Reflect, all, Promise); const [rows] = await Reflect.apply(apply, undefined, [[[decoded]]]); return rows[0]?.value;',
       ],
     ] as const;
+    const cases = [
+      ...directCases,
+      ...settlementCases.map(
+        ([expected, body]) =>
+          [expected, source(body, imports), feature] as const,
+      ),
+    ];
     const mismatches = (
       await Promise.all(
         cases.map(async ([expected, code, filePath]) => {
