@@ -84,17 +84,14 @@ function assertBounded(state: Glicko2State): void {
     );
 }
 
-const UTC_INSTANT = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.(\d+))?Z$/;
+const UTC_INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/;
 
 /**
  * Milliseconds since the epoch of a UTC ISO 8601 instant, at any fractional
  * precision. Rate only against zoned UTC values at the precision of the rating ledger.
  */
 function instant(timestamp: string): number {
-  const match = UTC_INSTANT.exec(timestamp);
-  const fraction = (match?.[2] ?? '').slice(0, 3).padEnd(3, '0');
-  const canonical = match ? `${match[1]}.${fraction}Z` : '';
-  const ms = tryInstantMs(canonical);
+  const ms = UTC_INSTANT.test(timestamp) ? tryInstantMs(timestamp) : undefined;
   if (ms === undefined)
     throw createAppError(
       'VALIDATION',
