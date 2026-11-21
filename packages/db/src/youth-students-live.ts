@@ -3,6 +3,7 @@ import { sql } from 'drizzle-orm';
 import { rowsOf } from './raw-rows';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { currentTenantScope, scopeTransaction } from './tenant-scope';
+import { youthRoundSql } from './youth-round-sql';
 
 type Tx = Pick<BunSQLDatabase, 'execute'>;
 
@@ -21,8 +22,8 @@ export type StudentLiveRound = {
  * they hold an active guardian link to, and the members of each school they
  * own or staff (an active member holding a live grant whose role carries
  * `school.roster.manage`), each read under its own scope; then the running
- * Rounds of Youth Rooms (ADR 0156), casual or ranked, seating any of them as
- * a debater. These are candidates only: whether the adult watches one
+ * Youth Rounds, including a frozen youth cast in a mixed-age lobby, seating
+ * any of them as a debater. These are candidates only: whether the adult watches one
  * is the live audience rule's, on that Round's own linked adults. The
  * caller's scope comes back at the end.
  */
@@ -90,7 +91,7 @@ const readStudentLiveRoundCandidates = async (
     tx,
     sql`select r.id, rm.title from rounds r
       join rooms rm on rm.id = r.room_id
-      where public.daisy_room_is_youth(rm.id)
+      where ${youthRoundSql(sql`r.id`)}
         and ${lobbyId === undefined ? sql`true` : sql`(rm.lobby_id=${lobbyId} or rm.lobby_kind='tournament')`}
         and r.status in (${sql.join(
           runningRoundStatuses.map((status) => sql`${status}`),

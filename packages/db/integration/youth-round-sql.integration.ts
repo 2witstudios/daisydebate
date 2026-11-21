@@ -10,6 +10,7 @@ import {
   reuseFenced,
 } from '@daisy/protocol/media-release';
 import { youthReuseFencedSql, youthRoundSql } from '../src/youth-round-sql';
+import { readStudentLiveRounds } from '../src/youth-students-live';
 import { readYouthRecordingPeople } from '../src/youth-recording-people';
 import { accountAgePrivacyAdopter } from '../src/account-age';
 import { mediaReleasePrivacyAdopter } from '../src/media-release-privacy';
@@ -32,6 +33,7 @@ test('guardian play permission in an adult lobby never supplies media release', 
     const f = new Fixture(client);
     const adult = await createAuthorizationSubject(f);
     const minor = await createAuthorizationSubject(f);
+    const opponent = await createAuthorizationSubject(f);
     const visitor = await createAuthorizationSubject(f);
     await f.sql`update account_age set birth_month=to_char(now()-interval '14 years','YYYY-MM')
       where user_id=${minor.userId}`;
@@ -83,12 +85,12 @@ test('guardian play permission in an adult lobby never supplies media release', 
       digest: 'a'.repeat(64),
     });
     const formatId = await f.format();
-    const roomId = await f.room(adult.actorId, formatId, {
+    const roomId = await f.room(opponent.actorId, formatId, {
       lobby_id: lobbyId,
       visibility: 'public',
     });
     await f.sql`insert into room_participants(id,room_id,actor_id,seat_kind,side,slot) values
-      (${createId()},${roomId},${adult.actorId},'side','affirmative',0),
+      (${createId()},${roomId},${opponent.actorId},'side','affirmative',0),
       (${createId()},${roomId},${minor.actorId},'side','negative',0)`;
     const [chat] = await f.sql`select youth_room, youth_staff
       from public.daisy_room_community_fact(${roomId}, ${visitor.actorId})`;
@@ -98,6 +100,7 @@ test('guardian play permission in an adult lobby never supplies media release', 
       actual: chat,
       expected: { youth_room: false, youth_staff: false },
     });
+    await f.sql`update rooms set visibility='private' where id=${roomId}`;
     const [cast] =
       await f.sql`select public.daisy_room_youth_recording_cast(${roomId}) as youth`;
     const { id: roundId } = await f.roundWithCast(
@@ -105,15 +108,29 @@ test('guardian play permission in an adult lobby never supplies media release', 
         room_id: roomId,
         format_id: formatId,
         room_config_snapshot: validConfig,
-        visibility: 'public',
+        visibility: 'private',
         standing_age_rule: 'adults',
         standing_youth_cast: cast?.youth,
       },
       [
-        { seat: 'affirmative', actorId: adult.actorId },
+        { seat: 'affirmative', actorId: opponent.actorId },
         { seat: 'negative', actorId: minor.actorId },
       ],
     );
+    const watched = async (userId: string, scope: string) =>
+      (await readStudentLiveRounds(db, userId, scope)).map(
+        ({ roundId }) => roundId,
+      );
+    assert({
+      given: 'a private mixed-age Open Round with a linked youth debater',
+      should: 'list it on Watch for the guardian in that lobby',
+      actual: [
+        await watched(adult.userId, lobbyId),
+        await watched(adult.userId, createId()),
+        await watched(visitor.userId, lobbyId),
+      ],
+      expected: [[roundId], [], []],
+    });
     const fence = async () =>
       (
         await db.execute(

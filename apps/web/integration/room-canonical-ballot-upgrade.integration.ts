@@ -79,6 +79,10 @@ test('canonical source/storage migrations preserve a genuinely submitted and fin
         join public.lobbies l on l.id=r.lobby_id
         where r.id=$1 and l.kind='standing'
       $$`;
+    // The historical cast consists of adults. Today's Start still calls the
+    // separate recording classifier before recording that fact.
+    await sql`create function public.daisy_room_youth_recording_cast(text) returns boolean
+      language sql stable as $$ select coalesce(public.daisy_room_is_youth($1), false) $$`;
     await sql`alter table ballots add column speaker_ranks jsonb`;
     // Empty decoder interface only: the real pre-upgrade ordinary journey has
     // no tournament hosting grant, version, issuer or inferred funding account.
@@ -146,6 +150,7 @@ test('canonical source/storage migrations preserve a genuinely submitted and fin
     await sql`alter table seasons drop column lobby_id`;
     await sql`alter table templates drop column shared`;
     await sql`alter table ballot_definitions drop column shared`;
+    await sql`drop function public.daisy_room_youth_recording_cast(text)`;
     await sql`drop function public.daisy_room_is_youth(text)`;
     await sql`alter table rooms drop column legacy_tournament_youth`;
     await sql`alter table lobbies drop column age_rule`;
