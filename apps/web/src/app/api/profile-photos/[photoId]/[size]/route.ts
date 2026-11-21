@@ -1,4 +1,4 @@
-import { processRouteWithParams } from '../../../../../server/process-app';
+import { processRoute } from '../../../../../server/process-app';
 type Params = Awaited<
   RouteContext<'/api/profile-photos/[photoId]/[size]'>['params']
 >;
@@ -6,7 +6,7 @@ type Params = Awaited<
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 /** Public: a published profile photo; its owner's photo in review (ADR 0143). */
-export const GET = processRouteWithParams<Params>(
+export const GET = processRoute.withParams<Params>(
   (routes) =>
     (request, { photoId, size }) => {
       return routes.publicProfile.image(request, { photoId, size });

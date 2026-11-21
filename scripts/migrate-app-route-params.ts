@@ -53,7 +53,7 @@ export function migrateRouteParams(file: string, source: string): string {
         start: binding.getStart(tree),
         end: binding.getEnd(),
         replacement: original
-          .replace('processRoute(', 'processRouteWithParams<Params>(')
+          .replace('processRoute(', 'processRoute.withParams<Params>(')
           .replace('(request) =>', `(request, { ${param.name} }) =>`)
           .replace(legacyParam, param.name),
       },
@@ -73,7 +73,7 @@ export function migrateRouteParams(file: string, source: string): string {
   const path = `/${parts.join('/')}`;
   return updated.replace(
     importRoute,
-    `import { processRouteWithParams } from $1;\n\ntype Params = Awaited<RouteContext<'${path}'>['params']>;`,
+    `import { processRoute } from $1;\n\ntype Params = Awaited<RouteContext<'${path}'>['params']>;`,
   );
 }
 

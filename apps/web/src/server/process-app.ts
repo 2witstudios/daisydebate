@@ -114,19 +114,23 @@ const bindProcessRoute = <Args extends unknown[]>(pick: RouteSelector<Args>) =>
     pick(state.routes, state.app, state.vendorFetch),
   );
 
-/** Binds a request-only handler. Next's context stays at the route edge. */
-export const processRoute = (pick: RouteSelector<[]>) => {
+const bindRequestRoute = (pick: RouteSelector<[]>) => {
   const handler = bindProcessRoute(pick);
   return (request: Request) => handler(request);
 };
 
-/** Unwraps the params supplied by Next.js for the route's directory. */
-export const processRouteWithParams = <Params>(pick: RouteSelector<[Params]>) =>
+const bindParameterizedRoute = <Params>(pick: RouteSelector<[Params]>) =>
   bindProcessRoute((routes, app, fetch) => {
     const handler = pick(routes, app, fetch);
     return async (request, { params }: { params: Promise<Params> }) =>
       handler(request, await params);
   });
+
+/** Binds request-only handlers or unwraps the directory params supplied by Next. */
+export const processRoute = Object.assign(bindRequestRoute, {
+  withParams: bindParameterizedRoute,
+});
+
 /**
  * For a process entry that composes its own app before the server starts
  * (the browser suite's server, which captures outbound mail): makes it this

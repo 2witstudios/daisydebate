@@ -947,10 +947,7 @@ export default [
         {
           patterns: [
             ...appImportRestrictions,
-            {
-              ...processEdgeImport,
-              allowImportNames: ['processRoute', 'processRouteWithParams'],
-            },
+            { ...processEdgeImport, allowImportNames: ['processRoute'] },
           ],
         },
       ],

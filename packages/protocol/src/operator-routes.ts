@@ -10,7 +10,7 @@ function staticRoute<Group extends OperatorRouteGroup, Route extends string>(
 ) {
   return (incomingMethod: string, pathname: string) =>
     incomingMethod === method && path.test(pathname)
-      ? { group, route, query, id: null }
+      ? ({ group, route, query, id: null } as const)
       : null;
 }
 
@@ -27,7 +27,7 @@ function parameterizedRoute<
   return (incomingMethod: string, pathname: string) => {
     if (incomingMethod !== method) return null;
     const id = path.exec(pathname)?.[1];
-    return id === undefined ? null : { group, route, query, id };
+    return id === undefined ? null : ({ group, route, query, id } as const);
   };
 }
 

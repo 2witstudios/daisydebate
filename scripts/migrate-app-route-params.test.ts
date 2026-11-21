@@ -18,10 +18,10 @@ test('uses the dynamic segment name in the Next.js route group', () => {
     should: 'use Next.js params, omitting the group, and be stable on a repeat',
     actual: [actual, migrateRouteParams(file, actual) === actual],
     expected: [
-      `import { processRouteWithParams } from '../../../server/process-app';
+      `import { processRoute } from '../../../server/process-app';
 
 type Params = Awaited<RouteContext<'/api/rooms/[roomId]'>['params']>;
-export const GET = processRouteWithParams<Params>(
+export const GET = processRoute.withParams<Params>(
   (routes) => (request, { roomId }) =>
     routes.rooms.read(request, roomId),
 );
@@ -31,7 +31,7 @@ export const GET = processRouteWithParams<Params>(
   });
 });
 
-test('leaves byte ranges and unfamiliar dynamic handlers alone', () => {
+test('leaves unfamiliar dynamic handlers alone', () => {
   assert({
     given: 'a wrong position, two parameter names or a catch-all binding',
     should: 'leave the files for a manual migration',
