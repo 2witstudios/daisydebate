@@ -1,3 +1,4 @@
+import { mapTabCommandAnswer } from './command-form-answer';
 import { z } from 'zod';
 import { createAppError } from '@daisy/errors';
 import { idSchema, ballotDefinitionPinSchema } from '@daisy/protocol';
@@ -20,7 +21,6 @@ import {
   type Unacknowledged,
   type Moved,
 } from '../forms/form-state';
-import { lobbyCommandReceiptSchema } from '@daisy/protocol/lobby/command';
 export const eventFormContextSchema = z.strictObject({
   handle: z.string().min(1).max(80),
   lobbyId: idSchema,
@@ -204,20 +204,18 @@ export const eventFormRefused = (
 ): EventFormState => refusedWith(formValues(form), message);
 export const eventFormUnacknowledged = (form: FormData): EventFormState =>
   unacknowledged(form);
-const answerSchema = z.discriminatedUnion('kind', [
-  z.object({ kind: z.literal('accepted'), receipt: lobbyCommandReceiptSchema }),
-  z.object({ kind: z.literal('refused'), refusal: z.string() }),
-]);
 export function eventFormAnswer(form: FormData, body: unknown) {
-  const parsed = answerSchema.safeParse(body);
-  if (!parsed.success) return eventFormUnacknowledged(form);
-  if (parsed.data.kind === 'accepted') return parsed.data;
-  return eventFormRefused(
-    form,
-    parsed.data.refusal === 'version-conflict'
-      ? 'The tournament changed. Reload and review the current event.'
-      : `This change was refused: ${parsed.data.refusal.replaceAll('-', ' ')}.`,
-  );
+  return mapTabCommandAnswer(body, {
+    accepted: (receipt) => ({ kind: 'accepted' as const, receipt }),
+    unacknowledged: () => eventFormUnacknowledged(form),
+    refused: (reason) =>
+      eventFormRefused(
+        form,
+        reason === 'version-conflict'
+          ? 'The tournament changed. Reload and review the current event.'
+          : `This change was refused: ${reason.replaceAll('-', ' ')}.`,
+      ),
+  });
 }
 
 const utcFormInstant = (value: string): string =>

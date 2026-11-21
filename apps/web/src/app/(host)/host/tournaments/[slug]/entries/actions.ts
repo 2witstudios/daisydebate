@@ -10,7 +10,7 @@ import {
   type JudgeObligationState,
 } from '../../../../../../features/tab/judge-obligation-form';
 import { hostRoutes } from '../../../../../../features/tab/routes';
-import { inProcessFetch } from '../../../../../../server/in-process-fetch';
+import { runTabCommandForm } from '../../../../../../features/tab/command-form-action';
 import { moveOn } from '../../../../../../server/form-action';
 import { POST } from '../../../../../api/tab/settings-command/route';
 
@@ -29,27 +29,19 @@ export async function judgeObligationAction(
     );
   }
   const incoming = new Headers(await headers());
-  let state;
-  try {
-    const response = await inProcessFetch(POST, incoming)(
-      '/api/tab/settings-command',
-      {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(envelope),
-      },
-    );
-    if (!response.ok)
-      return response.status >= 500
-        ? judgeObligationUnacknowledged(form)
-        : judgeObligationRefused(
-            form,
-            'You cannot change judge obligations. Reload this page.',
-          );
-    state = judgeObligationAnswer(form, await response.json());
-  } catch {
-    return judgeObligationUnacknowledged(form);
-  }
+  const state = await runTabCommandForm({
+    post: POST,
+    incoming,
+    path: '/api/tab/settings-command',
+    body: envelope,
+    answer: (response) => judgeObligationAnswer(form, response),
+    refused: () =>
+      judgeObligationRefused(
+        form,
+        'You cannot change judge obligations. Reload this page.',
+      ),
+    unacknowledged: () => judgeObligationUnacknowledged(form),
+  });
   if (state.kind !== 'accepted') return state;
   const path = `${hostRoutes.entries(context.handle)}?event=${context.eventId}`;
   revalidatePath(hostRoutes.entries(context.handle));

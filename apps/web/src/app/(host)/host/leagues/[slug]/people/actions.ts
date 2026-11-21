@@ -11,7 +11,7 @@ import {
   type PeopleCommandState,
 } from '../../../../../../features/tab/organization-people-forms';
 import { hostRoutes } from '../../../../../../features/tab/routes';
-import { inProcessFetch } from '../../../../../../server/in-process-fetch';
+import { runTabCommandForm } from '../../../../../../features/tab/command-form-action';
 import { POST } from '../../../../../api/tab/organization-command/route';
 
 /** The existing people controls call exactly the route a script calls, using this request's session. */
@@ -31,24 +31,21 @@ export async function peopleCommandAction(
     );
   }
   try {
-    const response = await inProcessFetch(POST, new Headers(await headers()))(
-      '/api/tab/organization-command',
-      {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(envelope),
-      },
-    );
-    if (!response.ok)
-      return response.status >= 500
-        ? peopleCommandUnacknowledged(values)
-        : peopleCommandRefused(
-            values,
-            response.status === 400
-              ? 'These details could not be used. Check them and try again.'
-              : 'You cannot change these people. Reload this page.',
-          );
-    const state = peopleCommandAnswered(context, values, await response.json());
+    const state = await runTabCommandForm({
+      post: POST,
+      incoming: new Headers(await headers()),
+      path: '/api/tab/organization-command',
+      body: envelope,
+      answer: (response) => peopleCommandAnswered(context, values, response),
+      refused: (status) =>
+        peopleCommandRefused(
+          values,
+          status === 400
+            ? 'These details could not be used. Check them and try again.'
+            : 'You cannot change these people. Reload this page.',
+        ),
+      unacknowledged: () => peopleCommandUnacknowledged(values),
+    });
     if (state.kind === 'changed')
       revalidatePath(hostRoutes.leaguePeople(context.handle));
     return state;

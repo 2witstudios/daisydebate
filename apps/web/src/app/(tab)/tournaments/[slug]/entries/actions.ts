@@ -16,7 +16,7 @@ import {
 } from '../../../../../features/tab/event-form';
 import { tabRoutes } from '../../../../../features/tab/routes';
 import { stayOn } from '../../../../../server/form-action';
-import { inProcessFetch } from '../../../../../server/in-process-fetch';
+import { runTabCommandForm } from '../../../../../features/tab/command-form-action';
 import { POST } from '../../../../api/tab/entries-command/route';
 
 import {
@@ -53,24 +53,16 @@ export async function enterTournament(
     return eventFormRefused(form, 'Enter a name and choose a division.');
   }
   const incoming = new Headers(await headers());
-  try {
-    const response = await inProcessFetch(POST, incoming)(
-      `/api/tab/entries-command?${new URLSearchParams({ lobbyId })}`,
-      {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(envelope),
-      },
-    );
-    if (!response.ok)
-      return response.status >= 500
-        ? eventFormUnacknowledged(form)
-        : eventFormRefused(form, 'This entry is unavailable.');
-    const state = eventFormAnswer(form, await response.json());
-    if (state.kind !== 'accepted') return state;
-  } catch {
-    return eventFormUnacknowledged(form);
-  }
+  const state = await runTabCommandForm({
+    post: POST,
+    incoming,
+    path: `/api/tab/entries-command?${new URLSearchParams({ lobbyId })}`,
+    body: envelope,
+    answer: (response) => eventFormAnswer(form, response),
+    refused: () => eventFormRefused(form, 'This entry is unavailable.'),
+    unacknowledged: () => eventFormUnacknowledged(form),
+  });
+  if (state.kind !== 'accepted') return state;
   const path = tabRoutes.entries(handle);
   revalidatePath(path);
   return stayOn(incoming, path) ?? done();

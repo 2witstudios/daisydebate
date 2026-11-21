@@ -11,7 +11,7 @@ import {
   type DrawFormState,
 } from '../../../../../features/tab/draw-form';
 import { hostRoutes } from '../../../../../features/tab/routes';
-import { inProcessFetch } from '../../../../../server/in-process-fetch';
+import { runTabCommandForm } from '../../../../../features/tab/command-form-action';
 import { moveOn } from '../../../../../server/form-action';
 import { POST } from '../../../../api/tab/draw-command/route';
 export async function drawAction(
@@ -30,27 +30,16 @@ export async function drawAction(
     return drawFormRefused(form, 'Complete each rule override reason.');
   }
   const incoming = new Headers(await headers());
-  let answer;
-  try {
-    const response = await inProcessFetch(POST, incoming)(
-      `/api/tab/draw-command?${new URLSearchParams({ lobbyId: context.lobbyId })}`,
-      {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(envelope),
-      },
-    );
-    if (!response.ok)
-      return response.status >= 500
-        ? drawFormUnacknowledged(form)
-        : drawFormRefused(
-            form,
-            'You cannot change this draw. Reload the event.',
-          );
-    answer = drawFormAnswer(form, await response.json());
-  } catch {
-    return drawFormUnacknowledged(form);
-  }
+  const answer = await runTabCommandForm({
+    post: POST,
+    incoming,
+    path: `/api/tab/draw-command?${new URLSearchParams({ lobbyId: context.lobbyId })}`,
+    body: envelope,
+    answer: (response) => drawFormAnswer(form, response),
+    refused: () =>
+      drawFormRefused(form, 'You cannot change this draw. Reload the event.'),
+    unacknowledged: () => drawFormUnacknowledged(form),
+  });
   if (answer.kind !== 'accepted') return answer;
   const path = hostRoutes.round(
     context.handle,
