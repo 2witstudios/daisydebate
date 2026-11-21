@@ -69,7 +69,7 @@ test('a member without the casual AI judge practises with a person judging, and 
     await expect(
       page
         .getByRole('listitem', { name: 'Judge 1', exact: true })
-        .getByRole('link', { name: 'Invite', exact: true }),
+        .getByRole('button', { name: 'Invite', exact: true }),
     ).toBeVisible();
     await expect(
       page.getByRole('button', { name: 'AI judge', exact: true }),
