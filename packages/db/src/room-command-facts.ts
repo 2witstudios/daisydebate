@@ -239,7 +239,10 @@ const hydrateRoom = async (
         when ${row.legacyTournamentYouth === false}::boolean then 'adults'::lobby_age_rule
         when ${lobbies.kind} = 'tournament' and public.daisy_room_is_youth(${row.id})
           then 'under-18'::lobby_age_rule
-        else coalesce(${standingParent.ageRule}, ${lobbies.ageRule}) end`,
+        else coalesce(
+          (select round.standing_age_rule from public.rounds round
+            where round.room_id = ${row.id} and ${lobbies.kind} = 'tournament'),
+          ${standingParent.ageRule}, ${lobbies.ageRule}) end`,
     })
     .from(lobbies)
     .leftJoin(standingParent, eq(standingParent.id, lobbies.standingLobbyId))

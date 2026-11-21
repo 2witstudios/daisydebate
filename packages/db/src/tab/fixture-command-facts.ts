@@ -49,6 +49,7 @@ export async function loadFixtureCommandFacts(
     fixtureId: input.command.fixtureId,
     namedJudgeIds: fixtureCommandJudgeIds(input.command),
     roundSource: 'current-round',
+    checkDebaterEligibility: input.command.type === 'restart-fixture',
   });
   if (!context) return null;
   const competition = await readFixtureCompetitionFacts(

@@ -1,6 +1,8 @@
-import { and, asc, eq, inArray, sql } from 'drizzle-orm';
-import type { AgeBand } from '@daisy/protocol';
-import { divisionAgeBand } from '../ladder-division-band';
+import { and, asc, eq, inArray } from 'drizzle-orm';
+import {
+  tournamentDebaterAgeBand,
+  type tournamentAgeSource,
+} from './tournament-eligibility';
 import { accountAge } from '../schema/account-age';
 import { actors } from '../schema/actors';
 import { entryMembers } from '../schema/entries';
@@ -14,12 +16,7 @@ export const loadEntryPeople = async (
   tx: TabTransaction,
   scope: TenantScope,
   actorIds: readonly string[],
-  eligibility:
-    | {
-        readonly kind: 'standing';
-        readonly lobbyId: string;
-      }
-    | { readonly kind: 'own'; readonly ageAsOf: string },
+  eligibility: Awaited<ReturnType<typeof tournamentAgeSource>>,
   guardianLinkId: string | null,
 ) => {
   const people = actorIds.length
@@ -64,11 +61,7 @@ export const loadEntryPeople = async (
       .where(eq(entryMembers.actorId, person.actorId));
     if (eligibility.kind === 'standing')
       await scopeTransaction(tx, { ...subject, lobbyId: eligibility.lobbyId });
-    // Use the lobby's season age for league tournaments and first-day age for self-run ones.
-    const band =
-      eligibility.kind === 'standing'
-        ? divisionAgeBand(eligibility.lobbyId)
-        : sql<AgeBand | null>`case when public.daisy_age_band(${accountAge.birthMonth}, ${accountAge.version}, ${accountAge.recordedAt}, clock_timestamp()) is null then null else public.daisy_age_band(${accountAge.birthMonth}, ${accountAge.version}, ${accountAge.recordedAt}, greatest(${eligibility.ageAsOf}::timestamptz, ${accountAge.recordedAt})) end`;
+    const band = tournamentDebaterAgeBand(eligibility);
     const [atCompetition] =
       person.userId === null
         ? []

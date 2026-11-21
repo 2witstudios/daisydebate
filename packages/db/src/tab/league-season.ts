@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray } from 'drizzle-orm';
 import { seasons } from '../schema/seasons';
 import { seasonStandingRules, sanctions } from '../schema/sanctions';
 import { organizations } from '../schema/organizations';
@@ -6,7 +6,6 @@ import { templates } from '../schema/templates';
 import { users } from '../schema/users';
 import { actors } from '../schema/actors';
 import { lobbies } from '../schema/lobbies';
-import type { LobbyAgeRule } from '@daisy/protocol/lobby/eligibility';
 import { timeSlots, events as eventRows } from '../schema/events';
 import { settings } from '../schema/settings';
 import { fenceOrganizationRead } from './organization-fence';
@@ -75,21 +74,6 @@ async function load(tx: TabTransaction, input: Input) {
     .orderBy(lobbies.id)
     .limit(1);
   if (!standingLobby) return null;
-  const tournamentLobbies = await tx
-    .select({
-      id: lobbies.id,
-      name: lobbies.name,
-      ageRule: sql<LobbyAgeRule>`${lobbies.ageRule}`,
-    })
-    .from(lobbies)
-    .where(
-      and(
-        eq(lobbies.ownerOrganizationId, organization.id),
-        eq(lobbies.kind, 'standing'),
-        isNull(lobbies.closedAt),
-      ),
-    )
-    .orderBy(asc(lobbies.name), asc(lobbies.id));
   const templateSettings = await tx
     .select()
     .from(settings)
@@ -197,7 +181,6 @@ async function load(tx: TabTransaction, input: Input) {
     ...roomList,
     organization,
     standingLobby,
-    tournamentLobbies,
     templateSettings,
     season,
     rule,

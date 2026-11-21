@@ -16,7 +16,6 @@ if (import.meta.main) {
         if (!host) throw new Error('The league owner does not exist');
         const leagueId = createId();
         const youthId = createId();
-        const seasonId = createId();
         const handle = `eligibility-${leagueId}`;
         await tx`select set_config('daisy.organization_scope', ${leagueId}, true)`;
         await tx`insert into organizations (id, kind, owner_user_id, handle, name)
@@ -29,13 +28,6 @@ if (import.meta.main) {
           await tx`insert into lobbies (id, kind, owner_organization_id, handle, name, age_rule)
             values (${lobby.id}, 'standing', ${leagueId}, ${lobby.id}, ${lobby.name}, ${lobby.ageRule})`;
         }
-        await tx`select set_config('daisy.lobby_scope', ${youthId}, true)`;
-        await tx`insert into seasons (id, organization_id, lobby_id, name, starts_at, status)
-          values (${seasonId}, ${leagueId}, ${youthId}, 'Spring', now()-interval '1 day', 'active')`;
-        await tx`insert into season_standing_rules (season_id, organization_id, counting, rule)
-          values (${seasonId}, ${leagueId}, 'sanction', '{}'::jsonb)`;
-        await tx`insert into templates (id, organization_id, name, format_id, format_version)
-          values (${createId()}, ${leagueId}, 'Freestyle series', 'freestyle', 1)`;
         process.stdout.write(handle);
       } else if (step === 'registration') {
         const [lobby] =

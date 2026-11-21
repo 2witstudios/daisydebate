@@ -11,7 +11,12 @@ import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { withRoomRuntime } from './room-runtime.test-support';
 import { committedEventRoom } from './tab-event-room-direction.test-support';
-import { as } from './tab-tournament-organization-wiring.test-support';
+import { createBots } from './tab-tournament.test-support';
+import {
+  as,
+  deniedAsNotFound,
+} from './tab-tournament-organization-wiring.test-support';
+import { lobbyAdministrationCommand } from '../src/features/tab/operations/lobby-administration';
 import { fixtureCommand } from '../src/features/tab/operations/fixture-command';
 import { registerFixtureJudge } from './tab-fixture-judge.test-support';
 import { isAppError } from '@daisy/errors';
@@ -26,7 +31,37 @@ test('actual fixture officiating replaces unsubmitted ordinary identities, repla
   const owner = new SQL(scratch.url, { max: 1 });
   try {
     await scratch.migrate(() => true);
-    const world = await committedEventRoom(owner, 'copy', { noPrep: true });
+    const world = await committedEventRoom(owner, 'copy', {
+      noPrep: true,
+      tournamentOwner: 'organization',
+    });
+    const parent = world.made.get('standing-lobby')!;
+    const [minor, adult] = await owner<{ actor_id: string; user_id: string }[]>`
+      select a.id as actor_id, a.user_id from room_participants p join actors a on a.id=p.actor_id
+      where p.room_id=${world.roomId} and p.seat_kind='side' order by p.side
+    `;
+    const [guardian, coach] = await createBots(owner, [
+      'Linked guardian',
+      'Adult school coach',
+    ]);
+    const school = createId();
+    await owner`insert into organizations (id,kind,name,handle,owner_user_id)
+      values (${school},'school','Private Round school',${school},${coach!.userId})`;
+    await owner`insert into memberships (organization_id,user_id,status,joined_at)
+      values (${school},${adult!.user_id},'active',now())`;
+    await owner`update account_age set birth_month=to_char(now()-interval '14 years','YYYY-MM')
+      where user_id=${minor!.user_id}`;
+    const link = createId();
+    const consent = createId();
+    await owner`insert into guardian_consent_evidence
+      (id,person_user_id,role,method,notice_kind,notice_version,notice_digest,recorded_at)
+      values (${consent},${guardian!.userId},'guardian','created-account','parental-consent','fixture',repeat('0',64),now())`;
+    await owner`insert into guardian_links
+      (id,guardian_user_id,minor_user_id,guardian_consent_id,status,activation,activated_at)
+      values (${link},${guardian!.userId},${minor!.user_id},${consent},'active','created-account',now())`;
+    await owner`insert into restriction_lobbies
+      (guardian_link_id,guardian_user_id,minor_user_id,lobby_id,signed_at,waiver_version,waiver_digest)
+      values (${link},${guardian!.userId},${minor!.user_id},${parent},now(),'fixture',repeat('0',64))`;
     const lobbyId = world.made.get('tournament-lobby')!,
       director = world.bots.Director!;
     const store = createTabStore(committingRuntimeTestDatabase(owner));
@@ -35,6 +70,30 @@ test('actual fixture officiating replaces unsubmitted ordinary identities, repla
       authorize,
       now: () => new Date().toISOString(),
       newId: createId,
+    };
+    const setParentRule = async (ageRule: 'adults' | 'under-18') => {
+      const [standing] = await owner<{ version: number; name: string }[]>`
+        select version,name from lobbies where id=${parent}
+      `;
+      const edited = await lobbyAdministrationCommand(dependencies)(
+        as(director),
+        {
+          version: 1,
+          commandId: createId(),
+          expected: { lobby: standing!.version },
+          command: {
+            type: 'edit-standing-lobby',
+            organizationId: world.made.get('league')!,
+            lobbyId: parent,
+            name: standing!.name,
+            ageRule,
+          },
+        },
+      );
+      if (edited.kind !== 'accepted')
+        throw new Error(
+          `Standing lobby edit refused: ${JSON.stringify(edited)}`,
+        );
     };
     const send = fixtureCommand(dependencies);
     const [fixture] =
@@ -384,6 +443,67 @@ test('actual fixture officiating replaces unsubmitted ordinary identities, repla
             reason: 'Actual official restart',
           },
         };
+        const privacy = async () => ({
+          youth: await f.store.readRoundYouth(roundId),
+          reuseFenced: await f.store.readRoundReuseFenced(roundId),
+          linked: (await f.store.readYouthRoundPeople(roundId)).debaters.map(
+            ({ actorId, linkedAdultActorIds }) => ({
+              actorId,
+              linkedAdultActorIds,
+            }),
+          ),
+        });
+        const privacyBefore = await privacy();
+        await setParentRule('under-18');
+        const [frozen] =
+          await owner`select standing_age_rule as rule, standing_youth_cast as youth
+          from rounds where id=${roundId}`;
+        const retainedPrivacy = {
+          youth: true,
+          reuseFenced: true,
+          linked: [
+            {
+              actorId: minor!.actor_id,
+              linkedAdultActorIds: [guardian!.actorId],
+            },
+          ],
+        };
+        assert({
+          given:
+            'a private mixed-cast Round started in Adults before the league switches the parent to Youth',
+          should:
+            'freeze the rule and retain the linked guardian audience without admitting the adult debater’s coach',
+          actual: { before: privacyBefore, after: await privacy(), frozen },
+          expected: {
+            before: retainedPrivacy,
+            after: retainedPrivacy,
+            frozen: { rule: 'adults', youth: true },
+          },
+        });
+
+        await setParentRule('adults');
+        await owner`update guardian_links set status='ended', closed_at=now(), version=version+1 where id=${link}`;
+        const deniedRestart = await deniedAsNotFound(() =>
+          send(as(director), lobbyId, restart),
+        );
+        const [retained] =
+          await owner`select f.room_id, r.status, count(v.round_id)::int as voids
+          from fixtures f join rounds r on r.room_id=f.room_id
+          left join round_source_voids v on v.round_id=r.id where f.id=${fixture!.id}
+          group by f.room_id,r.status`;
+        assert({
+          given:
+            'the accepted and started minor loses their only exact-lobby permission',
+          should:
+            'refuse the restart and retain the original source and fixture',
+          actual: [deniedRestart, retained],
+          expected: [
+            true,
+            { room_id: world.roomId, status: 'active', voids: 0 },
+          ],
+        });
+        await owner`update account_age set birth_month=to_char(now()-interval '21 years','YYYY-MM')
+          where user_id=${minor!.user_id}`;
         // A predecessor migration can mark a Youth Room in an otherwise
         // Open tournament. Seed that history in this disposable database.
         await owner.begin(async (tx) => {

@@ -18,7 +18,7 @@ import { eligibleTournamentActors } from './tournament-participant-admission';
 import { fixtureRestartRoom } from './fixture-restart-room';
 
 /** Only newly admitted people are checked; retiring an old identity grants it nothing. */
-export function requireFixtureAdmissions(
+export async function requireFixtureAdmissions(
   loaded: LoadedFixtureCommand,
   command: FixtureCommand,
   writes: readonly FixtureWrite[],
@@ -38,11 +38,24 @@ export function requireFixtureAdmissions(
       loaded.context.accounts,
       'debater',
     );
-    for (const person of loaded.roomState?.participants ?? [])
-      if (
-        !(person.seat.kind === 'judge' ? judges : debaters).has(person.actorId)
+    const participants = loaded.roomState?.participants ?? [];
+    const competing = participants.filter(
+      (person) => person.seat.kind !== 'judge',
+    );
+    if (
+      participants.some(
+        (person) => person.seat.kind === 'judge' && !judges.has(person.actorId),
       )
-        throw new CommandDenied('judge-unavailable');
+    )
+      throw new CommandDenied('judge-unavailable');
+    if (
+      competing.some((person) => !debaters.has(person.actorId)) ||
+      !(await loaded.context.debatersAllowed(
+        competing.map(({ actorId }) => actorId),
+        loaded.checkedAt,
+      ))
+    )
+      throw new CommandDenied('not-found');
   }
 }
 /** Direct and confirmed commands call the same ordinary owners with their actual principal and original command identity. */

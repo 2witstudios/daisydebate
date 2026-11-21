@@ -60,11 +60,24 @@ export default async function Page({
       />
     );
   const lobbies = <StandingLobbies slug={slug} read={management} />;
+  const createTournament =
+    management.canCreateTournament && management.lobbies.length > 0 ? (
+      <CreateTournamentForm
+        standingLobbies={management.lobbies}
+        action={createTournamentAction.bind(null, {
+          leagueId: management.organizationId,
+          lobbyCommandId: createId(),
+          eventCommandId: createId(),
+          suffix: createId().slice(-6),
+        })}
+      />
+    ) : null;
   if (!read)
     return (
       <HostShell rail={rail} current="league">
         <PageHeader title={management.name} />
         {lobbies}
+        {createTournament}
       </HostShell>
     );
   const league = storedHostLeagueOf(slug, read.season);
@@ -73,19 +86,7 @@ export default async function Page({
       rail={rail}
       standingLobbies={lobbies}
       league={league}
-      createTournament={
-        read.season.tournamentLobbies.length ? (
-          <CreateTournamentForm
-            standingLobbies={read.season.tournamentLobbies}
-            action={createTournamentAction.bind(null, {
-              leagueId: read.season.view.organization.organizationId,
-              lobbyCommandId: createId(),
-              eventCommandId: createId(),
-              suffix: createId().slice(-6),
-            })}
-          />
-        ) : null
-      }
+      createTournament={createTournament}
       requestControls={(request) => {
         const row = read.season.requests.find(
           (row) => row.sanctionId === request.id,

@@ -1,4 +1,3 @@
-import { tournamentFirstDay } from '@daisy/protocol/lobby/tournament-schedule';
 import { and, eq, inArray } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import type { EntryCommand } from '@daisy/protocol/lobby/entry-command';
@@ -10,7 +9,7 @@ import { actors } from '../schema/actors';
 import { lobbies } from '../schema/lobbies';
 import { organizations } from '../schema/organizations';
 import { entries, entryMembers } from '../schema/entries';
-import { tabRounds, timeSlots } from '../schema/events';
+import { tabRounds } from '../schema/events';
 import { draws } from '../schema/draws';
 import { tournamentJudges } from '../schema/tournament-judges';
 import { fixtureJudges, fixtures } from '../schema/fixtures';
@@ -22,7 +21,10 @@ import {
 import { lockTabCommandAccounts } from './command-accounts';
 import { loadAuthorityContext } from './authority-context';
 import { loadEntryPeople } from './entry-person-rows';
-import { loadTournamentEligibility } from './tournament-eligibility';
+import {
+  loadTournamentEligibility,
+  tournamentAgeSource,
+} from './tournament-eligibility';
 import { lockEventSettingContext } from './event-setting-context';
 import {
   appendHistory,
@@ -155,13 +157,6 @@ const load = async (tx: TabTransaction, input: EntryEnrollmentInput) => {
     lobby?.kind === 'tournament'
       ? await loadTournamentEligibility(tx, scope, lobby)
       : null;
-  const slots =
-    eligibility?.kind === 'own'
-      ? await tx
-          .select({ startsAt: timeSlots.startsAt })
-          .from(timeSlots)
-          .where(eq(timeSlots.lobbyId, input.lobbyId))
-      : [];
   const guardianLinkId =
     input.command.type === 'submit-entry' &&
     input.command.responsible.kind === 'guardian'
@@ -173,18 +168,9 @@ const load = async (tx: TabTransaction, input: EntryEnrollmentInput) => {
     tx,
     scope,
     currentActorIds,
-    eligibility?.kind === 'standing'
-      ? {
-          kind: 'standing',
-          lobbyId: eligibility.lobbyId,
-        }
-      : {
-          kind: 'own',
-          ageAsOf: tournamentFirstDay(
-            slots.map((slot) => slot.startsAt.toISOString()),
-            input.now,
-          ),
-        },
+    eligibility
+      ? await tournamentAgeSource(tx, eligibility, input.now)
+      : { kind: 'own', ageAsOf: input.now },
     guardianLinkId ?? null,
   );
   const [school] = schoolId

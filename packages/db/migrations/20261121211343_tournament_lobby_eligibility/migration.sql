@@ -50,6 +50,7 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public, pg_te
 AS $room_youth$
   SELECT CASE
     WHEN r.legacy_tournament_youth IS NOT NULL THEN r.legacy_tournament_youth
+    WHEN l.kind = 'tournament' AND rd.standing_age_rule IS NOT NULL THEN rd.standing_youth_cast
     WHEN coalesce(parent.age_rule, l.age_rule) = 'under-18' THEN true
     WHEN coalesce(parent.age_rule, l.age_rule) = 'anyone' OR l.kind = 'tournament' THEN
       CASE WHEN rd.id IS NULL THEN EXISTS (
@@ -69,6 +70,20 @@ AS $room_youth$
   WHERE r.id=requested_room_id
 $room_youth$;
 --> statement-breakpoint
+-- Preserve the effective Youth cast at Start for standing and tournament Rooms.
+CREATE OR REPLACE FUNCTION public.daisy_room_youth_recording_cast(requested_room_id text) RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp
+AS $room_youth_recording_cast$
+  SELECT CASE WHEN l.kind = 'tournament' THEN public.daisy_room_is_youth(r.id)
+    ELSE l.age_rule='under-18' OR EXISTS (
+      SELECT 1 FROM public.room_participants p JOIN public.actors a ON a.id=p.actor_id
+      WHERE p.room_id=r.id AND p.seat_kind IN ('side','speaker')
+        AND public.daisy_debater_was_under_18(a.user_id, statement_timestamp())
+    ) END
+  FROM public.rooms r JOIN public.lobbies l ON l.id=r.lobby_id
+  WHERE r.id=requested_room_id
+$room_youth_recording_cast$;
+--> statement-breakpoint
 -- A mixed cast needs age evidence for recording reuse even after account erasure.
 CREATE OR REPLACE FUNCTION public.daisy_round_reuse_age_unknown(requested_round_id text) RETURNS boolean
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp
@@ -84,7 +99,7 @@ AS $round_reuse_age_unknown$
       AND ((l.kind='standing' AND (rd.standing_age_rule='anyone' OR l.age_rule='anyone'
         OR (coalesce(rd.standing_age_rule,l.age_rule)='adults' AND rd.standing_youth_cast)))
         OR (l.kind='tournament' AND r.legacy_tournament_youth IS NULL
-          AND coalesce(parent.age_rule, l.age_rule)<>'under-18'))
+          AND coalesce(rd.standing_age_rule, parent.age_rule, l.age_rule)<>'under-18'))
       AND p.seat_kind IN ('side','speaker') AND public.daisy_round_participant_is_current(p.id)
       AND NOT EXISTS (SELECT 1 FROM public.account_age age
         WHERE age.user_id=a.user_id
@@ -103,12 +118,13 @@ AS $room_community_fact$
   JOIN public.rooms youth_room ON youth_room.id=seated.room_id AND public.daisy_room_is_youth(youth_room.id)
   JOIN public.lobbies youth_lobby ON youth_lobby.id=youth_room.lobby_id
   LEFT JOIN public.lobbies parent ON parent.id=youth_lobby.standing_lobby_id
+  LEFT JOIN public.rounds rd ON rd.room_id=youth_room.id AND youth_lobby.kind='tournament'
   JOIN public.actors seated_actor ON seated_actor.id=seated.actor_id
   WHERE seated.room_id=requested_room_id AND seated_actor.kind='human' AND seated.seat_kind in ('side', 'speaker')
    AND seated_actor.user_id IS NOT NULL
    AND (youth_room.legacy_tournament_youth IS TRUE
-     OR coalesce(parent.age_rule, youth_lobby.age_rule)='under-18'
-     OR public.daisy_debater_was_under_18(seated_actor.user_id, statement_timestamp()))
+     OR coalesce(rd.standing_age_rule, parent.age_rule, youth_lobby.age_rule)='under-18'
+     OR public.daisy_debater_was_under_18(seated_actor.user_id, coalesce(rd.created_at, statement_timestamp())))
  ),
  caller AS (
   SELECT a.user_id FROM public.actors a
@@ -157,7 +173,7 @@ AS $round_linked_adult_actors$
      WHERE rd.id=requested_round_id
        AND ((l.kind='standing' AND coalesce(rd.standing_age_rule,l.age_rule) IN ('anyone','adults'))
          OR (l.kind='tournament' AND r.legacy_tournament_youth IS NULL
-           AND coalesce(parent.age_rule, l.age_rule)<>'under-18'))
+           AND coalesce(rd.standing_age_rule, parent.age_rule, l.age_rule)<>'under-18'))
        AND NOT public.daisy_debater_was_under_18(a.user_id, rd.created_at))
  )
  SELECT d.actor_id, d.user_id,
