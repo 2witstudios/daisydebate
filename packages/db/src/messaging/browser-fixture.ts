@@ -1,5 +1,6 @@
 import type { SQL } from 'bun';
 import { idSchema } from '@daisy/protocol';
+import { z } from 'zod';
 type BrowserAccount = { readonly userId: string; readonly username: string };
 /**
  * Test-only: binds accounts created by actual HTTP signup, then pins the
@@ -31,19 +32,27 @@ export async function seedMessagingBrowserAccounts(
     return result;
   });
 }
-/** Remove only the declared test channel/age rows before the shared account fixture disposes its own signup resources. */
+/** Remove fixture channels and age rows before the shared account fixture disposes its signup resources. */
 export async function cleanupMessagingBrowserData(
   client: SQL,
   accounts: readonly (BrowserAccount & { actorId: string })[],
   channels: readonly string[],
 ) {
-  const channelIds = [...channels];
   const actors = accounts.map((account) => idSchema.parse(account.actorId));
   channels.forEach((channelId) => idSchema.parse(channelId));
   await client.begin(async (tx) => {
     const userIds = accounts.map((account) => account.userId).sort();
     await tx`select id from users where id=any(${tx.array(userIds, 'text')}::text[]) order by id for update`;
     await tx`select low_actor_id from contact_pairs where low_actor_id=any(${tx.array(actors, 'text')}::text[]) and high_actor_id=any(${tx.array(actors, 'text')}::text[]) order by low_actor_id,high_actor_id for update`;
+    // A DM can commit before the browser receives the channel ID from navigation.
+    const ownedDms = z.array(z.object({ channelId: idSchema })).parse(
+      await tx`select channel_id as "channelId" from messaging_dm_pairs
+        where low_actor_id=any(${tx.array(actors, 'text')}::text[])
+          and high_actor_id=any(${tx.array(actors, 'text')}::text[])`,
+    );
+    const channelIds = [
+      ...new Set([...channels, ...ownedDms.map(({ channelId }) => channelId)]),
+    ];
     await tx`select id from messaging_channels where id=any(${tx.array(channelIds, 'text')}::text[]) order by id for update`;
     const [foreign] =
       await tx`select exists(select 1 from messaging_channels c where c.id=any(${tx.array(channelIds, 'text')}::text[]) and not ((c.kind='dm' and exists(select 1 from messaging_dm_pairs p where p.channel_id=c.id and p.low_actor_id=any(${tx.array(actors, 'text')}::text[]) and p.high_actor_id=any(${tx.array(actors, 'text')}::text[]))) or (c.kind='private_group' and exists(select 1 from messaging_social_commands s where s.result_channel_id=c.id and s.kind='group.create' and s.actor_id=any(${tx.array(actors, 'text')}::text[])))))
@@ -62,7 +71,7 @@ export async function cleanupMessagingBrowserData(
     await tx`delete from messaging_channels where id=any(${tx.array(channelIds, 'text')}::text[])`;
     await tx`delete from contact_pairs where low_actor_id=any(${tx.array(actors, 'text')}::text[]) and high_actor_id=any(${tx.array(actors, 'text')}::text[])`;
     await tx`delete from outbox where topic=any(${tx.array(
-      channels.map((id) => `channel:${id}`),
+      channelIds.map((id) => `channel:${id}`),
       'text',
     )}::text[])`;
     await tx`delete from account_age where user_id=any(${tx.array(userIds, 'text')}::text[])`;

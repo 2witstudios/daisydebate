@@ -2,11 +2,62 @@ import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { cleanupMessagingBrowserData } from '../src/messaging/browser-fixture';
+import { seedMessagingTestDm } from '../src/messaging/test-fixture';
 import { createAuthorizationSubject } from './authorization.test-support';
 import { withFixture } from './constraint-helpers';
 
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
+
+test('browser cleanup finds a committed DM when the journey never receives its channel ID', async () => {
+  await withFixture(databaseUrl, async (fixture) => {
+    const accounts = await Promise.all(
+      Array.from({ length: 3 }, () => createAuthorizationSubject(fixture)),
+    );
+    const [sender, recipient, outsider] = accounts;
+    if (!sender || !recipient || !outsider)
+      throw new Error('Three test accounts required');
+    const channelId = createId();
+    const unrelatedId = createId();
+    const now = '2026-10-09T18:00:00.000Z';
+    try {
+      await seedMessagingTestDm(fixture.sql, {
+        actorId: sender.actorId,
+        otherActorId: recipient.actorId,
+        channelId,
+        now,
+      });
+      await fixture.sql`update messaging_dm_pairs set request_state='pending', decided_at=null where channel_id=${channelId}`;
+      await seedMessagingTestDm(fixture.sql, {
+        actorId: recipient.actorId,
+        otherActorId: outsider.actorId,
+        channelId: unrelatedId,
+        now,
+      });
+      await cleanupMessagingBrowserData(
+        fixture.sql,
+        [sender, recipient].map((account) => ({
+          ...account,
+          username: account.userId,
+        })),
+        [],
+      );
+      assert({
+        given:
+          'a committed DM between the fixture actors and a separate DM with an outsider',
+        should: 'remove the unreported fixture DM and preserve the other DM',
+        actual: [
+          await fixture.count('messaging_channels', 'id', channelId),
+          await fixture.count('messaging_channels', 'id', unrelatedId),
+        ],
+        expected: [0, 1],
+      });
+    } finally {
+      await fixture.sql`delete from messaging_channels where id in (${channelId}, ${unrelatedId})`;
+      await fixture.sql`delete from contact_pairs where low_actor_id in (${sender.actorId}, ${recipient.actorId}, ${outsider.actorId}) and high_actor_id in (${sender.actorId}, ${recipient.actorId}, ${outsider.actorId})`;
+    }
+  });
+});
 
 test('browser cleanup accepts owned group provenance and refuses foreign invitation associations atomically', async () => {
   await withFixture(databaseUrl, async (fixture) => {
