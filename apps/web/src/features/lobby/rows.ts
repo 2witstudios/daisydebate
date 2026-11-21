@@ -92,7 +92,7 @@ const action = (
 ): LobbyAction => ({ verb, href, primary });
 
 /**
- * A row's actions for this viewer (ADR 0156). A seat they hold is Return to
+ * A row's actions for this viewer (ADR 0162). A seat they hold is Return to
  * room. Otherwise Watch sits beside the seat action: Join in a Room of their
  * own lobby, Judge in the other lobby's Room while a judge seat is free, none
  * when neither fits. A Room before its Round is watched on its own page; a

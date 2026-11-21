@@ -7,9 +7,10 @@ import {
 } from '../../scripts/node-kill-drill/target';
 
 /**
- * Runs the node kill drill through the Launch harness, in the heavy queue, never
- * in CI: `bun drill:node-kill`. It refuses before queuing unless every target is
- * a daisy-mr- app. Report: test-results/node-kill-drill/<label>-<time>/.
+ * Runs the node kill drill through the Launch harness in the heavy queue:
+ * `bun drill:node-kill`. Nightly CI uses disposable local Docker nodes. It
+ * refuses before queuing unless every target is a daisy-mr- app.
+ * Report: test-results/node-kill-drill/<label>-<time>/.
  *
  * DRILL_LABEL          a short lowercase name for the run
  * DRILL_NODES          JSON list of { app, machine, apiUrl, publicUrl, media };

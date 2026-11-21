@@ -5,7 +5,7 @@ import { roomCommands } from './schema/room-commands';
 import { roundCommands } from './schema/round-commands';
 import { roundCheckInAttempts } from './schema/round-attendance';
 import type { TxSource } from './tx';
-/** Accepted DEC-81 window is applied by the injected-clock sweep; durable attendance facts, speaking intervals and Round finalisations (ISSUE-1408) retain their referenced receipts until owning Round erasure. */
+/** The ADR 0059 receipt window is applied by the injected-clock sweep; durable attendance facts, speaking intervals and Round finalisations (ISSUE-1408) retain their referenced receipts until owning Round erasure. */
 export const commandRetention = ({
   database,
   eventSink,

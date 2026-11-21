@@ -534,6 +534,14 @@ secrets and any PEM private key before upload. The e2e server keeps its TLS
 edge key out of `test-results` altogether: it is created in a private
 temporary directory and deleted once loaded (ISSUE-78).
 
+For a PR review bundle, dispatch **Browser E2E** on the PR branch with
+`review_spec` set to one Chromium spec relative to `apps/web`, for example
+`e2e/pricing.e2e.ts`. The run records video, trace and screenshots from the
+isolated fixture stack and uploads the sanitized bundle for seven days.
+Attach it to the PR with `bun review:evidence <pr-number> <run-id>`. The
+command checks the run's commit against the current PR head before posting
+the download link in a PR comment.
+
 ## CI task caching
 
 Static CI jobs and both browser builds restore `.turbo/cache` using the local

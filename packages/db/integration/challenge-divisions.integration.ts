@@ -17,7 +17,7 @@ const { databaseUrl } = requireTestServices(process.env);
  * members' divisions under the pair's lock, stores the shared one, and
  * refuses across divisions or without one. Casual is always offered.
  */
-test('a challenge stays inside one lobby and stores it (ADR 0156)', async () => {
+test('a challenge stays inside one lobby and stores it (ADR 0162)', async () => {
   const client = new SQL(databaseUrl);
   const fixture = await createMessagingTestFixture(client);
   const database = drizzle({ client });

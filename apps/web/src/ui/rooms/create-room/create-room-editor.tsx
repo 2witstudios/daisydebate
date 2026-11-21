@@ -52,7 +52,7 @@ export function CreateRoomEditor({
    */
   readonly memberDivision: RatingDivision | null;
   /**
-   * Club staff's Lobby choice and its default (ADR 0156, YLCreateRoomClub):
+   * Club staff's Lobby choice and its default:
    * they may open a Youth Room for their students. Null for everyone else,
    * whose Room opens in their own lobby with no choice shown.
    */

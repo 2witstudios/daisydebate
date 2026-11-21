@@ -336,7 +336,7 @@ type BroadcastDiscovery = {
 
 /**
  * A casual Round with one human judge, its host opted into a Broadcast and a
- * Recording, launched and ended. Its Room takes its host's lobby (ADR 0156).
+ * Recording, launched and ended. Its Room takes its host's lobby (ADR 0162).
  */
 const endedCasualRound = async (
   f: Fixture,

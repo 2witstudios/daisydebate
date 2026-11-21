@@ -17,7 +17,7 @@ const scratch = scratchDatabase(url, 'roomdivisionit');
 afterAll(() => scratch.drop());
 
 test(
-  'the migration puts every Room in a lobby and every answered challenge in its Room’s (ADR 0156)',
+  'the migration puts every Room in a lobby and every answered challenge in its Room’s (the room_division migration)',
   async () => {
     await scratch.create();
     await scratch.migrate((folder) => folder < migration);

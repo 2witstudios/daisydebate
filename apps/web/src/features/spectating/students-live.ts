@@ -18,7 +18,7 @@ export type StudentLiveCard = {
   readonly href: string;
   readonly title: string;
   readonly resolution: string | null;
-  /** Ranked or casual: a Youth Room holds either (ADR 0156). */
+  /** Ranked or casual: a Youth Room holds either (ADR 0162). */
   readonly ranked: boolean;
   /** The debaters by name, then where the Round is: "maya vs jules · Speeches · 1AR". */
   readonly line: string;

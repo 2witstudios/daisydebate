@@ -7,7 +7,7 @@ import { createTestApp, type TestApp } from './fixtures';
 import { CLIENT_IP_HEADER } from '@daisy/ingress/client-ip';
 
 /**
- * The residual ADR 0025 records against DEC-41 (ISSUE-185, DEC-76): a real
+ * The residual ADR 0025 records the occupancy limit (ISSUE-185, DEC-76): a real
  * send holds its handed-off slot for a provider round trip, and a dropped
  * sign-up frees its slot in milliseconds. That difference can be seen only
  * through shedding, and shedding happens only once the whole occupancy

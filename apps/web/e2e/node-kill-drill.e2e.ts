@@ -65,7 +65,7 @@ import {
 } from './support/round-media';
 
 /**
- * Spike step 3, on demand and never in CI: kill the node holding a live Round,
+ * On demand and nightly against scratch nodes: kill the node holding a live Round,
  * through a real browser per seat, and measure from the kill. Each kill is its
  * own Round. A sample records what happened and passes; the last test writes
  * the report and fails if a bar did. See node-kill-drill-runner.ts.

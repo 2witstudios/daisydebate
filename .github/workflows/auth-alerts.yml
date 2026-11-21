@@ -9,7 +9,7 @@ name: Auth alert probe
 # (scripts/auth-alert-probe.ts). The cron below is configured for every 5
 # minutes, but GitHub's schedule trigger does not actually run that often in
 # production: ADR 0046 measured runs 2-5 hours apart over 43.5 hours, not
-# "a few minutes late". Owner decision (DEC-33, 2026-09-28): keep this exact
+# "a few minutes late". For staging, keep this exact
 # mechanism and accept its best-effort cadence for staging rather than build
 # a new scheduler; revisit before a production launch. Only the 2-hour
 # cleanup_missed window reliably survives the real gap between runs on its

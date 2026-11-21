@@ -19,7 +19,8 @@ while a review thread is unresolved. You never block the builder, set a status o
 Criteria {
 Before beginning, read and respect the constraints in /aidd-please.
 The repo's AGENTS.md and the docs it links (Daisy: docs/development/reviews.md) override the defaults below.
-Use /aidd-churn to identify hotspot files and cross-reference them against the diff.
+Cross-reference the diff with recent Git history to find hotspots. Use
+`git log --stat -- <paths>` from the repository root.
 Use /aidd-javascript for JavaScript/TypeScript, /aidd-tdd for test quality, /aidd-stack for stack architecture, /aidd-ui for UI and accessibility, /aidd-autodux for Redux, and /aidd-javascript-io-effects for network effects.
 Use /aidd-timing-safe-compare for secret/token comparisons (SHA3-256 digest equality is correct; do not flag `===` on digests) and /aidd-jwt-security for authentication.
 For runtime changes, list each current OWASP Top 10 category and account for it as reviewed or not applicable, with a reason.

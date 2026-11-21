@@ -82,7 +82,7 @@ describe('AUTH-3.10 aggregate magic-link limits per network', () => {
     });
   });
 
-  test('a /48 over its limit answers an existing and an unknown address alike, logs counts only and does no work (DEC-41)', async () => {
+  test('a /48 over its limit answers an existing and an unknown address alike, logs counts only and does no work', async () => {
     const deniedAt48 = () =>
       create({
         limiter: (record) => async (key, rule) => {

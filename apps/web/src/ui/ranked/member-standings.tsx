@@ -106,7 +106,7 @@ function SeasonHistory({
 }
 
 /**
- * A profile's ratings (ADR 0156): one Freestyle card, then the seasons they
+ * A profile's ratings (ADR 0162): one Freestyle card, then the seasons they
  * finished; no division is named. The caller chooses the card
  * (`profileLadders`).
  */

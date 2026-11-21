@@ -82,7 +82,7 @@ test('each member lands in their own lobby and switches to the other', async ({
       .click();
     await expect(youth).toHaveURL(/[?&]lobby=[a-z0-9]{24}/);
     await expectLobby(youth, 'Open');
-    // The Division filter is gone: the lobby is the switch (ADR 0156).
+    // The Division filter is gone: the lobby is the switch (ADR 0162).
     await expect(adult.locator('select[name="division"]')).toHaveCount(0);
   } finally {
     for (const context of contexts) await context.close();

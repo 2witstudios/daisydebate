@@ -60,7 +60,7 @@ test('ranked entry preserves canonical setup for the one Freestyle ladder', asyn
         page.getByRole('heading', { name: 'Leaderboard', exact: true }),
       ).toBeVisible();
       await page.goto('/leaderboard/seasons?ladder=value');
-      // The season card names the season alone; no ladder (ADR 0156).
+      // The season card names the season alone; no ladder.
       await expect(
         page.getByRole('heading', { level: 2, name: 'Season 1', exact: true }),
       ).toBeVisible();
@@ -110,7 +110,7 @@ test('ranked entry preserves canonical setup for the one Freestyle ladder', asyn
       await expect(ratings).toContainText(`${row.rating}*`);
       await capture(`${row.ladder}-profile`);
       await page.goto(`/rounds/${row.roundId}`);
-      // YRoundResult: the rating, then its change; no ladder is named (ADR 0156).
+      // YRoundResult: the rating, then its change; no ladder is named.
       await expect(
         page.getByRole('region', { name: 'Round ratings', exact: true }),
       ).toContainText(`${row.rating}* +${row.delta}`);

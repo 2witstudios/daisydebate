@@ -2,7 +2,7 @@ import type { RatingDivision } from '@daisy/protocol';
 import type { MemberStanding } from '../ratings/read-member';
 
 /**
- * The one rating card a profile shows (ADR 0156, YProfile): the ladder the
+ * The one rating card a profile shows: the ladder the
  * member is rated on this season, or on their own profile their own ladder
  * while unrated. Earlier seasons live in the season history, not as cards.
  */

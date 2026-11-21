@@ -51,8 +51,13 @@ pu kill --agent <agent> && pu clean
   go through the PageSpace Delivery channel;
   incidents go to Incidents. The pu channel is retired. Agents report to
   whoever spawned them, so the owner never relays status.
-- **Decisions on the owner's behalf** are recorded with `bun decision:record`
-  and stay open until confirmed or overruled.
+- **Decisions on the owner's behalf**, including Tab decisions, go on the
+  [DEC list](https://pagespace.ai/dashboard/lguvh1y1ejhadk96xcftohha/jdesqcu11mczngtmahbcybc3)
+  through `bun decision:record`. They stay open until confirmed or overruled.
+  After a board ruling, run `bun decision:record --sync` and commit the
+  refreshed status snapshot. `bun policy` reads it and the repository ADRs
+  locally to catch retired citations in executable source. Historical
+  migration files retain the policy in force when they were written.
 
 ## Pull requests and merges
 

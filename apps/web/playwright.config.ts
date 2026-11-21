@@ -147,9 +147,18 @@ export default defineConfig({
     baseURL: origin,
     // The edge presents a per-run self-signed certificate for localhost.
     ignoreHTTPSErrors: true,
-    screenshot: 'only-on-failure',
-    trace: 'retain-on-failure',
-    video: 'retain-on-failure',
+    screenshot:
+      process.env.DAISY_BROWSER_REVIEW_EVIDENCE === '1'
+        ? 'on'
+        : 'only-on-failure',
+    trace:
+      process.env.DAISY_BROWSER_REVIEW_EVIDENCE === '1'
+        ? 'on'
+        : 'retain-on-failure',
+    video:
+      process.env.DAISY_BROWSER_REVIEW_EVIDENCE === '1'
+        ? 'on'
+        : 'retain-on-failure',
   },
   projects: [
     // Chromium carries the whole functional suite (app/dashboard chrome,

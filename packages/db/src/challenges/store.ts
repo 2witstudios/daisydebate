@@ -57,7 +57,7 @@ type ChallengeRowFacts = {
   readonly username: string;
   readonly mode: CompetitionType;
   readonly format: RatingStyle;
-  /** The lobby both members share (ADR 0156); its Room opens there. */
+  /** The lobby both members share (ADR 0162); its Room opens there. */
   readonly lobbyId: string;
   readonly createdAt: string;
   readonly expiresAt: string;

@@ -61,7 +61,7 @@ test('no condition may skip the native job', () => {
   assert({
     given:
       'an unconditioned job, an arbitrary condition and the old path filter',
-    should: 'claim the suite only when nothing can skip the job (ADR 0098)',
+    should: 'claim the suite only when nothing can skip the job (ADR 0159)',
     actual: [
       workflow,
       conditioned('false'),

@@ -1,7 +1,10 @@
 import { resolve } from 'node:path';
 import { browserDriverOptions, finishBrowserDriver } from './browser-driver';
 
-/** Runs the bot Freestyle drill through the Launch harness, in the heavy queue. */
+/**
+ * Runs the bot Freestyle drill through the Launch harness in the heavy queue.
+ * On demand on macOS: it needs macOS `say` and a real OpenRouter API key.
+ */
 const checkout = resolve(import.meta.dir, '../../../..');
 const queued = Bun.spawn(
   [

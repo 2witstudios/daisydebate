@@ -1,3 +1,4 @@
+import { runInNewContext } from 'node:vm';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 setupRitewayBun();
 
@@ -41,7 +42,7 @@ describe('browser workflow triggers', () => {
       jobs: Record<
         string,
         {
-          'timeout-minutes': number;
+          'timeout-minutes': number | string;
           strategy: { matrix: { cohort: string[] } };
           steps: Step[];
         }
@@ -53,6 +54,7 @@ describe('browser workflow triggers', () => {
     );
     const step = job.steps.find((candidate) => candidate.id === 'launch') as
       (Step & { env?: Record<string, string> }) | undefined;
+    const minutes = job['timeout-minutes'];
     // The step's own shell works the shard out of the cohort's name.
     const shards = launch.map((cohort) =>
       Bun.spawnSync(
@@ -73,7 +75,19 @@ describe('browser workflow triggers', () => {
       actual: {
         shards,
         onlyLaunch: step?.if,
-        bounded: job['timeout-minutes'] <= 45,
+        bounded: launch.every((cohort) => {
+          const resolved =
+            typeof minutes === 'number'
+              ? minutes
+              : Number(
+                  runInNewContext(
+                    minutes.replace(/^\$\{\{\s*|\s*\}\}$/g, ''),
+                    { matrix: { cohort } },
+                    { timeout: 500 },
+                  ),
+                );
+          return resolved <= 45;
+        }),
         // One share for each shard, none empty.
         shares: (step?.env?.PWTEST_SHARD_WEIGHTS ?? '')
           .split(':')

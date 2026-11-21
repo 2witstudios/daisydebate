@@ -20,7 +20,7 @@ const inlined = (expression: Parameters<PgDialect['sqlToQuery']>[0]) => {
   });
 };
 
-test('the Room chat fact reads the Room’s own division (ADR 0156)', () => {
+test('the Room chat fact reads the Room’s own division (ADR 0162)', () => {
   const installed = readdirSync(migrations)
     .sort()
     .map((tag) => {

@@ -29,6 +29,11 @@ import {
 import { utcToday } from './review-date';
 import { collectWorkflowHardeningProblems } from './workflow-hardening';
 import { collectFlagPolicyProblems } from './flag-policy';
+import {
+  overruledCitations,
+  parseDecisionSnapshot,
+  retiredAdr,
+} from './decision-status';
 
 const root = resolve(import.meta.dir, '..');
 const registryPath = join(root, 'policy/exceptions.json');
@@ -50,6 +55,7 @@ const scannedExtensions = new Set([
   '.ts',
   '.tsx',
 ]);
+const citationOnlyExtensions = /\.(?:[cm][jt]s|jsonc|sh|ya?ml)$/;
 const categories = new Set<PolicyCategory>([
   'framework',
   'integration-isolation',
@@ -73,7 +79,7 @@ export type PolicyException = {
 export type PolicyFinding = {
   readonly path: string;
   readonly line: number;
-  readonly rule: PolicyRule;
+  readonly rule: PolicyRule | 'overruled-decision';
   readonly detail: string;
 };
 export type PolicyReport = {
@@ -357,11 +363,36 @@ export async function collectPolicy(): Promise<PolicyReport> {
   const exceptions = new Set(
     (registry.exceptions ?? []).map(({ path, rule }) => `${path}|${rule}`),
   );
+  const snapshot = parseDecisionSnapshot(
+    await Bun.file(join(root, 'policy/decision-status.json')).json(),
+  );
+  const overruled = new Set<string>(
+    Object.keys(snapshot.decisions).filter(
+      (id) => snapshot.decisions[id] === 'overruled',
+    ),
+  );
+  for (const path of knownPaths) {
+    if (!/^docs\/decisions\/\d{4}-[^/]+\.md$/.test(path)) continue;
+    const adr = retiredAdr(path, await readFile(join(root, path), 'utf8'));
+    if (adr) overruled.add(adr);
+  }
   const findings: PolicyFinding[] = [];
+  for (const path of knownPaths) {
+    if (citationOnlyExtensions.test(path))
+      findings.push(
+        ...overruledCitations(
+          path,
+          await readFile(join(root, path), 'utf8'),
+          overruled,
+        ),
+      );
+  }
   for (const file of repositoryFiles) {
     const path = relative(root, file);
+    const source = await readFile(file, 'utf8');
+    findings.push(...overruledCitations(path, source, overruled));
     if (/^scripts\/policy(-styling|\.test)?\.ts$/.test(path)) continue;
-    for (const finding of scanPolicyText(path, await readFile(file, 'utf8')))
+    for (const finding of scanPolicyText(path, source))
       if (!exceptions.has(`${finding.path}|${finding.rule}`))
         findings.push(finding);
   }
