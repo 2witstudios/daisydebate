@@ -7,6 +7,7 @@ import {
   mergeEvent,
   ok,
   routedFetch,
+  virtualTime,
 } from './docs-consult.test-support';
 import { DOCUMENTATION_PROMPT_VERSION } from './docs-prompts';
 import { RUN_RECORD_COLUMNS, runRecordsFromSheet } from './docs-runs-sheet';
@@ -156,13 +157,17 @@ describe('dispatchDocumentationEvent receipt', async () => {
   test('bounds a hung reservation by its request cap', async () => {
     // The hung append settles only when its request cap aborts it, so an
     // uncapped append never returns and the test fails on its own timeout.
+    const { clock, options } = virtualTime();
     const stub = routedFetch({ consult: async () => ok(), hang: ['append'] });
-    const message = await failureOf(
-      dispatchDocumentationEvent(mergeEvent('fix: only technical'), {
-        ...baseOptions,
-        fetchImpl: stub.fetchImpl,
-        requestTimeoutMs: 50,
-      }),
+    const message = await clock.run(
+      failureOf(
+        dispatchDocumentationEvent(mergeEvent('fix: only technical'), {
+          ...baseOptions,
+          ...options,
+          fetchImpl: stub.fetchImpl,
+          requestTimeoutMs: 50,
+        }),
+      ),
     );
     assert({
       given: 'a Runs-sheet append that is accepted and never answered',
@@ -182,18 +187,19 @@ describe('dispatchDocumentationEvent receipt', async () => {
   });
 
   test('starts nothing when the budget is shorter than the settlement window', async () => {
+    const { clock, options } = virtualTime();
     const stub = routedFetch({ consult: async () => ok(), hang: ['reads'] });
-    let message = 'no throw';
-    try {
-      await dispatchDocumentationEvent(mergeEvent('fix: only technical'), {
-        ...baseOptions,
-        fetchImpl: stub.fetchImpl,
-        timeoutMs: 20,
-        budgetMs: 20,
-      });
-    } catch (error) {
-      message = (error as Error).message;
-    }
+    const message = await clock.run(
+      failureOf(
+        dispatchDocumentationEvent(mergeEvent('fix: only technical'), {
+          ...baseOptions,
+          ...options,
+          fetchImpl: stub.fetchImpl,
+          timeoutMs: 20,
+          budgetMs: 20,
+        }),
+      ),
+    );
     assert({
       given: 'a budget too short for a consult plus the read that settles it',
       should: 'send no question and reserve no row, and say the budget ran out',
@@ -212,15 +218,16 @@ describe('dispatchDocumentationEvent receipt', async () => {
   });
 
   test('caps the pre-check so a hung lookup cannot starve the consult', async () => {
+    const { clock, options } = virtualTime();
     const stub = routedFetch({ consult: async () => ok(), hang: ['reads'] });
-    const outcomes = await dispatchDocumentationEvent(
-      mergeEvent('fix: only technical'),
-      {
+    const outcomes = await clock.run(
+      dispatchDocumentationEvent(mergeEvent('fix: only technical'), {
         ...baseOptions,
+        ...options,
         fetchImpl: stub.fetchImpl,
         budgetMs: 60_000,
         requestTimeoutMs: 20,
-      },
+      }),
     );
     assert({
       given: 'a hung conversation lookup with plenty of budget left',
@@ -231,20 +238,25 @@ describe('dispatchDocumentationEvent receipt', async () => {
   });
 
   test('does not send a consult the reservation left no time for', async () => {
+    const { clock, options } = virtualTime();
     const { counts, fetchImpl } = routedFetch({
       consult: async () => ok(),
       appendDelayMs: 1_000,
+      clock,
     });
-    // Real timers with wide margins: the loop's start guard has 500ms to
-    // pass, and the append then outlasts the consult window by 500ms.
-    const message = await failureOf(
-      dispatchDocumentationEvent(mergeEvent('fix: only technical'), {
-        ...baseOptions,
-        fetchImpl,
-        budgetMs: 2_000,
-        requestTimeoutMs: 1_500,
-        attempt: 2,
-      }),
+    // On the virtual clock: the loop's start guard passes with 500ms to
+    // spare, and the append then outlasts the consult window by 500ms.
+    const message = await clock.run(
+      failureOf(
+        dispatchDocumentationEvent(mergeEvent('fix: only technical'), {
+          ...baseOptions,
+          ...options,
+          fetchImpl,
+          budgetMs: 2_000,
+          requestTimeoutMs: 1_500,
+          attempt: 2,
+        }),
+      ),
     );
     assert({
       given:
@@ -266,16 +278,20 @@ describe('dispatchDocumentationEvent receipt', async () => {
   });
 
   test('names the pipeline and a replay when the reservation fails', async () => {
+    const { clock, options } = virtualTime();
     const { counts, fetchImpl } = routedFetch({
       consult: async () => ok(),
       hang: ['append'],
     });
-    const message = await failureOf(
-      dispatchDocumentationEvent(mergeEvent('fix: only technical'), {
-        ...baseOptions,
-        fetchImpl,
-        requestTimeoutMs: 50,
-      }),
+    const message = await clock.run(
+      failureOf(
+        dispatchDocumentationEvent(mergeEvent('fix: only technical'), {
+          ...baseOptions,
+          ...options,
+          fetchImpl,
+          requestTimeoutMs: 50,
+        }),
+      ),
     );
     assert({
       given: 'a Runs-sheet append that times out at its request cap',

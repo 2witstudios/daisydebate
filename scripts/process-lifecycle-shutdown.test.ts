@@ -79,23 +79,30 @@ describe('the ISSUE-150 process-lifecycle seams against a real process', () => {
   });
 
   test('negative control: without either seam wired, the hang never exits on stdin close', async () => {
-    const child = Bun.spawn(['bun', '-e', 'await new Promise(() => {});'], {
-      stdin: 'pipe',
-      stdout: 'pipe',
-      stderr: 'pipe',
-    });
+    // The child only reports the end of its stdin: it hears the parent go,
+    // as the seam does, but nothing acts on it.
+    const child = Bun.spawn(
+      [
+        'bun',
+        '-e',
+        `process.stdin.on('end', () => console.log(${JSON.stringify(READY_MARKER)}));
+         process.stdin.resume();
+         await new Promise(() => {});`,
+      ],
+      { stdin: 'pipe', stdout: 'pipe', stderr: 'pipe' },
+    );
     try {
       await child.stdin.end();
-      const exited = await Promise.race([
-        child.exited.then(() => true),
-        Bun.sleep(1000).then(() => false),
-      ]);
+      await waitUntilReady(child.stdout as ReadableStream<Uint8Array>);
+      child.kill('SIGKILL');
+      await child.exited;
       assert({
-        given: 'a hanging process with neither ISSUE-150 seam installed',
+        given:
+          'a hanging process with neither ISSUE-150 seam installed, its stdin closed and the close heard',
         should:
-          'still be running after the same wait, proving the seams above do the work',
-        actual: exited,
-        expected: false,
+          'still be running until killed, proving the seams above do the work',
+        actual: child.signalCode,
+        expected: 'SIGKILL',
       });
     } finally {
       child.kill('SIGKILL');

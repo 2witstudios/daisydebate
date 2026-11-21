@@ -1,4 +1,5 @@
 import { memoryAdapter } from '@better-auth/memory-adapter';
+import { virtualClock, type VirtualClock } from '@daisy/clock/testing';
 import type { Logger } from '@daisy/logger';
 import { composeAuthServer, memoryTables } from '../auth-server.test-support';
 import type { AfterResponseLimits } from '../after-response';
@@ -7,12 +8,12 @@ import type { EmailMessage } from '../server';
 /**
  * The four database steps a saturated request's handed-off work makes (the
  * account lookup, the suppression read, the receipt write and the token
- * delete), each made to take `delayMs` and counted while it runs, so a test
- * can see how many run at once (ISSUE-247). `holdNext` keeps the next step
+ * delete), each made to take `delayMs` on the virtual `clock` and counted
+ * while it runs, so a test can see how many run at once (ISSUE-247). `holdNext` keeps the next step
  * of a name from finishing until released. Steps made while a request is being answered
  * (its own suppression check) run too, so peaks are read with `measure`.
  */
-const createStepTracker = (delayMs: number) => {
+const createStepTracker = (delayMs: number, clock: VirtualClock) => {
   let active = 0;
   let peak = 0;
   let measuring = false;
@@ -30,7 +31,7 @@ const createStepTracker = (delayMs: number) => {
           held = undefined;
           await until;
         }
-        await new Promise((resolve) => setTimeout(resolve, delayMs));
+        await clock.sleep(delayMs);
         return await run();
       } finally {
         active -= 1;
@@ -106,7 +107,10 @@ export const create = (
     sendFailure?: boolean;
     /** The mail transport answers nothing until `release()` is called. */
     heldTransport?: boolean;
-    /** Slows and counts the handed-off database steps (`createStepTracker`). */
+    /**
+     * Slows and counts the handed-off database steps (`createStepTracker`)
+     * on the harness's virtual `clock`, which the test then drives.
+     */
     stepDelayMs?: number;
     afterResponseLimits?: AfterResponseLimits;
     limiter?: (consumed: Consumed[]) => (
@@ -119,10 +123,11 @@ export const create = (
   } = {},
 ) => {
   const db = memoryTables();
+  const clock = virtualClock();
   const steps =
     options.stepDelayMs === undefined
       ? undefined
-      : createStepTracker(options.stepDelayMs);
+      : createStepTracker(options.stepDelayMs, clock);
   const tracked = <T>(name: string, run: () => Promise<T>) =>
     steps ? steps.track(name, run) : run();
   const consumed: Consumed[] = [];
@@ -204,6 +209,7 @@ export const create = (
     transportReached,
     release: () => release(),
     steps,
+    clock,
   };
 };
 /** Everything a caller observes of an answer: status, body and every header. */

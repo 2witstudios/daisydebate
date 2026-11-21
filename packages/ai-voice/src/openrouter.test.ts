@@ -1,3 +1,4 @@
+import { virtualClock } from '@daisy/clock/testing';
 import { assertRejects } from '@daisy/errors/testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createOpenRouter, type Fetch } from './openrouter';
@@ -140,27 +141,34 @@ describe('complete', () => {
       Response.json({
         choices: [{ message: { content: 'ok' }, finish_reason: 'stop' }],
       });
+    const clock = virtualClock();
     const waiting = (wait: number) => {
       const seen: boolean[] = [];
       const fetch: Fetch = async (_url, init) => {
-        await Bun.sleep(wait);
+        await clock.sleep(wait);
         seen.push(Boolean(init?.signal?.aborted));
         return answered();
       };
       return { seen, fetch };
     };
     const own = waiting(40);
-    await createOpenRouter({
-      apiKey: 'k',
-      fetch: own.fetch,
-      timeoutMs: 5,
-    }).complete({ model: 'm', messages: [], maxTokens: 1, timeoutMs: 5000 });
+    await clock.run(
+      createOpenRouter({
+        apiKey: 'k',
+        fetch: own.fetch,
+        timeoutMs: 5,
+        sleep: clock.sleep,
+      }).complete({ model: 'm', messages: [], maxTokens: 1, timeoutMs: 5000 }),
+    );
     const fallback = waiting(40);
-    await createOpenRouter({
-      apiKey: 'k',
-      fetch: fallback.fetch,
-      timeoutMs: 5,
-    }).complete({ model: 'm', messages: [], maxTokens: 1 });
+    await clock.run(
+      createOpenRouter({
+        apiKey: 'k',
+        fetch: fallback.fetch,
+        timeoutMs: 5,
+        sleep: clock.sleep,
+      }).complete({ model: 'm', messages: [], maxTokens: 1 }),
+    );
     assert({
       given:
         'a slow answer under a 5 ms client default, with and without a 5 s bound on the call',
