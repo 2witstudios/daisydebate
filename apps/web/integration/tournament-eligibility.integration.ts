@@ -218,9 +218,13 @@ test('Tab enrollment uses the exact standing lobby and authorizes each entrant',
         inherited(data.unpermittedLobby),
         'No permission',
       );
-      const personal = await tournament(
+      const personalAnyone = await tournament(
         { kind: 'own', ageRule: 'anyone' },
-        'Personal',
+        'Personal for anyone',
+      );
+      const personalAdults = await tournament(
+        { kind: 'own', ageRule: 'adults' },
+        'Personal for adults',
       );
       const foreign = await create(
         inherited(data.foreignLobby),
@@ -233,7 +237,13 @@ test('Tab enrollment uses the exact standing lobby and authorizes each entrant',
       const impersonation = await deniedAsNotFound(() =>
         enter(youth, minor, adult),
       );
-      const cases = [youth, permitted, unpermitted, personal];
+      const cases = [
+        youth,
+        permitted,
+        unpermitted,
+        personalAnyone,
+        personalAdults,
+      ];
       const outcomes = [];
       for (const target of cases) {
         const answer = await enter(target, minor);
@@ -268,6 +278,7 @@ test('Tab enrollment uses the exact standing lobby and authorizes each entrant',
             accepted,
             { answer: 'under-open-age', stored: [] },
             accepted,
+            { answer: 'under-open-age', stored: [] },
           ],
         },
       });

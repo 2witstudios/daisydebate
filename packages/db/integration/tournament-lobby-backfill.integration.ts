@@ -4,6 +4,7 @@ import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { Fixture, rejectedBy } from './constraint-helpers';
+import { validConfig } from './round-fixtures';
 import {
   ddlTimeoutMs,
   scratchDatabase,
@@ -88,26 +89,20 @@ test(
       const open = await tournament(league);
       const otherOpen = await tournament(league);
       const personal = await tournament(null, true);
-      const frozenOpen = await f.room(host, format, {
-        lobby_id: youth,
-        lobby_kind: 'tournament',
-        host_actor_id: null,
-        legacy_tournament_youth: false,
-        capture: { broadcast: null, recordingPolicy: 'off' },
-      });
-      const frozenYouth = await f.room(host, format, {
-        lobby_id: open,
-        lobby_kind: 'tournament',
-        host_actor_id: null,
-        legacy_tournament_youth: true,
-        capture: { broadcast: null, recordingPolicy: 'off' },
-      });
-      const classifiedAtUpgrade = await f.room(host, format, {
-        lobby_id: youth,
-        lobby_kind: 'tournament',
-        host_actor_id: null,
-        capture: { broadcast: null, recordingPolicy: 'off' },
-      });
+      const tournamentRoom = (
+        lobbyId: string,
+        legacyYouth: boolean | null = null,
+      ) =>
+        f.room(host, format, {
+          lobby_id: lobbyId,
+          lobby_kind: 'tournament',
+          host_actor_id: null,
+          legacy_tournament_youth: legacyYouth,
+          capture: { broadcast: null, recordingPolicy: 'off' },
+        });
+      const frozenOpen = await tournamentRoom(youth, false);
+      const frozenYouth = await tournamentRoom(open, true);
+      const classifiedAtUpgrade = await tournamentRoom(youth);
       const migrate = () => scratch.migrate((folder) => folder <= validated);
       const failure = await migrate().then(
         () => '',
@@ -183,15 +178,52 @@ test(
       const minted = String(byId[open]!.standing_lobby_id);
       await migrate();
       const afterRetry = await snapshot();
-      const live = await f.room(host, format, {
-        lobby_id: youth,
-        lobby_kind: 'tournament',
-        host_actor_id: null,
-        capture: { broadcast: null, recordingPolicy: 'off' },
-      });
+      const live = await tournamentRoom(youth);
       const [beforeEdit] =
         await f.sql`select public.daisy_room_is_youth(${live}) as youth`;
+      const schoolMember = async (years: number) => {
+        const userId = await f.user();
+        await f.sql`insert into account_age(user_id,birth_month,version,recorded_at)
+          values(${userId},to_char(now()-make_interval(years=>${years}), 'YYYY-MM'),1,now())`;
+        return { userId, actorId: await f.actor(userId) };
+      };
+      const pupil = await schoolMember(15);
+      const adultEntrant = await schoolMember(25);
+      const enrollAtSchool = async (student: string) => {
+        const coach = await schoolMember(30);
+        const school = createId();
+        await f.insert('organizations', {
+          id: school,
+          kind: 'school',
+          owner_user_id: coach.userId,
+          name: 'Fixture school',
+          handle: createId(),
+        });
+        await f.sql`insert into memberships(organization_id,user_id,status,joined_at)
+          values(${school},${student},'active',now())`;
+        return coach.actorId;
+      };
+      const minorCoach = await enrollAtSchool(pupil.userId);
+      const adultCoach = await enrollAtSchool(adultEntrant.userId);
+      const seat = (roomId: string, actorId: string, side: string) =>
+        f.sql`insert into room_participants(id,room_id,actor_id,seat_kind,side,slot)
+          values(${createId()},${roomId},${actorId},'side',${side},0)`;
+      await seat(frozenYouth, pupil.actorId, 'affirmative');
+      await seat(live, pupil.actorId, 'affirmative');
+      const [schoolBeforeEdit] = await f.sql`
+        select youth_staff from public.daisy_room_community_fact(${live},${minorCoach})
+      `;
+      await f.sql`delete from room_participants where room_id=${live}`;
       await f.sql`update lobbies set age_rule='adults' where id=${matched}`;
+      const mixed = await tournamentRoom(youth);
+      await seat(mixed, pupil.actorId, 'affirmative');
+      await seat(mixed, adultEntrant.actorId, 'negative');
+      const [schoolPrivacy] = await f.sql`
+        select
+          (select youth_staff from public.daisy_room_community_fact(${frozenYouth},${minorCoach})) as "frozenYouthStaff",
+          (select youth_staff from public.daisy_room_community_fact(${mixed},${minorCoach})) as "mixedMinorStaff",
+          (select youth_staff from public.daisy_room_community_fact(${mixed},${adultCoach})) as "mixedAdultStaff"
+      `;
       const [privacy] = await f.sql`
         select public.daisy_room_is_youth(${frozenOpen}) as "frozenOpen",
           public.daisy_room_is_youth(${frozenYouth}) as "frozenYouth",
@@ -228,6 +260,8 @@ test(
           ],
           retry: afterRetry,
           liveBeforeEdit: beforeEdit?.youth,
+          schoolBeforeEdit: schoolBeforeEdit?.youth_staff,
+          schoolPrivacy,
           privacy,
           remaining,
           crossLeague: await rejectedBy(writeWithParent(foreign)),
@@ -242,6 +276,12 @@ test(
           personal: [null, 'under-18'],
           retry: first,
           liveBeforeEdit: true,
+          schoolBeforeEdit: true,
+          schoolPrivacy: {
+            frozenYouthStaff: true,
+            mixedMinorStaff: true,
+            mixedAdultStaff: false,
+          },
           privacy: {
             frozenOpen: false,
             frozenYouth: true,
@@ -252,6 +292,40 @@ test(
           remaining: { settings: 0, minted: 1 },
           crossLeague: 'lobbies_standing_parent_league_fk',
           wrongKind: 'lobbies_standing_parent_kind_fk',
+        },
+      });
+
+      const { id: round } = await f.roundWithCast(
+        {
+          room_id: mixed,
+          format_id: format,
+          room_config_snapshot: validConfig,
+          visibility: 'public',
+        },
+        [
+          { seat: 'affirmative', actorId: pupil.actorId },
+          { seat: 'negative', actorId: adultEntrant.actorId },
+        ],
+      );
+      const linked = await f.sql`
+        select debater_actor_id from public.daisy_round_linked_adult_actors(${round})
+      `;
+      const [known] = await f.sql`
+        select public.daisy_round_reuse_age_unknown(${round}) as blocked
+      `;
+      await f.sql`delete from account_age where user_id=${pupil.userId}`;
+      const [erased] = await f.sql`
+        select public.daisy_round_reuse_age_unknown(${round}) as blocked
+      `;
+      assert({
+        given: 'a mixed tournament Round with a minor and an adult entrant',
+        should:
+          'expose only the minor’s linked-adult record and block reuse after age erasure',
+        actual: { linked, known: known?.blocked, erased: erased?.blocked },
+        expected: {
+          linked: [{ debater_actor_id: pupil.actorId }],
+          known: false,
+          erased: true,
         },
       });
     } finally {
