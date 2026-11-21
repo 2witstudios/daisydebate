@@ -424,9 +424,11 @@ Daisy is not directed to children under 13. A later under-age answer against
 a recorded adult age is open (DEC-246).
 
 Ranked play follows the standing lobby's age rule ([ADR 0162](../decisions/0162-daisy-is-a-league-open-and-youth-are-lobbies.md)).
-Open ranked Rounds are published and licensed to Daisy. A minor can debate
-in an adult lobby only after a linked parent or legal guardian signs that
-lobby's ranked content waiver for them (owner decision 92).
+Open ranked Rounds are published. Their adult debaters' contributions are
+licensed to Daisy under the ranked waiver. A minor can debate in an adult
+lobby after a linked parent or legal guardian signs that lobby's ranked
+content waiver for them (owner decision 92). Reuse needs a separate media
+release covering every youth debater in the Round.
 Youth ranked Rounds are public under the same rules as Open, but their
 content is not licensed: the Youth waiver grants Daisy no ownership, clips,
 likeness or streaming right (owner decision 89,
@@ -491,9 +493,10 @@ likeness or streaming right (owner decision 89,
 
 - **Youth Rounds** ([ADR 0161](../decisions/0161-youth-rounds-follow-open-visibility.md),
   amending ADRs 0150, 0151 and 0157). A Youth Round is any Round of a Room in
-  the Youth lobby, casual included. In an anyone lobby, a Round with a minor
-  in a debating seat applies the same protections to that minor. Missing age
-  evidence in an anyone lobby keeps reuse fenced and grants no viewing access.
+  the Youth lobby, casual included. In an anyone or adult lobby, a Round
+  with a minor in a debating seat applies the same protections to that minor.
+  Missing age evidence in an anyone lobby or an adult-lobby Round with a
+  frozen youth cast keeps reuse fenced and grants no viewing access.
   A Youth Round is viewed exactly as an Open Round is:
   a ranked one is public, broadcast, recorded, listed on Watch and in the
   archive, on profiles and member cards, and announced to followers; a casual

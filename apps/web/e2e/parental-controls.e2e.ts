@@ -5,6 +5,7 @@ import type { Page } from '@playwright/test';
 import { createId } from '@paralleldrive/cuid2';
 import {
   affirmativeSide,
+  isOpenRoomStatus,
   isNamedSeat,
   judgeSeat,
   negativeSide,
@@ -590,6 +591,9 @@ test('a 14-year-old plays Youth and gets their guardian’s waiver to play Open 
     ignoreHTTPSErrors: true,
   });
   const rooms: { readonly page: Page; readonly id: string }[] = [];
+  const members: Parameters<typeof settleLeftRounds>[0][number][] = [
+    { context: guardian.context(), username: parent.username },
+  ];
   try {
     const child = await openPage(context, '14-year-old debater');
     const player = await signUpMember(
@@ -608,12 +612,18 @@ test('a 14-year-old plays Youth and gets their guardian’s waiver to play Open 
     rooms.push({ page: child, id: youth.id });
     expect(youth.ageRule).toBe('under-18');
     const youthHost = { context, username: player.username };
+    members.push(youthHost);
     const youthSeated = await claim(child, youth, 'Affirmative 1');
     const youthPeer = await openPage(youthPeerContext, 'Youth opponent');
     const youthOpponent = await signUpMember(
       youthPeer.request,
       birthAged(systemClock.now(), 15),
     );
+    const youthGuest = {
+      context: youthPeerContext,
+      username: youthOpponent.username,
+    };
+    members.push(youthGuest);
     const { aiJudge } = aiCast({
       bots: await readRoomBotRoster(child.request),
     });
@@ -628,7 +638,7 @@ test('a 14-year-old plays Youth and gets their guardian’s waiver to play Open 
       'Negative 1',
     );
     await readyOwnSeat(
-      { context: youthPeerContext, username: youthOpponent.username },
+      youthGuest,
       await signPersonalWaiver(youthPeer, youth.id),
       sideSeat('negative'),
     );
@@ -644,10 +654,7 @@ test('a 14-year-old plays Youth and gets their guardian’s waiver to play Open 
       ),
     ).toBe(true);
     rooms.pop();
-    await settleLeftRounds([
-      youthHost,
-      { context: youthPeerContext, username: youthOpponent.username },
-    ]);
+    await settleLeftRounds([youthHost, youthGuest]);
 
     await guardian.goto('/play/room');
     const open = await submitCreateRoom(
@@ -659,10 +666,13 @@ test('a 14-year-old plays Youth and gets their guardian’s waiver to play Open 
     rooms.push({ page: guardian, id: open.id });
     expect(open.ageRule).toBe('adults');
     const negative = rosterSeatName(open, 'Negative 1');
-    await child.goto(`/rooms/${open.id}`);
-    await expect(
-      child.getByRole('button', { name: `Take ${negative}`, exact: true }),
-    ).toHaveCount(0);
+    const childRoom = await openPage(context, 'Open Room before approval');
+    await childRoom.goto(`/rooms/${open.id}`);
+    const takeSeat = childRoom.getByRole('button', {
+      name: `Take ${negative}`,
+      exact: true,
+    });
+    await expect(takeSeat).toHaveCount(0);
     const refused = await deniedCommand(child.request, open, {
       type: 'claim-seat',
       seat: sideSeat('negative'),
@@ -758,6 +768,7 @@ test('a 14-year-old plays Youth and gets their guardian’s waiver to play Open 
       seat: judgeSeat(),
       actorId: aiJudge.actorId,
     });
+    await expect(takeSeat).toBeVisible({ timeout: 35_000 });
 
     await child.reload();
     await expect(parentRow.getByText(/Open.*Allowed/)).toBeVisible();
@@ -792,10 +803,13 @@ test('a 14-year-old plays Youth and gets their guardian’s waiver to play Open 
       ),
     ).toBe(true);
   } finally {
-    await settleLeftRounds([
-      { context: guardian.context(), username: parent.username },
-    ]);
-    for (const room of rooms) await closeRoom(room.page.request, room.id);
-    await Promise.all([context.close(), youthPeerContext.close()]);
+    try {
+      await settleLeftRounds(members);
+      for (const { page, id } of rooms)
+        if (isOpenRoomStatus((await reread(page.request, id)).status))
+          await closeRoom(page.request, id);
+    } finally {
+      await Promise.all([context.close(), youthPeerContext.close()]);
+    }
   }
 });

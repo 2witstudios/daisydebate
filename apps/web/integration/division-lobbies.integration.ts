@@ -729,9 +729,18 @@ test('a carried minor in Open cannot substitute a personal signature for a guard
               (lobby) => lobby.ageRule === 'adults',
             )!;
             const permission = { linkId: String(link!.id), lobbyId: open.id };
-            await f.store.lobbyPermissions.apply(f.guest, {
+            await setAge(f, f.guest, 'eighteen', '1 year');
+            let room = (await f.create(await ranked(f))).view;
+            const beforeGrant = await f.operations.view(f.guest, room.id);
+            const requested = await f.store.lobbyPermissions.apply(f.guest, {
               ...permission,
               type: 'request',
+            });
+            assert({
+              given: 'an 18-year-old carried as youth in the Open season',
+              should: 'accept their first guardian request for this lobby',
+              actual: requested,
+              expected: true,
             });
             const sign = (version: string) =>
               f.store.lobbyPermissions.apply(f.outsider, {
@@ -740,9 +749,32 @@ test('a carried minor in Open cannot substitute a personal signature for a guard
                 version,
                 digest: 'a'.repeat(64),
               });
-            await sign('previous-version');
-            await setAge(f, f.guest, 'eighteen', '1 year');
-            let room = await f.assemble(await ranked(f), undefined, false);
+            const approved = await sign('previous-version');
+            const afterGrant = await f.operations.view(f.guest, room.id);
+            assert({
+              given:
+                'the same Room read before and after the guardian approves',
+              should: 'refresh the debater control for the carried child',
+              actual: [
+                beforeGrant.viewerMayDebate,
+                approved,
+                afterGrant.viewerMayDebate,
+                beforeGrant.changeVersion === afterGrant.changeVersion,
+              ],
+              expected: [false, true, true, true],
+            });
+            room = (
+              await f.command(f.host, room, {
+                type: 'claim-seat',
+                seat: sideSeat(affirmativeSide),
+              })
+            ).view;
+            room = (
+              await f.command(f.guest, room, {
+                type: 'claim-seat',
+                seat: sideSeat(negativeSide),
+              })
+            ).view;
             room = (
               await f.command(f.host, room, {
                 type: 'assign-seat',
@@ -783,6 +815,20 @@ test('a carried minor in Open cannot substitute a personal signature for a guard
                 ),
               ],
               expected: [true, 'accepted'],
+            });
+            await setAge(f, f.guest, 'adult');
+            assert({
+              given:
+                'the same active link when age evidence makes the debater adult in Open',
+              should: 'refuse both a request and a guardian signature',
+              actual: [
+                await f.store.lobbyPermissions.apply(f.guest, {
+                  ...permission,
+                  type: 'request',
+                }),
+                await sign(CONTENT_WAIVER_VERSION),
+              ],
+              expected: [false, false],
             });
           },
           { openStartedAgo: '2 months' },

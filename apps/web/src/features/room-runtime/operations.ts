@@ -271,6 +271,7 @@ export function createRoomRuntimeOperations({
           ),
         ),
       ),
+      viewerMayDebate: facts.viewerMayDebate,
       ...(await viewerContentWaiver(
         state,
         caller,

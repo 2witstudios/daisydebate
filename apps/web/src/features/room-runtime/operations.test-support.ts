@@ -189,6 +189,7 @@ export function makeOperations(
         state,
         viewerAgeBand: account.ageBand,
         viewerCompetitionAgeBand: account.ageBand,
+        viewerMayDebate: account.ageBand === 'adult',
         ratingPool: { lobbyId: state.lobbyId, ladderId: 'freestyle' },
       };
     },

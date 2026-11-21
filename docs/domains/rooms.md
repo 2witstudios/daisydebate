@@ -332,9 +332,10 @@ and carry rules ([ADR 0147](../decisions/0147-ladder-style-and-division.md) §3)
   debater's linked coach or parent sees through an unlisted or private Room,
   live (the "Watching" view above) and its Recording. A Youth Round's content
   is reused (download, Stream this Round) only once every youth debater holds
-  a media release (`reuseFenced`, `youthReuseFencedSql`), and a member under
-  18 signs the Youth ranked content waiver before any ranked Ready, judging
-  included.
+  a media release (`reuseFenced`, `youthReuseFencedSql`). A guardian signs
+  the adult lobby's ranked waiver when that lobby's season age carries the
+  debater as youth. A member signing personally uses their current age to
+  select the waiver, including a judge under 18 who signs the Youth waiver.
 
 Round writers keep their own eligibility, so a running Round is never changed
 by any of this. See [compliance](../operations/compliance.md#children).

@@ -294,7 +294,9 @@ export const restrictionLobbyWaivers = pgTable(
     seasonId: text('season_id').notNull(),
     waiverVersion: text('waiver_version').notNull(),
     waiverDigest: text('waiver_digest').notNull(),
-    signedAt: timestampColumn('signed_at').notNull().defaultNow(),
+    signedAt: timestampColumn('signed_at')
+      .notNull()
+      .default(sql`clock_timestamp()`),
   },
   (table) => [
     primaryKey({

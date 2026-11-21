@@ -103,16 +103,6 @@ test('a standing lobby permission stands only on a linked guardian’s signature
       });
       const readPermissions = () =>
         db.transaction((tx) => readGuardianLobbyIds(tx, child.userId));
-      const pending = await readPermissions();
-      unauthorized.push(
-        await store.apply(child, signature),
-        await store.apply(otherAdult, signature),
-        await store.apply(otherAdult, { ...signature, linkId: otherLinkId }),
-        await store.apply(guardian, { ...signature, lobbyId: siblingLobby }),
-      );
-      const approval = await store.apply(guardian, signature);
-      const retry = await store.apply(guardian, signature);
-      const guardianLobbyIds = await readPermissions();
       const hasWaiver = (
         targetLobby: string,
         version: string = signature.version,
@@ -124,6 +114,44 @@ test('a standing lobby permission stands only on a linked guardian’s signature
             waiverVersion: version,
           }),
         );
+      const pending = await readPermissions();
+      unauthorized.push(
+        await store.apply(child, signature),
+        await store.apply(otherAdult, signature),
+        await store.apply(otherAdult, { ...signature, linkId: otherLinkId }),
+        await store.apply(guardian, { ...signature, lobbyId: siblingLobby }),
+      );
+      assert({
+        given:
+          'refused signatures from the child and the wrong guardians or lobbies',
+        should: 'leave both the standing permission and ranked waiver unsigned',
+        actual: [await readPermissions(), await hasWaiver(lobbyId)],
+        expected: [[], false],
+      });
+      const approval = await store.apply(guardian, signature);
+      const signatureClock = () =>
+        sql.savepoint(async (direct) => {
+          await direct`select set_config('daisy.subject_scope', ${child.userId}, true)`;
+          const [row] = await direct`select waiver.signed_at::text as stamp,
+          waiver.signed_at >= permission.signed_at as ordered
+          from restriction_lobby_waivers waiver join restriction_lobbies permission
+          using (guardian_link_id, lobby_id)
+          where waiver.guardian_link_id=${linkId} and waiver.lobby_id=${lobbyId}`;
+          return row;
+        });
+      const firstClock = await signatureClock();
+      const retry = await store.apply(guardian, signature);
+      assert({
+        given: 'a ranked signature and an exact retry',
+        should:
+          'record the waiver after the standing grant and preserve its timestamp',
+        actual: [
+          firstClock?.ordered,
+          (await signatureClock())?.stamp === firstClock?.stamp,
+        ],
+        expected: [true, true],
+      });
+      const guardianLobbyIds = await readPermissions();
       const member = { ageBand: '13-15', guardianLobbyIds } as const;
       const ranked = { ageRule: 'adults', competitionType: 'ranked' } as const;
       assert({

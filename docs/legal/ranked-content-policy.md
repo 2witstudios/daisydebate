@@ -8,7 +8,7 @@ Anyone may stream and post ranked rounds covered by this policy, with or without
 
 ## Stream this Round
 
-The easiest way to stream a ranked round is Stream this Round: the round's page on Daisy offers its official feed, with Daisy's branding and a link back already in the video, and needs no stream key from Daisy. Add your own camera and commentary if you like. On the ranked ladder you may also stream with your own tools or by screen capture.
+For ranked rounds covered by this policy, the easiest way to stream is Stream this Round. The round's page on Daisy offers its official feed, with Daisy's branding and a link back already in the video, and needs no stream key from Daisy. Add your own camera and commentary if you like. You may also stream eligible rounds with your own tools or by screen capture, subject to the Youth rounds section.
 
 ## What Daisy keeps
 

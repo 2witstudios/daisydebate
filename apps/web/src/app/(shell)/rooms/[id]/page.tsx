@@ -14,8 +14,6 @@ import { roomWatchHref } from '../../../../features/watch/routes';
 import { requireAccess } from '../../../../lib/access';
 import {
   requestIdentity,
-  requestCompetitionAgeBand,
-  requestGuardianLobbyIds,
   requestWatchableRoundOfRoom,
 } from '../../../../lib/request-session';
 import { RoomLive } from '../../../../ui/rooms/room-page/room-live';
@@ -73,10 +71,6 @@ export default async function RoomRoute({
   const view = result.view;
   const watch = roomWatchHref(view.watch);
   if (watch) redirect(watch);
-  const [viewerAgeBand, guardianLobbyIds] = await Promise.all([
-    requestCompetitionAgeBand(view.lobbyId).catch(() => null),
-    requestGuardianLobbyIds(view.lobbyId).catch(() => []),
-  ]);
   return (
     <div className="room-page mx-auto flex w-full max-w-dash-column flex-col gap-6 px-6 py-8 max-narrow:px-4">
       <MediaDocument />
@@ -85,8 +79,6 @@ export default async function RoomRoute({
         ids={roomCommandIds(view, () => systemId.next())}
         actorId={identity.principal.actorId}
         viewerLabel={identity.username}
-        viewerAgeBand={viewerAgeBand}
-        guardianLobbyIds={guardianLobbyIds}
         bots={catalog.bots}
         choices={catalog.choices}
         socketUrl={result.socketUrl}

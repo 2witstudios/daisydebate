@@ -9626,7 +9626,7 @@
       "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
-      "default": "now()",
+      "default": "clock_timestamp()",
       "generated": null,
       "identity": null,
       "name": "signed_at",

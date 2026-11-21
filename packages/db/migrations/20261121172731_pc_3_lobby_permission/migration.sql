@@ -6,7 +6,7 @@ CREATE TABLE "restriction_lobby_waivers" (
 	"season_id" text,
 	"waiver_version" text,
 	"waiver_digest" text NOT NULL,
-	"signed_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"signed_at" timestamp with time zone DEFAULT clock_timestamp() NOT NULL,
 	CONSTRAINT "restriction_lobby_waivers_pkey" PRIMARY KEY("guardian_link_id","lobby_id","season_id","waiver_version"),
 	CONSTRAINT "restriction_lobby_waivers_evidence_check" CHECK (char_length("waiver_version") between 1 and 64 and "waiver_digest" ~ '^[0-9a-f]{64}$')
 );

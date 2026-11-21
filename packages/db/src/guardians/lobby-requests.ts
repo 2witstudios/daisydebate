@@ -67,7 +67,6 @@ async function lobbyPermissionParticipant(
     !child?.member ||
     child.erased ||
     child.restricted ||
-    (command.type === 'request' && !isMinorAgeBand(child.ageBand)) ||
     !parent?.member ||
     parent.erased ||
     parent.restricted ||
@@ -156,6 +155,13 @@ export function createLobbyPermissionStore(database: TxOpener) {
           { of: lobbies },
         );
         if (!lobby) return false;
+        const seasonId = await lockActiveLobbySeason(tx, lobby.id);
+        if (
+          !isMinorAgeBand(
+            await readCompetitionAgeBand(tx, link.minorUserId, lobby.id),
+          )
+        )
+          return false;
         if (command.type === 'request') {
           // The requester has INSERT on the identifying columns only.
           await run(
@@ -180,13 +186,6 @@ export function createLobbyPermissionStore(database: TxOpener) {
           .from(restrictionLobbies)
           .where(request);
         if (!existing) return false;
-        const seasonId = await lockActiveLobbySeason(tx, lobby.id);
-        if (
-          !isMinorAgeBand(
-            await readCompetitionAgeBand(tx, link.minorUserId, lobby.id),
-          )
-        )
-          return false;
         if (!existing.signedAt)
           await tx
             .update(restrictionLobbies)

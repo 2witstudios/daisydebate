@@ -99,7 +99,7 @@ Every table that carries an isolation key (`organization_id` or `lobby_id`), or 
 
 The scope is three transaction-local settings (`daisy.organization_scope`, `daisy.lobby_scope`, `daisy.subject_scope`), read by `daisy_organization_scope()` and its siblings and set only by `withScope` and `scopeTransaction` in `packages/db/src/tenant-scope.ts`, with ids taken from rows loaded by id after `authorize` allowed the operation. With none set every predicate is null, so the runtime role reads and writes no fenced row. A scope does not survive its transaction, so a fenced read outside one sees nothing. The fence stops a query that forgot its `WHERE`; it does not stop SQL injection, since the runtime role can set the same settings.
 
-Row-level security is `ENABLE`d, not `FORCE`d: the migration owner keeps access for migrations and fixtures, and the runtime roles own no table, so the policies bind them. A runtime role must not be able to bypass them: `runtimeRoleProblems` reports a `BYPASSRLS` role with the other refusals. `daisy_realtime` holds no privilege on any tenant-owned table.
+Tables generally enable row-level security and let the migration owner inspect rows during migrations and fixtures. `restriction_lobby_waivers` also forces row-level security. An owner without `BYPASSRLS` needs the guardian or child subject scope to inspect that person's waiver evidence. A runtime role must not bypass policies. `runtimeRoleProblems` reports a `BYPASSRLS` role with the other refusals. `daisy_realtime` holds no privilege on any tenant-owned table.
 
 **The check.** `tenantIsolationProblems` (`packages/db/src/tenant-isolation.ts`) compares the catalog with the manifest and reports a tenant-owned table without row-level security or with a policy that differs from its declared shape, an undeclared table that carries a key or references a tenant-owned table, a nullable key outside the `<table>_one_tenant_key` CHECK, any `tournament_id` column, a privilege held by `PUBLIC` or `daisy_realtime`, and a declaration that names no table. It runs in `tenant-isolation.integration.ts` (which also proves it passes after each migration folder), in `bun doctor` (`tenant-isolation`) and at production start-up, where `startProductionServer` refuses to serve after the runtime-role refusal and before Next is prepared.
 
@@ -114,6 +114,12 @@ history never excuses an undeclared tenant table. This establishes additive
 version tolerance, not compatibility with removed columns or changed stored
 contracts. Doctor and integration authoring checks remain exact over the whole
 catalogue.
+
+The PC-3 staging release applies the lobby-permission migration and then starts
+the current web image. That image declares the new `restriction_lobbies` write
+policies and the waiver evidence fence. A pre-PC-3 image refuses to restart
+against the migrated schema because its manifest lacks the new policies. After
+the migration, recovery uses the current image or a forward fix.
 
 The release runner owns the journal and refreshes a narrow read grant after
 successful migration, including a release with no pending folders:
