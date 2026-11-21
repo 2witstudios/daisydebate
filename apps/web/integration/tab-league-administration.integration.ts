@@ -31,13 +31,13 @@ test('league lobby administration persists under its tenant fence', async () => 
   });
 });
 
-test('a standing lobby owns its age rule independently of the league’s legacy division', async () => {
+test('sibling standing lobbies own independent age rules', async () => {
   const organizationId = createId();
   await withRolledBackDatabase(databaseUrl, {
     seed: async (sql) => {
       const [director] = await createBots(sql, ['Director']);
-      await sql`insert into organizations (id, kind, name, handle, owner_user_id, league_division)
-        values (${organizationId}, 'league', 'Youth league', ${organizationId}, ${director!.userId}, 'youth')`;
+      await sql`insert into organizations (id, kind, name, handle, owner_user_id)
+        values (${organizationId}, 'league', 'Debate league', ${organizationId}, ${director!.userId})`;
       return director!;
     },
     work: async (database, director, sql) => {
@@ -68,8 +68,7 @@ test('a standing lobby owns its age rule independently of the league’s legacy 
         rules.push(row?.age_rule);
       }
       assert({
-        given:
-          'three new standing lobbies in a league with the legacy Youth division',
+        given: 'three new standing lobbies in the same league',
         should: 'persist the default or each lobby’s explicit age rule',
         actual: rules,
         expected: ['adults', 'anyone', 'under-18'],

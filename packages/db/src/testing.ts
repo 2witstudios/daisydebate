@@ -184,3 +184,4 @@ export { friendsPrivacyAdopter } from './friends/privacy';
 export { holdForGuardian } from './friends/hold-for-guardian';
 export { listFriendships } from './friends/reads';
 export { notificationInboxOperations } from './notifications/inbox';
+export { pinRankedFixturePool } from './testing-rating-pool';

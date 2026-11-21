@@ -1,8 +1,6 @@
-import { sql, type SQL } from 'drizzle-orm';
-import { daisyOrganizationId } from './daisy-reference';
+import { eq, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import {
-  ratingStyles,
   type RatingDivision,
   type RatingStyle,
   type RoundOutcome,
@@ -11,11 +9,17 @@ import {
 import { roundOutcomeSql } from './round-outcome-sql';
 import { seatOfColumns, type SeatColumns } from './seat-columns';
 import { instrumented, type DatabaseEventSink } from './instrumented';
+import { readOfficialRatingLadderCatalog } from './official-standing-lobbies';
 import {
-  factReleasedSql,
+  readLobbyPublishedRatings,
+  type LobbyRatingSelection,
+  type PublishStandings,
+} from './standings';
+import { lobbies as standingLobbies } from './schema/lobbies';
+import { ratingDivisionForAgeRule } from '@daisy/protocol';
+import {
   outcomeReleasedSql,
   roundAliasR,
-  type ReleaseRound,
   type SpectatorClock,
 } from './spectator-release-sql';
 
@@ -23,48 +27,13 @@ type CardRatingRow = {
   readonly actorId: string;
   /** The ladder's style and division (ADR 0147). */
   readonly ladder: RatingStyle;
+  readonly ladderId: string;
+  readonly lobbyId: string;
   readonly division: RatingDivision;
   readonly rating: number;
   readonly deviation: number;
   readonly volatility: number;
   readonly lastRatedAt: string | null;
-};
-
-/** The Round of a ledger posting, under `held_r`. */
-const postingRound: ReleaseRound = {
-  id: sql`held_r.id`,
-  status: sql`held_r.status`,
-  competitionType: sql`held_r.competition_type`,
-  completedAt: sql`held_r.completed_at`,
-};
-
-type CardRatingRead = Omit<CardRatingRow, 'lastRatedAt'> & {
-  readonly lastRatedAt: Date | string | null;
-  /** The earliest posting the timeline still holds: the rating before it. */
-  readonly heldRating: number | null;
-  readonly heldDeviation: number | null;
-  readonly heldVolatility: number | null;
-};
-
-/**
- * The rating an audience may know, the ledger's rule as `releasedStandings`
- * has it: it stands where the earliest held posting found it, and a debater
- * with nothing released yet is not rated at all.
- */
-const releasedCardRating = (row: CardRatingRead): CardRatingRow | null => {
-  const { heldRating, heldDeviation, heldVolatility, lastRatedAt, ...rating } =
-    row;
-  const shownAt =
-    lastRatedAt === null ? null : new Date(lastRatedAt).toISOString();
-  if (heldRating === null) return { ...rating, lastRatedAt: shownAt };
-  if (shownAt === null) return null;
-  return {
-    ...rating,
-    rating: heldRating,
-    deviation: heldDeviation ?? rating.deviation,
-    volatility: heldVolatility ?? rating.volatility,
-    lastRatedAt: shownAt,
-  };
 };
 
 type CardRecordRow = {
@@ -75,40 +44,63 @@ type CardRecordRow = {
   readonly rounds: number;
 };
 
-/**
- * Each actor's rating on each Daisy ladder (style and division) in that
- * division's active season, released.
- */
-const readCardRatings = async (
+const readCardRatings = (
   database: BunSQLDatabase,
-  ids: SQL,
+  actorIds: readonly string[],
   clock: SpectatorClock,
-): Promise<readonly CardRatingRow[]> => {
-  const postingReleased = factReleasedSql(
-    sql`greatest(c.occurred_at, held_r.completed_at)`,
-    postingRound,
-    clock,
+  publish?: PublishStandings,
+  pool?: LobbyRatingSelection,
+): Promise<readonly CardRatingRow[]> =>
+  database.transaction(
+    async (tx) => {
+      const lobbies = pool
+        ? (
+            await tx
+              .select({
+                lobbyId: standingLobbies.id,
+                ageRule: standingLobbies.ageRule,
+              })
+              .from(standingLobbies)
+              .where(eq(standingLobbies.id, pool.lobbyId))
+          ).map((lobby) => ({ ...lobby, id: pool.ladderId }))
+        : await readOfficialRatingLadderCatalog(tx);
+      const requested = new Set(actorIds);
+      const ratings: CardRatingRow[] = [];
+      for (const lobby of lobbies) {
+        const active = await readLobbyPublishedRatings(
+          tx,
+          pool
+            ? { ...pool, clock, leaguePublication: true }
+            : { lobbyId: lobby.lobbyId, ladderId: lobby.id, clock },
+          publish,
+        );
+        if (!active) continue;
+        const lastPosted = new Map<string, string>();
+        for (const { actorId, occurredAt } of active.standings.changes)
+          if (
+            requested.has(actorId) &&
+            occurredAt > (lastPosted.get(actorId) ?? '')
+          )
+            lastPosted.set(actorId, occurredAt);
+        for (const row of active.standings.ratings) {
+          if (!requested.has(row.actorId)) continue;
+          ratings.push({
+            actorId: row.actorId,
+            rating: row.rating,
+            deviation: row.deviation,
+            volatility: row.volatility,
+            lastRatedAt: lastPosted.get(row.actorId) ?? null,
+            ladder: 'freestyle',
+            ladderId: active.ladderId,
+            lobbyId: lobby.lobbyId,
+            division: ratingDivisionForAgeRule(lobby.ageRule),
+          });
+        }
+      }
+      return ratings;
+    },
+    { isolationLevel: 'repeatable read', accessMode: 'read only' },
   );
-  const postings = sql`rating_changes c join rounds held_r on held_r.id = c.round_id
-    where c.actor_id = r.actor_id and c.ladder = r.ladder and c.division = r.division and c.season_id = r.season_id`;
-  const ratings = (await database.execute(sql`
-    select r.actor_id as "actorId", r.ladder, r.division, r.rating, r.deviation, r.volatility,
-      (select max(c.occurred_at) from ${postings} and ${postingReleased}) as "lastRatedAt",
-      held.rating_before as "heldRating",
-      held.deviation_before as "heldDeviation",
-      held.volatility_before as "heldVolatility"
-    from ratings r join seasons s on s.id = r.season_id and s.status = 'active'
-      and s.organization_id = ${daisyOrganizationId}
-    left join lateral (
-      select c.rating_before, c.deviation_before, c.volatility_before
-      from ${postings} and not ${postingReleased}
-      order by c.occurred_at asc limit 1
-    ) held on true
-    where r.actor_id = any(${ids})`)) as unknown as CardRatingRead[];
-  return ratings
-    .filter((row) => ratingStyles.includes(row.ladder))
-    .flatMap((row) => releasedCardRating(row) ?? []);
-};
 
 const actorIdArray = (actorIds: readonly string[]) =>
   sql`array[${sql.join(
@@ -125,13 +117,19 @@ const actorIdArray = (actorIds: readonly string[]) =>
  */
 export const memberCardOperations = ({
   database,
+  ratingDatabase = database,
   eventSink,
 }: {
   readonly database: BunSQLDatabase;
+  readonly ratingDatabase?: BunSQLDatabase;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
   /** Public Rounds only, in either lobby, for any viewer. */
-  readMemberCards: (actorIds: readonly string[], clock: SpectatorClock) =>
+  readMemberCards: (
+    actorIds: readonly string[],
+    clock: SpectatorClock,
+    publish?: PublishStandings,
+  ) =>
     instrumented(eventSink, 'readMemberCards', async () => {
       if (actorIds.length === 0) return { ratings: [], records: [] };
       const ids = actorIdArray(actorIds);
@@ -143,7 +141,7 @@ export const memberCardOperations = ({
           and ${outcomeReleasedSql(roundAliasR, clock)}
         group by p.actor_id, r.status, 3, p.seat_kind, p.side, p.slot`);
       const [ratings, records] = (await Promise.all([
-        readCardRatings(database, ids, clock),
+        readCardRatings(ratingDatabase, actorIds, clock, publish),
         recordsRead,
       ])) as unknown as [
         CardRatingRow[],
@@ -161,10 +159,15 @@ export const memberCardOperations = ({
    * The card's ratings alone, for one batch of seated actors (a Room's
    * seats, SEAT-7): the same released active-season read, without records.
    */
-  readMemberCardRatings: (actorIds: readonly string[], clock: SpectatorClock) =>
+  readMemberCardRatings: (
+    actorIds: readonly string[],
+    clock: SpectatorClock,
+    publish?: PublishStandings,
+    pool?: LobbyRatingSelection,
+  ) =>
     instrumented(eventSink, 'readMemberCardRatings', async () =>
       actorIds.length === 0
         ? []
-        : readCardRatings(database, actorIdArray(actorIds), clock),
+        : readCardRatings(ratingDatabase, actorIds, clock, publish, pool),
     ),
 });

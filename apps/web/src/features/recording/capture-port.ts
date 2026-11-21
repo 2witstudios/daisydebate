@@ -2,7 +2,6 @@ import { createAppError } from '@daisy/errors';
 import type {
   BuiltRecordingMedia,
   CompetitionType,
-  RatingDivision,
   RecordingLifecycle,
   RecordingSource,
   RecordingEvent,
@@ -29,9 +28,7 @@ export type RecordingCapturePort = {
   readonly request: (input: {
     readonly roundId: string;
     readonly competitionType: CompetitionType;
-    readonly ladderDivision: RatingDivision | null;
-    /** Whether its Room is Youth: any Round of a Youth Room is a Youth Round (ADR 0157). */
-    readonly roomYouth: boolean | null;
+    readonly youthRound: boolean;
     readonly hostActorId: string | null;
     readonly hostOptedIn: boolean;
     readonly hostHoldsRecording: boolean;

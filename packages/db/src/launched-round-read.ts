@@ -2,7 +2,8 @@ import { roundSourceVoided } from './round-source-state';
 import { and, eq } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
-import type { LaunchedRound } from '@daisy/protocol';
+import { roundRatingScopeSchema, type LaunchedRound } from '@daisy/protocol';
+import { roundLadderOf } from './member-history-rows';
 import { currentRoundParticipant } from './round-current-participant';
 import { roundLifecycleOfRow, segmentRows } from './round-hydration';
 import { actorFact } from './room-command-facts';
@@ -80,10 +81,20 @@ export async function launchedRoundRows(
     roomId: row.roomId,
     version: row.version,
     competitionType: row.competitionType,
-    ladder:
-      row.ladderId === null || row.ladderDivision === null
+    ladder: roundLadderOf({
+      ladderId: row.ladderId,
+      ladderAgeRule: row.standingAgeRule,
+      competitionType: row.competitionType,
+    }),
+    ratingScope: roundRatingScopeSchema.parse(
+      row.ladderId === null
         ? null
-        : { style: row.ladderId, division: row.ladderDivision },
+        : {
+            lobbyId: row.ratingLobbyId,
+            ladderId: row.ladderId,
+            seasonId: row.seasonId,
+          },
+    ),
     topic: row.resolution,
     visibility: row.visibility,
     hostActorId: row.createdByActorId,

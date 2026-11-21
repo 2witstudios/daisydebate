@@ -36,7 +36,6 @@ test('discovery bounds SQL before Room locks and reads no aggregate', async () =
     () => true,
     () => true,
     () => false,
-    { now: '2026-11-02T00:00:00.000Z', rankedDelaySeconds: 0 },
     () => null,
   );
   assert({
@@ -55,7 +54,7 @@ test('discovery bounds SQL before Room locks and reads no aggregate', async () =
     ],
     expected: [
       { rooms: [entry], nextCursor: ids[0], retry: false },
-      6,
+      7,
       true,
       false,
       false,
@@ -75,7 +74,6 @@ test('adapter refuses malformed page before any SQL', async () => {
         () => true,
         () => true,
         () => false,
-        { now: '2026-11-02T00:00:00.000Z', rankedDelaySeconds: 0 },
         () => null,
       ),
     code: 'VALIDATION',
@@ -100,7 +98,6 @@ test('lock-wait privacy changes never disclose an inaccessible cursor', async ()
       () => true,
       () => true,
       () => false,
-      { now: '2026-11-02T00:00:00.000Z', rankedDelaySeconds: 0 },
       () => null,
     );
     assert({
@@ -108,7 +105,7 @@ test('lock-wait privacy changes never disclose an inaccessible cursor', async ()
       should:
         'continue only from a returned accessible id or request explicit retry',
       actual: [page.nextCursor, page.retry, queries.length],
-      expected: [rows.length ? ids[0] : null, rows.length === 0, 7],
+      expected: [rows.length ? ids[0] : null, rows.length === 0, 8],
     });
   }
 });
@@ -144,7 +141,6 @@ test('Lobby filters narrow the candidates and live facts read as ISO instants', 
     () => true,
     () => true,
     () => true,
-    { now: '2026-11-02T00:00:00.000Z', rankedDelaySeconds: 0 },
     () => null,
   );
   assert({
@@ -172,11 +168,12 @@ test('Lobby filters narrow the candidates and live facts read as ISO instants', 
 function discoveryFixture(rows: readonly Record<string, unknown>[]) {
   return createTestDatabase([
     [accountRow()],
-    [[entry.lobbyId, 'Open', 'adults', 'o'.repeat(24)]],
+    [[entry.lobbyId, 'Open', 'open', 'adults', 'o'.repeat(24)]],
     ids.map((id) => ({ id })),
     [],
     [],
     [accountRow()],
+    [], // exact-lobby rating read scope
     rows,
   ]);
 }
@@ -192,7 +189,6 @@ test('discovery keys oldest and newest pages on immutable creation time and Room
       () => true,
       () => true,
       () => false,
-      { now: '2026-11-02T00:00:00.000Z', rankedDelaySeconds: 0 },
       () => null,
     );
     assert({

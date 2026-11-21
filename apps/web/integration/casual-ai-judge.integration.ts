@@ -180,7 +180,9 @@ test('a ranked AI judge seat is free: a host holding no grant at all seats it', 
       });
     } finally {
       await f.sql`delete from agreement_signatures where season_id=${seasonId}`;
-      await f.sql`delete from seasons where id=${seasonId}`;
+      f.afterRooms(async () => {
+        await f.sql`delete from seasons where id=${seasonId}`;
+      });
     }
   });
 });

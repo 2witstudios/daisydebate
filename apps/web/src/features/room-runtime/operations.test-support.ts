@@ -184,7 +184,11 @@ export function makeOperations(
       ) => boolean,
     ) => {
       if (!authorize(state, account)) throw createAppError('NOT_FOUND');
-      return { state, viewerAgeBand: account.ageBand };
+      return {
+        state,
+        viewerAgeBand: account.ageBand,
+        ratingPool: { lobbyId: state.lobbyId, ladderId: 'freestyle' },
+      };
     },
     listRoomPage: async (
       _caller: typeof caller,

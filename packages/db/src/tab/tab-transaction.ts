@@ -1,4 +1,5 @@
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
+import type { TransactionConfig } from '../tx';
 
 /** The statements a Tab store runs inside its one fenced transaction. */
 export type TabTransaction = Pick<
@@ -13,5 +14,6 @@ export type TabTransaction = Pick<
 export type TabDatabase = {
   readonly transaction: <T>(
     work: (tx: TabTransaction) => Promise<T>,
+    config?: TransactionConfig,
   ) => Promise<T>;
 };

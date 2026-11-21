@@ -24,6 +24,7 @@ import { rounds } from './schema/rounds';
 import { users } from './schema/users';
 import { utterances } from './schema/utterances';
 import { outcomeOfColumns } from './round-outcome-columns';
+import { scopeTransaction } from './tenant-scope';
 import { isDebatingSeatSql, seatOfColumns, seatRowOrder } from './seat-columns';
 
 /** How many of the newest released captions one snapshot carries. */
@@ -67,6 +68,7 @@ export const spectatorTimelineReads = ({
             .select({
               id: rounds.id,
               roomId: rounds.roomId,
+              ratingLobbyId: rounds.ratingLobbyId,
               visibility: rounds.visibility,
               status: rounds.status,
               competitionType: rounds.competitionType,
@@ -218,8 +220,11 @@ export const spectatorTimelineReads = ({
                   .where(eq(ballots.roundId, input.roundId))
                   .orderBy(asc(ballots.id))
               : [];
+          const ratingLobbyId = round.ratingLobbyId;
+          if (ranked && outcomeReleased && ratingLobbyId !== null)
+            await scopeTransaction(tx, { lobbyId: ratingLobbyId });
           const ratingRows =
-            ranked && outcomeReleased
+            ranked && outcomeReleased && ratingLobbyId !== null
               ? await tx
                   .select({
                     side: roundParticipants.side,

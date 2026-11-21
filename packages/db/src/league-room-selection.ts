@@ -1,11 +1,6 @@
 import { and, eq, or } from 'drizzle-orm';
-import {
-  presetSettingDefaults,
-  resolveSetting,
-  roomChain,
-} from '@daisy/protocol/setting-resolution';
+import { resolveSetting, roomChain } from '@daisy/protocol/setting-resolution';
 import { type SettingRow, settingRowSchema } from '@daisy/protocol/settings';
-import type { RoomConfig } from '@daisy/protocol';
 import { ladders } from './schema/ladders';
 import { lobbies } from './schema/lobbies';
 import { organizations } from './schema/organizations';
@@ -19,7 +14,6 @@ export async function leagueRoomSelection(
   input: {
     readonly lobbyId: string;
     readonly templateId: string | null;
-    readonly config: RoomConfig;
     readonly subjectUserId?: string;
   },
 ) {
@@ -40,11 +34,46 @@ export async function leagueRoomSelection(
     lobbyId: home.lobby.id,
     subjectUserId: input.subjectUserId,
   });
-  const chain = roomChain({
+  return configuredStandingLadder(tx, {
+    ...input,
     organizationId: home.lobby.ownerOrganizationId,
-    templateId: input.templateId,
-    lobbyId: home.lobby.id,
   });
+}
+
+type StandingLadderScope = Parameters<typeof roomChain>[0];
+
+export const standingLadderSetting = (
+  chain: ReturnType<typeof roomChain>,
+  rows: readonly (typeof settings.$inferSelect)[],
+) =>
+  resolveSetting(
+    'standings.rating_ladder',
+    chain,
+    rows.map(
+      (row) =>
+        settingRowSchema.parse({
+          scope: {
+            kind: row.scopeKind,
+            id:
+              row.organizationId && row.scopeKind === 'organization'
+                ? row.organizationId
+                : row.scopeKind === 'template'
+                  ? row.templateId
+                  : row.lobbyId,
+          },
+          key: row.key,
+          hold: row.hold,
+          value: row.value,
+        }) as SettingRow,
+    ),
+  ).value.ladderId;
+
+/** Resolve the persisted setting against the exact standing lobby's ladders. */
+export async function configuredStandingLadder(
+  tx: Pick<Tx, 'select'>,
+  input: StandingLadderScope,
+) {
+  const chain = roomChain(input);
   const rows = await tx
     .select()
     .from(settings)
@@ -68,28 +97,7 @@ export async function leagueRoomSelection(
         ),
       ),
     );
-  const selected = resolveSetting(
-    'standings.rating_ladder',
-    chain,
-    rows.map(
-      (row) =>
-        settingRowSchema.parse({
-          scope: {
-            kind: row.scopeKind,
-            id:
-              row.organizationId && row.scopeKind === 'organization'
-                ? row.organizationId
-                : row.scopeKind === 'template'
-                  ? row.templateId
-                  : row.lobbyId,
-          },
-          key: row.key,
-          hold: row.hold,
-          value: row.value,
-        }) as SettingRow,
-    ),
-    presetSettingDefaults(input.config),
-  ).value.ladderId;
+  const selected = standingLadderSetting(chain, rows);
   if (!selected) return null;
   const [ladder] = await tx
     .select({ id: ladders.id })
@@ -97,8 +105,8 @@ export async function leagueRoomSelection(
     .where(
       and(
         eq(ladders.id, selected),
-        eq(ladders.lobbyId, home.lobby.id),
-        eq(ladders.organizationId, home.lobby.ownerOrganizationId),
+        eq(ladders.lobbyId, input.lobbyId),
+        eq(ladders.organizationId, input.organizationId),
       ),
     );
   return ladder?.id ?? null;

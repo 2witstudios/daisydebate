@@ -1,3 +1,4 @@
+import { roundLadderOf } from './member-history-rows';
 import { and, desc, eq, inArray, sql, type SQL } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { actors } from './schema/actors';
@@ -161,8 +162,8 @@ export const liveBroadcastReads = ({
             resolution: rounds.resolution,
             rules: rounds.rulesSnapshot,
             startedAt: rounds.startedAt,
-            ladderStyle: rounds.ladderId,
-            ladderDivision: rounds.ladderDivision,
+            ladderId: rounds.ladderId,
+            ladderAgeRule: rounds.standingAgeRule,
             horizon: sql<
               Date | string | null
             >`${spectatorHorizonSql(roundColumns, input.clock)}`,
@@ -233,12 +234,13 @@ export const liveBroadcastReads = ({
           )
           .orderBy(roundSegments.roundId, desc(roundSegments.sequence));
         return {
-          rows: shown.map(({ ladderStyle, ladderDivision, ...row }) => ({
+          rows: shown.map(({ ladderId, ladderAgeRule, ...row }) => ({
             ...row,
-            ladder:
-              ladderStyle !== null && ladderDivision !== null
-                ? { style: ladderStyle, division: ladderDivision }
-                : null,
+            ladder: roundLadderOf({
+              ladderId,
+              ladderAgeRule,
+              competitionType: row.competitionType,
+            }),
             competitionType: row.competitionType as 'ranked' | 'casual',
             horizonMs:
               row.horizon === null ? null : new Date(row.horizon).getTime(),

@@ -6,6 +6,7 @@ import {
   validRules,
 } from './round-fixtures';
 import { createId } from '@paralleldrive/cuid2';
+import { pinRankedFixturePool } from '../src/testing-rating-pool';
 import { createDatabase } from '../src';
 import { daisyOrganizationId, publicLobbyId } from '../src/daisy-reference';
 import { createTestOnlyOperations } from '../src/test-only-operations';
@@ -92,8 +93,8 @@ const purgeOrder: ReadonlyArray<readonly [table: string, key: string]> = [
   ['challenges', 'id'],
   ['rooms', 'id'],
   ['documents', 'id'],
-  ['seasons', 'id'],
   ['tournaments', 'lobby_id'],
+  ['seasons', 'id'],
   ['lobbies', 'id'],
   ['organizations', 'id'],
   ['actors', 'id'],
@@ -138,7 +139,7 @@ export class Fixture {
       this.sql.unsafe(
         `select table_name || '.' || column_name as found from information_schema.columns
          where table_schema = 'public'
-           and (table_name, column_name) in (('rooms', 'lobby_id'), ('seasons', 'organization_id'), ('rooms', 'division'))`,
+           and (table_name, column_name) in (('rooms', 'lobby_id'), ('seasons', 'organization_id'), ('rooms', 'division'), ('seasons', 'lobby_id'))`,
       ) as Promise<Array<{ found: string }>>
     ).then((found) => new Set(found.map((row) => row.found)));
     const present = await this.daisyKeyed;
@@ -148,15 +149,120 @@ export class Fixture {
       : owner;
   }
 
+  private async ratingScope(table: string, row: Row): Promise<Row> {
+    if (
+      ![
+        'seasons',
+        'rounds',
+        'ratings',
+        'rating_changes',
+        'organizations',
+      ].includes(table)
+    )
+      return row;
+    const [current] = await this.sql`select 1 from information_schema.columns
+      where table_schema='public' and table_name='seasons' and column_name='lobby_id'`;
+    if (!current) return row;
+    const { division, ladder_division, ...value } = row;
+    if (table === 'organizations')
+      return Object.fromEntries(
+        Object.entries(value).filter(
+          ([column]) => column !== 'league_division',
+        ),
+      );
+    if (table === 'seasons' && value.lobby_id === undefined) {
+      const [found] = await this
+        .sql`select id from lobbies where kind='standing'
+        and owner_organization_id=${value.organization_id}
+        and (${division === undefined && value.organization_id !== daisyOrganizationId} or
+          age_rule=${division === 'youth' ? 'under-18' : 'adults'}::lobby_age_rule)
+        order by created_at,id limit 1`;
+      if (found) return { ...value, lobby_id: found.id };
+      const [league] = await this
+        .sql`select id,name from organizations where id=${value.organization_id} and kind='league'`;
+      if (!league) return value;
+      const lobbyId = createId();
+      await this.insert('lobbies', {
+        id: lobbyId,
+        kind: 'standing',
+        handle: lobbyId,
+        name: String(league.name),
+        owner_organization_id: league.id,
+      });
+      return { ...value, lobby_id: lobbyId };
+    }
+    if (table === 'ratings' || table === 'rating_changes') {
+      if (value.lobby_id !== undefined) return value;
+      const [season] = await this
+        .sql`select lobby_id from seasons where id=${value.season_id}`;
+      if (!season) return value;
+      if (value.ladder === 'freestyle' && division === 'youth') {
+        const [ladder] = await this
+          .sql`select id from ladders where lobby_id=${season.lobby_id} order by created_at,id limit 1`;
+        return {
+          ...value,
+          lobby_id: season.lobby_id,
+          ladder: ladder?.id ?? value.ladder,
+        };
+      }
+      return { ...value, lobby_id: season.lobby_id };
+    }
+    if (
+      table === 'rounds' &&
+      value.ladder_id &&
+      value.season_id === undefined &&
+      ladder_division
+    ) {
+      const [pool] = await this
+        .sql`select l.id as lobby_id, l.owner_organization_id,
+          d.id as ladder_id, (select s.id from seasons s where s.lobby_id=l.id
+            order by (s.status='active') desc, s.starts_at desc, s.id limit 1) as season_id
+        from lobbies l join ladders d on d.lobby_id=l.id where l.kind='standing'
+          and (case when ${value.room_id ?? null}::text is not null then
+            l.id=(select r.lobby_id from rooms r where r.id=${value.room_id ?? null})
+          else l.owner_organization_id=${daisyOrganizationId}
+            and l.age_rule=${ladder_division === 'youth' ? 'under-18' : 'adults'}::lobby_age_rule end)
+        order by l.created_at,l.id,d.created_at,d.id limit 1`;
+      if (!pool) return value;
+      const seasonId = pool.season_id ?? createId();
+      if (!pool.season_id)
+        await this.insert('seasons', {
+          id: seasonId,
+          organization_id: pool.owner_organization_id,
+          lobby_id: pool.lobby_id,
+          name: 'Historical fixture',
+          starts_at: at,
+          status: 'closed',
+        });
+      return {
+        ...value,
+        rating_lobby_id: pool.lobby_id,
+        season_id: seasonId,
+        ladder_id: pool.ladder_id,
+        standing_age_rule: ladder_division === 'youth' ? 'under-18' : 'adults',
+        standing_youth_cast: ladder_division === 'youth',
+      };
+    }
+    return value;
+  }
+
   track(table: string, key: string) {
     const keys = this.tracked.get(table) ?? [];
     keys.push(key);
     this.tracked.set(table, keys);
   }
 
+  async pinRanked(roundId: string) {
+    const archive = await pinRankedFixturePool(this.sql, roundId);
+    if (archive) this.track('seasons', archive);
+  }
+
   /** Inserts one row with positional parameters; the key column is tracked. */
   async insert(table: string, given: Row, key = 'id') {
-    const row = { ...(await this.daisyKey(table)), ...given };
+    const row = await this.ratingScope(table, {
+      ...(await this.daisyKey(table)),
+      ...given,
+    });
     const columns = Object.keys(row);
     const placeholders = columns.map((_, index) => `$${index + 1}`);
     const keyValue = row[key];

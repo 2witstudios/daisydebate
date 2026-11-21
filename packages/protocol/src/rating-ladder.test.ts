@@ -1,4 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { roundRatingScopeSchema } from './rating-ladder';
 import { canonicalRatingStyle, ratingStyles } from './primitives';
 
 setupRitewayBun();
@@ -24,6 +25,20 @@ describe('canonicalRatingStyle', () => {
         ladders: ['freestyle'],
         mapped: ['freestyle', null, null, null, null, null],
       },
+    });
+  });
+});
+
+describe('roundRatingScopeSchema', () => {
+  test('requires the complete frozen scope of a rated Round', () => {
+    const scope = { lobbyId: 'lobby', ladderId: 'ladder', seasonId: 'season' };
+    assert({
+      given: 'a complete scope, a missing season and a casual Round',
+      should: 'accept a complete scope or no scope',
+      actual: [scope, { ...scope, seasonId: null }, null].map(
+        (value) => roundRatingScopeSchema.safeParse(value).success,
+      ),
+      expected: [true, false, true],
     });
   });
 });

@@ -67,7 +67,7 @@ describe('rating a completed round with the engine decision (RATE-1.3)', () => {
   });
 
   test('a Youth Round rates on the Youth season and ladder, apart from Open (ADR 0147)', async () => {
-    await inArena(async ({ season, seasonId, actor, round, rate }) => {
+    await inArena(async ({ season, seasonId, lobby, actor, round, rate }) => {
       const youthSeason = await season(
         'active',
         '2026-10-01T00:00:00.000Z',
@@ -84,21 +84,22 @@ describe('rating a completed round with the engine decision (RATE-1.3)', () => {
       const rows = await withSql(
         (
           sql,
-        ) => sql`select division, season_id from rating_changes where round_id=${youth}
-          union all select division, season_id from ratings where actor_id in (${first}, ${second})`,
+        ) => sql`select lobby_id, season_id from rating_changes where round_id=${youth}
+          union all select lobby_id, season_id from ratings where actor_id in (${first}, ${second})`,
       );
       const won = newcomers('affirmative');
+      const pool = await lobby('youth');
       assert({
         given: 'a completed ranked Round between two Youth debaters',
         should:
           'rate it on Youth – Freestyle in the Youth season, from the same Glicko-2 start as Open, and touch no Open season',
         actual: {
-          ladder: result.kind === 'rated' ? result.ladder : null,
-          season: result.kind === 'rated' ? result.seasonId : null,
+          ladder: result.kind === 'rated' ? result.scope.ladderId : null,
+          season: result.kind === 'rated' ? result.scope.seasonId : null,
           rows: [
             ...new Set(
-              (rows as { division: string; season_id: string }[]).map(
-                (row) => `${row.division}:${row.season_id}`,
+              (rows as { lobby_id: string; season_id: string }[]).map(
+                (row) => `${row.lobby_id}:${row.season_id}`,
               ),
             ),
           ],
@@ -109,9 +110,9 @@ describe('rating a completed round with the engine decision (RATE-1.3)', () => {
           openUntouched: seasonId !== youthSeason,
         },
         expected: {
-          ladder: { style: 'freestyle', division: 'youth' },
+          ladder: pool.ladder_id,
           season: youthSeason,
-          rows: [`youth:${youthSeason}`],
+          rows: [`${pool.lobby_id}:${youthSeason}`],
           after: won.affirmative.after.rating,
           openUntouched: true,
         },
@@ -191,25 +192,20 @@ describe('rating a completed round with the engine decision (RATE-1.3)', () => {
     });
   });
 
-  test('refuses to rate without an active season', async () => {
+  test('a ranked Round cannot freeze without a season', async () => {
     await inArena(
-      async ({ actor, round, rate, ledger }) => {
+      async ({ actor, round, ledger }) => {
         const first = await actor();
-        const roundId = await round({
-          affirmative: first,
-          negative: await actor(),
-        });
-        await assertRejects({
-          given: 'no active season',
-          should: 'refuse as a conflict',
-          actual: () => rate(roundId),
-          code: 'CONFLICT',
-        });
+        const negative = await actor();
+        const refused = await round({ affirmative: first, negative }).then(
+          () => false,
+          () => true,
+        );
         assert({
-          given: 'a refused rating',
-          should: 'write nothing',
-          actual: (await ledger(first)).length,
-          expected: 0,
+          given: 'no active season for a ranked Round',
+          should: 'reject the incomplete pool and leave the ledger empty',
+          actual: [refused, (await ledger(first)).length],
+          expected: [true, 0],
         });
       },
       { season: false },
@@ -217,14 +213,15 @@ describe('rating a completed round with the engine decision (RATE-1.3)', () => {
   });
 
   test('refuses unresolved prior-season carry-over without changing the ledger', async () => {
-    await inArena(async ({ season, actor, round, rate, ledger }) => {
+    await inArena(async ({ season, lobby, actor, round, rate, ledger }) => {
       const veteran = await actor();
       const earlier = await season('closed', '2026-06-01T00:00:00.000Z');
+      const pool = await lobby('open');
       await withSql(
         (
           sql,
-        ) => sql`insert into ratings (actor_id, season_id, ladder, division, rating, deviation, volatility)
-          values (${veteran}, ${earlier}, 'freestyle', 'open', 1720, 60, 0.05)`,
+        ) => sql`insert into ratings (actor_id, season_id, ladder, lobby_id, rating, deviation, volatility)
+          values (${veteran}, ${earlier}, ${pool.ladder_id}, ${pool.lobby_id}, 1720, 60, 0.05)`,
       );
       const id = await round({ affirmative: veteran, negative: await actor() });
       await assertRejects({

@@ -69,15 +69,16 @@ describe('season operations (RATE-1.2)', () => {
         assert({
           given: 'an active Open season and a first Youth season',
           should: 'open the Youth season beside it (ADR 0147)',
-          actual: (
-            await seasons.openSeason({
-              id: youth,
-              name: 'Season 1',
-              division: 'youth',
-              startsAt: october,
-            })
-          ).division,
-          expected: 'youth',
+          actual:
+            (
+              await seasons.openSeason({
+                id: youth,
+                name: 'Season 1',
+                division: 'youth',
+                startsAt: october,
+              })
+            ).lobbyId === opened.lobbyId,
+          expected: false,
         });
         assert({
           given: 'the open season',

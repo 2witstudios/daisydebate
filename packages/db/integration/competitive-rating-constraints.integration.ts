@@ -1,3 +1,4 @@
+import { publicLobbyId } from '../src/daisy-reference';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
@@ -14,11 +15,18 @@ setupRitewayBun();
 
 const { databaseUrl: url } = requireTestServices(process.env);
 
+const youthLadder = async (fixture: Fixture) => {
+  const [found] =
+    await fixture.sql`select d.id from ladders d join lobbies l on l.id=d.lobby_id
+    where l.age_rule='under-18' order by l.created_at, l.id limit 1`;
+  return found!.id;
+};
+
 describe('seasons, ratings and the rating ledger (DATA-3.2)', () => {
   const season = (overrides: Record<string, unknown>) => ({
     id: createId(),
     name: 'Season',
-    division: 'open',
+    lobby_id: publicLobbyId,
     starts_at: at,
     ends_at: null,
     status: 'closed',
@@ -70,7 +78,7 @@ describe('seasons, ratings and the rating ledger (DATA-3.2)', () => {
         actor_id: actorId,
         season_id: seasonId,
         ladder: 'freestyle',
-        division: 'open',
+        lobby_id: publicLobbyId,
         rating: 1500,
         deviation: 350,
         volatility: 0.06,
@@ -126,14 +134,17 @@ describe('seasons, ratings and the rating ledger (DATA-3.2)', () => {
         rating({ ladder: 'blitz' }),
         'actor_id',
       );
-      const unknownDivision = await fixture.rejectedBy(
+      const unknownLobby = await fixture.rejectedBy(
         'ratings',
-        rating({ division: 'kids' }),
+        rating({ lobby_id: 'missing' }),
         'actor_id',
       );
-      const otherDivisionsSeason = await fixture.rejectedBy(
+      const foreignLadder = await fixture.rejectedBy(
         'ratings',
-        rating({ division: 'youth', actor_id: await fixture.actor() }),
+        rating({
+          ladder: await youthLadder(fixture),
+          actor_id: await fixture.actor(),
+        }),
         'actor_id',
       );
       const columns = await columnNames(fixture, 'ratings');
@@ -152,8 +163,8 @@ describe('seasons, ratings and the rating ledger (DATA-3.2)', () => {
           duplicateKey,
           quickLadder,
           unknownLadder,
-          unknownDivision,
-          otherDivisionsSeason,
+          unknownLobby: typeof unknownLobby === 'string',
+          foreignLadder,
           derived: columns.filter((column) =>
             ['games_played', 'peak_rating', 'last_rated_at'].includes(column),
           ),
@@ -170,10 +181,10 @@ describe('seasons, ratings and the rating ledger (DATA-3.2)', () => {
           infiniteVolatility: 'ratings_volatility_positive',
           accepted: true,
           duplicateKey: true,
-          quickLadder: 'ratings_ladder_check',
-          unknownLadder: 'ratings_ladder_check',
-          unknownDivision: 'ratings_division_check',
-          otherDivisionsSeason: 'ratings_season_division_fk',
+          quickLadder: 'ratings_ladder_lobby_fk',
+          unknownLadder: 'ratings_ladder_lobby_fk',
+          unknownLobby: true,
+          foreignLadder: 'ratings_ladder_lobby_fk',
           derived: [],
           leaderboard: true,
         },
@@ -193,7 +204,8 @@ describe('seasons, ratings and the rating ledger (DATA-3.2)', () => {
           competition_type: 'ranked',
           preset_version: 1,
           ladder_id: 'freestyle',
-          ladder_division: 'open',
+          season_id: seasonId,
+          rating_lobby_id: publicLobbyId,
         });
       const roundId = await rankedRound();
       await fixture.participant(roundId, 'affirmative', 0, actorId);
@@ -204,7 +216,7 @@ describe('seasons, ratings and the rating ledger (DATA-3.2)', () => {
         format_id: formatId,
         season_id: seasonId,
         ladder: 'freestyle',
-        division: 'open',
+        lobby_id: publicLobbyId,
         rating_before: 1500,
         rating_after: 1516,
         deviation_before: 350,
@@ -228,9 +240,11 @@ describe('seasons, ratings and the rating ledger (DATA-3.2)', () => {
         'rating_changes',
         change({ round_id: casualDebate }),
       );
-      const otherDivision = await fixture.rejectedBy(
+      const anotherSeasonId = createId();
+      await fixture.insert('seasons', season({ id: anotherSeasonId }));
+      const wrongSeason = await fixture.rejectedBy(
         'rating_changes',
-        change({ round_id: otherDebate, division: 'youth' }),
+        change({ round_id: otherDebate, season_id: anotherSeasonId }),
       );
       const nonParticipant = await fixture.rejectedBy(
         'rating_changes',
@@ -277,7 +291,7 @@ describe('seasons, ratings and the rating ledger (DATA-3.2)', () => {
           negativeRating,
           unknownLadder,
           casualRound,
-          otherDivision,
+          wrongSeason,
           debateDeleteBlocked,
           indexed: history?.includes(
             '(actor_id, format_id, ladder, occurred_at)',
@@ -291,9 +305,9 @@ describe('seasons, ratings and the rating ledger (DATA-3.2)', () => {
           nanDeviation: 'rating_changes_deviation_positive',
           zeroDeviation: true,
           negativeRating: true,
-          unknownLadder: 'rating_changes_ladder_check',
-          casualRound: 'rating_changes_round_division_fk',
-          otherDivision: 'rating_changes_season_division_fk',
+          unknownLadder: 'rating_changes_ladder_lobby_fk',
+          casualRound: 'rating_changes_round_pool_fk',
+          wrongSeason: 'rating_changes_round_pool_fk',
           debateDeleteBlocked: true,
           indexed: true,
         },

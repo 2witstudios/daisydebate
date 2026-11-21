@@ -1,4 +1,4 @@
-import { daisyOrganizationId } from '@daisy/db/testing';
+import { daisyOrganizationId, publicLobbyId } from '@daisy/db/testing';
 import { requireTestServices } from '@daisy/config';
 import { isAppError } from '@daisy/errors';
 import { createId } from '@paralleldrive/cuid2';
@@ -14,6 +14,7 @@ import {
 } from '../src/features/legal/agreements';
 import { withRoomRuntime } from './room-runtime.test-support';
 import { setAge, withYouthSeason } from './youth-round.test-support';
+import { readyRankedRoom } from './ranked-room.test-support';
 
 setupRitewayBun();
 requireTestServices(process.env);
@@ -43,13 +44,12 @@ const rankedRoom = async (f: Fixture) => {
 
 const withSeason = async (f: Fixture, run: () => Promise<void>) => {
   const seasonId = createId();
-  await f.sql`insert into seasons(organization_id,id,division,name,starts_at,status) values(${daisyOrganizationId},${seasonId},'open','Waiver fixture','2000-01-01T00:00:00Z','active')`;
-  try {
-    await run();
-  } finally {
+  await f.sql`insert into seasons(organization_id,id,lobby_id,name,starts_at,status) values(${daisyOrganizationId},${seasonId},${publicLobbyId},'Waiver fixture','2000-01-01T00:00:00Z','active')`;
+  f.afterRooms(async () => {
     await f.sql`delete from agreement_signatures where season_id=${seasonId}`;
     await f.sql`delete from seasons where id=${seasonId}`;
-  }
+  });
+  await run();
 };
 
 const refusalOf = (attempt: Promise<unknown>) =>
@@ -57,6 +57,46 @@ const refusalOf = (attempt: Promise<unknown>) =>
     () => 'accepted',
     (error: unknown) => (isAppError(error) ? error.message : 'threw'),
   );
+
+test('a Ready from an earlier season does not carry its waiver into Start', async () => {
+  await withRoomRuntime(async (f) =>
+    withSeason(f, async () => {
+      const ready = await readyRankedRoom(f, 'freestyle', 'human');
+      const nextSeason = createId();
+      await f.sql.begin(async (tx) => {
+        await tx`update seasons set status='closed', ends_at=now() where lobby_id=${publicLobbyId} and status='active'`;
+        await tx`insert into seasons (id, lobby_id, organization_id, name, status, starts_at)
+        values (${nextSeason},${publicLobbyId},${daisyOrganizationId},'New waiver season','active',now())`;
+      });
+      f.afterRooms(async () => {
+        await f.sql`delete from agreement_signatures where season_id=${nextSeason}`;
+        await f.sql`delete from seasons where id=${nextSeason}`;
+      });
+      const refused = await refusalOf(
+        f.command(f.host, ready, { type: 'start-round' }),
+      );
+      for (const person of [f.host, f.guest, f.outsider])
+        await f.store.signContentWaiver({
+          id: createId(),
+          roomId: ready.id,
+          userId: person.userId,
+          version: CONTENT_WAIVER_VERSION,
+          words: agreementWords(contentWaiverDocument),
+        });
+      await f.command(f.host, ready, { type: 'start-round' });
+      const [started] =
+        await f.sql`select season_id from rounds where room_id=${ready.id}`;
+      assert({
+        given:
+          'three Ready seats followed by a season rollover and signed replacement waivers',
+        should:
+          'refuse the first Start and freeze the replacement season once all waivers stand',
+        actual: [refused, started?.season_id],
+        expected: ['content-waiver-required', nextSeason],
+      });
+    }),
+  );
+});
 
 test('Ready on a ranked Round waits for the signed waiver alone, and records no notice', async () => {
   await withRoomRuntime(async (f) =>
@@ -67,6 +107,7 @@ test('Ready on a ranked Round waits for the signed waiver alone, and records no 
       const refusedRows =
         await f.sql`select count(*)::int as c from agreement_signatures where user_id=${f.host.userId}`;
       await f.store.signContentWaiver({
+        roomId: room.id,
         id: createId(),
         userId: f.host.userId,
         version: CONTENT_WAIVER_VERSION,
@@ -149,6 +190,7 @@ test('an unsigned human judge cannot Ready a ranked Round until they sign', asyn
       ).view;
       const unsigned = await refusalOf(f.consent(f.outsider, seated, 'ready'));
       await f.store.signContentWaiver({
+        roomId: room.id,
         id: createId(),
         userId: f.outsider.userId,
         version: CONTENT_WAIVER_VERSION,
@@ -185,6 +227,7 @@ test('a member under 18 judging an Open ranked Room signs the Youth waiver, not 
       const asked = await f.operations.view(f.outsider, room.id);
       // The Open waiver, with its licence, never stands in for a minor's.
       await f.store.signContentWaiver({
+        roomId: room.id,
         id: createId(),
         userId: f.outsider.userId,
         version: CONTENT_WAIVER_VERSION,
@@ -192,6 +235,7 @@ test('a member under 18 judging an Open ranked Room signs the Youth waiver, not 
       });
       const openOnly = await refusalOf(f.consent(f.outsider, seated, 'ready'));
       await f.store.signContentWaiver({
+        roomId: room.id,
         id: createId(),
         userId: f.outsider.userId,
         version: YOUTH_CONTENT_WAIVER_VERSION,
@@ -227,13 +271,14 @@ test('a member under 18 judging an Open ranked Room signs the Youth waiver, not 
 test('a signature keeps the exact words, whatever the source says later', async () => {
   await withRoomRuntime(async (f) =>
     withSeason(f, async () => {
+      const room = await rankedRoom(f);
       await f.store.signContentWaiver({
+        roomId: room.id,
         id: createId(),
         userId: f.host.userId,
         version: CONTENT_WAIVER_VERSION,
         words: agreementWords(contentWaiverDocument),
       });
-      const room = await rankedRoom(f);
       const view = await f.operations.view(f.host, room.id);
       await f.consent(f.host, view, 'ready');
       const rows =

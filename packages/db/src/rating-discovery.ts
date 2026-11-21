@@ -1,4 +1,3 @@
-import { daisyOrganizationId } from './daisy-reference';
 import { createAppError } from '@daisy/errors';
 import {
   idSchema,
@@ -102,38 +101,12 @@ const readCandidates = async (
 ): Promise<readonly RatingCandidate[]> => {
   const rows = (await db.execute(sql`select ${endingColumns},
       r.competition_type as "competitionType",
-      case when r.ladder_id is null then null else jsonb_build_object('style', r.ladder_id, 'division', r.ladder_division) end as ladder,
-      exists(select 1 from rating_changes l where l.round_id=r.id) as "alreadyRated"
+      case when r.ladder_id is null or jsonb_array_length(r.rules_snapshot->'sides') <> 2 then null else jsonb_build_object('lobbyId', r.rating_lobby_id, 'ladderId', r.ladder_id, 'seasonId', r.season_id) end as scope,
+      daisy_round_rating_posted(r.id) as "alreadyRated"
     from rounds r ${recordedEndingJoins}
-    where (r.room_id is null or exists(select 1 from rooms rating_room join lobbies rating_lobby on rating_lobby.id=rating_room.lobby_id where rating_room.id=r.room_id and rating_lobby.owner_organization_id=${daisyOrganizationId})) and ${selection}`)) as unknown as FactsRow[];
+    where ${selection}`)) as unknown as FactsRow[];
   return rows.map(endingFacts);
 };
-
-/**
- * The ending facts of these Rounds, the same Daisy's ratings read, for a
- * ladder outside Daisy's own (a league's) to ask `endingRating` of.
- */
-const endingReadBatch = 10_000;
-
-export async function readEndingRatingFacts(
-  db: Execute,
-  roundIds: readonly string[],
-): Promise<readonly EndingRead<EndingRatingFacts>[]> {
-  if (!roundIds.every((id) => idSchema.safeParse(id).success))
-    throw createAppError('VALIDATION');
-  // Bound each query well below PostgreSQL's 65,535 bind parameters.
-  const rows: EndingRow[] = [];
-  for (let at = 0; at < roundIds.length; at += endingReadBatch)
-    rows.push(
-      ...((await db.execute(sql`select ${endingColumns}
-    from rounds r ${recordedEndingJoins}
-    where r.id = any(array[${sql.join(
-      roundIds.slice(at, at + endingReadBatch).map((id) => sql`${id}`),
-      sql`, `,
-    )}]::text[])`)) as unknown as EndingRow[]),
-    );
-  return rows.map(endingFacts);
-}
 
 /**
  * One bounded page of completed Rounds on a ladder with no ledger rows, and
@@ -155,8 +128,9 @@ export async function readRatingCandidates(
   return readCandidates(
     db,
     sql`r.status='completed' and r.ladder_id is not null
+      and jsonb_array_length(r.rules_snapshot->'sides')=2
       and (${input.afterId ?? null}::text is null or r.id > ${input.afterId ?? null})
-      and not exists(select 1 from rating_changes l where l.round_id=r.id)
+      and not daisy_round_rating_posted(r.id)
     order by r.id limit ${input.limit}`,
   );
 }

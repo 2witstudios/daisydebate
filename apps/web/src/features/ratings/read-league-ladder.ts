@@ -13,8 +13,10 @@ import {
 } from '@daisy/protocol/lobby/lobby-read';
 import { hostLobbyResource } from '../tab/operations/host-lobby-resource';
 import type { TabPrincipal } from '../tab/tab-principal';
-import { foldLeagueRatings } from './league-fold';
-import { leagueGames } from './league-input';
+import { leagueStandings } from './league-input';
+import { replayPublishedStandings } from './replay-published-standings';
+import { summarizeStandings } from './summarize';
+import { spectatorClockAt } from '../spectating/spectator-clock';
 
 export const readLeagueLadder =
   (dependencies: {
@@ -32,7 +34,30 @@ export const readLeagueLadder =
   ): Promise<LobbyLadder | null> => {
     if (!idSchema.safeParse(input.lobbyId).success) return null;
     return dependencies.store.leagueRatings(
-      { viewerUserId: principal.userId, lobbyId: input.lobbyId },
+      {
+        viewerUserId: principal.userId,
+        lobbyId: input.lobbyId,
+        canReadSource: (authority) => {
+          const resource = hostLobbyResource(
+            authority.lobby,
+            authority.authorization.organization,
+            authority.ownerActorId,
+          );
+          return (
+            resource.kind === 'lobby' &&
+            dependencies.authorize({
+              principal,
+              capability: 'lobby.host.read',
+              resource,
+              context: {
+                account: authority.authorization.account,
+                grants: authority.authorization.grants,
+                now: authority.checkedAt,
+              },
+            }).allow
+          );
+        },
+      },
       async (facts) => {
         if (!facts) return null;
         const { authority } = facts;
@@ -64,20 +89,39 @@ export const readLeagueLadder =
             (audience) => posting[audience] !== 'never',
           ),
         };
-        if (
-          !dependencies.authorize({
+        const allowed = (capability: 'lobby.read' | 'lobby.host.read') =>
+          dependencies.authorize({
             principal,
-            capability: 'lobby.read',
+            capability,
             resource,
             context: {
               account: authority.authorization.account,
               grants: authority.authorization.grants,
               now: authority.checkedAt,
             },
-          }).allow
-        )
-          return null;
-        const sorted = foldLeagueRatings(leagueGames(facts.input)).sort(
+          }).allow;
+        if (!allowed('lobby.read')) return null;
+        const entries = allowed('lobby.host.read')
+          ? leagueStandings(facts.input).map((row) => ({
+              ...row,
+              username:
+                facts.input.actors.find(
+                  (actor) => actor.actorId === row.actorId,
+                )?.username ?? null,
+            }))
+          : summarizeStandings(
+              await facts.publicStandings(
+                spectatorClockAt(authority.checkedAt),
+                replayPublishedStandings,
+              ),
+              authority.checkedAt,
+            ).map((row) => ({
+              ...row,
+              games: row.played,
+              state: { rating: row.rating },
+              change: row.lastChange,
+            }));
+        const sorted = entries.sort(
           (a, b) =>
             b.state.rating - a.state.rating ||
             a.actorId.localeCompare(b.actorId),
@@ -85,9 +129,7 @@ export const readLeagueLadder =
         const lines = sorted.map((row, index) => ({
           actorId: row.actorId,
           place: index + 1,
-          username:
-            facts.input.actors.find((actor) => actor.actorId === row.actorId)
-              ?.username ?? 'Deleted member',
+          username: row.username ?? 'Deleted member',
           school: null,
           wins: row.wins,
           losses: row.games - row.wins,

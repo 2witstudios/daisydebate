@@ -62,8 +62,8 @@ const fixtureLobby = async (sql: SQL, input: LobbyFixture) => {
     await tx`insert into users (id, username, email_verified) values (${ownerId}, ${ownerId}, true)`;
     await tx`select set_config('daisy.organization_scope', ${organizationId}, true),
       set_config('daisy.lobby_scope', ${id}, true)`;
-    await tx`insert into organizations (id, kind, name, handle, official, owner_user_id, league_division)
-      values (${organizationId}, 'league', ${input.name}, ${organizationId}, true, ${ownerId}, 'open')`;
+    await tx`insert into organizations (id, kind, name, handle, official, owner_user_id)
+      values (${organizationId}, 'league', ${input.name}, ${organizationId}, true, ${ownerId})`;
     await tx`insert into lobbies (id, kind, name, handle, owner_organization_id, age_rule)
       values (${id}, 'standing', ${input.name}, ${id}, ${organizationId}, ${input.ageRule ?? 'adults'})`;
   });
@@ -168,8 +168,6 @@ const create = async (sql: SQL, input: Create) => {
   if (!segment) throw new Error('Fixture rules have no speech');
   const roomDivision = input.division ?? 'open';
   const ageRule = roomDivision === 'youth' ? 'under-18' : 'adults';
-  // Only a ranked Round has a ladder: its Room's division.
-  const division = input.mode === 'ranked' ? roomDivision : null;
   await sql.begin(async (tx) => {
     const hostActor = input.hostUsername
       ? (
@@ -185,8 +183,8 @@ const create = async (sql: SQL, input: Create) => {
     }
     const formatColumns =
       input.mode === 'ranked'
-        ? { format: 'freestyle', preset: 1, ladder: 'freestyle' }
-        : { format: 'freestyle', preset: null, ladder: null };
+        ? { format: 'freestyle', preset: 1 }
+        : { format: 'freestyle', preset: null };
     const [lobby] = input.tournament
       ? [await privateYouthTournament(tx, hostActor)]
       : input.lobbyId
@@ -203,8 +201,30 @@ const create = async (sql: SQL, input: Create) => {
     await tx`insert into rooms (lobby_id,lobby_kind,id,host_actor_id,title,topic,visibility,format_id,format_version,preset_version,competition_type,config,execution_plan,rules_snapshot,capture,status)
       values (${lobby.id},${lobbyKind},${roomId},${roomHost},${input.title},${input.resolution},${input.visibility},${formatColumns.format},1,${formatColumns.preset},${input.mode},${{}},${{}},${rules},${capture},'started')`;
     if (input.tournament) await seedPublishedFixture(tx, lobby.id, roomId);
-    await tx`insert into rounds (id,room_id,created_by_actor_id,resolution,competition_type,format_id,format_version,preset_version,ladder_id,ladder_division,rules_snapshot,runtime_state,status,current_stage,started_at,visibility,room_config_snapshot)
-      values (${roundId},${roomId},${roomHost},${input.resolution},${input.mode},${formatColumns.format},1,${formatColumns.preset},${formatColumns.ladder},${division},${rules},${emptyRuntimeCheckpointFor(rules)},'active','live',now()-interval '5 minutes',${input.visibility},${oneOnOneSettings})`;
+    let [pool] =
+      input.mode === 'ranked'
+        ? await tx`select ld.id as ladder_id,s.id as season_id,s.lobby_id
+        from ladders ld join seasons s on s.lobby_id=ld.lobby_id and s.status='active'
+        where ld.lobby_id=${lobby.id} order by ld.created_at,ld.id limit 1`
+        : [];
+    if (input.mode === 'ranked' && !pool) {
+      const [owner] =
+        await tx`select owner_organization_id from lobbies where id=${lobby.id}`;
+      const [ladder] =
+        await tx`select id from ladders where lobby_id=${lobby.id} order by created_at,id limit 1`;
+      const seasonId = createId();
+      const ladderId = ladder?.id ?? createId();
+      await tx`select set_config('daisy.lobby_scope', ${lobby.id}, true),
+        set_config('daisy.organization_scope', ${owner!.owner_organization_id}, true)`;
+      if (!ladder)
+        await tx`insert into ladders(id,lobby_id,organization_id,name)
+          values (${ladderId},${lobby.id},${owner!.owner_organization_id},'Freestyle')`;
+      await tx`insert into seasons(id,lobby_id,organization_id,name,status,starts_at)
+        values (${seasonId},${lobby.id},${owner!.owner_organization_id},'Season 1','active',clock_timestamp())`;
+      pool = { ladder_id: ladderId, season_id: seasonId, lobby_id: lobby.id };
+    }
+    await tx`insert into rounds (id,room_id,created_by_actor_id,resolution,competition_type,format_id,format_version,preset_version,ladder_id,season_id,rating_lobby_id,rules_snapshot,runtime_state,status,current_stage,started_at,visibility,room_config_snapshot)
+      values (${roundId},${roomId},${roomHost},${input.resolution},${input.mode},${formatColumns.format},1,${formatColumns.preset},${pool?.ladder_id ?? null},${pool?.season_id ?? null},${pool?.lobby_id ?? null},${rules},${emptyRuntimeCheckpointFor(rules)},'active','live',now()-interval '5 minutes',${input.visibility},${oneOnOneSettings})`;
     const aff = await seat(
       tx as never,
       roundId,

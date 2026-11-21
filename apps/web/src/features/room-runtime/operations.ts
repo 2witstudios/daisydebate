@@ -30,6 +30,7 @@ import {
 import type { IdGenerator } from '@daisy/clock';
 import { spectatorClockAt } from '../spectating/spectator-clock';
 import { withSeatRatings } from '../ratings/room-seat-ratings';
+import { replayPublishedStandings } from '../ratings/replay-published-standings';
 import type { createRedis } from '@daisy/redis';
 import type {
   ActiveRoom,
@@ -205,6 +206,7 @@ export function createRoomRuntimeOperations({
     const standing = await store.readContentWaiverStanding(
       caller.userId,
       version,
+      state.lobbyId,
     );
     return standing === 'no-active-season'
       ? none
@@ -233,10 +235,16 @@ export function createRoomRuntimeOperations({
         {
           // A seat's rating waits for the spectator timeline, as a card's does.
           ratings: (actorIds) =>
-            store.readMemberCardRatings(actorIds, spectatorClockAt(now)),
+            store.readMemberCardRatings(
+              actorIds,
+              spectatorClockAt(now),
+              replayPublishedStandings,
+              facts.ratingPool ?? undefined,
+            ),
           blinded: () => store.readRatingBlindings(caller.actorId),
         },
         now,
+        facts.ratingPool,
       )),
       aiJudgeSeating: await roomAiJudgeSeating(state, caller.actorId, () =>
         store.readOwnCasualJudgeAllowance(
@@ -517,7 +525,8 @@ export function createRoomRuntimeOperations({
       );
     },
     async list(caller: Caller, query: RoomListQuery) {
-      return store.listRoomPage(
+      const clock = spectatorClockAt(now());
+      const page = await store.listRoomPage(
         caller,
         query,
         (fact, account) =>
@@ -531,9 +540,38 @@ export function createRoomRuntimeOperations({
             }).allow),
         (account) => can(caller, 'room.list', account),
         (fact) => hostIdentityHidden(fact, caller.actorId),
-        spectatorClockAt(now()),
         readRoundOpeningTopic,
       );
+      const visibleHosts = [
+        ...new Set(
+          page.rooms.flatMap((room) =>
+            room.competitionType === 'ranked' && room.hostActorId
+              ? [room.hostActorId]
+              : [],
+          ),
+        ),
+      ];
+      if (visibleHosts.length === 0) return page;
+      const published = await store.readMemberCardRatings(
+        visibleHosts,
+        clock,
+        replayPublishedStandings,
+      );
+      return {
+        ...page,
+        rooms: page.rooms.map((room) => {
+          if (room.competitionType !== 'ranked' || !room.hostActorId)
+            return room;
+          const rating = published.find(
+            (row) =>
+              row.actorId === room.hostActorId && row.lobbyId === room.lobbyId,
+          );
+          return {
+            ...room,
+            hostRating: rating ? Math.round(rating.rating) : null,
+          };
+        }),
+      };
     },
     create,
     async rematch(caller: Caller, sourceRoomId: string, body: RoomCreate) {

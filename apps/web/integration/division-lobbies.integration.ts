@@ -68,17 +68,20 @@ const withSeasons = async (
           },
         ]),
   ];
-  for (const season of seasons)
-    await f.sql`insert into seasons(organization_id,id,division,name,starts_at,status)
-      values(${daisyOrganizationId},${season.id},${season.division},'Ladder fixture',now() - ${season.ago}::interval,'active')`;
-  try {
-    await run();
-  } finally {
+  f.afterRooms(async () => {
     for (const season of seasons) {
       await f.sql`delete from agreement_signatures where season_id=${season.id}`;
       await f.sql`delete from seasons where id=${season.id}`;
     }
+  });
+  for (const season of seasons) {
+    const ageRule = season.division === 'youth' ? 'under-18' : 'adults';
+    await f.sql`insert into seasons(organization_id,id,lobby_id,name,starts_at,status)
+      select l.owner_organization_id,${season.id},l.id,'Ladder fixture',now() - ${season.ago}::interval,'active'
+      from lobbies l where l.owner_organization_id=${daisyOrganizationId} and l.age_rule=${ageRule}
+        and l.kind='standing' order by l.created_at,l.id limit 1`;
   }
+  await run();
 };
 
 const refusalOf = (attempt: Promise<unknown>) =>
@@ -282,16 +285,6 @@ test('a Youth Room rates on the Youth season, and starts ranked only while it is
     withSeasons(f, async () => {
       await setAge(f, f.host, 'seventeen');
       await setAge(f, f.guest, 'seventeen');
-      for (const member of [f.host, f.guest])
-        await f.store.signContentWaiver({
-          id: createId(),
-          userId: member.userId,
-          version: YOUTH_CONTENT_WAIVER_VERSION,
-          words: agreementWords(youthContentWaiverDocument),
-        });
-      const signedOn = await f.sql`
-        select s.division from agreement_signatures a join seasons s on s.id = a.season_id
-         where a.user_id in (${f.host.userId}, ${f.guest.userId}) and a.agreement = 'ranked-content-waiver'`;
       let room = await rankedRoomSetBy(f, f.host);
       room = (
         await f.command(f.guest, room, {
@@ -306,10 +299,21 @@ test('a Youth Room rates on the Youth season, and starts ranked only while it is
           actorId: (await f.aiJudge()).actorId,
         })
       ).view;
+      for (const member of [f.host, f.guest])
+        await f.store.signContentWaiver({
+          id: createId(),
+          roomId: room.id,
+          userId: member.userId,
+          version: YOUTH_CONTENT_WAIVER_VERSION,
+          words: agreementWords(youthContentWaiverDocument),
+        });
+      const signedOn = await f.sql`
+        select l.age_rule from agreement_signatures a join seasons s on s.id = a.season_id join lobbies l on l.id=s.lobby_id
+         where a.user_id in (${f.host.userId}, ${f.guest.userId}) and a.agreement = 'ranked-content-waiver'`;
       const ready = await everyoneReady(f, room, [f.host, f.guest]);
       // The Youth season ends between Ready and Start.
       await f.sql`update seasons set status='closed', ends_at=now() + interval '1 second'
-        where division='youth' and status='active' and name='Ladder fixture'`;
+        where lobby_id=${room.lobbyId} and status='active' and name='Ladder fixture'`;
       const started = await refusalOf(
         f.command(f.host, ready, { type: 'start-round' }),
       );
@@ -321,13 +325,13 @@ test('a Youth Room rates on the Youth season, and starts ranked only while it is
         should:
           'sign them on the Youth season, refuse ranked at Start and launch no Round',
         actual: {
-          signedOn: signedOn.map((row: { division: string }) => row.division),
+          signedOn: signedOn.map((row: { age_rule: string }) => row.age_rule),
           ageRule: room.ageRule,
           started,
           rounds: rounds[0]!.c,
         },
         expected: {
-          signedOn: ['youth', 'youth'],
+          signedOn: ['under-18', 'under-18'],
           ageRule: 'under-18',
           started: 'ranked-unavailable',
           rounds: 0,
@@ -478,13 +482,6 @@ test('a ranked Start rechecks both a seatless host and a ready debater after a p
             values(${createId()}, ${guardian.userId}, ${member.userId}, ${evidence},
               'active', 'created-account', now(), now())`;
           }
-          for (const member of [f.guest, f.outsider])
-            await f.store.signContentWaiver({
-              id: createId(),
-              userId: member.userId,
-              version: YOUTH_CONTENT_WAIVER_VERSION,
-              words: agreementWords(youthContentWaiverDocument),
-            });
           const protect = (member: Member, level: 'guided' | 'supervised') =>
             f.sql.begin(async (tx) => {
               await tx`select set_config('daisy.subject_scope', ${guardian.userId}, true)`;
@@ -504,6 +501,17 @@ test('a ranked Start rechecks both a seatless host and a ready debater after a p
               seat: sideSeat(negativeSide),
             })
           ).view;
+          for (const member of [f.guest, f.outsider]) {
+            const signed = await f.store.signContentWaiver({
+              id: createId(),
+              roomId: room.id,
+              userId: member.userId,
+              version: YOUTH_CONTENT_WAIVER_VERSION,
+              words: agreementWords(youthContentWaiverDocument),
+            });
+            if (signed !== 'signed')
+              throw new Error('Expected a Youth waiver for the claimed seat');
+          }
           room = (
             await f.command(f.host, room, {
               type: 'assign-seat',
