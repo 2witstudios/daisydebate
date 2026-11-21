@@ -25,8 +25,8 @@ export const youthLiveReadOperations = ({
    */
   readYouthRoundPeople: (roundId: string) =>
     readYouthRecordingPeople(database, roundId),
-  readStudentLiveRounds: (adultUserId: string) =>
-    readStudentLiveRounds(database, adultUserId),
+  readStudentLiveRounds: (adultUserId: string, lobbyId?: string) =>
+    readStudentLiveRounds(database, adultUserId, lobbyId),
   /**
    * Whether this Round's content may not leave Daisy (the reuse fence, ADR
    * 0161). The web asks it beside the shared spectator read, which the

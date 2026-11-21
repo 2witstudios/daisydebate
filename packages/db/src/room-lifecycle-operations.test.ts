@@ -1,5 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
+import { daisyOrganizationId, publicLobbyId } from './daisy-reference';
 import { foundationDefinition } from './reference-formats';
 import {
   accountRow,
@@ -22,13 +23,15 @@ test('a create whose host another Room holds is refused as active-room (ADR 0070
     [],
     [],
     [],
-    // the creator's division, scope, club staff, scope back (ADR 0156)
+    // The creator's age, temporary subject scope, and official lobby choices.
     [],
     [],
     [],
     [],
     [],
+    [[publicLobbyId, 'Open', 'open', 'adults', daisyOrganizationId]],
     now,
+    [], // No league ladder configured for this standing lobby.
     [],
     [],
     [],
@@ -135,6 +138,7 @@ test('a Room another writer holds, or the engine keeps open, is not expired', as
     now,
     [[foundationDefinition]],
     [],
+    [['adults']],
     [],
     [],
     [],
@@ -164,6 +168,7 @@ test('an idle Room the engine expires is closed, released and announced', async 
     now,
     [[foundationDefinition]],
     [],
+    [['adults']],
     [],
     [], // its friend challenges are deleted (ISSUE-699)
     [], // no invitation has lapsed (ADR 0124)

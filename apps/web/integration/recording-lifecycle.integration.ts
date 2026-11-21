@@ -120,7 +120,7 @@ const withReadyRecording = (
       roundId,
       competitionType: 'casual',
       ladderDivision: null,
-      roomDivision: 'open',
+      roomYouth: false,
       hostActorId: read!.hostActorId,
       hostOptedIn: true,
       hostHoldsRecording: true,

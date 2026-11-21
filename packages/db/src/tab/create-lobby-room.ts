@@ -1,6 +1,7 @@
 import { createAppError, createRefusal } from '@daisy/errors';
 import type { FormatDefinition, EntitlementGrant } from '@daisy/protocol';
 import type { LobbyCommand } from '@daisy/protocol/lobby/lobby-setup-command';
+import type { LobbyAgeRule } from '@daisy/protocol/lobby/eligibility';
 import type {
   ActionHistoryEntry,
   LobbyCommandReceipt,
@@ -10,6 +11,7 @@ import { readDatabaseTime } from '../database-clock';
 import { readFormatSelectionFacts } from '../format-operations';
 import { readEntitlementGrants } from '../entitlement-grants';
 import { assembleRoom } from '../room-assembly';
+import { mayHostStandingRoom, readRoomCreator } from '../room-creator';
 import { recordCaptureNotice } from '../agreement-signatures';
 import {
   lockCommand,
@@ -42,6 +44,7 @@ export const createLobbyRoomStore = (database: TabDatabase) => ({
         tuple: Parameters<typeof readFormatSelectionFacts>[1],
       ) => ReturnType<typeof readFormatSelectionFacts>;
       readonly now: () => Promise<string>;
+      readonly mayHost: (ageRule: LobbyAgeRule) => Promise<boolean>;
       readonly stored: (id: string) => ReturnType<typeof storedCommand>;
       readonly apply: (
         assembly: LobbyRoomAssembly,
@@ -86,6 +89,11 @@ export const createLobbyRoomStore = (database: TabDatabase) => ({
           }),
         selectionFacts: (tuple) => readFormatSelectionFacts(tx, tuple),
         now: async () => (await readDatabaseTime(tx)).toISOString(),
+        mayHost: async (ageRule) =>
+          mayHostStandingRoom(await readRoomCreator(tx, input.senderUserId), {
+            ageRule,
+            competitionType: 'casual',
+          }),
         stored: (id) => storedCommand(tx, id),
         apply: async (
           assembly,

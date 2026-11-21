@@ -5,6 +5,7 @@ import {
   type RatingStyle,
 } from './primitives';
 import type { CompetitionType } from './round';
+import type { LobbyAgeRule } from './lobby/eligibility';
 
 /**
  * A ladder is a style in a division (owner decision 79, ADR 0147): Open –
@@ -25,6 +26,10 @@ export type AgeBand = (typeof ageBands)[number];
 /** Who may debate on a ladder: Open is 18 and over, Youth is under 18. */
 export const ratingDivisions = ['open', 'youth'] as const;
 export type RatingDivision = (typeof ratingDivisions)[number];
+
+/** The existing ledger key for a lobby until ratings key on lobby ladders. */
+export const ratingDivisionForAgeRule = (rule: LobbyAgeRule): RatingDivision =>
+  rule === 'under-18' ? 'youth' : 'open';
 
 /** One rating ladder: a style in a division. */
 export type Ladder = {

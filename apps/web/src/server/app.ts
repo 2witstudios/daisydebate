@@ -248,7 +248,8 @@ export function createApp({
     candidates: (member: {
       readonly userId: string;
       readonly actorId: string;
-    }) => database.readStudentLiveRounds(member.userId),
+      readonly lobbyId?: string;
+    }) => database.readStudentLiveRounds(member.userId, member.lobbyId),
     view: roundViewReader(database, liveLinkedAdults({ database })),
     nowMs: () => Date.parse(clock.now()),
   });

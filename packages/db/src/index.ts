@@ -170,6 +170,9 @@ import {
   liveBroadcastReads,
   watchableRoundOfRoomRead,
 } from './live-broadcast-reads';
+import { readOfficialStandingLobbies } from './official-standing-lobbies';
+import { readCompetitionAgeBand } from './ladder-division-band';
+import { readProfileChallengeModes } from './challenges/lobby';
 import { memberProfileReadOperations } from './member-profile-reads';
 import { recordingArchiveReadOperations } from './recording-archive-reads';
 import { recordingModeration } from './recording-moderation';
@@ -547,6 +550,11 @@ export function createDatabase({
     ...memberProfileReadOperations({ database: browse, eventSink }),
     ...spectatorTimelineReads({ database: audience, eventSink }),
     ...liveBroadcastReads({ database: audience }),
+    readOfficialStandingLobbies: () => readOfficialStandingLobbies(browse),
+    readProfileChallengeModes: (userId: string, username: string) =>
+      readProfileChallengeModes(browse, userId, username),
+    readCompetitionAgeBand: (userId: string) =>
+      readCompetitionAgeBand(browse, userId),
     ...watchableRoundOfRoomRead({ database }),
     ...audienceSnapshotReads({ database: audience, eventSink }),
     ...spectatorChatOperations({ database: social, eventSink }),

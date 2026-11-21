@@ -384,6 +384,14 @@ test('actual fixture officiating replaces unsubmitted ordinary identities, repla
             reason: 'Actual official restart',
           },
         };
+        // A predecessor migration can mark a Youth Room in an otherwise
+        // Open tournament. Seed that history in this disposable database.
+        await owner.begin(async (tx) => {
+          await tx`alter table rooms disable trigger rooms_lobby_immutable`;
+          await tx`update rooms set legacy_tournament_youth=true where id=${world.roomId}`;
+          await tx`set constraints all immediate`;
+          await tx`alter table rooms enable trigger rooms_lobby_immutable`;
+        });
         const restarted = await send(as(director), lobbyId, restart);
         const [replacement] =
           await owner`select room_id from fixtures where id=${fixture!.id}`;
@@ -392,18 +400,21 @@ test('actual fixture officiating replaces unsubmitted ordinary identities, repla
         const readiness = await owner<
           { readiness_command_id: string | null; readiness_version: number }[]
         >`select readiness_command_id,readiness_version from room_participants where room_id=${replacement!.room_id}`;
-        const [pins] =
-          await owner`select (a.rules_snapshot=b.rules_snapshot and a.config=b.config and a.execution_plan=b.execution_plan and a.template_id is not distinct from b.template_id and a.ballot_definition_id is not distinct from b.ballot_definition_id and a.ballot_definition_version is not distinct from b.ballot_definition_version) same from rooms a join rooms b on b.id=${replacement!.room_id} where a.id=${world.roomId}`;
+        const [pins] = await owner`select
+          (a.rules_snapshot=b.rules_snapshot and a.config=b.config and a.execution_plan=b.execution_plan and a.template_id is not distinct from b.template_id and a.ballot_definition_id is not distinct from b.ballot_definition_id and a.ballot_definition_version is not distinct from b.ballot_definition_version) same,
+          public.daisy_room_is_youth(b.id) as youth
+          from rooms a join rooms b on b.id=${replacement!.room_id} where a.id=${world.roomId}`;
         assert({
           given: 'a real restart before a fixture result',
           should:
-            'ordinary-stop and explicitly void the live source, keep its history, assemble exact pins and require every fresh Ready',
+            'void the live source, preserve the old pins and youth privacy rule, and require every fresh Ready',
           actual: [
             restarted.kind,
             replacement!.room_id !== world.roomId,
             oldSource!.status,
             oldSource!.command_id,
             pins!.same,
+            pins!.youth,
             readiness.length,
             readiness.every(
               (row) =>
@@ -416,6 +427,7 @@ test('actual fixture officiating replaces unsubmitted ordinary identities, repla
             true,
             'abandoned',
             restart.commandId,
+            true,
             true,
             cast.length,
             true,

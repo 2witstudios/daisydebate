@@ -10,6 +10,7 @@ test('a row on the list always shows at least one rating', () => {
     status: 'online',
     relation: 'none',
     division: 'youth',
+    challengeModes: [],
     wins: 1,
     losses: 0,
   };

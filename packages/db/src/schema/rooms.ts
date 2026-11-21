@@ -1,7 +1,6 @@
 import { ladders } from './ladders';
 import {
   competitionTypes,
-  ratingDivisions,
   twoSideKeys,
   type TwoSideKey,
   roomCaptureSchema,
@@ -12,7 +11,6 @@ import {
   roomExecutionPlanSchema,
   roundRulesSchema,
   type CompetitionType,
-  type RatingDivision,
   type SeatKind,
 } from '@daisy/protocol';
 import type { lobbyKinds } from '@daisy/protocol/lobby';
@@ -40,7 +38,6 @@ import {
   versionColumn,
   versionPositive,
 } from './columns';
-import { daisyReferenceLobby } from './lobby-defaults';
 import { ballotDefinitionVersions } from './ballot-definitions';
 import { formatPresets } from './format-presets';
 import { formatRevisions } from './format-revisions';
@@ -103,12 +100,6 @@ export const rooms = pgTable(
       .$type<CompetitionType>()
       .notNull(),
     /**
-     * The lobby the Room was created in (ADR 0156), fixed for its life: its
-     * debater seats are for that division's members, and a ranked Round
-     * rates on its ladder. Not written after insert.
-     */
-    division: text('division').$type<RatingDivision>().notNull(),
-    /**
      * Team 1's side, or null while the sides are open to the coin flip at
      * Start round (ADR 0145). Team 1 sits in the affirmative seats.
      */
@@ -152,7 +143,9 @@ export const rooms = pgTable(
     lobbyKind: text('lobby_kind')
       .$type<(typeof lobbyKinds)[number]>()
       .notNull()
-      .default(daisyReferenceLobby.kind),
+      .default('standing'),
+    /** Frozen privacy classification of tournament Rooms made before ADR 0162. */
+    legacyTournamentYouth: boolean('legacy_tournament_youth'),
     /** The template the Room follows; standing Rooms require a lobby offer. */
     templateId: text('template_id'),
     /** Internal constraint key: event pins do not require standing offers. */
@@ -179,7 +172,7 @@ export const rooms = pgTable(
       sql`${table.leagueLadderId} is null or (${table.lobbyKind} = 'standing' and ${table.competitionType} = 'casual')`,
     ),
     index('rooms_discovery_assembly_idx')
-      .on(sql`${table.id} collate "C"`)
+      .on(table.lobbyId, table.createdAt, sql`${table.id} collate "C"`)
       .where(sql`${table.status} in ('assembling', 'ready')`),
     index('rooms_host_actor_idx').on(table.hostActorId),
     unique('rooms_id_lobby_unique').on(table.id, table.lobbyId),
@@ -228,6 +221,10 @@ export const rooms = pgTable(
       sql`${table.lobbyKind} <> 'tournament' or (${table.capture} is not null and ${table.capture}->>'recordingPolicy' in ('off', 'officials'))`,
     ),
     check(
+      'rooms_legacy_tournament_youth_check',
+      sql`${table.legacyTournamentYouth} is null or ${table.lobbyKind} = 'tournament'`,
+    ),
+    check(
       'rooms_event_is_casual',
       sql`${table.lobbyKind} <> 'tournament' or ${table.competitionType} = 'casual'`,
     ),
@@ -259,7 +256,6 @@ export const rooms = pgTable(
       'rooms_ranked_public_check',
       sql`${table.competitionType} <> 'ranked' or ${table.visibility} = 'public'`,
     ),
-    check('rooms_division_check', oneOf(table.division, ratingDivisions)),
     check('rooms_title_nonempty', sql`length(trim(${table.title})) > 0`),
     check(
       'rooms_topic_nonempty',

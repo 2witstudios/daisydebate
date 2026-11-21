@@ -1,12 +1,14 @@
 import { and, eq, or, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError, createRefusal } from '@daisy/errors';
-import { divisionAgeBand, divisionOfBandSql } from '../ladder-division-band';
+import { divisionAgeBand } from '../ladder-division-band';
+import { sharedChallengeLobby } from './lobby';
+import { readOfficialStandingLobbies } from '../official-standing-lobbies';
+import { z } from 'zod';
 import {
   buildUserInboxTopic,
-  lobbyOf,
+  ageBands,
   idSchema,
-  type RatingDivision,
   type RatingStyle,
   type CompetitionType,
 } from '@daisy/protocol';
@@ -15,7 +17,7 @@ import type { ContactPairKey } from '../contacts/reactions';
 import type { ContactInput } from '../contacts/fence';
 import { oweNotifications } from '../notifications/owe';
 import { appendOutboxEvent } from '../outbox';
-import { rowsOf } from '../raw-rows';
+import { query, rowsOf, run } from '../raw-rows';
 import { readAvailability } from '../presence/availability';
 import { openRoomHostedBy } from '../room-open';
 import { challenges } from '../schema/challenges';
@@ -126,32 +128,31 @@ export const challengeContactReactions = {
   },
 };
 
-/**
- * The lobby both members share (ADR 0156), or null when they are in
- * different lobbies; a ranked offer also needs both to hold a division (an
- * age record), as a ranked debater seat does.
- */
+/** The eligible official lobby shared by this pair under its account fences. */
 async function pairLobby(
   tx: Tx,
   challenger: string,
   challenged: string,
-  mode: 'ranked' | 'casual',
-): Promise<RatingDivision | null> {
-  const rows = await rowsOf<{ division: RatingDivision | null }>(
+  mode: CompetitionType,
+  lobbyId?: string,
+): Promise<string | null> {
+  const members = await query(
     tx,
-    sql`select ${divisionOfBandSql(divisionAgeBand())} as division
-      from actors member left join account_age on account_age.user_id = member.user_id
+    z.object({ id: z.string(), ageBand: z.enum(ageBands).nullable() }),
+    sql`select member.id, ${divisionAgeBand()} as "ageBand"
+      from actors member left join account_age on account_age.user_id=member.user_id
       where member.id in (${challenger}, ${challenged})`,
   );
-  const [first, second] = rows;
-  if (rows.length !== 2 || !first || !second) return null;
-  if (
-    mode === 'ranked' &&
-    (first.division === null || second.division === null)
-  )
-    return null;
-  const lobby = lobbyOf(first);
-  return lobby === lobbyOf(second) ? lobby : null;
+  const first = members.find(({ id }) => id === challenger);
+  const second = members.find(({ id }) => id === challenged);
+  if (!first || !second) return null;
+  const choices = (await readOfficialStandingLobbies(tx)).filter(
+    (lobby) => lobbyId === undefined || lobby.id === lobbyId,
+  );
+  return (
+    sharedChallengeLobby(choices, first.ageBand, second.ageBand, mode)?.id ??
+    null
+  );
 }
 
 /**
@@ -186,12 +187,15 @@ export function challengeFrame(
         throw createAppError('NOT_FOUND');
       // A challenge stays inside one lobby (ADR 0156): both members',
       // read under the pair's lock.
-      const division = await pairLobby(tx, input.actorId, other, mode);
-      if (division === null) throw createRefusal('CONFLICT', 'other-division');
-      await tx.execute(sql`
+      const lobbyId = await pairLobby(tx, input.actorId, other, mode);
+      if (lobbyId === null) throw createRefusal('CONFLICT', 'other-division');
+      await run(
+        tx,
+        sql`
         delete from challenges
         where challenger_actor_id = ${input.actorId} and challenged_actor_id = ${other}
-          and room_id is null and expires_at <= ${new Date(now)}`);
+          and room_id is null and expires_at <= ${new Date(now)}`,
+      );
       const inserted = await tx
         .insert(challenges)
         .values({
@@ -200,7 +204,7 @@ export function challengeFrame(
           challengedActorId: other,
           mode,
           formatId: format,
-          division,
+          lobbyId,
           createdAt: new Date(now),
           expiresAt: new Date(expiresAt),
         })
@@ -230,7 +234,7 @@ export function challengeFrame(
         .set({
           mode,
           formatId: format,
-          division,
+          lobbyId,
           expiresAt: new Date(expiresAt),
         })
         .where(
@@ -256,6 +260,8 @@ export function challengeFrame(
       const [offer] = await tx
         .select({
           id: challenges.id,
+          lobbyId: challenges.lobbyId,
+          mode: rooms.competitionType,
         })
         .from(challenges)
         .innerJoin(
@@ -263,6 +269,7 @@ export function challengeFrame(
           and(
             eq(rooms.formatId, challenges.formatId),
             eq(rooms.competitionType, challenges.mode),
+            eq(rooms.lobbyId, challenges.lobbyId),
             openRoomHostedBy(roomId, input.actorId),
           ),
         )
@@ -283,7 +290,11 @@ export function challengeFrame(
             sql`${challenges.expiresAt} > ${new Date(now)}`,
           ),
         );
-      if (!offer) throw createAppError('NOT_FOUND');
+      if (
+        !offer ||
+        !(await pairLobby(tx, other, input.actorId, offer.mode, offer.lobbyId))
+      )
+        throw createAppError('NOT_FOUND');
       // A challenger who took another room since cannot be sent to this one.
       if ((await readAvailability(owner, other)).placement !== null)
         throw createAppError('NOT_FOUND');

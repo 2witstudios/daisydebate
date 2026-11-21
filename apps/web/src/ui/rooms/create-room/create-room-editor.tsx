@@ -1,13 +1,10 @@
 'use client';
 
+import type { CreateLobbyChoice } from '../../../features/rooms/create-lobby-choice';
+
 import { useState } from 'react';
 import { casualCaptureNotice } from '../../../features/legal/agreements';
-import {
-  ratingDivisions,
-  type RatingDivision,
-  type RoomCatalogChoice,
-} from '@daisy/protocol';
-import { lobbyNames } from '../../../features/lobby/lobby-names';
+import { type RatingDivision, type RoomCatalogChoice } from '@daisy/protocol';
 import {
   changeRoomValue,
   chooseRoomChoice,
@@ -39,7 +36,7 @@ export function CreateRoomEditor({
   commandId,
   initialRanked,
   memberDivision,
-  staffLobby,
+  lobbyChoice,
   pending,
   error,
 }: {
@@ -59,7 +56,7 @@ export function CreateRoomEditor({
    * they may open a Youth Room for their students. Null for everyone else,
    * whose Room opens in their own lobby with no choice shown.
    */
-  readonly staffLobby: RatingDivision | null;
+  readonly lobbyChoice: CreateLobbyChoice | null;
   readonly pending: boolean;
   readonly error?: string | undefined;
 }) {
@@ -109,27 +106,29 @@ export function CreateRoomEditor({
         <div id="create-room-answer" tabIndex={-1}>
           <FormError error={error} />
         </div>
-        {staffLobby === null ? null : (
+        {lobbyChoice === null ? null : lobbyChoice.choices.length === 1 ? (
+          <input type="hidden" name="lobby" value={lobbyChoice.defaultId} />
+        ) : (
           <section className="create-room-section">
             <div
               role="radiogroup"
               aria-label="Lobby"
               className="flex flex-wrap gap-3"
             >
-              {ratingDivisions.map((division) => (
+              {lobbyChoice.choices.map(({ id, name }) => (
                 <label
-                  key={division}
+                  key={id}
                   className="flex min-h-12 min-w-0 flex-1 cursor-pointer items-center gap-3 rounded-md border border-border bg-surface-raised px-4 has-checked:border-ink has-checked:bg-surface max-narrow:basis-full"
                 >
                   <input
                     type="radio"
                     name="lobby"
-                    value={division}
-                    defaultChecked={(values.lobby ?? staffLobby) === division}
+                    value={id}
+                    defaultChecked={
+                      (values.lobby ?? lobbyChoice.defaultId) === id
+                    }
                   />
-                  <strong className="font-strong">
-                    {lobbyNames[division]}
-                  </strong>
+                  <strong className="font-strong">{name}</strong>
                 </label>
               ))}
             </div>

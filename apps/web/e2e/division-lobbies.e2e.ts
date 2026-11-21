@@ -45,7 +45,7 @@ const contextFor = (browser: Browser, javaScriptEnabled = true) =>
 const lobbySwitch = (page: Page) =>
   page.getByRole('navigation', { name: 'Lobby', exact: true });
 
-const expectLobby = async (page: Page, name: 'Open lobby' | 'Youth lobby') =>
+const expectLobby = async (page: Page, name: 'Open' | 'Youth') =>
   expect(
     lobbySwitch(page).getByRole('link', { name, exact: true }),
   ).toHaveAttribute('aria-current', 'page');
@@ -73,20 +73,20 @@ test('each member lands in their own lobby and switches to the other, with and w
       await signUpMember(youth.request, youthBirth(systemClock.now()));
 
       await adult.goto('/lobby');
-      await expectLobby(adult, 'Open lobby');
+      await expectLobby(adult, 'Open');
       await youth.goto('/lobby');
-      await expectLobby(youth, 'Youth lobby');
+      await expectLobby(youth, 'Youth');
 
       await lobbySwitch(adult)
-        .getByRole('link', { name: 'Youth lobby', exact: true })
+        .getByRole('link', { name: 'Youth', exact: true })
         .click();
-      await expect(adult).toHaveURL(/[?&]lobby=youth/);
-      await expectLobby(adult, 'Youth lobby');
+      await expect(adult).toHaveURL(/[?&]lobby=[a-z0-9]{24}/);
+      await expectLobby(adult, 'Youth');
       await lobbySwitch(youth)
-        .getByRole('link', { name: 'Open lobby', exact: true })
+        .getByRole('link', { name: 'Open', exact: true })
         .click();
-      await expect(youth).toHaveURL(/[?&]lobby=open/);
-      await expectLobby(youth, 'Open lobby');
+      await expect(youth).toHaveURL(/[?&]lobby=[a-z0-9]{24}/);
+      await expectLobby(youth, 'Open');
       // The Division filter is gone: the lobby is the switch (ADR 0156).
       await expect(adult.locator('select[name="division"]')).toHaveCount(0);
     }
@@ -110,8 +110,9 @@ test('Watch from a row, and debater seats only for the Room’s own lobby', asyn
     await signUpMember(adult.request);
     await signUpMember(youth.request, youthBirth(systemClock.now()));
 
-    // An Open Room, watched from the Youth member's view of the Open lobby.
-    const openTitle = `Open room ${createId().slice(0, 8)}`;
+    // An Open Room, watched from the Youth member's view of the Open.
+    const token = createId().slice(0, 8);
+    const openTitle = `Open room ${token}`;
     await adult.goto('/play/room');
     const openRoom = await submitCreateRoom(
       adult,
@@ -122,9 +123,26 @@ test('Watch from a row, and debater seats only for the Room’s own lobby', asyn
     rooms.push({ page: adult, id: openRoom.id });
     await claim(adult, openRoom, 'Affirmative 1');
 
-    await youth.goto('/lobby?lobby=open');
+    const youthTitle = `Youth room ${token}`;
+    await youth.goto('/play/room');
+    const youthRoom = await submitCreateRoom(
+      youth,
+      youthTitle,
+      'freestyle',
+      true,
+    );
+    rooms.push({ page: youth, id: youthRoom.id });
+    await claim(youth, youthRoom, 'Affirmative 1');
+
+    await youth.goto(`/lobby?q=${token}`);
+    await expect(lobbyRow(youth, youthTitle)).toHaveCount(1);
+    await expect(lobbyRow(youth, openTitle)).toHaveCount(0);
+    await lobbySwitch(youth)
+      .getByRole('link', { name: 'Open', exact: true })
+      .click();
     const row = lobbyRow(youth, openTitle);
     await expect(row).toHaveCount(1);
+    await expect(lobbyRow(youth, youthTitle)).toHaveCount(0);
     await expect(
       row.getByRole('link', { name: `Watch: ${openTitle}` }),
     ).toBeVisible();
@@ -148,17 +166,11 @@ test('Watch from a row, and debater seats only for the Room’s own lobby', asyn
     ).toBeVisible();
 
     // A Youth Room: an adult is offered no Youth debater seat.
-    const youthTitle = `Youth room ${createId().slice(0, 8)}`;
-    await youth.goto('/play/room');
-    const youthRoom = await submitCreateRoom(
-      youth,
-      youthTitle,
-      'freestyle',
-      true,
-    );
-    rooms.push({ page: youth, id: youthRoom.id });
-    await claim(youth, youthRoom, 'Affirmative 1');
-    await adult.goto('/lobby?lobby=youth');
+    await adult.goto(`/lobby?q=${token}`);
+    await expect(lobbyRow(adult, youthTitle)).toHaveCount(0);
+    await lobbySwitch(adult)
+      .getByRole('link', { name: 'Youth', exact: true })
+      .click();
     const youthRow = lobbyRow(adult, youthTitle);
     await expect(
       youthRow.getByRole('link', { name: `Watch: ${youthTitle}` }),
@@ -175,7 +187,7 @@ test('Watch from a row, and debater seats only for the Room’s own lobby', asyn
       adult.getByRole('button', { name: `Take ${youthNegative}`, exact: true }),
     ).toHaveCount(0);
     const after = await reread(adult.request, youthRoom.id);
-    expect(after.division).toBe('youth');
+    expect(after.ageRule).toBe('under-18');
   } finally {
     for (const room of rooms) await closeRoom(room.page.request, room.id);
     await adultContext.close();

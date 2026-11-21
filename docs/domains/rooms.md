@@ -308,33 +308,21 @@ content waiver, signed once per season, is the ranked agreement, and it alone
 fences a ranked Ready (`content-waiver-required`, or `ranked-unavailable` with
 no season open).
 
-**Target model** ([ADR 0162](../decisions/0162-daisy-is-a-league-open-and-youth-are-lobbies.md)):
-Daisy is an ordinary league and Open and Youth are its standing lobbies; who
-may compete is the lobby's age rule. The division columns described below are
-being replaced by the lobby; add no new readers of them.
+A Room belongs to the lobby it was created in. In a standing lobby,
+`mayDebate` applies the lobby's age rule to the member's competition age band
+([ADR 0162](../decisions/0162-daisy-is-a-league-open-and-youth-are-lobbies.md)).
+Members can create in an eligible lobby, club staff can also host in an
+under-18 lobby, and a challenge opens a Room in the pair's lobby. The member's
+age band still uses the stored birth month and the existing season anchor
+and carry rules ([ADR 0147](../decisions/0147-ladder-style-and-division.md) §3).
 
-A Room belongs to the lobby it was created in
-([ADR 0156](../decisions/0156-room-division-from-its-lobby.md), amending
-[ADR 0147](../decisions/0147-ladder-style-and-division.md)). `rooms.division`
-(Open or Youth) is set at creation and never changes: a member creates in
-their own lobby (`roomLobbyAtCreation`), club staff may also open a Youth Room,
-a challenge's Room opens in the pair's lobby, a tournament Room in its event's
-age division and a league lobby's Room in its league's. Each person's division
-comes from the stored birth month, aged on the start of the active Youth
-season, bounded by their own age record and a 12-month carry (ADR 0147 §3).
-
-- **Debater seats** (`seatAllowed`), ranked and casual, take only the Room's
-  division, whether claimed or assigned by the host; anything else answers
-  `other-division`. A member with no age record debates only in an Open
-  casual Room; a bot only casually.
+- **Debater seats.** Claiming or assigning a debater seat uses the Room's
+  age rule. A member without an age record may debate casually in an adults
+  or anyone lobby. A bot debates only casually.
 - **Judges.** Judge seats take anyone: minors judge Open Rooms, adults Youth.
-- **Start.** A ranked Round rates on its Room's division (`roundCompetition`),
-  and Start refuses with `ranked-unavailable` when that division has no
-  active season.
-- **League ladders.** A league carries one division, Open or Youth (PYL-16),
-  and a league Room on its ladder also seats only members in that division.
-  A caller's own claim there answers `other-division`, and a host's assignment
-  answers `actor-ineligible`.
+- **Start.** Start checks seated debaters again. A ranked Round uses the
+  existing rating and season keys, and Start answers `ranked-unavailable`
+  when there is no active season for the required ladder.
 - **Watching** ([ADR 0161](../decisions/0161-youth-rounds-follow-open-visibility.md)).
   A Youth Room's Round is watched, listed, broadcast and recorded exactly as
   an Open Room's: ranked is public, casual follows the Room's visibility and
@@ -393,7 +381,27 @@ Room persistence has one command path: `createRoomCommand` and
 accepted Room mutation. Seating and Start round use that path; there is
 no separate low-level seat or freeze writer.
 
-## Lobby discovery ordering
+## Lobby discovery and eligibility
+
+A Room belongs to one lobby for its lifetime. The Lobby and Watch switches
+list open standing lobbies owned by official leagues. A member's initial
+lobby follows their competition age band. Search, page anchors, and results
+use the selected lobby id. Visibility and link access still use the Room or
+Round's own audience policy.
+
+A challenge binds both parties and its acceptance Room to one lobby.
+Linked-adult and recording protections follow the Room's lobby classification.
+In an anyone lobby, they apply to minors in debating seats. Historical
+tournament Rooms keep their recorded youth privacy classification. Watch's
+public listing stays in the selected standing lobby. An authorized guardian
+or coach can still reach their student's live tournament Round from Students
+live. Missing age evidence in an anyone lobby keeps reuse fenced even after
+erasure, without granting additional access to the Round.
+Tournament entries and the stored rating and season keys continue to follow
+their existing contracts while those areas migrate
+([ADR 0162](../decisions/0162-daisy-is-a-league-open-and-youth-are-lobbies.md)).
+
+### Ordering
 
 The discovery query accepts `sort=newest` (also the omitted default) or
 `sort=longest-waiting`. Both use the Room's immutable `(created_at, id)`
@@ -405,14 +413,14 @@ it never sorts on the nullable waiting display field or mutable occupancy.
 The string cursor is the last returned accessible Room's id. PostgreSQL
 resolves that anchor's creation instant at full stored precision, even if
 its Room has since launched or left the selected status; no JavaScript
-Date rounding or offset is involved. An invisible or missing anchor yields
+Date rounding or offset is involved. An invisible, missing, or out-of-lobby anchor yields
 no page. The same keyset/order applies before each bounded assembly/live
 branch limit, to the combined candidates and to the final projection.
 Authorization and bounded retry after lock races remain unchanged.
 
 New Rooms before the anchor appear on refresh; those after it can appear
 on subsequent pages. Launching does not move the key. Clients restart from
-page one when changing sort, status, mode or search. The query/URL helper
+page one when changing the lobby, sort, status, mode or search. The query/URL helper
 preserves sort on subsequent pages; interactive controls are owned by the
 separate Lobby design lane.
 

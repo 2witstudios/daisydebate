@@ -448,7 +448,7 @@ test("only the speaker's microphone stays open, for capture to confirm", () => {
       participants: oneOnOneSeats.map((row) => ({
         ...row,
         eligible: true,
-        division: 'open' as const,
+        ageBand: 'adult' as const,
         kind: 'human' as const,
       })),
       participantId,
@@ -486,7 +486,7 @@ test("the speaker's microphone opens for the countdown, so it is ready when the 
       participants: oneOnOneSeats.map((row) => ({
         ...row,
         eligible: true,
-        division: 'open' as const,
+        ageBand: 'adult' as const,
         kind: 'human' as const,
       })),
       participantId: seat.id,
@@ -785,7 +785,7 @@ test('a start gate does not move the microphone it waits for', () => {
         participants: oneOnOneSeats.map((row) => ({
           ...row,
           eligible: true,
-          division: 'open' as const,
+          ageBand: 'adult' as const,
           kind: 'human' as const,
         })),
         participantId: seat.id,
@@ -813,7 +813,7 @@ test('the microphone opens just before the clock, for the next human speaker onl
       participants: oneOnOneSeats.map((row) => ({
         ...row,
         eligible: true,
-        division: 'open' as const,
+        ageBand: 'adult' as const,
         kind: kind as 'human',
       })),
       participantId,

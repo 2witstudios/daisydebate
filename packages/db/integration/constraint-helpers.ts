@@ -89,10 +89,15 @@ const purgeOrder: ReadonlyArray<readonly [table: string, key: string]> = [
   ['round_participants', 'id'],
   ['usage_reservations', 'id'],
   ['room_participants', 'id'],
+  ['challenges', 'id'],
   ['rooms', 'id'],
   ['documents', 'id'],
   ['seasons', 'id'],
+  ['tournaments', 'lobby_id'],
+  ['lobbies', 'id'],
+  ['organizations', 'id'],
   ['actors', 'id'],
+  ['guardian_links', 'id'],
   ['users', 'id'],
   // `formats.current_version` and `format_presets.format_version` both point
   // into `format_revisions`, so the pointer rows go first.

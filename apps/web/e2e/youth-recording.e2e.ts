@@ -77,6 +77,10 @@ test('a stranger watches a live ranked Youth Round, then finds it in the archive
   try {
     const visitor = await openPage(stranger, 'visitor');
     await visitor.goto(`/watch?q=${tag}`);
+    await visitor
+      .getByRole('navigation', { name: 'Lobby', exact: true })
+      .getByRole('link', { name: 'Youth', exact: true })
+      .click();
     await expect(visitor.getByText(`Youth final ${tag}`)).toBeVisible();
     // No page names a ladder inside a lobby (ADR 0156 copy rule).
     await expect(visitor.getByRole('main')).not.toContainText(
@@ -128,7 +132,13 @@ test('a public casual Youth Round is listed and watched as an Open one is', asyn
     const visitor = await openPage(stranger, 'visitor');
     await visitor.goto(`/watch?q=${tag}`);
     await expect(visitor.getByText(`Open casual ${tag}`)).toBeVisible();
+    await expect(visitor.getByText(`Youth casual ${tag}`)).toHaveCount(0);
+    await visitor
+      .getByRole('navigation', { name: 'Lobby', exact: true })
+      .getByRole('link', { name: 'Youth', exact: true })
+      .click();
     await expect(visitor.getByText(`Youth casual ${tag}`)).toBeVisible();
+    await expect(visitor.getByText(`Open casual ${tag}`)).toHaveCount(0);
     for (const [roundId, motion] of [
       [openLive, `Open casual motion ${tag}`],
       [youthLive, `Youth casual motion ${tag}`],
@@ -178,4 +188,75 @@ test('a Youth debater’s Recording reads as an Open one, with Take down and no 
     page.getByRole('button', { name: 'Take down', exact: true }),
   ).toBeVisible();
   await assertNoSeriousFindings(page);
+});
+
+test('age-evidence erasure keeps mixed-age Recording downloads fenced', async ({
+  page,
+  context,
+  browser,
+}) => {
+  const { username: adult } = await signUpMember(context.request);
+  await seed({ command: 'grant-download', username: adult });
+  const minorContext = await browser.newContext({
+    baseURL: origin,
+    ignoreHTTPSErrors: true,
+  });
+  const { lobbyId } = (await seed({
+    command: 'open-lobby',
+    name: `Any age ${createId().slice(0, 8)}`,
+    ageRule: 'anyone',
+  })) as { lobbyId: string };
+  try {
+    const { username: minor } = await signUpMember(
+      minorContext.request,
+      youthBirth(systemClock.now()),
+    );
+    const mixed = await casual({
+      lobbyId,
+      visibility: 'private',
+      hostUsername: adult,
+      affUsername: minor,
+      negUsername: adult,
+      title: 'Mixed-age scrimmage',
+      resolution: 'The mixed-age resolution',
+    });
+    const ordinary = await casual({
+      visibility: 'private',
+      negUsername: adult,
+      title: 'Adult scrimmage',
+      resolution: 'The adult resolution',
+    });
+    const ready = async (roundId: string) => {
+      await seed({ command: 'end', roundId });
+      const recordingId = await seed({ command: 'recording-ready', roundId });
+      return `/api/recordings/${recordingId}/download`;
+    };
+    const mixedDownload = await ready(mixed);
+    const ordinaryDownload = await ready(ordinary);
+    await seed({ command: 'erase-age-evidence', username: minor });
+
+    await page.goto(`/recordings/${mixed}`);
+    await expect(
+      page.getByRole('heading', { name: 'Mixed-age scrimmage' }),
+    ).toBeVisible();
+    await expect(page.locator('video')).toHaveCount(1);
+    const download = page.getByRole('link', { name: 'Download video' });
+    await expect(download).toHaveCount(0);
+    const fenced = await context.request.get(mixedDownload, {
+      maxRedirects: 0,
+    });
+    expect(fenced.status()).toBe(404);
+    expect(fenced.headers().location).toBeUndefined();
+
+    await page.goto(`/recordings/${ordinary}`);
+    await expect(download).toHaveAttribute('href', ordinaryDownload);
+    const allowed = await context.request.get(ordinaryDownload, {
+      maxRedirects: 0,
+    });
+    expect(allowed.status()).toBe(302);
+    expect(allowed.headers().location).toContain('/video.mp4');
+  } finally {
+    await minorContext.close();
+    await seed({ command: 'close-lobby', lobbyId });
+  }
 });

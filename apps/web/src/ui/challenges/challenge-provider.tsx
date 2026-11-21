@@ -40,9 +40,8 @@ type ChallengeView = {
   /** Re-reads at once, after the member's own action. */
   readonly refresh: () => void;
   /**
-   * The ladder division this member debates on this season (ADR 0147), or
-   * null with no age on record: ranked offers are theirs on that ladder only.
-   * A hint; the commands decide again.
+   * The member's current division for rating display while the ledger still
+   * uses divisions. Challenge eligibility comes from the lobby's age rule.
    */
   readonly memberDivision: RatingDivision | null;
 };

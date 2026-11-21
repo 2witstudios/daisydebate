@@ -1,6 +1,5 @@
 import type {
   CompetitionType,
-  RatingDivision,
   TwoSideKey,
   RoomConfig,
   RoomExecutionPlan,
@@ -23,8 +22,6 @@ export type NewRoom = {
     readonly presetVersion: number;
   } | null;
   readonly competitionType: CompetitionType;
-  /** The lobby the Room is created in (ADR 0156), fixed for its life. */
-  readonly division: RatingDivision;
   /** Team 1's side, or null for a coin flip at Start round (ADR 0145). */
   readonly teamOneSide: TwoSideKey | null;
   /** A Train practice: the Room holds its host from create (decision 75). */
@@ -47,7 +44,6 @@ export const newRoomValues = (room: NewRoom) => ({
   basisFormatId: room.basis?.formatId ?? null,
   basisPresetVersion: room.basis?.presetVersion ?? null,
   competitionType: room.competitionType,
-  division: room.division,
   teamOneSide: room.teamOneSide,
   holdsHost: room.holdsHost ?? false,
   config: room.config,

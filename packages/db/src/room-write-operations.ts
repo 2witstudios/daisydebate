@@ -58,8 +58,6 @@ import {
   type SelectionTuple,
 } from './format-operations';
 import { drawStartFacts } from './draw-start-facts';
-import { leagueLadderSeatFits, seatableInRoom } from './league-ladder-seat';
-import { leagueRoomFacts } from './league-room-division';
 
 import { rooms, roomParticipants } from './schema/rooms';
 
@@ -241,20 +239,9 @@ async function executeOnce(
     throw new RoomMoved('Cast changed while acquiring authority');
   if (state.changeVersion !== prepared.changeVersion)
     throw new RoomMoved('Room changed while preparing consent');
-  const claimant = input.targetActorId
+  const target = input.targetActorId
     ? await actorFact(tx, input.targetActorId)
     : null;
-  // A league ladder rates one division (PYL-16): the caller learns their
-  // own division is why; a host naming someone off it hears only that they
-  // cannot sit here.
-  const league = await leagueRoomFacts(tx, row);
-  if (
-    input.type === 'claim-seat' &&
-    claimant &&
-    !leagueLadderSeatFits(league, claimant)
-  )
-    throw createRefusal('CONFLICT', 'other-division');
-  const target = seatableInRoom(league, claimant);
   // FOR SHARE: a concurrent publication (FOR UPDATE on the format
   // row) serializes with this selection, so the policy judges facts
   // that hold at commit.

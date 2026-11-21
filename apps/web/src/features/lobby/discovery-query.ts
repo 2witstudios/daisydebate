@@ -34,8 +34,7 @@ const narrowing = (value: SearchParams[string], everything: string) =>
 /**
  * The Lobby's URL as the canonical listing query. One policy for every key:
  * an absent value, `all`, `any` or `newest` changes nothing; an unknown or repeated
- * value is refused, never repaired or guessed. `lobby` is the Open or Youth
- * lobby (ADR 0156); absent, the page shows the viewer's own.
+ * value is refused. An omitted `lobby` selects the viewer's landing lobby.
  */
 export function parseRoomDiscoveryQuery(raw: SearchParams) {
   return roomListQuerySchema.safeParse({
@@ -44,7 +43,7 @@ export function parseRoomDiscoveryQuery(raw: SearchParams) {
     sort: narrowing(raw.sort, 'newest'),
     status: narrowing(raw.status, 'all'),
     mode: narrowing(raw.mode, 'any'),
-    division: raw.lobby,
+    lobbyId: raw.lobby,
     ...(raw.pageSize === undefined
       ? {}
       : {
@@ -68,7 +67,7 @@ export function lobbyHref(query: RoomListQuery, cursor?: string): string {
     params.set('pageSize', String(query.pageSize));
   if (query.status) params.set('status', query.status);
   if (query.mode) params.set('mode', query.mode);
-  if (query.division) params.set('lobby', query.division);
+  if (query.lobbyId) params.set('lobby', query.lobbyId);
   if (query.sort) params.set('sort', query.sort);
   if (cursor !== undefined) params.set('cursor', cursor);
   const search = params.toString();

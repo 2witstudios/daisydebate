@@ -1,4 +1,4 @@
-import { isDebatingSeat } from '@daisy/protocol';
+import { isDebatingSeat, ratingDivisionForAgeRule } from '@daisy/protocol';
 import type {
   RatingDivision,
   RatingStyle,
@@ -26,7 +26,7 @@ export type SeatRatingReads = {
 };
 
 /** Any Room view: the overlay reads and rewrites its participants alone. */
-type SeatedView = Pick<RoomView, 'participants' | 'division'>;
+type SeatedView = Pick<RoomView, 'participants' | 'ageRule'>;
 
 /** Daisy's one style (ADR 0142): every Room seat stands on Freestyle. */
 const seatStyle: RatingStyle = 'freestyle';
@@ -68,7 +68,7 @@ export const overlaySeatRatings = <View extends SeatedView>(
         (r) =>
           r.actorId === p.actorId &&
           r.ladder === seatStyle &&
-          (!debater || r.division === view.division),
+          (!debater || r.division === ratingDivisionForAgeRule(view.ageRule)),
       );
       if (!state) return { ...p, rating: null };
       const standing = ratingStanding(state, state.lastRatedAt, input.now);

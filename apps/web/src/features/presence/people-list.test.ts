@@ -34,6 +34,7 @@ const row = (actorId: string, username: string, overrides = {}) => ({
   requesterActorId: null,
   friendshipState: null,
   division: null,
+  challengeModes: [],
   ...overrides,
 });
 

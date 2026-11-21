@@ -1,4 +1,4 @@
-import type { RatingDivision, RoomCreator } from '@daisy/protocol';
+import type { RatingDivision } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { instrumented, type DatabaseEventSink } from './instrumented';
@@ -32,7 +32,7 @@ export const memberDivisionOperations = ({
    * whether they are club staff, so the create form offers the Lobby choice
    * only to staff. The create command decides again under its lock.
    */
-  readRoomCreatorFact: (userId: string): Promise<RoomCreator> =>
+  readRoomCreatorFact: (userId: string) =>
     instrumented(eventSink, 'readRoomCreatorFact', () =>
       database.transaction((tx) => readRoomCreator(tx, userId)),
     ),

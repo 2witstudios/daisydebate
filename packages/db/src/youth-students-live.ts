@@ -2,7 +2,6 @@ import { runningRoundStatuses } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import { rowsOf } from './raw-rows';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
-import { isDebatingSeatSql } from './seat-columns';
 import { currentTenantScope, scopeTransaction } from './tenant-scope';
 
 type Tx = Pick<BunSQLDatabase, 'execute'>;
@@ -30,6 +29,7 @@ export type StudentLiveRound = {
 const readStudentLiveRoundCandidates = async (
   tx: Tx,
   adultUserId: string,
+  lobbyId?: string,
 ): Promise<readonly StudentLiveRound[]> => {
   // Only an adult with a valid age record stands in for a youth debater,
   // the forward rule's own test: nobody else has students to look for.
@@ -90,19 +90,17 @@ const readStudentLiveRoundCandidates = async (
     tx,
     sql`select r.id, rm.title from rounds r
       join rooms rm on rm.id = r.room_id
-      where rm.division = 'youth'
+      where public.daisy_room_is_youth(rm.id)
+        and ${lobbyId === undefined ? sql`true` : sql`(rm.lobby_id=${lobbyId} or rm.lobby_kind='tournament')`}
         and r.status in (${sql.join(
           runningRoundStatuses.map((status) => sql`${status}`),
           sql`, `,
         )})
-        and exists (select 1 from round_participants p
-          join actors a on a.id = p.actor_id
-          where p.round_id = r.id and ${isDebatingSeatSql(sql`p.seat_kind`)}
-            and public.daisy_round_participant_is_current(p.id)
-            and a.user_id in (${sql.join(
-              students.map((userId) => sql`${userId}`),
-              sql`, `,
-            )}))
+        and exists (select 1 from public.daisy_round_linked_adult_actors(r.id) p
+          where p.debater_user_id in (${sql.join(
+            students.map((userId) => sql`${userId}`),
+            sql`, `,
+          )}))
       order by r.started_at desc nulls last, r.id
       limit ${STUDENT_LIVE_ROUNDS}`,
   );
@@ -113,8 +111,9 @@ const readStudentLiveRoundCandidates = async (
 export const readStudentLiveRounds = (
   database: Pick<BunSQLDatabase, 'transaction'>,
   adultUserId: string,
+  lobbyId?: string,
 ) =>
   database.transaction(
-    (tx) => readStudentLiveRoundCandidates(tx, adultUserId),
+    (tx) => readStudentLiveRoundCandidates(tx, adultUserId, lobbyId),
     { isolationLevel: 'repeatable read', accessMode: 'read only' },
   );
