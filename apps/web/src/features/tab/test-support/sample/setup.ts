@@ -160,7 +160,7 @@ export function sampleAutumnSetup(scene: SampleScene): TournamentSetupView {
     owner: league,
     eligibility: {
       kind: 'standing',
-      lobbyId: sampleIds.autumn,
+      lobbyId: sampleIds.leagueLobby,
       lobbyName: 'Open',
       ageRule: 'adults',
     },

@@ -50,15 +50,6 @@ export type EntryRowFacts = {
   readonly id: string;
   readonly status: EntryStatus;
   readonly division: string | null;
-  readonly responsibleKind: ResponsibleKind;
-  /** The guardian of the entry's guardian link, when it is a guardian's entry. */
-  readonly guardianUserId: string | null;
-  /**
-   * The immutable authenticated account that submitted the entry, or an
-   * explicitly unknown maker. Naming a guardian's link does not make it the maker:
-   * only the guardian's own submission is not awaited (TAB-5.23).
-   */
-  readonly submittedByUserId: string | null;
   readonly version: number;
   readonly members: readonly EntryPersonFacts[];
   readonly liveFixtures: readonly EntryLiveFixtureFacts[];
@@ -122,7 +113,6 @@ export type EntryFacts = {
     | {
         readonly kind: 'guardian';
         readonly guardianLinkId: string;
-        readonly guardianUserId: string;
         readonly minorUserId: string;
         readonly active: boolean;
       }

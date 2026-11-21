@@ -44,9 +44,6 @@ const entry = (overrides: Partial<EntryRowFacts> = {}): EntryRowFacts => ({
   id: entryId,
   status: 'pending',
   division: 'Novice',
-  responsibleKind: 'school',
-  guardianUserId: null,
-  submittedByUserId: null,
   version: 1,
   members: [ada, ben],
   liveFixtures: [],
@@ -235,7 +232,6 @@ describe('submit-entry', () => {
       responsible: {
         kind: 'guardian',
         guardianLinkId: id('link'),
-        guardianUserId: parent,
         minorUserId: minor.userId!,
         active: true,
       },

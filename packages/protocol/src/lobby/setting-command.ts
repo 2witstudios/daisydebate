@@ -184,7 +184,6 @@ const setting = (refusals: readonly SettingRefusal[]): Definition =>
 export const settingCommandCatalogue = {
   'set-setting': setting([
     'hosting-upgrade-required',
-    'entries-exist',
     'setting-enforced',
     'enforced-conflict',
     'format-forbids',
@@ -194,7 +193,6 @@ export const settingCommandCatalogue = {
   ]),
   'clear-setting': setting([
     'setting-absent',
-    'entries-exist',
     'sanction-holds',
     'division-in-use',
     'breaks-share-slot',

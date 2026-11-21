@@ -144,7 +144,6 @@ export const entryEnrollmentFacts = (
           ? loaded.guardian
             ? {
                 ...responsible,
-                guardianUserId: loaded.guardian.guardianUserId,
                 minorUserId: loaded.guardian.minorUserId,
                 active: loaded.guardian.status === 'active',
               }
@@ -155,9 +154,6 @@ export const entryEnrollmentFacts = (
           id: loaded.entry.id,
           status: loaded.entry.status,
           division: loaded.entry.division,
-          responsibleKind: loaded.entry.responsibleKind,
-          guardianUserId: loaded.guardian?.guardianUserId ?? null,
-          submittedByUserId: loaded.entry.submittedByUserId,
           version: loaded.entry.version,
           members: people,
           liveFixtures: [],
