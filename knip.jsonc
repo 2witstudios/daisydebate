@@ -79,6 +79,7 @@
         "e2e/support/league-request-process.ts",
         "e2e/support/standing-lobby-host-process.ts",
         "e2e/support/hosting-seed-process.ts",
+        "e2e/support/tournament-eligibility-seed-process.ts",
         // Started by messaging-realtime-config.ts's webServer command.
         "e2e/support/messaging-media-edge.ts",
         // The on-demand drills (`bun drill:first-word`, `bun drill:bot-freestyle`)

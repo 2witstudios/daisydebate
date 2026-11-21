@@ -230,7 +230,7 @@ export const drawCommand =
             },
             { ...parsed.data, command },
             drawCommandDefinition(command.type, target?.status ?? 'draft'),
-            (facts, requested) => {
+            async (facts, requested) => {
               // Running windowed stages belongs to its separate unreleased layer.
               if (
                 requested.type === 'publish-draw' &&
@@ -276,7 +276,7 @@ export const drawCommand =
               }
               if (
                 decision.kind === 'accepted' &&
-                !drawAdmissionsAllowed(facts, decision.writes)
+                !(await drawAdmissionsAllowed(facts, decision.writes, now))
               )
                 throw new CommandDenied('not-found');
               return decision;

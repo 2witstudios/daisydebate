@@ -1,3 +1,4 @@
+import { lobbyAgeRules } from './eligibility';
 import { z } from 'zod';
 import { idSchema } from '../primitives';
 import type { LobbyReadCatalogue } from './read';
@@ -139,6 +140,18 @@ export const lobbySetupViewSchema = z.discriminatedUnion('kind', [
       kind: z.literal('tournament'),
       ...common,
       status: z.enum(tournamentStatuses),
+      eligibility: z.discriminatedUnion('kind', [
+        z.strictObject({
+          kind: z.literal('own'),
+          ageRule: z.enum(lobbyAgeRules),
+        }),
+        z.strictObject({
+          kind: z.literal('standing'),
+          lobbyId: idSchema,
+          lobbyName: name,
+          ageRule: z.enum(lobbyAgeRules),
+        }),
+      ]),
       events: z.array(setupEventSchema),
       timeSlots: z.array(setupTimeSlotSchema),
       resolutionPools: z.array(setupResolutionPoolSchema),

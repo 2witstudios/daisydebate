@@ -8,6 +8,10 @@ import {
   hasGuardianLobbyWaiver,
   readGuardianLobbyIds,
 } from './guardians/lobby-permissions';
+import {
+  loadTournamentEligibility,
+  tournamentDebatersAllowed,
+} from './tab/tournament-eligibility';
 import { reserveTournamentCapture } from './tab/tournament-capture-admission';
 import {
   locateTournamentCaptureFunder,
@@ -42,7 +46,7 @@ import type {
 } from '@daisy/protocol';
 
 import { createAppError, createRefusal } from '@daisy/errors';
-import { isJudgeSeat, sameSeat } from '@daisy/protocol';
+import { isDebatingSeat, isJudgeSeat, sameSeat } from '@daisy/protocol';
 
 /**
  * The host a Room's admission or capture charges. A Room no person hosts
@@ -304,6 +308,14 @@ async function executeOnce(
     userId: input.caller.userId,
     captureFunder,
   });
+  const tournamentEligibility =
+    direction && (input.type === 'ready' || input.type === 'start-round')
+      ? await loadTournamentEligibility(
+          tx,
+          direction.configuration.scope,
+          direction.configuration.lobby,
+        )
+      : null;
   const [row] = await tx
     .select()
     .from(rooms)
@@ -397,6 +409,24 @@ async function executeOnce(
     await lockNonrankedCaptureCapacity(tx);
   // Facts can wait on SQL locks. Admission uses one instant after those waits.
   const now = judgeQuote?.now ?? (await transactionNow(tx));
+  if (direction && tournamentEligibility) {
+    const debaters = state.participants.filter(
+      (person) =>
+        person.kind === 'human' &&
+        isDebatingSeat(person.seat) &&
+        (input.type !== 'ready' || person.actorId === input.caller.actorId),
+    );
+    if (
+      !(await tournamentDebatersAllowed(
+        tx,
+        direction.configuration.scope,
+        tournamentEligibility,
+        debaters.map(({ actorId }) => actorId),
+        now,
+      ))
+    )
+      throw createRefusal('CONFLICT', 'other-division');
+  }
   const outcome = execute(
     state,
     now,
@@ -444,7 +474,13 @@ async function executeOnce(
     );
   if (outcome.mutation.freeze)
     await requireStartWaivers(tx, state, input.readyAgreements);
-  const roundRef = await persistRoomMutation(tx, outcome.mutation, now, true);
+  const roundRef = await persistRoomMutation(
+    tx,
+    outcome.mutation,
+    now,
+    true,
+    tournamentEligibility?.ageRule,
+  );
   await reserveBotFreeze(
     tx,
     outcome.mutation,

@@ -25,7 +25,6 @@ const tournament = (
   closedAt: null,
   version: 7,
   status,
-  admitsMinors: false,
 });
 
 const facts = (overrides: Partial<LobbyFacts> = {}): LobbyFacts => ({
@@ -33,6 +32,7 @@ const facts = (overrides: Partial<LobbyFacts> = {}): LobbyFacts => ({
   newId: id('n'),
   actorUserId: id('u'),
   handleTaken: false,
+  standingParent: null,
   organization: { id: leagueId, kind: 'league' },
   lobby: standing,
   activity: {
@@ -88,7 +88,10 @@ const createTournament: Create = {
   owner: { kind: 'self' },
   name: 'Spring Open',
   handle: 'spring-open',
-  lobby: { kind: 'tournament', admitsMinors: true },
+  lobby: {
+    kind: 'tournament',
+    eligibility: { kind: 'own', ageRule: 'under-18' },
+  },
 };
 
 describe('create-lobby', () => {
@@ -135,15 +138,47 @@ describe('create-lobby', () => {
               ownerOrganizationId: null,
               name: 'Spring Open',
               handle: 'spring-open',
+              ageRule: 'under-18',
             },
           },
           {
             table: 'tournaments',
             op: 'insert',
-            row: { lobbyId: id('n'), status: 'draft', admitsMinors: true },
+            row: { lobbyId: id('n'), status: 'draft' },
           },
         ],
       },
+    });
+  });
+
+  test('a league tournament must name its own open standing lobby', () => {
+    const lobbyId = id('l');
+    const command: Create = {
+      ...createTournament,
+      owner: { kind: 'organization', organizationId: leagueId },
+      lobby: { kind: 'tournament', eligibility: { kind: 'standing', lobbyId } },
+    };
+    const parent = {
+      id: lobbyId,
+      ownerOrganizationId: leagueId,
+      closedAt: null,
+    };
+    assert({
+      given:
+        'a league tournament with a valid, foreign, closed or missing parent',
+      should: 'allow only its own open standing lobby',
+      actual: [
+        parent,
+        { ...parent, ownerOrganizationId: id('b') },
+        { ...parent, closedAt: new Date(now) },
+        null,
+      ].map((standingParent) => refusalOf(facts({ standingParent }), command)),
+      expected: [
+        'accepted',
+        'standing-lobby-required',
+        'standing-lobby-required',
+        'standing-lobby-required',
+      ],
     });
   });
 
@@ -177,12 +212,11 @@ describe('update-lobby', () => {
     type: 'update-lobby',
     lobbyId: id('t'),
     name: 'Spring Open 2027',
-    admitsMinors: true,
   } as const;
-  test('renames and sets a tournament minors declaration', () => {
+  test('renames a tournament', () => {
     assert({
-      given: 'a tournament renamed and opened to minors',
-      should: 'write the name and version, and the declaration',
+      given: 'a host renaming a tournament',
+      should: 'write the name and version',
       actual: writesOf(facts({ lobby: tournament('open') }), update),
       expected: {
         aggregate: { kind: 'lobby', id: id('t') },
@@ -194,27 +228,37 @@ describe('update-lobby', () => {
             id: id('t'),
             set: { name: 'Spring Open 2027', version: 8 },
           },
-          {
-            table: 'tournaments',
-            op: 'update',
-            id: id('t'),
-            set: { admitsMinors: true },
-          },
         ],
       },
     });
   });
-  test('names each refusal', () => {
+  test('only a personal tournament without entries can change its age rule', () => {
+    const command = { ...update, ageRule: 'anyone' } as const;
+    const personal = tournament('draft');
     assert({
       given:
-        'a standing lobby given a minors declaration, a closed lobby and none',
+        'a personal tournament before and after registration, plus a league tournament',
+      should: 'allow only the change to the empty personal tournament',
+      actual: [
+        refusalOf(facts({ lobby: personal }), command),
+        refusalOf(facts({ lobby: personal, ageRuleLocked: true }), command),
+        refusalOf(
+          facts({ lobby: { ...personal, ownerOrganizationId: leagueId } }),
+          command,
+        ),
+      ],
+      expected: ['accepted', 'entries-exist', 'age-rule-inherited'],
+    });
+  });
+  test('names each refusal', () => {
+    assert({
+      given: 'a closed lobby and an absent lobby',
       should: 'refuse each by name',
       actual: [
-        refusalOf(facts(), update),
         refusalOf(facts({ lobby: { ...standing, closedAt: now } }), update),
         refusalOf(facts({ lobby: null }), update),
       ],
-      expected: ['lobby-not-tournament', 'lobby-closed', 'not-found'],
+      expected: ['lobby-closed', 'not-found'],
     });
   });
 });

@@ -100,7 +100,7 @@ export const entryEnrollmentCommand =
         },
         { ...parsed.data, command },
         entryCommandCatalogue[command.type],
-        (loaded, requested) => {
+        async (loaded, requested) => {
           const exit =
             requested.type === 'withdraw-entry' ||
             requested.type === 'decline-entry';
@@ -108,12 +108,6 @@ export const entryEnrollmentCommand =
             return { kind: 'refused', refusal: 'not-found' };
           if (loaded.lobby.closedAt !== null && !exit)
             return { kind: 'refused', refusal: 'lobby-closed' };
-          // Tournament entry remains adult-only.
-          if (
-            !exit &&
-            loaded.people.some((person) => person.account?.ageBand !== 'adult')
-          )
-            throw new CommandDenied('not-found');
           const host = dependencies.authorize({
             capability: 'tournament.entries.manage',
             principal,
@@ -128,6 +122,11 @@ export const entryEnrollmentCommand =
               now,
             },
           }).allow;
+          const guardianPermittedActors =
+            requested.type === 'submit-entry' ||
+            requested.type === 'accept-entry'
+              ? await loaded.readGuardianPermittedActors()
+              : new Set<string>();
           const facts = entryEnrollmentFacts(loaded, {
             commandId: parsed.data.commandId,
             command: requested,
@@ -135,6 +134,7 @@ export const entryEnrollmentCommand =
             newEntryId: newId,
             senderUserId: principal.userId,
             host,
+            guardianPermittedActors,
           });
           const decision = decideEntry(facts, requested);
           if (decision.kind === 'refused') return decision;

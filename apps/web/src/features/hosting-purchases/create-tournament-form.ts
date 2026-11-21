@@ -2,8 +2,10 @@ import { z } from 'zod';
 import { idSchema } from '@daisy/protocol';
 import { lobbyCommandReceiptSchema } from '@daisy/protocol/lobby/command';
 import { lobbySetupCommandEnvelopeSchema } from '@daisy/protocol/lobby/lobby-setup-command';
-import { settingCommandEnvelopeSchema } from '@daisy/protocol/lobby/setting-command';
-import type { RatingDivision } from '@daisy/protocol';
+import {
+  lobbyAgeRules,
+  type LobbyAgeRule,
+} from '@daisy/protocol/lobby/eligibility';
 import {
   field,
   idle,
@@ -19,7 +21,7 @@ import {
 const createTournamentContextSchema = z.strictObject({
   lobbyCommandId: idSchema,
   eventCommandId: idSchema,
-  divisionCommandId: idSchema,
+  leagueId: idSchema.optional(),
   /** Lower-case letters and digits that make the handle unique. */
   suffix: z.string().regex(/^[a-z0-9]{6}$/),
 });
@@ -29,7 +31,7 @@ export type CreateTournamentContext = z.infer<
 export type CreateTournamentState = Idle | Refused | Unacknowledged | Moved;
 export const initialCreateTournament: CreateTournamentState = idle({
   name: '',
-  division: 'open',
+  ageRule: 'adults',
 });
 export const createTournamentUnacknowledged = (
   form: FormData,
@@ -39,7 +41,12 @@ export const createTournamentRefused = (
   error: string,
 ): CreateTournamentState =>
   refusedWith(
-    { name: field(form, 'name'), division: field(form, 'division') },
+    {
+      name: field(form, 'name'),
+      ...(form.has('standingLobbyId')
+        ? { standingLobbyId: field(form, 'standingLobbyId') }
+        : { ageRule: field(form, 'ageRule') }),
+    },
     error,
   );
 
@@ -63,64 +70,58 @@ const nameOf = (form: FormData) => {
   return name.length >= 1 && name.length <= 120 ? name : null;
 };
 
-const divisionOf = (form: FormData): RatingDivision | null => {
-  const values = form.getAll('division');
-  return values.length === 1 && (values[0] === 'open' || values[0] === 'youth')
-    ? values[0]
+const ageRuleOf = (form: FormData): LobbyAgeRule | null => {
+  const values = form.getAll('ageRule');
+  if (values.length !== 1) return null;
+  const parsed = z.enum(lobbyAgeRules).safeParse(values[0]);
+  return parsed.success ? parsed.data : null;
+};
+
+const personalEligibilityOf = (form: FormData) => {
+  const ageRule = ageRuleOf(form);
+  return ageRule === null ? null : { kind: 'own' as const, ageRule };
+};
+
+const standingEligibilityOf = (form: FormData) => {
+  const selected = form.getAll('standingLobbyId');
+  if (selected.length !== 1) return null;
+  const lobbyId = idSchema.safeParse(selected[0]);
+  return lobbyId.success
+    ? { kind: 'standing' as const, lobbyId: lobbyId.data }
     : null;
 };
 
-/**
- * The tournament the form makes: the host owns it, and a Youth one declares
- * that it admits minors (who still pass the guardian and counsel gate).
- */
+/** The league selects a standing lobby. A self-run tournament declares its age rule. */
 export function createTournamentEnvelope(
   untrusted: CreateTournamentContext,
   form: FormData,
 ) {
   const context = createTournamentContextSchema.parse(untrusted);
   const name = nameOf(form);
-  const division = divisionOf(form);
-  if (name === null || division === null) return null;
+  if (name === null) return null;
+  const eligibility = context.leagueId
+    ? standingEligibilityOf(form)
+    : personalEligibilityOf(form);
+  if (eligibility === null) return null;
   const handle = tournamentHandle(name, context.suffix);
   return {
     handle,
-    division,
     envelope: lobbySetupCommandEnvelopeSchema.parse({
       version: 1,
       commandId: context.lobbyCommandId,
       expected: {},
       command: {
         type: 'create-lobby',
-        owner: { kind: 'self' },
+        owner: context.leagueId
+          ? { kind: 'organization', organizationId: context.leagueId }
+          : { kind: 'self' },
         name,
         handle,
-        lobby: { kind: 'tournament', admitsMinors: division === 'youth' },
+        lobby: { kind: 'tournament', eligibility },
       },
     }),
   };
 }
-
-/**
- * Its division (PYL-16), set on the new lobby, whose settings start at
- * version 1. Open is the default and needs no row.
- */
-const divisionSettingEnvelope = (
-  context: CreateTournamentContext,
-  lobbyId: string,
-) =>
-  settingCommandEnvelopeSchema.parse({
-    version: 1,
-    commandId: context.divisionCommandId,
-    expected: { settings: 1 },
-    command: {
-      type: 'set-setting',
-      scope: { kind: 'lobby', id: lobbyId },
-      key: 'entry.age_division',
-      value: { value: 'youth' },
-      hold: 'default',
-    },
-  });
 
 /** Its one event: Freestyle, the only style today. */
 export const freestyleEventEnvelope = (
@@ -175,7 +176,9 @@ export const createTournamentAnswer = (
     form,
     parsed.data.refusal === 'handle-taken'
       ? 'That name is taken. Try another.'
-      : 'This tournament could not be made. Reload this page.',
+      : parsed.data.refusal === 'standing-lobby-required'
+        ? 'Choose an open standing lobby from this league.'
+        : 'This tournament could not be made. Reload this page.',
   );
 };
 
@@ -188,16 +191,10 @@ type CommandAnswer =
     }
   | CreateTournamentState;
 
-/**
- * The create form's steps (decision 80, PYL-16): the tournament, then its
- * Youth division, then its Freestyle event. The ports post one command each.
- * A Youth tournament whose division write is lost or refused never moves on,
- * because left Open it would admit adults; the resent form replays by id.
- */
+/** The form creates the tournament, then its Freestyle event. Retries reuse the command ids. */
 export async function runCreateTournament(
   ports: {
     readonly lobbyCommand: (envelope: unknown) => Promise<CommandAnswer>;
-    readonly settingCommand: (envelope: unknown) => Promise<CommandAnswer>;
   },
   context: CreateTournamentContext,
   form: FormData,
@@ -211,17 +208,13 @@ export async function runCreateTournament(
     return createTournamentRefused(form, 'Reload this page and try again.');
   }
   if (made === null)
-    return createTournamentRefused(form, 'Name the tournament.');
+    return createTournamentRefused(
+      form,
+      'Enter a name and select the tournament’s eligibility.',
+    );
   try {
     const lobby = await ports.lobbyCommand(made.envelope);
     if (lobby.kind !== 'accepted') return lobby;
-    if (made.division === 'youth') {
-      const division = await ports.settingCommand(
-        divisionSettingEnvelope(context, lobby.lobbyId),
-      );
-      if (division.kind !== 'accepted')
-        return createTournamentUnacknowledged(form);
-    }
     // The tournament exists either way; Setup lets the host add the event.
     await ports.lobbyCommand(
       freestyleEventEnvelope(context, lobby.lobbyId, lobby.version),

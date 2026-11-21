@@ -17,7 +17,10 @@ import {
 } from './tab-tournament-organization-wiring.test-support';
 import type { World } from './tab-tournament.test-support';
 
-export const publishDrawStage = async (world: World): Promise<void> => {
+export const publishDrawStage = async (
+  world: World,
+  beforePublish?: (attempt: () => Promise<unknown>) => Promise<void>,
+): Promise<void> => {
   const { database, sql } = world;
   const lobbyId = world.made.get('tournament-lobby')!,
     drawId = world.made.get('draw')!;
@@ -70,6 +73,9 @@ export const publishDrawStage = async (world: World): Promise<void> => {
         body: JSON.stringify(envelope),
       },
     );
+  await beforePublish?.(() =>
+    send(as(world.bots.Director!), lobbyId, envelope),
+  );
   const answer = await acceptedDrawResponse(
     await drawHttp(world)(publicationRequest()),
   );

@@ -1,3 +1,4 @@
+import { entries } from '../schema/entries';
 import { rooms } from '../schema/rooms';
 import { loadAccountHostingFacts } from './account-hosting-facts';
 import { storedCreationCommand } from './creation-replay';
@@ -195,6 +196,48 @@ const load = async (
             ),
           )
       : [];
+  const parentId =
+    command.type === 'create-lobby' &&
+    command.lobby.kind === 'tournament' &&
+    command.lobby.eligibility.kind === 'standing'
+      ? command.lobby.eligibility.lobbyId
+      : null;
+  const [parent] =
+    parentId && scope.organizationId
+      ? await tx
+          .select({ id: lobbies.id })
+          .from(lobbies)
+          .where(
+            and(
+              eq(lobbies.id, parentId),
+              eq(lobbies.kind, 'standing'),
+              eq(lobbies.ownerOrganizationId, scope.organizationId),
+            ),
+          )
+      : [];
+  if (parent) await scopeTransaction(tx, { ...scope, lobbyId: parent.id });
+  const [standingParent] = parent
+    ? await tx
+        .select({
+          id: lobbies.id,
+          ownerOrganizationId: lobbies.ownerOrganizationId,
+          closedAt: lobbies.closedAt,
+        })
+        .from(lobbies)
+        .where(eq(lobbies.id, parent.id))
+        .for('share')
+    : [];
+  if (parent) await scopeTransaction(tx, scope);
+  const [registeredEntry] =
+    command.type === 'update-lobby' && command.ageRule !== undefined && row
+      ? await tx
+          .select({ id: entries.id })
+          .from(entries)
+          .where(
+            and(eq(entries.lobbyId, row.id), ne(entries.status, 'withdrawn')),
+          )
+          .limit(1)
+      : [];
   const activity = await loadLobbyActivity(tx, row?.id ?? null);
   const hosting = await loadAccountHostingFacts(tx, input.senderUserId);
   return {
@@ -210,7 +253,6 @@ const load = async (
           closedAt: row.closedAt?.toISOString() ?? null,
           version: row.version,
           status: schedule?.status ?? 'draft',
-          admitsMinors: schedule?.admitsMinors ?? false,
         }
       : null,
     season: season
@@ -225,6 +267,8 @@ const load = async (
     activeSeasonId: active?.id ?? null,
     ladder: ladder ? { ...ladder, inUse: referencedRoom !== undefined } : null,
     handleTaken: taken !== undefined,
+    ageRuleLocked: registeredEntry !== undefined,
+    standingParent: standingParent ?? null,
     activity,
     scope,
   };

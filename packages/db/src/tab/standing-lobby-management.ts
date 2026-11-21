@@ -1,4 +1,5 @@
-import { and, asc, desc, eq, inArray, isNull, or } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
+import type { LobbyAgeRule } from '@daisy/protocol/lobby/eligibility';
 import { grants } from '../schema/grants';
 import { scopeTransaction } from '../tenant-scope';
 import { ladders } from '../schema/ladders';
@@ -15,7 +16,7 @@ async function loadStandingLobbies(tx: TabTransaction, organizationId: string) {
       id: lobbies.id,
       name: lobbies.name,
       handle: lobbies.handle,
-      ageRule: lobbies.ageRule,
+      ageRule: sql<LobbyAgeRule>`${lobbies.ageRule}`,
       version: lobbies.version,
     })
     .from(lobbies)

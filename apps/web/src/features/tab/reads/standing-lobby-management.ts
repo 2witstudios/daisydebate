@@ -45,6 +45,17 @@ export async function readStandingLobbyManagement(
           ...input,
           capability: 'organization.manage',
         }).allow,
+        canCreateTournament: dependencies.authorize({
+          ...input,
+          resource: {
+            kind: 'lobby_collection',
+            proposed: {
+              lobbyKind: 'tournament',
+              owner: { kind: 'organization', organization: resource },
+            },
+          },
+          capability: 'lobby.create',
+        }).allow,
         canReadPeople: dependencies.authorize({
           ...input,
           capability: 'lobby.host.people.read',

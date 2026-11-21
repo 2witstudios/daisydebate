@@ -12,13 +12,12 @@ setupRitewayBun();
 const context = {
   lobbyCommandId: 'a'.padEnd(24, '1'),
   eventCommandId: 'b'.padEnd(24, '1'),
-  divisionCommandId: 'c'.padEnd(24, '1'),
   suffix: 'k3x9q2',
 };
-const form = (name: string, division = 'open') => {
+const form = (name: string, ageRule = 'adults') => {
   const data = new FormData();
   data.set('name', name);
-  data.set('division', division);
+  data.set('ageRule', ageRule);
   return data;
 };
 
@@ -44,8 +43,7 @@ test('tournamentHandle', () => {
 test('createTournamentEnvelope', () => {
   assert({
     given: 'a name',
-    should:
-      'create a tournament the sender owns, an Open one admitting no minors',
+    should: 'create an adults-only tournament the sender owns',
     actual: createTournamentEnvelope(context, form('  Friday scrimmage '))
       ?.envelope.command,
     expected: {
@@ -53,7 +51,10 @@ test('createTournamentEnvelope', () => {
       owner: { kind: 'self' },
       name: 'Friday scrimmage',
       handle: 'friday-scrimmage-k3x9q2',
-      lobby: { kind: 'tournament', admitsMinors: false },
+      lobby: {
+        kind: 'tournament',
+        eligibility: { kind: 'own', ageRule: 'adults' },
+      },
     },
   });
   assert({
@@ -66,15 +67,41 @@ test('createTournamentEnvelope', () => {
     expected: [null, null],
   });
   assert({
-    given: 'the Youth division',
-    should: 'declare that the tournament admits minors and carry the division',
-    actual: (({ division, envelope }) => [
-      division,
-      envelope.command.type === 'create-lobby' &&
-        envelope.command.lobby.kind === 'tournament' &&
-        envelope.command.lobby.admitsMinors,
-    ])(createTournamentEnvelope(context, form('Winter Classic', 'youth'))!),
-    expected: ['youth', true],
+    given: 'the Youth and mixed-age rules',
+    should: 'set the selected rule in the creation command',
+    actual: ['under-18', 'anyone'].map((ageRule) => {
+      const command = createTournamentEnvelope(
+        context,
+        form('Winter Classic', ageRule),
+      )?.envelope.command;
+      return command?.type === 'create-lobby' && command.lobby;
+    }),
+    expected: (['under-18', 'anyone'] as const).map((ageRule) => ({
+      kind: 'tournament' as const,
+      eligibility: { kind: 'own' as const, ageRule },
+    })),
+  });
+  const leagueId = 'g'.padEnd(24, '1');
+  const standingLobbyId = 's'.padEnd(24, '1');
+  const leagueForm = form('League Cup');
+  leagueForm.delete('ageRule');
+  leagueForm.set('standingLobbyId', standingLobbyId);
+  assert({
+    given: 'a league host selecting an existing standing lobby',
+    should:
+      'send the league and selected parent in the tournament creation command',
+    actual: createTournamentEnvelope({ ...context, leagueId }, leagueForm)
+      ?.envelope.command,
+    expected: {
+      type: 'create-lobby',
+      owner: { kind: 'organization', organizationId: leagueId },
+      name: 'League Cup',
+      handle: 'league-cup-k3x9q2',
+      lobby: {
+        kind: 'tournament',
+        eligibility: { kind: 'standing', lobbyId: standingLobbyId },
+      },
+    },
   });
   assert({
     given: 'the created tournament',
@@ -98,7 +125,7 @@ test('createTournamentAnswer', () => {
     expected: [
       {
         kind: 'refused',
-        values: { name: 'Cup', division: 'open' },
+        values: { name: 'Cup', ageRule: 'adults' },
         error: 'That name is taken. Try another.',
       },
       'unacknowledged',
@@ -113,57 +140,20 @@ test('runCreateTournament', async () => {
     version: 1,
   };
   const sent: string[] = [];
-  const ports = (setting: 'accepted' | 'refused') => ({
-    lobbyCommand: async (envelope: unknown) => {
-      sent.push((envelope as { command: { type: string } }).command.type);
-      return lobby;
+  const result = await runCreateTournament(
+    {
+      lobbyCommand: async (envelope: unknown) => {
+        sent.push((envelope as { command: { type: string } }).command.type);
+        return lobby;
+      },
     },
-    settingCommand: async (envelope: unknown) => {
-      sent.push((envelope as { command: { key: string } }).command.key);
-      return setting === 'accepted'
-        ? lobby
-        : { kind: 'refused' as const, values: {}, error: 'Refused' };
-    },
-  });
-  const refusedYouth = await runCreateTournament(
-    ports('refused'),
     context,
-    form('Winter Classic', 'youth'),
-  );
-  const refusedSteps = [...sent];
-  sent.length = 0;
-  const youth = await runCreateTournament(
-    ports('accepted'),
-    context,
-    form('Winter Classic', 'youth'),
-  );
-  const youthSteps = [...sent];
-  sent.length = 0;
-  const open = await runCreateTournament(
-    ports('refused'),
-    context,
-    form('Spring Open', 'open'),
+    form('Winter Classic', 'under-18'),
   );
   assert({
-    given:
-      'a Youth tournament whose division write is refused, one whose write succeeds, and an Open one',
-    should:
-      'not move on without the division (no event added), make the Youth one with its division, and make the Open one with no setting write',
-    actual: {
-      refused: refusedYouth.kind,
-      refusedSteps,
-      youth: youth.kind,
-      youthSteps,
-      open: open.kind,
-      openSteps: sent,
-    },
-    expected: {
-      refused: 'unacknowledged',
-      refusedSteps: ['create-lobby', 'entry.age_division'],
-      youth: 'made',
-      youthSteps: ['create-lobby', 'entry.age_division', 'add-event'],
-      open: 'made',
-      openSteps: ['create-lobby', 'add-event'],
-    },
+    given: 'a Youth tournament created with its age rule',
+    should: 'create its Freestyle event and move on',
+    actual: { result: result.kind, sent },
+    expected: { result: 'made', sent: ['create-lobby', 'add-event'] },
   });
 });

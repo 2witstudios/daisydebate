@@ -1,5 +1,8 @@
-import { and, asc, eq, inArray, sql } from 'drizzle-orm';
-import type { AgeBand } from '@daisy/protocol';
+import { and, asc, eq, inArray } from 'drizzle-orm';
+import {
+  tournamentDebaterAgeBand,
+  type tournamentAgeSource,
+} from './tournament-eligibility';
 import { accountAge } from '../schema/account-age';
 import { actors } from '../schema/actors';
 import { entryMembers } from '../schema/entries';
@@ -13,8 +16,8 @@ export const loadEntryPeople = async (
   tx: TabTransaction,
   scope: TenantScope,
   actorIds: readonly string[],
-  /** The tournament's first day: each person's age band is also read on it (ADR 0149). */
-  firstDay: string,
+  eligibility: Awaited<ReturnType<typeof tournamentAgeSource>>,
+  guardianLinkId: string | null,
 ) => {
   const people = actorIds.length
     ? await tx
@@ -31,14 +34,19 @@ export const loadEntryPeople = async (
       person.userId === null
         ? null
         : await loadAuthorizationAccount(tx, person.userId);
-    const links =
-      person.userId === null
+    const [guardian] =
+      person.userId === null || guardianLinkId === null
         ? []
         : await tx
-            .select()
+            .select({
+              guardianUserId: guardianLinks.guardianUserId,
+              minorUserId: guardianLinks.minorUserId,
+              status: guardianLinks.status,
+            })
             .from(guardianLinks)
             .where(
               and(
+                eq(guardianLinks.id, guardianLinkId),
                 eq(guardianLinks.minorUserId, person.userId),
                 eq(guardianLinks.status, 'active'),
               ),
@@ -51,23 +59,22 @@ export const loadEntryPeople = async (
       })
       .from(entryMembers)
       .where(eq(entryMembers.actorId, person.actorId));
-    // ADR 0075's one band rule, the record valid now, the age taken on the
-    // tournament's first day. The birth month stays in SQL; only the band leaves.
-    const [onFirstDay] =
+    if (eligibility.kind === 'standing')
+      await scopeTransaction(tx, { ...subject, lobbyId: eligibility.lobbyId });
+    const band = tournamentDebaterAgeBand(eligibility);
+    const [atCompetition] =
       person.userId === null
         ? []
         : await tx
-            .select({
-              band: sql<AgeBand | null>`case when public.daisy_age_band(${accountAge.birthMonth}, ${accountAge.version}, ${accountAge.recordedAt}, clock_timestamp()) is null then null else public.daisy_age_band(${accountAge.birthMonth}, ${accountAge.version}, ${accountAge.recordedAt}, greatest(${firstDay}::timestamptz, ${accountAge.recordedAt})) end`,
-            })
+            .select({ band })
             .from(accountAge)
             .where(eq(accountAge.userId, person.userId));
     loaded.push({
       ...person,
       account,
-      links,
+      guardian: guardian ?? null,
       previousEntries,
-      bandOnFirstDay: onFirstDay?.band ?? null,
+      competitionAgeBand: atCompetition?.band ?? null,
     });
   }
   await scopeTransaction(tx, scope);

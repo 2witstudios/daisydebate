@@ -2,6 +2,9 @@ import { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { readMigrationFiles } from 'drizzle-orm/migrator';
 import { migrate } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
+import { rowsOf } from './raw-rows';
+import { prepareTournamentLobbyBackfill } from './tournament-lobby-backfill';
 import { MIGRATOR_SESSION } from './session-bounds';
 
 /**
@@ -35,8 +38,26 @@ export async function runMigrations({
     const migrations = readMigrationFiles(config);
     // Commit each folder before the next DDL: reference inserts can leave
     // deferred FK events which PostgreSQL forbids a later ALTER to cross.
-    for (let end = 1; end <= migrations.length; end += 1) {
-      await migrate(migrations.slice(0, end), database, config);
+    for (const [index, current] of migrations.entries()) {
+      const throughCurrent = migrations.slice(0, index + 1);
+      if (!current.name?.endsWith('_tournament_lobby_eligibility')) {
+        await migrate(throughCurrent, database, config);
+        continue;
+      }
+      const name = current.name;
+      const schema = sql.identifier(migrationsSchema ?? 'drizzle');
+      const table = sql.identifier(migrationsTable ?? '__drizzle_migrations');
+      await database.transaction(async (tx) => {
+        await tx.execute(
+          sql`select pg_advisory_xact_lock(hashtextextended(${name}, 0))`,
+        );
+        const applied = await rowsOf<{ readonly id: number }>(
+          tx,
+          sql`select id from ${schema}.${table} where name = ${name}`,
+        );
+        if (applied.length === 0) await prepareTournamentLobbyBackfill(tx);
+        await migrate(throughCurrent, tx, config);
+      });
     }
     // Startup reads version provenance, never migration contents or writes.
     // Keep this release permission beside the runner-owned journal, including

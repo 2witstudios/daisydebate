@@ -31,7 +31,6 @@ export type LobbyAdministrationFacts = {
     readonly closedAt: string | null;
     readonly version: number;
     readonly status: 'draft' | 'open' | 'running' | 'completed' | 'cancelled';
-    readonly admitsMinors: boolean;
   } | null;
   readonly season: {
     readonly id: string;
@@ -43,6 +42,12 @@ export type LobbyAdministrationFacts = {
   readonly activeSeasonId: string | null;
   readonly ladder: { readonly id: string; readonly inUse: boolean } | null;
   readonly handleTaken: boolean;
+  readonly ageRuleLocked: boolean;
+  readonly standingParent: {
+    readonly id: string;
+    readonly ownerOrganizationId: string | null;
+    readonly closedAt: Date | null;
+  } | null;
   readonly activity: {
     readonly liveRoundCount: number;
     readonly unresultedFixtureCount: number;

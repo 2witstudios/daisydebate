@@ -344,7 +344,7 @@ describe('lobbies', () => {
 });
 
 describe('entries and judges', () => {
-  test('an entry is its responsible adult’s, and tab staff’s', () => {
+  test('an entry belongs to its responsible party and Tab staff', () => {
     const responsibles = [
       { kind: 'school' as const, school },
       { kind: 'guardian' as const, guardianActorId: 'person' },
@@ -361,7 +361,7 @@ describe('entries and judges', () => {
       given:
         'entries answered for by a school, a guardian and the entrant, asked by five people',
       should:
-        'allow the school’s roster manager, the guardian, the adult entrant and entries staff',
+        'allow the school’s roster manager, the adult guardian, the entrant and entries staff',
       actual: {
         rosterManager: answers(rosterManager),
         person: answers({}),
@@ -372,7 +372,7 @@ describe('entries and judges', () => {
       expected: {
         rosterManager: [each('allow'), each('allow'), each('allow')],
         person: [each('missing-capability'), each('allow'), each('allow')],
-        teen: [each('missing-capability'), each('age-band'), each('age-band')],
+        teen: [each('missing-capability'), each('age-band'), each('allow')],
         stranger: [
           each('missing-capability'),
           each('missing-capability'),

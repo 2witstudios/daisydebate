@@ -174,7 +174,8 @@ export const commandHistoryAuthority = (
  * Runs one lobby command: replay by command id and digest first, then the
  * gate, the conflict rule, the version checks and the decision, and on
  * acceptance the writes and one action-history entry in the same
- * transaction. A refused command changes nothing.
+ * transaction. The decision adapter can load protected facts after the gate.
+ * A refused command changes nothing.
  */
 export const runLobbyCommand = <
   Command extends { readonly type: string },
@@ -185,7 +186,11 @@ export const runLobbyCommand = <
   dependencies: CommandDependencies<Facts, Write>,
   envelope: LobbyCommandEnvelope<Command>,
   definition: LobbyCommandDefinition<Refusal>,
-  decide: (facts: Facts, command: Command) => CommandDecision<Refusal, Write>,
+  decide: (
+    facts: Facts,
+    command: Command,
+  ) =>
+    CommandDecision<Refusal, Write> | Promise<CommandDecision<Refusal, Write>>,
 ): Promise<LobbyCommandAnswer<Refusal>> =>
   dependencies.transaction(async (tx) => {
     const payloadDigest = dependencies.digest({
@@ -222,7 +227,7 @@ export const runLobbyCommand = <
       !versionsHold(definition.versions, envelope.expected, tx.versions(facts))
     )
       return { kind: 'refused', refusal: 'version-conflict' };
-    const outcome = decide(facts, envelope.command);
+    const outcome = await decide(facts, envelope.command);
     if (outcome.kind === 'refused') return outcome;
     const conflict =
       gate.kind === 'confirm' ? gate.conflict : gate.decision.conflict;

@@ -28,6 +28,10 @@ import { fenceTabAccountsRead } from './account-read-fence';
 import { lockEventSettingContext } from './event-setting-context';
 import { loadAuthorityContext } from './authority-context';
 import { loadTabCounterpart } from './account';
+import {
+  loadTournamentEligibility,
+  tournamentDebatersAllowed,
+} from './tournament-eligibility';
 import { loadDrawResolutionPool } from './draw-resolution-pool';
 import type { TabTransaction } from './tab-transaction';
 
@@ -115,6 +119,13 @@ export const loadDrawContext = async (
     strength: input.strength,
   });
   if (!configuration) return null;
+  const eligibility = input.withPublicationResolution
+    ? await loadTournamentEligibility(
+        tx,
+        configuration.scope,
+        configuration.lobby,
+      )
+    : null;
   const currentPeople = await namedTournamentPeople(tx, input.lobbyId);
   if (
     currentPeople.some(
@@ -241,6 +252,16 @@ export const loadDrawContext = async (
     authorization,
     ownerActorId: owner?.id ?? null,
     round,
+    debatersAllowed: (actorIds: readonly string[], now: string) =>
+      eligibility === null
+        ? Promise.resolve(true)
+        : tournamentDebatersAllowed(
+            tx,
+            configuration.scope,
+            eligibility,
+            actorIds,
+            now,
+          ),
     publicationResolution: input.withPublicationResolution
       ? await loadDrawResolutionPool(tx, configuration, round)
       : null,
