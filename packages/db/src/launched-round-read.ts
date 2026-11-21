@@ -1,10 +1,9 @@
 import { roundSourceVoided } from './round-source-state';
-import { and, eq, getColumns } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { roundRatingScopeSchema, type LaunchedRound } from '@daisy/protocol';
 import { roundLadderOf } from './member-history-rows';
-import { lobbies } from './schema/lobbies';
 import { currentRoundParticipant } from './round-current-participant';
 import { roundLifecycleOfRow, segmentRows } from './round-hydration';
 import { actorFact } from './room-command-facts';
@@ -46,11 +45,10 @@ export async function launchedRoundRows(
   roundId: string,
 ): Promise<LaunchedRound> {
   const [row] = await tx
-    .select({ ...getColumns(rounds), ladderAgeRule: lobbies.ageRule })
+    .select()
     .from(rounds)
-    .leftJoin(lobbies, eq(lobbies.id, rounds.ratingLobbyId))
     .where(eq(rounds.id, roundId))
-    .for('share', { of: rounds });
+    .for('share');
   if (!row || !row.roomId || !row.roomConfigSnapshot || !row.visibility)
     throw createAppError('NOT_FOUND');
   const seats = await tx
@@ -83,7 +81,10 @@ export async function launchedRoundRows(
     roomId: row.roomId,
     version: row.version,
     competitionType: row.competitionType,
-    ladder: roundLadderOf(row),
+    ladder: roundLadderOf({
+      ladderId: row.ladderId,
+      ladderAgeRule: row.standingAgeRule,
+    }),
     ratingScope: roundRatingScopeSchema.parse(
       row.ladderId === null
         ? null

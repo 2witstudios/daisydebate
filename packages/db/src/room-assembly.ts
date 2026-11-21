@@ -87,7 +87,6 @@ export const assembleRoom = async (
         ? await leagueRoomSelection(tx, {
             lobbyId: input.lobby.id,
             templateId: input.templateId,
-            config: input.room.config,
             subjectUserId: input.caller.userId,
           })
         : null,

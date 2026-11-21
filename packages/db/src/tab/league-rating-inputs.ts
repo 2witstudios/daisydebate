@@ -17,6 +17,7 @@ import {
   type CertifiedSourceAuthority,
 } from './league-certified-rating-inputs';
 import { loadLobbyAuthority } from './lobby-authority';
+import { configuredStandingLadder } from '../league-room-selection';
 import {
   readLobbyPublishedRatings,
   type PublishStandings,
@@ -254,19 +255,28 @@ export const createLeagueRatingStore = (database: TabDatabase) => ({
         if (
           !authority ||
           authority.lobby.kind !== 'standing' ||
+          !authority.lobby.ownerOrganizationId ||
           authority.authorization.organization?.organizationKind !== 'league'
         )
           return work(null);
-        const [ladder] = await tx
-          .select()
-          .from(ladders)
-          .where(eq(ladders.lobbyId, authority.lobby.id))
-          .orderBy(asc(ladders.createdAt), asc(ladders.id))
-          .limit(1);
-        const facts = ladder
+        const configured = await configuredStandingLadder(tx, {
+          organizationId: authority.lobby.ownerOrganizationId,
+          lobbyId: authority.lobby.id,
+          templateId: null,
+        });
+        const [primary] = configured
+          ? []
+          : await tx
+              .select({ id: ladders.id })
+              .from(ladders)
+              .where(eq(ladders.lobbyId, authority.lobby.id))
+              .orderBy(asc(ladders.createdAt), asc(ladders.id))
+              .limit(1);
+        const ladderId = configured ?? primary?.id;
+        const facts = ladderId
           ? await loadLeagueRatingInputs(tx, {
               viewerUserId: input.viewerUserId,
-              ladderId: ladder.id,
+              ladderId,
               publicAt: authority.checkedAt,
               ...(input.canReadSource
                 ? { canReadSource: input.canReadSource }
@@ -284,6 +294,7 @@ export const createLeagueRatingStore = (database: TabDatabase) => ({
                       tx,
                       {
                         lobbyId: authority.lobby.id,
+                        ladderId: facts.ladder.id,
                         clock,
                         leaguePublication: true,
                       },

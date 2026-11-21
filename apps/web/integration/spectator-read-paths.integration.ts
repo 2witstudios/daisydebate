@@ -31,6 +31,7 @@ import {
 } from '../src/features/spectating/read-timeline';
 import { presentedLinkHash } from '../src/features/audience-link/audience-link';
 import { spectatorClockAt } from '../src/features/spectating/spectator-clock';
+import { listLive } from '../src/features/watch/list-live';
 import {
   cachedAiJudgingRuntime,
   frozenRankedRound,
@@ -59,6 +60,10 @@ test('every public and member read holds a ranked outcome until release', async 
     const follower = createId();
     let roundId: string | undefined;
     const openRoomId = createId();
+    const assemblingRoomId = createId();
+    const casualRoomId = createId();
+    const previousSeasonId = createId();
+    const discoveryTitle = `Starting ranked ${createId()}`;
     try {
       const season = await withSeasons(process.env['TEST_DATABASE_URL']!, (s) =>
         s.activateBetaSeason({ id: seasonId, division: 'open' }),
@@ -80,11 +85,16 @@ test('every public and member read holds a ranked outcome until release', async 
       await f.sql`insert into broadcasts (id, round_id, feed_key, release_policy)
         values (${createId()}, ${roundId}, ${createId()}, ${{ kind: 'delay', seconds: RANKED_DELAY_SECONDS }})`;
       const [ended] =
-        (await f.sql`select completed_at, resolution from rounds where id=${roundId}`) as {
+        (await f.sql`select completed_at, resolution, ladder_id from rounds where id=${roundId}`) as {
           completed_at: Date;
           resolution: string;
+          ladder_id: string;
         }[];
-      const { completed_at: completedAt, resolution } = ended!;
+      const {
+        completed_at: completedAt,
+        resolution,
+        ladder_id: ladderId,
+      } = ended!;
       // Long past the delay by the clock: only the watermark can release.
       const now = new Date(
         completedAt.getTime() + 1000 * RANKED_DELAY_SECONDS * 100,
@@ -129,16 +139,37 @@ test('every public and member read holds a ranked outcome until release', async 
           ? Response.json(watched.timeline)
           : Response.json({}, { status: 404 });
       };
-      // A Room the rated host opens while the Round is still held.
-      await f.sql`insert into rooms (lobby_id,id,host_actor_id,title,topic,visibility,format_id,format_version,preset_version,competition_type,config,execution_plan,rules_snapshot,status)
-        select lobby_id,${openRoomId},host_actor_id,title,null,'public',format_id,format_version,preset_version,competition_type,config,execution_plan,rules_snapshot,'assembling'
-        from rooms where id=${frozen.room.id}`;
+      await f.sql`insert into seasons (id,lobby_id,organization_id,name,starts_at,ends_at,status)
+        select ${previousSeasonId},lobby_id,organization_id,'Previous season','2000-01-01','2000-02-01','closed'
+        from seasons where id=${season.id}`;
+      await f.sql`insert into ratings (actor_id,season_id,ladder,lobby_id,rating,deviation,volatility)
+        values (${f.host.actorId},${previousSeasonId},${ladderId},${season.lobbyId},2200,100,0.06)`;
+      // The shard's three Room shapes, with a real first posting in the active season.
+      for (const [id, status, mode] of [
+        [openRoomId, 'ready', 'ranked'],
+        [assemblingRoomId, 'assembling', 'ranked'],
+        [casualRoomId, 'ready', 'casual'],
+      ] as const)
+        await f.sql`insert into rooms (lobby_id,id,host_actor_id,title,topic,visibility,format_id,format_version,preset_version,competition_type,config,execution_plan,rules_snapshot,status)
+          select lobby_id,${id},host_actor_id,${discoveryTitle},null,'public',format_id,format_version,
+            case when ${mode}='ranked' then preset_version end,${mode},config,execution_plan,rules_snapshot,${status}
+          from rooms where id=${frozen.room.id}`;
+      await f.sql`insert into room_participants (id,room_id,actor_id,seat_kind,side,slot)
+        values (${createId()},${openRoomId},${f.host.actorId},'side','affirmative',0)`;
       const listedRating = async () => {
         const page = await f.operations.list(f.outsider, {
-          pageSize: 50,
-          q: '',
+          pageSize: 20,
+          q: discoveryTitle,
+          status: 'starting',
+          mode: 'ranked',
+          lobbyId: season.lobbyId,
         });
-        return page.rooms.find((r) => r.id === openRoomId)?.hostRating;
+        return page.rooms.map((r) => [
+          r.id,
+          r.status,
+          r.competitionType,
+          r.hostRating,
+        ]);
       };
       const ledger =
         (await f.sql`select rating_before, rating_after from rating_changes
@@ -199,10 +230,10 @@ test('every public and member read holds a ranked outcome until release', async 
           ladderEntries: (ladder?.data.entries ?? []).filter(
             (e) => e.id === f.host.actorId,
           ).length,
-          memberRating: member.find(
+          memberStanding: member.find(
             (m) =>
               m.ladder.style === 'freestyle' && m.ladder.division === 'open',
-          )?.rating,
+          ),
           historyRows: profile?.history.length,
           profileRecord: profile?.record,
           card: await personCard(),
@@ -234,15 +265,21 @@ test('every public and member read holds a ranked outcome until release', async 
       });
       assert({
         given: 'ratings, standings and the leaderboard before release',
-        should: 'not show the debater as rated',
-        actual: [held.ladderEntries, held.memberRating],
-        expected: [0, null],
+        should:
+          'keep the active season unrated and show only the past rating in member standings',
+        actual: [
+          held.ladderEntries,
+          held.memberStanding?.current,
+          held.memberStanding?.rating,
+        ],
+        expected: [0, false, 2200],
       });
       assert({
-        given: 'a Room listing the host before release',
-        should: 'keep the host unrated when their first posting is still held',
+        given:
+          'starting ranked discovery before the host’s first current-season posting is released',
+        should: 'list only the ready ranked Room and keep its host unrated',
         actual: held.listedRating,
-        expected: null,
+        expected: [[openRoomId, 'ready', 'ranked', null]],
       });
       assert({
         given: 'a public profile before release',
@@ -308,6 +345,33 @@ test('every public and member read holds a ranked outcome until release', async 
         code: 'NOT_FOUND',
       });
 
+      await f.sql`update broadcasts b set released_through_at=r.started_at
+        + ${SPECTATOR_MARGIN_MS}::int * interval '1 millisecond'
+        from rounds r where b.round_id=r.id and r.id=${roundId}`;
+      try {
+        await f.sql`update lobbies set age_rule='under-18' where id=${season.lobbyId}`;
+        const live = await listLive(f.store, {
+          query: {
+            tab: 'live',
+            mode: 'ranked',
+            q: '',
+            lobby: season.lobbyId,
+            before: '',
+          },
+          now,
+        });
+        assert({
+          given:
+            'a public ranked broadcast after its lobby changes to under-18',
+          should: 'list the frozen Open ladder while the broadcast is live',
+          actual: [live.featured, ...live.rows].find(
+            (row) => row?.id === roundId,
+          )?.ladder,
+          expected: { style: 'freestyle', division: 'open' },
+        });
+      } finally {
+        await f.sql`update lobbies set age_rule='adults' where id=${season.lobbyId}`;
+      }
       await f.sql`update broadcasts set released_through_at=${new Date(
         completedAt.getTime() + SPECTATOR_MARGIN_MS,
       )} where round_id=${roundId}`;
@@ -388,16 +452,25 @@ test('every public and member read holds a ranked outcome until release', async 
         expected: [false, false, false, true],
       });
       assert({
-        given: 'a Room listing the host after release',
-        should: 'show the rating the Round left',
+        given:
+          'the same starting ranked discovery after release, with past and current ratings',
+        should:
+          'list only the ready ranked Room with the rounded current-season Freestyle value',
         actual: out.listedRating,
-        expected: Math.round(ledger[0]!.rating_after),
+        expected: [
+          [openRoomId, 'ready', 'ranked', Math.round(ledger[0]!.rating_after)],
+        ],
       });
       assert({
         given: 'ratings, standings and profiles after release',
         should: 'show the rated Round',
-        actual: [out.ladderEntries, out.memberRating !== null, out.historyRows],
-        expected: [1, true, 1],
+        actual: [
+          out.ladderEntries,
+          out.memberStanding?.current,
+          out.memberStanding?.rating,
+          out.historyRows,
+        ],
+        expected: [1, true, Math.round(ledger[0]!.rating_after), 1],
       });
       assert({
         given: 'the profile tally after release',
@@ -424,8 +497,42 @@ test('every public and member read holds a ranked outcome until release', async 
           record: ledgerSide === 'affirmative' ? [1, 0] : [0, 1],
         },
       });
+      try {
+        await f.sql`update lobbies set age_rule='under-18' where id=${season.lobbyId}`;
+        const [launched, memberHistory] = await Promise.all([
+          f.store.readLaunchedRound(
+            roundId,
+            f.host,
+            () => true,
+            readRoundOpening,
+            roundWaitingOn,
+            () => false,
+          ),
+          f.store.readMemberProfile({
+            username: hostName,
+            caller: null,
+            decide: () => 'public',
+            before: null,
+            limit: 20,
+            clock: spectatorClockAt(now),
+          }),
+        ]);
+        assert({
+          given: 'a released Open result after its lobby changes to under-18',
+          should:
+            'show its frozen Open ladder in live Round details and member history',
+          actual: [
+            launched.ladder,
+            memberHistory?.rows.find((row) => row.roundId === roundId)?.ladder,
+          ],
+          expected: Array(2).fill({ style: 'freestyle', division: 'open' }),
+        });
+      } finally {
+        await f.sql`update lobbies set age_rule='adults' where id=${season.lobbyId}`;
+      }
     } finally {
-      await f.sql`delete from rooms where id=${openRoomId}`;
+      await f.sql`delete from room_participants where room_id=${openRoomId}`;
+      await f.sql`delete from rooms where id in (${openRoomId},${assemblingRoomId},${casualRoomId})`;
       await deleteOrphanNotificationSignals(f.sql);
       await f.sql`delete from users where id=${follower}`;
       if (roundId) {
@@ -437,7 +544,7 @@ test('every public and member read holds a ranked outcome until release', async 
       await f.sql`delete from ratings where actor_id in (${f.host.actorId},${f.guest.actorId})`;
       await f.sql`delete from agreement_signatures where season_id=${seasonId}`;
       f.afterRooms(async () => {
-        await f.sql`delete from seasons where id=${seasonId}`;
+        await f.sql`delete from seasons where id in (${seasonId},${previousSeasonId})`;
       });
     }
   }, cachedAiJudgingRuntime);

@@ -50,6 +50,7 @@ ALTER TABLE public.rounds DISABLE TRIGGER rounds_judge_slots_complete;
 --> statement-breakpoint
 UPDATE public.rounds rd SET standing_age_rule=CASE
   WHEN rd.ladder_division='youth' THEN 'under-18'::public.lobby_age_rule
+  WHEN rd.ladder_division='open' THEN 'adults'::public.lobby_age_rule
   ELSE (SELECT l.age_rule FROM public.rooms r
     JOIN public.lobbies l ON l.id=r.lobby_id AND l.kind='standing' WHERE r.id=rd.room_id)
 END,
@@ -58,7 +59,7 @@ standing_youth_cast=coalesce(rd.ladder_division='youth',false) OR EXISTS (
     AND public.daisy_room_is_youth(r.id)
 ),
 legacy_league_rating=rd.status='completed' AND rd.league_ladder_id IS NOT NULL
-WHERE rd.room_id IS NOT NULL OR rd.ladder_division='youth';
+WHERE rd.room_id IS NOT NULL OR rd.ladder_division IS NOT NULL;
 --> statement-breakpoint
 UPDATE public.organizations SET operator_managed=true WHERE owner_user_id IS NULL;
 --> statement-breakpoint
@@ -219,6 +220,11 @@ FROM public.rating_changes c JOIN public.rounds r ON r.id=c.round_id
 WHERE EXISTS (
   SELECT 1 FROM public.ratings p
   WHERE p.actor_id=c.actor_id AND p.ladder=c.ladder AND p.season_id=c.season_id
+)
+AND EXISTS (
+  SELECT 1 FROM public.round_participants p
+  WHERE p.round_id=c.round_id AND p.actor_id=c.actor_id
+    AND p.seat_kind IN ('side','speaker')
 )
 ORDER BY c.actor_id,c.ladder,c.season_id,r.ladder_id,r.season_id,c.occurred_at DESC,c.id DESC;
 --> statement-breakpoint

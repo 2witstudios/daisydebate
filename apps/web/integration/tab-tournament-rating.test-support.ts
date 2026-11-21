@@ -231,15 +231,17 @@ export async function ratingStage(world: World): Promise<void> {
       entrants.find((row: { id: string; actor_id: string }) => row.id === id)!
         .actor_id,
     );
-    return snapshot.ladders
-      .find((row) => row.ladderId === ladderId)!
-      .actors.find((row) => row.actorId === actorId)!.rating;
+    return Math.round(
+      snapshot.ladders
+        .find((row) => row.ladderId === ladderId)!
+        .actors.find((row) => row.actorId === actorId)!.rating,
+    );
   });
   assert({
     given:
       'a sanctioned certified first tournament and a later single-elimination event',
     should:
-      'freeze league ratings and seed every rated entrant in descending rating order',
+      'freeze league ratings and seed every rated entrant in descending entry-rating order',
     actual: [
       snapshot.events.some(
         (row) => row.eventId === eventId && row.ladderId === ladderId,

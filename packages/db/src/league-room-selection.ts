@@ -1,11 +1,6 @@
 import { and, eq, or } from 'drizzle-orm';
-import {
-  presetSettingDefaults,
-  resolveSetting,
-  roomChain,
-} from '@daisy/protocol/setting-resolution';
+import { resolveSetting, roomChain } from '@daisy/protocol/setting-resolution';
 import { type SettingRow, settingRowSchema } from '@daisy/protocol/settings';
-import type { RoomConfig } from '@daisy/protocol';
 import { ladders } from './schema/ladders';
 import { lobbies } from './schema/lobbies';
 import { organizations } from './schema/organizations';
@@ -19,7 +14,6 @@ export async function leagueRoomSelection(
   input: {
     readonly lobbyId: string;
     readonly templateId: string | null;
-    readonly config: RoomConfig;
     readonly subjectUserId?: string;
   },
 ) {
@@ -40,10 +34,25 @@ export async function leagueRoomSelection(
     lobbyId: home.lobby.id,
     subjectUserId: input.subjectUserId,
   });
-  const chain = roomChain({
+  return configuredStandingLadder(tx, {
+    ...input,
     organizationId: home.lobby.ownerOrganizationId,
+  });
+}
+
+/** Resolve the persisted setting against the exact standing lobby's ladders. */
+export async function configuredStandingLadder(
+  tx: Pick<Tx, 'select'>,
+  input: {
+    readonly organizationId: string;
+    readonly lobbyId: string;
+    readonly templateId: string | null;
+  },
+) {
+  const chain = roomChain({
+    organizationId: input.organizationId,
     templateId: input.templateId,
-    lobbyId: home.lobby.id,
+    lobbyId: input.lobbyId,
   });
   const rows = await tx
     .select()
@@ -88,7 +97,6 @@ export async function leagueRoomSelection(
           value: row.value,
         }) as SettingRow,
     ),
-    presetSettingDefaults(input.config),
   ).value.ladderId;
   if (!selected) return null;
   const [ladder] = await tx
@@ -97,8 +105,8 @@ export async function leagueRoomSelection(
     .where(
       and(
         eq(ladders.id, selected),
-        eq(ladders.lobbyId, home.lobby.id),
-        eq(ladders.organizationId, home.lobby.ownerOrganizationId),
+        eq(ladders.lobbyId, input.lobbyId),
+        eq(ladders.organizationId, input.organizationId),
       ),
     );
   return ladder?.id ?? null;

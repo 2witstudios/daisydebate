@@ -413,24 +413,37 @@ async function legacyRatingRecovery(world: World, priorSeasonId: string) {
         { viewerUserId: world.bots.Director!.userId, lobbyId },
         async (facts) => {
           if (!facts) throw new Error('Missing receiving ladder');
-          const publication = () =>
-            facts.publicStandings(
-              spectatorClockAt(new Date().toISOString()),
-              (source) => source,
-            );
-          const unmaterialized = async () =>
-            (await publication()).publicResults?.legacyRooms?.length;
-          const initial = await unmaterialized();
+          const clock = spectatorClockAt(new Date().toISOString());
+          const publication = async () => {
+            let legacy: number | undefined;
+            const result = await facts.publicStandings(clock, (source) => {
+              legacy = source.publicResults?.legacyRooms?.length;
+              return replayPublishedStandings(source);
+            });
+            return {
+              legacy,
+              roundIds: result.changes
+                .filter((row) => row.actorId === actorId)
+                .map((row) => row.roundId),
+              standing: result.ratings.find((row) => row.actorId === actorId),
+            };
+          };
+          const initial = await publication();
           const recovered = await sweep({ limit: 1 });
-          return [recovered, initial, await unmaterialized()] as const;
+          return [recovered, initial, await publication()] as const;
         },
       );
       assert({
         given:
           'the worker settles one Room on another connection during a receiving ladder read',
         should: 'hold one publication snapshot throughout the request',
-        actual: [beforeCommit, afterCommit],
-        expected: [2, 2],
+        actual: [
+          beforeCommit.legacy,
+          beforeCommit.roundIds,
+          beforeCommit.standing?.rating,
+          afterCommit,
+        ],
+        expected: [2, [early, late], before?.rating, beforeCommit],
       });
       assert({
         given:
