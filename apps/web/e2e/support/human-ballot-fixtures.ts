@@ -26,7 +26,7 @@ export async function humanBallotFixtures(browser: Browser) {
   const accounts = await createHumanJudgeProofAccounts(browser);
   try {
     const rounds = [];
-    for (let index = 0; index < 4; index++)
+    for (let index = 0; index < 5; index++)
       rounds.push(
         await playHumanBallotRound(
           accounts.members,
