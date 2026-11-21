@@ -115,7 +115,7 @@ export const roundPrincipalColumns = (principal: RoundCommandPrincipal) => ({
 });
 export function requireHumanRoundPrincipal(
   principal: RoundCommandPrincipal,
-  accounts: Awaited<ReturnType<typeof lockAuthorizationActors>>,
+  accounts: Readonly<Awaited<ReturnType<typeof lockAuthorizationActors>>>,
 ) {
   if (principal.kind !== 'human') return;
   const account = accounts.find((a) => a?.actorId === principal.actorId);

@@ -161,10 +161,15 @@ export async function verifyBotMediaPrincipal(
   if (!(await readBotSegmentFloor(tx, principal.scope)))
     throw createAppError('CONFLICT', 'Bot segment is not live');
 }
-export function requireClaimScope(
-  claim: typeof roundBotPublications.$inferSelect | undefined,
+export function requireClaimScope<
+  Claim extends Pick<
+    typeof roundBotPublications.$inferSelect,
+    'publicationEpoch' | 'agentRunId' | 'segmentId'
+  >,
+>(
+  claim: Claim | undefined,
   scope: BotPublicationScope,
-): asserts claim is typeof roundBotPublications.$inferSelect {
+): asserts claim is Claim {
   if (
     !claim ||
     claim.publicationEpoch !== scope.publicationEpoch ||
@@ -173,10 +178,12 @@ export function requireClaimScope(
   )
     throw createAppError('CONFLICT');
 }
-export function requireRunScope(
-  run: typeof agentRuns.$inferSelect | undefined,
-  scope: BotPublicationScope,
-): asserts run is typeof agentRuns.$inferSelect {
+export function requireRunScope<
+  Run extends Pick<
+    typeof agentRuns.$inferSelect,
+    'endedAt' | 'kind' | 'configurationSnapshot'
+  >,
+>(run: Run | undefined, scope: BotPublicationScope): asserts run is Run {
   if (
     !run ||
     run.endedAt !== null ||

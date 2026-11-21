@@ -1,7 +1,7 @@
 import { query, run as runStatement } from './raw-rows';
 import { z } from 'zod';
 import { testLane } from './testing-lane';
-import type { SQL } from 'bun';
+import { SQL } from 'bun';
 import { createAppError } from '@daisy/errors';
 import { assertRejects } from '@daisy/errors/testing';
 import { sql } from 'drizzle-orm';
@@ -271,7 +271,7 @@ test('lifecycle hooks open before begin and close with the actual outcome', asyn
 
 test('an admission refusal is recognisable as backpressure', async () => {
   const run = createBoundedTransaction({
-    lane: testLane({ options: {} } as unknown as SQL, 1),
+    lane: testLane(new SQL('postgres://127.0.0.1:1/daisy_inert'), 1),
     now: () => 0,
   });
   let refusal: unknown = null;

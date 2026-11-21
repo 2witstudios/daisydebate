@@ -1,4 +1,4 @@
-import type { SQL } from 'bun';
+import { fakeSql, type ScriptedResult } from '../scripted-bun-wire';
 import { getTableColumns } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { createAppError } from '@daisy/errors';
@@ -87,12 +87,11 @@ export function fileMessageRow(
 }
 
 /** The channel's locked stream row, as `appendStream` reads it (MSG-2.2-arch1). */
-export const fileStreamRow = (changeVersion = 10): unknown[][] => [
-  { messageSequence: 1, changeVersion } as unknown as unknown[],
+export const fileStreamRow = (changeVersion = 10): ScriptedResult => [
+  { messageSequence: 1, changeVersion },
 ];
 /** Only the driver is scripted. Production Drizzle builds, binds and maps every query. */
-export function fileFrameFixture(responses: unknown[][][]) {
-  const calls: { query: string; params: unknown[] }[] = [];
+export function fileFrameFixture(responses: readonly ScriptedResult[]) {
   const state: {
     allowed: boolean;
     authorizations: number;
@@ -102,17 +101,13 @@ export function fileFrameFixture(responses: unknown[][][]) {
     authorizations: 0,
   };
   const remaining = [...responses];
-  const answer = (query: string, params: unknown[] = []) => {
-    calls.push({ query, params });
-    const rows = remaining.shift();
-    if (!rows) throw new Error('Unexpected file adapter query');
-    return Object.assign(Promise.resolve(rows), { values: async () => rows });
+  const { client, queries: calls } = fakeSql(remaining);
+  const unsafe = client.unsafe;
+  client.unsafe = (query, params) => {
+    if (remaining.length === 0)
+      throw new Error('Unexpected file adapter query');
+    return unsafe(query, params);
   };
-  const client = Object.assign(
-    (query: TemplateStringsArray, ...params: unknown[]) =>
-      answer(query.join('?'), params),
-    { options: {}, unsafe: answer },
-  ) as unknown as SQL;
   const tx = drizzle({ client });
   const counters = { channelId: fileFrameScope.channelId, changeVersion: 10 };
   const frame = channelFileFrame(tx, fileFrameScope, counters, async () => {

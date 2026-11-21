@@ -3,6 +3,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   ballotCategories,
   daisyWinnerBallot,
+  daisyBallotSource,
   panelRuleFor,
 } from '@daisy/protocol';
 import {
@@ -252,14 +253,15 @@ test("a ballot is judged by its Round's frozen definition and stored by its deci
     { key: 'affirmative', label: 'Affirmative', short: 'Aff' },
     { key: 'negative', label: 'Negative', short: 'Neg' },
   ];
-  const round = {
+  const round: Parameters<typeof requireRoundBallot>[0] = {
     judging: {
+      source: daisyBallotSource(daisyWinnerBallot),
       ballot: daisyWinnerBallot,
       panel: panelRuleFor(daisyWinnerBallot),
     },
     rules: { sides, segments: [{ key: 'AC' }] },
     participants: [],
-  } as unknown as Parameters<typeof requireRoundBallot>[0];
+  };
   const scored = Object.fromEntries(ballotCategories.map((c) => [c, 3]));
   const ballot = {
     rubricVersion: 'speaker-10@2',

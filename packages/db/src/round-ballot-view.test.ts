@@ -17,26 +17,28 @@ const scores = {
 };
 const row = (
   judgeParticipantId: string,
-  citations: unknown = null,
-  feedback: unknown = null,
-) =>
-  ({
-    id: `ballot-${judgeParticipantId}`,
-    judgeParticipantId,
-    roundId: 'round',
-    freezeRevision: 1,
-    rubricVersion: 'speaker-10@2',
-    decision: 'win',
-    winner: 'affirmative',
-    ranking: null,
-    speakerRanks: null,
-    ballotDefinitionId: null,
-    ballotDefinitionVersion: null,
-    scores,
-    reason: 'Clearer weighing.',
-    feedback,
-    citations,
-  }) as unknown as Row;
+  citations: Row['citations'] = null,
+  feedback: Row['feedback'] = null,
+): Row => ({
+  id: `ballot-${judgeParticipantId}`,
+  judgeParticipantId,
+  roundId: 'round',
+  freezeRevision: 1,
+  rubricVersion: 'speaker-10@2',
+  decision: 'win',
+  winner: 'affirmative',
+  ranking: null,
+  speakerRanks: null,
+  ballotDefinitionId: null,
+  ballotDefinitionVersion: null,
+  scores,
+  reason: 'Clearer weighing.',
+  feedback,
+  citations,
+  submittedAt: new Date('2026-10-22T12:00:00Z'),
+  createdAt: new Date('2026-10-22T12:00:00Z'),
+  updatedAt: new Date('2026-10-22T12:00:00Z'),
+});
 /** The Round's frozen definition and subjects every view reads ballots by. */
 const judged = {
   definition: daisyWinnerBallot,
@@ -54,14 +56,19 @@ const body = {
   reason: 'Clearer weighing.',
   feedback: {},
 };
-const frozen = {
+const frozen: Frozen = {
   revision: 1,
   frontier: 6,
   frozenAt: '2026-10-22T12:00:00.000Z',
   completeness: 'complete',
   utterances: [],
   roundId: 'round',
-} as unknown as Frozen;
+  expectedSpeechMs: 0,
+  captureGapMs: null,
+  unheardMs: null,
+  captureGaps: { gaps: [] },
+  coverage: [],
+};
 
 test('only a human judge seated in the Round has an own seat', () => {
   const participants = [
@@ -206,7 +213,7 @@ test('a released ballot carries feedback only for the reader’s own side', () =
 });
 
 test('a released speaker ranking carries feedback only for the reading speaker', () => {
-  const ranked = {
+  const ranked: Row = {
     ...row('judge-h'),
     rubricVersion: 'rank-speakers@1',
     decision: 'ranking',
@@ -214,7 +221,7 @@ test('a released speaker ranking carries feedback only for the reading speaker',
     ranking: [['s1'], ['s2'], ['s3']],
     scores: null,
     feedback: { s1: 'Lead with impact.', s2: 'Signpost the rebuttal.' },
-  } as unknown as Row;
+  };
   const view = (viewerSubject: string | undefined) =>
     ballotReadView({
       audience: { kind: 'ordinary' },
