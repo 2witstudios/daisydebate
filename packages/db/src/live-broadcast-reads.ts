@@ -95,13 +95,13 @@ const cursorRound = {
 const afterCursor = (
   before: string,
   clock: SpectatorClock,
-  lobbyId: string | undefined,
+  lobbyScope: (roomLobbyId: SQL) => SQL,
 ): SQL | undefined =>
   before === ''
     ? undefined
     : sql`(${rounds.startedAt}, ${rounds.id}) < (select c.started_at, c.id from rounds c join rooms cr on cr.id=c.room_id
         where c.id = ${before} and c.visibility = 'public'
-          and ${officialLobby(sql`cr.lobby_id`, lobbyId)}
+          and ${lobbyScope(sql`cr.lobby_id`)}
           and ${factReleasedSql(sql`c.started_at`, cursorRound, clock)})`;
 
 /**
@@ -150,6 +150,12 @@ export const liveBroadcastReads = ({
     /** Narrows to Rounds these debaters are seated in; an empty list finds none. */
     readonly seatedUsernames?: readonly string[];
   }) {
+    // Profile and Friends find a named person's public broadcast. Discovery
+    // stays on official lobbies, including Watch Following's selected lobby.
+    const lobbyScope = (roomLobbyId: SQL) =>
+      input.seatedUsernames !== undefined && input.filter.lobbyId === undefined
+        ? sql`true`
+        : officialLobby(roomLobbyId, input.filter.lobbyId);
     return inTransaction(
       database,
       async (tx) => {
@@ -175,10 +181,10 @@ export const liveBroadcastReads = ({
             and(
               onLive(input.clock),
               moded(input.filter.mode),
-              officialLobby(sql`${rooms.lobbyId}`, input.filter.lobbyId),
+              lobbyScope(sql`${rooms.lobbyId}`),
               searched(input.filter.q),
               seatedAny(input.seatedUsernames),
-              afterCursor(input.before, input.clock, input.filter.lobbyId),
+              afterCursor(input.before, input.clock, lobbyScope),
             ),
           )
           .orderBy(desc(rounds.startedAt), desc(rounds.id))

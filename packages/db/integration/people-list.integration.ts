@@ -27,6 +27,7 @@ import {
 import { admitParticipants } from '../src/beta-access-testing';
 import { rejectedBy } from './constraint-helpers';
 import { createMessagingTestFixture } from '../src/testing';
+import { daisyOrganizationId } from '../src/daisy-reference';
 import { withFixture } from './constraint-helpers';
 
 setupRitewayBun();
@@ -541,11 +542,30 @@ test('accepting names only a room made for the offer, and only for a free challe
       await fixture.room(ctx.them.actorId, 'nsda-ld', {}),
       expiresAt,
     );
+    const otherLobbyId = createId();
+    await fixture.insert('lobbies', {
+      id: otherLobbyId,
+      name: otherLobbyId,
+      handle: otherLobbyId,
+      kind: 'standing',
+      owner_organization_id: daisyOrganizationId,
+    });
+    const wrongLobby = await holdFor(
+      await room({ lobby_id: otherLobbyId }),
+      expiresAt,
+    );
     const refused = [
       await accept(challengeId, unheld),
       await accept(challengeId, lapsed),
       await accept(challengeId, wrongFormat),
+      await accept(challengeId, wrongLobby),
     ];
+    const pending = await listChallenges(
+      ctx.database,
+      ctx.them,
+      ctx.now,
+      unfenced,
+    );
     const mine = await fixture.room(ctx.me.actorId, 'freestyle', {});
     await ctx.client.unsafe(
       'insert into active_seats (actor_id, room_id) values ($1, $2)',
@@ -574,12 +594,13 @@ test('accepting names only a room made for the offer, and only for a free challe
     ]);
     assert({
       given:
-        'an offer resent as casual, a public room with no hold for the challenger, one whose hold lapsed, another format, a placed challenger, then the right room',
+        'an offer resent as casual, a public room with no hold for the challenger, one whose hold lapsed, another format, another adult lobby, a placed challenger, then the right room',
       should:
-        'take the new terms, refuse the wrong rooms and the placed challenger, accept the right room, then stop sending the challenger there',
+        'keep the offer pending after refusing the wrong Rooms, refuse the placed challenger, accept the right Room, then stop following it',
       actual: [
         terms,
         refused,
+        pending.map((row) => row.roomId),
         whilePlaced,
         accepted,
         listed.map((row) => row.roomId),
@@ -587,7 +608,8 @@ test('accepting names only a room made for the offer, and only for a free challe
       ],
       expected: [
         ['casual'],
-        ['NOT_FOUND', 'NOT_FOUND', 'NOT_FOUND'],
+        ['NOT_FOUND', 'NOT_FOUND', 'NOT_FOUND', 'NOT_FOUND'],
+        [null],
         'NOT_FOUND',
         'accepted',
         [right],
