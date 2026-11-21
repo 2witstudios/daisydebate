@@ -12,6 +12,136 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 const { databaseUrl: url } = requireTestServices(process.env);
 setupRitewayBun();
 
+test('real reaction state enforces receipt scope, withdrawal and the per-message cap', async () => {
+  const client = new SQL(url);
+  const fixture = await createMessagingTestFixture(client);
+  const { actorId, otherActorId, userId, channelId, now } = fixture;
+  const scope = { actorId, userId, channelId };
+  const primary = createId(),
+    another = createId();
+  const statements: string[] = [];
+  const db = drizzle({
+    client,
+    logger: { logQuery: (query) => statements.push(query.trim()) },
+  });
+  const operations: unknown[] = [];
+  const store = createMessagingReactionStore(
+    db,
+    { reactionUnits: 8, choices: ['👍', '❤️'], distinctPerMessage: 1 },
+    async (_tx, _scope, _fact, operation, association) => {
+      operations.push([operation, association ?? null]);
+    },
+  );
+  const submit = {
+    version: 1 as const,
+    channelId,
+    messageId: primary,
+    requestId: createId(),
+    reaction: '👍',
+    active: true,
+  };
+  const digest = '1'.repeat(64);
+  try {
+    await client`update messaging_channel_streams set message_sequence=2,change_version=2 where channel_id=${channelId}`;
+    await client`insert into messaging_messages(id,channel_id,author_actor_id,sequence,change_version,text,created_at) values(${primary},${channelId},${actorId},1,1,'Primary message',${now}),(${another},${channelId},${actorId},2,2,'Secondary message',${now})`;
+    await client`insert into messaging_reactions(channel_id,message_id,actor_id,reaction) values(${channelId},${primary},${otherActorId},'❤️')`;
+    for (const [command, code] of [
+      [{ ...submit, channelId: createId() }, 'NOT_FOUND'],
+      [{ ...submit, reaction: '❤️', active: false }, 'NOT_FOUND'],
+    ] as const) {
+      await assertRejects({
+        given:
+          'a foreign scope or a withdrawal backed only by the peer’s reaction',
+        should: 'refuse before mutating',
+        actual: () => store.change(scope, command, digest),
+        code,
+      });
+    }
+    const added = await store.change(scope, submit, digest);
+    for (const [command, candidate, code] of [
+      [
+        { ...submit, requestId: createId(), reaction: '❤️' },
+        digest,
+        'VALIDATION',
+      ],
+      [{ ...submit, messageId: another }, digest, 'CONFLICT'],
+      [submit, '2'.repeat(64), 'CONFLICT'],
+    ] as const) {
+      statements.length = 0;
+      await assertRejects({
+        given: 'a spent reaction cap or mismatched receipt',
+        should: 'refuse without advancing reactions',
+        actual: () => store.change(scope, command, candidate),
+        code,
+      });
+      assert({
+        given: 'the refused change',
+        should: 'make no durable change',
+        actual: statements.some((query) =>
+          /^(insert|update|delete)\b/.test(query),
+        ),
+        expected: false,
+      });
+    }
+    operations.length = 0;
+    statements.length = 0;
+    const removed = await store.change(
+      scope,
+      { ...submit, requestId: createId(), active: false },
+      digest,
+    );
+    const withdrawal = operations.splice(0);
+    const aggregates = statements.some((query) => /count\(\*\)/.test(query));
+    const replay = await store.change(scope, submit, digest);
+    await client`update messaging_messages set text=null,removed_at=${now} where id=${primary}`;
+    statements.length = 0;
+    await assertRejects({
+      given: 'a removed stored message',
+      should: 'refuse read before its reaction aggregate',
+      actual: () => store.read(scope, primary),
+      code: 'NOT_FOUND',
+    });
+    const [stored] =
+      await client`select message_sequence::int as sequence,change_version::int as version, (select count(*)::int from outbox where topic=${`channel:${channelId}`}) as bells from messaging_channel_streams where channel_id=${channelId}`;
+    assert({
+      given:
+        'one accepted addition, withdrawal and replay plus a removed message',
+      should:
+        'preserve independently advancing changes, provide own-only withdrawal and peer-only replay, and never publish a channel bell or read a removed aggregate',
+      actual: [
+        added.changeVersion,
+        removed.changeVersion,
+        removed.reactions,
+        withdrawal,
+        aggregates,
+        replay.replayed,
+        replay.reactions,
+        statements.some((query) => query.includes('group by reaction')),
+        stored,
+      ],
+      expected: [
+        3,
+        4,
+        [],
+        [
+          [
+            'remove',
+            { actorId, channelId, messageId: primary, reaction: '👍' },
+          ],
+        ],
+        false,
+        true,
+        [{ reaction: '❤️', count: 1, own: false }],
+        false,
+        { sequence: 2, version: 4, bells: 0 },
+      ],
+    });
+  } finally {
+    await fixture.cleanup();
+    await client.close();
+  }
+});
+
 test('native file and reaction ports share read fences and take a stream lock only to write', async () => {
   const client = new SQL(url);
   const fixture = await createMessagingTestFixture(client);
