@@ -1,3 +1,4 @@
+import { defaultStandingLobby } from '@daisy/protocol/lobby/eligibility';
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { betaHref, RESTRICTED_HREF } from '../../features/access/decision';
@@ -8,6 +9,8 @@ import { requestActiveRoom } from './active-room';
 import { ResumeRound } from '../../ui/active-room/resume-round';
 import {
   requestIdentity,
+  requestCompetitionAgeBand,
+  requestOfficialStandingLobbies,
   requestLeadingLive,
   requestSeasonGlance,
 } from '../../lib/request-session';
@@ -29,10 +32,13 @@ export default async function HomePage() {
   // a restricted one goes to its own.
   if (identity.state === 'waitlisted') redirect(betaHref('/'));
   if (identity.state === 'restricted') redirect(RESTRICTED_HREF);
-  const [rounds, seasonGlance] = await Promise.all([
+  const [rounds, seasonGlance, lobbies, ageBand] = await Promise.all([
     requestLeadingLive(),
     requestSeasonGlance(),
+    requestOfficialStandingLobbies(),
+    requestCompetitionAgeBand(),
   ]);
+  const playLobbyId = defaultStandingLobby(lobbies, ageBand)?.id ?? null;
   const liveNow = <LiveNow rounds={rounds} />;
   if (identity.state !== 'member') {
     // Only the visitor's hero links to /pricing, so only a visitor reads it.
@@ -42,6 +48,7 @@ export default async function HomePage() {
         audience="visitor"
         liveNow={liveNow}
         seasonGlance={seasonGlance}
+        playLobbyId={playLobbyId}
         hero={
           <HeroBanner
             requestLink={requestLinkAction.bind(null, '/')}
@@ -57,6 +64,7 @@ export default async function HomePage() {
       audience="member"
       liveNow={liveNow}
       seasonGlance={seasonGlance}
+      playLobbyId={playLobbyId}
       hero={
         <>
           <ResumeRound room={activeRoom} actorId={identity.principal.actorId} />

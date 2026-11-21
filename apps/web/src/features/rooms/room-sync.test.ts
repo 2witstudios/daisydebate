@@ -67,7 +67,6 @@ test('terminal entry remains closed across stale or nonmonotonic Room sync reads
       teamOpen: false,
       positionOpen: false,
       rating: null,
-      division: null,
       needsReady: true,
       ready: 'ready',
       eligible: true,

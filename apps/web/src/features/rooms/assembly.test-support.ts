@@ -176,7 +176,8 @@ export const assemblySnapshot = {
   },
   startRefusal: 'incomplete-cast',
   roundRef: null,
-  division: 'open',
+  lobbyId: 'l'.repeat(24),
+  ageRule: 'adults',
 } satisfies RoomView;
 
 /** One pending invitation: the host asked @coach to judge. */
@@ -249,6 +250,7 @@ export const seatedListingEntry = ({
   waitingSince: '2026-10-09T00:00:00.000Z',
   live: null,
   hostRating: null,
-  division: 'open',
+  lobbyId: 'l'.repeat(24),
+  ageRule: 'adults',
   openJudgeSeats: 0,
 });

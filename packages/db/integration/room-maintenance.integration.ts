@@ -5,6 +5,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { buildRoomTopic } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { withDatabase, withFixture } from './constraint-helpers';
+import { publicLobbyId } from '../src/daisy-reference';
 
 setupRitewayBun();
 const { databaseUrl: url } = requireTestServices(process.env);
@@ -14,6 +15,7 @@ test('idle maintenance skips a locked Room, then closes it and clears its Challe
     const host = await fixture.actor();
     const challenger = await fixture.actor();
     const roomId = await fixture.room(host, await fixture.format(), {
+      lobby_id: publicLobbyId,
       execution_plan: {
         preRoundPrep: { enabled: false },
         resolutionDraw: { enabled: false },
@@ -29,7 +31,7 @@ test('idle maintenance skips a locked Room, then closes it and clears its Challe
       challenged_actor_id: host,
       mode: 'casual',
       format_id: 'freestyle',
-      division: 'open',
+      lobby_id: publicLobbyId,
       room_id: roomId,
       created_at: new Date(),
       expires_at: new Date('2099-01-01'),

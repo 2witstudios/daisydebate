@@ -7,6 +7,7 @@ import { signUpMember } from './support/accounts';
 import { assertNoSeriousFindings } from './support/axe';
 import { watchCspViolations } from './support/csp';
 import { expect, openPage, test } from './support/fixtures';
+import { closeRoom, submitCreateRoom } from './support/room-launch-flow';
 import { resolveE2EPorts } from '../playwright.config';
 
 /**
@@ -47,7 +48,9 @@ const liveRound = async (
     mode: 'ranked' | 'casual';
     visibility: 'public' | 'unlisted' | 'private';
     hostUsername: string;
+    title: string;
     division: 'open' | 'youth';
+    lobbyId: string;
   }> = {},
 ): Promise<Seeded> => {
   const tag = createId().slice(0, 8);
@@ -62,6 +65,91 @@ const liveRound = async (
   seeded.push(round.roundId);
   return round;
 };
+
+test('Watch lists public broadcasts in the selected lobby only', async ({
+  page,
+}) => {
+  const token = createId().slice(0, 8);
+  const openTitle = `Open debate ${token}`;
+  const youthTitle = `Youth debate ${token}`;
+  await liveRound({ title: openTitle, mode: 'casual' });
+  await liveRound({ title: youthTitle, mode: 'casual', division: 'youth' });
+  const switcher = page.getByRole('navigation', { name: 'Lobby', exact: true });
+  await page.goto(`/watch?q=${token}`);
+  await expect(page.getByText(openTitle, { exact: true })).toBeVisible();
+  await expect(page.getByText(youthTitle, { exact: true })).toHaveCount(0);
+  await switcher.getByRole('link', { name: 'Youth', exact: true }).click();
+  await expect(page.getByText(youthTitle, { exact: true })).toBeVisible();
+  await expect(page.getByText(openTitle, { exact: true })).toHaveCount(0);
+});
+
+test('two official adult lobbies keep Watch and new Rooms on the selected lobby ID', async ({
+  browser,
+  page,
+}) => {
+  const token = createId().slice(0, 8);
+  const name = `Valley ${token}`;
+  const { lobbyId } = (await seed({ command: 'open-lobby', name })) as {
+    lobbyId: string;
+  };
+  try {
+    const own = `Open debate ${token}`;
+    const other = `Valley debate ${token}`;
+    await liveRound({ title: own, mode: 'casual' });
+    const foreign = await liveRound({ title: other, mode: 'casual', lobbyId });
+    const switcher = page.getByRole('navigation', {
+      name: 'Lobby',
+      exact: true,
+    });
+    await page.goto(`/watch?q=${token}`);
+    await expect(page.getByText(own, { exact: true })).toBeVisible();
+    await expect(page.getByText(other, { exact: true })).toHaveCount(0);
+    const openHref = await switcher
+      .getByRole('link', { name: 'Open', exact: true })
+      .getAttribute('href');
+    if (!openHref) throw new Error('Open lobby link was missing');
+    await switcher.getByRole('link', { name, exact: true }).click();
+    await expect(page.getByText(other, { exact: true })).toBeVisible();
+    await expect(page.getByText(own, { exact: true })).toHaveCount(0);
+    await expect(
+      page
+        .getByRole('navigation', { name: 'Watch sections' })
+        .getByRole('link', { name: /^Live/ }),
+    ).toHaveText(/Live\s*1$/);
+    await page.goto(`${openHref}&before=${foreign.roundId}`);
+    await expect(page.getByText(own, { exact: true })).toHaveCount(0);
+
+    const hostContext = await browser.newContext({
+      baseURL: new URL(page.url()).origin,
+      ignoreHTTPSErrors: true,
+    });
+    try {
+      const host = await openPage(hostContext, 'host in second official lobby');
+      await signUpMember(host.request);
+      await host.goto(`/lobby?lobby=${lobbyId}`);
+      await host
+        .getByRole('link', { name: 'New room', exact: true })
+        .first()
+        .click();
+      const title = `Selected Room ${token}`;
+      const room = await submitCreateRoom(host, title, 'freestyle', false);
+      try {
+        await host.goto(`/lobby?lobby=${lobbyId}&q=${token}`);
+        await expect(
+          host
+            .getByRole('region', { name: 'Available rooms' })
+            .getByText(title, { exact: true }),
+        ).toBeVisible();
+      } finally {
+        await closeRoom(host.request, room.id);
+      }
+    } finally {
+      await hostContext.close();
+    }
+  } finally {
+    await seed({ command: 'close-lobby', lobbyId });
+  }
+});
 
 // A stopped Broadcast leaves the listing, so no other spec sees these Rounds.
 test.afterEach(async () => {

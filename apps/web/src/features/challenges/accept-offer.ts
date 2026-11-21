@@ -74,7 +74,7 @@ export async function acceptOffer(
       opponent: offer.username,
       opponentActorId: offer.actorId,
       mode: offer.mode,
-      division: offer.division,
+      lobbyId: offer.lobbyId,
       template,
       commandId: ports.nextId(),
     }),

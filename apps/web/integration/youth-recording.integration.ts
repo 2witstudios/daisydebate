@@ -356,8 +356,8 @@ const endedCasualRound = async (
   room = await everyoneReady(f, room, [cast.host, cast.guest, judge]);
   const launched = await f.command(cast.host, room, { type: 'start-round' });
   const roundId = launched.view.roundRef!.id;
-  const [division] =
-    await f.sql`select division from rooms where id=${room.id}`;
+  const [classification] =
+    await f.sql`select public.daisy_room_is_youth(${room.id}) as youth`;
   // Read while it runs; then end it, so the fleet's one casual capture is free.
   const discovered = (
     await (f.store as never as BroadcastDiscovery).broadcasts.discoverUnopened(
@@ -368,7 +368,7 @@ const endedCasualRound = async (
   return {
     roundId,
     roomId: room.id,
-    division: division!.division as string,
+    division: classification!.youth ? 'youth' : 'open',
     discovered,
   };
 };
@@ -682,9 +682,7 @@ test('a public casual Round of a Youth Room is read exactly as an Open one, but 
               readBroadcastRelease: release,
               holdsRecordingDownload: async () => true,
               // As the web composes it: the SQL fence, one statement.
-              readReuseFenced: async (round) =>
-                round.youth !== null &&
-                (await database.readRoundReuseFenced(round.id)),
+              readReuseFenced: database.readRoundReuseFenced,
             },
           },
           {

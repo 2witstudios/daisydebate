@@ -47,6 +47,7 @@ export const organizations = pgTable(
     kind: text('kind').$type<(typeof organizationKinds)[number]>().notNull(),
     name: text('name').notNull(),
     handle: text('handle').notNull(),
+    official: boolean('official').notNull().default(false),
     ownerUserId: text('owner_user_id').references(() => users.id, {
       onDelete: 'restrict',
     }),

@@ -22,7 +22,7 @@ test('create page renders durable-create fields without a placeholder judge', ()
       choices: [],
       commandId: 'n'.repeat(24),
       memberDivision: 'open',
-      staffLobby: null,
+      lobbyChoice: null,
     }),
   );
   assert({
@@ -57,7 +57,7 @@ test('the ranked create form explains why it is public and states no notice', ()
         values: {},
         commandId: 'n'.repeat(24),
         memberDivision: 'open',
-        staffLobby: null,
+        lobbyChoice: null,
         initialRanked,
         pending: false,
       }),
@@ -103,7 +103,7 @@ test('a member with no ladder sees why instead of Ranked', () => {
       // Arrived from Create a ranked room, which they are not shown.
       initialRanked: true,
       memberDivision: null,
-      staffLobby: null,
+      lobbyChoice: null,
       pending: false,
     }),
   ).replaceAll('&#x27;', "'");
@@ -128,7 +128,7 @@ test('Ranked is open to either lobby and names no division (YCreateRoom)', () =>
   };
   const render = (
     memberDivision: 'open' | 'youth',
-    staffLobby: 'open' | 'youth' | null,
+    lobbyChoice: Parameters<typeof CreateRoomEditor>[0]['lobbyChoice'],
   ) =>
     renderToString(
       h(CreateRoomEditor, {
@@ -137,14 +137,21 @@ test('Ranked is open to either lobby and names no division (YCreateRoom)', () =>
         values: {},
         commandId: 'n'.repeat(24),
         memberDivision,
-        staffLobby,
+        lobbyChoice,
         initialRanked: true,
         pending: false,
       }),
     ).replaceAll('&#x27;', "'");
   const youth = render('youth', null);
   const adult = render('open', null);
-  const staff = render('open', 'open');
+  const openLobby = 'o'.repeat(24);
+  const staff = render('open', {
+    choices: [
+      { id: openLobby, name: 'Open', ageRule: 'adults' },
+      { id: 'y'.repeat(24), name: 'Youth', ageRule: 'under-18' },
+    ],
+    defaultId: openLobby,
+  });
   const box = (html: string) =>
     /<input[^>]*name="ranked"[^>]*>/.exec(html)?.[0] ?? '';
   assert({
@@ -164,9 +171,9 @@ test('Ranked is open to either lobby and names no division (YCreateRoom)', () =>
       youth.includes('role="radiogroup" aria-label="Lobby"'),
       staff.includes('role="radiogroup" aria-label="Lobby"'),
       staff.includes(
-        '<input type="radio" name="lobby" checked="" value="open"/>',
+        `<input type="radio" name="lobby" checked="" value="${openLobby}"/>`,
       ),
-      staff.includes('>Youth lobby</strong>'),
+      staff.includes('>Youth</strong>'),
     ],
     expected: [true, true, false, false, true, true, true],
   });
@@ -186,7 +193,7 @@ test('recording is a visible casual choice and automatically on for Ranked', () 
         values,
         commandId: 'n'.repeat(24),
         memberDivision: 'open',
-        staffLobby: null,
+        lobbyChoice: null,
         initialRanked,
         pending: false,
       }),
@@ -230,7 +237,7 @@ test('post-round feedback is a casual choice that Ranked switches off', () => {
         values,
         commandId: 'n'.repeat(24),
         memberDivision: 'open',
-        staffLobby: null,
+        lobbyChoice: null,
         initialRanked,
         pending: false,
       }),
@@ -265,7 +272,7 @@ test('a casual Room is public unless its host chooses otherwise', () => {
         values,
         commandId: 'n'.repeat(24),
         memberDivision: 'open',
-        staffLobby: null,
+        lobbyChoice: null,
         initialRanked: false,
         pending: false,
       }),

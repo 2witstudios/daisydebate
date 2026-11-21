@@ -31,8 +31,8 @@ export type RecordingCapturePort = {
     readonly roundId: string;
     readonly competitionType: CompetitionType;
     readonly ladderDivision: RatingDivision | null;
-    /** Its Room's division: any Round of a Youth Room is a Youth Round (ADR 0157). */
-    readonly roomDivision: RatingDivision | null;
+    /** Whether its Room is Youth: any Round of a Youth Room is a Youth Round (ADR 0157). */
+    readonly roomYouth: boolean | null;
     readonly hostActorId: string | null;
     readonly hostOptedIn: boolean;
     readonly hostHoldsRecording: boolean;

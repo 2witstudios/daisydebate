@@ -110,12 +110,24 @@ describe('competitive schema rules', () => {
   });
 
   test('rooms and rounds carry the lifecycle and provenance rules', () => {
+    const roomColumns: readonly { name: string; notNull: boolean }[] =
+      Object.values(getTableColumns(rooms));
     assert({
       given: 'the rooms and rounds tables',
       should:
         'declare the room assembly CHECKs, every round vocabulary CHECK, the lifecycle, ladder and preset CHECKs, the indexes and the (id, format_id) key',
-      actual: { rooms: rules(rooms), rounds: rules(rounds) },
+      actual: {
+        rooms: rules(rooms),
+        rounds: rules(rounds),
+        roomIdentity: {
+          lobbyRequired: roomColumns.some(
+            ({ name, notNull }) => name === 'lobby_id' && notNull,
+          ),
+          divisionStored: roomColumns.some(({ name }) => name === 'division'),
+        },
+      },
       expected: {
+        roomIdentity: { lobbyRequired: true, divisionStored: false },
         rooms: {
           checks: [
             'rooms_ballot_definition_complete',
@@ -124,13 +136,13 @@ describe('competitive schema rules', () => {
             'rooms_change_version_positive',
             'rooms_competition_type_check',
             'rooms_config_is_object',
-            'rooms_division_check',
             'rooms_event_is_casual',
             'rooms_event_recording',
             'rooms_execution_plan_is_object',
             'rooms_fixed_topic_present',
             'rooms_host_by_lobby_kind',
             'rooms_league_ladder_is_casual_standing',
+            'rooms_legacy_tournament_youth_check',
             'rooms_ranked_has_preset_check',
             'rooms_ranked_public_check',
             'rooms_ranked_sides_open_check',

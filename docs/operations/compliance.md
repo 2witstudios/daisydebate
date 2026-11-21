@@ -438,23 +438,24 @@ likeness or streaming right (owner decision 89,
   the member's own age record and never more than 12 months back, so nobody
   stays on Youth for more than a year past turning 18. The birth month never
   leaves SQL. No new data class, purpose or retention exists:
-  ratings, seasons, Rooms, Rounds and challenges carry the division, never
-  an age.
+  Rooms and challenges carry the lobby id. The existing rating, season and
+  frozen ladder records carry the rating classification. Existing tournament
+  Rooms retain their prior privacy classification. None stores a member's age.
 - **What a lobby discloses.** Pages never name an age or birth month. A
-  lobby still discloses an age class (ADR 0156): a member in a Youth Room's
+  lobby can disclose an age class (ADR 0162): a member in a Youth Room's
   debater seat is under 18, and in an Open Room's, 18 or over (or without an
   age record, casual only). Hosts and judges may be of either class: adult club
   staff host Youth Rooms and anyone judges. Inside a lobby no Room, Round, result, challenge, rating, profile or
   rail names a division, so nothing labels a named member's age class beyond
-  the lobby they play in; the leaderboard's Open | Youth switch and Watch,
-  Recordings and league pages still name a ladder. The people list carries each
-  listed member's division to signed-in members only to offer a challenge
-  inside one lobby (a member of the other lobby is offered none, and nothing
-  says why) and to show a rating only within one lobby. The basis is owner
+  the lobby they play in. Watch shows the selected standing lobby. The
+  leaderboard and Recordings may name a ladder. The people list shows
+  available challenge modes for the pair and the ladder used to show a rating.
+  Challenge options do not name the member's age or why a mode is absent. The basis is owner
   decisions 79 and 85: play is split by this class. Nothing finer is shown.
 - **Who sits where.** An adult cannot take a Youth debater seat and a minor
   cannot take an Open one, ranked or casual, and no host can seat them there.
-  Anyone may judge. A Youth Room's Round has the same audience an Open
+  A lobby with the anyone rule accepts debaters in either age group. Anyone
+  may judge. A Youth Room's Round has the same audience an Open
   Room's would: so a public Youth Round discloses to anyone watching that
   its debaters are under 18, as its lobby does (ADR 0161).
 - **Youth Room chat** (decision 84). Any member may read a public Room's
@@ -467,12 +468,11 @@ likeness or streaming right (owner decision 89,
   command; their composer says "Only people in this Room can chat here." and
   names no age. An author keeps removing their own earlier message. Open
   Rooms are unchanged. No new data: the Room chat fact derives both from the
-  Room's division, its seats and school grants in `daisy_room_community_fact`,
+  Room's lobby rule, its seats and school grants in `daisy_room_community_fact`,
   and only whether the caller may post leaves SQL.
-- **Leagues and tournaments.** A league carries one division (PYL-16): its
-  Rooms seat only members in it, so a Youth league seats only members under
-  18 and an Open league only adults. Tournament entries already refuse every entrant
-  under 18 (the closed minors rule above).
+- **Leagues and tournaments.** Standing lobby age rules apply to the
+  league's Rooms. Tournament entries continue to refuse every entrant under
+  18 (the closed minors rule above).
 - **Guardian links** ([ADR 0163](../decisions/0163-guardian-links-and-consent-evidence.md)).
   A guardian’s data export describes the consent they gave with the same label
   for every email invitation. Daisy keeps the original method with the immutable
@@ -480,7 +480,10 @@ likeness or streaming right (owner decision 89,
 
 - **Youth Rounds** ([ADR 0161](../decisions/0161-youth-rounds-follow-open-visibility.md),
   amending ADRs 0150, 0151 and 0157). A Youth Round is any Round of a Room in
-  the Youth lobby, casual included. It is viewed exactly as an Open Round is:
+  the Youth lobby, casual included. In an anyone lobby, a Round with a minor
+  in a debating seat applies the same protections to that minor. Missing age
+  evidence in an anyone lobby keeps reuse fenced and grants no viewing access.
+  A Youth Round is viewed exactly as an Open Round is:
   a ranked one is public, broadcast, recorded, listed on Watch and in the
   archive, on profiles and member cards, and announced to followers; a casual
   one follows its Room's visibility and its host's broadcast and recording

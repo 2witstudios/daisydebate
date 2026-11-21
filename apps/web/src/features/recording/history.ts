@@ -92,7 +92,7 @@ export type HistoryInputs = {
   readonly readBallots: (roundId: string) => Promise<readonly HistoryBallot[]>;
   readonly holdsRecordingDownload: (userId: string) => Promise<boolean>;
   /** The reuse fence (ADR 0161), read only when a download could be offered. */
-  readonly readReuseFenced: (round: HistoryRound) => Promise<boolean>;
+  readonly readReuseFenced: (roundId: string) => Promise<boolean>;
   readonly findRecordingByRound: (
     roundId: string,
   ) => Promise<RecordingRecord | null>;
@@ -460,12 +460,9 @@ export const openRecordingHistory = async (
       subscribed,
       // Read only when a subscriber could otherwise download it.
       reuseFenced:
-        subscribed &&
-        permissions.media &&
-        record?.lifecycle.status === 'ready' &&
-        round.youth !== null
-          ? await inputs.readReuseFenced(round).catch(() => true)
-          : round.youth !== null,
+        subscribed && permissions.media && record?.lifecycle.status === 'ready'
+          ? await inputs.readReuseFenced(round.id).catch(() => true)
+          : true,
     }),
   };
 };

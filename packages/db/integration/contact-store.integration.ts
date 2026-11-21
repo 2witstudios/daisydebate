@@ -9,6 +9,7 @@ import { contactReactions } from '../src/contact-composition';
 import { challengeContactReactions } from '../src/challenges/frame';
 import { createContactStore } from '../src/contacts/store';
 import { createMessagingTestFixture } from '../src/testing';
+import { publicLobbyId } from '../src/daisy-reference';
 
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
@@ -179,8 +180,8 @@ test('an actual challenge is deleted only by the block reaction', async () => {
   const pair = { lowActorId: low, highActorId: high };
   try {
     await client`insert into challenges
-      (id,challenger_actor_id,challenged_actor_id,mode,format_id,division,created_at,expires_at)
-      values(${id},${low},${high},'casual','freestyle','open',${fixture.now},'2026-10-09T19:00:00Z')`;
+      (id,challenger_actor_id,challenged_actor_id,mode,format_id,lobby_id,created_at,expires_at)
+      values(${id},${low},${high},'casual','freestyle',${publicLobbyId},${fixture.now},'2026-10-09T19:00:00Z')`;
     const remaining = async () =>
       (await client`select id from challenges where id=${id}`).length;
     await challengeContactReactions.onBlock(db, pair, false);

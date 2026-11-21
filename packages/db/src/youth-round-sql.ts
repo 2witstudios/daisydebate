@@ -1,6 +1,5 @@
 import { sql, type SQL } from 'drizzle-orm';
 import { reuseLicensingWordings } from '@daisy/protocol/media-release';
-import { isDebatingSeatSql } from './seat-columns';
 
 /**
  * Whether the Round with this id is a Youth Round (ADR 0157): Youth when
@@ -12,31 +11,26 @@ import { isDebatingSeatSql } from './seat-columns';
  */
 export const youthRoundSql = (roundId: SQL): SQL<boolean> =>
   sql<boolean>`exists (select 1 from rounds youth_r
-    left join rooms youth_room on youth_room.id = youth_r.room_id
     where youth_r.id = ${roundId}
-      and (youth_room.division = 'youth' or youth_r.ladder_division = 'youth'))`;
+      and (public.daisy_room_is_youth(youth_r.room_id) or youth_r.ladder_division = 'youth'))`;
 
 /**
  * The reuse fence (ADR 0161), the SQL mirror of `reuseFenced` in
  * `@daisy/protocol/media-release`: a Youth Round is fenced unless it has a
  * youth debater (a person in a current debating seat) and every one of them
  * holds an active release at a wording that licenses reuse. Download and
- * Stream this Round ask it; viewing never does.
+ * Stream this Round ask it; viewing never does. Missing age evidence in an
+ * anyone lobby leaves reuse fenced even if the stored age was erased.
  */
 export const youthReuseFencedSql = (roundId: SQL): SQL<boolean> =>
-  sql<boolean>`(${youthRoundSql(roundId)} and not (
-    exists (select 1 from round_participants reuse_p
-      join actors reuse_a on reuse_a.id = reuse_p.actor_id
-      where reuse_p.round_id = ${roundId} and ${isDebatingSeatSql(sql`reuse_p.seat_kind`)}
-        and public.daisy_round_participant_is_current(reuse_p.id) and reuse_a.user_id is not null)
-    and not exists (select 1 from round_participants reuse_p
-      join actors reuse_a on reuse_a.id = reuse_p.actor_id
-      where reuse_p.round_id = ${roundId} and ${isDebatingSeatSql(sql`reuse_p.seat_kind`)}
-        and public.daisy_round_participant_is_current(reuse_p.id) and reuse_a.user_id is not null
-        and not exists (select 1 from media_releases reuse_m
-          where reuse_m.user_id = reuse_a.user_id and reuse_m.scope = 'publish'
+  sql<boolean>`(public.daisy_round_reuse_age_unknown(${roundId}) or (${youthRoundSql(roundId)} and (with debaters as (
+      select debater_user_id from public.daisy_round_linked_adult_actors(${roundId})
+    ) select not exists (select 1 from debaters)
+      or exists (select 1 from debaters
+        where not exists (select 1 from media_releases reuse_m
+          where reuse_m.user_id = debaters.debater_user_id and reuse_m.scope = 'publish'
             and reuse_m.wording_version in (${sql.join(
               reuseLicensingWordings.map((version) => sql`${version}`),
               sql`, `,
             )})
-            and reuse_m.withdrawn_at is null))))`;
+            and reuse_m.withdrawn_at is null)))))`;

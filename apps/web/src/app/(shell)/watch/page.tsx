@@ -1,3 +1,4 @@
+import { defaultStandingLobby } from '@daisy/protocol/lobby/eligibility';
 import type { Metadata } from 'next';
 import type { SearchParams } from '../../../features/access/decision';
 import { accountOf } from '../../../features/access/account-of';
@@ -5,6 +6,8 @@ import { signInHref } from '../../../features/access/decision';
 import { hubHref, parseLiveQuery } from '../../../features/watch/live-query';
 import { documentPrincipalOf } from '../../../features/documents/document-principal';
 import {
+  requestCompetitionAgeBand,
+  requestOfficialStandingLobbies,
   requestFollowing,
   requestHubCounts,
   requestIdentity,
@@ -15,6 +18,7 @@ import { FollowingTab } from '../../../ui/watch/following-tab/following-tab';
 import { LiveTab } from '../../../ui/watch/live-tab/live-tab';
 import { StudentsLive } from '../../../ui/watch/students-live/students-live';
 import { WatchBusy } from '../../../ui/watch/watch-busy/watch-busy';
+import { Segmented } from '../../../ui/components/segmented/segmented';
 import { WatchHub } from '../../../ui/watch/watch-hub/watch-hub';
 
 export const metadata: Metadata = { title: 'Watch' };
@@ -29,22 +33,53 @@ export default async function WatchPage({
 }: {
   searchParams: Promise<SearchParams>;
 }) {
-  const query = parseLiveQuery(await searchParams);
-  const identity = await requestIdentity();
+  const parsed = parseLiveQuery(await searchParams);
+  const [identity, lobbies, ageBand] = await Promise.all([
+    requestIdentity(),
+    requestOfficialStandingLobbies(),
+    requestCompetitionAgeBand(),
+  ]);
+  const query = {
+    ...parsed,
+    lobby: parsed.lobby || defaultStandingLobby(lobbies, ageBand)?.id || '',
+  };
   const account = accountOf(identity);
   const member = documentPrincipalOf(identity);
+  const standingLobby = lobbies.find(({ id }) => id === query.lobby);
   const [listing, students] =
     query.tab === 'following'
       ? [null, []]
       : await Promise.all([
           requestLiveListing(query),
-          member ? requestStudentsLive(member) : [],
+          member
+            ? requestStudentsLive({
+                ...member,
+                lobbyId: standingLobby?.id ?? '',
+              })
+            : [],
         ]);
   return (
-    <WatchHub active={query.tab} counts={await requestHubCounts()}>
+    <WatchHub
+      active={query.tab}
+      lobby={query.lobby}
+      counts={await requestHubCounts(query.lobby)}
+    >
+      {lobbies.length > 0 ? (
+        <Segmented
+          label="Lobby"
+          fillOnPhone
+          segments={lobbies.map(({ id, name }) => ({
+            label: name,
+            href: hubHref({ ...query, lobby: id, before: '' }),
+            selected: query.lobby === id,
+          }))}
+        />
+      ) : null}
       {query.tab === 'following' ? (
         <FollowingTab
-          following={account ? await requestFollowing(account.userId) : null}
+          following={
+            account ? await requestFollowing(account.userId, query.lobby) : null
+          }
           signInHref={signInHref(hubHref(query))}
         />
       ) : listing === 'refused' ? (

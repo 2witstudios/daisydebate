@@ -5,7 +5,6 @@ import {
 } from './room-assembly';
 export type { InitialCastSeat, InitialCastApplier } from './room-assembly';
 import type { roomCommandTransaction } from './room-command-transaction';
-import { daisyOrganizationId, publicLobbyId } from './daisy-reference';
 import type { CasualJudgeAdmission } from './casual-judge-admission';
 import { recordCaptureNotice } from './agreement-signatures';
 import type {
@@ -15,16 +14,16 @@ import type {
   FormatSelectionFacts,
   EntitlementGrant,
   RecordingPolicy,
-  RatingDivision,
 } from '@daisy/protocol';
-import { roomLobbyAtCreation } from '@daisy/protocol';
-import { readRoomCreator } from './room-creator';
+import { defaultStandingLobby } from '@daisy/protocol/lobby/eligibility';
+import { readOfficialStandingLobbies } from './official-standing-lobbies';
+import { legacyRoomCompetition, lockLadderSeason } from './ladder-season';
+import { mayHostStandingRoom, readRoomCreator } from './room-creator';
 import {
   readFormatSelectionFacts,
   type SelectionTuple,
 } from './format-operations';
 
-import { sql } from 'drizzle-orm';
 import { createAppError, createRefusal } from '@daisy/errors';
 
 import { instrumented, type DatabaseEventSink } from './instrumented';
@@ -43,8 +42,6 @@ import {
   acceptCommand,
   transactionNow,
 } from './room-command-facts';
-import { query } from './raw-rows';
-import { z } from 'zod';
 
 export const roomCreateOperations = ({
   transaction,
@@ -56,12 +53,11 @@ export const roomCreateOperations = ({
   readonly judgeAdmission?: CasualJudgeAdmission | undefined;
 }) => ({
   async createRoomCommand(input: {
-    readonly room: Omit<NewRoom, 'division'> & { readonly hostActorId: string };
+    readonly room: NewRoom & { readonly hostActorId: string };
     /**
-     * The lobby the creator chose (ADR 0156); null is their own. Decided
-     * under the creator's account lock by `roomLobbyAtCreation`.
+     * The creator's selected lobby, checked under their account lock.
      */
-    readonly lobbyChoice: RatingDivision | null;
+    readonly lobbyChoice: string | null;
     /**
      * The engine's member set for the new Room's seats once its initial
      * cast is applied (ADR 0070, TAB-6.16): the seated humans, never a
@@ -140,25 +136,27 @@ export const roomCreateOperations = ({
             input.room.hostActorId,
             input.definition,
           );
-        // A Room belongs to the lobby it is created in (ADR 0156).
-        const lobby = roomLobbyAtCreation(
-          await readRoomCreator(tx, input.caller.userId),
-          input.lobbyChoice,
-        );
-        if (lobby.kind === 'refused')
-          throw createRefusal('CONFLICT', lobby.refusal);
-        const room = { ...input.room, division: lobby.division };
-        // A ranked Room rates on its own division's ladder, so opening one
-        // needs that division's active Daisy season.
-        if (room.competitionType === 'ranked') {
-          const active = await query(
-            tx,
-            z.object({ id: z.string() }),
-            sql`select id from seasons where status='active' and organization_id=${daisyOrganizationId} and division=${room.division} for share`,
-          );
-          if (active.length === 0)
-            throw createRefusal('CONFLICT', 'ranked-unavailable');
-        }
+        const room = input.room;
+        const creator = await readRoomCreator(tx, input.caller.userId);
+        const choices = await readOfficialStandingLobbies(tx);
+        const lobby =
+          input.lobbyChoice === null
+            ? defaultStandingLobby(choices, creator.ageBand)
+            : choices.find(({ id }) => id === input.lobbyChoice);
+        if (
+          !lobby ||
+          !mayHostStandingRoom(creator, {
+            ageRule: lobby.ageRule,
+            competitionType: room.competitionType,
+          })
+        )
+          throw createRefusal('CONFLICT', 'other-division');
+        const competition = legacyRoomCompetition({
+          ...room,
+          ageRule: lobby.ageRule,
+        });
+        if (competition.ladder)
+          await lockLadderSeason(tx, competition.ladder, lobby.organizationId);
         if (
           (input.recording || input.postRoundCall) &&
           input.room.competitionType === 'ranked'
@@ -167,7 +165,7 @@ export const roomCreateOperations = ({
         const now = await transactionNow(tx);
         const assembled = await assembleRoom(tx, {
           room,
-          lobby: { id: publicLobbyId, kind: 'standing' },
+          lobby: { id: lobby.id, kind: 'standing' },
           templateId: null,
           ballotDefinition: null,
           capture: input.recording

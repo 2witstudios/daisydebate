@@ -136,5 +136,5 @@ export type RecordingInputs = {
    * Whether this Round's content may not leave Daisy (`reuseFenced`, ADR
    * 0161): read only where a download is decided.
    */
-  readonly readReuseFenced: (round: RecordingRound) => Promise<boolean>;
+  readonly readReuseFenced: (roundId: string) => Promise<boolean>;
 };

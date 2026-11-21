@@ -480,6 +480,7 @@ export function testRoundFloorLive() {
       );
       for (const page of [host, peer]) {
         await page.goto(`/rounds/${roundId}/floor`);
+        await expect(floor(page)).toBeVisible({ timeout: 15_000 });
         await revealFloorMessage(page, retainedOwnText);
         await expect(message(page, retainedOwnText)).toBeVisible();
         await expect(message(page, second)).toBeVisible();

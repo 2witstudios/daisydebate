@@ -1,8 +1,4 @@
-import {
-  type RatingDivision,
-  type RoomCreator,
-  ratingDivisions,
-} from '@daisy/protocol';
+import { type RatingDivision, ratingDivisions } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { divisionAgeBand, divisionOfBandSql } from './ladder-division-band';
@@ -34,11 +30,11 @@ export const memberDivisionOperations = ({
       return row?.division ?? null;
     }),
   /**
-   * Who this member is as a Room creator (ADR 0156): their division and
+   * Who this member is as a Room creator (ADR 0156): their age band and
    * whether they are club staff, so the create form offers the Lobby choice
    * only to staff. The create command decides again under its lock.
    */
-  readRoomCreatorFact: (userId: string): Promise<RoomCreator> =>
+  readRoomCreatorFact: (userId: string) =>
     instrumented(eventSink, 'readRoomCreatorFact', () =>
       inTransaction(database, (tx) => readRoomCreator(tx, userId)),
     ),

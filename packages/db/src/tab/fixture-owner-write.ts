@@ -185,5 +185,8 @@ export async function restartFixtureRoom(
     (state) => effects.members({ ...state, debateEnded: true }),
     loaded.checkedAt,
   );
-  await assembleRoom(tx, plan);
+  await assembleRoom(tx, {
+    ...plan,
+    legacyTournamentYouth: old.legacyTournamentYouth,
+  });
 }

@@ -140,6 +140,15 @@ test('a member creates a standing lobby Room through its Tab command', async () 
       now: world.clock.now,
       newId: createId,
     });
+    await owner`update lobbies set age_rule='under-18' where id=${lobbyId}`;
+    assert({
+      given:
+        'an adult league member with no club staff grant opening an under-18 Room without a cast',
+      should: 'deny the host under the lobby age rule',
+      actual: await deniedAsNotFound(() => send(as(world.bots.Coach!), body)),
+      expected: true,
+    });
+    await owner`update lobbies set age_rule='adults' where id=${lobbyId}`;
     const created = await send(as(world.bots.Coach!), body);
     assert({
       given: 'an admitted active league member with no host grant',

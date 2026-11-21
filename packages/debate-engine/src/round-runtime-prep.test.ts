@@ -163,7 +163,7 @@ describe('round runtime prep', () => {
         participants: oneOnOneSeats.map((row) => ({
           ...row,
           eligible: true,
-          division: 'open' as const,
+          ageBand: 'adult' as const,
           kind: 'human' as const,
         })),
         participantId: seat.id,

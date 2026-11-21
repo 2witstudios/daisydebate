@@ -25,7 +25,8 @@ const entry: RoomListEntry = {
   waitingSince: '2026-10-26T11:55:00.000Z',
   live: null,
   hostRating: 1712,
-  division: 'open',
+  lobbyId: id('o'),
+  ageRule: 'adults',
   openJudgeSeats: 0,
 };
 const now = instantMs('2026-10-26T12:00:00.000Z');
@@ -33,7 +34,7 @@ const query = (over: Partial<RoomListQuery> = {}): LobbyProps['query'] => ({
   q: '',
   pageSize: 20,
   ...over,
-  division: over.division ?? 'open',
+  lobbyId: over.lobbyId ?? id('o'),
 });
 const render = (props: Partial<LobbyProps> = {}) =>
   renderToStaticMarkup(
@@ -44,7 +45,11 @@ const render = (props: Partial<LobbyProps> = {}) =>
       retry={false}
       activeRoom={null}
       now={now}
-      viewer={{ actorId: id('d'), division: 'open' }}
+      viewer={{ actorId: id('d'), ageBand: 'adult' }}
+      lobbies={[
+        { id: id('o'), name: 'Open', ageRule: 'adults' },
+        { id: id('y'), name: 'Youth', ageRule: 'under-18' },
+      ]}
       {...props}
     />,
   );
@@ -86,7 +91,7 @@ describe('Lobby', () => {
     assert({
       given: 'the Lobby header',
       should: 'link Watch live to the public hub',
-      actual: /href="\/watch"[^>]*>Watch live<\/a>/.test(render()),
+      actual: render().includes(`href="/watch?lobby=${id('o')}"`),
       expected: true,
     });
   });
@@ -102,7 +107,9 @@ describe('Lobby', () => {
           html,
         ),
         html.includes('Practice with a bot'),
-        /href="\/play\/room"[^>]*>New room<\/a>/.test(html),
+        new RegExp(
+          `href="/play/room\\?lobby=${id('o')}"[^>]*>New room</a>`,
+        ).test(html),
         /\btable\b/i.test(html),
       ],
       expected: [true, true, true, false],
@@ -166,16 +173,17 @@ describe('Lobby', () => {
     });
     assert({
       given: 'an open tab with a search and a ranked filter',
-      should: 'post nowhere, carry the tab, and link the other tabs and Clear',
+      should: 'keep the lobby ID in the GET form, status links, and Clear',
       actual: [
         /<form[^>]*action="\/lobby"[^>]*method="get"/.test(html),
         html.includes('name="status" value="open"'),
+        html.includes(`name="lobby" value="${id('o')}"`),
         html.includes(
-          'href="/lobby?q=tax&amp;status=live&amp;mode=ranked&amp;lobby=open"',
+          `href="/lobby?q=tax&amp;status=live&amp;mode=ranked&amp;lobby=${id('o')}"`,
         ),
-        html.includes('href="/lobby?status=open&amp;lobby=open"'),
+        html.includes(`href="/lobby?status=open&amp;lobby=${id('o')}"`),
       ],
-      expected: [true, true, true, true],
+      expected: [true, true, true, true, true],
     });
   });
 
@@ -197,13 +205,13 @@ describe('Lobby', () => {
         html.includes('<option value="closest'),
         html.indexOf('name="mode"') < html.indexOf('name="sort"'),
         html.includes(
-          'href="/lobby?status=live&amp;mode=ranked&amp;lobby=open&amp;sort=longest-waiting"',
+          `href="/lobby?status=live&amp;mode=ranked&amp;lobby=${id('o')}&amp;sort=longest-waiting"`,
         ),
         html.includes(
-          'href="/lobby?status=open&amp;lobby=open&amp;sort=longest-waiting"',
+          `href="/lobby?status=open&amp;lobby=${id('o')}&amp;sort=longest-waiting"`,
         ),
         html.includes(
-          `href="/lobby?status=open&amp;mode=ranked&amp;lobby=open&amp;sort=longest-waiting&amp;cursor=${id('f')}"`,
+          `href="/lobby?status=open&amp;mode=ranked&amp;lobby=${id('o')}&amp;sort=longest-waiting&amp;cursor=${id('f')}"`,
         ),
       ],
       expected: [true, true, true, false, true, true, true, true],
@@ -242,10 +250,10 @@ describe('Lobby', () => {
       should: 'link First page and Next page carrying search and page size',
       actual: [
         html.includes(
-          'href="/lobby?q=Stored+motion&amp;pageSize=1&amp;lobby=open">First page',
+          `href="/lobby?q=Stored+motion&amp;pageSize=1&amp;lobby=${id('o')}">First page`,
         ),
         html.includes(
-          `href="/lobby?q=Stored+motion&amp;pageSize=1&amp;lobby=open&amp;cursor=${id('a')}">Next page`,
+          `href="/lobby?q=Stored+motion&amp;pageSize=1&amp;lobby=${id('o')}&amp;cursor=${id('a')}">Next page`,
         ),
       ],
       expected: [true, true],
@@ -265,10 +273,12 @@ describe('Lobby', () => {
       actual: [
         empty.includes('No open rooms right now'),
         unmatched.includes('No rooms match'),
-        unmatched.includes('href="/lobby?lobby=open">Clear search and filters'),
+        unmatched.includes(
+          `href="/lobby?lobby=${id('o')}">Clear search and filters`,
+        ),
         changed.includes('Rooms changed while you were paging.'),
         changed.includes(
-          `href="/lobby?lobby=open&amp;cursor=${id('f')}">Refresh`,
+          `href="/lobby?lobby=${id('o')}&amp;cursor=${id('f')}">Refresh`,
         ),
         changed.includes('Persisted room'),
       ],
@@ -341,14 +351,14 @@ describe('Lobby', () => {
       ...over,
     });
     const html = render({
-      viewer: { actorId: id('d'), division: 'open' },
-      query: query({ division: 'youth' }),
+      viewer: { actorId: id('d'), ageBand: 'adult' },
+      query: query({ lobbyId: id('y') }),
       rooms: [
-        ranked({ id: id('a'), title: 'Youth scrimmage', division: 'youth' }),
+        ranked({ id: id('a'), title: 'Youth scrimmage', ageRule: 'under-18' }),
         ranked({
           id: id('c'),
           title: 'Judge wanted',
-          division: 'youth',
+          ageRule: 'under-18',
           openJudgeSeats: 1,
         }),
       ],
@@ -372,18 +382,18 @@ describe('Lobby', () => {
 
   test('the lobby switch (YLLobbySwitch)', () => {
     const html = render({
-      query: query({ division: 'youth', mode: 'ranked' }),
+      query: query({ lobbyId: id('y'), mode: 'ranked' }),
     });
     assert({
       given: 'the Youth lobby narrowed to ranked',
       should:
         'name the switch Lobby with no label inside, mark Youth current, link Open keeping the filters, and carry the lobby in the form',
       actual: [
-        /<nav aria-label="Lobby"[^>]*><a[^>]*>Open lobby<\/a><a[^>]*aria-current="page"[^>]*>Youth lobby<\/a><\/nav>/.test(
+        /<nav aria-label="Lobby"[^>]*><a[^>]*>Open<\/a><a[^>]*aria-current="page"[^>]*>Youth<\/a><\/nav>/.test(
           html,
         ),
-        html.includes('href="/lobby?mode=ranked&amp;lobby=open"'),
-        html.includes('<input type="hidden" name="lobby" value="youth"/>'),
+        html.includes(`href="/lobby?mode=ranked&amp;lobby=${id('o')}"`),
+        html.includes(`<input type="hidden" name="lobby" value="${id('y')}"/>`),
         /name="division"/.test(html),
       ],
       expected: [true, true, true, false],

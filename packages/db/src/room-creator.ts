@@ -1,14 +1,28 @@
-import type { RoomCreator } from '@daisy/protocol';
+import type { AgeBand, CompetitionType } from '@daisy/protocol';
+import {
+  mayDebate,
+  type LobbyAgeRule,
+} from '@daisy/protocol/lobby/eligibility';
 import { sql } from 'drizzle-orm';
 import { clubOrganizationKinds } from './billing-owner-lock';
-import { readDivisionOf } from './media-release-records';
+import { readCompetitionAgeBand } from './ladder-division-band';
 import { query } from './raw-rows';
 import { currentTenantScope, scopeTransaction } from './tenant-scope';
 import type { Tx } from './tx';
 import { z } from 'zod';
 
+export const mayHostStandingRoom = (
+  creator: { readonly ageBand: AgeBand | null; readonly clubStaff: boolean },
+  lobby: {
+    readonly ageRule: LobbyAgeRule;
+    readonly competitionType: CompetitionType;
+  },
+): boolean =>
+  (creator.clubStaff && lobby.ageRule === 'under-18') ||
+  mayDebate({ ageBand: creator.ageBand, guardianAllowed: false }, lobby);
+
 /**
- * Who creates a Room, as its lobby is decided (ADR 0156): their division, and
+ * Who creates a Room, as its lobby is decided: their competition age band and
  * whether they are club staff, who may also open a Youth Room for their
  * students. Club staff own an open club, or hold a live organisation grant
  * carrying `school.roster.manage` in an open school club they are an active
@@ -18,8 +32,8 @@ import { z } from 'zod';
 export async function readRoomCreator(
   tx: Tx,
   userId: string,
-): Promise<RoomCreator> {
-  const division = await readDivisionOf(tx, userId);
+): Promise<{ readonly ageBand: AgeBand | null; readonly clubStaff: boolean }> {
+  const ageBand = await readCompetitionAgeBand(tx, userId);
   const scope = await currentTenantScope(tx);
   await scopeTransaction(tx, { subjectUserId: userId });
   const [staff] = await query(
@@ -41,5 +55,5 @@ export async function readRoomCreator(
       ) as staff`,
   );
   await scopeTransaction(tx, scope);
-  return { division, clubStaff: staff?.staff === true };
+  return { ageBand, clubStaff: staff?.staff === true };
 }

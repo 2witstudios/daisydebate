@@ -15,7 +15,7 @@ const roomIn = (division: RatingDivision) => {
   const base = state();
   return {
     ...base,
-    division,
+    ageRule: division === 'youth' ? ('under-18' as const) : ('adults' as const),
     competitionType: 'ranked' as const,
     rules: { ...base.rules, seats: { ...base.rules.seats, judges: 1 } },
     participants: base.participants.filter((p) => p.actorId === 'host'),
@@ -29,7 +29,12 @@ const member = (division: RatingDivision | null, seat: SeatRef) => ({
   kind: 'human' as const,
   seat,
   eligible: true,
-  division,
+  ageBand:
+    division === null
+      ? null
+      : division === 'youth'
+        ? ('16-17' as const)
+        : ('adult' as const),
   aiRole: null,
   consentVersion: 0,
   teamOpen: false,

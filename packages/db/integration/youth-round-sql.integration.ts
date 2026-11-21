@@ -9,6 +9,9 @@ import {
   reuseFenced,
 } from '@daisy/protocol/media-release';
 import { youthReuseFencedSql, youthRoundSql } from '../src/youth-round-sql';
+import { readYouthRecordingPeople } from '../src/youth-recording-people';
+import { accountAgePrivacyAdopter } from '../src/account-age';
+import { mediaReleasePrivacyAdopter } from '../src/media-release-privacy';
 import { createAuthorizationSubject } from './authorization.test-support';
 import { withFixture } from './constraint-helpers';
 import { validConfig } from './round-fixtures';
@@ -17,11 +20,91 @@ import { integrationSuite } from './suite.test-support';
 requireTestServices(process.env);
 const { databaseUrl } = integrationSuite();
 
+test('an anyone lobby protects only the minor in a mixed cast', async () => {
+  await withFixture(databaseUrl, async (f) => {
+    const adult = await createAuthorizationSubject(f);
+    const minor = await createAuthorizationSubject(f);
+    await f.sql`update account_age set birth_month=to_char(now()-interval '16 years','YYYY-MM')
+      where user_id=${minor.userId}`;
+    const [owner] = await f.sql`select id from organizations where official`;
+    const lobbyId = createId();
+    await f.insert('lobbies', {
+      id: lobbyId,
+      name: 'All ages',
+      handle: lobbyId,
+      kind: 'standing',
+      owner_organization_id: owner!.id,
+      age_rule: 'anyone',
+    });
+    const formatId = await f.format();
+    const roomId = await f.room(adult.actorId, formatId, { lobby_id: lobbyId });
+    const { id: roundId } = await f.roundWithCast(
+      {
+        room_id: roomId,
+        room_config_snapshot: validConfig,
+        visibility: 'private',
+        format_id: formatId,
+      },
+      [
+        { seat: 'affirmative', actorId: adult.actorId },
+        { seat: 'negative', actorId: minor.actorId },
+      ],
+    );
+    const db = drizzle({ client: f.sql });
+    const facts = async () => {
+      const [row] = await db.execute(sql`select
+        ${youthReuseFencedSql(sql`${roundId}`)} as fenced`);
+      return row?.fenced;
+    };
+    const beforeRelease = await facts();
+    const people = await readYouthRecordingPeople(db, roundId);
+    await f.sql`insert into media_releases (id,user_id,scope,source,signer_name,signer_relation,signer_email,wording_version,signed_at)
+      values (${createId()},${minor.userId},'publish','parent','A Parent','parent','parent@example.test',${mediaReleaseWording.version},now())`;
+    assert({
+      given: 'an adult and a minor debating in a private anyone Round',
+      should:
+        'expose only the minor to linked-adult lookup and require only that minor’s release for reuse',
+      actual: [
+        people.debaters.map(({ actorId }) => actorId),
+        beforeRelease,
+        await facts(),
+      ],
+      expected: [[minor.actorId], true, false],
+    });
+    await db.transaction(async (tx) => {
+      const context = { now: new Date().toISOString() };
+      await mediaReleasePrivacyAdopter.erase(tx, minor, context);
+      await accountAgePrivacyAdopter.erase(tx, minor, context);
+    });
+    assert({
+      given: 'the minor’s age evidence and active release removed by erasure',
+      should:
+        'fence reuse of the retained Round without granting any linked-adult access',
+      actual: [
+        await facts(),
+        (await readYouthRecordingPeople(db, roundId)).debaters,
+      ],
+      expected: [true, []],
+    });
+  });
+});
+
 /**
  * ADR 0157: `youthRoundSql` is the SQL mirror of `isYouthRound`. Every Room
  * division (and no Room) against every ladder (none, Open, Youth) gives the
  * same answer in SQL as in the rule.
  */
+const lobbyFor = async (
+  f: Pick<import('./constraint-helpers').Fixture, 'sql'>,
+  band: 'open' | 'youth',
+) => {
+  const ageRule = band === 'youth' ? 'under-18' : 'adults';
+  const [lobby] =
+    await f.sql`select l.id from lobbies l join organizations o on o.id=l.owner_organization_id
+    where o.official and l.age_rule=${ageRule}`;
+  return lobby!.id;
+};
+
 test('youthRoundSql agrees with isYouthRound on every Room and ladder', async () => {
   await withFixture(databaseUrl, async (f) => {
     const caller = await createAuthorizationSubject(f);
@@ -47,7 +130,7 @@ test('youthRoundSql agrees with isYouthRound on every Room and ladder', async ()
           room === null
             ? null
             : await f.room(caller.actorId, formatId, {
-                division: room,
+                lobby_id: await lobbyFor(f, room),
                 competition_type: ladder === null ? 'casual' : 'ranked',
                 ...(ladder === null ? {} : ranked),
               });
@@ -79,7 +162,7 @@ test('youthRoundSql agrees with isYouthRound on every Room and ladder', async ()
       actual[label(room, ladder)] = await inSql(roundId);
       expected[label(room, ladder)] = isYouthRound(
         { ladderDivision: ladder },
-        room === null ? null : { division: room },
+        room === null ? null : room === 'youth',
       );
     }
     assert({
@@ -148,7 +231,9 @@ test('youthReuseFencedSql agrees with reuseFenced on every release standing', as
     }[] = [];
     for (const division of ['open', 'youth'] as const)
       for (const standing of standings as readonly Standing[]) {
-        const roomId = await f.room(caller.actorId, formatId, { division });
+        const roomId = await f.room(caller.actorId, formatId, {
+          lobby_id: await lobbyFor(f, division),
+        });
         const debaterUserIds: string[] =
           standing === 'no debater' ? [] : [await f.user(), await f.user()];
         const cast = [];

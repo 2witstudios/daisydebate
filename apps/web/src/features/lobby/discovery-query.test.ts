@@ -1,4 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { standingLobbyLabels } from './standing-lobby-labels';
 import {
   filterCount,
   isFiltered,
@@ -10,6 +11,24 @@ import {
 setupRitewayBun();
 
 const cursor = 'a'.repeat(24);
+
+test('official lobby choices with the same name have distinct labels', () => {
+  assert({
+    given: 'two official leagues with an Open lobby and one Youth lobby',
+    should:
+      'qualify only the matching labels and preserve the lobby identities',
+    actual: standingLobbyLabels([
+      { id: '1', name: 'Open', handle: 'daisy' },
+      { id: '2', name: 'Open', handle: 'valley-open' },
+      { id: '3', name: 'Youth', handle: 'daisy-youth' },
+    ]).map(({ id, name }) => [id, name]),
+    expected: [
+      ['1', 'Open (daisy)'],
+      ['2', 'Open (valley-open)'],
+      ['3', 'Youth'],
+    ],
+  });
+});
 
 test('native Lobby selects recognized discovery query keys', () => {
   const result = parseRoomDiscoveryQuery({
@@ -76,15 +95,15 @@ test('the lobby switch names the Open or Youth lobby in the URL (ADR 0156)', () 
     should:
       'carry the lobby, leave it to the viewer when absent, and refuse the rest',
     actual: [
-      parsed({ lobby: 'youth' }),
-      parsed({ lobby: 'open', mode: 'ranked' }),
+      parsed({ lobby: 'y'.repeat(24) }),
+      parsed({ lobby: 'o'.repeat(24), mode: 'ranked' }),
       parsed({}),
       parsed({ lobby: 'adult' }),
-      parsed({ lobby: ['open', 'youth'] }),
+      parsed({ lobby: ['o'.repeat(24), 'y'.repeat(24)] }),
     ],
     expected: [
-      { q: '', pageSize: 20, division: 'youth' },
-      { q: '', pageSize: 20, mode: 'ranked', division: 'open' },
+      { q: '', pageSize: 20, lobbyId: 'y'.repeat(24) },
+      { q: '', pageSize: 20, mode: 'ranked', lobbyId: 'o'.repeat(24) },
       { q: '', pageSize: 20 },
       null,
       null,
@@ -137,8 +156,8 @@ describe('lobbyHref', () => {
     assert({
       given: 'a ranked query in the Youth lobby',
       should: 'carry the lobby after the mode',
-      actual: lobbyHref({ ...query, division: 'youth' }),
-      expected: '/lobby?q=tax&pageSize=5&status=open&mode=ranked&lobby=youth',
+      actual: lobbyHref({ ...query, lobbyId: 'y'.repeat(24) }),
+      expected: `/lobby?q=tax&pageSize=5&status=open&mode=ranked&lobby=${'y'.repeat(24)}`,
     });
   });
 
@@ -171,8 +190,13 @@ describe('isFiltered', () => {
       given: 'a mode in a lobby, a lobby alone, and a status tab',
       should: 'count the mode only: the lobby is no filter',
       actual: [
-        filterCount({ q: '', pageSize: 20, mode: 'ranked', division: 'open' }),
-        filterCount({ q: '', pageSize: 20, division: 'youth' }),
+        filterCount({
+          q: '',
+          pageSize: 20,
+          mode: 'ranked',
+          lobbyId: 'o'.repeat(24),
+        }),
+        filterCount({ q: '', pageSize: 20, lobbyId: 'y'.repeat(24) }),
         filterCount({ q: '', pageSize: 20, status: 'live' }),
       ],
       expected: [1, 0, 0],
