@@ -295,16 +295,15 @@ export const tenantIsolationManifest: TenantIsolationManifest = {
       reason: 'Checks the current subject’s authority for one child.',
     },
     {
-      name: 'daisy_friend_guardian_clearances',
+      name: 'daisy_friend_guardian_holds',
       executors: ['daisy_web'],
-      reason:
-        'Returns only cleared child actors for the subject’s live request pair.',
+      reason: 'Returns the required endpoint holds on a current contact pair.',
     },
     {
       name: 'daisy_hold_friend_request',
       executors: ['daisy_web'],
       reason:
-        'Creates a hold on a scoped waiting request and publishes the current guardian recipient identities.',
+        'Creates a scoped live hold and delivers its private in-app notice.',
     },
     {
       name: 'daisy_clear_friend_guardian_hold',
@@ -320,8 +319,36 @@ export const tenantIsolationManifest: TenantIsolationManifest = {
     {
       name: 'daisy_protection_level',
       executors: ['daisy_web'],
+      reason: 'Reads the choice for its child or a current linked guardian.',
+    },
+    {
+      name: 'daisy_effective_protection_choice',
+      executors: [],
+      reason: 'Private effective protection choice for policy decisions.',
+    },
+    {
+      name: 'daisy_ranked_protection_allows',
+      executors: ['daisy_web'],
       reason:
-        'Returns only the effective protection choice used by account, contact and competitive fences.',
+        'Returns only the ranked prerequisite across prospective entrants.',
+    },
+    {
+      name: 'daisy_message_requests_friends_only',
+      executors: ['daisy_web'],
+      reason:
+        'Returns only the effective incoming message-request restriction.',
+    },
+    {
+      name: 'daisy_own_friend_guardian_hold_live',
+      executors: ['daisy_web'],
+      reason:
+        'Returns standing for an approval owned by the child or their guardian.',
+    },
+    {
+      name: 'daisy_friend_guardian_waiting',
+      executors: ['daisy_web'],
+      reason:
+        'Projects the participant’s own hold and generic counterpart waiting.',
     },
     {
       name: 'daisy_set_protection_level',

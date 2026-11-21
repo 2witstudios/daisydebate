@@ -1,4 +1,4 @@
-import { daisyOrganizationId } from '@daisy/db/testing';
+import { daisyOrganizationId, scratchDatabase } from '@daisy/db/testing';
 import { requireTestServices } from '@daisy/config';
 import { isAppError } from '@daisy/errors';
 import { createId } from '@paralleldrive/cuid2';
@@ -19,7 +19,7 @@ import {
 } from '../src/features/legal/agreements';
 
 setupRitewayBun();
-requireTestServices(process.env);
+const { databaseUrl } = requireTestServices(process.env);
 
 type Fixture = Parameters<Parameters<typeof withRoomRuntime>[0]>[0];
 type Member = Fixture['host'];
@@ -450,3 +450,101 @@ test('Start refuses a seated debater who no longer fits the Room’s lobby', asy
     });
   });
 });
+
+test('a ranked Start rechecks both a seatless host and a ready debater after a protection change', async () => {
+  const scratch = scratchDatabase(databaseUrl, 'rankedprotection');
+  await scratch.create();
+  try {
+    await scratch.migrate(() => true);
+    await withRoomRuntime(
+      async (f) =>
+        withSeasons(f, async () => {
+          const guardian = await f.member();
+          // The extra member is an adult by default; seed their age with the
+          // same durable fact used by the normal Room members.
+          await f.sql`insert into account_age(user_id, birth_month, version, recorded_at)
+          values (${guardian.userId}, to_char(now() - interval '30 years', 'YYYY-MM'), 1, now())
+          on conflict (user_id) do nothing`;
+          for (const member of [f.host, f.guest, f.outsider])
+            await setAge(f, member, 'seventeen');
+          for (const member of [f.host, f.guest]) {
+            const evidence = createId();
+            await f.sql`insert into guardian_consent_evidence(id, person_user_id, role, method,
+            notice_kind, notice_version, notice_digest, recorded_at)
+            values(${evidence}, ${guardian.userId}, 'guardian', 'created-account',
+              'parental-consent', 'fixture', ${'a'.repeat(64)}, now())`;
+            await f.sql`insert into guardian_links(id, guardian_user_id, minor_user_id,
+            guardian_consent_id, status, activation, activated_at, created_at)
+            values(${createId()}, ${guardian.userId}, ${member.userId}, ${evidence},
+              'active', 'created-account', now(), now())`;
+          }
+          for (const member of [f.guest, f.outsider])
+            await f.store.signContentWaiver({
+              id: createId(),
+              userId: member.userId,
+              version: YOUTH_CONTENT_WAIVER_VERSION,
+              words: agreementWords(youthContentWaiverDocument),
+            });
+          const protect = (member: Member, level: 'guided' | 'supervised') =>
+            f.sql.begin(async (tx) => {
+              await tx`select set_config('daisy.subject_scope', ${guardian.userId}, true)`;
+              await tx`select public.daisy_set_protection_level(
+              ${member.userId}, ${JSON.stringify({ level })}::text::jsonb)`;
+            });
+          let room = (await f.create(await ranked(f), f.host)).view;
+          room = (
+            await f.command(f.guest, room, {
+              type: 'claim-seat',
+              seat: sideSeat(affirmativeSide),
+            })
+          ).view;
+          room = (
+            await f.command(f.outsider, room, {
+              type: 'claim-seat',
+              seat: sideSeat(negativeSide),
+            })
+          ).view;
+          room = (
+            await f.command(f.host, room, {
+              type: 'assign-seat',
+              actorId: (await f.aiJudge()).actorId,
+              seat: judgeSeat(),
+            })
+          ).view;
+          const ready = await everyoneReady(f, room, [f.guest, f.outsider]);
+          const start = () =>
+            refusalOf(f.command(f.host, ready, { type: 'start-round' }));
+          await protect(f.host, 'supervised');
+          const hostRefusal = await start();
+          await protect(f.host, 'guided');
+          await protect(f.guest, 'supervised');
+          const seatedRefusal = await start();
+          const [before] =
+            await f.sql`select count(*)::int as rounds from rounds where room_id=${room.id}`;
+          await protect(f.guest, 'guided');
+          const control = await start();
+          assert({
+            given:
+              'an eligible Youth ranked Room with a ready cast and seatless host',
+            should:
+              'refuse Start for a Supervised host or debater without a Round, then allow Start on Guided',
+            actual: {
+              hostRefusal,
+              seatedRefusal,
+              rounds: before?.rounds,
+              control,
+            },
+            expected: {
+              hostRefusal: 'ranked-unavailable',
+              seatedRefusal: 'ranked-unavailable',
+              rounds: 0,
+              control: 'accepted',
+            },
+          });
+        }),
+      { databaseUrl: scratch.url },
+    );
+  } finally {
+    await scratch.drop();
+  }
+}, 60_000);

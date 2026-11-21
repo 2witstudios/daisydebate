@@ -1,4 +1,5 @@
 import { expect, test } from 'bun:test';
+import type { TransactionSQL } from 'bun';
 import { requireTestServices } from '@daisy/config';
 import {
   createGuardianStore,
@@ -219,6 +220,50 @@ test('two guardians share one choice and only current guardians can clear a hold
       expect((await inbox(parent)).rows.map((row) => row.kind)).toEqual([
         'friend_guardian_approval',
       ]);
+      const initialAdultNotice = (await inbox(parent)).rows[0]!;
+      const scoped = async <T>(
+        subject: typeof child,
+        work: (sp: TransactionSQL) => Promise<T>,
+      ) =>
+        sql.savepoint(async (sp) => {
+          await sp`select set_config('daisy.subject_scope', ${subject.userId}, true)`;
+          return work(sp);
+        });
+      expect<unknown>(
+        await scoped(
+          stranger,
+          (sp) =>
+            sp`select public.daisy_protection_level(${child.userId}) as choice`,
+        ),
+      ).toEqual([{ choice: null }]);
+      expect<unknown>(
+        await scoped(
+          parent,
+          (sp) =>
+            sp`select public.daisy_protection_level(${child.userId}) as choice`,
+        ),
+      ).toEqual([{ choice: custom }]);
+      expect<unknown>(
+        await scoped(
+          stranger,
+          (sp) =>
+            sp`select id from friend_guardian_approvals where id=${approvalId}`,
+        ),
+      ).toEqual([]);
+      const unneededId = createId();
+      await scoped(
+        stranger,
+        (sp) => sp`select public.daisy_hold_friend_request(
+        ${unneededId}, ${low}, ${high}, ${stranger.actorId}, ${stamp}::timestamptz)`,
+      );
+      expect<unknown>(
+        await scoped(
+          stranger,
+          (sp) =>
+            sp`select id from friend_guardian_approvals where id=${unneededId}`,
+        ),
+      ).toEqual([]);
+      await sql`update notifications set read_at=${at} where id=${initialAdultNotice.id}`;
       await expect(
         sql.savepoint(
           (sp) =>
@@ -251,6 +296,13 @@ test('two guardians share one choice and only current guardians can clear a hold
         kind: 'refused',
         refusal: 'not-waiting',
       });
+      expect<unknown>(
+        await scoped(
+          parent,
+          (sp) =>
+            sp`select public.daisy_clear_friend_guardian_hold(${approvalId}) as changed`,
+        ),
+      ).toEqual([{ changed: false }]);
       expect(
         await run(coGuardian, {
           ...supervised,
@@ -258,6 +310,20 @@ test('two guardians share one choice and only current guardians can clear a hold
           choice: custom,
         }),
       ).toEqual({ kind: 'accepted' });
+      expect((await inbox(parent)).rows).toMatchObject([
+        { id: initialAdultNotice.id, readAt: null },
+      ]);
+      await sql`update notifications set read_at=${at} where id=${initialAdultNotice.id}`;
+      expect(
+        await run(coGuardian, {
+          ...supervised,
+          linkId: second,
+          choice: custom,
+        }),
+      ).toEqual({ kind: 'accepted' });
+      expect((await inbox(parent)).rows).toMatchObject([
+        { id: initialAdultNotice.id, readAt: stamp },
+      ]);
 
       const end = { version: 1, type: 'end-link', linkId: first } as const;
       expect(await run(parent, end)).toEqual({ kind: 'accepted' });

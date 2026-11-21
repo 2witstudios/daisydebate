@@ -73,7 +73,7 @@ export const contactRowsOf = (
   accounts.map((row) => ({
     user_id: row.account.userId,
     setting: 'everyone',
-    protection: { level: 'independent' },
+    friends_only: false,
     friend_actor_ids: [],
     linked_adult_user_ids: [],
   }));

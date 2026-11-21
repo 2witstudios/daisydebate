@@ -1,6 +1,6 @@
 import type { MessageRequestSetting } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
-import { readProtectionLimits } from '../guardians/protection-level';
+import { messageRequestsFriendsOnly } from '../guardians/protection-level';
 import { sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
@@ -34,11 +34,10 @@ export const messageRequestSettingOperations = ({
         database,
         sql`select setting from messaging_request_settings where user_id=${userId}`,
       );
-      const locked = (await readProtectionLimits(database, userId))
-        .messageRequests;
+      const locked = await messageRequestsFriendsOnly(database, userId);
       return {
-        setting: locked ?? stored?.setting ?? 'everyone',
-        locked: locked !== null,
+        setting: locked ? 'friends' : (stored?.setting ?? 'everyone'),
+        locked,
       };
     });
   },
@@ -53,7 +52,7 @@ export const messageRequestSettingOperations = ({
         await tx.execute(
           sql`select id from users where id=${input.userId} for update`,
         );
-        if ((await readProtectionLimits(tx, input.userId)).messageRequests)
+        if (await messageRequestsFriendsOnly(tx, input.userId))
           throw createAppError('AUTHORIZATION');
         if (input.setting === 'everyone') {
           await tx.execute(

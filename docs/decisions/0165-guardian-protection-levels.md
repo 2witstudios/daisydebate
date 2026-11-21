@@ -6,6 +6,8 @@ An active guardian chooses one per-child protection level in Settings. A
 linked child defaults to Guided. A child without a current guardian follows
 Independent. An active guardian can change the same choice when multiple
 guardians link to the child. Ending the final active link erases that choice.
+Setting a choice and ending a link serialize per child, including concurrent
+account closures.
 
 - Independent follows Daisy's ordinary teen rules.
 - Guided requires guardian approval for an adult's incoming friend request.
@@ -14,7 +16,9 @@ guardians link to the child. Ending the final active link erases that choice.
   and seats.
 - Custom selects the same approval, message request and ranked limits.
 
-The protocol's `protectionLimits` expands each choice. The contact transaction
+The protocol's `protectionLimits` expands each choice. The database's private
+lookup uses the finite table generated from that function. Only the child
+and a current guardian can read the full choice. The contact transaction
 evaluates holds at creation and before acceptance, including reciprocal
 friend requests. An approval clears the hold for one child and one request.
 The recipient then chooses whether to accept. A child can decline an incoming
@@ -24,8 +28,9 @@ decline of an outgoing request cancels it. Each read projects current holds
 from the protocol rule. The guardian action rechecks the hold under the pair
 and account locks before changing the request. The guardian's generic in-app
 notification links to their private waiting list. Other members see a pending
-request without family or age information. A new hold resurfaces a covered
-request for its guardian. Subject scope fences approval reads, and the scoped
+request without family or age information. A new or newly actionable hold
+resurfaces a covered request for its guardian. Notice delivery resolves the
+recipients inside the private write. Subject scope fences approval reads, and the scoped
 writer grants no direct updates. Approval records go when a request
 ends, including by block or erasure.
 

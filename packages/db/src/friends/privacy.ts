@@ -2,7 +2,7 @@ import { sql } from 'drizzle-orm';
 import { idSchema } from '@daisy/protocol';
 import type { PrivacyAdopter, PrivacyExport } from '../privacy/contracts';
 import { scopeTransaction } from '../tenant-scope';
-import { liveGuardianHold } from './guardian-approval-standing';
+import { guardianWaitingLabel } from './guardian-approval-standing';
 import { exportRows } from '../privacy/export-rows';
 
 const rowsOf = (rows: unknown) => rows as Record<string, unknown>[];
@@ -32,12 +32,9 @@ export const friendsPrivacyAdopter: PrivacyAdopter = {
           rowsOf(
             await tx.execute(sql`select f.low_actor_id, f.high_actor_id,
               f.requester_actor_id, f.requested_at, f.accepted_at,
-              case when f.state='waiting-for-guardian' and not exists (
-                select 1 from friend_guardian_approvals approval
-                where approval.low_actor_id=f.low_actor_id and approval.high_actor_id=f.high_actor_id
-                  and approval.child_actor_id=${actorId}
-                  and ${liveGuardianHold(sql`approval`, sql`f`)}
-              ) then 'pending' else f.state end as state
+              case when f.state='waiting-for-guardian' and
+                ${guardianWaitingLabel(sql`f`)} is distinct from 'waiting-for-guardian'
+                then 'pending' else f.state end as state
               from friendships f where ${actorId} in (f.low_actor_id, f.high_actor_id)
               order by f.low_actor_id, f.high_actor_id`),
           ),

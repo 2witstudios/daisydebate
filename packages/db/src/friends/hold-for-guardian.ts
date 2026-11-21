@@ -1,12 +1,11 @@
-import { oweNotifications, resurfaceNotifications } from '../notifications/owe';
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';
-import { query } from '../raw-rows';
+import { query, run } from '../raw-rows';
 import type { Tx } from '../tx';
 
-/** The request pair and the child's account are already locked by the caller. */
+/** The database writes the hold and its private notification as one operation. */
 export async function holdForGuardian(
-  tx: Pick<Tx, 'execute' | 'insert'>,
+  tx: Pick<Tx, 'execute'>,
   input: {
     readonly pair: {
       readonly lowActorId: string;
@@ -18,34 +17,18 @@ export async function holdForGuardian(
   },
 ) {
   const { pair, childActorId, at, nextId } = input;
-  const guardians = await query(
+  const args = sql`${nextId()}, ${pair.lowActorId}, ${pair.highActorId},
+    ${childActorId}, ${at}::timestamptz`;
+  const [plan] = await query(
     tx,
-    z.object({ user_id: z.string() }),
-    sql`select user_id from public.daisy_hold_friend_request(
-      ${nextId()}, ${pair.lowActorId}, ${pair.highActorId}, ${childActorId})`,
+    z.object({ slots: z.number().int().nonnegative() }),
+    sql`select public.daisy_hold_friend_request(${args}) as slots`,
   );
-  if (!guardians.length) return;
-
-  const kind = 'friend_guardian_approval' as const;
-  const subject = {
-    friendship_low_actor_id: pair.lowActorId,
-    friendship_high_actor_id: pair.highActorId,
-  };
-  await resurfaceNotifications(tx, {
-    kind,
-    subject,
-    userIds: guardians.map(({ user_id }) => user_id),
-    at,
-    nextId,
-  });
-  await oweNotifications(tx, {
-    kind,
-    subject,
-    recipients: guardians.map(({ user_id }) => ({
-      userId: user_id,
-      about: childActorId,
-    })),
-    at,
-    nextId,
-  });
+  if (!plan?.slots) return;
+  const ids = Array.from({ length: plan.slots }, () => sql`${nextId()}`);
+  await run(
+    tx,
+    sql`select public.daisy_hold_friend_request(${args},
+      ARRAY[${sql.join(ids, sql`,`)}]::text[])`,
+  );
 }

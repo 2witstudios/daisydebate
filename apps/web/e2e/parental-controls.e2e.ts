@@ -306,10 +306,15 @@ test('a guardian clears a Guided hold, then Supervised locks messages and ranked
       name: `Accept @${parent.username}`,
     });
     await expect(accept).toBeVisible();
-    await accept.click();
+    await child
+      .getByRole('button', { name: `Decline @${parent.username}` })
+      .click();
+    await expect(accept).toHaveCount(0);
     await expect(
-      child.getByRole('region', { name: 'Your friends' }),
-    ).toContainText(`@${parent.username}`);
+      child
+        .getByRole('region', { name: 'Your friends' })
+        .getByText(`@${parent.username}`, { exact: true }),
+    ).toHaveCount(0);
 
     const family = familyRow(childrenOf(page), account.username);
     const setLevel = async (level: 'Guided' | 'Supervised') => {

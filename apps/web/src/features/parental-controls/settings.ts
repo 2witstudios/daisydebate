@@ -91,10 +91,10 @@ export async function readFamilySettings(
       if (row.status !== 'active') return row;
       const linked = links.find(({ link }) => link.id === row.id);
       if (!linked) return row;
-      return {
-        ...row,
-        protectionLevel: await session.protectionLevel(linked.link.minorUserId),
-      };
+      const protectionLevel = await session.protectionLevel(
+        linked.link.minorUserId,
+      );
+      return protectionLevel ? { ...row, protectionLevel } : row;
     }),
   );
 }

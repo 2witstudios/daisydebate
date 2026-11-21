@@ -44,7 +44,7 @@ export async function readWaitingFriendApprovals(
       join users other_user on other_user.id=other.user_id and other_user.deleted_at is null
       where l.guardian_user_id=${guardianUserId} and l.status='active'
         and public.daisy_is_protection_guardian(child.id)
-        and f.state='waiting-for-guardian' and ${liveGuardianHold(sql`approval`, sql`f`)}
+        and f.state='waiting-for-guardian' and ${liveGuardianHold(sql`approval`)}
         and child_user.username is not null and other_user.username is not null
       order by f.requested_at desc, approval.id
       limit 100`,
@@ -141,7 +141,6 @@ export async function answerFriendApproval(
   const holds = await guardianHoldsForRequest(
     tx,
     request,
-    pairAccounts,
     request.requesterActorId,
   );
   if (!holds.includes(approval.childActorId)) return false;

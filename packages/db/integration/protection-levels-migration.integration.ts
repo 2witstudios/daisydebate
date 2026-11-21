@@ -1,6 +1,8 @@
 import { afterAll, expect, test } from 'bun:test';
 import { readdirSync } from 'node:fs';
 import { createId } from '@paralleldrive/cuid2';
+import { protectionLimits } from '@daisy/protocol/protection-level';
+import { protectionChoices } from '../scripts/protection-policy-sql';
 import { requireTestServices } from '@daisy/config';
 import { withFixture } from './constraint-helpers';
 import {
@@ -33,6 +35,23 @@ test(
       const friend = await f.actor();
       try {
         const requestedAt = new Date();
+        const guardian = createId();
+        const linkedChild = createId();
+        for (const [person, years] of [
+          [guardian, '40 years'],
+          [linkedChild, '15 years'],
+        ] as const) {
+          await f.sql`insert into users(id, username) values(${person}, ${`u-${person}`})`;
+          await f.sql`insert into account_age(user_id,birth_month,version,recorded_at)
+            values(${person},to_char(now() - ${years}::interval,'YYYY-MM'),1,${requestedAt})`;
+        }
+        // The existing PC-1 evidence stays immutable in this scratch database.
+        const evidence = createId();
+        await f.sql`insert into guardian_consent_evidence(id,person_user_id,role,method,notice_kind,notice_version,notice_digest,recorded_at)
+          values(${evidence},${guardian},'guardian','created-account','parental-consent','fixture',${'a'.repeat(64)},${requestedAt})`;
+        const link = createId();
+        await f.sql`insert into guardian_links(id,guardian_user_id,minor_user_id,guardian_consent_id,status,activation,activated_at,created_at)
+          values(${link},${guardian},${linkedChild},${evidence},'active','created-account',${requestedAt},${requestedAt})`;
         for (const [counterpart, state] of [
           [requester, 'pending'],
           [friend, 'accepted'],
@@ -60,8 +79,22 @@ test(
           await f.sql`select enabled from notification_preferences where user_id=${recipientUser}`,
         ).toEqual([{ enabled: false }]);
         expect<unknown>(
-          await f.sql`select public.daisy_protection_level(${recipientUser}) as choice`,
+          await f.sql`select public.daisy_effective_protection_choice(${recipientUser}) as choice`,
         ).toEqual([{ choice: { level: 'independent' } }]);
+        expect<unknown>(
+          await f.sql`select status, public.daisy_effective_protection_choice(${linkedChild}) as choice
+          from guardian_links where id=${link}`,
+        ).toEqual([{ status: 'active', choice: { level: 'guided' } }]);
+        for (const choice of protectionChoices) {
+          const [limits] =
+            await f.sql`select * from public.daisy_expand_protection(${JSON.stringify(choice)}::text::jsonb)`;
+          const expanded = protectionLimits(choice);
+          expect<unknown>(limits).toEqual({
+            friend_approval: expanded.friendApproval,
+            friends_only: expanded.messageRequests === 'friends',
+            ranked_allowed: expanded.rankedAllowed,
+          });
+        }
         const checks =
           await f.sql`select convalidated from pg_constraint where conname in (
       'friendships_state', 'friendships_time', 'notification_preferences_pair_check',

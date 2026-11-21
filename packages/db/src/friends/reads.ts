@@ -15,7 +15,7 @@ import {
 } from '../authorization';
 import type { TxOpener } from '../tx';
 import { scopeTransaction } from '../tenant-scope';
-import { liveGuardianHold } from './guardian-approval-standing';
+import { guardianWaitingLabel } from './guardian-approval-standing';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
 
 export type FriendshipRow = {
@@ -87,15 +87,7 @@ async function readRows(
       otherChosen: chosenStatusOf(other),
       otherPlacement: placementOf(other),
       state: friendships.state,
-      waiting: sql<'waiting' | 'waiting-for-guardian' | null>`
-        case when ${friendships.state}='waiting-for-guardian' then (
-          select case when bool_or(approval.child_actor_id=${actorId}) then 'waiting-for-guardian'
-            when count(*) > 0 then 'waiting' end
-          from friend_guardian_approvals approval
-          where approval.low_actor_id=${friendships.lowActorId}
-            and approval.high_actor_id=${friendships.highActorId}
-            and ${liveGuardianHold(sql`approval`, sql`friendships`)}
-        ) end`,
+      waiting: guardianWaitingLabel(sql`friendships`),
       requesterActorId: friendships.requesterActorId,
       requestedAt: friendships.requestedAt,
     })

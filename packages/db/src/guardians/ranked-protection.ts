@@ -1,8 +1,4 @@
 import { createRefusal } from '@daisy/errors';
-import {
-  protectionLevelSchema,
-  protectionLimits,
-} from '@daisy/protocol/protection-level';
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { query } from '../raw-rows';
@@ -14,16 +10,15 @@ export async function rankedProtectionAllows(
   actorIds: readonly string[],
 ): Promise<boolean> {
   if (!actorIds.length) return true;
-  const choices = await query(
+  const [row] = await query(
     tx,
-    z.object({ choice: protectionLevelSchema }),
-    sql`select public.daisy_protection_level(a.user_id) as choice from actors a
-      where a.user_id is not null and a.id in (${sql.join(
-        actorIds.map((actorId) => sql`${actorId}`),
-        sql`,`,
-      )})`,
+    z.object({ allowed: z.boolean() }),
+    sql`select public.daisy_ranked_protection_allows(ARRAY[${sql.join(
+      actorIds.map((actorId) => sql`${actorId}`),
+      sql`,`,
+    )}]::text[]) as allowed`,
   );
-  return choices.every(({ choice }) => protectionLimits(choice).rankedAllowed);
+  return row!.allowed;
 }
 
 export async function requireRankedProtection(

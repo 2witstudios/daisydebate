@@ -22,6 +22,6 @@ export const guardianApprovalStanding = (notice: SQL, friendship: SQL) => sql`(
       and approval.high_actor_id=${friendship}.high_actor_id
       and ${notice}.user_id=public.daisy_subject_scope()
       and public.daisy_is_protection_guardian(approval.child_actor_id)
-      and ${liveGuardianHold(sql`approval`, friendship)}
+      and ${liveGuardianHold(sql`approval`)}
   )
 )`;

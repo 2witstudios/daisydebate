@@ -313,7 +313,10 @@ async function executeOnce(
           participant.actorId === input.caller.actorId),
     );
     const entrants = entering.map(({ actorId }) => actorId);
-    if (state.competitionType !== 'ranked' && next.hostActorId)
+    if (
+      (outcome.mutation.freeze || state.competitionType !== 'ranked') &&
+      next.hostActorId
+    )
       entrants.push(next.hostActorId);
     await requireRankedProtection(tx, entrants);
   }

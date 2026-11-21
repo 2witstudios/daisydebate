@@ -25,7 +25,7 @@ test('web policy composition reads the minimal age and contact facts in its call
   const contact = {
     user_id: account.userId,
     setting: 'friends',
-    protection: { level: 'independent' },
+    friends_only: false,
     friend_actor_ids: ['c'.repeat(24)],
     linked_adult_user_ids: [],
   };

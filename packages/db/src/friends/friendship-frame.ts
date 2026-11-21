@@ -77,12 +77,15 @@ export function friendshipFrame(
         .where(where(pair))
         .for('update');
       const guardianHolds =
-        current?.state === 'accepted'
+        current?.state === 'accepted' ||
+        !accounts.some(
+          (account) =>
+            account?.ageBand === '13-15' || account?.ageBand === '16-17',
+        )
           ? []
           : await guardianHoldsForRequest(
               tx,
               pair,
-              accounts,
               current?.requesterActorId ?? input.actorId,
             );
       return {
