@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { roundStatus, eq } from 'drizzle-orm';
 
 import type { RoomAssemblyState, RoomMutationOutcome } from '@daisy/protocol';
 import {
@@ -163,7 +163,7 @@ export const persistRoomMutation = async (
       judging,
       runtimeState: emptyRuntimeCheckpointFor(next.rules),
       seatDraw: mutation.seatDraw,
-      status: opens ? 'opening' : 'active',
+      status: opens ? roundStatus.opening : roundStatus.active,
       ...(opens
         ? {}
         : { currentStage: 'countdown' as const, startedAt: new Date(now) }),

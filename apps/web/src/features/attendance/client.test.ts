@@ -448,3 +448,35 @@ test('a heartbeat a few ms early still takes its retry', async () => {
     expected: [3, 15_000],
   });
 });
+
+test('stopping a client discards a queued resend while the in-flight command settles', async () => {
+  const answer = Promise.withResolvers<boolean>();
+  let sends = 0;
+  let timeReads = 0;
+  const client = createAttendanceClient({
+    nowMs: () => ++timeReads,
+    read: async () => null,
+    nextCommandId: () => 'one-command',
+    send: () => {
+      sends += 1;
+      return answer.promise;
+    },
+  });
+  const current = client.update({
+    status: 'active',
+    segments: [snapshot.segments[0]!],
+  });
+  const reconnect = client.reconnect();
+  await Promise.resolve();
+  await Promise.resolve();
+  client.stop();
+  answer.resolve(true);
+  await Promise.all([current, reconnect]);
+  assert({
+    given:
+      'a stopped client with an in-flight command after a forced reconnect',
+    should: 'settle the command without scheduling another attendance pass',
+    actual: [sends, timeReads],
+    expected: [1, 2],
+  });
+});

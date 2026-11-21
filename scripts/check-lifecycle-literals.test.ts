@@ -49,3 +49,39 @@ test('allows status values from protocol and unrelated lifecycle words', () => {
     ),
   ).toEqual([]);
 });
+
+test('rejects a lifecycle literal in a native Bun query', () => {
+  expect(
+    problems(
+      "client`select r.id from rounds r where r.status in ('opening', 'active')`;",
+    ),
+  ).toEqual([
+    `${path}:1: read lifecycle status 'opening' from @daisy/protocol`,
+    `${path}:1: read lifecycle status 'active' from @daisy/protocol`,
+  ]);
+});
+
+test('rejects aliased comparisons and lifecycle values built before the write', () => {
+  const helper = 'packages/db/src/lifecycle-fixture-values.ts';
+  const text = [
+    "import { roomValues } from './lifecycle-fixture-values';",
+    "const r = alias(rounds, 'r');",
+    "eq(r.status, 'completed');",
+    "db.insert(rounds).values({ status: opens ? 'opening' : 'active' });",
+    'db.insert(rooms).values({ ...roomValues(room) });',
+    "const copied = 'started'; db.update(rooms).set({ status: copied });",
+  ].join('\n');
+  expect(
+    lifecycleLiteralIssues({ path, text }, (target) =>
+      target === helper
+        ? "export const roomValues = (room) => ({ id: room.id, status: 'assembling' as const });"
+        : undefined,
+    ),
+  ).toEqual([
+    `${path}:3: read lifecycle status 'completed' from @daisy/protocol`,
+    `${path}:4: read lifecycle status 'opening' from @daisy/protocol`,
+    `${path}:4: read lifecycle status 'active' from @daisy/protocol`,
+    `${path}:5: read lifecycle status 'assembling' from @daisy/protocol`,
+    `${path}:6: read lifecycle status 'started' from @daisy/protocol`,
+  ]);
+});

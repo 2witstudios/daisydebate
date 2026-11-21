@@ -1,4 +1,11 @@
+import { existsSync, readFileSync } from 'node:fs';
 import ts from 'typescript';
+import {
+  bindingOf,
+  literalValues,
+  writtenStatuses,
+  type ReadModule,
+} from './lifecycle-write-values';
 import { roomStatuses, roundStatuses } from '@daisy/protocol';
 
 const tables = {
@@ -15,16 +22,28 @@ const productionSource = (path: string) =>
   /^(?:apps|packages)\/[^/]+\/src\/.*\.(?:tsx?|sql)$/.test(path) &&
   !/\.(?:test|test-support)\.tsx?$/.test(path);
 
-const statusColumn = (node: ts.Expression, source: ts.SourceFile) =>
-  /^(rooms|rounds)(?:\.status|\[['"]status['"]\])$/.exec(
-    node.getText(source),
-  )?.[1];
-
-const literalValues = (node: ts.Expression): readonly string[] => {
-  if (ts.isStringLiteralLike(node)) return [node.text];
-  if (ts.isArrayLiteralExpression(node))
-    return node.elements.flatMap(literalValues);
-  return [];
+const statusColumn = (node: ts.Expression, readModule: ReadModule) => {
+  const table =
+    (ts.isPropertyAccessExpression(node) && node.name.text === 'status') ||
+    (ts.isElementAccessExpression(node) &&
+      ts.isStringLiteralLike(node.argumentExpression) &&
+      node.argumentExpression.text === 'status')
+      ? node.expression
+      : undefined;
+  if (!table || !ts.isIdentifier(table)) return undefined;
+  if (isLifecycleTable(table.text)) return table.text;
+  const binding = bindingOf(table, readModule);
+  if (
+    !binding ||
+    !ts.isCallExpression(binding) ||
+    !ts.isIdentifier(binding.expression) ||
+    binding.expression.text !== 'alias'
+  )
+    return undefined;
+  const base = binding.arguments[0];
+  return base && ts.isIdentifier(base) && isLifecycleTable(base.text)
+    ? base.text
+    : undefined;
 };
 
 const trackedTables = (sql: string) => {
@@ -106,6 +125,7 @@ function sqlLiterals(sql: string, fileSql: string, schema?: LifecycleTable) {
 const sqlTemplate = (
   template: ts.TemplateLiteral | ts.StringLiteral,
   source: ts.SourceFile,
+  readModule: ReadModule,
 ): string => {
   if (ts.isStringLiteralLike(template)) return template.text;
   const fragment = (expression: ts.Expression): string => {
@@ -115,8 +135,8 @@ const sqlTemplate = (
       ts.isTaggedTemplateExpression(expression) &&
       expression.tag.getText(source) === 'sql'
     )
-      return sqlTemplate(expression.template, source);
-    const table = statusColumn(expression, source);
+      return sqlTemplate(expression.template, source, readModule);
+    const table = statusColumn(expression, readModule);
     return table
       ? `${table}.status`
       : expression.getText(source).replaceAll(/[^\w.]/g, '_');
@@ -127,23 +147,6 @@ const sqlTemplate = (
       .map(({ expression, literal }) => fragment(expression) + literal.text)
       .join('')
   );
-};
-
-const writtenStatuses = (value: ts.Expression): readonly string[] => {
-  if (ts.isArrayLiteralExpression(value))
-    return value.elements.flatMap(writtenStatuses);
-  if (!ts.isObjectLiteralExpression(value)) return [];
-  return value.properties.flatMap((property) => {
-    if (!ts.isPropertyAssignment(property)) return [];
-    if (
-      !ts.isIdentifier(property.name) &&
-      !ts.isStringLiteralLike(property.name)
-    )
-      return [];
-    return property.name.text === 'status'
-      ? literalValues(property.initializer)
-      : [];
-  });
 };
 
 const tableWrite = (callee: ts.Expression, source: ts.SourceFile) => {
@@ -160,13 +163,28 @@ const tableWrite = (callee: ts.Expression, source: ts.SourceFile) => {
     : undefined;
 };
 
-export function lifecycleLiteralIssues({
-  path,
-  text,
-}: Source): readonly string[] {
+export function lifecycleLiteralIssues(
+  { path, text }: Source,
+  readSource: (path: string) => string | undefined = () => undefined,
+): readonly string[] {
   if (!productionSource(path)) return [];
   const issues: string[] = [];
   const source = ts.createSourceFile(path, text, ts.ScriptTarget.Latest, true);
+  const parsed = new Map([[path, source]]);
+  const readModule: ReadModule = (target) => {
+    const prior = parsed.get(target);
+    if (prior) return prior;
+    const content = readSource(target);
+    if (content === undefined) return undefined;
+    const module = ts.createSourceFile(
+      target,
+      content,
+      ts.ScriptTarget.Latest,
+      true,
+    );
+    parsed.set(target, module);
+    return module;
+  };
   const report = (node: ts.Node, values: readonly string[]) => {
     const line =
       source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1;
@@ -186,11 +204,11 @@ export function lifecycleLiteralIssues({
       : undefined;
   const templates: { readonly node: ts.Node; readonly sql: string }[] = [];
   function visit(node: ts.Node) {
-    if (
-      ts.isTaggedTemplateExpression(node) &&
-      /^sql(?:<.*>)?$/.test(node.tag.getText(source))
-    ) {
-      templates.push({ node, sql: sqlTemplate(node.template, source) });
+    if (ts.isTaggedTemplateExpression(node)) {
+      templates.push({
+        node,
+        sql: sqlTemplate(node.template, source, readModule),
+      });
     }
     if (ts.isCallExpression(node)) {
       const [first, second] = node.arguments;
@@ -199,26 +217,27 @@ export function lifecycleLiteralIssues({
       if (first && destination && isLifecycleTable(destination))
         report(
           node,
-          writtenStatuses(first).filter((word) =>
+          writtenStatuses(first, readModule).filter((word) =>
             tables[destination].has(word),
           ),
         );
       if ((name === 'sql.raw' || name.endsWith('.unsafe')) && first) {
         if (ts.isStringLiteralLike(first) || ts.isTemplateExpression(first))
-          templates.push({ node, sql: sqlTemplate(first, source) });
+          templates.push({ node, sql: sqlTemplate(first, source, readModule) });
       } else if (
         first &&
         second &&
         /^(?:eq|ne|inArray|notInArray|lt|lte|gt|gte)$/.test(name)
       ) {
         const table =
-          statusColumn(first, source) ?? statusColumn(second, source);
+          statusColumn(first, readModule) ?? statusColumn(second, readModule);
         if (table && isLifecycleTable(table))
           report(
             node,
-            [...literalValues(first), ...literalValues(second)].filter((word) =>
-              tables[table].has(word),
-            ),
+            [
+              ...literalValues(first, readModule),
+              ...literalValues(second, readModule),
+            ].filter((word) => tables[table].has(word)),
           );
       }
     }
@@ -247,19 +266,29 @@ if (import.meta.main) {
         ],
   );
   if (listed.exitCode !== 0) throw new Error(listed.stderr.toString());
-  let count = 0;
-  for (const path of new Set(
+  const paths = new Set(
     listed.stdout.toString().split('\n').filter(productionSource),
-  )) {
-    const file = Bun.file(path);
-    if (!parent && !(await file.exists())) continue;
+  );
+  const texts = new Map<string, string>();
+  const readSource = (path: string): string | undefined => {
+    if (!paths.has(path)) return undefined;
+    const prior = texts.get(path);
+    if (prior !== undefined) return prior;
+    if (!parent && !existsSync(path)) return undefined;
     const read = parent
       ? Bun.spawnSync(['git', 'show', `${parent}:${path}`])
       : null;
     if (read && read.exitCode !== 0) throw new Error(read.stderr.toString());
-    const text = read ? read.stdout.toString() : await file.text();
-    if (!/\bstatus\b/.test(text)) continue;
-    for (const issue of lifecycleLiteralIssues({ path, text })) {
+    const text = read ? read.stdout.toString() : readFileSync(path, 'utf8');
+    texts.set(path, text);
+    return text;
+  };
+  let count = 0;
+  for (const path of paths) {
+    const text = readSource(path);
+    if (text === undefined || !/\bstatus\b|\.(?:insert|update)\(/.test(text))
+      continue;
+    for (const issue of lifecycleLiteralIssues({ path, text }, readSource)) {
       console.error(issue);
       count += 1;
     }
