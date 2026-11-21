@@ -41,7 +41,6 @@ test(
         owner_user_id: owner,
         name: 'Historic league',
         handle: createId(),
-        league_division: 'open',
       });
       const other = createId();
       await f.insert('organizations', {
@@ -50,7 +49,6 @@ test(
         owner_user_id: owner,
         name: 'Other league',
         handle: createId(),
-        league_division: 'open',
       });
       const standing = async (leagueId: string, ageRule: string) => {
         const id = createId();
