@@ -51,6 +51,10 @@ a `:popover-open` count.
 
 ## Mutating forms
 
+The signed-in shell uses the authenticated member to mount its providers.
+Optional shell reads supply their initial data. A failed read during a refresh
+keeps the page mounted so its forms retain edits and pending submissions.
+
 Daisy needs JavaScript: nobody can compete without it, so nothing is built or
 tested for JavaScript being off ([ADR 0114](../decisions/0114-daisy-requires-javascript.md)).
 The rule that remains is that a click before hydration never leaks what was typed.

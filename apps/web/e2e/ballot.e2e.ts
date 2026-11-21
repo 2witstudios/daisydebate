@@ -1,4 +1,5 @@
 import { holdScripts, overflowing } from './support/ballot-layout-probes';
+import { withChallengeReadLocked } from './support/challenge-read-lock';
 import { proveBallotRecovery } from './support/ballot-recovery-proof';
 import { createRoomLaunchAccounts } from './support/room-launch-accounts';
 import { createHumanBallotRound } from './support/human-ballot-round';
@@ -9,6 +10,7 @@ import { humanBallotFixtures } from './support/human-ballot-fixtures';
 import { expectNotInUrl } from './support/forms';
 import { effectsRan } from './support/hydration';
 import { gotoWithTheme } from './support/theme';
+import { readFile } from 'node:fs/promises';
 
 /**
  * The judge's ballot (ISSUE-348): one real POST that works with and without
@@ -114,7 +116,6 @@ test.describe('actual frozen human ballots', () => {
     await pick(page, negativeName);
     await slider(page, 'Thesis', affirmativeName).fill('5');
     release();
-    await effectsRan(page);
 
     // The read-outs start from the controls, not from a fresh sheet.
     await expect(
@@ -124,11 +125,39 @@ test.describe('actual frozen human ballots', () => {
       page.getByText(`${negativeName} wins with fewer points: 30 to 32`),
     ).toBeVisible();
 
-    // A later change leaves the earlier input alone, and the refusal keeps it.
+    // A later change and a Round refresh leave the earlier input alone.
     await slider(page, 'Delivery', negativeName).fill('4');
     await expect(radio(page, negativeName)).toBeChecked();
     await page.getByLabel('Reason for decision').fill('A close round.');
-    await submit(page);
+    await withChallengeReadLocked(async () => {
+      const refreshRound = page.getByRole('link', { name: 'Refresh Round' });
+      const [refresh] = await Promise.all([
+        page.waitForResponse(
+          (response) =>
+            new URL(response.url()).pathname === ballotUrl &&
+            response.request().headers()['rsc'] === '1' &&
+            response.request().method() === 'GET',
+        ),
+        refreshRound.click().then(() => submit(page)),
+      ]);
+      expect(await refresh.finished()).toBeNull();
+      const requestId = refresh.headers()['x-request-id'];
+      expect(requestId).toBeTruthy();
+      const log = await readFile(
+        `test-results/room-launch-server-${process.env.E2E_PORT}.log`,
+        'utf8',
+      );
+      expect(
+        log
+          .split('\n')
+          .some(
+            (line) =>
+              line.includes(`"requestId":"${requestId}"`) &&
+              line.includes('"operation":"challenges.list"') &&
+              line.includes('"status":503'),
+          ),
+      ).toBe(true);
+    });
     await expect(page.locator('#round-ballot-refusal')).toHaveText(
       'Confirm the low-point win, or change the scores.',
     );

@@ -21,7 +21,10 @@ import { messagePersonAction } from '../messages/new/actions';
 import { reportAction } from '../reports/actions';
 import { setPeopleRail } from './actions';
 import { readPeople } from './read-people';
-import { requestMemberDivision } from '../../../lib/request-session';
+import {
+  requestMemberDivision,
+  requestRealtimeSocketUrl,
+} from '../../../lib/request-session';
 
 /** Every action the list's menu posts; `ui/` never imports from `app/`. */
 export const personActions = {
@@ -54,19 +57,22 @@ const noChallenges = {
  * browser's own read lands.
  */
 export async function PeopleShell({
+  actorId,
   preference,
   activeRoomId,
 }: {
+  readonly actorId: string;
   readonly preference: PeopleRailPreference;
   readonly activeRoomId: string | null;
 }) {
   const [list, challenges, notifications, memberDivision] = await Promise.all([
     readPeople(),
-    readChallenges().catch(() => null),
+    readChallenges(),
     readNotificationShell().catch(() => null),
     // Unread is no ladder: ranked stays off until the next render.
     requestMemberDivision().catch(() => null),
   ]);
+  const socketUrl = requestRealtimeSocketUrl();
   return {
     preference,
     rail: (
@@ -83,39 +89,27 @@ export async function PeopleShell({
         />
       </>
     ),
-    wrap: (shell: ReactNode) => {
-      const people = (
-        <PeopleProvider
-          initialList={list ?? empty}
-          socketUrl={challenges?.socketUrl ?? null}
-        >
-          <ChallengeProvider
-            initialChallenges={challenges?.list ?? noChallenges}
-            actorId={challenges?.actorId ?? null}
-            socketUrl={challenges?.socketUrl ?? null}
-            memberDivision={memberDivision}
-          >
-            {shell}
-          </ChallengeProvider>
-        </PeopleProvider>
-      );
-      // The member's inbox rings on the same socket as their challenges.
-      return challenges?.actorId ? (
-        <NotificationShellProvider
-          initialShell={notifications}
-          actorId={challenges.actorId}
-          socketUrl={challenges.socketUrl}
-        >
-          <MessagesUnreadProvider
-            actorId={challenges.actorId}
-            socketUrl={challenges.socketUrl}
-          >
-            {people}
-          </MessagesUnreadProvider>
-        </NotificationShellProvider>
-      ) : (
-        people
-      );
-    },
+    // The member owns this provider tree. Optional reads only seed its data.
+    wrap: (shell: ReactNode) => (
+      <NotificationShellProvider
+        key={actorId}
+        initialShell={notifications}
+        actorId={actorId}
+        socketUrl={socketUrl}
+      >
+        <MessagesUnreadProvider actorId={actorId} socketUrl={socketUrl}>
+          <PeopleProvider initialList={list ?? empty} socketUrl={socketUrl}>
+            <ChallengeProvider
+              initialChallenges={challenges ?? noChallenges}
+              actorId={actorId}
+              socketUrl={socketUrl}
+              memberDivision={memberDivision}
+            >
+              {shell}
+            </ChallengeProvider>
+          </PeopleProvider>
+        </MessagesUnreadProvider>
+      </NotificationShellProvider>
+    ),
   };
 }
