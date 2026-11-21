@@ -17,7 +17,9 @@ test('observation JSON byte length', () => {
   assert({
     given: 'top-level values with and without a JSON representation',
     should: 'count the UTF-8 bytes and return zero for values without JSON',
-    actual: [undefined, () => {}, Symbol(), 'é', null].map(observationJsonBytes),
+    actual: [undefined, () => {}, Symbol(), 'é', null].map(
+      observationJsonBytes,
+    ),
     expected: [0, 0, 0, 4, 4],
   });
 });
