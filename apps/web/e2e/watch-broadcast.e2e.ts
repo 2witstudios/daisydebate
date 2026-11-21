@@ -748,12 +748,18 @@ test.describe('an unlisted Round by its link', () => {
     ).toBe(true);
     expect(reads.some((url) => url.includes(round.broadcastId))).toBe(false);
 
+    const streamPanel = watching.getByRole('region', {
+      name: 'Stream this Round',
+    });
+    await expect(watching.locator('video')).toBeVisible();
+    await expect(streamPanel).toBeVisible();
     await page.goto(`/rounds/${round.roundId}/audience-link`);
     await issueLink(page, 'Replace link');
     await expect(
       watching.getByRole('heading', { name: REFUSED, exact: true }),
     ).toBeVisible({ timeout: 15_000 });
     await expect(watching.locator('video')).toHaveCount(0);
+    await expect(streamPanel).toHaveCount(0);
     expect(carriedToken).toBe(false);
     await visitor.close();
   });

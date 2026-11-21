@@ -165,7 +165,7 @@ const timelineRead = (
   initial: SpectatorTimeline,
   published: PublishedState,
 ): SpectatorTimeline =>
-  published.gone
+  published.serverAsks > 0
     ? initial
     : timelineAsOf(
         published.state?.timeline ?? initial,

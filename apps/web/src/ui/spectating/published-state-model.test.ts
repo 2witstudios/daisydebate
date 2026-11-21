@@ -56,10 +56,10 @@ test('by default a missing object only rechecks the server after a state', () =>
     given: 'a missing object before and after a state was read',
     should: 'wait before, and send the page back to the server after',
     actual: [
-      nextPublishedReads(first, { kind: 'missing' }, 5).gone,
-      nextPublishedReads(read, { kind: 'missing' }, 20).gone,
+      serverAsksOf(nextPublishedReads(first, { kind: 'missing' }, 5)),
+      serverAsksOf(nextPublishedReads(read, { kind: 'missing' }, 20)),
     ],
-    expected: [false, true],
+    expected: [0, 1],
   });
 });
 

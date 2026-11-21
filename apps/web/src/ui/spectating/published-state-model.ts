@@ -5,9 +5,8 @@ import type { PollAnswer } from '../../features/spectating/poll-pace';
 export type PublishedReads = {
   readonly state: AudienceState | null;
   readonly movedAtMs: number;
-  readonly gone: boolean;
-  /** Reads in a row that found the address gone; zero unless `gone`. */
-  readonly missing: number;
+  /** A run of missing reads that warrants rechecking the server. */
+  readonly consecutiveMissing: number;
 };
 
 /** One poll's answer: a state, nothing at that address, or no answer at all. */
@@ -19,8 +18,7 @@ export type PublishedRead =
 export const firstPublishedReads = (nowMs: number): PublishedReads => ({
   state: null,
   movedAtMs: nowMs,
-  gone: false,
-  missing: 0,
+  consecutiveMissing: 0,
 });
 
 /**
@@ -39,11 +37,13 @@ export const nextPublishedReads = (
   if (read.kind === 'missing')
     return reads.state === null && !recheckBeforePublication
       ? reads
-      : { ...reads, gone: true, missing: reads.missing + 1 };
+      : { ...reads, consecutiveMissing: reads.consecutiveMissing + 1 };
   if (read.state.publishedAtMs > (reads.state?.publishedAtMs ?? -1))
-    return { state: read.state, movedAtMs: nowMs, gone: false, missing: 0 };
+    return { state: read.state, movedAtMs: nowMs, consecutiveMissing: 0 };
   // The same object readable again: the address is back, though nothing moved.
-  return reads.gone ? { ...reads, gone: false, missing: 0 } : reads;
+  return reads.consecutiveMissing > 0
+    ? { ...reads, consecutiveMissing: 0 }
+    : reads;
 };
 
 /**
@@ -56,7 +56,9 @@ export const paceOfPublishedRead = (
   reads: PublishedReads,
   answer: PollAnswer,
 ): PollAnswer =>
-  reads.gone && answer.kind === 'answered' ? { kind: 'failed' } : answer;
+  reads.consecutiveMissing > 0 && answer.kind === 'answered'
+    ? { kind: 'failed' }
+    : answer;
 
 /**
  * How many times the page should have asked the server while this address has
@@ -66,4 +68,6 @@ export const paceOfPublishedRead = (
  * from reaching web more than a few times each (DEC-350). Zero unless gone.
  */
 export const serverAsksOf = (reads: PublishedReads): number =>
-  reads.gone ? Math.floor(Math.log2(reads.missing)) + 1 : 0;
+  reads.consecutiveMissing > 0
+    ? Math.floor(Math.log2(reads.consecutiveMissing)) + 1
+    : 0;
