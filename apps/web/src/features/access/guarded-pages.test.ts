@@ -75,6 +75,7 @@ mock.module(join(import.meta.dir, '../../lib/request-session.ts'), () => ({
   // A stored league read answers no league for the placeholder slug.
   requestLeaguePage: async () => null,
   requestStandingLobbyManagement: async () => null,
+  requestHostedLeagues: async () => [],
   requestStandingRoomPage: async () => null,
   requestRoundRatings: async () => null,
   requestWatchRound: async () => null,

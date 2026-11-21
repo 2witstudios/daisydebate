@@ -155,7 +155,7 @@ of 200 rows, up to 200 batches per run (40,000 rows/run), sized against an
 expected write rate of 10 rows/s (36,000 rows/hour) so one run always clears
 a full hour's growth with headroom.
 
-**Rating seasons (ADR 0055 and ADR 0162).** A league manager opens, edits and closes a season under Host → League → Standing lobbies → Manage. Each lobby has at most one active season. Closing pauses ranked play in that lobby and preserves its standings. Opening the first production season remains a human-only task (RATE-H.1).
+**Rating seasons (ADR 0055 and ADR 0162).** A league manager opens, edits and closes a season through Tournaments → Browse tournaments → Your leagues → Standing lobbies → Manage. Each lobby has at most one active season. Closing pauses ranked play in that lobby and preserves its standings. Opening the first production season remains a human-only task (RATE-H.1).
 
 Database availability is necessary but not sufficient readiness. Deployers must ensure migrations are applied, monitor storage/replication/backup lag, enforce TLS for remote database and Redis connections, and set network access policy. Local plaintext credentials are intentionally confined to loopback. Redis persistence is off locally to expose accidental reliance on durable cache state.
 
@@ -350,7 +350,7 @@ verify workflow `DEPLOY_SHA`, image `GIT_COMMIT` and the health response deploym
 the eligible merged candidate. A branch image or an unreviewed newer main tip
 is not the approved operation.
 
-In the deployed staging app, a league manager opens the season under Host → League → Standing lobbies. Check the name, start date and active status on the specific lobby and verify that the member leaderboard shows its season. Keep competitive records intact if an operation needs investigation.
+In the deployed staging app, a league manager opens the season through Tournaments → Browse tournaments → Your leagues → Standing lobbies → Manage. Check the name, start date and active status on the specific lobby and verify that the member leaderboard shows its season. Keep competitive records intact if an operation needs investigation.
 
 Authorized beta checks cover the Freestyle ladder (ADR 0142): native opt-in setup,
 selected resolution/strike freeze, eligible human/AI judged and forfeit result,
