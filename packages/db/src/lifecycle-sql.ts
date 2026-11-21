@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
-import type { RoomStatus, RoundStatus } from '@daisy/protocol';
+import type { roomStatuses, RoundStatus } from '@daisy/protocol';
 
-type LifecycleStatus = RoomStatus | RoundStatus;
+type LifecycleStatus = (typeof roomStatuses)[number] | RoundStatus;
 
 /** Render a fixed vocabulary member so PostgreSQL can use partial indexes. */
 export const lifecycleSql = (status: LifecycleStatus) =>

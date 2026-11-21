@@ -1,5 +1,9 @@
-import { lifecycleSqlList } from './lifecycle-sql';
-import { overRoundStatuses, SPECTATOR_MARGIN_MS } from '@daisy/protocol';
+import { lifecycleSql, lifecycleSqlList } from './lifecycle-sql';
+import {
+  overRoundStatuses,
+  roundStatus,
+  SPECTATOR_MARGIN_MS,
+} from '@daisy/protocol';
 import { sql, type SQL } from 'drizzle-orm';
 
 /** The columns of the Round a release predicate reads, under any alias. */
