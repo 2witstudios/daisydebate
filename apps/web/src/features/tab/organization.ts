@@ -9,7 +9,6 @@ import type {
   OrganizationPerson,
 } from '@daisy/protocol/lobby/organization-read';
 import { unavailableAction } from './action';
-import type { TimelineRail } from './tournament';
 
 const months = [
   'Jan',
