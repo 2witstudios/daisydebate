@@ -817,6 +817,10 @@ describe('database statement and lock boundaries', () => {
       `function* queries() { yield ${statement}; } return Promise.all(queries());`,
       `return Promise.resolve.call(Promise, ${statement});`,
       `return Promise.all.apply(Promise, [[${statement}]]);`,
+      'const raw = client<{ value: number }[]>`select 1 as value`; const [rows] = await (Promise.all<[typeof raw]>).bind(Promise, [raw])(); return rows[0]?.value;',
+      'const raw = client<{ value: number }[]>`select 1 as value`; return (Promise.try<Awaited<typeof raw>>).bind(Promise, () => raw)();',
+      'const raw = client<{ value: number }[]>`select 1 as value`; return Promise.all.call(...[Promise, [raw]] as const);',
+      `return Reflect.apply(Promise.all, Promise, [[${statement}]]);`,
       `const iterator: typeof Symbol.iterator = Symbol.iterator; return Promise.all({ *[iterator]() { yield ${statement}; } });`,
       `const settle = <T extends SQL.Query<unknown>>(value: T) => Promise.resolve(value); return settle(${statement});`,
       `const rows = await Promise.try(() => ${statement}); return rows[0];`,
@@ -824,6 +828,7 @@ describe('database statement and lock boundaries', () => {
       `const raw = ${statement}; const rows = await new Promise<Awaited<typeof raw>>((resolve) => resolve(raw)); return rows[0];`,
       `return Promise.all([${parsed}]);`,
       `return Promise.resolve(${parsed});`,
+      `return Promise.all.bind(Promise, [${parsed}])();`,
       `const rows = await Promise.try(() => ${parsed}); return rows[0];`,
       `function* values() { yield 1; return ${statement}; } return Promise.all(values());`,
       'const writer = async () => { await client`delete from fixture`; }; return Promise.all([writer()]);',
@@ -845,7 +850,8 @@ describe('database statement and lock boundaries', () => {
       should: 'report native thenable inputs and accept the validated values',
       actual: errors,
       expected: [
-        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 0, 0,
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0,
+        1, 0, 0,
       ],
     });
   });

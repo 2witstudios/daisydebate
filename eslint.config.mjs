@@ -649,7 +649,9 @@ const dbNativeRowsPlugin = {
         const builtInMethod = (signature) => {
           const declaration = signature?.getDeclaration();
           if (!declaration) return undefined;
-          const owner = declaration.parent.name?.getText();
+          const owner = (
+            declaration.parent.name ?? declaration.parent.parent?.name
+          )?.getText();
           const sourceFile = declaration.getSourceFile();
           if (
             program.isSourceFileDefaultLibrary(sourceFile) ||
@@ -657,6 +659,31 @@ const dbNativeRowsPlugin = {
               sourceFile.fileName.endsWith('/bun-types/globals.d.ts'))
           )
             return { owner, name: declaration.name?.getText() };
+        };
+        const promiseMethodOf = (type) =>
+          type
+            .getCallSignatures()
+            .map(builtInMethod)
+            .find((method) => method?.owner === 'PromiseConstructor')?.name;
+        const logicalArgument = (args, index) => {
+          let remaining = index;
+          for (const argument of args) {
+            const expression =
+              argument.type === 'SpreadElement' ? argument.argument : argument;
+            const location = esTreeNodeToTSNodeMap.get(expression);
+            const type = checker.getTypeAtLocation(location);
+            if (argument.type !== 'SpreadElement') {
+              if (remaining === 0) return { type, location };
+              remaining -= 1;
+              continue;
+            }
+            if (!checker.isTupleType(type))
+              return { type: type.getNumberIndexType(), location };
+            const items = checker.getTypeArguments(type);
+            if (remaining < items.length)
+              return { type: items[remaining], location };
+            remaining -= items.length;
+          }
         };
         // Use the well-known symbol's identity, including when a declaration
         // spells its iterator key through an alias.
@@ -786,38 +813,41 @@ const dbNativeRowsPlugin = {
               invocation?.owner === 'PromiseConstructor'
                 ? invocation.name
                 : undefined;
-            let input = node.arguments[0];
+            let inputIndex = 0;
             let packed = false;
             if (
               callee.type === 'MemberExpression' &&
               (invocation?.owner === 'CallableFunction' ||
                 invocation?.owner === 'Function') &&
-              (invocation.name === 'call' || invocation.name === 'apply')
+              ['call', 'apply', 'bind'].includes(invocation.name)
             ) {
-              const target = typeAt(callee.object)
-                .getCallSignatures()
-                .map(builtInMethod)
-                .find((candidate) => candidate?.owner === 'PromiseConstructor');
-              method = target?.name;
-              input = node.arguments[1];
+              method = promiseMethodOf(typeAt(callee.object));
+              inputIndex = 1;
               packed = invocation.name === 'apply';
             }
-            if (input === undefined) return;
+            if (
+              invocation?.owner === 'Reflect' &&
+              invocation.name === 'apply'
+            ) {
+              const target = logicalArgument(node.arguments, 0)?.type;
+              if (target) method = promiseMethodOf(target);
+              inputIndex = 2;
+              packed = true;
+            }
             if (
               method !== 'resolve' &&
               !['all', 'allSettled', 'any', 'race', 'try'].includes(method)
             )
               return;
-            const expression =
-              input.type === 'SpreadElement' ? input.argument : input;
-            const location = esTreeNodeToTSNodeMap.get(expression);
-            const expressionType = typeAt(expression);
-            let inputType = expressionType;
-            if (packed || input.type === 'SpreadElement') {
-              const first = expressionType.getProperty('0');
+            const input = logicalArgument(node.arguments, inputIndex);
+            if (!input?.type) return;
+            const { type, location } = input;
+            let inputType = type;
+            if (packed) {
+              const first = type.getProperty('0');
               inputType = first
                 ? checker.getTypeOfSymbolAtLocation(first, location)
-                : expressionType.getNumberIndexType();
+                : type.getNumberIndexType();
             }
             if (!inputType) return;
             if (method === 'resolve') {
