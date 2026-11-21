@@ -35,7 +35,9 @@ export function constInitializer(
 ): ts.Expression | undefined {
   if (!ts.isIdentifier(node)) return;
   const symbol = checker.getSymbolAtLocation(node);
-  const declaration = symbol?.valueDeclaration;
+  const declaration =
+    symbol?.valueDeclaration ??
+    symbol?.declarations?.find(ts.isVariableDeclaration);
   if (
     !symbol ||
     seen.has(symbol) ||
@@ -82,4 +84,27 @@ export function hasOtherDeclaration(
         ?.declarations?.some((declaration) => declaration === node.parent)) ||
     ts.forEachChild(node, scan);
   return scan(file) === true;
+}
+
+export function usesCommonJs(
+  checker: ts.TypeChecker,
+  file: ts.SourceFile,
+): boolean {
+  const visit = (node: ts.Node): boolean | undefined => {
+    if (
+      ts.isCallExpression(node) &&
+      isGlobal(checker, node.expression, 'require')
+    )
+      return true;
+    if (
+      (ts.isPropertyAccessExpression(node) ||
+        ts.isElementAccessExpression(node)) &&
+      (isGlobal(checker, node.expression, 'exports') ||
+        (isGlobal(checker, node.expression, 'module') &&
+          memberName(checker, node) === 'exports'))
+    )
+      return true;
+    return ts.forEachChild(node, visit);
+  };
+  return /\.c[jt]s$/.test(file.fileName) || visit(file) === true;
 }

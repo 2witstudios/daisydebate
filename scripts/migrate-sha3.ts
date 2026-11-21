@@ -7,6 +7,7 @@ import {
   sourceChecker,
   staticText,
   unparenthesized,
+  usesCommonJs,
 } from './migration-bindings';
 
 const digestModule = '@daisy/digest';
@@ -157,7 +158,11 @@ function digestImports(file: ts.SourceFile): ts.NamedImports | undefined {
   }
 }
 
-export function migrateSha3(path: string, source: string): string {
+export function migrateSha3(
+  path: string,
+  source: string,
+  manual?: () => void,
+): string {
   const file = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true);
   const checker = sourceChecker(file);
   const existing = digestImports(file)?.elements.find(
@@ -185,6 +190,11 @@ export function migrateSha3(path: string, source: string): string {
   };
   visit(file);
   if (edits.length === 0) return source;
+  if (usesCommonJs(checker, file)) {
+    // Adding an ESM import would change the file's module format.
+    manual?.();
+    return source;
+  }
 
   const rewritten = edits
     .reverse()
@@ -278,7 +288,7 @@ export function migrateSha3(path: string, source: string): string {
         text.slice(0, edit.start) + edit.text + text.slice(edit.end),
       rewritten,
     );
-  return migrateSha3(path, migrated);
+  return migrateSha3(path, migrated, manual);
 }
 
 if (import.meta.main) {
@@ -299,6 +309,7 @@ if (import.meta.main) {
   ]);
   if (files.exitCode !== 0) throw new Error(files.stderr.toString());
   let changed = 0;
+  const manual = new Set<string>();
   for (const path of new Set(files.stdout.toString().split('\0'))) {
     if (path.startsWith('packages/digest/') || !/\.[cm]?[jt]sx?$/.test(path))
       continue;
@@ -306,7 +317,7 @@ if (import.meta.main) {
     if (!(await file.exists())) continue;
     const source = await file.text();
     if (!source.includes('sha3-256')) continue;
-    const migrated = migrateSha3(path, source);
+    const migrated = migrateSha3(path, source, () => manual.add(path));
     if (migrated === source) continue;
     changed++;
     if (mode === '--write') await Bun.write(path, migrated);
@@ -315,5 +326,7 @@ if (import.meta.main) {
   console.log(
     `${changed} files ${mode === '--check' ? 'to migrate' : 'migrated'}`,
   );
-  if (mode === '--check' && changed) process.exitCode = 1;
+  for (const path of manual)
+    console.log(`Manual CommonJS SHA3 migration needed: ${path}`);
+  if ((mode === '--check' && changed) || manual.size > 0) process.exitCode = 1;
 }

@@ -65,6 +65,14 @@ const dateRule = {
   meta: { messages: { required: dateMessage } },
   create(context) {
     const report = (node) => context.report({ node, messageId: 'required' });
+    const readsParse = (pattern) =>
+      pattern.type === 'ObjectPattern' &&
+      pattern.properties.some(
+        ({ key, computed }) =>
+          (computed
+            ? staticText(key, context.sourceCode)
+            : (key?.name ?? staticText(key))) === 'parse',
+      );
     return {
       MemberExpression(node) {
         if (
@@ -74,16 +82,14 @@ const dateRule = {
           report(node);
       },
       VariableDeclarator(node) {
+        if (readsParse(node.id) && isDate(node.init, context.sourceCode))
+          report(node);
+      },
+      AssignmentExpression(node) {
         if (
-          node.init &&
-          isDate(node.init, context.sourceCode) &&
-          node.id.type === 'ObjectPattern' &&
-          node.id.properties.some(
-            ({ key, computed }) =>
-              (computed
-                ? staticText(key, context.sourceCode)
-                : (key?.name ?? staticText(key))) === 'parse',
-          )
+          node.operator === '=' &&
+          readsParse(node.left) &&
+          isDate(node.right, context.sourceCode)
         )
           report(node);
       },
@@ -132,7 +138,9 @@ function isNativeHasher(node, sourceCode, seen = new Set()) {
       definition.node.id.type === 'ObjectPattern'
     ) {
       const member = definition.node.id.properties.find(
-        (property) => property.value === definition.name,
+        ({ value }) =>
+          (value?.type === 'AssignmentPattern' ? value.left : value) ===
+          definition.name,
       );
       if (member)
         return nativeHashName(

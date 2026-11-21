@@ -5,12 +5,12 @@ import { migrateDateParse } from './migrate-date-parse';
 setupRitewayBun();
 
 describe('the clock migration', () => {
-  test('migrates arithmetic, injected clocks, validation, and standalone references', () => {
+  test('migrates arithmetic, injected clocks, validation, and computed calls', () => {
     const source = [
       "'use client';",
       "import { fixedClock } from '@daisy/clock';",
       'const instantMs = 1;',
-      'const same = Date["parse"];',
+      'const same = Date["parse"](input);',
       'const ms = Date.parse(clock.now());',
       'const valid = Number.isFinite(Date.parse(input));',
       'const invalid = Number.isNaN(Date.parse(input));',
@@ -29,7 +29,7 @@ describe('the clock migration', () => {
           "'use client';",
           "import { instantMs as clockInstantMs, nowMs, tryInstantMs, addMs, fixedClock } from '@daisy/clock';",
           'const instantMs = 1;',
-          'const same = clockInstantMs;',
+          'const same = clockInstantMs(input);',
           'const ms = nowMs(clock);',
           'const valid = (tryInstantMs(input) !== undefined);',
           'const invalid = (tryInstantMs(input) === undefined);',
@@ -160,5 +160,45 @@ test('keeps a local Date binding in JavaScript', () => {
       migrateDateParse(path, source),
     ),
     expected: [source, source],
+  });
+});
+
+test('reports assigned or extracted Date parsers without changing their refusals', () => {
+  const forms = ['let parse; ({ parse } = Date);', 'const parse = Date.parse;'];
+  const results = forms.map((prefix) => {
+    const source = `${prefix} Number.isNaN(parse(input));`;
+    let manual = false;
+    const migrated = migrateDateParse('example.js', source, () => {
+      manual = true;
+    });
+    return [
+      migrated === source,
+      manual,
+      runInNewContext(migrated, { input: 'invalid' }),
+    ];
+  });
+  assert({
+    given:
+      'native parsers captured by assignment destructuring or a direct reference',
+    should: 'report both native bindings and retain numeric refusal',
+    actual: results,
+    expected: [
+      [true, true, true],
+      [true, true, true],
+    ],
+  });
+});
+
+test('reports CommonJS clock calls for manual conversion', () => {
+  const source = 'module.exports = Date.parse(input);';
+  let manual = false;
+  const migrated = migrateDateParse('sample.cjs', source, () => {
+    manual = true;
+  });
+  assert({
+    given: 'a CommonJS source with an otherwise supported Date.parse call',
+    should: 'report its manual disposition and keep its module format',
+    actual: [migrated, manual],
+    expected: [source, true],
   });
 });

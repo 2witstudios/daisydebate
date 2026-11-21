@@ -7,6 +7,7 @@ import {
   sourceChecker,
   staticText,
   unparenthesized,
+  usesCommonJs,
 } from './migration-bindings';
 
 const clockModule = '@daisy/clock';
@@ -98,12 +99,16 @@ export function migrateDateParse(
     return initializer !== undefined && isDate(initializer, seen);
   };
   const isParse = (node: ts.Node) => {
-    const owner = memberOwner(node, 'parse');
+    const owner = memberOwner(unparenthesized(node), 'parse');
     return owner !== undefined && isDate(owner);
   };
   const parseArgument = (expression: ts.Node): ts.Expression | undefined => {
     const node = unparenthesized(expression);
-    if (ts.isCallExpression(node) && isParse(node.expression)) {
+    if (
+      ts.isCallExpression(node) &&
+      node.arguments.length === 1 &&
+      isParse(node.expression)
+    ) {
       const [argument] = node.arguments;
       if (argument && !ts.isSpreadElement(argument)) return argument;
     }
@@ -153,25 +158,40 @@ export function migrateDateParse(
     edits.push({ start: node.getStart(file), end: node.end, text });
   };
 
+  const isParseKey = (key: ts.Node | undefined): boolean => {
+    if (!key) return false;
+    if (ts.isIdentifier(key) || ts.isStringLiteralLike(key))
+      return key.text === 'parse';
+    return (
+      ts.isComputedPropertyName(key) &&
+      staticText(checker, key.expression) === 'parse'
+    );
+  };
+
   const visit = (node: ts.Node) => {
     if (
       ts.isVariableDeclaration(node) &&
       ts.isObjectBindingPattern(node.name) &&
       node.initializer &&
-      isDate(node.initializer)
+      isDate(node.initializer) &&
+      node.name.elements.some(
+        (binding) =>
+          !binding.dotDotDotToken &&
+          isParseKey(binding.propertyName ?? binding.name),
+      )
+    )
+      manual?.();
+    if (
+      ts.isBinaryExpression(node) &&
+      node.operatorToken.kind === ts.SyntaxKind.EqualsToken
     ) {
-      const parse = node.name.elements.find((binding) => {
-        if (binding.dotDotDotToken) return false;
-        const key = binding.propertyName ?? binding.name;
-        if (ts.isIdentifier(key) || ts.isStringLiteralLike(key))
-          return key.text === 'parse';
-        return (
-          ts.isComputedPropertyName(key) &&
-          staticText(checker, key.expression) === 'parse'
-        );
-      });
-      // Calls through an extracted parser can rely on its numeric refusal value.
-      if (parse) manual?.();
+      const pattern = unparenthesized(node.left);
+      if (
+        ts.isObjectLiteralExpression(pattern) &&
+        isDate(node.right) &&
+        pattern.properties.some((property) => isParseKey(property.name))
+      )
+        manual?.();
     }
 
     if (ts.isCallExpression(node) && node.arguments.length === 1) {
@@ -246,14 +266,31 @@ export function migrateDateParse(
       );
       return;
     }
-    if (isParse(node)) {
-      replace(node, use('instantMs'));
+    if (
+      (ts.isPropertyAccessExpression(node) ||
+        ts.isElementAccessExpression(node)) &&
+      isParse(node)
+    ) {
+      let callee: ts.Node = node;
+      while (ts.isParenthesizedExpression(callee.parent))
+        callee = callee.parent;
+      if (
+        ts.isCallExpression(callee.parent) &&
+        callee.parent.expression === callee &&
+        parseArgument(callee.parent)
+      )
+        replace(node, use('instantMs'));
+      else manual?.();
       return;
     }
     ts.forEachChild(node, visit);
   };
   visit(file);
   if (!edits.length) return source;
+  if (usesCommonJs(checker, file)) {
+    manual?.();
+    return source;
+  }
   if (imports.length > 0) {
     if (namedImports) {
       const open =
@@ -329,7 +366,7 @@ async function run(args: string[]) {
     `${changed} files ${mode === '--write' ? 'migrated' : 'to migrate'}`,
   );
   for (const path of manual)
-    console.log(`Manual Date.parse binding migration needed: ${path}`);
+    console.log(`Manual Date.parse migration needed: ${path}`);
   if ((mode === '--check' && changed > 0) || manual.size > 0)
     process.exitCode = 1;
 }

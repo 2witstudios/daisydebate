@@ -99,3 +99,27 @@ test('finds native namespace aliases and destructuring in JavaScript files', () 
     ]),
   });
 });
+
+test('reports native require chains without changing their module format', () => {
+  const prefixes = [
+    "const { createHash: hash } = require('node:crypto');",
+    "const crypto = require('node:crypto'); const owner = crypto; const { createHash: hash } = owner;",
+  ];
+  const results = ['sample.js', 'sample.mjs', 'sample.cjs'].flatMap((path) =>
+    prefixes.map((prefix) => {
+      const source = `${prefix} module.exports = hash('sha3-256').update('a').digest('hex');`;
+      let manual = false;
+      const migrated = migrateSha3(path, source, () => {
+        manual = true;
+      });
+      return [migrated === source, manual];
+    }),
+  );
+  assert({
+    given: 'a native require binding and an aliased require binding',
+    should:
+      'retain the original module syntax and report both for manual conversion',
+    actual: results,
+    expected: Array.from({ length: 6 }, () => [true, true]),
+  });
+});
