@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import type { TransactionSQL } from 'bun';
+import type { SavepointSQL } from 'bun';
 import { requireTestServices } from '@daisy/config';
 import {
   createGuardianStore,
@@ -223,7 +223,7 @@ test('two guardians share one choice and only current guardians can clear a hold
       const initialAdultNotice = (await inbox(parent)).rows[0]!;
       const scoped = async <T>(
         subject: typeof child,
-        work: (sp: TransactionSQL) => Promise<T>,
+        work: (sp: SavepointSQL) => Promise<T>,
       ) =>
         sql.savepoint(async (sp) => {
           await sp`select set_config('daisy.subject_scope', ${subject.userId}, true)`;
