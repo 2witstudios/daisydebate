@@ -22,7 +22,7 @@ import {
 } from './columns';
 import { events } from './events';
 import { organizations } from './organizations';
-import { seasons } from './ratings';
+import { seasons } from './seasons';
 import { templates } from './templates';
 import { constantText } from './tenant-keys';
 

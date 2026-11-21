@@ -1,3 +1,4 @@
+import { foldLeagueRatings } from './league-fold';
 import type { LeagueRatingInputs } from '@daisy/db/tab';
 import {
   ladderInput,
@@ -106,3 +107,11 @@ export function leagueGames(input: LeagueRatingInputs): LadderGame[] {
   });
   return ladderInput({ rooms, tournaments });
 }
+
+export const leagueStandings = (input: LeagueRatingInputs) =>
+  input.tournaments.length > 0
+    ? foldLeagueRatings(leagueGames(input))
+    : input.standings.map(({ rating, deviation, volatility, ...row }) => ({
+        ...row,
+        state: { rating, deviation, volatility },
+      }));

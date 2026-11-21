@@ -1,9 +1,8 @@
 import { createAppError } from '@daisy/errors';
 import {
   ratingStyles,
-  twoSideKeys,
-  type Ladder,
-  type TwoSideKey,
+  sideKeySchema,
+  type SideKey,
   type WinnerOutcome,
 } from '@daisy/protocol';
 import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm';
@@ -15,6 +14,9 @@ import { roundParticipants } from './schema/round-participants';
 import { rounds } from './schema/rounds';
 import { formatPresets } from './schema/format-presets';
 import { formats } from './schema/formats';
+import { ladders } from './schema/ladders';
+import { lobbies } from './schema/lobbies';
+import { organizations } from './schema/organizations';
 import { ratingChanges, ratings } from './schema/ratings';
 import { users } from './schema/users';
 import { listSeasonRecords, type SeasonRecord } from './season-record';
@@ -52,7 +54,7 @@ export type StandingChange = {
   readonly deviationAfter: number;
   readonly occurredAt: string;
   /** A rating compares the two sides (ADR 0055): the preset's pair. */
-  readonly side: TwoSideKey;
+  readonly side: SideKey;
   readonly outcome: WinnerOutcome;
 };
 
@@ -60,9 +62,6 @@ export type StandingsRead = {
   readonly ratings: readonly StandingRating[];
   readonly changes: readonly StandingChange[];
 };
-
-const isTwoSideKey = (key: string | null): key is TwoSideKey =>
-  (twoSideKeys as readonly (string | null)[]).includes(key);
 
 /**
  * A posting's side and outcome as a rated result. A ledger row is only ever
@@ -73,12 +72,14 @@ function ratedSeat(
   side: string | null,
   winningSide: string | null,
 ): Pick<StandingChange, 'side' | 'outcome'> {
-  if (!isTwoSideKey(side) || !isTwoSideKey(winningSide))
+  const seat = sideKeySchema.safeParse(side);
+  const winner = sideKeySchema.safeParse(winningSide);
+  if (!seat.success || !winner.success)
     throw createAppError(
       'INTERNAL',
       'A ledger posting has no rated seat or outcome',
     );
-  return { side, outcome: { kind: 'winner', side: winningSide } };
+  return { side: seat.data, outcome: { kind: 'winner', side: winner.data } };
 }
 
 export const standingsOperations = ({
@@ -102,9 +103,41 @@ export const standingsOperations = ({
   },
 
   /** The seasons a ladder can show, newest start first. */
-  listLadderSeasons(): Promise<readonly SeasonRecord[]> {
+  listLadderSeasons(lobbyId?: string): Promise<readonly SeasonRecord[]> {
     return instrumented(eventSink, 'listLadderSeasons', () =>
-      listSeasonRecords(database),
+      listSeasonRecords(database, lobbyId),
+    );
+  },
+
+  /** Standing lobbies offered on the public leaderboard, with their primary ladders. */
+  async listOfficialRatingLadders() {
+    const rows = await database
+      .selectDistinctOn([lobbies.id], {
+        id: ladders.id,
+        name: ladders.name,
+        lobbyId: lobbies.id,
+        lobbyName: lobbies.name,
+        ageRule: lobbies.ageRule,
+        openedAt: lobbies.createdAt,
+      })
+      .from(ladders)
+      .innerJoin(lobbies, eq(lobbies.id, ladders.lobbyId))
+      .innerJoin(
+        organizations,
+        eq(organizations.id, lobbies.ownerOrganizationId),
+      )
+      .where(
+        and(
+          eq(organizations.official, true),
+          isNull(organizations.closedAt),
+          isNull(lobbies.closedAt),
+        ),
+      )
+      .orderBy(asc(lobbies.id), asc(ladders.createdAt), asc(ladders.id));
+    return rows.sort(
+      (a, b) =>
+        a.openedAt.getTime() - b.openedAt.getTime() ||
+        a.lobbyId.localeCompare(b.lobbyId),
     );
   },
 
@@ -142,7 +175,8 @@ export const standingsOperations = ({
    * authorized read of, whose own postings need no wait.
    */
   readStandings(input: {
-    readonly ladder: Ladder;
+    readonly ladderId: string;
+    readonly lobbyId: string;
     readonly seasonIds: readonly string[];
     readonly clock: SpectatorClock;
     readonly revealRoundId?: string;
@@ -168,8 +202,8 @@ export const standingsOperations = ({
             .leftJoin(users, eq(users.id, actors.userId))
             .where(
               and(
-                eq(ratings.ladder, input.ladder.style),
-                eq(ratings.division, input.ladder.division),
+                eq(ratings.ladder, input.ladderId),
+                eq(ratings.lobbyId, input.lobbyId),
                 inArray(ratings.seasonId, [...input.seasonIds]),
               ),
             ),
@@ -198,16 +232,15 @@ export const standingsOperations = ({
               roundParticipants,
               and(
                 eq(roundParticipants.roundId, ratingChanges.roundId),
-                eq(roundParticipants.actorId, ratingChanges.actorId),
+                eq(roundParticipants.ratingActorId, ratingChanges.actorId),
               ),
             )
             .where(
               and(
-                eq(ratingChanges.ladder, input.ladder.style),
-                eq(ratingChanges.division, input.ladder.division),
+                eq(ratingChanges.ladder, input.ladderId),
+                eq(ratingChanges.lobbyId, input.lobbyId),
                 inArray(ratingChanges.seasonId, [...input.seasonIds]),
                 eq(roundParticipants.seatKind, 'side'),
-                inArray(roundParticipants.side, [...twoSideKeys]),
               ),
             ),
         }),

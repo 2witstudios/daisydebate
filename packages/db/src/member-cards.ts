@@ -1,8 +1,6 @@
 import { sql, type SQL } from 'drizzle-orm';
-import { daisyOrganizationId } from './daisy-reference';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import {
-  ratingStyles,
   type RatingDivision,
   type RatingStyle,
   type RoundOutcome,
@@ -23,6 +21,8 @@ type CardRatingRow = {
   readonly actorId: string;
   /** The ladder's style and division (ADR 0147). */
   readonly ladder: RatingStyle;
+  readonly ladderId: string;
+  readonly lobbyId: string;
   readonly division: RatingDivision;
   readonly rating: number;
   readonly deviation: number;
@@ -90,24 +90,27 @@ const readCardRatings = async (
     clock,
   );
   const postings = sql`rating_changes c join rounds held_r on held_r.id = c.round_id
-    where c.actor_id = r.actor_id and c.ladder = r.ladder and c.division = r.division and c.season_id = r.season_id`;
+    where c.actor_id = r.actor_id and c.ladder = r.ladder and c.season_id = r.season_id`;
   const ratings = (await database.execute(sql`
-    select r.actor_id as "actorId", r.ladder, r.division, r.rating, r.deviation, r.volatility,
+    select r.actor_id as "actorId", 'freestyle' as ladder, case when l.age_rule='under-18' then 'youth' else 'open' end as division,
+      r.lobby_id as "lobbyId", r.ladder as "ladderId", r.rating, r.deviation, r.volatility,
       (select max(c.occurred_at) from ${postings} and ${postingReleased}) as "lastRatedAt",
       held.rating_before as "heldRating",
       held.deviation_before as "heldDeviation",
       held.volatility_before as "heldVolatility"
     from ratings r join seasons s on s.id = r.season_id and s.status = 'active'
-      and s.organization_id = ${daisyOrganizationId}
+    join lobbies l on l.id = r.lobby_id
+    join organizations o on o.id = l.owner_organization_id and o.official and o.closed_at is null
+    join lateral (
+      select ld.id from ladders ld where ld.lobby_id=l.id order by ld.created_at,ld.id limit 1
+    ) ladder on ladder.id=r.ladder
     left join lateral (
       select c.rating_before, c.deviation_before, c.volatility_before
       from ${postings} and not ${postingReleased}
       order by c.occurred_at asc limit 1
     ) held on true
     where r.actor_id = any(${ids})`)) as unknown as CardRatingRead[];
-  return ratings
-    .filter((row) => ratingStyles.includes(row.ladder))
-    .flatMap((row) => releasedCardRating(row) ?? []);
+  return ratings.flatMap((row) => releasedCardRating(row) ?? []);
 };
 
 const actorIdArray = (actorIds: readonly string[]) =>

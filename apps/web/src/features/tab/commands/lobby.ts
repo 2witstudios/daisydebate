@@ -132,6 +132,7 @@ type TournamentRow = {
 type SeasonRow = {
   readonly id: string;
   readonly organizationId: string;
+  readonly lobbyId: string;
   readonly name: string;
   readonly startsAt: string;
   readonly endsAt: string | null;
@@ -369,6 +370,12 @@ const createSeason = (
   if (facts.organization?.id !== command.organizationId)
     return refuse('not-found');
   if (facts.organization.kind !== 'league') return refuse('owner-not-league');
+  if (
+    facts.lobby?.ownerOrganizationId !== command.organizationId ||
+    facts.lobby.id !== command.lobbyId
+  )
+    return refuse('not-found');
+  if (facts.lobby.kind !== 'standing') return refuse('lobby-not-standing');
   if (facts.activeSeasonId !== null) return refuse('season-open');
   const seasonId = facts.newId;
   return accepted({ kind: 'season', id: seasonId }, 1, [
@@ -378,6 +385,7 @@ const createSeason = (
       row: {
         id: seasonId,
         organizationId: command.organizationId,
+        lobbyId: facts.lobby.id,
         name: command.name,
         startsAt: command.startsAt,
         endsAt: command.endsAt,

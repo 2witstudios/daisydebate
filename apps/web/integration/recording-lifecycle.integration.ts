@@ -119,8 +119,7 @@ const withReadyRecording = (
     const record = await port.request({
       roundId,
       competitionType: 'casual',
-      ladderDivision: null,
-      roomYouth: false,
+      youthRound: false,
       hostActorId: read!.hostActorId,
       hostOptedIn: true,
       hostHoldsRecording: true,

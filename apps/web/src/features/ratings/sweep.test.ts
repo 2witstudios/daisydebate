@@ -7,7 +7,7 @@ setupRitewayBun();
 
 const rateable: RatingEligibilityFacts = {
   competitionType: 'ranked',
-  ladder: { style: 'freestyle', division: 'open' },
+  scope: { lobbyId: 'open', ladderId: 'freestyle', seasonId: 'season' },
   status: 'completed',
   outcome: { kind: 'winner', side: 'affirmative' },
   completedAt: '2026-10-05T12:00:00.000Z',

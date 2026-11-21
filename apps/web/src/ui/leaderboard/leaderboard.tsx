@@ -25,6 +25,7 @@ import { LadderTable } from './ladder-table/ladder-table';
 export type LeaderboardProps = {
   /** The ladder on screen: a style in a division (ADR 0147). */
   readonly ladder: Ladder;
+  readonly lobbies?: readonly { readonly id: string; readonly name: string }[];
   readonly view: LadderView;
   readonly query: LadderQuery;
   /** ISO timestamp the season's day counts from. */
@@ -42,6 +43,7 @@ export type LeaderboardProps = {
  */
 export function Leaderboard({
   ladder,
+  lobbies = [],
   view,
   query,
   now,
@@ -49,7 +51,7 @@ export function Leaderboard({
   detail,
 }: LeaderboardProps) {
   const closed = isClosed(view.season);
-  const seasons = seasonsHref(view.season.id, query.division);
+  const seasons = seasonsHref(view.season.id, query.division, query.lobby);
   return (
     <div className="mx-auto flex w-full max-w-dash-column flex-col gap-5 px-6 pt-5 max-compact:gap-4 max-compact:px-4">
       <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
@@ -101,6 +103,7 @@ export function Leaderboard({
           <LadderFilters
             query={query}
             ladder={ladder}
+            lobbies={lobbies}
             seasons={view.seasons}
             season={view.season}
             hasStanding={view.hasStanding}

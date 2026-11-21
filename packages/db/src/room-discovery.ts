@@ -83,9 +83,15 @@ const hostRating = (clock: SpectatorClock) => {
     competitionType: sql`c_r.competition_type`,
     completedAt: sql`c_r.completed_at`,
   };
-  const earliestHeld = sql`(select c.rating_before from rating_changes c join rounds c_r on c_r.id=c.round_id where c.actor_id=rt.actor_id and c.ladder=rt.ladder and c.division=rt.division and c.season_id=rt.season_id and not ${factReleasedSql(sql`greatest(c.occurred_at,c_r.completed_at)`, held, clock)} order by c.occurred_at asc limit 1)`;
-  // The host's rating on the Room's own ladder: its style in its division.
-  return sql`case when r.competition_type='ranked' then (select round(coalesce(${earliestHeld},rt.rating))::int from ratings rt join seasons z on z.id=rt.season_id and z.status='active' and z.organization_id=lb.owner_organization_id where rt.actor_id=r.host_actor_id and rt.ladder=r.format_id and rt.division=(case when lb.age_rule='under-18' then 'youth' else 'open' end) limit 1) end`;
+  const earliestHeld = sql`(select c.rating_before from rating_changes c join rounds c_r on c_r.id=c.round_id where c.actor_id=rt.actor_id and c.ladder=rt.ladder and c.season_id=rt.season_id and not ${factReleasedSql(sql`greatest(c.occurred_at,c_r.completed_at)`, held, clock)} order by c.occurred_at asc limit 1)`;
+  return sql`case when r.competition_type='ranked' then (
+    select round(coalesce(${earliestHeld},rt.rating))::int
+    from ratings rt
+    join seasons z on z.id=rt.season_id and z.status='active'
+    where rt.actor_id=r.host_actor_id and rt.lobby_id=r.lobby_id
+      and rt.ladder=(select l.id from ladders l where l.lobby_id=r.lobby_id
+        order by l.created_at,l.id limit 1)
+    ) end`;
 };
 const search = (q: string, topic: SQL) =>
   sql`(${q}='' or strpos(lower(r.title),lower(${q}))>0 or strpos(lower(${topic}),lower(${q}))>0 or (strpos(lower(${hostLabel}),lower(${q}))>0 and not ${hostIsHumanJudge}))`;

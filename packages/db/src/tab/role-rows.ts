@@ -1,6 +1,5 @@
-import { and, asc, eq, inArray, or } from 'drizzle-orm';
+import { asc, eq, inArray, or } from 'drizzle-orm';
 import type { Permission } from '@daisy/protocol/lobby';
-import { daisyOrganizationId } from '../daisy-reference';
 import { rolePermissions, roles } from '../schema/organizations';
 import type { TabTransaction } from './tab-transaction';
 
@@ -64,7 +63,7 @@ export const loadRoles = async (
       );
 
 /**
- * The roles an organization may give: Daisy's presets, offered to every
+ * The roles an organization may give: shared presets, offered to every
  * organization, and its own, highest first. A personal lobby has no owning
  * organization and receives only the shared presets.
  */
@@ -79,10 +78,7 @@ export const loadOfferedRoles = async (
       .from(roles)
       .where(
         or(
-          and(
-            eq(roles.organizationId, daisyOrganizationId),
-            eq(roles.preset, true),
-          ),
+          eq(roles.preset, true),
           organizationId === null
             ? undefined
             : eq(roles.organizationId, organizationId),

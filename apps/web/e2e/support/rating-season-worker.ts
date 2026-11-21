@@ -13,7 +13,7 @@ try {
   await withSeasons(
     url,
     async (seasons) => {
-      // Each division's Season 1 (ADR 0147): Youth Rooms rate too.
+      // Each official lobby's Season 1, through the fixture activation operation.
       for (const division of ratingDivisions)
         await seasons.activateBetaSeason({ id: createId(), division });
     },

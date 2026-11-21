@@ -42,6 +42,7 @@ export { resolveRoomConfiguration } from './resolve-room-configuration';
 export { ratePeriod } from './glicko2';
 export {
   rateDebate,
+  rateDebateSides,
   postingInstant,
   RATING_CALCULATION_VERSION,
   type DebaterRating,

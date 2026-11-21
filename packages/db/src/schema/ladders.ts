@@ -3,14 +3,7 @@ import { createdAtColumn } from './columns';
 import { lobbies } from './lobbies';
 import { constantText, nonEmpty } from './tenant-keys';
 
-/**
- * A rating over one standing lobby's rated Rooms. It belongs to exactly one
- * standing lobby and to that lobby's organization; a tournament lobby never
- * owns one. Daisy's one ladder keeps the id `freestyle` (ADR 0142).
- * Daisy's rating ledger stays Daisy-only by the ladder CHECKs on `ratings`
- * and `rating_changes`; league ratings replay their own immutable Room
- * selection and received tournament results.
- */
+/** A standing lobby's competition ladder, owned by the lobby's league. */
 export const ladders = pgTable(
   'ladders',
   {

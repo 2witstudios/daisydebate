@@ -62,6 +62,7 @@ export {
   seatKinds,
   seatLabel,
   seatOrder,
+  sideKeySchema,
   seatRefSchema,
   sideOfSeat,
   sideSeat,
@@ -925,3 +926,5 @@ export {
   roundJudgeAssignmentReceiptSchema,
   type RoundJudgeAssignmentReceipt,
 } from './round-judge-assignment';
+
+export { roundRatingScopeSchema, type RoundRatingScope } from './rating-ladder';

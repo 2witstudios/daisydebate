@@ -23,9 +23,11 @@ export function parseSeasonsQuery(params: SearchParams): string | null {
 export const seasonsHref = (
   season: string | null,
   division: RatingDivision | null,
+  lobbyId?: string | null,
 ): string => {
   const params = new URLSearchParams();
-  if (division !== null) params.set('division', division);
+  if (lobbyId) params.set('lobby', lobbyId);
+  else if (division !== null) params.set('division', division);
   if (season !== null) params.set('season', season);
   const search = params.toString();
   return search === ''
@@ -69,12 +71,14 @@ export function buildSeasonsView(
   ladder: Ladder,
   now: string,
   viewer: LadderViewer | null = null,
+  lobbyId?: string | null,
 ): SeasonsView {
   const { season } = data;
   const closed = isClosed(season);
   const query = {
     ...defaultQuery,
-    division: ladder.division,
+    division: lobbyId ? null : ladder.division,
+    lobby: lobbyId ?? null,
     season: season.id,
   };
   const context = { season, query, viewer, mine: undefined };
@@ -101,7 +105,7 @@ export function buildSeasonsView(
     percent: closed ? 100 : percent,
     chips: data.seasons.map((item) => ({
       label: `${seasonLabel(item)}${isClosed(item) ? '' : ' · current'}`,
-      href: seasonsHref(item.id, ladder.division),
+      href: seasonsHref(item.id, ladder.division, lobbyId),
       selected: item.id === season.id,
     })),
     championLabel: closed ? 'Champion' : 'Leading now',

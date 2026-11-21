@@ -1,3 +1,4 @@
+import { publicLobbyId } from '../src/daisy-reference';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
@@ -137,18 +138,18 @@ test('each division activates its own Season 1 beside the other (ADR 0147)', asy
       should:
         'open one Youth Season 1 beside it, each active on its own division',
       actual: [
-        [open.division, open.status],
-        [youth.id, youth.division, youth.status, youth.name],
+        [open.lobbyId, open.status],
+        [youth.id, youth.lobbyId, youth.status, youth.name],
         youthRetry.id,
         (
-          await f.sql`select division from seasons where status='active' order by division`
-        ).map((row: { division: string }) => row.division),
+          await f.sql`select lobby_id from seasons where status='active' order by lobby_id`
+        ).map((row: { lobby_id: string }) => row.lobby_id),
       ],
       expected: [
-        ['open', 'active'],
-        [youthId, 'youth', 'active', 'Season 1'],
+        [publicLobbyId, 'active'],
+        [youthId, youth.lobbyId, 'active', 'Season 1'],
         youthId,
-        ['open', 'youth'],
+        [publicLobbyId, youth.lobbyId].sort(),
       ],
     });
   });

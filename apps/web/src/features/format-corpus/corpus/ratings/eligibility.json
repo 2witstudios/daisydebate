@@ -5,14 +5,15 @@
       "ok": true,
       "value": {
         "kind": "rated",
-        "ladder": {
-          "division": "open",
-          "style": "freestyle"
-        },
         "occurredAt": "2026-10-06T10:00:00.000Z",
         "outcome": {
           "kind": "winner",
           "side": "affirmative"
+        },
+        "scope": {
+          "ladderId": "freestyle",
+          "lobbyId": "lobby0000000000000000001",
+          "seasonId": "season000000000000000001"
         }
       }
     },
@@ -28,13 +29,14 @@
       "competitionType": "ranked",
       "completedAt": "2026-10-06T10:00:00.000Z",
       "ending": "judged",
-      "ladder": {
-        "division": "open",
-        "style": "freestyle"
-      },
       "outcome": {
         "kind": "winner",
         "side": "affirmative"
+      },
+      "scope": {
+        "ladderId": "freestyle",
+        "lobbyId": "lobby0000000000000000001",
+        "seasonId": "season000000000000000001"
       },
       "status": "completed"
     },
@@ -46,14 +48,15 @@
       "ok": true,
       "value": {
         "kind": "rated",
-        "ladder": {
-          "division": "open",
-          "style": "freestyle"
-        },
         "occurredAt": "2026-10-06T10:00:00.000Z",
         "outcome": {
           "kind": "winner",
           "side": "negative"
+        },
+        "scope": {
+          "ladderId": "freestyle",
+          "lobbyId": "lobby0000000000000000001",
+          "seasonId": "season000000000000000001"
         }
       }
     },
@@ -69,13 +72,14 @@
       "competitionType": "ranked",
       "completedAt": "2026-10-06T10:00:00.000Z",
       "ending": "judged",
-      "ladder": {
-        "division": "open",
-        "style": "freestyle"
-      },
       "outcome": {
         "kind": "winner",
         "side": "negative"
+      },
+      "scope": {
+        "ladderId": "freestyle",
+        "lobbyId": "lobby0000000000000000001",
+        "seasonId": "season000000000000000001"
       },
       "status": "completed"
     },
@@ -102,11 +106,12 @@
       "competitionType": "ranked",
       "completedAt": "2026-10-06T10:00:00.000Z",
       "ending": "judged",
-      "ladder": {
-        "division": "open",
-        "style": "freestyle"
-      },
       "outcome": null,
+      "scope": {
+        "ladderId": "freestyle",
+        "lobbyId": "lobby0000000000000000001",
+        "seasonId": "season000000000000000001"
+      },
       "status": "completed"
     },
     "name": "null-outcome"
@@ -132,11 +137,11 @@
       "competitionType": "casual",
       "completedAt": "2026-10-06T10:00:00.000Z",
       "ending": "judged",
-      "ladder": null,
       "outcome": {
         "kind": "winner",
         "side": "affirmative"
       },
+      "scope": null,
       "status": "completed"
     },
     "name": "casual"
@@ -162,11 +167,12 @@
       "competitionType": "ranked",
       "completedAt": "2026-10-06T10:00:00.000Z",
       "ending": "judged",
-      "ladder": {
-        "division": "open",
-        "style": "freestyle"
-      },
       "outcome": null,
+      "scope": {
+        "ladderId": "freestyle",
+        "lobbyId": "lobby0000000000000000001",
+        "seasonId": "season000000000000000001"
+      },
       "status": "abandoned"
     },
     "name": "abandoned"
@@ -191,13 +197,14 @@
       "competitionType": "ranked",
       "completedAt": "2026-10-06T10:00:00.000Z",
       "ending": "judged",
-      "ladder": {
-        "division": "open",
-        "style": "freestyle"
-      },
       "outcome": {
         "kind": "winner",
         "side": "affirmative"
+      },
+      "scope": {
+        "ladderId": "freestyle",
+        "lobbyId": "lobby0000000000000000001",
+        "seasonId": "season000000000000000001"
       },
       "status": "completed"
     },
@@ -209,14 +216,15 @@
       "ok": true,
       "value": {
         "kind": "rated",
-        "ladder": {
-          "division": "open",
-          "style": "freestyle"
-        },
         "occurredAt": "2026-10-06T10:00:00.000Z",
         "outcome": {
           "kind": "winner",
           "side": "affirmative"
+        },
+        "scope": {
+          "ladderId": "freestyle",
+          "lobbyId": "lobby0000000000000000001",
+          "seasonId": "season000000000000000001"
         }
       }
     },
@@ -232,13 +240,14 @@
       "competitionType": "ranked",
       "completedAt": "2026-10-06T10:00:00.000Z",
       "ending": "forfeit",
-      "ladder": {
-        "division": "open",
-        "style": "freestyle"
-      },
       "outcome": {
         "kind": "winner",
         "side": "affirmative"
+      },
+      "scope": {
+        "ladderId": "freestyle",
+        "lobbyId": "lobby0000000000000000001",
+        "seasonId": "season000000000000000001"
       },
       "status": "completed"
     },
@@ -265,13 +274,14 @@
       "competitionType": "ranked",
       "completedAt": "2026-10-06T10:00:00.000Z",
       "ending": "unjudged",
-      "ladder": {
-        "division": "open",
-        "style": "freestyle"
-      },
       "outcome": {
         "kind": "winner",
         "side": "affirmative"
+      },
+      "scope": {
+        "ladderId": "freestyle",
+        "lobbyId": "lobby0000000000000000001",
+        "seasonId": "season000000000000000001"
       },
       "status": "completed"
     },
@@ -298,13 +308,14 @@
       "competitionType": "ranked",
       "completedAt": "2026-10-06T10:00:00.000Z",
       "ending": "unrecorded",
-      "ladder": {
-        "division": "open",
-        "style": "freestyle"
-      },
       "outcome": {
         "kind": "winner",
         "side": "affirmative"
+      },
+      "scope": {
+        "ladderId": "freestyle",
+        "lobbyId": "lobby0000000000000000001",
+        "seasonId": "season000000000000000001"
       },
       "status": "completed"
     },
@@ -331,13 +342,14 @@
       "competitionType": "ranked",
       "completedAt": "2026-10-06T10:00:00.000Z",
       "ending": "judged",
-      "ladder": {
-        "division": "open",
-        "style": "freestyle"
-      },
       "outcome": {
         "kind": "winner",
         "side": "affirmative"
+      },
+      "scope": {
+        "ladderId": "freestyle",
+        "lobbyId": "lobby0000000000000000001",
+        "seasonId": "season000000000000000001"
       },
       "status": "completed"
     },
@@ -378,13 +390,14 @@
       "competitionType": "ranked",
       "completedAt": "2026-10-06T10:00:00.000Z",
       "ending": "judged",
-      "ladder": {
-        "division": "open",
-        "style": "freestyle"
-      },
       "outcome": {
         "kind": "winner",
         "side": "affirmative"
+      },
+      "scope": {
+        "ladderId": "freestyle",
+        "lobbyId": "lobby0000000000000000001",
+        "seasonId": "season000000000000000001"
       },
       "status": "completed"
     },
@@ -411,11 +424,12 @@
       "competitionType": "ranked",
       "completedAt": null,
       "ending": "judged",
-      "ladder": {
-        "division": "open",
-        "style": "freestyle"
-      },
       "outcome": null,
+      "scope": {
+        "ladderId": "freestyle",
+        "lobbyId": "lobby0000000000000000001",
+        "seasonId": "season000000000000000001"
+      },
       "status": "active"
     },
     "name": "active"

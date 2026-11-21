@@ -27,12 +27,16 @@ describe('submitting the content waiver', () => {
       given: 'signed, refused, a server fault and a lost connection',
       should: 'name each one',
       actual: await Promise.all([
-        submitContentWaiver(answering(200, { signed: true }), form()),
-        submitContentWaiver(answering(409), form()),
-        submitContentWaiver(answering(500), form()),
-        submitContentWaiver(async () => {
-          throw new Error('lost');
-        }, form()),
+        submitContentWaiver(answering(200, { signed: true }), form(), 'room'),
+        submitContentWaiver(answering(409), form(), 'room'),
+        submitContentWaiver(answering(500), form(), 'room'),
+        submitContentWaiver(
+          async () => {
+            throw new Error('lost');
+          },
+          form(),
+          'room',
+        ),
       ]),
       expected: ['signed', 'refused', 'unavailable', 'unavailable'],
     });

@@ -15,6 +15,7 @@ export type LadderStatus = (typeof statuses)[number];
 export type HistoryView = (typeof views)[number];
 
 export type LadderQuery = {
+  readonly lobby?: string | null;
   /** The ladder's division (ADR 0147); null is the viewer's own. */
   readonly division: RatingDivision | null;
   /** Null is the current season. */
@@ -32,6 +33,7 @@ export type LadderQuery = {
 
 export const defaultQuery: LadderQuery = {
   division: null,
+  lobby: null,
   season: null,
   scope: 'top',
   q: '',
@@ -53,6 +55,7 @@ const count = z
 // Every field falls back to its default on any bad value, so untrusted
 // parameters can never make parsing throw.
 const querySchema = z.object({
+  lobby: idSchema.nullable().catch(null),
   division: z.enum(ratingDivisions).nullable().catch(defaultQuery.division),
   season: idSchema.nullable().catch(defaultQuery.season),
   scope: z.enum(scopes).catch(defaultQuery.scope),
@@ -91,7 +94,8 @@ const PATH = '/leaderboard';
 export function ladderHref(query: LadderQuery): string {
   const params = new URLSearchParams();
   for (const key of keys) {
-    if (query[key] !== defaultQuery[key]) params.set(key, String(query[key]));
+    if (query[key] != null && query[key] !== defaultQuery[key])
+      params.set(key, String(query[key]));
   }
   const search = params.toString();
   return search === '' ? PATH : `${PATH}?${search}`;
@@ -143,7 +147,12 @@ export const everyoneHref = (query: LadderQuery): string =>
 
 /** Another season of the same division's ladder, with no filters. */
 export const seasonHref = (query: LadderQuery, season: string): string =>
-  ladderHref({ ...defaultQuery, division: query.division, season });
+  ladderHref({
+    ...defaultQuery,
+    division: query.division,
+    lobby: query.lobby ?? null,
+    season,
+  });
 
 /**
  * Another division's ladder (ADR 0147). Scope, search and status stay; the
@@ -161,6 +170,19 @@ export const divisionHref = (
     debater: defaultQuery.debater,
     view: defaultQuery.view,
     step: defaultQuery.step,
+  });
+
+/** Switch the standing lobby and clear its season and open details. */
+export const lobbyHref = (query: LadderQuery, lobby: string): string =>
+  ladderHref({
+    ...query,
+    lobby,
+    division: null,
+    season: null,
+    page: 1,
+    debater: null,
+    view: 'chart',
+    step: null,
   });
 
 /** The chart or the table alternative, at the latest debate. */

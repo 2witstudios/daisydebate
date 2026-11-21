@@ -113,6 +113,7 @@ const valid = {
     {
       type: 'create-season',
       organizationId: id('o'),
+      lobbyId,
       name: '2027 season',
       startsAt: at(1),
       endsAt: at(20),
@@ -123,6 +124,7 @@ const valid = {
     {
       type: 'create-season',
       organizationId: id('o'),
+      lobbyId,
       name: 'Open season',
       startsAt: at(1),
       endsAt: null,

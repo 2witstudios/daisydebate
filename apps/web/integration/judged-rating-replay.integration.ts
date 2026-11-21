@@ -185,7 +185,7 @@ test('a posting that fails after its ledger insert leaves nothing and the next s
         actual: () =>
           f.store.rateRound({
             roundId,
-            changeIds: [createId(), createId()],
+            nextChangeId: createId,
             decide: {
               eligibility: ratingEligibility,
               plan: (facts) => {

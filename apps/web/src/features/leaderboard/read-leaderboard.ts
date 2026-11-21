@@ -20,7 +20,10 @@ export type DebaterRead = {
 
 type Store = Pick<
   Database,
-  'listLadderSeasons' | 'readStandings' | 'readRatingBlindings'
+  | 'listLadderSeasons'
+  | 'readStandings'
+  | 'readRatingBlindings'
+  | 'listOfficialRatingLadders'
 >;
 
 /** One authoritative snapshot is reused by the ladder and open detail. */
@@ -29,6 +32,7 @@ export async function readLadder(
   input: {
     readonly seasonId: string | null;
     readonly ladder: Ladder;
+    readonly lobbyId?: string;
     readonly now: string;
     readonly username: string | null;
     readonly viewerActorId?: string;

@@ -29,8 +29,11 @@ describe('rateDebate (RATE-1.3)', () => {
       assert({
         given: 'a completed ranked debate',
         should: 'report it rated on the ranked ladder in the active season',
-        actual: result.kind === 'rated' && [result.ladder, result.seasonId],
-        expected: [{ style: 'freestyle', division: 'open' }, seasonId],
+        actual: result.kind === 'rated' && [
+          result.scope.ladderId,
+          result.scope.seasonId,
+        ],
+        expected: ['freestyle', seasonId],
       });
       assert({
         given: 'the decided changes',

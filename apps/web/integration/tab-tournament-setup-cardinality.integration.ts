@@ -194,6 +194,23 @@ test('host setup exposes every actual authorized sanction without another lobby 
         );
         if (template.kind !== 'accepted')
           throw new Error('Sanction template refused');
+        const standing = await lobbyAdministrationCommand(common)(
+          as(world.bots.Director!),
+          {
+            version: 1,
+            commandId: createId(),
+            expected: {},
+            command: {
+              type: 'create-lobby',
+              owner: { kind: 'organization', organizationId: organizationId },
+              name: 'Standing lobby',
+              handle: `standing-${createId()}`,
+              lobby: { kind: 'standing' },
+            },
+          },
+        );
+        if (standing.kind !== 'accepted')
+          throw new Error('Standing lobby refused');
         const season = await lobbyAdministrationCommand({
           ...common,
         })(as(world.bots.Director!), {
@@ -203,6 +220,7 @@ test('host setup exposes every actual authorized sanction without another lobby 
           command: {
             type: 'create-season',
             organizationId,
+            lobbyId: standing.receipt.aggregate.id,
             name: 'Current season',
             startsAt: world.clock.now(),
             endsAt: null,

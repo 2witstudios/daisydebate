@@ -5,8 +5,7 @@ import {
 import type { EventSettingContext, LeagueRatingInputs } from '@daisy/db/tab';
 import type { TournamentRatingSnapshot } from '@daisy/protocol/lobby/rating-snapshot';
 import { eventSettingResolution } from '../tab/operations/event-setting-resolution';
-import { foldLeagueRatings } from './league-fold';
-import { leagueGames } from './league-input';
+import { leagueStandings } from './league-input';
 
 /** One tournament start input, including an explicit no-ladder decision for each event. */
 export function freezeTournamentRatings(
@@ -26,7 +25,7 @@ export function freezeTournamentRatings(
     })),
     ladders: inputs.map((input) => ({
       ladderId: input.ladder.id,
-      actors: foldLeagueRatings(leagueGames(input)).map((row) => {
+      actors: leagueStandings(input).map((row) => {
         const state = inflateDeviation(row.state, row.lastRatedAt, takenAt);
         return {
           actorId: row.actorId,

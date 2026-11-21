@@ -266,6 +266,7 @@ async function executeOnce(
         tx,
         input.caller.userId,
         agreements.contentWaiverVersion,
+        state.lobbyId,
       )
     : null;
   const judgeQuote =

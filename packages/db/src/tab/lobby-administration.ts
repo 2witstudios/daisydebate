@@ -6,7 +6,7 @@ import { loadLobbyActivity } from './lobby-activity';
 import { and, eq, ne, sql } from 'drizzle-orm';
 import { lobbies, tournaments } from '../schema/lobbies';
 import { organizations } from '../schema/organizations';
-import { seasons } from '../schema/ratings';
+import { seasons } from '../schema/seasons';
 import { scopeTransaction, type TenantScope } from '../tenant-scope';
 import { appendHistory, storedCommand } from './command-record';
 import { loadAuthorityContext } from './authority-context';
@@ -41,9 +41,11 @@ const fence = async (tx: TabTransaction, input: LobbyAdministrationInput) => {
       ? command.owner.kind === 'organization'
         ? command.owner.organizationId
         : null
-      : 'organizationId' in command
-        ? command.organizationId
-        : lobby?.ownerOrganizationId;
+      : command.type === 'create-season'
+        ? lobby?.ownerOrganizationId
+        : 'organizationId' in command
+          ? command.organizationId
+          : lobby?.ownerOrganizationId;
   const [organization] = organizationId
     ? await tx
         .select({ id: organizations.id })
@@ -87,11 +89,16 @@ const load = async (
     ].sort()) {
       await scopeTransaction(tx, { ...initialScope, organizationId });
       const [found] = await tx
-        .select({ id: seasons.id })
+        .select({ id: seasons.id, lobbyId: seasons.lobbyId })
         .from(seasons)
-        .where(eq(seasons.id, command.seasonId));
+        .where(
+          and(
+            eq(seasons.id, command.seasonId),
+            eq(seasons.organizationId, organizationId),
+          ),
+        );
       if (found) {
-        scope = { ...initialScope, organizationId };
+        scope = { ...initialScope, organizationId, lobbyId: found.lobbyId };
         break;
       }
     }
@@ -129,20 +136,21 @@ const load = async (
       ? await tx
           .select()
           .from(seasons)
-          .where(eq(seasons.id, command.seasonId))
+          .where(
+            and(
+              eq(seasons.id, command.seasonId),
+              eq(seasons.lobbyId, row?.id ?? ''),
+            ),
+          )
           .for('update')
       : [];
-  const [active] = organization
-    ? await tx
-        .select({ id: seasons.id })
-        .from(seasons)
-        .where(
-          and(
-            eq(seasons.organizationId, organization.organizationId),
-            eq(seasons.status, 'active'),
-          ),
-        )
-    : [];
+  const [active] =
+    row && organization
+      ? await tx
+          .select({ id: seasons.id })
+          .from(seasons)
+          .where(and(eq(seasons.lobbyId, row.id), eq(seasons.status, 'active')))
+      : [];
   const [ladder] = row
     ? await tx
         .select({ id: ladders.id })

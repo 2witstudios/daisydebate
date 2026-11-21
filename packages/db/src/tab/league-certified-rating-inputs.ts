@@ -13,7 +13,11 @@ import type { TabTransaction } from './tab-transaction';
  */
 export async function loadLeagueCertifiedRatingInputs(
   tx: TabTransaction,
-  input: { readonly viewerUserId: string; readonly organizationId: string },
+  input: {
+    readonly viewerUserId: string;
+    readonly organizationId: string;
+    readonly seasonId: string;
+  },
 ) {
   const scope = {
     subjectUserId: input.viewerUserId,
@@ -26,6 +30,7 @@ export async function loadLeagueCertifiedRatingInputs(
     .where(
       and(
         eq(sanctions.organizationId, input.organizationId),
+        eq(sanctions.seasonId, input.seasonId),
         eq(sanctions.status, 'approved'),
       ),
     )

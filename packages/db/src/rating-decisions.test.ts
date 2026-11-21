@@ -2,7 +2,7 @@ import { assertRejects } from '@daisy/errors/testing';
 import type { RatingPlan } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
-  assertRankedRoundIntegrity,
+  assertRoundRatingIntegrity,
   projectionLockOrder,
   ratedResult,
   ratingChangeRows,
@@ -16,8 +16,7 @@ const state = (rating: number) => ({
   volatility: 0.06,
 });
 const plan: RatingPlan = {
-  ladder: { style: 'freestyle', division: 'youth' },
-  seasonId: 'season',
+  scope: { lobbyId: 'youth-lobby', ladderId: 'freestyle', seasonId: 'season' },
   occurredAt: '2026-10-22T12:00:00.000Z',
   calculationVersion: 'glicko2@1',
   changes: [
@@ -43,17 +42,19 @@ test('only ranked Rounds pin a preset and ladder', async () => {
     given: 'a ranked Round with both and a casual Round with neither',
     should: 'accept both as intact',
     actual: [
-      assertRankedRoundIntegrity({
+      assertRoundRatingIntegrity({
         competitionType: 'ranked',
         presetVersion: 1,
         ladderId: 'ladder',
-        ladderDivision: 'youth',
+        ratingLobbyId: 'youth-lobby',
+        seasonId: 'season',
       }),
-      assertRankedRoundIntegrity({
+      assertRoundRatingIntegrity({
         competitionType: 'casual',
         presetVersion: null,
         ladderId: null,
-        ladderDivision: null,
+        ratingLobbyId: null,
+        seasonId: null,
       }),
     ],
     expected: [undefined, undefined],
@@ -63,43 +64,49 @@ test('only ranked Rounds pin a preset and ladder', async () => {
       competitionType: 'ranked',
       presetVersion: null,
       ladderId: 'ladder',
-      ladderDivision: 'open',
+      ratingLobbyId: 'youth-lobby',
+      seasonId: null,
     },
     {
       competitionType: 'ranked',
       presetVersion: 1,
       ladderId: null,
-      ladderDivision: null,
+      ratingLobbyId: null,
+      seasonId: null,
     },
     {
       competitionType: 'ranked',
       presetVersion: 1,
       ladderId: 'ladder',
-      ladderDivision: null,
+      ratingLobbyId: null,
+      seasonId: null,
     },
     {
       competitionType: 'casual',
       presetVersion: 1,
       ladderId: null,
-      ladderDivision: null,
+      ratingLobbyId: null,
+      seasonId: null,
     },
     {
       competitionType: 'casual',
       presetVersion: null,
       ladderId: 'ladder',
-      ladderDivision: 'open',
+      ratingLobbyId: 'youth-lobby',
+      seasonId: null,
     },
     {
       competitionType: 'casual',
       presetVersion: null,
       ladderId: null,
-      ladderDivision: 'open',
+      ratingLobbyId: 'youth-lobby',
+      seasonId: null,
     },
   ])
     await assertRejects({
       given: `a ${round.competitionType} Round with preset ${round.presetVersion} and ladder ${round.ladderId}`,
       should: 'report corrupted rating provenance as an invariant',
-      actual: () => assertRankedRoundIntegrity(round),
+      actual: () => assertRoundRatingIntegrity(round),
       code: 'INVARIANT',
       invariantId: 'round.rating.integrity',
     });
@@ -119,7 +126,7 @@ test('one plan becomes paired ledger rows and a rated result', () => {
         row.formatId,
         row.seasonId,
         row.ladder,
-        row.division,
+        row.lobbyId,
         row.ratingBefore,
         row.ratingAfter,
         row.calculationVersion,
@@ -136,7 +143,7 @@ test('one plan becomes paired ledger rows and a rated result', () => {
           'format',
           'season',
           'freestyle',
-          'youth',
+          'youth-lobby',
           1500,
           1520,
           'glicko2@1',
@@ -149,7 +156,7 @@ test('one plan becomes paired ledger rows and a rated result', () => {
           'format',
           'season',
           'freestyle',
-          'youth',
+          'youth-lobby',
           1600,
           1580,
           'glicko2@1',
@@ -158,8 +165,7 @@ test('one plan becomes paired ledger rows and a rated result', () => {
       ],
       result: {
         kind: 'rated',
-        ladder: { style: 'freestyle', division: 'youth' },
-        seasonId: 'season',
+        scope: plan.scope,
         changes: [
           {
             id: 'change-z',

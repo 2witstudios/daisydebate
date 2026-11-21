@@ -1,4 +1,5 @@
 import {
+  boolean,
   foreignKey,
   index,
   integer,
@@ -37,6 +38,7 @@ export const templates = pgTable(
       .notNull()
       .references(() => organizations.id, { onDelete: 'restrict' }),
     name: text('name').notNull(),
+    shared: boolean('shared').notNull().default(false),
     formatId: text('format_id').notNull(),
     formatVersion: integer('format_version').notNull(),
     ballotDefinitionId: text('ballot_definition_id'),

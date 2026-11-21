@@ -1,9 +1,12 @@
+import { ratingDivisionForAgeRule } from '@daisy/protocol';
 import { systemClock } from '@daisy/clock';
 import type { Metadata } from 'next';
 import type { SearchParams } from '../../../../features/access/decision';
 import {
   requestLadder,
   requestMemberDivision,
+  requestOfficialRatingLadders,
+  requestLandingLobby,
 } from '../../../../lib/request-session';
 import { boardLadder } from '../../../../features/leaderboard/board-ladder';
 import { parseLadderQuery } from '../../../../features/leaderboard/query';
@@ -24,16 +27,31 @@ export default async function SeasonsRoute({
   const now = systemClock.now();
   const params = await searchParams;
   const query = parseLadderQuery(params);
-  const read = await requestLadder({
-    seasonId: parseSeasonsQuery(params),
-    ladder: boardLadder(
-      query.division,
-      // A public page: a failed division read falls back to Open.
-      await requestMemberDivision().catch(() => null),
-    ),
-    now,
-  });
+  const available = await requestOfficialRatingLadders();
+  const landingId =
+    query.lobby || query.division ? null : (await requestLandingLobby())?.id;
+  const chosen = query.lobby
+    ? available.find(({ lobbyId }) => lobbyId === query.lobby)
+    : query.division === null
+      ? available.find(({ lobbyId }) => lobbyId === landingId)
+      : available.find(
+          ({ ageRule }) => ratingDivisionForAgeRule(ageRule) === query.division,
+        );
+  const lobby = query.lobby ? chosen : (chosen ?? available[0]);
+  const read =
+    lobby &&
+    (await requestLadder({
+      lobbyId: lobby.lobbyId,
+      seasonId: parseSeasonsQuery(params),
+      ladder: boardLadder(
+        query.division,
+        // A public page: a failed division read falls back to Open.
+        await requestMemberDivision().catch(() => null),
+      ),
+      now,
+    }));
   const view =
-    read && buildSeasonsView(read.data, read.ladder, now, read.viewer);
-  return <SeasonsPage view={view} />;
+    read &&
+    buildSeasonsView(read.data, read.ladder, now, read.viewer, lobby.lobbyId);
+  return <SeasonsPage view={view ?? null} />;
 }
