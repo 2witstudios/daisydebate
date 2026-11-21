@@ -1,4 +1,3 @@
-import { sha3Hex } from '@daisy/digest';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   audienceAdmits,
@@ -27,7 +26,8 @@ describe('the audience link token', () => {
       given: 'a token',
       should: 'hash it with SHA3-256',
       actual: audienceLinkHash(token),
-      expected: sha3Hex(token),
+      expected:
+        '2378d8ec13de122f8492fadf53426632108c601dee26240048e5983cfe625448',
     });
     assert({
       given: 'the default entropy, twice',

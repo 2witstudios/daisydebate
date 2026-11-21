@@ -1,6 +1,24 @@
 import { instantMs } from '@daisy/clock';
 import { signUpMember } from './support/accounts';
+import type { Page } from '@playwright/test';
 import { expect, test } from './support/fixtures';
+
+async function retainCopy(page: Page, key: string, html: string) {
+  // Unexpired, or the root mount's retention prune removes it first.
+  const value = JSON.stringify({
+    recovery: {
+      html,
+      baseRevision: 1,
+      generation: 'retained',
+      savedAt: instantMs('2099-01-01T00:00:00Z'),
+      expiresAt: instantMs('2099-01-08T00:00:00Z'),
+    },
+  });
+  await page.evaluate(({ key, value }) => localStorage.setItem(key, value), {
+    key,
+    value,
+  });
+}
 
 /** Orphaned retained copies still contain private data and require identity fencing. */
 test('retained private copies coalesce focus checks and cancel stale identity answers', async ({
@@ -13,23 +31,7 @@ test('retained private copies coalesce focus checks and cancel stale identity an
   expect(user.id).toMatch(/^[a-z0-9]{24}$/);
   await page.goto('/settings');
   const retainedKey = `daisy:document-drafts:copy:${user.id}:${'d'.repeat(24)}`;
-  await page.evaluate(
-    (key) =>
-      localStorage.setItem(
-        key,
-        JSON.stringify({
-          recovery: {
-            html: '<p>Retained private copy</p>',
-            baseRevision: 1,
-            generation: 'retained',
-            // Unexpired, or the root mount's retention prune removes it first.
-            savedAt: instantMs('2099-01-01T00:00:00Z'),
-            expiresAt: instantMs('2099-01-08T00:00:00Z'),
-          },
-        }),
-      ),
-    retainedKey,
-  );
+  await retainCopy(page, retainedKey, '<p>Retained private copy</p>');
   const gate = Promise.withResolvers<void>();
   const aborted = Promise.withResolvers<void>();
   let calls = 0;
@@ -92,22 +94,7 @@ test('closing an account erases its private copies in this browser', async ({
   const { user } = await response.json();
   await page.goto('/settings');
   const retainedKey = `daisy:document-drafts:copy:${user.id}:${'d'.repeat(24)}`;
-  await page.evaluate(
-    (key) =>
-      localStorage.setItem(
-        key,
-        JSON.stringify({
-          recovery: {
-            html: '<p>Copy of a closed account</p>',
-            baseRevision: 1,
-            generation: 'retained',
-            savedAt: instantMs('2099-01-01T00:00:00Z'),
-            expiresAt: instantMs('2099-01-08T00:00:00Z'),
-          },
-        }),
-      ),
-    retainedKey,
-  );
+  await retainCopy(page, retainedKey, '<p>Copy of a closed account</p>');
   await page.getByLabel('I understand this cannot be undone.').check();
   await page.getByRole('button', { name: 'Close your account' }).click();
   await expect(page).toHaveURL(/\/sign-in/);
