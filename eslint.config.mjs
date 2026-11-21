@@ -725,16 +725,23 @@ const dbNativeRowsPlugin = {
           const object = constantSource(receiver, seen);
           if (object?.type !== 'ObjectExpression' || key === undefined)
             return undefined;
-          let statement = read;
-          while (
-            statement.parent &&
-            !['BlockStatement', 'Program'].includes(statement.parent.type)
-          )
-            statement = statement.parent;
-          const block = statement.parent;
-          if (block) {
-            // A straight-line write can replace a property without replacing
-            // the constant object. A destructuring read captures its earlier value.
+          // Check preceding statements in the read's block and its enclosing
+          // blocks. Writes outside the current function have separate timing.
+          for (
+            let statement = read;
+            statement.parent;
+            statement = statement.parent
+          ) {
+            const block = statement.parent;
+            if (
+              [
+                'ArrowFunctionExpression',
+                'FunctionExpression',
+                'FunctionDeclaration',
+              ].includes(block.type)
+            )
+              break;
+            if (!['BlockStatement', 'Program'].includes(block.type)) continue;
             for (
               let index = block.body.indexOf(statement) - 1;
               index >= 0;
