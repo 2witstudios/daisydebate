@@ -86,6 +86,8 @@ mock.module(join(import.meta.dir, '../../lib/request-session.ts'), () => ({
   // visitor has none admitted.
   requestOptionalAnswersAdmitted: async () => false,
   requestOnboardingAnswers: async () => null,
+  requestFamilyViewer: async () => null,
+  requestFamilyRows: async () => null,
   requestAnalytics: async () => ({
     choice: {
       kind: 'known',
