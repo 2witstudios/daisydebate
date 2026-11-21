@@ -11,6 +11,7 @@ CREATE TABLE "friend_guardian_approvals" (
 CREATE TABLE "protection_levels" (
 	"user_id" text PRIMARY KEY,
 	"choice" jsonb NOT NULL,
+	CONSTRAINT "protection_levels_choice_is_object" CHECK (jsonb_typeof("choice") = 'object'),
 	CONSTRAINT "protection_levels_choice" CHECK (case when "choice"->>'level' = 'custom' then
         ("choice"->>'friendApproval' in ('none', 'inbound-adult', 'all')
           and jsonb_typeof("choice"->'friendsOnlyMessages') = 'boolean'
@@ -21,8 +22,6 @@ CREATE TABLE "protection_levels" (
 );
 --> statement-breakpoint
 CREATE INDEX "friend_guardian_approvals_child_idx" ON "friend_guardian_approvals" ("child_actor_id");--> statement-breakpoint
-ALTER TABLE "friend_guardian_approvals" ADD CONSTRAINT "friend_guardian_approvals_low_actor_id_actors_id_fkey" FOREIGN KEY ("low_actor_id") REFERENCES "actors"("id") ON DELETE RESTRICT;--> statement-breakpoint
-ALTER TABLE "friend_guardian_approvals" ADD CONSTRAINT "friend_guardian_approvals_high_actor_id_actors_id_fkey" FOREIGN KEY ("high_actor_id") REFERENCES "actors"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "friend_guardian_approvals" ADD CONSTRAINT "friend_guardian_approvals_friendship_fk" FOREIGN KEY ("low_actor_id","high_actor_id") REFERENCES "friendships"("low_actor_id","high_actor_id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "protection_levels" ADD CONSTRAINT "protection_levels_user_id_users_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "friendships" DROP CONSTRAINT "friendships_state", ADD CONSTRAINT "friendships_state" CHECK ("state" in ('pending', 'waiting-for-guardian', 'accepted')) NOT VALID;--> statement-breakpoint

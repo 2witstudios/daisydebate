@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "d3fbcc65-acde-4de6-99c2-4dc42a64a311",
+  "id": "f6c0231e-b021-4310-80a9-e2b16eb98363",
   "prevIds": [
     "e1bebbbb-ade8-476e-9840-468069e3a297"
   ],
@@ -41724,40 +41724,6 @@
       "table": "formats"
     },
     {
-      "nameExplicit": false,
-      "columns": [
-        "low_actor_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "actors",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "friend_guardian_approvals_low_actor_id_actors_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "friend_guardian_approvals"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "high_actor_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "actors",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "friend_guardian_approvals_high_actor_id_actors_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "friend_guardian_approvals"
-    },
-    {
       "nameExplicit": true,
       "columns": [
         "low_actor_id",
@@ -53742,6 +53708,13 @@
       "entityType": "checks",
       "schema": "public",
       "table": "privacy_jobs"
+    },
+    {
+      "value": "jsonb_typeof(\"choice\") = 'object'",
+      "name": "protection_levels_choice_is_object",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "protection_levels"
     },
     {
       "value": "case when \"choice\"->>'level' = 'custom' then\n        (\"choice\"->>'friendApproval' in ('none', 'inbound-adult', 'all')\n          and jsonb_typeof(\"choice\"->'friendsOnlyMessages') = 'boolean'\n          and jsonb_typeof(\"choice\"->'rankedAllowed') = 'boolean'\n          and \"choice\" - array['level','friendApproval','friendsOnlyMessages','rankedAllowed'] = '{}'::jsonb) is true\n        else \"choice\" in ('{\"level\":\"independent\"}'::jsonb,\n          '{\"level\":\"guided\"}'::jsonb, '{\"level\":\"supervised\"}'::jsonb) end",

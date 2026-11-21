@@ -55,8 +55,8 @@ export const friendGuardianApprovals = pgTable(
   'friend_guardian_approvals',
   {
     id: text('id').primaryKey(),
-    lowActorId: contactActorColumn('low_actor_id'),
-    highActorId: contactActorColumn('high_actor_id'),
+    lowActorId: text('low_actor_id').notNull(),
+    highActorId: text('high_actor_id').notNull(),
     childActorId: text('child_actor_id').notNull(),
     cleared: boolean('cleared').notNull().default(false),
   },

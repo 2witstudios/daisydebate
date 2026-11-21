@@ -1,7 +1,7 @@
 import { check, pgTable, text } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { protectionLevelSchema } from '@daisy/protocol/protection-level';
-import { jsonbColumn } from './columns';
+import { jsonbColumn, jsonbIsObject } from './columns';
 import { users } from './users';
 
 export const protectionLevels = pgTable(
@@ -15,6 +15,7 @@ export const protectionLevels = pgTable(
     choice: jsonbColumn('choice', protectionLevelSchema).notNull(),
   },
   (table) => [
+    jsonbIsObject('protection_levels', table.choice),
     check(
       'protection_levels_choice',
       sql`case when ${table.choice}->>'level' = 'custom' then

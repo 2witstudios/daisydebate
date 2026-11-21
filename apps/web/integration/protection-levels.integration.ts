@@ -300,7 +300,7 @@ test('two guardians share one choice and only current guardians can clear a hold
           }),
         ).toEqual({ kind: 'accepted' });
         const ledger =
-          await sql`select decliner_actor_id, requester_actor_id, declined_count
+          await sql`select decliner_actor_id, requester_actor_id, declined_count::int as declined_count
           from social_request_declines
           where ${child.actorId} in (decliner_actor_id, requester_actor_id)`;
         expect<unknown>(ledger).toEqual(
