@@ -1142,15 +1142,47 @@ describe('browser edges', () => {
     });
   });
 
+  test('reports browser and React defaults while allowing injected ports', async () => {
+    assert({
+      given:
+        'destructured global defaults and locally injected window and React objects',
+      should: 'report the host defaults and respect the local bindings',
+      actual: await probe(
+        web('ui/room/controls.tsx'),
+        `import * as React from 'react';
+         export function schedule({ setTimeout: delay } = window) {
+           return delay(() => {}, 1);
+         }
+         export function useSchedule({ useEffect: onEffect } = React) {
+           onEffect(() => {}, []);
+         }
+         export function injected(
+           window: Pick<Window, 'setTimeout'>,
+           React: { useEffect: () => void },
+         ) {
+           const { setTimeout: delay } = window;
+           const { useEffect: onEffect } = React;
+           delay(() => {}, 1);
+           onEffect();
+         }`,
+      ),
+      expected: 2,
+    });
+  });
+
   test('keeps the browser transport out of server process composition', async () => {
     assert({
-      given: 'a server module that imports the browser fetch adapter',
-      should: 'report the cross-boundary import',
+      given:
+        'a server module that statically imports, reexports or dynamically imports the browser adapter',
+      should: 'report each cross-boundary module dependency',
       actual: await probe(
         web('server/probe.ts'),
-        "import { browserFetch } from '../ui/edge/browser-request'; export const transport = browserFetch;",
+        `import { browserFetch } from '../ui/edge/browser-request';
+         export { browserFetch as transport } from '../ui/edge/browser-request';
+         export const read = () => import('../ui/edge/browser-request');
+         export const fetcher = browserFetch;`,
       ),
-      expected: 1,
+      expected: 3,
     });
   });
 

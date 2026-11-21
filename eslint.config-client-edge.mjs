@@ -10,6 +10,7 @@ const browserOperations = new Set([
 ]);
 const hosts = new Set(['window', 'globalThis', 'self']);
 const memberName = (key, computed) => {
+  if (key == null) return undefined;
   if (!computed && key.type === 'Identifier') return key.name;
   if (key.type === 'Literal') return key.value;
   if (key.type === 'TemplateLiteral' && key.expressions.length === 0)
@@ -30,27 +31,26 @@ const browserEdge = {
   create(context) {
     const { sourceCode } = context;
     const path = context.filename.replaceAll('\\', '/');
-    const globals = sourceCode.scopeManager.globalScope;
     const browser =
       path.includes('/src/ui/') ||
       /\/[^/]*browser[^/]*\.[cm]?[jt]sx?$/.test(path) ||
       sourceCode.ast.body.some((node) => node.directive === 'use client');
-    const reactNamespaces = new Set(
-      sourceCode.ast.body
-        .filter(
-          (node) =>
-            node.type === 'ImportDeclaration' && node.source.value === 'react',
-        )
-        .flatMap((node) =>
-          node.specifiers
-            .filter(
-              (specifier) =>
-                specifier.type === 'ImportDefaultSpecifier' ||
-                specifier.type === 'ImportNamespaceSpecifier',
-            )
-            .map((specifier) => specifier.local.name),
-        ),
+    const references = new Map(
+      sourceCode.scopeManager.scopes.flatMap((scope) =>
+        scope.references.map((reference) => [reference.identifier, reference]),
+      ),
     );
+    const isHost = (reference) =>
+      reference?.isValueReference &&
+      (reference.resolved === null || reference.resolved.defs.length === 0);
+    const isReactNamespace = (reference) =>
+      reference?.resolved?.defs.some(
+        (definition) =>
+          definition.type === 'ImportBinding' &&
+          definition.parent.source.value === 'react' &&
+          (definition.node.type === 'ImportDefaultSpecifier' ||
+            definition.node.type === 'ImportNamespaceSpecifier'),
+      );
     const report = (node, messageId) => context.report({ node, messageId });
     const reactBindings = (node) => {
       if (node.source?.value !== 'react') return;
@@ -61,12 +61,15 @@ const browserEdge = {
       }
     };
     const inspectMember = (node, object, member) => {
-      if (reactNamespaces.has(object) && effects.has(member))
+      if (object.type !== 'Identifier') return;
+      const reference = references.get(object);
+      if (effects.has(member) && isReactNamespace(reference))
         report(node, 'effect');
       if (
-        hosts.has(object) &&
         browserOperations.has(member) &&
-        (browser || object === 'window')
+        hosts.has(object.name) &&
+        (browser || object.name === 'window') &&
+        isHost(reference)
       )
         report(node, 'operation');
     };
@@ -77,27 +80,32 @@ const browserEdge = {
         if (property.type === 'Property')
           inspectMember(
             property,
-            source.name,
+            source,
             memberName(property.key, property.computed),
           );
     };
+    const inspectModule = (node) => {
+      if (
+        path.includes('/src/server/') &&
+        /(?:^|\/)ui\/edge(?:\/|$)/.test(memberName(node.source, true))
+      )
+        report(node, 'server');
+    };
+    const staticModule = (node) => {
+      inspectModule(node);
+      reactBindings(node);
+    };
     return {
-      ImportDeclaration(node) {
-        if (
-          path.includes('/src/server/') &&
-          /(?:^|\/)ui\/edge(?:\/|$)/.test(node.source.value)
-        )
-          report(node, 'server');
-        reactBindings(node);
-      },
-      ExportNamedDeclaration: reactBindings,
+      ImportDeclaration: staticModule,
+      ExportNamedDeclaration: staticModule,
+      ExportAllDeclaration: inspectModule,
+      ImportExpression: inspectModule,
       MemberExpression(node) {
-        if (node.object.type === 'Identifier')
-          inspectMember(
-            node,
-            node.object.name,
-            memberName(node.property, node.computed),
-          );
+        inspectMember(
+          node,
+          node.object,
+          memberName(node.property, node.computed),
+        );
       },
       VariableDeclarator(node) {
         inspectPattern(node.id, node.init);
@@ -105,21 +113,14 @@ const browserEdge = {
       AssignmentExpression(node) {
         inspectPattern(node.left, node.right);
       },
+      AssignmentPattern(node) {
+        inspectPattern(node.left, node.right);
+      },
       'Program:exit'() {
         if (!browser) return;
-        const references = [
-          ...globals.through,
-          ...globals.variables
-            .filter((variable) => variable.defs.length === 0)
-            .flatMap((variable) => variable.references),
-        ];
-        for (const reference of references) {
-          if (
-            reference.isValueReference &&
-            browserOperations.has(reference.identifier.name)
-          )
-            report(reference.identifier, 'operation');
-        }
+        for (const [identifier, reference] of references)
+          if (browserOperations.has(identifier.name) && isHost(reference))
+            report(identifier, 'operation');
       },
     };
   },
