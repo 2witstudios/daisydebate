@@ -1,10 +1,12 @@
-import { processRoute } from '../../../../../server/process-app';
+import { processRouteWithParams } from '../../../../../server/process-app';
+type Params = Awaited<
+  RouteContext<'/api/messaging/retained/[channelId]'>['params']
+>;
+
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-export const GET = processRoute(
-  (routes) => (request) =>
-    routes.messaging.retained.read(
-      request,
-      new URL(request.url).pathname.split('/')[4] ?? '',
-    ),
+export const GET = processRouteWithParams<Params>(
+  (routes) =>
+    (request, { channelId }) =>
+      routes.messaging.retained.read(request, channelId),
 );

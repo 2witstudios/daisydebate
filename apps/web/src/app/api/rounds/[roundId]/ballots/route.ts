@@ -1,16 +1,14 @@
-import { processRoute } from '../../../../../server/process-app';
+import { processRouteWithParams } from '../../../../../server/process-app';
+type Params = Awaited<RouteContext<'/api/rounds/[roundId]/ballots'>['params']>;
+
 export const runtime = 'nodejs';
-export const GET = processRoute(
-  (routes) => (request) =>
-    routes.rounds.getBallots(
-      request,
-      new URL(request.url).pathname.split('/')[3] ?? '',
-    ),
+export const GET = processRouteWithParams<Params>(
+  (routes) =>
+    (request, { roundId }) =>
+      routes.rounds.getBallots(request, roundId),
 );
-export const POST = processRoute(
-  (routes) => (request) =>
-    routes.rounds.submitBallot(
-      request,
-      new URL(request.url).pathname.split('/')[3] ?? '',
-    ),
+export const POST = processRouteWithParams<Params>(
+  (routes) =>
+    (request, { roundId }) =>
+      routes.rounds.submitBallot(request, roundId),
 );

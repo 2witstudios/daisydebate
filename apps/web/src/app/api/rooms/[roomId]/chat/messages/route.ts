@@ -1,16 +1,16 @@
-import { processRoute } from '../../../../../../server/process-app';
+import { processRouteWithParams } from '../../../../../../server/process-app';
+type Params = Awaited<
+  RouteContext<'/api/rooms/[roomId]/chat/messages'>['params']
+>;
+
 export const runtime = 'nodejs';
-export const GET = processRoute(
-  (routes) => (request) =>
-    routes.roomCommunity.history(
-      request,
-      new URL(request.url).pathname.split('/')[3] ?? '',
-    ),
+export const GET = processRouteWithParams<Params>(
+  (routes) =>
+    (request, { roomId }) =>
+      routes.roomCommunity.history(request, roomId),
 );
-export const POST = processRoute(
-  (routes) => (request) =>
-    routes.roomCommunity.send(
-      request,
-      new URL(request.url).pathname.split('/')[3] ?? '',
-    ),
+export const POST = processRouteWithParams<Params>(
+  (routes) =>
+    (request, { roomId }) =>
+      routes.roomCommunity.send(request, roomId),
 );

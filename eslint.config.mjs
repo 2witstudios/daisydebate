@@ -924,6 +924,22 @@ export default [
     },
   },
   {
+    files: ['apps/web/src/app/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        ...repoSyntaxRestrictions,
+        ...processEdgeLoads,
+        {
+          selector:
+            'CallExpression > MemberExpression.callee:matches([property.name="split"], [computed=true][property.value="split"]) > MemberExpression.object:matches([property.name="pathname"], [computed=true][property.value="pathname"])',
+          message:
+            'Use Next.js route params or pass the bound value to the server action.',
+        },
+      ],
+    },
+  },
+  {
     files: ['apps/web/src/app/**/route.ts', 'apps/web/src/app/**/actions.ts'],
     rules: {
       'no-restricted-imports': [
@@ -931,7 +947,10 @@ export default [
         {
           patterns: [
             ...appImportRestrictions,
-            { ...processEdgeImport, allowImportNames: ['processRoute'] },
+            {
+              ...processEdgeImport,
+              allowImportNames: ['processRoute', 'processRouteWithParams'],
+            },
           ],
         },
       ],

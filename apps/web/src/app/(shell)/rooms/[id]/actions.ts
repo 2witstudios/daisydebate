@@ -21,32 +21,19 @@ import {
   submitContentWaiver,
 } from '../../../../features/agreements/submit-content-waiver';
 
-const read = processRoute(
-  (routes) => (request) =>
-    routes.rooms.read(
-      request,
-      new URL(request.url).pathname.split('/')[3] ?? '',
-    ),
-);
+const read = (id: string) =>
+  processRoute((routes) => (request) => routes.rooms.read(request, id));
 const signWaiver = processRoute(
   (routes) => routes.agreements.contentWaiver.POST,
 );
-const commands = processRoute(
-  (routes) => (request) =>
-    routes.rooms.commands(
-      request,
-      new URL(request.url).pathname.split('/')[3] ?? '',
-    ),
-);
+const commands = (id: string) =>
+  processRoute((routes) => (request) => routes.rooms.commands(request, id));
 
 const invitations = {
-  invite: processRoute(
-    (routes) => (request) =>
-      routes.roomInvitations.invite(
-        request,
-        new URL(request.url).pathname.split('/')[3] ?? '',
-      ),
-  ),
+  invite: (id: string) =>
+    processRoute(
+      (routes) => (request) => routes.roomInvitations.invite(request, id),
+    ),
   withdraw: processRoute(
     (routes) => (request) => routes.roomInvitations.end(request, 'withdraw'),
   ),
@@ -72,7 +59,7 @@ export async function roomInvitationAction(
       ? invitations.withdraw
       : intent === 'decline'
         ? invitations.decline
-        : invitations.invite;
+        : invitations.invite(id);
   const answer = await submitInvitationForm(
     (path, body) =>
       inProcessFetch(route, incoming)(path, {
@@ -88,13 +75,16 @@ export async function roomInvitationAction(
 }
 
 export async function roomAssembly(id: string) {
-  return readAssembly(inProcessFetch(read, new Headers(await headers())), id);
+  return readAssembly(
+    inProcessFetch(read(id), new Headers(await headers())),
+    id,
+  );
 }
 
 async function submitRoomCommand(id: string, form: FormData) {
   const incoming = new Headers(await headers());
   const result = await submitAssembly(
-    inProcessFetch(commands, incoming),
+    inProcessFetch(commands(id), incoming),
     id,
     form,
   );
@@ -167,7 +157,7 @@ export async function roomConsentIntent(id: string, form: FormData) {
   if (form.get('type') !== 'ready' && form.get('type') !== 'unready')
     return { kind: 'invalid' as const };
   return submitAssembly(
-    inProcessFetch(commands, new Headers(await headers())),
+    inProcessFetch(commands(id), new Headers(await headers())),
     id,
     form,
   );

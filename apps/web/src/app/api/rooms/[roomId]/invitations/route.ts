@@ -1,9 +1,11 @@
-import { processRoute } from '../../../../../server/process-app';
+import { processRouteWithParams } from '../../../../../server/process-app';
+type Params = Awaited<
+  RouteContext<'/api/rooms/[roomId]/invitations'>['params']
+>;
+
 export const runtime = 'nodejs';
-export const POST = processRoute(
-  (routes) => (request) =>
-    routes.roomInvitations.invite(
-      request,
-      new URL(request.url).pathname.split('/')[3] ?? '',
-    ),
+export const POST = processRouteWithParams<Params>(
+  (routes) =>
+    (request, { roomId }) =>
+      routes.roomInvitations.invite(request, roomId),
 );

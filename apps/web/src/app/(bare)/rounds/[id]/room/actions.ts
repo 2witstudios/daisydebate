@@ -8,17 +8,14 @@ import {
 import { hydratedPost, moveOn } from '../../../../../server/form-action';
 import { inProcessFetch } from '../../../../../server/in-process-fetch';
 import { processRoute } from '../../../../../server/process-app';
-const commands = processRoute(
-  (routes) => (request) =>
-    routes.rounds.commands(
-      request,
-      new URL(request.url).pathname.split('/')[3] ?? '',
-    ),
-);
+const commands = (roundId: string) =>
+  processRoute(
+    (routes) => (request) => routes.rounds.commands(request, roundId),
+  );
 async function submitRound(roundId: string, form: FormData) {
   const incoming = new Headers(await headers());
   const answer = await submitRoundForm(
-    inProcessFetch(commands, incoming),
+    inProcessFetch(commands(roundId), incoming),
     roundId,
     form,
   );
@@ -52,16 +49,14 @@ export async function leaveRoundAction(
   return moveOn(incoming, `/rounds/${roundId}`);
 }
 
-const nativeState = processRoute(
-  (routes) => (request) =>
-    routes.attendance.readNativeState(
-      request,
-      new URL(request.url).pathname.split('/')[3] ?? '',
-    ),
-);
+const nativeState = (roundId: string) =>
+  processRoute(
+    (routes) => (request) =>
+      routes.attendance.readNativeState(request, roundId),
+  );
 export async function readPersistedAttendance(roundId: string) {
   return readNativeAttendanceState(
-    inProcessFetch(nativeState, new Headers(await headers())),
+    inProcessFetch(nativeState(roundId), new Headers(await headers())),
     roundId,
   );
 }

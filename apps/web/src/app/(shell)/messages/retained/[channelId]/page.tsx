@@ -27,6 +27,7 @@ export default async function RetainedConversationPage({
   const url = `http://in-process.invalid/api/messaging/retained/${id.data}`;
   const response = await GET(
     new Request(url, { headers: new Headers(await headers()) }),
+    { params },
   );
   const conversation = response.ok
     ? messagingRetainedSchemas.conversation.safeParse(await response.json())

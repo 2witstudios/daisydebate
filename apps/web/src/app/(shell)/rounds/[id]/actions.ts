@@ -25,33 +25,25 @@ export async function reportRoundAction(
   redirect(`/rounds/${id}?report=${result}`);
 }
 
-const roundRead = processRoute(
-  (routes) => (request) =>
-    routes.rounds.read(
-      request,
-      new URL(request.url).pathname.split('/')[3] ?? '',
-    ),
-);
+const roundRead = (id: string) =>
+  processRoute((routes) => (request) => routes.rounds.read(request, id));
 
 /** The same canonical Round read, carrying this request's auth and ingress headers. */
 export async function readPersistedRound(id: string) {
   return readRoundReceipt(
-    inProcessFetch(roundRead, new Headers(await headers())),
+    inProcessFetch(roundRead(id), new Headers(await headers())),
     id,
   );
 }
 
-const analysisRead = processRoute(
-  (routes) => (request) =>
-    routes.rounds.getRoundAnalysis(
-      request,
-      new URL(request.url).pathname.split('/')[3] ?? '',
-    ),
-);
+const analysisRead = (id: string) =>
+  processRoute(
+    (routes) => (request) => routes.rounds.getRoundAnalysis(request, id),
+  );
 /** The caller's own round analysis, a read of its own, never part of the ballot read. */
 export async function readPersistedRoundAnalysis(id: string) {
   return readRoundAnalysis(
-    inProcessFetch(analysisRead, new Headers(await headers())),
+    inProcessFetch(analysisRead(id), new Headers(await headers())),
     id,
   );
 }

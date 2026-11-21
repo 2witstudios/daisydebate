@@ -1,9 +1,9 @@
-import { processRoute } from '../../../../../server/process-app';
+import { processRouteWithParams } from '../../../../../server/process-app';
+type Params = Awaited<RouteContext<'/api/rounds/[roundId]/media'>['params']>;
+
 export const runtime = 'nodejs';
-export const GET = processRoute(
-  (routes) => (request) =>
-    routes.roundMedia.read(
-      request,
-      new URL(request.url).pathname.split('/')[3] ?? '',
-    ),
+export const GET = processRouteWithParams<Params>(
+  (routes) =>
+    (request, { roundId }) =>
+      routes.roundMedia.read(request, roundId),
 );

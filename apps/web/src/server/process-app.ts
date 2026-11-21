@@ -103,17 +103,30 @@ export const initializeProcessBilling = (load: BillingRouteLoader) =>
 /** This process's app, built on first use. */
 export const processApp = (): App => edge.get().app;
 
-/** Binds a Next route export to this process's route table. */
-export const processRoute = (
-  pick: (
-    routes: ProcessState['routes'],
-    app: App,
-    fetch: typeof globalThis.fetch,
-  ) => (request: Request) => Promise<Response>,
-) =>
+type RouteSelector<Args extends unknown[]> = (
+  routes: ProcessState['routes'],
+  app: App,
+  fetch: typeof globalThis.fetch,
+) => (request: Request, ...args: Args) => Promise<Response>;
+
+const bindProcessRoute = <Args extends unknown[]>(pick: RouteSelector<Args>) =>
   createRouteBinder(() => edge.get())((state) =>
     pick(state.routes, state.app, state.vendorFetch),
   );
+
+/** Binds a request-only handler. Next's context stays at the route edge. */
+export const processRoute = (pick: RouteSelector<[]>) => {
+  const handler = bindProcessRoute(pick);
+  return (request: Request) => handler(request);
+};
+
+/** Unwraps the params supplied by Next.js for the route's directory. */
+export const processRouteWithParams = <Params>(pick: RouteSelector<[Params]>) =>
+  bindProcessRoute((routes, app, fetch) => {
+    const handler = pick(routes, app, fetch);
+    return async (request, { params }: { params: Promise<Params> }) =>
+      handler(request, await params);
+  });
 /**
  * For a process entry that composes its own app before the server starts
  * (the browser suite's server, which captures outbound mail): makes it this
