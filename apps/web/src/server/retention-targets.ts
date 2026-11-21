@@ -6,6 +6,7 @@ import {
   sessionRetentionTarget,
   provisionalUserRetentionTarget,
 } from '../features/auth/retention';
+import { childAccountRequestRetentionTarget } from '../features/parental-controls/retention';
 import { outboxRetentionTarget } from '../features/realtime/retention';
 import { roomCommandRetentionTarget } from '../features/room-runtime/retention';
 import {
@@ -45,6 +46,7 @@ type RetentionDatabase = Parameters<typeof flagRetentionTargets>[0] &
   Parameters<typeof outboxRetentionTarget>[0] &
   Parameters<typeof sessionRetentionTarget>[0] &
   Parameters<typeof provisionalUserRetentionTarget>[0] &
+  Parameters<typeof childAccountRequestRetentionTarget>[0] &
   Parameters<typeof roomCommandRetentionTarget>[0] &
   Parameters<typeof roundCommandRetentionTarget>[0] &
   Parameters<typeof checkInRetentionTarget>[0] &
@@ -88,6 +90,7 @@ export function retentionTargets({
     outboxRetentionTarget(database),
     sessionRetentionTarget(database),
     provisionalUserRetentionTarget(database, provisionalLinks),
+    childAccountRequestRetentionTarget(database),
     roomCommandRetentionTarget(database),
     roundCommandRetentionTarget(database),
     checkInRetentionTarget(database),

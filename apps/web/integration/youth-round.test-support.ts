@@ -85,6 +85,8 @@ export const withLinks = async (
         await tx`delete from recordings where round_id=${roundId}`;
       for (const userId of made.users)
         await tx`delete from guardian_links where guardian_user_id=${userId} or minor_user_id=${userId}`;
+      for (const userId of made.users)
+        await tx`delete from guardian_consent_evidence where person_user_id=${userId}`;
       for (const id of made.schools) {
         await tx`delete from grants where organization_id=${id}`;
         await tx`delete from membership_periods where organization_id=${id}`;

@@ -59,7 +59,7 @@ export const ownLinksDelete = (
  * and has freshly established provisional authority.
  */
 export async function clearProvisionalLinks(
-  tx: Tx,
+  tx: Pick<Tx, 'execute'>,
   user: { readonly id: string; readonly email: string | null },
   input: ProvisionalLinkPurposes,
 ): Promise<void> {
@@ -73,7 +73,7 @@ export async function clearProvisionalLinks(
  * the address (ADR 0025).
  */
 export async function clearProvisionalMail(
-  tx: Tx,
+  tx: Pick<Tx, 'execute' | 'delete'>,
   user: { readonly id: string; readonly email: string | null },
   input: ProvisionalMailCleanup,
 ): Promise<void> {

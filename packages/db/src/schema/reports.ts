@@ -1,4 +1,8 @@
-import { reportOutcomes, reportReasons, reportSurfaces } from '@daisy/protocol';
+import {
+  reportOutcomes,
+  reportSurfaces,
+  storedReportReasons,
+} from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import { check, index, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
 import { oneOf, timestampColumn } from './columns';
@@ -36,13 +40,24 @@ export const reports = pgTable(
       .where(sql`${table.purgeAfter} is not null`),
     uniqueIndex('reports_one_open_per_pair')
       .on(table.reporterActorId, table.subjectActorId)
-      .where(sql`${table.closedAt} is null`),
+      .where(
+        sql`${table.closedAt} is null and ${table.surface} <> 'guardian-link'`,
+      ),
+    uniqueIndex('reports_one_open_guardian_link_per_pair')
+      .on(table.reporterActorId, table.subjectActorId)
+      .where(
+        sql`${table.closedAt} is null and ${table.surface} = 'guardian-link'`,
+      ),
     check(
       'reports_distinct',
       sql`${table.reporterActorId} <> ${table.subjectActorId}`,
     ),
-    check('reports_reason_check', oneOf(table.reason, reportReasons)),
+    check('reports_reason_check', oneOf(table.reason, storedReportReasons)),
     check('reports_surface_check', oneOf(table.surface, reportSurfaces)),
+    check(
+      'reports_guardian_link_check',
+      sql`(${table.surface} = 'guardian-link') = (${table.reason} = 'not-my-parent')`,
+    ),
     check(
       'reports_outcome_check',
       sql`${table.outcome} is null or ${oneOf(table.outcome, reportOutcomes)}`,

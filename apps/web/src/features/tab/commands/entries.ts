@@ -17,18 +17,6 @@ import { refuse, type CommandDecision } from './run-command';
 type EntryStatus = (typeof entryStatuses)[number];
 type ResponsibleKind = (typeof responsibleKinds)[number];
 
-/**
- * A minor's boundary as the entry commands read it: the parent's
- * restriction (`restrictions`, with `limits_lobbies` set) and the lobbies it
- * allows (`restriction_lobbies`). `version` is the boundary's revision.
- */
-type BoundaryFacts = {
-  readonly guardianLinkId: string;
-  readonly guardianUserId: string;
-  readonly allowedLobbyIds: readonly string[];
-  readonly version: number;
-};
-
 /** A person a command enters, keeps or brings into an entry. */
 export type EntryPersonFacts = {
   readonly actorId: string;
@@ -44,8 +32,6 @@ export type EntryPersonFacts = {
   readonly enteredInEvent: boolean;
   /** In an accepted entry of another event that shares a time slot with this one. */
   readonly enteredInSharedSlot: boolean;
-  /** The boundary a parent set, when it limits lobbies; null when none. */
-  readonly boundary: BoundaryFacts | null;
 };
 
 /** A published fixture of the entry, with its Room and its slot guard. */
@@ -226,12 +212,6 @@ type EntryWrite =
       readonly set: { readonly entriesVersion: number };
     }
   | {
-      readonly table: 'restrictions';
-      readonly op: 'update';
-      readonly where: { readonly guardianLinkId: string };
-      readonly set: { readonly version: number };
-    }
-  | {
       readonly table: 'room_participants';
       readonly op: 'update';
       readonly where: { readonly roomId: string; readonly actorId: string };
@@ -248,20 +228,6 @@ export type EntryDecision = CommandDecision<
   EntryRefusal | SharedLobbyRefusal,
   EntryWrite
 >;
-
-/**
- * Whether a guardian is awaited for this person: their parent limits the
- * lobbies they may enter, this lobby is not among them, and the entry is
- * not the guardian's own. Such an entry stays pending (TAB-5.23).
- */
-const guardianAwaited = (
-  person: EntryPersonFacts,
-  lobbyId: string,
-  madeByUserId: string | null,
-): boolean =>
-  person.boundary !== null &&
-  !person.boundary.allowedLobbyIds.includes(lobbyId) &&
-  person.boundary.guardianUserId !== madeByUserId;
 
 const before = (a: string, b: string) => Date.parse(a) < Date.parse(b);
 
@@ -323,23 +289,6 @@ const accepted = (
   };
 };
 
-/** Accepting an entry for an account with a boundary bumps the boundary's revision. */
-const boundaryRevisions = (
-  members: readonly EntryPersonFacts[],
-): EntryWrite[] =>
-  members.flatMap((member) =>
-    member.boundary === null
-      ? []
-      : [
-          {
-            table: 'restrictions',
-            op: 'update',
-            where: { guardianLinkId: member.boundary.guardianLinkId },
-            set: { version: member.boundary.version + 1 },
-          } as const,
-        ],
-  );
-
 const submitEntry = (
   facts: EntryFacts,
   command: Extract<EntryCommand, { type: 'submit-entry' }>,
@@ -376,12 +325,8 @@ const submitEntry = (
     return refuse('entry-cap');
   if (people.some((person) => person.enteredInSharedSlot))
     return refuse('slot-clash');
-  const awaited = people.some((person) =>
-    guardianAwaited(person, facts.event.lobbyId, facts.sender.userId),
-  );
   // Past the hosting tier's cap an entry waits for the host to upgrade.
   const status: EntryStatus =
-    !awaited &&
     roomForEntry(facts) &&
     (facts.sender.host || facts.event.approval === 'automatic')
       ? 'accepted'
@@ -424,7 +369,6 @@ const submitEntry = (
           },
         }) as const,
     ),
-    ...(status === 'accepted' ? boundaryRevisions(people) : []),
   ]);
 };
 
@@ -442,17 +386,8 @@ const acceptEntry = (
   if (entry.status !== 'pending') return refuse('entry-settled');
   if (entry.members.some((member) => member.enteredInSharedSlot))
     return refuse('slot-clash');
-  if (
-    entry.members.some((member) =>
-      guardianAwaited(member, facts.event.lobbyId, entry.submittedByUserId),
-    )
-  )
-    return refuse('guardian-pending');
   if (!roomForEntry(facts)) return refuse('hosting-upgrade-required');
-  return accepted(facts, [
-    setStatus(entry.id, 'accepted'),
-    ...boundaryRevisions(entry.members),
-  ]);
+  return accepted(facts, [setStatus(entry.id, 'accepted')]);
 };
 
 const replaceEntryMember = (
@@ -477,10 +412,6 @@ const replaceEntryMember = (
   if (incoming.enteredInSharedSlot) return refuse('slot-clash');
   if (entry.division !== null && !incoming.divisions.includes(entry.division))
     return refuse('division-ineligible');
-  // The entry keeps its status, so a minor the guardian has not allowed into
-  // this lobby cannot join it this way (TAB-5.23): that waits for the guardian.
-  if (guardianAwaited(incoming, facts.event.lobbyId, facts.sender.userId))
-    return refuse('guardian-pending');
   const slots = new Map(
     entry.liveFixtures.flatMap((fixture) =>
       fixture.timeSlot === null
@@ -507,9 +438,6 @@ const replaceEntryMember = (
           entryStatus: entry.status,
         },
       },
-      // Joining an accepted entry puts its tournament inside the newcomer's
-      // boundary, as accepting does.
-      ...(entry.status === 'accepted' ? boundaryRevisions([incoming]) : []),
       ...entry.liveFixtures.flatMap((fixture) =>
         fixture.roomId === null
           ? []

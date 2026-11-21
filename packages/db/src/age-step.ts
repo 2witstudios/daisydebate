@@ -17,12 +17,23 @@ import { lockOpenAccount } from './lock-open-account';
 import { inTransaction, type TxOpener } from './tx';
 import { run, query } from './raw-rows';
 import { z } from 'zod';
+import { ageBand } from '@daisy/auth';
+import {
+  claimChildAccount,
+  lockChildAccountRequest,
+  readChildAccountRequest,
+} from './guardians/claim';
 
 /** One accepted age-step answer: an already-banded birth month and the Terms accepted. */
 export type AgeStepRecord = {
   readonly userId: string;
   /** `YYYY-MM`; the caller has already refused under-13 answers. */
   readonly birthMonth: string;
+  readonly parentalControls?: {
+    readonly linkId: string;
+    readonly pendingBetaEventId: string;
+    readonly requestId: string | null;
+  };
   readonly termsVersion: string;
   /** Trusted UTC ISO time from the injected clock. */
   readonly now: string;
@@ -57,12 +68,22 @@ export const ageStepOperations = ({
       throw createAppError('VALIDATION');
     return instrumented(eventSink, 'recordAgeStep', () =>
       inTransaction(database, async (tx) => {
-        await lockOpenAccount(tx, input.userId);
+        const now = new Date(input.now);
+        const invitation = input.parentalControls
+          ? await lockChildAccountRequest(tx, input.userId, now)
+          : (await lockOpenAccount(tx, input.userId), null);
+        const band = invitation ? ageBand(invitation.birthMonth, now) : null;
+        const claim = band === '13-15' || band === '16-17' ? invitation : null;
+        if (
+          input.parentalControls &&
+          (claim?.id ?? null) !== input.parentalControls.requestId
+        )
+          throw createAppError('VALIDATION');
         const inserted = await tx
           .insert(accountAge)
           .values({
             userId: input.userId,
-            birthMonth: input.birthMonth,
+            birthMonth: claim?.birthMonth ?? input.birthMonth,
             recordedAt: new Date(input.now),
           })
           .onConflictDoNothing({ target: accountAge.userId })
@@ -73,8 +94,36 @@ export const ageStepOperations = ({
           termsVersion: input.termsVersion,
           acceptedAt: new Date(input.now),
         });
+        if (claim && input.parentalControls)
+          await claimChildAccount(
+            tx,
+            claim,
+            input.userId,
+            input.parentalControls,
+            now,
+          );
         await claimBetaPreapproval(tx, input.userId);
         return 'recorded';
+      }),
+    );
+  },
+
+  async childAccountBinding(
+    userId: string,
+    now: string,
+  ): Promise<{
+    readonly requestId: string;
+    readonly birthMonth: string;
+  } | null> {
+    return instrumented(eventSink, 'childAccountBinding', () =>
+      inTransaction(database, async (tx) => {
+        const at = new Date(now);
+        const request = await readChildAccountRequest(tx, userId, at);
+        if (!request) return null;
+        const band = ageBand(request.birthMonth, at);
+        return band === '13-15' || band === '16-17'
+          ? { requestId: request.id, birthMonth: request.birthMonth }
+          : null;
       }),
     );
   },

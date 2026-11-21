@@ -6,6 +6,7 @@
  */
 const OPERATION_NAMES = [
   'account.age.answer',
+  'parental-controls.command',
   'billing.checkout',
   'billing.portal',
   'billing.settings',
@@ -205,8 +206,6 @@ const OPERATION_NAMES = [
   'tab.event.ballot',
   'tab.organization.command',
   'tab.league.school.command',
-  'tab.guardian.command',
-  'tab.family.history',
   'tab.lobby.command',
   'tab.sanction.command',
   'tab.settings.command',

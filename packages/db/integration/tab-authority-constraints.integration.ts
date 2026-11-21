@@ -201,7 +201,7 @@ test('a grant has exactly one scope, is revoked once and never deleted, and acti
 });
 
 /** TAB-4.6 */
-test('what happened is append-only, and the guardian tables are closed to the runtime role', async () => {
+test('what happened is append-only', async () => {
   await withSample(url, async (sql, ids) => {
     const appendOnly = [
       ['action_history', 'applied_at = applied_at'],
@@ -226,16 +226,9 @@ test('what happened is append-only, and the guardian tables are closed to the ru
         ];
       return refusals;
     };
-    const link = {
-      id: createId(),
-      guardian_user_id: ids.owner,
-      minor_user_id: ids.staff,
-      kind: 'parent',
-      status: 'pending',
-    };
     assert({
       given:
-        'an update and a delete of each append-only table, as the migration owner and as the runtime role, and an insert of a guardian link and a restriction as the runtime role',
+        'an update and a delete of each append-only table, as the migration owner and as the runtime role',
       should:
         'refuse every one: by trigger for any role, and by privilege for the runtime role',
       actual: {
@@ -245,35 +238,19 @@ test('what happened is append-only, and the guardian tables are closed to the ru
           { lobbyId: ids.lobby, organizationId: ids.league },
           attempts,
         ),
-        guardianLink: await asRuntime(sql, { subjectUserId: ids.owner }, () =>
-          refusedBy(sql, () => insertRow(sql, 'guardian_links', link)),
-        ),
-        restriction: await asRuntime(sql, { subjectUserId: ids.owner }, () =>
-          refusedBy(sql, () =>
-            insertRow(sql, 'restrictions', {
-              guardian_link_id: link.id,
-              guardian_user_id: ids.owner,
-              minor_user_id: ids.staff,
-            }),
-          ),
-        ),
         restrictionLobby: await asRuntime(
           sql,
           { subjectUserId: ids.owner },
           () =>
             refusedBy(sql, () =>
               insertRow(sql, 'restriction_lobbies', {
-                guardian_link_id: link.id,
+                guardian_link_id: createId(),
                 guardian_user_id: ids.owner,
                 minor_user_id: ids.staff,
                 lobby_id: ids.lobby,
               }),
             ),
         ),
-        consentColumns: [
-          ...(await columnsOf(sql, 'guardian_links')),
-          ...(await columnsOf(sql, 'restrictions')),
-        ].filter((column) => column.includes('consent')),
       },
       expected: {
         owner: Object.fromEntries(
@@ -285,86 +262,7 @@ test('what happened is append-only, and the guardian tables are closed to the ru
         runtime: Object.fromEntries(
           appendOnly.map(([table]) => [table, ['42501', '42501']]),
         ),
-        guardianLink: '42501',
-        restriction: '42501',
         restrictionLobby: '42501',
-        consentColumns: [],
-      },
-    });
-  });
-});
-
-/** TAB-4.6: the shapes the closed tables hold for the migration that opens them. */
-test('a guardian link is two different people, a coach through a school, with one open link per pair', async () => {
-  await withSample(url, async (sql, ids) => {
-    const link = (rest: Record<string, unknown>) =>
-      insertRow(sql, 'guardian_links', {
-        id: createId(),
-        guardian_user_id: ids.coach,
-        minor_user_id: ids.staff,
-        kind: 'parent',
-        status: 'active',
-        ...rest,
-      });
-    const linkId = createId();
-    await link({ id: linkId });
-    assert({
-      given:
-        'a link of a person to themselves, a coach link through no school and through a league, a second open link for a pair, and a restriction naming other people than its link',
-      should: 'refuse each',
-      actual: {
-        self: await refusedBy(sql, () => link({ minor_user_id: ids.coach })),
-        coachWithoutSchool: await refusedBy(sql, () =>
-          link({ kind: 'coach', minor_user_id: ids.owner }),
-        ),
-        coachThroughLeague: await refusedBy(sql, () =>
-          link({
-            kind: 'coach',
-            minor_user_id: ids.owner,
-            via_organization_id: ids.league,
-          }),
-        ),
-        secondOpen: await refusedBy(sql, () => link({ status: 'pending' })),
-        otherPeople: await refusedBy(sql, () =>
-          insertRow(sql, 'restrictions', {
-            guardian_link_id: linkId,
-            guardian_user_id: ids.owner,
-            minor_user_id: ids.staff,
-          }),
-        ),
-        // Only a parent's link holds a restriction.
-        coachRestriction: await refusedBy(sql, async () => {
-          const coachLink = createId();
-          await link({
-            id: coachLink,
-            kind: 'coach',
-            minor_user_id: ids.owner,
-            via_organization_id: ids.school,
-          });
-          await insertRow(sql, 'restrictions', {
-            guardian_link_id: coachLink,
-            guardian_user_id: ids.coach,
-            minor_user_id: ids.owner,
-          });
-        }),
-        restriction: await refusedBy(sql, () =>
-          insertRow(sql, 'restrictions', {
-            guardian_link_id: linkId,
-            guardian_user_id: ids.coach,
-            minor_user_id: ids.staff,
-            limits_lobbies: true,
-            video_audience_cap: 'officials',
-          }),
-        ),
-      },
-      expected: {
-        self: 'guardian_links_two_people',
-        coachWithoutSchool: 'guardian_links_coach_via_school',
-        coachThroughLeague: 'guardian_links_via_school_fk',
-        secondOpen: 'guardian_links_open_pair_unique',
-        otherPeople: 'restrictions_guardian_link_fk',
-        coachRestriction: 'restrictions_guardian_link_fk',
-        restriction: null,
       },
     });
   });

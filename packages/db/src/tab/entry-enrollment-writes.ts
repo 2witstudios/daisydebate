@@ -2,11 +2,8 @@ import { eq, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import { entries, entryMembers } from '../schema/entries';
 import { events } from '../schema/events';
-import { restrictions } from '../schema/guardian-links';
-import { scopeTransaction, type TenantScope } from '../tenant-scope';
 import { bumpTabAccountRevision } from './command-accounts';
 import type { EntryEnrollmentWrite } from './entry-enrollment-write';
-import type { EntryPersonRow } from './entry-person-rows';
 import type { Tx } from '../tx';
 const one = (rows: readonly unknown[]): void => {
   if (rows.length !== 1)
@@ -15,12 +12,7 @@ const one = (rows: readonly unknown[]): void => {
       'Entry enrollment write did not affect one row',
     );
 };
-const apply = async (
-  tx: Tx,
-  write: EntryEnrollmentWrite,
-  scope: TenantScope,
-  people: readonly EntryPersonRow[],
-): Promise<void> => {
+const apply = async (tx: Tx, write: EntryEnrollmentWrite): Promise<void> => {
   switch (write.table) {
     case 'entries':
       if (write.op === 'insert') {
@@ -47,32 +39,11 @@ const apply = async (
       );
     case 'users':
       return bumpTabAccountRevision(tx, write.id);
-    case 'restrictions': {
-      const person = people.find((person) =>
-        person.limiting.some(
-          (row) => row.guardianLinkId === write.where.guardianLinkId,
-        ),
-      );
-      if (!person?.userId)
-        throw createAppError('INVARIANT', 'Entry boundary subject is missing');
-      await scopeTransaction(tx, { ...scope, subjectUserId: person.userId });
-      one(
-        await tx
-          .update(restrictions)
-          .set(write.set)
-          .where(eq(restrictions.guardianLinkId, write.where.guardianLinkId))
-          .returning({ id: restrictions.guardianLinkId }),
-      );
-      await scopeTransaction(tx, scope);
-      return;
-    }
   }
 };
 export const applyEntryEnrollmentWrites = async (
   tx: Tx,
   writes: readonly EntryEnrollmentWrite[],
-  scope: TenantScope,
-  people: readonly EntryPersonRow[],
 ): Promise<void> => {
-  for (const write of writes) await apply(tx, write, scope, people);
+  for (const write of writes) await apply(tx, write);
 };

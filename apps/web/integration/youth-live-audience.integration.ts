@@ -1,3 +1,4 @@
+import { seedGuardianLink } from './guardian-link.test-support';
 import { requireTestServices } from '@daisy/config';
 import { decideRoundFloor } from '@daisy/auth/round-floor';
 import { rejectionOf } from '@daisy/errors/testing';
@@ -240,8 +241,7 @@ test('a live Youth Round is watched by its debaters’ linked adults and nobody 
         const parent = await f.member();
         await setAge(f, parent, '42 years');
         made.users.push(parent.userId);
-        await f.sql`insert into guardian_links(id,guardian_user_id,minor_user_id,kind,status)
-          values(${createId()},${parent.userId},${f.guest.userId},'parent','active')`;
+        await seedGuardianLink(f.sql, parent.userId, f.guest.userId);
         const parentFloor = await floorOf(f, parent, roundId);
         assert({
           given:

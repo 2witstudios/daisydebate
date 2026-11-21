@@ -1,7 +1,7 @@
 import type { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { assert, test } from 'riteway/bun';
-import { guardianLinksPrivacyAdopter } from '../src/guardian-links-privacy';
+import { guardianLinksPrivacyAdopter } from '../src/guardians/privacy';
 import { organizationAuthorityPrivacyAdopter } from '../src/organization-authority-privacy';
 import type { PrivacyAdopter } from '../src/privacy/contracts';
 import { tournamentRecordPrivacyAdopter } from '../src/tournament-record-privacy';
@@ -136,7 +136,7 @@ test('closing an account ends its authority everywhere and keeps the tournament 
         recordExport: [ids.teams[0]],
         guardianExport: {
           guardian_links: [],
-          restrictions: [],
+          guardian_consent_evidence: [],
           restriction_lobbies: [],
         },
       },

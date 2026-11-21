@@ -118,6 +118,9 @@ const subjectPredicates: Record<TenantSubject, string> = {
   'tournament-capture':
     '((sponsor_user_id = daisy_subject_scope()) OR (official_user_id = daisy_subject_scope()))',
   actor: '(actor_id = daisy_subject_actor_scope())',
+  'consent-signer': '(person_user_id = daisy_subject_scope())',
+  'child-account-request':
+    '((guardian_user_id = daisy_subject_scope()) OR (claimed_user_id = daisy_subject_scope()) OR daisy_owns_guardian_request_email(email) OR daisy_owns_guardian_request_link(requested_link_id))',
   guardian:
     '((guardian_user_id = daisy_subject_scope()) OR (minor_user_id = daisy_subject_scope()))',
 };
@@ -146,9 +149,13 @@ export const tenantPolicies = (entry: TenantTable): readonly TenantPolicy[] => {
       : [
           {
             name: `${entry.table}_subject`,
-            command: 'select' as const,
+            command: entry.subjectWrites
+              ? ('all' as const)
+              : ('select' as const),
             using: subjectPredicates[entry.subject],
-            withCheck: null,
+            withCheck: entry.subjectWrites
+              ? subjectPredicates[entry.subject]
+              : null,
           },
         ]),
     ...(entry.counterpart === undefined

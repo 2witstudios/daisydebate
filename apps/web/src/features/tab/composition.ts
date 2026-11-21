@@ -52,12 +52,6 @@ import {
   type EventBallotRouteDependencies,
 } from './event-ballot-route';
 import { readTournamentEventSettings } from './reads/tournament-event-settings';
-import { guardianCommand } from './operations/guardian';
-import { readFamilyHistory } from './reads/family-history';
-import {
-  createFamilyHistoryRoute,
-  type FamilyHistoryRouteDependencies,
-} from './family-history-route';
 import {
   createTournamentEventSettingsRoute,
   type TournamentEventSettingsRouteDependencies,
@@ -98,13 +92,6 @@ export function composeTabRoutes(app: App) {
   const boundary = memberHttpBoundary(app);
   const read = readOrganizationPeople({ store, authorize, now });
   const common = { store, authorize, now, newId: createId };
-  // A release flag cannot approve counsel's activation/notice or grant database privileges.
-  const familyReleased = async () => false;
-  const guardians = guardianCommand({
-    ...common,
-    minorsReleased: familyReleased,
-    consentNoticeVersion: null,
-  });
   const organization = organizationCommand(common);
   const settings = settingCommand(common);
   const fixtures = fixtureCommand(common);
@@ -213,23 +200,6 @@ export function composeTabRoutes(app: App) {
         boundary,
         released,
         read: readEventBallot({ store, authorize, now }),
-      }),
-    guardianCommand: (released: TabCommandRouteDependencies['released']) =>
-      commandRoute(released, {
-        name: 'tab.guardian.command',
-        address: 'person',
-        execute: guardians,
-      }),
-    familyHistory: (released: FamilyHistoryRouteDependencies['released']) =>
-      createFamilyHistoryRoute({
-        boundary,
-        released,
-        read: readFamilyHistory({
-          store,
-          authorize,
-          now,
-          minorsReleased: familyReleased,
-        }),
       }),
     tournamentEventSettings: (
       released: TournamentEventSettingsRouteDependencies['released'],

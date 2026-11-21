@@ -19,7 +19,7 @@ import { namedTournamentPeople } from './tournament-people';
 import { fenceTabAccountsRead } from './account-read-fence';
 import { lockEventSettingContext } from './event-setting-context';
 import { loadLobbyAuthority } from './lobby-authority';
-import { loadTabCounterpart } from './boundary';
+import { loadTabCounterpart } from './account';
 import { inTransaction, type Tx, type TxOpener } from '../tx';
 
 type Input = {
