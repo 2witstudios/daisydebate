@@ -629,23 +629,51 @@ const dbNativeRowsPlugin = {
           type.isTypeParameter()
             ? (checker.getBaseConstraintOfType(type) ?? type)
             : type;
-        const nativeType = (type) =>
-          type !== undefined &&
-          types(constrainedType(type)).some((alternative) => {
-            const symbol = alternative.getSymbol();
+        const nativeType = (input) => {
+          if (input === undefined) return false;
+          const type = constrainedType(input);
+          if (type.isUnionOrIntersection()) return type.types.some(nativeType);
+          const symbol = type.getSymbol();
+          return (
+            symbol?.name === 'Query' &&
+            symbol
+              .getDeclarations()
+              ?.some((declaration) =>
+                declaration
+                  .getSourceFile()
+                  .fileName.endsWith('/bun-types/sql.d.ts'),
+              )
+          );
+        };
+        const nativeQuery = (expression) =>
+          expression != null && nativeType(typeAt(expression));
+        const returnsPromise = (type) =>
+          types(constrainedType(type)).some(
+            (value) =>
+              !nativeType(value) &&
+              value.getProperty('then') &&
+              checker.getAwaitedType(value) !== value,
+          );
+        const containsNativeInput = (input, seen = new Set()) => {
+          const type = constrainedType(input);
+          if (seen.has(type)) return false;
+          seen.add(type);
+          if (nativeType(type)) return true;
+          return types(type).some((part) => {
+            const item =
+              checker.isArrayType(part) || checker.isTupleType(part)
+                ? part.getNumberIndexType()
+                : undefined;
             return (
-              symbol?.name === 'Query' &&
-              symbol
-                .getDeclarations()
-                ?.some((declaration) =>
-                  declaration
-                    .getSourceFile()
-                    .fileName.endsWith('/bun-types/sql.d.ts'),
+              (item !== undefined && containsNativeInput(item, seen)) ||
+              part
+                .getCallSignatures()
+                .some((candidate) =>
+                  containsNativeInput(candidate.getReturnType(), seen),
                 )
             );
           });
-        const nativeQuery = (expression) =>
-          expression != null && nativeType(typeAt(expression));
+        };
         const builtInMethod = (signature) => {
           const declaration = signature?.getDeclaration();
           if (!declaration) return undefined;
@@ -809,6 +837,34 @@ const dbNativeRowsPlugin = {
               return;
             }
             const invocation = builtInMethod(signature);
+            const result = signature?.getReturnType();
+            // Partial application can erase the original Promise method while
+            // keeping the input type. Check nested packed values and callbacks
+            // at the asynchronous adapter's call boundary.
+            if (
+              !forwardsQueries &&
+              !boundary &&
+              ((invocation?.owner === 'Reflect' &&
+                invocation.name === 'apply') ||
+                (result &&
+                  (returnsPromise(result) ||
+                    result
+                      .getCallSignatures()
+                      .some((candidate) =>
+                        returnsPromise(candidate.getReturnType()),
+                      )))) &&
+              node.arguments.some((argument) => {
+                const input = typeAt(
+                  argument.type === 'SpreadElement'
+                    ? argument.argument
+                    : argument,
+                );
+                return !nativeType(input) && containsNativeInput(input);
+              })
+            ) {
+              report(node);
+              return;
+            }
             let method =
               invocation?.owner === 'PromiseConstructor'
                 ? invocation.name

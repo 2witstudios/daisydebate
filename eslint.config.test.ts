@@ -855,4 +855,45 @@ describe('database statement and lock boundaries', () => {
       ],
     });
   });
+
+  test('requires a decoder when a typed Promise adapter receives native inputs', async () => {
+    const lint = typedRepositoryEslint();
+    const imports = `
+      import type { SQL } from 'bun';
+      import { z } from 'zod';
+      import { query } from './raw-rows';
+    `;
+    const statement = 'client<{ value: number }[]>`select 1 as value`';
+    const cases = [
+      `const raw = ${statement};
+       const all = Promise.all<[typeof raw]>;
+       const apply = (Reflect.apply<typeof Promise, [[typeof raw]], ReturnType<typeof all>>).bind(Reflect, all, Promise);
+       const [rows] = await apply([[raw]]); return rows[0]?.value;`,
+      `const raw = ${statement}; const all = Promise.all<[typeof raw]>;
+       return Reflect.apply(all.bind, all, [Promise, [raw]])();`,
+      `return Promise.resolve().then(() => ${statement});`,
+      `const parsed = query(${statement}, z.object({ value: z.int() }));
+       const all = Promise.all<[typeof parsed]>;
+       const apply = (Reflect.apply<typeof Promise, [[typeof parsed]], ReturnType<typeof all>>).bind(Reflect, all, Promise);
+       const [rows] = await apply([[parsed]]); return rows[0]?.value;`,
+    ];
+    const errors = await Promise.all(
+      cases.map(async (body) => {
+        const [result] = await lint.lintText(
+          `${imports}\nexport async function read(client: SQL) { ${body} }`,
+          { filePath: 'packages/db/src/attendance-facts.ts' },
+        );
+        return result!.messages.filter(
+          ({ ruleId }) => ruleId === 'db-native-rows/require-query',
+        ).length;
+      }),
+    );
+    assert({
+      given:
+        'a typed Promise adapter accepting nested query inputs or a query callback',
+      should: 'reject raw inputs while allowing values decoded before the call',
+      actual: errors,
+      expected: [1, 1, 1, 0],
+    });
+  });
 });
