@@ -2,7 +2,7 @@ import { execFile } from 'node:child_process';
 import { resolve } from 'node:path';
 import { promisify } from 'node:util';
 import { createId } from '@paralleldrive/cuid2';
-import type { APIRequestContext, Page } from '@playwright/test';
+import type { APIRequestContext, Page, Route } from '@playwright/test';
 import { signUpMember } from './support/accounts';
 import { assertNoSeriousFindings } from './support/axe';
 import { watchCspViolations } from './support/csp';
@@ -626,6 +626,11 @@ test.describe('an unlisted Round by its link, with JavaScript off', () => {
 test.describe('an unlisted Round by its link', () => {
   const stateObject = (url: URL) =>
     url.origin === feed && url.pathname.startsWith('/state/');
+  const missingState = (route: Route) =>
+    route.fulfill({
+      status: 404,
+      headers: { 'Access-Control-Allow-Origin': '*' },
+    });
 
   test('replacement removes the player before its first published state read', async ({
     page,
@@ -651,7 +656,7 @@ test.describe('an unlisted Round by its link', () => {
       const watching = await openPage(visitor, 'the link holder before state');
       await watching.route(stateObject, async (route) => {
         await release.promise;
-        await route.continue();
+        await missingState(route);
       });
       const started = watching.waitForRequest((read) =>
         stateObject(new URL(read.url())),
@@ -663,8 +668,8 @@ test.describe('an unlisted Round by its link', () => {
       });
       await expect(streamPanel).toBeVisible();
       const oldState = (await started).url();
-      // Prove the old object exists before replacement and is then withdrawn
-      // by the publisher. Hold browser reads until the bucket reflects the write.
+      // Observe real withdrawal before delivering the 404 to the browser.
+      // A late stand-in publication must never let this tab consume old state.
       await expect
         .poll(async () => (await request.get(oldState)).status())
         .toBe(200);
@@ -705,15 +710,7 @@ test.describe('an unlisted Round by its link', () => {
     const watching = await openPage(visitor, 'the link holder');
     // The first state is not out yet. The real Watch page rechecks admission
     // and keeps showing the player, then the next reads reach the real bucket.
-    await watching.route(
-      stateObject,
-      (route) =>
-        route.fulfill({
-          status: 404,
-          headers: { 'Access-Control-Allow-Origin': '*' },
-        }),
-      { times: 1 },
-    );
+    await watching.route(stateObject, missingState, { times: 1 });
     let carriedToken = false;
     const reads: string[] = [];
     watching.on('request', (sent) => {
