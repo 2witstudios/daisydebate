@@ -37,29 +37,32 @@ test('review: a successfully completed transaction must fence its escaped handle
 });
 test('review: caught PostgreSQL error cannot turn ROLLBACK command completion into accepted commit', async () => {
   await withBoundedRound(async (f, run, round) => {
-    let response = 'refused';
-    try {
-      response = await run(async (tx) => {
-        await tx.execute(
-          sql`update rounds set resolution=${'before-abort'} where id=${round}`,
-        );
-        try {
-          await tx.execute(sql`select 1/0`);
-        } catch {
-          /* Fault injection: callback deliberately swallows the SQL/control refusal. */
-        }
-        return 'accepted';
-      });
-    } catch {
-      response = 'refused';
-    }
+    await assertRejects({
+      given:
+        'a callback catches a real error inside PostgreSQL before returning',
+      should: 'refuse the ROLLBACK returned in place of COMMIT',
+      code: 'INFRASTRUCTURE',
+      message: 'Bounded transaction did not commit',
+      actual: () =>
+        run(async (tx) => {
+          await tx.execute(
+            sql`update rounds set resolution=${'before-abort'} where id=${round}`,
+          );
+          try {
+            await tx.execute(sql`select 1/0`);
+          } catch {
+            /* Fault injection: callback deliberately swallows the SQL/control refusal. */
+          }
+          return 'accepted';
+        }),
+    });
     const [row] = await f.sql`select resolution from rounds where id=${round}`;
     assert({
       given: 'callback catches a real SQL error leaving transaction aborted',
       should:
         'refuse instead of report accepted after PostgreSQL rolls back COMMIT',
-      actual: { response, changed: row.resolution === 'before-abort' },
-      expected: { response: 'refused', changed: false },
+      actual: row.resolution === 'before-abort',
+      expected: false,
     });
   });
 });
