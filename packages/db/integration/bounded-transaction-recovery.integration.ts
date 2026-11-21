@@ -18,15 +18,30 @@ import {
 setupRitewayBun();
 requireTestServices(process.env);
 
-test('a hidden backend start permits COMMIT and cannot authorize recovery', async () => {
+test('a hidden backend start requires an original command receipt and cannot authorize recovery', async () => {
   await withPool(async (client) => {
     const reserve = client.reserve.bind(client);
     let reservations = 0;
+    let dropRollbackReply = false;
+    const rollbackCommands: string[] = [];
     client.reserve = async (options) => {
       reservations += 1;
       const reserved = await reserve(options);
       await reserved`set role daisy_web`;
-      return reserved;
+      return new Proxy(reserved, {
+        apply(target, receiver, args) {
+          const result = Reflect.apply(target, receiver, args);
+          const template = args[0];
+          if (!Array.isArray(template) || template[0] !== 'rollback')
+            return result;
+          return result.then((receipt: { command: string }) => {
+            rollbackCommands.push(receipt.command);
+            if (dropRollbackReply)
+              throw new Error('injected lost ROLLBACK reply');
+            return receipt;
+          });
+        },
+      });
     };
     const run = createBoundedTransaction({
       lane: testLane(client, 4),
@@ -36,9 +51,18 @@ test('a hidden backend start permits COMMIT and cannot authorize recovery', asyn
       const [row] = await tx.execute(sql`select 1 as value`);
       return [row?.value, receipt.writer.backendStart];
     });
-    const refusal = await run(async () => {
+    const callbackRefusal = async () => {
       throw createAppError('CONFLICT');
-    }).catch((reason: unknown) => {
+    };
+    await assertRejects({
+      given:
+        'a callback conflict followed by a ROLLBACK receipt on the same writer',
+      should: 'preserve the callback conflict',
+      code: 'CONFLICT',
+      actual: () => run(callbackRefusal),
+    });
+    dropRollbackReply = true;
+    const refusal = await run(callbackRefusal).catch((reason: unknown) => {
       if (!isAppError(reason)) throw reason;
       return reason;
     });
@@ -69,7 +93,7 @@ test('a hidden backend start permits COMMIT and cannot authorize recovery', asyn
     assert({
       given: 'Bun SQL on a real connection with a restricted SET ROLE',
       should:
-        'return a commit with a null backend start and keep recovery unconfirmed',
+        'confirm only original command receipts and leave a lost reply pending',
       actual: [
         committed,
         refusal.code,
@@ -77,8 +101,17 @@ test('a hidden backend start permits COMMIT and cannot authorize recovery', asyn
         confirmed,
         recoveryReservations,
         lifecycleOpened,
+        rollbackCommands,
       ],
-      expected: [[1, null], 'INFRASTRUCTURE', 'pending', false, 0, false],
+      expected: [
+        [1, null],
+        'INFRASTRUCTURE',
+        'pending',
+        false,
+        0,
+        false,
+        ['ROLLBACK', 'ROLLBACK'],
+      ],
     });
   });
 });

@@ -648,14 +648,15 @@ const dbNativeRowsPlugin = {
           expression != null && nativeType(typeAt(expression));
         const builtInMethod = (signature) => {
           const declaration = signature?.getDeclaration();
+          if (!declaration) return undefined;
+          const owner = declaration.parent.name?.getText();
+          const sourceFile = declaration.getSourceFile();
           if (
-            declaration &&
-            program.isSourceFileDefaultLibrary(declaration.getSourceFile())
+            program.isSourceFileDefaultLibrary(sourceFile) ||
+            (owner === 'PromiseConstructor' &&
+              sourceFile.fileName.endsWith('/bun-types/globals.d.ts'))
           )
-            return {
-              owner: declaration.parent.name?.getText(),
-              name: declaration.name?.getText(),
-            };
+            return { owner, name: declaration.name?.getText() };
         };
         // Use the well-known symbol's identity, including when a declaration
         // spells its iterator key through an alias.
@@ -711,18 +712,18 @@ const dbNativeRowsPlugin = {
             });
           });
         };
-        // COMMIT metadata lives on the Bun result outside the rows.
-        const commitReceipt = (statement) =>
+        // Command metadata lives on the Bun result outside the rows.
+        const commandReceipt = (statement) =>
           statement.type === 'TaggedTemplateExpression' &&
           statement.quasi.expressions.length === 0 &&
-          statement.quasi.quasis[0]?.value.raw === 'commit';
+          ['commit', 'rollback'].includes(statement.quasi.quasis[0]?.value.raw);
         const report = (node) =>
           context.report({ node, messageId: 'boundary' });
         return {
           AwaitExpression(node) {
             if (
               node.parent.type !== 'ExpressionStatement' &&
-              !commitReceipt(node.argument) &&
+              !commandReceipt(node.argument) &&
               nativeQuery(node.argument)
             )
               report(node);
@@ -757,6 +758,29 @@ const dbNativeRowsPlugin = {
             const signature = checker.getResolvedSignature(
               esTreeNodeToTSNodeMap.get(node),
             );
+            const boundary = signature
+              ?.getDeclaration()
+              ?.getSourceFile()
+              .fileName.endsWith('/packages/db/src/raw-rows.ts');
+            // Passing the thenable directly hands its execution to the callee,
+            // including native Promise executor and deferred resolve functions.
+            if (
+              !forwardsQueries &&
+              !boundary &&
+              node.arguments.some(
+                (argument) =>
+                  argument.type !== 'SpreadElement' &&
+                  nativeQuery(argument) &&
+                  !nativeType(
+                    checker.getContextualType(
+                      esTreeNodeToTSNodeMap.get(argument),
+                    ),
+                  ),
+              )
+            ) {
+              report(node);
+              return;
+            }
             const invocation = builtInMethod(signature);
             let method =
               invocation?.owner === 'PromiseConstructor'
@@ -781,7 +805,7 @@ const dbNativeRowsPlugin = {
             if (input === undefined) return;
             if (
               method !== 'resolve' &&
-              !['all', 'allSettled', 'any', 'race'].includes(method)
+              !['all', 'allSettled', 'any', 'race', 'try'].includes(method)
             )
               return;
             const expression =
@@ -795,13 +819,21 @@ const dbNativeRowsPlugin = {
                 ? checker.getTypeOfSymbolAtLocation(first, location)
                 : expressionType.getNumberIndexType();
             }
-            if (
-              inputType &&
-              (method === 'resolve'
-                ? nativeType(inputType)
-                : nativeIterable(inputType, location))
-            )
-              report(node);
+            if (!inputType) return;
+            if (method === 'resolve') {
+              if (nativeType(inputType)) report(node);
+              return;
+            }
+            if (method === 'try') {
+              if (
+                inputType
+                  .getCallSignatures()
+                  .some((callback) => nativeType(callback.getReturnType()))
+              )
+                report(node);
+              return;
+            }
+            if (nativeIterable(inputType, location)) report(node);
           },
         };
       },

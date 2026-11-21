@@ -209,14 +209,25 @@ class TransactionAttempt {
   private async recover(error: unknown): Promise<never> {
     const recoveryDeadline = this.now() + 1000;
     this.controller.abort(error);
-    this.destroyed = this.work !== undefined;
+    const writer = this.work;
+    this.destroyed = writer !== undefined;
+    // With a hidden backend start only the original writer's command receipt
+    // can prove a rollback. A COMMIT in flight rules out that proof.
+    const rolledBack =
+      writer !== undefined &&
+      this.writerBeginIssued &&
+      this.backend === undefined &&
+      !this.committing &&
+      (await this.rollbackWriter(writer, recoveryDeadline));
     // Never release an uncertain writer for another logical attempt on the same backend.
-    void this.work?.close({ timeout: 0 }).catch(() => undefined);
-    const absent = await this.confirmRollback(recoveryDeadline);
-    this.controlRecovered = absent;
-    await this.closeAbortedLifecycle(absent, recoveryDeadline);
+    void writer?.close({ timeout: 0 }).catch(() => undefined);
+    const absent =
+      !rolledBack && (await this.confirmRollback(recoveryDeadline));
+    const rollbackConfirmed = rolledBack || absent;
+    this.controlRecovered = rollbackConfirmed;
+    await this.closeAbortedLifecycle(rollbackConfirmed, recoveryDeadline);
     if (
-      !absent ||
+      !rollbackConfirmed ||
       this.committing ||
       (this.lifecycleOpened && !this.lifecycleClosed)
     )
@@ -240,6 +251,28 @@ class TransactionAttempt {
       });
     if (isAppError(error)) throw error;
     throw createAppError('INFRASTRUCTURE', 'Bounded transaction failed', error);
+  }
+
+  private async rollbackWriter(writer: ReservedSQL, deadline: number) {
+    const remaining = deadline - this.now();
+    if (remaining <= 0) return false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const rollback = async () => {
+      const receipt = await writer<{ command: string }>`rollback`;
+      return receipt.command === 'ROLLBACK';
+    };
+    try {
+      return await Promise.race([
+        rollback(),
+        new Promise<false>((resolve) => {
+          timer = setTimeout(() => resolve(false), remaining);
+        }),
+      ]);
+    } catch {
+      return false;
+    } finally {
+      if (timer !== undefined) clearTimeout(timer);
+    }
   }
 
   private async closeAbortedLifecycle(

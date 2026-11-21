@@ -819,8 +819,12 @@ describe('database statement and lock boundaries', () => {
       `return Promise.all.apply(Promise, [[${statement}]]);`,
       `const iterator: typeof Symbol.iterator = Symbol.iterator; return Promise.all({ *[iterator]() { yield ${statement}; } });`,
       `const settle = <T extends SQL.Query<unknown>>(value: T) => Promise.resolve(value); return settle(${statement});`,
+      `const rows = await Promise.try(() => ${statement}); return rows[0];`,
+      `return z.array(availabilityEvidenceRow).parse(await Promise.try(() => availabilitySamplesFrom((strings, ...values) => client(strings, ...values), '2026-11-20T00:00:00Z')));`,
+      `const raw = ${statement}; const rows = await new Promise<Awaited<typeof raw>>((resolve) => resolve(raw)); return rows[0];`,
       `return Promise.all([${parsed}]);`,
       `return Promise.resolve(${parsed});`,
+      `const rows = await Promise.try(() => ${parsed}); return rows[0];`,
       `function* values() { yield 1; return ${statement}; } return Promise.all(values());`,
       'const writer = async () => { await client`delete from fixture`; }; return Promise.all([writer()]);',
       'const receipt = await client<{ command: string }>`commit`; return Promise.resolve(receipt.command);',
@@ -840,7 +844,9 @@ describe('database statement and lock boundaries', () => {
       given: 'native SQL queries or validated values passed to Promise methods',
       should: 'report native thenable inputs and accept the validated values',
       actual: errors,
-      expected: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 0, 0],
+      expected: [
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 0, 0,
+      ],
     });
   });
 });
