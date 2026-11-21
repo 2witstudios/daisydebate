@@ -1,5 +1,7 @@
 'use client';
 
+import { Button } from '../../components/button/button';
+import { StatusRegion } from '../../components/status-region/status-region';
 import { invitePeopleTitleId } from './invite-people-title';
 import { Fragment, useState } from 'react';
 import type { RoomView } from '@daisy/protocol';
@@ -78,17 +80,18 @@ function InviteForm({
           Judge
         </label>
       </fieldset>
-      <button
+      <Button
+        variant="unstyled"
         type="submit"
         className={`${buttonClass('primary')} self-start`}
         disabled={pending}
       >
         Send invitation
-      </button>
+      </Button>
       {fields.notice ? (
-        <p role="status" className="text-sm text-ink-muted">
+        <StatusRegion as="p" role="status" className="text-sm text-ink-muted">
           {fields.notice}
-        </p>
+        </StatusRegion>
       ) : null}
     </form>
   );

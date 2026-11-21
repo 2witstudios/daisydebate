@@ -173,7 +173,7 @@ export function planGates(
   if (plan.allWorkspaces)
     gates.push({
       name: 'eslint (all files)',
-      args: ['bunx', '--bun', 'eslint', '.'],
+      args: ['bunx', '--bun', 'eslint', '--max-warnings', '0', '.'],
     });
   else if (plan.lintFiles.length > 0)
     gates.push({
@@ -184,6 +184,8 @@ export function planGates(
         'bunx',
         '--bun',
         'eslint',
+        '--max-warnings',
+        '0',
         '--no-error-on-unmatched-pattern',
         '--no-warn-ignored',
         ...plan.lintFiles,

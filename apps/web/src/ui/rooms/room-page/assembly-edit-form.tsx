@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useId, useRef, type ReactNode } from 'react';
+import { useBrowserEffect } from '../../edge/browser-sync';
+import { useId, useRef, type ReactNode } from 'react';
 import {
   destinationOf,
   idle,
@@ -28,10 +29,10 @@ export const savedAnswer = (state: RoomFormState) => state.kind === 'accepted';
 /** Calls `onSaved` once per accepted answer, whatever its identity per render. */
 function useOnSaved(state: RoomFormState, onSaved?: () => void) {
   const latest = useRef(onSaved);
-  useEffect(() => {
+  useBrowserEffect(() => {
     latest.current = onSaved;
   });
-  useEffect(() => {
+  useBrowserEffect(() => {
     if (savedAnswer(state)) latest.current?.();
   }, [state]);
 }

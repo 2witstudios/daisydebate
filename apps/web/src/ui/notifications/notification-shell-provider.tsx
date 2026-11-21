@@ -1,6 +1,9 @@
 'use client';
 
 // First: protocol schemas built after this load without Zod's eval probe.
+import { useBrowserEffect } from '../edge/browser-sync';
+import { browserFetch } from '../edge/browser-request';
+import { delay } from '../edge/browser-time';
 import '../../lib/zod-jitless';
 import {
   defaultNotificationPresentation,
@@ -13,7 +16,6 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useRef,
   useState,
   type ReactNode,
@@ -31,7 +33,7 @@ import {
 } from '../../features/notifications/shell-sync-driver';
 import { browserSyncEdges } from '../../features/resource-sync/browser';
 import type { ResourceRead } from '../../features/resource-sync/driver';
-import { useResourceSync } from '../resource-sync/use-resource-sync';
+import { useDriver } from '../edge/use-driver';
 import { NotificationToast } from './notification-toast';
 
 type Recent = NotificationShell['recent'][number];
@@ -51,7 +53,7 @@ export const useNotificationShell = (): NotificationShell | null =>
   useContext(ShellContext);
 
 const readShell = async (): Promise<ResourceRead<NotificationShell>> => {
-  const response = await fetch('/api/notifications/shell', {
+  const response = await browserFetch('/api/notifications/shell', {
     credentials: 'same-origin',
     cache: 'no-store',
   });
@@ -66,7 +68,7 @@ const readShell = async (): Promise<ResourceRead<NotificationShell>> => {
 };
 
 const markRead = (ids: readonly string[]) =>
-  fetch('/api/notifications/read', {
+  browserFetch('/api/notifications/read', {
     method: 'POST',
     credentials: 'same-origin',
     headers: { 'content-type': 'application/json' },
@@ -88,7 +90,7 @@ const chime = () => {
       tone.start(at);
       tone.stop(at + 0.1);
     });
-    setTimeout(() => void audio.close(), 600);
+    delay(() => void audio.close(), 600);
   } catch {
     // No audio here, or the browser refused it without a gesture yet.
   }
@@ -153,7 +155,7 @@ export function NotificationShellProvider({
       ...edges,
     });
   }, [actorId, seed, socketUrl]);
-  const [sync, driver] = useResourceSync(
+  const [sync, driver] = useDriver(
     () => seedNotificationShellSync(seed, 0),
     start,
   );
@@ -165,7 +167,7 @@ export function NotificationShellProvider({
   const seen = useRef<Set<string> | null>(null);
   const marked = useRef(new Set<string>());
 
-  useEffect(() => {
+  useBrowserEffect(() => {
     // Without the server's read the seed says nothing about what was waiting:
     // the first real read only learns it, so old rows never burst in as news.
     if (initialShell === null && shell === seed) return;
@@ -186,7 +188,7 @@ export function NotificationShellProvider({
   }, [shell, path, router, initialShell, seed]);
 
   // The page the member is on shows these: they are read.
-  useEffect(() => {
+  useBrowserEffect(() => {
     // Keyed by arrival: a row brought back unread is read again here.
     const shown = new Set(shownOn(shell.recent, path));
     const surfaced = shell.recent.filter(
@@ -201,7 +203,7 @@ export function NotificationShellProvider({
 
   // Next sets the title on each navigation, after this renders: keep the
   // count on it. Writing only a changed title cannot loop.
-  useEffect(() => {
+  useBrowserEffect(() => {
     const counted = () => {
       const next = titleWith(document.title, shell.unread);
       if (next !== document.title) document.title = next;

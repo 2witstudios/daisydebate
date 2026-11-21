@@ -1,3 +1,4 @@
+import { StatusRegion } from '../components/status-region/status-region';
 import { drawReconnectDelaySeconds } from './reconnect-delay';
 import { RefusedPageRetries } from './refused-page-retries-client';
 
@@ -19,10 +20,10 @@ export function RoundReconnecting({
       <h1 className="font-display text-2xl font-semibold text-ink">
         Reconnecting to the Round
       </h1>
-      <p role="status">
+      <StatusRegion as="p" role="status">
         We could not load this page just now. A live Round keeps running on the
         server, so this page tries again by itself every few seconds.
-      </p>
+      </StatusRegion>
       <a className="font-strong underline" href="">
         Try now
       </a>

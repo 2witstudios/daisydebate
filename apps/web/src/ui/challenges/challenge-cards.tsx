@@ -1,7 +1,11 @@
 'use client';
 
+import { useBrowserEffect } from '../edge/browser-sync';
+import { navigateDocument } from '../edge/browser-navigation';
+import { StatusRegion } from '../components/status-region/status-region';
+import { Button } from '../components/button/button';
 import type { ChallengeList } from '@daisy/protocol';
-import { useEffect, useRef } from 'react';
+import { useRef } from 'react';
 import type { EndedOffer } from '../../features/challenges/challenges-held';
 import {
   challengeFields,
@@ -45,7 +49,7 @@ function IncomingCard({
   const next = destinationOf(accepted);
   useMovedOn(next, announceShellNavigation);
   const initial = useRef(declined);
-  useEffect(() => {
+  useBrowserEffect(() => {
     if (declined !== initial.current) refresh();
   }, [declined, refresh]);
   const notice =
@@ -66,27 +70,37 @@ function IncomingCard({
       </p>
       <p className="text-sm text-stage-ink-muted">{challengeSummary(offer)}</p>
       {notice ? (
-        <p role="status" className="text-sm text-stage-ink-muted">
+        <StatusRegion
+          as="p"
+          role="status"
+          className="text-sm text-stage-ink-muted"
+        >
           {notice}
-        </p>
+        </StatusRegion>
       ) : null}
       <div className="mt-1 flex gap-1">
         <form action={accept}>
           <input type="hidden" name="challengeId" value={offer.id} />
-          <button
+          <Button
+            variant="unstyled"
             type="submit"
             disabled={accepting || next !== undefined}
             className={stageAccept}
           >
             Accept
-          </button>
+          </Button>
         </form>
         <form action={decline}>
           <input type="hidden" name="command" value="decline" />
           <input type="hidden" name="challengeId" value={offer.id} />
-          <button type="submit" disabled={declining} className={stageDecline}>
+          <Button
+            variant="unstyled"
+            type="submit"
+            disabled={declining}
+            className={stageDecline}
+          >
             Decline
-          </button>
+          </Button>
         </form>
       </div>
     </section>
@@ -110,7 +124,7 @@ function OutgoingCard({
     challengeFormUnavailable,
   );
   const initial = useRef(answer);
-  useEffect(() => {
+  useBrowserEffect(() => {
     if (answer === initial.current) return;
     if (challengeFields(answer).refusal) forgetCancelled(offer.id);
     refresh();
@@ -128,13 +142,14 @@ function OutgoingCard({
       <form action={post} onSubmit={() => noteCancelled(offer.id)}>
         <input type="hidden" name="command" value="cancel" />
         <input type="hidden" name="challengeId" value={offer.id} />
-        <button
+        <Button
+          variant="unstyled"
           type="submit"
           disabled={pending}
           className="min-h-nav-target text-sm font-semibold text-ink-muted hover:text-ink"
         >
           Cancel
-        </button>
+        </Button>
       </form>
     </section>
   );
@@ -157,16 +172,17 @@ function EndedCard({
         className,
       )}
     >
-      <p role="status" className="text-sm">
+      <StatusRegion as="p" role="status" className="text-sm">
         Your challenge to @{username} ended.
-      </p>
-      <button
+      </StatusRegion>
+      <Button
+        variant="unstyled"
         type="button"
         onClick={() => dismissEnded(id)}
         className="min-h-nav-target text-sm font-semibold text-ink-muted hover:text-ink"
       >
         Dismiss
-      </button>
+      </Button>
     </section>
   );
 }
@@ -235,7 +251,7 @@ function useFollowAccepted(
   accepted: ChallengeList['accepted'],
   activeRoomId: string | null,
 ) {
-  useEffect(() => {
+  useBrowserEffect(() => {
     if (activeRoomId !== null) return;
     // Newest first: every accept is marked followed, and only the newest is
     // taken, so several at once never bounce a challenger between rooms.
@@ -245,7 +261,7 @@ function useFollowAccepted(
     if (!offer) return;
     rememberFollowed([...followed, ...fresh.map((row) => row.roomId)]);
     if (!window.location.pathname.startsWith(`/rooms/${offer.roomId}`))
-      window.location.assign(`/rooms/${offer.roomId}`);
+      navigateDocument(`/rooms/${offer.roomId}`);
   }, [accepted, activeRoomId]);
 }
 

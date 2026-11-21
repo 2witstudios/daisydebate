@@ -1,3 +1,4 @@
+import { browserFetch } from '../edge/browser-request';
 import type {
   DriveCursor,
   DriveEntryView,
@@ -34,7 +35,7 @@ export type DriveChange =
 const REQUEST_TIMEOUT_MS = 15_000;
 
 const post = async <T>(path: string, body: unknown): Promise<T> => {
-  const response = await fetch(`/api/documents/${path}`, {
+  const response = await browserFetch(`/api/documents/${path}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),

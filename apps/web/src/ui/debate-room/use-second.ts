@@ -1,5 +1,7 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useBrowserEffect } from '../edge/browser-sync';
+import { startWindowTick, stopWindowTick } from '../edge/browser-time';
+import { useState } from 'react';
 import type { RoundTime } from '../../features/round-runtime/round-time';
 
 /**
@@ -11,18 +13,18 @@ import type { RoundTime } from '../../features/round-runtime/round-time';
  */
 export function useSecond(renderedAtMs: number, clock: RoundTime): number {
   const [now, setNow] = useState(renderedAtMs);
-  useEffect(() => {
+  useBrowserEffect(() => {
     const tick = () => setNow(clock.nowMs());
     tick();
     const unsubscribe = clock.subscribe(tick);
-    const timer = window.setInterval(tick, 1000);
+    const timer = startWindowTick(tick, 1000);
     const onVisibility = () => {
       if (document.visibilityState === 'visible') tick();
     };
     document.addEventListener('visibilitychange', onVisibility);
     return () => {
       unsubscribe();
-      window.clearInterval(timer);
+      stopWindowTick(timer);
       document.removeEventListener('visibilitychange', onVisibility);
     };
   }, [clock]);

@@ -1,5 +1,8 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
+import { useBrowserEffect } from '../../ui/edge/browser-sync';
+import { browserFetch } from '../../ui/edge/browser-request';
+import { startTick, stopTick } from '../../ui/edge/browser-time';
+import { useRef, useState } from 'react';
 import { systemId } from '@daisy/clock';
 import { isDebatingSeat, type RoundView } from '@daisy/protocol';
 import { createAttendanceHttpClient } from './http-client';
@@ -33,12 +36,12 @@ export function useRoundAttendance({
   const clientKey = `${view.id}:${eligible}`;
   const [signedOutKey, setSignedOutKey] = useState<string | null>(null);
   const client = useRef<ReturnType<typeof createAttendanceClient> | null>(null);
-  useEffect(() => {
+  useBrowserEffect(() => {
     if (!eligible) return;
     const key = `${view.id}:${eligible}`;
     const http = createAttendanceHttpClient({
       roundId: view.id,
-      fetch: (url, init) => fetch(url, init),
+      fetch: (url, init) => browserFetch(url, init),
       timeout: (ms) => AbortSignal.timeout(ms),
     });
     const consumer = createAttendanceClient({
@@ -58,19 +61,19 @@ export function useRoundAttendance({
     window.addEventListener('online', reconnect);
     const unsubscribe = reconnectSource?.subscribe(reconnect);
     document.addEventListener('visibilitychange', visible);
-    const timer = window.setInterval(() => {
+    const timer = startTick(() => {
       void consumer.heartbeat();
     }, ATTENDANCE_HEARTBEAT_MS);
     return () => {
       client.current = null;
       consumer.stop();
       unsubscribe?.();
-      window.clearInterval(timer);
+      stopTick(timer);
       window.removeEventListener('online', reconnect);
       document.removeEventListener('visibilitychange', visible);
     };
   }, [view.id, eligible, reconnectSource]);
-  useEffect(() => {
+  useBrowserEffect(() => {
     void client.current?.update(view);
   }, [view, eligible]);
   return { signedOut: signedOutKey === clientKey };

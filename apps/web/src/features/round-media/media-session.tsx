@@ -1,6 +1,10 @@
 'use client';
+import { useBrowserEffect } from '../../ui/edge/browser-sync';
+import { browserFetch } from '../../ui/edge/browser-request';
+import { scheduleDelay } from '../../ui/edge/browser-time';
+import { StatusRegion } from '../../ui/components/status-region/status-region';
 import '../../lib/zod-jitless';
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useRef, useState, useSyncExternalStore } from 'react';
 import { isRoundOver, type RoundView } from '@daisy/protocol';
 import { postRoundCallChosen } from '../post-round-call/offered';
 import { hasOpenQuestioning } from '@daisy/debate-engine';
@@ -50,10 +54,9 @@ const MEDIA_POLICY: MediaPolicy = {
 };
 
 const requestMedia = createMediaRequest({
-  fetch: (url, options) => fetch(url, options),
+  fetch: (url, options) => browserFetch(url, options),
   scheduleDeadline: (expire, ms) => {
-    const timer = setTimeout(expire, ms);
-    return () => clearTimeout(timer);
+    return scheduleDelay(expire, ms);
   },
 });
 
@@ -93,7 +96,7 @@ function RoundMediaSession({
   const questioning = view.ladder === null && hasOpenQuestioning(view.rules);
   const muteOffered = questioning || postRoundCallChosen(view);
   const refresh = useRef(onRefresh);
-  useEffect(() => {
+  useBrowserEffect(() => {
     refresh.current = onRefresh;
   }, [onRefresh]);
   const [runtime] = useState(() =>
@@ -107,8 +110,7 @@ function RoundMediaSession({
       // Monotonic: elapsed time, and a clock step must not skew it.
       now: () => performance.now(),
       at: (ms, fire) => {
-        const timer = setTimeout(fire, ms);
-        return () => clearTimeout(timer);
+        return scheduleDelay(fire, ms);
       },
       api: {
         admit: (id, signal) => requestMedia(id, 'session', signal),
@@ -143,23 +145,23 @@ function RoundMediaSession({
     runtime.handles,
   );
   const { dispatch } = runtime;
-  useEffect(
+  useBrowserEffect(
     () => onStepDown(() => dispatch({ type: 'tab-changed', owns: false })),
     [dispatch, onStepDown],
   );
   /** The restore must precede the first claim so one truth reaches the transport. */
-  useEffect(() => {
+  useBrowserEffect(() => {
     if (selectMediaAccount(actorId)) onAccountChanged();
     // A post-round call offers mute to everyone, so it restores the choice too.
     if (!muteOffered) return;
     const prior = readMutePreference(actorId, view.id);
     if (prior !== null) dispatch({ type: 'mute-restored', muted: prior });
   }, [view.id, actorId, muteOffered, onAccountChanged, dispatch]);
-  useEffect(() => {
+  useBrowserEffect(() => {
     dispatch({ type: 'tab-changed', owns });
     return () => dispatch({ type: 'tab-changed', owns: null });
   }, [dispatch, owns]);
-  useEffect(
+  useBrowserEffect(
     () =>
       subscribeBrowserPageEvents({
         online: window,
@@ -179,7 +181,7 @@ function RoundMediaSession({
   const follower = useRef<ReturnType<typeof createRoundViewFollower> | null>(
     null,
   );
-  useEffect(() => {
+  useBrowserEffect(() => {
     // A post-round call outlives its Round: the server's own answer ends it.
     if (isRoundOver(view.status) && !postRoundCallChosen(view)) {
       dispatch({ type: 'round-ended' });
@@ -194,21 +196,21 @@ function RoundMediaSession({
   }, [view, clock, dispatch]);
   /** Only the server knows a call ended early: everyone left, or it never opened. */
   const callEnded = useRef(onCallEnded);
-  useEffect(() => {
+  useBrowserEffect(() => {
     callEnded.current = onCallEnded;
   }, [onCallEnded]);
   const endedCall = postRoundCallChosen(view) && state.link.phase === 'ended';
-  useEffect(() => {
+  useBrowserEffect(() => {
     if (endedCall) callEnded.current?.();
   }, [endedCall]);
   /** The controls read this device's own capture truth as a named input. */
   const report = useRef(onPublication);
-  useEffect(() => {
+  useBrowserEffect(() => {
     report.current = onPublication;
   }, [onPublication]);
   const publication = publicationOf(state);
-  useEffect(() => report.current?.(publication), [publication]);
-  useEffect(() => () => report.current?.(null), []);
+  useBrowserEffect(() => report.current?.(publication), [publication]);
+  useBrowserEffect(() => () => report.current?.(null), []);
   const presence = tabOf(state);
   if (presence !== 'owned')
     return (
@@ -216,7 +218,9 @@ function RoundMediaSession({
         {presence === 'elsewhere' ? (
           <TabElsewhere takeOver={tab.takeOver} />
         ) : (
-          <p role="status">Checking this Round’s tab…</p>
+          <StatusRegion as="p" role="status">
+            Checking this Round’s tab…
+          </StatusRegion>
         )}
       </section>
     );

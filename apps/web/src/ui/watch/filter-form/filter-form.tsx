@@ -1,7 +1,7 @@
+import { Button } from '../../components/button/button';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { MAX_SEARCH_LENGTH } from '../../../features/watch/live-query';
-import { buttonClass } from '../../components/button/button-class';
 import { Icon } from '../../components/icon/icon';
 import { cn } from '../../cn';
 import { AutoSubmitForm } from '../../components/filter-bar/auto-submit-form';
@@ -87,9 +87,9 @@ export function FilterForm({
           ))}
         </select>
       ) : null}
-      <button type="submit" className={buttonClass('secondary')}>
+      <Button variant="secondary" type="submit">
         Apply
-      </button>
+      </Button>
       {clearHref === null ? null : (
         <Link
           href={clearHref}

@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useRef, useState, type Dispatch } from 'react';
+import { useBrowserEffect } from '../edge/browser-sync';
+import { useRef, useState, type Dispatch } from 'react';
 import { flushSync } from 'react-dom';
 import type { DocumentSync } from './document-sync';
 import { systemClock } from '@daisy/clock';
@@ -19,10 +20,10 @@ export function useDocumentSync(
 ) {
   const [problem, setProblem] = useState<string | null>(null);
   const open = useRef(openIds);
-  useEffect(() => {
+  useBrowserEffect(() => {
     open.current = openIds;
   }, [openIds]);
-  useEffect(() => {
+  useBrowserEffect(() => {
     if (!sync) return;
     let live = true;
     // Whatever this owner still holds saves first, so a read never shows older

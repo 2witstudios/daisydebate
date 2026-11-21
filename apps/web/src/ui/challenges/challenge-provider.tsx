@@ -1,6 +1,7 @@
 'use client';
 
 // First: protocol schemas built after this load without Zod's eval probe.
+import { browserFetch } from '../edge/browser-request';
 import '../../lib/zod-jitless';
 import {
   challengeListSchema,
@@ -26,7 +27,7 @@ import {
 } from '../../features/challenges/challenges-held';
 import { browserSyncEdges } from '../../features/resource-sync/browser';
 import type { ResourceRead } from '../../features/resource-sync/driver';
-import { useResourceSync } from '../resource-sync/use-resource-sync';
+import { useDriver } from '../edge/use-driver';
 
 type ChallengeView = {
   readonly challenges: ChallengeList;
@@ -57,7 +58,7 @@ export const useChallenges = (): ChallengeView => {
 const challengeRead = challengeListSchema.loose();
 
 const readList = async (): Promise<ResourceRead<ChallengeList>> => {
-  const response = await fetch('/api/challenges', {
+  const response = await browserFetch('/api/challenges', {
     credentials: 'same-origin',
     cache: 'no-store',
   });
@@ -102,10 +103,7 @@ export function ChallengeProvider({
       ...edges,
     });
   }, [actorId, seed, socketUrl]);
-  const [sync, driver] = useResourceSync(
-    () => seedChallengeSync(seed, 0),
-    start,
-  );
+  const [sync, driver] = useDriver(() => seedChallengeSync(seed, 0), start);
   const held = sync.value;
   const shown = useMemo(
     () => ({

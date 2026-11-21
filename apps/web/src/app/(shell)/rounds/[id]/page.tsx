@@ -1,3 +1,4 @@
+import { StatusRegion } from '../../../../ui/components/status-region/status-region';
 import { analysisRequestNotice } from '../../../../features/round-analysis/request-notice';
 import { floorProps } from './floor/floor-props';
 import { BoundedDocuments } from '../../../../ui/documents/bounded-documents';
@@ -187,9 +188,13 @@ export default async function RoundPage({
         {identity.state === 'member' ? (
           <>
             {reported ? (
-              <p role="status" className="text-sm text-ink-muted">
+              <StatusRegion
+                as="p"
+                role="status"
+                className="text-sm text-ink-muted"
+              >
                 {reportAnswerText(reported)}
-              </p>
+              </StatusRegion>
             ) : null}
             <ReportForm
               targetKind="round"

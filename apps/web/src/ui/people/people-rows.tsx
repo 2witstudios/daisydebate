@@ -1,5 +1,8 @@
 'use client';
 
+import { cancelDelay, delay } from '../edge/browser-time';
+import { StatusRegion } from '../components/status-region/status-region';
+import { Button } from '../components/button/button';
 import type { Person } from '@daisy/protocol';
 import { ShellLink as Link } from '../layout/app-shell/shell-link';
 import { useCallback, useRef, useState, type RefObject } from 'react';
@@ -46,7 +49,7 @@ export function usePersonOverlay(
   const [menu, setMenu] = useState<OpenMenu | null>(null);
   const trigger = useRef<HTMLElement | null>(null);
   const [reported, setReported] = useState<ReadonlySet<string>>(new Set());
-  const press = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const press = useRef<ReturnType<typeof delay> | null>(null);
   const topOf = (element: Element, tallest: number) => {
     const box = container.current?.getBoundingClientRect();
     if (!box) return 0;
@@ -54,7 +57,7 @@ export function usePersonOverlay(
     return Math.max(8, Math.min(top, box.height - tallest));
   };
   const clearPress = useCallback(() => {
-    if (press.current !== null) clearTimeout(press.current);
+    if (press.current !== null) cancelDelay(press.current);
     press.current = null;
   }, []);
   const memberOf = (name: string | undefined) =>
@@ -80,10 +83,7 @@ export function usePersonOverlay(
       if (event.pointerType !== 'touch') return;
       const element = event.currentTarget;
       clearPress();
-      press.current = setTimeout(
-        () => openAt(username, element),
-        LONG_PRESS_MS,
-      );
+      press.current = delay(() => openAt(username, element), LONG_PRESS_MS);
     },
     onPointerUp: clearPress,
     onPointerLeave: clearPress,
@@ -248,20 +248,25 @@ export function PersonList({
       {filter === 'all' ? section('Offline', offline) : null}
       {list.people.length === 0 ? (
         <li>
-          <p role="status" className="px-3 py-6 text-center font-semibold">
+          <StatusRegion
+            as="p"
+            role="status"
+            className="px-3 py-6 text-center font-semibold"
+          >
             No one matches
-          </p>
+          </StatusRegion>
         </li>
       ) : null}
       {list.nextCursor ? (
         <li>
-          <button
+          <Button
+            variant="unstyled"
             type="button"
             onClick={loadMore}
             className="min-h-nav-target w-full text-sm font-semibold text-ink-muted hover:text-ink"
           >
             Show more
-          </button>
+          </Button>
         </li>
       ) : null}
     </ul>

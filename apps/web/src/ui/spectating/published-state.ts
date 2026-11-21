@@ -1,7 +1,9 @@
 'use client';
+import { useBrowserEffect } from '../edge/browser-sync';
+import { browserFetch } from '../edge/browser-request';
 import '../../lib/zod-jitless';
 import { audienceStateSchema, type AudienceState } from '@daisy/protocol';
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useState } from 'react';
 import { answerOfResponse } from '../../features/spectating/poll-pace';
 import { startBrowserPoll } from './browser-poll';
 import {
@@ -48,7 +50,7 @@ export function usePublishedState(
   const [held, setHeld] = useState<Held | null>(null);
   const published = held !== null && held.url === url ? held : NOTHING_READ;
   const polling = keepReading(published);
-  useEffect(() => {
+  useBrowserEffect(() => {
     if (!url || !polling) return;
     let stopped = false;
     let reads = firstPublishedReads(performance.now());
@@ -65,7 +67,7 @@ export function usePublishedState(
     };
     const stop = startBrowserPoll(async () => {
       try {
-        const response = await fetch(url, {
+        const response = await browserFetch(url, {
           cache: 'no-store',
           credentials: 'omit',
           signal: AbortSignal.timeout(READ_TIMEOUT_MS),

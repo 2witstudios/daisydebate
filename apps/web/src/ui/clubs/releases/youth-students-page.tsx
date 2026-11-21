@@ -1,3 +1,4 @@
+import { Button } from '../../components/button/button';
 import Link from 'next/link';
 import type { YouthStudentFilter } from '../../../features/media-releases/club-releases';
 import type { StandingBadge } from '../../../features/media-releases/release-words';
@@ -120,9 +121,9 @@ export function YouthStudentsPage({
             ))}
           </select>
         </div>
-        <button type="submit" className={buttonClass('secondary')}>
+        <Button variant="secondary" type="submit">
           Apply
-        </button>
+        </Button>
       </AutoSubmitForm>
       <section
         aria-labelledby="youth-students-h"

@@ -1,5 +1,6 @@
 'use client';
-import { useCallback, useLayoutEffect, useRef } from 'react';
+import { useBrowserLayoutEffect } from '../edge/browser-sync';
+import { useCallback, useRef } from 'react';
 import type { MessageRow } from '../../features/messaging/message-rows';
 
 /** Keep the message being read in place; the reversed column sticks to newest at zero. */
@@ -31,7 +32,7 @@ export function useHistoryScroll(rows: readonly MessageRow[]) {
         }
       : null;
   }, []);
-  useLayoutEffect(() => {
+  useBrowserLayoutEffect(() => {
     const scroller = ref.current;
     const held = anchor.current;
     if (scroller && held) {

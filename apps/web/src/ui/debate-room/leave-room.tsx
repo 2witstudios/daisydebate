@@ -1,6 +1,11 @@
 'use client';
 
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { useBrowserEffect } from '../edge/browser-sync';
+import { useFocusWhen } from '../edge/use-focus';
+import { Button } from '../components/button/button';
+import { Dialog } from '../components/dialog/dialog';
+import { StatusRegion } from '../components/status-region/status-region';
+import { useRef, useState, type KeyboardEvent } from 'react';
 import { Icon } from '../components/icon/icon';
 import { FormError } from '../components/form-field/form-field';
 import {
@@ -86,7 +91,7 @@ function ForfeitLeave({
    * outcome leaves the participant's recovery exactly as live as their
    * membership still is.
    */
-  useEffect(() => {
+  useBrowserEffect(() => {
     if (!pending && answer.kind === 'moved' && left) {
       leaveRound(left.actorId, left.roundId);
       clearRoundMediaPreferences(left.actorId, left.roomId, left.roundId);
@@ -106,13 +111,14 @@ function ForfeitLeave({
       <input type="hidden" name="participantId" value={forfeit.participantId} />
       <input type="hidden" name="confirmed" value="true" />
       <FormError error={roundFormFields(answer).error} />
-      <button
+      <Button
+        variant="unstyled"
         type="submit"
         disabled={pending}
         className={`${action} bg-live text-background`}
       >
         {forfeit.type === 'leave' ? 'Leave round' : 'Leave and forfeit'}
-      </button>
+      </Button>
     </form>
   );
 }
@@ -173,9 +179,7 @@ export function LeaveRoom({ links }: { readonly links: LeaveLinks }) {
   const leaveLabel = links.call ? 'Leave call' : 'Leave round';
   const stay = useRef<HTMLAnchorElement>(null);
   const trigger = useRef<HTMLAnchorElement>(null);
-  useEffect(() => {
-    if (open) stay.current?.focus();
-  }, [open]);
+  useFocusWhen(stay, open);
   const close = () => {
     setOpen(false);
     trigger.current?.focus();
@@ -200,7 +204,7 @@ export function LeaveRoom({ links }: { readonly links: LeaveLinks }) {
         <Icon name="leave" size={16} />
         <span className="max-narrow:sr-only">{leaveLabel}</span>
       </a>
-      <dialog
+      <Dialog
         open={open}
         aria-labelledby="leave-room-title"
         onKeyDown={key}
@@ -225,11 +229,11 @@ export function LeaveRoom({ links }: { readonly links: LeaveLinks }) {
               : 'The debate is over, so leaving forfeits nothing.'}
           </p>
         ) : links.held ? (
-          <p role="status" className="text-sm text-ink-muted">
+          <StatusRegion as="p" role="status" className="text-sm text-ink-muted">
             Leaving is unavailable for a moment while this round catches up. You
             can step away, but this is not leaving: the round continues, your
             seat stays, and the normal attendance rules apply if you are absent.
-          </p>
+          </StatusRegion>
         ) : null}
         <div className="flex flex-wrap justify-end gap-2">
           <a
@@ -267,7 +271,7 @@ export function LeaveRoom({ links }: { readonly links: LeaveLinks }) {
             </a>
           )}
         </div>
-      </dialog>
+      </Dialog>
     </>
   );
 }

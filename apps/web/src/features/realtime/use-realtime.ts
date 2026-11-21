@@ -1,7 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useSyncExternalStore } from 'react';
-import { observationResourceKey } from '@daisy/protocol';
+import { useBrowserEffect } from '../../ui/edge/browser-sync';
+import { useCallback, useRef, useSyncExternalStore } from 'react';
 import { tabObservations } from './observation-browser';
 import type {
   ObservationDescriptor,
@@ -25,7 +25,6 @@ export function useRealtime<Body>(
   initial: Body | null,
   socketUrl: string | null,
 ): ObservationView<Body> {
-  const key = observationResourceKey(descriptor.resource);
   const seed = useRef(initial);
   const held = useRef<Held<Body> | null>(null);
   const subscribe = useCallback(
@@ -43,16 +42,14 @@ export function useRealtime<Body>(
         handle.release();
       };
     },
-    // The descriptor is identified by its resource.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [key, socketUrl],
+    [descriptor, socketUrl],
   );
   const live = useSyncExternalStore(
     subscribe,
     () => held.current?.view() ?? null,
     () => null,
   );
-  useEffect(() => {
+  useBrowserEffect(() => {
     seed.current = initial;
     if (initial !== null) held.current?.offer(initial);
   }, [initial]);

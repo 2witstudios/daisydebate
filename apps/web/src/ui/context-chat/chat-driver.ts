@@ -1,3 +1,5 @@
+import { cancelDelay, delay } from '../edge/browser-time';
+import { browserFetch } from '../edge/browser-request';
 import '../../lib/zod-jitless';
 import { instantMs, nowMs, systemClock } from '@daisy/clock';
 import { idSchema } from '@daisy/protocol';
@@ -40,7 +42,7 @@ export function createContextChatDriver(
   const listeners = new Set<() => void>();
   let state = initialContextChatState;
   let stopped = false;
-  let expiry: ReturnType<typeof setTimeout> | undefined;
+  let expiry: ReturnType<typeof delay> | undefined;
 
   const send = (event: ContextChatEvent) => {
     if (stopped || base === null) return;
@@ -54,7 +56,7 @@ export function createContextChatDriver(
 
   const discover = async (base: string, { request }: Effect<'discover'>) => {
     try {
-      const readDiscovery = () => fetch(base, { cache: 'no-store' });
+      const readDiscovery = () => browserFetch(base, { cache: 'no-store' });
       const waiting = () =>
         !stopped &&
         state.standing.kind === 'loading' &&
@@ -68,7 +70,7 @@ export function createContextChatDriver(
         response.headers.get('retry-after') === '1' &&
         waiting()
       ) {
-        await new Promise<void>((resolve) => setTimeout(resolve, 1000));
+        await new Promise<void>((resolve) => delay(resolve, 1000));
         if (!waiting()) return;
         response = await readDiscovery();
       }
@@ -91,7 +93,7 @@ export function createContextChatDriver(
 
   const open = async (base: string, { request }: Effect<'open'>) => {
     try {
-      const response = await fetch(
+      const response = await browserFetch(
         base,
         json({ version: 1, [context.ownerKey]: ownerId }),
       );
@@ -119,7 +121,7 @@ export function createContextChatDriver(
     const { request, channelId } = effect;
     const kind = effect.type === 'read-latest' ? 'latest' : 'older';
     try {
-      const response = await fetch(
+      const response = await browserFetch(
         `${base}/messages?channelId=${channelId}${
           effect.type === 'read-older' ? `&before=${effect.before}` : ''
         }`,
@@ -149,7 +151,7 @@ export function createContextChatDriver(
   const markRead = async (base: string, effect: Effect<'mark-read'>) => {
     const { request, channelId, sequence } = effect;
     try {
-      const response = await fetch(
+      const response = await browserFetch(
         `${base}/read`,
         json({ version: 1, channelId, cursor: { channelId, sequence } }),
       );
@@ -167,14 +169,14 @@ export function createContextChatDriver(
   };
 
   const watchExpiry = ({ expiresAt }: Effect<'watch-expiry'>) => {
-    clearTimeout(expiry);
+    cancelDelay(expiry);
     if (expiresAt === null) return;
     const check = () => {
       const remaining = instantMs(expiresAt) - nowMs(systemClock);
       if (remaining <= 0) send({ type: 'expiry-reached', expiresAt });
-      else expiry = setTimeout(check, Math.min(remaining, LONGEST_TIMER_MS));
+      else expiry = delay(check, Math.min(remaining, LONGEST_TIMER_MS));
     };
-    expiry = setTimeout(check, 0);
+    expiry = delay(check, 0);
   };
 
   /** Runs one effect against the chat's address, which only an addressable owner has. */
@@ -207,7 +209,7 @@ export function createContextChatDriver(
     /** Answers still on their way change nothing once the chat has left the page. */
     stop: () => {
       stopped = true;
-      clearTimeout(expiry);
+      cancelDelay(expiry);
     },
   };
 }

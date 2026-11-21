@@ -1,5 +1,5 @@
+import { Button } from '../../components/button/button';
 import type { FormValues } from '../../../features/forms/form-state';
-import { buttonClass } from '../../components/button/button-class';
 import { HiddenFields } from '../../form-action/hidden-fields';
 
 /**
@@ -22,9 +22,9 @@ export function RetryRoomCommand({
           ([name]) => !name.startsWith('$ACTION_'),
         )}
       />
-      <button type="submit" className={buttonClass('secondary')}>
+      <Button variant="secondary" type="submit">
         {pending ? 'Retrying…' : 'Retry command'}
-      </button>
+      </Button>
     </>
   );
 }

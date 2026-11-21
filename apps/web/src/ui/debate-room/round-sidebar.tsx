@@ -1,5 +1,6 @@
 'use client';
 
+import { Button } from '../components/button/button';
 import type { Dispatch, KeyboardEvent, ReactNode } from 'react';
 import { systemClock, type Clock } from '@daisy/clock';
 import { totalUnread, unreadByChannel } from '../../features/debate-room/chat';
@@ -109,7 +110,8 @@ export function RoundSidebar({
         className="grid h-12 shrink-0 auto-cols-fr grid-flow-col border-b border-border max-compact:hidden"
       >
         {sidebarTabs.map((tab) => (
-          <button
+          <Button
+            variant="unstyled"
             key={tab}
             id={tabId(tab)}
             type="button"
@@ -132,7 +134,7 @@ export function RoundSidebar({
           >
             {sidebarNames[tab]}
             <Badge count={unseen(tab)} />
-          </button>
+          </Button>
         ))}
       </div>
       {panel(

@@ -1,5 +1,8 @@
 'use client';
 
+import { browserFetch } from '../edge/browser-request';
+import { StatusRegion } from '../components/status-region/status-region';
+import { Button } from '../components/button/button';
 import { useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -22,10 +25,10 @@ export function ConsentControls({
   if (!available.analytics && !available.replay) return null;
   if (choice.kind === 'unreadable')
     return (
-      <p role="status">
+      <StatusRegion as="p" role="status">
         We can&apos;t read your saved privacy choices right now. Reload this
         page to try again.
-      </p>
+      </StatusRegion>
     );
   return <ConsentForm consent={choice.consent} available={available} />;
 }
@@ -52,7 +55,7 @@ export function ConsentForm({
     for (const [name, value] of fields)
       if (typeof value === 'string') body.append(name, value);
     setState('saving');
-    fetch('/api/analytics/consent', {
+    browserFetch('/api/analytics/consent', {
       method: 'POST',
       headers: { 'content-type': 'application/x-www-form-urlencoded' },
       body,
@@ -109,32 +112,35 @@ export function ConsentForm({
         )}
         <div className="flex flex-wrap gap-3">
           {banner ? (
-            <button
+            <Button
+              variant="unstyled"
               name="choice"
               value="accept"
               disabled={state === 'saving'}
               className={buttonClass('secondary')}
             >
               Accept optional
-            </button>
+            </Button>
           ) : (
-            <button
+            <Button
+              variant="unstyled"
               name="choice"
               value="save"
               disabled={state === 'saving'}
               className={buttonClass('secondary')}
             >
               Save choices
-            </button>
+            </Button>
           )}
-          <button
+          <Button
+            variant="unstyled"
             name="choice"
             value="deny"
             disabled={state === 'saving'}
             className={buttonClass('secondary')}
           >
             Reject optional
-          </button>
+          </Button>
           {banner && (
             <Link href="/analytics" className={buttonClass('ghost')}>
               Choose preferences
@@ -142,9 +148,15 @@ export function ConsentForm({
           )}
         </div>
         {state === 'failed' && (
-          <p role="status">We couldn&apos;t save your choice. Try again.</p>
+          <StatusRegion as="p" role="status">
+            We couldn&apos;t save your choice. Try again.
+          </StatusRegion>
         )}
-        {state === 'saved' && !banner && <p role="status">Choices saved.</p>}
+        {state === 'saved' && !banner && (
+          <StatusRegion as="p" role="status">
+            Choices saved.
+          </StatusRegion>
+        )}
       </form>
       <Link href="/privacy" className="text-sm underline">
         Privacy policy

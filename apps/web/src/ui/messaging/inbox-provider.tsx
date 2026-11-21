@@ -1,9 +1,11 @@
 'use client';
+import { useBrowserEffect } from '../edge/browser-sync';
+import { browserFetch } from '../edge/browser-request';
+import { scheduleDelay } from '../edge/browser-time';
 import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
   useRef,
   useState,
@@ -54,7 +56,7 @@ const readPage = async ({
   if (after !== null) params.set('after', after);
   const query = params.size > 0 ? `?${params}` : '';
   return readMessagingInboxResponse(
-    await fetch(`/api/messaging/inbox${query}`, {
+    await browserFetch(`/api/messaging/inbox${query}`, {
       credentials: 'same-origin',
       cache: 'no-store',
     }),
@@ -91,13 +93,12 @@ export function InboxProvider({
   const doorbell = useRef<ReturnType<
     typeof attachMessagingInboxDoorbells
   > | null>(null);
-  useEffect(() => {
+  useBrowserEffect(() => {
     const reads = createInboxReads({
       readPage,
       scheduler: {
         after: (work, ms) => {
-          const timer = setTimeout(work, ms);
-          return () => clearTimeout(timer);
+          return scheduleDelay(work, ms);
         },
       },
       onRefreshed: (page, { q }) => {
@@ -120,12 +121,12 @@ export function InboxProvider({
   }, []);
   // A server render elsewhere (a native answer, a refresh) says something changed.
   const seen = useRef(seed);
-  useEffect(() => {
+  useBrowserEffect(() => {
     if (seed === seen.current) return;
     seen.current = seed;
     reader.current?.ring();
   }, [seed]);
-  useEffect(() => {
+  useBrowserEffect(() => {
     if (socketUrl === null) return;
     const connection = tabConnection(socketUrl);
     const attached = attachMessagingInboxDoorbells({

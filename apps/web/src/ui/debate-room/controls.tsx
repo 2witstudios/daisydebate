@@ -1,5 +1,6 @@
 'use client';
 
+import { Button } from '../components/button/button';
 import { startSpeechLabel } from '../../features/debate-room/vocabulary';
 import type { LocalPublication } from '../../features/round-media/model/media-publication';
 import { Fragment, type ReactNode } from 'react';
@@ -35,16 +36,26 @@ function PhaseActions({
   if (round.phase === 'prep')
     return (
       <>
-        <button type="button" disabled className={cn(primary, grow)}>
+        <Button
+          variant="unstyled"
+          type="button"
+          disabled
+          className={cn(primary, grow)}
+        >
           {startSpeechLabel(round.speeches[round.liveIndex]?.name ?? 'speech')}
-        </button>
+        </Button>
       </>
     );
   if (round.phase === 'own-speech')
     return (
-      <button type="button" disabled className={cn(primary, grow)}>
+      <Button
+        variant="unstyled"
+        type="button"
+        disabled
+        className={cn(primary, grow)}
+      >
         End speech
-      </button>
+      </Button>
     );
   return null;
 }
@@ -61,9 +72,14 @@ function TechIssue({
   readonly wide?: boolean;
 }) {
   return (
-    <button type="button" disabled className={cn(quiet, wide && 'h-12')}>
+    <Button
+      variant="unstyled"
+      type="button"
+      disabled
+      className={cn(quiet, wide && 'h-12')}
+    >
       {round.phase === 'judging' ? 'Report a problem' : 'Tech issue'}
-    </button>
+    </Button>
   );
 }
 

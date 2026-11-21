@@ -1,4 +1,10 @@
 import {
+  cancelDelay,
+  delay,
+  startTick,
+  stopTick,
+} from '../../ui/edge/browser-time';
+import {
   createDeviceCheckController,
   type DeviceCapture,
   type DeviceKind,
@@ -31,7 +37,7 @@ function observe(
     const finish = (error?: Error) => {
       if (settled) return;
       settled = true;
-      clearTimeout(timeout);
+      cancelDelay(timeout);
       signal.removeEventListener('abort', abort);
       cleanup();
       if (error) reject(error);
@@ -39,7 +45,7 @@ function observe(
     };
     const abort = () =>
       finish(new DOMException('Check cancelled', 'AbortError'));
-    const timeout = setTimeout(
+    const timeout = delay(
       // An opened device that never produced a frame or level: no signal.
       () => finish(new DOMException('No device observation', 'TimeoutError')),
       edge.checkTimeoutMs ?? CHECK_TIMEOUT_MS,
@@ -100,12 +106,12 @@ function microphoneConfirmation(
     const context = edge.createAudioContext();
     let source: MediaStreamAudioSourceNode | undefined;
     let analyser: AnalyserNode | undefined;
-    let timer: ReturnType<typeof setInterval> | undefined;
+    let timer: ReturnType<typeof startTick> | undefined;
     let closed = false;
     const cleanup = () => {
       if (closed) return;
       closed = true;
-      clearInterval(timer);
+      stopTick(timer);
       try {
         source?.disconnect();
       } finally {
@@ -123,7 +129,7 @@ function microphoneConfirmation(
       level.fftSize = 1024;
       source.connect(level); // Never connect to speakers or any transport.
       const samples = new Float32Array(level.fftSize);
-      timer = setInterval(() => {
+      timer = startTick(() => {
         level.getFloatTimeDomainData(samples);
         const rms = Math.sqrt(
           samples.reduce((sum, sample) => sum + sample * sample, 0) /
@@ -174,7 +180,7 @@ function watchLoss(
         if (active) loss('device-disappeared');
       });
   };
-  const health = setInterval(() => {
+  const health = startTick(() => {
     if (track.readyState === 'ended') ended();
   }, 250);
   track.addEventListener('ended', ended);
@@ -195,7 +201,7 @@ function watchLoss(
   // Track.enabled (publication mute) is deliberately not a device-health signal.
   return () => {
     active = false;
-    clearInterval(health);
+    stopTick(health);
     track.removeEventListener('ended', ended);
     edge.mediaDevices.removeEventListener('devicechange', changed);
     permission?.removeEventListener('change', revoked);

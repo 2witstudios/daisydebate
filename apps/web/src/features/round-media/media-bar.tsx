@@ -1,4 +1,6 @@
 'use client';
+import { StatusRegion } from '../../ui/components/status-region/status-region';
+import { Button } from '../../ui/components/button/button';
 import type { MediaRuntime } from './media-runtime';
 import type { MediaState } from './model/media-state';
 import { controlsOf, statusOf } from './model/media-status';
@@ -25,20 +27,22 @@ export function MediaBar({
       data-room-media="status"
       className="flex flex-wrap items-center gap-3 bg-surface-sunken px-3 py-2"
     >
-      <p role="status" className="m-0 text-sm text-ink-muted">
+      <StatusRegion as="p" role="status" className="m-0 text-sm text-ink-muted">
         {status.message}
-      </p>
+      </StatusRegion>
       {controls.enableSound ? (
-        <button
+        <Button
+          variant="unstyled"
           type="button"
           className={button}
           onClick={() => dispatch({ type: 'enable-sound-pressed' })}
         >
           Enable sound
-        </button>
+        </Button>
       ) : null}
       {questioning && controls.muteOffered ? (
-        <button
+        <Button
+          variant="unstyled"
           type="button"
           className={button}
           disabled={!controls.muteEnabled}
@@ -46,16 +50,17 @@ export function MediaBar({
           onClick={() => dispatch({ type: 'mute-requested', muted: !muted })}
         >
           {muted ? 'Unmute microphone' : 'Mute microphone'}
-        </button>
+        </Button>
       ) : null}
       {status.retry ? (
-        <button
+        <Button
+          variant="unstyled"
           type="button"
           className={button}
           onClick={() => dispatch({ type: 'retry-pressed' })}
         >
           Retry camera and sound
-        </button>
+        </Button>
       ) : null}
     </div>
   );

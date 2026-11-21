@@ -1,6 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useBrowserEffect } from '../edge/browser-sync';
+import { StatusRegion } from '../components/status-region/status-region';
+import { useState } from 'react';
 import type { DriveNode } from '../../features/documents/drive-tree';
 import { FileMenuItem } from './file-menu-item';
 import type { DriveActions } from './use-drive';
@@ -29,7 +31,7 @@ export function FileDeleteStep({
   const [preview, setPreview] = useState<DeletionPreview>(
     node.kind === 'folder' ? { kind: 'loading' } : { kind: 'ready', count: 1 },
   );
-  useEffect(() => {
+  useBrowserEffect(() => {
     if (node.kind !== 'folder') return;
     let live = true;
     folderCount(node.id).then(
@@ -46,7 +48,8 @@ export function FileDeleteStep({
   }, [node.id, node.kind, folderCount]);
   return (
     <>
-      <p
+      <StatusRegion
+        as="p"
         className="px-2 py-1 text-xs text-ink-muted"
         role={preview.kind === 'failed' ? 'alert' : 'status'}
       >
@@ -57,7 +60,7 @@ export function FileDeleteStep({
             : node.kind === 'folder'
               ? `This deletes ${label}, the folders inside it and ${preview.count} ${preview.count === 1 ? 'document' : 'documents'} for good. They cannot be restored.`
               : `This deletes ${label} for good. It cannot be restored.`}
-      </p>
+      </StatusRegion>
       <FileMenuItem
         icon="trash"
         danger

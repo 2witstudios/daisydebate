@@ -1,7 +1,8 @@
 'use client';
 
+import { useBrowserEffect } from '../edge/browser-sync';
 import type { ActiveRoom } from '@daisy/protocol';
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { departedInSession } from '../../features/rooms/resume-departure';
 import { resumeRoundHrefOf } from '../../features/rooms/resume';
 import {
@@ -51,7 +52,7 @@ export function ResumeRound({
     window.location.reload(),
   );
   const waited = useRef(false);
-  useEffect(() => {
+  useBrowserEffect(() => {
     if (resuming === null || ownership.owns === null) return;
     if (!ownership.owns) waited.current = true;
     else if (waited.current) window.location.reload();

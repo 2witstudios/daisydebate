@@ -1,3 +1,4 @@
+import { StatusRegion } from '../../components/status-region/status-region';
 import { Button } from '../../components/button/button';
 import { Icon } from '../../components/icon/icon';
 import { AuthFrame, AuthHeading, taglinePanel } from '../auth-frame/auth-frame';
@@ -109,9 +110,9 @@ export function UsernameForm({
           </a>
         ) : null}
       </form>
-      <p role="status" className="sr-only">
+      <StatusRegion as="p" role="status" className="sr-only">
         {pending ? 'Saving your username…' : ''}
-      </p>
+      </StatusRegion>
     </AuthFrame>
   );
 }

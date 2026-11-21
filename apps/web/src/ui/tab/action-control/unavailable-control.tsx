@@ -1,3 +1,4 @@
+import { Button } from '../../components/button/button';
 import type { ReactNode } from 'react';
 
 /** A Tab operation with no page or command yet: shown, and disabled. */
@@ -11,8 +12,14 @@ export function UnavailableControl({
   readonly children: ReactNode;
 }) {
   return (
-    <button type="button" disabled className={className} aria-label={ariaLabel}>
+    <Button
+      variant="unstyled"
+      type="button"
+      disabled
+      className={className}
+      aria-label={ariaLabel}
+    >
       {children}
-    </button>
+    </Button>
   );
 }

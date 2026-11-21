@@ -1,6 +1,13 @@
 'use client';
 
-import { useEffect, useRef, useState, useTransition } from 'react';
+import {
+  interceptBrowserFetch,
+  type BrowserRequest,
+} from '../edge/browser-request';
+import { useBrowserEffect } from '../edge/browser-sync';
+import { scheduleDelay } from '../edge/browser-time';
+import { StatusRegion } from '../components/status-region/status-region';
+import { useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import type { ConversationRecoveryOrigin } from './conversation-recovery';
 import { createConversationRecovery } from './conversation-recovery';
@@ -22,7 +29,7 @@ export function ConversationReconnecting({
     null,
   );
   const [exhausted, setExhausted] = useState(false);
-  useEffect(() => {
+  useBrowserEffect(() => {
     const address = window.location.href;
     const recovery = createConversationRecovery({
       refresh: () => {
@@ -31,8 +38,7 @@ export function ConversationReconnecting({
         else recovery.stop();
       },
       schedule: (run, waitMs) => {
-        const timer = window.setTimeout(run, waitMs);
-        return () => window.clearTimeout(timer);
+        return scheduleDelay(run, waitMs);
       },
       exhausted: () => setExhausted(true),
     });
@@ -41,11 +47,10 @@ export function ConversationReconnecting({
     // network request is still in flight. Adopt the buffered newest render
     // only once that network fetch finishes, so a wait never dispatches
     // while a held refresh is still on the wire.
-    const originalFetch = window.fetch.bind(window);
     let pendingRefetches = 0;
     const isConversationRefetch = (
-      input: Parameters<typeof window.fetch>[0],
-      init: Parameters<typeof window.fetch>[1],
+      input: BrowserRequest[0],
+      init: BrowserRequest[1],
     ) => {
       try {
         const raw =
@@ -74,21 +79,17 @@ export function ConversationReconnecting({
         return false;
       }
     };
-    const wrappedFetch = async (
-      ...args: Parameters<typeof window.fetch>
-    ): Promise<Response> => {
-      if (!isConversationRefetch(args[0], args[1]))
-        return originalFetch(...args);
+    const releaseFetch = interceptBrowserFetch(async (args, send) => {
+      if (!isConversationRefetch(args[0], args[1])) return send(...args);
       pendingRefetches += 1;
       try {
-        return await originalFetch(...args);
+        return await send(...args);
       } finally {
         pendingRefetches -= 1;
         // The last refetch in flight settling settles the network.
         if (pendingRefetches === 0) recovery.settled();
       }
-    };
-    window.fetch = wrappedFetch as typeof window.fetch;
+    });
     // Native default actions are separate from Next's accepted-link notice.
     const navigate = (event: MouseEvent) => {
       if (
@@ -134,8 +135,7 @@ export function ConversationReconnecting({
     return () => {
       recovery.stop();
       owner.current = null;
-      if (window.fetch === (wrappedFetch as typeof window.fetch))
-        window.fetch = originalFetch;
+      releaseFetch();
       document.removeEventListener('click', navigate);
       document.removeEventListener('submit', submit);
       document.removeEventListener(shellNavigationEvent, recovery.stop);
@@ -143,16 +143,16 @@ export function ConversationReconnecting({
       window.removeEventListener('pagehide', recovery.stop);
     };
   }, [router, startTransition]);
-  useEffect(() => {
+  useBrowserEffect(() => {
     if (!pending) owner.current?.refused(requestId, retryAfterMs, origin);
   }, [requestId, retryAfterMs, pending, origin]);
   return (
     <div className="flex flex-1 flex-col gap-3 p-6 text-ink-muted">
-      <p role="status">
+      <StatusRegion as="p" role="status">
         {exhausted
           ? 'This conversation is still unavailable. Try again.'
           : 'This conversation could not load.'}
-      </p>
+      </StatusRegion>
       <a href="" className="text-accent underline">
         Try again
       </a>

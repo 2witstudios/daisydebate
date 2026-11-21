@@ -1,6 +1,15 @@
 'use client';
 
 // First: protocol schemas built after this load without Zod's eval probe.
+import { useBrowserEffect } from '../edge/browser-sync';
+import { browserFetch } from '../edge/browser-request';
+import {
+  cancelDelay,
+  delay,
+  scheduleDelay,
+  startTick,
+  stopTick,
+} from '../edge/browser-time';
 import '../../lib/zod-jitless';
 import {
   ONLINE_TOPIC,
@@ -12,7 +21,6 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
   useRef,
   useState,
@@ -62,7 +70,7 @@ const readJson = async <T,>(
   readonly response: Response | null;
 }> => {
   try {
-    const response = await fetch(url, {
+    const response = await browserFetch(url, {
       credentials: 'same-origin',
       cache: 'no-store',
     });
@@ -108,10 +116,10 @@ export function PeopleProvider({
   const [query, setQuery] = useState('');
   const [socketUrl, setSocketUrl] = useState(initialSocketUrl);
   const lastRead = useRef(0);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const timer = useRef<ReturnType<typeof delay> | null>(null);
   const count = peopleReadCount(list);
   const shown = useRef({ filter, query, count });
-  useEffect(() => {
+  useBrowserEffect(() => {
     shown.current = { filter, query, count };
   }, [filter, query, count]);
 
@@ -162,7 +170,7 @@ export function PeopleProvider({
   const readListRef = useRef(readList);
   const schedule = useCallback(() => {
     if (timer.current !== null) return;
-    timer.current = setTimeout(
+    timer.current = delay(
       () => {
         timer.current = null;
         void readList();
@@ -178,28 +186,27 @@ export function PeopleProvider({
 
   // A changed filter or search reads at once.
   const first = useRef(true);
-  useEffect(() => {
+  useBrowserEffect(() => {
     if (first.current) {
       first.current = false;
       return;
     }
     pagesLoaded.current = 1;
     readSeq.current += 1;
-    const handle = setTimeout(() => void readList(), 200);
-    return () => clearTimeout(handle);
+    return scheduleDelay(() => void readList(), 200);
   }, [filter, query, readList]);
 
   // The fallback when no ring arrives, and the first read that names the socket.
-  useEffect(() => {
+  useBrowserEffect(() => {
     if (socketUrl === null) void readList();
-    const poll = setInterval(() => {
+    const poll = startTick(() => {
       const since = systemScheduler.now() - lastRead.current;
       if (since >= peopleReadFloorMs(shown.current.count)) void readList();
     }, PEOPLE_READ_CEILING_MS);
-    return () => clearInterval(poll);
+    return () => stopTick(poll);
   }, [readList, socketUrl]);
 
-  useEffect(() => {
+  useBrowserEffect(() => {
     if (socketUrl === null) return;
     const connection = tabConnection(socketUrl);
     connection.connect();
@@ -214,13 +221,13 @@ export function PeopleProvider({
   }, [schedule, socketUrl]);
 
   // The server rendered this list a moment ago, so the first ring waits its turn.
-  useEffect(() => {
+  useBrowserEffect(() => {
     lastRead.current = systemScheduler.now();
   }, []);
 
-  useEffect(
+  useBrowserEffect(
     () => () => {
-      if (timer.current !== null) clearTimeout(timer.current);
+      if (timer.current !== null) cancelDelay(timer.current);
     },
     [],
   );

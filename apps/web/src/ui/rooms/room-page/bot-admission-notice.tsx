@@ -1,3 +1,4 @@
+import { StatusRegion } from '../../components/status-region/status-region';
 import type { RoomView } from '@daisy/protocol';
 import { UpgradePanel } from '../../components/upgrade-panel/upgrade-panel';
 
@@ -21,9 +22,9 @@ export function BotAdmissionNotice({
   if (!admission) return null;
   if (admission.kind === 'unavailable')
     return (
-      <p role="status" className="text-sm text-ink-muted">
+      <StatusRegion as="p" role="status" className="text-sm text-ink-muted">
         A round with a bot debater can’t start right now: bots are unavailable.
-      </p>
+      </StatusRegion>
     );
   const { refusal } = admission;
   if (refusal === null) return null;
@@ -38,13 +39,17 @@ export function BotAdmissionNotice({
       </UpgradePanel>
     );
   return (
-    <div role="status" className="flex flex-col gap-1 text-sm text-ink-muted">
+    <StatusRegion
+      as="div"
+      role="status"
+      className="flex flex-col gap-1 text-sm text-ink-muted"
+    >
       <p>A round with a bot debater can’t start {refusals[refusal]}</p>
       {refusal === 'renewal-grace' ? (
         <a href="/settings/billing" className="underline">
           Manage billing
         </a>
       ) : null}
-    </div>
+    </StatusRegion>
   );
 }

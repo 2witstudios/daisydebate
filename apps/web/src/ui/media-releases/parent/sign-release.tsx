@@ -1,5 +1,6 @@
 'use client';
 
+import { StatusRegion } from '../../components/status-region/status-region';
 import { mediaReleaseWording } from '@daisy/protocol/media-release';
 
 import {
@@ -192,9 +193,9 @@ export function SignRelease(props: SignReleaseProps) {
               </span>
             </label>
             {refusal === undefined ? null : (
-              <p role="alert" className={errorClass}>
+              <StatusRegion as="p" role="alert" className={errorClass}>
                 {refusal}
-              </p>
+              </StatusRegion>
             )}
             <div className="flex flex-wrap gap-3">
               <Button

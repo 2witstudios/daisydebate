@@ -1098,3 +1098,46 @@ describe('database statement and lock boundaries', () => {
     });
   });
 });
+
+describe('browser edges', () => {
+  const rule = 'daisy-client/browser-edge';
+  const probe = async (filePath: string, source: string) => {
+    const [result] = await repositoryEslint().lintText(source, { filePath });
+    return result.messages.filter(({ ruleId }) => ruleId === rule).length;
+  };
+
+  test('owns React effects and host calls', async () => {
+    assert({
+      given:
+        'aliased imports, namespace effects, direct and bracket host calls',
+      should: 'report each bypass',
+      actual: await probe(
+        web('ui/room/controls.tsx'),
+        `import React, { useEffect as reactEffect } from 'react';
+         export { useLayoutEffect } from 'react';
+         reactEffect(() => {}, []);
+         React.useLayoutEffect(() => {}, []);
+         setTimeout(() => {}, 10);
+         window['clearTimeout'](1);
+         void globalThis.fetch('/api/rooms');`,
+      ),
+      expected: 6,
+    });
+  });
+
+  test('accepts the owner, injected ports and a server request', async () => {
+    assert({
+      given: 'edge code, a client’s injected ports and a server’s fetch',
+      should: 'allow each',
+      actual: await Promise.all([
+        probe(web('ui/edge/probe.ts'), 'void fetch("/endpoint");'),
+        probe(
+          web('ui/probe.ts'),
+          'export const read = (fetch: () => void) => fetch();',
+        ),
+        probe(web('server/probe.ts'), 'void fetch("https://example.test");'),
+      ]),
+      expected: [0, 0, 0],
+    });
+  });
+});

@@ -1,7 +1,9 @@
 'use client';
 
+import { useBrowserEffect } from '../edge/browser-sync';
+import { cancelDelay, delay } from '../edge/browser-time';
 import { nowMs, systemClock, systemId } from '@daisy/clock';
-import { useEffect, useMemo, useReducer, useRef } from 'react';
+import { useMemo, useReducer, useRef } from 'react';
 import type { SaveState } from './document-pane';
 import { tabConnection } from '../../features/realtime/browser-adapters';
 import { terminalReason } from '../../features/realtime/connection-status';
@@ -83,8 +85,8 @@ export const initialSavePage: SavePage = {
 const browserKeepaliveBudget = createKeepaliveBudget();
 
 const browserTimers: Timers = {
-  set: (run, ms) => setTimeout(run, ms),
-  clear: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>),
+  set: (run, ms) => delay(run, ms),
+  clear: (handle) => cancelDelay(handle as ReturnType<typeof delay>),
 };
 
 const browserStorage = (): DraftStorage | null => {
@@ -297,7 +299,7 @@ export function useDocumentSaving(
   });
   // Until the page is theirs, a new owner has nothing saved or owed.
   const page = held.owner === principalId ? held.page : initialSavePage;
-  useEffect(() => {
+  useBrowserEffect(() => {
     dispatch({ owner: principalId, event: 'took-over' });
   }, [principalId]);
   const sync = useMemo(
@@ -314,7 +316,7 @@ export function useDocumentSaving(
       ),
     [principalId],
   );
-  useEffect(() => {
+  useBrowserEffect(() => {
     if (socketUrl === null) return;
     const connection = tabConnection(socketUrl);
     const stop = connection.subscribe((state) => {
@@ -330,7 +332,7 @@ export function useDocumentSaving(
     };
   }, [sync, socketUrl]);
   const lifetime = useRef({ sync, principalId });
-  useEffect(() => {
+  useBrowserEffect(() => {
     const token = { sync, principalId };
     lifetime.current = token;
     const changed = (event: Event) => {

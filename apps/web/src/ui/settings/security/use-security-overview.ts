@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useBrowserEffect } from '../../edge/browser-sync';
+import { useState } from 'react';
 import type { SecurityOutcome } from '../../../features/account/security-client';
 import type { PasskeyEnrollment } from '../../auth/onboarding/passkey-enrollment';
 import {
@@ -104,10 +105,10 @@ export function useSecurityOverview({
   );
   const [driver] = useState(() => driveSecurityOverview(overview, show));
 
-  useEffect(() => {
+  useBrowserEffect(() => {
     driver.reach({ load, revokeOthers, enrol });
   }, [driver, load, revokeOthers, enrol]);
-  useEffect(() => {
+  useBrowserEffect(() => {
     driver.send({ type: 'read-asked' });
     return driver.close;
   }, [driver, load]);

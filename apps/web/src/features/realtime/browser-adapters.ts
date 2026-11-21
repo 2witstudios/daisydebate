@@ -1,3 +1,5 @@
+import { cancelDelay, delay } from '../../ui/edge/browser-time';
+import { browserFetch } from '../../ui/edge/browser-request';
 import type {
   ConnectionStoreDeps,
   Scheduler,
@@ -21,8 +23,8 @@ import { sharedConnections } from './shared-connection';
  */
 export const systemScheduler: Scheduler = {
   now: () => performance.now(),
-  setTimeout: (callback, ms) => setTimeout(callback, ms),
-  clearTimeout: (id) => clearTimeout(id as ReturnType<typeof setTimeout>),
+  setTimeout: (callback, ms) => delay(callback, ms),
+  clearTimeout: (id) => cancelDelay(id as ReturnType<typeof delay>),
 };
 
 /**
@@ -89,7 +91,7 @@ export function createBrowserConnectionStore(url: string): ConnectionStore {
       fetchRealtimeTicket({
         expectedSocketUrl: url,
         signal,
-        fetchImpl: (url, init) => fetch(url, init),
+        fetchImpl: (url, init) => browserFetch(url, init),
       }),
     random: secureRandom,
     onVisibilityChange: onDocumentVisibilityChange,

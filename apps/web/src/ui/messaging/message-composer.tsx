@@ -1,5 +1,7 @@
 'use client';
-import { useEffect, useRef } from 'react';
+import { useBrowserEffect } from '../edge/browser-sync';
+import { Button } from '../components/button/button';
+import { useRef } from 'react';
 import { createBrowserTypingWriter } from './typing-browser';
 import { DraftNotice } from './draft-notice';
 import { CountedTextarea } from './counted-textarea';
@@ -70,7 +72,7 @@ function MessageComposerForm({
   const typing = useRef<ReturnType<typeof createBrowserTypingWriter> | null>(
     null,
   );
-  useEffect(() => {
+  useBrowserEffect(() => {
     const writer = createBrowserTypingWriter(channelId);
     typing.current = writer;
     return () => {
@@ -78,7 +80,7 @@ function MessageComposerForm({
       void writer.close();
     };
   }, [channelId]);
-  useEffect(() => {
+  useBrowserEffect(() => {
     if (pending) void typing.current?.activity(false);
   }, [pending]);
   useConversationCompletion(answer, pending);
@@ -135,7 +137,8 @@ function MessageComposerForm({
           describedBy={fields.notice ? 'message-notice' : undefined}
           countClassName="order-last basis-full px-2 pb-1"
         />
-        <button
+        <Button
+          variant="unstyled"
           type="submit"
           disabled={pending || moving}
           aria-label={pending ? 'Sending…' : 'Send message'}
@@ -143,7 +146,7 @@ function MessageComposerForm({
           className="flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-sm bg-accent text-accent-ink hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-60"
         >
           <Icon name="send" />
-        </button>
+        </Button>
       </div>
       <DraftNotice id="message-notice" notice={fields.notice} />
     </form>

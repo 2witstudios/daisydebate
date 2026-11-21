@@ -1,3 +1,4 @@
+import { Button } from '../../components/button/button';
 import { mayDebate } from '@daisy/protocol/lobby/eligibility';
 import type { ReactNode } from 'react';
 import {
@@ -20,7 +21,6 @@ import {
 import type { RoomFormState } from '../../../features/rooms/command-answer';
 import type { RoomCommandIds } from '../../../features/rooms/room-command-ids';
 import type { FormAction } from '../../form-action/form-action';
-import { buttonClass } from '../../components/button/button-class';
 import { controlClass } from '../../components/form-field/form-field-class';
 import { initialsOf } from '../../../lib/initials';
 import { Icon } from '../../components/icon/icon';
@@ -130,13 +130,14 @@ function CycleBox({
       {Object.entries(fields).map(([name, value]) => (
         <input key={name} type="hidden" name={name} value={value} />
       ))}
-      <button
+      <Button
+        variant="unstyled"
         type="submit"
         aria-label={label}
         className={`${boxClass} ${tone} hover:ring-2 hover:ring-border-strong`}
       >
         {text}
-      </button>
+      </Button>
     </AssemblyCommandForm>
   );
 }
@@ -328,14 +329,15 @@ function CommandButton({
       {Object.entries(fields).map(([name, value]) => (
         <input key={name} type="hidden" name={name} value={value} />
       ))}
-      <button
+      <Button
+        variant="unstyled"
         type="submit"
         aria-label={name === label && !icon ? undefined : name}
         title={icon ? label : undefined}
         className={icon ? iconButton : className}
       >
         {icon ? <Icon name={icon} size={16} /> : label}
-      </button>
+      </Button>
     </AssemblyCommandForm>
   );
 }
@@ -382,7 +384,8 @@ function FillSeat({
   // The menu opens over the row, natively; PopoverDialog focuses the choice.
   return (
     <>
-      <button
+      <Button
+        variant="unstyled"
         type="button"
         popoverTarget={`${id}-menu`}
         aria-label={`Fill ${seatName}`}
@@ -390,7 +393,7 @@ function FillSeat({
       >
         Fill seat
         <Icon name="chevron-down" size={14} />
-      </button>
+      </Button>
       <PopoverDialog
         id={`${id}-menu`}
         aria-label={`Fill ${seatName}`}
@@ -429,9 +432,9 @@ function FillSeat({
                 </option>
               ))}
             </select>
-            <button type="submit" className={buttonClass('primary')}>
+            <Button variant="primary" type="submit">
               Seat
-            </button>
+            </Button>
           </AssemblyCommandForm>
         ) : null}
         {aiJudge ? (

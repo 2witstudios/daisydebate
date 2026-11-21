@@ -1,5 +1,6 @@
 'use client';
 
+import { Button } from '../../components/button/button';
 import {
   DurationField,
   PreparationFields,
@@ -98,13 +99,14 @@ export function AssemblySettingsFields({
       </details>
       <AssemblyEditFeedback state={state} roomId={view.id} />
       {view.capabilities.canEdit ? (
-        <button
+        <Button
+          variant="unstyled"
           type="submit"
           disabled={pending}
           className={buttonClass('primary')}
         >
           Save round settings
-        </button>
+        </Button>
       ) : (
         <p>Only the host can change round settings.</p>
       )}

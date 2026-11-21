@@ -1,5 +1,6 @@
 'use client';
-import { Fragment, useEffect, useRef } from 'react';
+import { useBrowserEffect } from '../../ui/edge/browser-sync';
+import { Fragment, useRef } from 'react';
 import {
   isJudgeSeat,
   type RoundView,
@@ -19,7 +20,7 @@ function TrackElement({
 }) {
   const element = useRef<HTMLVideoElement & HTMLAudioElement>(null);
   const mediaTrack = handle.track;
-  useEffect(() => {
+  useBrowserEffect(() => {
     const node = element.current;
     if (!node) return;
     mediaTrack.attach(node);

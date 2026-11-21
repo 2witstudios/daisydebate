@@ -1,3 +1,4 @@
+import { StatusRegion } from '../../components/status-region/status-region';
 import type { CreateLobbyChoice } from '../../../features/rooms/create-lobby-choice';
 import type { RatingDivision } from '@daisy/protocol';
 import Link from 'next/link';
@@ -46,9 +47,9 @@ export function CreateRoomPage({
         }
       />
       {freshRoom ? (
-        <p role="status">
+        <StatusRegion as="p" role="status">
           Everyone joins and gets ready again in the new room.
-        </p>
+        </StatusRegion>
       ) : null}
       <CreateAssemblyForm
         initialRanked={initialRanked}

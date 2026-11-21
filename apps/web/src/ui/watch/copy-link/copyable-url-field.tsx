@@ -1,5 +1,6 @@
 'use client';
 
+import { Button } from '../../components/button/button';
 import { buttonClass } from '../../components/button/button-class';
 import { useClipboardCopy } from './use-clipboard-copy';
 
@@ -21,13 +22,14 @@ export function CopyableUrlField({
         className="h-10 min-w-0 flex-1 rounded-sm border border-border bg-surface-raised px-2 text-sm text-ink"
       />
       {ready ? (
-        <button
+        <Button
+          variant="unstyled"
           type="button"
           onClick={() => copy(url)}
           className={buttonClass('secondary')}
         >
           {copied ? 'Copied' : 'Copy'}
-        </button>
+        </Button>
       ) : null}
     </div>
   );

@@ -1,6 +1,8 @@
 'use client';
+import { useBrowserEffect } from '../edge/browser-sync';
+import { browserFetch } from '../edge/browser-request';
 import { nowMs, systemClock } from '@daisy/clock';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { readRoundClock } from '../../features/round-runtime/read-round-clock';
 import {
   createMeasuredRead,
@@ -30,11 +32,15 @@ export function useRoundTime(options: {
   );
   const wake = useRef(noWake);
   const wakeClock = useCallback(() => wake.current(), []);
-  useEffect(() => {
+  useBrowserEffect(() => {
     const clock = runRoundClock({
       read: createMeasuredRead({
         read: (signal) =>
-          readRoundClock((url, init) => fetch(url, init), clockUrl, signal),
+          readRoundClock(
+            (url, init) => browserFetch(url, init),
+            clockUrl,
+            signal,
+          ),
         roundTime,
       }),
       roundTime,

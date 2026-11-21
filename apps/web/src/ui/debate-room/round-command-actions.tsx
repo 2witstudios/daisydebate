@@ -1,5 +1,7 @@
 'use client';
-import { useEffect, useId, useMemo, type ReactNode } from 'react';
+import { useBrowserEffect } from '../edge/browser-sync';
+import { Button } from '../components/button/button';
+import { useId, useMemo, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { isLiveDebater } from './live-round';
 import { UnacknowledgedCommand } from './unacknowledged-command';
@@ -79,14 +81,15 @@ export function CommandForm({
       {confirmation || preserved.confirmed === 'true' ? (
         <input type="hidden" name="confirmed" value="true" />
       ) : null}
-      <button
+      <Button
+        variant="unstyled"
         id={`${control}-${intent.type}`}
         type="submit"
         disabled={pending || !intent.enabled}
         className="inline-flex h-room-target cursor-pointer items-center justify-center rounded-sm border border-border-strong px-4 text-sm font-strong whitespace-nowrap hover:bg-surface-raised disabled:cursor-not-allowed disabled:opacity-60"
       >
         {confirmation ? `Confirm ${intent.label.toLowerCase()}` : intent.label}
-      </button>
+      </Button>
     </form>
   );
 }
@@ -157,14 +160,14 @@ export function RoundCommandActions({
   );
   const router = useRouter();
   const lost = answer.kind === 'unacknowledged';
-  useEffect(() => {
+  useBrowserEffect(() => {
     // A debater on the post-round call stays in the room until it ends (ADR 0127).
     if (!pending && !lost && !isLiveDebater(view, actorId) && !onCall)
       replaceRoute(router, browserDocument(), `/rounds/${view.id}`);
   }, [pending, lost, view, actorId, onCall, router]);
   const feedback = useId(),
     control = useId();
-  useEffect(() => {
+  useBrowserEffect(() => {
     if (answer !== unanswered) onAnswer(answer);
   }, [answer, onAnswer]);
   // The feedback moves when the Round ends and the frame gives way, so an answer

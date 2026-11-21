@@ -1,3 +1,4 @@
+import { StatusRegion } from '../../../../../../ui/components/status-region/status-region';
 import { ConversationPane } from '../../../../../../ui/messaging/conversation-pane';
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
@@ -55,9 +56,9 @@ export default async function GroupInvitationPage({
           />
         </section>
       ) : (
-        <p role="status">
+        <StatusRegion as="p" role="status">
           This invitation is unavailable. Refresh to try again.
-        </p>
+        </StatusRegion>
       )}
     </ConversationPane>
   );

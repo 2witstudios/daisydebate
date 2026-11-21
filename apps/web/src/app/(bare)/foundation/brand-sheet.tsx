@@ -1,5 +1,6 @@
 'use client';
 
+import { Button } from '../../../ui/components/button/button';
 import { useState, type ReactNode } from 'react';
 import { petalShape } from '../../../features/brand/brand-geometry';
 import type { PetalShape } from '../../../features/brand/petal';
@@ -125,13 +126,14 @@ export function BrandSheetView({
             />
           </label>
         ))}
-        <button
+        <Button
+          variant="unstyled"
           type="button"
           onClick={onReset}
           className="rounded-sm border border-border-strong px-4 py-2 text-sm font-semibold"
         >
           Reset to committed
-        </button>
+        </Button>
       </fieldset>
       <div className="flex flex-col gap-6">
         <SchemePanel scheme="light" shape={shape} />

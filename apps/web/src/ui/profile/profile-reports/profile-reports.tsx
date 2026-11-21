@@ -1,3 +1,4 @@
+import { StatusRegion } from '../../components/status-region/status-region';
 import type { ContentReportTargetKind } from '@daisy/protocol';
 import type { ShownPublicProfile } from '../../../features/profile/read-profile';
 import {
@@ -75,9 +76,9 @@ export function ProfileReports({
       className="flex flex-col gap-2"
     >
       {notice ? (
-        <p role="status" className="text-sm text-ink-muted">
+        <StatusRegion as="p" role="status" className="text-sm text-ink-muted">
           {reportAnswerText(notice)}
-        </p>
+        </StatusRegion>
       ) : null}
       <div className="flex flex-wrap gap-x-6 gap-y-2">
         {targets.map((target) => (
