@@ -64,7 +64,9 @@ test('canonical source/storage migrations preserve a genuinely submitted and fin
     await sql`update organizations set official=true where id in
       (select owner_organization_id from lobbies where kind='standing')`;
     await sql`create type lobby_age_rule as enum ('adults', 'under-18', 'anyone')`;
-    await sql`alter table lobbies add column age_rule lobby_age_rule not null default 'adults'`;
+    await sql`alter table lobbies add column age_rule lobby_age_rule not null default 'adults',
+      add column standing_lobby_id text,
+      add column standing_lobby_kind text generated always as ('standing') stored`;
     await sql`alter table seasons add column lobby_id text`;
     await sql`alter table rounds add column season_id text, add column rating_lobby_id text,
       add column standing_age_rule lobby_age_rule, add column standing_youth_cast boolean not null default false`;
@@ -153,7 +155,8 @@ test('canonical source/storage migrations preserve a genuinely submitted and fin
     await sql`drop function public.daisy_room_youth_recording_cast(text)`;
     await sql`drop function public.daisy_room_is_youth(text)`;
     await sql`alter table rooms drop column legacy_tournament_youth`;
-    await sql`alter table lobbies drop column age_rule`;
+    await sql`alter table lobbies drop column age_rule, drop column standing_lobby_id,
+      drop column standing_lobby_kind`;
     await sql`drop type lobby_age_rule`;
     await sql`alter table organizations drop column official, drop column operator_managed`;
     await sql`alter table ballots drop column speaker_ranks`;

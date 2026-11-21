@@ -119,7 +119,9 @@ test(
           volatility_after: 0.061,
         });
       }
-      const league = await client.begin((tx) => loadSampleTournament(tx));
+      const league = await client.begin((tx) =>
+        loadSampleTournament(tx, { beforeTournamentEligibility: true }),
+      );
       const ladder = createId();
       await f.insert('ladders', {
         id: ladder,

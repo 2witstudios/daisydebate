@@ -106,7 +106,10 @@ const at = (minutes: number) =>
  * certification made before the correction, releases, a sanction and the
  * season rule. It is test support, never a seed.
  */
-export const loadSampleTournament = async (sql: SQL) => {
+export const loadSampleTournament = async (
+  sql: SQL,
+  options: { readonly beforeTournamentEligibility?: boolean } = {},
+) => {
   const fixture = new Fixture(sql);
   const id = () => createId();
   const owner = await fixture.user();
@@ -340,6 +343,9 @@ export const loadSampleTournament = async (sql: SQL) => {
       owner_organization_id: ids.league,
       name: 'Sample Invitational',
       handle: `sample-${ids.lobby}`,
+      ...(options.beforeTournamentEligibility
+        ? {}
+        : { standing_lobby_id: ids.standingLobby, age_rule: null }),
     });
     await write('tournaments', {
       lobby_id: ids.lobby,
