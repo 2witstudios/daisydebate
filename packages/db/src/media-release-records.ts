@@ -27,7 +27,7 @@ export const rows = async <Row>(
   query: ReturnType<typeof sql>,
 ) => (await tx.execute(query)) as unknown as Row[];
 
-export type ReleaseRow = {
+type ReleaseRow = {
   id: string;
   user_id: string;
   scope: MediaReleaseRecord['scope'];
@@ -46,7 +46,7 @@ export type ReleaseRow = {
   attester_role: string | null;
 };
 
-export const releaseOf = (row: ReleaseRow): MediaReleaseRecord => ({
+const releaseOf = (row: ReleaseRow): MediaReleaseRecord => ({
   id: row.id,
   subjectUserId: row.user_id,
   scope: row.scope,

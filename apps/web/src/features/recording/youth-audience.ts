@@ -12,7 +12,7 @@ import type { RecordingRound, RecordingViewer } from './audience';
  */
 
 /** One youth debater of the Round, with the adults linked to them. */
-export type YouthDebater = {
+type YouthDebater = {
   readonly actorId: string;
   readonly userId: string;
   /** Their coaches and guardians: whose actors may see this Recording. */
