@@ -28,7 +28,6 @@ const flag = (state: 'enabled' | 'default') =>
     { timeout: 20_000, maxBuffer: 4096 },
   );
 
-test.describe.configure({ mode: 'serial' });
 test.beforeAll(async () => {
   await flag('enabled');
 });
@@ -38,6 +37,17 @@ test.afterAll(async () => {
 
 const agree = (form: ReturnType<Page['locator']>) =>
   form.getByLabel('I have read and agree to this notice.').check();
+
+const childrenOf = (page: Page) =>
+  page.getByRole('region', { name: 'Your children' });
+const parentsOf = (page: Page) =>
+  page.getByRole('region', { name: 'Linked parents and requests' });
+const familyRow = (region: ReturnType<Page['locator']>, username: string) =>
+  region.getByRole('listitem').filter({
+    has: region
+      .page()
+      .getByRole('heading', { name: `@${username}`, exact: true }),
+  });
 
 test('a parent creates a child’s account and the child uses the emailed sign-in', async ({
   page,
@@ -89,13 +99,18 @@ test('a parent creates a child’s account and the child uses the emailed sign-i
     await expect(child).toHaveURL(/\/onboarding\/passkey/);
     await child.goto('/settings/your-parents');
     await expect(
-      child.getByText(`@${parent.username}`, { exact: true }),
+      familyRow(parentsOf(child), parent.username).getByText('Linked', {
+        exact: true,
+      }),
     ).toBeVisible();
     await child.goto('/play');
     await expect(child).toHaveURL(/\/play(?:$|\?)/);
     await page.reload();
-    await expect(page.getByText(`@${username}`, { exact: true })).toBeVisible();
-    await expect(page.getByText('Linked', { exact: true })).toBeVisible();
+    await expect(
+      familyRow(childrenOf(page), username).getByText('Linked', {
+        exact: true,
+      }),
+    ).toBeVisible();
   } finally {
     await context.close();
   }
@@ -139,9 +154,9 @@ test('an existing child can privately confirm or refuse a link', async ({
             .getByRole('status')
             .filter({ hasText: `We emailed ${account.email}.` }),
         ).toBeVisible();
-        await expect(
-          page.getByText(`@${account.username}`, { exact: true }),
-        ).toHaveCount(0);
+        await expect(familyRow(childrenOf(page), account.username)).toHaveCount(
+          0,
+        );
         await expect(async () => {
           const link = await emailedLink(page.request, account.email);
           expect(new URL(link).pathname).toBe('/settings/your-parents');
@@ -161,9 +176,7 @@ test('an existing child can privately confirm or refuse a link', async ({
         ).toBeVisible();
       }
       await child.goto('/settings/your-parents');
-      const request = child
-        .locator('li')
-        .filter({ hasText: `@${parent.username}` });
+      const request = familyRow(parentsOf(child), parent.username);
       if (consent === 'confirm') {
         await agree(request);
         await request
@@ -179,9 +192,7 @@ test('an existing child can privately confirm or refuse a link', async ({
         await expect(request).toHaveCount(0);
       }
       await page.reload();
-      const childRow = page
-        .locator('li')
-        .filter({ hasText: `@${account.username}` });
+      const childRow = familyRow(childrenOf(page), account.username);
       await expect(
         childRow.getByText(consent === 'confirm' ? 'Linked' : 'Not confirmed', {
           exact: true,
