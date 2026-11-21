@@ -152,7 +152,10 @@ export const roomReadOperations = ({
     caller: Caller,
     authorize: AuthorizeRoom,
     readTopic: ReadOpeningTopic,
-  ): Promise<{ readonly state: RoomAssemblyState }> {
+  ): Promise<{
+    readonly state: RoomAssemblyState;
+    readonly viewerAgeBand: NonNullable<Account>['ageBand'];
+  }> {
     return instrumented(eventSink, 'readRoomAssembly', () =>
       database.transaction(async (tx) => {
         const account = await sharedAccount(tx, caller);
@@ -179,6 +182,7 @@ export const roomReadOperations = ({
         )
           throw createAppError('NOT_FOUND');
         return {
+          viewerAgeBand: account?.ageBand ?? null,
           state: {
             ...facts.state,
             topic: await currentRoomTopic(tx, facts.state, readTopic),

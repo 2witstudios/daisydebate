@@ -43,7 +43,7 @@ describe('openDownload', () => {
       ],
       ['a visitor', () => download(deps(), visitor)],
       [
-        'a subscribed youth debater on their own Youth Round (PYL-5)',
+        'a subscriber on a Youth Round whose debaters have not all released reuse',
         () =>
           download(
             deps(
@@ -51,7 +51,7 @@ describe('openDownload', () => {
                 class: 'ranked',
                 eligibility: { kind: 'ranked', youth: true },
               }),
-              { round: youthRound },
+              { round: youthRound, reuseFenced: true },
             ),
             account('aff'),
           ),

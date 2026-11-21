@@ -16,7 +16,6 @@ const row: ArchiveRound = {
   seatedActorIds: ['aff', 'neg'],
   recordingPolicy: 'released',
   officialActorIds: [],
-  youth: null,
   release: { releasedThroughMs: Number.MAX_SAFE_INTEGER, stop: 'none' },
   status: 'ready',
   durationMs: 1_800_000,
@@ -129,19 +128,6 @@ describe('archiveEntries', () => {
         'list it as failed with no length, and no winner rather than a draw',
       actual: [own?.media, own?.length, own?.ownVisibility, own?.result],
       expected: ['failed', null, 'private', 'No winner'],
-    });
-  });
-
-  test('a Youth Round reads as private in its debater’s own list (ADR 0150)', () => {
-    const youth = { youth: { debaters: [], public: false } };
-    assert({
-      given: 'a debater’s own Youth Round in a public Room, and a stranger',
-      should: 'badge it private for the debater and show the stranger nothing',
-      actual: [
-        entries(youth, account('aff'))[0]?.ownVisibility,
-        entries(youth, account('stranger')).length,
-      ],
-      expected: ['private', 0],
     });
   });
 });

@@ -1,11 +1,10 @@
 import {
-  mediaReleaseWording,
+  reuseLicensingWordings,
   type MediaReleaseRecord,
   type ReleaseRequest,
 } from '@daisy/protocol/media-release';
 import { sql } from 'drizzle-orm';
 import { divisionAgeBand, divisionOfBandSql } from './ladder-division-band';
-import { isDebatingSeatSql } from './seat-columns';
 import { scopeTransaction } from './tenant-scope';
 import type { BoundedTransactionContext } from './transaction-context';
 import type { MediaReleaseMailKind } from './media-release-mail';
@@ -28,7 +27,7 @@ export const rows = async <Row>(
   query: ReturnType<typeof sql>,
 ) => (await tx.execute(query)) as unknown as Row[];
 
-export type ReleaseRow = {
+type ReleaseRow = {
   id: string;
   user_id: string;
   scope: MediaReleaseRecord['scope'];
@@ -47,7 +46,7 @@ export type ReleaseRow = {
   attester_role: string | null;
 };
 
-export const releaseOf = (row: ReleaseRow): MediaReleaseRecord => ({
+const releaseOf = (row: ReleaseRow): MediaReleaseRecord => ({
   id: row.id,
   subjectUserId: row.user_id,
   scope: row.scope,
@@ -159,23 +158,22 @@ export async function readDivisionOf(
   return row?.division ?? null;
 }
 
-/** Ends every public Youth Recording of a Round this minor debated (ADR 0151). */
-export async function endPublicationsOf(
-  tx: Pick<Tx, 'execute'>,
-  userId: string,
-): Promise<number> {
-  const ended = await rows<{ round_id: string }>(
-    tx,
-    sql`update youth_round_publications p set ended_at = clock_timestamp()
-      where p.ended_at is null and exists (
-        select 1 from round_participants rp
-        join actors a on a.id = rp.actor_id
-        where rp.round_id = p.round_id and a.user_id = ${userId}
-          and ${isDebatingSeatSql(sql`rp.seat_kind`)})
-      returning p.round_id`,
-  );
-  return ended.length;
-}
+/**
+ * Retire older publishing-only consent when authenticated replacement consent
+ * succeeds. Each caller already holds the minor's account lock. Paid-ad
+ * consent is separate and is recorded again only when explicitly selected.
+ */
+export const supersedeOldRelease = (tx: Tx, userId: string, now: Date) =>
+  tx.execute(sql`update media_releases r
+    set withdrawn_at = ${now.toISOString()}, withdrawn_by = 'superseded'
+    where r.user_id = ${userId} and r.withdrawn_at is null
+      and exists (select 1 from media_releases old
+        where old.user_id = r.user_id and old.scope = 'publish'
+          and old.withdrawn_at is null
+          and old.wording_version not in (${sql.join(
+            reuseLicensingWordings.map((version) => sql`${version}`),
+            sql`, `,
+          )}))`);
 
 /** Writes one release scope; the unique index holds one active per minor per scope. */
 export async function insertMediaRelease(
@@ -184,6 +182,7 @@ export async function insertMediaRelease(
     readonly id: string;
     readonly userId: string;
     readonly scope: MediaReleaseRecord['scope'];
+    readonly wordingVersion: string;
     readonly parent: {
       readonly requestId: string;
       readonly name: string;
@@ -200,7 +199,7 @@ export async function insertMediaRelease(
         ${input.parent === null ? 'club' : 'parent'},
         ${input.parent?.requestId ?? null}, ${input.parent?.name ?? null},
         ${input.parent?.relation ?? null}, ${input.parent?.email ?? null},
-        ${mediaReleaseWording.version}, ${input.now.toISOString()})`,
+        ${input.wordingVersion}, ${input.now.toISOString()})`,
   );
 }
 

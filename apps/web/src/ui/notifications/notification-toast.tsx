@@ -157,13 +157,6 @@ const looks: Record<NotificationKind, ToastLook> = {
   media_release_club_confirmed: release('check', 'See your release'),
   media_release_withdrawn: release('lock', 'See the release'),
   media_release_club_asked: release('users', 'Confirm releases'),
-  youth_round_published: {
-    hue: 'bg-hue-sky-soft text-hue-sky',
-    ink: 'text-hue-sky',
-    icon: 'globe',
-    eyebrow: 'Youth Round public',
-    action: 'Watch',
-  },
 };
 
 /**

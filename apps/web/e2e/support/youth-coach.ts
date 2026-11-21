@@ -31,8 +31,9 @@ const seedYouthRound = async (
 };
 
 /**
- * A minor debating a live ranked Youth Round, and their school coach (ADR
- * 0155): the coach is `context`'s member, the student signs up in a context
+ * A minor debating a live private casual Youth Round, and their school coach
+ * (ADR 0155, 0161): the Room is private, so only the coach's link sees it;
+ * the coach is `context`'s member, the student signs up in a context
  * of their own, which the caller closes, and `stop` ends the seeded Round.
  * A setup that fails closes the student and stops the Round itself.
  */
@@ -57,8 +58,8 @@ export const coachedYouthRound = async (
     const tag = createId().slice(0, 8);
     const round = (await seedYouthRound({
       command: 'create',
-      mode: 'ranked',
-      visibility: 'public',
+      mode: 'casual',
+      visibility: 'private',
       division: 'youth',
       affUsername: studentName,
       title: `Thursday scrimmage ${tag}`,

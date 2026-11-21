@@ -59,7 +59,7 @@
     },
     {
       "key": "youth-publishing",
-      "retired": false,
+      "retired": true,
       "kind": "release",
       "owner": "Recording (@2witstudios)",
       "taskCode": "PYL-8"

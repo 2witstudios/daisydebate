@@ -29,7 +29,6 @@ export type {
   MediaReleaseMailOutcome,
   PreparedReleaseMail,
 } from './media-release-mail';
-export type { PublishAnswer } from './youth-round-publication';
 import { createBroadcastStore } from './broadcast-store';
 import { namedLaneOperations } from './lane-operation';
 import { analyticsConsentOperations } from './analytics-consent';
@@ -110,7 +109,6 @@ import { leagueRequestOperations } from './league-requests';
 import { createMediaReleases } from './media-releases';
 import { createMediaReleaseClubs } from './media-release-club';
 import { mediaReleaseMailOperations } from './media-release-mail';
-import { createYouthRoundPublications } from './youth-round-publication';
 import { betaAccessOperations } from './beta-access';
 import { contentModerationOperations } from './content-moderation-operations';
 import { audienceReactionOperations } from './audience-reactions';
@@ -297,10 +295,6 @@ export function createDatabase({
       nextId: nextActorId,
     }),
     mediaReleaseClubs: createMediaReleaseClubs({
-      run: controlTransaction,
-      nextId: nextActorId,
-    }),
-    youthRoundPublications: createYouthRoundPublications({
       run: controlTransaction,
       nextId: nextActorId,
     }),

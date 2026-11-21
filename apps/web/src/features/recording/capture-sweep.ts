@@ -162,8 +162,6 @@ export const createRecordingCaptureSweep = (deps: {
     plannedBroadcast({
       competitionType: open.competitionType,
       capture: open.roundCapture,
-      ladderDivision: open.ladderDivision,
-      roomDivision: open.roomDivision,
     }) !== null;
 
   const broadcastFacts = async (

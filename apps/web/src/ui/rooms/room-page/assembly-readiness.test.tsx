@@ -15,6 +15,7 @@ import { PopoverDialog } from '../../components/popover/popover-dialog';
 setupRitewayBun();
 const base = {
   contentWaiver: null,
+  contentWaiverVersion: null,
   captureNotice: null,
   postRoundCall: false,
   capture: null,

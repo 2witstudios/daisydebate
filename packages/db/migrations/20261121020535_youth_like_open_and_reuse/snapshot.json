@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "ac8b1342-da63-4a06-9463-aa19d253619c",
+  "id": "b86abdff-e82b-4f5a-b148-11b789d5d47d",
   "prevIds": [
     "2d842f1a-6d56-40c1-9eb3-c85f95d23b84"
   ],
@@ -422,18 +422,6 @@
     },
     {
       "isRlsEnabled": false,
-      "name": "child_account_requests",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
-      "name": "guardian_consent_evidence",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
       "name": "guardian_links",
       "entityType": "tables",
       "schema": "public"
@@ -441,6 +429,12 @@
     {
       "isRlsEnabled": false,
       "name": "restriction_lobbies",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "restrictions",
       "entityType": "tables",
       "schema": "public"
     },
@@ -525,12 +519,6 @@
     {
       "isRlsEnabled": false,
       "name": "media_releases",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
-      "name": "youth_round_publications",
       "entityType": "tables",
       "schema": "public"
     },
@@ -8873,282 +8861,6 @@
       "name": "id",
       "entityType": "columns",
       "schema": "public",
-      "table": "child_account_requests"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "guardian_user_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "child_account_requests"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "guardian_consent_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "child_account_requests"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": {
-        "as": "'guardian'",
-        "type": "stored"
-      },
-      "identity": null,
-      "name": "guardian_role",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "child_account_requests"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "first_name",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "child_account_requests"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "birth_month",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "child_account_requests"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "email",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "child_account_requests"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "status",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "child_account_requests"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "claimed_user_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "child_account_requests"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "requested_link_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "child_account_requests"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "now()",
-      "generated": null,
-      "identity": null,
-      "name": "created_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "child_account_requests"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "expires_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "child_account_requests"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "closed_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "child_account_requests"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "guardian_consent_evidence"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "person_user_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "guardian_consent_evidence"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "role",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "guardian_consent_evidence"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "method",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "guardian_consent_evidence"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "notice_kind",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "guardian_consent_evidence"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "notice_version",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "guardian_consent_evidence"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "notice_digest",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "guardian_consent_evidence"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "recorded_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "guardian_consent_evidence"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "id",
-      "entityType": "columns",
-      "schema": "public",
       "table": "guardian_links"
     },
     {
@@ -9185,23 +8897,7 @@
       "default": null,
       "generated": null,
       "identity": null,
-      "name": "guardian_consent_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "guardian_links"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": {
-        "as": "'guardian'",
-        "type": "stored"
-      },
-      "identity": null,
-      "name": "guardian_role",
+      "name": "kind",
       "entityType": "columns",
       "schema": "public",
       "table": "guardian_links"
@@ -9214,7 +8910,7 @@
       "default": null,
       "generated": null,
       "identity": null,
-      "name": "child_confirmation_id",
+      "name": "via_organization_id",
       "entityType": "columns",
       "schema": "public",
       "table": "guardian_links"
@@ -9226,11 +8922,11 @@
       "dimensions": 0,
       "default": null,
       "generated": {
-        "as": "'child'",
+        "as": "'school'",
         "type": "stored"
       },
       "identity": null,
-      "name": "child_role",
+      "name": "via_organization_kind",
       "entityType": "columns",
       "schema": "public",
       "table": "guardian_links"
@@ -9249,19 +8945,6 @@
       "table": "guardian_links"
     },
     {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "activation",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "guardian_links"
-    },
-    {
       "type": "timestamp with time zone",
       "typeSchema": null,
       "notNull": false,
@@ -9269,20 +8952,7 @@
       "default": null,
       "generated": null,
       "identity": null,
-      "name": "activated_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "guardian_links"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "closed_at",
+      "name": "ended_at",
       "entityType": "columns",
       "schema": "public",
       "table": "guardian_links"
@@ -9390,6 +9060,126 @@
       "entityType": "columns",
       "schema": "public",
       "table": "restriction_lobbies"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "guardian_link_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "restrictions"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "guardian_user_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "restrictions"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "minor_user_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "restrictions"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": {
+        "as": "'parent'",
+        "type": "stored"
+      },
+      "identity": null,
+      "name": "guardian_kind",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "restrictions"
+    },
+    {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "false",
+      "generated": null,
+      "identity": null,
+      "name": "limits_lobbies",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "restrictions"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'lobby'",
+      "generated": null,
+      "identity": null,
+      "name": "video_audience_cap",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "restrictions"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "restrictions"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "restrictions"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "1",
+      "generated": null,
+      "identity": null,
+      "name": "version",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "restrictions"
     },
     {
       "type": "text",
@@ -11238,58 +11028,6 @@
       "entityType": "columns",
       "schema": "public",
       "table": "media_releases"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "round_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "youth_round_publications"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "published_by_user_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "youth_round_publications"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "published_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "youth_round_publications"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "ended_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "youth_round_publications"
     },
     {
       "type": "text",
@@ -29519,146 +29257,6 @@
           "asc": true,
           "nullsFirst": false,
           "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "child_requests_guardian_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "child_account_requests"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "email",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "child_requests_email_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "child_account_requests"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "claimed_user_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "child_requests_claimed_user_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "child_account_requests"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "requested_link_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "child_requests_requested_link_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "child_account_requests"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "guardian_consent_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "guardian_user_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "guardian_role",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "child_requests_guardian_evidence_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "child_account_requests"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "person_user_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "guardian_evidence_person_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "guardian_consent_evidence"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "guardian_user_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
         },
         {
           "value": "minor_user_id",
@@ -29669,7 +29267,7 @@
         }
       ],
       "isUnique": true,
-      "where": "\"status\" in ('requested', 'active')",
+      "where": "\"status\" <> 'ended'",
       "with": "",
       "method": "btree",
       "concurrently": false,
@@ -29724,21 +29322,14 @@
       "nameExplicit": true,
       "columns": [
         {
-          "value": "guardian_consent_id",
+          "value": "via_organization_id",
           "isExpression": false,
           "asc": true,
           "nullsFirst": false,
           "opclass": null
         },
         {
-          "value": "guardian_user_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "guardian_role",
+          "value": "via_organization_kind",
           "isExpression": false,
           "asc": true,
           "nullsFirst": false,
@@ -29750,42 +29341,7 @@
       "with": "",
       "method": "btree",
       "concurrently": false,
-      "name": "guardian_links_guardian_evidence_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "guardian_links"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "child_confirmation_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "minor_user_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "child_role",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "guardian_links_child_evidence_idx",
+      "name": "guardian_links_via_organization_idx",
       "entityType": "indexes",
       "schema": "public",
       "table": "guardian_links"
@@ -29820,7 +29376,7 @@
       "with": "",
       "method": "btree",
       "concurrently": false,
-      "name": "restriction_lobbies_link_idx",
+      "name": "restriction_lobbies_restriction_idx",
       "entityType": "indexes",
       "schema": "public",
       "table": "restriction_lobbies"
@@ -29845,6 +29401,48 @@
       "entityType": "indexes",
       "schema": "public",
       "table": "restriction_lobbies"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "guardian_link_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "guardian_user_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "minor_user_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "guardian_kind",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "restrictions_guardian_link_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "restrictions"
     },
     {
       "nameExplicit": true,
@@ -30839,27 +30437,6 @@
       "entityType": "indexes",
       "schema": "public",
       "table": "media_releases"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "published_by_user_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "youth_round_publications_published_by_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "youth_round_publications"
     },
     {
       "nameExplicit": true,
@@ -34058,39 +33635,11 @@
         }
       ],
       "isUnique": true,
-      "where": "\"closed_at\" is null and \"surface\" <> 'guardian-link'",
+      "where": "\"closed_at\" is null",
       "with": "",
       "method": "btree",
       "concurrently": false,
       "name": "reports_one_open_per_pair",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "reports"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "reporter_actor_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "subject_actor_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": true,
-      "where": "\"closed_at\" is null and \"surface\" = 'guardian-link'",
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "reports_one_open_guardian_link_per_pair",
       "entityType": "indexes",
       "schema": "public",
       "table": "reports"
@@ -41968,95 +41517,6 @@
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "RESTRICT",
-      "name": "child_account_requests_guardian_user_id_users_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "child_account_requests"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "claimed_user_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "users",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "child_account_requests_claimed_user_id_users_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "child_account_requests"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "requested_link_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "guardian_links",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "child_account_requests_requested_link_id_guardian_links_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "child_account_requests"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        "guardian_consent_id",
-        "guardian_user_id",
-        "guardian_role"
-      ],
-      "schemaTo": "public",
-      "tableTo": "guardian_consent_evidence",
-      "columnsTo": [
-        "id",
-        "person_user_id",
-        "role"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "child_requests_guardian_evidence_fk",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "child_account_requests"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "person_user_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "users",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "guardian_consent_evidence_person_user_id_users_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "guardian_consent_evidence"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "guardian_user_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "users",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
       "name": "guardian_links_guardian_user_id_users_id_fkey",
       "entityType": "fks",
       "schema": "public",
@@ -42082,41 +41542,18 @@
     {
       "nameExplicit": true,
       "columns": [
-        "guardian_consent_id",
-        "guardian_user_id",
-        "guardian_role"
+        "via_organization_id",
+        "via_organization_kind"
       ],
       "schemaTo": "public",
-      "tableTo": "guardian_consent_evidence",
+      "tableTo": "organizations",
       "columnsTo": [
         "id",
-        "person_user_id",
-        "role"
+        "kind"
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "RESTRICT",
-      "name": "guardian_links_guardian_evidence_fk",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "guardian_links"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        "child_confirmation_id",
-        "minor_user_id",
-        "child_role"
-      ],
-      "schemaTo": "public",
-      "tableTo": "guardian_consent_evidence",
-      "columnsTo": [
-        "id",
-        "person_user_id",
-        "role"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "guardian_links_child_evidence_fk",
+      "name": "guardian_links_via_school_fk",
       "entityType": "fks",
       "schema": "public",
       "table": "guardian_links"
@@ -42146,18 +41583,41 @@
         "minor_user_id"
       ],
       "schemaTo": "public",
-      "tableTo": "guardian_links",
+      "tableTo": "restrictions",
       "columnsTo": [
-        "id",
+        "guardian_link_id",
         "guardian_user_id",
         "minor_user_id"
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
-      "name": "restriction_lobbies_guardian_link_fk",
+      "name": "restriction_lobbies_restriction_fk",
       "entityType": "fks",
       "schema": "public",
       "table": "restriction_lobbies"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "guardian_link_id",
+        "guardian_user_id",
+        "minor_user_id",
+        "guardian_kind"
+      ],
+      "schemaTo": "public",
+      "tableTo": "guardian_links",
+      "columnsTo": [
+        "id",
+        "guardian_user_id",
+        "minor_user_id",
+        "kind"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "restrictions_guardian_link_fk",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "restrictions"
     },
     {
       "nameExplicit": false,
@@ -42612,40 +42072,6 @@
       "entityType": "fks",
       "schema": "public",
       "table": "media_releases"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "round_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "rounds",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "name": "youth_round_publications_round_id_rounds_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "youth_round_publications"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "published_by_user_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "users",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "SET NULL",
-      "name": "youth_round_publications_published_by_user_id_users_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "youth_round_publications"
     },
     {
       "nameExplicit": true,
@@ -48647,29 +48073,19 @@
         "id"
       ],
       "nameExplicit": false,
-      "name": "child_account_requests_pkey",
-      "schema": "public",
-      "table": "child_account_requests",
-      "entityType": "pks"
-    },
-    {
-      "columns": [
-        "id"
-      ],
-      "nameExplicit": false,
-      "name": "guardian_consent_evidence_pkey",
-      "schema": "public",
-      "table": "guardian_consent_evidence",
-      "entityType": "pks"
-    },
-    {
-      "columns": [
-        "id"
-      ],
-      "nameExplicit": false,
       "name": "guardian_links_pkey",
       "schema": "public",
       "table": "guardian_links",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "guardian_link_id"
+      ],
+      "nameExplicit": false,
+      "name": "restrictions_pkey",
+      "schema": "public",
+      "table": "restrictions",
       "entityType": "pks"
     },
     {
@@ -48810,16 +48226,6 @@
       "name": "media_releases_pkey",
       "schema": "public",
       "table": "media_releases",
-      "entityType": "pks"
-    },
-    {
-      "columns": [
-        "round_id"
-      ],
-      "nameExplicit": false,
-      "name": "youth_round_publications_pkey",
-      "schema": "public",
-      "table": "youth_round_publications",
       "entityType": "pks"
     },
     {
@@ -49970,27 +49376,28 @@
       "nameExplicit": true,
       "columns": [
         "id",
-        "person_user_id",
-        "role"
+        "guardian_user_id",
+        "minor_user_id",
+        "kind"
       ],
       "nullsNotDistinct": false,
-      "name": "guardian_evidence_signer_unique",
+      "name": "guardian_links_id_people_kind_unique",
       "entityType": "uniques",
       "schema": "public",
-      "table": "guardian_consent_evidence"
+      "table": "guardian_links"
     },
     {
       "nameExplicit": true,
       "columns": [
-        "id",
+        "guardian_link_id",
         "guardian_user_id",
         "minor_user_id"
       ],
       "nullsNotDistinct": false,
-      "name": "guardian_links_id_people_unique",
+      "name": "restrictions_link_people_unique",
       "entityType": "uniques",
       "schema": "public",
-      "table": "guardian_links"
+      "table": "restrictions"
     },
     {
       "nameExplicit": true,
@@ -51246,7 +50653,7 @@
       "table": "broadcasts"
     },
     {
-      "value": "\"stop_reason\" is null or \"stop_reason\" in ('policy_violation', 'legal_request', 'participant_safety', 'technical', 'recording_removed', 'recording_legally_removed', 'recording_removed_by_participant', 'recording_removed_by_erasure', 'youth_round_private')",
+      "value": "\"stop_reason\" is null or \"stop_reason\" in ('policy_violation', 'legal_request', 'participant_safety', 'technical', 'recording_removed', 'recording_legally_removed', 'recording_removed_by_participant', 'recording_removed_by_erasure')",
       "name": "broadcasts_stop_reason_check",
       "entityType": "checks",
       "schema": "public",
@@ -52198,64 +51605,15 @@
       "table": "grants"
     },
     {
-      "value": "\"status\" in ('open', 'claimed', 'linked', 'cancelled')",
-      "name": "child_requests_status_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "child_account_requests"
-    },
-    {
-      "value": "(\"status\" = 'open') = (\"closed_at\" is null)\n        and (\"status\" = 'claimed') = (\"claimed_user_id\" is not null)\n        and ((\"status\" in ('open', 'linked')) = (num_nonnulls(\"first_name\", \"birth_month\", \"email\") = 3))\n        and (num_nonnulls(\"first_name\", \"birth_month\", \"email\") in (0, 3))\n        and (\"requested_link_id\" is null or \"status\" in ('linked', 'cancelled'))\n        and \"claimed_user_id\" is distinct from \"guardian_user_id\"\n        and \"expires_at\" > \"created_at\"\n        and (\"closed_at\" is null or \"closed_at\" >= \"created_at\")",
-      "name": "child_requests_state_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "child_account_requests"
-    },
-    {
-      "value": "char_length(\"first_name\") between 1 and 40\n        and \"birth_month\" ~ '^[1-9][0-9]{3}-(0[1-9]|1[0-2])$'\n        and \"email\" = lower(btrim(\"email\"))",
-      "name": "child_requests_details_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "child_account_requests"
-    },
-    {
-      "value": "\"method\" in ('created-account', 'requested-link', 'confirmed-link')",
-      "name": "guardian_evidence_method_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "guardian_consent_evidence"
-    },
-    {
-      "value": "(\"role\" = 'guardian' and \"notice_kind\" = 'parental-consent' and \"method\" <> 'confirmed-link')\n        or (\"role\" = 'child' and \"notice_kind\" = 'child-confirmation' and \"method\" = 'confirmed-link')",
-      "name": "guardian_evidence_notice_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "guardian_consent_evidence"
-    },
-    {
-      "value": "char_length(\"notice_version\") between 1 and 40",
-      "name": "guardian_evidence_version_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "guardian_consent_evidence"
-    },
-    {
-      "value": "\"notice_digest\" ~ '^[0-9a-f]{64}$'",
-      "name": "guardian_evidence_digest_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "guardian_consent_evidence"
-    },
-    {
-      "value": "\"status\" in ('requested', 'active', 'refused', 'cancelled', 'ended')",
-      "name": "guardian_links_status_check",
+      "value": "\"kind\" in ('parent', 'coach')",
+      "name": "guardian_links_kind_check",
       "entityType": "checks",
       "schema": "public",
       "table": "guardian_links"
     },
     {
-      "value": "\"activation\" in ('created-account', 'child-confirmed')",
-      "name": "guardian_links_activation_check",
+      "value": "\"status\" in ('pending', 'active', 'ended')",
+      "name": "guardian_links_status_check",
       "entityType": "checks",
       "schema": "public",
       "table": "guardian_links"
@@ -52268,8 +51626,15 @@
       "table": "guardian_links"
     },
     {
-      "value": "(\"status\" in ('active', 'ended')) = (\"activated_at\" is not null)\n        and (\"activated_at\" is null) = (\"activation\" is null)\n        and (coalesce(\"activation\" = 'child-confirmed', false)) = (\"child_confirmation_id\" is not null)\n        and (\"status\" in ('refused', 'cancelled', 'ended')) = (\"closed_at\" is not null)\n        and (\"activated_at\" is null or \"activated_at\" >= \"created_at\")\n        and (\"closed_at\" is null or \"closed_at\" >= \"created_at\")\n        and (\"closed_at\" is null or \"closed_at\" >= \"activated_at\")",
-      "name": "guardian_links_state_check",
+      "value": "(\"kind\" = 'coach') = (\"via_organization_id\" is not null)",
+      "name": "guardian_links_coach_via_school",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "guardian_links"
+    },
+    {
+      "value": "(\"status\" = 'ended') = (\"ended_at\" is not null)",
+      "name": "guardian_links_ended_consistent",
       "entityType": "checks",
       "schema": "public",
       "table": "guardian_links"
@@ -52280,6 +51645,20 @@
       "entityType": "checks",
       "schema": "public",
       "table": "guardian_links"
+    },
+    {
+      "value": "\"video_audience_cap\" in ('officials', 'lobby')",
+      "name": "restrictions_video_audience_cap_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "restrictions"
+    },
+    {
+      "value": "\"version\" > 0",
+      "name": "restrictions_version_positive",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "restrictions"
     },
     {
       "value": "\"version\" > 0",
@@ -52723,7 +52102,7 @@
       "table": "media_releases"
     },
     {
-      "value": "(\"withdrawn_at\" is null) = (\"withdrawn_by\" is null)\n        and (\"withdrawn_by\" is null or \"withdrawn_by\" in ('parent', 'club', 'erasure'))\n        and (\"withdrawal_note\" is null or (\"withdrawn_at\" is not null and char_length(\"withdrawal_note\") <= 1000))\n        and (\"withdrawn_at\" is null or \"withdrawn_at\" >= \"signed_at\")",
+      "value": "(\"withdrawn_at\" is null) = (\"withdrawn_by\" is null)\n        and (\"withdrawn_by\" is null or \"withdrawn_by\" in ('parent', 'club', 'erasure', 'superseded'))\n        and (\"withdrawal_note\" is null or (\"withdrawn_at\" is not null and char_length(\"withdrawal_note\") <= 1000))\n        and (\"withdrawn_at\" is null or \"withdrawn_at\" >= \"signed_at\")",
       "name": "media_releases_withdrawn_check",
       "entityType": "checks",
       "schema": "public",
@@ -52735,13 +52114,6 @@
       "entityType": "checks",
       "schema": "public",
       "table": "media_releases"
-    },
-    {
-      "value": "isfinite(\"published_at\") and (\"ended_at\" is null or \"ended_at\" >= \"published_at\")",
-      "name": "youth_round_publications_ended_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "youth_round_publications"
     },
     {
       "value": "\"cause\" in ('absent', 'unreachable', 'seat-revoked', 'lost')",
@@ -53353,21 +52725,21 @@
       "table": "notification_fanouts"
     },
     {
-      "value": "(\"kind\", \"channel\") in (('followed_debater_live', 'in_app'), ('recording_ready', 'in_app'), ('round_started', 'in_app'), ('round_decision_released', 'in_app'), ('round_decision_released', 'email'), ('room_invitation', 'in_app'), ('room_invitation', 'email'), ('challenge_received', 'in_app'), ('challenge_accepted', 'in_app'), ('friend_request_received', 'in_app'), ('friend_request_received', 'email'), ('friend_request_accepted', 'in_app'), ('dm_request', 'in_app'), ('dm_request', 'email'), ('judge_assigned', 'in_app'), ('judge_replaced', 'in_app'), ('judge_unassigned', 'in_app'), ('tournament_draw_changed', 'in_app'), ('tournament_room_ready', 'in_app'), ('tournament_results_released', 'in_app'), ('media_release_requested', 'in_app'), ('media_release_declined', 'in_app'), ('media_release_signed', 'in_app'), ('media_release_club_confirmed', 'in_app'), ('media_release_withdrawn', 'in_app'), ('media_release_club_asked', 'in_app'), ('youth_round_published', 'in_app'))",
+      "value": "(\"kind\", \"channel\") in (('followed_debater_live', 'in_app'), ('recording_ready', 'in_app'), ('round_started', 'in_app'), ('round_decision_released', 'in_app'), ('round_decision_released', 'email'), ('room_invitation', 'in_app'), ('room_invitation', 'email'), ('challenge_received', 'in_app'), ('challenge_accepted', 'in_app'), ('friend_request_received', 'in_app'), ('friend_request_received', 'email'), ('friend_request_accepted', 'in_app'), ('dm_request', 'in_app'), ('dm_request', 'email'), ('judge_assigned', 'in_app'), ('judge_replaced', 'in_app'), ('judge_unassigned', 'in_app'), ('tournament_draw_changed', 'in_app'), ('tournament_room_ready', 'in_app'), ('tournament_results_released', 'in_app'), ('media_release_requested', 'in_app'), ('media_release_declined', 'in_app'), ('media_release_signed', 'in_app'), ('media_release_club_confirmed', 'in_app'), ('media_release_withdrawn', 'in_app'), ('media_release_club_asked', 'in_app'))",
       "name": "notification_preferences_pair_check",
       "entityType": "checks",
       "schema": "public",
       "table": "notification_preferences"
     },
     {
-      "value": "\"kind\" in ('followed_debater_live', 'recording_ready', 'round_started', 'round_decision_released', 'room_invitation', 'challenge_received', 'challenge_accepted', 'friend_request_received', 'friend_request_accepted', 'dm_request', 'judge_assigned', 'judge_replaced', 'judge_unassigned', 'tournament_draw_changed', 'tournament_room_ready', 'tournament_results_released', 'media_release_requested', 'media_release_declined', 'media_release_signed', 'media_release_club_confirmed', 'media_release_withdrawn', 'media_release_club_asked', 'youth_round_published')",
+      "value": "\"kind\" in ('followed_debater_live', 'recording_ready', 'round_started', 'round_decision_released', 'room_invitation', 'challenge_received', 'challenge_accepted', 'friend_request_received', 'friend_request_accepted', 'dm_request', 'judge_assigned', 'judge_replaced', 'judge_unassigned', 'tournament_draw_changed', 'tournament_room_ready', 'tournament_results_released', 'media_release_requested', 'media_release_declined', 'media_release_signed', 'media_release_club_confirmed', 'media_release_withdrawn', 'media_release_club_asked')",
       "name": "notifications_kind_check",
       "entityType": "checks",
       "schema": "public",
       "table": "notifications"
     },
     {
-      "value": "(\"kind\" in ('followed_debater_live', 'recording_ready', 'round_started', 'round_decision_released', 'youth_round_published')) = (\"round_id\" is not null) and (\"kind\" in ('room_invitation')) = (\"room_invitation_id\" is not null) and (\"kind\" in ('challenge_received', 'challenge_accepted')) = (\"challenge_id\" is not null) and (\"kind\" in ('friend_request_received', 'friend_request_accepted')) = (\"friendship_low_actor_id\" is not null) and (\"kind\" in ('friend_request_received', 'friend_request_accepted')) = (\"friendship_high_actor_id\" is not null) and (\"kind\" in ('judge_assigned', 'judge_replaced', 'judge_unassigned', 'tournament_draw_changed', 'tournament_room_ready', 'tournament_results_released')) = (\"fixture_id\" is not null) and (\"kind\" in ('judge_assigned', 'judge_replaced', 'judge_unassigned', 'tournament_draw_changed', 'tournament_room_ready', 'tournament_results_released')) = (\"notification_lobby_id\" is not null) and (\"kind\" in ('judge_assigned', 'judge_replaced', 'judge_unassigned', 'tournament_draw_changed', 'tournament_room_ready', 'tournament_results_released')) = (\"tab_command_id\" is not null) and (\"kind\" in ('media_release_requested', 'media_release_declined')) = (\"media_release_request_id\" is not null) and (\"kind\" in ('media_release_signed', 'media_release_club_confirmed', 'media_release_withdrawn')) = (\"media_release_id\" is not null) and (\"kind\" in ('media_release_club_asked')) = (\"media_release_club_ask_id\" is not null) and (\"kind\" in ('dm_request')) = (\"dm_channel_id\" is not null)",
+      "value": "(\"kind\" in ('followed_debater_live', 'recording_ready', 'round_started', 'round_decision_released')) = (\"round_id\" is not null) and (\"kind\" in ('room_invitation')) = (\"room_invitation_id\" is not null) and (\"kind\" in ('challenge_received', 'challenge_accepted')) = (\"challenge_id\" is not null) and (\"kind\" in ('friend_request_received', 'friend_request_accepted')) = (\"friendship_low_actor_id\" is not null) and (\"kind\" in ('friend_request_received', 'friend_request_accepted')) = (\"friendship_high_actor_id\" is not null) and (\"kind\" in ('judge_assigned', 'judge_replaced', 'judge_unassigned', 'tournament_draw_changed', 'tournament_room_ready', 'tournament_results_released')) = (\"fixture_id\" is not null) and (\"kind\" in ('judge_assigned', 'judge_replaced', 'judge_unassigned', 'tournament_draw_changed', 'tournament_room_ready', 'tournament_results_released')) = (\"notification_lobby_id\" is not null) and (\"kind\" in ('judge_assigned', 'judge_replaced', 'judge_unassigned', 'tournament_draw_changed', 'tournament_room_ready', 'tournament_results_released')) = (\"tab_command_id\" is not null) and (\"kind\" in ('media_release_requested', 'media_release_declined')) = (\"media_release_request_id\" is not null) and (\"kind\" in ('media_release_signed', 'media_release_club_confirmed', 'media_release_withdrawn')) = (\"media_release_id\" is not null) and (\"kind\" in ('media_release_club_asked')) = (\"media_release_club_ask_id\" is not null) and (\"kind\" in ('dm_request')) = (\"dm_channel_id\" is not null)",
       "name": "notifications_subject_check",
       "entityType": "checks",
       "schema": "public",
@@ -53955,22 +53327,15 @@
       "table": "reports"
     },
     {
-      "value": "\"reason\" in ('harassment', 'hate', 'cheating', 'spam', 'other', 'not-my-parent')",
+      "value": "\"reason\" in ('harassment', 'hate', 'cheating', 'spam', 'other')",
       "name": "reports_reason_check",
       "entityType": "checks",
       "schema": "public",
       "table": "reports"
     },
     {
-      "value": "\"surface\" in ('people', 'profile', 'watch', 'guardian-link')",
+      "value": "\"surface\" in ('people', 'profile', 'watch')",
       "name": "reports_surface_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "reports"
-    },
-    {
-      "value": "(\"surface\" = 'guardian-link') = (\"reason\" = 'not-my-parent')",
-      "name": "reports_guardian_link_check",
       "entityType": "checks",
       "schema": "public",
       "table": "reports"

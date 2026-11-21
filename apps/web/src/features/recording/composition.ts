@@ -24,7 +24,7 @@ import type { RecordingRound } from './audience';
 import { createRecordingHandlers } from './handlers';
 import type { HistoryInputs, HistoryRound } from './history';
 import { recordingPersistence } from './persistence';
-import type { YouthRound, YouthRoundPeople } from './youth-audience';
+import type { YouthRoundPeople } from './youth-audience';
 import { youthPeopleFor } from '@daisy/db/youth-live';
 import type { RecordingInputs } from './ports';
 
@@ -39,7 +39,7 @@ type RoundRow = NonNullable<
 
 const asRound = (
   round: RoundRow,
-  youth: YouthRound | null,
+  youth: YouthRoundPeople | null,
 ): HistoryRound & RecordingRound => ({
   id: round.id,
   competitionType: round.competitionType,
@@ -72,33 +72,15 @@ const asRound = (
 const youthPeople = (app: App) => youthPeopleFor(app.database);
 
 /** The named read-only inputs, in one place. */
-/**
- * Whether shared Youth Recordings are public at all (the youth-publishing
- * flag, ADR 0151). Release flags never enter the route table (ADR 0118), so
- * a Next route module or the page supplies it; without one a shared Youth
- * Recording stays private.
- */
-export type YouthPublishingOpen = () => Promise<boolean>;
-const closed: YouthPublishingOpen = async () => false;
-
-const recordingInputs = (
-  app: App,
-  youthPublishing: YouthPublishingOpen = closed,
-): RecordingInputs & HistoryInputs => {
+const recordingInputs = (app: App): RecordingInputs & HistoryInputs => {
   const readRoundWith =
     (people: (roundId: string) => Promise<YouthRoundPeople>) =>
     async (roundId: string) => {
       const round = await app.database.readRecordingRound(roundId);
       if (!round) return null;
-      // Any Round of a Youth Room, casual included (ADR 0150, 0157).
+      // Any Round of a Youth Room, casual included (ADR 0157).
       if (!round.youthRound) return asRound(round, null);
-      const [found, shared, open] = await Promise.all([
-        people(roundId),
-        app.database.youthRoundPublications.readYouthRoundShared(roundId),
-        youthPublishing(),
-      ]);
-      // Public only while a debater's share stands and publishing is open (ADR 0151).
-      return asRound(round, { ...found, public: shared && open });
+      return asRound(round, await people(roundId));
     };
   const readHistoryRound = readRoundWith(youthPeople(app));
   const store = recordingPersistence(app);
@@ -124,32 +106,24 @@ const recordingInputs = (
       now: () => app.clock.now(),
     }),
     findRecordingByRound: store.findByRound,
-    // The media releases feature's named output (ADR 0151).
-    readMediaReleases: (userIds) =>
-      app.database.mediaReleases.readActivePublishReleases(userIds),
+    // The reuse fence in one statement, as Watch reads it (ADR 0161).
+    readReuseFenced: async ({ id, youth }) =>
+      youth !== null && app.database.readRoundReuseFenced(id),
   };
 };
 
-export const composeRecordingRoutes = (app: App) => {
-  const handlers = (youthPublishing?: YouthPublishingOpen) =>
-    createRecordingHandlers({
-      logger: app.logger,
-      reporter: app.reporter,
-      origin: () => app.auth().config.PUBLIC_APP_URL,
-      identify: (request) => identify(app.auth(), request.headers),
-      limiter: () => app.limiter,
-      clock: app.clock,
-      store: recordingPersistence(app),
-      objects: app.recordingObjects,
-      inputs: recordingInputs(app, youthPublishing),
-    });
-  return {
-    ...handlers(),
-    /** Playback, which serves a shared Youth Recording while publishing is open. */
-    playbackWith: (youthPublishing: YouthPublishingOpen) =>
-      handlers(youthPublishing).playback,
-  };
-};
+export const composeRecordingRoutes = (app: App) =>
+  createRecordingHandlers({
+    logger: app.logger,
+    reporter: app.reporter,
+    origin: () => app.auth().config.PUBLIC_APP_URL,
+    identify: (request) => identify(app.auth(), request.headers),
+    limiter: () => app.limiter,
+    clock: app.clock,
+    store: recordingPersistence(app),
+    objects: app.recordingObjects,
+    inputs: recordingInputs(app),
+  });
 
 /** What capture and processing (REC-1.2) are given. */
 const composeRecordingCapture = (app: App) =>
@@ -208,10 +182,7 @@ export const startRecordingCapture = (
   return { stop: () => running.stop().then(sweep.settled) };
 };
 
-export const recordingReads = (
-  app: App,
-  youthPublishing?: YouthPublishingOpen,
-) => ({
-  inputs: recordingInputs(app, youthPublishing),
+export const recordingReads = (app: App) => ({
+  inputs: recordingInputs(app),
   archive: recordingPersistence(app),
 });
