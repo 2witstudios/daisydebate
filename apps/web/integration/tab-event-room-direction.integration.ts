@@ -65,6 +65,45 @@ for (const mode of ['copy', 'detach'] as const)
           }
           view = await f.operations.view(director, world.roomId);
           const start = { ...command, expectedVersion: view.version };
+          const tabRoundId = world.made.get('tab-round')!;
+          const [pinned] = await owner<
+            { releasedAt: Date | null; topic: string | null }[]
+          >`select t.resolution_released_at as "releasedAt", r.topic
+            from tab_rounds t join fixtures f on f.tab_round_id=t.id
+            join rooms r on r.id=f.room_id
+            where t.id=${tabRoundId} and r.id=${world.roomId}`;
+          if (!pinned?.releasedAt || !pinned.topic)
+            throw new Error('The fixture needs its published topic');
+          await owner`update tab_rounds set resolution_released_at=null where id=${tabRoundId}`;
+          const waiting = await f.operations.view(director, world.roomId, true);
+          const beforeRelease = await f.snapshot(world.roomId);
+          const refusedStart = await f.operations
+            .command(director, world.roomId, start)
+            .then(
+              () => null,
+              (error: unknown) => {
+                if (!isAppError(error)) throw error;
+                return error.reason;
+              },
+            );
+          assert({
+            given: 'a Ready event Room whose stored topic is still held',
+            should: 'hide the topic and refuse Start without a Room change',
+            actual: [
+              waiting.topic,
+              refusedStart,
+              await f.snapshot(world.roomId),
+            ],
+            expected: [null, 'resolution-not-released', beforeRelease],
+          });
+          await owner`update tab_rounds set resolution_released_at=${pinned.releasedAt} where id=${tabRoundId}`;
+          assert({
+            given: 'the same event Room after its stored release',
+            should: 'show the exact pinned topic',
+            actual: (await f.operations.view(director, world.roomId, true))
+              .topic,
+            expected: pinned.topic,
+          });
           const response = await f.operations.command(
             director,
             world.roomId,
