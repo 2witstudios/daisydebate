@@ -1,5 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
+  auditScope,
   auditCommand,
   documentedOverrides,
   flattenOverrides,
@@ -31,6 +32,37 @@ const registry = (...advisories: readonly unknown[]) => ({
 });
 const live = new Map([['GHSA-82fw-gwwq-j7x9', ['@vitest/mocker', 'vitest']]]);
 const options = { today: '2026-09-23', knownPaths: new Set([adr]), live };
+
+describe('audit scope', () => {
+  const live = (changed: readonly string[] | undefined, forced = false) =>
+    auditScope({ forced, changed }).live;
+  test('a branch asks the advisory database only when it changed a dependency input', () => {
+    assert({
+      given:
+        'a branch that touched source only, then the lockfile, a workspace manifest, the exception registry and the audit itself',
+      should: 'ask the live database for the dependency inputs alone',
+      actual: [
+        live(['apps/web/src/app/page.tsx', 'docs/dependencies.md']),
+        live(['bun.lock']),
+        live(['packages/db/package.json']),
+        live(['policy/audit-exceptions.json']),
+        live(['scripts/audit.ts']),
+        live(['apps/web/src/package.json.ts']),
+      ],
+      expected: [false, true, true, true, true, false],
+    });
+  });
+  test('the nightly run and an incomparable checkout are always audited', () => {
+    assert({
+      given:
+        'the scheduled run with no change, and a checkout that cannot be compared with main',
+      should:
+        'ask the live database, so main is audited nightly and nothing is skipped by accident',
+      actual: [live([], true), live(undefined)],
+      expected: [true, true],
+    });
+  });
+});
 
 describe('audit command', () => {
   test('the committed registry ignores nothing', () => {

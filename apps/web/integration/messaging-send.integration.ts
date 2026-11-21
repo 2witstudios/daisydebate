@@ -25,7 +25,7 @@ test('composed messaging sends dedupe races and refuse protected replay after bl
         decision: 'Explicit integration fixture only',
         key: 'social.dm',
         revision: 1,
-        allowedBandPairs: [['adult', 'adult']],
+        earlierRevisions: [],
       },
       readingPolicy: (input) => ({
         ...socialPolicyEvidence(input.channel, input.accounts, input.now),

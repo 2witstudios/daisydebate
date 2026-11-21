@@ -36,7 +36,7 @@ export type DraftOffer = {
  * once read. Gone means the server no longer has it, and the text is kept. A
  * refusal stops only that generation, so a newer edit may still send.
  */
-export type SavingHold =
+type SavingHold =
   | { readonly kind: 'conflict'; readonly latestRevision: number }
   | { readonly kind: 'gone' }
   /** This person deleted it here, so no late answer may bring it back. */

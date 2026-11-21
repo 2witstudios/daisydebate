@@ -4,6 +4,7 @@ import type { RoomView } from '@daisy/protocol';
 import { idle } from '../../../features/forms/form-state';
 import { assemblySnapshot } from '../../../features/rooms/assembly.test-support';
 import { RoomControls } from './room-controls';
+import type * as Client from './room-controls.test-support';
 
 setupRitewayBun();
 
@@ -133,14 +134,15 @@ test('everyone else', () => {
 test('a free host reaching for a capture switch sees the upgrade panel, and nothing posts', async () => {
   const { mountBrowserClient } =
     await import('../../test-support/browser-client.test-support');
-  const client = await mountBrowserClient<
-    typeof import('./room-controls.test-support')
-  >(Bun.resolveSync('./room-controls.test-support', import.meta.dir), {
-    URL,
-    URLSearchParams,
-    performance,
-    process: { env: { NODE_ENV: 'test' } },
-  });
+  const client = await mountBrowserClient<typeof Client>(
+    Bun.resolveSync('./room-controls.test-support', import.meta.dir),
+    {
+      URL,
+      URLSearchParams,
+      performance,
+      process: { env: { NODE_ENV: 'test' } },
+    },
+  );
   try {
     await client.act(async () =>
       client.root.render(client.createElement(client.FreeHostControls)),

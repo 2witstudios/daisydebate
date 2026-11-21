@@ -9,13 +9,13 @@ import type { TournamentHostingAccount } from '@daisy/db/tab';
 import { tournamentHostingTier } from '../tab/hosting-tier';
 
 /** One way up from the tier held, and what it still costs (USD cents). */
-export type HostingUpgradeOption = {
+type HostingUpgradeOption = {
   readonly tier: PaidHostingTier;
   readonly owed: number;
 };
 
 /** A payment as the event's Billing lists it. Card details are never stored. */
-export type HostingPaymentView = {
+type HostingPaymentView = {
   readonly id: string;
   readonly at: string;
   readonly tier: PaidHostingTier;

@@ -113,15 +113,29 @@ describe('approvedByReview', () => {
         [review(minors)],
         [review(changes), 'fixed', review(minors)],
         [review(minors), review(changes)],
-      ].map((comments) => approvedByReview(comments, head)),
+      ].map((comments) => approvedByReview(comments, [head])),
       expected: [false, false, true, true, true, false],
     });
   });
 
-  test('an approval of another head, by the builder, or counting a blocker never approves', () => {
+  test('an approval of an earlier commit of the PR still approves, until a later verdict says otherwise', () => {
+    const earlier = 'c'.repeat(40);
     assert({
       given:
-        'an approval naming an earlier head, one whose reviewer is the builder, a bare verdict line, approvals counting a blocker or a major, a reply quoting an approval, and a verdict embedded mid-line',
+        'an approval naming a commit before the merged head, then the same followed by a review of the later commits that asks for changes',
+      should: 'approve the first and not the second',
+      actual: [
+        [review(approve, earlier)],
+        [review(approve, earlier), review(changes)],
+      ].map((comments) => approvedByReview(comments, [earlier, head])),
+      expected: [true, false],
+    });
+  });
+
+  test('an approval of a commit outside the PR, by the builder, or counting a blocker never approves', () => {
+    assert({
+      given:
+        'an approval naming a commit that is not in the PR, one whose reviewer is the builder, a bare verdict line, approvals counting a blocker or a major, a reply quoting an approval, and a verdict embedded mid-line',
       should: 'not approve',
       actual: [
         [review(approve, 'b'.repeat(40))],
@@ -131,7 +145,7 @@ describe('approvedByReview', () => {
         [review('0 blocker / 2 major / 0 minor / 0 nit — APPROVE WITH MINORS')],
         [review(changes), `> ${review(approve).split('\n').join('\n> ')}`],
         [review(changes), `${review(changes)}\nlgtm ${approve}`],
-      ].map((comments) => approvedByReview(comments, head)),
+      ].map((comments) => approvedByReview(comments, [head])),
       expected: [false, false, false, false, false, false, false],
     });
   });

@@ -88,7 +88,7 @@ export const clearByWinOrPoints =
 type BracketRound = BracketView['tabRounds'][number];
 
 /** The rounds before the live one, summed up: how many results, and the upsets. */
-export type EarlierRounds = {
+type EarlierRounds = {
   readonly names: readonly string[];
   readonly results: number;
   readonly upsets: number;

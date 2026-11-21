@@ -40,7 +40,7 @@ const SNAPSHOT_SIZE = 10;
  * `running`: the season shown is active. `past`: a closed one, picked while
  * another runs. `none-active`: every season is closed, and this is a closed one.
  */
-export type SeasonViewState = 'running' | 'past' | 'none-active';
+type SeasonViewState = 'running' | 'past' | 'none-active';
 
 export type SeasonsView = {
   readonly season: Season;

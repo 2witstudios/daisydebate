@@ -10,6 +10,14 @@ import {
 import { dmRequestFrame } from './social-request';
 import type { ContactReactions } from '../contacts/reactions';
 import type { MessagingSocialStore } from './social-contracts';
+import { readOpenDmFact, type MessagingChannelFact } from './social';
+
+type DmRequestFence = (
+  ...args: [
+    ...Parameters<ContactAuthorizationFence>,
+    MessagingChannelFact | null,
+  ]
+) => Promise<void>;
 
 /**
  * Messaging's DM requests over the shared Contacts fence; blocks are
@@ -21,14 +29,25 @@ export function createMessagingSocialStore({
   reactions,
 }: {
   readonly database: BunSQLDatabase;
-  readonly authorize: ContactAuthorizationFence;
+  readonly authorize: DmRequestFence;
   readonly reactions: ContactReactions;
 }): MessagingSocialStore {
   return {
     withContacts: (input, work) =>
       withContactPairs(
         database,
-        authorize,
+        async (tx, command, facts) => {
+          const [pair] = facts.contacts;
+          if (facts.contacts.length !== 1 || !pair)
+            throw createAppError('VALIDATION');
+          if (pair.blocked) throw createAppError('AUTHORIZATION');
+          await authorize(
+            tx,
+            command,
+            facts,
+            await readOpenDmFact(tx, command.actorId, pair),
+          );
+        },
         input,
         async (tx, { rows, contacts, refresh }) =>
           work({

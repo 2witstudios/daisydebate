@@ -11,8 +11,7 @@ import type {
  * A signed read lasts no longer than DEC-303 allows a viewer to keep access
  * after a takedown, and every new request is authorized again.
  */
-export const PLAYBACK_GRANT_SECONDS =
-  CONTENT_MODERATION_DELIVERY_BOUND_MS / 1000;
+const PLAYBACK_GRANT_SECONDS = CONTENT_MODERATION_DELIVERY_BOUND_MS / 1000;
 
 const FILE_NAME = /^[A-Za-z0-9_-][A-Za-z0-9._-]{0,127}$/;
 const MEDIA_FILE = /\.(m3u8|ts|m4s|mp4|vtt)$/;

@@ -24,7 +24,7 @@ export type ScriptAction =
   | { readonly kind: 'complete_panel'; readonly winner: SideKey };
 
 /** The paths a script exercises, each once, where the rules allow them. */
-export type Exercised =
+type Exercised =
   'refusal' | 'prep' | 'yield' | 'interrupt' | 'floor_return' | 'panel';
 
 export type ScriptState = {

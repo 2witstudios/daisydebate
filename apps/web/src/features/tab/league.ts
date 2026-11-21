@@ -79,7 +79,7 @@ export type SeasonRow = {
 };
 
 /** An event asking a league to count its certified results for the season. */
-export type SanctionRequest = {
+type SanctionRequest = {
   readonly id?: string;
   readonly event: string;
   readonly facts: string;

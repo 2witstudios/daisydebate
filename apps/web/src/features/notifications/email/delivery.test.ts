@@ -159,6 +159,41 @@ describe('notification digest delivery (ADR 0144)', () => {
     });
   });
 
+  test('a DM request digest names the requester and links to the inbox', async () => {
+    const channelId = 'private-dm-channel';
+    const { delivery, sent } = scripted({
+      delivery: {
+        ...invitation,
+        items: [
+          {
+            id: 'n1',
+            kind: 'dm_request',
+            from: 'member',
+            channelId,
+            readAt: null,
+            surfacedAt: NOW,
+          },
+        ],
+      },
+    });
+    await delivery.run(1);
+    const message = sent[0]!;
+    assert({
+      given:
+        'one standing message request and a recipient eligible for digest mail',
+      should:
+        'send the public handle and event to the mail provider, with an inbox link and no conversation identifier',
+      actual: [
+        message.subject,
+        message.text.includes('https://daisy.example.com/notifications'),
+        [message.subject, message.text, message.html].some((part) =>
+          part.includes(channelId),
+        ),
+      ],
+      expected: ['@member sent you a message request. · Daisy', true, false],
+    });
+  });
+
   test('a member in Daisy is not emailed yet', async () => {
     const { delivery, sent, settled, postponed } = scripted({
       delivery: invitation,

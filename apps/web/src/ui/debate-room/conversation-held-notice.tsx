@@ -5,7 +5,7 @@ import {
   type RoundView,
 } from '@daisy/protocol';
 
-export const conversationHeldShown = (view: RoundView, nowMs: number) => {
+const conversationHeldShown = (view: RoundView, nowMs: number) => {
   if (view.conversationHeld !== true || view.checkpoint === null) return false;
   if (!isRoundRunning(view.status)) return false;
   return conversational(

@@ -21,11 +21,12 @@ const job = workflow.jobs['room-launch']!;
 const cohorts = [
   {
     name: 'launch',
-    command: 'bun test:e2e:room-launch',
+    // Five shards of the one Launch profile; the cohort's number is its shard.
+    command: 'bun test:e2e:room-launch "--shard=${LAUNCH_COHORT#launch-}/5"',
     report: 'room-launch-results.json',
-    runnerIf: "matrix.cohort == 'launch'",
+    runnerIf: "startsWith(matrix.cohort, 'launch-')",
     reporterIf:
-      "always() && !cancelled() && matrix.cohort == 'launch' && (steps.launch.outcome == 'success' || steps.launch.outcome == 'failure')",
+      "always() && !cancelled() && startsWith(matrix.cohort, 'launch-') && (steps.launch.outcome == 'success' || steps.launch.outcome == 'failure')",
   },
   {
     name: 'realtime',
@@ -51,18 +52,27 @@ const condition = (value: string | undefined) =>
 describe('native browser cohort evidence survives later workload', () => {
   test('each full cohort owns an independent finite job', () => {
     assert({
-      given: 'the measured Launch 153, generic 3 and Messaging 63 workload',
+      given:
+        'the measured Launch 155 (59 minutes in series), generic 3 and Messaging 63 workload',
       should:
-        'run all three independently without fail-fast cancellation or a larger deadline',
+        'run Launch as five shards beside the other two, independently, without fail-fast cancellation, inside a bound a PR can wait for',
       actual: {
         cohorts: job.strategy?.matrix?.cohort,
         failFast: job.strategy?.['fail-fast'],
         minutes: job['timeout-minutes'],
       },
       expected: {
-        cohorts: ['launch', 'realtime', 'messaging'],
+        cohorts: [
+          'launch-1',
+          'launch-2',
+          'launch-3',
+          'launch-4',
+          'launch-5',
+          'realtime',
+          'messaging',
+        ],
         failFast: false,
-        minutes: 90,
+        minutes: 45,
       },
     });
   });

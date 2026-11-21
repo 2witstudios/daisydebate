@@ -110,6 +110,3 @@ export const loadTournamentCaptureFunding = async (
         : null,
   };
 };
-export type TournamentCaptureFunding = Awaited<
-  ReturnType<typeof loadTournamentCaptureFunding>
->;

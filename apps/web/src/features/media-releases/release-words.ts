@@ -54,15 +54,14 @@ export const resendRefusalWords: Record<ResendRefusal, string> = {
   too_many: 'That request has been sent the most times. Use another email.',
 };
 
-export const publishRefusalWords: Record<PublishRefusal | 'not_found', string> =
-  {
-    closed: 'Sharing Youth recordings is not open yet.',
-    not_a_debater: 'Only a debater in this Round can share it.',
-    releases_missing: 'Every youth debater needs a media release first.',
-    not_available: 'This recording can’t be shared.',
-    already_public: 'This recording is already public.',
-    not_found: 'This recording can’t be shared.',
-  };
+const publishRefusalWords: Record<PublishRefusal | 'not_found', string> = {
+  closed: 'Sharing Youth recordings is not open yet.',
+  not_a_debater: 'Only a debater in this Round can share it.',
+  releases_missing: 'Every youth debater needs a media release first.',
+  not_available: 'This recording can’t be shared.',
+  already_public: 'This recording is already public.',
+  not_found: 'This recording can’t be shared.',
+};
 
 /** The badge a standing shows on Settings, the club table and the coach view. */
 export type StandingBadge =

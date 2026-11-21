@@ -117,7 +117,7 @@ export function requirePanelTerminal(
 }
 
 /** Two outcomes say the same: the same winning side, or the same places. */
-export const sameOutcome = (
+const sameOutcome = (
   a: RoundOutcome | null,
   b: RoundOutcome | null,
 ): boolean => {

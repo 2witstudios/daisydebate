@@ -51,7 +51,7 @@ export type TenantTable = {
   readonly counterpart?: 'school_id';
 };
 
-export type TenantExemption = {
+type TenantExemption = {
   readonly table: string;
   readonly reason: string;
 };

@@ -28,8 +28,8 @@ export type SubscriptionReadPort = {
   ) => Promise<unknown>;
 };
 /** Stripe's largest page, and how many a Club read follows to find its settling invoice. */
-export const clubPaidInvoicePage = 100;
-export const clubPaidInvoicePages = 3;
+const clubPaidInvoicePage = 100;
+const clubPaidInvoicePages = 3;
 const latestPaid = z.object({
   object: z.literal('list'),
   has_more: z.boolean(),

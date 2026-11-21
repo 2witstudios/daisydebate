@@ -149,6 +149,3 @@ export function createRoundIncidentObserver(input: {
     }
   };
 }
-export type RoundIncidentObserver = ReturnType<
-  typeof createRoundIncidentObserver
->;

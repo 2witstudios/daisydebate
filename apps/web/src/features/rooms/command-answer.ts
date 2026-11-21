@@ -32,14 +32,7 @@ export type RoomFormState =
   FormState | RoomRefused | RoomAccepted | Unacknowledged;
 
 /** A refused room command, with the Room's closed refusal word when it gave one. */
-export type RoomRefused = Refused & { readonly reason: RoomRefusal | null };
-
-/** The Room refused the caller with this closed word. */
-export const refusedFor = (
-  answer: RoomFormState,
-  reason: RoomRefusal,
-): boolean =>
-  answer.kind === 'refused' && 'reason' in answer && answer.reason === reason;
+type RoomRefused = Refused & { readonly reason: RoomRefusal | null };
 
 export const roomAccepted = (view: RoomView): RoomAccepted => ({
   kind: 'accepted',

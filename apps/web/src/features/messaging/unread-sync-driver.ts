@@ -14,7 +14,7 @@ import {
 import { attachMessagingInboxDoorbells } from './doorbells';
 
 /** How long the badge goes unread when nothing rings: a missed ring heals. */
-export const MESSAGES_BADGE_BACKSTOP_MS = 60_000;
+const MESSAGES_BADGE_BACKSTOP_MS = 60_000;
 
 const identity: ResourceIdentity<MessagingUnread> = {
   id: () => 'messaging-unread',

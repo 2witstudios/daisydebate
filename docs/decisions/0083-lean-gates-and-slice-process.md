@@ -2,7 +2,9 @@
 
 Status: accepted (owner decision, 2026-10-27). Its required checks, browser
 gates and staging gate are amended by
-[ADR 0098](0098-ci-gate-only-while-greenfield.md). Its rule that only main
+[ADR 0098](0098-ci-gate-only-while-greenfield.md), and then, with knip, the
+PR loop's stopping rule and who reviews, by
+[ADR 0159](0159-signals-that-gate.md). Its rule that only main
 receives a merged PR, and its PR loop, are amended for slices of a feature
 with a parent branch by [ADR 0128](0128-feature-parent-branch.md).
 

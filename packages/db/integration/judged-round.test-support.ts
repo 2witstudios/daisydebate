@@ -1,4 +1,3 @@
-import { catalogFormats } from '../src/catalog-formats';
 import { resolveRoomConfiguration } from '@daisy/debate-engine';
 import { oneOnOneDefinition, oneOnOneSettings } from '../src/reference-formats';
 import type { Fixture } from './constraint-helpers';
@@ -16,19 +15,6 @@ export function judgedRound(
     throw new Error('The original judged revision did not compile');
   return fixture.round(
     { format_id: 'one-on-one', format_version: 2, ...overrides },
-    { rules: compiled.rules },
-  );
-}
-
-/** The original declared three-judge grammar for tests that keep a panel pending. */
-export function panelJudgedRound(fixture: Fixture) {
-  const format = catalogFormats.find((row) => row.id === 'panel-debate');
-  if (!format) throw new Error('Original panel definition missing');
-  const compiled = resolveRoomConfiguration(format.definition, format.preset);
-  if (!compiled.ok)
-    throw new Error('Original panel definition did not compile');
-  return fixture.round(
-    { format_id: format.id, format_version: 1 },
     { rules: compiled.rules },
   );
 }

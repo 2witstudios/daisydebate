@@ -1,6 +1,7 @@
 # 0128: A feature parent branch, and a PR loop that stops
 
-Status: accepted (owner direction, 2026-11-13; decisions 57 and 58 on
+Status: accepted; its stopping rule (§6) applies to every slice since
+[ADR 0159](0159-signals-that-gate.md) (owner direction, 2026-11-13; decisions 57 and 58 on
 [Daisy Tab › Direction](https://pagespace.ai/dashboard/lguvh1y1ejhadk96xcftohha/jro30yyuynd11e7qzjfdby0u)).
 Amends [ADR 0083](0083-lean-gates-and-slice-process.md) for slices of a
 feature the owner has named here, and for nothing else.

@@ -8,7 +8,7 @@ import {
  * Whose audience a target belongs to, as a named read-only input: the Round, how
  * it admits an audience, and whether the reporter is in its live room.
  */
-export type ReportAudience = AudienceLinkFacts & {
+type ReportAudience = AudienceLinkFacts & {
   readonly roundId: string;
   readonly inLiveRoom: boolean;
 };

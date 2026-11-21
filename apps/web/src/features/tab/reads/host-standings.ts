@@ -16,7 +16,7 @@ import { hostResultsAuthority } from '../operations/host-results-authority';
 import { eventCompetition } from '../operations/event-competition';
 import type { TabPrincipal } from '../tab-principal';
 
-export function hostStandingsView(
+function hostStandingsView(
   facts: EventCompetitionFacts,
   capabilities: {
     readonly announceBreak: boolean;

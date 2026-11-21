@@ -246,24 +246,88 @@ export function overrideProblems(
   ];
 }
 
+/** A file whose change can alter what the advisory database says of this branch. */
+const dependencyInput = (path: string) =>
+  path === 'bun.lock' ||
+  path === 'policy/audit-exceptions.json' ||
+  path === 'scripts/audit.ts' ||
+  /(^|\/)package\.json$/.test(path);
+
+export type AuditScope = { readonly live: boolean; readonly reason: string };
+
+/**
+ * Whether this run asks the live advisory database. An advisory published
+ * overnight is no fault of a branch that touched no dependency, and it used
+ * to fail every open PR at once. So a branch is audited when it changes a
+ * dependency input, the nightly run audits main, and a branch that cannot be
+ * compared with main is audited too.
+ */
+export function auditScope({
+  forced,
+  changed,
+}: {
+  readonly forced: boolean;
+  /** Paths changed since main, or undefined when they cannot be worked out. */
+  readonly changed: readonly string[] | undefined;
+}): AuditScope {
+  if (forced) return { live: true, reason: 'the scheduled run audits main' };
+  if (changed === undefined)
+    return { live: true, reason: 'this checkout cannot be compared with main' };
+  const input = changed.find(dependencyInput);
+  return input
+    ? { live: true, reason: `${input} changed since main` }
+    : {
+        live: false,
+        reason:
+          'no dependency input changed since main; the nightly run audits main',
+      };
+}
+
+const changedSinceMain = (): readonly string[] | undefined => {
+  const git = (args: readonly string[]) =>
+    Bun.spawnSync(['git', ...args], { cwd: root, stderr: 'ignore' });
+  const base = git(['merge-base', 'HEAD', 'origin/main']);
+  if (base.exitCode !== 0) return undefined;
+  // Against the base itself, so uncommitted edits count too.
+  const diff = git(['diff', '--name-only', base.stdout.toString().trim()]);
+  return diff.exitCode === 0
+    ? diff.stdout.toString().split('\n').filter(Boolean)
+    : undefined;
+};
+
+export const currentAuditScope = (
+  env: Record<string, string | undefined> = process.env,
+): AuditScope =>
+  auditScope({
+    forced:
+      env.DAISY_LIVE_AUDIT === '1' || env.GITHUB_EVENT_NAME === 'schedule',
+    changed: changedSinceMain(),
+  });
+
 /** `bun policy`'s edge: runs the unfiltered audit on the root lockfile. */
 export async function auditPolicyProblems(
   knownPaths: ReadonlySet<string>,
+  scope: AuditScope = currentAuditScope(),
 ): Promise<readonly string[]> {
-  const result = Bun.spawnSync(['bun', 'audit', '--json'], {
-    cwd: root,
-    stdout: 'pipe',
-    stderr: 'pipe',
-  });
   const manifest = (await Bun.file(join(root, 'package.json')).json()) as {
     readonly overrides?: unknown;
   };
+  const live = () => {
+    const result = Bun.spawnSync(['bun', 'audit', '--json'], {
+      cwd: root,
+      stdout: 'pipe',
+      stderr: 'pipe',
+    });
+    return { stdout: result.stdout.toString(), exitCode: result.exitCode };
+  };
   return [
-    ...liveAuditProblems(
-      (await Bun.file(auditRegistryPath).json()) as Registry,
-      { stdout: result.stdout.toString(), exitCode: result.exitCode },
-      { knownPaths },
-    ),
+    ...(scope.live
+      ? liveAuditProblems(
+          (await Bun.file(auditRegistryPath).json()) as Registry,
+          live(),
+          { knownPaths },
+        )
+      : []),
     ...overrideProblems(
       manifest.overrides,
       await Bun.file(join(root, 'docs/dependencies.md')).text(),
@@ -278,6 +342,11 @@ if (import.meta.main) {
     process.stderr.write(`${problems.join('\n')}\n`);
     process.exit(1);
   }
+  const scope = currentAuditScope();
+  process.stdout.write(
+    `audit: ${scope.live ? 'asking' : 'not asking'} the advisory database (${scope.reason})\n`,
+  );
+  if (!scope.live) process.exit(0);
   const audit = Bun.spawnSync([...auditCommand(registry)], {
     stdio: ['inherit', 'inherit', 'inherit'],
   });

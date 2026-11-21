@@ -16,7 +16,3 @@ export const clubSeatPriceSchema = z.object({
   unit_amount: z.literal(clubSeatOffer.unitAmount),
   lookup_key: z.literal(clubSeatOffer.lookupKey),
 });
-
-/** A plan's monthly total in minor units: 14 seats are 14000. */
-export const clubMonthlyTotal = (seats: number) =>
-  seats * clubSeatOffer.unitAmount;

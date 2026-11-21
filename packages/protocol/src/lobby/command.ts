@@ -170,7 +170,7 @@ export const lobbyCommandReceiptSchema = z.strictObject({
 export type LobbyCommandReceipt = z.infer<typeof lobbyCommandReceiptSchema>;
 
 /** A held proposal settled without applying its command; replay preserves its actual status and deadline. */
-export type SettledLobbyCommand = {
+type SettledLobbyCommand = {
   readonly kind: 'settled';
   readonly pendingCommandId: string;
   readonly status: Exclude<

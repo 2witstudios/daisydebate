@@ -12,19 +12,19 @@ planning-only request stays planning-only.
 1. **Discover and plan** with [the task workflow](../task/SKILL.md): your own
    discovery, one plan with a task list in `Plans/<slice>`, and its link posted on
    the PageSpace Delivery channel.
-2. **Confirm once.** The architecture reviewer and the point guard confirm or
-   redirect. Start building at once on anything their answer cannot change.
+2. **Confirm once.** The point guard confirms or redirects. Start building at
+   once on anything the answer cannot change.
 3. **Build one PR.** Build the whole slice on one branch, carrying inherited
    commits into it, and open one PR with [/pr](../pr/SKILL.md). Hand it to review
    with [/handoff](../handoff/SKILL.md).
 4. **Converge.** A slice of a feature with a parent branch (ADR 0128) opens
    its PR against the parent and runs PR Loop (Feature slice), PageSpace
-   `ptq5uh3pf2t654xw2kdmky44`, which stops at the first review with no blocker
-   and no major. Every other slice: run your harness's PR loop verbatim until it emits `PR_READY`:
+   `ptq5uh3pf2t654xw2kdmky44`. Every other slice: run your harness's PR loop verbatim until it emits `PR_READY`:
    PR Loop (Ralph Loop), PageSpace `cvslieavdwwkbz8l551hhhsz`, for Claude Code;
    PR Loop (Goal), `asdc6hmpbeyu9ujlqrnes1oc`, for Codex and opencode (both in
-   Resources › Universal prompts). Its iterations consume the `/review`,
-   `/code-review` and architecture comments.
+   Resources › Universal prompts). Every loop stops at the first review with
+   no blocker and no major, and its iterations consume the `/review` and
+   `/code-review` comments.
 5. **Close.** After the flow sweep merges, post `SLICE DONE` or your next plan on
    the Delivery channel.
 

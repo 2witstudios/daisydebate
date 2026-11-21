@@ -72,7 +72,7 @@ export const insertRow = (sql: SQL, table: string, row: Row) => {
 };
 
 /** The scope of the open transaction, set as `withScope` sets it. */
-export const setScope = (sql: SQL, scope: TenantScope) =>
+const setScope = (sql: SQL, scope: TenantScope) =>
   scopeTransaction(drizzle({ client: sql }), scope);
 
 /**

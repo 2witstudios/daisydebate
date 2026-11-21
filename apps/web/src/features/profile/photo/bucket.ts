@@ -2,7 +2,7 @@ import { S3Client } from 'bun';
 import { createAppError } from '@daisy/errors';
 import type { ProfilePhotoObjects } from './ports';
 
-export type ProfilePhotoBucketConfig = {
+type ProfilePhotoBucketConfig = {
   readonly endpoint: string;
   readonly bucket: string;
   readonly accessKeyId: string;
@@ -18,7 +18,7 @@ const PREFIX_LIST_LIMIT = 16;
  * and no signed URLs: the image route streams a published photo through the
  * application, so removing a photo takes effect at the next read.
  */
-export const createProfilePhotoBucket = (
+const createProfilePhotoBucket = (
   config: ProfilePhotoBucketConfig,
 ): ProfilePhotoObjects => {
   const client = new S3Client({
@@ -57,7 +57,7 @@ export const createProfilePhotoBucket = (
 };
 
 /** The bucket's settings from the environment, or null when any is missing. */
-export const readProfilePhotoBucket = (
+const readProfilePhotoBucket = (
   env: Readonly<Record<string, string | undefined>>,
 ): ProfilePhotoBucketConfig | null => {
   const endpoint = env['PROFILE_PHOTO_BUCKET_ENDPOINT'];

@@ -383,18 +383,3 @@ export const organizationPeoplePage = (
     readonly now: string;
   },
 ): People => peopleOf(view, context);
-
-/**
- * The rail beside a stored organization's people page: the organization by
- * name. Its lobbies join it once the league read is wired.
- */
-export const organizationRailOf = (
-  view: OrganizationPeopleView,
-): TimelineRail => ({
-  title: view.name,
-  subtitle: null,
-  heading: null,
-  items: [],
-  footHeading: null,
-  foot: [],
-});

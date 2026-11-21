@@ -3,7 +3,7 @@ name: handoff
 description: >
   Hand a slice PR to async review in one step: push the branch, open or update the one PR through
   /pr, move the delivered tasks to In Review, spawn the /review and /code-review reviewers into
-  your own worktree, ask the architecture reviewer for a pass, and post on the Delivery channel. Use when a
+  your own worktree, and post on the Delivery channel. Use when a
   slice PR opens, when the user says "/handoff", or at the end of a builder prompt.
 compatibility: Requires git, the gh CLI, pu, and the pagespace CLI with an active key. In a repository with bun board:* (Daisy) it uses them.
 ---
@@ -32,8 +32,8 @@ Process {
    `pu spawn --agent claude -w <your worktree id> "/review <PR url>"`
    `pu spawn --agent claude -w <your worktree id> "/code-review --comment <PR url>"`
    They are read-only and post PR comments. Kill each one (`pu kill --agent <id>`) once it has posted.
-6. Channel: one message asking the architecture reviewer for a pass and telling the point guard the PR is open:
-   `pagespace channels send <Delivery channel id> "<slice> (<agent id>): PR <url> open for <CODES>; @<architecture reviewer> architecture pass please; PR loop starting."`
+6. Channel: one message telling the point guard the PR is open:
+   `pagespace channels send <Delivery channel id> "<slice> (<agent id>): PR <url> open for <CODES>; PR loop starting."`
 7. Verify: `gh pr view <n> --json headRefOid` equals the SHA from step 1, the tasks read In Review, and both reviewers are running. Then start (or continue) the PR loop.
    }
 

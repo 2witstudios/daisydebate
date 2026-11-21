@@ -41,7 +41,7 @@ export type RoundPerson = {
 };
 
 /** One side's in-round prep left. */
-export type SidePrep = {
+type SidePrep = {
   readonly side: SideKey;
   readonly label: string;
   readonly tone: SideTone;

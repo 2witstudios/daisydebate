@@ -9,7 +9,7 @@ import type { EmailMessage } from '../../mail/types';
 import { oneClickUnsubscribeUrl, unsubscribeUrl } from './unsubscribe-token';
 
 /** How long a job waits again while its member is in Daisy (ADR 0144). */
-export const DIGEST_ONLINE_POSTPONE_MS = 15 * 60_000;
+const DIGEST_ONLINE_POSTPONE_MS = 15 * 60_000;
 
 type Held = { readonly id: string; readonly token: string };
 type Claim = Held & { readonly attempts: number };

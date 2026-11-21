@@ -3,14 +3,14 @@ import { idSchema } from '../primitives';
 import { lobbyCommandEnvelope, type LobbyCommandCatalogue } from './command';
 
 /** Announcement records a durable action fact; it never stores or publishes a computed draw. */
-export const breakCommandSchema = z.strictObject({
+const breakCommandSchema = z.strictObject({
   type: z.literal('announce-break'),
   eventId: idSchema,
 });
 export type BreakCommand = z.infer<typeof breakCommandSchema>;
 export const breakCommandEnvelopeSchema =
   lobbyCommandEnvelope(breakCommandSchema);
-export const breakCommandRefusals = [
+const breakCommandRefusals = [
   'results-incomplete',
   'break-not-configured',
   'choices-pending',

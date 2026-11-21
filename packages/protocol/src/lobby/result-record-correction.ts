@@ -29,9 +29,6 @@ export const resultCompetitionReplacementSchema = z.discriminatedUnion('kind', [
     awards: administrativeAwardsSchema,
   }),
 ]);
-export type ResultCompetitionReplacement = z.infer<
-  typeof resultCompetitionReplacementSchema
->;
 type Decided = Extract<ResultCompetitionRecord, { kind: 'decided' }>;
 type Administrative = Extract<
   ResultCompetitionRecord,

@@ -178,13 +178,8 @@ export type AuthorizationDenyReason =
   | 'age-band';
 
 /** How a person with authority is connected to a fixture's Room. */
-export const conflictConnectionSchema = z.enum([
-  'seated',
-  'school_entry',
-  'ward',
-  'declared',
-]);
-export type ConflictConnection = z.infer<typeof conflictConnectionSchema>;
+export type ConflictConnection =
+  'seated' | 'school_entry' | 'ward' | 'declared';
 /** What a conflict does to the authority: the `conflict.handling` values. */
 export const conflictHandlingSchema = z.enum([
   'denied',

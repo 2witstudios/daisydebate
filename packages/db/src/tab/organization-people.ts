@@ -16,7 +16,7 @@ import { loadOfferedRoles, type RoleRow } from './role-rows';
 import type { TabTransaction } from './tab-transaction';
 
 /** One member, by their public name, with the grants they hold here. */
-export type OrganizationPersonRow = {
+type OrganizationPersonRow = {
   readonly userId: string;
   readonly name: string;
   readonly membership: MembershipStatus;

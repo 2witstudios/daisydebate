@@ -255,7 +255,7 @@ function FolderRow({
 }
 
 /** The sidebar's heading, for a frame that has none of its own. */
-export type FilesHeading = {
+type FilesHeading = {
   readonly title: string;
 };
 

@@ -87,14 +87,19 @@ describe('partitionAffected', () => {
 });
 
 describe('planGates', () => {
-  test('always includes the repo-wide boundaries and styling gates', () => {
+  test('always includes every repo-wide gate bun lint runs', () => {
     assert({
       given: 'no changed files',
-      should: 'still verify architecture boundaries and styling',
+      should:
+        'still verify architecture boundaries, styling and side literals, as bun lint does',
       actual: planGates(partitionAffected([]), 'sha0'),
       expected: [
         { name: 'boundaries', args: ['bun', 'scripts/check-boundaries.ts'] },
         { name: 'styling', args: ['bun', 'scripts/check-styling.ts'] },
+        {
+          name: 'side literals',
+          args: ['bun', 'scripts/check-side-literals.ts'],
+        },
       ],
     });
   });
@@ -125,7 +130,12 @@ describe('planGates', () => {
       given: 'only a deleted workspace file',
       should: 'run the repo-wide gates and turbo without file-based gates',
       actual: gates.map(({ name }) => name),
-      expected: ['boundaries', 'styling', 'turbo affected (typecheck, test)'],
+      expected: [
+        'boundaries',
+        'styling',
+        'side literals',
+        'turbo affected (typecheck, test)',
+      ],
     });
   });
 });
