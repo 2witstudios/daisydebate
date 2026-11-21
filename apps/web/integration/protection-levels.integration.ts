@@ -105,6 +105,12 @@ test('two guardians share one choice and only current guardians can clear a hold
         { choice: { level: 'supervised' } },
       ]);
       expect(await direct(stranger.userId)).toEqual([]);
+      await expect(
+        sql.savepoint(async (scoped) => {
+          await scoped`select set_config('daisy.subject_scope', ${child.userId}, true)`;
+          return scoped`update protection_levels set choice='{"level":"independent"}' where user_id=${child.userId}`;
+        }),
+      ).rejects.toThrow(/permission denied for table protection_levels/);
       const custom = {
         level: 'custom',
         friendApproval: 'all',

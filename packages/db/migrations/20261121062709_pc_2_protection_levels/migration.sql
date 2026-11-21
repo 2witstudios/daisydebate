@@ -58,6 +58,8 @@ CREATE POLICY protection_levels_subject ON public.protection_levels FOR ALL
 --> statement-breakpoint
 GRANT SELECT, DELETE ON public.protection_levels TO daisy_web;
 --> statement-breakpoint
+REVOKE INSERT, UPDATE ON public.protection_levels FROM daisy_web;
+--> statement-breakpoint
 CREATE FUNCTION public.daisy_protection_level(child_id text)
 RETURNS jsonb
 LANGUAGE sql STABLE SECURITY DEFINER
@@ -135,6 +137,8 @@ CREATE POLICY friend_guardian_approvals_subject ON public.friend_guardian_approv
     (high_actor_id = daisy_subject_actor_scope()) OR daisy_is_protection_guardian(child_actor_id));
 --> statement-breakpoint
 GRANT SELECT ON public.friend_guardian_approvals TO daisy_web;
+--> statement-breakpoint
+REVOKE INSERT, UPDATE, DELETE ON public.friend_guardian_approvals FROM daisy_web;
 --> statement-breakpoint
 CREATE FUNCTION public.daisy_friend_approval_pair_scope(low_id text, high_id text)
 RETURNS boolean
