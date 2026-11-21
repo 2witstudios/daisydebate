@@ -277,11 +277,18 @@ test('the sweep finds candidates and their links through indexes (ISSUE-716)', a
     ...options,
     old,
   });
-  expect(proof, JSON.stringify(plans, null, 2)).toEqual({
-    batchSize: options.limit,
-    candidateRange: true,
-    signInRange: true,
-    cleanupRange: true,
-    fullScan: [],
+  assert({
+    given: 'the actual sweep statements and analyzed account and link data',
+    should:
+      'fill the batch from the partial users index and use exact verification purpose ranges without full scans\n' +
+      JSON.stringify(plans, null, 2),
+    actual: proof,
+    expected: {
+      batchSize: options.limit,
+      candidateRange: true,
+      signInRange: true,
+      missingCleanupRanges: [],
+      fullScan: [],
+    },
   });
 });
