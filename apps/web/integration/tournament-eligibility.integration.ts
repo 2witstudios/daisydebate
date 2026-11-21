@@ -20,18 +20,21 @@ setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
 
 const seed = async (sql: SQL) => {
-  const [host, adult, minor, guardian] = (await createBots(sql, [
+  const [host, adult, minor, guardian, agedOut] = (await createBots(sql, [
     'Host',
     'Adult',
     'Minor',
     'Guardian',
-  ])) as [Bot, Bot, Bot, Bot];
+    'Turned eighteen this season',
+  ])) as [Bot, Bot, Bot, Bot, Bot];
   await sql`update account_age set birth_month=to_char(now()-interval '14 years','YYYY-MM')
     where user_id=${minor.userId}`;
+  await sql`update account_age set birth_month=to_char(now()-interval '18 years','YYYY-MM'),
+    recorded_at=now()-interval '2 months' where user_id=${agedOut.userId}`;
   const makeLeague = async (name: string) => {
     const id = createId();
-    await sql`insert into organizations (id, kind, name, handle, owner_user_id, league_division)
-      values (${id}, 'league', ${name}, ${id}, ${host.userId}, 'open')`;
+    await sql`insert into organizations (id, kind, name, handle, owner_user_id)
+      values (${id}, 'league', ${name}, ${id}, ${host.userId})`;
     return id;
   };
   const leagueId = await makeLeague('Test league');
@@ -43,6 +46,10 @@ const seed = async (sql: SQL) => {
     return id;
   };
   const youthLobby = await makeStanding(leagueId, 'under-18');
+  const youthWithoutSeason = await makeStanding(leagueId, 'under-18');
+  await sql`insert into seasons (id, lobby_id, organization_id, name, starts_at, status)
+    values (${createId()}, ${youthLobby}, ${leagueId}, 'Youth season',
+      now()-interval '1 month', 'active')`;
   const permittedLobby = await makeStanding(leagueId, 'adults');
   const unpermittedLobby = await makeStanding(leagueId, 'adults');
   const foreignLobby = await makeStanding(otherLeagueId, 'adults');
@@ -62,8 +69,10 @@ const seed = async (sql: SQL) => {
     host,
     adult,
     minor,
+    agedOut,
     leagueId,
     youthLobby,
+    youthWithoutSeason,
     permittedLobby,
     unpermittedLobby,
     foreignLobby,
@@ -252,6 +261,21 @@ test('Tab enrollment uses the exact standing lobby and authorizes each entrant',
             accepted,
           ],
         },
+      });
+      const noSeason = await tournament(
+        inherited(data.youthWithoutSeason),
+        'Youth without a season',
+      );
+      assert({
+        given:
+          'a debater who turned eighteen after the selected Youth lobby’s season began',
+        should:
+          'age them at that lobby’s season start and refuse them in the separate Youth lobby without a season',
+        actual: [
+          await enter(youth, data.agedOut),
+          await enter(noSeason, data.agedOut),
+        ],
+        expected: ['accepted', 'over-youth-age'],
       });
     },
   });
