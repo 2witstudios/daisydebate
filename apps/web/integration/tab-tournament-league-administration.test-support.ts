@@ -1,13 +1,11 @@
-import { lobbyLifecycle } from './tab-tournament-lobby-lifecycle.test-support';
-import { authorize } from '@daisy/auth/authorization';
-import { createTabStore } from '@daisy/db/tab';
 import { createId } from '@paralleldrive/cuid2';
 import { assert } from 'riteway/bun';
-import { lobbyAdministrationCommand } from '../src/features/tab/operations/lobby-administration';
+import { lobbyLifecycle } from './tab-tournament-lobby-lifecycle.test-support';
 import {
   as,
   deniedAsNotFound,
 } from './tab-tournament-organization-wiring.test-support';
+import { tabCommand } from './tab-tournament-transport.test-support';
 import type { World } from './tab-tournament.test-support';
 
 export const leagueAdministrationStage = async (
@@ -17,13 +15,7 @@ export const leagueAdministrationStage = async (
   const director = world.bots.Director!;
   const coach = world.bots.Coach!;
   const organizationId = world.made.get('league')!;
-  const store = createTabStore(world.database);
-  const send = lobbyAdministrationCommand({
-    store,
-    authorize,
-    now: world.clock.now,
-    newId: createId,
-  });
+  const send = tabCommand(world, 'lobbyAdministration');
   const create = {
     version: 1,
     commandId: createId(),

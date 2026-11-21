@@ -1,20 +1,20 @@
-import { readHostResults } from '../src/features/tab/reads/host-results';
 import { authorize } from '@daisy/auth/authorization';
 import { createTabStore } from '@daisy/db/tab';
+import type { TournamentSetupCommand } from '@daisy/protocol/lobby/lobby-setup-command';
+import { hostResultsViewSchema } from '@daisy/protocol/lobby/results-read';
 import { createId } from '@paralleldrive/cuid2';
 import { assert } from 'riteway/bun';
-import type { TournamentSetupCommand } from '@daisy/protocol/lobby/lobby-setup-command';
-import { setupCommand } from '../src/features/tab/operations/setup';
-import { settingCommand } from '../src/features/tab/operations/settings';
-import { completionCommand } from '../src/features/tab/operations/completion-command';
-import { drawCommand } from '../src/features/tab/operations/draw-command';
-import { drawCompetition } from '../src/features/tab/operations/draw-competition';
-import { judgeRegistrationCommand } from '../src/features/tab/operations/judge-registration';
+import { readHostResults } from '../src/features/tab/reads/host-results';
 import {
   as,
   deniedAsNotFound,
 } from './tab-tournament-organization-wiring.test-support';
 import { resultsStage } from './tab-tournament-results.test-support';
+import {
+  tabCommand,
+  tabLobbyCommand,
+  tabRead,
+} from './tab-tournament-transport.test-support';
 import type { World } from './tab-tournament.test-support';
 
 /** Completion consumes retained real Ballots/results, then publishes and plays the actual final. */
@@ -29,10 +29,10 @@ export async function completionStage(world: World) {
     now: world.clock.now,
     newId: createId,
   };
-  const setup = setupCommand(common),
-    settings = settingCommand(common),
-    complete = completionCommand(common),
-    draw = drawCommand({ ...common, competition: drawCompetition });
+  const setup = tabCommand(world, 'setup'),
+    settings = tabCommand(world, 'settings'),
+    complete = tabLobbyCommand(world, 'completion'),
+    draw = tabLobbyCommand(world, 'draw');
   const acceptSetup = async (command: TournamentSetupCommand) => {
     const [lobby] = await sql`select version from lobbies where id=${lobbyId}`;
     const answer = await setup(principal, {
@@ -204,10 +204,7 @@ export async function completionStage(world: World) {
         .sort(),
     ],
   });
-  const register = judgeRegistrationCommand({
-    ...common,
-    minorsReleased: async () => false,
-  });
+  const register = tabLobbyCommand(world, 'judges');
   const judges =
     await sql`select id,actor_id from tournament_judges where lobby_id=${lobbyId}`;
   for (const judge of judges) {
@@ -258,7 +255,13 @@ export async function completionStage(world: World) {
   world.made.set('tab-round', String(final!.id));
   await resultsStage(world);
   world.made.set('tab-round', originalRound);
-  const readResults = readHostResults(common);
+  const readResults = tabRead(
+    world,
+    'host-results',
+    hostResultsViewSchema,
+    readHostResults(common),
+    (input) => ({ ...input }),
+  );
   const ready = await readResults(principal, { lobbyId, eventId });
   assert({
     given: 'the genuine completed preliminaries and final before certification',

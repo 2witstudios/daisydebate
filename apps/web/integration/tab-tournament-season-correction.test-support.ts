@@ -1,11 +1,11 @@
 import { authorize } from '@daisy/auth/authorization';
 import { createTabStore } from '@daisy/db/tab';
-import { createId } from '@paralleldrive/cuid2';
 import { resultCompetitionRecordSchema } from '@daisy/protocol/lobby/result-record';
+import { createId } from '@paralleldrive/cuid2';
 import { assert } from 'riteway/bun';
 import { readLeagueSeason } from '../src/features/tab/reads/league-season';
-import { eventResultCommand } from '../src/features/tab/operations/event-result-command';
 import { as } from './tab-tournament-organization-wiring.test-support';
+import { tabLobbyCommand } from './tab-tournament-transport.test-support';
 import type { World } from './tab-tournament.test-support';
 
 export async function seasonCorrection(world: World) {
@@ -44,12 +44,7 @@ export async function seasonCorrection(world: World) {
         ]
       : [],
   );
-  const command = eventResultCommand({
-    store,
-    authorize,
-    now: world.clock.now,
-    newId: createId,
-  });
+  const command = tabLobbyCommand(world, 'eventResult');
   const corrected = await command(principal, lobbyId, {
     version: 1,
     commandId: createId(),

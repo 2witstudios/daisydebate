@@ -1,16 +1,20 @@
-import { readHostRound } from '../src/features/tab/reads/host-round';
-import { isAppError } from '@daisy/errors';
-import { fixtureBallot } from './round-judging.test-support';
 import { authorize } from '@daisy/auth/authorization';
 import { createTabStore } from '@daisy/db/tab';
+import { isAppError } from '@daisy/errors';
+import { isDebatingSeat, seatOrder } from '@daisy/protocol';
+import { hostRoundViewSchema } from '@daisy/protocol/lobby/draw-read';
 import { createId } from '@paralleldrive/cuid2';
 import { assert } from 'riteway/bun';
-import { isDebatingSeat, seatOrder } from '@daisy/protocol';
-import { withRoomRuntime } from './room-runtime.test-support';
-import { playTournamentRound } from './tab-tournament-round.test-support';
 import { createRoundBallotOperations } from '../src/features/round-ballots/operations';
-import { resultCommand } from '../src/features/tab/operations/result-command';
+import { readHostRound } from '../src/features/tab/reads/host-round';
+import { withRoomRuntime } from './room-runtime.test-support';
+import { fixtureBallot } from './round-judging.test-support';
 import { as } from './tab-tournament-organization-wiring.test-support';
+import { playTournamentRound } from './tab-tournament-round.test-support';
+import {
+  tabLobbyCommand,
+  tabRead,
+} from './tab-tournament-transport.test-support';
 import { scriptClock, type World } from './tab-tournament.test-support';
 
 /** Actual committed owner composition with an explicit trusted UTC resource; native media and staging are separately qualified. */
@@ -22,12 +26,7 @@ export async function resultsStage(world: World) {
   const director = world.bots.Director!,
     lobbyId = world.made.get('tournament-lobby')!;
   const store = createTabStore(world.database);
-  const send = resultCommand({
-    store,
-    authorize,
-    now: world.clock.now,
-    newId: createId,
-  });
+  const send = tabLobbyCommand(world, 'fixtureResult');
   const fixtures = await world.sql<
     { id: string; room_id: string; version: number }[]
   >`select id,room_id,version from fixtures where tab_round_id=${world.made.get('tab-round')!} order by room_id`;
@@ -87,14 +86,17 @@ export async function resultsStage(world: World) {
           roundId,
           submission,
         );
-        const waiting = await readHostRound({ store, authorize })(
-          as(director),
-          {
-            lobbyId,
-            eventId: world.made.get('event')!,
-            tabRoundId: world.made.get('tab-round')!,
-          },
-        );
+        const waiting = await tabRead(
+          world,
+          'host-round',
+          hostRoundViewSchema,
+          readHostRound({ store, authorize }),
+          (input) => ({ ...input }),
+        )(as(director), {
+          lobbyId,
+          eventId: world.made.get('event')!,
+          tabRoundId: world.made.get('tab-round')!,
+        });
         const awaiting =
           waiting?.kind === 'published'
             ? waiting.round.open.find((row) => row.fixtureId === fixture.id)
