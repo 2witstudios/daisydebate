@@ -25,7 +25,6 @@ test('web policy composition reads the minimal age and contact facts in its call
   const contact = {
     user_id: account.userId,
     setting: 'friends',
-    friends_only: false,
     friend_actor_ids: ['c'.repeat(24)],
     linked_adult_user_ids: [],
   };
@@ -49,7 +48,6 @@ test('web policy composition reads the minimal age and contact facts in its call
           age,
           contact: {
             requestSetting: 'friends',
-            protectedMessageRequests: null,
             friendActorIds: ['c'.repeat(24)],
             linkedAdultUserIds: [],
           },

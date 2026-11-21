@@ -275,6 +275,30 @@ test('two guardians share one choice and only current guardians can clear a hold
       expect<unknown>(
         await scoped(
           stranger,
+          (sp) => sp`select
+          public.daisy_dm_request_access(${child.userId}, ${stranger.actorId}) as allowed`,
+        ),
+      ).toEqual([{ allowed: 'befriend' }]);
+      expect<unknown>(
+        await scoped(
+          sibling,
+          (sp) => sp`select
+          public.daisy_dm_request_access(${child.userId}, ${sibling.actorId}) as allowed`,
+        ),
+      ).toEqual([{ allowed: 'message' }]);
+      const blockedDmPair = pairOf(stranger, sibling);
+      await sql`insert into contact_pairs(low_actor_id, high_actor_id, low_blocks_high)
+        values (${blockedDmPair.lowActorId}, ${blockedDmPair.highActorId}, true)`;
+      expect<unknown>(
+        await scoped(
+          stranger,
+          (sp) => sp`select
+          public.daisy_dm_request_access(${sibling.userId}, ${stranger.actorId}) as allowed`,
+        ),
+      ).toEqual([{ allowed: null }]);
+      expect<unknown>(
+        await scoped(
+          stranger,
           (sp) =>
             sp`select id from notifications where id=${initialAdultNotice.id}`,
         ),
@@ -492,6 +516,13 @@ test('two guardians share one choice and only current guardians can clear a hold
       expect(
         await run(coGuardian, { ...supervised, linkId: siblingLink }),
       ).toEqual({ kind: 'accepted' });
+      expect<unknown>(
+        await scoped(
+          child,
+          (sp) => sp`select
+          public.daisy_dm_request_access(${sibling.userId}, ${child.actorId}) as allowed`,
+        ),
+      ).toEqual([{ allowed: 'befriend' }]);
       const resurfaceAt = new Date(at.getTime() + 1000).toISOString();
       const secondHold = await held(sibling, sibling, childPair, resurfaceAt);
       const surfaced = (await inbox(coGuardian)).rows.find(

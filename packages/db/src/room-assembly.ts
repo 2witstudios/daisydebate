@@ -154,6 +154,14 @@ export const assembleRoom = async (
         readinessVersion: participant.consentVersion,
       })),
     );
+  // The write still owns every cast account fence. Check the persisted cast
+  // inside this transaction so a refusal rolls back the Room and all its seats.
+  if (assembled && input.room.competitionType === 'ranked')
+    await requireRankedProtection(
+      tx,
+      assembled.participants.map(({ actorId }) => actorId),
+      { userId: input.caller.userId, roomId: input.room.id },
+    );
   await holdActiveRoomMembers(
     tx,
     input.room.id,
@@ -187,12 +195,6 @@ const applyInitialCast = async (
   const accounts = await lockAuthorizationActors(tx, fencedActors, {
     maxActors: fencedActors.length,
   });
-  if (room.competitionType === 'ranked')
-    await requireRankedProtection(
-      tx,
-      seats.map(({ actorId }) => actorId),
-      { userId: caller.userId, roomId: room.id },
-    );
   // Eligibility and seatKind live on these profile rows, not the account
   // authorization fence. Lock extant profiles in actor-id order before
   // actorFact reads them, so profile removal serializes with this create.

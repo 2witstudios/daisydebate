@@ -147,37 +147,76 @@ AS $$
           AND pair.high_actor_id = greatest(entrant_ids[1], entrant_ids[2])
           AND NOT pair.low_blocks_high AND NOT pair.high_blocks_low))
     OR EXISTS (SELECT 1 FROM public.rooms room
-      WHERE room.id = room_id AND
-        (room.host_actor_id = public.daisy_subject_actor_scope()
-          OR (room.host_actor_id IS NULL AND room.lobby_id = public.daisy_lobby_scope()
-            AND public.daisy_subject_actor_scope() IS NOT NULL)))
+      WHERE room.id = room_id AND room.host_actor_id = public.daisy_subject_actor_scope()
+        AND NOT EXISTS (SELECT 1 FROM public.actors entrant
+          WHERE entrant.id = ANY(entrant_ids) AND entrant.user_id IS NOT NULL
+            AND entrant.id <> room.host_actor_id
+            AND NOT EXISTS (SELECT 1 FROM public.room_participants seat
+              WHERE seat.room_id = room.id AND seat.actor_id = entrant.id)))
 $$;
 --> statement-breakpoint
 REVOKE ALL ON FUNCTION public.daisy_ranked_protection_allows(text[], text) FROM PUBLIC;
 --> statement-breakpoint
 GRANT EXECUTE ON FUNCTION public.daisy_ranked_protection_allows(text[], text) TO daisy_web;
 --> statement-breakpoint
-CREATE FUNCTION public.daisy_message_requests_friends_only(recipient_id text, requester_actor_id text DEFAULT NULL)
+CREATE FUNCTION public.daisy_message_requests_friends_only(recipient_id text)
 RETURNS boolean
 LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, public, pg_temp
 AS $$
   SELECT friends_only FROM public.daisy_expand_protection(
     public.daisy_effective_protection_choice(recipient_id))
-  WHERE (requester_actor_id IS NULL AND recipient_id = public.daisy_subject_scope())
-    OR (requester_actor_id = public.daisy_subject_actor_scope() AND EXISTS (
-      SELECT 1 FROM public.actors recipient
-      JOIN public.users account ON account.id = recipient.user_id AND account.deleted_at IS NULL
-      LEFT JOIN public.contact_pairs pair ON pair.low_actor_id = least(requester_actor_id, recipient.id)
-        AND pair.high_actor_id = greatest(requester_actor_id, recipient.id)
-      WHERE recipient.user_id = recipient_id AND recipient.id <> requester_actor_id
-        AND NOT coalesce(pair.low_blocks_high OR pair.high_blocks_low, false)
-    ))
+  WHERE recipient_id = public.daisy_subject_scope()
 $$;
 --> statement-breakpoint
-REVOKE ALL ON FUNCTION public.daisy_message_requests_friends_only(text, text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.daisy_message_requests_friends_only(text) FROM PUBLIC;
 --> statement-breakpoint
-GRANT EXECUTE ON FUNCTION public.daisy_message_requests_friends_only(text, text) TO daisy_web;
+GRANT EXECUTE ON FUNCTION public.daisy_message_requests_friends_only(text) TO daisy_web;
+--> statement-breakpoint
+CREATE FUNCTION public.daisy_dm_request_access(recipient_id text, requester_actor_id text)
+RETURNS text
+LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = pg_catalog, public, pg_temp
+AS $$
+  SELECT CASE
+    WHEN NOT limits.friends_only AND setting.setting = 'none' THEN 'none'
+    WHEN relation.friends THEN 'message'
+    WHEN limits.friends_only OR setting.setting = 'friends' THEN 'befriend'
+    WHEN age.sender_band = 'adult' AND age.recipient_band <> 'adult'
+      AND NOT EXISTS (SELECT 1 FROM public.daisy_linked_adult_users(recipient.user_id) adult
+        WHERE adult.user_id = sender.user_id) THEN 'befriend'
+    ELSE 'message'
+  END
+  FROM public.actors sender
+  JOIN public.users sender_account ON sender_account.id = sender.user_id AND sender_account.deleted_at IS NULL
+    AND sender_account.email_verified AND sender_account.username IS NOT NULL
+  JOIN public.account_age sender_age ON sender_age.user_id = sender.user_id
+  JOIN public.actors recipient ON recipient.user_id = recipient_id
+  JOIN public.users recipient_account ON recipient_account.id = recipient.user_id AND recipient_account.deleted_at IS NULL
+    AND recipient_account.email_verified AND recipient_account.username IS NOT NULL
+  JOIN public.account_age recipient_age ON recipient_age.user_id = recipient.user_id
+  LEFT JOIN public.messaging_request_settings setting ON setting.user_id = recipient.user_id
+  CROSS JOIN LATERAL (SELECT least(sender.id, recipient.id) AS low, greatest(sender.id, recipient.id) AS high) pair
+  LEFT JOIN public.contact_pairs contacts ON contacts.low_actor_id = pair.low AND contacts.high_actor_id = pair.high
+  LEFT JOIN public.messaging_dm_pairs dm ON dm.low_actor_id = pair.low AND dm.high_actor_id = pair.high
+  CROSS JOIN LATERAL (SELECT EXISTS (SELECT 1 FROM public.friendships friendship
+    WHERE friendship.low_actor_id = pair.low AND friendship.high_actor_id = pair.high
+      AND friendship.state = 'accepted') AS friends) relation
+  CROSS JOIN LATERAL (SELECT
+    public.daisy_age_band(sender_age.birth_month, sender_age.version, sender_age.recorded_at, statement_timestamp()) AS sender_band,
+    public.daisy_age_band(recipient_age.birth_month, recipient_age.version, recipient_age.recorded_at, statement_timestamp()) AS recipient_band) age
+  CROSS JOIN LATERAL public.daisy_expand_protection(public.daisy_effective_protection_choice(recipient.user_id)) limits
+  WHERE sender.id = requester_actor_id AND sender.id = public.daisy_subject_actor_scope()
+    AND recipient.id <> sender.id AND sender.kind = 'human' AND recipient.kind = 'human'
+    AND NOT coalesce(contacts.low_blocks_high OR contacts.high_blocks_low, false)
+    AND coalesce(dm.request_state NOT IN ('pending', 'accepted'), true)
+    AND age.sender_band IN ('13-15', '16-17', 'adult')
+    AND age.recipient_band IN ('13-15', '16-17', 'adult')
+$$;
+--> statement-breakpoint
+REVOKE ALL ON FUNCTION public.daisy_dm_request_access(text, text) FROM PUBLIC;
+--> statement-breakpoint
+GRANT EXECUTE ON FUNCTION public.daisy_dm_request_access(text, text) TO daisy_web;
 --> statement-breakpoint
 CREATE FUNCTION public.daisy_protection_choice_lock(child_id text)
 RETURNS void

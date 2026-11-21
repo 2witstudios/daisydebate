@@ -58,15 +58,17 @@ export const bindMessagingContactFacts =
         ...previous,
         subjectUserId: request.userId,
       });
-    const protection = request
-      ? sql`case when c.minor and c.actor_id = ${request.recipientActorId}
-          then coalesce(public.daisy_message_requests_friends_only(c.user_id, ${request.actorId}), true)
-          else false end`
-      : sql`false`;
+    const requestSetting = request
+      ? sql`case when c.actor_id = ${request.recipientActorId} then
+           case public.daisy_dm_request_access(c.user_id, ${request.actorId})
+             when 'message' then 'everyone'
+             when 'befriend' then 'friends'
+             else 'none' end
+           else coalesce(s.setting, 'everyone') end`
+      : sql`coalesce(s.setting, 'everyone')`;
     const rows = await rowsOf<{
       user_id: string;
       setting: MessageRequestSetting;
-      friends_only: boolean;
       friend_actor_ids: string[];
       linked_adult_user_ids: string[];
     }>(
@@ -75,8 +77,7 @@ export const bindMessagingContactFacts =
           select * from jsonb_to_recordset(${cast}::text::jsonb)
             as c(user_id text, actor_id text, minor boolean))
         select c.user_id,
-          coalesce(s.setting, 'everyone') as setting,
-          ${protection} as friends_only,
+          ${requestSetting} as setting,
           array(select case when f.low_actor_id=c.actor_id
               then f.high_actor_id else f.low_actor_id end
             from friendships f
@@ -98,13 +99,8 @@ export const bindMessagingContactFacts =
         (candidate) => candidate.user_id === account.userId,
       );
       if (!row) throw createAppError('INFRASTRUCTURE');
-      if (typeof row.friends_only !== 'boolean')
-        throw createAppError('INFRASTRUCTURE');
       return {
         requestSetting: row.setting,
-        protectedMessageRequests: row.friends_only
-          ? ('friends' as const)
-          : null,
         friendActorIds: row.friend_actor_ids,
         linkedAdultUserIds: row.linked_adult_user_ids,
       };

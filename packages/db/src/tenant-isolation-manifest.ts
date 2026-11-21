@@ -338,6 +338,12 @@ export const tenantIsolationManifest: TenantIsolationManifest = {
         'Returns only the effective incoming message-request restriction.',
     },
     {
+      name: 'daisy_dm_request_access',
+      executors: ['daisy_web'],
+      reason:
+        'Returns the offered action for an eligible new DM from the scoped sender.',
+    },
+    {
       name: 'daisy_own_friend_guardian_hold_live',
       executors: ['daisy_web'],
       reason:

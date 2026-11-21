@@ -512,6 +512,13 @@ test('a ranked Start rechecks both a seatless host and a ready debater after a p
             })
           ).view;
           const ready = await everyoneReady(f, room, [f.guest, f.outsider]);
+          const [rankedScope] = await f.sql.begin(async (tx) => {
+            await tx`set local role daisy_web`;
+            await tx`select set_config('daisy.subject_scope', ${f.host.userId}, true)`;
+            return tx`select
+              public.daisy_ranked_protection_allows(ARRAY[${f.guest.actorId}]::text[], ${room.id}) as seated,
+              public.daisy_ranked_protection_allows(ARRAY[${guardian.actorId}]::text[], ${room.id}) as unrelated`;
+          });
           const start = () =>
             refusalOf(f.command(f.host, ready, { type: 'start-round' }));
           await protect(f.host, 'supervised');
@@ -527,14 +534,16 @@ test('a ranked Start rechecks both a seatless host and a ready debater after a p
             given:
               'an eligible Youth ranked Room with a ready cast and seatless host',
             should:
-              'refuse Start for a Supervised host or debater without a Round, then allow Start on Guided',
+              'scope the ranked read to the cast, refuse Start for a Supervised host or debater without a Round, then allow Start on Guided',
             actual: {
+              rankedScope,
               hostRefusal,
               seatedRefusal,
               rounds: before?.rounds,
               control,
             },
             expected: {
+              rankedScope: { seated: true, unrelated: null },
               hostRefusal: 'ranked-unavailable',
               seatedRefusal: 'ranked-unavailable',
               rounds: 0,
