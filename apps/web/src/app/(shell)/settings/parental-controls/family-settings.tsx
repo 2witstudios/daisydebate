@@ -3,7 +3,6 @@ import { notFound } from 'next/navigation';
 import type { GuardianCommand } from '@daisy/protocol/guardians';
 import type { LegalDocument } from '../../../../features/legal/documents';
 import { guardianNoticeDocument } from '../../../../features/legal/guardian-notices';
-import { requireAccess } from '../../../../lib/access';
 import { requestFamilyRows } from '../../../../lib/request-session';
 import { GuardianForm } from '../../../../ui/settings/parental-controls/guardian-form';
 import { PageHeader } from '../../../../ui/components/page-header/page-header';
@@ -54,8 +53,6 @@ export async function FamilySettings({
   readonly role: 'adult' | 'child';
 }) {
   const adult = role === 'adult';
-  const path = adult ? '/settings/parental-controls' : '/settings/your-parents';
-  await requireAccess(path, Promise.resolve({}));
   const rows = await requestFamilyRows(role);
   if (!rows) notFound();
   const notice = guardianNoticeDocument(

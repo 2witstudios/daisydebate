@@ -51,7 +51,7 @@ describe('isTabPath', () => {
   test('a path a form sent back', () => {
     assert({
       given:
-        'Tab pages, another page, and paths carrying a query, host or parent step',
+        'Tab pages, the retired family page, other pages and paths carrying a query, host or parent step',
       should: 'accept only bare Tab paths',
       actual: [
         '/host',
@@ -69,7 +69,7 @@ describe('isTabPath', () => {
         true,
         true,
         true,
-        true,
+        false,
         false,
         false,
         false,
