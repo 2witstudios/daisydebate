@@ -17,7 +17,7 @@ export type RetentionTarget = {
 };
 
 /** The UTC ISO cutoff `windowMs` before `now`; an unusable clock throws. */
-export const cutoff = (now: string, windowMs: number) => {
+const cutoff = (now: string, windowMs: number) => {
   const at = Date.parse(now);
   if (Number.isNaN(at)) throw new Error('Unusable clock value');
   return new Date(at - windowMs).toISOString();

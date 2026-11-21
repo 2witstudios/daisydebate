@@ -19,7 +19,7 @@ const policy = z.strictObject({
 });
 
 /** Explicit deployment policy; absence is inert, never filled with proof values. */
-export const roomPolicyConfig = optionalJsonConfig(policy);
+const roomPolicyConfig = optionalJsonConfig(policy);
 
 export const roomFields = {
   ROOM_POLICY: roomPolicyConfig,

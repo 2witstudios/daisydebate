@@ -9,7 +9,7 @@ import { positiveIntegerSchema, rateWindowsSchema } from './rate-windows';
  * checked here; the web composition refuses any looser value. Unknown keys
  * are refused, and absence keeps the policy as shipped.
  */
-export const contactsPolicyConfig = optionalJsonConfig(
+const contactsPolicyConfig = optionalJsonConfig(
   z.strictObject({
     requests: z
       .strictObject({

@@ -8,7 +8,7 @@ import { positiveIntegerSchema, rateWindowsSchema } from './rate-windows';
  * value looser than the policy it tightens. Unknown keys are refused, and
  * absence keeps the policy as shipped.
  */
-export const messagingPolicyConfig = optionalJsonConfig(
+const messagingPolicyConfig = optionalJsonConfig(
   z.strictObject({
     editWindowMs: positiveIntegerSchema.optional(),
     send: rateWindowsSchema.optional(),
