@@ -34,9 +34,9 @@ test('the default privacy export keeps a guardian refusal private from its subje
       }
       const ordinary = createId();
       const refusal = createId();
-      await sql`insert into reports (id, reporter_actor_id, subject_actor_id, reason, surface)
-        values (${ordinary}, ${child.actorId}, ${parent.actorId}, 'harassment', 'people'),
-          (${refusal}, ${child.actorId}, ${parent.actorId}, 'not-my-parent', 'guardian-link')`;
+      await sql`insert into reports (id, reporter_actor_id, subject_actor_id, reason, surface, created_at)
+        values (${ordinary}, ${child.actorId}, ${parent.actorId}, 'harassment', 'people', ${now}),
+          (${refusal}, ${child.actorId}, ${parent.actorId}, 'not-my-parent', 'guardian-link', ${now})`;
       return { parent, child, ordinary, refusal };
     },
     work: async (database, { parent, child, ordinary, refusal }, sql) => {
