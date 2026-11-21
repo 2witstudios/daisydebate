@@ -15,11 +15,12 @@ export async function readFamilySettings(
   userId: string,
   role: 'adult' | 'child',
   now: Date,
+  lobbyPermissionOnly = false,
 ): Promise<readonly FamilyRow[]> {
   const links = await session.links();
   const requests = role === 'adult' ? await session.requests() : [];
   const expiredForChild =
-    role === 'child'
+    role === 'child' && !lobbyPermissionOnly
       ? new Set(
           (await session.linkRequestDeadlines())
             .filter(({ expiresAt }) => expiresAt <= now)
@@ -39,6 +40,7 @@ export async function readFamilySettings(
         )
           return [];
       } else if (link.minorUserId !== userId || username === null) return [];
+      if (lobbyPermissionOnly && link.status !== 'active') return [];
       if (link.status === 'ended' || link.status === 'cancelled') return [];
       if (
         role === 'child' &&
@@ -86,6 +88,7 @@ export async function readFamilySettings(
       ];
     }),
   ];
+  if (lobbyPermissionOnly) return rows;
   return Promise.all(
     rows.map(async (row) => {
       if (row.status !== 'active') return row;

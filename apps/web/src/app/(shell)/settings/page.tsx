@@ -6,6 +6,7 @@ import { parseDataRightsQuery } from '../../../features/account/data-rights/noti
 import {
   requestIdentity,
   requestFamilyViewer,
+  requestFamilyLobbyPermissions,
   requestAnalytics,
   requestAudienceSettings,
   requestOnboardingAnswers,
@@ -127,15 +128,17 @@ export default async function SettingsRoute({
   const family = await requestFamilyViewer();
   // A restricted member may still read and clear what they show (ADR 0143);
   // the route decides, and answers nothing to anyone else.
-  const [publicProfile, chosen, mediaRelease] = await Promise.all([
-    'principal' in identity && identity.principal.kind === 'user'
-      ? publicProfileSection(username)
-      : null,
-    identity.state === 'member' ? readChosenStatus() : null,
-    identity.state === 'member'
-      ? requestMediaReleaseSettings(identity.principal.userId)
-      : null,
-  ]);
+  const [publicProfile, chosen, mediaRelease, parentLobbyPermissions] =
+    await Promise.all([
+      'principal' in identity && identity.principal.kind === 'user'
+        ? publicProfileSection(username)
+        : null,
+      identity.state === 'member' ? readChosenStatus() : null,
+      identity.state === 'member'
+        ? requestMediaReleaseSettings(identity.principal.userId)
+        : null,
+      family?.role === 'adult' ? requestFamilyLobbyPermissions('child') : null,
+    ]);
   return (
     <SettingsPage
       {...('principal' in identity && identity.principal.kind === 'user'
@@ -143,6 +146,7 @@ export default async function SettingsRoute({
         : {})}
       username={username}
       familySettings={family?.role ?? null}
+      showParentLobbyPermission={parentLobbyPermissions !== null}
       publicProfile={publicProfile}
       mediaRelease={
         mediaRelease ? (

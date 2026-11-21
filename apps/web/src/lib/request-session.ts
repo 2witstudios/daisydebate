@@ -808,11 +808,21 @@ export const requestFamilyViewer = cache(async () => {
 
 export async function requestFamilyRows(role: 'adult' | 'child') {
   const viewer = await requestFamilyViewer();
-  if (viewer?.role !== role) return null;
+  if (!viewer || (role === 'adult' && viewer.role !== 'adult')) return null;
+  const lobbyPermissionOnly = viewer.role !== role;
+  if (lobbyPermissionOnly && !(await requestFamilyLobbyPermissions('child')))
+    return null;
   const { database, clock } = processApp();
-  return database.guardians.forSubject(viewer.userId, (session) =>
-    readFamilySettings(session, viewer.userId, role, new Date(clock.now())),
+  const rows = await database.guardians.forSubject(viewer.userId, (session) =>
+    readFamilySettings(
+      session,
+      viewer.userId,
+      role,
+      new Date(clock.now()),
+      lobbyPermissionOnly,
+    ),
   );
+  return { rows, lobbyPermissionOnly };
 }
 
 export async function requestGuardianRelease(
@@ -833,15 +843,21 @@ export async function requestFriendApprovals() {
   );
 }
 
-export async function requestFamilyLobbyPermissions(role: 'adult' | 'child') {
-  const viewer = await requestFamilyViewer();
-  return viewer?.role === role
-    ? processApp().database.lobbyPermissions.read(
-        viewer.userId,
-        CONTENT_WAIVER_VERSION,
-      )
-    : null;
-}
+export const requestFamilyLobbyPermissions = cache(
+  async (role: 'adult' | 'child') => {
+    const viewer = await requestFamilyViewer();
+    if (!viewer || (role === 'adult' && viewer.role !== 'adult')) return null;
+    const view = await processApp().database.lobbyPermissions.read(
+      viewer.userId,
+      CONTENT_WAIVER_VERSION,
+      role,
+    );
+    return viewer.role === role ||
+      (view.hasActiveParent && view.choices.length > 0)
+      ? view
+      : null;
+  },
+);
 
 /** What this member's profile view offers toward `username` (decision 90). */
 export const requestMessageOffer = async (username: string) => {

@@ -11,7 +11,10 @@ import {
 import { lobbies } from '../schema/lobbies';
 import { organizations } from '../schema/organizations';
 import { lockActiveLobbySeason } from '../ladder-season';
-import { readCompetitionAgeBand } from '../ladder-division-band';
+import {
+  divisionAgeBand,
+  readCompetitionAgeBand,
+} from '../ladder-division-band';
 import { scopeTransaction } from '../tenant-scope';
 import { inTransaction, type Tx, type TxOpener } from '../tx';
 import { isMinorAgeBand } from './lobby-permissions';
@@ -93,9 +96,22 @@ const findAdultLobby = (tx: Tx, lobbyId: string) =>
 
 export function createLobbyPermissionStore(database: TxOpener) {
   return {
-    async read(userId: string, waiverVersion: string) {
+    async read(userId: string, waiverVersion: string, role: 'adult' | 'child') {
       return inTransaction(database, async (tx) => {
         await scopeTransaction(tx, { subjectUserId: userId });
+        const party =
+          role === 'child'
+            ? guardianLinks.minorUserId
+            : guardianLinks.guardianUserId;
+        if (role === 'child') {
+          const [activeParent] = await tx
+            .select({ id: guardianLinks.id })
+            .from(guardianLinks)
+            .where(and(eq(party, userId), eq(guardianLinks.status, 'active')))
+            .limit(1);
+          if (!activeParent)
+            return { requests: [], choices: [], hasActiveParent: false };
+        }
         const requests = await tx
           .select({
             lobbyId: restrictionLobbies.lobbyId,
@@ -113,12 +129,7 @@ export function createLobbyPermissionStore(database: TxOpener) {
             guardianLinks,
             eq(guardianLinks.id, restrictionLobbies.guardianLinkId),
           )
-          .where(
-            and(
-              eq(guardianLinks.status, 'active'),
-              sql`(${guardianLinks.guardianUserId} = ${userId} or ${guardianLinks.minorUserId} = ${userId})`,
-            ),
-          )
+          .where(and(eq(guardianLinks.status, 'active'), eq(party, userId)))
           .orderBy(
             asc(restrictionLobbies.createdAt),
             asc(restrictionLobbies.lobbyId),
@@ -134,9 +145,19 @@ export function createLobbyPermissionStore(database: TxOpener) {
             organizations,
             eq(organizations.id, lobbies.ownerOrganizationId),
           )
-          .where(adultStandingLobby)
+          .where(
+            and(
+              adultStandingLobby,
+              role === 'child'
+                ? sql`exists (
+            select 1 from account_age where account_age.user_id = ${userId}
+            and ${divisionAgeBand(sql`${lobbies.id}`)} in ('13-15', '16-17')
+          )`
+                : undefined,
+            ),
+          )
           .orderBy(asc(organizations.name), asc(lobbies.name), asc(lobbies.id));
-        return { requests, choices };
+        return { requests, choices, hasActiveParent: role === 'child' };
       });
     },
     async apply(caller: Caller, command: LobbyCommand) {

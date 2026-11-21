@@ -730,6 +730,24 @@ test('a carried minor in Open cannot substitute a personal signature for a guard
             )!;
             const permission = { linkId: String(link!.id), lobbyId: open.id };
             await setAge(f, f.guest, 'eighteen', '1 year');
+            const requesterView = () =>
+              f.store.lobbyPermissions.read(
+                f.guest.userId,
+                CONTENT_WAIVER_VERSION,
+                'child',
+              );
+            const carried = await requesterView();
+            assert({
+              given:
+                'the same active parent link and a member whose current age is adult',
+              should:
+                'offer the exact adult lobby whose season carries them as youth',
+              actual: [
+                carried.hasActiveParent,
+                carried.choices.some(({ id }) => id === open.id),
+              ],
+              expected: [true, true],
+            });
             let room = (await f.create(await ranked(f))).view;
             const beforeGrant = await f.operations.view(f.guest, room.id);
             const requested = await f.store.lobbyPermissions.apply(f.guest, {
@@ -827,8 +845,11 @@ test('a carried minor in Open cannot substitute a personal signature for a guard
                   type: 'request',
                 }),
                 await sign(CONTENT_WAIVER_VERSION),
+                (await requesterView()).choices.some(
+                  ({ id }) => id === open.id,
+                ),
               ],
-              expected: [false, false],
+              expected: [false, false, false],
             });
           },
           { openStartedAgo: '2 months' },

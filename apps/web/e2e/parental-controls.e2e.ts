@@ -571,15 +571,10 @@ test('a 14-year-old plays Youth and gets their guardian’s waiver to play Open 
   browser,
 }) => {
   test.setTimeout(210_000);
-  await promisify(execFile)(
-    'bun',
-    [
-      fileURLToPath(
-        new URL('./support/rating-season-worker.ts', import.meta.url),
-      ),
-    ],
-    { timeout: 20_000 },
+  const seasonWorker = fileURLToPath(
+    new URL('./support/rating-season-worker.ts', import.meta.url),
   );
+  await promisify(execFile)('bun', [seasonWorker], { timeout: 20_000 });
   await resetRateLimits(guardian.request);
   const parent = await signUpMember(guardian.request);
   const context = await browser.newContext({
@@ -802,6 +797,58 @@ test('a 14-year-old plays Youth and gets their guardian’s waiver to play Open 
         (seat) => 'actorId' in seat && seat.actorId === childActor.actorId,
       ),
     ).toBe(true);
+
+    await settleLeftRounds([host, youthHost]);
+    const { stdout } = await promisify(execFile)(
+      'bun',
+      [seasonWorker, player.username],
+      { timeout: 20_000 },
+    );
+    const birthdayLobby = JSON.parse(stdout) as { id: string; name: string };
+    await child.goto('/settings');
+    const settings = child.getByRole('navigation', {
+      name: 'Settings sections',
+    });
+    await expect(
+      settings.getByRole('link', { name: 'Parental controls' }),
+    ).toBeVisible();
+    await settings.getByRole('link', { name: 'Your parents' }).click();
+    await expect(
+      child.getByRole('heading', { name: 'Lobby permission', exact: true }),
+    ).toBeVisible();
+    const carriedParent = familyRow(
+      child.getByRole('region', { name: 'Lobby permission' }),
+      parent.username,
+    );
+    await expect(carriedParent.getByText(/Protection level:/)).toHaveCount(0);
+    await carriedParent
+      .getByLabel('Adult lobby')
+      .selectOption(birthdayLobby.id);
+    await carriedParent.getByRole('button', { name: 'Ask to play' }).click();
+    await expect(
+      carriedParent.getByText(
+        new RegExp(`${birthdayLobby.name}.*Waiting for approval`),
+      ),
+    ).toBeVisible();
+
+    await guardian.goto('/settings/parental-controls');
+    const birthdayApproval = childRow.locator('form').filter({
+      has: guardian.getByRole('button', {
+        name: `Sign waiver and allow ${birthdayLobby.name}`,
+      }),
+    });
+    await birthdayApproval
+      .getByRole('checkbox', { name: /I sign this waiver for my child/ })
+      .check();
+    await birthdayApproval
+      .getByRole('button', {
+        name: `Sign waiver and allow ${birthdayLobby.name}`,
+      })
+      .click();
+    await child.reload();
+    await expect(
+      carriedParent.getByText(new RegExp(`${birthdayLobby.name}.*Allowed`)),
+    ).toBeVisible();
   } finally {
     try {
       await settleLeftRounds(members);
