@@ -1,5 +1,5 @@
 /**
- * A monotonic clock the test owns (ADR 0161). Time moves only when the test
+ * A monotonic clock the test owns (ADR 0164). Time moves only when the test
  * moves it, so a test of timed work runs in no real time and the same way
  * on every machine. Code under test takes `nowMs`, `sleep` and `waitUntilMs`
  * as injected resources; the test advances time or runs work to its end.

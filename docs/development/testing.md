@@ -257,7 +257,7 @@ report in CI's advisory job) is the live audit:
   table into the owning module. Never raise `minTokens`, add an ignore, or
   re-baseline to quiet it (ADR 0026, ADR 0083).
 - **Generated inputs.** A property over generated inputs uses fast-check
-  through `@daisy/seeded-random/testing` (ADR 0161): `seededCheck` for an
+  through `@daisy/seeded-random/testing` (ADR 0164): `seededCheck` for an
   arbitrary, `seededDraws` for an input built from draws, `seededWalk` for a
   walk over the moves each state allows. Each run has a fixed seed and
   reports its shrunk failure. The round engine's oracle,
@@ -268,7 +268,7 @@ report in CI's advisory job) is the live audit:
 - Tests are deterministic: inject clocks/IDs; never sleep-and-hope; no
   cross-test shared state; a unit test drives timed code on `virtualClock`
   from `@daisy/clock/testing`, and `test-time/no-real-sleep` fails a timed
-  `Bun.sleep`, `setTimeout` or `setInterval` in one (ADR 0161); use deterministic unit IDs and CSPRNG isolation IDs
+  `Bun.sleep`, `setTimeout` or `setInterval` in one (ADR 0164); use deterministic unit IDs and CSPRNG isolation IDs
   only in real-service integration tests; clean only records you created.
   The runner enforces it: `scripts/test-integration.ts` counts every table
   in the run's database before and after a workspace's run and fails the

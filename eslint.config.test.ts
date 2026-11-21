@@ -484,7 +484,7 @@ describe('a switch over a union names every member', () => {
   });
 });
 
-describe('unit tests run on virtual time (ADR 0161)', () => {
+describe('unit tests run on virtual time (ADR 0164)', () => {
   const sleeps = async (code: string, filePath: string) => {
     const [result] = await repositoryEslint().lintText(code, { filePath });
     return result!.messages.filter(

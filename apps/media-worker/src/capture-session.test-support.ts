@@ -48,7 +48,7 @@ const closedForGood = createMediaWorkerClient({
 });
 
 /**
- * A session on a virtual clock (ADR 0161), joined to a fake LiveKit room that the test may drop, with a
+ * A session on a virtual clock (ADR 0164), joined to a fake LiveKit room that the test may drop, with a
  * clip consumer the test may fail, and a server that may close the capture
  * once the room drops. `read` replaces the canned history answer outright
  * ('closed' answers with the server's capture-closed refusal) and
