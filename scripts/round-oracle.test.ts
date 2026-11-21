@@ -681,7 +681,7 @@ const movesOf = (world: World): readonly Move[] =>
 const formats = oracleFormats();
 const RUNS_PER_FORMAT = 40;
 
-describe('round engine oracle (ADR 0161)', () => {
+describe('round engine oracle (ADR 0164)', () => {
   test('the oracle checks every registered invariant', () => {
     const checked = new Set([
       ...Object.values(ids),

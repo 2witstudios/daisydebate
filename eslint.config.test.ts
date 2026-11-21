@@ -573,7 +573,7 @@ describe('a non-null assertion is refused except on an index', () => {
   });
 });
 
-describe('unit tests run on virtual time (ADR 0161)', () => {
+describe('unit tests run on virtual time (ADR 0164)', () => {
   const sleeps = async (code: string, filePath: string) => {
     const [result] = await repositoryEslint().lintText(code, { filePath });
     return result!.messages.filter(

@@ -1,7 +1,7 @@
 import fc from 'fast-check';
 
 /**
- * Property tests over generated inputs, on fast-check (ADR 0161). Every run
+ * Property tests over generated inputs, on fast-check (ADR 0164). Every run
  * is seeded, so a failure replays exactly; fast-check shrinks it first, so
  * the report names the smallest input it found, not the first.
  */

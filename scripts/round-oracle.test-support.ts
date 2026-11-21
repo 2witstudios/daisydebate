@@ -32,7 +32,7 @@ import {
 import { invariantIdOf } from './invariant-error';
 
 /**
- * The round engine's oracle (ADR 0161). It knows only the public
+ * The round engine's oracle (ADR 0164). It knows only the public
  * `RoundRuntime` and the durable rows a caller writes from its projections:
  * every check reads the rules, the rows and the derived position, never the
  * engine's own legality code, so a rewrite (R4.1) is held to the same

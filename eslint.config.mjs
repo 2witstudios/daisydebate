@@ -396,7 +396,7 @@ const refusalReadRestrictions = [
 ];
 
 /**
- * A unit test never waits on real time (ADR 0161): a sleep makes it slow
+ * A unit test never waits on real time (ADR 0164): a sleep makes it slow
  * and, under load, wrong. Timed work takes its clock as a resource, and the
  * test hands it `virtualClock` from `@daisy/clock/testing`. A zero delay is
  * not a sleep (it yields one turn of the event loop), so `setTimeout(f, 0)`
@@ -464,7 +464,7 @@ const testTimePlugin = {
         type: 'problem',
         messages: {
           sleep:
-            '{{name}} waits on real time in a unit test. Inject the clock and drive it with virtualClock from @daisy/clock/testing (ADR 0161).',
+            '{{name}} waits on real time in a unit test. Inject the clock and drive it with virtualClock from @daisy/clock/testing (ADR 0164).',
         },
         schema: [],
       },
@@ -1024,7 +1024,7 @@ export default [
     files: ['**/*.config.*'],
     rules: { 'no-console': 'off' },
   },
-  // Unit tests run on a virtual clock (ADR 0161); integration and browser
+  // Unit tests run on a virtual clock (ADR 0164); integration and browser
   // suites drive real services and keep real time.
   {
     files: ['**/*.test.{ts,tsx}', '**/*.test-support.{ts,tsx}'],

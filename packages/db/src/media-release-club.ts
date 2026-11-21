@@ -329,11 +329,7 @@ export function createMediaReleaseClubs(input: {
             ineligible: decision.ineligible,
           };
         for (const student of decision.confirm) {
-          await supersedeOldRelease(
-            tx as BoundedTransactionContext,
-            student.userId,
-            now,
-          );
+          await supersedeOldRelease(tx, student.userId, now);
           const releaseIds: string[] = [];
           for (const scope of decision.scopes) {
             const releaseId = nextId();

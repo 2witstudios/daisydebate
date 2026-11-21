@@ -1,4 +1,4 @@
-# 0161: Property tests and virtual time
+# 0164: Property tests and virtual time
 
 Status: accepted (owner, 2026-11-19: "execute it all" on Plan — reconcile,
 step R1.2).
