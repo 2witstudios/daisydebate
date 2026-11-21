@@ -48,7 +48,7 @@ const reactionRowSchema = z.array(
     own: z.boolean(),
   }),
 );
-export const parseHistoryReactions = (value: unknown) =>
+const parseHistoryReactions = (value: unknown) =>
   reactionRowSchema.parse(value ?? []);
 
 /**

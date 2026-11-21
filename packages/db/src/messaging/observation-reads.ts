@@ -8,10 +8,10 @@ import { query, postgresInt8 } from '../raw-rows';
 /** The owner's header batch ceiling, matching the SQL function's slice. */
 const OBSERVATION_HEADER_BATCH = 1024;
 /** Shared counts only: the function returns no reactor, so none can be sent. */
-const reactionCounts = z.array(
+export const observationReactionCounts = z.array(
   z.object({ reaction: z.string(), count: z.number().int().positive() }),
 );
-const observationRow = z.object({
+export const observationWindowRow = z.object({
   id: z.string().nullable(),
   author_actor_id: z.string().nullable(),
   text: z.string().nullable(),
@@ -19,7 +19,11 @@ const observationRow = z.object({
   created_at: z.date().nullable(),
   edited_at: z.date().nullable(),
   removed_at: z.date().nullable(),
-  reactions: reactionCounts.nullable(),
+  reactions: observationReactionCounts.nullable(),
+  authority_revision: postgresInt8,
+  change_version: postgresInt8,
+  sequence: postgresInt8.nullable(),
+  message_change_version: postgresInt8.nullable(),
 });
 const revision = (value: unknown) => {
   const parsed = Number(value);
@@ -79,12 +83,7 @@ export function channelObservationReads(database: Tx) {
         throw createAppError('VALIDATION');
       const rows = await query(
         database,
-        observationRow.extend({
-          authority_revision: postgresInt8,
-          change_version: postgresInt8,
-          sequence: postgresInt8.nullable(),
-          message_change_version: postgresInt8.nullable(),
-        }),
+        observationWindowRow,
         sql`select * from public.daisy_observation_channel_messages(${channelId}::text, ${limit}::integer)`,
       );
       const header = rows[0];
