@@ -216,7 +216,7 @@ test('discovery exposes only authorized ranked host pools to the publisher', asy
 
 function discoveryFixture(
   rows: readonly Record<string, unknown>[],
-  poolRows: unknown[][] = [],
+  poolRows: Parameters<typeof createTestDatabase>[0] = [],
 ) {
   return createTestDatabase([
     [accountRow()],
