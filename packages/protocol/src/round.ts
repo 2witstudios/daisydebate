@@ -16,25 +16,29 @@ export type CompetitionType = (typeof competitionTypes)[number];
  * rules are frozen, any strike and pre-round prep run, and the speech clock
  * has not started (ADR 0104). `abandoned` keeps `started_at` nullable.
  */
+export const roundStatus = {
+  opening: 'opening',
+  active: 'active',
+  completed: 'completed',
+  abandoned: 'abandoned',
+} as const;
+/** A Round still running: in its opening or its debate, with no ending yet. */
+export const runningRoundStatuses = [
+  roundStatus.opening,
+  roundStatus.active,
+] as const;
+export type RunningRoundStatus = (typeof runningRoundStatuses)[number];
+/** A Round that has ended, with a result or without one. Nothing leaves these. */
+export const overRoundStatuses = [
+  roundStatus.completed,
+  roundStatus.abandoned,
+] as const;
 export const roundStatuses = [
-  'opening',
-  'active',
-  'completed',
-  'abandoned',
+  ...runningRoundStatuses,
+  ...overRoundStatuses,
 ] as const;
 export const roundStatusSchema = z.enum(roundStatuses);
 export type RoundStatus = (typeof roundStatuses)[number];
-/** A Round still running: in its opening or its debate, with no ending yet. */
-export const runningRoundStatuses = [
-  'opening',
-  'active',
-] as const satisfies readonly RoundStatus[];
-export type RunningRoundStatus = (typeof runningRoundStatuses)[number];
-/** A Round that has ended, with a result or without one. Nothing leaves these. */
-const overRoundStatuses = [
-  'completed',
-  'abandoned',
-] as const satisfies readonly RoundStatus[];
 export type OverRoundStatus = (typeof overRoundStatuses)[number];
 /** Whether a Round in `status` is still running. */
 export const isRoundRunning = (

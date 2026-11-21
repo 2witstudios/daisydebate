@@ -1,4 +1,9 @@
-import { SPECTATOR_MARGIN_MS } from '@daisy/protocol';
+import { lifecycleSql, lifecycleSqlList } from './lifecycle-sql';
+import {
+  overRoundStatuses,
+  roundStatus,
+  SPECTATOR_MARGIN_MS,
+} from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import {
   captionHeardAtSql,
@@ -27,10 +32,10 @@ const factsOfRound = sql`(
   union all
   select 'resolution', r.id, r.started_at where r.resolution is not null and r.started_at is not null
   union all
-  select 'result', r.id, r.completed_at where r.status='completed'
+  select 'result', r.id, r.completed_at where r.status=${lifecycleSql(roundStatus.completed)}
   union all
   select 'ballot', b.id, r.completed_at from ballots b
-    where b.round_id=r.id and r.competition_type='ranked' and r.status='completed'
+    where b.round_id=r.id and r.competition_type='ranked' and r.status=${lifecycleSql(roundStatus.completed)}
   union all
   select 'rating', c.id, greatest(c.occurred_at,r.completed_at) from rating_changes c
     where c.round_id=r.id
@@ -121,7 +126,7 @@ export async function closeSettledFactLogRounds(tx: Tx): Promise<number> {
       from spectator_fact_log_open_rounds o
       join rounds r on r.id=o.round_id
       where not (${hasAudience})
-        or (r.status in ('completed','abandoned')
+        or (r.status in ${lifecycleSqlList(overRoundStatuses)}
           and not exists (select 1 from lateral ${factsOfRound} where ${unlogged}))
     )
     delete from spectator_fact_log_open_rounds o using settled s

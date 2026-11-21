@@ -1,3 +1,4 @@
+import { lifecycleSql, lifecycleSqlList } from '../lifecycle-sql';
 import {
   competitionTypes,
   type CompetitionType,
@@ -7,7 +8,9 @@ import {
   frozenRoomConfigSchema,
   roomCaptureSchema,
   roundStageSchema,
-  roundStatusSchema,
+  roundStatuses,
+  roundStatus,
+  runningRoundStatuses,
   runtimeCheckpointSchema,
   roundJudgingSchema,
   daisyBallotDefinitionIds,
@@ -185,11 +188,11 @@ export const rounds = pgTable(
   },
   (table) => {
     const noOutcome = sql`${table.winningSide} is null and ${table.ranking} is null`;
-    const opening = sql`${table.status} = 'opening' and ${table.currentStage} is null and ${noOutcome} and ${table.startedAt} is null and ${table.completedAt} is null`;
-    const active = sql`${table.status} = 'active' and ${table.resolution} is not null and ${table.currentStage} is not null and ${noOutcome} and ${table.startedAt} is not null and ${table.completedAt} is null`;
+    const opening = sql`${table.status} = ${lifecycleSql(roundStatus.opening)} and ${table.currentStage} is null and ${noOutcome} and ${table.startedAt} is null and ${table.completedAt} is null`;
+    const active = sql`${table.status} = ${lifecycleSql(roundStatus.active)} and ${table.resolution} is not null and ${table.currentStage} is not null and ${noOutcome} and ${table.startedAt} is not null and ${table.completedAt} is null`;
     /** A null outcome is a real ending on any ladder and writes no rating (DEC-277). */
-    const completed = sql`${table.status} = 'completed' and ${table.currentStage} is null and ${table.startedAt} is not null and ${table.completedAt} is not null`;
-    const abandoned = sql`${table.status} = 'abandoned' and ${table.currentStage} is null and ${noOutcome} and ${table.completedAt} is not null`;
+    const completed = sql`${table.status} = ${lifecycleSql(roundStatus.completed)} and ${table.currentStage} is null and ${table.startedAt} is not null and ${table.completedAt} is not null`;
+    const abandoned = sql`${table.status} = ${lifecycleSql(roundStatus.abandoned)} and ${table.currentStage} is null and ${noOutcome} and ${table.completedAt} is not null`;
     return [
       index('rounds_room_league_ladder_idx').on(
         table.roomId,
@@ -228,7 +231,7 @@ export const rounds = pgTable(
       index('rounds_discovery_live_room_idx')
         .on(sql`${table.roomId} collate "C"`)
         .where(
-          sql`${table.status} in ('opening', 'active') and ${table.roomId} is not null`,
+          sql`${table.status} in ${lifecycleSqlList(runningRoundStatuses)} and ${table.roomId} is not null`,
         ),
       unique('rounds_room_unique').on(table.roomId),
       index('rounds_created_by_actor_idx').on(table.createdByActorId),
@@ -244,7 +247,7 @@ export const rounds = pgTable(
       versionPositive('rounds', table.version),
       check(
         'rounds_platform_ending_check',
-        sql`${table.platformEnding} is null or (${table.platformEnding} = 'recovery_bound' and ${table.status} = 'abandoned') or (${table.platformEnding} = 'capture_shortfall' and ${table.status} = 'completed' and ${noOutcome})`,
+        sql`${table.platformEnding} is null or (${table.platformEnding} = 'recovery_bound' and ${table.status} = ${lifecycleSql(roundStatus.abandoned)}) or (${table.platformEnding} = 'capture_shortfall' and ${table.status} = ${lifecycleSql(roundStatus.completed)} and ${noOutcome})`,
       ),
       check(
         'rounds_transcript_cutoff_check',
@@ -276,10 +279,7 @@ export const rounds = pgTable(
         'rounds_pre_round_prep_positive',
         sql`${table.preRoundPrepMs} is null or ${table.preRoundPrepMs} > 0`,
       ),
-      check(
-        'rounds_status_check',
-        oneOf(table.status, roundStatusSchema.options),
-      ),
+      check('rounds_status_check', oneOf(table.status, roundStatuses)),
       check(
         'rounds_current_stage_check',
         sql`${table.currentStage} is null or ${oneOf(table.currentStage, roundStageSchema.options)}`,

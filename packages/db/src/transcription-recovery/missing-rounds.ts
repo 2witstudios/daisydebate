@@ -1,3 +1,5 @@
+import { roundStatus } from '@daisy/protocol';
+import { lifecycleSql } from '../lifecycle-sql';
 import { sql } from 'drizzle-orm';
 /** Distinct eligible original-content Rounds. Custody refusal is handled outside this metadata-only query. */
 export const missingRounds = sql`select r.id as round_id,chosen.id as evidence_id,
@@ -10,7 +12,7 @@ export const missingRounds = sql`select r.id as round_id,chosen.id as evidence_i
    and not exists(select 1 from necessary_evidence_erasure_requests p where p.actor_id=any(e.original_subject_actor_ids))
    and not exists(select 1 from actors a join users u on u.id=a.user_id where a.id=any(e.original_subject_actor_ids) and u.deleted_at is not null)
    order by coalesce(offered.last_offered_at,e.created_at),e.id limit 1
- ) chosen where r.status='active'
+ ) chosen where r.status=${lifecycleSql(roundStatus.active)}
   and not exists(select 1 from round_transcript_freezes f where f.round_id=r.id)
   and not exists(select 1 from necessary_evidence_round_fences f where f.round_id=r.id and f.withdrawn_at is not null)
 `;

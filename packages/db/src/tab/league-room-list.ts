@@ -1,3 +1,4 @@
+import { openRoomStatuses, roomStatus } from '@daisy/protocol';
 import { and, desc, eq, inArray, isNull, or } from 'drizzle-orm';
 import { rooms, roomParticipants } from '../schema/rooms';
 import { rounds } from '../schema/rounds';
@@ -38,7 +39,7 @@ export async function loadLeagueRoomList(
     .where(
       and(
         eq(rooms.lobbyId, input.lobbyId),
-        inArray(rooms.status, ['assembling', 'ready', 'started']),
+        inArray(rooms.status, [...openRoomStatuses, roomStatus.started]),
         // A public Room is listed in the lobby; an unlisted or private one
         // only to its host and its seats (docs/domains/rooms.md, Visibility).
         or(

@@ -33,6 +33,34 @@ describe('repository ESLint configuration', () => {
     });
   });
 
+  test('rejects ambient globals in feature models', async () => {
+    const eslint = repositoryEslint();
+    const source = 'performance.now(); setTimeout(() => {}, 1);';
+    const results = await Promise.all(
+      ['model/nested/pulse.ts', 'browser-adapter.ts'].map((path) =>
+        eslint.lintText(source, {
+          filePath: `apps/web/src/features/realtime/${path}`,
+        }),
+      ),
+    );
+    assert({
+      given: 'ambient clock and timer reads in a feature model and an adapter',
+      should: 'report the model reads through the package purity rule',
+      actual: results.map(([result]) =>
+        result.messages
+          .filter(({ ruleId }) => ruleId === 'no-restricted-globals')
+          .map(({ line, column }) => [line, column]),
+      ),
+      expected: [
+        [
+          [1, 1],
+          [1, 20],
+        ],
+        [],
+      ],
+    });
+  });
+
   test('rejects ambient time and identity reads outside the allowlist', async () => {
     const eslint = repositoryEslint();
     const [result] = await eslint.lintText(

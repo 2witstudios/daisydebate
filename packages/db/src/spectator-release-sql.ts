@@ -1,4 +1,5 @@
-import { SPECTATOR_MARGIN_MS } from '@daisy/protocol';
+import { lifecycleSqlList } from './lifecycle-sql';
+import { overRoundStatuses, SPECTATOR_MARGIN_MS } from '@daisy/protocol';
 import { sql, type SQL } from 'drizzle-orm';
 
 /** The columns of the Round a release predicate reads, under any alias. */
@@ -40,7 +41,7 @@ export const spectatorHorizonSql = (
 ) => {
   const at = sql`${clock.now}::timestamptz`;
   const rankedDelay = sql`make_interval(secs => ${clock.rankedDelaySeconds}::double precision)`;
-  const terminal = sql`${round.status} in ('completed','abandoned')`;
+  const terminal = sql`${round.status} in ${lifecycleSqlList(overRoundStatuses)}`;
   return sql`(select case
     when b.id is null then case when ${terminal} then
       case when ${round.competitionType}='ranked' then ${at}-${rankedDelay}+${margin} else ${at}+${margin} end end
@@ -65,7 +66,7 @@ export const outcomeReleasedSql = (
   round: ReleaseRound,
   clock: SpectatorClock,
 ) =>
-  sql`(${round.status}<>'completed' or ${factReleasedSql(round.completedAt, round, clock)})`;
+  sql`(${round.status}<>${lifecycleSql(roundStatus.completed)} or ${factReleasedSql(round.completedAt, round, clock)})`;
 
 /**
  * When a caption's words have all been heard: a captured line is written

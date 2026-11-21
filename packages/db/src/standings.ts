@@ -1,5 +1,7 @@
+import { lifecycleSqlList } from './lifecycle-sql';
 import { createAppError } from '@daisy/errors';
 import {
+  runningRoundStatuses,
   ratingStyles,
   twoSideKeys,
   type Ladder,
@@ -98,7 +100,7 @@ export const standingsOperations = ({
       sql`select distinct opponent.actor_id from round_participants judge
       join rounds r on r.id=judge.round_id
       join round_participants opponent on opponent.round_id=r.id and ${isDebatingSeatSql(sql`opponent.seat_kind`)}
-      where judge.actor_id=${viewerActorId} and judge.seat_kind='judge' and r.status in ('opening','active')
+      where judge.actor_id=${viewerActorId} and judge.seat_kind='judge' and r.status in ${lifecycleSqlList(runningRoundStatuses)}
       and not exists(select 1 from ballots b where b.judge_participant_id=judge.id)`,
     );
     return rows.map((row) => row.actor_id);

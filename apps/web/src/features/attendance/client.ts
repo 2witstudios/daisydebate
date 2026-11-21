@@ -3,6 +3,16 @@ type Snapshot = {
   readonly status: string;
   readonly segments: readonly { readonly id: string; readonly type: string }[];
 };
+type Dispatch =
+  | { readonly kind: 'idle' }
+  | {
+      readonly kind: 'sending' | 'resend-queued';
+      readonly done: Promise<void>;
+    };
+type AttendanceState = {
+  readonly kind: 'active' | 'waiting' | 'terminal' | 'stopped';
+  readonly dispatch: Dispatch;
+};
 type Pending = {
   readonly commandId: string;
   readonly segmentId: string;
@@ -46,33 +56,29 @@ export function createAttendanceClient(deps: {
   const { nowMs } = deps;
   const pending = new Map<string, Pending>();
   const retired = new Set<string>();
-  let active = true;
-  let stopped = false;
-  let terminal = false;
-  /** Read afresh after every await: stop(), sign-out and a view flip these between them. */
-  const isActive = () => active;
-  const isHalted = () => stopped || terminal;
-  let inFlight: Promise<void> | null = null;
-  let forceQueued = false;
+  let state: AttendanceState = { kind: 'active', dispatch: { kind: 'idle' } };
+  const isActive = () => state.kind === 'active';
+  const isHalted = () => state.kind === 'stopped' || state.kind === 'terminal';
   /** The wait the last failing pass set, or null while check-ins succeed. */
   let retryWaitMs: number | null = null;
   let retryAtMs = 0;
   const signOut = () => {
-    if (stopped) return;
-    stopped = true;
-    active = false;
+    if (state.kind === 'stopped') return;
+    state = { ...state, kind: 'stopped' };
     pending.clear();
     deps.signedOut?.();
   };
   /** `tickAt` is when the tick that asked began, before any read. */
   const send = async (force: boolean, tickAt: number): Promise<void> => {
-    if (!active) return;
-    if (inFlight) {
-      forceQueued ||= force;
-      await inFlight;
+    if (!isActive()) return;
+    const { dispatch } = state;
+    if (dispatch.kind !== 'idle') {
+      if (force)
+        state = { ...state, dispatch: { ...dispatch, kind: 'resend-queued' } };
+      await dispatch.done;
       return;
     }
-    inFlight = (async () => {
+    const sendPending = async () => {
       let failed = false;
       for (const item of [...pending.values()].reverse()) {
         if (!isActive()) break;
@@ -102,27 +108,33 @@ export function createAttendanceClient(deps: {
       // Measured from the tick's start, before its read, so no request's
       // latency can make the due heartbeat skip a retry.
       retryAtMs = tickAt + (retryWaitMs ?? 0);
-    })();
+    };
+    const done = sendPending();
+    state = { ...state, dispatch: { kind: 'sending', done } };
+    const resendQueued = () => state.dispatch.kind === 'resend-queued';
     try {
-      await inFlight;
+      await done;
     } finally {
-      inFlight = null;
-      if (forceQueued) {
-        forceQueued = false;
-        await send(true, nowMs());
-      }
+      const resend = resendQueued();
+      state = { ...state, dispatch: { kind: 'idle' } };
+      if (resend) await send(true, nowMs());
     }
   };
   /** Takes a snapshot's speeches; returns how many it had not seen before. */
   const adopt = (snapshot: Snapshot): number => {
-    if (stopped || terminal) return 0;
-    active = snapshot.status === 'active';
-    if (!active) {
-      terminal =
-        snapshot.status === 'completed' || snapshot.status === 'abandoned';
+    if (isHalted()) return 0;
+    if (snapshot.status !== 'active') {
+      state = {
+        ...state,
+        kind:
+          snapshot.status === 'completed' || snapshot.status === 'abandoned'
+            ? 'terminal'
+            : 'waiting',
+      };
       pending.clear();
       return 0;
     }
+    state = { ...state, kind: 'active' };
     let added = 0;
     for (const segment of snapshot.segments)
       if (
@@ -150,7 +162,7 @@ export function createAttendanceClient(deps: {
     slackMs: number,
   ) => force || added > 0 || tickAt >= retryAtMs - slackMs;
   const refresh = async (force: boolean) => {
-    if (stopped || terminal) return;
+    if (isHalted()) return;
     const tickAt = nowMs();
     const snapshot = await deps.read().catch(() => null);
     if (isHalted()) return;
@@ -173,8 +185,7 @@ export function createAttendanceClient(deps: {
     reconnect: () => refresh(true),
     heartbeat: () => refresh(false),
     stop() {
-      stopped = true;
-      active = false;
+      state = { ...state, kind: 'stopped' };
       pending.clear();
     },
   };

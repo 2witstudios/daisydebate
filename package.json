@@ -37,7 +37,7 @@
     "check:build-isolation": "bun scripts/check-build-artifact-isolation.ts",
     "start": "bun run --cwd apps/web start",
     "typecheck": "bun scripts/heavy.ts turbo run typecheck",
-    "lint": "bun scripts/heavy.ts sh -c 'bunx --bun eslint . && bun scripts/check-boundaries.ts && bun scripts/check-styling.ts && bun scripts/check-side-literals.ts && bun test --timeout 180000 eslint.config.test.ts'",
+    "lint": "bun scripts/heavy.ts sh -c 'bunx --bun eslint . && bun scripts/check-boundaries.ts && bun scripts/check-styling.ts && bun scripts/check-side-literals.ts && bun scripts/check-lifecycle-literals.ts && bun test --timeout 180000 eslint.config.test.ts'",
     "knip": "bun scripts/heavy.ts bunx --bun knip",
     "log:routes": "bun scripts/log-routes.ts",
     "knip:production": "bun scripts/heavy.ts bunx --bun knip --config knip.production.ts --production --include files --workspace apps/web",

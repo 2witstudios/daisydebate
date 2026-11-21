@@ -1,3 +1,5 @@
+import { roundStatus } from '@daisy/protocol';
+import { lifecycleSql } from '../lifecycle-sql';
 import { sql } from 'drizzle-orm';
 import type { Policy } from './policy';
 import { hasUnenrolledOriginals } from './readiness';
@@ -23,7 +25,7 @@ export async function discover(tx: Tx, options: Policy) {
     z.object({ contextId: z.string(), roundId: z.string() }),
     sql`select chosen.id as "contextId",r.id as "roundId" from rounds r cross join lateral (
    select c.id from transcription_recovery_contexts c where c.round_id=r.id and ${due(options)} order by c.created_at,c.id limit 1
- ) chosen where r.status='active'
+ ) chosen where r.status=${lifecycleSql(roundStatus.active)}
  and not exists(select 1 from round_transcript_freezes f where f.round_id=r.id)
  and not exists(select 1 from necessary_evidence_round_fences f where f.round_id=r.id and f.withdrawn_at is not null)
  and not exists(select 1 from transcription_recovery_contexts live where live.round_id=r.id and live.status='leased' and live.lease_expires_at>clock_timestamp())
