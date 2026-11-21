@@ -3,6 +3,7 @@ import { authorize } from '@daisy/auth/authorization';
 import { requireTestServices } from '@daisy/config';
 import { createTabStore } from '@daisy/db/tab';
 import { withRolledBackDatabase } from '@daisy/db/testing';
+import type { EntryCommand } from '@daisy/protocol/lobby/entry-command';
 import type { LobbyCommand } from '@daisy/protocol/lobby/lobby-setup-command';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -70,6 +71,8 @@ const seed = async (sql: SQL) => {
     adult,
     minor,
     agedOut,
+    guardian,
+    linkId,
     leagueId,
     youthLobby,
     youthWithoutSeason,
@@ -78,6 +81,11 @@ const seed = async (sql: SQL) => {
     foreignLobby,
   };
 };
+
+type EntryResponsibility = Extract<
+  EntryCommand,
+  { type: 'submit-entry' }
+>['responsible'];
 
 type CreateLobby = Extract<LobbyCommand, { type: 'create-lobby' }>;
 type Eligibility = Extract<
@@ -170,6 +178,7 @@ test('Tab enrollment uses the exact standing lobby and authorizes each entrant',
         target: { lobbyId: string; eventId: string },
         member: Bot,
         caller = member,
+        responsible: EntryResponsibility = { kind: 'self' },
       ) => {
         await inScope(target.lobbyId);
         const [row] =
@@ -186,7 +195,7 @@ test('Tab enrollment uses the exact standing lobby and authorizes each entrant',
               eventId: target.eventId,
               name: member.name,
               memberActorIds: [member.actorId],
-              responsible: { kind: 'self' },
+              responsible,
               division: null,
             },
           },
@@ -266,6 +275,23 @@ test('Tab enrollment uses the exact standing lobby and authorizes each entrant',
         inherited(data.youthWithoutSeason),
         'Youth without a season',
       );
+      const guardianResponsibility = {
+        kind: 'guardian' as const,
+        guardianLinkId: data.linkId,
+      };
+      assert({
+        given:
+          'a guardian submitting for their linked child and a stranger naming the same link',
+        should:
+          'authorize only the guardian and use the same lobby eligibility rule',
+        actual: [
+          await deniedAsNotFound(() =>
+            enter(noSeason, minor, adult, guardianResponsibility),
+          ),
+          await enter(noSeason, minor, data.guardian, guardianResponsibility),
+        ],
+        expected: [true, 'accepted'],
+      });
       assert({
         given:
           'a debater who turned eighteen after the selected Youth lobby’s season began',
