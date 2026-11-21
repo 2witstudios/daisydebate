@@ -376,6 +376,28 @@ test('stored tournament pages only project the addressed and authorized schedule
       }
       const publicResponse = await route(false)(request());
       const posting = postingPageSchema.parse(await publicResponse.json());
+      const handle = String(state.handle);
+      const signedOut = route(false);
+      const privateResponses = await Promise.all(
+        [
+          participantPagePath({ view: 'directory', after: '' }),
+          participantPagePath({ view: 'tournament', handle }),
+          participantPagePath({
+            view: 'results',
+            handle,
+            eventId,
+            section: 'standings',
+          }),
+        ].map((path) => signedOut(new Request(`${origin}${path}`))),
+      );
+      assert({
+        given:
+          'a signed-out caller after the addressed draw has opened publicly',
+        should:
+          'keep directory, tournament and results reads restricted to members',
+        actual: privateResponses.map(({ status }) => status),
+        expected: [404, 404, 404],
+      });
       const expectedNames = beforeHost.selected.fixtures.flatMap(
         (fixture) => fixture.entries,
       );

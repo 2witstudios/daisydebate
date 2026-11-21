@@ -11,7 +11,7 @@ import {
   type EventFormState,
 } from '../../../../../../features/tab/event-form';
 import { hostRoutes } from '../../../../../../features/tab/routes';
-import { inProcessFetch } from '../../../../../../server/in-process-fetch';
+import { runTabCommandForm } from '../../../../../../features/tab/command-form-action';
 import { moveOn } from '../../../../../../server/form-action';
 import { POST } from '../../../../../api/tab/lobby-command/route';
 export async function eventAction(
@@ -36,27 +36,19 @@ export async function eventAction(
     );
   }
   const incoming = new Headers(await headers());
-  let answer;
-  try {
-    const response = await inProcessFetch(POST, incoming)(
-      '/api/tab/lobby-command',
-      {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(envelope),
-      },
-    );
-    if (!response.ok)
-      return response.status >= 500
-        ? eventFormUnacknowledged(form)
-        : eventFormRefused(
-            form,
-            'You cannot make this change. Reload the tournament.',
-          );
-    answer = eventFormAnswer(form, await response.json());
-  } catch {
-    return eventFormUnacknowledged(form);
-  }
+  const answer = await runTabCommandForm({
+    post: POST,
+    incoming,
+    path: '/api/tab/lobby-command',
+    body: envelope,
+    answer: (response) => eventFormAnswer(form, response),
+    refused: () =>
+      eventFormRefused(
+        form,
+        'You cannot make this change. Reload the tournament.',
+      ),
+    unacknowledged: () => eventFormUnacknowledged(form),
+  });
   if (answer.kind !== 'accepted') return answer;
   for (const path of [
     hostRoutes.events(context.handle),

@@ -1,6 +1,6 @@
+import { mapTabCommandAnswer } from '../tab/command-form-answer';
 import { z } from 'zod';
 import { idSchema } from '@daisy/protocol';
-import { lobbyCommandReceiptSchema } from '@daisy/protocol/lobby/command';
 import { lobbySetupCommandEnvelopeSchema } from '@daisy/protocol/lobby/lobby-setup-command';
 import { settingCommandEnvelopeSchema } from '@daisy/protocol/lobby/setting-command';
 import type { RatingDivision } from '@daisy/protocol';
@@ -147,11 +147,6 @@ export const freestyleEventEnvelope = (
     },
   });
 
-const answerSchema = z.discriminatedUnion('kind', [
-  z.object({ kind: z.literal('accepted'), receipt: lobbyCommandReceiptSchema }),
-  z.object({ kind: z.literal('refused'), refusal: z.string() }),
-]);
-
 /** A command's answer: its receipt, or the sentence the form shows. */
 export const createTournamentAnswer = (
   form: FormData,
@@ -163,20 +158,21 @@ export const createTournamentAnswer = (
       readonly version: number;
     }
   | CreateTournamentState => {
-  const parsed = answerSchema.safeParse(body);
-  if (!parsed.success) return createTournamentUnacknowledged(form);
-  if (parsed.data.kind === 'accepted')
-    return {
-      kind: 'accepted',
-      lobbyId: parsed.data.receipt.aggregate.id,
-      version: parsed.data.receipt.resultingVersion,
-    };
-  return createTournamentRefused(
-    form,
-    parsed.data.refusal === 'handle-taken'
-      ? 'That name is taken. Try another.'
-      : 'This tournament could not be made. Reload this page.',
-  );
+  return mapTabCommandAnswer(body, {
+    accepted: (receipt) => ({
+      kind: 'accepted' as const,
+      lobbyId: receipt.aggregate.id,
+      version: receipt.resultingVersion,
+    }),
+    unacknowledged: () => createTournamentUnacknowledged(form),
+    refused: (reason) =>
+      createTournamentRefused(
+        form,
+        reason === 'handle-taken'
+          ? 'That name is taken. Try another.'
+          : 'This tournament could not be made. Reload this page.',
+      ),
+  });
 };
 
 /** A command post as the form sees it: the receipt's facts, or the form's answer. */

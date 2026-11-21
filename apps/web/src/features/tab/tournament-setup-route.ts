@@ -1,14 +1,10 @@
-import { createAppError } from '@daisy/errors';
 import {
   lobbySetupViewSchema,
   type TournamentSetupView,
 } from '@daisy/protocol/lobby/lobby-setup-read';
 import { z } from 'zod';
-import { parseValidated } from '../../server/http';
-import {
-  runEvaluatedRoute,
-  type MemberBoundary,
-} from '../../server/member-boundary';
+import type { MemberBoundary } from '../../server/member-boundary';
+import { bindTabRead } from './read-route';
 import type { TabPrincipal } from './tab-principal';
 const querySchema = z.strictObject({
   handle: z.string().trim().min(1).max(64),
@@ -25,28 +21,18 @@ export type TournamentSetupRouteDependencies = {
   ) => Promise<TournamentSetupView | null>;
 };
 /** A closed release, unknown address and absent host authority all answer not found. */
-export const createTournamentSetupRoute =
-  (dependencies: TournamentSetupRouteDependencies) => (request: Request) =>
-    runEvaluatedRoute(dependencies.boundary, request, {
-      name: 'tab.tournament.setup',
-      readOnly: true,
-      readInput: async () =>
-        parseValidated(
-          querySchema,
-          Object.fromEntries(new URL(request.url).searchParams),
-        ),
-      operation: async (input, principal) => {
-        if (
-          principal.kind !== 'user' ||
-          !(await dependencies.released(principal.userId))
-        )
-          throw createAppError('NOT_FOUND');
-        const { handle } = input as z.infer<typeof querySchema>;
-        const lobbyId = await dependencies.lobbyIdOfHandle(handle);
-        const view =
-          lobbyId === null ? null : await dependencies.read(principal, lobbyId);
-        if (view === null) throw createAppError('NOT_FOUND');
-        return lobbySetupViewSchema.parse(view);
-      },
-      headers: { 'cache-control': 'no-store' },
-    });
+export const createTournamentSetupRoute = (
+  dependencies: TournamentSetupRouteDependencies,
+) =>
+  bindTabRead({
+    boundary: dependencies.boundary,
+    released: dependencies.released,
+    name: 'tab.tournament.setup',
+    query: querySchema,
+    view: lobbySetupViewSchema,
+    validateBeforeRelease: true,
+    read: async (principal, { handle }) => {
+      const lobbyId = await dependencies.lobbyIdOfHandle(handle);
+      return lobbyId === null ? null : dependencies.read(principal, lobbyId);
+    },
+  });

@@ -14,7 +14,7 @@ import {
   type BallotAuthoringState,
 } from '../../../../../../../../features/tab/ballot-authoring-form';
 import { hostRoutes } from '../../../../../../../../features/tab/routes';
-import { inProcessFetch } from '../../../../../../../../server/in-process-fetch';
+import { runTabCommandForm } from '../../../../../../../../features/tab/command-form-action';
 import { moveOn } from '../../../../../../../../server/form-action';
 import { POST as setupPOST } from '../../../../../../../api/tab/lobby-command/route';
 import { POST as settingsPOST } from '../../../../../../../api/tab/settings-command/route';
@@ -40,31 +40,23 @@ export async function ballotAuthoringAction(
     );
   }
   const incoming = new Headers(await headers());
-  let state;
-  try {
-    const path =
-      mode === 'screening'
-        ? '/api/tab/settings-command'
-        : '/api/tab/lobby-command';
-    const response = await inProcessFetch(
-      mode === 'screening' ? settingsPOST : setupPOST,
-      incoming,
-    )(path, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(envelope),
-    });
-    if (!response.ok)
-      return response.status >= 500
-        ? ballotAuthoringUnacknowledged(form)
-        : ballotAuthoringRefused(
-            form,
-            'You cannot change this event. Reload this page.',
-          );
-    state = ballotAuthoringAnswer(form, await response.json());
-  } catch {
-    return ballotAuthoringUnacknowledged(form);
-  }
+  const commandPath =
+    mode === 'screening'
+      ? '/api/tab/settings-command'
+      : '/api/tab/lobby-command';
+  const state = await runTabCommandForm({
+    post: mode === 'screening' ? settingsPOST : setupPOST,
+    incoming,
+    path: commandPath,
+    body: envelope,
+    answer: (response) => ballotAuthoringAnswer(form, response),
+    refused: () =>
+      ballotAuthoringRefused(
+        form,
+        'You cannot change this event. Reload this page.',
+      ),
+    unacknowledged: () => ballotAuthoringUnacknowledged(form),
+  });
   if (state.kind !== 'accepted') return state;
   const path = hostRoutes.ballot(context.handle, context.eventId);
   revalidatePath(path);
