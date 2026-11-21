@@ -140,6 +140,27 @@ test(
       });
 
       await f.sql`update lobbies set age_rule='anyone' where id=${ambiguous}`;
+      await f.sql`alter table rooms add constraint fixture_reject_upgrade
+        check (legacy_tournament_youth is distinct from true) not valid`;
+      const interrupted = await rejectedBy(migrate);
+      const [afterFailure] = await f.sql`
+        select
+          (select count(*)::int from lobbies where owner_organization_id=${league}
+            and kind='standing' and age_rule='adults') as "mintedParents",
+          (select count(*)::int from settings where key='entry.age_division') as settings,
+          (select count(*)::int from information_schema.columns where table_schema='public'
+            and table_name='lobbies' and column_name='standing_lobby_id') as "parentColumn"
+      `;
+      assert({
+        given: 'the migration fails after creating a missing parent',
+        should: 'roll back the minted parent, old settings and schema together',
+        actual: { interrupted, afterFailure },
+        expected: {
+          interrupted: 'fixture_reject_upgrade',
+          afterFailure: { mintedParents: 0, settings: 2, parentColumn: 0 },
+        },
+      });
+      await f.sql`alter table rooms drop constraint fixture_reject_upgrade`;
       await migrate();
       const snapshot = () => f.sql<
         {
