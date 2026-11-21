@@ -896,6 +896,15 @@ describe('database statement and lock boundaries', () => {
       `const raw = ${statement}; const all = Promise.all<[typeof raw, [typeof raw]]>;
        const apply = (Reflect.apply<typeof Promise, [[typeof raw, [typeof raw]]], ReturnType<typeof all>>).bind(Reflect, all, Promise);
        const [rows] = await apply([[raw, [raw]]]); return rows[0]?.value;`,
+      `const raw = ${statement};
+       const all: (input: Set<typeof raw>) => Promise<Awaited<typeof raw>[]> = Promise.all;
+       const invoke: (target: typeof all, receiver: typeof Promise, args: [Set<typeof raw>]) => ReturnType<typeof all> = Reflect.apply;
+       const [rows] = await invoke(all, Promise, [new Set([raw])]); return rows?.[0]?.value;`,
+      `const raw = ${statement};
+       const all: (input: Set<typeof raw>) => Promise<Awaited<typeof raw>[]> = Promise.all;
+       const args = [Reflect, all, Promise] as const;
+       const apply = (Reflect.apply<typeof Promise, [Set<typeof raw>], ReturnType<typeof all>>).bind(...args);
+       const [rows] = await apply([new Set([raw])]); return rows?.[0]?.value;`,
       `return Promise.resolve().then(() => ${statement});`,
       `const parsed = query(${statement}, z.object({ value: z.int() }));
        const all = Promise.all<[typeof parsed]>;
@@ -928,7 +937,7 @@ describe('database statement and lock boundaries', () => {
         'a typed Promise adapter accepting nested query inputs or a query callback',
       should: 'reject raw inputs while allowing values decoded before the call',
       actual: errors,
-      expected: [1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0],
+      expected: [1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0],
     });
   });
 });

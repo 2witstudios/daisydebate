@@ -738,8 +738,17 @@ const dbNativeRowsPlugin = {
             if (!checker.isTupleType(type))
               return { type: type.getNumberIndexType(), location };
             const items = checker.getTypeArguments(type);
-            if (remaining < items.length)
-              return { type: items[remaining], location };
+            if (remaining < items.length) {
+              const tuple = constantSource(expression);
+              const item =
+                tuple?.type === 'ArrayExpression' &&
+                tuple.elements.every(
+                  (element) => element?.type !== 'SpreadElement',
+                )
+                  ? tuple.elements[remaining]
+                  : undefined;
+              return { type: items[remaining], location, expression: item };
+            }
             remaining -= items.length;
           }
         };
@@ -776,7 +785,10 @@ const dbNativeRowsPlugin = {
               };
             if (reflectApply(target) && invocation.name === 'bind') {
               const bound = standardCallable(logicalArgument(args, 1));
-              if (bound?.owner === 'PromiseConstructor' && args.length >= 4)
+              if (
+                bound?.owner === 'PromiseConstructor' &&
+                logicalArgument(args, 3)
+              )
                 return { method: bound.name, index: 3, packed: [0] };
             }
           }
@@ -801,11 +813,11 @@ const dbNativeRowsPlugin = {
           const target = standardCallable(logicalArgument(source.arguments, 1));
           if (
             target?.owner === 'PromiseConstructor' &&
-            source.arguments.length < 4
+            !logicalArgument(source.arguments, 3)
           )
             return {
               method: target.name,
-              index: 3 - source.arguments.length,
+              index: logicalArgument(source.arguments, 2) ? 0 : 1,
               packed: [0],
             };
         };
@@ -932,7 +944,9 @@ const dbNativeRowsPlugin = {
               report(node);
               return;
             }
-            const invocation = builtInMethod(signature);
+            const invocation =
+              builtInMethod(signature) ??
+              standardCallable({ expression: callee });
             if (
               (invocation?.owner === 'Promise' ||
                 invocation?.owner === 'PromiseLike') &&
