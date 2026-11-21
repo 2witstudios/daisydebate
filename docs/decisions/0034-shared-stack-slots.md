@@ -33,8 +33,10 @@ are tiny (`daisy` 9 MB, `daisy_test` 15 MB).
   `daisy_wt_3ctbm0tw_test`, namespaces `daisy-wt-3ctbm0tw` and
   `daisy-wt-3ctbm0tw-e2e`. Ids are lowercase words joined by single
   underscores, at most 28 characters so every namespace fits
-  `REDIS_NAMESPACE`, and may not end in `_test` or `_e2e`, so every
-  database and namespace name maps back to exactly one slot. Any other
+  `REDIS_NAMESPACE`, and reserve the suffixes used for slot resources.
+  Ordinary Playwright appends `-realtime` to the E2E Redis namespace when
+  it fits. That name can also be another worktree's dev namespace. Either
+  live owner protects the namespace from pruning (ISSUE-1507). Any other
   folder name is refused, never normalised into something else.
 - **Template database.** `daisy_template` holds what a fresh slot needs
   before migrations: the `daisy_e2e` role's schema usage and default table
