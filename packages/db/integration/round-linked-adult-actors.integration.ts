@@ -180,8 +180,8 @@ const asRole = async (sql: SQL, role: string, roundId: string) => {
  * `daisy_round_linked_adult_actors`, answers exactly as its TypeScript
  * statement, `linkedAdultsOfRound`, and as each shared fixture expects, for
  * the web's runtime role and the realtime role alike: every kind of linked
- * adult allowed, every other adult and stranger refused, and an Open Round
- * with none.
+ * adult allowed, every other adult and stranger refused, and only the youth
+ * debaters in a mixed-age Open Round.
  */
 for (const fixture of linkedAdultFixtures)
   test(`daisy_round_linked_adult_actors: ${fixture.given}`, async () => {

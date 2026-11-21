@@ -11,8 +11,8 @@
  * them, the owner of an open school they are an active member of, or an
  * active member of that school holding a live organization grant whose role
  * carries `school.roster.manage`; never the minor. A Youth Round's youth
- * debaters are the people holding its current debating seats; any other
- * Round has none.
+ * debaters are the people holding its current debating seats. In an adult
+ * standing lobby with a youth cast, only the youth debaters are included.
  */
 
 import {
@@ -24,8 +24,10 @@ import {
 export type LinkedAdultFacts = {
   readonly round: {
     readonly ladderDivision: RatingDivision | null;
-    /** The Round's Room; null for a Round with no Room. */
+    /** Whether the Round's Room has a youth rule or cast; null without a Room. */
     readonly roomYouth: boolean | null;
+    /** Known youth at recording time for a mixed-age lobby; null for an unfiltered cast. */
+    readonly youthDebaterUserIds: readonly string[] | null;
   };
   readonly seats: readonly {
     readonly actorId: string;
@@ -126,11 +128,15 @@ export const linkedAdultsOfRound = (
     return { debaters: [] };
   const userOf = (actorId: string) =>
     facts.actors.find((actor) => actor.id === actorId)?.userId ?? null;
+  const eligibleDebater = (userId: string | null) =>
+    userId !== null &&
+    (facts.round.youthDebaterUserIds === null ||
+      facts.round.youthDebaterUserIds.includes(userId));
   const debaters = sorted(
     facts.seats
       .filter((seat) => seat.debating && seat.current)
       .map((seat) => seat.actorId)
-      .filter((actorId) => userOf(actorId) !== null),
+      .filter((actorId) => eligibleDebater(userOf(actorId))),
   );
   return {
     debaters: debaters.map((actorId) => {
