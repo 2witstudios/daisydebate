@@ -2,7 +2,11 @@ import { SQL } from 'bun';
 import { afterAll } from 'bun:test';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
+import { eq } from 'drizzle-orm';
+import { drizzle } from 'drizzle-orm/bun-sql';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { roomFacts } from '../src/room-command-facts';
+import { rooms } from '../src/schema/rooms';
 import { Fixture, rejectedBy } from './constraint-helpers';
 import { validConfig } from './round-fixtures';
 import {
@@ -179,6 +183,15 @@ test(
       await migrate();
       const afterRetry = await snapshot();
       const live = await tournamentRoom(youth);
+      const database = drizzle({ client: f.sql });
+      const projectedRule = async (roomId: string) => {
+        const [row] = await database
+          .select()
+          .from(rooms)
+          .where(eq(rooms.id, roomId));
+        return (await roomFacts(database, row!)).state.ageRule;
+      };
+      const frozenOpenProjection = await projectedRule(frozenOpen);
       const [beforeEdit] =
         await f.sql`select public.daisy_room_is_youth(${live}) as youth`;
       const schoolMember = async (years: number) => {
@@ -262,6 +275,12 @@ test(
           liveBeforeEdit: beforeEdit?.youth,
           schoolBeforeEdit: schoolBeforeEdit?.youth_staff,
           schoolPrivacy,
+          roomRules: [
+            frozenOpenProjection,
+            await projectedRule(frozenYouth),
+            await projectedRule(mixed),
+            await projectedRule(live),
+          ],
           privacy,
           remaining,
           crossLeague: await rejectedBy(writeWithParent(foreign)),
@@ -282,6 +301,7 @@ test(
             mixedMinorStaff: true,
             mixedAdultStaff: false,
           },
+          roomRules: ['adults', 'under-18', 'under-18', 'adults'],
           privacy: {
             frozenOpen: false,
             frozenYouth: true,

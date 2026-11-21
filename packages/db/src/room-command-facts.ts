@@ -234,7 +234,12 @@ const hydrateRoom = async (
   const standingParent = alias(lobbies, 'standing_parent');
   const [lobby] = await tx
     .select({
-      ageRule: sql<LobbyAgeRule>`coalesce(${standingParent.ageRule}, ${lobbies.ageRule})`,
+      // Room chat projects frozen and mixed-cast tournament privacy from this view.
+      ageRule: sql<LobbyAgeRule>`case
+        when ${row.legacyTournamentYouth === false}::boolean then 'adults'::lobby_age_rule
+        when ${lobbies.kind} = 'tournament' and public.daisy_room_is_youth(${row.id})
+          then 'under-18'::lobby_age_rule
+        else coalesce(${standingParent.ageRule}, ${lobbies.ageRule}) end`,
     })
     .from(lobbies)
     .leftJoin(standingParent, eq(standingParent.id, lobbies.standingLobbyId))
