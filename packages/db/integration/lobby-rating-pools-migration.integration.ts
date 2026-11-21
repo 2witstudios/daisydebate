@@ -7,7 +7,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { standingsOperations } from '../src/standings';
 import { daisyOrganizationId, publicLobbyId } from '../src/daisy-reference';
 import { Fixture, rejectedBy, sqlStateOf } from './constraint-helpers';
-import { validConfig } from './round-fixtures';
+import { validConfig, validRules } from './round-fixtures';
 import { loadSampleTournament, sampleInstant } from './tab.test-support';
 import { loadLeagueCertifiedRatingInputs } from '../src/tab/league-certified-rating-inputs';
 import { readRatingCandidates } from '../src/rating-discovery';
@@ -180,7 +180,9 @@ test(
         [
           { seat: 'affirmative', actorId: thirdActor },
           { seat: 'negative', actorId: opponent },
+          { seat: 'judge', actorId: actor.open },
         ],
+        { rules: { ...validRules, seats: { ...validRules.seats, judges: 1 } } },
       );
       await f.insert(
         'ratings',
@@ -212,6 +214,33 @@ test(
         deviation_after: 270,
         volatility_before: 0.06,
         volatility_after: 0.061,
+      });
+      const judgePosting = createId();
+      // This scratch predecessor starts after Tab's historical observation.
+      // Recreate the mark Tab would already have set on this old judge row.
+      await client.begin(async (tx) => {
+        await tx`alter table round_participants disable trigger round_participants_identity_guard`;
+        await tx`update round_participants set legacy_rating_participant=true
+          where round_id=${thirdRound} and actor_id=${actor.open} and seat_kind='judge'`;
+        await tx`set constraints all immediate`;
+        await tx`alter table round_participants enable trigger round_participants_identity_guard`;
+      });
+      await f.insert('rating_changes', {
+        id: judgePosting,
+        round_id: thirdRound,
+        actor_id: actor.open,
+        ladder: 'freestyle',
+        season_id: season.open,
+        division: 'open',
+        format_id: 'freestyle',
+        calculation_version: 'glicko2-v1',
+        occurred_at: new Date(finish.getTime() + 1000),
+        rating_before: 1600.25,
+        rating_after: 1777,
+        deviation_before: 250.5,
+        deviation_after: 240,
+        volatility_before: 0.061,
+        volatility_after: 0.062,
       });
       const league = await client.begin((tx) => loadSampleTournament(tx));
       const laterLobby = createId();
@@ -272,7 +301,7 @@ test(
           client`select id, name, starts_at, ends_at, status from seasons where id in ${client([...Object.values(season), orphanSeason])} order by id`,
           client`select actor_id, season_id, rating, deviation, volatility,version from ratings where actor_id <> ${thirdActor} order by actor_id, season_id`,
           client`select id, round_id, season_id, actor_id, rating_before, rating_after, deviation_before, deviation_after,
-        volatility_before, volatility_after, calculation_version, occurred_at from rating_changes where id <> ${thirdPosting} order by id`,
+        volatility_before, volatility_after, calculation_version, occurred_at from rating_changes where id not in (${thirdPosting},${judgePosting}) order by id`,
         ]);
       const before = await data();
       await scratch.migrate((name) => name <= migration);
@@ -359,19 +388,24 @@ test(
         await client`select d.id as ladder, d.lobby_id from ladders d
         join seasons s on s.lobby_id=d.lobby_id where s.id=${season.youth}`;
       const scopes =
-        await client`select id, ladder_id, rating_lobby_id, season_id from rounds where id in ${client(roundIds)}`;
+        await client`select id, ladder_id, rating_lobby_id, season_id, standing_age_rule from rounds where id in ${client(roundIds)}`;
       assert({
         given: 'posted Rounds whose timestamps disagree with their ledger',
         should:
           'freeze each posting’s original season and its own lobby ladder',
         actual: roundIds.map((id) => {
           const row = scopes.find((scope: { id: string }) => scope.id === id)!;
-          return [row.ladder_id, row.rating_lobby_id, row.season_id];
+          return [
+            row.ladder_id,
+            row.rating_lobby_id,
+            row.season_id,
+            row.standing_age_rule,
+          ];
         }),
         expected: [
-          ['freestyle', publicLobbyId, season.open],
-          [youth!.ladder, youth!.lobby_id, season.youth],
-          ['freestyle', publicLobbyId, season.closed],
+          ['freestyle', publicLobbyId, season.open, 'adults'],
+          [youth!.ladder, youth!.lobby_id, season.youth, 'under-18'],
+          ['freestyle', publicLobbyId, season.closed, 'adults'],
         ],
       });
       const [third] =
@@ -394,6 +428,26 @@ test(
         expected: [thirdLobby, true, true, 1620, 1620],
       });
       const db = standingsOperations({ database: drizzle({ client }) });
+      const [retainedJudge] =
+        await client`select c.lobby_id,c.rating_after,p.legacy_rating_participant,
+        (select rating from ratings where actor_id=${actor.open} and lobby_id=${publicLobbyId} and season_id=${season.open}) as open_rating,
+        exists(select 1 from ratings where actor_id=${actor.open} and lobby_id=${thirdLobby}) as judge_rating
+        from rating_changes c join round_participants p on p.round_id=c.round_id and p.actor_id=c.actor_id
+        where c.id=${judgePosting}`;
+      assert({
+        given:
+          'one legacy actor who debated in Open and later had a judge-only posting on another ladder',
+        should:
+          'retain both histories while leaving their projection in the lobby where they debated',
+        actual: [
+          retainedJudge?.lobby_id,
+          retainedJudge?.rating_after,
+          retainedJudge?.legacy_rating_participant,
+          retainedJudge?.open_rating,
+          retainedJudge?.judge_rating,
+        ],
+        expected: [thirdLobby, 1777, true, 1600.25, false],
+      });
       const legacyFirst = await readRatingCandidates(drizzle({ client }), {
         limit: 3,
       });

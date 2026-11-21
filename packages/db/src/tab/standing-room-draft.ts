@@ -139,13 +139,10 @@ export const loadStandingRoomDraft = async (
     authorization,
     offered: currentOffers,
     templateAuthorizations,
-    ladder:
-      (
-        await tx
-          .select({ id: ladders.id })
-          .from(ladders)
-          .where(eq(ladders.lobbyId, lobby.id))
-      )[0] ?? null,
+    ladders: await tx
+      .select({ id: ladders.id })
+      .from(ladders)
+      .where(eq(ladders.lobbyId, lobby.id)),
     resolutions: await tx
       .select()
       .from(poolResolutions)

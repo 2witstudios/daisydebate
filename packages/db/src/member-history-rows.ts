@@ -15,7 +15,6 @@ import { aiJudgeProfiles } from './schema/ai-judge-profiles';
 import { forfeitRecorded } from './recorded-ending';
 import { roundParticipants } from './schema/round-participants';
 import { rounds } from './schema/rounds';
-import { lobbies } from './schema/lobbies';
 import { users } from './schema/users';
 import {
   isDebatingSeatSql,
@@ -77,7 +76,7 @@ const forfeitedRounds = async (tx: Tx, ids: readonly string[]) => {
   );
 };
 
-/** Display classification derived from the frozen ladder's lobby. */
+/** Display classification frozen with the Round's ladder. */
 export const roundLadderOf = (columns: {
   readonly ladderId: string | null;
   readonly ladderAgeRule: LobbyAgeRule | null;
@@ -98,10 +97,9 @@ const roundLadders = async (
     .select({
       roundId: rounds.id,
       ladderId: rounds.ladderId,
-      ladderAgeRule: lobbies.ageRule,
+      ladderAgeRule: rounds.standingAgeRule,
     })
     .from(rounds)
-    .leftJoin(lobbies, eq(lobbies.id, rounds.ratingLobbyId))
     .where(inArray(rounds.id, ids));
   return new Map(rows.map((row) => [row.roundId, roundLadderOf(row)]));
 };

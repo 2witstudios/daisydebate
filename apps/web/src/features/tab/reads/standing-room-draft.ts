@@ -160,7 +160,8 @@ export const readStandingRoomDraft =
               })),
             },
             rating:
-              selectedLadder && facts.ladder?.id === selectedLadder
+              selectedLadder &&
+              facts.ladders.some((ladder) => ladder.id === selectedLadder)
                 ? creation.definition.outcome.kind === 'winner' &&
                   creation.definition.sides.length === 2
                   ? { kind: 'rated', ladderId: selectedLadder }

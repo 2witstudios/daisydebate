@@ -7,8 +7,11 @@ import { settingCommand } from '../src/features/tab/operations/settings';
 import { createLobbyRoom } from '../src/features/tab/operations/create-lobby-room';
 import { readStandingRoomDraft } from '../src/features/tab/reads/standing-room-draft';
 import { readLeagueSeason } from '../src/features/tab/reads/league-season';
-import { sideSeat } from '@daisy/protocol';
+import { judgeSeat, sideSeat } from '@daisy/protocol';
 import { withRoomRuntime } from './room-runtime.test-support';
+import { readLeagueLadder } from '../src/features/ratings/read-league-ladder';
+import { rateCompletedRound } from '../src/features/ratings/rate-debate';
+import { createRoundRuntimeOperations } from '../src/features/round-runtime/operations';
 import { as } from './tab-tournament-organization-wiring.test-support';
 import type { World } from './tab-tournament.test-support';
 
@@ -96,6 +99,13 @@ export async function selectedLobbyCases(world: World) {
       templateId,
     });
     if (!draft?.creation) throw new Error('Missing sibling creation read');
+    assert({
+      given: 'the native Room draft for a configured ladder',
+      should:
+        'identify exactly the selected ladder, even when an older one exists',
+      actual: draft.creation.rating,
+      expected: { kind: 'rated', ladderId },
+    });
     const commandId = createId();
     const created = await createLobbyRoom(dependencies)(principal, {
       version: 1,
@@ -122,8 +132,10 @@ export async function selectedLobbyCases(world: World) {
     return created;
   };
   const created = await createInLobby(lobbyId, selectedLadder);
-  const [first] =
-    await world.sql`select id from lobbies where owner_organization_id=${organizationId} and kind='standing' order by id limit 1`;
+  const [first] = await world.sql`select l.id from lobbies l
+      where l.owner_organization_id=${organizationId} and l.kind='standing'
+        and exists(select 1 from seasons s where s.lobby_id=l.id)
+      order by l.id limit 1`;
   const facts = await store.leagueSeason(
     { viewerUserId: principal.userId, organizationId, lobbyId },
     async (value) => value,
@@ -206,7 +218,7 @@ export async function selectedLobbyCases(world: World) {
   );
   assert({
     given: 'an organization-only host read',
-    should: 'retain its existing first-standing selection',
+    should: 'select the first standing lobby with an owned season',
     actual: host,
     expected: first!.id,
   });
@@ -264,8 +276,67 @@ export async function selectedLobbyCases(world: World) {
           actual: [fromOther, before, await rating(selectedId)],
           expected: [1788, null, 1555],
         });
-        await f.command(debater, await f.operations.view(debater, selectedId), {
-          type: 'leave-seat',
+        await world.sql`update rooms set visibility='public' where id=${selectedId}`;
+        const opposition = world.bots['Debater 2']!;
+        const judge = world.bots['Judge A']!;
+        await f.command(
+          opposition,
+          await f.operations.view(opposition, selectedId),
+          {
+            type: 'claim-seat',
+            seat: sideSeat('negative'),
+          },
+        );
+        await f.command(judge, await f.operations.view(judge, selectedId), {
+          type: 'claim-seat',
+          seat: judgeSeat(),
+        });
+        for (const person of [debater, opposition, judge])
+          await f.consent(
+            person,
+            await f.operations.view(person, selectedId),
+            'ready',
+          );
+        const director = world.bots.Director!;
+        const started = await f.command(
+          director,
+          await f.operations.view(director, selectedId),
+          { type: 'start-round' },
+        );
+        const round = (await f.store.getRound(started.view.roundRef!.id))!;
+        const seatOfDebater = round.participants.find(
+          (p) => p.actorId === debater.actorId,
+        )!;
+        await createRoundRuntimeOperations({
+          store: f.store,
+          nextSegmentId: createId,
+        }).command({ kind: 'human', actorId: debater.actorId }, round.id, {
+          version: 1,
+          commandId: createId(),
+          expectedVersion: round.version,
+          command: { type: 'forfeit', participantId: seatOfDebater.id },
+        });
+        const posted = await rateCompletedRound(f.store, round.id, {
+          next: createId,
+        });
+        const league = readLeagueLadder({ store, authorize });
+        const gamesFor = async (name: 'Director' | 'Coach') => {
+          const read = await league(as(world.bots[name]!), { lobbyId });
+          const line = read?.lines.find(
+            (row) => row.actorId === debater.actorId,
+          );
+          return line ? line.wins + line.losses : null;
+        };
+        assert({
+          given: 'a real public game played on the newer configured ladder',
+          should:
+            'show that game to the receiving host and member through the same league read',
+          actual: [
+            posted.kind === 'rated' && posted.scope.ladderId,
+            await gamesFor('Director'),
+            await gamesFor('Coach'),
+          ],
+          expected: [selectedLadder, 1, 1],
         });
       },
       { databaseUrl: world.runtimeDatabaseUrl },

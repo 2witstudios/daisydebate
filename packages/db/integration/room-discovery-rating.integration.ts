@@ -5,7 +5,7 @@ import { withDiscoveryFixture } from './room-discovery.test-support';
 requireTestServices(process.env);
 setupRitewayBun();
 
-test('starting ranked discovery projects the host current-season Freestyle rating', async () =>
+test('starting ranked discovery selects ready ranked Rooms and leaves ratings to publication', async () =>
   withDiscoveryFixture(async ({ f, caller, token, nextId, list: query }) => {
     const formatId = 'freestyle';
     const starting = nextId();
@@ -77,19 +77,18 @@ test('starting ranked discovery projects the host current-season Freestyle ratin
     assert({
       given:
         'ready ranked, assembling ranked and ready casual Rooms, with past and current ratings',
-      should:
-        'list only the ready ranked Room with the rounded current-season Freestyle value',
+      should: 'list only the ready ranked Room without reading raw ratings',
       actual: page.rooms.map((room) => [
         room.id,
         room.status,
         room.competitionType,
         room.hostRating,
       ]),
-      expected: [[starting, 'ready', 'ranked', 1613]],
+      expected: [[starting, 'ready', 'ranked', null]],
     });
     assert({
-      given: 'the same real rating when the host identity must be hidden',
-      should: 'mask the rating together with the host',
+      given: 'the same Room when the host identity must be hidden',
+      should: 'remove the host identity before publication looks up ratings',
       actual: masked.rooms.map((room) => [
         room.hostActorId,
         room.hostLabel,
