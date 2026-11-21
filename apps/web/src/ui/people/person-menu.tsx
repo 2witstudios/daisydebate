@@ -44,11 +44,7 @@ import { announceShellNavigation } from '../layout/app-shell/shell-link';
 import { useMovedOn } from '../form-action/use-moved-on';
 import { anchorAt, MemberCardBody } from './member-card';
 import { useChallenges } from '../challenges/challenge-provider';
-import {
-  challengeModeLine,
-  mayChallenge,
-  offersRanked,
-} from '../../features/challenges/challenge-lobby';
+import { challengeModeLine } from '../../features/challenges/challenge-lobby';
 import { usePeople } from './people-provider';
 import type { PersonActions } from './person-actions';
 import { publicNameLabel } from '../profile/public-name';
@@ -230,13 +226,13 @@ function ChallengeView({
   onDone,
 }: {
   readonly action: PersonActions['sendChallenge'];
-  readonly member: Pick<Person, 'username' | 'division'>;
+  readonly member: Pick<Person, 'username' | 'challengeModes'>;
   readonly onBack: () => void;
   readonly onDone: () => void;
 }) {
   const { username } = member;
   const { memberDivision } = useChallenges();
-  const ranked = offersRanked(memberDivision, member.division);
+  const ranked = member.challengeModes.includes('ranked');
   const line = ranked ? null : challengeModeLine(memberDivision);
   const [mode, setMode] = useState<CompetitionType>(
     ranked ? 'ranked' : 'casual',
@@ -444,9 +440,7 @@ export function PersonMenu({
                 challengeId={outgoing.id}
                 onDone={finish}
               />
-            ) : canBeChallenged(member) &&
-              // Challenges stay inside one lobby (ADR 0156).
-              mayChallenge(memberDivision, member.division) ? (
+            ) : canBeChallenged(member) && member.challengeModes.length > 0 ? (
               <button
                 type="button"
 

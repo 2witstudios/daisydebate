@@ -4,9 +4,10 @@ import {
   divisionOfAgeBand,
   type AgeBand,
 } from '@daisy/protocol';
-import { sql, type SQL } from 'drizzle-orm';
+import { eq, sql, type SQL } from 'drizzle-orm';
 import { daisyOrganizationId } from './daisy-reference';
 import { accountAge } from './schema/account-age';
+import type { Tx } from './tx';
 
 /**
  * The age band a member's ladder division is read from (ADR 0147 §3): ADR
@@ -26,6 +27,18 @@ export const divisionAgeBand = (): SQL<AgeBand | null> => {
   const youthStart = sql`(select youth.starts_at from seasons youth where youth.status = 'active' and youth.division = 'youth' and youth.organization_id = ${daisyOrganizationId})`;
   const agedAt = sql`least(clock_timestamp(), greatest(coalesce(${youthStart}, clock_timestamp()), ${accountAge.recordedAt}, clock_timestamp() - make_interval(months => ${YOUTH_CARRY_MONTHS}::int)))`;
   return sql<AgeBand | null>`case when public.daisy_age_band(${accountAge.birthMonth}, ${accountAge.version}, ${accountAge.recordedAt}, clock_timestamp()) is null then null else public.daisy_age_band(${accountAge.birthMonth}, ${accountAge.version}, ${accountAge.recordedAt}, ${agedAt}) end`;
+};
+
+/** The age band used by competition during the staged ladder migration. */
+export const readCompetitionAgeBand = async (
+  tx: Pick<Tx, 'select'>,
+  userId: string,
+): Promise<AgeBand | null> => {
+  const [age] = await tx
+    .select({ band: divisionAgeBand() })
+    .from(accountAge)
+    .where(eq(accountAge.userId, userId));
+  return age?.band ?? null;
 };
 
 /**

@@ -64,8 +64,8 @@ export const linkedAdultFactsOf = (
   return {
     round: {
       ladderDivision: fixture.round.ladder,
-      room:
-        fixture.round.room === null ? null : { division: fixture.round.room },
+      roomYouth:
+        fixture.round.room === null ? null : fixture.round.room === 'youth',
     },
     seats: fixture.seats.map((seat) => ({
       actorId: people[seat.person]!.actorId,

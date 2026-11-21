@@ -10,10 +10,7 @@ import {
   requestMessageOffer,
 } from '../../../../lib/request-session';
 import { MemberStandings } from '../../../../ui/ranked/member-standings';
-import {
-  currentDivisionOf,
-  profileLadders,
-} from '../../../../features/profile/profile-ladders';
+import { profileLadders } from '../../../../features/profile/profile-ladders';
 import type { RatingDivision } from '@daisy/protocol';
 import { parseUsername } from '@daisy/auth';
 import { systemId } from '@daisy/clock';
@@ -26,6 +23,7 @@ import {
   requestIdentity,
   requestLiveRoundsOf,
   requestMemberDivision,
+  requestProfileChallengeModes,
   requestSeasonHistory,
   requestMemberProfile,
 } from '../../../../lib/request-session';
@@ -69,13 +67,6 @@ export default async function ProfileRoute({
     requestSeasonHistory(profile.username),
     requestMemberDivision(),
   ]);
-  const ladders = {
-    memberDivision: ownDivision,
-    // Their ratings name their lobby only once they are rated this season.
-    // Unrated, it is unknown here: Challenge is offered as inside one's own
-    // lobby, and the send decides under the pair's lock (ADR 0156).
-    theirDivision: currentDivisionOf(standings) ?? ownDivision,
-  };
   const live = await requestLiveRoundsOf([profile.username]);
   const toward = !profile.me && !profile.closed;
   const member = (await requestIdentity()).state === 'member';
@@ -105,9 +96,7 @@ export default async function ProfileRoute({
           />
         ) : null
       }
-      actions={
-        toward ? await friendActionsFor(profile.username, ladders) : null
-      }
+      actions={toward ? await friendActionsFor(profile.username) : null}
     />
   );
 }
@@ -169,15 +158,12 @@ async function ProfileMessage({ username }: { readonly username: string }) {
  * nothing for a visitor. Message goes through the ordinary DM request, under
  * the DM rule.
  */
-async function friendActionsFor(
-  username: string,
-  ladders: {
-    readonly memberDivision: RatingDivision | null;
-    readonly theirDivision: RatingDivision | null;
-  },
-) {
+async function friendActionsFor(username: string) {
   if ((await requestIdentity()).state !== 'member') return null;
-  const list = await readFriends();
+  const [list, modes] = await Promise.all([
+    readFriends(),
+    requestProfileChallengeModes(username),
+  ]);
   return (
     <>
       {list ? (
@@ -191,8 +177,7 @@ async function friendActionsFor(
       <ProfileMessage username={username} />
       <ProfilePersonActions
         username={username}
-        memberDivision={ladders.memberDivision}
-        theirDivision={ladders.theirDivision}
+        modes={modes}
         actions={{
           sendChallenge: sendChallengeAction,
           report: reportAction,

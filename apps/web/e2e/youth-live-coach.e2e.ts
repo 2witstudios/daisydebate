@@ -1,3 +1,4 @@
+import { createId } from '@paralleldrive/cuid2';
 import { assertNoSeriousFindings } from './support/axe';
 import { origin, signUpMember } from './support/accounts';
 import { expect, openPage, test } from './support/fixtures';
@@ -24,6 +25,47 @@ test.afterEach(async () => {
   await Promise.all(cleanups.splice(0).map((cleanup) => cleanup()));
 });
 
+test('Watch shows a private student tournament Round to the linked adult without a standing selection', async ({
+  page,
+  context,
+  browser,
+}) => {
+  const { student, tag, round, stop } = await coachedYouthRound(
+    browser,
+    context,
+    { tournament: true },
+  );
+  cleanups.push(stop, () => student.close());
+  const link = `/watch?lobby=${createId()}`;
+  const title = `Thursday scrimmage ${tag}`;
+  await page.goto(link);
+  const roomLink = page
+    .getByRole('region', { name: 'Your students, live' })
+    .getByRole('link', { name: `Watch ${title}` });
+  const roomPath = `/rounds/${round.roundId}/room`;
+  await expect(roomLink).toHaveAttribute('href', roomPath);
+  await roomLink.click();
+  await expect(page).toHaveURL(roomPath);
+  await expect(page.getByText('Watching', { exact: true })).toBeVisible();
+  const strangerContext = await browser.newContext({
+    baseURL: origin,
+    ignoreHTTPSErrors: true,
+  });
+  try {
+    await signUpMember(strangerContext.request);
+    const stranger = await openPage(strangerContext, 'unlinked member');
+    await stranger.goto(link);
+    await expect(
+      stranger.getByRole('heading', { name: 'Watch', level: 1 }),
+    ).toBeVisible();
+    await expect(stranger.getByText(title, { exact: true })).toHaveCount(0);
+    const response = await stranger.goto(roomPath);
+    expect(response?.status()).toBe(404);
+  } finally {
+    await strangerContext.close();
+  }
+});
+
 test("a coach watches their student's private live Youth Round, and a stranger cannot", async ({
   page,
   context,
@@ -43,6 +85,10 @@ test("a coach watches their student's private live Youth Round, and a stranger c
 
   // Watch: the coach's own section, never the public listing.
   await page.goto('/watch');
+  await page
+    .getByRole('navigation', { name: 'Lobby', exact: true })
+    .getByRole('link', { name: 'Youth', exact: true })
+    .click();
   const students = page.getByRole('region', { name: 'Your students, live' });
   await expect(students).toContainText(`Thursday scrimmage ${tag}`);
   await expect(students).toContainText(`Cities should ban cars ${tag}`);
@@ -103,6 +149,10 @@ test("a coach watches their student's private live Youth Round, and a stranger c
     await signUpMember(strangerContext.request);
     const stranger = await openPage(strangerContext, 'member');
     await stranger.goto('/watch');
+    await stranger
+      .getByRole('navigation', { name: 'Lobby', exact: true })
+      .getByRole('link', { name: 'Youth', exact: true })
+      .click();
     await expect(
       stranger.getByRole('heading', { name: 'Watch', level: 1 }),
     ).toBeVisible();

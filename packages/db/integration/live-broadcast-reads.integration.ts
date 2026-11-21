@@ -4,6 +4,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { publicLobbyId } from '../src/daisy-reference';
 import { liveBroadcastReads } from '../src/live-broadcast-reads';
 import { withFixture } from './constraint-helpers';
 
@@ -25,6 +26,7 @@ type Broadcast = {
 
 type AddInput = {
   readonly title?: string;
+  readonly lobbyId?: string;
   readonly visibility?: 'public' | 'unlisted' | 'private';
   readonly startedAt?: Date;
   readonly broadcast?: Broadcast | null;
@@ -43,6 +45,7 @@ const withLive = async (
         >[0]
       >,
     ) => Promise<readonly string[]>;
+    readonly leagueLobby: (official: boolean) => Promise<string>;
     readonly raw: ReturnType<typeof liveBroadcastReads>;
     readonly mine: Set<string>;
   }) => Promise<void>,
@@ -53,16 +56,39 @@ const withLive = async (
   try {
     await withFixture(databaseUrl, async (f) => {
       const formatId = await f.format();
-      const host = await f.actor(await f.user());
+      const ownerId = await f.user();
+      const host = await f.actor(ownerId);
+      const leagueLobby = async (official: boolean) => {
+        const leagueId = createId();
+        const lobbyId = createId();
+        await f.insert('organizations', {
+          id: leagueId,
+          name: leagueId,
+          handle: leagueId,
+          kind: 'league',
+          owner_user_id: ownerId,
+          league_division: 'open',
+          official,
+        });
+        await f.insert('lobbies', {
+          id: lobbyId,
+          name: lobbyId,
+          handle: lobbyId,
+          kind: 'standing',
+          owner_organization_id: leagueId,
+        });
+        return lobbyId;
+      };
       const created: string[] = [];
       const add = async ({
         title = 'A Room',
+        lobbyId = publicLobbyId,
         visibility = 'public',
         startedAt = ago(300),
         broadcast = { released: ago(60) },
         ended,
       }: AddInput) => {
-        const room = await f.room(host, formatId, { title });
+        const room = await f.room(host, formatId, { title, lobby_id: lobbyId });
         const {
           id: roundId,
           seats: [seat],
@@ -103,7 +129,7 @@ const withLive = async (
         return rows.map((row) => row.id).filter((id) => mine.has(id));
       };
       try {
-        await run({ add, list, raw, mine });
+        await run({ add, list, leagueLobby, raw, mine });
       } finally {
         for (const id of created)
           await client`delete from broadcasts where round_id=${id}`;
@@ -268,6 +294,60 @@ test('filters, search, seats and paging run in the read', async () => {
       should: 'order newest start first',
       actual: newestFirst,
       expected: [second.roundId, first.roundId],
+    });
+  });
+});
+
+test('named public broadcasts remain available outside official Watch discovery', async () => {
+  await withLive(async ({ add, list, leagueLobby }) => {
+    const lobbyId = await leagueLobby(false);
+    const publicRound = await add({ lobbyId });
+    const privateRound = await add({ lobbyId, visibility: 'private' });
+    const names = [publicRound.aff, privateRound.aff];
+
+    assert({
+      given: 'public and private broadcasts in an ordinary league',
+      should:
+        'return only the public broadcast to person pages and neither broadcast to Watch, including its Following tab',
+      actual: [
+        await list({ seatedUsernames: names }),
+        await list(),
+        await list({
+          filter: { ...NEVER, lobbyId: publicLobbyId },
+          seatedUsernames: names,
+        }),
+      ],
+      expected: [[publicRound.roundId], [], []],
+    });
+  });
+});
+
+test('Watch search, cursors and counts stay in the selected same-age lobby', async () => {
+  await withLive(async ({ add, list, raw, leagueLobby }) => {
+    const otherLobbyId = await leagueLobby(true);
+    const filter = { ...NEVER, lobbyId: publicLobbyId, q: 'same topic' };
+    const countBefore = await raw.countLiveBroadcasts({
+      clock,
+      lobbyId: publicLobbyId,
+    });
+    const local = await add({ title: 'Same topic', startedAt: ago(300) });
+    const foreign = await add({
+      lobbyId: otherLobbyId,
+      title: 'Same topic',
+      startedAt: ago(200),
+    });
+    assert({
+      given:
+        'identically titled public broadcasts in two official adult lobbies',
+      should:
+        'return and count only the selected lobby and refuse a newer foreign cursor',
+      actual: [
+        await list({ filter }),
+        await list({ filter, before: foreign.roundId }),
+        (await raw.countLiveBroadcasts({ clock, lobbyId: publicLobbyId })) -
+          countBefore,
+      ],
+      expected: [[local.roundId], [], 1],
     });
   });
 });

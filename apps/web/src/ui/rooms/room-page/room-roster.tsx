@@ -1,3 +1,4 @@
+import { mayDebate } from '@daisy/protocol/lobby/eligibility';
 import type { ReactNode } from 'react';
 import {
   affirmativeSide,
@@ -10,9 +11,8 @@ import {
   negativeSide,
   sameSeat,
   seatKey,
-  seatAllowed,
   seatKinds,
-  type RatingDivision,
+  type AgeBand,
   type RoomCastChoice,
   type RoomView,
   type SeatRef,
@@ -58,7 +58,7 @@ export type RosterProps = {
     readonly actorId: string;
     readonly label: string;
     /** The viewer's ladder division (ADR 0147); null with no age on record. */
-    readonly division: RatingDivision | null;
+    readonly ageBand: AgeBand | null;
   };
   readonly bots: readonly RoomCastChoice[];
   readonly action: FormAction<RoomFormState>;
@@ -480,11 +480,9 @@ function OpenSeat({
   const takeName = `Take ${roomSeatLabel(view, seat)}`;
   // Debater seats are for the Room's own lobby, judge seats for anyone (ADR
   // 0156): another lobby's member sees the debater seat open, with no Take seat.
-  const takes = seatAllowed(
-    { kind: 'human', division: props.viewer.division },
-    view,
-    seat,
-  );
+  const takes =
+    !isDebatingSeat(seat) ||
+    mayDebate({ ageBand: props.viewer.ageBand, guardianAllowed: false }, view);
   return (
     <>
       <span aria-hidden="true" />

@@ -35,7 +35,7 @@ export function Segmented({
     >
       {segments.map((segment) => (
         <Link
-          key={segment.label}
+          key={segment.href}
           href={segment.href}
           aria-current={segment.selected ? 'page' : undefined}
           className={cn(

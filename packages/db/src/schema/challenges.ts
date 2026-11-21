@@ -1,14 +1,17 @@
-import {
-  competitionTypes,
-  ratingDivisions,
-  ratingStyles,
-  type RatingDivision,
-} from '@daisy/protocol';
+import { competitionTypes, ratingStyles } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
-import { check, index, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
+import {
+  check,
+  foreignKey,
+  index,
+  pgTable,
+  text,
+  uniqueIndex,
+} from 'drizzle-orm/pg-core';
 import { oneOf, timestampColumn } from './columns';
 import { contactActorColumn } from './contacts';
 import { rooms } from './rooms';
+import { lobbies } from './lobbies';
 
 /**
  * One member's offer to debate another (ADR 0103). Pending while `room_id`
@@ -28,10 +31,10 @@ export const challenges = pgTable(
      * The lobby both members share, decided at send (ADR 0156): the
      * challenge's Room opens in it, and a ranked offer rates on its ladder.
      */
-    division: text('division').$type<RatingDivision>().notNull(),
-    roomId: text('room_id')
-      .unique()
-      .references(() => rooms.id, { onDelete: 'cascade' }),
+    lobbyId: text('lobby_id')
+      .notNull()
+      .references(() => lobbies.id, { onDelete: 'restrict' }),
+    roomId: text('room_id').unique(),
     createdAt: timestampColumn('created_at').notNull(),
     expiresAt: timestampColumn('expires_at').notNull(),
     /** Set on acceptance: how long the challenger is still sent to the room. */
@@ -56,6 +59,12 @@ export const challenges = pgTable(
     ),
     check('challenges_mode_check', oneOf(table.mode, competitionTypes)),
     check('challenges_format_check', oneOf(table.formatId, ratingStyles)),
-    check('challenges_division_check', oneOf(table.division, ratingDivisions)),
+    index('challenges_lobby_idx').on(table.lobbyId),
+    index('challenges_room_lobby_idx').on(table.roomId, table.lobbyId),
+    foreignKey({
+      name: 'challenges_room_lobby_fk',
+      columns: [table.roomId, table.lobbyId],
+      foreignColumns: [rooms.id, rooms.lobbyId],
+    }).onDelete('cascade'),
   ],
 );

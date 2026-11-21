@@ -216,6 +216,7 @@ export async function readPeopleList(
         };
       }),
       division: row.division,
+      challengeModes: [...row.challengeModes],
       wins: record.wins,
       losses: record.losses,
     });

@@ -24,10 +24,10 @@ import { actors } from './schema/actors';
 import { basisSource } from './room-basis';
 import { users } from './schema/users';
 import { accountAge } from './schema/account-age';
-import { divisionOfAgeBand, type RatingDivision } from '@daisy/protocol';
+import type { AgeBand } from '@daisy/protocol';
+import { lobbies } from './schema/lobbies';
+import type { LobbyAgeRule } from '@daisy/protocol/lobby/eligibility';
 import { divisionAgeBand } from './ladder-division-band';
-import { leagueLadderSeatFits } from './league-ladder-seat';
-import { leagueRoomFacts } from './league-room-division';
 import { botProfiles } from './schema/bot-profiles';
 import { aiJudgeProfiles } from './schema/ai-judge-profiles';
 import { aiSeatFits } from './seat-eligibility';
@@ -90,11 +90,8 @@ export type Actor = {
   readonly kind: RoomParticipant['kind'];
   readonly label: string;
   readonly eligible: boolean;
-  /**
-   * The person's ladder division as read now (ADR 0147), fixed for the
-   * season; null for a bot and for a person with no valid age record.
-   */
-  readonly division: RatingDivision | null;
+  /** Competition age band; null for a bot or a missing age record. */
+  readonly ageBand: AgeBand | null;
   /** Which AI the actor is (ISSUE-750); null for a human. */
   readonly aiRole: AiRole | null;
   /** The roster card's display facts; present for bot debaters only. */
@@ -141,7 +138,7 @@ export const actorFact = async (
         row.verified === true &&
         row.username !== null &&
         row.deletedAt === null,
-      division: divisionOfAgeBand(row.ageBand),
+      ageBand: row.ageBand,
       aiRole: null,
     };
   const aiRole = aiRoleOf(row.botName, row.judgeName);
@@ -150,7 +147,7 @@ export const actorFact = async (
     kind: row.kind,
     label: row.botName ?? row.judgeName ?? '',
     eligible: aiRole !== null,
-    division: null,
+    ageBand: null,
     aiRole,
   };
 };
@@ -224,7 +221,15 @@ const hydrateRoom = async (
     .from(roomParticipants)
     .where(eq(roomParticipants.roomId, row.id))
     .orderBy(...seatRowOrder(roomParticipants));
-  const league = await leagueRoomFacts(tx, row);
+  const [lobby] = await tx
+    .select({
+      ageRule: sql<LobbyAgeRule>`case when ${lobbies.kind}='tournament'
+        and public.daisy_room_is_youth(${row.id}) then 'under-18'::lobby_age_rule
+        else ${lobbies.ageRule} end`,
+    })
+    .from(lobbies)
+    .where(eq(lobbies.id, row.lobbyId));
+  if (!lobby) throw createAppError('INVARIANT');
   const participants = await Promise.all(
     seats.map(async (row) => {
       const actor = await actorFact(tx, row.actorId);
@@ -235,7 +240,6 @@ const hydrateRoom = async (
         // A seating made before ISSUE-750 cannot launch in the wrong kind of seat.
         eligible:
           actor.eligible &&
-          leagueLadderSeatFits(league, actor) &&
           (actor.kind === 'human' || aiSeatFits(actor.aiRole, seat)),
         id: row.id,
         seat,
@@ -290,7 +294,8 @@ const hydrateRoom = async (
     },
     basis,
     competitionType: row.competitionType,
-    division: row.division,
+    lobbyId: row.lobbyId,
+    ageRule: lobby.ageRule,
     capture: row.capture,
     postRoundCall: row.postRoundCall,
     teamOneSide: row.teamOneSide,

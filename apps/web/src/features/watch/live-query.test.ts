@@ -33,7 +33,7 @@ describe('parseLiveQuery', () => {
         tab: 'following',
         mode: 'ranked',
         q: 'debater-a',
-        ladder: '',
+        lobby: '',
         before: 'abcdefghijklmnopqrstuvwx',
       },
     });
@@ -88,25 +88,17 @@ describe('hub hrefs', () => {
   });
 });
 
-describe('the Ladder filter (PYL-5 board)', () => {
-  test('reads a known ladder and drops anything else', () => {
-    assert({
-      given: 'Youth – Freestyle, then an unknown ladder',
-      should: 'keep the first and fall back to every ladder',
-      actual: [
-        parseLiveQuery({ ladder: 'freestyle:youth' }).ladder,
-        parseLiveQuery({ ladder: 'chess:youth' }).ladder,
-      ],
-      expected: ['freestyle:youth', ''],
-    });
-    assert({
-      given: 'a ladder in the query',
-      should: 'carry it in the hub link and clear it with the filters',
-      actual: [
-        hubHref({ ...defaultLiveQuery, ladder: 'freestyle:open' }),
-        clearFiltersHref({ ...defaultLiveQuery, ladder: 'freestyle:open' }),
-      ],
-      expected: ['/watch?ladder=freestyle%3Aopen', '/watch'],
-    });
+test('the selected lobby stays in links after clearing other filters', () => {
+  const lobby = 'y'.repeat(24);
+  assert({
+    given: 'a valid lobby id and a malformed lobby value',
+    should:
+      'preserve the selected lobby when clearing search and reject the malformed id',
+    actual: [
+      parseLiveQuery({ lobby }).lobby,
+      parseLiveQuery({ lobby: 'youth' }).lobby,
+      clearFiltersHref({ ...defaultLiveQuery, lobby, q: 'search' }),
+    ],
+    expected: [lobby, '', `/watch?lobby=${lobby}`],
   });
 });

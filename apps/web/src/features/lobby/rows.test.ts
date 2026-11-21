@@ -24,13 +24,14 @@ const entry = (over: Partial<RoomListEntry> = {}): RoomListEntry => ({
   waitingSince: '2026-10-26T11:53:00.000Z',
   live: null,
   hostRating: 1640,
-  division: 'open',
+  lobbyId: id('l'),
+  ageRule: 'adults',
   openJudgeSeats: 0,
   ...over,
 });
 
-const adult: LobbyViewer = { actorId: id('d'), division: 'open' };
-const minor: LobbyViewer = { actorId: id('e'), division: 'youth' };
+const adult: LobbyViewer = { actorId: id('d'), ageBand: 'adult' };
+const minor: LobbyViewer = { actorId: id('e'), ageBand: '16-17' };
 const round = { id: id('c'), status: 'active' } as const;
 const live = (over: Partial<RoomListEntry> = {}) =>
   entry({
@@ -123,7 +124,10 @@ describe('rowActions', () => {
   });
 
   test('a Room of the other lobby', () => {
-    const youthRanked = entry({ division: 'youth', competitionType: 'ranked' });
+    const youthRanked = entry({
+      ageRule: 'under-18',
+      competitionType: 'ranked',
+    });
     assert({
       given:
         'an adult browsing Youth: a ranked Room with a judge seat free, one without, a casual one',
@@ -131,7 +135,7 @@ describe('rowActions', () => {
       actual: [
         rowActions(adult, { ...youthRanked, openJudgeSeats: 1 }, 'open'),
         rowActions(adult, youthRanked, 'open'),
-        rowActions(adult, entry({ division: 'youth' }), 'open'),
+        rowActions(adult, entry({ ageRule: 'under-18' }), 'open'),
       ],
       expected: [
         [watch(), { verb: 'Judge', href: room, primary: false }],
@@ -148,7 +152,7 @@ describe('rowActions', () => {
   });
 
   test('a member with no age record', () => {
-    const unknown: LobbyViewer = { actorId: id('f'), division: null };
+    const unknown: LobbyViewer = { actorId: id('f'), ageBand: null };
     assert({
       given: 'an Open casual Room and an Open ranked Room',
       should: 'offer Join only in the casual one',
@@ -164,9 +168,9 @@ describe('rowActions', () => {
 
   test('a live Youth Round is watched as an Open one is (ADR 0161)', () => {
     const youthLive = (over: Partial<RoomListEntry> = {}) =>
-      live({ division: 'youth', ...over });
+      live({ ageRule: 'under-18', ...over });
     const openLive = (over: Partial<RoomListEntry> = {}) =>
-      live({ division: 'open', ...over });
+      live({ ageRule: 'adults', ...over });
     assert({
       given:
         'a public and an unlisted live Round in each lobby, read by an outsider',

@@ -1,6 +1,6 @@
+import { lobbyAgeRules } from './lobby/eligibility';
 import { z } from 'zod';
 import { idSchema } from './primitives';
-import { ratingDivisions } from './ladder';
 import { aiRoleSchema } from './ai-roles';
 import { seatRefSchema } from './seats';
 import { teamSideSchema } from './seat-draw';
@@ -74,13 +74,7 @@ export const roomRefusalSchema = z.enum([
   /** The exact pinned ballot cannot run on this Room; never substitute a default. */
   'ballot-definition-unavailable',
   'ranked-unavailable',
-  /**
-   * The seat or Room is for the other lobby (ADR 0156): a debater seat of a
-   * Room created in the other division, or a league ladder's while the
-   * caller is under 18, or a Room created in a lobby the creator may not
-   * open. A caller with no division (no valid age record) debates only in an
-   * Open casual Room.
-   */
+  /** The lobby's age rule does not admit this debater or Room creator. */
   'other-division',
   /** The draw's source cannot supply enough resolutions. */
   'draw-unavailable',
@@ -208,11 +202,8 @@ const roomViewFields = z.strictObject({
     standing: formatStandingSchema,
   }),
   competitionType: z.enum(competitionTypes),
-  /**
-   * The lobby the Room was created in (ADR 0156): its debater seats are for
-   * that division's members, and a ranked Round rates on its ladder.
-   */
-  division: z.enum(ratingDivisions),
+  lobbyId: idSchema,
+  ageRule: z.enum(lobbyAgeRules),
   definition: formatDefinitionSchema,
   config: frozenRoomConfigSchema,
   executionPlan: frozenRoomExecutionPlanSchema,

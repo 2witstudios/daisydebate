@@ -19,6 +19,7 @@ const person = (username: string, status: Person['status']): Person => ({
     },
   ],
   division: null,
+  challengeModes: [],
   wins: 0,
   losses: 0,
 });

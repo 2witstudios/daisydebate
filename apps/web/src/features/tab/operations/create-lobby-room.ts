@@ -153,6 +153,8 @@ export const createLobbyRoom =
             return { kind: 'refused', refusal: 'command-conflict' };
           if (replay.kind === 'pending' || replay.kind === 'settled')
             return replay;
+          if (!(await session.mayHost(loaded.lobby.ageRule)))
+            throw new CommandDenied('not-found');
           const selected = await resolveRoomSelection(
             command.room,
             { getFormatSelectionFacts: session.selectionFacts },
@@ -371,8 +373,6 @@ export const createLobbyRoom =
                 room: {
                   id: write.row.id,
                   hostActorId: actorId,
-                  // A league's Rooms are in its division (ADR 0156).
-                  division: loaded.division,
                   title: command.room.title,
                   topic: resolution.topic,
                   visibility: command.room.visibility,

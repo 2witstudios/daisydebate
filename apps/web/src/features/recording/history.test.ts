@@ -458,6 +458,28 @@ describe('after moderation hides a Recording', () => {
   });
 });
 
+test('history keeps an otherwise watchable Recording fenced after age erasure', async () => {
+  const watched = await history({
+    round: {
+      competitionType: 'casual',
+      visibility: 'private',
+      ladder: null,
+      youth: null,
+    },
+    viewer: account('aff'),
+    recordingClass: 'casual',
+    subscribed: true,
+    readReuseFenced: async (roundId) => roundId === round.id,
+  });
+  assert({
+    given:
+      'a subscribed debater on a fenced mixed-age Round with no remaining Youth audience fact',
+    should: 'show playback and withhold the download',
+    actual: [watched.media.state, watched.downloadHref],
+    expected: ['watch', null],
+  });
+});
+
 describe('a Youth Round’s history (ADR 0161)', () => {
   const people = {
     debaters: [

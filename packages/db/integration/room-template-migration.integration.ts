@@ -14,6 +14,16 @@ const scratch = scratchDatabase(databaseUrl, 'roomtemplate');
 const migration = '20261117122353_tab_wiring';
 afterAll(() => scratch.drop());
 
+type TemplateOfferRow = {
+  readonly offer: {
+    readonly lobby_id: string;
+    readonly lobby_kind: string;
+    readonly template_id: string;
+    readonly created_at: string;
+    readonly withdrawn_at: string | null;
+  };
+};
+
 test(
   'DEC403: existing standing template pins and offers survive the forward migration',
   async () => {
@@ -34,13 +44,19 @@ test(
       });
       const before =
         await client`select to_jsonb(r) as room from rooms r where id=${roomId}`;
-      const offersBefore =
-        await client`select to_jsonb(o) as offer from lobby_templates o order by lobby_id,template_id`;
+      const offersBefore = await client<
+        TemplateOfferRow[]
+      >`select to_jsonb(o) as offer from lobby_templates o order by lobby_id,template_id`;
       await scratch.migrate(() => true);
+      const [youthLobby] = await client`select youth.id
+        from lobbies youth join lobbies original on youth.owner_organization_id=original.owner_organization_id
+        where original.id=${publicLobbyId} and youth.kind='standing' and youth.age_rule='under-18'`;
+      if (!youthLobby) throw new Error('Missing migrated Youth lobby');
       const after =
-        await client`select to_jsonb(r)-'standing_template_id'-'league_ladder_id'-'holds_host'-'division' as room from rooms r where id=${roomId}`;
-      const offersAfter =
-        await client`select to_jsonb(o) as offer from lobby_templates o order by lobby_id,template_id`;
+        await client`select to_jsonb(r)-'standing_template_id'-'league_ladder_id'-'holds_host'-'legacy_tournament_youth' as room from rooms r where id=${roomId}`;
+      const offersAfter = await client<
+        TemplateOfferRow[]
+      >`select to_jsonb(o) as offer from lobby_templates o order by lobby_id,template_id`;
       const [pin] =
         await client`select template_id,standing_template_id from rooms where id=${roomId}`;
       assert({
@@ -56,11 +72,25 @@ test(
         given:
           'a populated standing Room with its actual offered template before DEC403',
         should:
-          'preserve every Room field and offer while deriving the standing constraint key',
-        actual: { room: [...after], offers: [...offersAfter], pin },
+          'retain the Room and its offer while copying the Open offers to the new Youth lobby',
+        actual: {
+          room: [...after],
+          offers: offersAfter.filter(
+            ({ offer }) => offer.lobby_id !== youthLobby.id,
+          ),
+          youthOffers: offersAfter.filter(
+            ({ offer }) => offer.lobby_id === youthLobby.id,
+          ),
+          pin,
+        },
         expected: {
           room: [...before],
           offers: [...offersBefore],
+          youthOffers: offersBefore
+            .filter(({ offer }) => offer.lobby_id === publicLobbyId)
+            .map(({ offer }) => ({
+              offer: { ...offer, lobby_id: youthLobby.id },
+            })),
           pin: { template_id: offer.id, standing_template_id: offer.id },
         },
       });

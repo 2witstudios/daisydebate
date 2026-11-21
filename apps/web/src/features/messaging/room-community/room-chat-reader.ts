@@ -13,7 +13,7 @@ import {
  * every request and its metadata says whether this viewer posts.
  */
 export const roomChatReaderOf = (
-  view: Pick<RoomView, 'participants' | 'hostActorId' | 'division'>,
+  view: Pick<RoomView, 'participants' | 'hostActorId' | 'ageRule'>,
   actorId: string,
 ): 'judge' | 'spectator' | null => {
   const named = view.participants.filter(isNamedSeat);

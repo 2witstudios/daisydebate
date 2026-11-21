@@ -1,22 +1,17 @@
-import { eq } from 'drizzle-orm';
-import { rooms } from './schema/rooms';
+import { eq, sql } from 'drizzle-orm';
 import { rounds } from './schema/rounds';
 import type { Tx } from './tx';
 
-/**
- * Whether a Round's Room is in the Youth lobby (ADR 0156): a Room's division
- * is fixed when it is created, so its Round's is too. Null when there is no
- * such Round, or it has no Room. A live audience reads this before reading
- * anyone's links (ADR 0155): only a Youth Round's youth debaters have them.
- */
+/** The age rule classification of a Round's Room, read before linked-adult facts. */
 export const readRoundYouth = async (
   database: Tx,
   roundId: string,
 ): Promise<boolean | null> => {
   const [row] = await database
-    .select({ division: rooms.division })
+    .select({
+      youth: sql<boolean | null>`public.daisy_room_is_youth(${rounds.roomId})`,
+    })
     .from(rounds)
-    .innerJoin(rooms, eq(rooms.id, rounds.roomId))
     .where(eq(rounds.id, roundId));
-  return row ? row.division === 'youth' : null;
+  return row?.youth ?? null;
 };

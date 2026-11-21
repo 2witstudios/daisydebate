@@ -1,16 +1,10 @@
 import type { LiveHubListing } from '../../../features/watch/list-live';
-import { daisyLadders, ladderKey } from '@daisy/protocol';
-import {
-  divisionLabels,
-  styleLabels,
-} from '../../../features/ratings/ladder-labels';
 import {
   clearFiltersHref,
   hubHref,
   isFiltered,
   type LiveQuery,
 } from '../../../features/watch/live-query';
-import { controlClass } from '../../components/filter-bar/filter-bar-class';
 import { watchRoutes } from '../../../features/watch/routes';
 import { ActionLink } from '../action-link/action-link';
 import { FilterForm } from '../filter-form/filter-form';
@@ -34,25 +28,10 @@ function Filters({ query }: { query: LiveQuery }) {
         placeholder: 'Search debaters or rooms',
       }}
       mode={query.mode}
-      trailing={
-        <select
-          // Remount when the committed ladder changes, so Clear shows it.
-          key={query.ladder}
-          name="ladder"
-          aria-label="Ladder"
-          defaultValue={query.ladder}
-          className={controlClass}
-        >
-          <option value="">Every ladder</option>
-          {daisyLadders.map((ladder) => {
-            const key = ladderKey(ladder.style, ladder.division);
-            return (
-              <option key={key} value={key}>
-                {styleLabels[ladder.style]} ({divisionLabels[ladder.division]})
-              </option>
-            );
-          })}
-        </select>
+      leading={
+        query.lobby ? (
+          <input type="hidden" name="lobby" value={query.lobby} />
+        ) : null
       }
       clearHref={isFiltered(query) ? clearFiltersHref(query) : null}
     />

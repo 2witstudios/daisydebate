@@ -61,7 +61,7 @@ export async function createAssembly(
     ...(recording && field(form, 'noticeVersion')
       ? { noticeVersion: field(form, 'noticeVersion') }
       : {}),
-    // Club staff's Lobby choice (ADR 0156); absent, the creator's own lobby.
+    // The selected standing lobby, or the creator's landing lobby when absent.
     ...(field(form, 'lobby') ? { lobby: field(form, 'lobby') } : {}),
   });
   if (!parsed.success) return { kind: 'invalid' };

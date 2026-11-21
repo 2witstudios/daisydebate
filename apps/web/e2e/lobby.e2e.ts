@@ -1,6 +1,12 @@
 import { createId } from '@paralleldrive/cuid2';
+import { systemClock } from '@daisy/clock';
 import { expect, openPage, test } from './support/fixtures';
-import { origin, resetRateLimits, signUpMember } from './support/accounts';
+import {
+  origin,
+  resetRateLimits,
+  signUpMember,
+  youthBirth,
+} from './support/accounts';
 import {
   closeRoom,
   createFromPlay,
@@ -61,25 +67,38 @@ test.describe('authenticated Room lobby', () => {
     });
     let firstId: string | undefined, secondId: string | undefined;
     try {
-      await signUpMember(other.request);
+      const token = createId().slice(0, 8);
+      await signUpMember(other.request, youthBirth(systemClock.now()));
       const first = await createFromPlay(
-        await openPage(other, 'second lobby host'),
-        `Blue ${createId().slice(0, 8)}`,
+        await openPage(other, 'Youth lobby host'),
+        `Youth ${token}`,
       );
       firstId = first.id;
-      const second = await createFromPlay(
-        page,
-        `Gold ${createId().slice(0, 8)}`,
-      );
+      const second = await createFromPlay(page, `Open ${token}`);
       secondId = second.id;
 
-      await page.goto(`/lobby?q=${encodeURIComponent(second.title)}`);
+      await page.goto('/lobby');
+      const lobbyLink = page
+        .getByRole('navigation', { name: 'Lobby', exact: true })
+        .getByRole('link', { name: 'Youth', exact: true });
+      const lobbyHref = await lobbyLink.getAttribute('href');
+      const lobbyId = new URL(lobbyHref ?? '', origin).searchParams.get(
+        'lobby',
+      );
+      expect(lobbyId).toMatch(/^[a-z0-9]{24}$/);
+      await lobbyLink.click();
+      await expect(lobbyLink).toHaveAttribute('aria-current', 'page');
+      await page.getByRole('searchbox', { name: 'Search rooms' }).fill(token);
+      await page.getByRole('button', { name: 'Apply', exact: true }).click();
       await expect(page).toHaveURL(
-        new RegExp(`/lobby\\?q=${encodeURIComponent(second.title)}`),
+        (url) =>
+          url.pathname === '/lobby' &&
+          url.searchParams.get('lobby') === lobbyId &&
+          url.searchParams.get('q') === token,
       );
       await expect(roomRows(page)).toHaveCount(1);
-      await expect(roomRows(page).first()).toContainText(second.title);
-      await expect(roomRows(page).first()).not.toContainText(first.title);
+      await expect(roomRows(page).first()).toContainText(first.title);
+      await expect(roomRows(page).first()).not.toContainText(second.title);
     } finally {
       if (secondId) await closeRoom(page.request, secondId);
       if (firstId) await closeRoom(other.request, firstId);

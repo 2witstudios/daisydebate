@@ -15,10 +15,10 @@ const anonymousJudge = {
   seat: { kind: 'judge', slot: 1 },
 } as RoomView['participants'][number];
 const roomOf = (
-  division: 'open' | 'youth',
-): Pick<RoomView, 'participants' | 'hostActorId' | 'division'> => ({
+  ageRule: 'adults' | 'under-18',
+): Pick<RoomView, 'participants' | 'hostActorId' | 'ageRule'> => ({
   hostActorId: 'host',
-  division,
+  ageRule,
   participants: [
     seat('debater', { kind: 'side', side: 'affirmative', slot: 0 }),
     seat('judge', { kind: 'judge', slot: 0 }),
@@ -34,8 +34,8 @@ test('who reads Room chat without posting, as the Room view shows it', () => {
     should:
       'name the judge everywhere and the seatless visitor a spectator in the Youth Room only, never the debater or the host',
     actual: {
-      open: viewers.map((v) => roomChatReaderOf(roomOf('open'), v)),
-      youth: viewers.map((v) => roomChatReaderOf(roomOf('youth'), v)),
+      open: viewers.map((v) => roomChatReaderOf(roomOf('adults'), v)),
+      youth: viewers.map((v) => roomChatReaderOf(roomOf('under-18'), v)),
     },
     expected: {
       open: [null, 'judge', null, null],

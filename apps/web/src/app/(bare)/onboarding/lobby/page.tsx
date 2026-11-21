@@ -7,7 +7,7 @@ import {
   type SearchParams,
 } from '../../../../features/access/decision';
 import { readOnboardingEntry } from '../../../../lib/auth-entry';
-import { requestOnboardingDivision } from '../../../../lib/request-session';
+import { requestLandingLobby } from '../../../../lib/request-session';
 import { YouthLanding } from '../../../../ui/onboarding/age/youth-landing';
 
 export const metadata: Metadata = {
@@ -32,7 +32,9 @@ export default async function OnboardingLobbyPage({
     lobbyLandingHref,
   );
   if (claimedUsername(identity) !== null) redirect(destination);
-  if ((await requestOnboardingDivision()) !== 'youth')
-    redirect(usernameHref(destination));
-  return <YouthLanding next={usernameHref(destination)} />;
+  const lobby = await requestLandingLobby();
+  if (lobby?.ageRule !== 'under-18') redirect(usernameHref(destination));
+  return (
+    <YouthLanding lobbyName={lobby.name} next={usernameHref(destination)} />
+  );
 }
