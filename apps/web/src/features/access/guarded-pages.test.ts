@@ -108,6 +108,7 @@ mock.module(join(import.meta.dir, '../../lib/request-session.ts'), () => ({
   requestOptionalAnswersAdmitted: async () => false,
   requestOnboardingAnswers: async () => null,
   requestFamilyViewer: async () => null,
+  requestGuardianRelease: async () => null,
   requestFamilyRows: async () => null,
   requestFriendApprovals: async () => [],
   requestAnalytics: async () => ({

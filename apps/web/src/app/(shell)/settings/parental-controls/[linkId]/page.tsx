@@ -4,8 +4,10 @@ import { idSchema } from '@daisy/protocol';
 import { errorCodeOf } from '@daisy/errors';
 import type { SearchParams } from '../../../../../features/access/decision';
 import { requireAccess } from '../../../../../lib/access';
-import { requestFamilyViewer } from '../../../../../lib/request-session';
-import { processApp } from '../../../../../server/process-app';
+import {
+  requestFamilyViewer,
+  requestGuardianRelease,
+} from '../../../../../lib/request-session';
 import {
   CloseChildAccountForm,
   LinkedGuardianReleaseForm,
@@ -38,16 +40,13 @@ export default async function GuardianMorePage({
     !idSchema.safeParse(linkId).success
   )
     notFound();
-  const release = await processApp()
-    .database.mediaReleases.readGuardianRelease({
-      guardian: caller.principal,
-      linkId,
-    })
-    .catch((error) => {
+  const release = await requestGuardianRelease(caller.principal, linkId).catch(
+    (error) => {
       const code = errorCodeOf(error, 'INTERNAL');
       if (code === 'NOT_FOUND' || code === 'AUTHORIZATION') notFound();
       throw error;
-    });
+    },
+  );
   const name = release.username ? `@${release.username}` : 'your child';
   return (
     <main className="mx-auto flex w-full max-w-dash-column flex-col gap-5 px-6 py-5 max-compact:px-4">
