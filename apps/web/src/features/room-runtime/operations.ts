@@ -227,6 +227,7 @@ export function createRoomRuntimeOperations({
           caller.actorId,
           currentRoomConsent(consent, now),
           now,
+          { resolutionHeld: facts.resolutionHeld },
         ),
         {
           // A seat's rating waits for the spectator timeline, as a card's does.

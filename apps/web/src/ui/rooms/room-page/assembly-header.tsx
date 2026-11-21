@@ -14,7 +14,7 @@ import { ROOM_TITLE, ROOM_TITLE_ID } from './room-setup-modal';
 export function RoomResolution({
   view,
 }: {
-  readonly view: Pick<RoomView, 'topic' | 'capabilities'>;
+  readonly view: Pick<RoomView, 'topic' | 'capabilities' | 'config'>;
 }) {
   return (
     <section
@@ -39,7 +39,9 @@ export function RoomResolution({
       </div>
       {view.topic === null ? (
         <p className="font-display text-2xl leading-tight text-ink-muted">
-          {drawnTopicLabel}
+          {view.config.resolutionDraw.enabled
+            ? drawnTopicLabel
+            : 'Waiting for the tournament to release the resolution'}
         </p>
       ) : (
         <p className="font-display text-2xl leading-tight font-semibold wrap-anywhere">
