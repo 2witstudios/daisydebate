@@ -133,9 +133,12 @@ test(
       // Wait until Postgres has freed the dead runner's lock, so that only
       // the open suite connection can be what keeps the database.
       const deadline = Date.now() + 5_000;
-      while (!(await canTakeRunLock()) && Date.now() < deadline) {
+      let runnerReleased = await canTakeRunLock();
+      while (!runnerReleased && Date.now() < deadline) {
         await Bun.sleep(25);
+        runnerReleased = await canTakeRunLock();
       }
+      if (!runnerReleased) throw new Error('The runner retained its lock');
       const whileConnected = await sweepTestRunDatabases(
         sweeper,
         base,
