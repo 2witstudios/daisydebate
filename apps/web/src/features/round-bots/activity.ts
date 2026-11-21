@@ -1,4 +1,4 @@
-import { instantMs, tryInstantMs } from '@daisy/clock';
+import { tryInstantMs } from '@daisy/clock';
 import { createTurnTaking, turnTakingSettings } from '@daisy/ai-voice';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
@@ -43,23 +43,24 @@ export type BotAudioActivityEvent = {
       readonly spokeForMs: number;
     }
 );
-function freshFrame(frame: BotAudioActivityFrame, staleAfterMs: number) {
-  const oldest = instantMs(frame.serverWindow.before),
-    latest = instantMs(frame.serverWindow.after),
-    receipt = instantMs(frame.receivedAt);
-  return (
+function freshFrameWindow(frame: BotAudioActivityFrame, staleAfterMs: number) {
+  const oldest = tryInstantMs(frame.serverWindow.before);
+  const latest = tryInstantMs(frame.serverWindow.after);
+  const receipt = tryInstantMs(frame.receivedAt);
+  if (oldest === undefined || latest === undefined || receipt === undefined)
+    return undefined;
+  const valid =
     frame.pcm.length === 160 &&
     Number.isSafeInteger(frame.sequence) &&
     frame.sequence >= 0 &&
     /^[A-Za-z0-9_-]{1,128}$/.test(frame.trackId) &&
-    [frame.beforeMs, frame.afterMs, oldest, latest, receipt].every(
-      Number.isFinite,
-    ) &&
+    Number.isFinite(frame.beforeMs) &&
+    Number.isFinite(frame.afterMs) &&
     frame.beforeMs <= frame.afterMs &&
     oldest <= latest &&
     latest <= receipt &&
-    receipt - oldest <= staleAfterMs
-  );
+    receipt - oldest <= staleAfterMs;
+  return valid ? { oldest, latest } : undefined;
 }
 function rms(pcm: Int16Array) {
   let sum = 0;
@@ -76,12 +77,13 @@ function follows(previous: PeerState, frame: BotAudioActivityFrame) {
 function duplicate(
   previous: PeerState | undefined,
   frame: BotAudioActivityFrame,
+  oldest: number,
 ) {
   return (
     previous?.trackId === frame.trackId &&
     frame.sequence === previous.sequence &&
     frame.afterMs === previous.afterMs &&
-    instantMs(frame.serverWindow.before) === previous.oldestServerMs
+    oldest === previous.oldestServerMs
   );
 }
 /**
@@ -145,13 +147,13 @@ export function createBotAudioActivity(input: {
       input.onEvent({ kind: 'unknown', roundParticipantId: participantId });
   };
   const observeKnownPeer = (frame: BotAudioActivityFrame) => {
-    if (!freshFrame(frame, input.staleAfterMs)) {
+    const window = freshFrameWindow(frame, input.staleAfterMs);
+    if (window === undefined) {
       unknown(frame.roundParticipantId);
       return;
     }
     const previous = heard.get(frame.roundParticipantId);
-    if (duplicate(previous, frame)) return;
-    const at = tryInstantMs(frame.serverWindow.after);
+    if (duplicate(previous, frame, window.oldest)) return;
     const gapped = previous !== undefined && !follows(previous, frame);
     if (gapped)
       input.onEvent({
@@ -161,14 +163,15 @@ export function createBotAudioActivity(input: {
     // Whatever came before a frame that does not follow the last one (lost
     // frames, a new track, a peer heard again) is unheard: it sustains no
     // speech or barge-in into this frame.
-    if (gapped || !previous) feed(frame.roundParticipantId, at, null);
+    if (gapped || !previous)
+      feed(frame.roundParticipantId, window.latest, null);
     heard.set(frame.roundParticipantId, {
       trackId: frame.trackId,
       sequence: frame.sequence,
       afterMs: frame.afterMs,
-      oldestServerMs: instantMs(frame.serverWindow.before),
+      oldestServerMs: window.oldest,
     });
-    feed(frame.roundParticipantId, at, rms(frame.pcm));
+    feed(frame.roundParticipantId, window.latest, rms(frame.pcm));
   };
   return {
     observe: (frame: BotAudioActivityFrame) => {
