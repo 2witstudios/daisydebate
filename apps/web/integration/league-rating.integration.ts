@@ -353,11 +353,10 @@ async function currentPostingRecovery(world: World, priorSeasonId: string) {
     command: { type: 'close-season', seasonId: priorSeasonId },
   });
   if (closed.kind !== 'accepted') throw new Error(JSON.stringify(closed));
-  await openLeagueRatingSeason(world);
-  const early = await leagueRoomRating(world, 1, 'public');
-  const late = await leagueRoomRating(world, 1, 'public', {
-    forfeit: 'Debater 2',
-  });
+  const seasonId = await openLeagueRatingSeason(world);
+  const projectionActorId = world.bots.Staff!.actorId;
+  await world.sql`insert into ratings (actor_id,lobby_id,ladder,season_id,rating,deviation,volatility)
+    select ${projectionActorId},lobby_id,id,${seasonId},1666,60,0.06 from ladders where lobby_id=${lobbyId}`;
   const actorId = world.bots['Debater 1']!.actorId;
   await withRoomRuntime(
     async ({ store }) => {
@@ -365,6 +364,46 @@ async function currentPostingRecovery(world: World, priorSeasonId: string) {
       const clock = spectatorClockAt(
         new Date(Date.now() + 60_000).toISOString(),
       );
+      const league = readLeagueLadder({ store: tab, authorize });
+      const projectionPublished = async () => {
+        const [board, member, cards] = await Promise.all([
+          readLadder(store, {
+            lobbyId,
+            seasonId,
+            now: clock.now,
+            username: null,
+            ladder: { style: 'freestyle', division: 'open' },
+          }),
+          league(as(world.bots.Coach!), { lobbyId }),
+          store.readMemberCardRatings(
+            [projectionActorId],
+            clock,
+            replayPublishedStandings,
+          ),
+        ]);
+        return [
+          board?.data.entries.some((row) => row.id === projectionActorId),
+          member?.lines.some((row) => row.actorId === projectionActorId),
+          cards.some((row) => row.actorId === projectionActorId),
+        ];
+      };
+      const beforeHidden = await projectionPublished();
+      await leagueRoomRating(world, 1, 'private');
+      const early = await leagueRoomRating(world, 1, 'public');
+      const late = await leagueRoomRating(world, 1, 'public', {
+        forfeit: 'Debater 2',
+      });
+      assert({
+        given:
+          'a projection-only competitor before and after an unrelated hidden posting',
+        should:
+          'keep that rating off the signed-out board, league member standings and member card',
+        actual: [beforeHidden, await projectionPublished()],
+        expected: [
+          [false, false, false],
+          [false, false, false],
+        ],
+      });
       const publication = () =>
         tab.leagueRatings(
           { viewerUserId: world.bots.Director!.userId, lobbyId },

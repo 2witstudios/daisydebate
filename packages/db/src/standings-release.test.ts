@@ -63,6 +63,23 @@ const publicFirst = {
 };
 
 describe('releasedStandings', () => {
+  test('a projection without postings is only available for authorized Round scoring', () => {
+    assert({
+      given: 'a stored projection with no ledger rows',
+      should:
+        'exclude it from publication and retain it for authorized scoring',
+      actual: [
+        releasedStandings({ ratings: [rating], changes: [] }).ratings,
+        releasedStandings({
+          ratings: [rating],
+          changes: [],
+          includeUnposted: true,
+        }).ratings,
+      ],
+      expected: [[], [rating]],
+    });
+  });
+
   test('every posting released: the stored rating stands', () => {
     const read = releasedStandings({ ratings: [rating], changes: [first] });
     assert({

@@ -274,9 +274,9 @@ export async function selectedLobbyCases(world: World) {
           given:
             'actual Room views in two adult lobbies, with the second Room pinned to its secondary ladder',
           should:
-            'wait for a rating on that exact ladder without borrowing either available alternative',
+            'withhold projected ratings until the exact ladder has a published game',
           actual: [fromOther, before, await rating(selectedId)],
-          expected: [1788, null, 1555],
+          expected: [null, null, null],
         });
         await world.sql`update rooms set visibility='public' where id=${selectedId}`;
         const opposition = world.bots['Debater 2']!;
@@ -350,12 +350,14 @@ export async function selectedLobbyCases(world: World) {
           ladder: { style: 'freestyle', division: 'open' } as const,
           now: new Date().toISOString(),
         };
-        const [board, older] = await Promise.all([
+        const [board, older, [storedOlder], roomRating] = await Promise.all([
           readLadder(f.store, { ...clock, lobbyId, username: null }),
           readRatingStandings(f.store, {
             ...clock,
             frozenLadder: { lobbyId, ladderId: primaryLadder },
           }),
+          world.sql`select rating from ratings where ladder=${primaryLadder} and actor_id=${debater.actorId}`,
+          rating(selectedId),
         ]);
         const published = board?.data.entries.find(
           (row) => row.id === debater.actorId,
@@ -367,15 +369,23 @@ export async function selectedLobbyCases(world: World) {
           given:
             'a signed-out leaderboard request for this official lobby with two ladders',
           should:
-            'publish the configured ladder’s released game and keep 1666 on the older ladder',
+            'publish the configured ladder’s game in the board and Room and keep 1666 private on the older ladder',
           actual: [
             board?.viewer,
             published?.played,
             published?.rating,
-            control?.played,
-            control?.rating,
+            control,
+            storedOlder?.rating,
+            roomRating,
           ],
-          expected: [null, 1, postedRating, 0, 1666],
+          expected: [
+            null,
+            1,
+            postedRating,
+            undefined,
+            1666,
+            Math.round(postedRating),
+          ],
         });
       },
       { databaseUrl: world.runtimeDatabaseUrl },

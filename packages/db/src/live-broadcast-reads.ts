@@ -236,7 +236,11 @@ export const liveBroadcastReads = ({
         return {
           rows: shown.map(({ ladderId, ladderAgeRule, ...row }) => ({
             ...row,
-            ladder: roundLadderOf({ ladderId, ladderAgeRule }),
+            ladder: roundLadderOf({
+              ladderId,
+              ladderAgeRule,
+              competitionType: row.competitionType,
+            }),
             competitionType: row.competitionType as 'ranked' | 'casual',
             horizonMs:
               row.horizon === null ? null : new Date(row.horizon).getTime(),

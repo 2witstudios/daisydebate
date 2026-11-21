@@ -383,7 +383,11 @@ async function readStandingsWithin(
       volatilityBefore,
     }),
   );
-  const source = releasedStandings({ ratings: standings, changes: ledger });
+  const source = releasedStandings({
+    ratings: standings,
+    changes: ledger,
+    includeUnposted: input.revealRoundId !== undefined,
+  });
   const replaySeasonIds = [
     ...new Set(
       changeRows

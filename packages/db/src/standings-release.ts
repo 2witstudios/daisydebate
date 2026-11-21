@@ -22,6 +22,8 @@ const scopeOf = (row: {
 export const releasedStandings = (read: {
   readonly ratings: readonly StandingRating[];
   readonly changes: readonly ReleasableChange[];
+  /** An authorized Round can use its competitors' stored state for stakes. */
+  readonly includeUnposted?: boolean;
 }): StandingsRead => {
   const earliest = new Map<string, ReleasableChange>();
   const known = new Set<string>();
@@ -42,7 +44,7 @@ export const releasedStandings = (read: {
     ratings: read.ratings.flatMap((row) => {
       const scope = scopeOf(row);
       const held = earliest.get(scope);
-      if (!held) return [row];
+      if (!held) return known.has(scope) || read.includeUnposted ? [row] : [];
       if (!known.has(scope)) return [];
       return [
         {

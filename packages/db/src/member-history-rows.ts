@@ -76,12 +76,14 @@ const forfeitedRounds = async (tx: Tx, ids: readonly string[]) => {
   );
 };
 
-/** Display classification frozen with the Round's ladder. */
+/** The frozen competition label survives even when a ranked Round has no posting pool. */
 export const roundLadderOf = (columns: {
   readonly ladderId: string | null;
   readonly ladderAgeRule: LobbyAgeRule | null;
+  readonly competitionType: (typeof rounds.$inferSelect)['competitionType'];
 }): Ladder | null =>
-  columns.ladderId === null || columns.ladderAgeRule === null
+  columns.ladderAgeRule === null ||
+  (columns.ladderId === null && columns.competitionType !== 'ranked')
     ? null
     : {
         style: 'freestyle',
@@ -98,6 +100,7 @@ const roundLadders = async (
       roundId: rounds.id,
       ladderId: rounds.ladderId,
       ladderAgeRule: rounds.standingAgeRule,
+      competitionType: rounds.competitionType,
     })
     .from(rounds)
     .where(inArray(rounds.id, ids));

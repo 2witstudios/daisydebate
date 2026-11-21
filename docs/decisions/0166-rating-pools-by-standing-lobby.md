@@ -14,10 +14,10 @@ Existing postings keep their recorded season and move only to an existing
 canonical lobby and ladder. The Open and Youth reference seasons use
 their respective reference pools. A league season with no unambiguous
 standing lobby requires an explicit adoption decision. The schema upgrade
-creates no historical pool, period copy or rating posting. A Round without
-a posting keeps its result and audience classification. Old completed league
-Rooms do not acquire new ratings. An in-flight ranked Round without a
-canonical pool requires separate handling before adoption.
+creates no historical pool, period copy or rating posting. An older Round
+without a posting keeps its result, audience classification and frozen ranked
+label. Old completed league Rooms do not acquire new ratings. An in-flight
+rated Round without a canonical pool requires separate handling before adoption.
 Seasons opened through the league's managed standings rules start with the
 standard initial rating. The operator beta path retains its activation and
 posting guards while DEC-111 remains open.
@@ -44,6 +44,9 @@ public rating history. The receiving ladder reads projections, postings and
 certifications from one snapshot. A Room shows each seat's rating from
 its selected ladder and uses its frozen season once the Round has started.
 Discovery has no host rating until that host has a published standing.
+Public standings require a released competitor posting or an eligible released
+certification. Stored projections remain available to the rating writer and
+authorized Round scoring.
 When a private or delayed result affects the stored
 projection, the public calculation uses the complete released games so
 later public results remain visible. An approved tournament result counts

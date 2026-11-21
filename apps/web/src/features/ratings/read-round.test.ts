@@ -14,6 +14,29 @@ setupRitewayBun();
 const seasonId = 's'.repeat(24);
 const at = '2026-10-28T00:00:00.000Z';
 const youth = { style: 'freestyle', division: 'youth' } as const;
+const ratedView = {
+  ...view,
+  ratingScope: { lobbyId: 'youth', ladderId: 'youth-ladder', seasonId },
+};
+
+test('a frozen ranked label without a posting pool has no rating panel', async () => {
+  const finished = asCompleted(ratedView, winnerOutcome('affirmative'));
+  assert({
+    given: 'a completed Youth Round with its frozen label and no rating pool',
+    should: 'leave the ratings panel empty without reading the current ladder',
+    actual: await readRoundRatings({} as never, {
+      round: {
+        ...finished,
+        competitionType: 'ranked',
+        ladder: youth,
+        ratingScope: null,
+      },
+      now: at,
+      viewerActorId: null,
+    }),
+    expected: null,
+  });
+});
 
 test('team stakes use each debater’s own standing and the whole opposing side', async () => {
   const participants = [
@@ -62,7 +85,7 @@ test('team stakes use each debater’s own standing and the whole opposing side'
       readStandings: async () => ({ ratings, changes: [] }),
     },
     {
-      round: { ...view, ladder: youth, participants },
+      round: { ...ratedView, ladder: youth, participants },
       now: at,
       viewerActorId: null,
     },
@@ -134,7 +157,7 @@ test('a historical Round badge uses its posting rather than later established st
     },
     {
       round: {
-        ...asCompleted(view, { kind: 'winner', side: 'affirmative' }),
+        ...asCompleted(ratedView, { kind: 'winner', side: 'affirmative' }),
         ladder: youth,
       },
       now: at,
@@ -212,7 +235,7 @@ test('a blinded debater hides the posting, and only both blinded hide that it ra
       },
       {
         round: {
-          ...asCompleted(view, { kind: 'winner', side: 'affirmative' }),
+          ...asCompleted(ratedView, { kind: 'winner', side: 'affirmative' }),
           ladder: youth,
         },
         now: at,
@@ -280,7 +303,7 @@ test('a decided Round is pending exactly when the rating writer would still rate
       } as never,
       {
         round: {
-          ...asCompleted(view, { kind: 'winner', side: 'affirmative' }),
+          ...asCompleted(ratedView, { kind: 'winner', side: 'affirmative' }),
           ladder: youth,
         },
         now: at,

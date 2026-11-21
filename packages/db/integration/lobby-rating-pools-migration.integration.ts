@@ -11,6 +11,8 @@ import { validConfig } from './round-fixtures';
 import { loadSampleTournament } from './tab.test-support';
 import { loadLeagueCertifiedRatingInputs } from '../src/tab/league-certified-rating-inputs';
 import { readRatingCandidates } from '../src/rating-discovery';
+import { launchedRoundRows } from '../src/launched-round-read';
+import { memberProfileReadOperations } from '../src/member-profile-reads';
 import {
   ddlTimeoutMs,
   scratchDatabase,
@@ -140,6 +142,35 @@ test(
         status: 'completed',
         winning_side: 'affirmative',
       });
+      const [youthLobby] =
+        await client`select id from lobbies where owner_organization_id=${daisyOrganizationId} and age_rule='under-18'`;
+      const youthRoom = await f.room(actor.youth, 'freestyle', {
+        lobby_id: youthLobby!.id,
+        competition_type: 'ranked',
+        preset_version: 1,
+        basis_format_id: 'freestyle',
+        basis_preset_version: 1,
+      });
+      const { id: unpostedYouth } = await f.roundWithCast(
+        {
+          room_id: youthRoom,
+          competition_type: 'ranked',
+          format_id: 'freestyle',
+          preset_version: 1,
+          ladder_id: 'freestyle',
+          ladder_division: 'youth',
+          visibility: 'public',
+          room_config_snapshot: validConfig,
+          status: 'completed',
+          started_at: start,
+          completed_at: finish,
+          winning_side: 'affirmative',
+        },
+        [
+          { seat: 'affirmative', actorId: actor.youth },
+          { seat: 'negative', actorId: opponent },
+        ],
+      );
       const data = () =>
         Promise.all([
           client`select id, name, starts_at, ends_at, status from seasons where id in ${client([...Object.values(season), league.season])} order by id`,
@@ -192,6 +223,36 @@ test(
         await client`select season_id, ladder_id, rating_lobby_id from rounds where id=${unposted}`;
       const candidates = await readRatingCandidates(drizzle({ client }), {
         limit: 100,
+      });
+      const database = drizzle({ client });
+      const [youthUser] =
+        await client`select username from users u join actors a on a.user_id=u.id where a.id=${actor.youth}`;
+      const launched = await database.transaction((tx) =>
+        launchedRoundRows(tx, unpostedYouth),
+      );
+      const history = await memberProfileReadOperations({
+        database,
+      }).readMemberProfile({
+        username: youthUser!.username,
+        caller: null,
+        decide: () => 'public',
+        before: null,
+        limit: 10,
+        clock: { now: '2099-01-01T00:00:00.000Z', rankedDelaySeconds: 0 },
+      });
+      const youthLabel = { style: 'freestyle', division: 'youth' };
+      assert({
+        given:
+          'a completed Youth ranked Round whose predecessor never posted a rating',
+        should:
+          'preserve its Youth label in the launched and member history reads and exclude it from settlement',
+        actual: [
+          launched.ladder,
+          launched.ratingScope,
+          history?.rows.find((row) => row.roundId === unpostedYouth)?.ladder,
+          candidates.some(({ roundId }) => roundId === unpostedYouth),
+        ],
+        expected: [youthLabel, null, youthLabel, false],
       });
       const [inventory] = await client`select
         (select count(*)::int from ladders where organization_id=${league.league}) as ladders,

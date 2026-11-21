@@ -266,13 +266,13 @@ test('every public and member read holds a ranked outcome until release', async 
       assert({
         given: 'ratings, standings and the leaderboard before release',
         should:
-          'keep the active season unrated and show only the past rating in member standings',
+          'keep the active season unrated and exclude the unposted past projection',
         actual: [
           held.ladderEntries,
           held.memberStanding?.current,
           held.memberStanding?.rating,
         ],
-        expected: [0, false, 2200],
+        expected: [0, true, null],
       });
       assert({
         given:

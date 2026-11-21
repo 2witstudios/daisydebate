@@ -58,7 +58,7 @@ export async function readRoundRatings(
   },
 ): Promise<RoundRatingsView | null> {
   const { round, now } = input;
-  if (round.ladder === null) return null;
+  if (round.ladder === null || !round.ratingScope) return null;
   const noSeason: RoundRatingsView = {
     ladder: round.ladder,
     season: 'No active season',
@@ -67,8 +67,8 @@ export async function readRoundRatings(
   };
   const published = await readRatingStandings(store, {
     ladder: round.ladder,
-    seasonId: round.ratingScope?.seasonId ?? null,
-    ...(round.ratingScope ? { frozenLadder: round.ratingScope } : {}),
+    seasonId: round.ratingScope.seasonId,
+    frozenLadder: round.ratingScope,
     now,
     revealRoundId: round.id,
     ...(input.viewerActorId ? { viewerActorId: input.viewerActorId } : {}),

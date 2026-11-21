@@ -84,6 +84,7 @@ export async function launchedRoundRows(
     ladder: roundLadderOf({
       ladderId: row.ladderId,
       ladderAgeRule: row.standingAgeRule,
+      competitionType: row.competitionType,
     }),
     ratingScope: roundRatingScopeSchema.parse(
       row.ladderId === null

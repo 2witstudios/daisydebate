@@ -7,12 +7,24 @@ describe('roundLadderOf', () => {
   test('a ranked Round names its ladder; a casual one none', () => {
     assert({
       given:
-        'a ranked Youth Freestyle Round, a casual Round, and a ladder with no known lobby',
+        'a ranked Youth Round without a pool, a casual Round, and a ladder with no known age',
       should: 'name Youth – Freestyle, then no ladder twice',
       actual: [
-        roundLadderOf({ ladderId: 'freestyle', ladderAgeRule: 'under-18' }),
-        roundLadderOf({ ladderId: null, ladderAgeRule: null }),
-        roundLadderOf({ ladderId: 'freestyle', ladderAgeRule: null }),
+        roundLadderOf({
+          ladderId: null,
+          ladderAgeRule: 'under-18',
+          competitionType: 'ranked',
+        }),
+        roundLadderOf({
+          ladderId: null,
+          ladderAgeRule: 'adults',
+          competitionType: 'casual',
+        }),
+        roundLadderOf({
+          ladderId: 'freestyle',
+          ladderAgeRule: null,
+          competitionType: 'ranked',
+        }),
       ],
       expected: [{ style: 'freestyle', division: 'youth' }, null, null],
     });
