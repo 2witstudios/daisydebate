@@ -61,7 +61,7 @@ describe('Room chat contracts', () => {
       ),
       expected: [false, false, true, false, false],
     }));
-  test('a Youth Room (decision 84, ADR 0156)', () => {
+  test('a Youth Room (decision 84, ADR 0162)', () => {
     assert({
       given:
         'a Room of the Youth lobby and one of the Open lobby, ranked or casual',

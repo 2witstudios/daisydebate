@@ -18,7 +18,7 @@ export type { YouthLiveFact };
 
 /**
  * The Round as this rule reads it. `youth` is present exactly when its Room
- * is in the Youth lobby (ADR 0156), and null on every other Round.
+ * is in the Youth lobby (ADR 0162), and null on every other Round.
  */
 export type LiveAudienceRound = {
   readonly createdByActorId: string | null;

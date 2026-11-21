@@ -39,7 +39,7 @@ test('native evidence survives an earlier prerequisite refusal without bypassing
       uploadGuard:
         "${{ always() && !cancelled() && steps.sanitize_launch.outcome == 'success' }}",
       noFiles:
-        "${{ steps.launch.outcome == 'skipped' && steps.realtime_room.outcome == 'skipped' && steps.realtime_messaging.outcome == 'skipped' && 'ignore' || 'error' }}",
+        "${{ steps.launch.outcome == 'skipped' && steps.realtime_room.outcome == 'skipped' && steps.realtime_messaging.outcome == 'skipped' && steps.node_kill.outcome == 'skipped' && 'ignore' || 'error' }}",
     },
   });
 });

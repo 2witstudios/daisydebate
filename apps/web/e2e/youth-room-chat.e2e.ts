@@ -63,7 +63,7 @@ test('a seatless member reads a Youth Room’s chat and has nowhere to post (dec
       true,
     );
     roomId = created.id;
-    // A minor creates it, so it is a Youth Room (ADR 0156); seated, their page opens its chat.
+    // A minor creates it, so it is a Youth Room (ADR 0162); seated, their page opens its chat.
     const seated = await claim(host, created, 'Affirmative 1');
     expect(seated.ageRule).toBe('under-18');
     await expect(

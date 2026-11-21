@@ -5,7 +5,7 @@ import {
   type RetentionTarget,
 } from '../../server/retention-target';
 
-/** ADR 0059 / DEC-81: accepted Round command receipts dedupe for 24 hours. */
+/** ADR 0059: accepted Round command receipts dedupe for 24 hours. */
 export const roundCommandRetentionTarget = (
   database: Pick<Database, 'purgeExpiredRoundCommands'>,
 ): RetentionTarget =>

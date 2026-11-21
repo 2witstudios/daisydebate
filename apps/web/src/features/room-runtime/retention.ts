@@ -5,7 +5,7 @@ import {
   type RetentionTarget,
 } from '../../server/retention-target';
 
-/** ADR 0059 / DEC-81: accepted Room command receipts dedupe for 24 hours. */
+/** ADR 0059: accepted Room command receipts dedupe for 24 hours. */
 export const roomCommandRetentionTarget = (
   database: Pick<Database, 'purgeExpiredRoomCommands'>,
 ): RetentionTarget =>

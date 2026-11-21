@@ -82,7 +82,7 @@ test('a stranger watches a live ranked Youth Round, then finds it in the archive
       .getByRole('link', { name: 'Youth', exact: true })
       .click();
     await expect(visitor.getByText(`Youth final ${tag}`)).toBeVisible();
-    // No page names a ladder inside a lobby (ADR 0156 copy rule).
+    // No page names a ladder inside a lobby.
     await expect(visitor.getByRole('main')).not.toContainText(
       'Youth – Freestyle',
     );

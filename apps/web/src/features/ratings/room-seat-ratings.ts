@@ -58,7 +58,7 @@ export const overlaySeatRatings = <View extends SeatedView>(
       if ('anonymous' in p) return p;
       if (p.kind !== 'human' || hidden.has(p.actorId))
         return { ...p, rating: null };
-      // A debater's rating on the Room's own ladder (ADR 0156); anyone
+      // A debater's rating on the Room's own ladder (ADR 0162); anyone
       // else's active-season rating, which is on one division at a time.
       // Every rating is Freestyle, Daisy's one style (ADR 0142).
       const debater = isDebatingSeat(p.seat);

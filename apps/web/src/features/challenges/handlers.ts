@@ -52,7 +52,7 @@ export function createChallengeHandlers(dependencies: {
       name: `challenges.${name}`,
       readOnly: false,
       readInput: () => readJson(request, MAX_BODY_BYTES),
-      // A challenge stays inside one lobby (ADR 0156): the other lobby's
+      // A challenge stays inside one lobby (ADR 0162): the other lobby's
       // member reads as one who cannot take a challenge.
       refusals: ['other-division'],
       operation: async (input, principal) =>

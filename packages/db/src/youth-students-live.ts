@@ -20,7 +20,7 @@ export type StudentLiveRound = {
  * they hold an active guardian link to, and the members of each school they
  * own or staff (an active member holding a live grant whose role carries
  * `school.roster.manage`), each read under its own scope; then the running
- * Rounds of Youth Rooms (ADR 0156), casual or ranked, seating any of them as
+ * Rounds of Youth Rooms (ADR 0162), casual or ranked, seating any of them as
  * a debater. These are candidates only: whether the adult watches one
  * is the live audience rule's, on that Round's own linked adults. The
  * caller's scope comes back at the end.

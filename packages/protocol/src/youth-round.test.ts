@@ -21,7 +21,7 @@ test('isYouthRound', () => {
     expected: [true, false],
   });
   assert({
-    given: 'a Youth ladder in an Open Room, which ADR 0156 never makes',
+    given: 'a Youth ladder in an Open Room, which ADR 0162 never makes',
     should: 'still be Youth: the rule fails closed',
     actual: isYouthRound({ ladderDivision: 'youth' }, false),
     expected: true,

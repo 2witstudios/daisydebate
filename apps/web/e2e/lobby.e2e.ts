@@ -43,7 +43,7 @@ test.describe('authenticated Room lobby', () => {
       const item = roomRows(page).filter({ hasText: title });
       await expect(item).toHaveCount(1);
       await expect(item).toContainText(setResolution);
-      // Watch sits beside the row's seat action (ADR 0156); both lead to the Room.
+      // Watch sits beside the row's seat action (ADR 0162); both lead to the Room.
       await expect(
         item.getByRole('link', { name: /^Watch: / }),
       ).toHaveAttribute('href', `/rooms/${created.id}`);

@@ -142,7 +142,7 @@ type ComposerProps = {
 
 /**
  * The message box. Nothing delivers a round message or answers an ask yet
- * (CHAT-1, ISSUE-420), so the field and Send are shown disabled (DEC-178).
+ * (CHAT-1, ISSUE-420), so the field and Send are shown disabled.
  */
 export function Composer({ label, tone }: ComposerProps) {
   return (

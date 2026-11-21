@@ -75,7 +75,7 @@ const decidingStatus = (
 
 /**
  * What each ballot is doing. The round completes, and the room hands off to
- * the receipt, the moment the deciding ballot lands (DEC-80).
+ * the receipt, the moment the deciding ballot lands.
  */
 export function ballotLines(
   ballots: JudgingBallots,

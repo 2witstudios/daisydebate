@@ -363,7 +363,7 @@ export function createRoomRuntimeOperations({
     const receipt = await store.createRoomCommand({
       caller,
       // The Room opens in the creator's own lobby unless club staff chose
-      // Youth (ADR 0156); the store decides under the account lock.
+      // Youth (ADR 0162); the store decides under the account lock.
       lobbyChoice: body.lobby ?? null,
       authorize: (account) => can(caller, 'room.create', account),
       // A new Room holds the humans its cast seats, never a host without a

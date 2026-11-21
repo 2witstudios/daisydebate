@@ -140,7 +140,7 @@ test('availability samples are immutable and strictly ordered with honest bounde
         expected: 'availability_samples_cause_check',
       });
       assert({
-        given: 'the retired global control worker cause (DEC-193)',
+        given: 'the retired global control worker cause',
         should: 'refuse it as a reason for unhealthy availability',
         actual: await rejectedBy(() =>
           fixture.sql.unsafe(

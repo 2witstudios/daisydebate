@@ -874,7 +874,7 @@ describe('RoomRoster header count (main-sync-4)', () => {
   });
 });
 
-describe('RoomRoster lobbies (ADR 0156)', () => {
+describe('RoomRoster lobbies (ADR 0162)', () => {
   const inLobby = (ageRule: RoomView['ageRule']): RoomView => {
     const seats = seatsOf(1, 1, 1);
     return {

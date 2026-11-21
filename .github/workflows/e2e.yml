@@ -1,7 +1,7 @@
 name: Browser E2E
 
 on:
-  # A PR check again (ADR 0159, which ends ADR 0098): staging has real
+  # A PR check (ADR 0159): staging has real
   # testers, and the Launch suite now runs as shards inside the PR budget.
   # A newer push to the same PR replaces the run in progress.
   pull_request:
@@ -16,6 +16,10 @@ on:
   # uncontended runner instead of a shared development machine, alongside
   # the single-run push suite.
   workflow_dispatch:
+    inputs:
+      review_spec:
+        description: 'Optional browser spec under apps/web/e2e for a review evidence run'
+        type: string
 
 permissions:
   contents: read
@@ -31,7 +35,7 @@ concurrency:
 # never cascades into browser reds (ADR 0083).
 jobs:
   e2e:
-    name: Playwright browser suite
+    name: ${{ inputs.review_spec && 'Browser review capture' || 'Playwright browser suite' }}
     runs-on: ubuntu-24.04
     # Run 44834624902 completed its first two 601-test passes in 29.0 and
     # 36.9 minutes. Reserve time for setup, the third pass and report upload
@@ -140,7 +144,7 @@ jobs:
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}-${{ (github.event_name == 'push' || github.event_name == 'pull_request') && 'chromium' || 'chromium-firefox-webkit' }}
+          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}-${{ (github.event_name == 'push' || github.event_name == 'pull_request' || inputs.review_spec) && 'chromium' || 'chromium-firefox-webkit' }}
       # The newest .deb set for this version: Ubuntu's updates land in a new
       # entry (ci-browsers.sh reports debs=changed), never in a stale one.
       - name: Restore the browsers' OS packages
@@ -148,8 +152,8 @@ jobs:
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/daisy-apt-archives
-          key: playwright-debs-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}-${{ (github.event_name == 'push' || github.event_name == 'pull_request') && 'chromium' || 'chromium-firefox-webkit' }}_${{ github.run_id }}-${{ github.run_attempt }}
-          restore-keys: playwright-debs-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}-${{ (github.event_name == 'push' || github.event_name == 'pull_request') && 'chromium' || 'chromium-firefox-webkit' }}_
+          key: playwright-debs-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}-${{ (github.event_name == 'push' || github.event_name == 'pull_request' || inputs.review_spec) && 'chromium' || 'chromium-firefox-webkit' }}_${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: playwright-debs-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}-${{ (github.event_name == 'push' || github.event_name == 'pull_request' || inputs.review_spec) && 'chromium' || 'chromium-firefox-webkit' }}_
 
       # Also installs zip/unzip: scripts/e2e-artifact-sanitizer.ts shells
       # out to them to redact retained trace archives, a path exercised only
@@ -160,7 +164,7 @@ jobs:
         id: browsers
         timeout-minutes: 8
         env:
-          BROWSERS: ${{ (github.event_name == 'push' || github.event_name == 'pull_request') && 'chromium' || 'chromium firefox webkit' }}
+          BROWSERS: ${{ (github.event_name == 'push' || github.event_name == 'pull_request' || inputs.review_spec) && 'chromium' || 'chromium firefox webkit' }}
         # Word splitting is the point: one argument per browser.
         run: sh scripts/ci-browsers.sh $BROWSERS
 
@@ -191,6 +195,7 @@ jobs:
 
       # PHOG: configured production-app consent and identity proof with local vendor transport.
       - name: Run configured analytics native lifecycle
+        if: ${{ !inputs.review_spec }}
         run: |
           bun run --cwd apps/web test:e2e:analytics
           bun scripts/e2e-report-counts.ts apps/web/test-results/analytics-native/results.json
@@ -202,12 +207,28 @@ jobs:
       # AUTH-6.2-AC7: three consecutive full-suite runs, retries disabled
       # (the standing playwright.config.ts default), every outcome kept.
       - name: Run release-qualification (three consecutive full-suite runs)
-        if: ${{ github.event_name == 'workflow_dispatch' }}
+        if: ${{ github.event_name == 'workflow_dispatch' && !inputs.review_spec }}
         run: bun test:e2e:qualify
         env:
           CI: true
           E2E_DATABASE_URL: postgres://daisy_e2e:e2e-loopback-only@localhost:5432/daisy_e2e
           E2E_REDIS_URL: redis://localhost:6379/2
+
+      - name: Record browser review evidence
+        id: review_evidence
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.review_spec }}
+        env:
+          CI: true
+          REVIEW_SPEC: ${{ inputs.review_spec }}
+          DAISY_BROWSER_REVIEW_EVIDENCE: '1'
+          E2E_DATABASE_URL: postgres://daisy_e2e:e2e-loopback-only@localhost:5432/daisy_e2e
+          E2E_REDIS_URL: redis://localhost:6379/2
+        run: |
+          if [[ ! "$REVIEW_SPEC" =~ ^e2e/([a-zA-Z0-9_-]+/)*[a-zA-Z0-9_-]+\.e2e\.ts$ ]] || [[ ! -f "apps/web/$REVIEW_SPEC" ]]; then
+            echo 'Select one existing browser spec, relative to apps/web (e.g. e2e/pricing.e2e.ts).'
+            exit 2
+          fi
+          bun run --cwd apps/web test:e2e --project=chromium "^${REVIEW_SPEC//./\\.}$|/${REVIEW_SPEC//./\\.}$"
 
       - name: Report discovered/executed/pass/fail/skip counts
         if: ${{ !cancelled() && github.event_name != 'workflow_dispatch' }}
@@ -236,13 +257,33 @@ jobs:
       # The release-qualification report is the AUTH-6.2-AC7 artifact
       # itself: upload it on success too, not only on failure.
       - name: Upload release-qualification report
-        if: ${{ !cancelled() && github.event_name == 'workflow_dispatch' && steps.sanitize.outcome == 'success' }}
+        if: ${{ !cancelled() && github.event_name == 'workflow_dispatch' && !inputs.review_spec && steps.sanitize.outcome == 'success' }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: e2e-qualification-${{ github.run_id }}
           path: apps/web/qualification-results/
           if-no-files-found: error
           retention-days: 30
+
+      - name: Check the sanitized review bundle contains all three media types
+        id: review_media
+        if: ${{ !cancelled() && steps.review_evidence.outcome != 'skipped' && steps.sanitize.outcome == 'success' }}
+        run: |
+          for pattern in '*.webm' 'trace.zip' '*.png'; do
+            if [ -z "$(find apps/web/test-results -type f -name "$pattern" -print -quit)" ]; then
+              echo "Browser review evidence did not capture $pattern"
+              exit 1
+            fi
+          done
+
+      - name: Upload browser review evidence
+        if: ${{ !cancelled() && steps.review_media.outcome == 'success' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: browser-review-evidence-attempt-${{ github.run_attempt }}-${{ steps.review_evidence.outcome }}
+          path: apps/web/test-results/
+          if-no-files-found: error
+          retention-days: 7
 
   # ADR 0077: the admin app's operator journey on its own canonical origin
   # (ephemeral local HTTPS) and its own database; Chromium only, through
@@ -354,7 +395,7 @@ jobs:
     # series (run 44458727755). It runs as five shards, each on its own
     # machine, slot and stack, so no case or execution count is reduced and
     # every shard retains its own sanitized evidence.
-    timeout-minutes: 45
+    timeout-minutes: ${{ matrix.cohort == 'node-kill' && 100 || 45 }}
     strategy:
       fail-fast: false
       matrix:
@@ -366,6 +407,7 @@ jobs:
           - launch-5
           - realtime
           - messaging
+        include: ${{ fromJSON(github.event_name == 'schedule' && '[{"cohort":"node-kill"}]' || '[]') }}
     env:
       CLAMD_TEST_PORT: '3310'
     defaults:
@@ -554,6 +596,21 @@ jobs:
       - name: Report actual discovered and executed outcomes
         if: ${{ always() && !cancelled() && startsWith(matrix.cohort, 'launch-') && (steps.launch.outcome == 'success' || steps.launch.outcome == 'failure') }}
         run: bun scripts/e2e-report-counts.ts apps/web/test-results/room-launch-results.json
+      - name: Run the nightly node kill drill against disposable nodes
+        id: node_kill
+        if: ${{ matrix.cohort == 'node-kill' }}
+        env:
+          CI: true
+          DRILL_LABEL: nightly
+          DAISY_HEAVY_TIMEOUT_MINUTES: '75'
+        run: |
+          drill_dir=$(mktemp -d)
+          nodes=apps/web/scripts/node-kill-drill/local-nodes.sh
+          trap 'sh "$nodes" down; rm -rf "$drill_dir"' EXIT
+          port=$(bun --env-file=.env -p 'process.env.E2E_PORT')
+          sh "$nodes" up "$port" "$drill_dir/settings"
+          . "$drill_dir/settings"
+          bun drill:node-kill
       - name: Sanitize retained proof artifacts
         id: sanitize_launch
         if: ${{ always() && !cancelled() }}
@@ -565,7 +622,7 @@ jobs:
           name: room-launch-${{ matrix.cohort }}-${{ github.run_id }}
           path: .pu/worktrees/wt-roomlaunchci/apps/web/test-results/
           # Silence only when the suite never ran; a run with no evidence fails.
-          if-no-files-found: ${{ steps.launch.outcome == 'skipped' && steps.realtime_room.outcome == 'skipped' && steps.realtime_messaging.outcome == 'skipped' && 'ignore' || 'error' }}
+          if-no-files-found: ${{ steps.launch.outcome == 'skipped' && steps.realtime_room.outcome == 'skipped' && steps.realtime_messaging.outcome == 'skipped' && steps.node_kill.outcome == 'skipped' && 'ignore' || 'error' }}
           retention-days: 7
       # No reviewer attaches to this ephemeral job's live slot. Evidence is
       # retained first; release checks its own derived scope and main sentinel.
@@ -574,7 +631,7 @@ jobs:
         run: bun --env-file=.env apps/web/e2e/support/room-launch-release.ts
 
   playwright-gate:
-    name: Playwright E2E
+    name: ${{ inputs.review_spec && 'Browser review evidence' || 'Playwright E2E' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     needs: [e2e]

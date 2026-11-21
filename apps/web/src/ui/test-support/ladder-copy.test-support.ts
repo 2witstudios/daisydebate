@@ -1,5 +1,5 @@
 /**
- * Owner copy rule (ADR 0156 copy addendum): outside the lobby switch, no view
+ * Owner copy rule: outside the lobby switch, no view
  * names a ladder, a style or a division, so copy never changes as styles are
  * added. A format name stays only where it is a Room's own format (a lobby
  * row, the create form's format choice, a style filter's options).

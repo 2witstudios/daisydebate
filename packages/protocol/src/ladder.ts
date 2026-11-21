@@ -90,7 +90,7 @@ const casualRound: RoundCompetition = {
 
 /**
  * The Round a Room's Start freezes. A ranked Room rates on its style in the
- * Room's own division, fixed when it was created (ADR 0156): its debater seats
+ * Room's own division, fixed when it was created (ADR 0162): its debater seats
  * hold only that lobby's members. A format that is no style never gets a
  * ladder invented for it.
  */

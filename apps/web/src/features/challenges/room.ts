@@ -18,7 +18,7 @@ export function challengeRoomForm(input: {
   readonly opponent: string;
   readonly opponentActorId: string;
   readonly mode: CompetitionType;
-  /** The lobby the pair shares (ADR 0156): the Room opens there. */
+  /** The lobby the pair shares (ADR 0162): the Room opens there. */
   readonly lobbyId: string;
   readonly template: RoomTemplate;
   readonly commandId: string;

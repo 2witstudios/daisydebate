@@ -55,7 +55,7 @@ export const roomCommunitySeatReadsOnly = (
 ): boolean => seatKind === 'judge';
 /**
  * A Youth Room (decision 84): a Room of the Youth lobby, casual included
- * (ADR 0156). `daisy_room_community_fact` reads the same rule in SQL.
+ * (ADR 0162). `daisy_room_community_fact` reads the same rule in SQL.
  */
 export const youthRoomOf = (room: {
   readonly ageRule: LobbyAgeRule;

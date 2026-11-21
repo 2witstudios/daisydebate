@@ -80,7 +80,7 @@ const dropSchools = (f: Fixture, ids: readonly string[]) =>
   });
 
 /**
- * A public ranked Freestyle Room in a lobby (ADR 0156), hosted by a seatless
+ * A public ranked Freestyle Room in a lobby (ADR 0162), hosted by a seatless
  * adult, its chat opened.
  */
 const rankedRoom = async (

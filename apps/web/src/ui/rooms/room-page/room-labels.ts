@@ -175,7 +175,7 @@ const refusalText: Readonly<Record<RoomRefusal, string>> = {
   'ballot-definition-unavailable': 'a valid pinned ballot for this room',
   'format-unavailable': 'a format that is currently offered',
   'ranked-unavailable': 'an active Ranked season',
-  // A debater seat is for the Room's own lobby (ADR 0156).
+  // A debater seat is for the Room's own lobby (ADR 0162).
   'other-division': 'a debater seat in your own lobby',
   'draw-unavailable': 'enough resolutions to draw from',
   'bots-busy': 'a free bot: bots are busy, try again shortly',

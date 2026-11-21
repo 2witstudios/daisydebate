@@ -61,7 +61,7 @@ describe('ProfilePage', () => {
     });
   });
 
-  test('no Round in the history names a ladder (ADR 0156)', () => {
+  test('no Round in the history names a ladder (ADR 0162)', () => {
     const html = render(
       profile({
         history: [

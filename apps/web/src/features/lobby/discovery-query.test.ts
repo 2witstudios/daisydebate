@@ -84,7 +84,7 @@ test('the Lobby status and mode filters narrow the canonical listing', () => {
   });
 });
 
-test('the lobby switch names the Open or Youth lobby in the URL (ADR 0156)', () => {
+test('the lobby switch names the Open or Youth lobby in the URL (ADR 0162)', () => {
   const parsed = (raw: Record<string, string | string[]>) => {
     const result = parseRoomDiscoveryQuery(raw);
     return result.success ? result.data : null;

@@ -1,3 +1,5 @@
+import { expect } from 'bun:test';
+import { runInNewContext } from 'node:vm';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 setupRitewayBun();
 type Step = {
@@ -9,8 +11,11 @@ type Step = {
   with?: Record<string, string>;
 };
 type Job = {
-  strategy?: { 'fail-fast'?: boolean; matrix?: { cohort?: string[] } };
-  'timeout-minutes'?: number;
+  strategy?: {
+    'fail-fast'?: boolean;
+    matrix?: { cohort?: string[]; include?: string };
+  };
+  'timeout-minutes'?: string;
   steps: Step[];
   needs?: string[];
 };
@@ -59,7 +64,15 @@ describe('native browser cohort evidence survives later workload', () => {
       actual: {
         cohorts: job.strategy?.matrix?.cohort,
         failFast: job.strategy?.['fail-fast'],
-        minutes: job['timeout-minutes'],
+        prMinutes: Number(
+          runInNewContext(
+            condition(job['timeout-minutes']) ?? '',
+            {
+              matrix: { cohort: 'launch-1' },
+            },
+            { timeout: 500 },
+          ),
+        ),
       },
       expected: {
         cohorts: [
@@ -72,9 +85,29 @@ describe('native browser cohort evidence survives later workload', () => {
           'messaging',
         ],
         failFast: false,
-        minutes: 45,
+        prMinutes: 45,
       },
     });
+  });
+  test('only the scheduled matrix includes the disposable node kill drill', () => {
+    const drill = job.steps.find(({ id }) => id === 'node_kill');
+    const include = condition(job.strategy?.matrix?.include) ?? '';
+    const cohortsFor = (event: string): unknown =>
+      runInNewContext(
+        include,
+        {
+          github: { event_name: event },
+          fromJSON: JSON.parse,
+        },
+        { timeout: 500 },
+      );
+    expect(cohortsFor('schedule')).toEqual([{ cohort: 'node-kill' }]);
+    for (const event of ['pull_request', 'push', 'workflow_dispatch'])
+      expect(cohortsFor(event)).toEqual([]);
+    expect(condition(drill?.if)).toBe("matrix.cohort == 'node-kill'");
+    expect(drill?.run).toContain('local-nodes.sh');
+    expect(drill?.run).toContain('bun drill:node-kill');
+    expect(drill?.run).toContain('down');
   });
   test('each job runs and reports only its own full profile', () => {
     assert({

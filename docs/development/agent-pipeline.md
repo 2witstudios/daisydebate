@@ -138,8 +138,9 @@ an expensive command while its known blocking condition is unchanged.
 
 - Production identity, secrets, production deploys and production data keep
   explicit human sign-off.
-- Staging (Fly org `daisy-debate`) is a builder's to use for proofs; never
-  production.
+- Use isolated checkout slots for proofs. Staging serves real testers. Use it
+  for a proof only when the point guard has coordinated the run and its impact
+  on testers. Production actions require human sign-off.
 - Agents never copy owner credentials, mutate the parent checkout, reset
   other slots or fake service evidence.
 - `bun doctor` validates the active pu launcher, identity and the checkout's

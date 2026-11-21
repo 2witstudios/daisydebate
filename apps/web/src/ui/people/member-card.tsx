@@ -25,7 +25,7 @@ const ownLadderRating = (member: Person): ShownRating | null =>
 
 /**
  * Their rating as the card's status line shows it, a figure alone: "1478*"
- * (YChallenge). Only for a member of the viewer's own lobby (ADR 0156), and
+ * (YChallenge). Only for a member of the viewer's own lobby (ADR 0162), and
  * only where they have played ranked and it is not hidden from a judge.
  */
 export const ladderLine = (

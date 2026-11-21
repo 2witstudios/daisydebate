@@ -30,7 +30,7 @@ export const memberDivisionOperations = ({
       return row?.division ?? null;
     }),
   /**
-   * Who this member is as a Room creator (ADR 0156): their age band and
+   * Who this member is as a Room creator (ADR 0162): their age band and
    * whether they are club staff, so the create form offers the Lobby choice
    * only to staff. The create command decides again under its lock.
    */

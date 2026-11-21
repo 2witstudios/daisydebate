@@ -146,7 +146,7 @@ export type AgeAnswer =
 /**
  * Reads the age route's answer. A 409 means this account answered already
  * and that first answer stands, so it moves on like an accepted answer
- * (DEC-246); a 403 carries the refusal that holds the browser; anything else
+ *; a 403 carries the refusal that holds the browser; anything else
  * is unavailable and the form is shown again.
  */
 export async function readAgeAnswer(response: Response): Promise<AgeAnswer> {

@@ -24,7 +24,7 @@ export const invitedTo = (seat: SeatKind): string => {
 
 /**
  * "a casual Freestyle debate", "a ranked Freestyle debate": the challenge's
- * format, never a division (ADR 0156).
+ * format, never a division (ADR 0162).
  */
 export const challengeWhat = (mode: CompetitionType, format: RatingStyle) =>
   `a ${mode} ${styleLabels[format]} debate`;
