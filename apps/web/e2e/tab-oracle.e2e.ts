@@ -1,4 +1,4 @@
-import type { BrowserContext } from '@playwright/test';
+import type { BrowserContext, Locator } from '@playwright/test';
 import { origin, signUpMember } from './support/accounts';
 import { expect, openPage, test } from './support/fixtures';
 import { hydrated } from './support/hydration';
@@ -10,6 +10,7 @@ import {
   registerTournamentCast,
   scheduleTournament,
   setTabFlag,
+  startOracleRound,
 } from './support/tab-oracle';
 
 test.beforeAll(async () => {
@@ -98,6 +99,34 @@ test('a host takes a stored tournament from setup through entries, draw, ballot 
   await expect(page.getByText('The event is certified.')).toBeVisible();
 });
 
+test('renders the ballot index with a stored Round', async ({
+  page,
+  context,
+}) => {
+  test.setTimeout(120_000);
+  await signUpMember(page.request);
+  const handle = await createTournamentInBrowser(
+    page,
+    'Oracle ballot index tournament',
+  );
+  const schedule = await scheduleTournament(page.request, handle);
+  const cast = await registerTournamentCast(context, schedule);
+  const round = await startOracleRound(context, schedule, cast);
+  const path = `/host/tournaments/${handle}/ballots`;
+  const response = await page.goto(path);
+  expect(response?.status()).toBe(200);
+  await expect(page).toHaveURL(new URL(path, origin).href);
+  const group = page.getByRole('link', {
+    name: `${round.roomTitle} · Ballot group 1`,
+    exact: true,
+  });
+  await expect(group).toBeVisible();
+  await expect(group).toHaveAttribute(
+    'href',
+    `${path}?${new URLSearchParams({ event: schedule.eventId, round: round.roundId })}`,
+  );
+});
+
 test.describe('stored host page rendering', () => {
   let storage: Awaited<ReturnType<BrowserContext['storageState']>>;
   let schedule: Awaited<ReturnType<typeof scheduleTournament>>;
@@ -135,6 +164,10 @@ test.describe('stored host page rendering', () => {
       page: 'setup',
       path: (base: string) => `${base}/setup`,
       text: () => `${schedule.eventName} · 1 of 1`,
+      body: (main: Locator) =>
+        main
+          .getByRole('listitem')
+          .filter({ hasText: /^Rounds\s*1 preliminary rounds · /u }),
     },
     {
       page: 'events and schedule',
@@ -168,19 +201,20 @@ test.describe('stored host page rendering', () => {
       text: () => `Ballot · ${schedule.eventName}`,
     },
     {
-      page: 'ballot index',
-      path: (base: string) => `${base}/ballots`,
-      text: () => `${schedule.eventName} · 1 of 1`,
-    },
-    {
       page: 'standings',
       path: (base: string) => `${base}/standings`,
       text: () => cast.entries[0],
+      body: (main: Locator) =>
+        main.getByRole('table').getByText(cast.entries[0], { exact: true }),
     },
     {
       page: 'results',
       path: (base: string) => `${base}/results`,
       text: () => `${schedule.eventName} · 1 of 1`,
+      body: (main: Locator) =>
+        main
+          .getByRole('region', { name: 'Bracket', exact: true })
+          .getByRole('heading', { name: /^Oracle opening round\b/u }),
     },
     {
       page: 'billing',
@@ -217,12 +251,12 @@ test.describe('stored host page rendering', () => {
         const path = screen.path(`/host/tournaments/${schedule.handle}`);
         const response = await page.goto(path);
         expect(response?.status()).toBe(200);
+        await expect(page).toHaveURL(new URL(path, origin).href);
+        const main = page.getByRole('main');
         await expect(
-          page
-            .locator('main')
-            .getByText(screen.text(), { exact: true })
-            .first(),
+          main.getByText(screen.text(), { exact: true }).first(),
         ).toBeVisible();
+        if (screen.body) await expect(screen.body(main)).toBeVisible();
       } finally {
         await context.close();
       }

@@ -4,7 +4,6 @@ import {
   scratchDatabase,
 } from '@daisy/db/testing';
 import { SQL } from 'bun';
-import { afterAll } from 'bun:test';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createTestApp } from './fixtures';
 import { completionStage } from './tab-tournament-completion.test-support';
@@ -54,8 +53,9 @@ const app = createTestApp(
   { DATABASE_URL: runtimeDatabase.href },
   undefined,
   clock,
+  undefined,
+  scratch.drop,
 );
-afterAll(scratch.drop);
 
 /** The tournament, in the plan's dependency order. */
 const stages: readonly Stage<World>[] = [

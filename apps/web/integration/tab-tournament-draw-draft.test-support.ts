@@ -34,7 +34,10 @@ import {
   tabLobbyCommand,
   tabRead,
 } from './tab-tournament-transport.test-support';
-import type { World } from './tab-tournament.test-support';
+import {
+  withClosedTabRelease,
+  type World,
+} from './tab-tournament.test-support';
 
 export const firstDrawCompetition = (
   loaded: LoadedDrawCommand,
@@ -130,11 +133,6 @@ export const draftDrawStage = async (world: World): Promise<void> => {
       overview.events
         .find((row) => row.eventId === eventId)
         ?.rounds.some((row) => row.tabRoundId === roundId && row.draw === null),
-      (
-        await hostDrawHttp(world, world.bots.Director!, false).round(
-          hostDrawRequest(hostRoundPath(address)),
-        )
-      ).status,
       (http
         ? await http(world.bots['Debater 1']!, hostRoundPath(address))
         : await hostDrawHttp(world, world.bots['Debater 1']!).round(
@@ -142,7 +140,7 @@ export const draftDrawStage = async (world: World): Promise<void> => {
           )
       ).status,
     ],
-    expected: ['undrawn', null, 'no-store', true, 404, 404],
+    expected: ['undrawn', null, 'no-store', true, 404],
   });
   const target = {
     version: 1,
@@ -216,24 +214,33 @@ export const draftDrawStage = async (world: World): Promise<void> => {
     ],
     expected: [{ kind: 'refused', refusal: 'version-conflict' }, true, 0],
   });
-  const closed = await drawHttp(world, false)(drawRequest(lobbyId, generate));
+  const generationRequest = () => drawRequest(lobbyId, generate);
+  const generationPath = `/api/tab/draw-command?${new URLSearchParams({ lobbyId })}`;
+  const closed = http
+    ? await withClosedTabRelease(world, async () => [
+        (await http(director, hostRoundPath(address))).status,
+        (await http(director, generationPath, generate)).status,
+      ])
+    : [
+        (
+          await hostDrawHttp(world, director, false).round(
+            hostDrawRequest(hostRoundPath(address)),
+          )
+        ).status,
+        (await drawHttp(world, false)(generationRequest())).status,
+      ];
   assert({
-    given: 'the genuine generate form while Tab release is closed',
-    should: 'refuse without writing a draft',
+    given: 'a signed-in host while Tab release is closed',
+    should: 'hide the round and refuse generation without writing a draft',
     actual: [
-      closed.status,
+      ...closed,
       (await sql`select id from draws where tab_round_id=${roundId}`).length,
     ],
-    expected: [404, 0],
+    expected: [404, 404, 0],
   });
-  const generationRequest = drawRequest(lobbyId, generate);
   const generationResponse = http
-    ? await http(
-        director,
-        `/api/tab/draw-command?${new URLSearchParams({ lobbyId })}`,
-        generate,
-      )
-    : await drawHttp(world)(generationRequest);
+    ? await http(director, generationPath, generate)
+    : await drawHttp(world)(generationRequest());
   const generated = await acceptedDrawResponse(generationResponse);
   assert({
     given: 'the real current owner at the production Draw HTTP boundary',

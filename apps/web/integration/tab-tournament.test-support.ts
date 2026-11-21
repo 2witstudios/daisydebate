@@ -76,6 +76,19 @@ export const createBots = async (
   return bots;
 };
 
+/** Change the gate only inside the scripted tournament's disposable database. */
+export async function withClosedTabRelease<T>(
+  world: World,
+  work: () => Promise<T>,
+) {
+  await world.sql`update release_flags set state = 'disabled', revision = revision + 1 where key = 'daisy-tab'`;
+  try {
+    return await work();
+  } finally {
+    await world.sql`update release_flags set state = 'enabled', revision = revision + 1 where key = 'daisy-tab'`;
+  }
+}
+
 export type Stage<World> =
   | { readonly name: string; readonly run: (world: World) => Promise<void> }
   | { readonly name: string; readonly pending: string };

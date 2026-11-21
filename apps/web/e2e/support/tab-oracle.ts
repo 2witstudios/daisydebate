@@ -1,5 +1,11 @@
 import { systemClock } from '@daisy/clock';
 import {
+  idSchema,
+  roomViewSchema,
+  sameSeat,
+  type SeatRef,
+} from '@daisy/protocol';
+import {
   lobbyCommandReceiptSchema,
   type CommandExpected,
 } from '@daisy/protocol/lobby/command';
@@ -14,9 +20,12 @@ import type { APIRequestContext, BrowserContext, Page } from '@playwright/test';
 import { execFile } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
+import { z } from 'zod';
 import { origin, signUpMember } from './accounts';
 import { expect } from './fixtures';
 import { hydrated } from './hydration';
+import { readyOwnSeat } from './human-ballot-round';
+import { forfeitOwnSeat, settleLeftRounds } from './settle-left-round';
 
 const run = async (script: string, args: readonly string[]) =>
   (
@@ -214,6 +223,11 @@ export async function registerTournamentCast(
   const names = ['Oracle Azure', 'Oracle Gold'] as const;
   const browser = host.browser();
   if (!browser) throw new Error('No browser for the tournament cast');
+  const participants: Array<{
+    actorId: string;
+    username: string;
+    storage: Awaited<ReturnType<BrowserContext['storageState']>>;
+  }> = [];
   for (const name of [...names, 'judge']) {
     const context = await browser.newContext({
       baseURL: origin,
@@ -245,7 +259,12 @@ export async function registerTournamentCast(
           availability: [{ timeSlotId, available: true }],
         };
         await command(context.request, judges, availability);
-        return { entries: names, judge: username };
+        participants.push({
+          actorId,
+          username,
+          storage: await context.storageState(),
+        });
+        return { entries: names, judge: username, participants };
       }
       const { guards } = await roundView(host.request, schedule);
       const entry = {
@@ -259,11 +278,126 @@ export async function registerTournamentCast(
       await command(context.request, entries, entry, {
         entries: guards.entries,
       });
+      participants.push({
+        actorId,
+        username,
+        storage: await context.storageState(),
+      });
     } finally {
       await context.close();
     }
   }
   throw new Error('Tournament cast is missing its judge');
+}
+
+/** Starts the published fixture through the Room API so Ballots has an actual Round to index. */
+export async function startOracleRound(
+  host: BrowserContext,
+  schedule: Schedule,
+  cast: Awaited<ReturnType<typeof registerTournamentCast>>,
+) {
+  const { lobbyId, tabRoundId } = schedule;
+  const drawRoute = `draw-command?lobbyId=${lobbyId}`;
+  const guard = async (): Promise<CommandExpected> => {
+    const { guards } = await roundView(host.request, schedule);
+    return {
+      entries: guards.entries,
+      settings: guards.settings,
+      results: guards.results,
+      ...(guards.draw === null ? {} : { draw: guards.draw }),
+      ...(guards.timeSlot === null ? {} : { timeSlot: guards.timeSlot }),
+    };
+  };
+  const draft = await command(
+    host.request,
+    drawRoute,
+    {
+      type: 'generate-draw',
+      tabRoundId,
+      resultCutoff: 0,
+      seed: 'ab'.repeat(32),
+    },
+    await guard(),
+  );
+  const drawId = draft.aggregate.id;
+  await command(
+    host.request,
+    drawRoute,
+    { type: 'assign-judges', drawId },
+    await guard(),
+  );
+  await command(
+    host.request,
+    drawRoute,
+    { type: 'publish-draw', drawId, overrides: [] },
+    await guard(),
+  );
+  const published = await roundView(host.request, schedule);
+  const room =
+    published.kind === 'published' ? published.round.open[0]?.room : null;
+  if (!room) throw new Error('The published fixture has no Room');
+
+  const roomPath = `/api/rooms/${room.roomId}`;
+  const readRoom = async (request: APIRequestContext) => {
+    const response = await request.get(roomPath);
+    if (!response.ok())
+      throw new Error(`Read fixture Room: HTTP ${response.status()}`);
+    return roomViewSchema.parse(await response.json());
+  };
+  const browser = host.browser();
+  if (!browser) throw new Error('No browser for the published fixture');
+  const contexts: BrowserContext[] = [];
+  let firstSeat:
+    { context: BrowserContext; username: string; seat: SeatRef } | undefined;
+  try {
+    for (const { actorId, username, storage } of cast.participants) {
+      const context = await browser.newContext({
+        baseURL: origin,
+        ignoreHTTPSErrors: true,
+        storageState: storage,
+      });
+      contexts.push(context);
+      const view = await readRoom(context.request);
+      const own = view.participants.find(
+        (participant) =>
+          'actorId' in participant && participant.actorId === actorId,
+      );
+      if (!own) throw new Error('The participant cannot see their seat');
+      await readyOwnSeat({ context, username }, view, own.seat);
+      firstSeat ??= { context, username, seat: own.seat };
+    }
+    const ready = await readRoom(host.request);
+    const started = await host.request.post(`${roomPath}/commands`, {
+      headers: { origin },
+      data: {
+        type: 'start-round',
+        commandId: createId(),
+        expectedVersion: ready.version,
+      },
+    });
+    if (!started.ok())
+      throw new Error(`Start fixture Round: HTTP ${started.status()}`);
+    // A Tab host can start the fixture without being seated. The receipt
+    // still names its Round when the host's Room view withholds the link.
+    const { receipt } = z
+      .object({
+        receipt: z.object({ roundRef: z.object({ id: idSchema }) }),
+      })
+      .parse(await started.json());
+    const roundId = receipt.roundRef.id;
+    if (firstSeat) {
+      const { context, seat } = firstSeat;
+      await forfeitOwnSeat(context.request, roundId, (participant) =>
+        sameSeat(participant.seat, seat),
+      );
+    }
+    return { roundId, roomTitle: room.name };
+  } catch (error) {
+    if (firstSeat) await settleLeftRounds([firstSeat]);
+    throw error;
+  } finally {
+    await Promise.all(contexts.map((context) => context.close()));
+  }
 }
 
 export async function readDraftPair(
