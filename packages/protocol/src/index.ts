@@ -561,7 +561,6 @@ export {
   friendCommandResultSchema,
   friendCommandSchemas,
   friendListSchema,
-  friendshipStates,
   onlineCountsSchema,
   storedFriendshipStates,
 } from './friends';
