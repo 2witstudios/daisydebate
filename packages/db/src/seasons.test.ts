@@ -130,4 +130,49 @@ describe('season operations', () => {
       expected: 0,
     });
   });
+
+  test('activation and retry select the exact lobby when two official lobbies are Open', async () => {
+    const second = [
+      'second-open',
+      'Another Open Lobby',
+      'second',
+      'adults',
+      'league',
+    ];
+    const opened = seasonRow('selected', 'active');
+    opened[2] = 'beta-season-1';
+    opened[9] = 'second-open';
+    const result = await scripted(
+      [
+        [],
+        [officialLobbyRow, second],
+        [],
+        [],
+        [opened],
+        [],
+        [officialLobbyRow, second],
+        [opened],
+      ],
+      async (seasons) => [
+        await seasons.activateBetaSeason({
+          id: 'selected',
+          lobbyId: 'second-open',
+        }),
+        await seasons.activateBetaSeason({
+          id: 'retry',
+          lobbyId: 'second-open',
+        }),
+      ],
+    ).result;
+    assert({
+      given:
+        'two official adult lobbies and one explicit activation with a retry',
+      should: 'keep the first season ID on the selected lobby both times',
+      actual: result.map(({ id, lobbyId }) => [id, lobbyId]),
+      expected: [
+        ['selected', 'second-open'],
+        ['selected', 'second-open'],
+      ],
+    });
+  });
 });

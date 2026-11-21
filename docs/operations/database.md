@@ -155,7 +155,7 @@ of 200 rows, up to 200 batches per run (40,000 rows/run), sized against an
 expected write rate of 10 rows/s (36,000 rows/hour) so one run always clears
 a full hour's growth with headroom.
 
-**Rating seasons (ADR 0055).** Being retired by [ADR 0162](../decisions/0162-daisy-is-a-league-open-and-youth-are-lobbies.md): a league manager will create seasons per standing lobby in the league host area. Until that slice lands: `bun season list | activate-beta | open | close` is the only way to change a season; there is no route for it in `apps/web` (ADR 0043). Each ladder division has its own seasons ([ADR 0147](../decisions/0147-ladder-style-and-division.md)): `activate-beta` opens the Open and the Youth Season 1 (each idempotent under the `beta-season-1` key per division). `open --name "<name>" --division <open|youth> [--starts <ISO>]` opens a season on that division as active and is refused while any season on that division exists, active or closed, until DEC-111 decides how a debater carries over; `close` is refused for the same reason, since it would leave rating with no season. Ids come from cuid2 and the default time is now. Opening the first production season is a human-only task (RATE-H.1).
+**Rating seasons (ADR 0055).** Each standing lobby owns its seasons and has at most one active season. The operator CLI remains available pending retirement under [ADR 0162](../decisions/0162-daisy-is-a-league-open-and-youth-are-lobbies.md). `bun season activate-beta` opens Season 1 on the default Open and Youth lobbies, with the `beta-season-1` activation key scoped to each lobby. `bun season open --name "<name>" --lobby <lobbyId> [--starts <ISO>]` opens the first season on an official standing lobby. `--division <open|youth>` selects the corresponding default lobby. The CLI refuses another season or closure while DEC-111 remains open. IDs are Cuid2 and the default start time is now. Opening the first production season remains a human-only task (RATE-H.1).
 
 Database availability is necessary but not sufficient readiness. Deployers must ensure migrations are applied, monitor storage/replication/backup lag, enforce TLS for remote database and Redis connections, and set network access policy. Local plaintext credentials are intentionally confined to loopback. Redis persistence is off locally to expose accidental reliance on durable cache state.
 
@@ -395,7 +395,7 @@ do not reset or change journal rows. If deployment/version verification fails,
 stop before activation and use the existing deploy incident process. If
 activation times out, inspect/list and retry the identical command: never
 close the season to compensate. Once competitive data commits, preserve
-it and repair forward. A second season and carry-over require DEC-111 resolution;
+it and repair forward. Operator rollover and carry-over require DEC-111 resolution.
 RATE-H.1 still gates the first production activation.
 
 The main99 Billing candidate uses ordinary `SET CONSTRAINTS ALL IMMEDIATE`

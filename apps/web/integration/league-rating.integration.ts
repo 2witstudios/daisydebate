@@ -1,5 +1,8 @@
 import { leagueRatingCorrection } from './league-rating-correction.test-support';
-import { leagueRoomRating } from './league-room-rating.test-support';
+import {
+  leagueRoomRating,
+  openLeagueRatingSeason,
+} from './league-room-rating.test-support';
 import { requireTestServices } from '@daisy/config';
 import {
   scratchDatabase,
@@ -26,6 +29,12 @@ import { resultsStage } from './tab-tournament-results.test-support';
 import { standingsStage } from './tab-tournament-standings.test-support';
 import { completionStage } from './tab-tournament-completion.test-support';
 import { ratingStage } from './tab-tournament-rating.test-support';
+import { assert } from 'riteway/bun';
+import { authorize } from '@daisy/auth/authorization';
+import { createTabStore } from '@daisy/db/tab';
+import { ratingPolicy } from '@daisy/debate-engine';
+import { lobbyAdministrationCommand } from '../src/features/tab/operations/lobby-administration';
+import { as } from './tab-tournament-organization-wiring.test-support';
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
 test('league ratings replay certified inputs and freeze the later tournament seed', async () => {
@@ -69,12 +78,37 @@ test('league ratings replay certified inputs and freeze the later tournament see
       completionStage,
     ])
       await run(world);
+    const priorSeasonId = await openLeagueRatingSeason(world);
     await leagueRoomRating(world, 2);
+    const closed = await lobbyAdministrationCommand({
+      store: createTabStore(world.database),
+      authorize,
+      now: world.clock.now,
+      newId: createId,
+    })(as(world.bots.Director!), {
+      version: 1,
+      commandId: createId(),
+      expected: { season: 1 },
+      command: { type: 'close-season', seasonId: priorSeasonId },
+    });
+    if (closed.kind !== 'accepted')
+      throw new Error(`Close rating season: ${JSON.stringify(closed)}`);
+    const seasonId = await openLeagueRatingSeason(world);
+    const ratedInNext = await leagueRoomRating(world, 2);
+    const posted =
+      await owner`select distinct season_id,rating_before from rating_changes where round_id=${ratedInNext}`;
+    assert({
+      given:
+        'returning competitors from the last season who finish a rated Round in the next',
+      should: 'post once per participant at the next season’s initial rating',
+      actual: [...posted],
+      expected: [
+        { season_id: seasonId, rating_before: ratingPolicy.initial.rating },
+      ],
+    });
     // Sanction commands belong to the season proof. This is the exact durable
     // published input the rating consumer receives from that separate owner.
-    const [season] =
-      await owner`select id from seasons where organization_id=${world.made.get('league')!}`;
-    await owner`insert into sanctions (id,organization_id,lobby_id,event_id,season_id,template_id,status,decided_at) values (${createId()},${world.made.get('league')!},${world.made.get('tournament-lobby')!},${world.made.get('event')!},${season!.id},${world.made.get('league-template')!},'approved',${world.clock.now()})`;
+    await owner`insert into sanctions (id,organization_id,lobby_id,event_id,season_id,template_id,status,decided_at) values (${createId()},${world.made.get('league')!},${world.made.get('tournament-lobby')!},${world.made.get('event')!},${seasonId},${world.made.get('league-template')!},'approved',${world.clock.now()})`;
     await ratingStage(world);
     await leagueRatingCorrection(world);
   } finally {

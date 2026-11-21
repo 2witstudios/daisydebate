@@ -15,6 +15,34 @@ import { readLeagueLadder } from '../src/features/ratings/read-league-ladder';
 import { as } from './tab-tournament-organization-wiring.test-support';
 import type { World } from './tab-tournament.test-support';
 
+/** Use the same operator-facing command to create the league's test season. */
+export async function openLeagueRatingSeason(world: World) {
+  const answer = await lobbyAdministrationCommand({
+    store: createTabStore(world.database),
+    authorize,
+    now: world.clock.now,
+    newId: createId,
+  })(as(world.bots.Director!), {
+    version: 1,
+    commandId: createId(),
+    expected: {},
+    command: {
+      type: 'create-season',
+      organizationId: world.made.get('league')!,
+      lobbyId: world.made.get('standing-lobby')!,
+      name: 'League rating season',
+      startsAt: world.clock.now(),
+      endsAt: null,
+      counting: 'sanction',
+      countsLobbyRooms: true,
+      rule: {},
+    },
+  });
+  if (answer.kind !== 'accepted')
+    throw new Error(`League rating season: ${JSON.stringify(answer)}`);
+  return answer.receipt.aggregate.id;
+}
+
 /** Exercise Room assembly, Ready, Start and forfeit through their actual owners. */
 export async function leagueRoomRating(world: World, sideSize = 1) {
   const lobbyId = world.made.get('standing-lobby')!;
@@ -265,4 +293,5 @@ export async function leagueRoomRating(world: World, sideSize = 1) {
     ],
     expected: [...competitors.map(() => 1), competitors.length],
   });
+  return roundId;
 }

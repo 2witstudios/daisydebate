@@ -383,14 +383,14 @@ CREATE POLICY "rating_changes_subject" ON "rating_changes" FOR SELECT USING (act
 GRANT EXECUTE ON FUNCTION public.daisy_lobby_scope(), public.daisy_subject_actor_scope() TO daisy_audience_publisher;
 --> statement-breakpoint
 CREATE FUNCTION public.daisy_round_rating_posted(requested_round_id text) RETURNS boolean
-LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp
 AS $rating_posted$
   SELECT EXISTS (SELECT 1 FROM public.rating_changes c WHERE c.round_id = requested_round_id)
 $rating_posted$;
 --> statement-breakpoint
 CREATE FUNCTION public.daisy_round_rating_release_facts(requested_round_id text)
 RETURNS TABLE (id text, occurred_at timestamptz)
-LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp
 AS $rating_release_facts$
   SELECT c.id, c.occurred_at FROM public.rating_changes c
   JOIN public.rounds r ON r.id = c.round_id

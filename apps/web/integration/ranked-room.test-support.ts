@@ -28,15 +28,19 @@ export async function readyRankedRoom(
 ) {
   const [preset] =
     await f.sql`select format_version,version from format_presets where format_id=${ladder} and superseded_at is null`;
-  let room = await f.assemble({
-    resolution: { kind: 'strike' },
-    selection: {
-      kind: 'ranked',
-      formatId: ladder,
-      formatVersion: preset!.format_version,
-      presetVersion: preset!.version,
+  let room = await f.assemble(
+    {
+      resolution: { kind: 'strike' },
+      selection: {
+        kind: 'ranked',
+        formatId: ladder,
+        formatVersion: preset!.format_version,
+        presetVersion: preset!.version,
+      },
     },
-  });
+    undefined,
+    false,
+  );
   if (judgeKind === 'human')
     room = (
       await f.command(f.outsider, room, {
