@@ -696,7 +696,9 @@ test('rating seasons and ladders belong to standing lobbies alongside league for
         )[0],
         ratingSeasons: (
           await listSeasonRecords(drizzle({ client: sql }), publicLobbyId)
-        ).map((record) => record.name),
+        ).flatMap(({ id }) =>
+          id === daisySeasonId || id === siblingSeasonId ? [id] : [],
+        ),
         secondActiveForDaisy: await season({
           organization_id: daisyOrganizationId,
           lobby_id: publicLobbyId,
@@ -743,7 +745,7 @@ test('rating seasons and ladders belong to standing lobbies alongside league for
         daisySeason: null,
         siblingSeason: null,
         seasonIsDaisys: { rows: 1 },
-        ratingSeasons: ['A season'],
+        ratingSeasons: [daisySeasonId],
         secondActiveForDaisy: 'seasons_single_active',
         secondActiveForLeague: 'seasons_single_active',
         ratingOnDaisysLadder: null,

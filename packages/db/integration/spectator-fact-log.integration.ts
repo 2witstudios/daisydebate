@@ -379,16 +379,25 @@ test('the sweep costs nothing for finished Rounds, however many there are', asyn
       await sql.unsafe(`insert into rounds (id, room_id, ${roundColumns})
         select ${copied('n')}, ${copied('n')}, ${roundColumns} from rounds, ${ids} where rounds.id='${roundId}'`);
       const clock = clockAt(after(ended, 1000 * delay));
+      // The copied Rounds represent history. Copy their already recorded
+      // result release in bulk so this proof measures scanning, not catch-up.
+      await recordFactReleases(db, { roundId, clock });
+      await sql.unsafe(
+        `insert into spectator_fact_releases
+          (round_id, kind, fact_id, captured_at, released_at, watermark_at, basis)
+          select ${copied('n')}, kind, ${copied('n')}, captured_at, released_at, watermark_at, basis
+          from spectator_fact_releases, ${ids} where round_id=$1 and kind='result'`,
+        [roundId],
+      );
       const { sweepSpectatorFactLog } = spectatorFactLogOperations({
         database: db,
       });
       await sweepSpectatorFactLog({ clock, limit: history * 2 });
-      const [open] =
-        (await sql`select count(*)::int as n from spectator_fact_log_open_rounds`) as {
-          n: number;
-        }[];
+      const [open] = await sql<{ n: number }[]>`
+        select count(*)::int as n from spectator_fact_log_open_rounds
+        where round_id like ${prefix + '%'}`;
       assert({
-        given: `${history} finished Rounds, every fact logged by one pass`,
+        given: `${history} finished Rounds with their result releases recorded`,
         should: 'leave none of them open',
         actual: open!.n,
         expected: 0,

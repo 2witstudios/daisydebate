@@ -61,7 +61,6 @@ export {
   seatKinds,
   seatLabel,
   seatOrder,
-  sideKeySchema,
   seatRefSchema,
   sideOfSeat,
   sideSeat,
