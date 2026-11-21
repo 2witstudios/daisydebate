@@ -1,9 +1,9 @@
 import type { CompetitionType } from './round';
 import type { RoundEndState } from './round-lifecycle';
 import type { AttendanceLedgerFacts } from './attendance';
-import type { Ladder } from './ladder';
+import type { RoundRatingScope } from './rating-ladder';
 import type { WinnerOutcome } from './round-outcome';
-import type { SeatRef } from './seats';
+import type { SeatRef, SideKey } from './seats';
 
 /**
  * The rating decision contract (ADR 0055, ADR 0058) between `@daisy/db`,
@@ -38,11 +38,7 @@ export type EndingRatingFacts = RoundEndState & {
 /** What eligibility is decided from, as the adapter loads it: the Round's ending and what surrounds it. */
 export type RatingEligibilityFacts = EndingRatingFacts & {
   readonly competitionType: CompetitionType;
-  /**
-   * The Round's frozen ladder (`ladder_id`, `ladder_division`), derived by
-   * CHECK; null when the Round never rates.
-   */
-  readonly ladder: Ladder | null;
+  readonly scope: RoundRatingScope;
   /** Whether the ledger already holds a change for this round. */
   readonly alreadyRated: boolean;
 };
@@ -76,7 +72,7 @@ export type EndingRating =
 export type RatingEligibility =
   | {
       readonly kind: 'rated';
-      readonly ladder: Ladder;
+      readonly scope: NonNullable<RoundRatingScope>;
       /** A rating compares two sides: only a two-sided Round's winner is rated. */
       readonly outcome: WinnerOutcome;
       readonly occurredAt: string;
@@ -101,17 +97,17 @@ export type DebaterStanding = {
 
 /** What a rating plan is computed from, as the adapter loads it. */
 export type RatingPlanFacts = {
-  readonly ladder: Ladder;
+  readonly sides: readonly [SideKey, SideKey];
+  readonly scope: NonNullable<RoundRatingScope>;
   readonly outcome: WinnerOutcome;
   readonly occurredAt: string;
-  readonly seasonId: string | null;
   readonly seats: readonly {
     readonly actorId: string;
     readonly seat: SeatRef;
   }[];
   readonly standings: Readonly<Record<string, DebaterStanding>>;
-  /** cuid2 ids for the two ledger rows, affirmative first. */
-  readonly changeIds: readonly [string, string];
+  /** Ledger identifiers by seated actor. */
+  readonly changeIds: Readonly<Record<string, string>>;
 };
 
 export type PlannedRatingChange = {
@@ -124,8 +120,7 @@ export type PlannedRatingChange = {
 };
 
 export type RatingPlan = {
-  readonly ladder: Ladder;
-  readonly seasonId: string;
+  readonly scope: NonNullable<RoundRatingScope>;
   readonly occurredAt: string;
   readonly calculationVersion: string;
   readonly changes: readonly PlannedRatingChange[];

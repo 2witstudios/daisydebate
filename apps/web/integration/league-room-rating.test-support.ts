@@ -1,3 +1,4 @@
+import { rateCompletedRound } from '../src/features/ratings/rate-debate';
 import { withRoomRuntime } from './room-runtime.test-support';
 import { createRoundRuntimeOperations } from '../src/features/round-runtime/operations';
 import { lobbyAdministrationCommand } from '../src/features/tab/operations/lobby-administration';
@@ -154,33 +155,6 @@ export async function leagueRoomRating(world: World) {
         actual: underAge,
         expected: 'other-division',
       });
-      // The old organization division only selects its rating season. It
-      // cannot change eligibility in a Room belonging to an adult lobby.
-      const [league] =
-        await world.sql`select l.organization_id from rooms r join ladders l on l.id = r.league_ladder_id where r.id = ${roomId}`;
-      try {
-        await world.sql`update organizations set league_division = 'youth' where id = ${league!.organization_id}`;
-        await world.sql`update account_age set birth_month=to_char(now() - interval '17 years 11 months','YYYY-MM'), version=version+1 where user_id=${minor.userId}`;
-        const claim = await f
-          .command(minor, view, {
-            type: 'claim-seat',
-            seat: sideSeat('negative'),
-          })
-          .then(
-            () => 'accepted',
-            (error: Error) => error.message,
-          );
-        assert({
-          given:
-            'the league changes its legacy season division after creating an adult Room',
-          should: 'continue to use the Room’s lobby rule for debater seats',
-          actual: claim,
-          expected: 'other-division',
-        });
-      } finally {
-        await world.sql`update organizations set league_division = 'open' where id = ${league!.organization_id}`;
-        await world.sql`update account_age set birth_month=${kept!.birth_month}, version=version+1 where user_id=${minor.userId}`;
-      }
       for (const [side, person] of [
         ['affirmative', world.bots['Debater 1']!],
         ['negative', world.bots['Debater 2']!],
@@ -196,15 +170,19 @@ export async function leagueRoomRating(world: World) {
         view = (await f.consent(person, view, 'ready')).view;
       await f.command(host, view, { type: 'start-round' });
       const [frozen] =
-        await world.sql`select id,league_ladder_id,ladder_id from rounds where room_id=${roomId}`;
+        await world.sql`select id,ladder_id,season_id,rating_lobby_id from rounds where room_id=${roomId}`;
       if (!frozen) throw new Error('League Room Start did not create a Round');
       roundId = String(frozen.id);
       assert({
         given: 'the actual ordinary Room Ready and Start operations',
         should:
-          'copy the selected league ladder and leave Daisy ratedness empty',
-        actual: [frozen.league_ladder_id, frozen.ladder_id],
-        expected: [ladder!.id, null],
+          'freeze the selected ladder together with its own lobby and season',
+        actual: [
+          frozen.ladder_id,
+          frozen.rating_lobby_id,
+          typeof frozen.season_id,
+        ],
+        expected: [ladder!.id, lobbyId, 'string'],
       });
       const round = (await f.store.getRound(roundId))!;
       const debater = round.participants.find(
@@ -242,11 +220,27 @@ export async function leagueRoomRating(world: World) {
     expected: [0, 0],
   });
   await world.sql`update round_check_in_attempts set state='aborted',resolved_at=now() where attempt_id=${attemptId}`;
+  await withRoomRuntime(
+    async ({ store }) => {
+      const first = await rateCompletedRound(store, roundId, {
+        next: createId,
+      });
+      const retry = await rateCompletedRound(store, roundId, {
+        next: createId,
+      });
+      assert({
+        given: 'a finalized rated league Round and a retry',
+        should: 'write through the common ledger exactly once',
+        actual: [first.kind, retry.kind],
+        expected: ['rated', 'already-rated'],
+      });
+    },
+    { databaseUrl: world.runtimeDatabaseUrl },
+  );
   const after = await read(principal, { lobbyId });
   assert({
     given: 'a finalized own-lobby result and its frozen actor seats',
-    should:
-      'add exactly one league game per competitor without a Daisy ledger write',
+    should: 'add one game per competitor and one posting for each seat',
     actual: [
       games(world.bots['Debater 1']!.actorId, after) -
         games(world.bots['Debater 1']!.actorId, before),
@@ -256,6 +250,6 @@ export async function leagueRoomRating(world: World) {
         await world.sql`select count(*)::int as count from rating_changes where round_id=${roundId}`
       )[0]!.count,
     ],
-    expected: [1, 1, 0],
+    expected: [1, 1, 2],
   });
 }

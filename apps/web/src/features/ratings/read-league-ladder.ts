@@ -13,8 +13,7 @@ import {
 } from '@daisy/protocol/lobby/lobby-read';
 import { hostLobbyResource } from '../tab/operations/host-lobby-resource';
 import type { TabPrincipal } from '../tab/tab-principal';
-import { foldLeagueRatings } from './league-fold';
-import { leagueGames } from './league-input';
+import { leagueStandings } from './league-input';
 
 export const readLeagueLadder =
   (dependencies: {
@@ -77,7 +76,7 @@ export const readLeagueLadder =
           }).allow
         )
           return null;
-        const sorted = foldLeagueRatings(leagueGames(facts.input)).sort(
+        const sorted = leagueStandings(facts.input).sort(
           (a, b) =>
             b.state.rating - a.state.rating ||
             a.actorId.localeCompare(b.actorId),

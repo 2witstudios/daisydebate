@@ -5,7 +5,6 @@ import {
   type AgeBand,
 } from '@daisy/protocol';
 import { sql, type SQL } from 'drizzle-orm';
-import { daisyOrganizationId } from './daisy-reference';
 import { accountAge } from './schema/account-age';
 import { eq } from 'drizzle-orm';
 import type { Tx } from './tx';
@@ -14,7 +13,7 @@ import type { Tx } from './tx';
  * The age band a member's ladder division is read from (ADR 0147 §3): ADR
  * 0075's one band rule, the record valid now, the age taken on the latest of
  * three instants, never after now:
- * - the start of Daisy's active Youth season, so a member who turns 18
+ * - the start of the active lobby season, so a member who turns 18
  *   mid-season finishes that season on Youth and Open starts with the next;
  * - the member's own age record, so nobody is aged before they told us,
  *   and a member who signs up at 18 is on Open from the start;
@@ -24,9 +23,17 @@ import type { Tx } from './tx';
  * in SQL; only the band leaves it. Over the `account_age` row joined into the
  * caller's query.
  */
-export const divisionAgeBand = (): SQL<AgeBand | null> => {
-  const youthStart = sql`(select youth.starts_at from seasons youth where youth.status = 'active' and youth.division = 'youth' and youth.organization_id = ${daisyOrganizationId})`;
-  const agedAt = sql`least(clock_timestamp(), greatest(coalesce(${youthStart}, clock_timestamp()), ${accountAge.recordedAt}, clock_timestamp() - make_interval(months => ${YOUTH_CARRY_MONTHS}::int)))`;
+export const divisionAgeBand = (lobbyId?: string): SQL<AgeBand | null> => {
+  const seasonStart =
+    lobbyId === undefined
+      ? sql`(select s.starts_at from seasons s join lobbies l on l.id = s.lobby_id
+        join organizations o on o.id = l.owner_organization_id
+        where s.status = 'active' and l.age_rule = 'under-18'
+          and o.official and o.closed_at is null and l.closed_at is null
+        order by l.created_at, l.id limit 1)`
+      : sql`(select s.starts_at from seasons s where s.status = 'active' and s.lobby_id = ${lobbyId})`;
+
+  const agedAt = sql`least(clock_timestamp(), greatest(coalesce(${seasonStart}, clock_timestamp()), ${accountAge.recordedAt}, clock_timestamp() - make_interval(months => ${YOUTH_CARRY_MONTHS}::int)))`;
   return sql<AgeBand | null>`case when public.daisy_age_band(${accountAge.birthMonth}, ${accountAge.version}, ${accountAge.recordedAt}, clock_timestamp()) is null then null else public.daisy_age_band(${accountAge.birthMonth}, ${accountAge.version}, ${accountAge.recordedAt}, ${agedAt}) end`;
 };
 

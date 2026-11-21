@@ -43,6 +43,7 @@ export async function readRoundRatings(
   store: Pick<
     Database,
     | 'listLadderSeasons'
+    | 'listOfficialRatingLadders'
     | 'readStandings'
     | 'readRatingBlindings'
     | 'readRatingFacts'
@@ -63,7 +64,8 @@ export async function readRoundRatings(
   };
   const published = await readRatingStandings(store, {
     ladder: round.ladder,
-    seasonId: null,
+    seasonId: round.ratingScope?.seasonId ?? null,
+    ...(round.ratingScope ? { frozenLadder: round.ratingScope } : {}),
     now,
     revealRoundId: round.id,
     ...(input.viewerActorId ? { viewerActorId: input.viewerActorId } : {}),
@@ -71,6 +73,7 @@ export async function readRoundRatings(
   if (!published) return noSeason;
   const postings = published.postings.filter((c) => c.roundId === round.id);
   const season =
+    published.seasons.find((s) => s.id === round.ratingScope?.seasonId) ??
     published.seasons.find((s) => s.id === postings[0]?.seasonId) ??
     published.seasons.find((s) => s.status === 'active');
   if (!season) return noSeason;

@@ -205,6 +205,7 @@ export function createRoomRuntimeOperations({
     const standing = await store.readContentWaiverStanding(
       caller.userId,
       version,
+      state.lobbyId,
     );
     return standing === 'no-active-season'
       ? none

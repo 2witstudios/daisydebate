@@ -1,11 +1,11 @@
 import { SQL } from 'bun';
-import { daisyOrganizationId } from './daisy-reference';
+import { readOfficialStandingLobbies } from './official-standing-lobbies';
 import { createAppError } from '@daisy/errors';
-import type { RatingDivision } from '@daisy/protocol';
+import { ratingDivisionForAgeRule, type RatingDivision } from '@daisy/protocol';
 import { and, eq, sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
-import { seasons } from './schema/ratings';
+import { seasons } from './schema/seasons';
 import {
   listSeasonRecords,
   toSeasonRecord,
@@ -30,14 +30,20 @@ type NewSeason = {
   readonly startsAt: Date;
 };
 
-/** Daisy's seasons on one division. */
-const onDivision = (division: RatingDivision) =>
-  and(
-    eq(seasons.organizationId, daisyOrganizationId),
-    eq(seasons.division, division),
-  );
-
 type Tx = Parameters<Parameters<BunSQLDatabase['transaction']>[0]>[0];
+
+/** Resolve the existing operator CLI's flag through the official lobby catalog. */
+const seasonLobby = async (tx: Tx, division: RatingDivision) => {
+  const choices = (await readOfficialStandingLobbies(tx)).filter(
+    (lobby) => ratingDivisionForAgeRule(lobby.ageRule) === division,
+  );
+  if (choices.length !== 1)
+    throw createAppError(
+      'CONFLICT',
+      'Season activation requires one matching lobby',
+    );
+  return choices[0]!;
+};
 
 /** Serializes opening and beta activation, each of which reads for any season. */
 const lockSeasonCreation = (tx: Tx) =>
@@ -45,10 +51,12 @@ const lockSeasonCreation = (tx: Tx) =>
 
 async function open(tx: Tx, input: NewSeason): Promise<SeasonRecord> {
   await lockSeasonCreation(tx);
+  const { division, ...facts } = input;
+  const lobby = await seasonLobby(tx, division);
   const [earlier] = await tx
     .select({ id: seasons.id })
     .from(seasons)
-    .where(onDivision(input.division))
+    .where(eq(seasons.lobbyId, lobby.id))
     .limit(1);
   if (earlier)
     throw createAppError(
@@ -57,7 +65,12 @@ async function open(tx: Tx, input: NewSeason): Promise<SeasonRecord> {
     );
   const [opened] = await tx
     .insert(seasons)
-    .values({ ...input, organizationId: daisyOrganizationId, status: 'active' })
+    .values({
+      ...facts,
+      lobbyId: lobby.id,
+      organizationId: lobby.organizationId,
+      status: 'active',
+    })
     .returning();
   if (!opened)
     throw createAppError('INTERNAL', 'Season insert returned no row');
@@ -78,20 +91,21 @@ const seasonOperations = (database: BunSQLDatabase) => ({
   }): Promise<SeasonRecord> {
     return database.transaction(async (tx) => {
       await lockSeasonCreation(tx);
+      const lobby = await seasonLobby(tx, input.division);
       const [existing] = await tx
         .select()
         .from(seasons)
         .where(
           and(
             eq(seasons.activationKey, 'beta-season-1'),
-            eq(seasons.division, input.division),
+            eq(seasons.lobbyId, lobby.id),
           ),
         );
       if (existing) return toSeasonRecord(existing);
       const [other] = await tx
         .select({ id: seasons.id })
         .from(seasons)
-        .where(onDivision(input.division))
+        .where(eq(seasons.lobbyId, lobby.id))
         .limit(1);
       if (other)
         throw createAppError(
@@ -102,8 +116,8 @@ const seasonOperations = (database: BunSQLDatabase) => ({
         .insert(seasons)
         .values({
           id: input.id,
-          organizationId: daisyOrganizationId,
-          division: input.division,
+          organizationId: lobby.organizationId,
+          lobbyId: lobby.id,
           name: 'Season 1',
           activationKey: 'beta-season-1',
           startsAt: sql`clock_timestamp()`,

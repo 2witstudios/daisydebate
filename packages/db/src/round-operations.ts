@@ -71,7 +71,6 @@ export const roundOperations = ({
           runtimeState: emptyRuntimeCheckpointFor(input.rules),
           status: 'opening',
           ladderId: null,
-          ladderDivision: null,
         });
       } catch (error) {
         if (isUniqueViolation(error))

@@ -5,7 +5,6 @@ import {
 } from '@daisy/protocol/lobby/organization-command';
 import {
   decideOrganization,
-  newLeagueDivision,
   type GrantFact,
   type OrganizationFacts,
   type RoleFact,
@@ -125,7 +124,6 @@ describe('decideOrganization', () => {
               name: 'Hill School',
               handle: 'hill',
               ownerUserId: 'admin',
-              leagueDivision: null,
             },
           },
           {
@@ -651,16 +649,5 @@ test('a manager cancels only a pending membership invitation', () => {
       'invitation-closed',
       'invitation-closed',
     ],
-  });
-});
-
-describe('newLeagueDivision (PYL-16)', () => {
-  test('the division a new organization starts with', () => {
-    assert({
-      given: 'a new league and a new school',
-      should: 'start the league on Open and give the school no division',
-      actual: (['league', 'school'] as const).map(newLeagueDivision),
-      expected: ['open', null],
-    });
   });
 });

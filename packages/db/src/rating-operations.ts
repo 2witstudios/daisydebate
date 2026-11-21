@@ -1,18 +1,15 @@
 import { createAppError, createRefusal } from '@daisy/errors';
-import { daisyOrganizationId } from './daisy-reference';
 import {
-  twoSideKeys,
   type DebaterStanding,
-  ladderKey,
-  type Ladder,
+  type RoundRatingScope,
   type PlannedRatingChange,
   type RatingState,
 } from '@daisy/protocol';
-import { and, desc, eq, inArray, max, ne, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, max, lt, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type { RateDebateInput, RateDebateResult } from './rating-facts';
 import {
-  assertRankedRoundIntegrity,
+  assertRoundRatingIntegrity,
   projectionLockOrder,
   ratedResult,
   ratingChangeRows,
@@ -22,7 +19,8 @@ import { retryStale } from './retry-stale';
 import { seatOfColumns } from './seat-columns';
 import { roundParticipants } from './schema/round-participants';
 import { rounds } from './schema/rounds';
-import { ratingChanges, ratings, seasons } from './schema/ratings';
+import { seasons } from './schema/seasons';
+import { ratingChanges, ratings } from './schema/ratings';
 
 /**
  * Rates one completed round (ADR 0055, ADR 0058) as a thin transactional
@@ -51,22 +49,17 @@ async function loadStanding(
   tx: Tx,
   scope: {
     readonly actorId: string;
-    readonly ladder: Ladder;
-    readonly seasonId: string | null;
+    readonly pool: NonNullable<RoundRatingScope>;
   },
 ): Promise<DebaterStanding> {
   const onLadder = and(
     eq(ratings.actorId, scope.actorId),
-    eq(ratings.ladder, scope.ladder.style),
-    eq(ratings.division, scope.ladder.division),
+    eq(ratings.ladder, scope.pool.ladderId),
   );
-  const [current] =
-    scope.seasonId === null
-      ? []
-      : await tx
-          .select()
-          .from(ratings)
-          .where(and(onLadder, eq(ratings.seasonId, scope.seasonId)));
+  const [current] = await tx
+    .select()
+    .from(ratings)
+    .where(and(onLadder, eq(ratings.seasonId, scope.pool.seasonId)));
   const [previous] = await tx
     .select({
       rating: ratings.rating,
@@ -76,9 +69,13 @@ async function loadStanding(
     .from(ratings)
     .innerJoin(seasons, eq(seasons.id, ratings.seasonId))
     .where(
-      scope.seasonId === null
-        ? onLadder
-        : and(onLadder, ne(ratings.seasonId, scope.seasonId)),
+      and(
+        onLadder,
+        lt(
+          seasons.startsAt,
+          sql`(select starts_at from seasons where id=${scope.pool.seasonId})`,
+        ),
+      ),
     )
     .orderBy(desc(seasons.startsAt))
     .limit(1);
@@ -88,8 +85,8 @@ async function loadStanding(
     .where(
       and(
         eq(ratingChanges.actorId, scope.actorId),
-        eq(ratingChanges.ladder, scope.ladder.style),
-        eq(ratingChanges.division, scope.ladder.division),
+        eq(ratingChanges.ladder, scope.pool.ladderId),
+        eq(ratingChanges.seasonId, scope.pool.seasonId),
       ),
     );
   if (!current && previous)
@@ -108,10 +105,7 @@ async function loadStanding(
 
 async function writeProjection(
   tx: Tx,
-  scope: {
-    readonly seasonId: string;
-    readonly ladder: Ladder;
-  },
+  scope: NonNullable<RoundRatingScope>,
   change: PlannedRatingChange,
 ): Promise<void> {
   const written =
@@ -120,8 +114,8 @@ async function writeProjection(
           .insert(ratings)
           .values({
             seasonId: scope.seasonId,
-            ladder: scope.ladder.style,
-            division: scope.ladder.division,
+            ladder: scope.ladderId,
+            lobbyId: scope.lobbyId,
             actorId: change.actorId,
             ...change.after,
           })
@@ -138,8 +132,7 @@ async function writeProjection(
             and(
               eq(ratings.actorId, change.actorId),
               eq(ratings.seasonId, scope.seasonId),
-              eq(ratings.ladder, scope.ladder.style),
-              eq(ratings.division, scope.ladder.division),
+              eq(ratings.ladder, scope.ladderId),
               eq(ratings.version, change.expectedVersion),
             ),
           )
@@ -149,7 +142,7 @@ async function writeProjection(
 
 async function rateOnce(
   tx: Tx,
-  { roundId, changeIds, decide }: RateDebateInput,
+  { roundId, nextChangeId, decide }: RateDebateInput,
 ): Promise<RateDebateResult> {
   const [round] = await tx
     .select()
@@ -157,7 +150,7 @@ async function rateOnce(
     .where(eq(rounds.id, roundId))
     .for('no key update');
   if (!round) throw createAppError('NOT_FOUND', 'No such round');
-  assertRankedRoundIntegrity(round);
+  assertRoundRatingIntegrity(round);
   const facts = await readRatingFacts(tx, roundId);
   if (!facts) throw createAppError('NOT_FOUND', 'No such round');
   const eligibility = decide.eligibility(facts);
@@ -166,6 +159,10 @@ async function rateOnce(
     throw createRefusal('CONFLICT', 'attendance-unsettled');
   if (eligibility.kind !== 'rated') return eligibility;
 
+  const [first, second] = round.rulesSnapshot.sides;
+  if (round.rulesSnapshot.sides.length !== 2 || !first || !second)
+    return { kind: 'unrated', reason: 'competition' };
+  const sides = [first.key, second.key] as const;
   // A rating compares the two sides' seats (ADR 0055): the preset's pair.
   const seats = (
     await tx
@@ -180,33 +177,18 @@ async function rateOnce(
         and(
           eq(roundParticipants.roundId, roundId),
           eq(roundParticipants.seatKind, 'side'),
-          inArray(roundParticipants.side, [...twoSideKeys]),
+          inArray(roundParticipants.side, [...sides]),
         ),
       )
   ).map(({ actorId, ...seat }) => ({ actorId, seat: seatOfColumns(seat) }));
-  const [season] = await tx
-    .select({ id: seasons.id })
-    .from(seasons)
-    // Daisy's own season on the Round's division: every organization may
-    // have an active one per division (ADR 0147).
-    .where(
-      and(
-        eq(seasons.status, 'active'),
-        eq(seasons.organizationId, daisyOrganizationId),
-        eq(seasons.division, eligibility.ladder.division),
-      ),
-    )
-    .for('share');
-  if (!season) throw createAppError('CONFLICT', 'No season is active');
-  const seasonId = season.id;
   // Two-int advisory namespace59090 belongs to ratings, disjoint from the
   // bigint command locks. Sort/dedupe actual int32 keys before acquisition;
   // a hash collision only serializes unrelated ladder/actor pairs.
   const keys =
     await tx.execute(sql`select key::text as key from (select distinct
-    hashtext(${ladderKey(eligibility.ladder.style, eligibility.ladder.division)} || ':' || actor_id) as key
+    hashtext(${eligibility.scope.ladderId} || ':' || ${eligibility.scope.seasonId} || ':' || actor_id) as key
     from round_participants where round_id=${roundId} and seat_kind='side' and side in (${sql.join(
-      twoSideKeys.map((side) => sql`${side}`),
+      sides.map((side) => sql`${side}`),
       sql`, `,
     )})) locks
     order by locks.key`);
@@ -216,28 +198,25 @@ async function rateOnce(
   for (const { actorId } of seats)
     standings[actorId] = await loadStanding(tx, {
       actorId,
-      ladder: eligibility.ladder,
-      seasonId,
+      pool: eligibility.scope,
     });
 
   const plan = decide.plan({
-    ladder: eligibility.ladder,
+    scope: eligibility.scope,
+    sides,
     outcome: eligibility.outcome,
     occurredAt: eligibility.occurredAt,
-    seasonId,
     seats,
     standings,
-    changeIds,
+    changeIds: Object.fromEntries(
+      seats.map(({ actorId }) => [actorId, nextChangeId()]),
+    ),
   });
-  const scope = {
-    seasonId: plan.seasonId,
-    ladder: plan.ladder,
-  };
   await tx
     .insert(ratingChanges)
     .values(ratingChangeRows(plan, { roundId, formatId: round.formatId }));
   for (const change of projectionLockOrder(plan.changes))
-    await writeProjection(tx, scope, change);
+    await writeProjection(tx, plan.scope, change);
   return ratedResult(plan);
 }
 

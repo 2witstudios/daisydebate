@@ -249,15 +249,17 @@ export const tenantIsolationManifest: TenantIsolationManifest = {
     {
       table: 'seasons',
       reason:
-        "Daisy's rating seasons are public reference rows read by the ladder; a league's season is read with its standings.",
+        'Seasons are competitive reference metadata. The leaderboard selects an official lobby before reading its seasons, and league season reads use the authorized organization and standing lobby.',
     },
     {
       table: 'ratings',
-      reason: 'The public rating projection; it references a ladder only.',
+      reason:
+        'A competitive projection scoped by standing lobby, ladder and season. The public leaderboard admits official lobbies and a league read passes its standing lobby authorization.',
     },
     {
       table: 'rating_changes',
-      reason: 'The public rating ledger; it references a ladder only.',
+      reason:
+        'The competitive ledger pins each round to its frozen standing lobby, ladder and season. Posting takes scope from the locked Round. Published reads use the same scope and spectator release rules.',
     },
     {
       table: 'formats',

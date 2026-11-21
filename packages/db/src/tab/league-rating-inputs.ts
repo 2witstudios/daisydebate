@@ -1,10 +1,12 @@
 import { settings } from '../schema/settings';
-import { and, asc, eq, inArray, or } from 'drizzle-orm';
+import { and, asc, eq, inArray, or, sql } from 'drizzle-orm';
 import { actors } from '../schema/actors';
 import { users } from '../schema/users';
 import { ladders } from '../schema/ladders';
 import { lobbies } from '../schema/lobbies';
 import { organizations } from '../schema/organizations';
+import { seasons } from '../schema/seasons';
+import { ratings, ratingChanges } from '../schema/ratings';
 import { rounds } from '../schema/rounds';
 import { roundParticipants } from '../schema/round-participants';
 import { readEndingRatingFacts } from '../rating-discovery';
@@ -13,7 +15,7 @@ import { loadLeagueCertifiedRatingInputs } from './league-certified-rating-input
 import { loadLobbyAuthority } from './lobby-authority';
 import type { TabDatabase, TabTransaction } from './tab-transaction';
 
-/** Named, read-only competitive input. Never reads or writes Daisy's ratings. */
+/** Supplies the lobby's active-season projections and certified competition inputs. */
 export async function loadLeagueRatingInputs(
   tx: TabTransaction,
   input: {
@@ -42,16 +44,35 @@ export async function loadLeagueRatingInputs(
     lobbyId: home.lobby.id,
   };
   await scopeTransaction(tx, scope);
-  const completedRounds = await tx
-    .select({ id: rounds.id, rules: rounds.rulesSnapshot })
-    .from(rounds)
+  const [season] = await tx
+    .select({ id: seasons.id })
+    .from(seasons)
     .where(
-      and(
-        eq(rounds.leagueLadderId, home.ladder.id),
-        eq(rounds.status, 'completed'),
-      ),
+      and(eq(seasons.lobbyId, home.lobby.id), eq(seasons.status, 'active')),
     )
-    .orderBy(asc(rounds.completedAt), asc(rounds.id));
+    .for('share');
+  const tournaments = season
+    ? await loadLeagueCertifiedRatingInputs(tx, {
+        viewerUserId: input.viewerUserId,
+        organizationId: home.ladder.organizationId,
+        seasonId: season.id,
+      })
+    : [];
+  await scopeTransaction(tx, scope);
+  const seasonRounds = season
+    ? and(
+        eq(rounds.ladderId, home.ladder.id),
+        eq(rounds.seasonId, season.id),
+        eq(rounds.status, 'completed'),
+      )
+    : sql`false`;
+  const completedRounds = tournaments.length
+    ? await tx
+        .select({ id: rounds.id, rules: rounds.rulesSnapshot })
+        .from(rounds)
+        .where(seasonRounds)
+        .orderBy(asc(rounds.completedAt), asc(rounds.id))
+    : [];
   // The same ending facts Daisy's ratings read: the engine's `endingRating`
   // decides which of these Rounds the ladder counts.
   const endings = new Map(
@@ -80,27 +101,54 @@ export async function loadLeagueRatingInputs(
             // bound id per Round.
             inArray(
               roundParticipants.roundId,
-              tx
-                .select({ id: rounds.id })
-                .from(rounds)
-                .where(
-                  and(
-                    eq(rounds.leagueLadderId, home.ladder.id),
-                    eq(rounds.status, 'completed'),
-                  ),
-                ),
+              tx.select({ id: rounds.id }).from(rounds).where(seasonRounds),
             ),
-            eq(roundParticipants.seatKind, 'side'),
+            inArray(roundParticipants.seatKind, ['side', 'speaker']),
           ),
         )
     : [];
-  const tournaments = await loadLeagueCertifiedRatingInputs(tx, {
-    viewerUserId: input.viewerUserId,
-    organizationId: home.ladder.organizationId,
-  });
-  await scopeTransaction(tx, scope);
+  const standings = season
+    ? await tx
+        .select({
+          actorId: ratings.actorId,
+          rating: ratings.rating,
+          deviation: ratings.deviation,
+          volatility: ratings.volatility,
+          games: sql<number>`count(${ratingChanges.id})::int`,
+          wins: sql<number>`(count(${ratingChanges.id}) filter (where ${rounds.winningSide}=${roundParticipants.side}))::int`,
+          lastRatedAt: sql<
+            string | null
+          >`to_char(max(${ratingChanges.occurredAt}) at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`,
+          change: sql<number>`(array_agg(${ratingChanges.ratingAfter}-${ratingChanges.ratingBefore} order by ${ratingChanges.occurredAt} desc))[1]`,
+        })
+        .from(ratings)
+        .innerJoin(
+          ratingChanges,
+          and(
+            eq(ratingChanges.actorId, ratings.actorId),
+            eq(ratingChanges.ladder, ratings.ladder),
+            eq(ratingChanges.seasonId, ratings.seasonId),
+          ),
+        )
+        .innerJoin(rounds, eq(rounds.id, ratingChanges.roundId))
+        .innerJoin(
+          roundParticipants,
+          and(
+            eq(roundParticipants.roundId, rounds.id),
+            eq(roundParticipants.ratingActorId, ratings.actorId),
+          ),
+        )
+        .where(
+          and(
+            eq(ratings.ladder, home.ladder.id),
+            eq(ratings.seasonId, season.id),
+          ),
+        )
+        .groupBy(ratings.actorId, ratings.ladder, ratings.seasonId)
+    : [];
   const actorIds = [
     ...new Set([
+      ...standings.map((row) => row.actorId),
       ...participants.map((row) => row.actorId),
       ...tournaments.flatMap((row) =>
         row.competitionRecord.kind === 'decided'
@@ -140,6 +188,7 @@ export async function loadLeagueRatingInputs(
     );
   return {
     ...home,
+    standings,
     roomRounds,
     participants,
     tournaments,

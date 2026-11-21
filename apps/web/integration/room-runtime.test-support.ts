@@ -271,9 +271,13 @@ async function fixture(
       view = (await consent(c, view, 'ready')).view;
     return operations.view(cast.host, view.id);
   };
+  const afterRooms: (() => Promise<void>)[] = [];
   return {
     sql,
     store,
+    afterRooms: (cleanup: () => Promise<void>) => {
+      afterRooms.push(cleanup);
+    },
     redis,
     operations,
     roundView: roundViewReader(store, linkedAdults),
@@ -342,6 +346,7 @@ async function fixture(
           await sql`delete from rooms where id=${id}`;
           await deleteOrphanNotificationSignals(sql);
         }
+        for (const cleanup of afterRooms) await cleanup();
         for (const actorId of bots)
           await sql`delete from actors where id=${actorId}`;
         for (const c of callers) {

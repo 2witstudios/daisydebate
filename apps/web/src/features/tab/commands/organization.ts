@@ -1,4 +1,4 @@
-import type { AgeBand, RatingDivision } from '@daisy/protocol';
+import type { AgeBand } from '@daisy/protocol';
 import type {
   OrganizationCommand,
   OrganizationRefusal,
@@ -17,15 +17,6 @@ import { decideGrant } from './grants';
  * span rows, each with its named refusal. Authority is the runner's gate;
  * time and new ids come in the facts.
  */
-
-/**
- * The division a new organization starts with (PYL-16): a league is Open
- * until the owner sets it administratively, before its first season starts
- * (docs/operations/league-requests.md); no other kind has a division.
- */
-export const newLeagueDivision = (
-  kind: OrganizationKind,
-): RatingDivision | null => (kind === 'league' ? 'open' : null);
 
 /** An `organizations` row, as the commands read it. */
 type OrganizationRow = {
@@ -106,10 +97,7 @@ export type OrganizationWrite =
   | {
       readonly table: 'organizations';
       readonly op: 'insert';
-      readonly row: Omit<OrganizationRow, 'version'> & {
-        /** A league's division; null for every other kind. */
-        readonly leagueDivision: RatingDivision | null;
-      };
+      readonly row: Omit<OrganizationRow, 'version'>;
     }
   | {
       readonly table: 'organizations';
@@ -270,7 +258,6 @@ function createOrganization(
           name: command.name,
           handle: command.handle,
           ownerUserId: facts.senderUserId,
-          leagueDivision: newLeagueDivision(command.kind),
         },
       },
       {

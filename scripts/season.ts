@@ -181,7 +181,7 @@ export function refusalLine(error: unknown): string | null {
 const line = (season: SeasonRecord) =>
   [
     season.id,
-    season.division,
+    season.lobbyId,
     season.status,
     season.startsAt,
     season.endsAt ?? '-',

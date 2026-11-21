@@ -1,14 +1,11 @@
+import { lobbies } from './schema/lobbies';
 import { currentRoundParticipant } from './round-current-participant';
-import {
-  isDebatingSeat,
-  isYouthRound,
-  type CaptureRule,
-} from '@daisy/protocol';
+import { isDebatingSeat, type CaptureRule } from '@daisy/protocol';
 import { and, asc, eq, sql, type SQL } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { readBroadcastRelease } from './broadcast-operations';
 import type { SpectatorClock } from './spectator-release-sql';
-import { namedSeats } from './member-history-rows';
+import { namedSeats, roundLadderOf } from './member-history-rows';
 import { audienceTranscript } from './round-ballot-reads';
 import { readTranscriptFreeze } from './frozen-transcript';
 import { ballots } from './schema/ballots';
@@ -58,14 +55,15 @@ export const recordingRoundReadOperations = ({
           ranking: rounds.ranking,
           rules: rounds.rulesSnapshot,
           capture: rounds.capture,
-          ladderStyle: rounds.ladderId,
-          ladderDivision: rounds.ladderDivision,
+          ladderId: rounds.ladderId,
+          ladderAgeRule: lobbies.ageRule,
           roomYouth: sql<
             boolean | null
           >`public.daisy_room_is_youth(${rounds.roomId})`,
         })
         .from(rounds)
         .leftJoin(rooms, eq(rooms.id, rounds.roomId))
+        .leftJoin(lobbies, eq(lobbies.id, rounds.ratingLobbyId))
         .where(eq(rounds.id, roundId));
       if (!round) return null;
       const outcome = outcomeOfColumns(round, round.rules);
@@ -114,12 +112,10 @@ export const recordingRoundReadOperations = ({
         outcome,
         seats,
         /** A Youth Round: any Round of a Youth Room (ADR 0150, 0157). */
-        youthRound: isYouthRound(round, round.roomYouth),
+        youthRound:
+          round.roomYouth === true || round.ladderAgeRule === 'under-18',
         /** The ladder a ranked Round rated on, frozen at Start (ADR 0147). */
-        ladder:
-          round.ladderStyle !== null && round.ladderDivision !== null
-            ? { style: round.ladderStyle, division: round.ladderDivision }
-            : null,
+        ladder: roundLadderOf(round),
         /** Both lists are in seat order, so they pair up. */
         debaters: debaters.map((seat, index) => ({
           ...seat,

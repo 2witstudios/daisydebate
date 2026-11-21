@@ -45,7 +45,13 @@ try {
         await tx`select rules_snapshot from rooms where id=${roomId} and host_actor_id=${member.id}`;
       if (!room) throw new Error('Display fixture room missing');
       const checkpoint = emptyRuntimeCheckpointFor(room.rules_snapshot);
-      await tx`insert into rounds(id,room_id,created_by_actor_id,room_config_snapshot,visibility,resolution,competition_type,format_id,format_version,preset_version,rules_snapshot,runtime_state,status,current_stage,winning_side,ladder_id,ladder_division,started_at,completed_at) select ${id},id,host_actor_id,config,visibility,'Fixture display proof','ranked',format_id,format_version,preset_version,rules_snapshot,${checkpoint},'active','live',null,${ladder},'open',clock_timestamp()-interval '10 minutes',null from rooms where id=${roomId} and host_actor_id=${member.id}`;
+      const [pool] =
+        await tx`select ld.id as ladder_id, s.id as season_id, s.lobby_id
+        from rooms r join seasons s on s.lobby_id=r.lobby_id and s.status='active'
+        join ladders ld on ld.lobby_id=r.lobby_id where r.id=${roomId}
+        order by ld.created_at,ld.id limit 1`;
+      if (!pool) throw new Error('Display fixture season missing');
+      await tx`insert into rounds(id,room_id,created_by_actor_id,room_config_snapshot,visibility,resolution,competition_type,format_id,format_version,preset_version,rules_snapshot,runtime_state,status,current_stage,winning_side,ladder_id,season_id,rating_lobby_id,started_at,completed_at) select ${id},id,host_actor_id,config,visibility,'Fixture display proof','ranked',format_id,format_version,preset_version,rules_snapshot,${checkpoint},'active','live',null,${pool.ladder_id},${pool.season_id},${pool.lobby_id},clock_timestamp()-interval '10 minutes',null from rooms where id=${roomId} and host_actor_id=${member.id}`;
       for (const [side, actor] of [
         [affirmativeSide, member.id],
         [negativeSide, opponent],

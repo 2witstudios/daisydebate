@@ -2,7 +2,7 @@ import { sql } from 'drizzle-orm';
 import { check, index, pgTable, text, unique } from 'drizzle-orm/pg-core';
 import { oneOf, timestampColumn } from './columns';
 import { lobbies } from './lobbies';
-import { seasons } from './ratings';
+import { seasons } from './seasons';
 import { rooms } from './rooms';
 import { users } from './users';
 

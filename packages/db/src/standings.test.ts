@@ -9,7 +9,22 @@ const at = new Date('2026-10-05T12:00:00.000Z');
 describe('standings reads', () => {
   test('lists ladder seasons and ranked formats as records', async () => {
     const { database } = createTestDatabase([
-      [['s2', 'Season 2', null, at, null, 'active', at, at, 1]],
+      [
+        [
+          's2',
+          'Season 2',
+          null,
+          at,
+          null,
+          'active',
+          at,
+          at,
+          1,
+          'open-lobby',
+          'standing',
+          'league',
+        ],
+      ],
       [['parli', 'Parliamentary']],
     ]);
     assert({
@@ -24,6 +39,7 @@ describe('standings reads', () => {
           {
             id: 's2',
             name: 'Season 2',
+            lobbyId: 'open-lobby',
             startsAt: at.toISOString(),
             endsAt: null,
             status: 'active',
@@ -42,7 +58,8 @@ describe('standings reads', () => {
       should: 'return empty standings without a query',
       actual: [
         await database.readStandings({
-          ladder: { style: 'freestyle', division: 'open' },
+          ladderId: 'freestyle',
+          lobbyId: 'open-lobby',
           seasonIds: [],
           clock: { now: '2026-11-02T00:00:00.000Z', rankedDelaySeconds: 0 },
         }),
@@ -106,7 +123,8 @@ describe('standings reads', () => {
       ],
     ]);
     const read = await database.readStandings({
-      ladder: { style: 'freestyle', division: 'open' },
+      ladderId: 'freestyle',
+      lobbyId: 'open-lobby',
       seasonIds: ['s1'],
       clock: { now: '2026-11-02T00:00:00.000Z', rankedDelaySeconds: 0 },
     });
@@ -139,7 +157,8 @@ describe('standings reads', () => {
   test('reads both sets from one read-only snapshot', async () => {
     const { database, queries } = createTestDatabase([[], [], []]);
     await database.readStandings({
-      ladder: { style: 'freestyle', division: 'open' },
+      ladderId: 'freestyle',
+      lobbyId: 'open-lobby',
       seasonIds: ['s1'],
       clock: { now: '2026-11-02T00:00:00.000Z', rankedDelaySeconds: 0 },
     });
@@ -157,7 +176,7 @@ describe('standings reads', () => {
   test('refuses a posting that cannot be rated', async () => {
     for (const [given, side, winningSide] of [
       ['a judge seat', null, 'affirmative'],
-      ['an unknown winning side', 'affirmative', 'abandoned'],
+      ['an unknown winning side', 'affirmative', 'Unknown Side'],
       ['no outcome', 'negative', null],
     ] as const) {
       const { database } = createTestDatabase([
@@ -185,7 +204,8 @@ describe('standings reads', () => {
         should: 'refuse as an internal error rather than guess a result',
         actual: () =>
           database.readStandings({
-            ladder: { style: 'freestyle', division: 'open' },
+            ladderId: 'freestyle',
+            lobbyId: 'open-lobby',
             seasonIds: ['s1'],
             clock: { now: '2026-11-02T00:00:00.000Z', rankedDelaySeconds: 0 },
           }),

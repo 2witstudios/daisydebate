@@ -391,6 +391,7 @@ describe('seasons', () => {
   const create: Extract<LobbyCommand, { type: 'create-season' }> = {
     type: 'create-season',
     organizationId: leagueId,
+    lobbyId: standing.id,
     name: '2027 season',
     startsAt: '2027-01-01T00:00:00Z',
     endsAt: null,
@@ -421,6 +422,7 @@ describe('seasons', () => {
               row: {
                 id: id('n'),
                 organizationId: leagueId,
+                lobbyId: standing.id,
                 name: '2027 season',
                 startsAt: '2027-01-01T00:00:00Z',
                 endsAt: null,
