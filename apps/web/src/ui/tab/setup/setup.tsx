@@ -6,13 +6,10 @@ import type {
   TournamentSetup,
 } from '../../../features/tab/setup';
 import type { TimelineRail } from '../../../features/tab/tournament';
-import { Button } from '../../components/button/button';
 import { PageHeader } from '../../components/page-header/page-header';
-import { ChoiceField } from '../choice-field/choice-field';
 import { EventSwitcher } from '../event-switcher/event-switcher';
 import { HostShell } from '../host-shell/host-shell';
 import { eyebrowClass, ListCard } from '../list-card/list-card';
-import { SampleForm, type SampleSubmit } from '../sample-form/sample-form';
 import { SettingRow } from '../setting-row/setting-row';
 
 /** How hard the engine tries, in the host's words. */
@@ -43,16 +40,14 @@ type SetupProps = {
       readonly empty: { readonly addEvent: TabAction | null };
       readonly setup?: never;
       readonly panel?: never;
-      readonly submit?: never;
+      readonly pairingForm?: never;
     }
-  | ({
+  | {
       readonly empty?: never;
       readonly setup: TournamentSetup;
       readonly panel: 'pairing' | null;
-    } & (
-      | { readonly submit: SampleSubmit; readonly pairingForm?: never }
-      | { readonly pairingForm: ReactNode; readonly submit?: never }
-    ))
+      readonly pairingForm: ReactNode;
+    }
 );
 export function Setup(props: SetupProps) {
   if (props.empty !== undefined)
@@ -70,7 +65,6 @@ export function Setup(props: SetupProps) {
       </HostShell>
     );
   const { rail, setup, panel } = props;
-  const pairing = setup.pairing;
   return (
     <HostShell
       rail={rail}
@@ -79,23 +73,7 @@ export function Setup(props: SetupProps) {
         ? {}
         : {
             asideLabel: 'Pairing',
-            aside:
-              props.pairingForm !== undefined ? (
-                props.pairingForm
-              ) : (
-                <SampleForm
-                  action={props.submit!(pairing.save.label)}
-                  label="Pairing"
-                  className="flex flex-col gap-4"
-                >
-                  <h2 className="font-display text-xl font-bold">Pairing</h2>
-                  <ChoiceField id="pairing-preset" choice={pairing.preset} />
-                  <PairingPolicies pairing={pairing} />
-                  <Button type="submit" className="self-start">
-                    {pairing.save.label}
-                  </Button>
-                </SampleForm>
-              ),
+            aside: props.pairingForm,
           })}
     >
       <EventSwitcher event={setup.event} />

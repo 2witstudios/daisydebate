@@ -1,6 +1,6 @@
 import type { TabAction } from '../../../features/tab/action';
 import type { EventSwitch } from '../../../features/tab/setup';
-import { WalkLink as Link } from '../walk/walk-link';
+import Link from 'next/link';
 import { buttonClass } from '../../components/button/button-class';
 import { UnavailableControl } from '../action-control/unavailable-control';
 
@@ -9,9 +9,7 @@ const itemClass =
 
 function Other({ event }: { readonly event: TabAction }) {
   return event.kind === 'unavailable' ? (
-    <UnavailableControl label={event.label} className={itemClass}>
-      {event.label}
-    </UnavailableControl>
+    <UnavailableControl className={itemClass}>{event.label}</UnavailableControl>
   ) : (
     <Link href={event.href} className={itemClass}>
       {event.label}

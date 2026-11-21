@@ -12,7 +12,6 @@ export type LeagueTab = 'rooms' | 'ladder' | 'season' | 'tournaments';
 
 export const tabRoutes = {
   tournaments: '/tournaments',
-  walk: '/tournaments/walk',
   tournament,
   round: (slug: string, event: string, round: string) =>
     `${tournament(slug)}/events/${event}/rounds/${round}`,
@@ -67,53 +66,3 @@ export const hostRoutes = {
   upgrade: (slug: string) => `${hostTournament(slug)}/upgrade`,
   billing: (slug: string) => `${hostTournament(slug)}/billing`,
 } as const;
-
-/** The pages only the host area has, as the last segment of their path. */
-const hostOnly = new Set([
-  'setup',
-  'entries',
-  'judges',
-  'people',
-  'results',
-  'ballot',
-  'resolutions',
-  'upgrade',
-  'billing',
-]);
-
-/**
- * Where someone without a grant lands when they open a host address: the same
- * path without the prefix, or the nearest participant page above a host-only
- * one.
- */
-export function participantPathOf(hostPath: string): string {
-  const segments = hostPath.split('/').filter(Boolean).slice(1);
-  const [area, slug] = segments;
-  if (area === 'leagues' && slug !== undefined) return league(slug);
-  if (area !== 'tournaments' || slug === undefined)
-    return tabRoutes.tournaments;
-  const rest = segments.slice(2);
-  const last = rest.at(-1);
-  if (
-    rest.length === 0 ||
-    (last !== undefined && hostOnly.has(last)) ||
-    rest[0] === 'slots' ||
-    (rest[0] === 'events' && rest.length === 1)
-  )
-    return tournament(slug);
-  return `/${segments.join('/')}`;
-}
-
-const tabPrefixes = ['/host', '/tournaments/', '/leagues/', '/rooms/sample/'];
-
-/**
- * Whether a path a form sent back is one of Tab's own pages. It round-trips
- * through the browser, so it is untrusted: a bare local path only, with no
- * query, fragment, scheme or parent step.
- */
-export const isTabPath = (path: string): boolean =>
-  /^\/[a-z0-9/-]*$/.test(path) &&
-  !path.includes('//') &&
-  tabPrefixes.some(
-    (prefix) => path === prefix || path.startsWith(prefix.replace(/\/?$/, '/')),
-  );

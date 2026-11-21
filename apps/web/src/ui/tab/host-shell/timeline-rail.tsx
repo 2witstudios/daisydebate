@@ -1,4 +1,4 @@
-import { WalkLink as Link } from '../walk/walk-link';
+import Link from 'next/link';
 import {
   standingLabel,
   type RailItem,
@@ -35,10 +35,7 @@ function Stop({
     return <span className={cn(stopClass, 'text-ink-muted')}>{face}</span>;
   if (item.action.kind === 'unavailable')
     return (
-      <UnavailableControl
-        label={item.action.label}
-        className={cn(stopClass, 'text-ink')}
-      >
+      <UnavailableControl className={cn(stopClass, 'text-ink')}>
         {face}
       </UnavailableControl>
     );

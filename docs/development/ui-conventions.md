@@ -458,9 +458,9 @@ debater's flow document.
 
 ## Daisy Tab
 
-Tournament tabulation, on sample data behind the closed `daisy-tab` release
-flag (plan: Plans › tab-interface; the design canvas is the specification for
-layout and copy). With the flag closed every Tab address answers with the bare
+Tournament tabulation uses stored data behind the `daisy-tab` release flag.
+The design canvas specifies the layout and copy for Tab screens, including
+those awaiting wiring. With the flag closed every Tab address answers with the bare
 missing page it always has, because the gate is in the layouts of the `(tab)`,
 `(tab-live)` and `(host)` route groups, and `/tournaments` keeps its
 information page.
@@ -469,12 +469,12 @@ information page.
   (`ui/tab/host-shell`): the timeline rail beside one page. The rail is the
   tournament in order, by time slot; with one event the slots are its rounds.
   The participant side is the same paths without the prefix, in the product
-  shell. Anyone without a grant who opens a host address is sent to the
-  participant page at the same path (`participantPathOf`).
+  shell. Wired host pages authorize access against stored grants.
 - **One module per aggregate.** `features/tab/<aggregate>.ts` owns that
-  aggregate's pure read projection; sample `read…` adapters and their facts live
-  in `features/tab/sample/` and are consumed only by the walk and tests. A screen takes the read as a prop and nothing else,
-  so the source changes without a screen changing.
+  aggregate's pure read projection. Sample `read…` adapters and their facts are
+  test support (`features/tab/test-support/sample/`), which production source
+  cannot import (`bun lint`). A screen takes the read as a prop and nothing
+  else, so the source changes without a screen changing.
 - **A setting is one shape.** Tournament setup, a league's template, the
   create-room form of a standing lobby and an event Room's "set by" lines all
   render `ResolvedSetting`: value, the scope it comes from, and a lock where a
@@ -487,30 +487,16 @@ information page.
 - **The event picker leads to screens.** `EventSwitch.others` are `TabAction`s:
   an event with a screen is a link; an unavailable event is explicitly disabled.
 - **Controls.** A read carries each control as a `TabAction`: `kind: 'link'`
-  carries a non-null address; `kind: 'unavailable'` has none and renders disabled
-  on production pages. Only beneath `/tournaments/walk` does the latter show a
-  simulated answer. Preview forms alone post to the
-  sample server action (`app/(tab)/sample-form-action.ts`) through
-  `SampleForm`, so it follows the mutating-form rules above while saving
-  nothing. An action is drawn as a button (`ActionButton`, `size="small"` for
+  carries a non-null address; `kind: 'unavailable'` has none and renders
+  disabled. An action is drawn as a button (`ActionButton`, `size="small"` for
   row actions, list expanders and header actions; `BackButton`, with a leading
   arrow, for a back link), never as a bold underlined link: a text link stays
   only inside a sentence (`SentenceLink`), and rail and tab-bar navigation
-  stay navigation. `sample-walk.test.tsx` fails on any other underlined link.
+  stay navigation.
 - **The judge's ballot is drawn from a ballot definition alone**
   (`ui/tab/ballot/configured-ballot.tsx`): scale and step, ranks, a criteria
   grid, the allowed outcomes and the written fields. Ballot settings redraw
   the same component as a preview on every choice.
-- **Sample Rooms** sit at `/tournaments/walk/rooms/sample/[room]`. Preview
-  navigation prefixes Tab addresses with `/tournaments/walk`; ordinary Room
-  addresses always belong to real Rooms. Host previews keep their own shell
-  through the `(host-preview)` route group.
-- **The sample viewer and moment** are a cookie chosen on `/tournaments/walk`,
-  which lists every screen that viewer can open then. It exists so the sample
-  can be walked independently of production data. Real routes never reserve
-  sample handles, and sample-only screens have no production fallback.
-  `ui/tab/sample-walk.test.tsx` follows every link from it for every viewer
-  and moment.
 - **Not built here:** a role editor, setting a policy's force key by key (a
   host picks a pairing preset; the forces are shown), comparing draw versions,
   and host screens at phone width. Tab screens have no visual baselines.
