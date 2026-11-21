@@ -21,6 +21,14 @@ import { currentRoomTopic, type ReadOpeningTopic } from './round-opening-read';
 import { readOfficialStandingLobbies } from './official-standing-lobbies';
 import { readCompetitionAgeBand } from './ladder-division-band';
 import { scopeTransaction } from './tenant-scope';
+import { roomRatingPoolReader } from './ladder-season';
+import type { LobbyRatingSelection } from './standings';
+
+type DiscoveryPage = Omit<RoomListPage, 'rooms'> & {
+  readonly rooms: readonly (RoomListEntry & {
+    readonly hostRatingPool?: LobbyRatingSelection;
+  })[];
+};
 type Seat = {
   readonly actorId: string;
   readonly seat: SeatRef;
@@ -112,7 +120,7 @@ export async function discoverRooms(
   authorizeCollection: (account: Account) => boolean,
   hostHidden: (fact: RoomDiscoveryFact) => boolean,
   readTopic: ReadOpeningTopic,
-): Promise<RoomListPage> {
+): Promise<DiscoveryPage> {
   const parsed = roomListQuerySchema.safeParse(input);
   if (!parsed.success) throw createAppError('VALIDATION');
   const { cursor, pageSize, q, status, mode, sort } = parsed.data;
@@ -167,6 +175,7 @@ export async function discoverRooms(
    case when r.status in ('assembling','ready') then r.created_at end as "waitingSince",
    case when r.status='started' then json_build_object('stage',d.current_stage,'startedAt',d.started_at) else null end as "live",
    null::int as "hostRating",r.lobby_id as "lobbyId",lb.age_rule as "ageRule",
+   r.league_ladder_id as "selectedLadderId",d.ladder_id as "frozenLadderId",d.season_id as "frozenSeasonId",
    ${openJudgeSeats} as "openJudgeSeats"
   from rooms r ${joins}
   join formats f on f.id=r.format_id
@@ -195,6 +204,9 @@ export async function discoverRooms(
     roundSlot: number | null;
     hostActorId: string | null;
     hostIsHumanJudge: boolean;
+    selectedLadderId: string | null;
+    frozenLadderId: string | null;
+    frozenSeasonId: string | null;
   })[];
   const fact = (r: (typeof rows)[number]): RoomDiscoveryFact => ({
     ...r,
@@ -265,13 +277,30 @@ export async function discoverRooms(
         ...r
       }) => r,
     );
-  // One at a time: a transaction runs one query.
-  const rooms: typeof entries = [];
-  for (const room of entries)
+  // Resolve pools only for visible hosts after the Room and Round locks.
+  const readPool = roomRatingPoolReader(tx, lobby.id);
+  const rooms: DiscoveryPage['rooms'][number][] = [];
+  for (const {
+    selectedLadderId,
+    frozenLadderId,
+    frozenSeasonId,
+    ...entry
+  } of entries) {
+    const pool =
+      entry.competitionType === 'ranked' && entry.hostActorId
+        ? await readPool(
+            selectedLadderId,
+            entry.roundRef
+              ? { ladderId: frozenLadderId, seasonId: frozenSeasonId }
+              : undefined,
+          )
+        : null;
     rooms.push({
-      ...room,
-      topic: await currentRoomTopic(tx, room, readTopic),
+      ...entry,
+      topic: await currentRoomTopic(tx, entry, readTopic),
+      ...(pool ? { hostRatingPool: pool } : {}),
     });
+  }
   return {
     rooms,
     nextCursor: more ? (rooms.at(-1)?.id ?? null) : null,

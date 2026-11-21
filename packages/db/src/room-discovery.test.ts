@@ -165,6 +165,54 @@ test('Lobby filters narrow the candidates and live facts read as ISO instants', 
   });
 });
 
+test('discovery exposes only authorized ranked host pools to the publisher', async () => {
+  const ranked = {
+    ...entry,
+    competitionType: 'ranked',
+    selectedLadderId: ids[1],
+    seatKind: null,
+    side: null,
+    slot: null,
+  };
+  const launched = {
+    ...ranked,
+    id: ids[1],
+    roundRef: { id: ids[0], status: 'active' },
+    frozenLadderId: ids[0],
+    frozenSeasonId: ids[2],
+  };
+  const { database, queries } = discoveryFixture([
+    ranked,
+    launched,
+    { ...launched, id: ids[2] },
+  ]);
+  const page = await database.listRoomPage(
+    caller,
+    { pageSize: 3, q: '', lobbyId: entry.lobbyId },
+    () => true,
+    () => true,
+    ({ id }) => id === ids[2],
+    () => null,
+  );
+  assert({
+    given: 'a selected ladder, a frozen pool, and a hidden judge host',
+    should:
+      'prefer the frozen pool when present and withhold the hidden host pool without a fallback read',
+    actual: [
+      page.rooms.map(({ hostRatingPool }) => hostRatingPool ?? null),
+      queries.length,
+    ],
+    expected: [
+      [
+        { lobbyId: entry.lobbyId, ladderId: ids[1] },
+        { lobbyId: entry.lobbyId, ladderId: ids[0], seasonId: ids[2] },
+        null,
+      ],
+      8,
+    ],
+  });
+});
+
 function discoveryFixture(rows: readonly Record<string, unknown>[]) {
   return createTestDatabase([
     [accountRow()],
