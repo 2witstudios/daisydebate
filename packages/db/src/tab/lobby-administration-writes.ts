@@ -7,7 +7,7 @@ import { lobbies, tournaments } from '../schema/lobbies';
 import { organizations } from '../schema/organizations';
 import { seasons } from '../schema/ratings';
 import { seasonStandingRules } from '../schema/sanctions';
-import type { TabTransaction } from './tab-transaction';
+import type { Tx } from '../tx';
 
 type Insert<Table extends string, Row> = {
   readonly table: Table;
@@ -88,7 +88,7 @@ const one = (rows: readonly unknown[]) => {
 };
 const at = (value: string | null) => (value === null ? null : new Date(value));
 const apply = async (
-  tx: TabTransaction,
+  tx: Tx,
   write: LobbyAdministrationWrite,
 ): Promise<void> => {
   switch (write.table) {
@@ -169,7 +169,7 @@ const apply = async (
   }
 };
 export const applyLobbyAdministrationWrites = async (
-  tx: TabTransaction,
+  tx: Tx,
   writes: readonly LobbyAdministrationWrite[],
 ): Promise<void> => {
   for (const write of writes) await apply(tx, write);

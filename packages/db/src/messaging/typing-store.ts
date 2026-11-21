@@ -1,24 +1,22 @@
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { buildChannelTopic, serverMessageSchema } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
-import type { AuthorizationTransaction } from '../authorization';
 import {
   restartingRead,
   withSharedMessagingAuthority,
 } from './authority-frame';
 import { readMessagingChannelFact } from './social';
+import type { Tx, TxSource } from '../tx';
+import { run } from '../raw-rows';
 /** Lossy aggregate invalidation only: no durable cursor or actor/content fields. */
-async function notifyMessagingTyping(
-  tx: AuthorizationTransaction,
-  channelId: string,
-) {
+async function notifyMessagingTyping(tx: Tx, channelId: string) {
   const frame = serverMessageSchema.parse({
     v: 1,
     type: 'typing_changed',
     topic: buildChannelTopic(channelId),
   });
-  await tx.execute(
+  await run(
+    tx,
     sql`select pg_notify('daisy_realtime_hints',${JSON.stringify(frame)})`,
   );
 }
@@ -28,7 +26,7 @@ async function notifyMessagingTyping(
  * typing in one channel never serialize (MSG-2.1-arch1). Each peer's own
  * grant is read after the waits.
  */
-export function createMessagingTypingStore(database: BunSQLDatabase) {
+export function createMessagingTypingStore(database: TxSource) {
   type Scope = Parameters<typeof withSharedMessagingAuthority>[1];
   type Authority = Parameters<
     Parameters<typeof withSharedMessagingAuthority>[2]

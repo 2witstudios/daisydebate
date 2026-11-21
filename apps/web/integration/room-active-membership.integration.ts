@@ -1,4 +1,6 @@
 import { requireTestServices } from '@daisy/config';
+import { readRoundCompetitionSource } from '@daisy/db/round-competition';
+import { withRolledBackDatabase } from '@daisy/db/testing';
 import { maintainRoom } from '@daisy/debate-engine';
 import { isAppError } from '@daisy/errors';
 import { assertRejects } from '@daisy/errors/testing';
@@ -10,7 +12,7 @@ import {
   withRoomRuntime,
 } from './round-runtime.test-support';
 setupRitewayBun();
-requireTestServices(process.env);
+const { databaseUrl } = requireTestServices(process.env);
 
 type Fixture = Parameters<Parameters<typeof withRoomRuntime>[0]>[0];
 const memberships = async (f: Fixture, actorIds: readonly string[]) =>
@@ -289,6 +291,13 @@ test('a live Round holds its members until it ends; the end frees them for a rem
       },
     );
     const freed = await memberships(f, [f.host.actorId, f.guest.actorId]);
+    const competitive = await withRolledBackDatabase(databaseUrl, {
+      seed: async () => null,
+      work: (database) =>
+        database.transaction((tx) =>
+          readRoundCompetitionSource(tx, { roundId, roomId: room.id }),
+        ),
+    });
     const rematch = await f.operations.rematch(f.host, room.id, {
       commandId: createId(),
       title: 'Rematch',
@@ -301,8 +310,13 @@ test('a live Round holds its members until it ends; the end frees them for a rem
         given:
           'a launched Round, then its debater forfeiting it, then a rematch',
         should:
-          'read the Round as the live active room, free both members on forfeit, and admit the rematch, which holds its seatless host not at all (TAB-6)',
-        actual: [live, freed, await memberships(f, [f.host.actorId])],
+          'read the live Round, free both members on forfeit without publishing a panel, and admit the rematch without holding its seatless host (TAB-6)',
+        actual: [
+          live,
+          freed,
+          competitive,
+          await memberships(f, [f.host.actorId]),
+        ],
         expected: [
           {
             version: 1,
@@ -314,6 +328,7 @@ test('a live Round holds its members until it ends; the end frees them for a rem
             href: `/rounds/${roundId}/room`,
           },
           [],
+          null,
           [],
         ],
       });

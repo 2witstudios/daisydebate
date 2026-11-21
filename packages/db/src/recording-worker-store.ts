@@ -7,6 +7,7 @@ import {
   recordRecordingBuildProgress,
   renewRecordingJob,
 } from './recording-processing-operations';
+import { inTransaction } from './tx';
 
 /**
  * The processing worker's one database credential: its job table only. It
@@ -18,7 +19,7 @@ export const createRecordingWorkerStore = (url: string) => {
   const database = drizzle({ client });
   return {
     claim: (input: Parameters<typeof claimRecordingJob>[1]) =>
-      database.transaction((tx) => claimRecordingJob(tx, input)),
+      inTransaction(database, (tx) => claimRecordingJob(tx, input)),
     renew: (input: Parameters<typeof renewRecordingJob>[1]) =>
       renewRecordingJob(database, input),
     recordProgress: (

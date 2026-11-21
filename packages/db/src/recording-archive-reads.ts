@@ -1,7 +1,6 @@
 import { currentRoundParticipant } from './round-current-participant';
 import { isJudgeSeat } from '@daisy/protocol';
 import { and, desc, eq, isNotNull, or, sql, type SQL } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { broadcastStopOf } from './broadcast-operations';
 import { namedSeats } from './member-history-rows';
 import { outcomeOfColumns } from './round-outcome-columns';
@@ -17,6 +16,7 @@ import {
   type SpectatorClock,
 } from './spectator-release-sql';
 import { operatorWithheldSql } from './broadcast-withheld-sql';
+import { inTransaction, type TxSource } from './tx';
 
 export type ArchiveInput = {
   readonly query: {
@@ -133,11 +133,11 @@ const afterCursor = (input: ArchiveInput): SQL | undefined => {
 export const recordingArchiveReadOperations = ({
   database,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
 }) => ({
   async listRecordingArchive(input: ArchiveInput) {
     const { query } = input;
-    return database.transaction(async (tx) => {
+    return inTransaction(database, async (tx) => {
       const page = await tx
         .select({
           id: rounds.id,

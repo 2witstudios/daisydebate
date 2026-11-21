@@ -12,9 +12,9 @@ import { fixtures, fixtureEntries, fixtureJudges } from '../schema/fixtures';
 import { releases } from '../schema/releases';
 import { jsonObjectSchema } from '../schema/columns';
 import { timeSlots, tabRounds } from '../schema/events';
-import type { TabTransaction } from './tab-transaction';
 import type { LoadedDrawCommand } from './draw-command-facts';
 import type { DrawWrite } from './draw-write';
+import type { Tx } from '../tx';
 
 export type DrawRoomAssembly = {
   readonly notificationIds: () => string;
@@ -36,7 +36,7 @@ const one = (rows: readonly unknown[]) => {
     );
 };
 export const applyDrawWrites = async (
-  tx: TabTransaction,
+  tx: Tx,
   loaded: LoadedDrawCommand,
   writes: readonly DrawWrite[],
   assembly: DrawRoomAssembly,

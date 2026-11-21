@@ -77,8 +77,14 @@ const trackedAdapter = (
       get: (target, property, receiver) => {
         const value: unknown = Reflect.get(target, property, receiver);
         if (typeof value !== 'function') return value;
-        return (query: { model?: string }, ...rest: unknown[]) => {
-          const step = steps[`${String(property)}:${query?.model}`];
+        // Every adapter method is wrapped, so the first argument is whatever
+        // that method takes: a query object for the tracked ones.
+        return (query: unknown, ...rest: unknown[]) => {
+          const model =
+            typeof query === 'object' && query !== null && 'model' in query
+              ? query.model
+              : undefined;
+          const step = steps[`${String(property)}:${String(model)}`];
           const call = () =>
             Promise.resolve(value.call(target, query, ...rest));
           return step ? tracker.track(step, call) : call();

@@ -14,10 +14,10 @@ import type {
 import { and, eq } from 'drizzle-orm';
 import { outcomeOfColumns } from './round-outcome-columns';
 import { seatOfColumns, seatRowOrder } from './seat-columns';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { roundParticipants } from './schema/round-participants';
 import { roundSegments } from './schema/round-segments';
 import { rounds } from './schema/rounds';
+import { inTransaction, type Tx, type TxSource } from './tx';
 
 /**
  * A round hydrated for the runtime (ADR 0058 §4): the durable rows plus the
@@ -53,11 +53,9 @@ export type RoundHydration = RoundLifecycle & {
   }[];
 };
 
-type Reader = Pick<BunSQLDatabase, 'select'>;
-
 /** A Round's segment rows in order, timestamps as ISO strings. */
 export async function segmentRows(
-  tx: Reader,
+  tx: Tx,
   roundId: string,
 ): Promise<RoundHydration['segments']> {
   const rows = await tx
@@ -122,7 +120,7 @@ const HYDRATION_ATTEMPTS = 4;
  * so a read whose version moved is taken again.
  */
 export async function hydrateRoundRows(
-  tx: Reader,
+  tx: Tx,
   id: string,
 ): Promise<RoundHydration | null> {
   for (let attempt = 0; attempt < HYDRATION_ATTEMPTS; attempt += 1) {
@@ -142,7 +140,7 @@ export async function hydrateRoundRows(
 }
 
 async function readRoundRows(
-  tx: Reader,
+  tx: Tx,
   id: string,
 ): Promise<RoundHydration | null> {
   const [row] = await tx
@@ -193,10 +191,10 @@ async function readRoundRows(
 }
 
 export async function hydrateRound(
-  database: BunSQLDatabase,
+  database: TxSource,
   id: string,
 ): Promise<RoundHydration | null> {
-  return database.transaction((tx) => hydrateRoundRows(tx, id), {
+  return inTransaction(database, (tx) => hydrateRoundRows(tx, id), {
     isolationLevel: 'repeatable read',
     accessMode: 'read only',
   });

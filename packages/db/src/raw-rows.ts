@@ -3,9 +3,19 @@ import { z } from 'zod';
 import { createAppError } from '@daisy/errors';
 import type { Tx } from './tx';
 
-/** The rows of one raw statement, as the caller says they are. */
-export const rowsOf = async <T>(tx: Pick<Tx, 'execute'>, statement: SQL) =>
-  (await tx.execute(statement)) as unknown as T[];
+type RawExecutor = {
+  readonly execute: (statement: SQL) => PromiseLike<unknown>;
+};
+
+/** Binds Drizzle's raw method when building the adapter's opaque Tx surface. */
+export const boundExecute = (tx: Tx): Tx['execute'] => tx.execute.bind(tx);
+
+/** PostgreSQL int8 representations from Bun SQL and bounded writers. */
+export const postgresInt8 = z.union([
+  z.string().regex(/^-?\d+$/),
+  z.bigint(),
+  z.int(),
+]);
 
 /**
  * The rows of one raw statement, each parsed by `rowSchema`. A row the schema
@@ -14,7 +24,7 @@ export const rowsOf = async <T>(tx: Pick<Tx, 'execute'>, statement: SQL) =>
  * numeric as a string and timestamptz as a Date; the schema says which.
  */
 export async function query<Row extends z.ZodType>(
-  tx: Pick<Tx, 'execute'>,
+  tx: RawExecutor,
   rowSchema: Row,
   statement: SQL,
 ): Promise<z.output<Row>[]> {
@@ -33,6 +43,6 @@ export async function query<Row extends z.ZodType>(
 }
 
 /** Runs one raw statement whose rows nobody reads. */
-export async function run(tx: Pick<Tx, 'execute'>, statement: SQL) {
+export async function run(tx: RawExecutor, statement: SQL) {
   await tx.execute(statement);
 }

@@ -2,7 +2,6 @@ import type { RoundBotAdmission } from './round-bot-admission';
 import type { CasualJudgeAdmission } from './casual-judge-admission';
 import { roomAuthorizationRead } from './room-authorization-read';
 import { commandRetention } from './command-retention';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type { DatabaseEventSink } from './instrumented';
 import { roomReadOperations } from './room-read-operations';
 import { roomCreateOperations } from './room-create-operations';
@@ -11,9 +10,10 @@ import { roomLifecycleOperations } from './room-lifecycle-operations';
 import { resolutionBankOperations } from './resolution-bank-operations';
 import type { roomCommandTransaction } from './room-command-transaction';
 import { roomInvitationOperations } from './room-invitations/store';
+import type { TxSource } from './tx';
 /** One canonical durable Room command/projection adapter. */
 export const roomCommandOperations = (input: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
   readonly eventSink?: DatabaseEventSink | undefined;
   readonly botAdmission?: RoundBotAdmission | undefined;
   readonly judgeAdmission?: CasualJudgeAdmission | undefined;

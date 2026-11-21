@@ -7,16 +7,16 @@ import {
   type CleanupWork,
 } from '@daisy/protocol/billing';
 import type { BoundedTransaction } from './bounded-transaction';
-import type { BoundedTransactionContext } from './transaction-context';
 import { lockCleanupJob, cleanupContext } from './billing-cleanup-authority';
 import { billingPaymentObservations } from './schema/billing-payment-observations';
 import { paymentObservationFromRow } from './billing-payment-observation-record';
 import { writePaymentObservation } from './billing-payment-observation-write';
 import { requireRefundCustomer } from './billing-refund-authority';
 import { commitObservationProgress } from './billing-observation-progress';
+import type { Tx } from './tx';
 
 async function lockSelectedObservation(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   jobId: string,
   claimId: string,
   work: CleanupWork,

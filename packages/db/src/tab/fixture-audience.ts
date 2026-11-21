@@ -7,13 +7,10 @@ import { releases } from '../schema/releases';
 import { tournamentJudges } from '../schema/tournament-judges';
 import { scopeTransaction, type TenantScope } from '../tenant-scope';
 import { loadAuthorityContext } from './authority-context';
-import type { TabTransaction } from './tab-transaction';
+import type { Tx } from '../tx';
 
 /** Only this fixture's responsible schools; parents are fenced before their authority is loaded. */
-export const fixtureSchoolIds = async (
-  tx: TabTransaction,
-  fixtureId: string,
-) => {
+export const fixtureSchoolIds = async (tx: Tx, fixtureId: string) => {
   const rows = await tx
     .select({ id: entries.schoolOrganizationId })
     .from(fixtureEntries)
@@ -26,7 +23,7 @@ export const fixtureSchoolIds = async (
 
 /** Current relationships for the addressed fixture and recorded openings for its tab round. */
 export const loadFixtureAudience = async (
-  tx: TabTransaction,
+  tx: Tx,
   input: {
     readonly fixtureId: string;
     readonly lobbyId: string;

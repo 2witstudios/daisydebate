@@ -1,9 +1,7 @@
 import { createAppError } from '@daisy/errors';
 import { createId } from '@paralleldrive/cuid2';
 import { sql, type SQL } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { z } from 'zod';
-import type { AuthorizationTransaction } from '../authorization';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
 import {
   mailQueue,
@@ -11,15 +9,14 @@ import {
   type MailJobOutcome,
 } from '../mail-queue';
 import { emailsMember } from '../notifications/presentation';
-import { rowsOf } from '../raw-rows';
+import { postgresInt8, run, query } from '../raw-rows';
 import { retriedOnceIfQueuedMeanwhile } from '../mail-queue';
 import { deleteExpiredBatch, type RetentionBatch } from '../retention';
 import {
   messagingUnreadEmails,
   type messagingUnreadEmailErrorCodes,
 } from '../schema/messaging-unread-emails';
-
-type Database = Pick<BunSQLDatabase, 'transaction' | 'execute'>;
+import { inTransaction, type Tx, type TxSource } from '../tx';
 
 /** An unread-messages email waits this long after the latest message... */
 const UNREAD_EMAIL_QUIET_MS = 30 * 60_000;
@@ -84,7 +81,7 @@ const wantsConversationEmail = (channel: SQL, actor: SQL) =>
  * conversation's, is owed none.
  */
 export async function oweUnreadMessageEmails(
-  tx: AuthorizationTransaction,
+  tx: Tx,
   sent: {
     readonly channelId: string;
     readonly authorActorId: string;
@@ -93,8 +90,9 @@ export async function oweUnreadMessageEmails(
 ): Promise<void> {
   const at = sql`${sent.at}::timestamptz`;
   const channel = sql`${sent.channelId}`;
-  const members = await rowsOf<{ user_id: string }>(
+  const members = await query(
     tx,
+    z.object({ user_id: z.string() }),
     sql`select u.id as user_id from (${membersOf(channel)}) m
       join public.actors a on a.id=m.actor_id
       join public.users u on u.id=a.user_id and u.deleted_at is null
@@ -106,12 +104,15 @@ export async function oweUnreadMessageEmails(
   const jobs = JSON.stringify(
     members.map((member) => ({ id: createId(), user_id: member.user_id })),
   );
-  await tx.execute(sql`insert into messaging_unread_emails(id,user_id,first_owed_at,state,attempts,next_attempt_at,created_at)
+  await run(
+    tx,
+    sql`insert into messaging_unread_emails(id,user_id,first_owed_at,state,attempts,next_attempt_at,created_at)
     select j.id,j.user_id,${at},'queued',0,${at}+${UNREAD_EMAIL_QUIET_MS}*interval '1 millisecond',${at}
     from jsonb_to_recordset(${jobs}::text::jsonb) as j(id text,user_id text)
     on conflict (user_id) where state='queued' do update set next_attempt_at=least(
       greatest(messaging_unread_emails.next_attempt_at,excluded.next_attempt_at),
-      messaging_unread_emails.first_owed_at+${UNREAD_EMAIL_LONGEST_WAIT_MS}*interval '1 millisecond')`);
+      messaging_unread_emails.first_owed_at+${UNREAD_EMAIL_LONGEST_WAIT_MS}*interval '1 millisecond')`,
+  );
 }
 
 /** The unread-messages email queue's store (ADR 0144), on the shared mail recipe. */
@@ -119,7 +120,7 @@ export function messagingUnreadEmailOperations({
   database,
   eventSink,
 }: {
-  readonly database: Database;
+  readonly database: TxSource;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) {
   return {
@@ -127,9 +128,9 @@ export function messagingUnreadEmailOperations({
       input: MailJobClaimInput,
     ): Promise<readonly MessagingUnreadEmailClaim[]> =>
       instrumented(eventSink, 'claimMessagingUnreadEmails', async () =>
-        (await queue.claimDue(database, input, sql`id, attempts`)).map(
-          ({ row, token }) => ({ ...claimRow.parse(row), token }),
-        ),
+        (
+          await queue.claimDue(database, input, sql`id, attempts`, claimRow)
+        ).map(({ row, token }) => ({ ...row, token })),
       ),
     /**
      * How many of the member's conversations hold a message from someone
@@ -141,14 +142,15 @@ export function messagingUnreadEmailOperations({
       id: string,
     ): Promise<MessagingUnreadEmailDelivery> =>
       instrumented(eventSink, 'readMessagingUnreadEmailDelivery', async () => {
-        const [member] = await rowsOf<{
-          user_id: string;
-          actor_id: string | null;
-          email: string | null;
-          verified: boolean | null;
-          emails: boolean;
-        }>(
+        const [member] = await query(
           database,
+          z.object({
+            user_id: z.string(),
+            actor_id: z.string().nullable(),
+            email: z.string().nullable(),
+            verified: z.boolean().nullable(),
+            emails: z.boolean(),
+          }),
           sql`select j.user_id,a.id as actor_id,u.email,u.email_verified as verified,
               ${emailsMember(sql`j.user_id`)} as emails
             from messaging_unread_emails j
@@ -161,8 +163,9 @@ export function messagingUnreadEmailOperations({
           return { kind: 'cancel', errorCode: 'recipient-gone' };
         if (!member.emails) return { kind: 'cancel', errorCode: 'not-owed' };
         const actor = sql`${member.actor_id}`;
-        const [count] = await rowsOf<{ n: number | string }>(
+        const [count] = await query(
           database,
+          z.object({ n: postgresInt8 }),
           sql`select count(*) as n from (
               select channel_id from public.messaging_dm_pairs where ${actor} in (low_actor_id,high_actor_id)
               union select channel_id from public.messaging_group_grants
@@ -206,9 +209,10 @@ export function messagingUnreadEmailOperations({
         // A job owed while this one was held can take the one queued place
         // first; the second attempt then sees it and joins it.
         retriedOnceIfQueuedMeanwhile(() =>
-          database.transaction(async (tx) => {
-            const [next] = await rowsOf<{ id: string }>(
+          inTransaction(database, async (tx) => {
+            const [next] = await query(
               tx,
+              z.object({ id: z.string() }),
               sql`select q.id from messaging_unread_emails q
               join messaging_unread_emails j on j.user_id=q.user_id and j.id=${input.id}
               where q.state='queued' for update of q`,

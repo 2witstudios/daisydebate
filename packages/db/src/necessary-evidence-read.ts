@@ -13,13 +13,13 @@ import { lockOriginalNecessaryEvidence } from './necessary-evidence-subjects';
 import { requireRoundEvidenceOpen } from './necessary-evidence-rounds';
 import { requireEvidenceFrontierOpen } from './necessary-evidence-frontier';
 import { sampleRoundExecutionTime } from './round-execution-time';
-import type { CaptureTx } from './media-capture-context';
 import { necessaryEvidence } from './schema/necessary-evidence';
+import type { Tx } from './tx';
 const bodyInput = z.strictObject({ body: z.unknown() });
 const idInput = z.strictObject({ roundId: idSchema, evidenceId: idSchema });
 type Row = typeof necessaryEvidence.$inferSelect;
 async function sealedRow(
-  tx: CaptureTx,
+  tx: Tx,
   evidenceId: string,
   privacyScope: EvidencePrivacyScope,
 ) {
@@ -64,11 +64,14 @@ async function sealedRow(
 }
 const scopeOf = (
   row: Pick<Row, 'originalRoundId' | 'originalSubjectActorIds'>,
-): EvidencePrivacyScope => ({
-  roundId: row.originalRoundId,
-  subjectActorIds: row.originalSubjectActorIds!,
-});
-const knownEvidence = async (tx: CaptureTx, id: string) => {
+): EvidencePrivacyScope => {
+  if (!row.originalSubjectActorIds) throw createAppError('CONFLICT');
+  return {
+    roundId: row.originalRoundId,
+    subjectActorIds: row.originalSubjectActorIds,
+  };
+};
+const knownEvidence = async (tx: Tx, id: string) => {
   const [known] = await tx
     .select({ id: necessaryEvidence.id })
     .from(necessaryEvidence)
@@ -76,7 +79,7 @@ const knownEvidence = async (tx: CaptureTx, id: string) => {
   return known;
 };
 /** Private application read, never ordinary Round/realtime/worker discovery. Receipt is not a fresh play grant. */
-export async function readCaptureEvidencePayload(tx: CaptureTx, raw: unknown) {
+export async function readCaptureEvidencePayload(tx: Tx, raw: unknown) {
   const parsed = bodyInput.safeParse(raw);
   if (!parsed.success) throw createAppError('VALIDATION');
   const canonical = canonicalCaptureEvidenceBody(parsed.data.body);
@@ -91,7 +94,7 @@ export async function readCaptureEvidencePayload(tx: CaptureTx, raw: unknown) {
       kind: 'pending' as const,
       evidenceId,
       bindingDigest: original.binding,
-      authorityId: original.row.authorityId!,
+      authorityId: original.row.authorityId,
       privacyScope,
     };
   return {
@@ -100,7 +103,7 @@ export async function readCaptureEvidencePayload(tx: CaptureTx, raw: unknown) {
   };
 }
 /** Private encrypted load by identity. The application must decode and revalidate full original body authority before use. */
-export async function loadCaptureEvidencePayload(tx: CaptureTx, raw: unknown) {
+export async function loadCaptureEvidencePayload(tx: Tx, raw: unknown) {
   const parsed = idInput.safeParse(raw);
   if (!parsed.success) throw createAppError('VALIDATION');
   const { roundId, evidenceId } = parsed.data;

@@ -11,15 +11,8 @@ import type { RecordingModeration } from './content-moderation-ports';
 import { inLiveRoomSql, liveRoomOfR } from './live-room-sql';
 import { moveRecording, recordingUnderOpenReport } from './recording-move';
 import { requeueRecordingJob } from './recording-processing-operations';
-
-type ReportRow = {
-  readonly competition_type: string;
-  readonly round_id: string;
-  readonly visibility: 'public' | 'unlisted' | 'private';
-  readonly audience_link_hash: string | null;
-  readonly reporter_seated: boolean;
-  readonly in_live_room: boolean;
-};
+import { query } from './raw-rows';
+import { z } from 'zod';
 
 type Moved = Awaited<ReturnType<typeof moveRecording<RecordingTransition>>>;
 
@@ -46,14 +39,25 @@ const outcomeOf = (applied: Moved, whenRefused: 'unchanged' | 'conflict') => {
  */
 export const recordingModeration: RecordingModeration = {
   readReportFacts: async (tx, input) => {
-    const rows = await tx.execute(sql`
+    const rows = await query(
+      tx,
+      z.object({
+        competition_type: z.string(),
+        round_id: z.string(),
+        visibility: z.enum(['public', 'unlisted', 'private']).nullable(),
+        audience_link_hash: z.string().nullable(),
+        reporter_seated: z.boolean(),
+        in_live_room: z.boolean(),
+      }),
+      sql`
       select r.competition_type, r.id as round_id, r.visibility, r.audience_link_hash,
         exists(select 1 from round_participants p
           where p.round_id=r.id and p.actor_id=${input.reporterActorId}) as reporter_seated,
         ${inLiveRoomSql(liveRoomOfR, input.reporterActorId)} as in_live_room
       from recordings rec join rounds r on r.id=rec.round_id
-      where rec.id=${input.recordingId}`);
-    const [row] = rows as unknown as ReportRow[];
+      where rec.id=${input.recordingId}`,
+    );
+    const [row] = rows;
     return row
       ? {
           ranked: row.competition_type === 'ranked',
@@ -68,13 +72,15 @@ export const recordingModeration: RecordingModeration = {
       : null;
   },
   readSubject: async (tx, recordingId) => {
-    const [row] = (await tx.execute(
+    const [row] = await query(
+      tx,
+      z.object({
+        lifecycle: z.json(),
+        version: z.int(),
+        recording_class: z.string(),
+      }),
       sql`select lifecycle, version, recording_class from recordings where id=${recordingId}`,
-    )) as unknown as {
-      readonly lifecycle: unknown;
-      readonly version: number;
-      readonly recording_class: string;
-    }[];
+    );
     if (!row) return null;
     const lifecycle = recordingLifecycleSchema.parse(row.lifecycle);
     const heldAsEvidence =
@@ -185,15 +191,19 @@ export const recordingModeration: RecordingModeration = {
     return outcomeOf(applied, 'conflict');
   },
   listRebuildable: async (tx, limit) => {
-    const rows = (await tx.execute(sql`select id, round_id, version, lifecycle
+    const rows = await query(
+      tx,
+      z.object({
+        id: z.string(),
+        round_id: z.string(),
+        version: z.int(),
+        lifecycle: z.json(),
+      }),
+      sql`select id, round_id, version, lifecycle
       from recordings
       where status='failed' and recording_class='ranked' and lifecycle ? 'capture'
-      order by updated_at, id limit ${limit}`)) as unknown as {
-      readonly id: string;
-      readonly round_id: string;
-      readonly version: number;
-      readonly lifecycle: unknown;
-    }[];
+      order by updated_at, id limit ${limit}`,
+    );
     return rows.flatMap((row) => {
       const lifecycle = recordingLifecycleSchema.parse(row.lifecycle);
       return lifecycle.status === 'failed'
@@ -210,9 +220,13 @@ export const recordingModeration: RecordingModeration = {
     });
   },
   readBroadcastId: async (tx, recordingId) => {
-    const [row] = (await tx.execute(sql`select b.id from broadcasts b
+    const [row] = await query(
+      tx,
+      z.object({ id: z.string() }),
+      sql`select b.id from broadcasts b
       join recordings rec on rec.round_id=b.round_id
-      where rec.id=${recordingId}`)) as unknown as { readonly id: string }[];
+      where rec.id=${recordingId}`,
+    );
     return row?.id ?? null;
   },
 };

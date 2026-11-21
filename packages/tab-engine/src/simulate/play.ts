@@ -86,10 +86,10 @@ export const playFixtures = (
     }
     const seated = entriesIn(fixture);
     const panel = fixture.panel.length === 0 ? ['panel-auto'] : fixture.panel;
-    const score = new Map(
-      seated.map((e) => [e, (state.strength.get(e) ?? 0) + d.below(40)]),
-    );
-    const ranked = [...seated].sort((a, b) => score.get(b)! - score.get(a)!);
+    const ranked = seated
+      .map((e) => ({ e, score: (state.strength.get(e) ?? 0) + d.below(40) }))
+      .sort((a, b) => b.score - a.score)
+      .map(({ e }) => e);
     const base = {
       id: `res-${f.id}`,
       fixture: f.id,

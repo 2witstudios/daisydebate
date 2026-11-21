@@ -7,11 +7,11 @@ import { roomParticipants } from '../schema/rooms';
 import { memberships } from '../schema/organizations';
 import { guardianLinks } from '../schema/guardian-links';
 import { conflicts } from '../schema/conflicts';
-import type { TabTransaction } from './tab-transaction';
+import type { Tx } from '../tx';
 
 /** Current connections on the addressed fixture, after account and aggregate fences. */
 export const fixtureConnections = async (
-  tx: TabTransaction,
+  tx: Tx,
   input: {
     readonly fixtureId: string;
     readonly roomId: string | null;

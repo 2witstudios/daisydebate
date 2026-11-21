@@ -256,7 +256,10 @@ export const createLobbyRoom =
           );
           let assembly: LobbyRoomAssembly | null = null;
           const envelope = { ...parsed.data, command };
-          let appliedReceipt: LobbyCommandReceipt | null = null;
+          // The transaction's apply step records the receipt it committed.
+          const applied: { receipt: LobbyCommandReceipt | null } = {
+            receipt: null,
+          };
           const answer = await runLobbyCommand<
             typeof command,
             LobbyFacts,
@@ -285,7 +288,7 @@ export const createLobbyRoom =
                         'INVARIANT',
                         'Accepted Room has no resolved assembly',
                       );
-                    appliedReceipt = await session.apply(
+                    applied.receipt = await session.apply(
                       assembly,
                       history,
                       receipt,
@@ -362,8 +365,7 @@ export const createLobbyRoom =
               const write = decision.writes.find(
                 (write) => write.table === 'rooms' && write.op === 'insert',
               );
-              if (!write || write.table !== 'rooms' || write.op !== 'insert')
-                throw createAppError('INVARIANT');
+              if (!write) throw createAppError('INVARIANT');
               const cast = command.room.cast ?? [];
               assembly = {
                 room: {
@@ -393,12 +395,15 @@ export const createLobbyRoom =
                 },
                 lobby: { id: loaded.lobby.id, kind: 'standing' },
                 templateId: write.row.templateId,
-                ballotDefinition: write.row.ballotDefinitionId
-                  ? {
-                      id: write.row.ballotDefinitionId,
-                      version: write.row.ballotDefinitionVersion!,
-                    }
-                  : null,
+                // A template names a ballot definition with its version, or neither.
+                ballotDefinition:
+                  write.row.ballotDefinitionId &&
+                  write.row.ballotDefinitionVersion !== null
+                    ? {
+                        id: write.row.ballotDefinitionId,
+                        version: write.row.ballotDefinitionVersion,
+                      }
+                    : null,
                 capture,
                 postRoundCall: command.room.postRoundCall === true,
                 now,
@@ -458,8 +463,8 @@ export const createLobbyRoom =
               return decision;
             },
           );
-          return answer.kind === 'accepted' && appliedReceipt
-            ? { ...answer, receipt: appliedReceipt }
+          return answer.kind === 'accepted' && applied.receipt
+            ? { ...answer, receipt: applied.receipt }
             : answer;
         },
       );

@@ -1,6 +1,5 @@
 import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import { messagingGroupInvitations } from '../schema/messaging-social';
 import {
@@ -12,7 +11,7 @@ import type {
   MessagingGroupInvitationFact,
   MessagingGroupInvitationScope,
 } from './group-invitation-contracts';
-type Tx = Pick<BunSQLDatabase, 'select' | 'execute'>;
+import type { Tx } from '../tx';
 const stateSchema = z.enum(['pending', 'accepted', 'declined', 'cancelled']);
 export async function readGroupInvitationRow(
   tx: Tx,

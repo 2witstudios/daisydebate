@@ -522,6 +522,44 @@ const repoSyntaxRestrictions = [
   ...processMutationRestrictions,
 ];
 
+const dbOpeningRestrictions = [
+  {
+    selector:
+      "ImportSpecifier[imported.name='BunSQLDatabase'], TSImportType[qualifier.name='BunSQLDatabase'], TSQualifiedName[right.name='BunSQLDatabase']",
+    message: 'Use Tx or TxSource from the database transaction boundary.',
+  },
+  {
+    selector:
+      "MemberExpression:matches([property.name='transaction'], [property.value='transaction'])",
+    message: 'Open database transactions with inTransaction.',
+  },
+];
+const dbRawStatementRestrictions = [
+  {
+    selector:
+      "MemberExpression:matches([property.name='execute'], [property.value='execute'])",
+    message: 'Use query for parsed rows or run to discard them.',
+  },
+  {
+    selector:
+      ':matches(TSAsExpression, TSTypeAssertion) > :matches(TSAsExpression, TSTypeAssertion)[typeAnnotation.type="TSUnknownKeyword"]',
+    message:
+      'Validate database rows instead of asserting them through unknown.',
+  },
+];
+const dbAdvisoryLockRestrictions = [
+  {
+    selector:
+      'Literal[value=/pg_(try_)?advisory/i], TemplateElement[value.raw=/pg_(try_)?advisory/i], Literal[regex.pattern=/pg_(try_)?advisory/i]',
+    message: 'Take the named advisory lock from the database lock registry.',
+  },
+];
+const dbBoundaryRestrictions = {
+  'tx.ts': dbOpeningRestrictions,
+  'raw-rows.ts': dbRawStatementRestrictions,
+  'locks.ts': dbAdvisoryLockRestrictions,
+};
+
 /**
  * The rules that read types. They run on workspace source only, which a
  * TypeScript project owns; a probe under an invented path turns them off
@@ -551,7 +589,52 @@ export const typedRules = {
     'error',
     { allowThrowingAny: false, allowThrowingUnknown: true },
   ],
+  // A check the type already answers is dead code or a wrong type. Correct
+  // the type where the value is made, or delete the branch; never widen a
+  // type to keep a check alive.
+  '@typescript-eslint/no-unnecessary-condition': 'error',
 };
+
+/**
+ * A non-null assertion claims what the type does not say. Model the state
+ * instead: a union, a narrowing, or a function that returns the value it
+ * found. The one form left is `array[index]!`, which
+ * `noUncheckedIndexedAccess` asks for where a bound proves the index. A
+ * property name in brackets still names a property. The rule reads syntax
+ * only, so it needs no type information.
+ */
+const nonNullAssertion = {
+  meta: {
+    type: 'problem',
+    schema: [],
+    messages: {
+      assertion:
+        'Model the state instead of asserting non-null: a union, a narrowing, or a returned value. Only `array[index]!` is allowed, where a bound proves the index.',
+    },
+  },
+  create: (context) => ({
+    TSNonNullExpression(node) {
+      const { expression } = node;
+      if (expression.type === 'MemberExpression' && expression.computed) {
+        let key = expression.property;
+        while (
+          key.type === 'TSAsExpression' ||
+          key.type === 'TSSatisfiesExpression' ||
+          key.type === 'TSTypeAssertion' ||
+          key.type === 'TSNonNullExpression'
+        )
+          key = key.expression;
+        if (
+          key.type !== 'TemplateLiteral' &&
+          (key.type !== 'Literal' || typeof key.value === 'number')
+        )
+          return;
+      }
+      context.report({ node, messageId: 'assertion' });
+    },
+  }),
+};
+const daisyPlugin = { rules: { 'no-non-null-assertion': nonNullAssertion } };
 
 export default [
   {
@@ -927,6 +1010,31 @@ export default [
     },
   },
   {
+    files: ['packages/db/src/**/*.ts'],
+    ignores: Object.keys(dbBoundaryRestrictions).map(
+      (home) => `packages/db/src/${home}`,
+    ),
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        ...repoSyntaxRestrictions,
+        ...Object.values(dbBoundaryRestrictions).flat(),
+      ],
+    },
+  },
+  ...Object.keys(dbBoundaryRestrictions).map((home) => ({
+    files: [`packages/db/src/${home}`],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        ...repoSyntaxRestrictions,
+        ...Object.entries(dbBoundaryRestrictions).flatMap(
+          ([owner, restrictions]) => (owner === home ? [] : restrictions),
+        ),
+      ],
+    },
+  })),
+  {
     files: ['apps/web/src/app/**/route.ts', 'apps/web/src/app/**/actions.ts'],
     rules: {
       'no-restricted-imports': [
@@ -1042,5 +1150,21 @@ export default [
       },
     },
     rules: typedRules,
+  },
+  {
+    files: ['packages/*/src/**/*.ts', 'apps/*/src/**/*.{ts,tsx}'],
+    ignores: ['**/*.test.{ts,tsx}'],
+    plugins: { daisy: daisyPlugin },
+    rules: { 'daisy/no-non-null-assertion': 'error' },
+  },
+  // packages/db/src is the database boundary, and the recon-db-boundary slice
+  // (plan step R3.1 to R3.3) owns its needless conditions and non-null
+  // assertions. That slice fixes them and deletes this block.
+  {
+    files: ['packages/db/src/**/*.ts'],
+    rules: {
+      '@typescript-eslint/no-unnecessary-condition': 'off',
+      'daisy/no-non-null-assertion': 'off',
+    },
   },
 ];

@@ -5,13 +5,13 @@ import {
   type CleanupEvent,
   type CleanupState,
 } from '@daisy/protocol/billing';
-import type { BoundedTransactionContext } from './transaction-context';
 import { cleanupFacts, cleanupContext } from './billing-cleanup-authority';
 import { privacyJobs } from './schema/privacy-jobs';
+import type { Tx } from './tx';
 
 /** Observation writes and their exact consumed remainder commit or roll back together. */
 export async function commitObservationProgress(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   input: {
     readonly jobId: string;
     readonly userId: string;

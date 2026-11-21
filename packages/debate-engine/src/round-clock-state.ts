@@ -234,11 +234,7 @@ export const normalizeRoundClock = (input: {
     const preceding = rows[index - 1];
     const earliest =
       preceding === undefined ? startedAtOf(lifecycle) : preceding.endedAtMs;
-    if (
-      earliest !== null &&
-      earliest !== undefined &&
-      row.startedAtMs < earliest
-    )
+    if (earliest !== null && row.startedAtMs < earliest)
       throw createInvariantError(
         debateInvariantIds.segmentMatchesRules,
         'Durable segment intervals overlap or precede Round start',

@@ -31,7 +31,7 @@ import {
   writeClubSeatGrants,
   type ClubSeatGrantProjection,
 } from './club-seat-grants';
-import type { BoundedTransactionContext } from './transaction-context';
+import type { Tx } from './tx';
 
 export type BillingSynchronizationClaim = {
   readonly customerId: string;
@@ -60,7 +60,6 @@ export type GrantProjections = {
   ) => readonly EntitlementGrant[];
   readonly club: ClubSeatGrantProjection;
 };
-type Tx = BoundedTransactionContext;
 async function currentSubscription(tx: Tx, owner: BillingOwner) {
   const [row] = await tx
     .select()

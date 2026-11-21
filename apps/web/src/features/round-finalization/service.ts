@@ -162,6 +162,8 @@ async function maintainRound(
 /** Discovery and committed-rating recovery never wait for a competing Round's work. */
 export function startRoundMaintenance(input: MaintenancePorts) {
   let stopped = false;
+  // Read live: stop() can run during any await, which narrowing cannot see.
+  const isStopped = () => stopped;
   const active = new Map<string, Promise<void>>();
   const waiting = new Map<string, RoundPhase>();
   const pacing = createRoundPacing(input);
@@ -209,7 +211,7 @@ export function startRoundMaintenance(input: MaintenancePorts) {
   const pulse = async (): Promise<LoopPass> => {
     if (stopped) return 'idle';
     const page = await input.discover();
-    if (!stopped) remember(page);
+    if (!isStopped()) remember(page);
     return page.roundIds.length > 0 ||
       page.openingsWaiting === true ||
       !page.cycleComplete ||

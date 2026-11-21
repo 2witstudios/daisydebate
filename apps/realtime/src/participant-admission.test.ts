@@ -4,7 +4,7 @@ import { createRealtimeAuthorization } from './authorization';
 import { createRealtimeDelivery } from './delivery';
 import { liveParticipantSession } from './participant-session';
 import { refuseAllReading } from './authorization.test-support';
-import { bothLanes } from './delivery.test-support';
+import { bothLanes, testTransport } from './delivery.test-support';
 
 setupRitewayBun();
 
@@ -87,6 +87,7 @@ const sessionReader = (account: unknown) =>
         account,
       }),
     }),
+    transport: testTransport,
   }) as unknown as RealtimeApp;
 
 const delivery = (resources: RealtimeApp) =>

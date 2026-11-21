@@ -1,5 +1,5 @@
 import { bindAuthorizationAgeFact } from '@daisy/db/account-age';
-import type { AuthorizationTransaction } from '@daisy/db/authorization';
+import type { Tx } from '@daisy/db/tx';
 import { bindMessagingContactFacts } from '@daisy/db/messaging';
 import { loadAccountPolicyFacts as loadPolicyFacts } from '@daisy/auth/account-policy-facts';
 import type { AccountAuthorizationFact } from '@daisy/auth/authorization';
@@ -9,7 +9,7 @@ import type { AccountAuthorizationFact } from '@daisy/auth/authorization';
  * (friendships, linked adults, request setting; decision 90).
  */
 export function loadAccountPolicyFacts(
-  tx: AuthorizationTransaction,
+  tx: Tx,
   lockedAccounts: readonly (AccountAuthorizationFact | null)[],
   now: string,
   purpose: 'reading' | 'posting' = 'posting',

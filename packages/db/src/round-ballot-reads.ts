@@ -19,7 +19,6 @@ import {
   type RoundBallotRead,
 } from '@daisy/protocol';
 import { and, desc, eq, inArray, sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { readLockedFrozenRoundTranscript } from './frozen-transcript';
 import { sharedAccount, type Caller, type Account } from './room-command-facts';
 import { readAuthorizedRound } from './round-read-authority';
@@ -30,6 +29,8 @@ import { ballots } from './schema/ballots';
 import { rounds } from './schema/rounds';
 import { roundParticipants } from './schema/round-participants';
 import { roundTranscriptFreezes } from './schema/round-transcript-freezes';
+import { inTransaction, type TxSource } from './tx';
+import { run } from './raw-rows';
 
 /** The frozen transcript an authorized audience reads once the Round completes. */
 export async function audienceTranscript(
@@ -68,7 +69,7 @@ export async function audienceTranscript(
 export const roundBallotReads = ({
   database,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
 }) => ({
   async listRoundJudgeAssignments(input: {
     readonly caller: Caller;
@@ -80,7 +81,7 @@ export const roundBallotReads = ({
     readonly readEventDecision: (owner: RoundRoomAuthority) => boolean;
     readonly readOpening: ReadOpening;
   }) {
-    return database.transaction(async (tx) => {
+    return inTransaction(database, async (tx) => {
       const account = await sharedAccount(tx, input.caller);
       if (!account?.member || account.erased)
         throw createAppError('AUTHORIZATION');
@@ -100,7 +101,7 @@ export const roundBallotReads = ({
       for (const address of addresses) {
         // Roll back each read's locks before visiting another parent chain.
         // The account fence predates the savepoint and survives every rollback.
-        await tx.execute(sql`savepoint judge_assignment`);
+        await run(tx, sql`savepoint judge_assignment`);
         try {
           const { round, account, owner } = await readAuthorizedRound(tx, {
             ...input,
@@ -141,8 +142,8 @@ export const roundBallotReads = ({
         } catch (error) {
           if (!isAppError(error) || error.code !== 'NOT_FOUND') throw error;
         } finally {
-          await tx.execute(sql`rollback to savepoint judge_assignment`);
-          await tx.execute(sql`release savepoint judge_assignment`);
+          await run(tx, sql`rollback to savepoint judge_assignment`);
+          await run(tx, sql`release savepoint judge_assignment`);
         }
       }
       return roundJudgeAssignmentsSchema.parse(assignments);
@@ -175,7 +176,7 @@ export const roundBallotReads = ({
   }): Promise<RoundBallotRead> {
     if (!idSchema.safeParse(input.roundId).success)
       throw createAppError('VALIDATION');
-    return database.transaction(async (tx) => {
+    return inTransaction(database, async (tx) => {
       const {
         round,
         account: currentAccount,

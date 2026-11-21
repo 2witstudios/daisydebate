@@ -7,7 +7,10 @@ import {
   policyFactQuery,
   typingWorld,
 } from './typing.test-support';
-import { createScriptedAuthorizationTransaction } from '@daisy/db/testing';
+import {
+  createScriptedAuthorizationTransaction,
+  unusedTx,
+} from '@daisy/db/testing';
 setupRitewayBun();
 test('channel authorization fences reject misbound channel projections before age I/O', async () => {
   const f = typingWorld(),
@@ -26,6 +29,7 @@ test('channel authorization fences reject misbound channel projections before ag
     actual: () =>
       fence(
         {
+          ...unusedTx,
           execute: () => {
             queries++;
             throw new Error('Misbound frame must refuse before age I/O');

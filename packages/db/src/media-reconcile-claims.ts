@@ -1,14 +1,13 @@
+import { z } from 'zod';
 import { roundSourceVoided } from './round-source-state';
 import { createAppError } from '@daisy/errors';
 import {
   startGateInstant,
-  type RoundStatus,
-  type RuntimeCheckpoint,
+  roundStatusSchema,
+  runtimeCheckpointSchema,
 } from '@daisy/protocol';
 import { eq, sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type { BoundedTransaction } from './bounded-transaction';
-import type { BoundedTransactionContext } from './transaction-context';
 import {
   lockMediaRound,
   mediaId,
@@ -19,36 +18,39 @@ import { mediaSessions } from './schema/media-sessions';
 import { rounds } from './schema/rounds';
 import { roundSegments } from './schema/round-segments';
 import { reconcileClaim } from './media-reconcile-rules';
-type ActiveSessionRow = {
-  readonly round_id: string;
-  readonly reconcile_started_at: Date | null;
-  readonly reconcile_owner: string | null;
-  readonly reconcile_lease_until: Date | null;
-  readonly reconcile_epoch: number;
-  readonly reconcile_request_version: number;
-  readonly reconcile_last_pass_clean: boolean;
-  readonly unsafe_at: Date | null;
-  readonly deletion_requested_at: Date | null;
-  readonly status: RoundStatus;
-  readonly source_voided: boolean;
-  readonly final_segment_ended_at: Date | null;
-  readonly completed_at: Date | null;
-  readonly post_round_call: boolean;
-  readonly post_round_call_opened_at: Date | null;
-  readonly room_vacant_since: Date | null;
-  readonly started_at: Date | null;
-  readonly updated_at: Date;
-  readonly runtime_state: RuntimeCheckpoint;
-  readonly countdown_ms: number;
-  readonly segment_total: number;
-  readonly prep_budget_ms: number | null;
-  readonly last_sequence: number | null;
-  readonly last_started_at: Date | null;
-  readonly last_ended_at: Date | null;
-  readonly last_duration_ms: number | null;
-  readonly last_returned_ms: number | null;
-  readonly now: Date;
-};
+import type { TxSource, Tx } from './tx';
+import { query } from './raw-rows';
+const activeSessionRow = z.object({
+  round_id: z.string(),
+  reconcile_started_at: z.date().nullable(),
+  reconcile_owner: z.string().nullable(),
+  reconcile_lease_until: z.date().nullable(),
+  reconcile_epoch: z.int(),
+  reconcile_request_version: z.int(),
+  reconcile_last_pass_clean: z.boolean(),
+  unsafe_at: z.date().nullable(),
+  deletion_requested_at: z.date().nullable(),
+  status: roundStatusSchema,
+  source_voided: z.boolean(),
+  final_segment_ended_at: z.date().nullable(),
+  completed_at: z.date().nullable(),
+  post_round_call: z.boolean(),
+  post_round_call_opened_at: z.date().nullable(),
+  room_vacant_since: z.date().nullable(),
+  started_at: z.date().nullable(),
+  updated_at: z.date(),
+  runtime_state: runtimeCheckpointSchema,
+  countdown_ms: z.int(),
+  segment_total: z.int(),
+  prep_budget_ms: z.int().nullable(),
+  last_sequence: z.int().nullable(),
+  last_started_at: z.date().nullable(),
+  last_ended_at: z.date().nullable(),
+  last_duration_ms: z.int().nullable(),
+  last_returned_ms: z.int().nullable(),
+  now: z.date(),
+});
+type ActiveSessionRow = z.output<typeof activeSessionRow>;
 const activeSession = (row: ActiveSessionRow) => {
   const prep = row.runtime_state.active_prep;
   return {
@@ -125,14 +127,14 @@ const activeSession = (row: ActiveSessionRow) => {
   };
 };
 export function createMediaReconcileClaims(deps: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
   readonly run: BoundedTransaction;
   readonly locked: (
-    tx: BoundedTransactionContext,
+    tx: Tx,
     sessionId: string,
   ) => Promise<typeof mediaSessions.$inferSelect>;
   readonly pending: (
-    tx: BoundedTransactionContext,
+    tx: Tx,
     sessionId: string,
   ) => Promise<readonly { readonly id: string }[]>;
 }) {
@@ -211,7 +213,10 @@ export function createMediaReconcileClaims(deps: {
      * whether it needs a pass, longest since a pass first, at one sampled clock.
      */
     async activeMediaSessions() {
-      const rows = (await deps.database.execute(sql`
+      const rows = await query(
+        deps.database,
+        activeSessionRow,
+        sql`
         with clock as (select clock_timestamp() as now)
         select
           s.round_id,
@@ -254,7 +259,8 @@ export function createMediaReconcileClaims(deps: {
         ) last on true
         where s.ended_at is null
         order by s.reconcile_started_at asc nulls first
-      `)) as unknown as readonly ActiveSessionRow[];
+      `,
+      );
       return rows.map(activeSession);
     },
   };

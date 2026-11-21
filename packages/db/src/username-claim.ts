@@ -1,10 +1,10 @@
 import { and, eq, isNull, sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { actors } from './schema/actors';
 import { users } from './schema/users';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { isUniqueViolation } from './unique-violation';
 import { enrolPendingBetaAccess } from './beta-access';
+import { inTransaction, type TxOpener } from './tx';
 
 export type UsernameClaim = {
   readonly kind:
@@ -27,14 +27,14 @@ export type UsernameClaim = {
  * The first claim also puts the account on the beta list (ADR 0075).
  */
 export async function claimUsername(
-  database: Pick<BunSQLDatabase, 'transaction'>,
+  database: TxOpener,
   input: { readonly userId: string; readonly username: string },
   nextActorId: () => string,
   eventSink: DatabaseEventSink | undefined,
 ): Promise<UsernameClaim> {
   return instrumented(eventSink, 'claimUsername', async () => {
     try {
-      return await database.transaction(async (tx) => {
+      return await inTransaction(database, async (tx) => {
         const claimed = await tx
           .update(users)
           .set({

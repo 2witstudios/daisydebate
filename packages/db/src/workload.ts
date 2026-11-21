@@ -35,8 +35,7 @@ export const dialDedicated = (url: string, connections: number) =>
   });
 
 /** A lane absent from the profile: every call refuses as `unconfigured`. */
-const absentPool = () =>
-  Object.assign(() => undefined, { options: {} }) as unknown as SQL;
+const absentPool = () => new SQL('postgres://127.0.0.1:1/daisy_unconfigured');
 
 export type Lane = {
   readonly name: WorkloadLane;

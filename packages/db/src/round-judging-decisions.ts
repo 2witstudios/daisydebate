@@ -12,11 +12,16 @@ type Job = typeof roundJudgingJobs.$inferSelect;
 type Run = typeof agentRuns.$inferSelect;
 
 /** A job is claimable when queued or expired, and unbound or bound to this command. */
-export function requireClaimableJob(
-  job: Job | undefined,
+export function requireClaimableJob<
+  Claimable extends Pick<
+    Job,
+    'commandId' | 'status' | 'retryAt' | 'leaseExpiresAt'
+  >,
+>(
+  job: Claimable | undefined,
   commandId: string,
   now: Date,
-): asserts job is Job {
+): asserts job is Claimable {
   if (
     !job ||
     (job.commandId !== null && job.commandId !== commandId) ||
@@ -34,10 +39,12 @@ export function requireJudgingService(scope: JudgingScope): void {
 }
 
 /** The job is still leased to this exact epoch, revision and command. */
-export function requireCurrentJob(
-  job: Job | undefined,
-  scope: JudgingScope,
-): asserts job is Job {
+export function requireCurrentJob<
+  Current extends Pick<
+    Job,
+    'status' | 'attempts' | 'freezeRevision' | 'commandId'
+  >,
+>(job: Current | undefined, scope: JudgingScope): asserts job is Current {
   if (
     !job ||
     job.status !== 'leased' ||
@@ -49,16 +56,18 @@ export function requireCurrentJob(
 }
 
 /** Lease expiry is judged against a clock sampled after the job lock wait. */
-export function requireLiveJudgingLease(job: Job, now: Date): void {
+export function requireLiveJudgingLease(
+  job: Pick<Job, 'leaseExpiresAt'>,
+  now: Date,
+): void {
   if (!job.leaseExpiresAt || job.leaseExpiresAt.getTime() <= now.getTime())
     throw createAppError('CONFLICT', 'Judging lease expired');
 }
 
 /** The run is the live judging run configured for exactly this job. */
-export function requireCurrentRun(
-  run: Run | undefined,
-  scope: JudgingScope,
-): asserts run is Run {
+export function requireCurrentRun<
+  Current extends Pick<Run, 'endedAt' | 'kind' | 'configurationSnapshot'>,
+>(run: Current | undefined, scope: JudgingScope): asserts run is Current {
   if (!run || run.endedAt !== null || run.kind !== 'judging')
     throw createAppError('AUTHORIZATION');
   const config = run.configurationSnapshot;

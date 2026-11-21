@@ -9,15 +9,13 @@ import {
 } from './transaction-lifecycle';
 import { transactionSettlement } from './transaction-settlement';
 import { synchronizedTransactionClient } from './transaction-client';
-import {
-  transactionContext,
-  type BoundedTransactionContext,
-} from './transaction-context';
+import { transactionContext } from './transaction-context';
 import type { Lane } from './workload';
 import {
   recoverTransactionBackend,
   type OwnedBackend,
 } from './transaction-watchdog';
+import type { Tx } from './tx';
 
 const TRANSACTION_MS = 3000;
 /** A writer's work connection plus the watchdog that can terminate it. */
@@ -28,7 +26,7 @@ type TransactionOptions = {
   readonly executionMs?: number;
 };
 type TransactionWork<T> = (
-  tx: BoundedTransactionContext,
+  tx: Tx,
   signal: AbortSignal,
   receipt: TransactionReceipt,
 ) => Promise<T>;
@@ -89,12 +87,13 @@ class TransactionAttempt {
     this.checkBudget();
   };
 
-  private async execute<T>(run: TransactionWork<T>): Promise<T> {
+  private async runWork<T>(run: TransactionWork<T>): Promise<T> {
     // No writer can hold a lock without its separately owned control connection.
     const options = { signal: this.controller.signal };
     this.watchdog = await this.client.reserve(options);
     this.checkBudget();
-    this.work = await this.client.reserve(options);
+    const writer = await this.client.reserve(options);
+    this.work = writer;
     this.checkBudget();
     const [identity] = await this.work<
       (OwnedBackend & { receivedAt: string })[]
@@ -139,7 +138,7 @@ class TransactionAttempt {
           this.checkLifetime();
           // Tenant addressing is adapter-owned. Arbitrary callback configuration
           // still passes through the unchanged rejecting statement guard.
-          await scopeReservedTransaction(this.work!, scope);
+          await scopeReservedTransaction(writer, scope);
           this.checkLifetime();
         },
       ),
@@ -167,17 +166,20 @@ class TransactionAttempt {
     outcome: 'open' | 'committed' | 'aborted',
     deadline = this.deadline,
   ) {
-    if (!this.lifecycle) return;
+    const { lifecycle, watchdog, metadata } = this;
+    if (!lifecycle) return;
+    if (!watchdog || !metadata)
+      throw createAppError('INVARIANT', 'Transaction lifecycle has no backend');
     this.controlInUse = true;
     await runTransactionLifecycle({
-      control: this.watchdog!,
+      control: watchdog,
       now: this.now,
       deadline,
       refuse: this.refuseControl,
       run: (tx) =>
         outcome === 'open'
-          ? this.lifecycle!.open(tx, this.metadata!)
-          : this.lifecycle!.close(tx, this.metadata!, outcome),
+          ? lifecycle.open(tx, metadata)
+          : lifecycle.close(tx, metadata, outcome),
     });
     this.controlInUse = false;
   }
@@ -260,7 +262,7 @@ class TransactionAttempt {
       );
     });
     try {
-      return await Promise.race([this.execute(work), budget]);
+      return await Promise.race([this.runWork(work), budget]);
     } catch (error) {
       return await this.recover(error);
     } finally {

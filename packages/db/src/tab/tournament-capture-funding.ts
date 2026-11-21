@@ -7,11 +7,11 @@ import { scopeTransaction } from '../tenant-scope';
 import { loadAuthorizationAccount } from '../authorization';
 import { loadAccountHostingFacts } from './account-hosting-facts';
 import { currentTournamentSponsorship } from './tournament-sponsorship';
-import type { TabTransaction } from './tab-transaction';
+import type { Tx } from '../tx';
 
 /** Read-only locator before account locks; it grants nothing and must be matched after parent fences. */
 export const locateTournamentCaptureFunder = async (
-  tx: TabTransaction,
+  tx: Tx,
   input: { readonly lobbyId: string; readonly callerUserId: string },
 ) => {
   await scopeTransaction(tx, {
@@ -51,7 +51,7 @@ export class TournamentCaptureFundingChanged extends Error {}
 
 /** Caller already holds this account and the actual lobby/organization fences. */
 export const loadTournamentCaptureFunding = async (
-  tx: TabTransaction,
+  tx: Tx,
   locator: TournamentCaptureFunderLocator,
   callerUserId: string,
 ) => {

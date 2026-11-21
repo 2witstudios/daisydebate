@@ -41,13 +41,14 @@ export const withLinkedAdults = async <T>(
   const known = linkedAdults.peek(roundId);
   if (known?.linkedAdultActorIds.includes(caller.actorId))
     return read(known, ignore);
-  let audienceRefused = false;
+  // The read's refusal callback records that the audience rule refused.
+  const audience = { refused: false };
   try {
     return await read(null, () => {
-      audienceRefused = true;
+      audience.refused = true;
     });
   } catch (error) {
-    if (!audienceRefused || !isAppError(error) || error.code !== 'NOT_FOUND')
+    if (!audience.refused || !isAppError(error) || error.code !== 'NOT_FOUND')
       throw error;
     const youth = await linkedAdults(roundId);
     if (!youth?.linkedAdultActorIds.includes(caller.actorId)) throw error;

@@ -20,13 +20,13 @@ export function screenBallotContacts(
   original: BallotWrittenRecord,
   policy: 'hold' | 'off',
 ): ContactScreening {
-  let flagged = false;
+  const removed: string[] = [];
   const redact = (text: string) =>
     contactPatterns.reduce(
       (copy, pattern, index) =>
         copy.replace(pattern, (match) => {
           if (index === 3 && match.replace(/\D/g, '').length < 7) return match;
-          flagged = true;
+          removed.push(match);
           return '[contact removed]';
         }),
       text,
@@ -46,7 +46,7 @@ export function screenBallotContacts(
           ),
         }),
   };
-  return flagged && policy === 'hold'
+  return removed.length > 0 && policy === 'hold'
     ? { ruleSetVersion: 'contact-v1', status: 'held', releasedText: null }
     : { ruleSetVersion: 'contact-v1', status: 'clear', releasedText };
 }

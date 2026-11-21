@@ -118,8 +118,14 @@ export const seasonStandings = (
       school.set(e.competitor, e.school);
       if (!byCompetitor.has(e.competitor)) byCompetitor.set(e.competitor, []);
     }
-    for (const [competitor, points] of folded.points)
-      byCompetitor.get(competitor)!.push({ event: event.event, points });
+    for (const [competitor, points] of folded.points) {
+      const earned = byCompetitor.get(competitor);
+      if (earned === undefined)
+        throw new Error(
+          `Competitor ${competitor} is not an entry of the event`,
+        );
+      earned.push({ event: event.event, points });
+    }
   }
   const rows = [...byCompetitor]
     .map(([competitor, all]) => {
@@ -138,8 +144,9 @@ export const seasonStandings = (
     rows: rows.filter(({ competitor }) => {
       const of = school.get(competitor) ?? null;
       if (formula.topPerSchool === null || of === null) return true;
-      listed.set(of, (listed.get(of) ?? 0) + 1);
-      return listed.get(of)! <= formula.topPerSchool;
+      const count = (listed.get(of) ?? 0) + 1;
+      listed.set(of, count);
+      return count <= formula.topPerSchool;
     }),
     exceptions,
   };

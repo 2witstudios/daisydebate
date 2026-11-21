@@ -15,6 +15,7 @@ import {
   recordSegmentReleased,
   renewBroadcastLease,
 } from './broadcast-operations';
+import { inTransaction } from './tx';
 
 /**
  * The hold worker's one database credential: broadcasts only. It cannot read a
@@ -25,9 +26,9 @@ export const createBroadcastWorkerStore = (url: string) => {
   const database = drizzle({ client });
   return {
     claim: (input: Parameters<typeof claimBroadcast>[1]) =>
-      database.transaction((tx) => claimBroadcast(tx, input)),
+      inTransaction(database, (tx) => claimBroadcast(tx, input)),
     claimWithdrawal: (input: Parameters<typeof claimFeedWithdrawal>[1]) =>
-      database.transaction((tx) => claimFeedWithdrawal(tx, input)),
+      inTransaction(database, (tx) => claimFeedWithdrawal(tx, input)),
     recordReleased: (input: Parameters<typeof recordSegmentReleased>[1]) =>
       recordSegmentReleased(database, input),
     recordAdvanced: (input: Parameters<typeof recordHoldAdvanced>[1]) =>

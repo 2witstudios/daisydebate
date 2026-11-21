@@ -3,14 +3,14 @@ import {
   mediaBindingRevoked,
   type RoundCommandAuthority,
 } from '@daisy/protocol';
-import type { BoundedTransactionContext } from './transaction-context';
 import { mediaId } from './media-session-authority';
 import { mediaParticipants } from './schema/media-sessions';
 import { mediaWorkerLeases } from './schema/transcript-segments';
+import type { Tx } from './tx';
 
 /** Bound human seats that have lost their place, by round participant. */
 export async function revokedBoundSeats(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   sessionId: string,
   participants: RoundCommandAuthority['participants'],
 ) {
@@ -28,7 +28,7 @@ export async function revokedBoundSeats(
  * worker lease and returns the next room name. Called once the pass's room fate says to.
  */
 export async function rotateMediaRoom(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   sessionId: string,
   revoked: readonly string[],
   now: Date,

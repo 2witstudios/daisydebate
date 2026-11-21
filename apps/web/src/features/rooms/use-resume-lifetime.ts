@@ -57,9 +57,7 @@ export function useResumeLifetime(
     readonly owns: boolean;
   } | null>(null);
   const owns =
-    claim?.actorId === actorId && claim?.roundId === roundId
-      ? claim.owns
-      : null;
+    claim?.actorId === actorId && claim.roundId === roundId ? claim.owns : null;
   const lifetime = useRef<ReturnType<typeof createResumeLifetime> | null>(null);
   const onStepDown = useRef(steppedDown);
   const onHolderLeft = useRef(holderLeft);

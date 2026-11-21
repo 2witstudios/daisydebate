@@ -1,16 +1,19 @@
 import type { TournamentNotificationKind } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
-import type { TabTransaction } from '../tab/tab-transaction';
 import { oweNotifications } from './owe';
-import { rowsOf } from '../raw-rows';
+import { query } from '../raw-rows';
+import type { Tx } from '../tx';
+import { z } from 'zod';
 
 /** Actual accepted competitors and panel members of one fixture; never a lobby-wide broadcast. */
-export const fixtureNotificationPeople = (
-  tx: TabTransaction,
-  fixtureId: string,
-) =>
-  rowsOf<{ userId: string; actorId: string; judgeId: string | null }>(
+export const fixtureNotificationPeople = (tx: Tx, fixtureId: string) =>
+  query(
     tx,
+    z.object({
+      userId: z.string(),
+      actorId: z.string(),
+      judgeId: z.string().nullable(),
+    }),
     sql`
     select a.user_id as "userId",a.id as "actorId",null::text as "judgeId"
     from fixture_entries fe join entry_members em on em.entry_id=fe.entry_id and em.entry_status='accepted'
@@ -31,7 +34,7 @@ export const fixtureNotificationPeople = (
  * nothing twice. Nobody in particular brought it, so it is about no one.
  */
 export async function oweTournamentNotification(
-  tx: TabTransaction,
+  tx: Tx,
   input: {
     readonly kind: TournamentNotificationKind;
     readonly fixtureId: string;
@@ -62,7 +65,7 @@ export async function oweTournamentNotification(
 
 /** Only a newly recorded opening can owe results; changing policy never fabricates a release. */
 export async function notifyTournamentRelease(
-  tx: TabTransaction,
+  tx: Tx,
   release: {
     readonly lobbyId: string;
     readonly tabRoundId: string;
@@ -75,8 +78,9 @@ export async function notifyTournamentRelease(
   newId: () => string,
 ) {
   if (release.thing !== 'decision' && release.thing !== 'posting') return;
-  const fixtures = await rowsOf<{ id: string }>(
+  const fixtures = await query(
     tx,
+    z.object({ id: z.string() }),
     sql`select f.id from fixtures f where f.tab_round_id=${release.tabRoundId}
     and f.lobby_id=${release.lobbyId} and f.status='published'
     ${release.fixtureId ? sql`and f.id=${release.fixtureId}` : sql``}
@@ -87,8 +91,9 @@ export async function notifyTournamentRelease(
     // Responsible-adult openings do not imply that children or judges can see the result.
     const eligible =
       release.audience === 'responsible_adults'
-        ? await rowsOf<{ userId: string; actorId: string }>(
+        ? await query(
             tx,
+            z.object({ userId: z.string(), actorId: z.string() }),
             sql`select a.user_id as "userId", a.id as "actorId"
           from fixture_entries fe join entries e on e.id=fe.entry_id and e.status='accepted'
           join entry_members em on em.entry_id=e.id and em.entry_status='accepted' join actors a on a.id=em.actor_id
@@ -114,7 +119,7 @@ export async function notifyTournamentRelease(
 
 /** A previously recorded opening starts owing delivery when its actual result becomes available. */
 export async function notifyAvailableFixtureResult(
-  tx: TabTransaction,
+  tx: Tx,
   result: {
     readonly fixtureId: string;
     readonly lobbyId: string;
@@ -124,8 +129,9 @@ export async function notifyAvailableFixtureResult(
   },
   newId: () => string,
 ) {
-  const openings = await rowsOf<{ audience: string }>(
+  const openings = await query(
     tx,
+    z.object({ audience: z.string() }),
     sql`select audience from releases where lobby_id=${result.lobbyId} and tab_round_id=${result.tabRoundId} and thing='decision'`,
   );
   for (const opening of openings)

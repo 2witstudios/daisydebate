@@ -1,13 +1,13 @@
 import { asc, eq } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { utterances } from './schema/utterances';
+import type { TxSource } from './tx';
 /** Transcript reads; signed capture operations exclusively own transcript mutations. */
 export const utteranceOperations = ({
   database,
   eventSink,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
   /** A segment's lines, in order, for the transcript and the judge. */

@@ -9,8 +9,13 @@ import type { createMediaWorkerClient } from '@daisy/media/worker';
 export type CaptureClient = ReturnType<typeof createMediaWorkerClient>;
 export type CaptureState = Awaited<ReturnType<CaptureClient['read']>>['state'];
 export type Window = { readonly beforeMs: number; readonly afterMs: number };
-/** Cached authority is only a staging filter; fresh PG horizon is checked separately. */
-export function contained(state: CaptureState, seat: string, window: Window) {
+export type CaptureGrant = CaptureState['intervals'][number];
+/** The segment and the one grant of the seat that hold the window; null when none does. */
+export function containingGrant(
+  state: CaptureState,
+  seat: string,
+  window: Window,
+) {
   const segment = state.segment;
   if (
     !segment ||
@@ -24,15 +29,18 @@ export function contained(state: CaptureState, seat: string, window: Window) {
         returnedMs: segment.returnedMs,
       })
   )
-    return false;
-  return (
-    state.intervals.filter(
-      (i) =>
-        i.roundParticipantId === seat &&
-        Date.parse(i.startedAt) <= window.beforeMs &&
-        (i.endedAt === null || window.afterMs < Date.parse(i.endedAt)),
-    ).length === 1
+    return null;
+  const [grant, ...others] = state.intervals.filter(
+    (i) =>
+      i.roundParticipantId === seat &&
+      Date.parse(i.startedAt) <= window.beforeMs &&
+      (i.endedAt === null || window.afterMs < Date.parse(i.endedAt)),
   );
+  return grant !== undefined && others.length === 0 ? { segment, grant } : null;
+}
+/** Cached authority is only a staging filter; fresh PG horizon is checked separately. */
+export function contained(state: CaptureState, seat: string, window: Window) {
+  return containingGrant(state, seat, window) !== null;
 }
 /** A calibrated 10 ms frame: its nominal start and server-time bracket. */
 export type FrameWindow = Window & { readonly nominalStartMs: number };
@@ -77,16 +85,17 @@ export function observedWindow(input: {
       frame.nominalStartMs === clip.firstNominalMs - 10 &&
       straddles(frame, grant.startMs),
   );
+  const { endMs } = grant;
   const endEvidence =
-    grant.endMs !== null &&
+    endMs !== null &&
     input.straddles.some(
       (frame) =>
         frame.nominalStartMs === clip.lastNominalMs + 10 &&
-        straddles(frame, grant.endMs!),
+        straddles(frame, endMs),
     );
   return {
     fromMs: startEvidence ? grant.startMs : clip.firstNominalMs,
-    untilMs: endEvidence ? grant.endMs : clip.lastNominalMs + 10,
+    untilMs: endEvidence ? endMs : clip.lastNominalMs + 10,
   };
 }
 /** How long a read the control plane could not answer waits before its restart. */
@@ -154,12 +163,16 @@ async function readSnapshot(
   );
   let cursor = first.state.nextIntervalId;
   const intervals = [...first.state.intervals];
+  const pagedSegment = first.state.segment;
   while (cursor) {
+    // The server pages only a segment's intervals: no segment, no next page.
+    if (pagedSegment === null)
+      throw new Error('Capture history paged intervals without a segment');
     signal.throwIfAborted();
     const next = await client.read(
       {
         epoch,
-        segmentId: first.state.segment!.id,
+        segmentId: pagedSegment.id,
         expectedVersion: first.state.version,
         afterIntervalId: cursor,
       },

@@ -1,6 +1,5 @@
 import { currentRoundParticipant } from './round-current-participant';
 import { and, eq } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { agentRuns } from './schema/agent-runs';
 import { roundJudgingJobs } from './schema/round-judging-jobs';
 import { requireAgentLeaseToken } from './round-agent-lease';
@@ -11,6 +10,7 @@ import {
   requireJudgingService,
   requireLiveJudgingLease,
 } from './round-judging-decisions';
+import type { Tx } from './tx';
 
 export type JudgingScope = {
   readonly roundId: string;
@@ -21,7 +21,6 @@ export type JudgingScope = {
   readonly freezeRevision: number;
   readonly jobEpoch: number;
 };
-export type JudgingReader = Pick<BunSQLDatabase, 'select' | 'execute'>;
 export const judgingJobWhere = (
   scope: Pick<JudgingScope, 'roundId' | 'judgeParticipantId'>,
 ) =>
@@ -31,7 +30,7 @@ export const judgingJobWhere = (
   );
 /** Caller owns account/Round fences. Run then job order also matches D1 result submission. */
 export async function assertLockedJudgingLease(
-  tx: JudgingReader,
+  tx: Tx,
   scope: JudgingScope,
   token: string,
 ) {

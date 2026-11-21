@@ -7,7 +7,7 @@ import {
   restrictionLobbies,
 } from '../schema/guardian-links';
 import { bumpTabAccountRevision } from './command-accounts';
-import type { TabTransaction } from './tab-transaction';
+import type { Tx } from '../tx';
 type VideoAudienceCap = (typeof videoAudienceCaps)[number];
 type GuardianLinkStatus = (typeof guardianLinks.$inferSelect)['status'];
 type GuardianLinkRow = Pick<
@@ -95,7 +95,7 @@ const one = (rows: readonly unknown[]): void => {
 };
 /** No privilege elevation: production family-table writes remain revoked. */
 export const applyGuardianCommandWrites = async (
-  tx: TabTransaction,
+  tx: Tx,
   writes: readonly GuardianCommandWrite[],
 ): Promise<void> => {
   for (const write of writes) {

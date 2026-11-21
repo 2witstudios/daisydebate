@@ -13,7 +13,7 @@ import {
   type OrganizationRow,
 } from './organization-facts';
 import { loadOfferedRoles, type RoleRow } from './role-rows';
-import type { TabTransaction } from './tab-transaction';
+import type { Tx } from '../tx';
 
 /** One member, by their public name, with the grants they hold here. */
 type OrganizationPersonRow = {
@@ -48,7 +48,7 @@ const present: readonly MembershipStatus[] = ['invited', 'active'];
  * viewer's authority.
  */
 export const loadOrganizationPeople = async (
-  tx: TabTransaction,
+  tx: Tx,
   input: { readonly viewerUserId: string; readonly organizationId: string },
   scope: TenantScope,
 ): Promise<OrganizationPeopleFacts | null> => {

@@ -114,13 +114,14 @@ export function createRoundJudgingOperations(input: {
           );
           return 'concluded';
         }
-        const saved = await input.store.saveRoundJudgingResult(
+        // A saved final ballot is always held for submission.
+        await input.store.saveRoundJudgingResult(
           scope,
           token,
           judged.ballot,
           usage,
         );
-        return saved.kind === 'held' ? 'ballot_held' : 'concluded';
+        return 'ballot_held';
       };
       /**
        * One provider attempt buys the one stage the job needs (ADR 0125): a

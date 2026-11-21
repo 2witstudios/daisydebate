@@ -107,7 +107,9 @@ export const maximumWeightMatching = (
     const bb = inblossom[base]!;
     let bv = inblossom[v]!;
     let bw = inblossom[w]!;
-    const b = unusedblossoms.pop()!;
+    const b = unusedblossoms.pop();
+    // n vertices nest at most n blossoms, so an id is always free.
+    if (b === undefined) throw new Error('Every blossom id is in use');
     blossombase[b] = base;
     blossomparent[b] = -1;
     blossomparent[bb] = b;
@@ -297,8 +299,9 @@ export const maximumWeightMatching = (
       if (mate[v] === -1 && label[inblossom[v]!] === 0) assignLabel(v, 1, -1);
     let augmented = false;
     for (;;) {
-      while (queue.length > 0 && !augmented) {
-        const v = queue.pop()!;
+      while (!augmented) {
+        const v = queue.pop();
+        if (v === undefined) break;
         for (const p of neighbend[v]!) {
           const k = p >> 1;
           const w = endpoint[p]!;

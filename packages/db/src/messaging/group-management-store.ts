@@ -1,6 +1,5 @@
 import { groupLifecycleOf } from './social';
 import { readMessagingGroupCommand } from './group-command-row';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import { withLockedMessagingAuthority } from './authority-frame';
@@ -9,20 +8,21 @@ import type {
   MessagingGroupManagementFence,
   MessagingGroupManagementStore,
 } from './group-management-contracts';
+import { inTransaction, type TxSource } from '../tx';
 
 /** Actual own receipt and current account/cast facts share the mutation transaction. */
 export function createMessagingGroupManagementStore({
   database,
   authorize,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
   readonly authorize: MessagingGroupManagementFence;
 }): MessagingGroupManagementStore {
   return {
     withManagement(scope, work) {
       if (!idSchema.safeParse(scope.requestId).success)
         throw createAppError('VALIDATION');
-      return database.transaction((tx) =>
+      return inTransaction(database, (tx) =>
         withLockedMessagingAuthority(
           tx,
           scope,

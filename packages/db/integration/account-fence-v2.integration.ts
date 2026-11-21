@@ -1,11 +1,142 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
+import { assertRejects } from '@daisy/errors/testing';
+import { drizzle } from 'drizzle-orm/bun-sql';
+import { loadAuthorizationAgeFact } from '../src/authorization-age';
+import { bindAuthorizationAgeFact } from '../src/authorization-age-reader';
+import {
+  loadAuthorizationAccount,
+  lockAuthorizationActors,
+  readAuthorizationActors,
+} from '../src/authorization';
 import { withFixture } from './constraint-helpers';
 import { createAuthorizationSubject } from './authorization.test-support';
 
 setupRitewayBun();
 
 const { databaseUrl: url } = requireTestServices(process.env);
+
+test('the age adapter validates selectors and reads only its caller transaction', async () => {
+  await withFixture(url, async (fixture) => {
+    const subject = await createAuthorizationSubject(fixture);
+    const other = await createAuthorizationSubject(fixture);
+    const now = '2026-10-09T00:00:00.000Z';
+    await fixture.sql.begin(async (native) => {
+      // This source change is visible only to the transaction given to the reader.
+      await native`update account_age set birth_month='1990-01', version=2,
+        recorded_at='2025-01-01T00:00:00Z' where user_id=${subject.userId}`;
+      const statements: { query: string; params: unknown[] }[] = [];
+      const tx = drizzle({
+        client: native,
+        logger: {
+          logQuery: (query, params) => statements.push({ query, params }),
+        },
+      });
+      const [locked] = await lockAuthorizationActors(tx, [subject.actorId], {
+        maxActors: 1,
+      });
+      const account = await loadAuthorizationAccount(tx, subject.userId);
+      if (!account) throw new Error('The test account was not returned');
+      const [shared] = await readAuthorizationActors(tx, [subject.actorId], {
+        maxActors: 1,
+      });
+      const accountQueries = statements.splice(0);
+      const read = bindAuthorizationAgeFact(tx);
+      const age = await read(account, now);
+      assert({
+        given:
+          'the same human loaded by actor lock, fresh user id and shared actor read',
+        should:
+          'use the canonical selector functions and return identical minimal facts',
+        actual: [
+          [locked, shared].every(
+            (fact) => JSON.stringify(fact) === JSON.stringify(account),
+          ),
+          accountQueries.map(({ params }) => params),
+          accountQueries.map(
+            ({ query }) =>
+              query.match(/public\.daisy_authorization_\w+_v2/)?.[0],
+          ),
+          age,
+        ],
+        expected: [
+          true,
+          [[subject.actorId], [subject.userId], [subject.actorId]],
+          [
+            'public.daisy_authorization_accounts_v2',
+            'public.daisy_authorization_accounts_v2',
+            'public.daisy_authorization_read_accounts_v2',
+          ],
+          {
+            state: 'known',
+            actorId: subject.actorId,
+            band: 'adult',
+            revision: 2,
+            accountRevision: account.revision,
+            validUntil: '2026-11-01T00:00:00.000Z',
+          },
+        ],
+      });
+      const input = { ...subject, accountRevision: account.revision, now };
+      assert({
+        given:
+          'a mismatched actor or stale revision, and ineligible caller account facts',
+        should:
+          'return only unknown and avoid querying for ineligible bound callers',
+        actual: [
+          await loadAuthorizationAgeFact(tx, {
+            ...input,
+            actorId: other.actorId,
+          }),
+          await loadAuthorizationAgeFact(tx, {
+            ...input,
+            accountRevision: account.revision + 1,
+          }),
+          await read({ ...account, actorId: null }, now),
+          await read({ ...account, erased: true }, now),
+          statements
+            .splice(0)
+            .map(({ query }) =>
+              query.includes('public.daisy_authorization_age'),
+            ),
+        ],
+        expected: [
+          ...Array.from({ length: 4 }, () => ({ state: 'unknown' })),
+          [true, true, true],
+        ],
+      });
+      for (const invalid of [
+        { ...input, actorId: 'invalid' },
+        { ...input, now: Symbol('invalid') },
+      ])
+        await assertRejects({
+          given: 'a malformed binding or time',
+          should: 'refuse the age read',
+          actual: () => loadAuthorizationAgeFact(tx, invalid),
+          code: 'VALIDATION',
+        });
+      for (const ids of [
+        [],
+        ['invalid'],
+        [subject.actorId, subject.actorId],
+        Array.from({ length: 51 }, (_, n) => String(n).padStart(24, 'a')),
+      ])
+        for (const load of [lockAuthorizationActors, readAuthorizationActors])
+          await assertRejects({
+            given: 'a malformed or unbounded actor batch',
+            should: 'refuse the account read',
+            actual: () => load(tx, ids, { maxActors: 50 }),
+            code: 'VALIDATION',
+          });
+      assert({
+        given: 'all refused inputs',
+        should: 'run no SQL',
+        actual: statements.length,
+        expected: 0,
+      });
+    });
+  });
+});
 
 describe('the account fence after its contract step (ADR 0075, BETA-2C)', () => {
   test('only v2 remains, and the age reader runs on it', async () => {

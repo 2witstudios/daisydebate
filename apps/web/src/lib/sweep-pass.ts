@@ -42,8 +42,9 @@ export const createSweepPass = (budget?: () => Promise<void>) => {
         const page: readonly T[] = await read(after);
         rows += page.length;
         await overPage(page, keyOf, work, failed);
-        if (page.length < size) return rows;
-        after = keyOf(page.at(-1)!);
+        const last = page.at(-1);
+        if (last === undefined || page.length < size) return rows;
+        after = keyOf(last);
       }
     },
     settled: async () => {

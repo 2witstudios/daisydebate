@@ -26,14 +26,11 @@ import { freezeRoomBallot } from './room-ballot-freeze';
 import { columnsOfSeat } from './seat-columns';
 import { refuseDebatersOffDivision } from './room-start-division';
 
-import {
-  appendRoomChanged,
-  type Tx,
-  publishDefinition,
-} from './room-command-facts';
+import { appendRoomChanged, publishDefinition } from './room-command-facts';
 import { isOpenRoomStatus } from '@daisy/protocol';
 import { settleRoomInvitationsAfter } from './room-invitations/store';
 import { notifyWork } from './work-wake';
+import type { Tx } from './tx';
 
 /** The room row a mutation writes; the idle anchor moves only on an accepted command. */
 const roomRow = (

@@ -1,3 +1,4 @@
+import { createAppError } from '@daisy/errors';
 import { isOpenRoomStatus } from '@daisy/protocol';
 import {
   roomCommunityReadsOnly,
@@ -5,7 +6,6 @@ import {
   type RoomCommunityFact,
 } from '@daisy/protocol/room-community';
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type { ContextChannelOwner } from './context-channel-contracts';
 import { createContextChannelStore } from './context-channel-store';
 import {
@@ -18,6 +18,9 @@ import type {
   RoomCommunityScope,
   RoomCommunityWriteFrame,
 } from './room-community-contracts';
+import type { TxSource } from '../tx';
+import { query } from '../raw-rows';
+import { z } from 'zod';
 
 type DiscoveryScope = Omit<RoomCommunityScope, 'channelId'>;
 /**
@@ -25,16 +28,20 @@ type DiscoveryScope = Omit<RoomCommunityScope, 'channelId'>;
  * of a Youth Room (decision 84), and for everyone once the Room has ended,
  * when own removal is all that is left and the rows expire.
  */
-export const roomCommunityMetadataOf = (fact: RoomCommunityFact) => ({
-  channelId: fact.channelId!,
-  readOnly: !isOpenRoomStatus(fact.status) || roomCommunityReadsOnly(fact),
-  expiresAt:
-    fact.endedAt === null
-      ? null
-      : new Date(
-          Date.parse(fact.endedAt) + roomCommunityRetentionMs,
-        ).toISOString(),
-});
+export const roomCommunityMetadataOf = (fact: RoomCommunityFact) => {
+  if (!fact.channelId)
+    throw createAppError('INVARIANT', 'Messaging channel is missing');
+  return {
+    channelId: fact.channelId,
+    readOnly: !isOpenRoomStatus(fact.status) || roomCommunityReadsOnly(fact),
+    expiresAt:
+      fact.endedAt === null
+        ? null
+        : new Date(
+            Date.parse(fact.endedAt) + roomCommunityRetentionMs,
+          ).toISOString(),
+  };
+};
 /** The most authors one page may label: the page's own and the newest messages'. */
 const AUTHOR_LABELS = 100;
 
@@ -60,7 +67,9 @@ const roomCommunityOwner = (
   fence: fenceRoomCommunity,
   readFact: readRoomCommunityFact,
   insertChannel: async (tx, { ownerId, channelId }) => {
-    const [created] = await tx.execute(
+    const [created] = await query(
+      tx,
+      z.object({ id: z.string() }),
       sql`insert into messaging_channels(id,kind,policy_key,policy_revision,lifecycle,room_id) values(${channelId},'room_community','room.community',1,'active',${ownerId}) on conflict (room_id,kind) do nothing returning id`,
     );
     return created !== undefined;
@@ -81,7 +90,9 @@ const roomCommunityOwner = (
       sql`, `,
     )}]::text[]`;
     const wanted = authorActorIds.length ? requested : sql`array[]::text[]`;
-    const rows = (await tx.execute(
+    const rows = await query(
+      tx,
+      z.object({ actorId: z.string(), label: z.string(), judge: z.boolean() }),
       sql`select a.id as "actorId",u.username as label,
           exists(select 1 from room_participants p where p.room_id=${ownerId} and p.actor_id=a.id and p.seat_kind='judge') as judge
         from actors a join users u on u.id=a.user_id and u.deleted_at is null
@@ -90,22 +101,20 @@ const roomCommunityOwner = (
           union
           select m.author_actor_id from messaging_messages m where m.channel_id=${channelId} and m.text is not null and m.removed_at is null and m.author_actor_id=any(${wanted})
         ) order by (a.id=any(${wanted})) desc,a.id limit ${AUTHOR_LABELS}`,
-    )) as unknown as readonly {
-      readonly actorId: string;
-      readonly label: string;
-      readonly judge: boolean;
-    }[];
+    );
     if (!rows.some((row) => row.judge))
       return rows.map(({ actorId, label }) => ({ actorId, label }));
-    const [room] = (await tx.execute(
+    const [room] = await query(
+      tx,
+      z.object({
+        hostActorId: z.string(),
+        hostInherited: z.boolean(),
+        seated: z.array(z.string()),
+      }),
       sql`select r.host_actor_id as "hostActorId",r.host_inherited as "hostInherited",
           coalesce((select array_agg(p.actor_id) from room_participants p where p.room_id=r.id),'{}') as seated
         from rooms r where r.id=${ownerId}`,
-    )) as unknown as readonly {
-      readonly hostActorId: string;
-      readonly hostInherited: boolean;
-      readonly seated: readonly string[];
-    }[];
+    );
     const facts = room && {
       hostActorId: room.hostActorId,
       hostInherited: room.hostInherited,
@@ -125,7 +134,7 @@ const roomCommunityOwner = (
 
 /** A named contextual producer: social pair/grant loaders never admit its channel. */
 export function createRoomCommunityStore(
-  database: BunSQLDatabase,
+  database: TxSource,
   authorize: RoomCommunityFence,
   namesJudge: RoomJudgeNaming,
 ) {

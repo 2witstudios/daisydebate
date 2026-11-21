@@ -25,6 +25,24 @@ const fact = {
   audience: 'debater' as const,
 };
 describe('decideRoundFloor', () => {
+  test('the current floor policy is required to post', () => {
+    assert({
+      given: 'a floor fact with a foreign policy key or unsupported revision',
+      should: 'refuse the post',
+      actual: [{ policyKey: 'room.community' }, { policyRevision: 2 }].map(
+        (wrongPolicy) =>
+          decideRoundFloor({
+            principal,
+            account,
+            fact: { ...fact, ...wrongPolicy } as typeof fact,
+            action: 'post',
+            now,
+          }).allow,
+      ),
+      expected: [false, false],
+    });
+  });
+
   test('current private audience', () => {
     assert({
       given: 'the current human debater or named host, or a judge or outsider',

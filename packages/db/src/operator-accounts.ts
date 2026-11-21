@@ -9,7 +9,6 @@ import {
   type BetaAccessState,
 } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { z } from 'zod';
 import {
   contentModerationActions,
@@ -28,21 +27,18 @@ import {
   type BetaAccessCommandOutcome,
 } from './beta-access-command';
 import { instrumented, type DatabaseEventSink } from './instrumented';
-
-type Database = Pick<BunSQLDatabase, 'transaction' | 'execute'>;
+import { inTransaction, type Tx, type TxSource } from './tx';
+import { query } from './raw-rows';
 
 /** A command that owes nothing further reads back its stored result alone. */
-const storedOnly = async (
-  _database: Pick<Database, 'execute'>,
-  _commandId: string,
-  result: unknown,
-) => ({ result }) as Omit<OperatorCommandState, 'action'>;
+const storedOnly = async (_database: Tx, _commandId: string, result: unknown) =>
+  ({ result }) as Omit<OperatorCommandState, 'action'>;
 
 /** Each operator command action's owner completes its own readback. */
 const commandStateReaders = new Map<
   string,
   (
-    database: Pick<Database, 'execute'>,
+    database: Tx,
     commandId: string,
     result: unknown,
   ) => Promise<Omit<OperatorCommandState, 'action'>>
@@ -99,7 +95,7 @@ export function operatorAccountOperations({
   database,
   eventSink,
 }: {
-  readonly database: Database;
+  readonly database: TxSource;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) {
   return {
@@ -122,16 +118,18 @@ export function operatorAccountOperations({
         const after = input.after
           ? sql`and (b.requested_at, b.user_id) < (${input.after.requestedAt}::timestamptz, ${input.after.userId})`
           : sql``;
-        const rows =
-          (await database.execute(sql`select b.user_id, u.username, b.state,
+        const rows = await query(
+          database,
+          accountRow,
+          sql`select b.user_id, u.username, b.state,
             b.revision, to_char(b.requested_at at time zone 'UTC',
               'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as requested_at, b.decided_at
           from account_beta_access b join users u on u.id = b.user_id
           where b.state = ${input.access} and u.deleted_at is null ${after}
           order by b.requested_at desc, b.user_id desc
-          limit ${input.limit}`)) as unknown as unknown[];
-        return rows.map((row) => {
-          const parsed = accountRow.parse(row);
+          limit ${input.limit}`,
+        );
+        return rows.map((parsed) => {
           return {
             userId: parsed.user_id,
             username: parsed.username,
@@ -146,7 +144,7 @@ export function operatorAccountOperations({
       input: BetaAccessCommandInput,
     ): Promise<BetaAccessCommandOutcome> =>
       instrumented(eventSink, 'runBetaAccessCommand', () =>
-        database.transaction((tx) =>
+        inTransaction(database, (tx) =>
           runBetaAccessCommand(tx, input, eventSink),
         ),
       ),
@@ -160,12 +158,13 @@ export function operatorAccountOperations({
       readonly serviceId: string;
     }) =>
       instrumented(eventSink, 'readOperatorCommand', async () => {
-        const [row] = (await database.execute(sql`select action, result
+        const [row] = await query(
+          database,
+          z.object({ action: z.string(), result: z.json() }),
+          sql`select action, result
           from operator_command_receipts
-          where command_id = ${input.commandId} and service_id = ${input.serviceId}`)) as unknown as {
-          action: string;
-          result: unknown;
-        }[];
+          where command_id = ${input.commandId} and service_id = ${input.serviceId}`,
+        );
         if (!row) return null;
         const read = commandStateReaders.get(row.action);
         if (!read)

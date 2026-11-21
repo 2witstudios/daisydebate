@@ -49,10 +49,7 @@ const barrierViolations = (
   if (
     request.stage.kind !== 'preliminary' ||
     sidesOf(request) !== 2 ||
-    structure === 'round_robin' ||
-    (structure !== 'prematched' &&
-      structure !== 'powered' &&
-      request.tabRound !== 1)
+    structure === 'round_robin'
   )
     return [invalid(event, 'barrier', 'not a pairing field')];
   const pool = [...entriesToPlace(request)].sort(compareBytes);
@@ -66,8 +63,10 @@ const barrierViolations = (
   }
   const prematched = structure === 'prematched';
   const joined = (a: Id | null, b: Id | null) => {
-    if (a === null || b === null)
-      return holds(ctx, { kind: 'bye', entry: (a ?? b)! }, rules);
+    // One vertex at most is the bye.
+    if (a === null)
+      return b !== null && holds(ctx, { kind: 'bye', entry: b }, rules);
+    if (b === null) return holds(ctx, { kind: 'bye', entry: a }, rules);
     if (prematched && ctx.past.meetings(a, b) > 0) return false;
     return (
       holds(ctx, { kind: 'pairing', sides: [a, b], panel: [] }, rules) ||
@@ -82,8 +81,7 @@ const barrierViolations = (
     seen.add(start);
     const queue = [start];
     let size = 0;
-    while (queue.length > 0) {
-      const at = queue.pop()!;
+    for (let at = queue.pop(); at !== undefined; at = queue.pop()) {
       size += 1;
       for (const next of left)
         if (!seen.has(next) && joined(at, next)) {
@@ -307,16 +305,12 @@ export const noPlanViolations = (
     return unfounded;
   const field = smallField(request);
   if (field === null) return [];
-  let found = false;
-  everyPlan(
+  const found = everyPlan(
     costContext(input, request),
     field,
     new Set(),
     (c) => !c.clashes,
-    () => {
-      found = true;
-      return true;
-    },
+    () => true,
   );
   return found ? unfounded : [];
 };

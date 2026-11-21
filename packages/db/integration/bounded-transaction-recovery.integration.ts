@@ -1,6 +1,6 @@
 import { testLane } from '../src/testing-lane';
 import { requireTestServices } from '@daisy/config';
-import { isAppError } from '@daisy/errors';
+import { createAppError, isAppError } from '@daisy/errors';
 import { assertRejects } from '@daisy/errors/testing';
 import type { ReservedSQL } from 'bun';
 import { sql } from 'drizzle-orm';
@@ -9,10 +9,72 @@ import { createBoundedTransaction } from '../src/bounded-transaction';
 import type { TransactionSettlement } from '../src/transaction-settlement';
 import type { OwnedBackend } from '../src/transaction-watchdog';
 import { withFixture } from './constraint-helpers';
-import { backendOf, withPool } from './bounded-transaction.test-support';
+import {
+  backendOf,
+  withBoundedRound,
+  withPool,
+} from './bounded-transaction.test-support';
 
 setupRitewayBun();
 requireTestServices(process.env);
+
+test('a failed callback rolls back its write, disposes its native writer and preserves safe errors', async () => {
+  await withBoundedRound(async (fixture, run, roundId) => {
+    const [before] =
+      await fixture.sql`select resolution from rounds where id=${roundId}`;
+    const expected = createAppError('CONFLICT', 'stale');
+    const unexpected = new TypeError('private driver detail');
+    const results = [];
+    for (const failure of [expected, unexpected]) {
+      let pid: number | undefined;
+      const caught = await run(async (tx, _signal, receipt) => {
+        pid = receipt?.writer.pid;
+        await tx.execute(
+          sql`update rounds set resolution='uncommitted test write' where id=${roundId}`,
+        );
+        throw failure;
+      }).catch((error: unknown) => {
+        if (!isAppError(error)) throw error;
+        return {
+          code: error.code,
+          message: error.message,
+          cause: error.cause === failure,
+          same: error === failure,
+        };
+      });
+      const [native] =
+        await fixture.sql`select exists(select 1 from pg_stat_activity where pid=${pid ?? 0}) as alive`;
+      results.push([caught, native?.alive]);
+    }
+    const [after] =
+      await fixture.sql`select resolution from rounds where id=${roundId}`;
+    assert({
+      given:
+        'an expected and unexpected callback failure after a write to real PostgreSQL',
+      should:
+        'roll back both writes, destroy both writers, preserve the conflict and map the unexpected error',
+      actual: [after?.resolution, results],
+      expected: [
+        before?.resolution,
+        [
+          [
+            { code: 'CONFLICT', message: 'stale', same: true, cause: false },
+            false,
+          ],
+          [
+            {
+              code: 'INFRASTRUCTURE',
+              message: 'Bounded transaction failed',
+              same: false,
+              cause: true,
+            },
+            false,
+          ],
+        ],
+      ],
+    });
+  });
+});
 
 test(
   'unconfirmed watchdog recovery stays pending and permits an idempotent retry after service recovery',
@@ -77,13 +139,26 @@ test(
           expected: { alive: true, settled: false },
         });
         client.reserve = originalReserve;
-        const confirmed = await settlement.confirm();
+        const [confirmed, again] = await Promise.all([
+          settlement.confirm(),
+          settlement.confirm(),
+        ]);
         assert({
           given: 'restored same-pool recovery capacity',
           should:
             'settle only backend absence without asserting commit outcome',
-          actual: { confirmed, state: await settlement.settled },
-          expected: { confirmed: true, state: 'backend-absent' },
+          actual: {
+            confirmed,
+            again,
+            state: await settlement.settled,
+            repeat: await settlement.confirm(),
+          },
+          expected: {
+            confirmed: true,
+            again: true,
+            state: 'backend-absent',
+            repeat: true,
+          },
         });
       } finally {
         client.reserve = originalReserve;

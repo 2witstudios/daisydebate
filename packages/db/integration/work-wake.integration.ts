@@ -5,6 +5,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   notifyWork,
   subscribeWorkWakes,
+  WORK_CHANNEL,
   type WorkKind,
 } from '../src/work-wake';
 
@@ -54,6 +55,55 @@ test('a work wake reaches a listener on commit, at once, and never for a rollbac
         fast: p95 < 100,
       },
       expected: { kinds: ['judging'], count: 20, fast: true },
+    });
+  } finally {
+    await subscription.unlisten();
+    await Promise.all([listener.close(), writer.close()]);
+  }
+});
+
+test('work wakes drop unknown payloads and stop after unlisten', async () => {
+  const { databaseUrl } = requireTestServices(process.env);
+  const listener = new SQL(databaseUrl, { max: 1 });
+  const writer = new SQL(databaseUrl, { max: 1 });
+  const kinds: WorkKind[] = [];
+  let listens = 0;
+  const delivered = Promise.withResolvers<void>();
+  const subscription = await subscribeWorkWakes(listener, {
+    onListen: () => {
+      listens++;
+    },
+    onNotify: (kind) => {
+      kinds.push(kind);
+      if (kind === 'analysis') delivered.resolve();
+    },
+  });
+  try {
+    await writer.begin(async (tx) => {
+      await tx`select pg_notify(${WORK_CHANNEL}, 'judging')`;
+      await tx`select pg_notify(${WORK_CHANNEL}, 'round')`;
+      await tx`select pg_notify(${WORK_CHANNEL}, 'not-a-kind')`;
+      await tx`select pg_notify(${WORK_CHANNEL}, '')`;
+      await tx`select pg_notify(${WORK_CHANNEL}, 'analysis')`;
+    });
+    await delivered.promise;
+    await subscription.unlisten();
+    await subscription.unlisten();
+    const closedMarker = Promise.withResolvers<void>();
+    const witness = await writer.listen('daisy_work', () =>
+      closedMarker.resolve(),
+    );
+    try {
+      await listener`select pg_notify(${WORK_CHANNEL}, 'round')`;
+      await closedMarker.promise;
+    } finally {
+      await witness.unlisten();
+    }
+    assert({
+      given: 'known and unknown work payloads before and after unlisten',
+      should: 'deliver only the known kinds once while the listener is active',
+      actual: { kinds, listens },
+      expected: { kinds: ['judging', 'round', 'analysis'], listens: 1 },
     });
   } finally {
     await subscription.unlisten();

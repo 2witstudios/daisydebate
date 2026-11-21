@@ -39,7 +39,6 @@ async function readPurchase(
     case 'cleanup':
       throw createAppError('AUTHORIZATION');
     case 'create':
-      if (claimId === null) throw createAppError('CONFLICT');
       return input.vendor.create(purchase, claimId);
     case 'retrieve':
       return input.vendor.retrieve(purchase);
@@ -78,7 +77,7 @@ async function recordPurchase(
     case 'refuse':
       throw createAppError('CONFLICT');
     case 'unknown':
-      if (work === 'create' && claimId !== null)
+      if (work === 'create')
         await store.record(subject, purchase.id, { kind: 'unknown', claimId });
       return pending;
     case 'searched':

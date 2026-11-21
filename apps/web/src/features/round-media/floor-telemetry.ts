@@ -142,7 +142,7 @@ export function observeFloor(input: MediaOperationInput) {
           const pass = onRoom(room);
           if (!pass) return;
           pass.permissionWrites += 1;
-          const publish = grants.publish ?? [];
+          const publish = grants.publish;
           if (
             pass.dueAtMs !== null &&
             movesFloor(pass.seen.get(identity), publish)

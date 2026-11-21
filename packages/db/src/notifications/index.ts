@@ -1,10 +1,10 @@
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type { DatabaseEventSink } from '../instrumented';
 import { notificationDigestOperations } from './digests';
 import { notificationInboxOperations } from './inbox';
 import { notificationPreferenceOperations } from './preferences';
 import { notificationPresentationOperations } from './presentation';
 import { watchNotificationOperations } from './watch-fanout';
+import type { TxSource } from '../tx';
 
 export {
   type NotificationDigestDelivery,
@@ -19,7 +19,7 @@ export { notificationPrivacyAdopter } from './privacy';
  * presentation, Watch's fan-out and the batched email.
  */
 export const notificationOperations = (deps: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
   ...watchNotificationOperations(deps),

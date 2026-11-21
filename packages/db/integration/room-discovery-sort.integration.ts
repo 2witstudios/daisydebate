@@ -1,5 +1,8 @@
 import { requireTestServices } from '@daisy/config';
+import { assertRejects } from '@daisy/errors/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { finishedOrBlockedBehind } from '../src/testing';
+import { createAuthorizationSubject } from './authorization.test-support';
 import { withDiscoveryFixture } from './room-discovery.test-support';
 
 requireTestServices(process.env);
@@ -65,3 +68,65 @@ for (const sort of ['longest-waiting', 'newest'] as const)
         });
       },
     ));
+
+test('discovery never continues from a Room made unlisted during its lock wait', async () =>
+  withDiscoveryFixture(async ({ f, formatId, token, nextId, list }) => {
+    const host = await createAuthorizationSubject(f);
+    const first = nextId();
+    const second = nextId();
+    const third = nextId();
+    for (const [index, id] of [first, second, third].entries())
+      await f.room(host.actorId, formatId, {
+        id,
+        title: token,
+        topic: token,
+        created_at: new Date(Date.UTC(2026, 0, 1, 0, index)),
+      });
+    const read = () => list({ sort: 'longest-waiting', q: token, pageSize: 2 });
+    const changeWhileReading = async (ids: readonly string[]) => {
+      let pending: ReturnType<typeof read> | undefined;
+      try {
+        await f.sql.begin(async (writer) => {
+          const [{ pid }] = await writer`select pg_backend_pid() as pid`;
+          for (const id of ids)
+            await writer`update rooms set visibility = 'unlisted' where id = ${id}`;
+          pending = read();
+          assert({
+            given: 'the visibility change is still uncommitted',
+            should: 'block the page read behind the Room writer',
+            actual: await finishedOrBlockedBehind(pending, f.sql, pid, {
+              now: Date.now,
+            }),
+            expected: 'blocked',
+          });
+        });
+      } finally {
+        await pending?.catch(() => undefined);
+      }
+      if (!pending) throw new Error('Discovery did not start');
+      return pending;
+    };
+    const shorter = await changeWhileReading([second]);
+    await f.sql`update rooms set visibility = 'public' where id = ${second}`;
+    const empty = await changeWhileReading([first, second]);
+    assert({
+      given: 'one or both selected Rooms became inaccessible mid-read',
+      should:
+        'advance only from the last visible Room, or explicitly request a retry',
+      actual: [shorter, empty].map(({ rooms, nextCursor, retry }) => ({
+        ids: rooms.map(({ id }) => id),
+        nextCursor,
+        retry,
+      })),
+      expected: [
+        { ids: [first], nextCursor: first, retry: false },
+        { ids: [], nextCursor: null, retry: true },
+      ],
+    });
+    await assertRejects({
+      given: 'an oversized discovery request',
+      should: 'refuse it with validation',
+      actual: () => list({ pageSize: 51, q: token }),
+      code: 'VALIDATION',
+    });
+  }));

@@ -17,15 +17,14 @@ export function transactionSettlement(input: {
   readonly absent: boolean;
   readonly now: () => number;
 }): TransactionSettlement {
-  let markAbsent: () => void;
   let absent = input.absent;
-  const settled = new Promise<'backend-absent'>((resolve) => {
-    markAbsent = () => {
-      absent = true;
-      resolve('backend-absent');
-    };
-  });
-  if (absent) markAbsent!();
+  const { promise: settled, resolve } =
+    Promise.withResolvers<'backend-absent'>();
+  const markAbsent = () => {
+    absent = true;
+    resolve('backend-absent');
+  };
+  if (absent) markAbsent();
   let checking: Promise<boolean> | undefined;
   const verify = async () => {
     if (absent) return true;
@@ -44,7 +43,7 @@ export function transactionSettlement(input: {
         input.backend,
         remaining,
       );
-      if (confirmed) markAbsent!();
+      if (confirmed) markAbsent();
       return confirmed;
     } catch {
       return false;

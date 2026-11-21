@@ -611,9 +611,11 @@ async function listPreapprovals(
     ...(parsed.data.cursor === undefined ? {} : { cursor: parsed.data.cursor }),
   });
   const items = [...rows].slice(0, parsed.data.limit);
+  const last = items.at(-1);
   return preapprovalPageSchema.parse({
     items,
-    nextCursor: rows.length > parsed.data.limit ? items.at(-1)!.id : null,
+    nextCursor:
+      rows.length > parsed.data.limit && last !== undefined ? last.id : null,
   });
 }
 

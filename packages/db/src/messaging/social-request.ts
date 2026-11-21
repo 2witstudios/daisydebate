@@ -1,6 +1,6 @@
 import { invalidateMessagingInboxes } from './inbox-change';
-import { and, eq } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
+import { and, eq, sql } from 'drizzle-orm';
+import { z } from 'zod';
 import { createAppError } from '@daisy/errors';
 import { messagingChannels } from '../schema/messaging-channels';
 import {
@@ -17,10 +17,9 @@ import { openStream } from './stream';
 import type { ContactInput } from '../contacts/fence';
 import type { MessagingSocialFrame } from './social-contracts';
 import type { ContactReactions } from '../contacts/reactions';
+import type { Tx } from '../tx';
 import { oweNotifications, resurfaceNotifications } from '../notifications/owe';
-import { rowsOf } from '../raw-rows';
-import { sql } from 'drizzle-orm';
-type Tx = Pick<BunSQLDatabase, 'select' | 'insert' | 'update' | 'execute'>;
+import { query } from '../raw-rows';
 type Pair = typeof contactPairs.$inferSelect;
 
 /** Pair fence is already held; all counts share the initiating account fence. */
@@ -146,8 +145,9 @@ export function dmRequestFrame(
       await record();
       // The recipient hears of it in-app (and in their digest) in the same
       // transaction; the introduction itself stays in Messages (decision 90).
-      const recipients = await rowsOf<{ user_id: string }>(
+      const recipients = await query(
         tx,
+        z.object({ user_id: z.string() }),
         sql`select user_id from actors where id=${counterpartOf(input)} and user_id is not null`,
       );
       const owed = {

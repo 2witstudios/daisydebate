@@ -499,6 +499,98 @@ describe('a switch over a union names every member', () => {
   });
 });
 
+describe('a check the type already answers is refused', () => {
+  const filePath = 'packages/protocol/src/assert-never.ts';
+  const rule = '@typescript-eslint/no-unnecessary-condition';
+  const problems = async (source: string) => {
+    const [result] = await typedRepositoryEslint().lintText(source, {
+      filePath,
+    });
+    return result!.messages.filter(({ ruleId }) => ruleId === rule).length;
+  };
+  test('a dead check fails and a live one passes', async () => {
+    assert({
+      given:
+        'a string checked for null, a fallback for a value that cannot be missing, and an optional value checked',
+      should: 'report the two the type already answers',
+      actual: [
+        await problems(
+          "export const name = (value: string): string => (value === null ? 'none' : value);",
+        ),
+        await problems(
+          "export const name = (value: string): string => value ?? 'none';",
+        ),
+        await problems(
+          "export const name = (value?: string): string => value ?? 'none';",
+        ),
+      ],
+      expected: [1, 1, 0],
+    });
+  });
+  test('packages/db/src is outside the rule until recon-db-boundary', async () => {
+    const [result] = await typedRepositoryEslint().lintText(
+      "export const name = (value: string): string => value ?? 'none';",
+      { filePath: 'packages/db/src/index.ts' },
+    );
+    assert({
+      given: 'a dead fallback in the database package',
+      should: 'not report it',
+      actual: result!.messages.filter(({ ruleId }) => ruleId === rule).length,
+      expected: 0,
+    });
+  });
+});
+
+describe('a non-null assertion is refused except on an index', () => {
+  const rule = 'daisy/no-non-null-assertion';
+  const count = async (source: string, filePath: string) => {
+    const [result] = await repositoryEslint().lintText(source, { filePath });
+    return result!.messages.filter(({ ruleId }) => ruleId === rule).length;
+  };
+  const source = (expression: string) =>
+    `declare const value: string | undefined;
+     declare const record: { name?: string };
+     declare const names: Map<string, string>;
+     declare const find: () => string | undefined;
+     declare const list: readonly string[];
+     declare const index: number;
+     export const read = (): string => ${expression};`;
+  test('value, named property and call assertions fail; array index assertions pass', async () => {
+    const path = 'packages/protocol/src/x.ts';
+    assert({
+      given:
+        'assertions on a value, a named property with or without type syntax, a map read, a call, and array indices',
+      should: 'report the value, property and call assertions',
+      actual: [
+        await count(source('value!'), path),
+        await count(source('record.name!'), path),
+        await count(source("record['name']!"), path),
+        await count(source('record[`name`]!'), path),
+        await count(source("record['name' as const]!"), path),
+        await count(source("record['name' satisfies string]!"), path),
+        await count(source("names.get('a')!"), path),
+        await count(source('find()!'), path),
+        await count(source('list[index]!'), path),
+        await count(source('list[0]!'), path),
+        await count(source('list[0 as const]!'), path),
+      ],
+      expected: [1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0],
+    });
+  });
+  test('the rule covers app and package source; tests and packages/db/src are outside it', async () => {
+    assert({
+      given: 'value! in app source, a test file and the database package',
+      should: 'report it in app source only',
+      actual: [
+        await count(source('value!'), web('x.tsx')),
+        await count(source('value!'), 'packages/protocol/src/x.test.ts'),
+        await count(source('value!'), 'packages/db/src/x.ts'),
+      ],
+      expected: [1, 0, 0],
+    });
+  });
+});
+
 describe('unit tests run on virtual time (ADR 0164)', () => {
   const sleeps = async (code: string, filePath: string) => {
     const [result] = await repositoryEslint().lintText(code, { filePath });
@@ -564,6 +656,50 @@ describe('unit tests run on virtual time (ADR 0164)', () => {
         e2e: 0,
         production: 0,
       },
+    });
+  });
+});
+
+describe('database statement and lock boundaries', () => {
+  test('reserves each raw database form for its owning module', async () => {
+    const db = 'packages/db/src';
+    const boundaryCases = [
+      [
+        'tx.ts',
+        "import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres'; export type Database = BunSQLDatabase;",
+      ],
+      [
+        'tx.ts',
+        "export type Database = import('drizzle-orm/bun-sql/postgres').BunSQLDatabase;",
+      ],
+      [
+        'tx.ts',
+        "import type * as Driver from 'drizzle-orm/bun-sql/postgres'; export type Database = Driver.BunSQLDatabase;",
+      ],
+      ['tx.ts', 'connection.transaction(work);'],
+      ['tx.ts', "connection['transaction'](work);"],
+      ['raw-rows.ts', 'connection.execute(statement);'],
+      ['raw-rows.ts', "connection['execute'](statement);"],
+      ['raw-rows.ts', 'export const rows = result as unknown as Row[];'],
+      [
+        'locks.ts',
+        'export const statement = sql`select PG_TRY_ADVISORY_LOCK(1)`;',
+      ],
+      ['locks.ts', "export const statement = 'pg_advisory_unlock';"],
+      ['locks.ts', 'export const probe = /pg_advisory_lock/;'],
+    ] as const;
+    const cases: Problems[] = boundaryCases.flatMap(([home, code]) => [
+      [code, `${db}/feature/probe.ts`, 1],
+      [code, `${db}/${home}`, 0],
+      [code, 'packages/db/integration/probe.integration.ts', 0],
+    ]);
+    const { actual, expected } = table(cases);
+    assert({
+      given:
+        'each direct DB form in a feature, its owning module, and an integration suite',
+      should: 'require the owning boundary within DB source',
+      actual: await actual,
+      expected,
     });
   });
 });

@@ -3,7 +3,14 @@ import { drizzle } from 'drizzle-orm/bun-sql';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { createAppError } from '@daisy/errors';
+import { assertRejects } from '@daisy/errors/testing';
 import { createMessagingStore } from '../src/messaging';
+import {
+  castChanged,
+  createMessagingChannelAuthority,
+  restartingRead,
+  withLockedMessagingAuthority,
+} from '../src/messaging/authority-frame';
 import { createMessagingTestFixture } from '../src/testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { sqlStateOf, withFixture } from './constraint-helpers';
@@ -50,6 +57,125 @@ const readAccounts = (actorId: string) => (sql: SQL) =>
   sql`select * from public.daisy_authorization_read_accounts_v2(array[${actorId}]::text[])`;
 const lockAccounts = (actorId: string) => (sql: SQL) =>
   sql`select * from public.daisy_authorization_accounts_v2(array[${actorId}]::text[], null::text, true)`;
+
+test('the minimal DM authority frame binds the consumer after ordered real fences', async () => {
+  const client = new SQL(url);
+  const fixture = await createMessagingTestFixture(client);
+  const extra = await createMessagingTestFixture(client);
+  const statements: string[] = [];
+  const db = drizzle({
+    client,
+    logger: { logQuery: (query) => statements.push(query) },
+  });
+  const { actorId, userId, channelId } = fixture;
+  const scope = { actorId, userId, channelId };
+  const read = createMessagingChannelAuthority(db);
+  const word = (text: string) =>
+    text === 'extension'
+      ? 'extension'
+      : text.includes('jsonb_build_object')
+        ? 'fact'
+        : /daisy_authorization_(read_)?accounts/.test(text)
+          ? 'accounts'
+          : text.includes('daisy_messaging_channel_')
+            ? 'channel'
+            : null;
+  const steps = () => statements.splice(0).map(word).filter(Boolean);
+  try {
+    const minimal = await read(scope, async (frame) => ({
+      exact: frame.fact.channelId === channelId,
+      fields: Object.keys(frame).sort(),
+      content: statements.some((text) =>
+        /messaging_messages|\btitle\b/i.test(text),
+      ),
+    }));
+    const readSteps = steps();
+    const extended = await db.transaction((tx) =>
+      withLockedMessagingAuthority(
+        tx,
+        scope,
+        async (frame) => frame.tx === tx,
+        {
+          additionalActors: [extra.actorId],
+          beforeChannel: async (frame) => {
+            if (
+              frame.tx !== tx ||
+              !frame.accounts.some((row) => row?.actorId === extra.actorId)
+            )
+              throw new Error(
+                'The extension did not receive the current account fences',
+              );
+            statements.push('extension');
+          },
+        },
+      ),
+    );
+    assert({
+      given:
+        'the shareable DM read and an extended write over the same durable cast',
+      should:
+        'read only authority and run the extension after account locks and before the channel',
+      actual: [minimal, readSteps, extended, steps()],
+      expected: [
+        { exact: true, fields: ['accounts', 'fact', 'tx'], content: false },
+        ['fact', 'accounts', 'channel', 'fact'],
+        true,
+        ['fact', 'accounts', 'extension', 'channel', 'fact'],
+      ],
+    });
+    await assertRejects({
+      given: 'a well-formed but missing channel',
+      should: 'refuse before calling the consumer',
+      actual: () =>
+        read({ ...scope, channelId: createId() }, async () => {
+          throw new Error('Missing channel reached the consumer');
+        }),
+      code: 'NOT_FOUND',
+    });
+  } finally {
+    await extra.cleanup();
+    await fixture.cleanup();
+    await client.close();
+  }
+});
+
+test('the read retry opens fresh PostgreSQL transactions only for cast change', async () => {
+  const client = new SQL(url, { max: 1 });
+  const db = drizzle({ client });
+  try {
+    const attempts = async (failure: (attempt: number) => Error | null) => {
+      let reads = 0;
+      const answer = await restartingRead(db, async () => {
+        const refusal = failure(++reads);
+        if (refusal) throw refusal;
+        return 'fresh';
+      }).catch((error: { code?: string }) => error.code);
+      return { answer, reads };
+    };
+    assert({
+      given:
+        'a wrapped cast change, an unrelated conflict and a persistently moving cast',
+      should:
+        'retry a cast change at most twice and report the unrelated failure at once',
+      actual: [
+        await attempts((n) =>
+          n === 1
+            ? new Error('driver wrapper', { cause: castChanged() })
+            : null,
+        ),
+        await attempts(() => createAppError('CONFLICT')),
+        await attempts(castChanged),
+      ],
+      expected: [
+        { answer: 'fresh', reads: 2 },
+        { answer: 'CONFLICT', reads: 1 },
+        { answer: 'INFRASTRUCTURE', reads: 3 },
+      ],
+    });
+  } finally {
+    await client.close();
+  }
+});
 
 describe('read-compatible authority fences (MSG-2.1-arch1)', () => {
   test('two readers of one account pass the fence together; a writer waits for them', async () => {

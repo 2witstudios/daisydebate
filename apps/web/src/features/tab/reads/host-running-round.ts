@@ -25,7 +25,8 @@ export function hostRunningRoundView(
       !loaded.results.some((other) => other.supersedesResultId === row.id),
   );
   const fixtures = ids.map((fixtureId): TabRoundFixture => {
-    const fixture = loaded.fixtures.find((row) => row.id === fixtureId)!;
+    const fixture = loaded.fixtures.find((row) => row.id === fixtureId);
+    if (!fixture) throw createAppError('INVARIANT', 'Draw fixture is missing');
     const native = loaded.roomRounds.find(
       (row) => row.roomId === fixture.roomId,
     );
@@ -34,16 +35,20 @@ export function hostRunningRoundView(
     const entries = loaded.fixtureEntries
       .filter((row) => row.fixtureId === fixtureId)
       .sort((a, b) => a.position - b.position)
-      .map((row) => ({
-        entryId: row.entryId,
-        name: loaded.entries.find((entry) => entry.id === row.entryId)!.name,
-      }));
+      .map((row) => {
+        const entry = loaded.entries.find((one) => one.id === row.entryId);
+        if (!entry)
+          throw createAppError('INVARIANT', 'Fixture entry is missing');
+        return { entryId: row.entryId, name: entry.name };
+      });
     const judges = loaded.fixtureJudges
       .filter((row) => row.fixtureId === fixtureId)
       .map((row) => {
         const judge = loaded.judges.find(
           (judge) => judge.id === row.tournamentJudgeId,
-        )!;
+        );
+        if (!judge)
+          throw createAppError('INVARIANT', 'Fixture judge is missing');
         return {
           tournamentJudgeId: judge.id,
           name:

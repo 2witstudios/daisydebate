@@ -6,20 +6,17 @@ import {
 } from '@daisy/protocol';
 import { usageStateSchema } from '@daisy/protocol/billing';
 import { and, eq } from 'drizzle-orm';
-import type { BoundedTransactionContext } from './transaction-context';
 import type { AnalysisSeat } from './round-analysis-authority';
 import { usageReservations } from './schema/usage-reservations';
 import { advanceUsageLocked } from './usage-ledger';
+import type { Tx } from './tx';
 
 type AccountingInput = AnalysisSeat & {
   readonly actorId: string;
   readonly erased: boolean;
   readonly work: AnalysisWork;
 };
-async function reservation(
-  tx: BoundedTransactionContext,
-  input: AccountingInput,
-) {
+async function reservation(tx: Tx, input: AccountingInput) {
   const request = analysisRequest(input.work);
   if (!request) return null;
   const [row] = await tx
@@ -40,7 +37,7 @@ async function reservation(
 }
 /** The feature's first durable dispatch and the one ledger's count commit together. */
 export async function countAnalysisDispatch(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   input: AccountingInput & { readonly before: string },
 ) {
   const row = await reservation(tx, input);
@@ -54,10 +51,7 @@ export async function countAnalysisDispatch(
   });
 }
 /** Late provider facts resolve exposure, never recreate erased accounting or new allowance. */
-export async function settleAnalysisUsage(
-  tx: BoundedTransactionContext,
-  input: AccountingInput,
-) {
+export async function settleAnalysisUsage(tx: Tx, input: AccountingInput) {
   const outcome = analysisUsageOutcome(input.work);
   if (outcome === 'pending') return;
   const row = await reservation(tx, input);

@@ -9,15 +9,15 @@ import {
   lockCaptureRound,
   type CaptureDependencies,
   type CaptureIdentity,
-  type CaptureTx,
 } from './media-capture-context';
 import { mediaSessions } from './schema/media-sessions';
 import { mediaVendorMutations } from './schema/media-vendor-mutations';
 import { rounds } from './schema/rounds';
+import type { Tx } from './tx';
 
 /** Internal lease witness only; the broker still authenticates its calling worker. */
 export async function verifyMediaWorkerLease(
-  tx: CaptureTx,
+  tx: Tx,
   input: CaptureIdentity,
   dependencies: CaptureDependencies,
   purpose: 'recover' | 'mint',

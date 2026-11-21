@@ -7,13 +7,17 @@ import { lockAgentAccounting, validAgentCounter } from './agent-accounting';
 import { agentRuns } from './schema/agent-runs';
 import { roundJudgingAttempts } from './schema/round-judging-jobs';
 import { settleCasualJudgeUsageLocked } from './casual-judge-usage';
+import { run as runStatement } from './raw-rows';
 
 /** Known response counters survive parse/lease/lifecycle rejection without granting result authority. */
 export function recordJudgingUsage(
   run: BoundedTransaction,
   scope: JudgingScope,
   token: string,
-  usage: { readonly inputTokens: number; readonly outputTokens: number },
+  usage:
+    | { readonly inputTokens: number; readonly outputTokens: number }
+    | null
+    | undefined,
 ) {
   if (!idSchema.safeParse(scope.roundId).success)
     throw createAppError('AUTHORIZATION');
@@ -25,7 +29,8 @@ export function recordJudgingUsage(
   return run(async (tx) => {
     // Accounting follows the live writer's Round -> run -> attempt -> usage order.
     // It intentionally does not reacquire current publication authority.
-    await tx.execute(
+    await runStatement(
+      tx,
       sql`select id from rounds where id=${scope.roundId} for no key update`,
     );
     const execution = await lockAgentAccounting(tx, {

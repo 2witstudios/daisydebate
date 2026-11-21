@@ -1,14 +1,12 @@
 import { and, asc, eq, isNotNull, isNull } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import { formats } from './schema/formats';
 import { formatRevisions } from './schema/format-revisions';
 import { formatPresets } from './schema/format-presets';
+import type { Tx } from './tx';
 
 /** Published selectable revisions and their actual approved current presets. */
-export const loadFormatCatalogue = async (
-  tx: Pick<BunSQLDatabase, 'select'>,
-) => {
+export const loadFormatCatalogue = async (tx: Tx) => {
   const rows = await tx
     .select({
       id: formats.id,

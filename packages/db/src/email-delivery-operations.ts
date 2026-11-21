@@ -1,4 +1,3 @@
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { and, eq, lt } from 'drizzle-orm';
 import type {
   EmailDeliveryStatus,
@@ -12,6 +11,7 @@ import {
 } from './schema/email-delivery';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { deleteExpiredBatch, type RetentionBatch } from './retention';
+import { inTransaction, type TxSource } from './tx';
 
 /**
  * The email area (ISSUE-8 AC1, ADR 0025): delivery ledger, suppressions and
@@ -21,7 +21,7 @@ export const emailDeliveryOperations = ({
   database,
   eventSink,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
   /**
@@ -126,7 +126,7 @@ export const emailDeliveryOperations = ({
     class UnknownMessage extends Error {}
     return instrumented(eventSink, 'applyEmailDeliveryEvent', async () => {
       try {
-        return await database.transaction(async (tx) => {
+        return await inTransaction(database, async (tx) => {
           const inserted = await tx
             .insert(emailDeliveryEvents)
             .values({

@@ -168,6 +168,20 @@ test('canonical source/storage migrations preserve a genuinely submitted and fin
         ),
     });
     const contribution = published?.panel[0]?.ballot;
+    const corrupt = await withRolledBackDatabase(scratch.url, {
+      seed: async (client) => {
+        await client`set local session_replication_role = replica`;
+        await client`update round_finalization_ballots set ballot_digest=${'0'.repeat(64)} where ballot_id=${ballotId}`;
+        await client`set local session_replication_role = origin`;
+      },
+      work: (database) =>
+        database.transaction((tx) =>
+          readRoundCompetitionSource(tx, {
+            roundId,
+            roomId: String(owner!.room_id),
+          }),
+        ),
+    });
     assert({
       given:
         'an actual ordinary finalized ballot whose original reason remains retained through migration',
@@ -182,6 +196,7 @@ test('canonical source/storage migrations preserve a genuinely submitted and fin
         JSON.stringify(contribution ?? null).includes('"reason"'),
         JSON.stringify(contribution ?? null).includes('"feedback"'),
         JSON.stringify(contribution ?? null).includes('"citations"'),
+        corrupt,
       ],
       expected: [
         ballotId,
@@ -190,6 +205,7 @@ test('canonical source/storage migrations preserve a genuinely submitted and fin
         false,
         false,
         false,
+        null,
       ],
     });
 

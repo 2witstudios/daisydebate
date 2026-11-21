@@ -73,7 +73,7 @@ export const everyPlan = (
   occupied: ReadonlySet<Id>,
   admissible: (c: Candidate) => boolean,
   visit: (chosen: readonly Candidate[]) => boolean,
-) => {
+): boolean => {
   const members = new Map(ctx.request.entries.map((e) => [e.id, e.members]));
   const prematched =
     ctx.request.settings['pairing.method'].preliminary.structure ===
@@ -106,17 +106,22 @@ export const everyPlan = (
     field.toPlace.length % 2 === 1 ? [...field.toPlace, null] : field.toPlace;
   const chosen: Candidate[] = [];
   const walk = (remaining: readonly (Id | null)[]): boolean => {
-    if (remaining.length === 0) return visit(chosen);
     const [first, ...rest] = remaining;
+    if (first === undefined) return visit(chosen);
     for (const partner of rest) {
       const others = rest.filter((v) => v !== partner);
+      // One vertex at most is the bye.
       const fixtures: Fixture[] =
-        first === null || partner === null
-          ? [{ kind: 'bye', entry: (first ?? partner)! }]
-          : [
-              { kind: 'pairing', sides: [first!, partner], panel: [] },
-              { kind: 'pairing', sides: [partner, first!], panel: [] },
-            ];
+        first === null
+          ? partner === null
+            ? []
+            : [{ kind: 'bye', entry: partner }]
+          : partner === null
+            ? [{ kind: 'bye', entry: first }]
+            : [
+                { kind: 'pairing', sides: [first, partner], panel: [] },
+                { kind: 'pairing', sides: [partner, first], panel: [] },
+              ];
       for (const fixture of fixtures) {
         const c = candidate(fixture);
         if (!admissible(c)) continue;
@@ -128,7 +133,7 @@ export const everyPlan = (
     }
     return false;
   };
-  walk(vertices);
+  return walk(vertices);
 };
 
 const compareVectors = (a: readonly number[], b: readonly number[]) => {
@@ -231,7 +236,8 @@ export const optimalityViolations = (
     }
   }
   const keepable = field.movable.filter((f) => keepableFixtures.has(f));
-  let best: number[] | null = null;
+  // The visit below lowers it; a holder keeps its type visible to the visit.
+  const search: { best: number[] | null } = { best: null };
   everyPlan(
     ctx,
     { ...field, movable: keepable },
@@ -245,10 +251,12 @@ export const optimalityViolations = (
         field.movable.length - chosen.filter((c) => c.reproduces).length,
         ...prefs,
       ];
-      if (best === null || compareVectors(vector, best) < 0) best = vector;
+      if (search.best === null || compareVectors(vector, search.best) < 0)
+        search.best = vector;
       return false;
     },
   );
+  const { best } = search;
   if (best === null) return [];
   const movable = movableIds(request);
   const prefs: number[] = [];

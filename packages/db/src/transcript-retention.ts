@@ -1,7 +1,9 @@
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { requireRetentionBounds, type RetentionBatch } from './retention';
 import { instrumented, type DatabaseEventSink } from './instrumented';
+import type { TxSource } from './tx';
+import { query } from './raw-rows';
+import { z } from 'zod';
 
 /**
  * Discards a validated pending judging response by ending its job 'failed',
@@ -27,14 +29,17 @@ export const transcriptRetention = ({
   database,
   eventSink,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
   /** A ranked Round's transcript is ranked content: its waiver keeps it, so no window does. */
   purgeExpiredUtterances: ({ before, limit }: RetentionBatch) =>
     instrumented(eventSink, 'purgeExpiredUtterances', async () => {
       requireRetentionBounds({ before, limit });
-      const gone = await database.execute(sql`
+      const gone = await query(
+        database,
+        z.object({ id: z.string() }),
+        sql`
         delete from utterances where id in (
           select u.id from utterances u
           join rounds r on r.id = u.round_id
@@ -42,13 +47,17 @@ export const transcriptRetention = ({
             and r.competition_type <> 'ranked'
           order by u.created_at
           limit ${limit}
-        ) returning id`);
-      return (gone as unknown as unknown[]).length;
+        ) returning id`,
+      );
+      return gone.length;
     }),
   clearExpiredPendingBallots: ({ before, limit }: RetentionBatch) =>
     instrumented(eventSink, 'clearExpiredPendingBallots', async () => {
       requireRetentionBounds({ before, limit });
-      const cleared = await database.execute(sql`
+      const cleared = await query(
+        database,
+        z.object({ round_id: z.string() }),
+        sql`
         update round_judging_jobs set ${discardPendingJudgment}
         where (round_id,judge_participant_id) in (
           select round_id,judge_participant_id from round_judging_jobs
@@ -56,14 +65,18 @@ export const transcriptRetention = ({
           order by pending_ballot_received_at
           limit ${limit}
           for update skip locked
-        ) returning round_id`);
-      return (cleared as unknown as unknown[]).length;
+        ) returning round_id`,
+      );
+      return cleared.length;
     }),
   /** Stage records follow ballot retention: 180 days from their receipt (DEC-393). */
   clearExpiredJudgingStages: ({ before, limit }: RetentionBatch) =>
     instrumented(eventSink, 'clearExpiredJudgingStages', async () => {
       requireRetentionBounds({ before, limit });
-      const cleared = await database.execute(sql`
+      const cleared = await query(
+        database,
+        z.object({ round_id: z.string() }),
+        sql`
         update round_judging_jobs set ${clearJudgingStages}
         where (round_id,judge_participant_id) in (
           select round_id,judge_participant_id from round_judging_jobs
@@ -71,7 +84,8 @@ export const transcriptRetention = ({
           order by least(first_ballot_received_at,case_map_received_at)
           limit ${limit}
           for update skip locked
-        ) returning round_id`);
-      return (cleared as unknown as unknown[]).length;
+        ) returning round_id`,
+      );
+      return cleared.length;
     }),
 });

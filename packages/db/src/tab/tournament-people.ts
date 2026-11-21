@@ -2,11 +2,8 @@ import { and, asc, eq, inArray } from 'drizzle-orm';
 import { actors } from '../schema/actors';
 import { entries, entryMembers } from '../schema/entries';
 import { tournamentJudges } from '../schema/tournament-judges';
-import type { TabTransaction } from './tab-transaction';
-export const namedTournamentPeople = async (
-  tx: TabTransaction,
-  lobbyId: string,
-) => {
+import type { Tx } from '../tx';
+export const namedTournamentPeople = async (tx: Tx, lobbyId: string) => {
   const members = await tx
     .select({ actorId: entryMembers.actorId })
     .from(entryMembers)

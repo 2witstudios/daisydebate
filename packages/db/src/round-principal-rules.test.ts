@@ -27,28 +27,26 @@ const scope: BotPublicationScope = {
   serviceId: 'agent-run:runaaaaaa1b2c3d4e5f6g7h8',
   publicationEpoch: 3,
 };
-type Claim = Parameters<typeof requireClaimScope>[0];
-type Run = Parameters<typeof requireRunScope>[0];
-const claim = (overrides: Record<string, unknown> = {}) =>
-  ({
-    publicationEpoch: 3,
-    agentRunId: scope.agentRunId,
+type Claim = NonNullable<Parameters<typeof requireClaimScope>[0]>;
+type Run = NonNullable<Parameters<typeof requireRunScope>[0]>;
+const claim = (overrides: Partial<Claim> = {}): Claim => ({
+  publicationEpoch: 3,
+  agentRunId: scope.agentRunId,
+  segmentId: scope.segmentId,
+  ...overrides,
+});
+const run = (overrides: Partial<Run> = {}): Run => ({
+  endedAt: null,
+  kind: 'speech',
+  configurationSnapshot: {
+    roundId: scope.roundId,
+    roundParticipantId: scope.roundParticipantId,
     segmentId: scope.segmentId,
-    ...overrides,
-  }) as unknown as Claim;
-const run = (overrides: Record<string, unknown> = {}) =>
-  ({
-    endedAt: null,
-    kind: 'speech',
-    configurationSnapshot: {
-      roundId: scope.roundId,
-      roundParticipantId: scope.roundParticipantId,
-      segmentId: scope.segmentId,
-      serviceId: scope.serviceId,
-      publicationEpoch: 3,
-    },
-    ...overrides,
-  }) as unknown as Run;
+    serviceId: scope.serviceId,
+    publicationEpoch: 3,
+  },
+  ...overrides,
+});
 
 test('a publication claim holds only for its exact epoch, run and segment', async () => {
   assert({
@@ -82,7 +80,7 @@ test('a publishing run must be a live speech or cross-ex run for this exact scop
     ],
     expected: [undefined, undefined],
   });
-  const snapshot = run()!.configurationSnapshot;
+  const snapshot = run().configurationSnapshot;
   for (const [label, candidate] of [
     ['no run', undefined],
     ['an ended run', run({ endedAt: new Date(0) })],
@@ -170,13 +168,7 @@ test('a human Round principal needs its own live member account', async () => {
     await assertRejects({
       given: label,
       should: 'refuse the human principal',
-      actual: () =>
-        requireHumanRoundPrincipal(
-          human,
-          accounts as unknown as Parameters<
-            typeof requireHumanRoundPrincipal
-          >[1],
-        ),
+      actual: () => requireHumanRoundPrincipal(human, accounts),
       code: 'AUTHORIZATION',
     });
 });

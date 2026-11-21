@@ -39,8 +39,9 @@ export function progressCleanupScan(
     value.turn === 'observations'
       ? advanceInvoiceIdentityDebt(value.invoiceDebt, {
           kind: 'observation-step',
-        })!
+        })
       : value.invoiceDebt;
+  if (invoiceDebt === null) return null;
   const turn = nextTurn(value.turn, scans, invoiceDebt);
   const retryAt = new Date(
     Date.parse(context.now) + cleanupBounds.progressMs,
@@ -102,10 +103,11 @@ function page(
   const before = value.scans[value.turn];
   if (before.kind !== 'page' || !validPage(event, before.afterId)) return null;
   const [first, ...rest] = event.ids;
+  const last = event.ids.at(-1);
   const scan: CleanupScan =
-    first === undefined
+    first === undefined || last === undefined
       ? { kind: 'complete' }
-      : selected(first, rest, event.ids.at(-1)!, event.more, value.turn);
+      : selected(first, rest, last, event.more, value.turn);
   return progressCleanupScan(value, scan, context);
 }
 function advanceSelected(

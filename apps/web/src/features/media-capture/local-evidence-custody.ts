@@ -302,21 +302,26 @@ export function openLocalEvidenceCustody(input: {
       if (current.authorityId !== realm) return refused('conflict');
       const candidates = db
         .transaction(() => {
-          let cursor = db
+          const stored = db
             .query<
               { after_sequence: number; through_sequence: number | null },
               []
             >(
               'SELECT after_sequence,through_sequence FROM cleanup_cursor WHERE singleton=1',
             )
-            .get()!;
-          if (cursor.through_sequence === null) {
-            const { upper } = db
+            .get();
+          if (stored === null) throw createAppError('INFRASTRUCTURE');
+          let afterSequence = stored.after_sequence;
+          let through = stored.through_sequence;
+          if (through === null) {
+            const bound = db
               .query<{ upper: number }, []>(
                 'SELECT coalesce(max(sequence),0) as upper FROM material',
               )
-              .get()!;
-            cursor = { after_sequence: 0, through_sequence: upper };
+              .get();
+            if (bound === null) throw createAppError('INFRASTRUCTURE');
+            afterSequence = 0;
+            through = bound.upper;
           }
           const page = db
             .query<
@@ -325,16 +330,16 @@ export function openLocalEvidenceCustody(input: {
             >(
               'SELECT sequence,id,binding FROM material WHERE sequence>? AND sequence<=? ORDER BY sequence LIMIT ?',
             )
-            .all(cursor.after_sequence, cursor.through_sequence!, limit);
-          const after = page.at(-1)?.sequence ?? cursor.through_sequence!;
-          if (after >= cursor.through_sequence!)
+            .all(afterSequence, through, limit);
+          const after = page.at(-1)?.sequence ?? through;
+          if (after >= through)
             db.run(
               'UPDATE cleanup_cursor SET after_sequence=0,through_sequence=NULL WHERE singleton=1',
             );
           else
             db.query(
               'UPDATE cleanup_cursor SET after_sequence=?,through_sequence=? WHERE singleton=1',
-            ).run(after, cursor.through_sequence);
+            ).run(after, through);
           return page;
         })
         .immediate();

@@ -1,5 +1,4 @@
 import { and, desc, eq, inArray, sql, type SQL } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type { Ladder } from '@daisy/protocol';
 import { actors } from './schema/actors';
 import { botProfiles } from './schema/bot-profiles';
@@ -15,6 +14,7 @@ import {
   spectatorHorizonSql,
   type SpectatorClock,
 } from './spectator-release-sql';
+import { inTransaction, type TxSource } from './tx';
 
 const roundColumns = {
   id: rounds.id,
@@ -110,7 +110,7 @@ const afterCursor = (before: string, clock: SpectatorClock): SQL | undefined =>
 export const watchableRoundOfRoomRead = ({
   database,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
 }) => ({
   async readWatchableRoundOfRoom(
     roomId: string,
@@ -137,7 +137,7 @@ export const watchableRoundOfRoomRead = ({
 export const liveBroadcastReads = ({
   database,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
 }) => ({
   listLiveBroadcasts(input: {
     readonly filter: LiveBroadcastFilter;
@@ -147,7 +147,8 @@ export const liveBroadcastReads = ({
     /** Narrows to Rounds these debaters are seated in; an empty list finds none. */
     readonly seatedUsernames?: readonly string[];
   }) {
-    return database.transaction(
+    return inTransaction(
+      database,
       async (tx) => {
         const page = await tx
           .select({

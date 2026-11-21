@@ -13,7 +13,7 @@ import { organizations } from '../schema/organizations';
 import { templates, lobbyTemplates } from '../schema/templates';
 import { lobbies } from '../schema/lobbies';
 import { events } from '../schema/events';
-import type { TabTransaction } from './tab-transaction';
+import type { Tx } from '../tx';
 
 type ScopeColumns = {
   readonly scopeKind: SettingScope['kind'];
@@ -146,7 +146,7 @@ const matches = (where: ScopeColumns & { readonly key: SettingKey }) =>
       : eq(settings.eventId, where.eventId),
   );
 const applySetting = async (
-  tx: TabTransaction,
+  tx: Tx,
   write: Extract<SettingWrite, { table: 'settings' }>,
   newId: () => string,
 ) => {
@@ -177,7 +177,7 @@ const applySetting = async (
   );
 };
 const apply = async (
-  tx: TabTransaction,
+  tx: Tx,
   write: SettingWrite,
   newId: () => string,
 ): Promise<void> => {
@@ -262,7 +262,7 @@ const apply = async (
   }
 };
 export const applySettingWrites = async (
-  tx: TabTransaction,
+  tx: Tx,
   writes: readonly SettingWrite[],
   newId: () => string,
 ): Promise<void> => {

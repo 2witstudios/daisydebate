@@ -12,7 +12,6 @@ import type {
   RoundJudging,
   RoundOutcome,
   RoundParticipantSeat,
-  RoundRules,
 } from '@daisy/protocol';
 
 /**
@@ -140,7 +139,7 @@ export const ballotReceipt = (input: {
 export function requireRoundBallot(
   round: {
     readonly judging: RoundJudging;
-    readonly rules: Pick<RoundRules, 'sides' | 'segments'>;
+    readonly rules: Parameters<typeof ballotSubjectsFor>[0];
     readonly participants: readonly Pick<RoundParticipantSeat, 'id' | 'seat'>[];
   },
   ballot: unknown,

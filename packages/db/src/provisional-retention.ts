@@ -1,5 +1,4 @@
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { requireRetentionBounds, type RetentionBatch } from './retention';
 import {
@@ -7,6 +6,9 @@ import {
   purposePattern,
   type ProvisionalLinkPurposes,
 } from './provisional-cleanup';
+import { inTransaction, type TxSource } from './tx';
+import { query } from './raw-rows';
+import { z } from 'zod';
 
 /**
  * An abandoned sign-up as of `before` (ISSUE-660): no username, not erased,
@@ -54,7 +56,7 @@ export const provisionalRetentionOperations = ({
   database,
   eventSink,
 }: {
-  readonly database: Pick<BunSQLDatabase, 'transaction' | 'execute'>;
+  readonly database: TxSource;
   readonly eventSink: DatabaseEventSink | undefined;
 }) => ({
   async purgeExpiredProvisionalUsers(
@@ -63,22 +65,30 @@ export const provisionalRetentionOperations = ({
     requireRetentionBounds(input);
     const eligible = abandoned(input.before, input.signInPurpose);
     return instrumented(eventSink, 'purgeExpiredProvisionalUsers', async () => {
-      const candidates = (await database.execute(
+      const candidates = await query(
+        database,
+        z.object({ id: z.string() }),
         abandonedCandidatesRead(input),
-      )) as unknown as { id: string }[];
+      );
       let deleted = 0;
       for (const { id } of candidates)
-        deleted += await database.transaction(async (tx) => {
-          const [locked] = (await tx.execute(
+        deleted += await inTransaction(database, async (tx) => {
+          const [locked] = await query(
+            tx,
+            z.object({ id: z.string() }),
             sql`select id from users where id = ${id} for update skip locked`,
-          )) as unknown as { id: string }[];
+          );
           if (!locked) return 0;
-          const [user] = (await tx.execute(
+          const [user] = await query(
+            tx,
+            z.object({ id: z.string(), email: z.string().nullable() }),
             sql`select id, email from users where id = ${id} and (${eligible})`,
-          )) as unknown as { id: string; email: string | null }[];
+          );
           if (!user) return 0;
           await clearProvisionalLinks(tx, user, input);
-          const rows = await tx.execute(
+          const rows = await query(
+            tx,
+            z.object({ id: z.string() }),
             sql`delete from users where id = ${id} returning id`,
           );
           return rows.length;

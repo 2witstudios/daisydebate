@@ -14,6 +14,9 @@ import {
 import { createBoundedTransaction } from './bounded-transaction';
 import { scopeTransaction } from './tenant-scope';
 import { createLane } from './workload';
+import { inTransaction } from './tx';
+import { run as runStatement, query } from './raw-rows';
+import { z } from 'zod';
 
 /**
  * A club with a paid Club plan, for the browser suite (ADR 0148): the
@@ -41,12 +44,18 @@ export async function fundTestClub(
     now: performance.now,
   });
   const organizationId = createId();
-  await drizzle({ client }).transaction(async (tx) => {
+  await inTransaction(drizzle({ client }), async (tx) => {
     await scopeTransaction(tx, { organizationId });
-    await tx.execute(sql`insert into organizations (id, kind, name, handle, owner_user_id)
-      values (${organizationId}, 'school', ${input.name}, ${`club-${organizationId}`}, ${input.owner.userId})`);
-    await tx.execute(sql`insert into memberships (organization_id, user_id, status, joined_at)
-      values (${organizationId}, ${input.owner.userId}, 'active', now())`);
+    await runStatement(
+      tx,
+      sql`insert into organizations (id, kind, name, handle, owner_user_id)
+      values (${organizationId}, 'school', ${input.name}, ${`club-${organizationId}`}, ${input.owner.userId})`,
+    );
+    await runStatement(
+      tx,
+      sql`insert into memberships (organization_id, user_id, status, joined_at)
+      values (${organizationId}, ${input.owner.userId}, 'active', now())`,
+    );
   });
   const subject = { ...input.owner, organizationId };
   const purchases = createBillingPurchases({
@@ -73,14 +82,22 @@ export async function fundTestClub(
   });
   const [ids] = await run(async (tx) => {
     await scopeTransaction(tx, { organizationId });
-    return tx.execute(sql`select c.id as customer_id, s.id as subscription_id, now() as now
+    return query(
+      tx,
+      z.object({
+        customer_id: z.string(),
+        subscription_id: z.string(),
+        now: z.date(),
+      }),
+      sql`select c.id as customer_id, s.id as subscription_id, now() as now
       from billing_customers c join billing_subscriptions s
         on s.organization_id = c.organization_id and s.current
-      where c.organization_id = ${organizationId}`);
+      where c.organization_id = ${organizationId}`,
+    );
   });
   if (!ids)
     throw new Error('The test Club purchase established no subscription');
-  const now = Date.parse(new Date(ids.now as string | Date).toISOString());
+  const now = ids.now.getTime();
   await createBillingInbox({ run, nextId: createId })({
     eventId: `evt_${createId()}`,
     customerId: vendorCustomerId,

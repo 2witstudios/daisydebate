@@ -136,3 +136,66 @@ test('an event for an unrecorded message is retryable and leaves no dedupe row',
     await cleanup([messageId], []);
   }
 });
+
+test('permission failures report only the safe delivery operation names', async () => {
+  const client = new SQL(url, { max: 1 });
+  const telemetry: unknown[] = [];
+  const database = createDatabase({
+    url,
+    client,
+    nextActorId: createId,
+    eventSink: (event, fields, message) =>
+      telemetry.push({ event, fields, message }),
+  });
+  const marker = createId();
+  try {
+    await client`set role daisy_realtime`;
+    const denied = (work: Promise<unknown>) =>
+      work.then(
+        () => 'resolved',
+        (error: Error) => Reflect.get(error.cause ?? error, 'errno'),
+      );
+    const failures = [
+      await denied(
+        database.recordEmailDelivery({
+          providerMessageId: marker,
+          recipientHash: marker,
+          at,
+        }),
+      ),
+      await denied(database.isRecipientSuppressed(marker)),
+      await denied(
+        database.applyEmailDeliveryEvent({
+          eventId: marker,
+          providerMessageId: marker,
+          status: 'bounced',
+          rank: 5,
+          suppress: 'bounce',
+          at,
+        }),
+      ),
+    ];
+    assert({
+      given: 'three real ledger queries made by a role without access',
+      should:
+        'propagate PostgreSQL’s permission error and report only each operation',
+      actual: [failures, telemetry],
+      expected: [
+        ['42501', '42501', '42501'],
+        [
+          'recordEmailDelivery',
+          'isRecipientSuppressed',
+          'applyEmailDeliveryEvent',
+        ].map((operation) => ({
+          event: 'db.query.failed',
+          fields: { operation },
+          message: 'Database query failed',
+        })),
+      ],
+    });
+  } finally {
+    await client`reset role`;
+    await database.close();
+    await client.close();
+  }
+});

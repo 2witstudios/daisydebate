@@ -25,7 +25,6 @@ import type { BoundedTransaction } from './bounded-transaction';
 import { readDatabaseTime } from './database-clock';
 import { oweNotifications } from './notifications/owe';
 import { scopeTransaction } from './tenant-scope';
-import type { BoundedTransactionContext } from './transaction-context';
 import { readLinkedAdultUserIds } from './youth-recording-people';
 
 import {
@@ -38,10 +37,10 @@ import {
   readDivisionOf,
   readReleasesOf,
   readRequestsOf,
-  rows,
 } from './media-release-records';
-
-type Tx = BoundedTransactionContext;
+import type { Tx } from './tx';
+import { run as runStatement, query } from './raw-rows';
+import { z } from 'zod';
 
 /** What a minor's Settings section reads. */
 export type MinorReleaseRead = {
@@ -90,7 +89,8 @@ export function createMediaReleases(input: {
     // The minor's account row orders every command about them; a page's
     // read takes no lock, so a link scanner never waits on a command.
     if (lock)
-      await tx.execute(
+      await runStatement(
+        tx,
         sql`select 1 from users where id = ${userId} for update`,
       );
     const releases = await readReleasesOf(tx, [userId], lock);
@@ -115,21 +115,23 @@ export function createMediaReleases(input: {
     lock = true,
   ) {
     if (!digestPattern.test(digest)) return null;
-    const [link] = await rows<{
-      id: string;
-      purpose: ReleaseLinkPurpose;
-      request_id: string;
-      expires_at: Date | string;
-      consumed_at: Date | string | null;
-    }>(
+    const [link] = await query(
       tx,
+      z.object({
+        id: z.string(),
+        purpose: z.enum(['sign', 'manage']),
+        request_id: z.string(),
+        expires_at: z.union([z.string(), z.date()]),
+        consumed_at: z.union([z.string(), z.date()]).nullable(),
+      }),
       sql`select id, purpose, request_id, expires_at, consumed_at
         from media_release_links where token_digest = ${digest}
         ${lock ? sql`for update` : sql``}`,
     );
     if (link === undefined) return null;
-    const [owner] = await rows<{ user_id: string }>(
+    const [owner] = await query(
       tx,
+      z.object({ user_id: z.string() }),
       sql`select user_id from media_release_requests where id = ${link.request_id}`,
     );
     if (owner === undefined) return null;
@@ -157,7 +159,8 @@ export function createMediaReleases(input: {
   }
 
   const consume = (tx: Tx, linkId: string) =>
-    tx.execute(
+    runStatement(
+      tx,
       sql`update media_release_links set consumed_at = clock_timestamp() where id = ${linkId}`,
     );
 
@@ -166,7 +169,8 @@ export function createMediaReleases(input: {
     requestId: string,
     outcome: NonNullable<ReleaseRequest['outcome']>,
   ) =>
-    tx.execute(
+    runStatement(
+      tx,
       sql`update media_release_requests set outcome = ${outcome},
           resolved_at = clock_timestamp()
         where id = ${requestId} and outcome is null`,
@@ -189,12 +193,13 @@ export function createMediaReleases(input: {
         const releases = await readReleasesOf(tx, [userId], false);
         const requests = await readRequestsOf(tx, userId, false);
         await scopeTransaction(tx, { subjectUserId: userId });
-        const clubs = await rows<{
-          id: string;
-          name: string;
-          asked_at: Date | string | null;
-        }>(
+        const clubs = await query(
           tx,
+          z.object({
+            id: z.string(),
+            name: z.string(),
+            asked_at: z.union([z.string(), z.date()]).nullable(),
+          }),
           sql`select o.id, o.name,
               (select max(k.asked_at) from media_release_club_asks k
                 where k.organization_id = o.id and k.user_id = ${userId}
@@ -235,8 +240,9 @@ export function createMediaReleases(input: {
       run(async (tx) => {
         const now = await readDatabaseTime(tx);
         const facts = await minorFacts(tx, command.userId, now);
-        const [stopped] = await rows<{ n: number }>(
+        const [stopped] = await query(
           tx,
+          z.object({ n: z.number() }),
           sql`select count(*)::int as n from media_release_stops
             where recipient_hash = ${command.recipientHash}`,
         );
@@ -264,7 +270,8 @@ export function createMediaReleases(input: {
               : 'expired',
           );
         const requestId = nextId();
-        await tx.execute(
+        await runStatement(
+          tx,
           sql`insert into media_release_requests (id, user_id, recipient_email,
               recipient_hash, requested_at, expires_at, sends, last_sent_at)
             values (${requestId}, ${command.userId}, ${decision.recipientEmail},
@@ -309,7 +316,8 @@ export function createMediaReleases(input: {
         const request = facts.standing.request;
         const decision = decideResend(request, now.getTime());
         if (!decision.ok) return { kind: 'refused', reason: decision.refusal };
-        await tx.execute(
+        await runStatement(
+          tx,
           sql`update media_release_requests set sends = sends + 1,
               last_sent_at = ${now.toISOString()} where id = ${request.id}`,
         );
@@ -342,8 +350,9 @@ export function createMediaReleases(input: {
       run(async (tx) => {
         const facts = await linkFacts(tx, digest, purpose, false);
         if (facts === null) return { kind: 'unknown' };
-        const [minor] = await rows<{ username: string | null }>(
+        const [minor] = await query(
           tx,
+          z.object({ username: z.string().nullable() }),
           sql`select username from users where id = ${facts.request.subjectUserId}
             and deleted_at is null`,
         );
@@ -448,7 +457,8 @@ export function createMediaReleases(input: {
           return { kind: 'refused', reason: facts.verdict };
         const decision = decideWithdrawal(facts.held, form);
         if (!decision.ok) return { kind: 'refused', reason: decision.refusal };
-        await tx.execute(
+        await runStatement(
+          tx,
           sql`update media_releases set withdrawn_at = clock_timestamp(),
               withdrawn_by = 'parent', withdrawal_note = ${decision.note}
             where id in ${sql`(${sql.join(
@@ -458,13 +468,11 @@ export function createMediaReleases(input: {
         );
         await consume(tx, facts.linkId);
         const userId = facts.request.subjectUserId;
-        const whole =
-          facts.held.publish !== null &&
-          decision.withdraw.includes(facts.held.publish.id);
-        if (whole) {
+        const publish = facts.held.publish;
+        if (publish && decision.withdraw.includes(publish.id)) {
           await oweNotifications(tx, {
             kind: 'media_release_withdrawn',
-            subject: { media_release_id: facts.held.publish!.id },
+            subject: { media_release_id: publish.id },
             recipients: await withdrawnRecipients(tx, userId),
             at: facts.now.toISOString(),
             nextId,
@@ -490,7 +498,8 @@ export function createMediaReleases(input: {
           return { kind: 'refused', reason: facts.verdict };
         const decision = decidePaidAdsChange(facts.held, allow);
         if (!decision.ok) return { kind: 'refused', reason: decision.refusal };
-        const publish = facts.held.publish!;
+        const publish = facts.held.publish;
+        if (!publish) throw createAppError('INVARIANT');
         if (decision.change === 'grant') {
           const signer = publish.attestation;
           if (signer.kind !== 'parent') throw createAppError('INVARIANT');
@@ -508,7 +517,8 @@ export function createMediaReleases(input: {
             now: facts.now,
           });
         } else {
-          await tx.execute(
+          await runStatement(
+            tx,
             sql`update media_releases set withdrawn_at = clock_timestamp(),
                 withdrawn_by = 'parent' where id = ${decision.releaseId}`,
           );
@@ -537,15 +547,17 @@ export function createMediaReleases(input: {
         const found =
           by.kind === 'link'
             ? digestPattern.test(by.digest)
-              ? await rows<{ request_id: string }>(
+              ? await query(
                   tx,
+                  z.object({ request_id: z.string() }),
                   sql`select l.request_id from media_release_links l
                     join media_release_requests q on q.id = l.request_id
                     where l.token_digest = ${by.digest} and q.outcome = 'signed'`,
                 )
               : []
-            : await rows<{ request_id: string }>(
+            : await query(
                 tx,
+                z.object({ request_id: z.string() }),
                 sql`select distinct r.request_id from media_releases r
                   where r.signer_email = ${by.email} and r.source = 'parent'
                     and r.withdrawn_at is null and r.request_id is not null
@@ -553,8 +565,9 @@ export function createMediaReleases(input: {
               );
         for (const { request_id: requestId } of found) {
           // At most one manage-link mail an hour per request.
-          const [recent] = await rows<{ n: number }>(
+          const [recent] = await query(
             tx,
+            z.object({ n: z.number() }),
             sql`select count(*)::int as n from media_release_mails
               where request_id = ${requestId} and kind = 'manage_link'
                 and created_at > clock_timestamp() - interval '1 hour'`,
@@ -572,12 +585,14 @@ export function createMediaReleases(input: {
     /** "Don't send me release requests": the address's keyed hash is kept. */
     stopRequests: (recipientHash: string): Promise<void> =>
       run(async (tx) => {
-        await tx.execute(
+        await runStatement(
+          tx,
           sql`insert into media_release_stops (recipient_hash) values (${recipientHash})
             on conflict do nothing`,
         );
         // Its open requests end now, so no reminder or resend reaches it.
-        await tx.execute(
+        await runStatement(
+          tx,
           sql`update media_release_requests set outcome = 'stopped',
               resolved_at = clock_timestamp()
             where recipient_hash = ${recipientHash} and outcome is null`,

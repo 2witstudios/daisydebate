@@ -19,11 +19,7 @@ function policyRevisionsMatch(
       (authority.kind === 'dm' ? authority.revision : authority.generation)
   );
 }
-function policyTimeCurrent(
-  policy: SocialPolicyEvidence,
-  now: string | undefined,
-) {
-  if (now === undefined) return false;
+function policyTimeCurrent(policy: SocialPolicyEvidence, now: string) {
   const instant = Date.parse(now),
     observed = Date.parse(policy.evaluatedAt),
     expiry = Date.parse(policy.validUntil);
@@ -63,6 +59,7 @@ function policyAccountsCurrent(
   resource: ChannelAuthorizationFact,
   policy: SocialPolicyEvidence,
   context: AuthorizationInput['context'],
+  now: string,
   posting: boolean,
 ) {
   const accounts = context.socialAccounts;
@@ -84,7 +81,7 @@ function policyAccountsCurrent(
     return (
       row !== undefined &&
       evidence !== undefined &&
-      policyAccountCurrent(row, evidence, context.now!, posting)
+      policyAccountCurrent(row, evidence, now, posting)
     );
   });
 }
@@ -106,11 +103,13 @@ export function policyEvidenceCurrent(
   context: AuthorizationInput['context'],
   posting = false,
 ) {
+  const { now } = context;
   return (
     policy?.allowed === true &&
+    now !== undefined &&
     policyRevisionsMatch(resource, policy) &&
-    policyTimeCurrent(policy, context.now) &&
-    policyAccountsCurrent(resource, policy, context, posting) &&
+    policyTimeCurrent(policy, now) &&
+    policyAccountsCurrent(resource, policy, context, now, posting) &&
     policySelfCurrent(context)
   );
 }

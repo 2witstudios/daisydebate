@@ -5,17 +5,14 @@ import { scopeTransaction } from '../tenant-scope';
 import { fenceTabAccountRead } from './account-read-fence';
 import { lockEventSettingContext } from './event-setting-context';
 import { loadAuthorityContext } from './authority-context';
-import type { TabDatabase, TabTransaction } from './tab-transaction';
+import { inTransaction, type Tx, type TxOpener } from '../tx';
 type Input = {
   readonly viewerUserId: string;
   readonly lobbyId: string;
   readonly eventId: string;
   readonly strength?: 'share' | 'update';
 };
-export const loadTournamentEventSettingFacts = async (
-  tx: TabTransaction,
-  input: Input,
-) => {
+export const loadTournamentEventSettingFacts = async (tx: Tx, input: Input) => {
   await scopeTransaction(tx, { subjectUserId: input.viewerUserId });
   await fenceTabAccountRead(tx, input.viewerUserId);
   const configuration = await lockEventSettingContext(tx, {
@@ -60,14 +57,12 @@ export const loadTournamentEventSettingFacts = async (
 export type TournamentEventSettingFacts = NonNullable<
   Awaited<ReturnType<typeof loadTournamentEventSettingFacts>>
 >;
-export const createTournamentEventSettingReadStore = (
-  database: TabDatabase,
-) => ({
+export const createTournamentEventSettingReadStore = (database: TxOpener) => ({
   tournamentEventSettings: <Answer>(
     input: Input,
     work: (facts: TournamentEventSettingFacts | null) => Promise<Answer>,
   ): Promise<Answer> =>
-    database.transaction(async (tx) =>
+    inTransaction(database, async (tx) =>
       work(await loadTournamentEventSettingFacts(tx, input)),
     ),
 });

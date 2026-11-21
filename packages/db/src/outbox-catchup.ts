@@ -1,5 +1,5 @@
+import { z } from 'zod';
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { parseTopic } from '@daisy/protocol';
 import {
   decodeOutboxCursor,
@@ -7,6 +7,8 @@ import {
   type OutboxPosition,
   type OutboxRow,
 } from './outbox';
+import type { Tx } from './tx';
+import { query } from './raw-rows';
 
 const order = (a: string, b: string) => {
   const left = decodeOutboxCursor(a);
@@ -48,8 +50,23 @@ export function catchupWindow({
  * every subsequent prefix deletion advances that boundary atomically.
  * Cursor positions are ordering tokens, never authority.
  */
+const catchupRow = z.object({
+  floor: z.string().nullable(),
+  rows: z.array(
+    z.object({
+      seq: z.string().regex(/^\d+$/),
+      txid: z.string(),
+      topic: z.string(),
+      kind: z.string(),
+      version: z.int(),
+      payload: z.json(),
+      createdAt: z.string(),
+    }),
+  ),
+});
+
 export async function readOutboxCatchup(
-  database: Pick<BunSQLDatabase, 'execute'>,
+  database: Tx,
   topic: string,
   since: string,
   through: OutboxPosition,
@@ -61,7 +78,10 @@ export async function readOutboxCatchup(
   decodeOutboxCursor(throughCursor);
   if (!Number.isSafeInteger(limit) || limit < 1 || limit > 500)
     throw new Error('Invalid outbox catchup limit');
-  const result = await database.execute(sql`
+  const result = await query(
+    database,
+    catchupRow,
+    sql`
     with retained as (
       select txid, seq from public.outbox_retention_boundary where singleton = true
     ), replay as (
@@ -77,11 +97,9 @@ export async function readOutboxCatchup(
         'txid', txid::text, 'seq', seq::text, 'topic', topic, 'kind', kind,
         'version', version, 'payload', payload, 'createdAt', created_at
       ) order by txid, seq) from replay), '[]'::jsonb) as rows
-  `);
-  const [record] = result as unknown as Array<{
-    floor: string | null;
-    rows: Array<Omit<OutboxRow, 'seq'> & { seq: string }>;
-  }>;
+  `,
+  );
+  const [record] = result;
   if (
     !record ||
     !catchupWindow({

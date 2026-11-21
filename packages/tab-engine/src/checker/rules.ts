@@ -158,7 +158,7 @@ export const costViolations = (ctx: CostContext, draw: Draw): Violation[] => {
     }
     const total = totals.get(key);
     const reported = total === undefined ? null : restated(ctx, key, total);
-    if (reported === null ? isBroken(sum) : !sameFields(sum, reported ?? []))
+    if (reported === null ? isBroken(sum) : !sameFields(sum, reported))
       violations.push({
         kind: 'cost_total',
         event,

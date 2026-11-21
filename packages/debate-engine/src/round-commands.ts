@@ -22,6 +22,7 @@ import {
 import type { RoundStore } from './round-ecs-store';
 import type { ClockChange } from './round-clock-transition';
 import { interrupt, yieldFloor } from './round-floor';
+import { debateInvariantIds } from './invariant-ids';
 import { invariant, refuse } from './round-refusals';
 
 /** The durable writes a command or tick queues for the caller to persist. */
@@ -80,7 +81,8 @@ export const startRound = (c: CommandContext): void => {
  * segment, only while the format's prep bounds and budget allow it.
  */
 const startPrep = (c: CommandContext): void => {
-  const side = c.sideOf(c.actorId)!;
+  const side = c.sideOf(c.actorId);
+  if (side === null) refuse('CONFLICT', 'Prep belongs to a seated debater');
   // Prep supersedes the rest of the countdown: the gap anchor hands over to
   // the prep clock anchored now.
   c.on.startPrep({ side, startedAtMs: c.now });
@@ -94,7 +96,12 @@ const startPrep = (c: CommandContext): void => {
  * clock, so capture has the speaker before their first word and prep stays private.
  */
 const startSpeech = (c: CommandContext): void => {
-  const active = c.on.checkpoint().active_prep!;
+  const active = c.on.checkpoint().active_prep;
+  if (active === null)
+    invariant(
+      debateInvariantIds.startSpeechRequiresPrep,
+      'A speech opens out of the prepping side’s prep',
+    );
   const side = active.side;
   const elapsed = runningMs(
     Date.parse(active.started_at),
@@ -132,7 +139,8 @@ export const debateIsOver = (c: CommandContext): boolean =>
  * first, so a segment that ran out with no tick persisted counts as closed.
  */
 const forfeit = (c: CommandContext): void => {
-  const side = c.sideOf(c.actorId)!;
+  const side = c.sideOf(c.actorId);
+  if (side === null) refuse('CONFLICT', 'A seated debater forfeits');
   // A forfeit in the opening stands as a result, with no resolution before a
   // reveal; the record needs a start, so the Round starts and ends here.
   if (c.on.lifecycle().status === 'opening') startRound(c);
@@ -147,7 +155,8 @@ const forfeit = (c: CommandContext): void => {
  * abandoning the Round only once no speaking seat is.
  */
 const leave = (c: CommandContext): void => {
-  const seat = c.seatOf(c.actorId)!;
+  const seat = c.seatOf(c.actorId);
+  if (seat === null) refuse('CONFLICT', 'A seated competitor leaves');
   c.on.markAbsent(seat.id);
   c.into.releasedMembers.push(seat.actorId);
 };

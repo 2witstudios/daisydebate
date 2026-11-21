@@ -1,22 +1,26 @@
 import { asc, eq, sql } from 'drizzle-orm';
-import type { BoundedTransactionContext } from './transaction-context';
 import type { CaptureRule } from '@daisy/protocol';
 import { readSeatGrants } from './capture-history';
 import { transcriptSegments } from './schema/transcript-segments';
+import type { Tx } from './tx';
+import { run } from './raw-rows';
 
 export type ExpectedTranscriptStream = {
   readonly segmentId: string;
   readonly roundParticipantId: string;
 };
 export async function lockFinalizationStreams(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   roundId: string,
   botGrantUnused: CaptureRule['botGrantUnused'],
 ) {
   // Takeover requests only lease, never Round afterward. Missing sessions need no lease.
-  await tx.execute(sql`select l.session_id from media_worker_leases l
+  await run(
+    tx,
+    sql`select l.session_id from media_worker_leases l
     join media_sessions s on s.id=l.session_id where s.round_id=${roundId}
-    order by l.session_id for update of l`);
+    order by l.session_id for update of l`,
+  );
   const streams = await tx
     .select()
     .from(transcriptSegments)
@@ -43,7 +47,7 @@ export const streamKey = (stream: ExpectedTranscriptStream) =>
   `${stream.segmentId}:${stream.roundParticipantId}`;
 
 export async function closeUnresolvedStreams(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   roundId: string,
   facts: Awaited<ReturnType<typeof lockFinalizationStreams>>,
 ) {

@@ -56,6 +56,8 @@ for (const { subject, queue } of subscriptionsFor(config.SHIPPER_APPS))
 logger.log('logship.started', {}, 'Log shipper started');
 
 let stopping = false;
+// Set by the signal handler while the loop awaits, so it is read fresh.
+const stoppingNow = () => stopping;
 // Resolves on SIGTERM or SIGINT, so a backoff sleep of up to 30 s never
 // eats the shutdown budget before the drain.
 let wake: () => void = () => undefined;
@@ -79,9 +81,9 @@ const beat = async () => {
 };
 let delay = FLUSH_INTERVAL_MS;
 let lastBeat = 0;
-while (!stopping) {
+while (!stoppingNow()) {
   await Promise.race([Bun.sleep(delay), stopped]);
-  if (stopping) break;
+  if (stoppingNow()) break;
   const result = await flush({ buffer, sink, logger, maxBatch: MAX_BATCH });
   delay =
     result === 'failed'

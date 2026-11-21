@@ -70,6 +70,8 @@ export function startBotControlService<C extends Claim>(input: {
   const failed = input.failed;
   const owned = new Map<string, Owned<C>>();
   let stopped = false;
+  // Read live: stop() can run during any await, which narrowing cannot see.
+  const isStopped = () => stopped;
   /** Seat endings still running; shutdown waits for every one. */
   const endings = new Set<Promise<void>>();
   /** Seats with a claim in flight, so a chained and a scanned claim never race. */
@@ -122,6 +124,8 @@ export function startBotControlService<C extends Claim>(input: {
     if (entry.ending) return entry.ending;
     const ending = (async () => {
       let silenced = false;
+      // Read live: the stopping task sets it while the race below is awaited.
+      const isSilenced = () => silenced;
       const stopping = (async () => {
         try {
           await entry.control.stop?.();
@@ -152,7 +156,7 @@ export function startBotControlService<C extends Claim>(input: {
       deadline.abort();
       if (outcome === 'late') {
         // Names the part still running: the speaker's stop, or the receipt pulse.
-        const stage = silenced ? 'pulse' : 'stop';
+        const stage = isSilenced() ? 'pulse' : 'stop';
         entry.overran = stage;
         failed(
           createAppError('INFRASTRUCTURE', `Seat ${stage} overran its ending`),
@@ -228,7 +232,7 @@ export function startBotControlService<C extends Claim>(input: {
   const claimSeat = async (target: Target): Promise<void> => {
     const seat = target.roundParticipantId;
     if (
-      stopped ||
+      isStopped() ||
       seatsHeld() + (owned.has(seat) ? 0 : 1) > input.limits.maxControllers
     )
       return;
@@ -236,7 +240,7 @@ export function startBotControlService<C extends Claim>(input: {
     let entry: Owned<C>;
     try {
       const claim = await input.store.claimRoundBotWorker(target);
-      if (stopped) {
+      if (isStopped()) {
         await revokeClaim(claim);
         return;
       }
@@ -266,14 +270,14 @@ export function startBotControlService<C extends Claim>(input: {
   };
   /** One discovery pass; it worked while any seat is owned or found. */
   const discover = async (): Promise<LoopPass> => {
-    if (stopped) return 'idle';
+    if (isStopped()) return 'idle';
     // A failed scan throws to the loop, which reports it and backs off even
     // while seats are owned.
     const targets = await input.store.scanRoundBotWorkers(
       input.limits.scanBatch,
     );
     for (const target of targets) {
-      if (stopped) break;
+      if (isStopped()) break;
       await claimTarget(target).catch(claimFailed);
     }
     return owned.size > 0 || targets.length > 0 ? 'worked' : 'idle';
@@ -284,7 +288,7 @@ export function startBotControlService<C extends Claim>(input: {
    * is not awaited again on every tick (ISSUE-789). It never rejects.
    */
   const heartbeat = async (): Promise<void> => {
-    if (stopped) return;
+    if (isStopped()) return;
     await Promise.allSettled(
       [...owned.values()]
         .filter((entry) => !entry.pending && !entry.ending)

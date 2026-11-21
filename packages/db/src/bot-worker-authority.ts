@@ -1,13 +1,12 @@
 import { and, eq } from 'drizzle-orm';
 import { idSchema } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { requireClaimScope, requireRunScope } from './bot-publication-context';
 import { readDatabaseTime } from './database-clock';
 import { agentRuns } from './schema/agent-runs';
 import { roundBotPublications } from './schema/round-bot-publications';
+import type { Tx } from './tx';
 
-type Reader = Pick<BunSQLDatabase, 'select' | 'execute'>;
 type WorkerPrincipal = {
   readonly kind: 'agent';
   readonly serviceId: string;
@@ -34,7 +33,7 @@ export function requireWorkerPrincipalShape(
 
 /** Trusted server principal only; caller already holds canonical account/Round fences. No bearer comes from a public body. */
 export async function verifyBotWorkerPrincipalLocked(
-  tx: Reader,
+  tx: Tx,
   principal: WorkerPrincipal,
   roundId: string,
 ) {

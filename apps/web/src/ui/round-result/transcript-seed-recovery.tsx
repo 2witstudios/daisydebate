@@ -5,19 +5,14 @@ import {
   askForTranscriptSeed,
   type TranscriptSeed,
 } from '../../features/round-runtime/transcript-seed';
-import { reconnectDelaySeconds } from '../debate-room/reconnect-delay';
+import { drawReconnectDelaySeconds } from '../debate-room/reconnect-delay';
 import { LiveTranscript, type TranscriptPlacement } from './live-transcript';
 
 /** The failed-read pace a transcript with a seed already keeps. */
 const LONGEST_WAIT_MS = 30_000;
 
-const nextAskMs = (asked: number) => {
-  const [entropy] = crypto.getRandomValues(new Uint8Array(1));
-  return Math.min(
-    reconnectDelaySeconds(entropy!) * 1000 * 2 ** asked,
-    LONGEST_WAIT_MS,
-  );
-};
+const nextAskMs = (asked: number) =>
+  Math.min(drawReconnectDelaySeconds() * 1000 * 2 ** asked, LONGEST_WAIT_MS);
 
 /** A room whose transcript seed was refused, asking again without reloading it. */
 export function TranscriptSeedRecovery({

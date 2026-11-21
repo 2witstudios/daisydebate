@@ -11,7 +11,6 @@ import {
   type JudgingRecoveryReason,
   type JudgingWorkKind,
 } from '@daisy/protocol';
-import type { BoundedTransactionContext } from './transaction-context';
 import type { BoundedTransaction } from './bounded-transaction';
 import { agentRuns } from './schema/agent-runs';
 import {
@@ -45,6 +44,10 @@ import {
   requireUndispatched,
 } from './round-judging-decisions';
 import { requireRoundBallot } from './round-ballot-decisions';
+import type { Tx } from './tx';
+import { takeLock, transactionLocks } from './locks';
+import { query } from './raw-rows';
+import { z } from 'zod';
 export type { JudgingScope } from './round-judging-context';
 /** Whether a dispatch may go ahead, or why the job ended instead. */
 export type ModelCallBegun =
@@ -112,21 +115,22 @@ export type JudgingJobRules = {
       };
 };
 /** Calls that may have been served count; a call the vendor certainly refused does not. */
-async function paidCalls(
-  tx: BoundedTransactionContext,
-  scope: JudgingScope,
-  firstEpoch?: number,
-) {
-  const [row] = await tx.execute(sql`select (
+async function paidCalls(tx: Tx, scope: JudgingScope, firstEpoch?: number) {
+  const [row] = await query(
+    tx,
+    z.object({ paid: z.int() }),
+    sql`select (
     coalesce(sum(a.requests),0) - count(*) filter(where t.answered_at is null and t.category='provider_refused')
     )::int as paid
     from agent_runs a left join round_judging_attempts t on t.agent_run_id=a.id
     where a.round_participant_id=${scope.judgeParticipantId} and a.kind='judging' and a.requests>0
-      and (${firstEpoch ?? null}::integer is null or t.job_epoch is null or t.job_epoch>=${firstEpoch ?? null}::integer)`);
-  return Number(row!.paid);
+      and (${firstEpoch ?? null}::integer is null or t.job_epoch is null or t.job_epoch>=${firstEpoch ?? null}::integer)`,
+  );
+  if (!row) throw createAppError('INVARIANT');
+  return Number(row.paid);
 }
 
-const attemptOfRun = async (tx: BoundedTransactionContext, runId: string) =>
+const attemptOfRun = async (tx: Tx, runId: string) =>
   (
     await tx
       .select()
@@ -136,7 +140,7 @@ const attemptOfRun = async (tx: BoundedTransactionContext, runId: string) =>
   )[0];
 /** Release a bounded attempt while preserving its durable obligation and held reply. */
 async function deferLockedJudgingJob(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   scope: JudgingScope,
   runId: string,
   recovery: ReturnType<JudgingJobRules['recover']>,
@@ -169,7 +173,7 @@ export function createRoundJudgingJobs(input: {
   requireLeaseMs(input.leaseMs);
   if (!input.model.trim()) throw createAppError('VALIDATION');
   const recoveryFor = async (
-    tx: BoundedTransactionContext,
+    tx: Tx,
     scope: JudgingScope,
     job: {
       readonly generationDeadlineAt: Date;
@@ -191,16 +195,14 @@ export function createRoundJudgingJobs(input: {
     scope: JudgingScope,
     token: string,
     work: (
-      tx: BoundedTransactionContext,
+      tx: Tx,
       lease: Awaited<ReturnType<typeof assertLockedJudgingLease>> & {
         round: Awaited<ReturnType<typeof lockRoundAgentContext>>['round'];
       },
     ) => T | Promise<T>,
   ) =>
     input.run(async (tx) => {
-      await tx.execute(
-        sql`select pg_advisory_xact_lock(hashtextextended(${scope.commandId},59002))`,
-      );
+      await takeLock(tx, transactionLocks.roundCommand(scope.commandId));
       const context = await lockRoundAgentContext(
         tx,
         scope.roundId,
@@ -242,12 +244,13 @@ export function createRoundJudgingJobs(input: {
           await deferLockedJudgingJob(tx, scope, run.id, recovery);
           return { kind: 'deferred', reason: recovery.reason };
         }
+        if (!job.leaseExpiresAt) throw createAppError('INVARIANT');
         await countCasualJudgeModelCall(tx, {
           roundId: scope.roundId,
           before: new Date(
             Math.min(
               job.generationDeadlineAt.getTime(),
-              job.leaseExpiresAt!.getTime(),
+              job.leaseExpiresAt.getTime(),
             ),
           ).toISOString(),
           accountEligible: input.accountEligible,

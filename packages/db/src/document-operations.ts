@@ -1,10 +1,12 @@
 import { and, desc, eq, inArray, isNull, like, sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import { lockAuthorizationActors } from './authorization';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { documentFolders } from './schema/document-folders';
 import { documents } from './schema/documents';
+import { inTransaction, type Tx, type TxSource } from './tx';
+import { postgresInt8, query as queryRows } from './raw-rows';
+import { z } from 'zod';
 
 /** One owned folder's recursive subtree, shared by confirmation and deletion. */
 const folderSubtree = (id: string) => sql`
@@ -96,7 +98,7 @@ const documentColumns = {
   updatedAt: documents.updatedAt,
 };
 
-const now = () => sql`statement_timestamp()` as unknown as Date;
+const now = () => sql<Date>`statement_timestamp()`;
 
 /** A swapped row saved; otherwise a present document conflicts, an absent one is missing. */
 export const documentSaveOutcome = (
@@ -109,14 +111,8 @@ export const documentSaveOutcome = (
       ? { status: 'conflict', revision: current.revision }
       : { status: 'missing' };
 
-type Transaction = Parameters<Parameters<BunSQLDatabase['transaction']>[0]>[0];
-
 /** The fence every drive change takes first, so moves run one at a time per member. */
-const fenced = async (
-  tx: Transaction,
-  ownerActorId: string,
-  admits: DriveAdmission,
-) => {
+const fenced = async (tx: Tx, ownerActorId: string, admits: DriveAdmission) => {
   const [account] = await lockAuthorizationActors(tx, [ownerActorId], {
     maxActors: 1,
   });
@@ -125,7 +121,7 @@ const fenced = async (
 };
 
 const ownFolder = async (
-  tx: Transaction,
+  tx: Tx,
   ownerActorId: string,
   folderId: string | null,
 ) => {
@@ -144,23 +140,24 @@ const ownFolder = async (
 };
 
 const countOf = async (
-  tx: Transaction,
+  tx: Tx,
   query: ReturnType<typeof sql>,
 ): Promise<number> => {
-  const [row] = (await tx.execute(query)) as unknown as {
-    readonly count: number | string;
-  }[];
+  const [row] = await queryRows(tx, z.object({ count: postgresInt8 }), query);
   return Number(row?.count ?? 0);
 };
 
 /** The folders above `folderId`, itself first; empty for the root. */
 const ancestors = async (
-  tx: Transaction,
+  tx: Tx,
   ownerActorId: string,
   folderId: string | null,
 ): Promise<readonly string[]> => {
   if (folderId === null) return [];
-  const rows = (await tx.execute(sql`
+  const rows = await queryRows(
+    tx,
+    z.object({ id: z.string() }),
+    sql`
     with recursive up(id, parent_folder_id, depth) as (
       select id, parent_folder_id, 1 from document_folders
       where id = ${folderId} and owner_actor_id = ${ownerActorId}
@@ -168,14 +165,13 @@ const ancestors = async (
       select f.id, f.parent_folder_id, up.depth + 1
       from document_folders f join up on f.id = up.parent_folder_id
     )
-    select id from up order by depth`)) as unknown as {
-    readonly id: string;
-  }[];
+    select id from up order by depth`,
+  );
   return rows.map((row) => row.id);
 };
 
 /** How many levels a folder holds, counting itself. */
-const heightOf = async (tx: Transaction, folderId: string): Promise<number> =>
+const heightOf = async (tx: Tx, folderId: string): Promise<number> =>
   countOf(
     tx,
     sql`
@@ -205,9 +201,9 @@ export const documentOperations = ({
   searchDatabase,
   eventSink,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
   /** The search lane, so a slow search can never hold up a save (ADR 0111). */
-  readonly searchDatabase: BunSQLDatabase;
+  readonly searchDatabase: TxSource;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
   /** One page of a folder, folders first, then documents, each by name. */
@@ -223,7 +219,15 @@ export const documentOperations = ({
       const resume = after
         ? sql`where (rank, label, id) > (${rank}, ${after.label}, ${after.id})`
         : sql``;
-      const rows = (await database.execute(sql`
+      const rows = await queryRows(
+        database,
+        z.object({
+          kind: z.enum(['folder', 'document']),
+          id: z.string(),
+          label: z.string(),
+          updated_at: z.union([z.string(), z.date()]),
+        }),
+        sql`
         select * from (
           select 0 as rank, 'folder' as kind, id, name as label, updated_at
           from document_folders
@@ -236,12 +240,8 @@ export const documentOperations = ({
             and folder_id is not distinct from ${folderId}
         ) entries ${resume}
         order by rank, label, id
-        limit ${limit}`)) as unknown as {
-        readonly kind: 'folder' | 'document';
-        readonly id: string;
-        readonly label: string;
-        readonly updated_at: Date | string;
-      }[];
+        limit ${limit}`,
+      );
       return rows.map((row) =>
         row.kind === 'folder'
           ? {
@@ -329,7 +329,15 @@ export const documentOperations = ({
     readonly offset: number;
   }): Promise<readonly DocumentSearchHit[]> {
     return instrumented(eventSink, 'searchDocuments', async () => {
-      const rows = (await searchDatabase.execute(sql`
+      const rows = await queryRows(
+        searchDatabase,
+        z.object({
+          id: z.string(),
+          title: z.string(),
+          folderId: z.string().nullable(),
+          snippet: z.string(),
+        }),
+        sql`
         with hits as (
           select id, title, folder_id, html,
             ts_rank(search, to_tsquery('simple', ${input.query})) as score,
@@ -344,7 +352,8 @@ export const documentOperations = ({
           ts_headline('simple', left(html, ${SNIPPET_SOURCE_CHARS}), to_tsquery('simple', ${input.query}),
             'StartSel="", StopSel="", MaxFragments=1, MaxWords=24, MinWords=8') as snippet
         from hits
-        order by score desc, updated_at desc, id`)) as unknown as DocumentSearchHit[];
+        order by score desc, updated_at desc, id`,
+      );
       return rows;
     });
   },
@@ -359,7 +368,7 @@ export const documentOperations = ({
     readonly admits: DriveAdmission;
   }): Promise<DocumentRecord> {
     return instrumented(eventSink, 'createDocument', () =>
-      database.transaction(async (tx) => {
+      inTransaction(database, async (tx) => {
         const { ownerActorId, folderId } = input;
         await fenced(tx, ownerActorId, input.admits);
         await ownFolder(tx, ownerActorId, folderId);
@@ -440,7 +449,7 @@ export const documentOperations = ({
     readonly admits: DriveAdmission;
   }): Promise<boolean> {
     return instrumented(eventSink, 'renameDocument', () =>
-      database.transaction(async (tx) => {
+      inTransaction(database, async (tx) => {
         await fenced(tx, input.ownerActorId, input.admits);
         const rows = await tx
           .update(documents)
@@ -464,7 +473,7 @@ export const documentOperations = ({
     readonly admits: DriveAdmission;
   }): Promise<boolean> {
     return instrumented(eventSink, 'moveDocument', () =>
-      database.transaction(async (tx) => {
+      inTransaction(database, async (tx) => {
         await fenced(tx, input.ownerActorId, input.admits);
         await ownFolder(tx, input.ownerActorId, input.folderId);
         const rows = await tx
@@ -488,7 +497,7 @@ export const documentOperations = ({
     readonly admits: DriveAdmission;
   }): Promise<boolean> {
     return instrumented(eventSink, 'deleteDocument', () =>
-      database.transaction(async (tx) => {
+      inTransaction(database, async (tx) => {
         await fenced(tx, input.ownerActorId, input.admits);
         const rows = await tx
           .delete(documents)
@@ -512,7 +521,7 @@ export const documentOperations = ({
     readonly admits: DriveAdmission;
   }): Promise<void> {
     return instrumented(eventSink, 'createDocumentFolder', () =>
-      database.transaction(async (tx) => {
+      inTransaction(database, async (tx) => {
         const { ownerActorId, parentFolderId } = input;
         await fenced(tx, ownerActorId, input.admits);
         await ownFolder(tx, ownerActorId, parentFolderId);
@@ -540,7 +549,7 @@ export const documentOperations = ({
     readonly admits: DriveAdmission;
   }): Promise<boolean> {
     return instrumented(eventSink, 'renameDocumentFolder', () =>
-      database.transaction(async (tx) => {
+      inTransaction(database, async (tx) => {
         await fenced(tx, input.ownerActorId, input.admits);
         const rows = await tx
           .update(documentFolders)
@@ -565,7 +574,7 @@ export const documentOperations = ({
     readonly admits: DriveAdmission;
   }): Promise<void> {
     return instrumented(eventSink, 'moveDocumentFolder', () =>
-      database.transaction(async (tx) => {
+      inTransaction(database, async (tx) => {
         const { id, ownerActorId, parentFolderId } = input;
         await fenced(tx, ownerActorId, input.admits);
         await ownFolder(tx, ownerActorId, id);
@@ -592,7 +601,7 @@ export const documentOperations = ({
     readonly ownerActorId: string;
   }): Promise<number> {
     return instrumented(eventSink, 'countFolderDocuments', () =>
-      database.transaction(async (tx) => {
+      inTransaction(database, async (tx) => {
         await ownFolder(tx, input.ownerActorId, input.id);
         return countOf(
           tx,
@@ -611,7 +620,7 @@ export const documentOperations = ({
     readonly admits: DriveAdmission;
   }): Promise<readonly string[] | null> {
     return instrumented(eventSink, 'deleteDocumentFolder', () =>
-      database.transaction(async (tx) => {
+      inTransaction(database, async (tx) => {
         await fenced(tx, input.ownerActorId, input.admits);
         await ownFolder(tx, input.ownerActorId, input.id);
         // The account fence holds all document mutations until the cascade ends,

@@ -101,22 +101,31 @@ export async function openCommands(
     .where(isNull(pendingCommands.resolvedAt))
     .orderBy(asc(pendingCommands.createdAt))
     .limit(limit);
-  return rows.map((row): OpenCommand => ({
-    commandId: row.commandId,
-    operatorId: row.operatorId,
-    lastSignedAt: row.lastSignedAt.toISOString(),
-    ...(row.preapproval !== null
-      ? {
-          targetUserId: null,
-          preapproval: preapprovalCommandSchema.parse(row.preapproval),
-        }
-      : {
-          targetUserId: row.targetUserId!,
-          desiredState:
-            row.desiredState as AccountPendingCommand['desiredState'],
-          expectedRevision: row.expectedRevision!,
-        }),
-  }));
+  return rows.map((row): OpenCommand => {
+    const common = {
+      commandId: row.commandId,
+      operatorId: row.operatorId,
+      lastSignedAt: row.lastSignedAt.toISOString(),
+    };
+    if (row.preapproval !== null)
+      return {
+        ...common,
+        targetUserId: null,
+        preapproval: preapprovalCommandSchema.parse(row.preapproval),
+      };
+    const { targetUserId, expectedRevision } = row;
+    // pending_commands_variant_check: an account command carries both.
+    if (targetUserId === null || expectedRevision === null)
+      throw new Error(
+        `pending command ${row.commandId} has neither a preapproval nor an account target`,
+      );
+    return {
+      ...common,
+      targetUserId,
+      desiredState: row.desiredState as AccountPendingCommand['desiredState'],
+      expectedRevision,
+    };
+  });
 }
 
 /** The anchor the command first carried: the chain head after its intent. */

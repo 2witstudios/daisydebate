@@ -71,11 +71,13 @@ export function synchronizedTransactionClient(
       return (text: string, parameters: unknown[] = []) => {
         check();
         assertTransactionStatement(text, refuse);
-        const literal = Object.assign([text], { raw: [text] });
+        const literal: TemplateStringsArray = Object.assign([text], {
+          raw: [text],
+        });
         const query =
           parameters.length > 0
             ? target.unsafe(text, parameters)
-            : target(literal as unknown as TemplateStringsArray);
+            : target(literal);
         return lifetimeQuery(query, check, refuse);
       };
     },

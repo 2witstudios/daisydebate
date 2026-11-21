@@ -45,7 +45,9 @@ const migratedDefinitions = (sql: string) => {
     /'([a-z0-9-]+)', (\d+), '(\{.*?\})'::jsonb, statement_timestamp\(\)/g,
   )) {
     const [, formatId, version, raw] = match;
-    const definition = JSON.parse(raw!) as FormatDefinition;
+    const definition: VersionOneDefinition | FormatDefinition = JSON.parse(
+      raw!,
+    );
     const drawn = before(definitionBackfill, match.index)
       ? {
           ...definition,
@@ -55,10 +57,15 @@ const migratedDefinitions = (sql: string) => {
     const crossed = before(crossExBackfill, match.index)
       ? withoutCrossExDefinition(drawn)
       : drawn;
+    const migrateSeats = before(seatsBackfill, match.index);
+    if (migrateSeats && crossed.version !== 1)
+      throw new Error(
+        'Expected a version-1 definition before the seat backfill',
+      );
     definitions.set(
       `${formatId}@${version}`,
-      before(seatsBackfill, match.index)
-        ? twoSidedDefinition(crossed as unknown as VersionOneDefinition)
+      migrateSeats && crossed.version === 1
+        ? twoSidedDefinition(crossed)
         : crossed,
     );
   }
@@ -107,7 +114,11 @@ const twoSidedDefinition = ({
   })),
 });
 
-const withoutCrossExDefinition = (definition: FormatDefinition) => {
+const withoutCrossExDefinition = <
+  Definition extends VersionOneDefinition | FormatDefinition,
+>(
+  definition: Definition,
+): Definition => {
   const interaction = definition.configurable.interaction as Record<
     string,
     unknown
@@ -129,7 +140,7 @@ const withoutCrossExDefinition = (definition: FormatDefinition) => {
         },
       },
     },
-  } as FormatDefinition;
+  } as Definition;
 };
 
 const withoutCrossExSettings = (config: Record<string, unknown>) => {

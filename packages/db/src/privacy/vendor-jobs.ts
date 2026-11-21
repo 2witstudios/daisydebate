@@ -1,15 +1,14 @@
 import { sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { retriedJob } from '../retried-job';
 import { privacyJobs } from '../schema/privacy-jobs';
 import { privacyVendors, type PrivacyVendor } from './planner';
+import type { Tx } from '../tx';
+import { query } from '../raw-rows';
+import { z } from 'zod';
 
 const vendorJob = retriedJob(privacyJobs);
-
-/** A committed-pool port. Never pass the local erasure transaction here. */
-type Execute = Pick<BunSQLDatabase, 'execute'>;
 
 /** One due pending vendor deletion job, read for delivery. */
 export type DuePrivacyJob = {
@@ -26,7 +25,7 @@ const MAX_DUE_BATCH = 128;
  * through `deliverPrivacyJob`, which owns claiming, retry and success.
  */
 export async function duePrivacyJobs(
-  database: Execute,
+  database: Tx,
   input: {
     readonly now: string;
     readonly limit: number;
@@ -43,10 +42,25 @@ export async function duePrivacyJobs(
   )
     throw createAppError('VALIDATION');
   const scope = vendorScope(input.vendors);
-  const read =
-    (await database.execute(sql`select id, vendor, attempts from privacy_jobs
+  const read = await query(
+    database,
+    z.object({
+      id: z.string(),
+      vendor: z.enum([
+        'sentry',
+        'posthog',
+        'beehiiv',
+        'resend',
+        'object-storage',
+        'messaging-typing',
+        'stripe',
+      ]),
+      attempts: z.number(),
+    }),
+    sql`select id, vendor, attempts from privacy_jobs
     where status = 'pending' and retry_at <= ${input.now}::timestamptz ${scope}
-    order by retry_at, id limit ${input.limit}`)) as unknown as DuePrivacyJob[];
+    order by retry_at, id limit ${input.limit}`,
+  );
   // A row the database checks admit is malformed: refuse before delivery.
   if (
     !read.every(
@@ -64,20 +78,22 @@ export async function duePrivacyJobs(
  * that a run must not report as healthy (ISSUE-1007).
  */
 export async function owedPrivacyJobs(
-  database: Execute,
+  database: Tx,
   input: { readonly vendors?: readonly PrivacyVendor[] } = {},
 ): Promise<number> {
   const scope = vendorScope(input.vendors);
-  const rows = (await database.execute(sql`select count(*)::int as owed
+  const rows = await query(
+    database,
+    z.object({ owed: z.number() }),
+    sql`select count(*)::int as owed
     from privacy_jobs
-    where status = 'pending' ${scope}`)) as unknown as {
-    owed: number;
-  }[];
+    where status = 'pending' ${scope}`,
+  );
   return rows[0]?.owed ?? 0;
 }
 
 export async function deliverPrivacyJob(
-  database: Pick<BunSQLDatabase, 'execute'>,
+  database: Tx,
   input: {
     readonly jobId: string;
     readonly vendor: PrivacyVendor;
@@ -90,13 +106,14 @@ export async function deliverPrivacyJob(
   },
 ): Promise<'idle' | 'retry' | 'succeeded'> {
   checkJobInput(input);
-  const rows =
-    await database.execute(sql`select subject_ref as "subjectRef", attempts from privacy_jobs
+  const rows = await query(
+    database,
+    z.object({ subjectRef: z.string(), attempts: z.number() }),
+    sql`select subject_ref as "subjectRef", attempts from privacy_jobs
     where id = ${input.jobId} and vendor = ${input.vendor} and status = 'pending'
-    and retry_at <= ${input.now}::timestamptz`);
-  const row = (
-    rows as unknown as { subjectRef: string; attempts: number }[]
-  )[0];
+    and retry_at <= ${input.now}::timestamptz`,
+  );
+  const [row] = rows;
   if (!row) return 'idle';
   if (!idSchema.safeParse(row.subjectRef).success)
     throw createAppError('VALIDATION');

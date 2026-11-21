@@ -1,5 +1,6 @@
 import { isOpenRoomStatus } from '@daisy/protocol';
 import {
+  roomCommunityPolicySchema,
   roomCommunityReadsOnly,
   roomCommunityRetentionMs,
   roomCommunitySeatReadsOnly,
@@ -39,8 +40,7 @@ const boundAccount = ({
   account.actorId === principal.actorId;
 const currentFact = ({ fact, principal }: RoomCommunityDecisionInput) =>
   fact.actorId === principal.actorId &&
-  fact.policyKey === 'room.community' &&
-  fact.policyRevision === 1 &&
+  roomCommunityPolicySchema.safeParse(fact).success &&
   Number.isSafeInteger(fact.revision) &&
   fact.revision > 0;
 

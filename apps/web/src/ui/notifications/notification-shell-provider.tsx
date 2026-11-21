@@ -188,14 +188,13 @@ export function NotificationShellProvider({
   // The page the member is on shows these: they are read.
   useEffect(() => {
     // Keyed by arrival: a row brought back unread is read again here.
-    const surfaced = new Map(
-      shell.recent.map((row) => [row.id, arrivalKey(row)]),
+    const shown = new Set(shownOn(shell.recent, path));
+    const surfaced = shell.recent.filter(
+      (row) => shown.has(row.id) && !marked.current.has(arrivalKey(row)),
     );
-    const here = shownOn(shell.recent, path).filter(
-      (id) => !marked.current.has(surfaced.get(id)!),
-    );
-    if (here.length === 0) return;
-    for (const id of here) marked.current.add(surfaced.get(id)!);
+    if (surfaced.length === 0) return;
+    for (const row of surfaced) marked.current.add(arrivalKey(row));
+    const here = surfaced.map((row) => row.id);
     setToasts((shown) => shown.filter((row) => !here.includes(row.id)));
     void markRead(here).then(() => driver?.signal());
   }, [shell, path, driver]);

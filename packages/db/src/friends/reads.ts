@@ -1,5 +1,5 @@
+import { createAppError } from '@daisy/errors';
 import { and, asc, desc, eq, isNotNull, isNull, or, sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { actors } from '../schema/actors';
 import { users } from '../schema/users';
 import { contactPairs } from '../schema/contacts';
@@ -14,6 +14,7 @@ import {
   type OwnCollectionFence,
 } from '../authorization';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
+import type { TxSource, Tx } from '../tx';
 
 export type FriendshipRow = {
   readonly otherActorId: string;
@@ -42,7 +43,7 @@ type FriendshipListScope = {
  * reloads the pair under the contact fence (ADR 0072).
  */
 export async function listFriendships(
-  database: BunSQLDatabase,
+  database: TxSource,
   scope: FriendshipListScope,
   authorize: OwnCollectionFence<FriendshipListScope>,
 ): Promise<readonly FriendshipRow[]> {
@@ -57,7 +58,7 @@ export const friendshipReadOperations = ({
   database,
   eventSink,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
   /** One member's own friendships and requests (ADR 0072). */
@@ -71,7 +72,7 @@ export const friendshipReadOperations = ({
 });
 
 async function readRows(
-  tx: Pick<BunSQLDatabase, 'select'>,
+  tx: Tx,
   actorId: string,
 ): Promise<readonly FriendshipRow[]> {
   const other = sql<string>`case when ${friendships.lowActorId} = ${actorId} then ${friendships.highActorId} else ${friendships.lowActorId} end`;
@@ -109,13 +110,16 @@ async function readRows(
     )
     .orderBy(asc(friendships.state), desc(friendships.requestedAt))
     .limit(FRIENDSHIP_LIST_MAX);
-  return rows.map((row) => ({
-    otherActorId: row.otherActorId,
-    username: row.username!,
-    state: row.state as 'pending' | 'accepted',
-    requesterActorId: row.requesterActorId,
-    requestedAt: row.requestedAt.toISOString(),
-    otherChosen: row.otherChosen,
-    otherPlacement: row.otherPlacement,
-  }));
+  return rows.map((row) => {
+    if (row.username === null) throw createAppError('INVARIANT');
+    return {
+      otherActorId: row.otherActorId,
+      username: row.username,
+      state: row.state as 'pending' | 'accepted',
+      requesterActorId: row.requesterActorId,
+      requestedAt: row.requestedAt.toISOString(),
+      otherChosen: row.otherChosen,
+      otherPlacement: row.otherPlacement,
+    };
+  });
 }

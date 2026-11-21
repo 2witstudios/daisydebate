@@ -1,4 +1,4 @@
-import type { SQL } from 'bun';
+import { SQL } from 'bun';
 
 export type RecordedQuery = { query: string; params: unknown[] };
 
@@ -91,7 +91,7 @@ export function fakeSql(
     const answer = protocolRows(query, protocol);
     return settled(answer ?? script.shift());
   };
-  const client = {
+  const scripted = {
     // drizzle-orm 1.0's bun-sql driver sets `options.bigint` on its client.
     options: {},
     unsafe: (query: string, params: unknown[] = []) =>
@@ -122,5 +122,22 @@ export function fakeSql(
       return connection;
     },
   };
-  return { client: client as unknown as SQL, queries, reservations };
+  const client = new Proxy(new SQL('postgres://127.0.0.1:1/daisy_scripted'), {
+    get(_pool, property) {
+      if (!Object.hasOwn(scripted, property))
+        throw new Error(
+          `Unexpected scripted SQL operation ${String(property)}`,
+        );
+      return Reflect.get(scripted, property);
+    },
+    set(_pool, property, value) {
+      return Reflect.set(scripted, property, value);
+    },
+    apply() {
+      throw new Error(
+        'A scripted pool statement must use the recorded SQL methods',
+      );
+    },
+  });
+  return { client, queries, reservations };
 }

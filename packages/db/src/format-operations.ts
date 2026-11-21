@@ -4,12 +4,12 @@ import type {
   FormatSettings,
 } from '@daisy/protocol';
 import { and, eq, isNull } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import { formatPresets } from './schema/format-presets';
 import { formatRevisions } from './schema/format-revisions';
 import { formats } from './schema/formats';
 import { instrumented, type DatabaseEventSink } from './instrumented';
+import type { TxSource, Tx } from './tx';
 
 type FormatRevisionRecord = {
   readonly id: string;
@@ -26,7 +26,7 @@ type FormatPresetRecord = {
 };
 
 /** Shared current-revision join used by single-format reads and the Room catalog. */
-const currentFormatRevisions = (client: BunSQLDatabase) =>
+const currentFormatRevisions = (client: TxSource) =>
   client
     .select({
       id: formats.id,
@@ -61,7 +61,7 @@ export type FormatSelectionFactsRecord = FormatSelectionFacts;
  * pure policy decides.
  */
 export async function readFormatSelectionFacts(
-  client: Pick<BunSQLDatabase, 'select'>,
+  client: Tx,
   { formatId, formatVersion, presetVersion }: SelectionTuple,
 ): Promise<FormatSelectionFactsRecord | null> {
   const [row] = await client
@@ -129,7 +129,7 @@ export const formatOperations = ({
   database,
   eventSink,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
   /** The format's current definition revision, or null when absent. */

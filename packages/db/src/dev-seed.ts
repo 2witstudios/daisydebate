@@ -16,6 +16,7 @@ import {
 } from '@daisy/protocol';
 import { frozenJudgingFor } from './round-judging-freeze';
 import { columnsOfSeat } from './seat-columns';
+import { inTransaction } from './tx';
 
 /**
  * Dev and demo content for `bun db:seed` (ISSUE-8 AC4): fixed-id people,
@@ -73,7 +74,7 @@ export async function applyDevSeed({
 }): Promise<void> {
   const client = new SQL(url, { max: 1 });
   try {
-    await drizzle({ client }).transaction(async (tx) => {
+    await inTransaction(drizzle({ client }), async (tx) => {
       for (const person of seed.people) {
         await tx
           .insert(users)

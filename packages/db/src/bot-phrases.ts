@@ -1,7 +1,6 @@
 import { and, eq, sql, type SQL } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import { idSchema, isSpokenPrefix, spokenPrefix } from '@daisy/protocol';
-import type { BoundedTransactionContext } from './transaction-context';
 import { advanceTranscriptRevision } from './capture-history';
 import { appendTranscriptChanged } from './transcript-signal';
 import { lockRoundAgentContext } from './round-agent-runs';
@@ -19,6 +18,9 @@ import { roundSegments } from './schema/round-segments';
 import { requireTranscriptUnfrozen } from './transcript-unfrozen';
 import { transcriptSegments } from './schema/transcript-segments';
 import { utterances } from './schema/utterances';
+import type { Tx } from './tx';
+import { run, query as queryRows } from './raw-rows';
+import { z } from 'zod';
 
 /** One phrase a bot is about to say: its own words and its known length. */
 export type BotPhrase = {
@@ -68,7 +70,7 @@ const startOf = (phrase: BotPhrase) =>
   phrase.startsAt === undefined
     ? sql`clock_timestamp()+${phrase.startsInMs ?? 0}*interval '1 millisecond'`
     : sql`greatest(clock_timestamp(),${new Date(phrase.startsAt)}::timestamptz)`;
-async function phraseRow(tx: BoundedTransactionContext, phraseId: string) {
+async function phraseRow(tx: Tx, phraseId: string) {
   const [row] = await tx
     .select()
     .from(utterances)
@@ -83,13 +85,13 @@ const sameSeat = (
   row.roundId === scope.roundId &&
   row.segmentId === scope.segmentId &&
   row.roundParticipantId === scope.roundParticipantId;
-async function signalChange(tx: BoundedTransactionContext, roundId: string) {
+async function signalChange(tx: Tx, roundId: string) {
   const revision = await advanceTranscriptRevision(tx, roundId);
   await appendTranscriptChanged(tx, roundId, revision);
 }
 /** The live claim, its room, an open floor with no incident, an open transcript. */
 async function requirePhraseAuthority(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   scope: BotPublicationScope,
   token: string,
   room: string,
@@ -106,7 +108,7 @@ async function requirePhraseAuthority(
  * start it checked, read once.
  */
 async function requirePhraseFits(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   scope: BotPublicationScope,
   phrase: BotPhrase,
   start: SQL,
@@ -133,11 +135,7 @@ async function requirePhraseFits(
   return new Date(fit.start);
 }
 /** An existing line for the phrase id: the same phrase, or a conflicting retry. */
-async function saidLine(
-  tx: BoundedTransactionContext,
-  scope: BotPublicationScope,
-  phrase: BotPhrase,
-) {
+async function saidLine(tx: Tx, scope: BotPublicationScope, phrase: BotPhrase) {
   const existing = await phraseRow(tx, phrase.phraseId);
   if (existing && (!sameSeat(existing, scope) || existing.text !== phrase.text))
     throw createAppError('CONFLICT', 'Conflicting bot phrase retry');
@@ -154,7 +152,7 @@ async function saidLine(
  * its last whole phrase.
  */
 export async function authorizeLockedBotPhrase(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   input: {
     readonly scope: BotPublicationScope;
     readonly token: string;
@@ -180,7 +178,7 @@ export async function authorizeLockedBotPhrase(
  * lines. A refusal stops the audio. An exact retry writes nothing twice.
  */
 export async function revealLockedBotPhrase(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   input: {
     readonly scope: BotPublicationScope;
     readonly token: string;
@@ -253,7 +251,7 @@ export async function revealLockedBotPhrase(
  * changes nothing, as does an end for a line already deleted unheard.
  */
 export async function endLockedBotPhrase(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   input: {
     readonly scope: BotPublicationScope;
     readonly token: string;
@@ -264,8 +262,8 @@ export async function endLockedBotPhrase(
   const { scope, end } = input;
   if (
     !idSchema.safeParse(input.phraseId).success ||
-    (end.kind !== 'whole' &&
-      (end.kind !== 'cut' || typeof end.spoken !== 'string'))
+    !['whole', 'cut'].includes(end.kind) ||
+    (end.kind === 'cut' && typeof end.spoken !== 'string')
   )
     throw createAppError('VALIDATION');
   await lockRoundAgentContext(tx, scope.roundId, scope.roundParticipantId);
@@ -311,7 +309,7 @@ type LineRow = {
  * left with no line is dropped with it: its turn stays owed (ADR 0122).
  */
 async function closeLine(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   row: LineRow,
   spoken: string,
   interrupted: boolean,
@@ -335,11 +333,14 @@ async function closeLine(
     return;
   }
   await tx.delete(utterances).where(eq(utterances.id, row.id));
-  await tx.execute(sql`delete from transcript_segments t
+  await run(
+    tx,
+    sql`delete from transcript_segments t
     where t.round_id=${row.roundId} and t.segment_id=${row.segmentId}
       and t.round_participant_id=${row.roundParticipantId} and t.chunk_count=0
       and not exists(select 1 from utterances u where u.round_id=t.round_id
-        and u.segment_id=t.segment_id and u.round_participant_id=t.round_participant_id)`);
+        and u.segment_id=t.segment_id and u.round_participant_id=t.round_participant_id)`,
+  );
 }
 
 /**
@@ -349,12 +350,22 @@ async function closeLine(
  * Call within the Round's lock, before a takeover's new claim or the freeze.
  */
 export async function closeAbandonedBotLines(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   roundId: string,
   roundParticipantId?: string,
 ) {
-  const rows =
-    (await tx.execute(sql`select u.id, u.text, u.round_id as "roundId",
+  const rows = await queryRows(
+    tx,
+    z.object({
+      id: z.string(),
+      text: z.string(),
+      fraction: z.union([z.string(), z.number()]),
+      durationMs: z.number(),
+      roundId: z.string(),
+      segmentId: z.string(),
+      roundParticipantId: z.string(),
+    }),
+    sql`select u.id, u.text, u.round_id as "roundId",
       u.segment_id as "segmentId", u.round_participant_id as "roundParticipantId",
       extract(epoch from (least(clock_timestamp(),
         u.created_at+u.bot_duration_ms*interval '1 millisecond',
@@ -363,15 +374,8 @@ export async function closeAbandonedBotLines(
     from utterances u join round_segments s on s.id=u.segment_id and s.round_id=u.round_id
     where u.round_id=${roundId} and u.bot_phrase_id is not null and not u.complete
       ${roundParticipantId === undefined ? sql`` : sql`and u.round_participant_id=${roundParticipantId}`}
-    for update of u`)) as unknown as {
-      id: string;
-      text: string;
-      fraction: number | string;
-      durationMs: number;
-      roundId: string;
-      segmentId: string;
-      roundParticipantId: string;
-    }[];
+    for update of u`,
+  );
   for (const row of rows) {
     const fraction = Number(row.fraction);
     await closeLine(

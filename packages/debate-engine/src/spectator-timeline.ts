@@ -90,8 +90,9 @@ const declaredSide = (
   read: SpectatorTimelineRead,
   side: string | null,
 ): readonly string[] =>
+  side !== null &&
   read.round.rules.sides.some((declared) => declared.key === side)
-    ? [side!]
+    ? [side]
     : [];
 
 /** The seats an audience may name: every seat but a judge's. */

@@ -27,9 +27,10 @@ export default async function Page({
     event: one(query, 'event'),
   });
   const pageNumber = Number(one(query, 'page') ?? '1');
+  const season = one(query, 'season');
   const read = await requestLeaguePage(slug, {
     addressKind: 'standing',
-    ...(one(query, 'season') ? { seasonId: one(query, 'season')! } : {}),
+    ...(season ? { seasonId: season } : {}),
     ...(view.tab === 'season' && view.event ? { templateId: view.event } : {}),
     ...(view.tab === 'ladder'
       ? {

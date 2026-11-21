@@ -300,7 +300,7 @@ export function createDocumentSync({
     const [server] = await api.read([id]);
     if (isClosed() || isForgotten(doc(id))) return;
     const outcome = conflictOutcome(doc(id), sent, revision, server);
-    if (outcome.kind === 'gone') {
+    if (server === undefined || outcome.kind === 'gone') {
       markGone(id);
       return;
     }
@@ -308,9 +308,9 @@ export function createDocumentSync({
       saved(id, outcome.copy, outcome.revision);
       return;
     }
-    update(id, (d) => ({ ...d, serverHtml: server!.html }));
+    update(id, (d) => ({ ...d, serverHtml: server.html }));
     const previous = read(id, wallClock());
-    const settled = settledBy(previous.record, server!.html);
+    const settled = settledBy(previous.record, server.html);
     if (settled !== previous.record) write(id, previous, settled, wallClock());
     update(id, (d) => ({
       ...d,
@@ -408,7 +408,11 @@ export function createDocumentSync({
     if (isClosed()) return;
     for (const handle of handles.values()) timers.clear(handle);
     handles.clear();
-    if (keepalive) for (const id of pendingIds()) persist(id, doc(id).pending!);
+    if (keepalive)
+      for (const id of pendingIds()) {
+        const pending = doc(id).pending;
+        if (pending) persist(id, pending);
+      }
     await Promise.all(pendingIds().map((id) => saveNow(id, keepalive)));
   };
   const close = (reason: 'released' | 'fence' | 'purge') => {

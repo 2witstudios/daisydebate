@@ -4,7 +4,7 @@ import {
   lockNonrankedCaptureCapacity,
   readNonrankedCaptureCapacity,
 } from './nonranked-capture-capacity';
-import type { BoundedTransactionContext } from './transaction-context';
+import type { Tx } from './tx';
 
 /** One host's casual Rounds broadcast or recorded at once. */
 export const CASUAL_CAPTURES_PER_HOST = 2;
@@ -23,7 +23,7 @@ export const CASUAL_CAPTURES_AT_ONCE = NONRANKED_CAPTURE_FLEET_LIMIT;
  * room for one. A running Round is never affected.
  */
 export const admitCasualCapture = async (
-  tx: Pick<BoundedTransactionContext, 'execute'>,
+  tx: Tx,
   input: { readonly hostActorId: string; readonly roundId: string },
 ): Promise<void> => {
   await lockNonrankedCaptureCapacity(tx);
@@ -32,8 +32,8 @@ export const admitCasualCapture = async (
     sponsorUserId: null,
     lobbyId: null,
   });
-  if ((counts?.hosted ?? 0) >= CASUAL_CAPTURES_PER_HOST)
+  if (counts.hosted >= CASUAL_CAPTURES_PER_HOST)
     throw createRefusal('CONFLICT', 'capture-host-limit');
-  if ((counts?.running ?? 0) >= CASUAL_CAPTURES_AT_ONCE)
+  if (counts.running >= CASUAL_CAPTURES_AT_ONCE)
     throw createRefusal('CONFLICT', 'capture-capacity');
 };

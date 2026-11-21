@@ -1,5 +1,6 @@
 import type { OutboxPosition, OutboxRow } from '@daisy/db/outbox';
 import type { RealtimeApp } from './app';
+import { testTransport } from './delivery.test-support';
 import { noopLogger } from './outbox-drain.test-support';
 
 /**
@@ -30,5 +31,6 @@ export function fakeApp(overrides: {
       drainOutbox: async (): Promise<readonly OutboxRow[]> => [],
     },
     redis: { health: async () => true },
+    transport: testTransport,
   } as unknown as RealtimeApp;
 }

@@ -1,16 +1,17 @@
 import type { RoomClosureTransitions } from '../room-account-closure';
 import { subjectRightsAdoption } from './adoption';
-import type { PrivacySubject, PrivacyDatabase } from './contracts';
+import type { PrivacySubject } from './contracts';
 import {
   runPrivacyErasure,
   runPrivacyExport,
   type PrivacyVerificationBinding,
 } from './operations';
 import type { PrivacyErasureInput } from './planner';
+import type { TxOpener } from '../tx';
 
 /** Closes one member's account through every feature's erase step (ADR 0087). */
 export const erasePrivacySubject = (
-  database: PrivacyDatabase,
+  database: TxOpener,
   input: PrivacyErasureInput,
   rooms: RoomClosureTransitions,
   verificationBindings: readonly PrivacyVerificationBinding[],
@@ -24,7 +25,7 @@ export const erasePrivacySubject = (
 
 /** One member's own data from every feature's export step. */
 export const exportPrivacySubject = (
-  database: PrivacyDatabase,
+  database: TxOpener,
   subject: PrivacySubject,
   rooms: RoomClosureTransitions,
 ) => runPrivacyExport(database, subject, subjectRightsAdoption(rooms));

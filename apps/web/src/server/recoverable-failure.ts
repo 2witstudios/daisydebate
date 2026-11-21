@@ -42,6 +42,14 @@ export function recoverableFailure(input: {
   const deferrals = new Map<string, number>();
   /** One sink step; a step that throws never stops the next or its caller. */
   const attempt = (step: () => void) => void guarded(step);
+  /** A classifier that throws answers no, never stops its caller. */
+  const holds = (test: () => boolean) => {
+    try {
+      return test();
+    } catch {
+      return false;
+    }
+  };
   const report = (error: unknown, operation: string) => {
     const errorCode = errorCodeOf(error, 'INTERNAL');
     let cause: string | undefined;
@@ -70,12 +78,8 @@ export function recoverableFailure(input: {
    */
   return (error: unknown, stage: string) => {
     const operation = `${input.operation}.${stage}`;
-    let lapse = false;
-    attempt(() => {
-      lapse = input.isLeaseLapse(error);
-    });
     // A lapse is expected and clears on renewal: a warning, never a failure.
-    if (lapse)
+    if (holds(() => input.isLeaseLapse(error)))
       return attempt(() => {
         input.logger.log(
           'service.lease_lapsed',
@@ -87,11 +91,7 @@ export function recoverableFailure(input: {
           'Service lease not current; the next renewal restores it',
         );
       });
-    let capacity = false;
-    attempt(() => {
-      capacity = input.isCapacity(error);
-    });
-    if (!capacity) return report(error, operation);
+    if (!holds(() => input.isCapacity(error))) return report(error, operation);
     const deferred = (deferrals.get(stage) ?? 0) + 1;
     if (deferred <= CAPACITY_DEFERRAL_LIMIT)
       return void deferrals.set(stage, deferred);

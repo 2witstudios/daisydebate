@@ -2,29 +2,26 @@ import { daisyOrganizationId } from './daisy-reference';
 import { createAppError } from '@daisy/errors';
 import {
   idSchema,
+  competitionTypes,
+  ratingDivisions,
+  ratingStyles,
+  roundOutcomeSchema,
+  roundStatusSchema,
   isRoundEndState,
-  type AttendanceLedgerFacts,
   type EndingRatingFacts,
   type RatingEligibilityFacts,
   type RecordedEnding,
-  type RoundOutcome,
-  type RoundStatus,
 } from '@daisy/protocol';
 import { roundOutcomeSql } from './round-outcome-sql';
 import { sql, type SQL } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import {
   attendanceLedgerColumns,
   attendanceLedgerFacts,
 } from './attendance-settlement';
 import { recordedEnding, recordedEndingJoins } from './recorded-ending';
-
-/**
- * Loads the facts the engine decides a rating from. This file selects and
- * reads; `ratingEligibility` says who is rated (ADR 0055, ADR 0058).
- */
-
-type Execute = Pick<BunSQLDatabase, 'execute'>;
+import type { Tx } from './tx';
+import { query } from './raw-rows';
+import { z } from 'zod';
 
 /** A Round to rate, or one whose ledger row is corrupt: it fails alone, and the page moves on. */
 export type RatingCandidate =
@@ -35,15 +32,34 @@ export type RatingCandidate =
       readonly unreadable: unknown;
     };
 
-type EndingRow = {
-  readonly status: RoundStatus;
-  readonly outcome: RoundOutcome | null;
-  readonly completedAt: string | null;
-  readonly ending: RecordedEnding;
-} & Record<keyof AttendanceLedgerFacts, unknown> & { readonly roundId: string };
-
-type FactsRow = EndingRow &
-  Omit<RatingEligibilityFacts, keyof EndingRatingFacts>;
+// Keep each Round's malformed ending isolated until endingFacts can record
+// its refusal. The page continues with independently valid candidates.
+const endingRow = z.object({
+  roundId: z.string(),
+  status: z.unknown(),
+  outcome: z.unknown(),
+  completedAt: z.unknown(),
+  ending: z.unknown(),
+  ruleSegments: z.unknown(),
+  speeches: z.unknown(),
+  adjudications: z.unknown(),
+  receipts: z.unknown(),
+  pendingWriter: z.unknown(),
+});
+const ratingCandidateRow = endingRow.extend({
+  competitionType: z.enum(competitionTypes),
+  ladder: z
+    .object({ style: z.enum(ratingStyles), division: z.enum(ratingDivisions) })
+    .nullable(),
+  alreadyRated: z.boolean(),
+});
+const recordedEndingValue = z.enum([
+  'unrecorded',
+  'forfeit',
+  'unjudged',
+  'judged',
+] satisfies readonly RecordedEnding[]);
+type EndingRow = z.output<typeof endingRow>;
 
 /** A Round's ending facts, or why its row is unreadable: it is never rated. */
 type EndingRead<Facts> =
@@ -68,12 +84,17 @@ const endingFacts = <Row extends EndingRow>({
   receipts,
   pendingWriter,
   ...facts
-}: Row): EndingRead<
-  Omit<Row, 'roundId' | keyof AttendanceLedgerFacts> & EndingRatingFacts
-> => {
+}: Row) => {
   try {
+    const decoded = {
+      ...facts,
+      status: roundStatusSchema.parse(facts.status),
+      outcome: roundOutcomeSchema.nullable().parse(facts.outcome),
+      completedAt: z.string().nullable().parse(facts.completedAt),
+      ending: recordedEndingValue.parse(facts.ending),
+    };
     // `rounds_lifecycle_check` holds this; a row that breaks it is unreadable, never rated.
-    if (!isRoundEndState(facts))
+    if (!isRoundEndState(decoded))
       throw createAppError(
         'INVARIANT',
         'Round ending is not one its status holds',
@@ -81,7 +102,7 @@ const endingFacts = <Row extends EndingRow>({
     return {
       roundId,
       facts: {
-        ...facts,
+        ...decoded,
         attendance: attendanceLedgerFacts({
           ruleSegments,
           speeches,
@@ -97,15 +118,19 @@ const endingFacts = <Row extends EndingRow>({
 };
 
 const readCandidates = async (
-  db: Execute,
+  db: Tx,
   selection: SQL,
 ): Promise<readonly RatingCandidate[]> => {
-  const rows = (await db.execute(sql`select ${endingColumns},
+  const rows = await query(
+    db,
+    ratingCandidateRow,
+    sql`select ${endingColumns},
       r.competition_type as "competitionType",
       case when r.ladder_id is null then null else jsonb_build_object('style', r.ladder_id, 'division', r.ladder_division) end as ladder,
       exists(select 1 from rating_changes l where l.round_id=r.id) as "alreadyRated"
     from rounds r ${recordedEndingJoins}
-    where (r.room_id is null or exists(select 1 from rooms rating_room join lobbies rating_lobby on rating_lobby.id=rating_room.lobby_id where rating_room.id=r.room_id and rating_lobby.owner_organization_id=${daisyOrganizationId})) and ${selection}`)) as unknown as FactsRow[];
+    where (r.room_id is null or exists(select 1 from rooms rating_room join lobbies rating_lobby on rating_lobby.id=rating_room.lobby_id where rating_room.id=r.room_id and rating_lobby.owner_organization_id=${daisyOrganizationId})) and ${selection}`,
+  );
   return rows.map(endingFacts);
 };
 
@@ -116,7 +141,7 @@ const readCandidates = async (
 const endingReadBatch = 10_000;
 
 export async function readEndingRatingFacts(
-  db: Execute,
+  db: Tx,
   roundIds: readonly string[],
 ): Promise<readonly EndingRead<EndingRatingFacts>[]> {
   if (!roundIds.every((id) => idSchema.safeParse(id).success))
@@ -125,12 +150,16 @@ export async function readEndingRatingFacts(
   const rows: EndingRow[] = [];
   for (let at = 0; at < roundIds.length; at += endingReadBatch)
     rows.push(
-      ...((await db.execute(sql`select ${endingColumns}
+      ...(await query(
+        db,
+        endingRow,
+        sql`select ${endingColumns}
     from rounds r ${recordedEndingJoins}
     where r.id = any(array[${sql.join(
       roundIds.slice(at, at + endingReadBatch).map((id) => sql`${id}`),
       sql`, `,
-    )}]::text[])`)) as unknown as EndingRow[]),
+    )}]::text[])`,
+      )),
     );
   return rows.map(endingFacts);
 }
@@ -141,7 +170,7 @@ export async function readEndingRatingFacts(
  * still advances the cursor.
  */
 export async function readRatingCandidates(
-  db: Execute,
+  db: Tx,
   input: { readonly afterId?: string; readonly limit: number },
 ): Promise<readonly RatingCandidate[]> {
   if (
@@ -163,7 +192,7 @@ export async function readRatingCandidates(
 
 /** One Round's facts, or null when there is no such Round. */
 export async function readRatingFacts(
-  db: Execute,
+  db: Tx,
   roundId: string,
 ): Promise<RatingEligibilityFacts | null> {
   if (!idSchema.safeParse(roundId).success) throw createAppError('VALIDATION');

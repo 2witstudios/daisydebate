@@ -36,7 +36,7 @@ const plan: RatingPlan = {
       expectedVersion: 3,
     },
   ],
-} as unknown as RatingPlan;
+};
 
 test('only ranked Rounds pin a preset and ladder', async () => {
   assert({

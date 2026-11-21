@@ -1,5 +1,6 @@
 import type { SQL } from 'bun';
 import { sql } from 'drizzle-orm';
+import { run } from './raw-rows';
 
 /**
  * The kinds of background work a command can create, each waking the
@@ -23,7 +24,7 @@ export async function notifyWork(
   tx: { readonly execute: (query: ReturnType<typeof sql>) => Promise<unknown> },
   kind: WorkKind,
 ): Promise<void> {
-  await tx.execute(sql`select pg_notify(${WORK_CHANNEL}, ${kind})`);
+  await run(tx, sql`select pg_notify(${WORK_CHANNEL}, ${kind})`);
 }
 
 export type WorkWakeHandlers = {

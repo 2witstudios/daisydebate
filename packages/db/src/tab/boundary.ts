@@ -7,7 +7,7 @@ import {
   restrictions,
 } from '../schema/guardian-links';
 import { scopeTransaction, type TenantScope } from '../tenant-scope';
-import type { TabTransaction } from './tab-transaction';
+import type { Tx } from '../tx';
 
 /**
  * A minor's boundary, as the evaluator reads it (`BoundaryFact`): the
@@ -65,7 +65,7 @@ export class BoundaryOutsideSubject extends Error {
  * for anyone else would see none and answer unbounded. That is refused.
  */
 export const loadBoundary = async (
-  tx: TabTransaction,
+  tx: Tx,
   person: {
     readonly userId: string;
     readonly actorId: string | null;
@@ -121,7 +121,7 @@ export const loadBoundary = async (
 
 /** The person's account with their boundary, or null without an account. */
 export const loadTabAccount = async (
-  tx: TabTransaction,
+  tx: Tx,
   userId: string,
   scope: TenantScope,
 ): Promise<TabAccount | null> => {
@@ -133,7 +133,7 @@ export const loadTabAccount = async (
 
 /** A named counterpart's account, with its boundary loaded under that person. */
 export const loadTabCounterpart = async (
-  tx: TabTransaction,
+  tx: Tx,
   userId: string,
   scope: TenantScope,
 ): Promise<TabAccount | null> => {

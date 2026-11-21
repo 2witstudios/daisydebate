@@ -1,8 +1,7 @@
-import { sql } from 'drizzle-orm';
+import { readDatabaseTime } from './database-clock';
 import { z } from 'zod';
 import { createAppError } from '@daisy/errors';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
-type Tx = Pick<BunSQLDatabase, 'execute'>;
+import type { Tx } from './tx';
 /** Trusted persistence resource, never a request, tenant setting or environment clock. */
 export type RoundTimeSource = (tx: Tx) => Promise<string>;
 const utc = z.iso.datetime();
@@ -17,9 +16,5 @@ export async function sampleRoundExecutionTime(
       throw createAppError('INVARIANT', 'Round time must be UTC');
     return now;
   }
-  const [row] = (await tx.execute(
-    sql`select clock_timestamp() as now`,
-  )) as unknown as { now: Date }[];
-  if (!row) throw createAppError('INFRASTRUCTURE', 'The clock is unreadable');
-  return row.now.toISOString();
+  return (await readDatabaseTime(tx)).toISOString();
 }

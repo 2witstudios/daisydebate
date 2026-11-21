@@ -6,7 +6,6 @@ import {
 } from './recording-tournament-admission';
 import type { RecordingClass, RecordingEligibility } from '@daisy/protocol';
 import { and, asc, eq, isNull, lte, or, sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { endRoundFeed } from './broadcast-operations';
 import { openRecordingJobIfEgressRecorded } from './recording-processing-operations';
 import {
@@ -16,6 +15,7 @@ import {
   type StoredRecording,
 } from './recording-move';
 import { recordings } from './schema/recordings';
+import { inTransaction, type TxSource } from './tx';
 
 const stored = (row: typeof recordings.$inferSelect): StoredRecording => ({
   id: row.id,
@@ -30,7 +30,7 @@ const stored = (row: typeof recordings.$inferSelect): StoredRecording => ({
 export const recordingOperations = ({
   database,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
 }) => ({
   /** One Recording per Round: a repeat returns the first, whoever asked. */
   async requestRecording(input: {
@@ -39,7 +39,7 @@ export const recordingOperations = ({
     readonly class: RecordingClass;
     readonly eligibility: RecordingEligibility;
   }): Promise<StoredRecording> {
-    return database.transaction(async (tx) => {
+    return inTransaction(database, async (tx) => {
       if (input.eligibility.kind === 'tournament_admission') {
         await readLockedTournamentAdmission(tx, input.roundId);
         const admission = await readRecordingTournamentAdmission(
@@ -72,7 +72,8 @@ export const recordingOperations = ({
         .select()
         .from(recordings)
         .where(eq(recordings.roundId, input.roundId));
-      return stored(row!);
+      if (!row) throw createAppError('INVARIANT');
+      return stored(row);
     });
   },
 
@@ -98,7 +99,7 @@ export const recordingOperations = ({
     decide: (record: StoredRecording) => Decision,
     expectedVersion?: number,
   ) {
-    return database.transaction((tx) =>
+    return inTransaction(database, (tx) =>
       moveRecording(tx, id, decide, expectedVersion),
     );
   },
@@ -113,7 +114,7 @@ export const recordingOperations = ({
     decide: (record: StoredRecording, underOpenReport: boolean) => Decision,
     input: { readonly expectedVersion: number; readonly now: string },
   ) {
-    return database.transaction(async (tx) => {
+    return inTransaction(database, async (tx) => {
       const underOpenReport = await recordingUnderOpenReport(tx, id);
       const applied = await moveRecording(
         tx,
@@ -139,7 +140,7 @@ export const recordingOperations = ({
     readonly limit: number;
   }) {
     const at = new Date(input.now);
-    return database.transaction(async (tx) => {
+    return inTransaction(database, async (tx) => {
       const due = await tx
         .select({ id: recordings.id })
         .from(recordings)
@@ -163,7 +164,8 @@ export const recordingOperations = ({
           })
           .where(eq(recordings.id, id))
           .returning();
-        claims.push({ record: stored(row!), attempts: row!.deletionAttempts });
+        if (!row) throw createAppError('INVARIANT');
+        claims.push({ record: stored(row), attempts: row.deletionAttempts });
       }
       return claims;
     });

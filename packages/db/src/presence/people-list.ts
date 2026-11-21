@@ -1,7 +1,10 @@
-import type { AgeBand, RatingDivision } from '@daisy/protocol';
+import {
+  type AgeBand,
+  type RatingDivision,
+  ratingDivisions,
+} from '@daisy/protocol';
 import { divisionAgeBand, divisionOfBandSql } from '../ladder-division-band';
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import {
   idSchema,
   type ChosenStatus,
@@ -16,6 +19,9 @@ import {
 import { placementOf, readAvailability } from './availability';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
 import { admittedParticipant } from '../participant-admission';
+import type { TxSource } from '../tx';
+import { query as queryRows } from '../raw-rows';
+import { z } from 'zod';
 
 type PeopleListScope = { readonly userId: string; readonly actorId: string };
 
@@ -107,7 +113,7 @@ const isOnline = (ids: readonly string[]) =>
 
 /** One keyset page, friends first, then online, then by name, and the list's totals. */
 export function readPeopleListPage(
-  database: BunSQLDatabase,
+  database: TxSource,
   scope: PeopleListScope,
   input: PeopleListPageInput,
   authorize: OwnCollectionFence<PeopleListScope>,
@@ -122,11 +128,17 @@ export function readPeopleListPage(
       input.admittedAgeBands,
     );
     const online = isOnline(input.onlineActorIds);
-    const [counts] = (await tx.execute(
+    const [counts] = await queryRows(
+      tx,
+      z.object({
+        everyone: z.number(),
+        friends: z.number(),
+        online: z.number(),
+      }),
       sql`select count(*)::int as everyone,
         count(*) filter (where ${isFriend})::int as friends,
         count(*) filter (where ${online})::int as online ${from}`,
-    )) as unknown as PeopleListPage['counts'][];
+    );
     const rank = sql`case when ${isFriend} then 0 else 1 end`;
     const presence = sql`case when ${online} then 0 else 1 end`;
     const after = input.after
@@ -137,7 +149,20 @@ export function readPeopleListPage(
       : sql``;
     const friendsOnly =
       input.filter === 'friends' ? sql`and ${isFriend}` : sql``;
-    const rows = (await tx.execute(sql`
+    const rows = await queryRows(
+      tx,
+      z.object({
+        actorId: z.string(),
+        username: z.string(),
+        chosen: z.enum(['online', 'busy', 'appearing_offline']),
+        placement: z.enum(['round', 'room']).nullable(),
+        friend: z.boolean(),
+        online: z.boolean(),
+        requesterActorId: z.string().nullable(),
+        friendshipState: z.enum(['pending', 'accepted']).nullable(),
+        division: z.enum(ratingDivisions).nullable(),
+      }),
+      sql`
       select a.id as "actorId", u.username,
         coalesce(ps.chosen_status, 'online') as chosen,
         ${placementOf(sql`a.id`)} as placement,
@@ -148,7 +173,8 @@ export function readPeopleListPage(
         (select ${divisionOfBandSql(divisionAgeBand())} from account_age where account_age.user_id = u.id) as division
       ${from} ${named} ${friendsOnly} ${after}
       order by ${rank}, ${presence}, lower(u.username), a.id
-      limit ${input.limit}`)) as unknown as PersonRow[];
+      limit ${input.limit}`,
+    );
     return {
       rows: [...rows],
       counts: counts ?? { everyone: 0, friends: 0, online: 0 },
@@ -162,7 +188,7 @@ export const peopleListOperations = ({
   database,
   eventSink,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
   readPeopleListPage: (

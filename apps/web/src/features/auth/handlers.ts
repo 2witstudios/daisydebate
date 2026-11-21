@@ -88,8 +88,16 @@ export function createAuthRouteHandlers(
             throw createAppError('AUTHORIZATION');
           try {
             const delegate = toNextJsHandler({ handler: server.handler });
-            const method = request.method as keyof typeof delegate;
-            const response = await (delegate[method] ?? delegate.GET)(request);
+            // A request may carry any method; only some have a delegate.
+            const byMethod: Readonly<
+              Record<
+                string,
+                ((request: Request) => Promise<Response>) | undefined
+              >
+            > = delegate;
+            const response = await (byMethod[request.method] ?? delegate.GET)(
+              request,
+            );
             if (response.status < 400)
               logAuthLifecycle(logger, mountedPath(request.url));
             return preserve(response);

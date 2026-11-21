@@ -80,11 +80,13 @@ export function createStreamingAudioWriter(input: {
       aborted: false,
       cut: true,
     });
+    // The signal may abort while a frame waits, so each check reads it afresh.
+    const aborted = () => signal.aborted;
     for (let frame = 0; frame < frames; frame += 1) {
-      if (signal.aborted) return stopped();
+      if (aborted()) return stopped();
       const due = startMs + frame * 10 - input.leadMs;
       if (input.nowMs() < due) await input.waitUntilMs(due, signal);
-      if (signal.aborted) return stopped();
+      if (aborted()) return stopped();
       // Where this frame's playout would end: on schedule, or later after an
       // underrun, since it plays only once the queue ahead of it has.
       const playsUntil = Math.max(
@@ -102,7 +104,7 @@ export function createStreamingAudioWriter(input: {
       }
       sent += 1;
     }
-    if (signal.aborted) return stopped();
+    if (aborted()) return stopped();
     const samples = sent * perFrame;
     return {
       sentSamples: samples,

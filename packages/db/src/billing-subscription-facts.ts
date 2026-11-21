@@ -3,12 +3,12 @@ import {
   subscriptionEvidenceSchema,
   type SubscriptionEvidence,
 } from '@daisy/protocol/billing';
-import type { BoundedTransactionContext } from './transaction-context';
 import { billingSubscriptions } from './schema/billing-subscriptions';
+import type { Tx } from './tx';
 
 /** Same canonical account fence as synchronization and admission; no cached access snapshot. */
 export async function readBillingEvidence(
-  tx: Pick<BoundedTransactionContext, 'select'>,
+  tx: Tx,
   userId: string,
 ): Promise<SubscriptionEvidence | null> {
   const [row] = await tx

@@ -3,7 +3,6 @@ import { normalizedEmailSql } from './email-identity';
 import { loadAuthorizationAccount } from './authorization';
 import { createAppError } from '@daisy/errors';
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { z } from 'zod';
 import { DIGEST_WINDOW } from './beta-access';
 import { instrumented, type DatabaseEventSink } from './instrumented';
@@ -16,8 +15,8 @@ import {
   mailIntents,
   mailIntentPurposes,
 } from './schema/mail-intents';
-
-type Database = Pick<BunSQLDatabase, 'transaction' | 'execute'>;
+import { inTransaction, type TxSource } from './tx';
+import { run, query } from './raw-rows';
 
 export type MailIntentClaim = {
   readonly id: string;
@@ -91,7 +90,7 @@ export function mailIntentOperations({
   database,
   eventSink,
 }: {
-  readonly database: Database;
+  readonly database: TxSource;
   readonly eventSink: DatabaseEventSink | undefined;
 }) {
   return {
@@ -104,38 +103,45 @@ export function mailIntentOperations({
             database,
             input,
             sql`id, purpose, attempts`,
+            claimRow,
           )
-        ).map(({ row, token }) => ({ ...claimRow.parse(row), token })),
+        ).map(({ row, token }) => ({ ...row, token })),
       ),
     readMailIntentDelivery: (id: string): Promise<MailIntentDelivery> =>
       instrumented(eventSink, 'readMailIntentDelivery', async () => {
         // A digest counts its own window, which retries never move.
-        const [intent] =
-          (await database.execute(sql`select purpose, recipient_user_id, preapproval_id, state, window_start, dedupe_key, club_seat_invitation_id,
+        const [intent] = await query(
+          database,
+          z.object({
+            purpose: z.string(),
+            invitation_deadline: z.string(),
+            state: z.string(),
+            preapproval_id: z.string().nullable(),
+            recipient_user_id: z.string().nullable(),
+            window_start: z.date().nullable(),
+            dedupe_key: z.string(),
+            club_seat_invitation_id: z.string().nullable(),
+          }),
+          sql`select purpose, recipient_user_id, preapproval_id, state, window_start, dedupe_key, club_seat_invitation_id,
             to_char((created_at + interval '23 hours') at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as invitation_deadline
-          from mail_intents where id = ${id}`)) as unknown as {
-            purpose: string;
-            invitation_deadline: string;
-            state: string;
-            preapproval_id: string | null;
-            recipient_user_id: string | null;
-            window_start: Date | null;
-            dedupe_key: string;
-            club_seat_invitation_id: string | null;
-          }[];
+          from mail_intents where id = ${id}`,
+        );
         if (!intent) throw createAppError('NOT_FOUND');
         if (intent.purpose === 'club-seat-invitation')
           return clubSeatInvitationDelivery(database, intent);
         if (intent.purpose === 'beta-invitation') {
           if (intent.state !== 'leased') return { kind: 'not-owed' };
-          const [grant] =
-            (await database.execute(sql`select p.email, p.claimed_user_id from beta_preapprovals p
+          const [grant] = await query(
+            database,
+            z.object({
+              email: z.string(),
+              claimed_user_id: z.string().nullable(),
+            }),
+            sql`select p.email, p.claimed_user_id from beta_preapprovals p
             left join users u on u.id = p.claimed_user_id
             left join account_beta_access b on b.user_id = p.claimed_user_id
-            where p.id = ${intent.preapproval_id} and (p.claimed_user_id is null or (u.deleted_at is null and u.email_verified and ${normalizedEmailSql(sql`u.email`)} = p.email and b.state = 'approved'))`)) as unknown as {
-              email: string;
-              claimed_user_id: string | null;
-            }[];
+            where p.id = ${intent.preapproval_id} and (p.claimed_user_id is null or (u.deleted_at is null and u.email_verified and ${normalizedEmailSql(sql`u.email`)} = p.email and b.state = 'approved'))`,
+          );
           if (!grant) return { kind: 'not-owed' };
           if (grant.claimed_user_id) {
             const account = await loadAuthorizationAccount(
@@ -155,9 +161,11 @@ export function mailIntentOperations({
             )
               return { kind: 'not-owed' };
           }
-          const accounts = (await database.execute(
+          const accounts = await query(
+            database,
+            z.object({ id: z.string() }),
             sql`select id from users where ${normalizedEmailSql(sql`email`)} = ${grant.email} and email_verified`,
-          )) as unknown as { id: string }[];
+          );
           for (const account of accounts) {
             const fact = await loadAuthorizationAccount(database, account.id);
             if (
@@ -174,11 +182,14 @@ export function mailIntentOperations({
           };
         }
         if (intent.purpose === 'beta-approved') {
-          const [row] =
-            (await database.execute(sql`select u.email, u.username, b.state
+          const [row] = await query(
+            database,
+            memberRow,
+            sql`select u.email, u.username, b.state
             from users u left join account_beta_access b on b.user_id = u.id
-            where u.id = ${intent.recipient_user_id} and u.deleted_at is null`)) as unknown as unknown[];
-          const member = row ? memberRow.parse(row) : null;
+            where u.id = ${intent.recipient_user_id} and u.deleted_at is null`,
+          );
+          const member = row;
           if (!member?.email || !member.username)
             return { kind: 'recipient-gone' };
           if (member.state !== 'approved') return { kind: 'not-owed' };
@@ -188,12 +199,18 @@ export function mailIntentOperations({
             username: member.username,
           };
         }
-        const [row] = (await database.execute(sql`select
+        const [row] = await query(
+          database,
+          digestRow,
+          sql`select
             count(*) filter (where requested_at >= ${intent.window_start}
               and requested_at < ${intent.window_start}::timestamptz + ${DIGEST_WINDOW}) as new_requests,
             count(*) as waiting
-          from account_beta_access where state = 'pending'`)) as unknown as unknown[];
-        const digest = digestRow.parse(row);
+          from account_beta_access where state = 'pending'`,
+        );
+        if (!row)
+          throw createAppError('INVARIANT', 'Digest counts are missing');
+        const digest = row;
         return digest.new_requests === 0
           ? { kind: 'not-owed' }
           : {
@@ -221,30 +238,40 @@ export function mailIntentOperations({
         let deleted = 0;
         let after = '';
         for (;;) {
-          const clubs = (await database.execute(sql`select id from organizations
+          const clubs = await query(
+            database,
+            z.object({ id: z.string() }),
+            sql`select id from organizations
             where kind in ('school', 'family') and id > ${after}
-            order by id limit 100`)) as unknown as { id: string }[];
+            order by id limit 100`,
+          );
           for (const club of clubs) {
             if (deleted >= batch.limit) return deleted;
-            deleted += await database.transaction(async (tx) => {
+            deleted += await inTransaction(database, async (tx) => {
               await scopeTransaction(tx, { organizationId: club.id });
-              await tx.execute(sql`update mail_intents set state='cancelled', last_error_code='not-owed',
+              await run(
+                tx,
+                sql`update mail_intents set state='cancelled', last_error_code='not-owed',
                   completed_at=clock_timestamp(), lease_token_digest=null, lease_expires_at=null
                 where state in ('queued', 'leased') and club_seat_invitation_id in (
                   select id from club_seat_invitations where organization_id=${club.id}
-                    and expires_at < ${batch.before}::timestamptz)`);
-              const rows =
-                await tx.execute(sql`delete from club_seat_invitations
+                    and expires_at < ${batch.before}::timestamptz)`,
+              );
+              const rows = await query(
+                tx,
+                z.object({ id: z.string() }),
+                sql`delete from club_seat_invitations
                 where organization_id=${club.id} and id in (
                   select id from club_seat_invitations where organization_id=${club.id}
                     and expires_at < ${batch.before}::timestamptz
                   order by expires_at limit ${batch.limit - deleted})
-                returning id`);
-              return (rows as unknown as unknown[]).length;
+                returning id`,
+              );
+              return rows.length;
             });
           }
           if (clubs.length < 100) return deleted;
-          after = clubs.at(-1)!.id;
+          after = clubs[clubs.length - 1]!.id;
         }
       }),
     /** Terminal intents only: a queued or leased intent has no `completed_at`. */
@@ -272,39 +299,40 @@ const clubInvitationKey =
  * cancelled invitation is no longer owed.
  */
 async function clubSeatInvitationDelivery(
-  database: Database,
+  database: TxSource,
   intent: {
     readonly state: string;
     readonly dedupe_key: string;
     readonly club_seat_invitation_id: string | null;
   },
 ): Promise<MailIntentDelivery> {
-  const key = clubInvitationKey.exec(intent.dedupe_key);
+  const [, organizationId, invitationId] =
+    clubInvitationKey.exec(intent.dedupe_key) ?? [];
   if (
     intent.state !== 'leased' ||
-    !key ||
-    key[2] !== intent.club_seat_invitation_id
+    organizationId === undefined ||
+    invitationId === undefined ||
+    invitationId !== intent.club_seat_invitation_id
   )
     return { kind: 'not-owed' };
-  const [, organizationId, invitationId] = key as unknown as [
-    string,
-    string,
-    string,
-  ];
-  return database.transaction(async (tx) => {
+  return inTransaction(database, async (tx) => {
     await scopeTransaction(tx, { organizationId });
-    const [row] = (await tx.execute(sql`select i.email, i.expires_at, o.name,
+    const [row] = await query(
+      tx,
+      z.object({
+        email: z.string(),
+        expires_at: z.union([z.string(), z.date()]),
+        name: z.string(),
+        manager: z.string(),
+      }),
+      sql`select i.email, i.expires_at, o.name,
         coalesce(nullif(u.name, ''), u.username, 'Your club') as manager
       from club_seat_invitations i
       join organizations o on o.id = i.organization_id and o.closed_at is null
       left join users u on u.id = o.owner_user_id
       where i.organization_id = ${organizationId} and i.id = ${invitationId}
-        and i.expires_at > now()`)) as unknown as {
-      email: string;
-      expires_at: Date | string;
-      name: string;
-      manager: string;
-    }[];
+        and i.expires_at > now()`,
+    );
     if (!row) return { kind: 'not-owed' } as const;
     return {
       kind: 'club-seat-invitation',

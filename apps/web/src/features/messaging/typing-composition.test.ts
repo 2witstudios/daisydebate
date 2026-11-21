@@ -4,12 +4,15 @@ import type { Database } from '@daisy/db';
 import { composeMessagingTyping } from './typing-operations';
 import { typingWorld } from './typing.test-support';
 import { loadAccountPolicyFacts } from '../authorization/account-policy-facts';
+import type { Tx } from '@daisy/db/tx';
+import { unusedTx } from '@daisy/db/testing';
 setupRitewayBun();
 test('actual typing composition refuses current unavailable members before Redis and never uses a second transaction', async () => {
   const f = typingWorld(),
     account = f.accounts[0]!.account;
   const observed: unknown[] = [];
-  const tx = {
+  const tx: Tx = {
+    ...unusedTx,
     execute: () => {
       throw new Error('Age SQL unavailable for nonmembers');
     },

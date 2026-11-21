@@ -131,17 +131,18 @@ export function clientEntriesToMedia(
     );
     if (!reference) return false;
     const chain = reference[1]!.split(/\??\./);
-    return chain.length === 1
+    const property = chain.slice(1).at(-1);
+    return property === undefined
       ? isBinding(file, text, chain[0]!)
-      : properties.has(chain.at(-1)!);
+      : properties.has(property);
   };
   return sources.flatMap(({ file, text }) => {
     const found: string[] = [];
     for (const match of text.matchAll(/<Link\b/g)) {
       const tag = text.slice(match.index, skipTagEnd(text, match.index));
-      const href = tag.match(/\bhref=(?=[{'"])/);
+      const href = /\bhref=(?=[{'"])/.exec(tag);
       if (!href) continue;
-      const start = href.index! + href[0].length;
+      const start = href.index + href[0].length;
       const expression =
         tag[start] === '{'
           ? tag.slice(start + 1, skipBalanced(tag, start) - 1).trim()
