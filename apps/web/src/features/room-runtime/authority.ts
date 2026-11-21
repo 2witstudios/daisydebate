@@ -1,3 +1,4 @@
+import { commandDigest } from '@daisy/digest';
 import { eventRoomAuthority } from '../tab/event-room-direction';
 import type { RoomDirectionInput } from '@daisy/db/tab';
 import {
@@ -54,5 +55,4 @@ const canonical = (value: unknown): string => {
       .join(',')}}`;
   return JSON.stringify(value);
 };
-export const digest = (value: unknown) =>
-  new Bun.CryptoHasher('sha3-256').update(canonical(value)).digest('hex');
+export const digest = (value: unknown) => commandDigest(value, canonical);

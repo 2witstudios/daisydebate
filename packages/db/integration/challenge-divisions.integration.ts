@@ -1,3 +1,4 @@
+import { addMs } from '@daisy/clock';
 import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { drizzle } from 'drizzle-orm/bun-sql';
@@ -27,7 +28,7 @@ test('a challenge stays inside one lobby and stores it (ADR 0156)', async () => 
   const youth = lobbies.find((lobby) => lobby.age_rule === 'under-18')!.id;
   const open = lobbies.find((lobby) => lobby.age_rule === 'adults')!.id;
   const now = new Date().toISOString();
-  const expiresAt = new Date(Date.parse(now) + 600_000).toISOString();
+  const expiresAt = addMs(now, 600_000);
   const send = (mode: CompetitionType) =>
     store
       .withContacts(

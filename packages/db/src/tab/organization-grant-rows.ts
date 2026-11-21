@@ -2,7 +2,7 @@ import { asc, eq } from 'drizzle-orm';
 import { lobbies } from '../schema/lobbies';
 import { scopeTransaction, type TenantScope } from '../tenant-scope';
 import { loadGrantRows, type GrantRow } from './grant-rows';
-import type { TabTransaction } from './tab-transaction';
+import type { Tx } from '../tx';
 
 /**
  * Runs one step under a lobby's scope inside the open transaction, then
@@ -11,7 +11,7 @@ import type { TabTransaction } from './tab-transaction';
  * step that reads or revokes another person's lobby grant runs here.
  */
 export const underLobbyScope = async <T>(
-  tx: TabTransaction,
+  tx: Tx,
   scope: TenantScope,
   lobbyId: string,
   step: () => Promise<T>,
@@ -33,7 +33,7 @@ const byGrantedThenId = (a: GrantRow, b: GrantRow): number =>
  * after each.
  */
 export const loadOrganizationGrantRows = async (
-  tx: TabTransaction,
+  tx: Tx,
   scope: TenantScope,
   input: Parameters<typeof loadGrantRows>[1] & {
     readonly organizationId: string;

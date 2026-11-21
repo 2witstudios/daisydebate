@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { isRoundRunning } from '@daisy/protocol';
 import {
   createRoundRuntime,
@@ -57,14 +58,14 @@ export function createRoundIncidentObserver(input: {
         unreachableSince,
         confirmedUntil,
       }) => {
-        const nowMs = Date.parse(now);
+        const nowMs = instantMs(now);
         const decision = incidentDecision({
           incident: round.checkpoint.incident,
           nowMs,
           observation,
           roomRetired,
           unreachableSinceMs:
-            unreachableSince === null ? null : Date.parse(unreachableSince),
+            unreachableSince === null ? null : instantMs(unreachableSince),
           captureExpected: round.status === 'active',
         });
         if (decision === null) return null;
@@ -78,7 +79,7 @@ export function createRoundIncidentObserver(input: {
                 atMs: nowMs,
                 cause: decision.cause,
                 confirmedUntilMs:
-                  confirmed === null ? null : Date.parse(confirmed),
+                  confirmed === null ? null : instantMs(confirmed),
               }),
             };
           }
@@ -134,7 +135,7 @@ export function createRoundIncidentObserver(input: {
           unreachableSinceMs:
             watch.unreachableSince === null
               ? null
-              : Date.parse(watch.unreachableSince),
+              : instantMs(watch.unreachableSince),
           captureExpected: known.status === 'active',
         })
       )

@@ -1,4 +1,5 @@
 import { requireTestServices } from '@daisy/config';
+import { assertRejects } from '@daisy/errors/testing';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { loadAccountAgeSource } from '../src/account-age';
@@ -10,7 +11,23 @@ test('age source reads only the requested persisted subject and fails closed on 
   await withFixture(databaseUrl, async (fixture) => {
     const userId = await fixture.user();
     const otherId = await fixture.user();
-    const database = drizzle({ client: fixture.sql });
+    const statements: string[] = [];
+    const database = drizzle({
+      client: fixture.sql,
+      logger: { logQuery: (statement) => statements.push(statement) },
+    });
+    await assertRejects({
+      given: 'a malformed subject id',
+      should: 'refuse it as validation',
+      actual: () => loadAccountAgeSource(database, 'invalid'),
+      code: 'VALIDATION',
+    });
+    assert({
+      given: 'the malformed subject',
+      should: 'avoid any persistence reads',
+      actual: statements,
+      expected: [],
+    });
     const now = '2026-10-09T18:00:00.000Z';
     assert({
       given: 'a subject without a persisted age source',

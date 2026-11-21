@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import type {
   AuthorizationDecision,
   AuthorizationInput,
@@ -24,7 +25,7 @@ import { gatedRead } from './gated-read';
 
 const live = (grant: GrantRow, now: string): boolean =>
   grant.revokedAt === null &&
-  (grant.expiresAt === null || Date.parse(grant.expiresAt) > Date.parse(now));
+  (grant.expiresAt === null || instantMs(grant.expiresAt) > instantMs(now));
 
 /** The highest rank (1 is the highest) among grants; none ranks below every role. */
 const highestRank = (grants: readonly GrantRow[]): number =>

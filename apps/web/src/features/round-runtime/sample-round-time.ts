@@ -30,6 +30,8 @@ export function sampleRoundTime(options: {
 }) {
   const { scheduler, visibility, roundTime } = options;
   const lifetime = new AbortController();
+  // Read live: stop() can abort during any await, which narrowing cannot see.
+  const stopped = () => lifetime.signal.aborted;
   let pending = false;
   let followup = false;
   let failures = 0;
@@ -77,8 +79,7 @@ export function sampleRoundTime(options: {
     lifetime.signal.removeEventListener('abort', release);
     pending = false;
     // A Round this caller can no longer read will not answer differently.
-    if (!lifetime.signal.aborted && answer?.kind !== 'missing')
-      arm(nextDelayMs());
+    if (!stopped() && answer?.kind !== 'missing') arm(nextDelayMs());
   };
   const unsubscribe = visibility.onVisible(() => void resample());
   void resample();

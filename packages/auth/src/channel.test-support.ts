@@ -1,5 +1,6 @@
 import { adultAccount } from './social.test-support';
 import type {
+  AccountAuthorizationFact,
   AuthorizationInput,
   ChannelAuthorizationFact,
 } from './authorization';
@@ -39,6 +40,17 @@ export const policy = {
   relationshipRevision: 3,
   allowed: true,
 };
+/** The member account every own-resource grant below is made for. */
+const account: AccountAuthorizationFact = {
+  userId: 'u',
+  actorId: 'a',
+  member: true,
+  beta: { state: 'approved', revision: 1 },
+  ageBand: 'adult',
+  restricted: false,
+  erased: false,
+  revision: 1,
+};
 export const input: AuthorizationInput = {
   principal: { kind: 'user', userId: 'u', actorId: 'a' },
   capability: 'channel.read',
@@ -46,16 +58,7 @@ export const input: AuthorizationInput = {
   context: {
     now: '2026-10-09T00:00:00.000Z',
     socialAccounts: accounts,
-    account: {
-      userId: 'u',
-      actorId: 'a',
-      member: true,
-      beta: { state: 'approved', revision: 1 },
-      ageBand: 'adult',
-      restricted: false,
-      erased: false,
-      revision: 1,
-    },
+    account,
     socialReading: policy,
     socialPosting: policy,
   },
@@ -75,10 +78,10 @@ export const pendingResource: ChannelAuthorizationFact = {
 /** An own-resource grant's account fact with one field changed. */
 const withAccount = <T extends AuthorizationInput>(
   own: T,
-  change: Partial<NonNullable<AuthorizationInput['context']['account']>>,
+  change: Partial<AccountAuthorizationFact>,
 ): T => ({
   ...own,
-  context: { ...own.context, account: { ...own.context.account!, ...change } },
+  context: { ...own.context, account: { ...account, ...change } },
 });
 
 /**

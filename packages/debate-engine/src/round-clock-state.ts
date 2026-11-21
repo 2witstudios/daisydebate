@@ -1,3 +1,4 @@
+import { instantMs, tryInstantMs } from '@daisy/clock';
 import { createInvariantError } from '@daisy/errors';
 import {
   emptyRuntimeCheckpointFor,
@@ -112,8 +113,8 @@ export const countdownAnchor = (state: ClockState): number => {
   return anchor;
 };
 const instantOf = (iso: string): number => {
-  const ms = Date.parse(iso);
-  if (!Number.isFinite(ms))
+  const ms = tryInstantMs(iso);
+  if (ms === undefined)
     throw createInvariantError(
       debateInvariantIds.lifecycleMatchesStatus,
       'A round lifecycle instant is not a time',
@@ -218,8 +219,8 @@ export const normalizeRoundClock = (input: {
       sequence: segment.sequence,
       type: segment.type,
       key: segment.rulesSegmentKey,
-      startedAtMs: Date.parse(segment.startedAt),
-      endedAtMs: segment.endedAt === null ? null : Date.parse(segment.endedAt),
+      startedAtMs: instantMs(segment.startedAt),
+      endedAtMs: segment.endedAt === null ? null : instantMs(segment.endedAt),
       durationMs: segment.durationMs,
       returnedMs: segment.returnedMs,
     }))
@@ -234,11 +235,7 @@ export const normalizeRoundClock = (input: {
     const preceding = rows[index - 1];
     const earliest =
       preceding === undefined ? startedAtOf(lifecycle) : preceding.endedAtMs;
-    if (
-      earliest !== null &&
-      earliest !== undefined &&
-      row.startedAtMs < earliest
-    )
+    if (earliest !== null && row.startedAtMs < earliest)
       throw createInvariantError(
         debateInvariantIds.segmentMatchesRules,
         'Durable segment intervals overlap or precede Round start',

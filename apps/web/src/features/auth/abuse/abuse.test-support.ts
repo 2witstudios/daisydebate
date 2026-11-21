@@ -1,4 +1,5 @@
 import { memoryAdapter } from '@better-auth/memory-adapter';
+import { virtualClock, type VirtualClock } from '@daisy/clock/testing';
 import type { Logger } from '@daisy/logger';
 import { composeAuthServer, memoryTables } from '../auth-server.test-support';
 import type { AfterResponseLimits } from '../after-response';
@@ -7,12 +8,12 @@ import type { EmailMessage } from '../server';
 /**
  * The four database steps a saturated request's handed-off work makes (the
  * account lookup, the suppression read, the receipt write and the token
- * delete), each made to take `delayMs` and counted while it runs, so a test
- * can see how many run at once (ISSUE-247). `holdNext` keeps the next step
+ * delete), each made to take `delayMs` on the virtual `clock` and counted
+ * while it runs, so a test can see how many run at once (ISSUE-247). `holdNext` keeps the next step
  * of a name from finishing until released. Steps made while a request is being answered
  * (its own suppression check) run too, so peaks are read with `measure`.
  */
-const createStepTracker = (delayMs: number) => {
+const createStepTracker = (delayMs: number, clock: VirtualClock) => {
   let active = 0;
   let peak = 0;
   let measuring = false;
@@ -30,7 +31,7 @@ const createStepTracker = (delayMs: number) => {
           held = undefined;
           await until;
         }
-        await new Promise((resolve) => setTimeout(resolve, delayMs));
+        await clock.sleep(delayMs);
         return await run();
       } finally {
         active -= 1;
@@ -70,21 +71,27 @@ const trackedAdapter = (
     'delete:verification': 'token delete',
     'deleteMany:verification': 'token delete',
   };
-  return ((...args: Parameters<typeof base>) => {
+  return (...args: Parameters<typeof base>) => {
     const adapter = base(...args);
     return new Proxy(adapter, {
       get: (target, property, receiver) => {
         const value: unknown = Reflect.get(target, property, receiver);
         if (typeof value !== 'function') return value;
-        return (query: { model?: string }, ...rest: unknown[]) => {
-          const step = steps[`${String(property)}:${query?.model}`];
+        // Every adapter method is wrapped, so the first argument is whatever
+        // that method takes: a query object for the tracked ones.
+        return (query: unknown, ...rest: unknown[]) => {
+          const model =
+            typeof query === 'object' && query !== null && 'model' in query
+              ? query.model
+              : undefined;
+          const step = steps[`${String(property)}:${String(model)}`];
           const call = () =>
             Promise.resolve(value.call(target, query, ...rest));
           return step ? tracker.track(step, call) : call();
         };
       },
     });
-  }) as ReturnType<typeof memoryAdapter>;
+  };
 };
 
 export type Consumed = {
@@ -100,7 +107,10 @@ export const create = (
     sendFailure?: boolean;
     /** The mail transport answers nothing until `release()` is called. */
     heldTransport?: boolean;
-    /** Slows and counts the handed-off database steps (`createStepTracker`). */
+    /**
+     * Slows and counts the handed-off database steps (`createStepTracker`)
+     * on the harness's virtual `clock`, which the test then drives.
+     */
     stepDelayMs?: number;
     afterResponseLimits?: AfterResponseLimits;
     limiter?: (consumed: Consumed[]) => (
@@ -113,10 +123,11 @@ export const create = (
   } = {},
 ) => {
   const db = memoryTables();
+  const clock = virtualClock();
   const steps =
     options.stepDelayMs === undefined
       ? undefined
-      : createStepTracker(options.stepDelayMs);
+      : createStepTracker(options.stepDelayMs, clock);
   const tracked = <T>(name: string, run: () => Promise<T>) =>
     steps ? steps.track(name, run) : run();
   const consumed: Consumed[] = [];
@@ -198,6 +209,7 @@ export const create = (
     transportReached,
     release: () => release(),
     steps,
+    clock,
   };
 };
 /** Everything a caller observes of an answer: status, body and every header. */

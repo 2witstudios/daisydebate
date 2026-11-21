@@ -52,7 +52,7 @@ const byRating = (
   candidates: readonly Entry[],
 ): { readonly entry: Id; readonly tied: boolean }[] => {
   const ratings = new Map(
-    input.ratings?.entries.map((r) => [r.entry, r as EntryRating]) ?? [],
+    input.ratings?.entries.map((r) => [r.entry, r]) ?? [],
   );
   const sorted = [...candidates].sort((a, b) =>
     compareRatings(ratings.get(a.id), ratings.get(b.id)),

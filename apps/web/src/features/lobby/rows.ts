@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import {
   type AgeBand,
   type RoomListEntry,
@@ -152,7 +153,7 @@ const minuteMs = 60_000;
 
 /** How long an open Room has waited for its cast, to the minute or hour. */
 const waitedFor = (now: number, since: string): string => {
-  const minutes = Math.floor((now - Date.parse(since)) / minuteMs);
+  const minutes = Math.floor((now - instantMs(since)) / minuteMs);
   if (minutes < 1) return 'Just opened';
   if (minutes < 60) return `Waiting ${minutes} min`;
   return `Waiting ${Math.floor(minutes / 60)} h`;

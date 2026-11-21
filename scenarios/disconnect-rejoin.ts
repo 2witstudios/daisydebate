@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import {
   adjudicateAttendance,
   deriveOutageIntervals,
@@ -43,7 +44,7 @@ function openedSpeech(facts: ScenarioFacts) {
 /** Injected receipt/sample facts; actual openings and scheduled seats come from the shared runtime. */
 function verifyDisconnectRejoin(facts: ScenarioFacts): void {
   const { actual, speakerSide, speaker, opponent } = openedSpeech(facts);
-  const opening = Date.parse(actual.startedAt);
+  const opening = instantMs(actual.startedAt);
   const samples = Array.from({ length: 64 }, (_, index) => ({
     atMs: opening + (index - 1) * 1000,
     healthy: index < 11 || index >= 26,

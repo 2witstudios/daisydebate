@@ -1,3 +1,4 @@
+import { addMs } from '@daisy/clock';
 import type { Database } from '@daisy/db';
 import type { StandingsRead } from '@daisy/db/ratings';
 import type { Ladder } from '@daisy/protocol';
@@ -58,9 +59,10 @@ export async function readRatingStandings(
     : [];
   const atBySeason = Object.fromEntries(
     seasons.map((s) => {
-      if (s.status === 'closed' && s.endsAt === null)
+      if (s.status !== 'closed') return [s.id, input.now];
+      if (s.endsAt === null)
         throw createAppError('INTERNAL', 'A closed season has no end instant');
-      return [s.id, s.status === 'closed' ? s.endsAt! : input.now];
+      return [s.id, s.endsAt];
     }),
   );
   const summaries = seasons.flatMap((s) =>
@@ -69,7 +71,7 @@ export async function readRatingStandings(
         ratings: source.ratings.filter((r) => r.seasonId === s.id),
         changes: source.changes.filter((c) => c.seasonId === s.id),
       },
-      new Date(Date.parse(atBySeason[s.id]!) - 7 * 86400000).toISOString(),
+      addMs(atBySeason[s.id]!, -(7 * 86400000)),
     ),
   );
   const entriesBySeason = Object.fromEntries(
@@ -79,10 +81,14 @@ export async function readRatingStandings(
         s.id,
         rankRatingEntries(
           summaries
-            .filter((r) => r.seasonId === s.id && r.username !== null)
+            .flatMap((r) =>
+              r.seasonId === s.id && r.username !== null
+                ? [{ ...r, username: r.username }]
+                : [],
+            )
             .map((r) => ({
               id: r.actorId,
-              username: r.username!,
+              username: r.username,
               accountClosed: r.accountClosed,
               ...ratingStanding(r, r.lastRatedAt, at),
               // Ranking preserves the stored full-precision rating; renderers round figures.

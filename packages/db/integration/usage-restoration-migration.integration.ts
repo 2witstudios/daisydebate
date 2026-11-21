@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { readFile } from 'node:fs/promises';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
@@ -187,16 +188,16 @@ test(
                 { ...previous, state: null },
                 usageSourceSchema.parse(row.source),
                 state.kind,
-                'countedAt' in state ? Date.parse(state.countedAt) : null,
+                'countedAt' in state ? instantMs(state.countedAt) : null,
                 'countBasis' in state ? state.countBasis : null,
                 state.kind === 'credited'
                   ? [
-                      Date.parse(state.creditedAt),
+                      instantMs(state.creditedAt),
                       state.provenance,
                       state.providerOutcome,
                     ]
                   : state.kind === 'refunded'
-                    ? Date.parse(state.refundedAt)
+                    ? instantMs(state.refundedAt)
                     : null,
               ];
             }),
@@ -214,12 +215,12 @@ test(
                   endsAt: '2026-11-01T00:00:00.000Z',
                 },
                 original.mode === 'proven_failure' ? 'refunded' : 'credited',
-                Date.parse(countedAt),
+                instantMs(countedAt),
                 'dispatch_record',
                 original.mode === 'proven_failure'
-                  ? Date.parse(restoredAt)
+                  ? instantMs(restoredAt)
                   : [
-                      Date.parse(restoredAt),
+                      instantMs(restoredAt),
                       original.mode === 'capture_shortfall'
                         ? {
                             kind: 'capture_shortfall',

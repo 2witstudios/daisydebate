@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { twoSides, type RecordingLifecycle } from '@daisy/protocol';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { BroadcastRelease, RecordingViewer } from './audience';
@@ -117,7 +118,7 @@ const open = (
     readReuseFenced:
       over.readReuseFenced ?? (async () => over.reuseFenced ?? false),
     readJobState: async () => over.job ?? null,
-    nowMs: () => over.nowMs ?? Date.parse(at),
+    nowMs: () => over.nowMs ?? instantMs(at),
     findRecordingByRound: async () =>
       over.lifecycle === null
         ? null

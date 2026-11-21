@@ -1,13 +1,13 @@
 import { and, eq } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
-import type { BoundedTransactionContext } from '../transaction-context';
 import { transcriptionRecoveryContexts as contexts } from '../schema/transcription-recovery';
 import { transcriptionRecoveryAttempts as attempts } from '../schema/transcription-recovery-attempts';
 import { current } from './current';
 import type { Claim, Policy } from './policy';
+import type { Tx } from '../tx';
 /** Lease/capacity is released before persisted backoff. No failure manufactures authoritative text or settlement. */
 export async function retry(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   input: Claim & { reason: 'provider' | 'quality' | 'uncertain' },
   options: Policy,
 ) {

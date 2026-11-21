@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { systemClock } from '@daisy/clock';
+import { nowMs, systemClock } from '@daisy/clock';
 import { pruneExpiredDrafts } from './document-draft-storage';
 import { watchDraftIdentity } from './draft-identity-watch';
 import {
@@ -25,7 +25,7 @@ const pruneExpired = () => {
   const storage = browserStorage(() => window.localStorage);
   if (!storage) return;
   try {
-    pruneExpiredDrafts(storage, Date.parse(systemClock.now()));
+    pruneExpiredDrafts(storage, nowMs(systemClock));
   } catch {
     // Reads and writes re-check expiry; a denied prune never blocks a page.
   }

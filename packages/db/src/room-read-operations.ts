@@ -22,7 +22,6 @@ import {
 } from '@daisy/protocol';
 import { and, eq, isNotNull, or } from 'drizzle-orm';
 import { readWaitingOn } from './round-waiting-read';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type {
   LaunchedRound,
   RoundView,
@@ -61,13 +60,14 @@ import {
   replayReceipt,
   transactionNow,
 } from './room-command-facts';
+import { inTransaction, type TxSource } from './tx';
 export const roomReadOperations = ({
   database,
   eventSink,
   commandTransaction,
   judgeAdmission,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
   readonly judgeAdmission?: CasualJudgeAdmission | undefined;
   readonly eventSink?: DatabaseEventSink | undefined;
   readonly commandTransaction: ReturnType<typeof roomCommandTransaction>;
@@ -86,7 +86,7 @@ export const roomReadOperations = ({
     readEventDecision: (owner: RoundRoomAuthority) => boolean,
   ): Promise<RoundView> {
     return instrumented(eventSink, 'readLaunchedRound', () =>
-      database.transaction(async (tx) => {
+      inTransaction(database, async (tx) => {
         const { round, account, owner } = await readAuthorizedRound(tx, {
           roundId,
           caller,
@@ -130,7 +130,7 @@ export const roomReadOperations = ({
     authorize: (account: Account) => boolean,
   ) {
     return instrumented(eventSink, 'listRoomCatalogSources', () =>
-      database.transaction(async (tx) => {
+      inTransaction(database, async (tx) => {
         await requireAccount(tx, caller, authorize);
         return loadFormatCatalogue(tx);
       }),
@@ -142,9 +142,13 @@ export const roomReadOperations = ({
     authorize: AuthorizeRoom,
     readTopic: ReadOpeningTopic,
   ): Promise<RoomAssemblyState> {
-    return (
-      await this.readRoomAssemblyFacts(roomId, caller, authorize, readTopic)
-    ).state;
+    const { state, resolutionHeld } = await this.readRoomAssemblyFacts(
+      roomId,
+      caller,
+      authorize,
+      readTopic,
+    );
+    return resolutionHeld ? { ...state, topic: null } : state;
   },
   /** The Room and its draw seed in one read; the seed settles projections and never leaves the server. */
   async readRoomAssemblyFacts(
@@ -154,10 +158,11 @@ export const roomReadOperations = ({
     readTopic: ReadOpeningTopic,
   ): Promise<{
     readonly state: RoomAssemblyState;
+    readonly resolutionHeld: boolean;
     readonly viewerAgeBand: NonNullable<Account>['ageBand'];
   }> {
     return instrumented(eventSink, 'readRoomAssembly', () =>
-      database.transaction(async (tx) => {
+      inTransaction(database, async (tx) => {
         const account = await sharedAccount(tx, caller);
         const [found] = await tx
           .select()
@@ -183,14 +188,14 @@ export const roomReadOperations = ({
           throw createAppError('NOT_FOUND');
         return {
           viewerAgeBand: account?.ageBand ?? null,
+          resolutionHeld:
+            row.lobbyKind === 'tournament' &&
+            !direction?.resolutionReleasedAt &&
+            facts.state.roundRef === null &&
+            facts.state.topic !== null,
           state: {
             ...facts.state,
-            topic:
-              row.lobbyKind === 'tournament' &&
-              !direction?.resolutionReleasedAt &&
-              facts.state.roundRef === null
-                ? null
-                : await currentRoomTopic(tx, facts.state, readTopic),
+            topic: await currentRoomTopic(tx, facts.state, readTopic),
           },
         };
       }),
@@ -208,7 +213,7 @@ export const roomReadOperations = ({
     if (!roomListQuerySchema.safeParse(query).success)
       throw createAppError('VALIDATION');
     return instrumented(eventSink, 'listRoomPage', () =>
-      database.transaction((tx) =>
+      inTransaction(database, (tx) =>
         discoverRooms(
           tx,
           caller,
@@ -228,7 +233,7 @@ export const roomReadOperations = ({
     authorize: (account: Account) => boolean,
   ): Promise<readonly Actor[]> {
     return instrumented(eventSink, 'listRoomBots', () =>
-      database.transaction(async (tx) => {
+      inTransaction(database, async (tx) => {
         await requireAccount(tx, caller, authorize);
         const rows = await tx
           .select({
@@ -273,7 +278,7 @@ export const roomReadOperations = ({
     withBot: boolean,
   ): Promise<AllowanceDecision> {
     return instrumented(eventSink, 'readOwnCasualJudgeAllowance', () =>
-      database.transaction(async (tx) => {
+      inTransaction(database, async (tx) => {
         const account = await sharedAccount(tx, caller);
         if (!judgeAdmission) return { kind: 'refuse', reason: 'not-eligible' };
         return (

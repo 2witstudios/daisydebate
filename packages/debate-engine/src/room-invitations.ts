@@ -1,3 +1,4 @@
+import { instantMs, addMs } from '@daisy/clock';
 import {
   ROOM_INVITATION_TTL_MS,
   type InvitationDecision,
@@ -12,7 +13,7 @@ import { freeSeatsOf, isOpenRoomStatus } from '@daisy/protocol';
 import { seatsHeldFrom } from './room-edit-transitions';
 
 const live = (invitation: PendingRoomInvitation, now: string) =>
-  Date.parse(invitation.expiresAt) > Date.parse(now);
+  instantMs(invitation.expiresAt) > instantMs(now);
 
 /**
  * Whether the host may invite this member to this seat kind now (ADR 0124).
@@ -62,7 +63,7 @@ export function decideRoomInvitation(input: {
     room.seatHolds.some(
       (hold) =>
         hold.actorId === invitee.actorId &&
-        Date.parse(hold.until) > Date.parse(now),
+        instantMs(hold.until) > instantMs(now),
     )
   )
     return refuse('already-invited');
@@ -75,7 +76,7 @@ export function decideRoomInvitation(input: {
     kind: 'invite',
     inviteeActorId: invitee.actorId,
     seat,
-    expiresAt: new Date(Date.parse(now) + ROOM_INVITATION_TTL_MS).toISOString(),
+    expiresAt: addMs(now, ROOM_INVITATION_TTL_MS),
   };
 }
 

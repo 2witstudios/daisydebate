@@ -25,6 +25,7 @@ import { ReadingPage } from '../../components/reading-page/reading-page';
 import { BackButton } from '../action-control/action-control';
 import { ListCard, ListHeading } from '../list-card/list-card';
 import { SettingRow } from '../setting-row/setting-row';
+import { SearchForm } from '../../components/search-form/search-form';
 /** Native creation preserves the exact displayed pins/config and submitted pool wording on uncertain retry. */
 export function StoredCreateRoom({
   view,
@@ -65,8 +66,7 @@ export function StoredCreateRoom({
         label={view.lobby.name}
       />
       <PageHeader title="Create a room" />
-      <form
-        method="get"
+      <SearchForm
         action={roomAddress}
         aria-label="Choose a league template"
         className="flex flex-wrap items-end gap-3"
@@ -89,7 +89,7 @@ export function StoredCreateRoom({
         <Button type="submit" variant="secondary" disabled={pending || frozen}>
           Use template
         </Button>
-      </form>
+      </SearchForm>
       <form
         action={submit}
         aria-label="Create a room"

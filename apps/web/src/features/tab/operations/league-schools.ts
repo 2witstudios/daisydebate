@@ -18,7 +18,7 @@ import {
 import type { LobbyCommandAnswer } from '@daisy/protocol/lobby/command';
 import { decideLeagueSchool } from '../commands/league-schools';
 import { CommandDenied, runLobbyCommand } from '../commands/run-command';
-import { commandDigest } from './command-digest';
+import { commandDigest } from '@daisy/digest';
 import type { TabPrincipal } from '../tab-principal';
 
 type Dependencies = {
@@ -69,15 +69,20 @@ export const leagueSchoolCommand =
                     checkedAt = facts.checkedAt;
                     return facts;
                   },
-                  authority: (facts) => ({
-                    principal,
-                    resource: facts.authorization.organization!,
-                    context: {
-                      account: facts.authorization.account,
-                      grants: facts.authorization.grants,
-                      now: checkedAt,
-                    },
-                  }),
+                  authority: (facts) => {
+                    // `facts` refused a league with no organization already.
+                    const organization = facts.authorization.organization;
+                    if (!organization) throw new CommandDenied('not-found');
+                    return {
+                      principal,
+                      resource: organization,
+                      context: {
+                        account: facts.authorization.account,
+                        grants: facts.authorization.grants,
+                        now: checkedAt,
+                      },
+                    };
+                  },
                   versions: (facts) => ({
                     organization: facts.league.version,
                     ...(facts.membership

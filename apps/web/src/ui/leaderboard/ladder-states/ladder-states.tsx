@@ -23,7 +23,7 @@ export function LadderError({
   onRetry,
 }: {
   readonly retryHref: string;
-  /** With script, the boundary's retry; without, the link reloads the page. */
+  /** Once hydrated, the boundary's retry; before then, the link reloads the page. */
   readonly onRetry?: () => void;
 }) {
   return (

@@ -1,3 +1,4 @@
+import { nowMs, instantMs } from '@daisy/clock';
 import {
   preapprovalAction,
   type PreapprovalCommand,
@@ -248,8 +249,7 @@ async function resendOrAbandon(
       : 'account.beta_access.update',
   );
   const inFlight =
-    Date.parse(deps.clock.now()) - Date.parse(command.lastSignedAt) <
-    ABANDON_AFTER_MS;
+    nowMs(deps.clock) - instantMs(command.lastSignedAt) < ABANDON_AFTER_MS;
   if (refused !== null && inFlight) return { kind: 'open' };
   if (refused !== null)
     return settledBy(

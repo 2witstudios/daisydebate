@@ -1,4 +1,6 @@
 #!/usr/bin/env bun
+
+import { tryInstantMs } from '@daisy/clock';
 import {
   FINDING_SEVERITIES,
   parseDocumentationEvent,
@@ -22,7 +24,7 @@ const isValidApproval = (
   typeof approval.by === 'string' &&
   approval.by.length > 0 &&
   typeof approval.at === 'string' &&
-  !Number.isNaN(Date.parse(approval.at));
+  tryInstantMs(approval.at) !== undefined;
 
 export function publicationDecision(input: {
   readonly changeKind: ChangeKind;

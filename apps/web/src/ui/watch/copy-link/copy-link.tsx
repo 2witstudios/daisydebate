@@ -8,11 +8,7 @@ export type CopyLinkProps = {
   readonly path: string;
 };
 
-/**
- * Share a link. With no script the link is a readonly field inside a native
- * `<details>` to select and copy by hand; once hydrated a Copy button writes
- * it to the clipboard.
- */
+/** Select the link or use the Copy button to write it to the clipboard. */
 export function CopyLink({ path }: CopyLinkProps) {
   const { ready, copied, copy } = useClipboardCopy();
   return (

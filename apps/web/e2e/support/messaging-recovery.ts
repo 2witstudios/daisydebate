@@ -27,7 +27,7 @@ import { effectsRan } from './hydration';
 import { isMessagingRefetch } from './messaging-page-locators';
 import { boundedStep, STEP_LIMIT_MS } from './bounded-step';
 import { readControlledRefusal } from './messaging-controlled-refusal';
-import { systemClock } from '@daisy/clock';
+import { nowMs, systemClock } from '@daisy/clock';
 import { watchRecoveryConsumer } from './messaging-recovery-consumer';
 import {
   recordRecoveryPhase,
@@ -174,7 +174,7 @@ export function testMessagingRecovery() {
           !isMessagingRefetch(route.request().headers())
         )
           return route.continue();
-        const budget = deadline - Date.parse(systemClock.now());
+        const budget = deadline - nowMs(systemClock);
         if (budget <= 0)
           throw new Error(
             'Controlled recovery delivery exceeded its existing10s budget',
@@ -217,32 +217,6 @@ export function testMessagingRecovery() {
             record.admission === 'social.expired',
         ),
       ).toBe(true);
-      await evidence(info, observer);
-    } finally {
-      try {
-        await control('allow-messaging-reads');
-      } finally {
-        observer?.stop();
-        await journey.close();
-      }
-    }
-  });
-
-  test('native Messaging refusal offers a fresh authorized GET', async ({
-    browser,
-  }, info) => {
-    const journey = await openMessagingJourney(browser, false);
-    let observer: ReturnType<typeof watchConversationRecovery> | undefined;
-    try {
-      const page = await acceptMessagingJourney(journey);
-      observer = watchConversationRecovery(page, journey.channelId);
-      await control('refuse-messaging-history', journey.pressureSelectors);
-      await page.goto(`/messages/${journey.channelId}`);
-      await expect(refused(page)).toBeVisible();
-      await control('allow-messaging-reads');
-      await page.getByRole('link', { name: 'Try again', exact: true }).click();
-      await expect(composer(page)).toBeVisible();
-      expect(observer.snapshot().dispatches).toBe(0);
       await evidence(info, observer);
     } finally {
       try {
@@ -321,7 +295,7 @@ export function testMessagingRecovery() {
         const budget =
           deliveryDeadline === null
             ? STEP_LIMIT_MS
-            : deliveryDeadline - Date.parse(systemClock.now());
+            : deliveryDeadline - nowMs(systemClock);
         const { response, advice, body } = await readControlledRefusal(
           route,
           info,
@@ -333,7 +307,7 @@ export function testMessagingRecovery() {
           await gate.promise;
         }
         if (deliveryDeadline === null) return route.abort();
-        const remaining = deliveryDeadline - Date.parse(systemClock.now());
+        const remaining = deliveryDeadline - nowMs(systemClock);
         if (remaining <= 0)
           throw new Error(
             'Held recovery delivery exceeded its existing10s budget',

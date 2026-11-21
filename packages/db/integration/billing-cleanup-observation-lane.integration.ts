@@ -1,3 +1,4 @@
+import { addMs } from '@daisy/clock';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
@@ -85,7 +86,7 @@ test(
       const forged = {
         ...c,
         claim: null,
-        retryAt: new Date(Date.parse(await matrix.now()) + 1000).toISOString(),
+        retryAt: addMs(await matrix.now(), 1000),
         scans: {
           ...c.scans,
           observations: { kind: 'complete' as const },
@@ -157,7 +158,7 @@ test(
           kind: 'failure',
           claimId: matrix.token(current),
           work: cleanupWork(current)!,
-          retryAt: new Date(Date.parse(await matrix.now()) + 100).toISOString(),
+          retryAt: addMs(await matrix.now(), 100),
         });
         const next = await matrix.state();
         turns.push(next.kind === 'scanning' && next.turn);

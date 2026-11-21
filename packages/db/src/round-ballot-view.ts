@@ -42,7 +42,7 @@ const ballotOfRow = (row: BallotRow, definition: BallotDefinition): Ballot => {
     ...(definition.written.feedback ? { feedback: row.feedback ?? {} } : {}),
     ...(row.speakerRanks ? { speakerRanks: row.speakerRanks } : {}),
     ...(row.citations ? { citations: row.citations } : {}),
-  } as Ballot;
+  };
 };
 
 /** A stored ballot on the definition revision it was written on. */

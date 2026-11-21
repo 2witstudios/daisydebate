@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import type { SQL, TransactionSQL, ReservedSQL } from 'bun';
 import { sqlStateOf } from './constraint-helpers';
 
@@ -61,7 +62,7 @@ async function observeWait(
   for (let n = 0; n < 50; n++) {
     const [row] =
       await holder`select cardinality(pg_blocking_pids(${pid}))>0 as waiting,clock_timestamp() as at`;
-    if (row?.waiting) return row.at.getTime() < Date.parse(expiresAt);
+    if (row?.waiting) return row.at.getTime() < instantMs(expiresAt);
     await Bun.sleep(10);
   }
   return false;

@@ -92,15 +92,22 @@ const pairCost = (facts: EventFacts) => {
 const improve = (facts: EventFacts, sections: Id[][]) => {
   const cost = pairCost(facts);
   const everyone = sections.flat();
-  const index = new Map(everyone.map((id, i) => [id, i]));
   const n = everyone.length;
+  // Each section by its members' places in `everyone`, where the table reads.
+  let place = 0;
+  const places = sections.map((section) => section.map(() => place++));
   /** The pair costs, computed once: a swap then reads only the pairs it changes. */
   const table = everyone.flatMap((x) =>
     everyone.map((z) => (x === z ? ([0, 0, 0] as const) : cost(x, z))),
   );
-  const pair = (x: Id, z: Id) => table[index.get(x)! * n + index.get(z)!]!;
+  const pair = (x: number, z: number) => table[x * n + z]!;
   /** The change in cost when x leaves `from` (where y arrives) and joins `to`. */
-  const swapDelta = (x: Id, y: Id, from: readonly Id[], to: readonly Id[]) => {
+  const swapDelta = (
+    x: number,
+    y: number,
+    from: readonly number[],
+    to: readonly number[],
+  ) => {
     const delta = [0, 0, 0];
     for (const z of from) {
       if (z === x) continue;
@@ -115,28 +122,33 @@ const improve = (facts: EventFacts, sections: Id[][]) => {
     return delta;
   };
   for (let rounds = 0; rounds < 200; rounds += 1) {
-    let best: {
-      i: number;
-      j: number;
-      a: number;
-      b: number;
-      delta: number[];
-    } | null = null;
-    for (let i = 0; i < sections.length; i += 1)
-      for (let j = i + 1; j < sections.length; j += 1)
-        sections[i]!.forEach((x, a) =>
-          sections[j]!.forEach((y, b) => {
-            const delta = swapDelta(x, y, sections[i]!, sections[j]!);
+    // The callbacks below improve it; a holder keeps its type visible to them.
+    const search: {
+      best: {
+        i: number;
+        j: number;
+        a: number;
+        b: number;
+        delta: number[];
+      } | null;
+    } = { best: null };
+    for (let i = 0; i < places.length; i += 1)
+      for (let j = i + 1; j < places.length; j += 1)
+        places[i]!.forEach((x, a) =>
+          places[j]!.forEach((y, b) => {
+            const delta = swapDelta(x, y, places[i]!, places[j]!);
             if (
               compareVectors(delta, [0, 0, 0]) < 0 &&
-              (best === null || compareVectors(delta, best.delta) < 0)
+              (search.best === null ||
+                compareVectors(delta, search.best.delta) < 0)
             )
-              best = { i, j, a, b, delta };
+              search.best = { i, j, a, b, delta };
           }),
         );
-    if (best === null) break;
-    const { i, j, a, b } = best;
+    if (search.best === null) break;
+    const { i, j, a, b } = search.best;
     [sections[i]![a], sections[j]![b]] = [sections[j]![b]!, sections[i]![a]!];
+    [places[i]![a], places[j]![b]] = [places[j]![b]!, places[i]![a]!];
   }
   return sections;
 };
@@ -165,7 +177,9 @@ const speakerOrder = (
     members.map((_, s) =>
       members.map((__, p) => packed[s * members.length + p]!),
     ),
-  )!;
+  );
+  // As many places as speakers: a square matrix always has an assignment.
+  if (assigned === null) throw new Error('Every speaker has a place');
   const order: Id[] = Array.from({ length: members.length });
   assigned.forEach((place, s) => (order[place] = members[s]!));
   return order;

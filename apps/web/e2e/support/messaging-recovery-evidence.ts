@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import type { APIResponse, Page, Request, Response } from '@playwright/test';
-import { systemClock } from '@daisy/clock';
+import { nowMs, systemClock } from '@daisy/clock';
 import { createRecoveryRequestEvents } from './messaging-recovery-events';
 import { isMessagingRefetch } from './messaging-page-locators';
 import type { watchRecoveryConsumer } from './messaging-recovery-consumer';
@@ -12,9 +12,7 @@ export function watchConversationRecovery(
   channelId: string,
   consumer?: Awaited<ReturnType<typeof watchRecoveryConsumer>>,
 ) {
-  const lifecycle = createRecoveryRequestEvents(() =>
-    Date.parse(systemClock.now()),
-  );
+  const lifecycle = createRecoveryRequestEvents(() => nowMs(systemClock));
   const pending = new Set<Request>();
   const responseIds = new Set<string>();
   const controlledBodies = new Map<string, string>();
@@ -26,7 +24,7 @@ export function watchConversationRecovery(
     memberChoices = 0,
     historyGetRequests = 0;
   const phase = (name: string) => {
-    phases.push({ name, since: Date.parse(systemClock.now()) });
+    phases.push({ name, since: nowMs(systemClock) });
   };
   phase('initial refusal');
   const request = (incoming: Request) => {

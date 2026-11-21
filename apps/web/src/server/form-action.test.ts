@@ -17,7 +17,7 @@ describe('moveOn', () => {
     });
   });
 
-  test('a form posted without JavaScript is redirected', () => {
+  test('a form posted before hydration is redirected', () => {
     const thrown = (() => {
       try {
         moveOn(new Headers(), '/onboarding/passkey');

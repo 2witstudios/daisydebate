@@ -6,11 +6,11 @@ import { entryMembers } from '../schema/entries';
 import { guardianLinks } from '../schema/guardian-links';
 import { scopeTransaction, type TenantScope } from '../tenant-scope';
 import { loadAuthorizationAccount } from '../authorization';
-import type { TabTransaction } from './tab-transaction';
+import type { Tx } from '../tx';
 
 /** Counterpart facts are read under the actual account's subject fence. */
 export const loadEntryPeople = async (
-  tx: TabTransaction,
+  tx: Tx,
   scope: TenantScope,
   actorIds: readonly string[],
   /** The tournament's first day: each person's age band is also read on it (ADR 0149). */

@@ -7,7 +7,6 @@ import {
 import { mediaVendorMutations } from './schema/media-vendor-mutations';
 import { createAppError } from '@daisy/errors';
 import { and, eq, isNull } from 'drizzle-orm';
-import type { BoundedTransactionContext } from './transaction-context';
 import {
   lockMediaRound,
   mediaId,
@@ -29,6 +28,7 @@ import { hydrateRoundRows } from './round-hydration';
 import { mediaParticipants, mediaSessions } from './schema/media-sessions';
 import { mediaBindingFields } from './media-participant-binding';
 import { reconcileLive } from './media-reconcile-rules';
+import type { Tx } from './tx';
 
 export type MediaSessionRead = {
   readonly roundId: string;
@@ -39,10 +39,7 @@ export type MediaSessionRead = {
   readonly buildProjection: LockedRoundTickInput['buildProjection'];
 };
 /** Private canonical snapshot, never an HTTP payload. All times follow the final session lock. */
-export async function lockedMediaSnapshot(
-  tx: BoundedTransactionContext,
-  input: MediaSessionRead,
-) {
+export async function lockedMediaSnapshot(tx: Tx, input: MediaSessionRead) {
   const roundId = mediaId(input.roundId);
   const { accounts, ...authority } = await lockMediaRound(
     tx,

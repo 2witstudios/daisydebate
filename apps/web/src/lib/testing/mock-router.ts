@@ -6,7 +6,7 @@ import { mock } from 'bun:test';
  */
 export async function mockNextRouter(): Promise<void> {
   const actual = await import('next/navigation');
-  mock.module('next/navigation', () => ({
+  await mock.module('next/navigation', () => ({
     ...actual,
     useRouter: () => ({ replace: () => undefined }),
   }));

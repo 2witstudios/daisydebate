@@ -223,25 +223,17 @@ function messageControlIntent(form: Locator) {
 export function testMessageControlFocus() {
   testDraftSurvivesRefresh();
   testComposerCharacterLimit();
-  for (const javaScriptEnabled of [true, false]) {
-    test(`native message controls navigate with JavaScript ${javaScriptEnabled ? 'enabled' : 'disabled'}`, async ({
-      browser,
-    }) => {
-      const journey = await openMessagingJourney(browser, javaScriptEnabled);
-      try {
-        const page = await acceptMessagingJourney(journey);
-        const message = await editNativeMessage(page, journey.channelId);
-        await manageNativeReactions(page, journey.channelId, message.text);
-        await removeNativeMessage(
-          journey.recipient,
-          journey.channelId,
-          message,
-        );
-      } finally {
-        await journey.close();
-      }
-    });
-  }
+  test('native message controls navigate', async ({ browser }) => {
+    const journey = await openMessagingJourney(browser);
+    try {
+      const page = await acceptMessagingJourney(journey);
+      const message = await editNativeMessage(page, journey.channelId);
+      await manageNativeReactions(page, journey.channelId, message.text);
+      await removeNativeMessage(journey.recipient, journey.channelId, message);
+    } finally {
+      await journey.close();
+    }
+  });
   for (const failure of ['refusal', 'transport'] as const) {
     for (const buttonName of [
       'Save message edit',

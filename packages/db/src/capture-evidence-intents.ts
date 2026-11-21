@@ -6,7 +6,7 @@ import { originalEvidenceBinding } from './necessary-evidence-binding';
 import { requireRoundEvidenceOpen } from './necessary-evidence-rounds';
 import { and, eq, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
-import type { z } from 'zod';
+import { z } from 'zod';
 import { type captureEvidenceIntentSchema } from './capture-input';
 import { captureHistory } from './capture-history';
 import { requireCapturedWindow } from './capture-rules';
@@ -16,7 +16,6 @@ import {
   freshCaptureMutation,
   requireCaptureSession,
   type CaptureDependencies,
-  type CaptureTx,
 } from './media-capture-context';
 import { necessaryEvidence } from './schema/necessary-evidence';
 import { lockNecessaryEvidenceRound } from './necessary-evidence-subjects';
@@ -24,6 +23,9 @@ import {
   evidenceLeaseDigest,
   evidencePolicyOf,
 } from './necessary-evidence-policy';
+import type { Tx } from './tx';
+import { takeLock, transactionLocks } from './locks';
+import { query } from './raw-rows';
 
 type Intent = z.infer<typeof captureEvidenceIntentSchema>;
 const sameOriginal = (
@@ -48,7 +50,7 @@ const sameOriginal = (
 
 /** Commits original authority and bounded crash discovery BEFORE custody has any side effect. */
 export async function reserveCaptureEvidenceIntent(
-  tx: CaptureTx,
+  tx: Tx,
   input: Intent,
   dependencies: CaptureDependencies,
 ) {
@@ -83,9 +85,7 @@ export async function reserveCaptureEvidenceIntent(
   const history = await captureHistory(tx, input, context.segment);
   requireCapturedWindow(input, context.segment, context.now, history);
   // One evidence-owned admission serialization point, through the existing bounded pool.
-  await tx.execute(
-    sql`select pg_advisory_xact_lock(hashtextextended('necessary-evidence-capacity',0))`,
-  );
+  await takeLock(tx, transactionLocks.necessaryEvidenceCapacity());
   const [existing] = await tx
     .select()
     .from(necessaryEvidence)
@@ -111,14 +111,14 @@ export async function reserveCaptureEvidenceIntent(
         retryAt: existing.leaseExpiresAt.toISOString(),
       };
   } else {
-    const [capacity] = (await tx.execute(sql`select count(*)::integer as count,
+    const [capacity] = await query(
+      tx,
+      z.object({ count: z.number(), total: z.number(), round: z.number() }),
+      sql`select count(*)::integer as count,
       coalesce(sum(reserved_bytes),0)::integer as total,
       coalesce(sum(case when round_id=${input.roundId} then reserved_bytes else 0 end),0)::integer as round
-      from necessary_evidence where state in ('acquiring','retained','retiring')`)) as unknown as {
-      count: number;
-      total: number;
-      round: number;
-    }[];
+      from necessary_evidence where state in ('acquiring','retained','retiring')`,
+    );
     if (
       !capacity ||
       capacity.count >= policy.maxOutstandingIntents ||

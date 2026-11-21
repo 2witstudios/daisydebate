@@ -1,13 +1,15 @@
 import { sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
-import type { AuthorizationTransaction } from './authorization';
+import type { Tx } from './tx';
+import { query } from './raw-rows';
+import { z } from 'zod';
 
 type AgeInput = {
   readonly userId: string;
   readonly actorId: string;
   readonly accountRevision: number;
-  readonly now: string;
+  readonly now: unknown;
 };
 export type AuthorizationAgeFact =
   | { readonly state: 'unknown' }
@@ -77,19 +79,30 @@ function projection(
     validUntil,
   };
 }
+// The projection returns unknown when the stored evidence is insufficient.
+const ageFactRow = z.object({
+  actorId: z.unknown(),
+  band: z.unknown(),
+  revision: z.unknown(),
+  accountRevision: z.unknown(),
+  validUntil: z.unknown(),
+});
+
 /** Same transaction and canonical user fence; no raw birth data or profile leaves PostgreSQL. */
 export async function loadAuthorizationAgeFact(
-  tx: AuthorizationTransaction,
+  tx: Tx,
   input: AgeInput,
 ): Promise<AuthorizationAgeFact> {
   const instant = checkedInstant(input);
-  const rows =
-    await tx.execute(sql`select * from public.daisy_authorization_age(
-    ${input.userId}::text, ${input.actorId}::text, ${input.accountRevision}::integer, ${input.now}::timestamptz
-  )`);
-  if (rows.length !== 1 || typeof rows[0] !== 'object' || rows[0] === null)
-    return { state: 'unknown' };
-  return projection(rows[0] as Record<string, unknown>, input, instant);
+  const rows = await query(
+    tx,
+    ageFactRow,
+    sql`select * from public.daisy_authorization_age(
+    ${input.userId}::text, ${input.actorId}::text, ${input.accountRevision}::integer, ${instant.toISOString()}::timestamptz
+  )`,
+  );
+  if (rows.length !== 1 || rows[0] === undefined) return { state: 'unknown' };
+  return projection(rows[0], input, instant);
 }
 
 /**
@@ -97,7 +110,7 @@ export async function loadAuthorizationAgeFact(
  * which must already hold their account fences; in input order.
  */
 export async function loadAuthorizationAgeFacts(
-  tx: AuthorizationTransaction,
+  tx: Tx,
   inputs: readonly AgeInput[],
 ): Promise<readonly AuthorizationAgeFact[]> {
   const instants = inputs.map(checkedInstant);
@@ -107,16 +120,18 @@ export async function loadAuthorizationAgeFacts(
     user_id: input.userId,
     actor_id: input.actorId,
     revision: input.accountRevision,
-    checked_at: input.now,
+    checked_at: instants[i]!.toISOString(),
   }));
-  const rows = await tx.execute(sql`
+  const rows = await query(
+    tx,
+    ageFactRow.extend({ index: z.int() }),
+    sql`
     select w.i as "index", age.* from jsonb_to_recordset(${JSON.stringify(wanted)}::text::jsonb)
       as w(i integer, user_id text, actor_id text, revision integer, checked_at timestamptz)
     cross join lateral public.daisy_authorization_age(w.user_id, w.actor_id, w.revision, w.checked_at) as age
-    order by w.i`);
-  const byIndex = new Map(
-    (rows as Record<string, unknown>[]).map((row) => [Number(row.index), row]),
+    order by w.i`,
   );
+  const byIndex = new Map(rows.map((row) => [Number(row.index), row]));
   return inputs.map((input, i) => {
     const row = byIndex.get(i);
     return row ? projection(row, input, instants[i]!) : { state: 'unknown' };

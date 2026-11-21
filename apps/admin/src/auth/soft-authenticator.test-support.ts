@@ -67,11 +67,11 @@ const flagByte = (flags: Flags, attested: boolean) =>
 export type Ceremony = { readonly origin: string; readonly rpId: string };
 
 export async function softAuthenticator(seed: number) {
-  const keys = (await crypto.subtle.generateKey(
+  const keys = await crypto.subtle.generateKey(
     { name: 'ECDSA', namedCurve: 'P-256' },
     true,
     ['sign', 'verify'],
-  )) as CryptoKeyPair;
+  );
   const jwk = await crypto.subtle.exportKey('jwk', keys.publicKey);
   const credentialId = new Uint8Array(16).fill(seed);
   const id = b64(credentialId);

@@ -1,4 +1,6 @@
+import { instantMs } from '@daisy/clock';
 import { requireTestServices } from '@daisy/config';
+import { assertRejects } from '@daisy/errors/testing';
 import { CAPTURE_STT_LAG_MS } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { withBoundedRound } from './bounded-transaction.test-support';
@@ -23,7 +25,7 @@ async function unsafeJustAfterReceipt(
     [
       lease.sessionId,
       new Date(start.getTime() - 1000),
-      new Date(Date.parse(clip.after) + 49),
+      new Date(instantMs(clip.after) + 49),
     ],
   );
 }
@@ -61,6 +63,14 @@ test('a session closed by end, unsafe or a vendor-room deletion request admits o
             trackId: clip.trackId,
             observedFrom: start.toISOString(),
             observedUntil: new Date(start.getTime() + until).toISOString(),
+          });
+        if (state === 'unsafe')
+          await assertRejects({
+            given: 'a write captured after the session became unsafe',
+            should: 'record the capture pause reason for the worker retry',
+            actual: () => store.appendCapturedTranscript(late),
+            code: 'CONFLICT',
+            reason: 'capture-paused',
           });
         results[state] = {
           read: await outcome(() =>

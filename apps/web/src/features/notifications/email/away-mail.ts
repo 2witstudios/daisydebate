@@ -1,3 +1,4 @@
+import { addMs } from '@daisy/clock';
 import { knownDeliveryRejection } from '../../mail/resend-sender';
 import {
   MAIL_LEASE_MS,
@@ -93,9 +94,7 @@ export function createAwayMailDelivery<
     if (await input.isOnline(read.actorId))
       return {
         kind: 'postpone',
-        until: new Date(
-          Date.parse(input.now()) + DIGEST_ONLINE_POSTPONE_MS,
-        ).toISOString(),
+        until: addMs(input.now(), DIGEST_ONLINE_POSTPONE_MS),
       };
     const optOut = { userId: read.userId };
     const oneClick = oneClickUnsubscribeUrl(

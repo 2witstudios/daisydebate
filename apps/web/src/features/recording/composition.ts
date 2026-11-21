@@ -1,3 +1,4 @@
+import { nowMs } from '@daisy/clock';
 import { spectatorClockAt } from '../spectating/spectator-clock';
 import { hostHoldsCasualCapture as holdsCasualCapture } from '../room-runtime/capture-offer';
 import {
@@ -99,7 +100,7 @@ const recordingInputs = (app: App): RecordingInputs & HistoryInputs => {
       app.database.readRecordingTranscript(roundId, captureRule),
     readBallots: app.database.readRecordingBallots,
     readJobState: app.database.recordingCaptures.readJobState,
-    nowMs: () => Date.parse(app.clock.now()),
+    nowMs: () => nowMs(app.clock),
     holdsRecordingDownload: holdsRecordingDownload({
       readGrants: app.database.recordingCaptures.readAccountGrants,
       betaGrantsPremium: app.config.PREMIUM_BETA_GRANT,
@@ -163,7 +164,7 @@ export const startRecordingCapture = (
         }).position(now),
         round.rules.segments.length - 1,
       ),
-    now: () => Date.parse(app.clock.now()),
+    now: () => nowMs(app.clock),
     newCredential: () => newStageCredential(),
     stageUrl: (id, credential) =>
       `${app.config.PUBLIC_APP_URL}/stage/${id}?c=${encodeURIComponent(credential)}`,

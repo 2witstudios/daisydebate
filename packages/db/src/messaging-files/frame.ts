@@ -1,5 +1,5 @@
+import { tryInstantMs, instantMs, addMs } from '@daisy/clock';
 import { and, eq, gt, ne, sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import { messagingChannels } from '../schema/messaging-channels';
@@ -15,25 +15,25 @@ import type {
   FileScope,
   FileToken,
 } from './records';
+import type { Tx } from '../tx';
 
-type FileTransaction = Pick<
-  BunSQLDatabase,
-  'select' | 'insert' | 'update' | 'execute'
->;
 type Row = typeof messagingFiles.$inferSelect;
-const reservation = (row: Row): FileReservation => ({
-  lifecycle: row.lifecycle as FileReservation['lifecycle'],
-  id: row.id,
-  channelId: row.channelId,
-  ownerActorId: row.ownerActorId,
-  objectKey: row.objectKey,
-  filename: row.filename!,
-  mime: row.mime as FileReservation['mime'],
-  reservedBytes: row.reservedBytes,
-  generation: row.generation,
-  authorityRevision: row.authorityRevision,
-  expiresAt: row.expiresAt.toISOString(),
-});
+const reservation = (row: Row): FileReservation => {
+  if (row.filename === null) throw createAppError('INVARIANT');
+  return {
+    lifecycle: row.lifecycle as FileReservation['lifecycle'],
+    id: row.id,
+    channelId: row.channelId,
+    ownerActorId: row.ownerActorId,
+    objectKey: row.objectKey,
+    filename: row.filename,
+    mime: row.mime as FileReservation['mime'],
+    reservedBytes: row.reservedBytes,
+    generation: row.generation,
+    authorityRevision: row.authorityRevision,
+    expiresAt: row.expiresAt.toISOString(),
+  };
+};
 export const fileDeletionValues = {
   lifecycle: 'deleting',
   filename: null,
@@ -44,7 +44,7 @@ export const fileDeletionValues = {
 };
 /** Caller holds canonical account/pair/channel locks. Never opens a transaction. */
 export function channelFileFrame(
-  tx: FileTransaction,
+  tx: Tx,
   input: FileScope,
   counters: { channelId: string; changeVersion: number },
   authorize: () => Promise<void>,
@@ -96,8 +96,8 @@ export function channelFileFrame(
   };
   const live = async (row: Row, now: string) => {
     if (
-      !Number.isFinite(Date.parse(now)) ||
-      row.expiresAt.getTime() <= Date.parse(now) ||
+      tryInstantMs(now) === undefined ||
+      row.expiresAt.getTime() <= instantMs(now) ||
       row.authorityRevision !== (await currentRevision())
     )
       throw createAppError('CONFLICT');
@@ -119,16 +119,15 @@ export function channelFileFrame(
     if (
       !message ||
       message.removedAt !== null ||
-      !Number.isFinite(Date.parse(now))
+      tryInstantMs(now) === undefined
     )
       throw createAppError('NOT_FOUND');
+    if (row.storedBytes === null) throw createAppError('INVARIANT');
     return {
       ...reservation(row),
       messageId: row.messageId,
-      storedBytes: row.storedBytes!,
-      accessExpiresAt: new Date(
-        Date.parse(now) + policy.accessMs,
-      ).toISOString(),
+      storedBytes: row.storedBytes,
+      accessExpiresAt: addMs(now, policy.accessMs),
     };
   };
   return {
@@ -169,9 +168,10 @@ export function channelFileFrame(
             ne(messagingFiles.lifecycle, 'deleted'),
           ),
         );
+      if (!quota) throw createAppError('INVARIANT');
       if (
-        Number(quota!.bytes) + command.bytes > policy.maxStoredBytes ||
-        Number(quota!.count) >= policy.maxStoredFiles
+        Number(quota.bytes) + command.bytes > policy.maxStoredBytes ||
+        Number(quota.count) >= policy.maxStoredFiles
       )
         throw createAppError('PAYLOAD_TOO_LARGE');
       // Every reservation counts, deleted or not, so removing a file never
@@ -182,13 +182,11 @@ export function channelFileFrame(
         .where(
           and(
             eq(messagingFiles.ownerActorId, input.actorId),
-            gt(
-              messagingFiles.createdAt,
-              new Date(Date.parse(now) - 86_400_000),
-            ),
+            gt(messagingFiles.createdAt, new Date(instantMs(now) - 86_400_000)),
           ),
         );
-      if (Number(today!.count) >= policy.maxUploadsPerDay)
+      if (!today) throw createAppError('INVARIANT');
+      if (Number(today.count) >= policy.maxUploadsPerDay)
         throw createAppError('RATE_LIMIT');
       const row: typeof messagingFiles.$inferInsert = {
         id: command.id,
@@ -203,13 +201,14 @@ export function channelFileFrame(
         generation: 1,
         authorityRevision: await currentRevision(),
         createdAt: new Date(now),
-        expiresAt: new Date(Date.parse(now) + policy.reservationMs),
+        expiresAt: new Date(instantMs(now) + policy.reservationMs),
       };
       const [inserted] = await tx
         .insert(messagingFiles)
         .values(row)
         .returning();
-      return reservation(inserted!);
+      if (!inserted) throw createAppError('INVARIANT');
+      return reservation(inserted);
     },
     async upload(token, now) {
       const row = await read(token, true);
@@ -248,11 +247,12 @@ export function channelFileFrame(
         .set({
           generation: row.generation + 1,
           authorityRevision: await currentRevision(),
-          expiresAt: new Date(Date.parse(now) + policy.reservationMs),
+          expiresAt: new Date(instantMs(now) + policy.reservationMs),
         })
         .where(eq(messagingFiles.id, row.id))
         .returning();
-      return reservation(updated!);
+      if (!updated) throw createAppError('INVARIANT');
+      return reservation(updated);
     },
     async finalize(token, messageId, now, supplied) {
       const policy = requireFilePolicy(supplied);
@@ -287,7 +287,8 @@ export function channelFileFrame(
             eq(messagingFiles.lifecycle, 'attached'),
           ),
         );
-      if (Number(count!.value) >= policy.maxFilesPerMessage)
+      if (!count) throw createAppError('INVARIANT');
+      if (Number(count.value) >= policy.maxFilesPerMessage)
         throw createAppError('PAYLOAD_TOO_LARGE');
       await tx
         .update(messagingFiles)

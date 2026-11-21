@@ -16,10 +16,10 @@ export type PastFixture = {
 
 export const pastFixtures = (
   history: StageHistory<FormatDescriptor>,
-): readonly PastFixture[] => history.fixtures as readonly PastFixture[];
+): readonly PastFixture[] => history.fixtures;
 export const pastResults = (
   history: StageHistory<FormatDescriptor>,
-): readonly Result[] => history.results as readonly Result[];
+): readonly Result[] => history.results;
 
 /** Every entry a fixture holds, in its own order. */
 export const entriesIn = (fixture: Fixture): readonly Id[] => {

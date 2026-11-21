@@ -1,5 +1,7 @@
 import { sql } from 'drizzle-orm';
 import type { PrivacyAdopter } from './privacy/contracts';
+import { run, query } from './raw-rows';
+import { z } from 'zod';
 
 /** DEC-316: allowance identity belongs to this account, never a future signup. */
 export const usagePrivacyAdopter: PrivacyAdopter = {
@@ -8,16 +10,29 @@ export const usagePrivacyAdopter: PrivacyAdopter = {
   erase: async (tx, subject) => {
     // Closure already holds the canonical account fence. A stale worker cannot
     // admit or dispatch, and late provider accounting cannot recreate this row.
-    await tx.execute(
+    await run(
+      tx,
       sql`delete from usage_reservations where actor_id=${subject.actorId}`,
     );
   },
   export: async (tx, subject) => {
-    const rows =
-      await tx.execute(sql`select id,round_id,kind,source,state,binds_free_judge,
+    const rows = await query(
+      tx,
+      z.object({
+        id: z.string(),
+        round_id: z.string(),
+        kind: z.string(),
+        source: z.json(),
+        state: z.json(),
+        binds_free_judge: z.boolean(),
+        reserved_at: z.string(),
+        binding_released_at: z.string().nullable(),
+      }),
+      sql`select id,round_id,kind,source,state,binds_free_judge,
       to_char(reserved_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as reserved_at,
       to_char(binding_released_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as binding_released_at
-      from usage_reservations where actor_id=${subject.actorId} order by reserved_at,id`);
-    return { usage_reservations: rows as unknown as Record<string, unknown>[] };
+      from usage_reservations where actor_id=${subject.actorId} order by reserved_at,id`,
+    );
+    return { usage_reservations: rows };
   },
 };

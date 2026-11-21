@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { mayDebate } from '@daisy/protocol/lobby/eligibility';
 import type {
   RoomAssemblyState,
@@ -83,6 +84,8 @@ export const selectFormat = (
   edges: Edges,
 ): RoomMutationOutcome => {
   if (room.competitionType === 'ranked') return refuse('illegal-config');
+  const facts = edges.formatFacts;
+  if (!facts) return refuse('format-unavailable');
   const decision = decideFormatSelection(
     {
       intent: command.intent,
@@ -91,7 +94,7 @@ export const selectFormat = (
       presetVersion: command.presetVersion,
       basis: room.basis,
     },
-    edges.formatFacts ?? null,
+    facts,
   );
   if (!decision.ok) return refuse(decision.refusal);
   const { rules, roomPlan } = decision.resolved;
@@ -105,7 +108,6 @@ export const selectFormat = (
   if (topic === undefined) return refuse('illegal-config');
   // The policy refuses role-null facts for `choose`; a reset to a retired
   // basis keeps its pinned provenance but is no longer a standard.
-  const facts = edges.formatFacts!;
   return acceptedRoomMutation({
     ...room,
     formatId: command.formatId,
@@ -238,7 +240,7 @@ export const seatsHeldFrom = (
     (hold) =>
       hold.seat === seat &&
       hold.actorId !== actorId &&
-      Date.parse(hold.until) > Date.parse(now) &&
+      instantMs(hold.until) > instantMs(now) &&
       !arrived(hold.actorId),
   ).length;
 };

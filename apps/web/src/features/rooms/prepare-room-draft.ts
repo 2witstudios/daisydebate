@@ -57,7 +57,7 @@ export function changeDraftSchedule(
   ) {
     const to = index + (operation === 'up' ? -1 : 1);
     if (!segments[to]) return draft;
-    [segments[index], segments[to]] = [segments[to]!, segments[index]!];
+    [segments[index], segments[to]] = [segments[to], segments[index]];
   } else if (operation === 'add-side' || intent === 'add-question') {
     if (segments.length >= 64) return draft;
     const segment = addedSegment(draft.definition, intent, position);

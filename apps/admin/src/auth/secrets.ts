@@ -1,3 +1,4 @@
+import { sha3Hex } from '@daisy/digest';
 /**
  * Admin bearer secrets (ADR 0077, the ADR 0019 amendment): enrollment and
  * session tokens and WebAuthn challenges are 32 OS CSPRNG bytes, base64url,
@@ -21,5 +22,4 @@ export const mintSecret = (random: RandomBytes): string =>
 export const isSecret = (value: unknown): value is string =>
   typeof value === 'string' && secretShape.test(value);
 
-export const sha3 = (text: string): string =>
-  new Bun.CryptoHasher('sha3-256').update(text).digest('hex');
+export const sha3 = (text: string): string => sha3Hex(text);

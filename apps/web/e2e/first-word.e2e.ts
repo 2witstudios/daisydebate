@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { execFileSync } from 'node:child_process';
 import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -275,7 +276,7 @@ for (const [index, { name, reactionMs, prep }] of CASES.entries())
         }
         if (
           open?.startedAt &&
-          nowMs() - Date.parse(open.startedAt) >= HOLD_SPEECH_MS
+          nowMs() - instantMs(open.startedAt) >= HOLD_SPEECH_MS
         ) {
           const rule = segments.find(
             (segment) => segment.key === open.rulesSegmentKey,
@@ -343,11 +344,9 @@ for (const [index, { name, reactionMs, prep }] of CASES.entries())
             (row) =>
               row.segmentId === segment.id && row.participantId === seat.id,
           )
-          .map((row) => Date.parse(row.from));
+          .map((row) => instantMs(row.from));
         const onset = onsets[rule.key] ?? null;
-        const clockAt = segment.startedAt
-          ? Date.parse(segment.startedAt)
-          : null;
+        const clockAt = segment.startedAt ? instantMs(segment.startedAt) : null;
         const firstHeard = heardFrom.length ? Math.min(...heardFrom) : null;
         return [
           {

@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { CAPTURE_HISTORY_READ_MS, speakingEndMs } from '@daisy/protocol';
 import { CAPTURE_OUTAGE_BUDGET_MS } from './capture-memory';
 import { createAppError } from '@daisy/errors';
@@ -9,30 +10,37 @@ import type { createMediaWorkerClient } from '@daisy/media/worker';
 export type CaptureClient = ReturnType<typeof createMediaWorkerClient>;
 export type CaptureState = Awaited<ReturnType<CaptureClient['read']>>['state'];
 export type Window = { readonly beforeMs: number; readonly afterMs: number };
-/** Cached authority is only a staging filter; fresh PG horizon is checked separately. */
-export function contained(state: CaptureState, seat: string, window: Window) {
+export type CaptureGrant = CaptureState['intervals'][number];
+/** The segment and the one grant of the seat that hold the window; null when none does. */
+export function containingGrant(
+  state: CaptureState,
+  seat: string,
+  window: Window,
+) {
   const segment = state.segment;
   if (
     !segment ||
-    window.beforeMs < Date.parse(segment.startedAt) ||
+    window.beforeMs < instantMs(segment.startedAt) ||
     window.afterMs >=
       speakingEndMs({
-        startedAtMs: Date.parse(segment.startedAt),
-        endedAtMs:
-          segment.endedAt === null ? null : Date.parse(segment.endedAt),
+        startedAtMs: instantMs(segment.startedAt),
+        endedAtMs: segment.endedAt === null ? null : instantMs(segment.endedAt),
         durationMs: segment.durationMs,
         returnedMs: segment.returnedMs,
       })
   )
-    return false;
-  return (
-    state.intervals.filter(
-      (i) =>
-        i.roundParticipantId === seat &&
-        Date.parse(i.startedAt) <= window.beforeMs &&
-        (i.endedAt === null || window.afterMs < Date.parse(i.endedAt)),
-    ).length === 1
+    return null;
+  const [grant, ...others] = state.intervals.filter(
+    (i) =>
+      i.roundParticipantId === seat &&
+      instantMs(i.startedAt) <= window.beforeMs &&
+      (i.endedAt === null || window.afterMs < instantMs(i.endedAt)),
   );
+  return grant !== undefined && others.length === 0 ? { segment, grant } : null;
+}
+/** Cached authority is only a staging filter; fresh PG horizon is checked separately. */
+export function contained(state: CaptureState, seat: string, window: Window) {
+  return containingGrant(state, seat, window) !== null;
 }
 /** A calibrated 10 ms frame: its nominal start and server-time bracket. */
 export type FrameWindow = Window & { readonly nominalStartMs: number };
@@ -48,8 +56,8 @@ export function straddlesGrantEdge(
   return state.intervals.some(
     (i) =>
       i.roundParticipantId === seat &&
-      (straddles(frame, Date.parse(i.startedAt)) ||
-        (i.endedAt !== null && straddles(frame, Date.parse(i.endedAt)))),
+      (straddles(frame, instantMs(i.startedAt)) ||
+        (i.endedAt !== null && straddles(frame, instantMs(i.endedAt)))),
   );
 }
 
@@ -77,16 +85,17 @@ export function observedWindow(input: {
       frame.nominalStartMs === clip.firstNominalMs - 10 &&
       straddles(frame, grant.startMs),
   );
+  const { endMs } = grant;
   const endEvidence =
-    grant.endMs !== null &&
+    endMs !== null &&
     input.straddles.some(
       (frame) =>
         frame.nominalStartMs === clip.lastNominalMs + 10 &&
-        straddles(frame, grant.endMs!),
+        straddles(frame, endMs),
     );
   return {
     fromMs: startEvidence ? grant.startMs : clip.firstNominalMs,
-    untilMs: endEvidence ? grant.endMs! : clip.lastNominalMs + 10,
+    untilMs: endEvidence ? endMs : clip.lastNominalMs + 10,
   };
 }
 /** How long a read the control plane could not answer waits before its restart. */
@@ -96,6 +105,11 @@ export type CapturePace = {
   readonly nowMs: () => number;
   readonly waitUntilMs: (due: number, signal: AbortSignal) => Promise<void>;
 };
+/** The worker's own pause: until `performance.now()` reaches `due`, or `signal` aborts. */
+export async function waitUntilPerformanceMs(due: number, signal: AbortSignal) {
+  while (performance.now() < due && !signal.aborted)
+    await Bun.sleep(Math.max(1, Math.min(25, due - performance.now())));
+}
 /**
  * A timed-out acquisition or an unanswering control plane is not an authority
  * refusal; restart with no partial pages, while frames wait in staging. Still
@@ -149,12 +163,16 @@ async function readSnapshot(
   );
   let cursor = first.state.nextIntervalId;
   const intervals = [...first.state.intervals];
+  const pagedSegment = first.state.segment;
   while (cursor) {
+    // The server pages only a segment's intervals: no segment, no next page.
+    if (pagedSegment === null)
+      throw new Error('Capture history paged intervals without a segment');
     signal.throwIfAborted();
     const next = await client.read(
       {
         epoch,
-        segmentId: first.state.segment!.id,
+        segmentId: pagedSegment.id,
         expectedVersion: first.state.version,
         afterIntervalId: cursor,
       },

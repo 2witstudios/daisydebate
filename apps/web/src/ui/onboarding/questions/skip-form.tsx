@@ -15,8 +15,8 @@ const skipUnavailable = (): StepFormState => stepUnsaved();
 
 /**
  * Skip, as a form posting to its server action: it records that the
- * member finished and moves on to the last step, with or without
- * JavaScript.
+ * member finished and moves on to the last step, before hydration
+ * or after.
  */
 export function SkipForm({
   action,

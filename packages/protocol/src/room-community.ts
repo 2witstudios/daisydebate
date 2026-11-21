@@ -8,18 +8,23 @@ import {
   type MessagingCoreBounds,
 } from './messaging/core';
 
+export const roomCommunityPolicySchema = z.object({
+  policyKey: z.literal('room.community'),
+  policyRevision: z.literal(1),
+});
+
 /**
  * Caller-specific Room chat authority: raw facts about the Room and about this
  * one actor (whether they host it, and their own seat). `decideRoomCommunity`
  * derives what they may do. It says nothing about anyone else and never
  * reaches the wire; the caller is told only whether their chat is read-only.
  */
-export type RoomCommunityFact = {
+export type RoomCommunityFact = Readonly<
+  z.infer<typeof roomCommunityPolicySchema>
+> & {
   readonly kind: 'room_community';
   readonly roomId: string;
   readonly channelId: string | null;
-  readonly policyKey: 'room.community';
-  readonly policyRevision: 1;
   readonly revision: number;
   readonly status: RoomStatus;
   readonly visibility: RoomView['visibility'];

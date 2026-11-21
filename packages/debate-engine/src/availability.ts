@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { createInvariantError } from '@daisy/errors';
 import { availabilityRecoveryPolicy, type ClockStop } from '@daisy/protocol';
 
@@ -52,9 +53,8 @@ export function deriveOutageIntervals(
   let healthyCount = 0;
   for (const sample of samples) {
     assertSampleTime(sample.atMs, previous);
-    const gap = previous !== null && sample.atMs - previous > maxSampleGapMs;
-    if (gap) {
-      open ??= (Math.round(previous! * 1000) + 1) / 1000;
+    if (previous !== null && sample.atMs - previous > maxSampleGapMs) {
+      open ??= (Math.round(previous * 1000) + 1) / 1000;
       healthyCount = 0;
     }
     const next = recoverOutage({ open, healthyCount }, sample, intervals);
@@ -84,8 +84,8 @@ export function withClockStops(
     intervals: [
       ...availability.intervals,
       ...stops.map((stop) => ({
-        startMs: Date.parse(stop.from),
-        endMs: stop.to === null ? null : Date.parse(stop.to),
+        startMs: instantMs(stop.from),
+        endMs: stop.to === null ? null : instantMs(stop.to),
       })),
     ].sort((a, b) => a.startMs - b.startMs),
   };
@@ -100,10 +100,14 @@ export function effectiveAttendanceDeadline(input: {
   const { openedAtMs, graceMs, availability } = input;
   const { historyStartsAtMs, settledHorizonMs, intervals } = availability;
   assertDeadlineTiming(openedAtMs, graceMs);
-  if (!coversOpening(historyStartsAtMs, settledHorizonMs, openedAtMs))
+  // Only a settled history that covers the opening can consume grace.
+  if (
+    historyStartsAtMs === null ||
+    settledHorizonMs === null ||
+    historyStartsAtMs > openedAtMs
+  )
     return null;
-  // coversOpening proves the horizon exists; local value keeps the loop arithmetic explicit.
-  const horizon = settledHorizonMs!;
+  const horizon = settledHorizonMs;
   let cursor = openedAtMs;
   let remaining = graceMs;
   for (const interval of intervals) {
@@ -130,8 +134,3 @@ function assertDeadlineTiming(openedAtMs: number, graceMs: number): void {
       'Attendance timing must use positive integer milliseconds',
     );
 }
-const coversOpening = (
-  history: number | null,
-  horizon: number | null,
-  opening: number,
-): boolean => history !== null && horizon !== null && history <= opening;

@@ -264,7 +264,7 @@ export function CommandPalette({
           aria-controls="room-palette-list"
           aria-activedescendant={
             ranked[selected]
-              ? `palette-${ranked[selected]!.command.id}`
+              ? `palette-${ranked[selected].command.id}`
               : undefined
           }
           aria-label={creating ? 'Search what to create' : 'Search commands'}

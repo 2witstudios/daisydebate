@@ -1,8 +1,8 @@
+import { sha3Hex } from '@daisy/digest';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   canonicalJson,
   canonicalOrder,
-  digestOf,
   shuffleWith,
   uniformIndex,
   wordStream,
@@ -87,12 +87,12 @@ describe('shuffleWith', () => {
   });
 });
 
-describe('digestOf', () => {
+describe('sha3Hex', () => {
   test('a digest is the SHA3-256 of the UTF-8 text in hex', () => {
     assert({
       given: 'the empty string',
       should: 'be the published SHA3-256 of no bytes',
-      actual: digestOf(''),
+      actual: sha3Hex(''),
       expected:
         'a7ffc6f8bf1ed76651c14756a061d662f580ff4de43b49fa82d80a4b80f8434a',
     });

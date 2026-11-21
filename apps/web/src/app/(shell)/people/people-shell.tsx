@@ -54,9 +54,13 @@ const noChallenges = {
  * browser's own read lands.
  */
 export async function PeopleShell({
+  actorId,
+  socketUrl,
   preference,
   activeRoomId,
 }: {
+  readonly actorId: string;
+  readonly socketUrl: string | null;
   readonly preference: PeopleRailPreference;
   readonly activeRoomId: string | null;
 }) {
@@ -83,39 +87,26 @@ export async function PeopleShell({
         />
       </>
     ),
-    wrap: (shell: ReactNode) => {
-      const people = (
-        <PeopleProvider
-          initialList={list ?? empty}
-          socketUrl={challenges?.socketUrl ?? null}
-        >
-          <ChallengeProvider
-            initialChallenges={challenges?.list ?? noChallenges}
-            actorId={challenges?.actorId ?? null}
-            socketUrl={challenges?.socketUrl ?? null}
-            memberDivision={memberDivision}
-          >
-            {shell}
-          </ChallengeProvider>
-        </PeopleProvider>
-      );
-      // The member's inbox rings on the same socket as their challenges.
-      return challenges?.actorId ? (
-        <NotificationShellProvider
-          initialShell={notifications}
-          actorId={challenges.actorId}
-          socketUrl={challenges.socketUrl}
-        >
-          <MessagesUnreadProvider
-            actorId={challenges.actorId}
-            socketUrl={challenges.socketUrl}
-          >
-            {people}
-          </MessagesUnreadProvider>
-        </NotificationShellProvider>
-      ) : (
-        people
-      );
-    },
+    // A transient challenge refusal must leave the route subtree mounted.
+    wrap: (shell: ReactNode) => (
+      <NotificationShellProvider
+        initialShell={notifications}
+        actorId={actorId}
+        socketUrl={socketUrl}
+      >
+        <MessagesUnreadProvider actorId={actorId} socketUrl={socketUrl}>
+          <PeopleProvider initialList={list ?? empty} socketUrl={socketUrl}>
+            <ChallengeProvider
+              initialChallenges={challenges ?? noChallenges}
+              actorId={actorId}
+              socketUrl={socketUrl}
+              memberDivision={memberDivision}
+            >
+              {shell}
+            </ChallengeProvider>
+          </PeopleProvider>
+        </MessagesUnreadProvider>
+      </NotificationShellProvider>
+    ),
   };
 }

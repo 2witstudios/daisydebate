@@ -9,7 +9,6 @@ import {
   type RatingState,
 } from '@daisy/protocol';
 import { and, desc, eq, inArray, max, ne, sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type { RateDebateInput, RateDebateResult } from './rating-facts';
 import {
   assertRankedRoundIntegrity,
@@ -23,18 +22,10 @@ import { seatOfColumns } from './seat-columns';
 import { roundParticipants } from './schema/round-participants';
 import { rounds } from './schema/rounds';
 import { ratingChanges, ratings, seasons } from './schema/ratings';
-
-/**
- * Rates one completed round (ADR 0055, ADR 0058) as a thin transactional
- * shell: it locks the round, asserts its frozen integrity, asks the
- * injected domain decision (`@daisy/debate-engine`'s decision, composed by
- * the caller because an adapter never decides domain rules) and writes what
- * it decides. Two ledger rows and both projections commit together or not
- * at all; a rerun finds the ledger rows and writes nothing; a projection
- * that moved under a concurrent write is retried from fresh facts.
- */
-
-type Tx = Parameters<Parameters<BunSQLDatabase['transaction']>[0]>[0];
+import { inTransaction, type Tx, type TxSource } from './tx';
+import { takeLock, transactionLocks } from './locks';
+import { query } from './raw-rows';
+import { z } from 'zod';
 
 /** A projection moved under a concurrent debate: retry from fresh facts. */
 class StaleProjection extends Error {}
@@ -202,16 +193,19 @@ async function rateOnce(
   // Two-int advisory namespace59090 belongs to ratings, disjoint from the
   // bigint command locks. Sort/dedupe actual int32 keys before acquisition;
   // a hash collision only serializes unrelated ladder/actor pairs.
-  const keys =
-    await tx.execute(sql`select key::text as key from (select distinct
+  const keys = await query(
+    tx,
+    z.object({ key: z.string() }),
+    sql`select key::text as key from (select distinct
     hashtext(${ladderKey(eligibility.ladder.style, eligibility.ladder.division)} || ':' || actor_id) as key
     from round_participants where round_id=${roundId} and seat_kind='side' and side in (${sql.join(
       twoSideKeys.map((side) => sql`${side}`),
       sql`, `,
     )})) locks
-    order by locks.key`);
-  for (const { key } of keys as unknown as { key: string }[])
-    await tx.execute(sql`select pg_advisory_xact_lock(59090, ${key}::integer)`);
+    order by locks.key`,
+  );
+  for (const { key } of keys)
+    await takeLock(tx, transactionLocks.ratingSeat(Number(key)));
   const standings: Record<string, DebaterStanding> = {};
   for (const { actorId } of seats)
     standings[actorId] = await loadStanding(tx, {
@@ -242,11 +236,11 @@ async function rateOnce(
 }
 
 export async function rateCompletedRound(
-  database: BunSQLDatabase,
+  database: TxSource,
   input: RateDebateInput,
 ): Promise<RateDebateResult> {
   return retryStale(
-    () => database.transaction((tx) => rateOnce(tx, input)),
+    () => inTransaction(database, (tx) => rateOnce(tx, input)),
     (error) => error instanceof StaleProjection,
     ATTEMPTS,
     () =>

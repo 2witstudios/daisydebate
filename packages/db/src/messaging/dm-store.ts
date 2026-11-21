@@ -1,5 +1,4 @@
 import { and, eq } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import {
@@ -21,6 +20,7 @@ import type {
   MessagingDmStore,
   MessagingDmFrame,
 } from './dm-contracts';
+import type { TxSource, Tx } from '../tx';
 type DecisionCommand = Parameters<MessagingDmFrame['readDecisionState']>[0];
 const resultStates = {
   accept: 'accepted',
@@ -33,7 +33,7 @@ export function createMessagingDmStore({
   database,
   authorize,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
   readonly authorize: MessagingDmFence;
 }): MessagingDmStore {
   return {
@@ -172,10 +172,7 @@ export function createMessagingDmStore({
   };
 }
 /** The one read of a DM pair's request row, for the preview and decisions. */
-async function readRequestRow(
-  tx: Pick<BunSQLDatabase, 'select'>,
-  channelId: string,
-) {
+async function readRequestRow(tx: Tx, channelId: string) {
   const [row] = await tx
     .select()
     .from(messagingDmPairs)

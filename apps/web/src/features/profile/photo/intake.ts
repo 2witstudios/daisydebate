@@ -1,7 +1,7 @@
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { Clock, IdGenerator } from '@daisy/clock';
 import type { OwnPublicProfile } from '@daisy/db';
-import { createRefusal, isAppError } from '@daisy/errors';
+import { createRefusal, isAppError, rethrow } from '@daisy/errors';
 import {
   PROFILE_PHOTO_MAX_BYTES,
   PROFILE_PHOTO_RENDITION_MAX_BYTES,
@@ -206,7 +206,7 @@ export async function intakeProfilePhoto(
       sized.map(({ key, bytes }) => storage.objects.put(key, bytes)),
     );
     const failed = written.find((result) => result.status === 'rejected');
-    if (failed) throw failed.reason;
+    if (failed) rethrow(failed.reason);
     const profile = await dependencies.record(scope, {
       photoId,
       status,

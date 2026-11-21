@@ -1,3 +1,4 @@
+import { addMs } from '@daisy/clock';
 import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -148,7 +149,7 @@ test('canonical message mutations serialize retries and scrub removed retry fing
           {
             ...dependencies,
             limit: async () => {
-              now = new Date(Date.parse(fixture.now) + 60000).toISOString();
+              now = addMs(fixture.now, 60000);
             },
           },
         ),

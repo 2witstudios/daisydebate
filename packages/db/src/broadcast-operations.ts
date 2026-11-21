@@ -1,3 +1,4 @@
+import { createAppError } from '@daisy/errors';
 import {
   runningRoundStatuses,
   type BroadcastFeedEndReason,
@@ -20,7 +21,6 @@ import {
 } from 'drizzle-orm';
 import { controlHeartbeat } from './control-heartbeat';
 import { openRecordingJobIfEgressRecorded } from './recording-processing-operations';
-import type { BoundedTransactionContext } from './transaction-context';
 import { broadcasts } from './schema/broadcasts';
 import { mediaSessions } from './schema/media-sessions';
 import { recordingCaptures } from './schema/recording-captures';
@@ -31,8 +31,9 @@ import {
   type SpectatorClock,
 } from './spectator-release-sql';
 import { operatorWithheldSql } from './broadcast-withheld-sql';
-
-type Tx = BoundedTransactionContext;
+import type { Tx } from './tx';
+import { run, query } from './raw-rows';
+import { z } from 'zod';
 
 /** One Broadcast per Round: a repeat keeps the first, policy included. */
 export const openBroadcast = async (
@@ -53,7 +54,8 @@ export const openBroadcast = async (
     .select()
     .from(broadcasts)
     .where(eq(broadcasts.roundId, input.roundId));
-  return row!;
+  if (!row) throw createAppError('INVARIANT');
+  return row;
 };
 
 /**
@@ -106,7 +108,8 @@ const claimOldestFree = async (tx: Tx, work: SQL, input: ClaimLease) => {
     })
     .where(eq(broadcasts.id, free.id))
     .returning(workerRow);
-  return claimed!;
+  if (!claimed) throw createAppError('INVARIANT');
+  return claimed;
 };
 
 /** Takes the oldest Broadcast still releasing whose lease is free. */
@@ -120,7 +123,7 @@ export const claimBroadcast = (tx: Tx, input: ClaimLease) =>
         isNull(broadcasts.releaseNotBefore),
         lte(broadcasts.releaseNotBefore, input.now),
       ),
-    )!,
+    ) ?? sql`false`,
     input,
   );
 
@@ -153,7 +156,7 @@ export const claimFeedWithdrawal = (
         isNull(broadcasts.completedAt),
         isNotNull(broadcasts.finalMediaEndAt),
       ),
-    )!,
+    ) ?? sql`false`,
     input,
   );
 
@@ -514,20 +517,24 @@ export const broadcastStopOf = (
  * Broadcast was stopped. One rule with every other read: `spectatorHorizonSql`.
  */
 export const readBroadcastRelease = async (
-  reader: Pick<BoundedTransactionContext, 'execute'>,
+  reader: Tx,
   roundId: string,
   clock: SpectatorClock,
 ) => {
-  const rows = await reader.execute(sql`
+  const rows = await query(
+    reader,
+    z.object({
+      horizon: z.union([z.string(), z.date()]).nullable(),
+      stopped: z.boolean(),
+      withheld: z.boolean(),
+    }),
+    sql`
     select ${spectatorHorizonSql(roundAliasR, clock)} as horizon,
       exists (select 1 from broadcasts b where b.round_id = r.id and b.stopped_at is not null) as stopped,
       exists (select 1 from broadcasts b where b.round_id = r.id and ${operatorWithheldSql(sql`b`)}) as withheld
-    from rounds r where r.id = ${roundId}`);
-  const [row] = rows as unknown as {
-    readonly horizon: Date | string | null;
-    readonly stopped: boolean;
-    readonly withheld: boolean;
-  }[];
+    from rounds r where r.id = ${roundId}`,
+  );
+  const [row] = rows;
   return {
     releasedThroughMs:
       row?.horizon === null || row?.horizon === undefined
@@ -612,47 +619,56 @@ export const claimBroadcastReconcile = async (
  * spans, through views that hold nothing else, because its role reaches no Round table.
  */
 export const readBroadcastStageHistory = async (
-  tx: Pick<BoundedTransactionContext, 'execute'>,
+  tx: Tx,
   broadcastId: string,
 ) => {
-  const segments = (await tx.execute(sql`
+  const segments = await query(
+    tx,
+    z.object({
+      started_at: z.union([z.string(), z.date()]),
+      ended_at: z.union([z.string(), z.date()]).nullable(),
+      duration_ms: z.number(),
+    }),
+    sql`
     select started_at, ended_at, duration_ms from broadcast_public_history
-    where broadcast_id = ${broadcastId} order by sequence`)) as unknown as {
-    readonly started_at: Date | string;
-    readonly ended_at: Date | string | null;
-    readonly duration_ms: number;
-  }[];
-  const spans = (await tx.execute(sql`
+    where broadcast_id = ${broadcastId} order by sequence`,
+  );
+  const spans = await query(
+    tx,
+    z.object({
+      kind: z.enum(['prep', 'judging']),
+      started_at: z.union([z.string(), z.date()]),
+      ended_at: z.union([z.string(), z.date()]).nullable(),
+    }),
+    sql`
     select kind, started_at, ended_at from broadcast_private_history
-    where broadcast_id = ${broadcastId}`)) as unknown as {
-    readonly kind: 'prep' | 'judging';
-    readonly started_at: Date | string;
-    readonly ended_at: Date | string | null;
-  }[];
+    where broadcast_id = ${broadcastId}`,
+  );
   const ms = (at: Date | string | null) =>
     at === null ? null : new Date(at).getTime();
   return {
     segments: segments.map((row) => ({
-      startedAtMs: ms(row.started_at)!,
+      startedAtMs: new Date(row.started_at).getTime(),
       endedAtMs: ms(row.ended_at),
       durationMs: row.duration_ms,
     })),
     privateSpans: spans.map((row) => ({
       kind: row.kind,
-      startedAtMs: ms(row.started_at)!,
+      startedAtMs: new Date(row.started_at).getTime(),
       endedAtMs: ms(row.ended_at),
     })),
   };
 };
 
 /** Whether this Broadcast's Round has a Recording, which reads its hold, then clears it. */
-export const readRecordingKeepsHold = async (
-  tx: Pick<BoundedTransactionContext, 'execute'>,
-  broadcastId: string,
-) => {
-  const rows = (await tx.execute(sql`
-    select 1 from broadcast_recording_claims
-    where broadcast_id = ${broadcastId}`)) as unknown as unknown[];
+export const readRecordingKeepsHold = async (tx: Tx, broadcastId: string) => {
+  const rows = await query(
+    tx,
+    z.object({ present: z.literal(1) }),
+    sql`
+    select 1 as present from broadcast_recording_claims
+    where broadcast_id = ${broadcastId}`,
+  );
   return rows.length > 0;
 };
 
@@ -736,7 +752,7 @@ export const readConversationHeld = async (
  * there is no such Broadcast.
  */
 export const endBroadcastFeed = async (
-  tx: Pick<Tx, 'execute'>,
+  tx: Tx,
   input: {
     readonly id: string;
     readonly reason: BroadcastFeedEndReason;
@@ -744,20 +760,29 @@ export const endBroadcastFeed = async (
   },
 ): Promise<'applied' | 'unchanged' | null> => {
   const at = input.now.toISOString();
-  const stopped = (await tx.execute(sql`update broadcasts
+  const stopped = await query(
+    tx,
+    z.object({ id: z.string() }),
+    sql`update broadcasts
     set stopped_at=${at}::timestamptz, stop_reason=${input.reason}
     where id=${input.id} and stopped_at is null and completed_at is null
-    returning id`)) as unknown as readonly unknown[];
+    returning id`,
+  );
   if (stopped.length === 1) return 'applied';
   // Already complete, its feed would wait out the grace: past the delivery bound
   // for a stop that lands just after. The withdrawal loop takes it on its next poll.
-  await tx.execute(sql`update broadcasts
+  await run(
+    tx,
+    sql`update broadcasts
     set feed_withdrawal_requested_at=${at}::timestamptz
     where id=${input.id} and completed_at is not null
-      and feed_withdrawn_at is null and feed_withdrawal_requested_at is null`);
-  const found = (await tx.execute(
+      and feed_withdrawn_at is null and feed_withdrawal_requested_at is null`,
+  );
+  const found = await query(
+    tx,
+    z.object({ id: z.string() }),
     sql`select id from broadcasts where id=${input.id}`,
-  )) as unknown as readonly unknown[];
+  );
   return found.length === 1 ? 'unchanged' : null;
 };
 
@@ -766,16 +791,18 @@ export const endBroadcastFeed = async (
  * what is going must not keep playing. A Round with no Broadcast has nothing to end.
  */
 export const endRoundFeed = async (
-  tx: Pick<Tx, 'execute'>,
+  tx: Tx,
   input: {
     readonly roundId: string;
     readonly reason: BroadcastFeedEndReason;
     readonly now: Date;
   },
 ): Promise<void> => {
-  const [broadcast] = (await tx.execute(
+  const [broadcast] = await query(
+    tx,
+    z.object({ id: z.string() }),
     sql`select id from broadcasts where round_id=${input.roundId}`,
-  )) as unknown as readonly { readonly id: string }[];
+  );
   if (broadcast)
     await endBroadcastFeed(tx, {
       id: broadcast.id,

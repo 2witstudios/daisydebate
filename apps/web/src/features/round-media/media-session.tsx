@@ -57,13 +57,6 @@ const requestMedia = createMediaRequest({
   },
 });
 
-const nativeMediaNotice = (
-  <noscript>
-    Live camera and sound require JavaScript. Round controls and judge forms
-    remain available.
-  </noscript>
-);
-
 /** Whether this tab may hold the Round's media; rooms owns the coordination. */
 export type RoundMediaTab = {
   readonly owns: boolean | null;
@@ -225,7 +218,6 @@ function RoundMediaSession({
         ) : (
           <p role="status">Checking this Round’s tab…</p>
         )}
-        {nativeMediaNotice}
       </section>
     );
   const stage = stageOf(state);
@@ -248,7 +240,6 @@ function RoundMediaSession({
         // Anyone on a post-round call may mute themselves.
         questioning={muteOffered}
       />
-      {nativeMediaNotice}
     </section>
   );
 }

@@ -26,6 +26,8 @@ function observe(
   return new Promise((resolve, reject) => {
     let cleanup = () => {};
     let settled = false;
+    // Read live: `start` may settle synchronously, which narrowing cannot see.
+    const isSettled = () => settled;
     const finish = (error?: Error) => {
       if (settled) return;
       settled = true;
@@ -52,7 +54,7 @@ function observe(
         () => finish(),
         () => finish(new Error('Device observation unavailable')),
       );
-      if (settled) cleanup();
+      if (isSettled()) cleanup();
     } catch {
       finish(new Error('Device observation unavailable'));
     }
@@ -116,12 +118,13 @@ function microphoneConfirmation(
     };
     try {
       source = context.createMediaStreamSource(stream);
-      analyser = context.createAnalyser();
-      analyser.fftSize = 1024;
-      source.connect(analyser); // Never connect to speakers or any transport.
-      const samples = new Float32Array(analyser.fftSize);
+      const level = context.createAnalyser();
+      analyser = level;
+      level.fftSize = 1024;
+      source.connect(level); // Never connect to speakers or any transport.
+      const samples = new Float32Array(level.fftSize);
       timer = setInterval(() => {
-        analyser!.getFloatTimeDomainData(samples);
+        level.getFloatTimeDomainData(samples);
         const rms = Math.sqrt(
           samples.reduce((sum, sample) => sum + sample * sample, 0) /
             samples.length,
@@ -179,7 +182,7 @@ function watchLoss(
   if (edge.permissions) {
     void edge.permissions
       .query({
-        name: (kind === 'camera' ? 'camera' : 'microphone') as PermissionName,
+        name: kind === 'camera' ? 'camera' : 'microphone',
       })
       .then((status) => {
         if (!active) return;

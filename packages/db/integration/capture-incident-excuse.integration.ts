@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -7,7 +8,7 @@ import { withBoundedRound } from './bounded-transaction.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
 
-const START = Date.parse('2026-11-03T10:00:00.000Z');
+const START = instantMs('2026-11-03T10:00:00.000Z');
 const at = (ms: number) => new Date(START + ms);
 const segment = {
   startedAt: at(0),

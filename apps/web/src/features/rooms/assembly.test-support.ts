@@ -9,7 +9,8 @@ import {
 import { catalogFormats } from '@daisy/db/catalog-formats';
 import type { RoomTemplate } from './read-catalog';
 
-const freestyle = catalogFormats.find((format) => format.id === 'freestyle')!;
+const freestyle = catalogFormats.find((format) => format.id === 'freestyle');
+if (freestyle === undefined) throw new Error('The catalog seeds Freestyle');
 /** Freestyle, Daisy's one standard, as the catalog offers it (ADR 0142). */
 export const freestyleChoice: RoomTemplate = {
   formatId: 'freestyle',

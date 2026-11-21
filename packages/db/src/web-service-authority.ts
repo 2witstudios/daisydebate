@@ -1,9 +1,11 @@
 import { createAppError, createRefusal } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
-import type { BoundedTransactionContext } from './transaction-context';
 import type { BoundedTransaction } from './bounded-transaction';
 import { SERVICE_LEASE_WINDOW_MS } from './service-lease-lapse';
+import type { Tx } from './tx';
+import { query } from './raw-rows';
+import { z } from 'zod';
 
 /**
  * Refuses unless this web instance's own lease is current. With `lock`, the
@@ -12,13 +14,16 @@ import { SERVICE_LEASE_WINDOW_MS } from './service-lease-lapse';
  * so slow maintenance can never lapse the lease it runs under (DAISY-WEB-9).
  */
 export async function requireCurrentWeb(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   instanceId: string,
   lock = false,
 ) {
-  const rows =
-    await tx.execute(sql`select instance_id from service_instances where instance_id=${instanceId} and role='web'
-    and renewed_at>clock_timestamp()-${SERVICE_LEASE_WINDOW_MS}*interval '1 millisecond' ${lock ? sql`for key share` : sql``}`);
+  const rows = await query(
+    tx,
+    z.object({ instance_id: z.string() }),
+    sql`select instance_id from service_instances where instance_id=${instanceId} and role='web'
+    and renewed_at>clock_timestamp()-${SERVICE_LEASE_WINDOW_MS}*interval '1 millisecond' ${lock ? sql`for key share` : sql``}`,
+  );
   if (rows.length !== 1)
     throw createRefusal(
       'AUTHORIZATION',

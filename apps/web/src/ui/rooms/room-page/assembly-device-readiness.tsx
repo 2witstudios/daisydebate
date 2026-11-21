@@ -177,7 +177,7 @@ function LiveDevices({
   );
 }
 
-/** SSR remains failclosed for human devices; judge native forms need no JS. */
+/** Human debaters need a device check before Ready. Judges can post directly. */
 export function AssemblyDeviceReadiness(props: Props) {
   const own = ownSeat(props.view, props.actorId);
   const needsDevices = own?.kind === 'human' && !isJudgeSeat(own.seat);
@@ -239,7 +239,7 @@ export function AssemblyDeviceReadiness(props: Props) {
         devices={
           needsDevices ? (
             <p className="rounded-xl bg-surface-sunken p-4 text-sm text-ink-muted">
-              Camera and microphone checks require JavaScript.
+              Checking your camera and microphone…
             </p>
           ) : null
         }

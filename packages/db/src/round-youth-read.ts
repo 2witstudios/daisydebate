@@ -1,10 +1,10 @@
 import { eq, sql } from 'drizzle-orm';
-import type { Tx } from './tx';
 import { rounds } from './schema/rounds';
+import type { Tx } from './tx';
 
 /** The age rule classification of a Round's Room, read before linked-adult facts. */
 export const readRoundYouth = async (
-  database: Pick<Tx, 'select'>,
+  database: Tx,
   roundId: string,
 ): Promise<boolean | null> => {
   const [row] = await database

@@ -1,5 +1,4 @@
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError, isAppError } from '@daisy/errors';
 import {
   decodeMessagingInboxCursor,
@@ -9,10 +8,7 @@ import {
   messagingInboxSearchLine,
   messagingInboxPreviewMax,
 } from '@daisy/protocol';
-import {
-  loadAuthorizationAccount,
-  type AuthorizationTransaction,
-} from '../authorization';
+import { loadAuthorizationAccount } from '../authorization';
 import type { authorizationAccountFact } from '../authorization-account';
 import {
   loadAuthorizationAgeFacts,
@@ -33,6 +29,9 @@ import {
   inboxFactSignature,
   type InboxDiscovery,
 } from './inbox-page-facts';
+import type { Tx, TxOpener } from '../tx';
+import { query } from '../raw-rows';
+import { z } from 'zod';
 
 type Account = NonNullable<ReturnType<typeof authorizationAccountFact>>;
 type MessagingInboxScope = {
@@ -84,7 +83,6 @@ export type MessagingInboxPage<D> = {
   /** The last scanned candidate of a full scan, even when none is shown. */
   readonly nextAfter: string | null;
 };
-type Tx = AuthorizationTransaction;
 
 function checkedScope(scope: MessagingInboxScope) {
   if (
@@ -135,7 +133,15 @@ async function scanCandidates(tx: Tx, scope: MessagingInboxScope) {
   const afterChannel = cursor?.channelId ?? null;
   const search =
     scope.search === undefined ? null : messagingInboxSearchLine(scope.search);
-  const rows = await tx.execute(sql`
+  const rows = await query(
+    tx,
+    z.object({
+      channelId: idSchema,
+      hidden: z.boolean(),
+      rank: z.int(),
+      activity: z.string(),
+    }),
+    sql`
     with ranked as (
       select candidate.channel_id, coalesce(saved.hidden, false) as hidden,
         led.invited as lead,
@@ -199,25 +205,19 @@ async function scanCandidates(tx: Tx, scope: MessagingInboxScope) {
         strpos(${search}::text, '…') > 0 or strpos(lower(coalesce(ranked.title, '')), lower(${search}::text)) > 0
         or strpos(lower(left(btrim(regexp_replace(coalesce(ranked.line, ''), ${JS_WHITESPACE_RUN}::text, ' ', 'g')), ${messagingInboxPreviewMax}::integer)), lower(${search}::text)) > 0)))
     order by ranked.rank, ranked.activity desc, ranked.channel_id
-    limit ${scope.limit}`);
+    limit ${scope.limit}`,
+  );
   return rows.map((row) => {
-    const channel = idSchema.safeParse(row.channelId);
-    if (
-      !channel.success ||
-      typeof row.hidden !== 'boolean' ||
-      typeof row.activity !== 'string'
-    )
-      throw createAppError('INFRASTRUCTURE');
     return {
-      channelId: channel.data,
+      channelId: row.channelId,
       hidden: row.hidden,
       cursor: encodeMessagingInboxCursor(
-        Number(row.rank) === 0
-          ? { kind: 'invitation', channelId: channel.data }
+        row.rank === 0
+          ? { kind: 'invitation', channelId: row.channelId }
           : {
               kind: 'activity',
               activityAt: row.activity,
-              channelId: channel.data,
+              channelId: row.channelId,
             },
       ),
     };
@@ -363,9 +363,7 @@ async function ages(
  * discover the whole union, fence it once, verify the cast, then decide and
  * summarize. A cast that keeps moving is a retryable outage, never stale.
  */
-export function createMessagingInboxPage(
-  database: Pick<BunSQLDatabase, 'transaction'>,
-) {
+export function createMessagingInboxPage(database: TxOpener) {
   return <D>(
     scope: MessagingInboxScope,
     policy: MessagingInboxPolicy<D>,

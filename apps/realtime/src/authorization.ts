@@ -1,7 +1,8 @@
+import { commandDigest } from '@daisy/digest';
+import { instantMs, nowMs } from '@daisy/clock';
 import { evaluateContextChannelPermits } from './observation/context-channel-permits';
 import { linkedAdultsFor } from '@daisy/db/youth-live';
 import { isAppError } from '@daisy/errors';
-import { createHash } from 'node:crypto';
 import {
   authorize,
   participantAccess,
@@ -36,8 +37,7 @@ export type AuthorityResources = {
 /** A spent budget stops a chain of reads before it takes the lane again. */
 const stopIfSpent = (signal: AbortSignal | undefined) =>
   signal?.throwIfAborted();
-const fingerprint = (value: unknown) =>
-  createHash('sha3-256').update(JSON.stringify(value)).digest('hex');
+const fingerprint = (value: unknown) => commandDigest(value);
 
 /** The application composes canonical decisions and existing producer pools.
  * No topic payload, cursor, preference or cached revision grants authority.
@@ -57,7 +57,7 @@ export function createRealtimeAuthorization({
   readonly readingPolicy: RealtimeReadingPolicy;
 }) {
   const deadline = (expiry: string) =>
-    now() + Math.max(0, Date.parse(expiry) - Date.parse(resources.clock.now()));
+    now() + Math.max(0, instantMs(expiry) - nowMs(resources.clock));
   async function authorizeTopic(
     principal: SocketPrincipal,
     topic: string,
@@ -175,8 +175,7 @@ export function createRealtimeAuthorization({
     );
     if (
       !current?.account ||
-      current.account.revision !== facts.account?.revision ||
-      current.resource.kind !== 'round'
+      current.account.revision !== facts.account?.revision
     )
       return false;
     return authorize({

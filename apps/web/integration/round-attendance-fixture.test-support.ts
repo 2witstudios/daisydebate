@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import type { SQL } from 'bun';
 import { attendanceTimingPolicy } from '@daisy/protocol';
 import { createId } from '@paralleldrive/cuid2';
@@ -17,7 +18,7 @@ export async function seedSettledAttendanceLedger(
   )) {
     const commandId = createId();
     const deadline = new Date(
-      Date.parse(segment.startedAt) + attendanceTimingPolicy.graceMs,
+      instantMs(segment.startedAt) + attendanceTimingPolicy.graceMs,
     );
     const horizon = new Date(
       deadline.getTime() + attendanceTimingPolicy.finalizationBufferMs,

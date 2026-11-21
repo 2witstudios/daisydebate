@@ -1,8 +1,9 @@
 import type { TournamentNotificationKind } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { loadLobbyAuthority } from '../tab/lobby-authority';
-import { rowsOf } from '../raw-rows';
+import { query } from '../raw-rows';
+import { inTransaction, type TxSource } from '../tx';
+import { z } from 'zod';
 
 /** What a standing tournament notification's words and link read (NTF-15). */
 export type TournamentNotificationFacts = {
@@ -28,7 +29,7 @@ export type TournamentInboxAccess = (
  * release opens it to them.
  */
 export async function standingTournamentNotifications(
-  database: BunSQLDatabase,
+  database: TxSource,
   input: {
     readonly userId: string;
     readonly canReadTournament?: TournamentInboxAccess | undefined;
@@ -42,9 +43,10 @@ export async function standingTournamentNotifications(
   const canRead = input.canReadTournament;
   if (!canRead) return new Map();
   const unread = input.unreadOnly ? sql`and n.read_at is null` : sql``;
-  return database.transaction(async (tx) => {
-    const lobbies = await rowsOf<{ id: string }>(
+  return inTransaction(database, async (tx) => {
+    const lobbies = await query(
       tx,
+      z.object({ id: z.string() }),
       sql`select distinct n.notification_lobby_id id from notifications n where n.user_id=${input.userId} and n.notification_lobby_id is not null ${unread} order by n.notification_lobby_id`,
     );
     const standing = new Map<string, TournamentNotificationFacts>();
@@ -67,8 +69,23 @@ export async function standingTournamentNotifications(
         thing: string,
       ) => sql`exists(select 1 from releases rel where rel.tab_round_id=f.tab_round_id and rel.thing=${thing}
         and (rel.audience in ('participants','link','public') or (rel.audience='competitors' and ${competitor}) or (rel.audience='responsible_adults' and ${adult})))`;
-      const rows = await rowsOf<TournamentNotificationFacts & { id: string }>(
+      const rows = await query(
         tx,
+        z.object({
+          kind: z.enum([
+            'judge_assigned',
+            'judge_replaced',
+            'judge_unassigned',
+            'tournament_draw_changed',
+            'tournament_room_ready',
+            'tournament_results_released',
+          ]),
+          handle: z.string(),
+          eventId: z.string(),
+          tabRoundId: z.string(),
+          roomId: z.string().nullable(),
+          id: z.string(),
+        }),
         sql`select n.id,n.kind,${facts.lobby.handle}::text handle,f.event_id as "eventId",f.tab_round_id as "tabRoundId",f.room_id as "roomId"
         from notifications n join fixtures f on f.id=n.fixture_id and f.lobby_id=n.notification_lobby_id
         left join rooms ro on ro.id=f.room_id

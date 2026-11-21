@@ -26,13 +26,12 @@ const withdrawGrant = (username: string) =>
     ),
   );
 
-test('without JavaScript, a member without the casual AI judge practises with a person judging, and the server refuses the seat', async ({
+test('a member without the casual AI judge practises with a person judging, and the server refuses the seat', async ({
   browser,
 }) => {
   const context = await browser.newContext({
     baseURL: origin,
     ignoreHTTPSErrors: true,
-    javaScriptEnabled: false,
   });
   try {
     await resetRateLimits(context.request);
@@ -70,7 +69,7 @@ test('without JavaScript, a member without the casual AI judge practises with a 
     await expect(
       page
         .getByRole('listitem', { name: 'Judge 1', exact: true })
-        .getByRole('link', { name: 'Invite', exact: true }),
+        .getByRole('button', { name: 'Invite', exact: true }),
     ).toBeVisible();
     await expect(
       page.getByRole('button', { name: 'AI judge', exact: true }),

@@ -129,12 +129,12 @@ export const linkedAdultsOfRound = (
   const debaters = sorted(
     facts.seats
       .filter((seat) => seat.debating && seat.current)
-      .map((seat) => seat.actorId)
-      .filter((actorId) => userOf(actorId) !== null),
+      .map((seat) => seat.actorId),
   );
   return {
-    debaters: debaters.map((actorId) => {
-      const userId = userOf(actorId)!;
+    debaters: debaters.flatMap((actorId) => {
+      const userId = userOf(actorId);
+      if (userId === null) return [];
       const adults = linkedAdultsOf(facts, userId);
       return {
         actorId,

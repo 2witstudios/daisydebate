@@ -59,15 +59,22 @@ export function parseElements(html: string): MailElement[] {
   const elements: MailElement[] = [];
   const stack: MailElement[] = [];
   const token = /<(\/?)([a-z0-9!]+)([^>]*)>([^<]*)/gi;
-  for (const [, closing, rawTag, attributes, text] of body.matchAll(token)) {
-    const tag = rawTag!.toLowerCase();
+  // Every group takes part in each match, so each is at worst empty.
+  for (const [
+    ,
+    closing = '',
+    rawTag = '',
+    attributes = '',
+    text = '',
+  ] of body.matchAll(token)) {
+    const tag = rawTag.toLowerCase();
     if (closing) {
       stack.pop();
       const parent = stack.at(-1);
-      if (parent) parent.text += text!;
+      if (parent) parent.text += text;
       continue;
     }
-    const element = elementFrom(tag, attributes!, stack.at(-1), text!);
+    const element = elementFrom(tag, attributes, stack.at(-1), text);
     elements.push(element);
     if (!VOID_TAGS.has(tag)) stack.push(element);
   }
@@ -87,12 +94,13 @@ export function parseDarkRules(html: string): DarkRule[] {
     /@media \(prefers-color-scheme: dark\) \{([\s\S]*?)\n\s*\}\n/.exec(
       html,
     )?.[1] ?? '';
+  // Both groups take part in each match, so each is at worst empty.
   return [...block.matchAll(/([^{}]+)\{([^}]*)\}/g)].map(
-    ([, selector, declarations]) => ({
-      selector: selector!.trim().split(/\s+/),
-      style: parseStyle(declarations!),
+    ([, selector = '', declarations = '']) => ({
+      selector: selector.trim().split(/\s+/),
+      style: parseStyle(declarations),
       important: new Set(
-        declarationsOf(declarations!)
+        declarationsOf(declarations)
           .filter(({ important }) => important)
           .map(({ property }) => property),
       ),
@@ -107,10 +115,14 @@ const matchesPart = (element: MailElement, part: string) =>
 
 /** A descendant-combinator selector (`.a p`) matched right to left. */
 function matchesSelector(element: MailElement, selector: readonly string[]) {
-  if (!matchesPart(element, selector.at(-1)!)) return false;
+  const subject = selector.at(-1);
+  if (subject === undefined || !matchesPart(element, subject)) return false;
   let rest = selector.slice(0, -1);
-  for (let node = element.parent; node && rest.length; node = node.parent)
-    if (matchesPart(node, rest.at(-1)!)) rest = rest.slice(0, -1);
+  for (let node = element.parent; node; node = node.parent) {
+    const ancestor = rest.at(-1);
+    if (ancestor === undefined) break;
+    if (matchesPart(node, ancestor)) rest = rest.slice(0, -1);
+  }
   return rest.length === 0;
 }
 

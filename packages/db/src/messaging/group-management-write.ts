@@ -1,7 +1,6 @@
 import { groupLifecycleOf } from './social';
 import { writeMessagingGroupLifecycle } from './group-channel-write';
 import { and, eq, isNull } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import {
   messagingGroupGrants,
@@ -13,7 +12,7 @@ import { advanceSocialChannelAuthority } from './social-channel-change';
 import { invalidateMessagingInboxes } from './inbox-change';
 import type { MessagingGroupManagementScope } from './group-management-contracts';
 import type { MessagingChannelFact } from './social';
-type Tx = Pick<BunSQLDatabase, 'select' | 'update' | 'insert' | 'execute'>;
+import type { Tx } from '../tx';
 
 async function closeIssuedInvitations(
   tx: Tx,

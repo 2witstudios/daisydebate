@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { affirmativeSide, negativeSide } from '@daisy/protocol';
 import type { StageSeatView } from '../src/features/stage-capture/stage-access';
 import { expect, test } from './support/fixtures';
@@ -27,7 +28,7 @@ const seats: readonly StageSeatView[] = [
   },
 ];
 /** The stage draws by the answer's own instant, so a fixed one gives fixed clocks. */
-const NOW_MS = Date.parse('2026-11-02T00:00:00.000Z');
+const NOW_MS = instantMs('2026-11-02T00:00:00.000Z');
 const answerWith = (phase: Readonly<Record<string, unknown>>) => ({
   ...phase,
   seats,

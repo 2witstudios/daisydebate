@@ -1,3 +1,4 @@
+import { addMs } from '@daisy/clock';
 import type { AnalysisWork } from './round-analysis-work';
 import {
   advanceAnalysisWork as advance,
@@ -6,8 +7,7 @@ import {
 export const requestId = 'r'.repeat(24);
 export const id = (n: number) => `c${String(n).padStart(23, '0')}`;
 export const digest = (n: number) => String(n).repeat(64);
-export const at = (n: number) =>
-  new Date(Date.parse('2026-11-05T00:00:00.000Z') + n * 1000).toISOString();
+export const at = (n: number) => addMs('2026-11-05T00:00:00.000Z', n * 1000);
 export const context = (n = 0) => ({
   now: at(n),
   authorized: true,

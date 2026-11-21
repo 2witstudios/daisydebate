@@ -6,7 +6,7 @@ import { EmailChangeForm } from './email-change-form';
 setupRitewayBun();
 
 describe('EmailChangeForm', () => {
-  test('renders a form the browser can post without JavaScript', () => {
+  test('renders a form the browser can post before hydration', () => {
     const page = renderToString(
       h(EmailChangeForm, { action: async (state) => state }),
     );

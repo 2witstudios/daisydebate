@@ -1,7 +1,6 @@
 import { roundSourceVoided } from './round-source-state';
 import { and, eq } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type { LaunchedRound } from '@daisy/protocol';
 import { currentRoundParticipant } from './round-current-participant';
 import { roundLifecycleOfRow, segmentRows } from './round-hydration';
@@ -15,6 +14,7 @@ import { roundCommands } from './schema/round-commands';
 import { recordedPanelRuling } from './round-panel-decisions';
 import { roundResolutionAudit } from './room-draw-persistence';
 import { readableCheckpoint } from './round-view-projection';
+import type { Tx } from './tx';
 
 /**
  * Whether the Round's post-round call still stands (ADR 0127): chosen, and
@@ -22,7 +22,7 @@ import { readableCheckpoint } from './round-view-projection';
  * ends when its call does, so a view of it stops offering the call then.
  */
 async function postRoundCallStands(
-  tx: Pick<BunSQLDatabase, 'select'>,
+  tx: Tx,
   round: Pick<typeof rounds.$inferSelect, 'id' | 'status' | 'postRoundCall'>,
 ) {
   if (!round.postRoundCall || round.status !== 'completed')
@@ -40,7 +40,7 @@ async function postRoundCallStands(
 }
 
 export async function launchedRoundRows(
-  tx: Pick<BunSQLDatabase, 'select'>,
+  tx: Tx,
   roundId: string,
 ): Promise<LaunchedRound> {
   const [row] = await tx

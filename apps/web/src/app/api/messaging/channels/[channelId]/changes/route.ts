@@ -1,9 +1,11 @@
 import { processRoute } from '../../../../../../server/process-app';
+type Params = Awaited<
+  RouteContext<'/api/messaging/channels/[channelId]/changes'>['params']
+>;
+
 export const runtime = 'nodejs';
-export const GET = processRoute(
-  (routes) => (request) =>
-    routes.messaging.changes(
-      request,
-      new URL(request.url).pathname.split('/')[4] ?? '',
-    ),
+export const GET = processRoute.withParams<Params>(
+  (routes) =>
+    (request, { channelId }) =>
+      routes.messaging.changes(request, channelId),
 );

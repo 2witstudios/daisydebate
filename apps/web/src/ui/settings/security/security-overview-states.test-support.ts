@@ -195,11 +195,14 @@ export const everyEvent = (
 
 const rowsOf = (list: {
   readonly kind: string;
-  readonly rows?: readonly { readonly id: string; readonly name?: unknown }[];
+  readonly rows?: readonly {
+    readonly id: string;
+    readonly name?: string | null | undefined;
+  }[];
 }) =>
   list.rows === undefined
     ? 'unavailable'
-    : `[${list.rows.map((row) => (row.name ? `${row.id}=${String(row.name)}` : row.id)).join(' ')}]`;
+    : `[${list.rows.map((row) => (row.name ? `${row.id}=${row.name}` : row.id)).join(' ')}]`;
 
 /** One line that says what a step left and asked: enough to tell every transition apart. */
 export const stepShape = (

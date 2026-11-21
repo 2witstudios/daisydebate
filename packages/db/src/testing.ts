@@ -1,3 +1,5 @@
+import { query } from './raw-rows';
+import { z } from 'zod';
 export { loanRoundAssignmentInterface } from './testing-round-assignment-interface';
 import { SQL } from 'bun';
 import { sql } from 'drizzle-orm';
@@ -18,19 +20,19 @@ const POLL_INTERVAL_MS = 10;
 
 /** Every other backend in the cluster that holds an xid, oldest first. */
 const describeXidHolders = async (client: SQL): Promise<string> => {
-  const holders = (await client.unsafe(`
-    select datname, pid, application_name, state,
-      (extract(epoch from now() - xact_start) * 1000)::int as "openMs"
-    from pg_stat_activity
-    where backend_xid is not null and pid <> pg_backend_pid()
-    order by xact_start
-  `)) as Array<{
+  const holders: Array<{
     datname: string | null;
     pid: number;
     application_name: string;
     state: string | null;
     openMs: number | null;
-  }>;
+  }> = await client.unsafe(`
+    select datname, pid, application_name, state,
+      (extract(epoch from now() - xact_start) * 1000)::int as "openMs"
+    from pg_stat_activity
+    where backend_xid is not null and pid <> pg_backend_pid()
+    order by xact_start
+  `);
   if (holders.length === 0) return 'no xid-holding transaction is open now';
   return holders
     .map(
@@ -65,10 +67,10 @@ export async function waitForOutboxFinality(
 ): Promise<void> {
   const deadline = now() + deadlineMs;
   for (;;) {
-    const [row] = (await client.unsafe(
+    const [row]: Array<{ final: boolean }> = await client.unsafe(
       'select pg_snapshot_xmin(pg_current_snapshot()) > $1::xid8 as final',
       [txid],
-    )) as Array<{ final: boolean }>;
+    );
     if (row?.final) return;
     if (now() >= deadline)
       throw new Error(
@@ -95,18 +97,18 @@ export async function finishedOrBlockedBehind(
     deadlineMs = 5000,
   }: { readonly now: () => number; readonly deadlineMs?: number },
 ): Promise<'finished' | 'blocked'> {
-  let finished = false;
+  const completion = { finished: false };
   void work.then(
-    () => (finished = true),
-    () => (finished = true),
+    () => (completion.finished = true),
+    () => (completion.finished = true),
   );
   const deadline = now() + deadlineMs;
   for (;;) {
-    if (finished) return 'finished';
-    const [row] = (await observer.unsafe(
+    if (completion.finished) return 'finished';
+    const [row]: Array<{ waiting: number }> = await observer.unsafe(
       'select count(*)::int as waiting from pg_stat_activity where $1 = any(pg_blocking_pids(pid))',
       [holderPid],
-    )) as Array<{ waiting: number }>;
+    );
     if ((row?.waiting ?? 0) > 0) return 'blocked';
     if (now() >= deadline)
       throw new Error(
@@ -151,7 +153,9 @@ export async function readSpectatorHorizon(
 ): Promise<number | null> {
   const client = new SQL(url, { max: 1 });
   try {
-    const rows = (await drizzle({ client }).execute(
+    const rows = await query(
+      drizzle({ client }),
+      z.object({ horizon: z.union([z.date(), z.string()]).nullable() }),
       sql`select ${spectatorHorizonSql(
         {
           id: sql`r.id`,
@@ -161,7 +165,7 @@ export async function readSpectatorHorizon(
         },
         clock,
       )} as horizon from rounds r where r.id=${roundId}`,
-    )) as unknown as { horizon: Date | string | null }[];
+    );
     const horizon = rows[0]?.horizon ?? null;
     return horizon === null ? null : new Date(horizon).getTime();
   } finally {
@@ -173,6 +177,7 @@ export { scratchDatabase } from './testing-scratch';
 export {
   withRuntimeTestTransaction,
   committingRuntimeTestDatabase,
+  unusedTx,
   type SavepointTestDatabase,
 } from './testing-transaction';
 

@@ -33,6 +33,8 @@ export function startRoundAnalysisService(input: {
 }) {
   const running = new Map<string, Promise<void>>();
   const abort = new AbortController();
+  // Read live: stop() can abort during any await, which narrowing cannot see.
+  const stopped = () => abort.signal.aborted;
   const start = (seat: RoundAnalysisSeat) => {
     const key = seat.roundParticipantId;
     const work = input
@@ -50,12 +52,12 @@ export function startRoundAnalysisService(input: {
   };
   /** One discovery pass; it worked while any analysis runs or was found. */
   const scan = async (): Promise<LoopPass> => {
-    if (abort.signal.aborted) return 'idle';
+    if (stopped()) return 'idle';
     if (running.size >= input.limits.parallel) return 'worked';
     // A failed scan throws to the loop, which reports it and backs off.
     const seats = await input.scan(input.limits.scanBatch);
     for (const seat of seats) {
-      if (abort.signal.aborted || running.size >= input.limits.parallel) break;
+      if (stopped() || running.size >= input.limits.parallel) break;
       if (!running.has(seat.roundParticipantId)) start(seat);
     }
     return running.size > 0 || seats.length > 0 ? 'worked' : 'idle';

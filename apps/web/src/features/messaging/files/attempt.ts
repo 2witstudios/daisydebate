@@ -1,3 +1,4 @@
+import { tryInstantMs } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
 /** Deadline starts before async work; a late successful callback grants no renewal. */
 export function requireFileAttempt(
@@ -5,13 +6,13 @@ export function requireFileAttempt(
   now: string,
   serviceMs: number,
 ): void {
-  const start = Date.parse(startedAt),
-    current = Date.parse(now);
+  const start = tryInstantMs(startedAt),
+    current = tryInstantMs(now);
   if (
     !Number.isSafeInteger(serviceMs) ||
     serviceMs < 1 ||
-    !Number.isFinite(start) ||
-    !Number.isFinite(current) ||
+    start === undefined ||
+    current === undefined ||
     current < start ||
     current >= start + serviceMs
   )

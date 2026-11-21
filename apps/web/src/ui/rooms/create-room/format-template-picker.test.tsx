@@ -125,7 +125,7 @@ test('the changing selected preview is hidden before hydration', () => {
     <FormatTemplatePicker choices={[unequalTemplate]} />,
   );
   assert({
-    given: 'a native form that can change format without JavaScript',
+    given: 'a native form that can change format before hydration',
     should:
       'avoid showing an initial preview that cannot follow native selection changes',
     actual: html.includes(

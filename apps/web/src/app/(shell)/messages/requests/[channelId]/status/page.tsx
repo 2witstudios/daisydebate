@@ -22,6 +22,7 @@ export default async function SentRequestPage({
       `http://in-process.invalid/api/messaging/requests/${id.data}/status`,
       { headers: new Headers(await headers()) },
     ),
+    { params },
   );
   const result = response.ok
     ? messagingDmResultSchema.safeParse(await response.json())
@@ -64,6 +65,7 @@ async function recipientCanOpen(channelId: string) {
         headers: new Headers(await headers()),
       },
     ),
+    { params: Promise.resolve({ channelId }) },
   );
   return response.ok;
 }

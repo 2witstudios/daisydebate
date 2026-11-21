@@ -1,5 +1,5 @@
+import { sha3Hex } from '@daisy/digest';
 import type { Database } from 'bun:sqlite';
-import { createHash } from 'node:crypto';
 import {
   encodeEvidencePrivacyScope,
   evidencePrivacyIntentSchema,
@@ -8,8 +8,7 @@ import {
   type EvidencePrivacyIntentRecord,
   type EvidenceRefusal,
 } from '@daisy/protocol';
-export const evidencePrivacyDigest = (document: string) =>
-  createHash('sha3-256').update(document).digest('hex');
+export const evidencePrivacyDigest = (document: string) => sha3Hex(document);
 const refused = (reason: EvidenceRefusal['reason']): EvidenceRefusal => ({
   kind: 'refused',
   reason,
@@ -31,9 +30,11 @@ export function initializeEvidencePrivacyLedger(db: Database) {
 }
 /** Synchronous operations use the already-owned authority transaction; no independently acquired reverse lock. */
 export function localEvidencePrivacyLedger(db: Database) {
+  /** A row read back inside the owning transaction; missing is uncertain, never assumed. */
   const record = (
-    row: IntentRow,
+    row: IntentRow | null,
   ): EvidencePrivacyIntentRecord | EvidenceRefusal => {
+    if (row === null) return refused('uncertain');
     const parsed = evidencePrivacyIntentSchema.safeParse(
       JSON.parse(row.document),
     );
@@ -119,7 +120,7 @@ export function localEvidencePrivacyLedger(db: Database) {
       db.query(
         "INSERT INTO privacy_intents(scope_key,intent_id,document,state) VALUES(?,?,?,'pending')",
       ).run(key, parsed.data.intentId, JSON.stringify(parsed.data));
-      return record(byKey(key)!);
+      return record(byKey(key));
     },
     commit(input: unknown): EvidencePrivacyIntentRecord | EvidenceRefusal {
       const parsed = evidencePrivacyIntentSchema.safeParse(input);
@@ -131,7 +132,7 @@ export function localEvidencePrivacyLedger(db: Database) {
       db.query(
         "UPDATE privacy_intents SET state='committed' WHERE scope_key=?",
       ).run(existing.scope_key);
-      return record(byKey(existing.scope_key)!);
+      return record(byKey(existing.scope_key));
     },
   };
 }

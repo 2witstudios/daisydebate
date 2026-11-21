@@ -1,6 +1,5 @@
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
-import { rowsOf } from './raw-rows';
+import { run, query } from './raw-rows';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import type { PrivacyAdopter } from './privacy/contracts';
 import { exportRows } from './privacy/export-rows';
@@ -9,6 +8,8 @@ import {
   roundAliasR,
   type SpectatorClock,
 } from './spectator-release-sql';
+import type { TxSource } from './tx';
+import { z } from 'zod';
 
 /**
  * What an account has watched (SPECT-1.4). It lists a Round's resolution only
@@ -18,7 +19,7 @@ export const watchHistoryOperations = ({
   database,
   eventSink,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
   /** Keeps the newest visit. A Round with no audience writes nothing. */
@@ -28,24 +29,31 @@ export const watchHistoryOperations = ({
     readonly at: string;
   }) {
     return instrumented(eventSink, 'recordWatched', async () => {
-      await database.execute(sql`insert into watch_history(user_id,round_id,watched_at)
+      await run(
+        database,
+        sql`insert into watch_history(user_id,round_id,watched_at)
         select u.id,r.id,${input.at}::timestamptz
         from users u join rounds r on r.id=${input.roundId}
           and r.visibility in ('public','unlisted') and r.room_id is not null
         where u.id=${input.userId} and u.deleted_at is null
         on conflict (user_id,round_id) do update
-          set watched_at=greatest(watch_history.watched_at,excluded.watched_at)`);
+          set watched_at=greatest(watch_history.watched_at,excluded.watched_at)`,
+      );
     });
   },
   forgetWatched(input: { readonly userId: string; readonly roundId: string }) {
     return instrumented(eventSink, 'forgetWatched', async () => {
-      await database.execute(sql`delete from watch_history
-        where user_id=${input.userId} and round_id=${input.roundId}`);
+      await run(
+        database,
+        sql`delete from watch_history
+        where user_id=${input.userId} and round_id=${input.roundId}`,
+      );
     });
   },
   clearWatchHistory(input: { readonly userId: string }) {
     return instrumented(eventSink, 'clearWatchHistory', async () => {
-      await database.execute(
+      await run(
+        database,
         sql`delete from watch_history where user_id=${input.userId}`,
       );
     });
@@ -56,12 +64,13 @@ export const watchHistoryOperations = ({
     readonly limit: number;
   }) {
     return instrumented(eventSink, 'listWatchHistory', async () =>
-      rowsOf<{
-        roundId: string;
-        resolution: string | null;
-        watchedAt: string;
-      }>(
+      query(
         database,
+        z.object({
+          roundId: z.string(),
+          resolution: z.string().nullable(),
+          watchedAt: z.string(),
+        }),
         sql`select r.id as "roundId",
             case when ${factReleasedSql(sql`r.started_at`, roundAliasR, input.clock)} then r.resolution end as resolution,
             to_char(h.watched_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as "watchedAt"
@@ -77,8 +86,9 @@ export const watchHistoryOperations = ({
     readonly limit: number;
   }) {
     return instrumented(eventSink, 'purgeExpiredWatchHistory', async () => {
-      const gone = await rowsOf(
+      const gone = await query(
         database,
+        z.object({ user_id: z.string() }),
         sql`delete from watch_history where (user_id,round_id) in (
             select user_id,round_id from watch_history
             where watched_at < ${input.before}::timestamptz limit ${input.limit})
@@ -93,14 +103,16 @@ export const watchHistoryPrivacyAdopter: PrivacyAdopter = {
   id: 'watch-history',
   phase: 'after-close',
   erase: async (tx, subject) => {
-    await tx.execute(
+    await run(
+      tx,
       sql`delete from watch_history where user_id=${subject.userId}`,
     );
   },
   export: async (tx, subject) => ({
     watch_history: exportRows(
-      await rowsOf<Record<string, unknown>>(
+      await query(
         tx,
+        z.object({ round_id: z.string(), watched_at: z.date() }),
         sql`select round_id,watched_at from watch_history
           where user_id=${subject.userId} order by watched_at,round_id`,
       ),

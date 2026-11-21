@@ -1,6 +1,6 @@
 'use client';
 
-import { systemClock } from '@daisy/clock';
+import { nowMs, systemClock } from '@daisy/clock';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { documentTabId } from './document-tab';
 import { markDeparture } from './resume-departure';
@@ -57,9 +57,7 @@ export function useResumeLifetime(
     readonly owns: boolean;
   } | null>(null);
   const owns =
-    claim?.actorId === actorId && claim?.roundId === roundId
-      ? claim.owns
-      : null;
+    claim?.actorId === actorId && claim.roundId === roundId ? claim.owns : null;
   const lifetime = useRef<ReturnType<typeof createResumeLifetime> | null>(null);
   const onStepDown = useRef(steppedDown);
   const onHolderLeft = useRef(holderLeft);
@@ -75,7 +73,7 @@ export function useResumeLifetime(
       tabId: documentTabId(),
       storage: advisoryStorage(),
       predecessor: tabPredecessor(actorId, roundId),
-      now: () => Date.parse(systemClock.now()),
+      now: () => nowMs(systemClock),
       holderLeft: () => {
         markDeparture(actorId, roundId);
         onHolderLeft.current();

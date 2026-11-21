@@ -1,13 +1,13 @@
 import { and, eq, sql } from 'drizzle-orm';
-import type { BoundedTransactionContext } from './transaction-context';
 import { billingPurchases } from './schema/billing-purchases';
 import { purchaseFromRow } from './billing-purchase-authority';
 import { ownedBy } from './billing-owner-lock';
 import type { BillingOwner } from '@daisy/protocol/billing';
+import type { Tx } from './tx';
 
 /** Read under the caller's owner fence (account or club); no current configuration can replace this original offer. */
 export async function readFrozenBillingOffer(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   identity: {
     readonly owner: BillingOwner;
     readonly mode: 'test' | 'live';

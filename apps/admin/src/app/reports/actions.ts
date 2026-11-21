@@ -35,11 +35,12 @@ const resolveForm = z.strictObject({
 export async function resolveReportAction(form: FormData): Promise<never> {
   const operator = await signedIn();
   const { commands } = adminRuntime();
+  const suspendDays = form.get('suspendDays');
   const fields = resolveForm.safeParse({
     reportId: form.get('reportId'),
     subjectUserId: form.get('subjectUserId'),
     outcome: form.get('outcome'),
-    suspendDays: String(form.get('suspendDays') ?? ''),
+    suspendDays: typeof suspendDays === 'string' ? suspendDays : '',
   });
   if (!fields.success || !commands) redirect('/reports?notice=refused');
   const { reportId, subjectUserId, outcome } = fields.data;

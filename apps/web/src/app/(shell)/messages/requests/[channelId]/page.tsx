@@ -20,6 +20,7 @@ export default async function MessageRequestPage({
     new Request(`http://in-process.invalid/api/messaging/requests/${channel}`, {
       headers: new Headers(await headers()),
     }),
+    { params },
   );
   if (response.status === 404) notFound();
   const preview = await readRequestPreviewResponse(response);

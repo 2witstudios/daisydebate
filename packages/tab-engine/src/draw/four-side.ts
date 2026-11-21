@@ -110,7 +110,9 @@ const roomsOfPool = (
   const packed = packLexicographic(vectors, pool.length);
   const assigned = minimumCostAssignment(
     pool.map((_, t) => slots.map((__, s) => packed[t * slots.length + s]!)),
-  )!;
+  );
+  // As many slots as teams: a square matrix always has an assignment.
+  if (assigned === null) throw new Error('Every team has a position slot');
   const byPosition = [0, 1, 2, 3].map((position) =>
     shuffleWith(
       pool.filter((_, t) => slots[assigned[t]!] === position),

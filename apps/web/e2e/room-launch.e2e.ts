@@ -1,7 +1,7 @@
 import { enterLobbyRoom, proveGathering } from './support/room-gathering-proof';
 import { proveLobbyDiscovery } from './support/room-lobby-discovery';
 import { proveFormatPicker } from './support/room-launch-format';
-import { proveNoScriptFormatChoice } from './support/room-format-no-script';
+import { proveFormatChoice } from './support/room-format-choice';
 import { proveHumanLaunch } from './support/room-launch-human';
 import { proveCoinFlip } from './support/room-coin-flip';
 import { createId } from '@paralleldrive/cuid2';
@@ -37,6 +37,7 @@ import { launchCustomSelection } from './support/room-launch-custom';
 import { proveLoopbackUpstreams } from './support/launch-loopback';
 import { createRoomLaunchAccounts } from './support/room-launch-accounts';
 import { launchEvidence } from './support/room-launch-evidence';
+import { hydrated } from './support/hydration';
 import { readyOwnSeat } from './support/human-ballot-round';
 import { readRoomBotRoster, startTrainPractice } from './support/ai-cast';
 import {
@@ -155,7 +156,7 @@ test('canonical browser create, settings, cast, refusals and reread preserve dur
   }
 });
 
-test('native judge Ready and eligible stored bot debaters start one frozen Round', async ({
+test('judge Ready and eligible stored bot debaters start one frozen Round', async ({
   browser,
 }, info) => {
   const accounts = await createRoomLaunchAccounts(browser, 1);
@@ -166,80 +167,71 @@ test('native judge Ready and eligible stored bot debaters start one frozen Round
       page,
       `Bot proof ${createId().slice(0, 8)}`,
     );
-    // Real same-account cookies in a JS-disabled context; no readiness injection.
-    const native = await browser.newContext({
-      baseURL: origin,
-      ignoreHTTPSErrors: true,
-      javaScriptEnabled: false,
-      storageState: await context.storageState(),
+    // The judge's own Ready through the Room page; no readiness injection.
+    const judge = page;
+    await judge.goto(`/rooms/${view.id}`);
+    await readyUp(judge, false);
+    view = await reread(judge.request, view.id);
+    expect(view.participants.find((p) => isJudgeSeat(p.seat))!.ready).toBe(
+      'ready',
+    );
+    expect(view.capabilities.canStart).toBe(true);
+    const launchForm = judge
+      .getByRole('button', { name: 'Start round', exact: true })
+      .locator('..');
+    const commandId = await launchForm
+      .locator('[name="commandId"]')
+      .inputValue();
+    const expectedVersion = Number(
+      await launchForm.locator('[name="expectedVersion"]').inputValue(),
+    );
+    await judge
+      .getByRole('button', { name: 'Start round', exact: true })
+      .click();
+    await expect(judge).toHaveURL(/\/rounds\/[a-z0-9]+(\/room)?$/);
+    const launched = await reread(judge.request, view.id);
+    expect(launched.roundRef).not.toBeNull();
+    const receipt = await judge.request.get(
+      `/api/rounds/${launched.roundRef!.id}`,
+    );
+    expect(receipt.status()).toBe(200);
+    const round = roundViewSchema.parse(await receipt.json());
+    expect(round).toMatchObject({
+      status: 'active',
+      startedAt: expect.any(String),
+      topic: view.topic,
+      config: view.config,
     });
-    try {
-      const judge = await openPage(native, 'native judge Ready');
-      await judge.goto(`/rooms/${view.id}`);
-      await expect(
-        judge.getByRole('button', { name: 'I’m ready', exact: true }),
-      ).toBeEnabled();
-      await judge
-        .getByRole('button', { name: 'I’m ready', exact: true })
-        .click();
-      view = await reread(native.request, view.id);
-      expect(view.participants.find((p) => isJudgeSeat(p.seat))!.ready).toBe(
-        'ready',
-      );
-      expect(view.capabilities.canStart).toBe(true);
-      const launchForm = judge
-        .getByRole('button', { name: 'Start round', exact: true })
-        .locator('..');
-      const commandId = await launchForm
-        .locator('[name="commandId"]')
-        .inputValue();
-      const expectedVersion = Number(
-        await launchForm.locator('[name="expectedVersion"]').inputValue(),
-      );
-      await judge
-        .getByRole('button', { name: 'Start round', exact: true })
-        .click();
-      await expect(judge).toHaveURL(/\/rounds\/[a-z0-9]+$/);
-      const launched = await reread(native.request, view.id);
-      expect(launched.roundRef).not.toBeNull();
-      const receipt = await native.request.get(
-        `/api/rounds/${launched.roundRef!.id}`,
-      );
-      expect(receipt.status()).toBe(200);
-      const round = roundViewSchema.parse(await receipt.json());
-      expect(round).toMatchObject({
-        status: 'active',
-        startedAt: expect.any(String),
-        topic: view.topic,
-        config: view.config,
-      });
-      const proof = await assertFrozenLaunch(view);
-      const retry = await native.request.post(
-        `/api/rooms/${view.id}/commands`,
-        {
-          headers: { origin },
-          data: { type: 'start-round', commandId, expectedVersion },
-        },
-      );
-      expect(retry.status()).toBe(200);
-      expect((await retry.json()).receipt.replayed).toBe(true);
-      expect((await launchEvidence(view.id)).hash).toBe(proof.hash);
-      await expect(judge).toHaveURL(`/rounds/${round.id}`);
-      await expect(
-        judge.getByText('Round · In progress', { exact: true }),
-      ).toBeVisible();
-      await judge.goto(`/lobby?${new URLSearchParams({ q: view.title })}`);
-      // The judge holds a seat, so the row leads back into the round room.
-      await expect(
-        judge.getByRole('link', { name: /^Return to room: / }),
-      ).toHaveAttribute('href', `/rounds/${round.id}/room`);
-      await info.attach('started-round-evidence', {
-        body: JSON.stringify(proof),
-        contentType: 'application/json',
-      });
-    } finally {
-      await native.close();
-    }
+    const proof = await assertFrozenLaunch(view);
+    const retry = await judge.request.post(`/api/rooms/${view.id}/commands`, {
+      headers: { origin },
+      data: { type: 'start-round', commandId, expectedVersion },
+    });
+    expect(retry.status()).toBe(200);
+    expect((await retry.json()).receipt.replayed).toBe(true);
+    expect((await launchEvidence(view.id)).hash).toBe(proof.hash);
+    await judge.goto(`/rounds/${round.id}`);
+    await expect(
+      judge.getByText('Round · In progress', { exact: true }),
+    ).toBeVisible();
+    // Leave explicitly so the Lobby stays open instead of auto-resuming the judge.
+    await judge.goto(`/rounds/${round.id}/room`);
+    const backToLobby = judge.getByRole('link', {
+      name: 'Back to the lobby',
+      exact: true,
+    });
+    await hydrated(backToLobby);
+    await backToLobby.click();
+    await expect(judge).toHaveURL(/\/lobby$/);
+    await judge.goto(`/lobby?${new URLSearchParams({ q: view.title })}`);
+    // The judge holds a seat, so the row leads back into the round room.
+    await expect(
+      judge.getByRole('link', { name: /^Return to room: / }),
+    ).toHaveAttribute('href', `/rounds/${round.id}/room`);
+    await info.attach('started-round-evidence', {
+      body: JSON.stringify(proof),
+      contentType: 'application/json',
+    });
   } finally {
     await closeSettledLaunchContexts(accounts);
   }
@@ -555,19 +547,19 @@ test('two debaters on open sides Ready, Start round flips the coin, and both ope
   await proveCoinFlip(browser);
 });
 
-test('Custom library previews real speech defaults and commits the selected template without JavaScript', async ({
+test('Custom library previews real speech defaults and commits the selected template', async ({
   browser,
 }) => {
   await proveFormatPicker(browser);
 });
 
-test('Edit settings chooses a standard, reads Custom after an edit and goes Back without JavaScript', async ({
+test('Edit settings chooses a standard, reads Custom after an edit and goes Back', async ({
   browser,
 }) => {
-  await proveNoScriptFormatChoice(browser);
+  await proveFormatChoice(browser);
 });
 
-test('native Lobby search and keyset pages discover beyond the first page without truncation', async ({
+test('Lobby search and keyset pages discover beyond the first page without truncation', async ({
   browser,
 }) => {
   await proveLobbyDiscovery(browser);

@@ -20,4 +20,4 @@ scripts/fixtures/playwright-report-planted.html
 # The Watch Status canvas's authored input: one table per line, rendered as is.
 scripts/watch-status-source.html
 # The two-sided golden corpus (TAB-6.1): generated JSON compared byte for byte.
-apps/web/src/features/format-corpus/corpus
+apps/web/src/test-support/format-corpus/corpus

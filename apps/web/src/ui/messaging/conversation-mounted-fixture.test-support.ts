@@ -1,5 +1,5 @@
 import type { MessagingConversation } from '../../features/messaging/conversation';
-import { moved } from '../../features/forms/form-state';
+import { exactField, moved } from '../../features/forms/form-state';
 import {
   messageRefused,
   type MessageFormState,
@@ -23,8 +23,9 @@ export function deferredConversationAction(scenario: string) {
     if (Object.hasOwn(_previous, 'completion'))
       throw new Error('Client origin reached the server action');
     calls++;
-    const requestId = String(form.get('requestId'));
-    submissions.push({ requestId, text: String(form.get('text')) });
+    const requestId = exactField(form, 'requestId');
+    const text = exactField(form, 'text');
+    submissions.push({ requestId, text });
     const refused = scenario === 'refusal' || scenario === 'superseded-refusal';
     const failure = refused || scenario === 'transport';
     if (!failure && !committedCommands.has(requestId)) {
@@ -41,10 +42,7 @@ export function deferredConversationAction(scenario: string) {
     )
       throw new Error('Controlled transport refusal');
     if (refused)
-      return messageRefused(
-        { text: String(form.get('text')), requestId },
-        'Controlled refusal',
-      );
+      return messageRefused({ text, requestId }, 'Controlled refusal');
     return moved(
       fresh
         ? '/messages/channel?sent=new'

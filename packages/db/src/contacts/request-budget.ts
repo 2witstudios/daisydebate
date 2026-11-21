@@ -1,12 +1,13 @@
+import { tryInstantMs } from '@daisy/clock';
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import type { ContactPairKey, ContactReactions } from './reactions';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
 import { deleteExpiredBatch, type RetentionBatch } from '../retention';
 import { socialRequestDeclines, socialRequests } from '../schema/contacts';
-
-type Tx = Pick<BunSQLDatabase, 'execute'>;
+import type { Tx } from '../tx';
+import { query, run } from '../raw-rows';
+import { z } from 'zod';
 
 /** DEC-251 social request budgets, shared by DM and friend requests. */
 export type SocialRequestLimits = {
@@ -23,20 +24,15 @@ export type SocialRequestLimits = {
 const HOUR_MS = 3_600_000;
 const DAY_MS = 24 * HOUR_MS;
 
-const rowsOf = <Row>(result: unknown) =>
-  (Array.isArray(result)
-    ? result
-    : ((result as { rows?: unknown[] }).rows ?? [])) as Row[];
-
 const at = (now: number) => new Date(now).toISOString();
 
 /** DEC-251's ceiling; `declined_count` (at most one fewer) is checked 0..3. */
 const MAX_DECLINES_TO_BLOCK = 3;
 
 function requireLimits(limits: SocialRequestLimits, now: string) {
-  const instant = Date.parse(now);
+  const instant = tryInstantMs(now);
   if (
-    !Number.isFinite(instant) ||
+    instant === undefined ||
     !Object.values(limits).every(
       (value) => Number.isSafeInteger(value) && value > 0,
     ) ||
@@ -46,7 +42,8 @@ function requireLimits(limits: SocialRequestLimits, now: string) {
   return instant;
 }
 
-const ordered = (a: string, b: string) => (a < b ? [a, b] : [b, a]);
+const ordered = (a: string, b: string): readonly [string, string] =>
+  a < b ? [a, b] : [b, a];
 
 /** Whether `counterpartActorId`'s declines block `actorId`'s requests at `now`. */
 const declineBlocks = (
@@ -65,12 +62,12 @@ export async function refuseDeclineBlock(
   counterpartActorId: string,
   now: string,
 ) {
-  const instant = Date.parse(now);
-  if (!Number.isFinite(instant)) throw createAppError('VALIDATION');
-  const [row] = rowsOf<{ blocked: boolean }>(
-    await tx.execute(
-      sql`select ${declineBlocks(actorId, counterpartActorId, at(instant))} as "blocked"`,
-    ),
+  const instant = tryInstantMs(now);
+  if (instant === undefined) throw createAppError('VALIDATION');
+  const [row] = await query(
+    tx,
+    z.object({ blocked: z.boolean() }),
+    sql`select ${declineBlocks(actorId, counterpartActorId, at(instant))} as "blocked"`,
   );
   if (!row) throw createAppError('INFRASTRUCTURE');
   if (row.blocked) throw createAppError('AUTHORIZATION');
@@ -116,21 +113,23 @@ export async function spendSocialRequest(
   const now = requireLimits(command.limits, command.now);
   const { actorId, counterpartActorId, limits } = command;
   const [low, high] = ordered(actorId, counterpartActorId);
-  const [facts] = rowsOf<{
-    declined: boolean;
-    unrelated: boolean;
-    daily: number;
-    hourly: number;
-  }>(
-    await tx.execute(sql`select
+  const [facts] = await query(
+    tx,
+    z.object({
+      declined: z.boolean(),
+      unrelated: z.boolean(),
+      daily: z.int(),
+      hourly: z.int(),
+    }),
+    sql`select
       ${declineBlocks(actorId, counterpartActorId, at(now))} as "declined",
-      ${unrelated(relations, { lowActorId: low!, highActorId: high! })} as "unrelated",
+      ${unrelated(relations, { lowActorId: low, highActorId: high })} as "unrelated",
       (select count(*)::int from social_requests
         where actor_id=${actorId}
           and created_at > ${at(now - DAY_MS)}::timestamptz) as "daily",
       (select count(*)::int from social_requests
         where actor_id=${actorId} and unrelated
-          and created_at > ${at(now - HOUR_MS)}::timestamptz) as "hourly"`),
+          and created_at > ${at(now - HOUR_MS)}::timestamptz) as "hourly"`,
   );
   if (!facts) throw createAppError('INFRASTRUCTURE');
   if (facts.declined) throw createAppError('AUTHORIZATION');
@@ -140,10 +139,13 @@ export async function spendSocialRequest(
   )
     throw createAppError('RATE_LIMIT');
   return async () => {
-    await tx.execute(sql`insert into social_requests
+    await run(
+      tx,
+      sql`insert into social_requests
       (actor_id, request_id, counterpart_actor_id, kind, unrelated, created_at)
       values (${actorId}, ${command.requestId}, ${counterpartActorId}, ${command.kind},
-        ${facts.unrelated}, ${at(now)}::timestamptz)`);
+        ${facts.unrelated}, ${at(now)}::timestamptz)`,
+    );
   };
 }
 
@@ -167,7 +169,9 @@ export async function recordSocialDecline(
   const { declinerActorId, requesterActorId, limits } = command;
   const [low, high] = ordered(declinerActorId, requesterActorId);
   const until = at(now + limits.declineBlockMs);
-  await tx.execute(sql`with counted as (
+  await run(
+    tx,
+    sql`with counted as (
       select coalesce((select case when d.expires_at > ${at(now)}::timestamptz
         then d.declined_count else 0 end
         from social_request_declines d
@@ -188,13 +192,15 @@ export async function recordSocialDecline(
       expires_at = greatest(excluded.expires_at, social_request_declines.blocked_until),
       blocked_until = coalesce(excluded.blocked_until,
         case when social_request_declines.blocked_until > ${at(now)}::timestamptz
-          then social_request_declines.blocked_until end)`);
+          then social_request_declines.blocked_until end)`,
+  );
 }
 
 /** An accepted request clears the pair's declines in both directions. */
 export async function clearSocialDeclines(tx: Tx, a: string, b: string) {
   const [low, high] = ordered(a, b);
-  await tx.execute(
+  await run(
+    tx,
     sql`delete from social_request_declines where low_actor_id=${low} and high_actor_id=${high}`,
   );
 }
@@ -208,7 +214,7 @@ export const socialRequestRetention = ({
   database,
   eventSink,
 }: {
-  readonly database: Pick<BunSQLDatabase, 'execute'>;
+  readonly database: Tx;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
   purgeExpiredSocialDeclines: (batch: RetentionBatch) =>

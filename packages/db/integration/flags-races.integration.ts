@@ -1,3 +1,4 @@
+import { tryInstantMs } from '@daisy/clock';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
@@ -199,7 +200,7 @@ test('the final migrated daisy_web role can control/read targeting and cannot de
         'write and read through the real command path while preserving permanent revision history',
       actual: {
         targeted: fact.snapshot.flags[0]!.override!.enabled,
-        admitted: Number.isFinite(Date.parse(admitted.admittedAt)),
+        admitted: tryInstantMs(admitted.admittedAt) !== undefined,
         deletion,
       },
       expected: { targeted: true, admitted: true, deletion: '42501' },

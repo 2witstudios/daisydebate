@@ -1,3 +1,4 @@
+import { nowMs } from '@daisy/clock';
 import type { Clock } from '@daisy/clock';
 import { isTemporaryRefusal } from '@daisy/db/capacity';
 import { createSnapshotMemo } from '../spectating/snapshot-memo';
@@ -24,7 +25,7 @@ export const createCachedLiveReads = (deps: {
   readonly clock: Pick<Clock, 'now'>;
 }) => {
   const options = {
-    nowMs: () => Date.parse(deps.clock.now()),
+    nowMs: () => nowMs(deps.clock),
     ttlMs: LIVE_TTL_MS,
     maxEntries: LIVE_PAGES,
     keepsFailure: isTemporaryRefusal,

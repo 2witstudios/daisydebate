@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { inArray, lt, or } from 'drizzle-orm';
 import type { AdminDatabase } from './client';
 import {
@@ -23,7 +24,7 @@ export async function sweepExpired(
   db: AdminDatabase,
   now: string,
 ): Promise<number> {
-  const at = Date.parse(now);
+  const at = instantMs(now);
   const secretsBefore = new Date(at - 7 * day);
   const attemptsBefore = new Date(at - day);
   const commandsBefore = new Date(at - 30 * day);

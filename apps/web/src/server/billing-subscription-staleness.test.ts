@@ -6,7 +6,7 @@ import {
   recordDisabledSubscriptionFreshness,
   subscriptionStalenessObserver,
 } from './billing-subscription-staleness';
-import { fixedClock } from '@daisy/clock';
+import { instantMs, fixedClock } from '@daisy/clock';
 import { createApp } from './app';
 import { startBillingSubscriptions } from './billing-subscriptions';
 import { authTestEnv } from '../features/auth/auth-server.test-support';
@@ -179,7 +179,7 @@ test('private observation logging carries only aggregate facts and reports stale
       ],
       1_200_000,
       0,
-      Date.parse(sampledAt),
+      instantMs(sampledAt),
       false,
       ['staleness_target'],
     ],

@@ -26,7 +26,7 @@ type RefusalRegistry = {
   readonly reportedRefusals: WeakSet<Error>;
 };
 const REGISTRY = Symbol.for('daisy.db.capacity-refusals');
-const host = globalThis as typeof globalThis & {
+const host = globalThis as {
   [REGISTRY]?: RefusalRegistry;
 };
 /**
@@ -35,10 +35,12 @@ const host = globalThis as typeof globalThis & {
  * that minted it (ISSUE-927). A table keeps each refusal's frozen detail and
  * reported mark off the error, which wrappers and reporters see.
  */
-const { refusals, reportedRefusals } = (host[REGISTRY] ??= {
+const registry = host[REGISTRY] ?? {
   refusals: new WeakMap(),
   reportedRefusals: new WeakSet(),
-});
+};
+host[REGISTRY] = registry;
+const { refusals, reportedRefusals } = registry;
 /**
  * The member of `error`'s chain (itself or one of at most 16 native Error
  * causes) that `marked` recognises. Only own data-property causes are

@@ -1,3 +1,4 @@
+import { nowMs, tryInstantMs } from '@daisy/clock';
 import {
   defaultStandingLobby,
   mayDebate,
@@ -85,7 +86,7 @@ const requestFlagReader = cache(() => {
   const app = processApp();
   return createRequestFlagReader({
     read: (accountId, keys) => app.database.readFlagSnapshot(accountId, keys),
-    now: () => Date.parse(app.clock.now()),
+    now: () => tryInstantMs(app.clock.now()) ?? Number.NaN,
     diagnostic: () =>
       app.logger.log(
         'flags.read.failed',
@@ -125,10 +126,6 @@ export const messagingLatestPageItems = (): number =>
     processApp().messagingPolicy.bounds.pageItems,
   );
 
-/** Whether this deployment has a file runtime; without one no file control shows. */
-export const messagingFilesAvailable = (): boolean =>
-  processApp().messagingFiles !== undefined;
-
 /** One archive page for this viewer, and how many Recordings are public. */
 export const readRecordingArchive = async (
   query: RecordingsQuery,
@@ -146,7 +143,7 @@ export const readRecordingArchive = async (
     }),
     archive.countPublicArchive({ clock }),
   ]);
-  return { page, publicCount, nowMs: Date.parse(app.clock.now()) };
+  return { page, publicCount, nowMs: nowMs(app.clock) };
 };
 
 /** A finished Round's history screen for this viewer. */
@@ -260,11 +257,7 @@ const divisionWhen = async (
   state: 'member' | 'provisional',
 ): Promise<RatingDivision | null> => {
   const identity = await requestIdentity();
-  // The second check never fires after the first; it narrows the union to
-  // the states that carry a principal, for the type checker.
   if (identity.state !== state) return null;
-  if (identity.state !== 'member' && identity.state !== 'provisional')
-    return null;
   return processApp().database.readMemberDivision(identity.principal.userId);
 };
 
@@ -611,6 +604,9 @@ export async function requestRoundRatings(
 export const requestMetadataBase = (): URL =>
   new URL(processApp().config.PUBLIC_APP_URL);
 
+export const requestRealtimeEndpoint = (): string | null =>
+  processApp().websocketEndpoint;
+
 export const requestSearchIndexing = () => processApp().config.SEARCH_INDEXING;
 
 /** Native create-room preview answers are scoped to this authenticated member. */
@@ -747,7 +743,7 @@ export const readReleaseLink = async (
     : { kind: 'unknown' };
 
 /** The app's clock, for what a release page derives from a link's dates. */
-export const releaseNowMs = (): number => Date.parse(processApp().clock.now());
+export const releaseNowMs = (): number => nowMs(processApp().clock);
 
 /**
  * A youth member's media release section (ADR 0151), or null: only on Youth –

@@ -3,15 +3,49 @@ import { assertRejects } from '@daisy/errors/testing';
 import { admitsPrincipalAccess } from '@daisy/auth/authorization';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
+import { drizzle } from 'drizzle-orm/bun-sql';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   mediaTestTick as buildProjection,
   mediaTestStore as storeFor,
 } from './media-session.test-support';
 import { withFixture, rejectedBy } from './constraint-helpers';
+import { lockMediaRound } from '../src/media-session-authority';
 
 setupRitewayBun();
 const { databaseUrl: url } = requireTestServices(process.env);
+
+test('missing and unseated media Rounds give the same human refusal', async () => {
+  await withFixture(url, async (fixture) => {
+    const round = await fixture.round();
+    const missing = createId();
+    const actorId = await fixture.actor();
+    const db = drizzle({ client: fixture.sql });
+    const refusal = (roundId: string) =>
+      db
+        .transaction((tx) =>
+          lockMediaRound(tx, roundId, { actorId, admits: () => true }),
+        )
+        .then(
+          () => null,
+          (error: Error & { code?: string }) => [error.code, error.message],
+        );
+    const unseated = await refusal(round);
+    assert({
+      given:
+        'a human with no seat in an existing Round and the same human asking for a missing Round',
+      should: 'return the identical non-disclosing refusal',
+      actual: [unseated?.[0], await refusal(missing)],
+      expected: ['AUTHORIZATION', unseated],
+    });
+    await assertRejects({
+      given: 'an internal caller requesting a missing Round',
+      should: 'retain the separate internal absence response',
+      actual: () => db.transaction((tx) => lockMediaRound(tx, missing)),
+      code: 'NOT_FOUND',
+    });
+  });
+});
 test('concurrent media admission reuses one opaque session and seat identity', async () => {
   await withFixture(url, async (fixture) => {
     const {

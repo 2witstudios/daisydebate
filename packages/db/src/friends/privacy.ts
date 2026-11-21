@@ -2,8 +2,8 @@ import { sql } from 'drizzle-orm';
 import { idSchema } from '@daisy/protocol';
 import type { PrivacyAdopter, PrivacyExport } from '../privacy/contracts';
 import { exportRows } from '../privacy/export-rows';
-
-const rowsOf = (rows: unknown) => rows as Record<string, unknown>[];
+import { run, query } from '../raw-rows';
+import { z } from 'zod';
 
 /** Friends' subject rights (ADR 0072): the subject's pairs. */
 export const friendsPrivacyAdopter: PrivacyAdopter = {
@@ -11,7 +11,8 @@ export const friendsPrivacyAdopter: PrivacyAdopter = {
   phase: 'after-close',
   async erase(tx, subject) {
     const actorId = idSchema.parse(subject.actorId);
-    await tx.execute(
+    await run(
+      tx,
       sql`delete from friendships where low_actor_id=${actorId} or high_actor_id=${actorId}`,
     );
   },
@@ -19,10 +20,17 @@ export const friendsPrivacyAdopter: PrivacyAdopter = {
     const actorId = idSchema.parse(subject.actorId);
     return {
       friendships: exportRows(
-        rowsOf(
-          await tx.execute(
-            sql`select * from friendships where low_actor_id=${actorId} or high_actor_id=${actorId} order by low_actor_id,high_actor_id`,
-          ),
+        await query(
+          tx,
+          z.object({
+            low_actor_id: z.string(),
+            high_actor_id: z.string(),
+            requester_actor_id: z.string(),
+            state: z.string(),
+            requested_at: z.date(),
+            accepted_at: z.date().nullable(),
+          }),
+          sql`select * from friendships where low_actor_id=${actorId} or high_actor_id=${actorId} order by low_actor_id,high_actor_id`,
         ),
       ),
     };

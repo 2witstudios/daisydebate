@@ -165,8 +165,8 @@ export function PeopleRail({
                 <hr className="mx-auto my-1 w-8 border-border" />
               ) : null}
               <button
-                type="button"
                 {...overlay.rowProps(member.username)}
+                type="button"
                 onClick={(event) =>
                   overlay.open(member.username, event.currentTarget)
                 }

@@ -66,15 +66,16 @@ export async function resolveRoomSelection(
       basis: basisDecision?.ok ? basisDecision.basis : null,
       competitionType: selection.competitionType,
       resolved,
-      recheck: basisRequest
-        ? {
-            tuple: selection.basis!,
-            admits: (facts: FormatSelectionFacts | null) => {
-              const again = decideFormatSelection(basisRequest, facts);
-              return again.ok && fingerprint(again) === basisFingerprint;
-            },
-          }
-        : null,
+      recheck:
+        selection.basis && basisRequest
+          ? {
+              tuple: selection.basis,
+              admits: (facts: FormatSelectionFacts | null) => {
+                const again = decideFormatSelection(basisRequest, facts);
+                return again.ok && fingerprint(again) === basisFingerprint;
+              },
+            }
+          : null,
     };
   }
   const tuple = {

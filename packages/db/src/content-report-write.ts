@@ -5,7 +5,8 @@ import {
 } from '@daisy/protocol/content-moderation';
 import { idSchema } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
-import type { AuthorizationTransaction } from './authorization';
+import type { Tx } from './tx';
+import { run } from './raw-rows';
 
 /**
  * A profile's text keeps its target id across edits (ADR 0143), so a repeat
@@ -32,7 +33,7 @@ const onRepeat = (report: ContentReportCreate) =>
 
 /** Content Reports owns the one closed-reason, deduplicated write; callers supply current target authority. */
 export async function insertContentReport(
-  tx: Pick<AuthorizationTransaction, 'execute'>,
+  tx: Tx,
   input: {
     readonly id: string;
     readonly reporterUserId: string;
@@ -43,6 +44,9 @@ export async function insertContentReport(
   const report = contentReportCreateSchema.parse(input.report);
   idSchema.parse(input.id);
   idSchema.parse(input.reporterUserId);
-  await tx.execute(sql`insert into content_reports(id,reporter_user_id,target_kind,target_id,feedback_subject,reason,queue)
- values(${input.id},${input.reporterUserId},${report.targetKind},${report.targetId},${input.feedbackSubject},${report.reason},${queueOfReason(report.reason)}) ${onRepeat(report)}`);
+  await run(
+    tx,
+    sql`insert into content_reports(id,reporter_user_id,target_kind,target_id,feedback_subject,reason,queue)
+ values(${input.id},${input.reporterUserId},${report.targetKind},${report.targetId},${input.feedbackSubject},${report.reason},${queueOfReason(report.reason)}) ${onRepeat(report)}`,
+  );
 }

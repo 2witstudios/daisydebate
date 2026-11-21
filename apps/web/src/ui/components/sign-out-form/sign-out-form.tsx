@@ -5,7 +5,7 @@ import { clearAccountMediaPreferences } from '../../../features/round-media/acco
 
 /**
  * The one sign-out control (ISSUE-691, review F9): a native form posting to
- * /auth/sign-out, so it works without JavaScript. `next` is this page, where
+ * /auth/sign-out, so it works before hydration. `next` is this page, where
  * a failed sign-out returns with `?signOut=failed`; success lands on /sign-in.
  */
 export function SignOutForm({

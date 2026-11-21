@@ -11,7 +11,7 @@ import { lockTabCommandAccounts } from './command-accounts';
 import { lockEventSettingContext } from './event-setting-context';
 import { loadAuthorityContext } from './authority-context';
 import { fixtureCommandPeople } from './fixture-command-people';
-import type { TabTransaction } from './tab-transaction';
+import type { Tx } from '../tx';
 
 /** The actual or named cast changed while canonical account fences were acquired. */
 export class FixturePeopleChanged extends Error {}
@@ -25,7 +25,7 @@ export type FixtureContextInput = {
 
 /** Shared ownership order for officiating and result commands: accounts, parents, slot, fixture, Room, Round. */
 export async function lockFixtureCommandContext(
-  tx: TabTransaction,
+  tx: Tx,
   input: FixtureContextInput,
 ) {
   await scopeTransaction(tx, {

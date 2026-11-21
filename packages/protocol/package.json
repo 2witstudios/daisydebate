@@ -85,6 +85,7 @@
     "test": "bun test src"
   },
   "dependencies": {
+    "@daisy/clock": "workspace:*",
     "zod": "4.6.6"
   },
   "devDependencies": {

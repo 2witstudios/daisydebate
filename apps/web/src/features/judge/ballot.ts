@@ -253,7 +253,10 @@ const readScores = (form: FormData, plan: BallotPlan, points: BallotPoints) =>
   Object.fromEntries(
     plan.scored.map((subject) => [
       subject.key,
-      postedPoints(points, subject.key, (name) => form.get(name)?.toString()),
+      postedPoints(points, subject.key, (name) => {
+        const value = form.get(name);
+        return typeof value === 'string' ? value : undefined;
+      }),
     ]),
   );
 

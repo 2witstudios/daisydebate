@@ -1,3 +1,4 @@
+import { commandDigest } from '@daisy/digest';
 import { z } from 'zod';
 import { idSchema } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
@@ -91,4 +92,4 @@ export function parseCapture<T>(schema: z.ZodType<T>, raw: unknown): T {
   return result.data;
 }
 export const captureDigest = (fields: readonly unknown[]) =>
-  new Bun.CryptoHasher('sha3-256').update(JSON.stringify(fields)).digest('hex');
+  commandDigest(fields);

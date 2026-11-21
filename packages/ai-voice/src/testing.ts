@@ -114,7 +114,9 @@ function openRouterStub(
         : input.url;
   if (!url.startsWith(OPENROUTER)) return null;
   const path = url.slice(OPENROUTER.length);
-  const body = JSON.parse(String(init?.body ?? '{}')) as {
+  const body = JSON.parse(
+    typeof init?.body === 'string' ? init.body : '{}',
+  ) as {
     stream?: boolean;
     response_format?: { json_schema?: { name?: string } };
   };

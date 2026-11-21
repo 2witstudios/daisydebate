@@ -1,7 +1,7 @@
 import { and, asc, eq, isNotNull, or } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { roundSegments } from './schema/round-segments';
 import { utterances } from './schema/utterances';
+import type { Tx } from './tx';
 
 /**
  * Shared evidence ordering; callers supply either an existing freeze or
@@ -10,7 +10,7 @@ import { utterances } from './schema/utterances';
  * may build on: captured ones, and a bot's once closed.
  */
 export function readOrderedRoundUtterances(
-  reader: Pick<BunSQLDatabase, 'select'>,
+  reader: Tx,
   roundId: string,
   source: 'all' | 'spoken',
 ) {

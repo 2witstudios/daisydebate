@@ -21,6 +21,7 @@ import {
   requestMemberDivision,
   requestMemberStandings,
   requestOwnProfileCard,
+  requestRealtimeEndpoint,
 } from '../../lib/request-session';
 import type { ShellRatings } from '../../ui/layout/app-shell/account';
 import { requestActiveRoom } from './active-room';
@@ -54,6 +55,8 @@ export default async function ShellLayout({
   const people =
     identity.state === 'member'
       ? await PeopleShell({
+          actorId: identity.principal.actorId,
+          socketUrl: requestRealtimeEndpoint(),
           preference: peopleRail,
           activeRoomId: activeRoom?.id ?? null,
         })

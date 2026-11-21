@@ -1,4 +1,7 @@
 import type { SQL } from 'bun';
+import { createAppError } from '@daisy/errors';
+import { z } from 'zod';
+import { query } from './raw-rows';
 
 /**
  * The published incident rate, and capture's coverage, over one period, from
@@ -9,7 +12,8 @@ export async function readRoundIncidentRate(
   sql: SQL,
   period: { readonly from: Date; readonly until: Date },
 ) {
-  const [row] = await sql`
+  const [row] = await query(
+    sql`
     select
       (select count(*)::int from round_incidents
         where detected_at >= ${period.from} and detected_at < ${period.until}) as incidents,
@@ -29,17 +33,27 @@ export async function readRoundIncidentRate(
           and unheard_ms is not null) as gap_ms,
       (select count(*)::int from round_transcript_freezes
         where frozen_at >= ${period.from} and frozen_at < ${period.until}
-          and unheard_ms is null) as unmeasured_rounds`;
-  const roundHours = Number(row.round_hours);
-  const expectedMs = Number(row.expected_ms);
+          and unheard_ms is null) as unmeasured_rounds`,
+    z.object({
+      incidents: z.int(),
+      ended_rounds: z.int(),
+      round_hours: z.number(),
+      expected_ms: z.number(),
+      gap_ms: z.number(),
+      unmeasured_rounds: z.int(),
+    }),
+  );
+  if (!row)
+    throw createAppError('INVARIANT', 'Incident rate query returned no row');
+  const roundHours = row.round_hours;
+  const expectedMs = row.expected_ms;
   return {
-    incidents: Number(row.incidents),
-    endedRounds: Number(row.ended_rounds),
+    incidents: row.incidents,
+    endedRounds: row.ended_rounds,
     roundHours,
     incidentsPer1000RoundHours:
-      roundHours > 0 ? (Number(row.incidents) / roundHours) * 1000 : null,
-    captureCoverage:
-      expectedMs > 0 ? 1 - Number(row.gap_ms) / expectedMs : null,
-    unmeasuredRounds: Number(row.unmeasured_rounds),
+      roundHours > 0 ? (row.incidents / roundHours) * 1000 : null,
+    captureCoverage: expectedMs > 0 ? 1 - row.gap_ms / expectedMs : null,
+    unmeasuredRounds: row.unmeasured_rounds,
   };
 }

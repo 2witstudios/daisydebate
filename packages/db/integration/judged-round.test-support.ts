@@ -1,3 +1,4 @@
+import { sha3Hex } from '@daisy/digest';
 import { createId } from '@paralleldrive/cuid2';
 import { resolveRoomConfiguration } from '@daisy/debate-engine';
 import { oneOnOneDefinition, oneOnOneSettings } from '../src/reference-formats';
@@ -53,9 +54,7 @@ export const replaceJudge = (f: Fixture, roundId: string, byActorId: string) =>
       assignmentVersion: 2,
       participantId: replacementId,
     };
-    const digest = new Bun.CryptoHasher('sha3-256')
-      .update(JSON.stringify(result))
-      .digest('hex');
+    const digest = sha3Hex(JSON.stringify(result));
     await tx`insert into round_commands(command_id,round_id,actor_id,service_id,type,payload_digest,result,resulting_version,applied_at) values(${commandId},${roundId},${byActorId},null,'change_judge',${digest},${result},2,date_trunc('milliseconds',clock_timestamp()))`;
     await tx`select public.daisy_append_round_judge_assignment(${roundId},0,1,1,${replacementId},${commandId})`;
     return replacementActorId;

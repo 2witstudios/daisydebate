@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
 import {
   affirmativeSide,
@@ -75,7 +76,7 @@ export function endingRating(input: EndingRatingFacts): EndingRating {
     return { kind: 'unrated', reason: 'unjudged' };
   if (
     input.ending === 'judged' &&
-    !attendanceSettled(input.attendance, Date.parse(input.completedAt))
+    !attendanceSettled(input.attendance, instantMs(input.completedAt))
   )
     return { kind: 'attendance-unsettled' };
   return { kind: 'rated', outcome, occurredAt: input.completedAt };

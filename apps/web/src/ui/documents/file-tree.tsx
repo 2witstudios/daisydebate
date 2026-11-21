@@ -170,6 +170,7 @@ function Contents({
 }) {
   const { active, renaming, dispatch, drive } = context;
   if (contents.state === 'unread') return null;
+  const { next } = contents;
   return (
     <ul className="flex flex-col">
       {contents.entries.map((node) =>
@@ -195,12 +196,12 @@ function Contents({
           </li>
         ),
       )}
-      {contents.next ? (
+      {next ? (
         <li>
           <button
             type="button"
             className="h-dense-target cursor-pointer px-2 text-sm text-ink-muted underline"
-            onClick={() => drive.more(folderId, contents.next!)}
+            onClick={() => drive.more(folderId, next)}
           >
             Show more
           </button>
@@ -229,7 +230,11 @@ function FolderRow({
         dispatch={dispatch}
         drive={drive}
         onOpen={() =>
-          drive.toggle(node.id, !node.expanded, node.contents.state === 'read')
+          void drive.toggle(
+            node.id,
+            !node.expanded,
+            node.contents.state === 'read',
+          )
         }
         leading={
           <>

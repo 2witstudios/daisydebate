@@ -1,14 +1,14 @@
 import { and, eq } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
-import type { BoundedTransactionContext } from './transaction-context';
 import { requireAgentLeaseToken } from './round-agent-lease';
 import { agentRuns } from './schema/agent-runs';
+import type { Tx } from './tx';
 
 export const validAgentCounter = (value: number) =>
   Number.isSafeInteger(value) && value >= 0 && value <= 2147483647;
 /** Authenticates original execution accounting only; does not confer a live competitive lease. */
 export async function lockAgentAccounting(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   input: {
     readonly id: string;
     readonly participantId: string;

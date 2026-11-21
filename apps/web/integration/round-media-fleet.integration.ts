@@ -4,7 +4,7 @@ import { createMediaService } from '@daisy/media';
 import { createRoundMediaOperations } from '../src/features/round-media/operations';
 import { startRoundMediaRecovery } from '../src/server/round-media-recovery';
 import { mediaDependencies, withMediaRound } from './round-media.test-support';
-import { realWorkerTimers } from '../src/lib/worker-timers.test-support';
+import { realWorkerTimers } from './worker-timers.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
 

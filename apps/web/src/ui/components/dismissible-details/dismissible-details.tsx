@@ -6,7 +6,7 @@ import { cn } from '../../cn';
 /**
  * A native disclosure that also closes when the pointer lands outside it or
  * Escape is pressed. The `<details>`/`<summary>` stay in the server-rendered
- * markup, so the disclosure still opens without JavaScript; this component only
+ * markup, so the disclosure still opens before hydration; this component only
  * adds the dismiss-on-outside-click enhancement once hydrated.
  */
 export function DismissibleDetails({

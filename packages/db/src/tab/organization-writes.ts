@@ -16,7 +16,7 @@ import {
   loadOrganizationGrantRows,
   underLobbyScope,
 } from './organization-grant-rows';
-import type { TabTransaction } from './tab-transaction';
+import type { Tx } from '../tx';
 
 /** The rows an accepted organization or grant command writes, as data. */
 export type OrganizationWrite =
@@ -123,7 +123,7 @@ const exactlyOne = (
 
 /** The lobby of a grant at one of the organization's lobbies, or null. */
 const lobbyOfGrant = async (
-  tx: TabTransaction,
+  tx: Tx,
   scope: TenantScope,
   grantId: string,
 ): Promise<string | null> => {
@@ -138,7 +138,7 @@ const lobbyOfGrant = async (
 
 /** Revokes a grant, under its lobby's scope when it is a lobby grant. */
 const revokeGrant = async (
-  tx: TabTransaction,
+  tx: Tx,
   write: Extract<OrganizationWrite, { table: 'grants'; op: 'update' }>,
   scope: TenantScope,
 ): Promise<void> => {
@@ -161,7 +161,7 @@ const revokeGrant = async (
 };
 
 const applyOne = async (
-  tx: TabTransaction,
+  tx: Tx,
   write: OrganizationWrite,
   scope: TenantScope,
 ): Promise<void> => {
@@ -260,7 +260,7 @@ const applyOne = async (
  * transaction ends without the command.
  */
 export const applyOrganizationWrites = async (
-  tx: TabTransaction,
+  tx: Tx,
   writes: readonly OrganizationWrite[],
   scope: TenantScope,
 ): Promise<void> => {

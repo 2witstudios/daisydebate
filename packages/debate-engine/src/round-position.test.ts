@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { roundStartPolicy } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
@@ -13,7 +14,7 @@ import {
 } from './runtime.test-support';
 setupRitewayBun();
 const rules = oneOnOneRules();
-const origin = Date.parse(roundAt(0));
+const origin = instantMs(roundAt(0));
 const round = {
   status: 'active' as const,
   startedAt: roundAt(0),

@@ -18,9 +18,10 @@ export function hostDrawView(
 ): DrawView {
   const loaded = facts.draw;
   const context = eventDrawFacts(loaded, drawCompetitionAt(loaded, drawId));
-  const stored = loaded.versions.find((row) => row.id === drawId)!;
+  const stored = loaded.versions.find((row) => row.id === drawId);
   const draw = context.versions.find((row) => row.id === drawId);
-  if (!draw) throw createAppError('INVARIANT', 'Addressed draw is missing');
+  if (!stored || !draw)
+    throw createAppError('INVARIANT', 'Addressed draw is missing');
   const sources = new Set(
     loaded.drawResultInputs
       .filter((row) => row.drawId === drawId)
@@ -44,18 +45,11 @@ export function hostDrawView(
       seed,
     },
   );
-  const rawSettings = engineInput?.settings;
-  const frozen =
-    typeof rawSettings === 'object' &&
-    rawSettings !== null &&
-    !Array.isArray(rawSettings)
-      ? rawSettings
-      : {};
   const settings = {
     ...retained.settings,
     'bye.result': engineInput
       ? settingsCatalogue['bye.result'].value.parse(
-          'bye.result' in frozen ? frozen['bye.result'] : undefined,
+          engineInput.settings['bye.result'],
         )
       : retained.settings['bye.result'],
   };
@@ -85,7 +79,9 @@ export function hostDrawView(
           .map((entry) => {
             const stored = loaded.entries.find(
               (row) => row.id === entry.entryId,
-            )!;
+            );
+            if (!stored)
+              throw createAppError('INVARIANT', 'Draw entry is missing');
             return {
               entryId: stored.id,
               name: stored.name,

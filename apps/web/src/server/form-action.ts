@@ -3,7 +3,7 @@ import { moved, type Moved } from '../features/forms/form-state';
 
 /**
  * Ends a form action by moving on to `to`, a local path the server chose.
- * A form posted without JavaScript gets a 303 to it. A hydrated page gets it
+ * A form posted before hydration gets a 303 to it. A hydrated page gets it
  * back as action state and navigates itself: `redirect()` there makes Next
  * 16 fetch `to` from the public origin with the browser's cookies, to inline
  * the next page (`createRedirectRenderResult` in
@@ -21,8 +21,8 @@ export const hydratedPost = (incoming: Headers): boolean =>
   incoming.has('next-action');
 
 /**
- * Ends an action on the page it was posted from. A form posted without
- * JavaScript gets a 303 back to it, so a reload cannot post again; a hydrated
+ * Ends an action on the page it was posted from. A form posted before
+ * hydration gets a 303 back to it, so a reload cannot post again; a hydrated
  * page stays where it is (null) and takes the caller's `revalidatePath`
  * refresh, since moving to the address it is already on would leave its form
  * waiting.

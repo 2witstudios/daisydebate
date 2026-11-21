@@ -1,6 +1,6 @@
 import { drizzle } from 'drizzle-orm/bun-sql';
-import type { AuthorizationTransaction } from './authorization';
 import { fakeSql } from './scripted-bun-wire';
+import type { Tx } from './tx';
 
 /**
  * Builds a real Drizzle authorization transaction over the shared scripted
@@ -11,7 +11,7 @@ export function createScriptedAuthorizationTransaction(
   script: Parameters<typeof fakeSql>[0],
 ) {
   const { client, queries } = fakeSql(script);
-  const tx = drizzle({ client }) as AuthorizationTransaction;
+  const tx = drizzle({ client }) as Tx;
   return {
     tx,
     queries,

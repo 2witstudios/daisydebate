@@ -4,7 +4,7 @@ import { AccountExit } from '../onboarding/account-exit/account-exit';
 
 /**
  * Where a suspended or banned account lands (ADR 0103). Plain markup, so it
- * works without JavaScript; export and deletion stay one link away.
+ * works before hydration; export and deletion stay one link away.
  */
 export function RestrictedAccount({
   username,

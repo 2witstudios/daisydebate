@@ -1,6 +1,6 @@
 import { createResendSender } from './resend-sender';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { fixedClock } from '@daisy/clock';
+import { instantMs, fixedClock } from '@daisy/clock';
 import { assertRejects } from '@daisy/errors/testing';
 import { createEventRecorder } from '../../server/test-loggers.test-support';
 import { createSendMail } from './send-mail';
@@ -116,7 +116,7 @@ describe('createSendMail', () => {
 });
 
 test('an invitation deadline is checked after a delayed suppression lookup', async () => {
-  const deadline = Date.parse('2026-11-06T00:00:01.000Z');
+  const deadline = instantMs('2026-11-06T00:00:01.000Z');
   let now = deadline - 1;
   let calls = 0;
   const { logger } = createEventRecorder();

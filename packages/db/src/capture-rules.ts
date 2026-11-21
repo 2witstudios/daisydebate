@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { createAppError, createRefusal } from '@daisy/errors';
 import { captureDigest } from './capture-input';
 import {
@@ -37,8 +38,8 @@ export function requireCapturedWindow(
   now: Date,
   history: readonly CaptureInterval[],
 ): void {
-  const before = Date.parse(clip.before),
-    after = Date.parse(clip.after);
+  const before = instantMs(clip.before),
+    after = instantMs(clip.after);
   const nominal = segment.startedAt.getTime() + clip.startOffsetMs;
   if (
     before >= after ||
@@ -64,8 +65,8 @@ export function requireObservationWindow(
   now: Date,
   required: readonly CaptureInterval[],
 ): { readonly from: number; readonly until: number } {
-  const from = Date.parse(observation.observedFrom),
-    until = Date.parse(observation.observedUntil);
+  const from = instantMs(observation.observedFrom),
+    until = instantMs(observation.observedUntil);
   if (
     from >= until ||
     until > now.getTime() ||

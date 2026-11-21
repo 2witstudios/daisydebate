@@ -70,15 +70,20 @@ export function observationBaseField(base: ObservationBase): string {
   return `${parsed.partition}.${parsed.disclosureRevision}`;
 }
 
+// Top-level values such as undefined and functions have no JSON encoding.
+const encodeObservationJson: (value: unknown) => string | undefined =
+  JSON.stringify;
+
 /** UTF-8 length of the JSON encoding, independent of a host TextEncoder. */
 export function observationJsonBytes(value: unknown): number {
-  return utf8Bytes(JSON.stringify(value) ?? '');
+  return utf8Bytes(encodeObservationJson(value) ?? '');
 }
 export function utf8Bytes(text: string): number {
   let bytes = 0;
   for (const char of text) {
-    const point = char.codePointAt(0)!;
-    bytes += point <= 0x7f ? 1 : point <= 0x7ff ? 2 : point <= 0xffff ? 3 : 4;
+    // A surrogate pair is one code point beyond the basic plane: four bytes.
+    const point = char.charCodeAt(0);
+    bytes += char.length > 1 ? 4 : point <= 0x7f ? 1 : point <= 0x7ff ? 2 : 3;
   }
   return bytes;
 }

@@ -1,6 +1,6 @@
 import { loadAuthorizationAccount } from '../authorization';
 import { scopeTransaction, type TenantScope } from '../tenant-scope';
-import type { TabTransaction } from './tab-transaction';
+import type { Tx } from '../tx';
 
 export type TabAccount = NonNullable<
   Awaited<ReturnType<typeof loadAuthorizationAccount>>
@@ -8,7 +8,7 @@ export type TabAccount = NonNullable<
 
 /** Reads the named counterpart under their own subject scope. */
 export const loadTabCounterpart = async (
-  tx: TabTransaction,
+  tx: Tx,
   userId: string,
   scope: TenantScope,
 ): Promise<TabAccount | null> => {

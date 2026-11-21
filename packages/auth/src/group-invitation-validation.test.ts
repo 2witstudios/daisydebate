@@ -5,6 +5,32 @@ import {
 } from './authorization';
 import { input, invitation } from './group-invitation.test-support';
 setupRitewayBun();
+test('invitation authority requires a private-group channel and policy', () => {
+  const resources = [
+    {
+      ...invitation,
+      channel: { ...invitation.channel, kind: 'dm' },
+    } as unknown as GroupInvitationAuthorizationFact,
+    {
+      ...invitation,
+      channel: { ...invitation.channel, policyKey: 'social.dm' },
+    } as unknown as GroupInvitationAuthorizationFact,
+  ];
+  assert({
+    given: 'a group invitation carrying a DM channel kind or policy key',
+    should: 'deny acceptance and reading',
+    actual: [
+      authorize({ ...input, resource: resources[0]! }).allow,
+      authorize({
+        ...input,
+        capability: 'channel.invitation.read',
+        resource: resources[1]!,
+      }).allow,
+    ],
+    expected: [false, false],
+  });
+});
+
 test('invitation facts require exact current generation and durable authority shape', () => {
   const cases: GroupInvitationAuthorizationFact[] = [
     { ...invitation, channel: { ...invitation.channel, revision: 0 } },

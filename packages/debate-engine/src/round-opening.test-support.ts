@@ -1,3 +1,4 @@
+import { addMs } from '@daisy/clock';
 import {
   drawCapableBounds,
   plainFormatSettings,
@@ -71,8 +72,7 @@ export const drawStart = {
   exclusions: [],
 };
 export const seedBytes = bytesOf(SEED);
-export const at = (seconds: number) =>
-  new Date(Date.parse(edges.now) + seconds * 1000).toISOString();
+export const at = (seconds: number) => addMs(edges.now, seconds * 1000);
 export const command = (
   type: RoomCommand['type'],
   extra: Record<string, unknown> = {},
@@ -80,7 +80,7 @@ export const command = (
 ) =>
   ({
     type,
-    commandId: `${type}-${extra.ordinal ?? 0}`,
+    commandId: `${type}-${typeof extra.ordinal === 'number' ? extra.ordinal : 0}`,
     expectedVersion: room.version,
     ...extra,
   }) as RoomCommand;

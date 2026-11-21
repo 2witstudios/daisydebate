@@ -1,6 +1,10 @@
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
-import type { CompetitionType, RatingStyle } from '@daisy/protocol';
+import {
+  type CompetitionType,
+  type RatingStyle,
+  competitionTypes,
+  idSchema,
+} from '@daisy/protocol';
 import {
   readOwnCollection,
   requireOwnScope,
@@ -16,6 +20,9 @@ import { restrictionInForce } from '../moderation/in-force';
 import { challengeOpen } from './open';
 import { roomIsOpen } from '../room-open';
 import { challengeFrame, type ChallengeFrame } from './frame';
+import type { TxSource, Tx } from '../tx';
+import { query } from '../raw-rows';
+import { z } from 'zod';
 
 /** Challenges over the shared Contacts fence (ADR 0103). */
 export type ChallengeStore = {
@@ -29,7 +36,7 @@ export function createChallengeStore({
   database,
   authorize,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
   readonly authorize: ContactAuthorizationFence;
 }): ChallengeStore {
   return {
@@ -67,14 +74,28 @@ const CHALLENGE_LIST_MAX = 40;
  * whose room is still gathering. Blocked pairs and closed accounts drop out. Reads only.
  */
 export function listChallenges(
-  database: BunSQLDatabase,
+  database: TxSource,
   scope: Scope,
   now: string,
   authorize: OwnCollectionFence<Scope>,
 ): Promise<readonly ChallengeListRow[]> {
   requireOwnScope(scope);
   return readOwnCollection(database, scope, authorize, async (tx) => {
-    const rows = (await tx.execute(sql`
+    const rows = await query(
+      tx,
+      z.object({
+        format: z.literal('freestyle'),
+        id: z.string(),
+        lobbyId: idSchema,
+        mode: z.enum(competitionTypes),
+        actorId: z.string(),
+        direction: z.enum(['incoming', 'outgoing']),
+        username: z.string(),
+        roomId: z.string().nullable(),
+        createdAt: z.union([z.string(), z.date()]),
+        expiresAt: z.union([z.string(), z.date()]),
+      }),
+      sql`
       select c.id,
         case when c.challenged_actor_id = ${scope.actorId} then 'incoming' else 'outgoing' end as direction,
         a.id as "actorId", u.username, c.mode, c.format_id as format, c.lobby_id as "lobbyId", c.room_id as "roomId",
@@ -92,14 +113,8 @@ export function listChallenges(
         and (${challengeOpen(sql`${new Date(now)}`, sql`c`)}
           or (c.room_id is not null and c.follow_until > ${new Date(now)} and ${roomIsOpen()}))
       order by c.created_at desc, c.id
-      limit ${CHALLENGE_LIST_MAX}`)) as unknown as (Omit<
-      ChallengeRowFacts,
-      'createdAt' | 'expiresAt'
-    > & {
-      roomId: string | null;
-      createdAt: Date | string;
-      expiresAt: Date | string;
-    })[];
+      limit ${CHALLENGE_LIST_MAX}`,
+    );
     return rows.map((row) => ({
       ...row,
       createdAt: new Date(row.createdAt).toISOString(),
@@ -110,15 +125,19 @@ export function listChallenges(
 
 /** Removes offers past their time; the list already ignores them. */
 export async function purgeExpiredChallenges(
-  database: Pick<BunSQLDatabase, 'execute'>,
+  database: Tx,
   input: { readonly now: string; readonly limit: number },
 ): Promise<number> {
-  const rows = await database.execute(sql`
+  const rows = await query(
+    database,
+    z.object({ id: z.string() }),
+    sql`
     delete from challenges where id in (
       select id from challenges
       where room_id is null and expires_at <= ${new Date(input.now)}
       limit ${input.limit})
-    returning id`);
+    returning id`,
+  );
   return rows.length;
 }
 
@@ -127,7 +146,7 @@ export const challengeReadOperations = ({
   database,
   eventSink,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
   listChallenges: (
@@ -144,14 +163,16 @@ export const challengeReadOperations = ({
    */
   readChallengeCounterpart: (actorId: string, challengeId: string) =>
     instrumented(eventSink, 'readChallengeCounterpart', async () => {
-      const [row] = (await database.execute(sql`
+      const [row] = await query(
+        database,
+        z.object({ other: z.string() }),
+        sql`
         select case when challenger_actor_id = ${actorId}
           then challenged_actor_id else challenger_actor_id end as other
         from challenges
         where id = ${challengeId}
-          and (challenger_actor_id = ${actorId} or challenged_actor_id = ${actorId})`)) as unknown as {
-        other: string;
-      }[];
+          and (challenger_actor_id = ${actorId} or challenged_actor_id = ${actorId})`,
+      );
       return row?.other ?? null;
     }),
   purgeExpiredChallenges: (input: {

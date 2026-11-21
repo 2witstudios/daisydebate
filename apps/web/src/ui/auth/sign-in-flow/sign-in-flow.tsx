@@ -1,4 +1,5 @@
 'use client';
+import { nowMs } from '@daisy/clock';
 
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import type { Clock } from '@daisy/clock';
@@ -46,8 +47,8 @@ export type SignInFlowProps = {
   /** Passkey ceremonies: the Better Auth adapter in the live page. */
   readonly port: SignInPort;
   /**
-   * The email form's POST. A submission before hydration or without
-   * JavaScript is the same POST, and the page renders its answer.
+   * The email form's POST. A submission before hydration is the same
+   * POST, and the page renders its answer.
    */
   readonly requestLink: RequestLinkAction;
   /** Injected so the cooldown is testable and never reads ambient time. */
@@ -59,7 +60,7 @@ export type SignInFlowProps = {
 /**
  * Sign-in container: the reducer holds the state, the server action sends
  * links and the port runs passkey ceremonies. The first render starts from
- * the action's last answer, so a post made without JavaScript renders the
+ * the action's last answer, so a post made before hydration renders the
  * step it led to.
  */
 export function SignInFlow({
@@ -93,7 +94,7 @@ export function SignInFlow({
       offer: () => offerPasskeyAutofillSafely(port),
       onSettled: (outcome) => dispatch({ type: 'passkey-autofilled', outcome }),
       timers: browserTimers,
-      now: () => Date.parse(clock.now()),
+      now: () => nowMs(clock),
     });
   }, [autofillArmed, port, clock]);
 

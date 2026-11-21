@@ -18,7 +18,6 @@ import {
   type PurchaseEvent,
 } from '@daisy/protocol/billing';
 import type { BoundedTransaction } from './bounded-transaction';
-import type { BoundedTransactionContext } from './transaction-context';
 import { requireFlagAdmission, type ReleaseAdmission } from './flags';
 import { readDatabaseTime } from './database-clock';
 import { billingPurchases } from './schema/billing-purchases';
@@ -26,6 +25,7 @@ import {
   completePurchaseMapping,
   permitsNewSubscription,
 } from './billing-purchase-mapping';
+import type { Tx } from './tx';
 
 type Subject = PurchaseSubject;
 type Account = Awaited<ReturnType<typeof lockPurchaseSubject>>['account'];
@@ -46,10 +46,7 @@ function existingOffer(purchase: Purchase, offer: Offer) {
   return { kind: 'existing' as const, purchase };
 }
 
-async function pendingPurchase(
-  tx: BoundedTransactionContext,
-  subject: Subject,
-) {
+async function pendingPurchase(tx: Tx, subject: Subject) {
   const [row] = await tx
     .select()
     .from(billingPurchases)

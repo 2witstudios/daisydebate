@@ -6,8 +6,8 @@ import { evidenceEnvelopeSchema, idSchema } from '@daisy/protocol';
 import { lockOriginalEvidenceBody } from './necessary-evidence-body';
 import { evidenceLeaseDigest } from './necessary-evidence-policy';
 import { sampleRoundExecutionTime } from './round-execution-time';
-import type { CaptureTx } from './media-capture-context';
 import { necessaryEvidence } from './schema/necessary-evidence';
+import type { Tx } from './tx';
 const inputSchema = z.strictObject({
   body: z.unknown(),
   sealed: evidenceEnvelopeSchema,
@@ -18,7 +18,7 @@ const inputSchema = z.strictObject({
   }),
 });
 /** Store boundary only. The owning application must authenticate ciphertext against the canonical body first. */
-export async function adoptCaptureEvidencePayload(tx: CaptureTx, raw: unknown) {
+export async function adoptCaptureEvidencePayload(tx: Tx, raw: unknown) {
   const parsed = inputSchema.safeParse(raw);
   if (!parsed.success) throw createAppError('VALIDATION');
   const { claim } = parsed.data;

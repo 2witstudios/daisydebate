@@ -10,6 +10,7 @@ import {
   routedFetch,
   routeFailure,
   technicalDispatchFailure,
+  virtualTime,
 } from './docs-consult.test-support';
 
 setupRitewayBun();
@@ -110,13 +111,14 @@ describe('dispatchDocumentationEvent settlement', async () => {
   });
 
   test('fails loudly when the run has not answered by the deadline', async () => {
+    const { clock, options } = virtualTime();
     const { fetchImpl } = routedFetch({
       consult: hangUntilAborted,
       roles: () => ['user'],
     });
-    const message = await technicalDispatchFailure(fetchImpl, {
-      timeoutMs: 5,
-    });
+    const message = await clock.run(
+      technicalDispatchFailure(fetchImpl, { ...options, timeoutMs: 5 }),
+    );
     assert({
       given: 'a run whose conversation still lacks an answer at the deadline',
       should:
@@ -141,9 +143,10 @@ describe('dispatchDocumentationEvent settlement', async () => {
         ),
       roles: () => ['user'],
     });
-    const message = await technicalDispatchFailure(fetchImpl, {
-      timeoutMs: 5,
-    });
+    const { clock, options } = virtualTime();
+    const message = await clock.run(
+      technicalDispatchFailure(fetchImpl, { ...options, timeoutMs: 5 }),
+    );
     assert({
       given: 'the runtime raising TimeoutError instead of AbortError',
       should: 'name the expired wait as the cause',
@@ -153,14 +156,20 @@ describe('dispatchDocumentationEvent settlement', async () => {
   });
 
   test('leaves time to read the conversation after a consult times out', async () => {
+    const { clock, options } = virtualTime();
     const { fetchImpl } = routedFetch({
       consult: hangUntilAborted,
       roles: () => ['user', 'assistant'],
       readDelayMs: 20,
+      clock,
     });
-    const outcomes = await dispatchDocumentationEvent(
-      mergeEvent('fix: only technical'),
-      { ...baseOptions, ...instant, fetchImpl, timeoutMs: 5 },
+    const outcomes = await clock.run(
+      dispatchDocumentationEvent(mergeEvent('fix: only technical'), {
+        ...baseOptions,
+        ...options,
+        fetchImpl,
+        timeoutMs: 5,
+      }),
     );
     assert({
       given: 'a consult aborted at its deadline whose run has in fact answered',

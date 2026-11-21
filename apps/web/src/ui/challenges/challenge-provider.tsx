@@ -67,7 +67,7 @@ const readList = async (): Promise<ResourceRead<ChallengeList>> => {
     { jitless: true },
   );
   return parsed.success
-    ? { kind: 'found', value: parsed.data as ChallengeList }
+    ? { kind: 'found', value: parsed.data }
     : { kind: 'unavailable' };
 };
 

@@ -1,9 +1,10 @@
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
-import { rowsOf } from './raw-rows';
+import { z } from 'zod';
+import { query } from './raw-rows';
 import { readRoundYouth } from './round-youth-read';
 import { readYouthRecordingPeople } from './youth-recording-people';
 import { readStudentLiveRounds } from './youth-students-live';
+import type { TxSource } from './tx';
 import { youthReuseFencedSql } from './youth-round-sql';
 
 /**
@@ -15,7 +16,7 @@ import { youthReuseFencedSql } from './youth-round-sql';
 export const youthLiveReadOperations = ({
   database,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
 }) => ({
   readRoundYouth: (roundId: string) => readRoundYouth(database, roundId),
   /**
@@ -33,8 +34,9 @@ export const youthLiveReadOperations = ({
    * audience publisher also runs and whose role never reads media releases.
    */
   readRoundReuseFenced: async (roundId: string): Promise<boolean> => {
-    const [row] = await rowsOf<{ fenced: boolean }>(
+    const [row] = await query(
       database,
+      z.object({ fenced: z.boolean() }),
       sql`select ${youthReuseFencedSql(sql`${roundId}`)} as fenced`,
     );
     return row?.fenced ?? true;

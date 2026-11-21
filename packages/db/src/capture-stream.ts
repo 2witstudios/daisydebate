@@ -15,14 +15,14 @@ import {
   freshCaptureMutation,
   validCaptureIds,
   type CaptureDependencies,
-  type CaptureTx,
 } from './media-capture-context';
 import { transcriptObservations } from './schema/transcript-segments';
 import { utterances } from './schema/utterances';
 import { requireObservationWindow, sealAction } from './capture-rules';
+import type { Tx } from './tx';
 
 export async function observeCapturedStream(
-  tx: CaptureTx,
+  tx: Tx,
   input: z.infer<typeof captureObservationSchema>,
   dependencies: CaptureDependencies,
 ) {
@@ -82,7 +82,7 @@ export async function observeCapturedStream(
   return { duplicate: false, revision };
 }
 export async function sealCapturedStream(
-  tx: CaptureTx,
+  tx: Tx,
   input: z.infer<typeof captureSealSchema>,
   dependencies: CaptureDependencies,
 ): Promise<{

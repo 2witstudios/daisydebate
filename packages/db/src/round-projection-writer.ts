@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { freezeRoundFinalization } from './round-finalization-writer';
 import {
   isRoundOver,
@@ -8,7 +9,6 @@ import {
 } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
 import { and, eq, isNull, sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type {
   RoundOutcome,
   RoundProjection,
@@ -40,8 +40,7 @@ import { roundPrivateSpans } from './schema/round-private-spans';
 import { roundSegments } from './schema/round-segments';
 import { rounds } from './schema/rounds';
 import { notifyWork, type WorkKind } from './work-wake';
-
-type Tx = Pick<BunSQLDatabase, 'select' | 'update' | 'insert' | 'execute'>;
+import type { Tx } from './tx';
 
 /** Append the canonical content-free invalidation for a persisted Round revision. */
 export async function appendRoundPhaseChanged(
@@ -164,11 +163,11 @@ export async function writeProjectionWithPhaseSignal(
       .set({
         finalSegmentEndedAt: new Date(projection.finalSegmentEndedAt),
         transcriptAdmissionCutoff: new Date(
-          Date.parse(projection.finalSegmentEndedAt) +
+          instantMs(projection.finalSegmentEndedAt) +
             TRANSCRIPT_ADMISSION_WINDOW_MS,
         ),
         attendanceResolutionCutoffAt: new Date(
-          Date.parse(projection.finalSegmentEndedAt) +
+          instantMs(projection.finalSegmentEndedAt) +
             attendanceTimingPolicy.resolutionCutoffMs,
         ),
       })
@@ -262,7 +261,7 @@ export async function insertCommandRow(
     payloadDigest: command.payloadDigest,
     result: command.result,
     resultingVersion,
-    appliedAt: sql`statement_timestamp()` as unknown as Date,
+    appliedAt: sql`statement_timestamp()`,
   });
   if (
     transition &&
@@ -291,7 +290,7 @@ const prepFacts = (
   checkpoint: z.infer<typeof runtimeCheckpointSchema>,
 ): { startedAtMs: number; consumedMs: number } | null =>
   checkpoint.active_prep && {
-    startedAtMs: Date.parse(checkpoint.active_prep.started_at),
+    startedAtMs: instantMs(checkpoint.active_prep.started_at),
     consumedMs: prepConsumedOf(checkpoint, checkpoint.active_prep.side),
   };
 
@@ -317,9 +316,9 @@ export async function writePrivateSpans(
         ? prepConsumedOf(after, before.active_prep.side)
         : 0,
     },
-    Date.parse(now),
+    instantMs(now),
     projection.finalSegmentEndedAt
-      ? Date.parse(projection.finalSegmentEndedAt)
+      ? instantMs(projection.finalSegmentEndedAt)
       : null,
   );
   for (const change of changes)
@@ -400,6 +399,7 @@ async function writeProjection(
         and(eq(roundSegments.id, back.id), eq(roundSegments.roundId, roundId)),
       );
   for (const insert of projection.segmentInserts) {
+    const endedAt = closes.get(insert.id);
     try {
       await tx.insert(roundSegments).values({
         id: insert.id,
@@ -409,9 +409,7 @@ async function writeProjection(
         rulesSegmentKey: insert.rulesSegmentKey,
         startedAt: new Date(insert.startedAt),
         durationMs: insert.durationMs,
-        endedAt: closes.has(insert.id)
-          ? new Date(closes.get(insert.id)!)
-          : null,
+        endedAt: endedAt === undefined ? null : new Date(endedAt),
       });
     } catch (error) {
       if (isUniqueViolation(error))

@@ -28,9 +28,6 @@ export type SeatRatingReads = {
 /** Any Room view: the overlay reads and rewrites its participants alone. */
 type SeatedView = Pick<RoomView, 'participants' | 'ageRule'>;
 
-/** Daisy's one style (ADR 0142): every Room seat stands on Freestyle. */
-const seatStyle: RatingStyle = 'freestyle';
-
 /** The seated humans whose ratings a view may carry: never a bot or an anonymous judge. */
 export const ratedSeatActorIds = (view: SeatedView): readonly string[] => [
   ...new Set(
@@ -63,11 +60,11 @@ export const overlaySeatRatings = <View extends SeatedView>(
         return { ...p, rating: null };
       // A debater's rating on the Room's own ladder (ADR 0156); anyone
       // else's active-season rating, which is on one division at a time.
+      // Every rating is Freestyle, Daisy's one style (ADR 0142).
       const debater = isDebatingSeat(p.seat);
       const state = input.ratings.find(
         (r) =>
           r.actorId === p.actorId &&
-          r.ladder === seatStyle &&
           (!debater || r.division === ratingDivisionForAgeRule(view.ageRule)),
       );
       if (!state) return { ...p, rating: null };

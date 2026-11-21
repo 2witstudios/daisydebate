@@ -22,7 +22,7 @@ export const rubricCategories = <V extends BallotRubricVersion>(
 ): readonly CategoryOf<V>[] =>
   ballotRubrics[version].flatMap((group) =>
     group.categories.map((category) => category.id),
-  ) as readonly CategoryOf<V>[];
+  );
 
 /** The current rubric's ten category ids, in rubric order. */
 export const ballotCategories = [

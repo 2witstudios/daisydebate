@@ -74,7 +74,7 @@ describe('SettingsPage', () => {
         html.match(/<form /g)?.length,
         html.includes('href="/profile/debater-a"'),
         html.includes('href="/settings/security"'),
-        // ISSUE-833: the data-rights forms post natively, without script.
+        // ISSUE-833: the data-rights forms post natively, before hydration.
         [
           html.includes('action="/api/privacy/export"'),
           html.includes('action="/api/privacy/erase"'),

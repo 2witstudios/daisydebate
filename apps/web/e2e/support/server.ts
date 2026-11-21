@@ -3,7 +3,7 @@ import { withAnalyticsFixture } from './analytics-fixture-fetch';
 import { messagingBrowserFiles } from './messaging-files-runtime';
 import { messagingBrowserPolicy } from './messaging-policy';
 import { launchProofPolicy } from './room-launch-policy';
-import { systemClock, systemId } from '@daisy/clock';
+import { nowMs, systemClock, systemId } from '@daisy/clock';
 import { createApp } from '../../src/server/app';
 import { nextWorkerToken } from '../../src/server/worker-token';
 import { loadBillingRoutes } from '../../src/server/billing-route-loader';
@@ -87,7 +87,7 @@ if (process.env.BROADCAST_PUBLIC_ORIGIN)
     feedOrigin: process.env.BROADCAST_PUBLIC_ORIGIN,
     publish: (path, body) => publishedStates.set(path, body),
     withdraw: (path) => publishedStates.delete(path),
-    now: () => Date.parse(systemClock.now()),
+    now: () => nowMs(systemClock),
   });
 
 // ISSUE-279: this process's event-loop delay, one log line a second, so a

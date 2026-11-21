@@ -7,7 +7,6 @@ import {
   lockCaptureRound,
   type CaptureDependencies,
   type CaptureIdentity,
-  type CaptureTx,
 } from './media-capture-context';
 import { roundParticipants } from './schema/round-participants';
 import { mediaParticipants } from './schema/media-sessions';
@@ -16,17 +15,14 @@ import { roundSegments } from './schema/round-segments';
 import { roundSpeakingIntervals } from './schema/round-speaking-intervals';
 import { rounds } from './schema/rounds';
 import { requireLiveCaptureLease } from './capture-rules';
+import type { Tx } from './tx';
 
 type ReadScope = CaptureIdentity & {
   readonly segmentId?: string | undefined;
   readonly expectedVersion?: number | undefined;
   readonly afterIntervalId?: string | undefined;
 };
-const historyPage = async (
-  tx: CaptureTx,
-  input: ReadScope,
-  segmentId: string,
-) => {
+const historyPage = async (tx: Tx, input: ReadScope, segmentId: string) => {
   const rows = await tx
     .select()
     .from(roundSpeakingIntervals)
@@ -51,7 +47,7 @@ const historyPage = async (
       startedVersion: row.startedVersion,
       endedVersion: row.endedVersion,
     })),
-    nextIntervalId: rows.length > 512 ? page.at(-1)!.id : null,
+    nextIntervalId: rows.length > 512 ? page[page.length - 1]!.id : null,
   };
 };
 
@@ -70,7 +66,7 @@ const segmentView = (segment: typeof roundSegments.$inferSelect | undefined) =>
 
 /** Internal paged read; every page checks the same fresh committed Round version. */
 export async function readMediaCaptureState(
-  tx: CaptureTx,
+  tx: Tx,
   input: ReadScope,
   dependencies: CaptureDependencies,
 ) {
@@ -86,6 +82,7 @@ export async function readMediaCaptureState(
     .select({ status: rounds.status })
     .from(rounds)
     .where(eq(rounds.id, input.roundId));
+  if (!round) throw createAppError('NOT_FOUND');
   const [segment] = await tx
     .select()
     .from(roundSegments)
@@ -136,7 +133,7 @@ export async function readMediaCaptureState(
     sessionId: input.sessionId,
     version: tick.resultingVersion,
     serverNow: now.toISOString(),
-    status: round!.status,
+    status: round.status,
     transcriptAdmissionCutoff: tick.transcriptAdmissionCutoff,
     participants,
     segment: segmentView(segment),

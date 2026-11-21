@@ -24,7 +24,7 @@ import {
 } from './command-record';
 import { applyJudgeRegistrationWrites } from './judge-registration-writes';
 import type { JudgeRegistrationWrite } from './judge-registration-write';
-import type { TabDatabase, TabTransaction } from './tab-transaction';
+import { inTransaction, type Tx, type TxOpener } from '../tx';
 
 export type JudgeRegistrationCommand = Exclude<
   JudgeCommand,
@@ -38,7 +38,7 @@ export type JudgeRegistrationInput = {
   readonly now: string;
 };
 const namedJudge = async (
-  tx: TabTransaction,
+  tx: Tx,
   command: JudgeRegistrationCommand,
   lobbyId: string,
 ) => {
@@ -55,7 +55,7 @@ const namedJudge = async (
     );
   return row ?? null;
 };
-const load = async (tx: TabTransaction, input: JudgeRegistrationInput) => {
+const load = async (tx: Tx, input: JudgeRegistrationInput) => {
   await scopeTransaction(tx, { subjectUserId: input.senderUserId });
   const [found] = await tx
     .select()
@@ -174,12 +174,12 @@ export type JudgeRegistrationSession = {
     receipt: LobbyCommandReceipt,
   ) => Promise<void>;
 };
-export const createJudgeRegistrationStore = (database: TabDatabase) => ({
+export const createJudgeRegistrationStore = (database: TxOpener) => ({
   judgeRegistrationCommand: <Answer>(
     input: JudgeRegistrationInput,
     work: (session: JudgeRegistrationSession) => Promise<Answer>,
   ): Promise<Answer> =>
-    database.transaction(async (tx) =>
+    inTransaction(database, async (tx) =>
       work({
         load: () => load(tx, input),
         stored: (id) => storedCommand(tx, id),

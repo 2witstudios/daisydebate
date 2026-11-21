@@ -100,7 +100,6 @@ mock.module(join(import.meta.dir, '../../lib/request-session.ts'), () => ({
       : [],
   requestRoomCreateLobbyChoice: async () => null,
   privateGroupsOffered: () => false,
-  messagingFilesAvailable: () => false,
   messagingLatestPageItems: () => 50,
   // Settings reads the member's own onboarding answers (ISSUE-324); a
   // visitor has none admitted.

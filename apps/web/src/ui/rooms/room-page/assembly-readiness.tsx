@@ -124,7 +124,7 @@ const confirmId = 'ready-confirm';
 /**
  * What a seat agrees to by readying, asked only when I'm ready is pressed:
  * the ranked waiver while unsigned, the casual capture notice, the post-round
- * call. A native popover, so it opens without script; null when there is
+ * call. A native popover, so it opens before hydration; null when there is
  * nothing to ask.
  */
 function ReadyConfirm({
@@ -183,8 +183,7 @@ function startBlocked(view: View, actorId: string, local: LocalReadiness) {
   const admissionBlocked =
     view.botAdmission !== null &&
     (view.botAdmission.kind === 'unavailable' ||
-      (view.botAdmission.kind === 'allowance' &&
-        view.botAdmission.refusal !== null));
+      view.botAdmission.refusal !== null);
   return (
     !view.capabilities.canStart ||
     startFence(view, actorId, local) ||

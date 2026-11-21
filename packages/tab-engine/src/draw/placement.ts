@@ -52,7 +52,7 @@ export const poolOf = (
   const fixed = new Set(
     request.existing
       .filter((f) => f.hold === 'fixed')
-      .flatMap((f) => entriesOfFixture(f.fixture as Fixture)),
+      .flatMap((f) => entriesOfFixture(f.fixture)),
   );
   return canonicalOrder(
     request.entries.filter((e) => e.status === 'active' && !fixed.has(e.id)),
@@ -122,7 +122,7 @@ export const placedFrom = (
   return {
     kept: request.existing
       .filter((f) => f.hold === 'fixed' || keeps.has(f.id))
-      .map((f) => ({ id: f.id, fixture: f.fixture as Fixture })),
+      .map((f) => ({ id: f.id, fixture: f.fixture })),
     added,
     withdrawn: request.existing
       .filter((f) => f.hold === 'movable' && !keeps.has(f.id))

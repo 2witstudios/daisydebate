@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import {
   tenantIsolationManifest,
   type TenantIsolationManifest,
@@ -7,8 +8,8 @@ import {
 } from './tenant-isolation-manifest';
 import {
   tenantDefinerFactsSql,
+  tenantDefinerFactsRow,
   tenantDefinerProblems,
-  type TenantDefinerFacts,
 } from './tenant-definers';
 
 /**
@@ -27,31 +28,26 @@ export type TenantPolicy = {
   readonly withCheck: string | null;
 };
 
-type PolicyFacts = {
-  readonly name: string;
-  /** `pg_policy.polcmd`: `*` all, `r` select, `a` insert, `w` update, `d` delete. */
-  readonly command: string;
-  readonly permissive: boolean;
-  readonly roles: readonly string[];
-  readonly using: string | null;
-  readonly withCheck: string | null;
-};
+export const tenantTableFactsRow = z.object({
+  table: z.string(),
+  rowSecurity: z.boolean(),
+  columns: z.array(z.object({ name: z.string(), notNull: z.boolean() })),
+  policies: z.array(
+    z.object({
+      name: z.string(),
+      command: z.string(),
+      permissive: z.boolean(),
+      roles: z.array(z.string()),
+      using: z.string().nullable(),
+      withCheck: z.string().nullable(),
+    }),
+  ),
+  checks: z.array(z.string()),
+  references: z.array(z.string()),
+  openGrantees: z.array(z.string()),
+});
 
-export type TenantTableFacts = {
-  readonly table: string;
-  readonly rowSecurity: boolean;
-  readonly columns: ReadonlyArray<{
-    readonly name: string;
-    readonly notNull: boolean;
-  }>;
-  readonly policies: readonly PolicyFacts[];
-  /** Definitions of the validated CHECK constraints. */
-  readonly checks: readonly string[];
-  /** The tables its foreign keys reference. */
-  readonly references: readonly string[];
-  /** `PUBLIC` or `daisy_realtime`, where either holds a privilege on it. */
-  readonly openGrantees: readonly string[];
-};
+export type TenantTableFacts = Readonly<z.output<typeof tenantTableFactsRow>>;
 
 /** Plain SQL with no parameters, so any client can run it. */
 export const tenantIsolationFactsSql = `
@@ -242,13 +238,13 @@ const keyProblems = (
     ],
     person: [],
     history: [
-      ...historyColumns.map((name) =>
-        column(name) === undefined
-          ? `${entry.table} has no ${name} column`
-          : column(name)!.notNull
-            ? `${entry.table}.${name} must permit the other history scopes`
-            : null,
-      ),
+      ...historyColumns.map((name) => {
+        const value = column(name);
+        if (!value) return `${entry.table} has no ${name} column`;
+        return value.notNull
+          ? `${entry.table}.${name} must permit the other history scopes`
+          : null;
+      }),
       facts.checks.includes(
         'CHECK ((num_nonnulls(organization_id, lobby_id, subject_person_user_id) = 1))',
       )
@@ -359,11 +355,11 @@ export const readTenantIsolationProblems = async (
   query: (statement: string) => PromiseLike<unknown>,
 ): Promise<readonly string[]> => [
   ...tenantIsolationProblems(
-    (await query(tenantIsolationFactsSql)) as readonly TenantTableFacts[],
+    z.array(tenantTableFactsRow).parse(await query(tenantIsolationFactsSql)),
     tenantIsolationManifest,
   ),
   ...tenantDefinerProblems(
-    (await query(tenantDefinerFactsSql)) as readonly TenantDefinerFacts[],
+    z.array(tenantDefinerFactsRow).parse(await query(tenantDefinerFactsSql)),
     tenantIsolationManifest,
   ),
 ];

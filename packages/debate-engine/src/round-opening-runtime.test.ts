@@ -1,3 +1,4 @@
+import { addMs } from '@daisy/clock';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { winnerOutcome } from '@daisy/protocol';
 import { edges } from './room-assembly.test-support';
@@ -258,7 +259,7 @@ test('inPreRoundPrep is true only while prep runs', () => {
       inPreRoundPrep({
         opening,
         seed: null,
-        now: new Date(Date.parse(at(1200)) - 1).toISOString(),
+        now: addMs(at(1200), -1),
       }),
       inPreRoundPrep({ opening, seed: null, now: at(1200) }),
     ],

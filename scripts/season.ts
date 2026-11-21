@@ -1,3 +1,4 @@
+import { tryInstantMs } from '@daisy/clock';
 /**
  * `bun season list | activate-beta | open | close`: opens and closes rating
  * seasons (ADR 0055). Seasons are run from an operator's terminal, never from
@@ -41,36 +42,14 @@ export type SeasonCommand =
   | { readonly kind: 'close'; readonly id: string; readonly endsAt: Date }
   | { readonly kind: 'usage'; readonly message: string };
 
-const ISO_INSTANT =
-  /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(\.\d+)?(Z|[+-](\d{2}):(\d{2}))$/;
-
-const daysIn = (year: number, month: number) =>
-  new Date(Date.UTC(year, month, 0)).getUTCDate();
-
-/**
- * Whether every calendar and clock component is real: `Date.parse` would
- * roll 2026-02-30 over to March 2 rather than refuse it.
- */
-function realInstant(match: RegExpExecArray): boolean {
-  const part = (index: number) => Number(match[index] ?? 0);
-  const [year, month] = [part(1), part(2)];
-  const bounds: ReadonlyArray<readonly [number, number, number]> = [
-    [month, 1, 12],
-    [part(3), 1, daysIn(year, month)],
-    [part(4), 0, 23],
-    [part(5), 0, 59],
-    [part(6), 0, 59],
-    [part(9), 0, 23],
-    [part(10), 0, 59],
-  ];
-  return bounds.every(([value, low, high]) => value >= low && value <= high);
-}
+const INSTANT_WITH_SECONDS = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/;
 
 /** An ISO 8601 instant with an offset, null when malformed, undefined when absent. */
 const instant = (value: string | undefined): Date | null | undefined => {
   if (value === undefined) return undefined;
-  const match = ISO_INSTANT.exec(value);
-  return match && realInstant(match) ? new Date(value) : null;
+  if (!INSTANT_WITH_SECONDS.test(value)) return null;
+  const at = tryInstantMs(value);
+  return at === undefined ? null : new Date(at);
 };
 
 /** The flags each command takes; any other flag is refused, never ignored. */

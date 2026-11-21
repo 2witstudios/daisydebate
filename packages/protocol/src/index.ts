@@ -89,7 +89,12 @@ export {
   speakingSeatsOf,
 } from './format-seating';
 export type { FormatSeating, SpeakRights } from './format-seating';
-export { rateableOutcome, winnerOutcome, winningSideOf } from './round-outcome';
+export {
+  rateableOutcome,
+  roundOutcomeSchema,
+  winnerOutcome,
+  winningSideOf,
+} from './round-outcome';
 export type { RoundOutcome, WinnerOutcome } from './round-outcome';
 export {
   formatDefinitionSchema,
@@ -378,6 +383,8 @@ export {
   messagingDmResultSchema,
   messagingDmDecisionResultSchema,
   messagingChannelLifecycles,
+  messagingPrivateGroupPolicySchema,
+  messagingSocialCreationPolicySchema,
   messageRequestSettings,
   messageRequestSettingSchema,
 } from './messaging/social';

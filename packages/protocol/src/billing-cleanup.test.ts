@@ -18,6 +18,27 @@ import {
   second,
 } from './billing-cleanup.test-support';
 setupRitewayBun();
+test('malformed review times produce a persisted state refusal', () => {
+  const acknowledged = {
+    kind: 'acknowledged',
+    jobId: 'a'.repeat(24),
+    outcome: 'vendor-deleted',
+    checkedAt: at(0),
+    nextAt: at(1),
+  };
+  assert({
+    given: 'a valid acknowledged state and a malformed checked timestamp',
+    should:
+      'accept the valid state and reject the malformed one without throwing',
+    actual: [
+      billingCleanupSchema.safeParse(acknowledged).success,
+      billingCleanupSchema.safeParse({ ...acknowledged, checkedAt: 'garbage' })
+        .success,
+    ],
+    expected: [true, false],
+  });
+});
+
 test('bounded cleanup interleaves lanes and durably retains selected page remainder and invoice authority', () => {
   const p1 = 'p'.repeat(24),
     p2 = 'q'.repeat(24);

@@ -1,5 +1,4 @@
 import { readFixtureWaiverRound } from './fixture-waiver-round';
-import { sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import { readDatabaseTime } from '../database-clock';
 import { readFixtureReadWaiver } from './fixture-read-waiver';
@@ -10,10 +9,11 @@ import {
   recordFixtureConflict,
   storedFixtureCommand,
 } from './fixture-command-observation';
-import type { TabDatabase, TabTransaction } from './tab-transaction';
+import { inTransaction, type Tx, type TxOpener } from '../tx';
+import { takeLock, transactionLocks } from '../locks';
 
 const load = async (
-  tx: TabTransaction,
+  tx: Tx,
   input: {
     readonly senderUserId: string;
     readonly lobbyId: string;
@@ -48,7 +48,7 @@ export type LoadedConflictWaiverRequest = NonNullable<
 >;
 
 /** A request can persist only an observation and a finite hold; only settlement can grant a waiver. */
-export const createConflictWaiverRequestStore = (database: TabDatabase) => ({
+export const createConflictWaiverRequestStore = (database: TxOpener) => ({
   conflictWaiverRequest: <Answer>(
     input: {
       readonly senderUserId: string;
@@ -74,10 +74,8 @@ export const createConflictWaiverRequestStore = (database: TabDatabase) => ({
       ) => ReturnType<typeof holdFixtureCommand>;
     }) => Promise<Answer>,
   ): Promise<Answer> =>
-    database.transaction(async (tx) => {
-      await tx.execute(
-        sql`select pg_advisory_xact_lock(59002,hashtext(${input.commandId}))`,
-      );
+    inTransaction(database, async (tx) => {
+      await takeLock(tx, transactionLocks.tabCommand(input.commandId));
       let loaded: LoadedConflictWaiverRequest | null = null;
       return work({
         load: async () => {

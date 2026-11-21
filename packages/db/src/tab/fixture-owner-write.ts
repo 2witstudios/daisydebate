@@ -11,7 +11,7 @@ import type {
   LoadedFixtureCommand,
   FixtureCommandInput,
 } from './fixture-command-facts';
-import type { TabTransaction } from './tab-transaction';
+import type { Tx } from '../tx';
 
 export type FixtureOwnerEffects = {
   readonly actorId: string;
@@ -35,7 +35,7 @@ export type FixtureOwnerEffects = {
 };
 /** Mirror a panel mutation through the ordinary owners; never edit the historical Start cast. */
 export async function applyFixtureJudge(
-  tx: TabTransaction,
+  tx: Tx,
   loaded: LoadedFixtureCommand,
   input: FixtureCommandInput,
   effects: FixtureOwnerEffects,
@@ -113,7 +113,7 @@ export async function applyFixtureJudge(
 
 /** Stop or invalidate the actual source, then close its Room and assemble exact pinned replacement. */
 export async function restartFixtureRoom(
-  tx: TabTransaction,
+  tx: Tx,
   loaded: LoadedFixtureCommand,
   effects: FixtureOwnerEffects,
   newRoomId: string,

@@ -1,5 +1,4 @@
 import { eq, sql } from 'drizzle-orm';
-import type { BoundedTransactionContext } from '../transaction-context';
 import { necessaryEvidence } from '../schema/necessary-evidence';
 import { sampleRoundExecutionTime } from '../round-execution-time';
 import { evidenceLeaseDigest } from '../necessary-evidence-policy';
@@ -7,9 +6,12 @@ import { nextEpoch } from '../lease-policy';
 import { select } from './select';
 import { lock } from './lock';
 import { eligible } from './eligible';
+import type { Tx } from '../tx';
+import { query } from '../raw-rows';
+import { z } from 'zod';
 /** Returned only after the owning bounded transaction commits the no-use fence. No external custody here. */
 export async function claim(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   input: { workerId: string; lane: 'attached' | 'detached' },
   options: { leaseMs: number; nextToken: () => string },
 ) {
@@ -18,14 +20,18 @@ export async function claim(
   const row = await lock(tx, id);
   if (!row) return { kind: 'idle' as const };
   // Revalidate positive facts after all relevant waits. A competing claim is never overwritten.
-  const [due] = (await tx.execute(sql`select
+  const [due] = await query(
+    tx,
+    z.object({
+      reason: z.enum(['settled', 'erased', 'expired', 'unreceived']),
+    }),
+    sql`select
     case when e.state='retiring' then e.retirement_reason
       when exists(select 1 from necessary_evidence_round_fences f where f.round_id=e.original_round_id and f.withdrawn_at is not null)
         or exists(select 1 from necessary_evidence_erasure_requests p where p.actor_id=any(e.original_subject_actor_ids))
       then 'erased' else 'expired' end as reason
-    from necessary_evidence e where e.id=${id} and ${eligible}`)) as unknown as {
-    reason: 'settled' | 'erased' | 'expired' | 'unreceived';
-  }[];
+    from necessary_evidence e where e.id=${id} and ${eligible}`,
+  );
   if (!due) return { kind: 'idle' as const };
   const executionEpoch = nextEpoch(
     row.executionEpoch,

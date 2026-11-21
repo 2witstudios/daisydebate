@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { sha3Hex } from '@daisy/digest';
 import type { ServerMessage } from '@daisy/protocol';
 import type { RealtimeAuthorityReads } from '@daisy/db';
 import type { RealtimeApp } from './app';
@@ -49,14 +49,7 @@ export function createRealtimeDelivery({
     });
   const authority = authorityOn(resources.database.admission);
   const renewal = authorityOn(resources.database.renewal);
-  const tuning = resources.transport ?? {
-    maxPerIp: 20,
-    maxUnauthenticated: 4,
-    maxPerActor: 8,
-    ringLimit: 2_000,
-    maxSubscriptions: 64,
-    allowedOrigins: [],
-  };
+  const tuning = resources.transport;
   // Codes only; the raw error never reaches a log line (ADR 0037).
   const reportUnavailable = (
     error: unknown,
@@ -109,7 +102,7 @@ export function createRealtimeDelivery({
       ticket: string,
       origin: string,
     ): Promise<SocketPrincipal | null> {
-      const digest = createHash('sha3-256').update(ticket).digest('hex');
+      const digest = sha3Hex(ticket);
       const binding = await resources.redis.consumeConnectTicket(
         digest,
         origin,

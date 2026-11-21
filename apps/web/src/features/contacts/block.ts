@@ -45,8 +45,11 @@ export async function blockContact(
       if (receipt) {
         if (receipt.kind !== 'contact.block' || receipt.digest !== digest)
           throw createAppError('CONFLICT');
+        // A receipt is written only by a block on the one locked pair, so a
+        // replay always finds that pair and the caller's side of it.
+        if (frame.blocking === null) throw createAppError('INVARIANT');
         return {
-          blocked: frame.blocking!,
+          blocked: frame.blocking,
           revision: frame.contacts[0]!.revision,
         };
       }

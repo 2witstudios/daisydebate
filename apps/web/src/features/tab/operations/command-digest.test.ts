@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { commandDigest } from './command-digest';
+import { commandDigest } from '@daisy/digest';
 
 setupRitewayBun();
 

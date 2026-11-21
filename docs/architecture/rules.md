@@ -60,7 +60,8 @@ These rules are blockers in every plan and review (owner, 2026-10-27 and
   consumers. A foundation whose reader is a committed leaf is the exception:
   declare it in `policy/planned-readers.json` with the task that reads it and a
   `reviewBy` date (ADR 0057), so a box may ship before its reader and still
-  go red if nobody adopts it.
+  go red if nobody adopts it. `bun policy` fails the declaration once shipping
+  source imports it, or if nothing imports it at all.
 - A new package requires a responsibility, owner, explicit public exports,
   allowed dependencies, tests, and a package-map row. Add package-specific
   `AGENTS.md` only when its rules differ from these.

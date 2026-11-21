@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import type { IdGenerator } from '@daisy/clock';
 import type { AttendanceEvaluation } from '@daisy/db/attendance';
 import type { Database } from '@daisy/db';
@@ -41,7 +42,7 @@ type CompletionBuilder = Parameters<
 export const panelCompletion =
   (nextId: () => string): CompletionBuilder =>
   ({ round, now, panel: facts, ballotIds }) => {
-    const nowMs = Date.parse(now);
+    const nowMs = instantMs(now);
     const panel = judgingPanelOf(facts, nowMs);
     if (panel === null) throw createRefusal('CONFLICT', 'panel-ineligible');
     const { judging, completeness, ballots } = facts;

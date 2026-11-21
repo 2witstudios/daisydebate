@@ -1,3 +1,4 @@
+import { addMs } from '@daisy/clock';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { sessionRefreshDue } from './session-policy';
 
@@ -5,8 +6,7 @@ setupRitewayBun();
 
 describe('sessionRefreshDue', () => {
   const now = '2026-09-20T12:00:00.000Z';
-  const expiresIn = (days: number) =>
-    new Date(Date.parse(now) + days * 24 * 60 * 60 * 1000).toISOString();
+  const expiresIn = (days: number) => addMs(now, days * 24 * 60 * 60 * 1000);
 
   test('is due only once a day has passed since the last extension', () => {
     assert({

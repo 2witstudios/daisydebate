@@ -1,3 +1,4 @@
+import { nowMs } from '@daisy/clock';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { isReleaseEnabled } from '../src/features/flags/server';
@@ -16,7 +17,7 @@ test('the public server reader uses allowed injected request composition and ded
         reads++;
         return app.database.readFlagSnapshot(accountId, keys);
       },
-      now: () => Date.parse(app.clock.now()),
+      now: () => nowMs(app.clock),
       diagnostic: () => {},
       releaseDefault: false,
     });

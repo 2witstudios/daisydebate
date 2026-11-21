@@ -87,7 +87,7 @@ export function standingRoomEnvelope(
   if (context.recording.locked && recording !== context.recording.value)
     throw createAppError('VALIDATION', 'Recording is locked');
   const chosen = singleFormField(form, 'resolution');
-  const topic = singleFormField(form, 'topic') ?? '';
+  const topic = singleFormField(form, 'topic');
   if (
     context.resolutionChoicePolicy.method === 'fixed' &&
     chosen === 'custom' &&

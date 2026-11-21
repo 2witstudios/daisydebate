@@ -90,17 +90,17 @@ describe('Adobe isolation rule', () => {
 });
 
 describe('realtime workspace edges (ADR 0031 §12)', () => {
-  test('the allowlist names exactly the eleven adopted realtime edges', () => {
+  test('the allowlist names exactly the twelve adopted realtime edges', () => {
     assert({
       given: 'allowedWorkspaceDependencies.realtime',
-      should:
-        'list exactly the eleven edges including the shared ingress adapter',
+      should: 'list exactly the twelve edges including shared SHA3-256',
       actual: [...allowedWorkspaceDependencies.realtime!].sort(),
       expected: [
         'auth',
         'clock',
         'config',
         'db',
+        'digest',
         'errors',
         'ingress',
         'logger',
@@ -140,7 +140,7 @@ describe('realtime workspace edges (ADR 0031 §12)', () => {
     });
   });
 
-  test('a realtime manifest depending on one of its ten allowed edges is not flagged', () => {
+  test('a realtime manifest depending on one of its allowed edges is not flagged', () => {
     assert({
       given: 'apps/realtime declaring @daisy/protocol',
       should: 'report no issue',

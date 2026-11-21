@@ -1,5 +1,5 @@
 import { createId } from '@paralleldrive/cuid2';
-import { fixedClock, systemId } from '@daisy/clock';
+import { instantMs, fixedClock, systemId } from '@daisy/clock';
 import { requireTestServices } from '@daisy/config';
 import { createDatabase } from '@daisy/db';
 import { DRIVE_LIMITS } from '@daisy/db/documents';
@@ -425,7 +425,7 @@ test('Recent orders only the owners newest edits first', async () => {
     await operations.createDocument(stranger, { folderId: null });
     await withSql(async (sql) => {
       for (const [index, doc] of docs.entries())
-        await sql`update documents set updated_at = ${new Date(Date.parse(NOW) + index * 1000)} where id = ${doc.id}`;
+        await sql`update documents set updated_at = ${new Date(instantMs(NOW) + index * 1000)} where id = ${doc.id}`;
     });
     assert({
       given:

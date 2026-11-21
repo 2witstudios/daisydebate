@@ -25,9 +25,9 @@ const competition = {
 } as const;
 
 /**
- * Closing is a link to the room itself, so it works without script and a
+ * Closing is a link to the room itself, so it works before hydration and a
  * refused save (which keeps the sheet open to show its error) is cleared by
- * the navigation. With script and nothing refused, closing just drops the
+ * the navigation. Once hydrated and with nothing refused, closing just drops the
  * fragment.
  */
 function closeSheet(sheet: HTMLElement | null): boolean {

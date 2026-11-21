@@ -1,3 +1,4 @@
+import { addMs, instantMs } from '@daisy/clock';
 import type { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { assert } from 'riteway/bun';
@@ -124,7 +125,7 @@ export const proveTournamentCaptureControl = async (input: {
   const pinned = recording.eligibility;
   const wrong = {
     ...pinned,
-    deadlineAt: new Date(Date.parse(pinned.deadlineAt) + 1).toISOString(),
+    deadlineAt: addMs(pinned.deadlineAt, 1),
   };
   const forged = await owner
     .begin(async (tx) => {
@@ -144,7 +145,7 @@ export const proveTournamentCaptureControl = async (input: {
       forged,
       (await captures.readPublicHistory(recording.id)).captureUntilMs,
     ],
-    expected: ['recordings_admission_deadline', Date.parse(pinned.deadlineAt)],
+    expected: ['recordings_admission_deadline', instantMs(pinned.deadlineAt)],
   });
 
   await pass();

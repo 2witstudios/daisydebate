@@ -8,6 +8,7 @@ import {
   type TwoSideKey,
 } from '@daisy/protocol';
 import type { Database } from '@daisy/db';
+import { createAppError } from '@daisy/errors';
 import type { Ladder, RoundView } from '@daisy/protocol';
 import { rateDebate, ratingAwaited } from '@daisy/debate-engine';
 import { ratingClassification, ratingStanding } from './standing';
@@ -74,6 +75,12 @@ export async function readRoundRatings(
     published.seasons.find((s) => s.id === postings[0]?.seasonId) ??
     published.seasons.find((s) => s.status === 'active');
   if (!season) return noSeason;
+  let ratedAt = now;
+  if (season.status === 'closed') {
+    if (season.endsAt === null)
+      throw createAppError('INTERNAL', 'A closed season has no end instant');
+    ratedAt = season.endsAt;
+  }
   const summaries = published.summaries.filter((s) => s.seasonId === season.id);
   const seats = round.participants.filter(
     (p) => !('anonymous' in p) && isDebatingSeat(p.seat),
@@ -130,11 +137,7 @@ export async function readRoundRatings(
       const current = standing(seat.actorId);
       const posted = postings.find((p) => p.actorId === seat.actorId);
       const view = current
-        ? ratingStanding(
-            current,
-            current.lastRatedAt,
-            season.status === 'closed' ? season.endsAt! : now,
-          )
+        ? ratingStanding(current, current.lastRatedAt, ratedAt)
         : null;
       const onAffirmative = sideOfSeat(seat.seat) === affirmativeSide;
       const after = (rated: typeof winA) =>

@@ -5,13 +5,13 @@ import {
   refundActionSchema,
   type RefundAction,
 } from '@daisy/protocol/billing';
-import type { BoundedTransactionContext } from './transaction-context';
 import { readDatabaseTime } from './database-clock';
 import {
   refundFromRow,
   requireRefundCustomer,
 } from './billing-refund-authority';
 import { billingRefundActions } from './schema/billing-refund-actions';
+import type { Tx } from './tx';
 export type RefundPayment = Pick<
   RefundAction,
   | 'mode'
@@ -48,7 +48,7 @@ function samePayment(action: RefundAction, other: RefundAction) {
 
 /** The caller owns canonical closed-account authority and atomically schedules any newly owed cleanup. */
 export async function admitRefundAction(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   input: {
     readonly userId: string;
     readonly closedAt: string;

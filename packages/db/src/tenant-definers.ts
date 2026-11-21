@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import type {
   TenantDefiner,
   TenantIsolationManifest,
@@ -11,20 +12,16 @@ import type {
  * check, wherever that runs.
  */
 
-/** A `SECURITY DEFINER` function, as the catalog has it. */
-export type TenantDefinerFacts = {
-  /** Its name; schema-qualified outside `public`. */
-  readonly name: string;
-  /**
-   * Its whole definition (`pg_get_functiondef`), so a `BEGIN ATOMIC` body,
-   * which `prosrc` leaves empty, is read too.
-   */
-  readonly source: string;
-  /** Its `SET` clauses (`proconfig`), such as `search_path=pg_catalog, public, pg_temp`. */
-  readonly config: readonly string[];
-  /** Every role besides its owner that may execute it, `PUBLIC` included. */
-  readonly executors: readonly string[];
-};
+export const tenantDefinerFactsRow = z.object({
+  name: z.string(),
+  source: z.string(),
+  config: z.array(z.string()),
+  executors: z.array(z.string()),
+});
+
+export type TenantDefinerFacts = Readonly<
+  z.output<typeof tenantDefinerFactsRow>
+>;
 
 /**
  * Plain SQL with no parameters: every `SECURITY DEFINER` function in any

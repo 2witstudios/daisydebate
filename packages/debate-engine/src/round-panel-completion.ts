@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { captureWithinLimit, type FrozenCapture } from '@daisy/protocol';
 import { createInvariantError } from '@daisy/errors';
 import {
@@ -119,8 +120,9 @@ function awaitedSeat(
   const generating = unruled.flatMap((standing) =>
     standing.state === 'generating' ? [standing.deadlineAt] : [],
   );
-  if (generating.length > 0)
-    return { on: 'ai_generating', deadlineAt: generating.sort().at(-1)! };
+  const latestGenerating = generating.sort().at(-1);
+  if (latestGenerating !== undefined)
+    return { on: 'ai_generating', deadlineAt: latestGenerating };
   if (unruled.some((standing) => standing.state === 'recovering'))
     return { on: 'ai_recovering' };
   if (unruled.some((standing) => standing.state === 'blocked'))
@@ -167,7 +169,7 @@ export function decidePanelCompletion(input: {
   const noRuling = judgeSeatIds.filter((id) => !ruled.has(id));
   const window = panel.humanWindow;
   const humanWindowOpen =
-    window !== null && input.nowMs < Date.parse(window.deadlineAt);
+    window !== null && input.nowMs < instantMs(window.deadlineAt);
   const awaited = awaitedSeat(panel, ruled, humanWindowOpen);
   if (awaited) return { kind: 'pending', waiting: awaited };
   if (submitted.length > 0 && submitted.length < judging.panel.quorum)

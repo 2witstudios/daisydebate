@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { sha3Hex } from '@daisy/digest';
 import { createAppError } from '@daisy/errors';
 import { ticketSchema } from '@daisy/protocol';
 import {
@@ -41,8 +41,7 @@ function randomTicket(): string {
   return ticket;
 }
 
-const hashTicket = (ticket: string): string =>
-  createHash('sha3-256').update(ticket).digest('hex');
+const hashTicket = (ticket: string): string => sha3Hex(ticket);
 
 /**
  * POST /api/realtime/ticket: the only way a browser obtains a realtime

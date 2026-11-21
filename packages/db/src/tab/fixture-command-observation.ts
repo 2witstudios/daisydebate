@@ -11,10 +11,10 @@ import type {
 } from '@daisy/protocol/authorization';
 import type { CommandExpected } from '@daisy/protocol/lobby/command';
 import { conflicts, pendingCommands } from '../schema/conflicts';
-import type { TabTransaction } from './tab-transaction';
+import type { Tx } from '../tx';
 
 export const recordFixtureConflict = async (
-  tx: TabTransaction,
+  tx: Tx,
   input: {
     readonly fixtureId: string;
     readonly lobbyId: string;
@@ -40,7 +40,7 @@ export const recordFixtureConflict = async (
   return rows[0]!.id;
 };
 export const holdFixtureCommand = async (
-  tx: TabTransaction,
+  tx: Tx,
   input: {
     readonly lobbyId: string;
     readonly proposerUserId: string;
@@ -72,7 +72,7 @@ export const holdFixtureCommand = async (
 };
 
 export const storedFixtureCommand = async (
-  tx: TabTransaction,
+  tx: Tx,
   lobbyId: string,
   id: string,
 ) => {

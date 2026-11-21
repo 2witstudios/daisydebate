@@ -1,3 +1,4 @@
+import { tryInstantMs } from '@daisy/clock';
 import type { SQL } from 'bun';
 import { idSchema } from '@daisy/protocol';
 import { z } from 'zod';
@@ -13,7 +14,7 @@ export async function seedMessagingBrowserAccounts(
   now: string,
 ) {
   accounts.forEach((account) => idSchema.parse(account.userId));
-  if (!Number.isFinite(Date.parse(now)))
+  if (tryInstantMs(now) === undefined)
     throw new Error('Invalid browser fixture instant');
   return client.begin(async (tx) => {
     const result: Array<BrowserAccount & { actorId: string }> = [];

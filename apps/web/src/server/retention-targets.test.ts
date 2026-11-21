@@ -1,6 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { fixedClock } from '@daisy/clock';
-import { createRetentionSweep, retentionTargets } from './retention-sweep';
+import { createRetentionSweep } from './retention-sweep';
+import { retentionTargets } from './retention-targets';
 import { provisionalLinkPurposes } from '../features/auth/mail/provisional-mail';
 import { createRecordingLogger } from './test-loggers.test-support';
 

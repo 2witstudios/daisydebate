@@ -9,11 +9,11 @@ import {
   loadStaffMinimumBand,
   lockOrganization,
 } from './organization-facts';
-import type { TabTransaction } from './tab-transaction';
+import type { Tx } from '../tx';
 
 /** Current authority at the addressed organization and/or exact lobby, under its metadata fences. */
 export const loadAuthorityContext = async (
-  tx: TabTransaction,
+  tx: Tx,
   scope: TenantScope,
   userId: string,
   strength: 'update' | 'share' | null = 'update',

@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import {
   divisionOfAgeBand,
   type AgeBand,
@@ -36,7 +37,7 @@ export const tournamentFirstDay = (
 ): string =>
   slotStarts.reduce(
     (earliest, start) =>
-      Date.parse(start) < Date.parse(earliest) ? start : earliest,
+      instantMs(start) < instantMs(earliest) ? start : earliest,
     slotStarts[0] ?? now,
   );
 

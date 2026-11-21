@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { mediaPhase } from '@daisy/debate-engine/media-window';
 import type { PostRoundCallFacts, RoundStatus } from '@daisy/protocol';
 import { dueAt, floorBoundaries, type FloorClock } from './floor-clock';
@@ -40,7 +41,7 @@ export type RecoverySession = {
 type RecoveryNeed = 'overdue' | 'floor' | 'repair' | 'heartbeat';
 
 const boundaryPassed = (session: RecoverySession, lastPassMs: number) => {
-  const nowMs = Date.parse(session.now);
+  const nowMs = instantMs(session.now);
   const { lastSegment, countdownMs } = session.clock;
   // Time alone can pass a speech's end and then its countdown with nothing committed.
   const afterOpenSpeech =
@@ -52,9 +53,9 @@ const boundaryPassed = (session: RecoverySession, lastPassMs: number) => {
 /** The floor has moved since this session's last pass, so LiveKit is behind it. */
 export const floorDue = (session: RecoverySession) => {
   if (session.lastPassAt === null) return false;
-  const lastPassMs = Date.parse(session.lastPassAt);
+  const lastPassMs = instantMs(session.lastPassAt);
   return (
-    Date.parse(session.roundChangedAt) >= lastPassMs ||
+    instantMs(session.roundChangedAt) >= lastPassMs ||
     boundaryPassed(session, lastPassMs)
   );
 };
@@ -66,8 +67,8 @@ export const recoveryNeed = (
   // Starting now would only poll the lease with a transaction every 25 ms.
   if (session.claimWait !== null) return null;
   if (session.lastPassAt === null) return 'repair';
-  const lastPassMs = Date.parse(session.lastPassAt);
-  const sinceLastPassMs = Date.parse(session.now) - lastPassMs;
+  const lastPassMs = instantMs(session.lastPassAt);
+  const sinceLastPassMs = instantMs(session.now) - lastPassMs;
   if (sinceLastPassMs >= MEDIA_RECOVERY_OVERDUE_MS) return 'overdue';
   if (floorDue(session)) return 'floor';
   if (
@@ -125,10 +126,15 @@ export const recoveryDue = <S extends RecoverySession>(
         !running.has(session.roundId) &&
         recoveryNeed(session, heartbeatMs) === need,
     );
-  // `filter` made this array, so sorting it in place touches nothing shared.
-  const [longestOverdue, ...otherOverdue] = needing('overdue').sort(
-    (a, b) => Date.parse(a.lastPassAt!) - Date.parse(b.lastPassAt!),
-  );
+  // An overdue session always has a last pass; each is read once, oldest first.
+  const [longestOverdue, ...otherOverdue] = needing('overdue')
+    .flatMap((session) =>
+      session.lastPassAt === null
+        ? []
+        : [{ session, lastPassMs: instantMs(session.lastPassAt) }],
+    )
+    .sort((a, b) => a.lastPassMs - b.lastPassMs)
+    .map(({ session }) => session);
   return [
     ...(longestOverdue ? [longestOverdue] : []),
     ...needing('floor'),

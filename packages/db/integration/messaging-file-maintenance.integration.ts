@@ -1,3 +1,4 @@
+import { addMs, instantMs } from '@daisy/clock';
 import { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -5,7 +6,10 @@ import { requireTestServices } from '@daisy/config';
 import { createAppError } from '@daisy/errors';
 import { assertRejects } from '@daisy/errors/testing';
 import { createId } from '@paralleldrive/cuid2';
-import { createMessagingTestFixture } from '../src/testing';
+import {
+  createMessagingTestFixture,
+  finishedOrBlockedBehind,
+} from '../src/testing';
 import { createMessagingFileMaintenance } from '../src/messaging-files/maintenance';
 import {
   withFileProofFrame,
@@ -16,6 +20,99 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
+
+test('maintenance validates bounds and defers a selected owner changed while the channel is fenced', async () => {
+  const client = new SQL(databaseUrl);
+  const fixture = await createMessagingTestFixture(client);
+  const { channelId, otherActorId } = fixture;
+  const statements: string[] = [];
+  const database = drizzle({
+    client,
+    logger: { logQuery: (query) => statements.push(query.trim()) },
+  });
+  const worker = createMessagingFileMaintenance(database);
+  const objectKey = createId();
+  const now = new Date(
+    instantMs(fixture.now) + fileDatabaseProofPolicy.reservationMs + 1,
+  ).toISOString();
+  const removed: string[] = [];
+  const remove = async (key: string) => {
+    removed.push(key);
+  };
+  try {
+    for (const maxItems of [0, 1.5, 65536])
+      await assertRejects({
+        given: 'an invalid worker bound',
+        should: 'refuse before SQL or object I/O',
+        actual: () => worker.run({ now, maxItems, remove }),
+        code: 'VALIDATION',
+      });
+    assert({
+      given: 'all malformed worker bounds',
+      should: 'leave all I/O untouched',
+      actual: [statements, removed],
+      expected: [[], []],
+    });
+    const file = await withFileProofFrame(database, fixture, (frame) =>
+      frame.reserve(
+        {
+          id: createId(),
+          objectKey,
+          requestId: createId(),
+          filename: 'proof.pdf',
+          mime: 'application/pdf',
+          bytes: 25,
+        },
+        fixture.now,
+        fileDatabaseProofPolicy,
+      ),
+    );
+    statements.length = 0;
+    const result = await client.begin(async (holder) => {
+      const [{ pid }] = await holder`select pg_backend_pid() as pid`;
+      await holder`select id from messaging_channels where id=${channelId} for update`;
+      const maintenance = worker.run({ now, maxItems: 1, remove });
+      const blocked = await finishedOrBlockedBehind(maintenance, client, pid, {
+        now: Date.now,
+      });
+      await holder`update messaging_files set owner_actor_id=${otherActorId} where id=${file.id}`;
+      return { blocked, maintenance };
+    });
+    const deferred = await result.maintenance;
+    const writesBeforeRetry = statements.some((query) =>
+      query.startsWith('update messaging_files'),
+    );
+    const [pending] =
+      await client`select lifecycle,owner_actor_id from messaging_files where id=${file.id}`;
+    const retried = await worker.run({ now, maxItems: 1, remove });
+    assert({
+      given:
+        'a real owner change that commits behind the expiry attempt’s channel wait',
+      should:
+        'reread under current fences, defer the changed file and expire it only after fencing its new owner',
+      actual: [
+        result.blocked,
+        deferred,
+        writesBeforeRetry,
+        pending,
+        retried,
+        removed,
+      ],
+      expected: [
+        'blocked',
+        { expiredChannels: 0, acknowledged: 0 },
+        false,
+        { lifecycle: 'reserved', owner_actor_id: otherActorId },
+        { expiredChannels: 1, acknowledged: 1 },
+        [objectKey],
+      ],
+    });
+  } finally {
+    await client`delete from messaging_files where channel_id=${channelId}`;
+    await fixture.cleanup();
+    await client.close();
+  }
+});
 test('trusted maintenance expires real pending reservations and releases quota only after actual private filesystem ACK', async () => {
   const client = new SQL(databaseUrl);
   const database = drizzle({ client });
@@ -48,7 +145,7 @@ test('trusted maintenance expires real pending reservations and releases quota o
           mime: 'application/pdf',
           bytes: 20,
         },
-        new Date(Date.parse(fixture.now) + 1).toISOString(),
+        addMs(fixture.now, 1),
         fileDatabaseProofPolicy,
       ),
     );
@@ -58,7 +155,7 @@ test('trusted maintenance expires real pending reservations and releases quota o
       mode: 0o600,
     });
     const now = new Date(
-      Date.parse(fixture.now) + fileDatabaseProofPolicy.reservationMs + 1,
+      instantMs(fixture.now) + fileDatabaseProofPolicy.reservationMs + 1,
     ).toISOString();
     const maintenance = createMessagingFileMaintenance(database);
     await assertRejects({
@@ -214,7 +311,7 @@ test('a poison physical object preserves its charge while later real file and er
       actual: () =>
         createMessagingFileMaintenance(database).run({
           now: new Date(
-            Date.parse(owner.now) + fileDatabaseProofPolicy.reservationMs + 1,
+            instantMs(owner.now) + fileDatabaseProofPolicy.reservationMs + 1,
           ).toISOString(),
           maxItems: 3,
           remove: async (key) => {

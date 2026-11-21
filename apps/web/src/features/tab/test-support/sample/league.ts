@@ -36,7 +36,7 @@ export const settingRow = <Key extends SettingKey>(
   key: Key,
   value: SettingValues[Key],
   hold: 'default' | 'enforced' = 'default',
-): SettingRow => ({ scope, key, value, hold }) as SettingRow;
+): SettingRow => ({ scope, key, value, hold });
 
 const tiebreakValue: SettingValues['standings.tiebreaks'] = {
   metrics: ['wins', 'total_points', 'opponent_wins', 'rating'],

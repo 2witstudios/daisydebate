@@ -17,7 +17,7 @@ import {
   lockEventSettingContext,
   EventSettingParentsChanged,
 } from './event-setting-context';
-import type { TabTransaction } from './tab-transaction';
+import type { Tx } from '../tx';
 
 /**
  * Tab's read-only input to ordinary Room direction. A snapshot prepares an
@@ -25,7 +25,7 @@ import type { TabTransaction } from './tab-transaction';
  * input can authorize a command or replay. No Room host or cast is invented.
  */
 const loadFixtureRoomDirection = async (
-  tx: TabTransaction,
+  tx: Tx,
   input: {
     readonly room: Pick<
       typeof rooms.$inferSelect,
@@ -162,13 +162,13 @@ const loadFixtureRoomDirection = async (
   };
 };
 export const loadRoomDirection = (
-  tx: TabTransaction,
+  tx: Tx,
   input: Parameters<typeof loadFixtureRoomDirection>[1],
 ) => loadFixtureRoomDirection(tx, input, 'current-room');
 
 /** Current authority over the original fixture, even after another Room replaced this one. */
 export const loadRoundDirection = (
-  tx: TabTransaction,
+  tx: Tx,
   input: Pick<
     Parameters<typeof loadFixtureRoomDirection>[1],
     'room' | 'userId'

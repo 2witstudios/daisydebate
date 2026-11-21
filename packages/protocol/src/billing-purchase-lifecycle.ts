@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { idSchema } from './primitives';
 import {
   currentPurchase,
@@ -12,7 +13,7 @@ import {
   type PurchaseTransition,
   type PurchaseWork,
 } from './billing-purchase';
-const at = Date.parse;
+const at = instantMs;
 const refuse = { kind: 'refuse' } as const;
 const unchanged = { kind: 'unchanged' } as const;
 

@@ -199,10 +199,9 @@ export async function readPeopleList(
       status,
       relation: relationOf(row, actorId),
       ratings: daisyLadders.map((ladder) => {
+        // Freestyle is every rating's style (ADR 0142); the division picks the ladder.
         const state = rated.find(
-          (rating) =>
-            rating.ladder === ladder.style &&
-            rating.division === ladder.division,
+          (rating) => rating.division === ladder.division,
         );
         if (hidden.has(row.actorId))
           return { ladder, rating: null, provisional: false, hidden: true };

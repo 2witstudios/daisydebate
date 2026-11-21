@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { sha3Hex } from '@daisy/digest';
 
 /**
  * The key a Round's published state lives under: its feed key and, on an unlisted
@@ -8,7 +8,4 @@ import { createHash } from 'node:crypto';
 export const audienceStateKey = (
   feedKey: string,
   linkHash: string | null,
-): string =>
-  createHash('sha3-256')
-    .update(`${feedKey}:${linkHash ?? 'public'}`)
-    .digest('hex');
+): string => sha3Hex(`${feedKey}:${linkHash ?? 'public'}`);

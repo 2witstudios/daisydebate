@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -748,7 +749,7 @@ test('a worker’s clock read is taken before any lock, so a lock wait never ske
     assert({
       given: 'a read that waits 600 ms on the Round lock',
       should: 'report the database clock from before the wait',
-      actual: Date.parse(now) - asked < 300,
+      actual: instantMs(now) - asked < 300,
       expected: true,
     });
   });

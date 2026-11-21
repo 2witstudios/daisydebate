@@ -1,9 +1,10 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
+import { assertRejects } from '@daisy/errors/testing';
 import { createId } from '@paralleldrive/cuid2';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { ratingAwaited } from '@daisy/debate-engine';
-import { readRatingCandidates } from '../src/rating-discovery';
+import { readRatingCandidates, readRatingFacts } from '../src/rating-discovery';
 import { withRatings } from './rating-fixtures';
 import { validRules } from './round-fixtures';
 
@@ -92,6 +93,40 @@ test('the writer answers a typed reason for a Round the engine leaves unrated', 
       should: 'leave it unrated, never a thrown conflict',
       actual: await rate(noResult.roundId),
       expected: { kind: 'unrated', reason: 'no-result' },
+    });
+  });
+});
+
+test('rating discovery isolates a corrupt ledger and an unreadable completion', async () => {
+  await withRatings(databaseUrl, async ({ fixture, seated }) => {
+    const ledger = await seated();
+    const completion = await seated();
+    const good = await seated();
+    await fixture.sql`update rounds set rules_snapshot =
+      jsonb_set(rules_snapshot, '{segments}', '[{"type":"speech"}]'::jsonb)
+      where id=${ledger.roundId}`;
+    // PostgreSQL can store infinity, but to_char cannot represent it as an instant.
+    await fixture.sql`update rounds set completed_at = 'infinity'
+      where id=${completion.roundId}`;
+    const db = drizzle({ client: fixture.sql });
+    const page = await readRatingCandidates(db, { limit: 100 });
+    assert({
+      given:
+        'two unreadable endings and one well-formed candidate in PostgreSQL',
+      should: 'keep both bad Round IDs and continue returning the good facts',
+      actual: [ledger, completion, good].map(({ roundId }) => {
+        const candidate = page.find((item) => item.roundId === roundId);
+        return candidate?.facts === null
+          ? 'unreadable'
+          : candidate?.facts !== undefined;
+      }),
+      expected: ['unreadable', 'unreadable', true],
+    });
+    await assertRejects({
+      given: 'the corrupt ledger read on its own',
+      should: 'refuse it as an invariant failure',
+      actual: () => readRatingFacts(db, ledger.roundId),
+      code: 'INVARIANT',
     });
   });
 });

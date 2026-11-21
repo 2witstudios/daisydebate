@@ -7,7 +7,7 @@ import {
 
 /**
  * What a live room shows once its Round has ended, while it moves to the
- * result page; the link is the same move without JavaScript.
+ * result page; the link is the same move before hydration.
  */
 export function RoundEndedNotice({
   roundId,

@@ -18,7 +18,7 @@ import type { LobbyCommandAnswer } from '@daisy/protocol/lobby/command';
 import type { TabPrincipal } from '../tab-principal';
 import { decideLobby, type LobbyFacts } from '../commands/lobby';
 import { CommandDenied, runLobbyCommand } from '../commands/run-command';
-import { commandDigest } from './command-digest';
+import { commandDigest } from '@daisy/digest';
 import { lobbyAdministrationAuthority } from './lobby-administration-authority';
 
 type Dependencies = {
@@ -52,6 +52,27 @@ const decisionFacts = (
           closedAt: lobby.closedAt,
           version: lobby.version,
         };
+  let lobbyFacts: LobbyFacts['lobby'] = null;
+  if (lobby !== null && common !== null) {
+    if (lobby.kind === 'standing') {
+      if (lobby.ownerOrganizationId === null)
+        throw createAppError(
+          'INVARIANT',
+          'A standing lobby has no owner organization',
+        );
+      lobbyFacts = {
+        ...common,
+        kind: 'standing',
+        ownerOrganizationId: lobby.ownerOrganizationId,
+      };
+    } else
+      lobbyFacts = {
+        ...common,
+        kind: 'tournament',
+        status: lobby.status,
+        admitsMinors: lobby.admitsMinors,
+      };
+  }
   return {
     now: input.now,
     newId: input.newId,
@@ -64,21 +85,7 @@ const decisionFacts = (
             id: organization.organization.organizationId,
             kind: organization.organization.organizationKind,
           },
-    lobby:
-      lobby === null || common === null
-        ? null
-        : lobby.kind === 'standing'
-          ? {
-              ...common,
-              kind: 'standing',
-              ownerOrganizationId: lobby.ownerOrganizationId!,
-            }
-          : {
-              ...common,
-              kind: 'tournament',
-              status: lobby.status,
-              admitsMinors: lobby.admitsMinors,
-            },
+    lobby: lobbyFacts,
     activeSeasonId: loaded.activeSeasonId,
     season: loaded.season,
     ladder: loaded.ladder,

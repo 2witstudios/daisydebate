@@ -1,5 +1,4 @@
 import { eq } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import { messagingChannels } from '../schema/messaging-channels';
 import {
@@ -9,10 +8,11 @@ import {
 } from './authority-frame';
 import type { MessagingChannelStore } from './records';
 import { lockStream, readStream, type ChannelStream } from './stream';
+import { inTransaction, type Tx, type TxSource } from '../tx';
 type Input = Parameters<MessagingChannelStore['withChannel']>[0];
 type AuthorityWork = Parameters<typeof withLockedMessagingAuthority>[2];
 type Frame = Parameters<AuthorityWork>[0] & {
-  readonly tx: Pick<BunSQLDatabase, 'select' | 'insert' | 'update' | 'execute'>;
+  readonly tx: Tx;
   readonly channel: typeof messagingChannels.$inferSelect;
   readonly stream: ChannelStream;
 };
@@ -53,11 +53,11 @@ const withChannelRow =
  * (exclusive fence) still waits for them, and they for it (MSG-2.2-arch1).
  */
 export async function withMessagingContent<T>(
-  database: BunSQLDatabase,
+  database: TxSource,
   input: Input,
   work: (frame: Frame) => Promise<T>,
 ): Promise<T> {
-  return database.transaction((tx) =>
+  return inTransaction(database, (tx) =>
     withSharedMessagingAuthority(
       tx,
       input,
@@ -68,11 +68,11 @@ export async function withMessagingContent<T>(
 
 /** Authority changes on a channel (DM decisions): exclusive fences. */
 export async function withMessagingAuthorityChange<T>(
-  database: BunSQLDatabase,
+  database: TxSource,
   input: Input,
   work: (frame: Frame) => Promise<T>,
 ): Promise<T> {
-  return database.transaction((tx) =>
+  return inTransaction(database, (tx) =>
     withLockedMessagingAuthority(
       tx,
       input,
@@ -83,7 +83,7 @@ export async function withMessagingAuthorityChange<T>(
 
 /** The read counterpart (MSG-2.1-arch1): shared fences and no stream lock. */
 export const readMessagingChannel = <T>(
-  database: BunSQLDatabase,
+  database: TxSource,
   input: Input,
   work: (frame: Frame) => Promise<T>,
 ): Promise<T> =>

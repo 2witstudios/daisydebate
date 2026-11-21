@@ -1,16 +1,17 @@
 import { fenceTabAccountRead } from './account-read-fence';
 import { loadGrantRows } from './grant-rows';
-import { eq, sql } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import type { OrganizationCommand } from '@daisy/protocol/lobby/organization-command';
 import { lobbies } from '../schema/lobbies';
 import { organizations } from '../schema/organizations';
 import { scopeTransaction, type TenantScope } from '../tenant-scope';
 import { lockTabCommandAccounts } from './command-accounts';
 import { namedPersonOf } from './organization-facts';
-import type { TabTransaction } from './tab-transaction';
+import type { Tx } from '../tx';
+import { takeLock, transactionLocks } from '../locks';
 
 const foundOrganization = async (
-  tx: TabTransaction,
+  tx: Tx,
   organizationId: string,
 ): Promise<{ readonly id: string } | undefined> => {
   const [organization] = await tx
@@ -28,7 +29,7 @@ const foundOrganization = async (
  * their own memberships and grants elsewhere stay readable.
  */
 const organizationScope = async (
-  tx: TabTransaction,
+  tx: Tx,
   input: {
     readonly senderUserId: string;
     readonly command: OrganizationCommand;
@@ -70,7 +71,7 @@ const organizationScope = async (
  * read, and answers the scope it set, for the steps that visit a lobby's.
  */
 export const fenceOrganizationCommand = async (
-  tx: TabTransaction,
+  tx: Tx,
   input: Parameters<typeof organizationScope>[1],
 ): Promise<TenantScope> => {
   // Organizations and lobbies are open to read, so the rows are found
@@ -78,17 +79,19 @@ export const fenceOrganizationCommand = async (
   await scopeTransaction(tx, { subjectUserId: input.senderUserId });
   const scope = await organizationScope(tx, input);
   await scopeTransaction(tx, scope);
+  const grantScope = scope.organizationId
+    ? {
+        organizationId: scope.organizationId,
+        ...(scope.lobbyId ? { lobbyId: scope.lobbyId } : {}),
+      }
+    : scope.lobbyId
+      ? { lobbyId: scope.lobbyId }
+      : null;
   const grant =
-    input.command.type === 'remove-grant' &&
-    (scope.organizationId || scope.lobbyId)
+    input.command.type === 'remove-grant' && grantScope
       ? (
           await loadGrantRows(tx, {
-            ...(scope.organizationId
-              ? {
-                  organizationId: scope.organizationId,
-                  ...(scope.lobbyId ? { lobbyId: scope.lobbyId } : {}),
-                }
-              : { lobbyId: scope.lobbyId! }),
+            ...grantScope,
             userIds: [],
             grantIds: [input.command.grantId],
           })
@@ -105,8 +108,9 @@ export const fenceOrganizationCommand = async (
     named === null ? [input.senderUserId] : [input.senderUserId, named],
   );
   if (input.command.type === 'create-organization') {
-    await tx.execute(
-      sql`select pg_advisory_xact_lock(hashtextextended(${`tab-organization-handle:${input.command.handle.toLowerCase()}`}, 0))`,
+    await takeLock(
+      tx,
+      transactionLocks.tabOrganizationHandle(input.command.handle),
     );
   }
   return scope;
@@ -114,7 +118,7 @@ export const fenceOrganizationCommand = async (
 
 /** Fences a read of one organization to it, once its row is found; answers the scope. */
 export const fenceOrganizationRead = async (
-  tx: TabTransaction,
+  tx: Tx,
   input: { readonly viewerUserId: string; readonly organizationId: string },
 ): Promise<TenantScope> => {
   const subject = { subjectUserId: input.viewerUserId };

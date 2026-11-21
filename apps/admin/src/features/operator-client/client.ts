@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import type { Clock } from '@daisy/clock';
 import {
   signOperatorRequest,
@@ -137,7 +138,7 @@ export function createOperatorClient(deps: {
         path: request.path,
         query: request.query,
         keyId: config.keyId,
-        timestamp: String(Date.parse(request.signedAt ?? deps.clock.now())),
+        timestamp: String(instantMs(request.signedAt ?? deps.clock.now())),
         nonce: toBase64Url(deps.random(NONCE_BYTES)),
         operatorRef,
         body: new TextEncoder().encode(request.body ?? ''),

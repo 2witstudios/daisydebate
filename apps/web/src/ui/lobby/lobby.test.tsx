@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { ladderCopyIn } from '../test-support/ladder-copy.test-support';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
@@ -28,7 +29,7 @@ const entry: RoomListEntry = {
   ageRule: 'adults',
   openJudgeSeats: 0,
 };
-const now = Date.parse('2026-10-26T12:00:00.000Z');
+const now = instantMs('2026-10-26T12:00:00.000Z');
 const query = (over: Partial<RoomListQuery> = {}): LobbyProps['query'] => ({
   q: '',
   pageSize: 20,

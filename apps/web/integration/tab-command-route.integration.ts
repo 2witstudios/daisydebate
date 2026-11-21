@@ -1,3 +1,4 @@
+import { addMs } from '@daisy/clock';
 import { peopleCommandEnvelope } from '../src/features/tab/organization-people-forms';
 import { createOwnedTournament } from './tab-tournament-owned-event.test-support';
 import { readTournamentSetup } from '../src/features/tab/reads/tournament-setup';
@@ -245,12 +246,7 @@ test('the HTTP command boundary runs the real tenant-fenced membership operation
       });
       const expiring = new FormData();
       for (const [key, value] of selected.entries()) expiring.set(key, value);
-      expiring.set(
-        'expiresAt',
-        new Date(Date.parse(world.clock.now()) + 60_000)
-          .toISOString()
-          .slice(0, 16),
-      );
+      expiring.set('expiresAt', addMs(world.clock.now(), 60_000).slice(0, 16));
       const expires = await route(world.bots.Director!)(
         request(
           peopleCommandEnvelope(

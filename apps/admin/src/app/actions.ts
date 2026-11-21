@@ -68,7 +68,7 @@ export async function completeSignIn(credential: unknown) {
   return { ok: true as const };
 }
 
-/** A plain form action: sign-out works without JavaScript. */
+/** A plain form action: sign-out posts before hydration too. */
 export async function signOutAction(): Promise<never> {
   await requireSameOrigin();
   const jar = await cookies();

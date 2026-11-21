@@ -1,4 +1,4 @@
-import { commandDigest } from './command-digest';
+import { commandDigest } from '@daisy/digest';
 /** A server-minted seed fixes selection once; caller command identity is not entropy. */
 export const orderedWordings = <Row extends { readonly id: string }>(
   rows: readonly Row[],

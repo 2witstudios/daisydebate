@@ -100,7 +100,7 @@ export function waitingOn(
 }
 
 export const ROOM_SETUP_ID = 'room-setup';
-/** Every way into Room setup is this fragment link, so it opens without script. */
+/** Every way into Room setup is this fragment link, so it opens before hydration. */
 export const ROOM_SETUP_HREF = `#${ROOM_SETUP_ID}`;
 
 /** "Setting up · 1 of 3 seats filled": the room's one status line. */

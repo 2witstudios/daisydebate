@@ -1,5 +1,4 @@
 import { sql, type SQL } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { z } from 'zod';
 import { idSchema, messagingChannelLifecycles } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
@@ -9,6 +8,8 @@ import {
   messagingGroupGrants,
 } from '../schema/messaging-social';
 import { contactPairs } from '../schema/contacts';
+import type { Tx } from '../tx';
+import { query } from '../raw-rows';
 
 const positiveRevision = z.number().int().positive().safe();
 
@@ -73,7 +74,6 @@ const channelFactSchema = z.union([
   }),
 ]);
 export type MessagingChannelFact = z.infer<typeof channelFactSchema>;
-export type MessagingTransaction = Pick<BunSQLDatabase, 'execute'>;
 
 /** Persistence validation, not an entitlement decision. Shared AZC evaluates it. */
 export function parseMessagingChannelFact(
@@ -128,35 +128,43 @@ const channelFactJoins = (actor: SQL) => sql`
  * No preference, cached age or friendship assertion is projected here.
  */
 export async function readMessagingChannelFact(
-  tx: MessagingTransaction,
+  tx: Tx,
   channelId: string,
   actorId: string,
 ): Promise<MessagingChannelFact | null> {
   idSchema.parse(channelId);
   idSchema.parse(actorId);
   const actor = sql`${actorId}::text`;
-  const rows = (await tx.execute(sql`
+  const rows = await query(
+    tx,
+    z.object({ fact: z.unknown() }),
+    sql`
     select ${channelFactObject(actor)} as fact
     from ${messagingChannels} c ${channelFactJoins(actor)}
     where c.id = ${channelId} and c.kind in ('dm','private_group') and (c.kind <> 'dm' or d.channel_id is not null)
-  `)) as unknown as Array<{ fact: unknown }>;
+  `,
+  );
   return rows.length === 0 ? null : parseMessagingChannelFact(rows[0]!.fact);
 }
 
 /** The existing DM a request can open, read under the caller's pair fence. */
 export async function readOpenDmFact(
-  tx: MessagingTransaction,
+  tx: Tx,
   actorId: string,
   pair: { readonly lowActorId: string; readonly highActorId: string },
 ): Promise<MessagingChannelFact | null> {
   const actor = sql`${actorId}::text`;
-  const rows = (await tx.execute(sql`
+  const rows = await query(
+    tx,
+    z.object({ fact: z.unknown() }),
+    sql`
     select ${channelFactObject(actor)} as fact
     from ${messagingChannels} c ${channelFactJoins(actor)}
     where c.kind = 'dm' and d.low_actor_id = ${pair.lowActorId}
       and d.high_actor_id = ${pair.highActorId}
       and d.request_state in ('pending','accepted')
-  `)) as unknown as Array<{ fact: unknown }>;
+  `,
+  );
   return rows.length === 0 ? null : parseMessagingChannelFact(rows[0]!.fact);
 }
 
@@ -165,7 +173,7 @@ export async function readOpenDmFact(
  * binding order; an absent channel is null at its index.
  */
 export async function readMessagingChannelFacts(
-  tx: MessagingTransaction,
+  tx: Tx,
   bindings: readonly { readonly channelId: string; readonly actorId: string }[],
 ): Promise<readonly (MessagingChannelFact | null)[]> {
   if (bindings.length === 0) return [];
@@ -175,12 +183,16 @@ export async function readMessagingChannelFacts(
     actor_id: idSchema.parse(binding.actorId),
   }));
   const actor = sql`w.actor_id`;
-  const rows = (await tx.execute(sql`
+  const rows = await query(
+    tx,
+    z.object({ index: z.int(), fact: z.unknown() }),
+    sql`
     select w.i as "index", ${channelFactObject(actor)} as fact
     from jsonb_to_recordset(${JSON.stringify(wanted)}::text::jsonb) as w(i integer, channel_id text, actor_id text)
     join ${messagingChannels} c on c.id = w.channel_id ${channelFactJoins(actor)}
     where c.kind in ('dm','private_group') and (c.kind <> 'dm' or d.channel_id is not null)
-  `)) as unknown as Array<{ index: unknown; fact: unknown }>;
+  `,
+  );
   const facts: (MessagingChannelFact | null)[] = bindings.map(() => null);
   for (const row of rows) {
     const index = Number(row.index);

@@ -12,7 +12,8 @@ async function clickLink(
   const link = [...host.querySelectorAll('a')].find(
     (candidate) =>
       (candidate.getAttribute('aria-label') ?? candidate.textContent) === text,
-  )!;
+  );
+  if (!link) throw new Error(`No link named "${text}" is mounted`);
   await act(async () => {
     link.dispatchEvent(
       new win.MouseEvent('click', {
@@ -42,7 +43,9 @@ export async function initiateConversationNavigation(
     await clickLink(win, host, 'Preferences', act);
   if (['search', 'invalid-search'].includes(scenario)) {
     await act(async () => {
-      host.querySelector('form')!.requestSubmit();
+      const form = host.querySelector('form');
+      if (!form) throw new Error('No search form is mounted');
+      form.requestSubmit();
     });
   }
   if (
@@ -53,12 +56,17 @@ export async function initiateConversationNavigation(
 }
 
 export function readMountedComposer(host: HTMLElement) {
-  const field = host.querySelector<HTMLTextAreaElement>('textarea')!;
+  const field = host.querySelector<HTMLTextAreaElement>('textarea');
+  const form = field?.form;
+  const requestId = form?.querySelector<HTMLInputElement>(
+    'input[name="requestId"]',
+  );
+  const button = form?.querySelector<HTMLButtonElement>('button');
+  if (!field || !requestId || !button)
+    throw new Error('No composer with a request id and a button is mounted');
   return {
-    requestId: field.form!.querySelector<HTMLInputElement>(
-      'input[name="requestId"]',
-    )!.value,
+    requestId: requestId.value,
     text: field.value,
-    ready: !field.form!.querySelector<HTMLButtonElement>('button')!.disabled,
+    ready: !button.disabled,
   };
 }

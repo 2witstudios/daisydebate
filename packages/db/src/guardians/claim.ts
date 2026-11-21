@@ -10,9 +10,7 @@ import { users } from '../schema/users';
 import { scopeTransaction } from '../tenant-scope';
 import type { Tx } from '../tx';
 
-type GuardianClaimTx = Pick<Tx, 'select' | 'insert' | 'update' | 'execute'>;
-
-async function findRequest(tx: GuardianClaimTx, userId: string, at: Date) {
+async function findRequest(tx: Tx, userId: string, at: Date) {
   const [request] = await tx
     .select({
       id: childAccountRequests.id,
@@ -54,7 +52,7 @@ async function findRequest(tx: GuardianClaimTx, userId: string, at: Date) {
 }
 
 export async function readChildAccountRequest(
-  tx: GuardianClaimTx,
+  tx: Tx,
   userId: string,
   at: Date,
 ) {
@@ -64,7 +62,7 @@ export async function readChildAccountRequest(
 
 /** The parent and child are fenced in the same user-id order as account mutations. */
 export async function lockChildAccountRequest(
-  tx: GuardianClaimTx,
+  tx: Tx,
   userId: string,
   at: Date,
 ) {
@@ -83,7 +81,7 @@ export async function lockChildAccountRequest(
 
 /** Caller holds both account fences and just recorded the binding birth month. */
 export async function claimChildAccount(
-  tx: GuardianClaimTx,
+  tx: Tx,
   request: NonNullable<Awaited<ReturnType<typeof findRequest>>>,
   childUserId: string,
   ids: { readonly linkId: string; readonly pendingBetaEventId: string },

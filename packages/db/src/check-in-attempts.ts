@@ -5,7 +5,9 @@ import {
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
-import type { AttendanceTransactionContext } from './attendance-facts';
+import type { Tx } from './tx';
+import { query } from './raw-rows';
+import { z } from 'zod';
 export type CheckInAttempt = {
   readonly attemptId: string;
   readonly commandId: string;
@@ -43,10 +45,7 @@ export function checkInAttemptLifecycle(
       if (opening === 'unopened') throw createAppError('INVARIANT');
       if (opening === 'absent') throw createAppError('NOT_FOUND');
     },
-    async open(
-      control: AttendanceTransactionContext,
-      metadata: CheckInAttemptMetadata,
-    ): Promise<void> {
+    async open(control: Tx, metadata: CheckInAttemptMetadata): Promise<void> {
       // Production retains the first writer-identity timestamp. An explicitly
       // injected proof resource supplies that same ingress instant in controlled UTC.
       receivedAt = roundTime
@@ -54,14 +53,18 @@ export function checkInAttemptLifecycle(
         : metadata.receivedAt;
       // Lock the parent through control COMMIT so concurrent erasure cannot
       // turn this existence decision into an INSERT foreign-key failure.
-      const rows = await control.execute(sql`with parent as (
+      const rows = await query(
+        control,
+        z.object({ attempt_id: z.string() }),
+        sql`with parent as (
         select id from rounds where id=${attempt.roundId} for key share
       ) insert into round_check_in_attempts(attempt_id,command_id,round_id,payload_digest,actor_id,service_id,received_at,backend_pid,backend_started_at,state)
-    select ${attempt.attemptId},${attempt.commandId},parent.id,${attempt.payloadDigest},${attempt.actorId},${attempt.serviceId},${receivedAt}::timestamptz,${metadata.writer.pid},${metadata.writer.backendStart}::timestamptz,'pending' from parent returning attempt_id`);
+    select ${attempt.attemptId},${attempt.commandId},parent.id,${attempt.payloadDigest},${attempt.actorId},${attempt.serviceId},${receivedAt}::timestamptz,${metadata.writer.pid},${metadata.writer.backendStart}::timestamptz,'pending' from parent returning attempt_id`,
+      );
       opening = rows.length === 1 ? 'present' : 'absent';
     },
     async close(
-      control: AttendanceTransactionContext,
+      control: Tx,
       metadata: CheckInAttemptMetadata,
       outcome: 'committed' | 'aborted',
     ): Promise<void> {
@@ -72,21 +75,26 @@ export function checkInAttemptLifecycle(
       // reconciler mid-transaction and then reads its committed state, and one
       // it already aborted for this writer is the same verified fact
       // (ISSUE-618). A single statement's snapshot would still see 'pending'.
-      const [held] = (await control.execute(
+      const [held] = await query(
+        control,
+        z.object({ state: z.string() }),
         sql`select state from round_check_in_attempts where attempt_id=${attempt.attemptId}
      and backend_pid=${metadata.writer.pid} and backend_started_at=${metadata.writer.backendStart}::timestamptz for update`,
-      )) as unknown as { state: string }[];
+      );
       if (outcome === 'aborted' && held?.state === 'aborted') return;
       const resolvedAt = roundTime
         ? sql`${await sampleRoundExecutionTime(control, roundTime)}::timestamptz`
         : sql`statement_timestamp()`;
-      const rows =
-        await control.execute(sql`update round_check_in_attempts a set state=${outcome},resolved_at=${resolvedAt}
+      const rows = await query(
+        control,
+        z.object({ attempt_id: z.string() }),
+        sql`update round_check_in_attempts a set state=${outcome},resolved_at=${resolvedAt}
     where a.attempt_id=${attempt.attemptId} and a.state='pending' and a.backend_pid=${metadata.writer.pid}
      and a.backend_started_at=${metadata.writer.backendStart}::timestamptz
      and (${outcome}='aborted' or exists(select 1 from round_commands c where c.command_id=a.command_id and c.round_id=a.round_id
       and c.type='check_in' and c.payload_digest=a.payload_digest and c.actor_id is not distinct from a.actor_id and c.service_id is not distinct from a.service_id))
-    returning a.attempt_id`);
+    returning a.attempt_id`,
+      );
       if (rows.length !== 1)
         throw createAppError(
           'INVARIANT',
@@ -97,28 +105,33 @@ export function checkInAttemptLifecycle(
 }
 /** Backend absence AND fresh ledger identity settle an orphan. Leases/age are never proof. */
 export async function reconcileCheckInAttempts(
-  control: AttendanceTransactionContext,
+  control: Tx,
   limit: number,
 ): Promise<number> {
   if (!Number.isSafeInteger(limit) || limit < 1 || limit > 1000)
     throw createAppError('VALIDATION');
-  const absent =
-    await control.execute(sql`select a.attempt_id from round_check_in_attempts a where a.state='pending'
+  const absent = await query(
+    control,
+    z.object({ attempt_id: z.string() }),
+    sql`select a.attempt_id from round_check_in_attempts a where a.state='pending'
     and not exists(select 1 from pg_stat_activity p where p.pid=a.backend_pid and p.backend_start=a.backend_started_at)
-    order by a.received_at limit ${limit} for update skip locked`);
-  const ids = (absent as unknown as { attempt_id: string }[]).map(
-    (row) => row.attempt_id,
+    order by a.received_at limit ${limit} for update skip locked`,
   );
+  const ids = absent.map((row) => row.attempt_id);
   if (ids.length === 0) return 0;
   // A SECOND READ COMMITTED statement sees commits that preceded confirmed backend absence.
   // Combining pg_stat_activity and ledger reads in one MVCC snapshot can falsely call a commit aborted.
-  const rows = await control.execute(sql`update round_check_in_attempts a set
+  const rows = await query(
+    control,
+    z.object({ attempt_id: z.string() }),
+    sql`update round_check_in_attempts a set
     state=case when exists(select 1 from round_commands c where c.command_id=a.command_id and c.round_id=a.round_id and c.type='check_in'
       and c.payload_digest=a.payload_digest and c.actor_id is not distinct from a.actor_id and c.service_id is not distinct from a.service_id)
       then 'committed' else 'aborted' end,resolved_at=statement_timestamp()
     where a.state='pending' and a.attempt_id in (${sql.join(
       ids.map((id) => sql`${id}`),
       sql`, `,
-    )}) returning a.attempt_id`);
+    )}) returning a.attempt_id`,
+  );
   return rows.length;
 }

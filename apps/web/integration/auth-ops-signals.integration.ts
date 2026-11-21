@@ -1,11 +1,9 @@
 import { createId } from '@paralleldrive/cuid2';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { systemClock } from '@daisy/clock';
+import { nowMs as clockNowMs, systemClock } from '@daisy/clock';
 import { requireTestServices } from '@daisy/config';
-import {
-  createRetentionSweep,
-  retentionTargets,
-} from '../src/server/retention-sweep';
+import { createRetentionSweep } from '../src/server/retention-sweep';
+import { retentionTargets } from '../src/server/retention-targets';
 import { createFaultedApp } from './fault-proxy';
 import { cookieHeader, createTestApp, linkFrom, tokenOf } from './fixtures';
 import { provisionalLinkPurposes } from '../src/features/auth/mail/provisional-mail';
@@ -84,7 +82,7 @@ describe('ISSUE-190 mail delivery failure signals', () => {
  */
 describe('ISSUE-190 and ISSUE-191 rate limiter unavailable signals', () => {
   const testApp = createTestApp({ OPS_PROBE_TOKEN: opsToken });
-  let nowMs = Date.parse(systemClock.now());
+  let nowMs = clockNowMs(systemClock);
   const clock = { now: () => new Date(nowMs).toISOString() };
   const {
     app,

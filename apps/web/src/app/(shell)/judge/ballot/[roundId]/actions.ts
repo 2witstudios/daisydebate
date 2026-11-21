@@ -10,23 +10,17 @@ import {
 import { hydratedPost, moveOn } from '../../../../../server/form-action';
 import { inProcessFetch } from '../../../../../server/in-process-fetch';
 import { processRoute } from '../../../../../server/process-app';
-const read = processRoute(
-  (routes) => (request) =>
-    routes.rounds.getBallots(
-      request,
-      new URL(request.url).pathname.split('/')[3] ?? '',
-    ),
-);
-const post = processRoute(
-  (routes) => (request) =>
-    routes.rounds.submitBallot(
-      request,
-      new URL(request.url).pathname.split('/')[3] ?? '',
-    ),
-);
+const read = (roundId: string) =>
+  processRoute(
+    (routes) => (request) => routes.rounds.getBallots(request, roundId),
+  );
+const post = (roundId: string) =>
+  processRoute(
+    (routes) => (request) => routes.rounds.submitBallot(request, roundId),
+  );
 export async function readPersistedBallot(roundId: string) {
   return readRoundBallot(
-    inProcessFetch(read, new Headers(await headers())),
+    inProcessFetch(read(roundId), new Headers(await headers())),
     roundId,
   );
 }
@@ -42,7 +36,7 @@ export async function submitBallotAction(
   // is kept for a retry, as any unacknowledged ballot is.
   if (current.kind !== 'found') return ballotUnavailable(form);
   const answer = await submitRoundBallotForm(
-    inProcessFetch(post, incoming),
+    inProcessFetch(post(roundId), incoming),
     roundId,
     form,
     ballotPlanOf(current.view),

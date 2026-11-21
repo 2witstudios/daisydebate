@@ -1,16 +1,17 @@
+import { tryInstantMs } from '@daisy/clock';
 import { createAppError, createRefusal } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import { and, eq, sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { rounds } from './schema/rounds';
 import { roundSegments } from './schema/round-segments';
 import { roundSpeakingIntervals } from './schema/round-speaking-intervals';
+import { inTransaction, type TxSource } from './tx';
 
 /** Historical capture evidence survives segment/Round closure; publication must fence cutoff/freeze separately. */
 export const roundSpeakingRead = ({
   database,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
 }) => ({
   async readRoundSpeakingEligibility(input: {
     readonly roundId: string;
@@ -20,20 +21,20 @@ export const roundSpeakingRead = ({
     readonly before: string;
     readonly after: string;
   }): Promise<{ readonly eligible: boolean; readonly version: number }> {
-    const before = Date.parse(input.before),
-      after = Date.parse(input.after);
+    const before = tryInstantMs(input.before),
+      after = tryInstantMs(input.after);
     if (
       ![input.roundId, input.segmentId, input.roundParticipantId].every(
         (id) => idSchema.safeParse(id).success,
       ) ||
       !Number.isSafeInteger(input.expectedVersion) ||
       input.expectedVersion < 1 ||
-      !Number.isFinite(before) ||
-      !Number.isFinite(after) ||
+      before === undefined ||
+      after === undefined ||
       before >= after
     )
       throw createAppError('VALIDATION');
-    return database.transaction(async (tx) => {
+    return inTransaction(database, async (tx) => {
       const [round] = await tx
         .select({ version: rounds.version })
         .from(rounds)

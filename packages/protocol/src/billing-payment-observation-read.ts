@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { z } from 'zod';
 import {
   ownedInvoiceObservationSchema,
@@ -90,7 +91,7 @@ function samePaymentIdentity(
 function coherentReadEvidence(read: OwnedPaymentObservation, closedAt: string) {
   if (
     read.source.kind === 'purchase' &&
-    Date.parse(read.source.admittedAt) > Date.parse(closedAt)
+    instantMs(read.source.admittedAt) > instantMs(closedAt)
   )
     return false;
   const evidence = read.evidence;

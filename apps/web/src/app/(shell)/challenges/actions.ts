@@ -22,9 +22,6 @@ import { moveOn } from '../../../server/form-action';
 import { inProcessFetch } from '../../../server/in-process-fetch';
 import { processRoute } from '../../../server/process-app';
 
-const roomIdOf = (request: Request) =>
-  new URL(request.url).pathname.split('/')[3] ?? '';
-
 const routes = {
   send: processRoute((all) => all.challenges.send),
   list: processRoute((all) => all.challenges.list),
@@ -33,12 +30,10 @@ const routes = {
   cancel: processRoute((all) => all.challenges.cancel),
   createRoom: processRoute((all) => all.rooms.create),
   catalog: processRoute((all) => all.rooms.catalog),
-  readRoom: processRoute(
-    (all) => (request) => all.rooms.read(request, roomIdOf(request)),
-  ),
-  roomCommands: processRoute(
-    (all) => (request) => all.rooms.commands(request, roomIdOf(request)),
-  ),
+  readRoom: (roomId: string) =>
+    processRoute((all) => (request) => all.rooms.read(request, roomId)),
+  roomCommands: (roomId: string) =>
+    processRoute((all) => (request) => all.rooms.commands(request, roomId)),
 };
 
 const roomVersion = z.object({ version: z.number() });
@@ -118,15 +113,15 @@ export async function acceptChallengeAction(
             moveOn,
           ),
         closeRoom: async (roomId) => {
-          const viewed = await inProcessFetch(routes.readRoom, incoming)(
-            `/api/rooms/${roomId}`,
-            { method: 'GET' },
-          );
+          const viewed = await inProcessFetch(
+            routes.readRoom(roomId),
+            incoming,
+          )(`/api/rooms/${roomId}`, { method: 'GET' });
           const room = roomVersion.safeParse(
             viewed.ok ? await viewed.json() : null,
           );
           if (!room.success) return;
-          await inProcessFetch(routes.roomCommands, incoming)(
+          await inProcessFetch(routes.roomCommands(roomId), incoming)(
             `/api/rooms/${roomId}/commands`,
             {
               method: 'POST',
@@ -158,7 +153,7 @@ const isRedirect = (error: unknown) =>
   typeof error === 'object' &&
   error !== null &&
   'digest' in error &&
-  String((error as { digest: unknown }).digest).startsWith('NEXT_REDIRECT');
+  String(error.digest).startsWith('NEXT_REDIRECT');
 
 /** Declines or withdraws an open offer. */
 export async function endChallengeAction(

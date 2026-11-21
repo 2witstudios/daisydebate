@@ -1,3 +1,4 @@
+import { nowMs } from '@daisy/clock';
 import { captureRule } from '@daisy/debate-engine';
 import { createRoundRuntime } from '@daisy/debate-engine';
 import { createAppError } from '@daisy/errors';
@@ -44,7 +45,7 @@ export function composeMediaCaptureRoutes(app: App) {
       if (!secret) throw createAppError('INFRASTRUCTURE');
       return (authentication ??= createMediaWorkerAuthentication({
         secret,
-        now: () => Date.parse(app.clock.now()),
+        now: () => nowMs(app.clock),
       }));
     },
     capture: operations,

@@ -9,26 +9,31 @@ import {
 } from './transaction-lifecycle';
 import { transactionSettlement } from './transaction-settlement';
 import { synchronizedTransactionClient } from './transaction-client';
-import {
-  transactionContext,
-  type BoundedTransactionContext,
-} from './transaction-context';
+import { transactionContext } from './transaction-context';
 import type { Lane } from './workload';
 import {
   recoverTransactionBackend,
   type OwnedBackend,
 } from './transaction-watchdog';
+import type { Tx } from './tx';
+import { z } from 'zod';
+import { query } from './raw-rows';
 
 const TRANSACTION_MS = 3000;
 /** A writer's work connection plus the watchdog that can terminate it. */
 const WRITER_CONNECTIONS = 2;
-type TransactionReceipt = TransactionMetadata;
+type TransactionReceipt = Omit<TransactionMetadata, 'writer'> & {
+  readonly writer: {
+    readonly pid: number;
+    readonly backendStart: string | null;
+  };
+};
 type TransactionOptions = {
   readonly lifecycle?: TransactionLifecycle;
   readonly executionMs?: number;
 };
 type TransactionWork<T> = (
-  tx: BoundedTransactionContext,
+  tx: Tx,
   signal: AbortSignal,
   receipt: TransactionReceipt,
 ) => Promise<T>;
@@ -47,7 +52,8 @@ class TransactionAttempt {
   private watchdog: ReservedSQL | undefined;
   private work: ReservedSQL | undefined;
   private backend: OwnedBackend | undefined;
-  private committing = false;
+  private writerBeginIssued = false;
+  private commitState: 'not-issued' | 'issued' | 'rolled-back' = 'not-issued';
   private scopeClosed = false;
   private readonly disposed = createAppError(
     'INVARIANT',
@@ -89,32 +95,47 @@ class TransactionAttempt {
     this.checkBudget();
   };
 
-  private async execute<T>(run: TransactionWork<T>): Promise<T> {
+  private async runWork<T>(run: TransactionWork<T>): Promise<T> {
     // No writer can hold a lock without its separately owned control connection.
     const options = { signal: this.controller.signal };
     this.watchdog = await this.client.reserve(options);
     this.checkBudget();
-    this.work = await this.client.reserve(options);
+    const writer = await this.client.reserve(options);
+    this.work = writer;
     this.checkBudget();
-    const [identity] = await this.work<
-      (OwnedBackend & { receivedAt: string })[]
-    >`select pg_backend_pid() as pid,
+    const [identity] = await query(
+      writer`select pg_backend_pid() as pid,
       backend_start::text as started,
       to_char(statement_timestamp() at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as "receivedAt"
-      from pg_stat_activity where pid=pg_backend_pid()`;
+      from pg_stat_activity where pid=pg_backend_pid()`,
+      z.object({
+        pid: z.int().positive(),
+        started: z.string().nullable(),
+        receivedAt: z.string(),
+      }),
+    );
     if (!identity)
       throw createAppError('INFRASTRUCTURE', 'Transaction backend unavailable');
-    this.backend = { pid: identity.pid, started: identity.started };
-    this.metadata = Object.freeze({
-      receivedAt: identity.receivedAt,
-      writer: Object.freeze({
-        pid: identity.pid,
-        backendStart: identity.started,
-      }),
-    });
+    const { pid, started, receivedAt } = identity;
+    // PostgreSQL can hide backend_start after SET ROLE. Such a writer can
+    // commit, but a PID alone cannot authorize a lifecycle or prove recovery.
+    if (started !== null) {
+      this.backend = { pid, started };
+      this.metadata = Object.freeze({
+        receivedAt,
+        writer: Object.freeze({ pid, backendStart: started }),
+      });
+    }
+    const receipt: TransactionReceipt =
+      this.metadata ??
+      Object.freeze({
+        receivedAt,
+        writer: Object.freeze({ pid, backendStart: null }),
+      });
     await this.runLifecycle('open');
     this.lifecycleOpened = this.lifecycle !== undefined;
     this.checkBudget();
+    this.writerBeginIssued = true;
     await this.work`begin isolation level read committed`;
     const backstop = String(Math.min(2000, this.executionMs));
     await this.work`select
@@ -139,19 +160,19 @@ class TransactionAttempt {
           this.checkLifetime();
           // Tenant addressing is adapter-owned. Arbitrary callback configuration
           // still passes through the unchanged rejecting statement guard.
-          await scopeReservedTransaction(this.work!, scope);
+          await scopeReservedTransaction(writer, scope);
           this.checkLifetime();
         },
       ),
       this.controller.signal,
-      this.metadata,
+      receipt,
     );
     this.scopeClosed = true;
     this.checkBudget();
-    this.committing = true;
+    this.commitState = 'issued';
     const completion = await this.work<{ command: string }>`commit`;
     if (completion.command !== 'COMMIT') {
-      this.committing = false;
+      if (completion.command === 'ROLLBACK') this.commitState = 'rolled-back';
       throw createAppError(
         'INFRASTRUCTURE',
         'Bounded transaction did not commit',
@@ -167,17 +188,20 @@ class TransactionAttempt {
     outcome: 'open' | 'committed' | 'aborted',
     deadline = this.deadline,
   ) {
-    if (!this.lifecycle) return;
+    const { lifecycle, watchdog, metadata } = this;
+    if (!lifecycle) return;
+    if (!watchdog || !metadata)
+      throw createAppError('INVARIANT', 'Transaction lifecycle has no backend');
     this.controlInUse = true;
     await runTransactionLifecycle({
-      control: this.watchdog!,
+      control: watchdog,
       now: this.now,
       deadline,
       refuse: this.refuseControl,
       run: (tx) =>
         outcome === 'open'
-          ? this.lifecycle!.open(tx, this.metadata!)
-          : this.lifecycle!.close(tx, this.metadata!, outcome),
+          ? lifecycle.open(tx, metadata)
+          : lifecycle.close(tx, metadata, outcome),
     });
     this.controlInUse = false;
   }
@@ -185,15 +209,27 @@ class TransactionAttempt {
   private async recover(error: unknown): Promise<never> {
     const recoveryDeadline = this.now() + 1000;
     this.controller.abort(error);
-    this.destroyed = this.work !== undefined;
+    const writer = this.work;
+    this.destroyed = writer !== undefined;
+    // With a hidden backend start only the original writer's command receipt
+    // can prove a rollback. A COMMIT in flight rules out that proof.
+    const rolledBack =
+      this.commitState === 'rolled-back' ||
+      (writer !== undefined &&
+        this.writerBeginIssued &&
+        this.backend === undefined &&
+        this.commitState === 'not-issued' &&
+        (await this.rollbackWriter(writer, recoveryDeadline)));
     // Never release an uncertain writer for another logical attempt on the same backend.
-    void this.work?.close({ timeout: 0 }).catch(() => undefined);
-    const absent = await this.confirmRollback(recoveryDeadline);
-    this.controlRecovered = absent;
-    await this.closeAbortedLifecycle(absent, recoveryDeadline);
+    void writer?.close({ timeout: 0 }).catch(() => undefined);
+    const absent =
+      !rolledBack && (await this.confirmRollback(recoveryDeadline));
+    const rollbackConfirmed = rolledBack || absent;
+    this.controlRecovered = rollbackConfirmed;
+    await this.closeAbortedLifecycle(rollbackConfirmed, recoveryDeadline);
     if (
-      !absent ||
-      this.committing ||
+      !rollbackConfirmed ||
+      this.commitState === 'issued' ||
       (this.lifecycleOpened && !this.lifecycleClosed)
     )
       throw createAppError(
@@ -218,11 +254,37 @@ class TransactionAttempt {
     throw createAppError('INFRASTRUCTURE', 'Bounded transaction failed', error);
   }
 
+  private async rollbackWriter(writer: ReservedSQL, deadline: number) {
+    const remaining = deadline - this.now();
+    if (remaining <= 0) return false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const rollback = async () => {
+      const receipt = await writer<{ command: string }>`rollback`;
+      return receipt.command === 'ROLLBACK';
+    };
+    try {
+      return await Promise.race([
+        rollback(),
+        new Promise<false>((resolve) => {
+          timer = setTimeout(() => resolve(false), remaining);
+        }),
+      ]);
+    } catch {
+      return false;
+    } finally {
+      if (timer !== undefined) clearTimeout(timer);
+    }
+  }
+
   private async closeAbortedLifecycle(
-    absent: boolean,
+    rollbackConfirmed: boolean,
     recoveryDeadline: number,
   ) {
-    if (absent && this.lifecycleOpened && !this.committing) {
+    if (
+      rollbackConfirmed &&
+      this.lifecycleOpened &&
+      this.commitState !== 'issued'
+    ) {
       try {
         await this.runLifecycle('aborted', recoveryDeadline);
         this.lifecycleClosed = true;
@@ -233,11 +295,11 @@ class TransactionAttempt {
   }
 
   private confirmRollback(deadline: number): Promise<boolean> {
-    if (this.work === undefined) return Promise.resolve(true);
     if (this.controlInUse) {
       void this.watchdog?.close({ timeout: 0 }).catch(() => undefined);
       return Promise.resolve(false);
     }
+    if (!this.writerBeginIssued) return Promise.resolve(true);
     const remaining = deadline - this.now();
     if (
       this.backend === undefined ||
@@ -260,7 +322,7 @@ class TransactionAttempt {
       );
     });
     try {
-      return await Promise.race([this.execute(work), budget]);
+      return await Promise.race([this.runWork(work), budget]);
     } catch (error) {
       return await this.recover(error);
     } finally {

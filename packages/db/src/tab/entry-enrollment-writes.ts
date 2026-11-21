@@ -4,7 +4,7 @@ import { entries, entryMembers } from '../schema/entries';
 import { events } from '../schema/events';
 import { bumpTabAccountRevision } from './command-accounts';
 import type { EntryEnrollmentWrite } from './entry-enrollment-write';
-import type { TabTransaction } from './tab-transaction';
+import type { Tx } from '../tx';
 const one = (rows: readonly unknown[]): void => {
   if (rows.length !== 1)
     throw createAppError(
@@ -12,10 +12,7 @@ const one = (rows: readonly unknown[]): void => {
       'Entry enrollment write did not affect one row',
     );
 };
-const apply = async (
-  tx: TabTransaction,
-  write: EntryEnrollmentWrite,
-): Promise<void> => {
+const apply = async (tx: Tx, write: EntryEnrollmentWrite): Promise<void> => {
   switch (write.table) {
     case 'entries':
       if (write.op === 'insert') {
@@ -45,7 +42,7 @@ const apply = async (
   }
 };
 export const applyEntryEnrollmentWrites = async (
-  tx: TabTransaction,
+  tx: Tx,
   writes: readonly EntryEnrollmentWrite[],
 ): Promise<void> => {
   for (const write of writes) await apply(tx, write);

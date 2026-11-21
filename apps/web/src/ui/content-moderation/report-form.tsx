@@ -6,7 +6,7 @@ import { reportReasonLabels } from '../../features/content-moderation/report-lab
 
 /**
  * Report a thing, with a closed reason. A native post under a closed details
- * element, so it needs no script and stays out of the way until wanted.
+ * element, so it needs no hydration and stays out of the way until wanted.
  */
 export function ReportForm({
   targetKind,

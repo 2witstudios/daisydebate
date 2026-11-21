@@ -11,10 +11,10 @@ import { settings } from '../schema/settings';
 import { scopeTransaction } from '../tenant-scope';
 import { loadAuthorityContext } from './authority-context';
 import { loadTemplateRows } from './setting-definition-rows';
-import type { TabDatabase, TabTransaction } from './tab-transaction';
+import { inTransaction, type Tx, type TxOpener } from '../tx';
 
 type Input = { readonly viewerUserId: string; readonly lobbyId: string };
-const offeredTemplates = (tx: TabTransaction, lobbyId: string) =>
+const offeredTemplates = (tx: Tx, lobbyId: string) =>
   tx
     .select({ templateId: lobbyTemplates.templateId })
     .from(lobbyTemplates)
@@ -27,10 +27,7 @@ const offeredTemplates = (tx: TabTransaction, lobbyId: string) =>
     .orderBy(asc(lobbyTemplates.templateId));
 
 /** Only the addressed standing lobby and its actually offered definitions, under shared fences. */
-export const loadStandingRoomDraft = async (
-  tx: TabTransaction,
-  input: Input,
-) => {
+export const loadStandingRoomDraft = async (tx: Tx, input: Input) => {
   await scopeTransaction(tx, { subjectUserId: input.viewerUserId });
   await fenceTabAccountRead(tx, input.viewerUserId);
   const [found] = await tx
@@ -115,9 +112,11 @@ export const loadStandingRoomDraft = async (
     });
   }
   await scopeTransaction(tx, scope);
-  const authorization = templateAuthorizations.find(
+  const ownerAuthority = templateAuthorizations.find(
     (row) => row.organizationId === lobby.ownerOrganizationId,
-  )!.authorization;
+  );
+  if (!ownerAuthority) return null;
+  const { authorization } = ownerAuthority;
   const presets = currentTemplates.length
     ? await tx
         .select()
@@ -205,12 +204,12 @@ export const loadStandingRoomDraft = async (
 export type StandingRoomDraftFacts = NonNullable<
   Awaited<ReturnType<typeof loadStandingRoomDraft>>
 >;
-export const createStandingRoomDraftStore = (database: TabDatabase) => ({
+export const createStandingRoomDraftStore = (database: TxOpener) => ({
   standingRoomDraft: <Answer>(
     input: Input,
     work: (facts: StandingRoomDraftFacts | null) => Promise<Answer>,
   ): Promise<Answer> =>
-    database.transaction(async (tx) =>
+    inTransaction(database, async (tx) =>
       work(await loadStandingRoomDraft(tx, input)),
     ),
 });

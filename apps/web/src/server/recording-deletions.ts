@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import type { Clock } from '@daisy/clock';
 import type { Logger } from '@daisy/logger';
 import { runDeletionSweep } from '../features/recording/deletion-sweep';
@@ -38,7 +39,7 @@ export function startRecordingDeletions(input: {
             store: input.store,
             objects: input.objects,
             owner: input.owner,
-            nowMs: Date.parse(now),
+            nowMs: instantMs(now),
             report: (event) =>
               input.logger.log(event, {}, 'Recording deletion'),
           });

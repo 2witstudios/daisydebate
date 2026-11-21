@@ -27,12 +27,9 @@ import {
   roundJudgingSchema,
   type BroadcastFeedEndReason,
   type ContentReportCreate,
-  type SeatKind,
-  type SideKey,
 } from '@daisy/protocol';
 import { seatOfColumns } from './seat-columns';
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { z } from 'zod';
 import { endBroadcastFeed, stopBroadcast } from './broadcast-operations';
 import { instrumented, type DatabaseEventSink } from './instrumented';
@@ -45,26 +42,20 @@ import {
   type SpectatorChatModeration,
   type ChatMessageModeration,
 } from './content-moderation-ports';
-import type { BoundedTransactionContext } from './transaction-context';
-
-type Database = Pick<BunSQLDatabase, 'transaction' | 'execute'> &
-  BoundedTransactionContext;
-type Tx = BoundedTransactionContext;
-
-const rows = async <T>(
-  tx: Pick<Tx, 'execute'>,
-  query: ReturnType<typeof sql>,
-) => (await tx.execute(query)) as unknown as T[];
+import { inTransaction, type TxSource, type Tx } from './tx';
+import { takeLock, transactionLocks } from './locks';
+import { run, query as queryRows } from './raw-rows';
 
 const roundFacts = async (tx: Tx, roundId: string, actorId: string) => {
-  const [round] = await rows<{
-    visibility: 'public' | 'unlisted' | 'private';
-    competition_type: string;
-    audience_link_hash: string | null;
-    seated: boolean;
-    in_live_room: boolean;
-  }>(
+  const [round] = await queryRows(
     tx,
+    z.object({
+      visibility: z.enum(['public', 'unlisted', 'private']).nullable(),
+      competition_type: z.string(),
+      audience_link_hash: z.string().nullable(),
+      seated: z.boolean(),
+      in_live_room: z.boolean(),
+    }),
     sql`select r.visibility, r.competition_type, r.audience_link_hash,
         exists(select 1 from round_participants p
           where p.round_id = r.id and p.actor_id = ${actorId}) as seated,
@@ -102,15 +93,16 @@ const feedbackSubjectFor = async (
   ballotId: string,
   actorId: string,
 ): Promise<string | null> => {
-  const [row] = await rows<{
-    id: string;
-    seat_kind: SeatKind;
-    side: SideKey | null;
-    slot: number;
-    judging: string | null;
-    feedback: string | null;
-  }>(
+  const [row] = await queryRows(
     tx,
+    z.object({
+      id: z.string(),
+      seat_kind: z.enum(['side', 'speaker', 'judge', 'moderator']),
+      side: z.string().nullable(),
+      slot: z.number(),
+      judging: z.string().nullable(),
+      feedback: z.string().nullable(),
+    }),
     sql`select p.id, p.seat_kind, p.side, p.slot, r.judging::text as judging,
         b.feedback::text as feedback
       from ballots b
@@ -150,8 +142,7 @@ const reportRow = z.object({
   created_at: z.iso.datetime({ precision: 6 }),
   resolved_at: instant.nullable(),
 });
-const reportOf = (raw: unknown): ContentReport => {
-  const row = reportRow.parse(raw);
+const reportOf = (row: z.output<typeof reportRow>): ContentReport => {
   return contentReportSchema.parse({
     reportId: row.id,
     targetKind: row.target_kind,
@@ -233,11 +224,13 @@ type Ports = {
 };
 
 const dbNow = async (tx: Tx) => {
-  const [row] = await rows<{ now: Date | string }>(
+  const [row] = await queryRows(
     tx,
+    z.object({ now: z.union([z.string(), z.date()]) }),
     sql`select now() as now`,
   );
-  return new Date(row!.now);
+  if (!row) throw createAppError('INVARIANT');
+  return new Date(row.now);
 };
 
 const changed = (count: number, exists: boolean): ContentModerationOutcome =>
@@ -252,14 +245,16 @@ const resolveReport = async (
   operatorRef: string,
   now: Date,
 ) => {
-  const updated = await rows(
+  const updated = await queryRows(
     tx,
+    z.object({ id: z.string() }),
     sql`update content_reports set status = ${change.outcome},
         resolved_at = ${now.toISOString()}::timestamptz, resolved_by_ref = ${operatorRef}
       where id = ${change.reportId} and status = 'open' returning id`,
   );
-  const found = await rows(
+  const found = await queryRows(
     tx,
+    z.object({ id: z.string() }),
     sql`select id from content_reports where id = ${change.reportId}`,
   );
   return changed(updated.length, found.length > 0);
@@ -272,14 +267,16 @@ const setSlowMode = async (
     { action: 'broadcast.chat_slow_mode.update' }
   >,
 ) => {
-  const updated = await rows(
+  const updated = await queryRows(
     tx,
+    z.object({ id: z.string() }),
     sql`update broadcasts set chat_slow_mode_seconds = ${change.seconds}
       where id = ${change.broadcastId} and chat_slow_mode_seconds <> ${change.seconds}
       returning id`,
   );
-  const found = await rows(
+  const found = await queryRows(
     tx,
+    z.object({ id: z.string() }),
     sql`select id from broadcasts where id = ${change.broadcastId}`,
   );
   return changed(updated.length, found.length > 0);
@@ -293,21 +290,24 @@ const setAudienceBan = async (
   >,
   operatorRef: string,
 ) => {
-  const [live] = await rows(
+  const [live] = await queryRows(
     tx,
+    z.object({ id: z.string() }),
     sql`select id from users where id = ${change.userId} and deleted_at is null`,
   );
   if (!live) return null;
   const written =
     change.state === 'banned'
-      ? await rows(
+      ? await queryRows(
           tx,
+          z.object({ user_id: z.string() }),
           sql`insert into audience_bans (user_id, banned_by_ref)
             values (${change.userId}, ${operatorRef})
             on conflict do nothing returning user_id`,
         )
-      : await rows(
+      : await queryRows(
           tx,
+          z.object({ user_id: z.string() }),
           sql`delete from audience_bans where user_id = ${change.userId} returning user_id`,
         );
   return changed(written.length, true);
@@ -447,14 +447,15 @@ const subjectOf = async (
 ): Promise<ContentModerationSubject | null> => {
   switch (report.targetKind) {
     case 'round': {
-      const [round] = await rows<{
-        resolution: string;
-        competition_type: 'ranked' | 'casual';
-        broadcast_id: string | null;
-        stopped_at: unknown;
-        chat_slow_mode_seconds: number | null;
-      }>(
+      const [round] = await queryRows(
         tx,
+        z.object({
+          resolution: z.string(),
+          competition_type: z.enum(['ranked', 'casual']),
+          broadcast_id: z.string().nullable(),
+          stopped_at: z.unknown(),
+          chat_slow_mode_seconds: z.number().nullable(),
+        }),
         sql`select r.resolution, r.competition_type, b.id as broadcast_id,
             b.stopped_at, b.chat_slow_mode_seconds
           from rounds r left join broadcasts b on b.round_id = r.id
@@ -497,8 +498,9 @@ const subjectOf = async (
     }
     case 'ballot_feedback': {
       // Only the subject reported, and only because it was reported.
-      const [ballot] = await rows<{ text: string | null }>(
+      const [ballot] = await queryRows(
         tx,
+        z.object({ text: z.string().nullable() }),
         sql`select feedback ->> ${feedbackSubject} as text from ballots where id = ${report.targetId}`,
       );
       return ballot
@@ -540,7 +542,7 @@ export function contentModerationOperations({
   floor = noSpectatorChat,
   roomChat = noSpectatorChat,
 }: {
-  readonly database: Database;
+  readonly database: TxSource;
   readonly eventSink?: DatabaseEventSink | undefined;
   readonly recordings?: RecordingModeration;
   readonly chat?: SpectatorChatModeration;
@@ -640,8 +642,9 @@ export function contentModerationOperations({
         const after = input.after
           ? sql`and (created_at, id) < (${input.after.reportedAt}::timestamptz, ${input.after.reportId})`
           : sql``;
-        const found = await rows<unknown>(
+        const found = await queryRows(
           database,
+          reportRow,
           sql`select ${reportColumns} from content_reports
             where queue = ${input.queue} and status = ${input.status} ${after}
             order by created_at desc, id desc limit ${input.limit}`,
@@ -653,8 +656,9 @@ export function contentModerationOperations({
         eventSink,
         'readModerationReport',
         async (): Promise<ContentReportDetail | null> => {
-          const [row] = await rows<{ feedback_subject: string | null }>(
+          const [row] = await queryRows(
             database,
+            reportRow.extend({ feedback_subject: z.string().nullable() }),
             sql`select ${reportColumns}, feedback_subject from content_reports where id = ${reportId}`,
           );
           if (!row) return null;
@@ -676,20 +680,17 @@ export function contentModerationOperations({
       readonly change: ContentModerationChange;
     }): Promise<ContentModerationCommandResult> =>
       instrumented(eventSink, 'runModerationCommand', () =>
-        database.transaction(async (tx) => {
-          await tx.execute(
+        inTransaction(database, async (tx) => {
+          await run(
+            tx,
             sql.raw(
               `set local statement_timeout = ${operatorLimits.commandBoundMs}`,
             ),
           );
-          await tx.execute(
-            sql`select pg_advisory_xact_lock(hashtextextended(${input.commandId}, 59079))`,
-          );
-          const [stored] = await rows<{
-            request_digest: string;
-            result: unknown;
-          }>(
+          await takeLock(tx, transactionLocks.operatorCommand(input.commandId));
+          const [stored] = await queryRows(
             tx,
+            z.object({ request_digest: z.string(), result: z.unknown() }),
             sql`select request_digest, result from operator_command_receipts
               where command_id = ${input.commandId}`,
           );
@@ -715,12 +716,15 @@ export function contentModerationOperations({
             input.change.action === 'account.audience_ban.update'
               ? input.change.userId
               : null;
-          await tx.execute(sql`insert into operator_command_receipts
+          await run(
+            tx,
+            sql`insert into operator_command_receipts
               (command_id, service_id, operator_ref, action, target_user_id,
                request_digest, result, admin_audit_head)
             values (${input.commandId}, ${input.serviceId}, ${input.operatorRef},
               ${receipt.action}, ${targetUserId}, ${input.requestDigest},
-              ${JSON.stringify(receipt.result)}::text::jsonb, ${input.adminAuditHead})`);
+              ${JSON.stringify(receipt.result)}::text::jsonb, ${input.adminAuditHead})`,
+          );
           // Checked last: a command delayed past its deadline writes nothing.
           if (!input.live()) throw createAppError('CONFLICT');
           return contentModerationCommandResultSchema.parse(receipt.result);
@@ -749,11 +753,9 @@ export function contentModerationOperations({
       readonly broadcastId: string;
     }) =>
       instrumented(eventSink, 'readChatPostFacts', async () => {
-        const [row] = await rows<{
-          banned: boolean;
-          seconds: number | null;
-        }>(
+        const [row] = await queryRows(
           database,
+          z.object({ banned: z.boolean(), seconds: z.number().nullable() }),
           sql`select exists(select 1 from audience_bans where user_id = ${input.userId}) as banned,
             (select chat_slow_mode_seconds from broadcasts where id = ${input.broadcastId}) as seconds`,
         );

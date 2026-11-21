@@ -75,7 +75,7 @@ test('real authenticated Round responses and JSON and server-action form replays
         retry = await post();
       const firstBody = await first.json(),
         retryBody = await retry.json();
-      // The no-JS form reaches the route through the server action's JSON post.
+      // The pre-hydration form reaches the route through the server action's JSON post.
       const form = new FormData();
       for (const [name, value] of Object.entries({
         version: '1',

@@ -1,4 +1,3 @@
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { and, eq, ne, notExists, sql } from 'drizzle-orm';
 import { drizzleAdapter } from '@better-auth/drizzle-adapter';
 import { accounts, passkeys, sessions, verifications } from './schema/auth';
@@ -6,6 +5,7 @@ import { users } from './schema/users';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { deleteExpiredBatch, type RetentionBatch } from './retention';
 import { isUniqueViolation } from './unique-violation';
+import { inTransaction, type TxSource } from './tx';
 
 /** What an email-change completion did; `stale` changed nothing. */
 export type EmailChangeCompletion = 'changed' | 'stale';
@@ -20,7 +20,7 @@ export const authOperations = ({
   database,
   eventSink,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => {
   const authAdapter = drizzleAdapter(database, {
@@ -56,7 +56,7 @@ export const authOperations = ({
     }): Promise<EmailChangeCompletion> {
       return instrumented(eventSink, 'completeEmailChange', async () => {
         try {
-          return await database.transaction(async (tx) => {
+          return await inTransaction(database, async (tx) => {
             const moved = await tx
               .update(users)
               .set({
@@ -153,7 +153,7 @@ export const authOperations = ({
       keepToken: string | null,
     ): Promise<number> {
       return instrumented(eventSink, 'revokeOtherSessions', () =>
-        database.transaction(async (tx) => {
+        inTransaction(database, async (tx) => {
           await tx
             .select({ id: users.id })
             .from(users)
@@ -208,7 +208,7 @@ export const authOperations = ({
       readonly verifications: number;
     }> {
       return instrumented(eventSink, 'purgeAllForRestore', () =>
-        database.transaction(async (tx) => {
+        inTransaction(database, async (tx) => {
           const deletedSessions = await tx
             .delete(sessions)
             .returning({ id: sessions.id });

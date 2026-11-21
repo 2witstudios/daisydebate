@@ -8,7 +8,10 @@
  * before it is quoted into SQL.
  */
 import type { SQL } from 'bun';
+import { z } from 'zod';
+import { sessionLocks } from './locks';
 import { quoteIdentifier } from './identifiers';
+import { query } from './raw-rows';
 
 const passwordPattern = /^[a-z0-9-]{1,64}$/;
 const commentPattern = /^[a-z0-9 =-]{1,100}$/;
@@ -46,8 +49,10 @@ export async function provisionTestRoles(
       throw new Error('Invalid runtime role');
     const user = quoteIdentifier(login.user);
     const password = quoteLiteral(login.password, passwordPattern, 'password');
-    const [existing] =
-      await admin`select 1 from pg_roles where rolname = ${login.user}`;
+    const [existing] = await query(
+      admin`select true as existing from pg_roles where rolname = ${login.user}`,
+      z.object({ existing: z.literal(true) }),
+    );
     if (!existing)
       try {
         await admin.unsafe(`create role ${user} login password ${password}`);
@@ -78,8 +83,10 @@ export async function createSlotDatabase(
   database: string,
 ): Promise<boolean> {
   const name = quoteIdentifier(database);
-  const [existing] =
-    await admin`select 1 from pg_database where datname = ${database}`;
+  const [existing] = await query(
+    admin`select true as existing from pg_database where datname = ${database}`,
+    z.object({ existing: z.literal(true) }),
+  );
   if (existing) return false;
   try {
     await admin.unsafe(`create database ${name} template template0`);
@@ -99,13 +106,15 @@ export async function listSlotDatabases(
   admin: SQL,
   prefix: string,
 ): Promise<readonly SlotDatabase[]> {
-  const rows = await admin`
+  return query(
+    admin`
     select datname as name, shobj_description(oid, 'pg_database') as comment
     from pg_database
     where starts_with(datname, ${prefix})
     order by datname
-  `;
-  return rows as SlotDatabase[];
+  `,
+    z.object({ name: z.string(), comment: z.string().nullable() }),
+  );
 }
 
 export async function setSlotDatabaseComment(
@@ -137,10 +146,10 @@ export async function withSlotLock<T>(
   admin: SQL,
   work: () => Promise<T>,
 ): Promise<T> {
-  await admin`select pg_advisory_lock(hashtext('daisy-slot-admin'))`;
+  await sessionLocks.slotAdmin.take(admin);
   try {
     return await work();
   } finally {
-    await admin`select pg_advisory_unlock(hashtext('daisy-slot-admin'))`;
+    await sessionLocks.slotAdmin.release(admin);
   }
 }

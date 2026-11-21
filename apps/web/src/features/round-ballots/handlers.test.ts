@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { fixedClock } from '@daisy/clock';
+import { instantMs, fixedClock } from '@daisy/clock';
 import { memberGate } from '../round-runtime/member-gate.test-support';
 import { ballotFormFixture, ballotFormPlan } from './ballot-form.test-support';
 import { ballotFields } from './fields';
@@ -73,7 +73,7 @@ test('a native ballot form redirects to the ballot page', async () => {
     id,
   );
   assert({
-    given: 'the no-JavaScript ballot form',
+    given: 'the pre-hydration ballot form',
     should: 'submit once and redirect without echoing values',
     actual: [
       response.status,
@@ -138,6 +138,6 @@ test('authorized ballot reads stamp the injected server clock in milliseconds', 
     given: 'the assigned caller passing the canonical ballot read gate',
     should: 'supply only its own injected server time as calibration metadata',
     actual: [response.status, response.headers.get('x-server-now-ms')],
-    expected: [200, String(Date.parse('2026-11-01T00:00:00.000Z'))],
+    expected: [200, String(instantMs('2026-11-01T00:00:00.000Z'))],
   });
 });

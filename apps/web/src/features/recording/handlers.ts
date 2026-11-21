@@ -1,3 +1,4 @@
+import { nowMs } from '@daisy/clock';
 import type { Clock } from '@daisy/clock';
 import type { Identity } from '@daisy/auth';
 import { createAppError, isAppError } from '@daisy/errors';
@@ -74,7 +75,7 @@ const readRemovalForm = async (request: Request) => {
 
 /**
  * The Recording routes. Reads authorize on every request. Removal is a native form
- * post, so it works with no script, and answers with a notice on the same page.
+ * post, so it works before hydration, and answers with a notice on the same page.
  */
 export const createRecordingHandlers = (deps: Deps) => ({
   /** GET one file of a Recording's HLS, for anyone who may watch it. */
@@ -90,7 +91,7 @@ export const createRecordingHandlers = (deps: Deps) => ({
             path,
             viewer: recordingViewerOf(await deps.identify(request)),
             presentedLinkHashOf: linkHeldBy(request),
-            nowMs: Date.parse(deps.clock.now()),
+            nowMs: nowMs(deps.clock),
           }),
         ),
       deps.reporter,
@@ -114,7 +115,7 @@ export const createRecordingHandlers = (deps: Deps) => ({
           recordingId,
           viewer,
           presentedLinkHashOf: linkHeldBy(request),
-          nowMs: Date.parse(deps.clock.now()),
+          nowMs: nowMs(deps.clock),
         });
         return new Response(null, { status: 302, headers: { location: url } });
       },

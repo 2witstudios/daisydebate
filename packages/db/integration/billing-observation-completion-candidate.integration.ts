@@ -1,3 +1,4 @@
+import { addMs } from '@daisy/clock';
 import { installInvoicePassGuards } from './billing-invoice-pass-current.test-support';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
@@ -37,9 +38,7 @@ test(
                   outcome,
                   jobId: matrix.jobId,
                   checkedAt,
-                  nextAt: new Date(
-                    Date.parse(checkedAt) + 86_400_000,
-                  ).toISOString(),
+                  nextAt: addMs(checkedAt, 86_400_000),
                 },
                 'complete',
               );

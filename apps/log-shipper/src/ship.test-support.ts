@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 /** Shared fixtures for the shipper's unit tests: one app, one subject, one logger line. */
 export const app = 'daisy-debate-staging';
 export const apps = new Set([app]);
@@ -5,7 +6,7 @@ export const receivedAt = '2026-10-27T13:01:53.439Z';
 export const subject = `logs.${app}.ord.811006b93572d8`;
 export const line = {
   level: 40,
-  time: Date.parse(receivedAt),
+  time: instantMs(receivedAt),
   service: 'web',
   appVersion: '7d94b6b',
   gitCommit: '7d94b6b153b556dabe0346bc2b727f989905e436',

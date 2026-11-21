@@ -184,7 +184,7 @@ export async function readParticipantTournament(
         ...row
       } of await schedule()) {
         const addressed =
-          round?.eventId === row.eventId && round?.roundId === row.roundId;
+          round?.eventId === row.eventId && round.roundId === row.roundId;
         if (round && !addressed) continue;
         const releases = facts.openings.filter(
           (opening) =>

@@ -1,20 +1,23 @@
-import { drawFormEnvelope } from '../src/features/tab/draw-form';
-import { readHostRound } from '../src/features/tab/reads/host-round';
 import { authorize } from '@daisy/auth/authorization';
 import { createTabStore } from '@daisy/db/tab';
+import { hostRoundViewSchema } from '@daisy/protocol/lobby/draw-read';
 import { createId } from '@paralleldrive/cuid2';
 import { assert } from 'riteway/bun';
-import { drawCommand } from '../src/features/tab/operations/draw-command';
-import {
-  drawHttp,
-  acceptedDrawResponse,
-} from './tab-tournament-draw-draft.test-support';
-import { drawCompetition } from '../src/features/tab/operations/draw-competition';
+import { drawFormEnvelope } from '../src/features/tab/draw-form';
+import { readHostRound } from '../src/features/tab/reads/host-round';
 import { origin } from '../src/server/member-boundary.test-support';
+import {
+  acceptedDrawResponse,
+  drawHttp,
+} from './tab-tournament-draw-draft.test-support';
 import {
   as,
   deniedAsNotFound,
 } from './tab-tournament-organization-wiring.test-support';
+import {
+  tabLobbyCommand,
+  tabRead,
+} from './tab-tournament-transport.test-support';
 import type { World } from './tab-tournament.test-support';
 
 export const publishDrawStage = async (world: World): Promise<void> => {
@@ -22,13 +25,7 @@ export const publishDrawStage = async (world: World): Promise<void> => {
   const lobbyId = world.made.get('tournament-lobby')!,
     drawId = world.made.get('draw')!;
   const store = createTabStore(database);
-  const send = drawCommand({
-    store,
-    authorize,
-    now: world.clock.now,
-    newId: createId,
-    competition: drawCompetition,
-  });
+  const send = tabLobbyCommand(world, 'draw');
   const [slot] =
     await sql`select version from time_slots where id=${world.made.get('time-slot')!}`;
   const [event] =
@@ -70,9 +67,15 @@ export const publishDrawStage = async (world: World): Promise<void> => {
         body: JSON.stringify(envelope),
       },
     );
-  const answer = await acceptedDrawResponse(
-    await drawHttp(world)(publicationRequest()),
-  );
+  const submit = () =>
+    world.http
+      ? world.http(
+          world.bots.Director!,
+          `/api/tab/draw-command?${new URLSearchParams({ lobbyId })}`,
+          envelope,
+        )
+      : drawHttp(world)(publicationRequest());
+  const answer = await acceptedDrawResponse(await submit());
   assert({
     given:
       'the actual computed first draft with matching pinned one-judge panels',
@@ -86,9 +89,7 @@ export const publishDrawStage = async (world: World): Promise<void> => {
     actual: nonHostDenied,
     expected: true,
   });
-  const replay = await acceptedDrawResponse(
-    await drawHttp(world)(publicationRequest()),
-  );
+  const replay = await acceptedDrawResponse(await submit());
   const rooms = await sql<
     {
       host_actor_id: string | null;
@@ -102,14 +103,17 @@ export const publishDrawStage = async (world: World): Promise<void> => {
       fixture_id: string;
     }[]
   >`select r.id,r.host_actor_id,r.lobby_id,r.lobby_kind,r.topic,r.format_id,r.format_version,r.capture,f.id fixture_id from rooms r join fixtures f on f.room_id=r.id where f.tab_round_id=${world.made.get('tab-round')!} order by r.id`;
-  const publishedRead = await readHostRound({ store, authorize })(
-    as(world.bots.Director!),
-    {
-      lobbyId,
-      eventId: world.made.get('event')!,
-      tabRoundId: world.made.get('tab-round')!,
-    },
-  );
+  const publishedRead = await tabRead(
+    world,
+    'host-round',
+    hostRoundViewSchema,
+    readHostRound({ store, authorize }),
+    (input) => ({ ...input }),
+  )(as(world.bots.Director!), {
+    lobbyId,
+    eventId: world.made.get('event')!,
+    tabRoundId: world.made.get('tab-round')!,
+  });
   assert({
     given: 'the genuine published Rooms before native Ready or Start',
     should:

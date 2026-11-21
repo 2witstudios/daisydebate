@@ -6,7 +6,7 @@ import {
   loadAccountHostingFacts,
   type AccountHostingFacts,
 } from './account-hosting-facts';
-import type { TabTransaction } from './tab-transaction';
+import type { Tx } from '../tx';
 
 /**
  * What a hosted tournament's tier is decided from (ADR 0149): the tiers paid
@@ -24,7 +24,7 @@ export type TournamentHostingFacts = {
 };
 
 export const loadTournamentHostingFacts = async (
-  tx: TabTransaction,
+  tx: Tx,
   lobbyId: string,
   /** `read` for a command that only reads the tier and counts nothing against it. */
   lock: 'update' | 'read' = 'update',

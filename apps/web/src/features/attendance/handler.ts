@@ -10,7 +10,6 @@ import {
   type BudgetedMemberBoundary,
 } from '../../server/member-boundary';
 import { readAttendanceCommand } from './body';
-import { nativeAttendanceResponse } from './native-response';
 type HandlerDeps = BudgetedMemberBoundary & {
   readonly checkIn: (
     principal: { readonly kind: 'human'; readonly actorId: string },
@@ -23,7 +22,7 @@ const attendanceRate = { max: 120, windowSeconds: 60 } as const;
 export function createAttendanceHandler(deps: HandlerDeps) {
   return async (request: Request, rawRoundId: string) => {
     const roundId = () => parseValidated(idSchema, rawRoundId);
-    const response = await runMemberRoute(
+    return runMemberRoute(
       deps,
       request,
       {
@@ -53,10 +52,5 @@ export function createAttendanceHandler(deps: HandlerDeps) {
         }
       },
     );
-    return request.headers
-      .get('content-type')
-      ?.startsWith('application/x-www-form-urlencoded')
-      ? nativeAttendanceResponse(response, rawRoundId)
-      : response;
   };
 }

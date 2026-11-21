@@ -14,7 +14,7 @@ export type SavePasskeyProps = {
    * The POST that declines without saving a passkey (shared computer, or
    * not now). A real form action, so both choices are buttons plain Tab
    * reaches in every engine and both still work before hydration and
-   * without JavaScript.
+   * before hydration.
    */
   readonly decline: (form: FormData) => void | Promise<void>;
   /** Why the last attempt saved nothing; never a success. */

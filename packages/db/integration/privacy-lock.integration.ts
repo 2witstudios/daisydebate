@@ -2,18 +2,18 @@ import { SQL } from 'bun';
 import { sql } from 'drizzle-orm';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import type { AuthorizationTransaction } from '../src/authorization';
 import { runPrivacyErasure } from '../src/privacy/operations';
 import type { PrivacyAdopter } from '../src/privacy/contracts';
 import { sqlStateOf } from './constraint-helpers';
 import { bindings, now, withPrivacySubject } from './privacy.test-support';
+import type { Tx } from '../src/tx';
 
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
 test('subject account is locked before cleanup and adopters share the erasure transaction', async () => {
   await withPrivacySubject(async ({ database, userId, actorId, otherId }) => {
     const observer = new SQL(databaseUrl, { max: 1 });
-    let firstTx: AuthorizationTransaction | null = null;
+    let firstTx: Tx | null = null;
     let observed: unknown[] = [];
     const before: PrivacyAdopter = {
       id: 'lock-probe',

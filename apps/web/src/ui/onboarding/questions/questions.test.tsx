@@ -22,7 +22,7 @@ const render = (
   renderToString(
     h(step, {
       answers: { ...emptyAnswers, ...answers },
-      action: '/onboarding/post',
+      action: () => undefined,
       pending: false,
       backHref: '/onboarding/debate?next=%2Flobby',
       skip: null,

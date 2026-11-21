@@ -20,12 +20,9 @@ import {
 import { oweNotifications } from './notifications/owe';
 import { divisionAgeBand, divisionOfBandSql } from './ladder-division-band';
 import { scopeTransaction } from './tenant-scope';
-import type { BoundedTransactionContext } from './transaction-context';
-
-type Tx = Pick<BoundedTransactionContext, 'execute'>;
-
-const rows = async <Row>(tx: Tx, query: ReturnType<typeof sql>) =>
-  (await tx.execute(query)) as unknown as Row[];
+import type { Tx } from './tx';
+import { run as runStatement, query as queryRows } from './raw-rows';
+import { z } from 'zod';
 
 /** Who in a club may confirm its students' releases. */
 export type ClubReleaseRole = 'owner' | 'staff';
@@ -51,8 +48,9 @@ async function clubReleaseRole(
   if (club.owner_user_id === userId) return 'owner';
   if (club.kind !== 'school') return null;
   await scopeTransaction(tx, { organizationId: club.id });
-  const [staff] = await rows<{ n: number }>(
+  const [staff] = await queryRows(
     tx,
+    z.object({ n: z.number() }),
     sql`select count(*)::int as n from grants g
       join memberships m on m.organization_id = g.organization_id
         and m.user_id = g.user_id and m.status = 'active'
@@ -70,8 +68,9 @@ async function clubReleaseStaff(tx: Tx, club: ClubRow): Promise<string[]> {
   await scopeTransaction(tx, { organizationId: club.id });
   const staff =
     club.kind === 'school'
-      ? await rows<{ user_id: string }>(
+      ? await queryRows(
           tx,
+          z.object({ user_id: z.string() }),
           sql`select distinct g.user_id from grants g
             join memberships m on m.organization_id = g.organization_id
               and m.user_id = g.user_id and m.status = 'active'
@@ -95,8 +94,15 @@ const readClub = async (
   by: { readonly handle: string } | { readonly id: string },
   lock: boolean,
 ): Promise<ClubRow | null> => {
-  const [club] = await rows<ClubRow>(
+  const [club] = await queryRows(
     tx,
+    z.object({
+      id: z.string(),
+      name: z.string(),
+      handle: z.string(),
+      kind: z.enum(['school', 'family']),
+      owner_user_id: z.string().nullable(),
+    }),
     sql`select id, name, handle, kind, owner_user_id from organizations
       where ${'handle' in by ? sql`lower(handle) = lower(${by.handle})` : sql`id = ${by.id}`}
         and kind in ('school', 'family') and closed_at is null
@@ -139,12 +145,13 @@ async function youthStudents(
   only?: readonly string[],
 ): Promise<ClubReleaseStudent[]> {
   await scopeTransaction(tx, { organizationId: club.id });
-  const members = await rows<{
-    user_id: string;
-    username: string | null;
-    joined_at: Date | string | null;
-  }>(
+  const members = await queryRows(
     tx,
+    z.object({
+      user_id: z.string(),
+      username: z.string().nullable(),
+      joined_at: z.union([z.string(), z.date()]).nullable(),
+    }),
     sql`select m.user_id, u.username, m.joined_at from memberships m
       join users u on u.id = m.user_id and u.deleted_at is null
       where m.organization_id = ${club.id} and m.status = 'active'
@@ -159,8 +166,12 @@ async function youthStudents(
       order by u.username nulls last, m.user_id
       limit 500`,
   );
-  const asks = await rows<{ user_id: string; asked_at: Date | string }>(
+  const asks = await queryRows(
     tx,
+    z.object({
+      user_id: z.string(),
+      asked_at: z.union([z.string(), z.date()]),
+    }),
     sql`select user_id, max(asked_at) as asked_at from media_release_club_asks
       where organization_id = ${club.id}
         and asked_at > clock_timestamp() - interval '7 days'
@@ -256,8 +267,9 @@ export function createMediaReleaseClubs(input: {
         if ((await clubReleaseRole(tx, club, viewerUserId)) === null)
           return null;
         await scopeTransaction(tx, { organizationId: club.id });
-        const [count] = await rows<{ n: number }>(
+        const [count] = await queryRows(
           tx,
+          z.object({ n: z.number() }),
           sql`select count(*)::int as n from memberships m
             join users u on u.id = m.user_id and u.deleted_at is null
             join account_age on account_age.user_id = m.user_id
@@ -295,7 +307,8 @@ export function createMediaReleaseClubs(input: {
           throw createAppError('NOT_FOUND');
         // Each student's account row orders every command about them.
         for (const id of [...ids].sort())
-          await tx.execute(
+          await runStatement(
+            tx,
             sql`select 1 from users where id = ${id} for update`,
           );
         const now = await readDatabaseTime(tx);
@@ -329,16 +342,12 @@ export function createMediaReleaseClubs(input: {
             ineligible: decision.ineligible,
           };
         for (const student of decision.confirm) {
-          await supersedeOldRelease(
-            tx as BoundedTransactionContext,
-            student.userId,
-            now,
-          );
+          await supersedeOldRelease(tx, student.userId, now);
           const releaseIds: string[] = [];
           for (const scope of decision.scopes) {
             const releaseId = nextId();
             releaseIds.push(releaseId);
-            await insertMediaRelease(tx as BoundedTransactionContext, {
+            await insertMediaRelease(tx, {
               id: releaseId,
               userId: student.userId,
               scope,
@@ -347,7 +356,8 @@ export function createMediaReleaseClubs(input: {
               now,
             });
             await scopeTransaction(tx, { organizationId: club.id });
-            await tx.execute(
+            await runStatement(
+              tx,
               sql`insert into media_release_club_attestations (release_id,
                   organization_id, user_id, attested_by_user_id, attester_name,
                   attester_role)
@@ -356,12 +366,13 @@ export function createMediaReleaseClubs(input: {
             );
           }
           if (student.supersedes !== null)
-            await tx.execute(
+            await runStatement(
+              tx,
               sql`update media_release_requests set outcome = 'superseded',
                   resolved_at = clock_timestamp()
                 where id = ${student.supersedes} and outcome is null`,
             );
-          await oweNotifications(tx as BoundedTransactionContext, {
+          await oweNotifications(tx, {
             kind: 'media_release_club_confirmed',
             subject: { media_release_id: releaseIds[0]! },
             recipients: [{ userId: student.userId, about: null }],
@@ -387,7 +398,8 @@ export function createMediaReleaseClubs(input: {
       if (!idSchema.safeParse(command.organizationId).success)
         throw createAppError('VALIDATION');
       return run(async (tx) => {
-        await tx.execute(
+        await runStatement(
+          tx,
           sql`select 1 from users where id = ${command.userId} for update`,
         );
         const club = await readClub(tx, { id: command.organizationId }, false);
@@ -396,8 +408,9 @@ export function createMediaReleaseClubs(input: {
           organizationId: club.id,
           subjectUserId: command.userId,
         });
-        const [member] = await rows<{ n: number }>(
+        const [member] = await queryRows(
           tx,
+          z.object({ n: z.number() }),
           sql`select count(*)::int as n from memberships
             where organization_id = ${club.id} and user_id = ${command.userId}
               and status = 'active'`,
@@ -407,8 +420,9 @@ export function createMediaReleaseClubs(input: {
           (await readDivisionOf(tx, command.userId)) !== 'youth'
         )
           return { kind: 'not_a_member' };
-        const [recent] = await rows<{ n: number }>(
+        const [recent] = await queryRows(
           tx,
+          z.object({ n: z.number() }),
           sql`select count(*)::int as n from media_release_club_asks
             where organization_id = ${club.id} and user_id = ${command.userId}
               and asked_at > clock_timestamp() - interval '7 days'`,
@@ -416,14 +430,15 @@ export function createMediaReleaseClubs(input: {
         if ((recent?.n ?? 0) > 0) return { kind: 'already_asked' };
         const now = await readDatabaseTime(tx);
         const askId = nextId();
-        await tx.execute(
+        await runStatement(
+          tx,
           sql`insert into media_release_club_asks (id, organization_id, user_id, asked_at)
             values (${askId}, ${club.id}, ${command.userId}, ${now.toISOString()})`,
         );
         const staff = (await clubReleaseStaff(tx, club)).filter(
           (userId) => userId !== command.userId,
         );
-        await oweNotifications(tx as BoundedTransactionContext, {
+        await oweNotifications(tx, {
           kind: 'media_release_club_asked',
           subject: { media_release_club_ask_id: askId },
           recipients: staff.map((userId) => ({

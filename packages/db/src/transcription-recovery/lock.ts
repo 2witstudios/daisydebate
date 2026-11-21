@@ -1,19 +1,15 @@
 import { eq } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
-import type { BoundedTransactionContext } from '../transaction-context';
 import { lockOriginalNecessaryEvidence } from '../necessary-evidence-subjects';
 import { requireRoundEvidenceOpen } from '../necessary-evidence-rounds';
 import { requireEvidenceFrontierOpen } from '../necessary-evidence-frontier';
 import { rounds } from '../schema/rounds';
 import { transcriptionRecoveryContexts as contexts } from '../schema/transcription-recovery';
 import { members } from './members';
+import type { Tx } from '../tx';
 
 /** Frozen original content subjects are discovered before accounts→Round. Never add/upgrade account locks after Round. */
-export async function lock(
-  tx: BoundedTransactionContext,
-  contextId: string,
-  roundId: string,
-) {
+export async function lock(tx: Tx, contextId: string, roundId: string) {
   const [initial] = await tx
     .select()
     .from(contexts)

@@ -28,7 +28,7 @@ export const legacyRoomCompetition = (room: {
  * freezes the Round. With none, the Room cannot start ranked.
  */
 export async function lockLadderSeason(
-  tx: Pick<Tx, 'execute'>,
+  tx: Tx,
   ladder: Ladder,
   organizationId: string,
 ): Promise<void> {

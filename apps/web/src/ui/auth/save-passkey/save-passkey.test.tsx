@@ -35,7 +35,7 @@ describe('SavePasskey', () => {
     });
   });
 
-  test('declining without a passkey is a real button in its own form, so it works without JavaScript', () => {
+  test('declining without a passkey is a real button in its own form, so it works before hydration', () => {
     const page = renderToString(h(SavePasskey, props()));
     assert({
       given: 'the shared-computer and not-now choices',

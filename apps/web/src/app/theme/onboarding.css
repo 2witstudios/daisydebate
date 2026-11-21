@@ -13,7 +13,7 @@
 }
 
 /* The club-name field shows only once "I have a club" is picked — pure
-   CSS, so it works without script like every other mutating form. */
+   CSS, so it works before hydration like every other mutating form. */
 @utility onboarding-club-reveal {
   display: none;
   form:has(input[name='club'][value='joining']:checked) & {

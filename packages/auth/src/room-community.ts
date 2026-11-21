@@ -1,5 +1,7 @@
+import { tryInstantMs } from '@daisy/clock';
 import { isOpenRoomStatus } from '@daisy/protocol';
 import {
+  roomCommunityPolicySchema,
   roomCommunityReadsOnly,
   roomCommunityRetentionMs,
   roomCommunitySeatReadsOnly,
@@ -39,8 +41,7 @@ const boundAccount = ({
   account.actorId === principal.actorId;
 const currentFact = ({ fact, principal }: RoomCommunityDecisionInput) =>
   fact.actorId === principal.actorId &&
-  fact.policyKey === 'room.community' &&
-  fact.policyRevision === 1 &&
+  roomCommunityPolicySchema.safeParse(fact).success &&
   Number.isSafeInteger(fact.revision) &&
   fact.revision > 0;
 
@@ -91,8 +92,10 @@ const afterEnd = (
   { fact, action }: RoomCommunityDecisionInput,
   instant: number,
 ): RoomCommunityDecision => {
-  const expiry = Date.parse(fact.endedAt ?? '') + roomCommunityRetentionMs;
-  return action === 'remove' && Number.isFinite(expiry) && instant < expiry
+  const endedAt = tryInstantMs(fact.endedAt);
+  if (endedAt === undefined || action !== 'remove') return denied;
+  const expiry = endedAt + roomCommunityRetentionMs;
+  return instant < expiry
     ? { allow: true, readOnly: true, expiresAt: new Date(expiry).toISOString() }
     : denied;
 };
@@ -108,8 +111,8 @@ const afterEnd = (
 export function decideRoomCommunity(
   input: RoomCommunityDecisionInput,
 ): RoomCommunityDecision {
-  const instant = Date.parse(input.now);
-  if (!Number.isFinite(instant) || !boundAccount(input) || !currentFact(input))
+  const instant = tryInstantMs(input.now);
+  if (instant === undefined || !boundAccount(input) || !currentFact(input))
     return denied;
   return isOpenRoomStatus(input.fact.status)
     ? whileOpen(input)

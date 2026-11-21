@@ -529,12 +529,12 @@ export function createDatabase({
         run: competitiveTransaction,
       }),
     createMediaCaptureOperations: (
-      input: Omit<Parameters<typeof mediaCaptureOperations>[0], 'transaction'>,
+      input: Omit<Parameters<typeof mediaCaptureOperations>[0], 'run'>,
     ) =>
       namedLaneOperations(
         mediaCaptureOperations({
           ...input,
-          transaction: competitiveTransaction,
+          run: competitiveTransaction,
         }),
       ),
     ...transcriptFinalizationOperations({ database }),

@@ -57,6 +57,13 @@ export function createRefusal(
     reason,
   });
 }
+/**
+ * Throws a value that was caught earlier and held, exactly as it was caught,
+ * so its identity and code survive. A `throw` of anything else names an Error.
+ */
+export function rethrow(caught: unknown): never {
+  throw caught;
+}
 /** Only factory-minted errors carry a trustworthy public code. */
 export function isAppError(error: unknown): error is AppError {
   return error instanceof Error && knownErrors.has(error);

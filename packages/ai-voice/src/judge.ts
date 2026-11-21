@@ -33,9 +33,7 @@ const fieldOf = (issue: z.core.$ZodIssue): IssueRecord['field'] => {
   if (issue.code === 'unrecognized_keys') return 'unknown_field';
   const path = issue.path.join('.');
   if (path.startsWith('citations')) return 'citations';
-  return knownFields.has(path)
-    ? (path as IssueRecord['field'])
-    : 'unknown_field';
+  return knownFields.has(path) ? path : 'unknown_field';
 };
 const limitOf = (issue: z.core.$ZodIssue): number | undefined => {
   const limit =

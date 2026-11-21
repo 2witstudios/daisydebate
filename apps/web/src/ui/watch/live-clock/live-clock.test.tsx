@@ -6,7 +6,7 @@ import { LiveClock } from './live-clock';
 setupRitewayBun();
 
 describe('LiveClock', () => {
-  test('renders a static value with no script', () => {
+  test('renders a static value before hydration', () => {
     const html = renderToString(h(LiveClock, { initialSeconds: 228 }));
     assert({
       given: '228 seconds left at render time',

@@ -34,7 +34,7 @@ const enrollOverAuthClient: PasskeyEnrollmentSeam = createPasskeyEnrollment({
 /**
  * The passkey offer right after a claimed username. `destination` was
  * validated by the server page. Declining posts to a server action, so it
- * works before hydration and without JavaScript; a saved passkey leaves by
+ * works before hydration; a saved passkey leaves by
  * a full navigation so the next render sees the finished account, while
  * declining only navigates the route.
  */

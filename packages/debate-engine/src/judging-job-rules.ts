@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import {
   judgingPolicy,
   type AiSeatStanding,
@@ -11,7 +12,7 @@ import {
 export const generationBudgetSpent = (
   job: Pick<JudgingJobFacts, 'generationDeadlineAt' | 'holdsBallot'>,
   nowMs: number,
-): boolean => !job.holdsBallot && Date.parse(job.generationDeadlineAt) <= nowMs;
+): boolean => !job.holdsBallot && instantMs(job.generationDeadlineAt) <= nowMs;
 
 /** Whether a job can still produce or submit a ballot; one rule for the panel and the room. */
 export function aiSeatStanding(
@@ -24,7 +25,7 @@ export function aiSeatStanding(
   if (job.holdsBallot) return { state: 'holding_ballot' };
   if (job.status === 'blocked') return { state: 'blocked' };
   if (job.status === 'recovering') return { state: 'recovering' };
-  if (Date.parse(job.generationDeadlineAt) > nowMs)
+  if (instantMs(job.generationDeadlineAt) > nowMs)
     return { state: 'generating', deadlineAt: job.generationDeadlineAt };
   return { state: 'recovering' };
 }
@@ -43,7 +44,7 @@ export function judgingDispatchEnd(
 ): JudgingTerminalReason | null {
   if (input.paidCalls >= judgingPolicy.maxPaidCalls)
     return 'attempts_exhausted';
-  return Date.parse(input.generationDeadlineAt) <= nowMs
+  return instantMs(input.generationDeadlineAt) <= nowMs
     ? 'generation_deadline'
     : null;
 }
@@ -120,7 +121,7 @@ export function judgingJobEndReason(
 ): JudgingTerminalReason {
   if (job.holdsBallot)
     return ending === 'forfeit' ? 'round_ended' : 'ballot_hold_ended';
-  return Date.parse(job.generationDeadlineAt) <= nowMs
+  return instantMs(job.generationDeadlineAt) <= nowMs
     ? 'generation_deadline'
     : 'round_ended';
 }

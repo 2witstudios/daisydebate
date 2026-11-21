@@ -7,12 +7,112 @@ import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createMessagingTestFixture } from '../src/testing';
 import { createMessagingStore } from '../src/messaging/store';
+import { appendStream, openStream, readStream } from '../src/messaging/stream';
 import { sqlStateOf } from './constraint-helpers';
 import { advanceSocialChannelAuthority } from '../src/messaging/social-channel-change';
 import { messagingChannels } from '../src/schema/messaging-channels';
 
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
+
+test('a stream initializes once and appends a complete valid plan under its row lock', async () => {
+  const client = new SQL(databaseUrl);
+  const fixture = await createMessagingTestFixture(client);
+  const { channelId } = fixture;
+  const statements: string[] = [];
+  const database = drizzle({
+    client,
+    logger: { logQuery: (query) => statements.push(query.trim()) },
+  });
+  try {
+    await client`delete from messaging_channel_streams where channel_id=${channelId}`;
+    await assertRejects({
+      given: 'the fixture channel before initializing its stream',
+      should: 'refuse the read',
+      actual: () => readStream(database, channelId),
+      code: 'NOT_FOUND',
+    });
+    await assertRejects({
+      given: 'the same fixture before opening',
+      should: 'refuse an append',
+      actual: () =>
+        appendStream(database, channelId, { messages: 0, changes: 1 }),
+      code: 'NOT_FOUND',
+    });
+    await openStream(database, channelId);
+    const initialized = await readStream(database, channelId);
+    const initialRead = statements.at(-1);
+    statements.length = 0;
+    for (const plan of [
+      { messages: 0, changes: 0 },
+      { messages: 2, changes: 1 },
+      { messages: -1, changes: 1 },
+      { messages: 0, changes: 1.5 },
+    ])
+      await assertRejects({
+        given: 'a plan breaking the stream bounds',
+        should: 'refuse before any row lock',
+        actual: () => appendStream(database, channelId, plan),
+        code: 'VALIDATION',
+      });
+    const malformedSql = statements.length;
+    const allocation = await database.transaction((tx) =>
+      appendStream(tx, channelId, { messages: 2, changes: 3 }),
+    );
+    const writes = statements.splice(0);
+    assert({
+      given:
+        'an initialized stream and a plan of two messages and three changes',
+      should:
+        'start at the creation revision, read without a lock, and lock then update the stream exactly once for the valid plan',
+      actual: [
+        initialized,
+        initialRead?.includes('for update'),
+        malformedSql,
+        allocation,
+        writes.map((query) => query.split(/\s/)[0]),
+        writes[0]?.endsWith('for update'),
+        await readStream(database, channelId),
+      ],
+      expected: [
+        { messageSequence: 0, changeVersion: 1 },
+        false,
+        0,
+        {
+          messageSequence: 2,
+          changeVersion: 4,
+          sequences: [1, 2],
+          versions: [2, 3, 4],
+        },
+        ['select', 'update'],
+        true,
+        { messageSequence: 2, changeVersion: 4 },
+      ],
+    });
+    for (const seq of [0, Number.MAX_SAFE_INTEGER]) {
+      await client`update messaging_channel_streams set message_sequence=${seq}, change_version=${Number.MAX_SAFE_INTEGER} where channel_id=${channelId}`;
+      statements.length = 0;
+      await assertRejects({
+        given: 'exhausted change or both counters',
+        should: 'refuse the allocation',
+        actual: () =>
+          database.transaction((tx) =>
+            appendStream(tx, channelId, { messages: 1, changes: 1 }),
+          ),
+        code: 'CONFLICT',
+      });
+      assert({
+        given: 'the exhausted stream',
+        should: 'only lock and leave the counters untouched',
+        actual: statements.length,
+        expected: 1,
+      });
+    }
+  } finally {
+    await fixture.cleanup();
+    await client.close();
+  }
+});
 
 type Fixture = Awaited<ReturnType<typeof createMessagingTestFixture>>;
 /** One real send through the content frame; `hold` runs inside it, before the commit. */

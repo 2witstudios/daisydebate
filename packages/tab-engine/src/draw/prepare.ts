@@ -41,11 +41,9 @@ const ratingOrder = (
   seed: Uint8Array,
   ids: readonly Id[],
 ) => {
-  const lot = new Map(
-    shuffleWith(
-      [...ids].sort(compareBytes),
-      eventStream(seed, request.event, 'pairing/seeding'),
-    ).map((id, i) => [id, i]),
+  const lots = shuffleWith(
+    [...ids].sort(compareBytes),
+    eventStream(seed, request.event, 'pairing/seeding'),
   );
   const rating = new Map(
     (request.ratings?.entries ?? []).map((r) => [r.entry, r]),
@@ -56,15 +54,14 @@ const ratingOrder = (
       ? [1, 0, 0]
       : [0, -r.rating, r.deviation];
   };
-  return [...ids].sort((a, b) => {
-    const [x, y] = [key(a), key(b)];
-    return (
-      x[0]! - y[0]! ||
-      x[1]! - y[1]! ||
-      x[2]! - y[2]! ||
-      lot.get(a)! - lot.get(b)!
-    );
-  });
+  // Each id's lot is its place in the seeded shuffle, a total tiebreak.
+  return lots
+    .map((id, lot) => ({ id, lot, key: key(id) }))
+    .sort((a, b) => {
+      const [x, y] = [a.key, b.key];
+      return x[0]! - y[0]! || x[1]! - y[1]! || x[2]! - y[2]! || a.lot - b.lot;
+    })
+    .map(({ id }) => id);
 };
 
 const chooseMethod = (request: EventRequest): Method => {
@@ -149,7 +146,7 @@ export const prepare = (request: EventRequest, seed: Uint8Array): Prepared => {
       cutoff,
       division: null,
       seed,
-    } as Parameters<typeof standings>[0]);
+    });
     results = table.results;
     const records = recordsAt(request, seed, cutoff);
     const place = new Map(table.rows.map((row, i) => [row.entry, i]));
@@ -169,19 +166,14 @@ export const prepare = (request: EventRequest, seed: Uint8Array): Prepared => {
   const record = readsResults
     ? recordsAt(request, seed, cutoff)
     : new Map(ids.map((id) => [id, 0]));
-  const byeLot = new Map(
-    shuffleWith(
-      [...ids].sort(compareBytes),
-      eventStream(seed, request.event, 'bye'),
-    ).map((id, i) => [id, i]),
-  );
+  // The lowest strength costs least as the bye; otherwise a seeded lot decides.
   const byeCost = new Map(
-    ids.map((id) => [
-      id,
-      request.settings['bye.recipient'].value === 'lowest'
-        ? ids.length - 1 - strength.get(id)!
-        : byeLot.get(id)!,
-    ]),
+    request.settings['bye.recipient'].value === 'lowest'
+      ? strengthOrder.map((id, i) => [id, ids.length - 1 - i])
+      : shuffleWith(
+          [...ids].sort(compareBytes),
+          eventStream(seed, request.event, 'bye'),
+        ).map((id, i) => [id, i]),
   );
   const order: FactsOrder = {
     record,

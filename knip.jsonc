@@ -3,6 +3,8 @@
   // Run with `bun run knip` (under Bun, per the toolchain contract).
   "$schema": "./node_modules/knip/schema.json",
   "ignore": [
+    // Loaded as a Knip config by knip:production through the heavy queue.
+    "knip.production.ts",
     // Scenario documents are loaded by the `bun scenario <name>` CLI.
     "scenarios/*.ts",
     // Read as text by judge-bench/remote.ts and run on a deployed web
@@ -26,6 +28,7 @@
     ".": {
       "entry": [
         "scripts/**/*.test.ts",
+        "scripts/migrate-sha3.ts",
         "eslint.config.test.ts",
         "scripts/check-boundaries.ts",
         "scripts/check-styling.ts",
@@ -78,6 +81,7 @@
         "e2e/support/broadcast-seed-process.ts",
         "e2e/support/league-request-process.ts",
         "e2e/support/hosting-seed-process.ts",
+        "e2e/support/tab-oracle-data.ts",
         // Started by messaging-realtime-config.ts's webServer command.
         "e2e/support/messaging-media-edge.ts",
         // The on-demand drills (`bun drill:first-word`, `bun drill:bot-freestyle`)
@@ -131,6 +135,10 @@
       "entry": [
         "integration/**/*.integration.ts",
         "scripts/rating-preflight.ts",
+        "scripts/bench-row-parsing.ts",
+        "scripts/sweeps/tx.ts",
+        "scripts/sweeps/locks.ts",
+        "scripts/sweeps/run.ts",
         // Prints a new tenant table's policies (docs/operations/database.md).
         "scripts/tenant-policies.ts",
       ],

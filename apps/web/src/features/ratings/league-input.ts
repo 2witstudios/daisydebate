@@ -46,29 +46,37 @@ export function leagueGames(input: LeagueRatingInputs): LadderGame[] {
       },
     ];
   });
-  const fixtures = new Map<string, (typeof input.tournaments)[number][]>();
+  type TournamentRecord = (typeof input.tournaments)[number];
+  const fixtures = new Map<
+    string,
+    { readonly records: TournamentRecord[]; readonly latest: TournamentRecord }
+  >();
   for (const record of input.tournaments)
-    fixtures.set(record.fixtureId, [
-      ...(fixtures.get(record.fixtureId) ?? []),
-      record,
-    ]);
+    fixtures.set(record.fixtureId, {
+      records: [...(fixtures.get(record.fixtureId)?.records ?? []), record],
+      latest: record,
+    });
   const tournaments: LadderInput['tournaments'][number][] = [
     ...fixtures.values(),
-  ].flatMap((records) => {
-    const latest = records.at(-1)!;
+  ].flatMap(({ records, latest }) => {
     const record = latest.competitionRecord;
     if (
       record.fixture.kind !== 'pairing' ||
       record.fixture.entries.length !== 2
     )
       return [];
-    const members = (entryId: string) =>
-      record.kind === 'decided'
-        ? record.cast
-            .filter((person) => person.entryId === entryId)
-            .map((person) => person.actorId)
-        : record.fixture.entries.find((entry) => entry.entryId === entryId)!
-            .members;
+    const members = (entryId: string) => {
+      if (record.kind === 'decided')
+        return record.cast
+          .filter((person) => person.entryId === entryId)
+          .map((person) => person.actorId);
+      const entry = record.fixture.entries.find(
+        (entry) => entry.entryId === entryId,
+      );
+      if (!entry)
+        throw createAppError('INVARIANT', 'Missing rating input entry');
+      return entry.members;
+    };
     const sides = record.fixture.entries.map((entry) => entry.entryId);
     const projected = records.flatMap((row) => {
       const projected = projectResultCompetition(row.competitionRecord, {

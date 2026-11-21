@@ -1,6 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { fixedClock } from '@daisy/clock';
-import { createRetentionSweep, type RetentionTarget } from './retention-sweep';
+import { createRetentionSweep } from './retention-sweep';
+import type { RetentionTarget } from './retention-target';
 import { createRecordingLogger } from './test-loggers.test-support';
 
 setupRitewayBun();

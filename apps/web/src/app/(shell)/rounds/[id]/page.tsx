@@ -10,7 +10,7 @@ import { RoundRatings } from '../../../../ui/ranked/round-ratings';
 import { readPersistedBallot } from '../../judge/ballot/[roundId]/actions';
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { systemClock } from '@daisy/clock';
+import { nowMs, systemClock } from '@daisy/clock';
 import { postRoundCallOffered } from '../../../../features/post-round-call/offered';
 import { MediaPageLink } from '../../../../ui/round-media/media-page-link';
 import { notFound, redirect } from 'next/navigation';
@@ -33,7 +33,7 @@ import { drawReconnectDelaySeconds } from '../../../../ui/debate-room/reconnect-
 import { audienceLinkPageHref } from '../../../../features/audience-link/audience-link';
 import { RoundAnalysis } from '../../../../ui/round-analysis/round-analysis';
 import { isTemporaryRefusal } from '@daisy/db/capacity';
-import { temporarilyRefused } from '../../../../server/temporary-read';
+import { temporarilyRefused } from '../../../../features/resource-sync/temporary-read';
 import { transcriptLines } from '../../../../ui/round-result/result-view';
 
 import {
@@ -136,7 +136,7 @@ export default async function RoundPage({
   // A seated human may go back to the Round's post-round call (ADR 0127).
   const onCall =
     identity.state === 'member' &&
-    postRoundCallOffered(result.round, Date.parse(systemClock.now())) &&
+    postRoundCallOffered(result.round, nowMs(systemClock)) &&
     result.round.participants.some(
       (p) =>
         !('anonymous' in p) &&
@@ -200,7 +200,7 @@ export default async function RoundPage({
           </>
         ) : null}
       </RoundReceipt>
-      {ownsFiles && filePrincipal !== null ? (
+      {ownsFiles ? (
         <BoundedDocuments>
           <DocumentManager principalId={filePrincipal.userId} />
         </BoundedDocuments>

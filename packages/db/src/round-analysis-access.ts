@@ -1,11 +1,12 @@
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { z } from 'zod';
 import type { Account } from './room-command-facts';
 import { createAppError } from '@daisy/errors';
 import { loadAuthorizationAccount } from './authorization';
 import { seatKinds, type SeatRef, type SideKey } from '@daisy/protocol';
 import { seatOfColumns } from './seat-columns';
+import type { Tx } from './tx';
+import { query } from './raw-rows';
 
 const accessRow = z.object({
   roundId: z.string(),
@@ -50,19 +51,21 @@ export type RoundAnalysisAccess = {
  * canonical account fences; this reader never acquires or upgrades one.
  */
 export async function readRoundAnalysisAccess(
-  tx: Pick<BunSQLDatabase, 'execute'>,
+  tx: Tx,
   target: { readonly roundId: string; readonly roundParticipantId: string },
 ): Promise<RoundAnalysisAccess> {
-  const [row] =
-    await tx.execute(sql`select r.id as "roundId", r.created_by_actor_id as "createdByActorId",
+  const [row] = await query(
+    tx,
+    accessRow.extend({ visibility: accessRow.shape.visibility.nullable() }),
+    sql`select r.id as "roundId", r.created_by_actor_id as "createdByActorId",
     r.visibility, r.status, r.version as revision,
     coalesce((select json_agg(json_build_object('id', p.id, 'actorId', p.actor_id, 'seatKind', p.seat_kind, 'side', p.side, 'slot', p.slot, 'userId', a.user_id) order by p.id)
       from round_participants p join actors a on a.id = p.actor_id
       where p.round_id = r.id), '[]'::json) as participants
-    from rounds r where r.id = ${target.roundId}`);
-  if (!row || (row as { visibility: unknown }).visibility === null)
-    throw createAppError('NOT_FOUND');
-  const { participants, ...round } = accessRow.parse(row);
+    from rounds r where r.id = ${target.roundId}`,
+  );
+  if (!row || row.visibility === null) throw createAppError('NOT_FOUND');
+  const { participants, visibility, ...round } = row;
   const seat = participants.find((p) => p.id === target.roundParticipantId);
   if (!seat?.userId || seat.seatKind !== 'side' || seat.side === null)
     throw createAppError('NOT_FOUND');
@@ -70,6 +73,7 @@ export async function readRoundAnalysisAccess(
   return {
     round: {
       ...round,
+      visibility,
       kind: 'round',
       participants: participants.map(({ actorId, ...seat }) => ({
         actorId,

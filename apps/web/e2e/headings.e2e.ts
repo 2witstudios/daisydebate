@@ -23,7 +23,7 @@ const expectOneH1 = async (page: Page, name: RegExp) => {
   await expect(headings).toHaveText(name);
 };
 
-/** The screens whose h1 is in the server-rendered HTML (no script needed). */
+/** The screens whose h1 is in the server-rendered HTML. */
 const expectServerRenderedH1s = async (page: Page) => {
   await page.goto(`/auth/confirm-email?token=${'a'.repeat(43)}`);
   await expectOneH1(page, /confirm this email change/i);
@@ -86,16 +86,4 @@ test('onboarding username has exactly one h1 naming the page (ISSUE-216)', async
 }) => {
   await reachOnboarding(page, request);
   await expectOneH1(page, /choose your username/i);
-});
-
-test.describe('with JavaScript off (ISSUE-216)', () => {
-  test.use({ javaScriptEnabled: false });
-
-  test('the server-rendered auth and security screens each have exactly one h1', async ({
-    page,
-  }) => {
-    await page.goto('/sign-in');
-    await expectOneH1(page, /take the floor/i);
-    await expectServerRenderedH1s(page);
-  });
 });

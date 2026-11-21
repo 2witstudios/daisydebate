@@ -1,3 +1,4 @@
+import { nowMs, instantMs } from '@daisy/clock';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { Clock, IdGenerator } from '@daisy/clock';
 import {
@@ -101,11 +102,12 @@ export async function uploadMessagingFile(
   const scope = { ...identity, channelId: command.channelId };
   const token = { fileId: command.fileId, generation: command.generation };
   const startedAt = d.clock.now();
-  let cleanup = false;
+  // The frame records whether a fresh reservation exists to clean up on failure.
+  const attempt = { cleanup: false };
   try {
     return await d.store.withChannel(scope, 'post', async (frame) => {
       const reservation = await frame.upload(token, d.clock.now());
-      cleanup = reservation.lifecycle === 'reserved';
+      attempt.cleanup = reservation.lifecycle === 'reserved';
       if (
         bytes.byteLength < 1 ||
         bytes.byteLength > reservation.reservedBytes ||
@@ -145,7 +147,7 @@ export async function uploadMessagingFile(
       return { fileId: reservation.id, generation: reservation.generation };
     });
   } catch (error) {
-    if (cleanup) await cleanupPending(d, scope, token);
+    if (attempt.cleanup) await cleanupPending(d, scope, token);
     throw isAppError(error) ? error : createAppError('INFRASTRUCTURE');
   }
 }
@@ -220,7 +222,7 @@ export async function readMessagingFile(
       const access = await frame.access(token, d.clock.now(), policy);
       const bytes = await d.objects.read(access.objectKey, access.storedBytes);
       await frame.access(token, d.clock.now(), policy);
-      if (Date.parse(d.clock.now()) >= Date.parse(access.accessExpiresAt))
+      if (nowMs(d.clock) >= instantMs(access.accessExpiresAt))
         throw createAppError('NOT_FOUND');
       return {
         bytes,

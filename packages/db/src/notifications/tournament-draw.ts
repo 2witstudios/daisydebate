@@ -1,18 +1,19 @@
 import { sql } from 'drizzle-orm';
-import { rowsOf } from '../raw-rows';
+import { query } from '../raw-rows';
 import type { LoadedDrawCommand } from '../tab/draw-command-facts';
 import type { DrawRoomAssembly } from '../tab/draw-writes';
 import type { DrawWrite } from '../tab/draw-write';
-import type { TabTransaction } from '../tab/tab-transaction';
 import {
   fixtureNotificationPeople,
   oweTournamentNotification,
   notifyTournamentRelease,
 } from './tournament';
+import type { Tx } from '../tx';
+import { z } from 'zod';
 
 /** A draft owes nothing; published changes and real assembled Rooms tell only their affected cast. */
 export async function notifyDrawChanges(
-  tx: TabTransaction,
+  tx: Tx,
   loaded: LoadedDrawCommand,
   writes: readonly DrawWrite[],
   assembly: DrawRoomAssembly,
@@ -44,8 +45,9 @@ export async function notifyDrawChanges(
           kind: 'judge_assigned',
           people: people.filter((person) => person.judgeId !== null),
         });
-        const [room] = await rowsOf<{ status: string }>(
+        const [room] = await query(
           tx,
+          z.object({ status: z.string() }),
           sql`select r.status from fixtures f join rooms r on r.id=f.room_id where f.id=${write.where.id}`,
         );
         if (room?.status === 'ready')

@@ -8,7 +8,6 @@ import {
   type RoundCommandReceipt,
 } from '@daisy/protocol';
 import { eq, sql } from 'drizzle-orm';
-import type { TabTransaction } from './tab/tab-transaction';
 import { hydrateRoundRows, type RoundHydration } from './round-hydration';
 import {
   requireFencedParticipants,
@@ -22,6 +21,8 @@ import { commitRoundCommand } from './round-command-commit';
 import { readDatabaseTime } from './database-clock';
 import { endOpenJudgingJobs, type JudgingEndRule } from './round-judging-end';
 import { roundCommands } from './schema/round-commands';
+import type { Tx } from './tx';
+import { run } from './raw-rows';
 
 /**
  * Internal ordinary owner port. The caller owns canonical account, source-parent and Room fences.
@@ -29,7 +30,7 @@ import { roundCommands } from './schema/round-commands';
  * Authorization is evaluated again on replay from the protected current context.
  */
 export async function voidLockedRoundSource(
-  tx: TabTransaction,
+  tx: Tx,
   input: {
     readonly roundId: string;
     readonly commandId: string;
@@ -77,7 +78,8 @@ export async function voidLockedRoundSource(
       payloadDigest: input.payloadDigest,
       type: previous.type,
     });
-    await tx.execute(
+    await run(
+      tx,
       sql`select public.daisy_mark_round_source_void(${input.roundId},${input.commandId})`,
     );
     return {
@@ -92,10 +94,7 @@ export async function voidLockedRoundSource(
   let receipt: RoundCommandReceipt;
   if (isRoundRunning(current.status)) {
     const projection = input.stopProjection({ round, now });
-    if (
-      projection.round?.status !== 'abandoned' ||
-      projection.round.outcome !== null
-    )
+    if (projection.round?.status !== 'abandoned')
       throw createAppError(
         'INVARIANT',
         'A source stop must abandon its live ordinary Round',
@@ -144,7 +143,8 @@ export async function voidLockedRoundSource(
       current.version + 1,
     );
   }
-  await tx.execute(
+  await run(
+    tx,
     sql`select public.daisy_mark_round_source_void(${input.roundId},${input.commandId})`,
   );
   if (!isRoundRunning(current.status))

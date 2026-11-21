@@ -1,9 +1,11 @@
 import { processRoute } from '../../../../../../server/process-app';
+type Params = Awaited<
+  RouteContext<'/api/rounds/[roundId]/media/reconcile'>['params']
+>;
+
 export const runtime = 'nodejs';
-export const POST = processRoute(
-  (routes) => (request) =>
-    routes.roundMedia.reconcile(
-      request,
-      new URL(request.url).pathname.split('/')[3] ?? '',
-    ),
+export const POST = processRoute.withParams<Params>(
+  (routes) =>
+    (request, { roundId }) =>
+      routes.roundMedia.reconcile(request, roundId),
 );

@@ -1,6 +1,6 @@
 'use client';
 import type { RoundView } from '@daisy/protocol';
-import { systemClock } from '@daisy/clock';
+import { nowMs, systemClock } from '@daisy/clock';
 import { useEffect, useRef, useState } from 'react';
 import { formatCountdown } from '../../../lib/clock-display';
 import {
@@ -11,7 +11,7 @@ import {
 } from '../../../features/round-ballots/settling';
 
 const deviceInstant = () => ({
-  wallMs: Date.parse(systemClock.now()),
+  wallMs: nowMs(systemClock),
   monotonicMs: performance.now(),
 });
 
@@ -74,7 +74,7 @@ export function useBallotOpensIn(
 /**
  * The judge may fill in the ballot while attendance for the last speeches
  * settles; this says when submitting opens. The sentence names the clock
- * time and the wait as rendered, so it holds without script and is not
+ * time and the wait as rendered, so it holds before hydration and is not
  * re-announced every second; only the visual countdown ticks.
  */
 export function BallotOpensNotice({

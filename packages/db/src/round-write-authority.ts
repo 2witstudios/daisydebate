@@ -8,8 +8,7 @@ import type {
   RoundCommandPrincipal,
   RoundCommandAuthority,
 } from '@daisy/protocol';
-import { and, eq, sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
+import { and, eq } from 'drizzle-orm';
 import { lockAuthorizationActors } from './authorization';
 import { hydrateRoundRows } from './round-hydration';
 import { actorFact } from './room-command-facts';
@@ -22,11 +21,8 @@ import { roundParticipants } from './schema/round-participants';
 import { agentRuns } from './schema/agent-runs';
 import { fencedActorIds, seatEligibility } from './seat-eligibility';
 import { principalAccessOf } from './participant-admission';
-export type RoundWriteTransaction = Pick<
-  BunSQLDatabase,
-  'select' | 'insert' | 'update' | 'execute'
->;
-type Tx = RoundWriteTransaction;
+import type { Tx } from './tx';
+import { takeLock, transactionLocks } from './locks';
 export type RoundWriteScope = {
   readonly roundId: string;
   readonly principal: RoundCommandPrincipal;
@@ -119,7 +115,7 @@ export const roundPrincipalColumns = (principal: RoundCommandPrincipal) => ({
 });
 export function requireHumanRoundPrincipal(
   principal: RoundCommandPrincipal,
-  accounts: Awaited<ReturnType<typeof lockAuthorizationActors>>,
+  accounts: Readonly<Awaited<ReturnType<typeof lockAuthorizationActors>>>,
 ) {
   if (principal.kind !== 'human') return;
   const account = accounts.find((a) => a?.actorId === principal.actorId);
@@ -127,9 +123,7 @@ export function requireHumanRoundPrincipal(
 }
 export async function fenceRoundWrite(tx: Tx, input: RoundWriteScope) {
   // Global command id lock serializes replays even when a reused id names another Round.
-  await tx.execute(
-    sql`select pg_advisory_xact_lock(hashtextextended(${input.commandId}, 59002))`,
-  );
+  await takeLock(tx, transactionLocks.roundCommand(input.commandId));
   const initialSeats = await tx
     .select({ actorId: roundParticipants.actorId })
     .from(roundParticipants)

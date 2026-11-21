@@ -64,8 +64,7 @@ export const decideBroadcast = (
       return [{ type: 'stop-egress', id: live.id, reason: 'round-ended' }];
     // No Egress left to stop, as when it failed or never started: media has ended.
     if (facts.finalMediaEndMs === null) return [{ type: 'record-media-ended' }];
-    return facts.finalMediaEndMs !== null &&
-      facts.streamEndedMs !== null &&
+    return facts.streamEndedMs !== null &&
       facts.nowMs >= facts.finalMediaEndMs + delayMs(facts.policy)
       ? [{ type: 'complete' }]
       : [];

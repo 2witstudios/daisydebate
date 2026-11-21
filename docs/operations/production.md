@@ -111,7 +111,7 @@ calls `redirect()` when the page's script calls it: Next 16 would then fetch
 the next page from the request's own public origin, through the edge, with
 the browser's cookies forwarded (ISSUE-80). Actions answer those calls with
 the destination instead, so the app makes no server-to-self request, and a
-form posted without JavaScript gets a plain 303.
+form posted before hydration gets a plain 303.
 
 Whether the production edge accepts a server-to-self request carrying a
 session cookie has not been checked: no production deploy exists yet, and

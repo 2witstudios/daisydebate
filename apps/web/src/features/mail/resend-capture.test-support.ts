@@ -9,7 +9,7 @@ export const resendRequest = (
 ) => {
   const url = input instanceof Request ? input.url : String(input);
   if (url !== 'https://api.resend.com/emails') return undefined;
-  const body = JSON.parse(String(init?.body)) as {
+  const body = JSON.parse(typeof init?.body === 'string' ? init.body : '') as {
     to: string[];
     subject: string;
     text: string;

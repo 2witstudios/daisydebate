@@ -27,17 +27,17 @@ export async function runMessagingNavigationProbe(
 ) {
   const document = win.document as unknown as Document;
   const commands: string[] = [];
-  mock.module('./typing-browser', () => ({
+  void mock.module('./typing-browser', () => ({
     createBrowserTypingWriter: () => ({
       activity: async () => {},
       close: async () => {},
     }),
   }));
-  mock.module('next/dist/client/components/navigator', () => ({
+  void mock.module('next/dist/client/components/navigator', () => ({
     navigate: (href: string) => commands.push(`intent:${href}`),
   }));
   // Prefetch I/O is outside this mounted command proof; real Next is covered in E2E.
-  mock.module('next/dist/client/components/links', () => ({
+  void mock.module('next/dist/client/components/links', () => ({
     IDLE: { pending: false },
     mountLinkInstance: () => ({}),
     onNavigationIntent() {},
@@ -51,7 +51,7 @@ export async function runMessagingNavigationProbe(
     await import('next/dist/shared/lib/app-router-context.shared-runtime');
   // Match Next's App Router alias instead of Bun's default Pages Router Link.
   const { default: AppLink } = await import('next/dist/client/app-dir/link');
-  mock.module('next/link', () => ({ default: AppLink }));
+  void mock.module('next/link', () => ({ default: AppLink }));
   const { ConversationNavigation, ConversationLink, ConversationSearchForm } =
     await import('./conversation-navigation');
   const { MessageComposer } = await import('./message-composer');
@@ -72,7 +72,9 @@ export async function runMessagingNavigationProbe(
     started: Promise<void> | undefined,
   ) =>
     act(async () => {
-      field.form!.dispatchEvent(
+      const form = field.form;
+      if (!form) throw new Error('The composer field is outside a form');
+      form.dispatchEvent(
         new win.Event('submit', {
           bubbles: true,
           cancelable: true,
@@ -85,6 +87,18 @@ export async function runMessagingNavigationProbe(
   const host = document.createElement('div');
   document.body.append(host);
   const root = createRoot(host);
+  const composerField = () => {
+    const found = host.querySelector<HTMLTextAreaElement>('textarea');
+    if (!found) throw new Error('No composer field is mounted');
+    return found;
+  };
+  const requestIdValue = () => {
+    const found = host.querySelector<HTMLInputElement>(
+      'input[name="requestId"]',
+    );
+    if (!found) throw new Error('No command request id is mounted');
+    return found.value;
+  };
   function tree(
     key = 'channel',
     route = router,
@@ -112,7 +126,7 @@ export async function runMessagingNavigationProbe(
             >
               Preferences
             </ConversationLink>
-            <ConversationSearchForm action="/messages/channel" method="get">
+            <ConversationSearchForm action="/messages/channel">
               <input
                 name="query"
                 required
@@ -127,7 +141,7 @@ export async function runMessagingNavigationProbe(
     );
   }
   await act(async () => root.render(tree()));
-  const field = host.querySelector<HTMLTextAreaElement>('textarea')!;
+  const field = composerField();
   field.value = 'Draft';
   if (scenario === 'refreshed-draft')
     await act(async () => root.render(tree('channel', router, 'fresh')));
@@ -135,21 +149,21 @@ export async function runMessagingNavigationProbe(
     scenario === 'refreshed-draft'
       ? {
           text: field.value,
-          requestId: host.querySelector<HTMLInputElement>(
-            'input[name="requestId"]',
-          )!.value,
+          requestId: requestIdValue(),
         }
       : undefined;
   await submitComposer(field, started.promise);
   const pending =
     field.disabled &&
-    host
-      .querySelector('button[type="submit"]')!
-      .getAttribute('aria-label')!
-      .includes('Sending…');
+    (
+      host.querySelector('button[type="submit"]')?.getAttribute('aria-label') ??
+      ''
+    ).includes('Sending…');
   if (scenario === 'search-disposed' || scenario === 'search-replaced') {
     await act(async () => {
-      host.querySelector('form')!.requestSubmit();
+      const form = host.querySelector('form');
+      if (!form) throw new Error('No search form is mounted');
+      form.requestSubmit();
       // The submit's own choice stands whatever happens to the conversation next.
       if (scenario === 'search-disposed') root.unmount();
       else flushSync(() => root.render(tree('successor')));
@@ -165,17 +179,14 @@ export async function runMessagingNavigationProbe(
   if (scenario.startsWith('same-conversation')) {
     if (scenario === 'same-conversation')
       await act(async () => root.render(tree('channel', router, 'fresh')));
-    if (
-      host.querySelector<HTMLInputElement>('input[name="requestId"]')!.value !==
-      'request'
-    )
+    if (requestIdValue() !== 'request')
       throw new Error('Pending command identity was replaced');
   }
   if (scenario === 'disposed') await act(async () => root.unmount());
   if (scenario === 'replaced' || scenario === 'replaced-active')
     await act(async () => root.render(tree('successor')));
   if (scenario === 'replaced-active') {
-    const successorField = host.querySelector<HTMLTextAreaElement>('textarea')!;
+    const successorField = composerField();
     successorField.value = 'Second draft';
     await submitComposer(successorField, successorStarted.promise);
   }
@@ -187,8 +198,7 @@ export async function runMessagingNavigationProbe(
   const awaitingFresh =
     scenario === 'same-conversation-late'
       ? {
-          editable:
-            !host.querySelector<HTMLTextAreaElement>('textarea')!.disabled,
+          editable: !composerField().disabled,
           ready: readMountedComposer(host).ready,
         }
       : undefined;
@@ -199,16 +209,13 @@ export async function runMessagingNavigationProbe(
     : undefined;
   let retainedNew;
   if (scenario.startsWith('same-conversation')) {
-    host.querySelector<HTMLTextAreaElement>('textarea')!.value = 'NEW';
+    composerField().value = 'NEW';
     await act(async () =>
       root.render(tree('channel', { ...router }, 'request')),
     );
     await act(async () => root.render(tree('channel', { ...router }, 'fresh')));
     retainedNew = readMountedComposer(host);
-    await submitComposer(
-      host.querySelector<HTMLTextAreaElement>('textarea')!,
-      freshStarted.promise,
-    );
+    await submitComposer(composerField(), freshStarted.promise);
     await act(async () => {
       freshAnswer.resolve();
       await freshAnswer.promise;
@@ -223,10 +230,7 @@ export async function runMessagingNavigationProbe(
     ? readMountedComposer(host)
     : undefined;
   if (scenario === 'unknown-commit') {
-    await submitComposer(
-      host.querySelector<HTMLTextAreaElement>('textarea')!,
-      undefined,
-    );
+    await submitComposer(composerField(), undefined);
   }
   const commandsBeforeSuccessor = [...commands];
   if (scenario === 'replaced-active') {

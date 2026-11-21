@@ -66,6 +66,40 @@ test('query refuses a row its schema does not describe, without its values', asy
   });
 });
 
+test('query validates Bun rows from the reserved backend and redacts a refused row', async () => {
+  const reserved = await holder.reserve();
+  try {
+    await reserved`create temporary table native_boundary (value int4 not null)`;
+    await reserved`insert into native_boundary values (7)`;
+    const values = await query(
+      reserved`select value from native_boundary`,
+      z.object({ value: z.int() }),
+    );
+    const refusal = await query(
+      reserved`select jsonb_build_object('person@example.com', 'private value') as metadata`,
+      z.object({ metadata: z.record(z.string(), z.number()) }),
+    ).catch((error: unknown) => error);
+    assert({
+      given:
+        'one accepted and one rejected native result on a reserved backend',
+      should: 'use that backend and report only the failing row index and code',
+      actual: {
+        values,
+        code: (refusal as { code?: string }).code,
+        cause: (refusal as Error).cause,
+      },
+      expected: {
+        values: [{ value: 7 }],
+        code: 'INVARIANT',
+        cause: [{ row: 0, code: 'invalid_type' }],
+      },
+    });
+  } finally {
+    await reserved`drop table if exists native_boundary`;
+    reserved.release();
+  }
+});
+
 test('run executes a statement, and inTransaction commits, rolls back and nests', async () => {
   const table = sql.raw(`boundary_${process.pid}`);
   await run(database, sql`create temporary table ${table} (n int4)`);

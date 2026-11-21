@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { attendanceInvariantFixtures } from './invariants-attendance';
 import { invariantIdOf as invariantId } from './invariant-error';
 import { readFile } from 'node:fs/promises';
@@ -167,7 +168,7 @@ const fixtures: Readonly<Record<string, Fixture>> = {
       rules: rules(),
       checkpoint: freshCheckpoint,
       segments: [],
-      nowMs: Date.parse(t0),
+      nowMs: instantMs(t0),
     }),
   'stage-matches-clock': () =>
     createRoundRuntime({

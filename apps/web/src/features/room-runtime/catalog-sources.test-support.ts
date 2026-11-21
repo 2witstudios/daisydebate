@@ -6,7 +6,8 @@ import {
 import { catalogFormats } from '@daisy/db/catalog-formats';
 
 /** Freestyle, Daisy's one standard, as the catalog seeds it (ADR 0142). */
-const freestyle = catalogFormats.find((format) => format.id === 'freestyle')!;
+const freestyle = catalogFormats.find((format) => format.id === 'freestyle');
+if (freestyle === undefined) throw new Error('The catalog seeds Freestyle');
 
 /** Catalog sources as the store lists them: role-bearing formats at their canonical presets. */
 export const catalog = [

@@ -53,7 +53,9 @@ export function captureMail({
   return async (input, init) => {
     const url = input instanceof Request ? input.url : String(input);
     if (url !== RESEND_ENDPOINT) return downstream(input, init);
-    const body = JSON.parse(String(init?.body)) as {
+    const body = JSON.parse(
+      typeof init?.body === 'string' ? init.body : '',
+    ) as {
       to: string[];
       subject: string;
       text: string;

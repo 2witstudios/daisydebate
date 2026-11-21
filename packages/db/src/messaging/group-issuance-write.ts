@@ -1,6 +1,5 @@
 import { writeMessagingGroupLifecycle } from './group-channel-write';
 import { eq } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import {
   messagingGroupInvitations,
@@ -15,12 +14,12 @@ import type {
   MessagingGroupIssuanceScope,
   MessagingGroupIssuanceStore,
 } from './group-issuance-contracts';
+import type { Tx } from '../tx';
 type Command = Parameters<
   Parameters<
     Parameters<MessagingGroupIssuanceStore['withIssuance']>[1]
   >[0]['commit']
 >[0];
-type Tx = Pick<BunSQLDatabase, 'select' | 'insert' | 'update' | 'execute'>;
 /** No grant is created here. Every association and thin invalidation is in the caller tx. */
 export async function writeGroupIssuance(
   tx: Tx,

@@ -1,3 +1,4 @@
+import { nowMs } from '@daisy/clock';
 import { asc } from 'drizzle-orm';
 import {
   createOperatorApiStub,
@@ -53,7 +54,7 @@ export async function setupCommands(
     audience,
     keyId,
     key,
-    nowMs: () => Date.parse(base.clock.now()),
+    nowMs: () => nowMs(base.clock),
     accounts,
   });
   const client = createOperatorClient({

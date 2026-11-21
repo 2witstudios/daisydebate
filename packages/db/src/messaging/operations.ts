@@ -27,11 +27,11 @@ import {
   createMessagingSocialStore,
 } from './index';
 import type { ContactReactions } from '../contacts/reactions';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
+import type { TxSource } from '../tx';
 
 /** Composes messaging stores over the same pool, retaining each authorization fence. */
 export function messagingOperations(
-  database: BunSQLDatabase,
+  database: TxSource,
   reactions: ContactReactions,
 ) {
   return {

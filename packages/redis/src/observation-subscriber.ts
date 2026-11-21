@@ -148,5 +148,5 @@ export const dialObservationSubscriber =
       enableOfflineQueue: false,
       autoReconnect: false,
     });
-    return client as unknown as SubscriberTransport;
+    return client;
   };

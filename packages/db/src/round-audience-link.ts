@@ -1,8 +1,8 @@
 import { and, eq } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { rounds } from './schema/rounds';
+import type { TxSource } from './tx';
 
-const readLink = async (database: BunSQLDatabase, roundId: string) => {
+const readLink = async (database: TxSource, roundId: string) => {
   const [round] = await database
     .select({
       roomId: rounds.roomId,
@@ -25,8 +25,8 @@ export const roundAudienceLinkOperations = ({
   viewers,
   host,
 }: {
-  readonly viewers: BunSQLDatabase;
-  readonly host: BunSQLDatabase;
+  readonly viewers: TxSource;
+  readonly host: TxSource;
 }) => ({
   readRoundAudienceLink: (roundId: string) => readLink(viewers, roundId),
 

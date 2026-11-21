@@ -1,20 +1,25 @@
 import { sql } from 'drizzle-orm';
 import { idSchema } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
-import type { AuthorizationTransaction } from './authorization';
 import type { PrivacyAdopter } from './privacy/contracts';
 import { accountAge } from './schema/account-age';
+import type { Tx } from './tx';
+import { run, query } from './raw-rows';
+import { z } from 'zod';
 export { loadAuthorizationAgeFact } from './authorization-age';
 export { bindAuthorizationAgeFact } from './authorization-age-reader';
 /** Same account-fenced transaction as send/contact/erasure; no external pool. */
-export async function loadAccountAgeSource(
-  tx: AuthorizationTransaction,
-  userId: string,
-) {
+export async function loadAccountAgeSource(tx: Tx, userId: string) {
   if (!idSchema.safeParse(userId).success) throw createAppError('VALIDATION');
-  const rows = (await tx.execute(
+  const rows = await query(
+    tx,
+    z.object({
+      birthMonth: z.string(),
+      revision: z.number(),
+      recordedAt: z.unknown(),
+    }),
     sql`select birth_month as "birthMonth",version as revision,recorded_at as "recordedAt" from ${accountAge} where user_id=${userId}`,
-  )) as unknown as { birthMonth: string; revision: number; recordedAt: Date }[];
+  );
   const row = rows[0];
   return row &&
     row.recordedAt instanceof Date &&
@@ -31,7 +36,8 @@ export const accountAgePrivacyAdopter: PrivacyAdopter = {
   id: 'account-age',
   phase: 'after-close',
   erase: async (tx, subject) => {
-    await tx.execute(
+    await run(
+      tx,
       sql`delete from ${accountAge} where user_id=${subject.userId}`,
     );
   },

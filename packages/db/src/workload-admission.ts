@@ -117,7 +117,7 @@ export const WORKLOAD_PROFILES = {
 
 /** Every connection one process of a profile can hold, dedicated ones included. */
 export const profileConnections = (profile: WorkloadProfile): number =>
-  Object.values(profile.lanes).reduce(
+  Object.values<LaneBudget | undefined>(profile.lanes).reduce(
     (total, budget) => total + (budget?.connections ?? 0),
     profile.dedicated,
   );
@@ -125,7 +125,9 @@ export const profileConnections = (profile: WorkloadProfile): number =>
 export function validateWorkloadProfile(profile: WorkloadProfile) {
   if (!Number.isSafeInteger(profile.dedicated) || profile.dedicated < 0)
     throw createAppError('INVARIANT', 'Invalid workload lane budget');
-  for (const [name, budget] of Object.entries(profile.lanes)) {
+  for (const [name, budget] of Object.entries<LaneBudget | undefined>(
+    profile.lanes,
+  )) {
     if (!budget) continue;
     const valid =
       (WORKLOAD_LANES as readonly string[]).includes(name) &&
@@ -232,11 +234,14 @@ export function createLaneGate(
     };
   };
   function pump() {
+    if (!budget) return;
     while (order.length > 0) {
       const key = order[0]!;
-      const queue = queues.get(key)!;
-      const head = queue[0]!;
-      if (active + head.weight > budget!.connections) return;
+      const queue = queues.get(key);
+      const head = queue?.at(0);
+      if (!queue || !head)
+        throw createAppError('INVARIANT', 'Queued lane has no waiter');
+      if (active + head.weight > budget.connections) return;
       queue.shift();
       waiting -= 1;
       order.shift();

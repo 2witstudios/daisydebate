@@ -1,3 +1,4 @@
+import { addMs } from '@daisy/clock';
 import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
@@ -27,6 +28,7 @@ import {
 import { admitParticipants } from '../src/beta-access-testing';
 import { rejectedBy } from './constraint-helpers';
 import { createMessagingTestFixture } from '../src/testing';
+import { daisyOrganizationId } from '../src/daisy-reference';
 import { withFixture } from './constraint-helpers';
 
 setupRitewayBun();
@@ -420,7 +422,7 @@ test('a challenge is offered, listed both ways, repeated once, and goes on decli
     authorize: unfenced,
   });
   const members = [ctx.me.actorId, ctx.them.actorId];
-  const expiresAt = new Date(Date.parse(ctx.now) + 120_000).toISOString();
+  const expiresAt = addMs(ctx.now, 120_000);
   const send = (id: string) =>
     store.withContacts({ ...ctx.me, memberActorIds: members }, (frame) =>
       frame.send({
@@ -491,7 +493,7 @@ test('accepting names only a room made for the offer, and only for a free challe
     authorize: unfenced,
   });
   const members = [ctx.me.actorId, ctx.them.actorId];
-  const expiresAt = new Date(Date.parse(ctx.now) + 120_000).toISOString();
+  const expiresAt = addMs(ctx.now, 120_000);
   const send = (mode: 'ranked' | 'casual') =>
     store.withContacts({ ...ctx.me, memberActorIds: members }, (frame) =>
       frame.send({
@@ -541,11 +543,30 @@ test('accepting names only a room made for the offer, and only for a free challe
       await fixture.room(ctx.them.actorId, 'nsda-ld', {}),
       expiresAt,
     );
+    const otherLobbyId = createId();
+    await fixture.insert('lobbies', {
+      id: otherLobbyId,
+      name: otherLobbyId,
+      handle: otherLobbyId,
+      kind: 'standing',
+      owner_organization_id: daisyOrganizationId,
+    });
+    const wrongLobby = await holdFor(
+      await room({ lobby_id: otherLobbyId }),
+      expiresAt,
+    );
     const refused = [
       await accept(challengeId, unheld),
       await accept(challengeId, lapsed),
       await accept(challengeId, wrongFormat),
+      await accept(challengeId, wrongLobby),
     ];
+    const pending = await listChallenges(
+      ctx.database,
+      ctx.them,
+      ctx.now,
+      unfenced,
+    );
     const mine = await fixture.room(ctx.me.actorId, 'freestyle', {});
     await ctx.client.unsafe(
       'insert into active_seats (actor_id, room_id) values ($1, $2)',
@@ -566,7 +587,7 @@ test('accepting names only a room made for the offer, and only for a free challe
     const later = await listChallenges(
       ctx.database,
       ctx.me,
-      new Date(Date.parse(expiresAt) + 1).toISOString(),
+      addMs(expiresAt, 1),
       unfenced,
     );
     await ctx.client.unsafe('delete from challenges where id = $1', [
@@ -574,12 +595,13 @@ test('accepting names only a room made for the offer, and only for a free challe
     ]);
     assert({
       given:
-        'an offer resent as casual, a public room with no hold for the challenger, one whose hold lapsed, another format, a placed challenger, then the right room',
+        'an offer resent as casual, a public room with no hold for the challenger, one whose hold lapsed, another format, another adult lobby, a placed challenger, then the right room',
       should:
-        'take the new terms, refuse the wrong rooms and the placed challenger, accept the right room, then stop sending the challenger there',
+        'keep the offer pending after refusing the wrong Rooms, refuse the placed challenger, accept the right Room, then stop following it',
       actual: [
         terms,
         refused,
+        pending.map((row) => row.roomId),
         whilePlaced,
         accepted,
         listed.map((row) => row.roomId),
@@ -587,7 +609,8 @@ test('accepting names only a room made for the offer, and only for a free challe
       ],
       expected: [
         ['casual'],
-        ['NOT_FOUND', 'NOT_FOUND', 'NOT_FOUND'],
+        ['NOT_FOUND', 'NOT_FOUND', 'NOT_FOUND', 'NOT_FOUND'],
+        [null],
         'NOT_FOUND',
         'accepted',
         [right],
@@ -614,7 +637,7 @@ test('a challenge is refused while its target is Busy or appearing offline, and 
         mode: 'casual',
         format: 'freestyle',
         now,
-        expiresAt: new Date(Date.parse(now) + 120_000).toISOString(),
+        expiresAt: addMs(now, 120_000),
       }),
     );
   const refused = async () =>
@@ -640,7 +663,7 @@ test('a challenge is refused while its target is Busy or appearing offline, and 
       unfenced,
     );
     await send(ctx.now);
-    const later = new Date(Date.parse(ctx.now) + 121_000).toISOString();
+    const later = addMs(ctx.now, 121_000);
     const listed = await listChallenges(
       ctx.database,
       ctx.them,

@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { capturedMediaMs, recordingBuildCeilingMs } from '@daisy/protocol';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createRecordingCaptureSweep } from './capture-sweep';
@@ -5,7 +6,7 @@ import type { RecordingCapturePort } from './capture-port';
 
 setupRitewayBun();
 
-const NOW = Date.parse('2026-11-03T10:00:00.000Z');
+const NOW = instantMs('2026-11-03T10:00:00.000Z');
 const at = new Date(NOW).toISOString();
 
 const row = (over: Record<string, unknown> = {}) => ({

@@ -3,9 +3,10 @@ import {
   type NotificationPresentation,
 } from '@daisy/protocol';
 import { sql, type SQL } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
-import { rowsOf } from '../raw-rows';
+import { run, query } from '../raw-rows';
+import type { TxSource } from '../tx';
+import { z } from 'zod';
 
 /** Whether Daisy may email the member `user` names at all; no row is yes. */
 export const emailsMember = (user: SQL) =>
@@ -16,15 +17,21 @@ export const notificationPresentationOperations = ({
   database,
   eventSink,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
   readNotificationPresentation(input: {
     readonly userId: string;
   }): Promise<NotificationPresentation> {
     return instrumented(eventSink, 'readNotificationPresentation', async () => {
-      const [row] = await rowsOf<NotificationPresentation>(
+      const [row] = await query(
         database,
+        z.object({
+          email: z.boolean(),
+          toasts: z.boolean(),
+          sound: z.boolean(),
+          desktopAlerts: z.boolean(),
+        }),
         sql`select toasts,sound,desktop_alerts as "desktopAlerts",email
           from notification_presentation where user_id=${input.userId}`,
       );
@@ -41,11 +48,14 @@ export const notificationPresentationOperations = ({
       'writeNotificationPresentation',
       async () => {
         const p = input.presentation;
-        await database.execute(sql`insert into notification_presentation(user_id,toasts,sound,desktop_alerts,email)
+        await run(
+          database,
+          sql`insert into notification_presentation(user_id,toasts,sound,desktop_alerts,email)
         select u.id,${p.toasts},${p.sound},${p.desktopAlerts},${p.email} from users u
         where u.id=${input.userId} and u.deleted_at is null
         on conflict (user_id) do update set toasts=excluded.toasts,sound=excluded.sound,
-          desktop_alerts=excluded.desktop_alerts,email=excluded.email`);
+          desktop_alerts=excluded.desktop_alerts,email=excluded.email`,
+        );
       },
     );
   },
@@ -56,10 +66,13 @@ export const notificationPresentationOperations = ({
   stopNotificationEmail(input: { readonly userId: string }) {
     return instrumented(eventSink, 'stopNotificationEmail', async () => {
       const d = defaultNotificationPresentation;
-      await database.execute(sql`insert into notification_presentation(user_id,toasts,sound,desktop_alerts,email)
+      await run(
+        database,
+        sql`insert into notification_presentation(user_id,toasts,sound,desktop_alerts,email)
         select u.id,${d.toasts},${d.sound},${d.desktopAlerts},false from users u
         where u.id=${input.userId} and u.deleted_at is null
-        on conflict (user_id) do update set email=false`);
+        on conflict (user_id) do update set email=false`,
+      );
     });
   },
 });

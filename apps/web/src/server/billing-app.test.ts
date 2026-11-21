@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { fixedClock, sequentialId } from '@daisy/clock';
+import { instantMs, fixedClock, sequentialId } from '@daisy/clock';
 import { authTestEnv } from '../features/auth/auth-server.test-support';
 import { betaMessagingPolicy } from '../features/messaging/beta-policy';
 import { createBillingNativeResolver } from './billing-app';
@@ -125,7 +125,7 @@ test('actual native composition uses the injected public display reader afresh w
               { key: 'premium-checkout', revision: 1, state, override: null },
             ],
           },
-          now: Date.parse(now),
+          now: instantMs(now),
         };
       },
     },

@@ -12,17 +12,14 @@ import { matchesRoute } from '../components/nav-item/nav-item';
 import { InboxRow, hrefOf } from './inbox-row';
 import { inboxPageHref } from '../../features/messaging/inbox-view';
 import { useInbox } from './inbox-provider';
+import { SearchForm } from '../components/search-form/search-form';
 
 const tool =
   'flex size-nav-target shrink-0 items-center justify-center rounded-sm text-ink-muted no-underline hover:bg-surface-overlay hover:text-ink hover:no-underline';
 const footLink =
   'flex min-h-nav-target items-center gap-2 rounded-sm px-2 text-sm font-semibold text-ink-muted no-underline hover:bg-surface-overlay hover:text-ink hover:no-underline';
 
-/**
- * Every conversation, beside whichever one is open. Without JavaScript the
- * search is a GET and the next page a link, and both answer in the open pane,
- * because a layout cannot read the query.
- */
+/** The inbox beside the current conversation. Search and paging have their own URLs. */
 export function ConversationList({
   groupsOffered,
   retained,
@@ -38,17 +35,18 @@ export function ConversationList({
     event.preventDefault();
     inbox.setSearch(inbox.search);
   };
-  const more = (after: string) => async (event: MouseEvent) => {
+  const more = (after: string) => (event: MouseEvent) => {
     // The visible cursor belongs to the applied question, not text still waiting
     // for its debounced result. Its native destination preserves that question.
     if (inbox.search.trim() !== (inbox.appliedSearch ?? '')) return;
     event.preventDefault();
     setReading(true);
-    const read = await inbox.more(after);
-    setReading(false);
-    // A refused read still has the link's native answer to offer.
-    if (!read)
-      window.location.assign(inboxPageHref(after, inbox.appliedSearch));
+    void inbox.more(after).then((read) => {
+      setReading(false);
+      // A refused read still has the link's native answer to offer.
+      if (!read)
+        window.location.assign(inboxPageHref(after, inbox.appliedSearch));
+    });
   };
   return (
     <>
@@ -66,10 +64,9 @@ export function ConversationList({
           <Icon name="plus" />
         </Link>
       </header>
-      <form
+      <SearchForm
         role="search"
         action="/messages"
-        method="get"
         onSubmit={submit}
         className="shrink-0 p-2"
       >
@@ -86,7 +83,7 @@ export function ConversationList({
             className="h-full w-full min-w-0 bg-transparent text-sm text-ink placeholder:text-ink-muted"
           />
         </label>
-      </form>
+      </SearchForm>
       <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
         {!inbox.available ? (
           <p className="p-2 text-sm text-ink-muted">

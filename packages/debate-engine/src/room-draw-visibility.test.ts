@@ -1,9 +1,11 @@
+import { sha3Hex } from '@daisy/digest';
+import { addMs } from '@daisy/clock';
 import { judgeSeat, type RoomAssemblyState } from '@daisy/protocol';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { executeRoomCommand, projectRoom } from './room-assembly';
 import { projectOpening } from './round-opening';
 import { consent, edges } from './room-assembly.test-support';
-import { canonicalJson, digestOf } from '@daisy/seeded-random';
+import { canonicalJson } from '@daisy/seeded-random';
 import { bytesOf, drawCommitment, inputCommitment } from './draw-random';
 import {
   SALT,
@@ -198,7 +200,7 @@ describe('the public commitments resist pool enumeration', () => {
         drawCommitment({
           roomId: draw.manifest.roomId,
           drawId: draw.id,
-          manifestDigest: digestOf(canonicalJson(draw.manifest)),
+          manifestDigest: sha3Hex(canonicalJson(draw.manifest)),
           seed: bytesOf(SEED),
         }) === draw.commitment,
       ],
@@ -214,7 +216,7 @@ describe('the public commitments resist pool enumeration', () => {
       should:
         'match no public commitment with an unsalted digest, a guessed salt or a guessed seed',
       actual: [
-        digestOf(canonicalJson(committed)) === draw.manifest.inputCommitment,
+        sha3Hex(canonicalJson(committed)) === draw.manifest.inputCommitment,
         guesses.some(
           (guess) =>
             inputCommitment(bytesOf(guess), canonicalJson(committed)) ===
@@ -237,8 +239,7 @@ describe('the public commitments resist pool enumeration', () => {
 
 test('the turn reports its time left as of the read (PR #472 review)', () => {
   const world = opened();
-  const at = (seconds: number) =>
-    new Date(Date.parse(edges.now) + seconds * 1000).toISOString();
+  const at = (seconds: number) => addMs(edges.now, seconds * 1000);
   const turn = (now: string, viewer: string) =>
     read(world, viewer, now).view.draw?.turn;
   assert({

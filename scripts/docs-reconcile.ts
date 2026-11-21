@@ -1,4 +1,6 @@
 #!/usr/bin/env bun
+
+import { tryInstantMs } from '@daisy/clock';
 import { execFileSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import { assessEventText, type DocumentationRunRecord } from './docs-contracts';
@@ -97,10 +99,8 @@ export function selectReconcilableMerges<
   const oldest = input.now - input.sinceMs;
   const youngest = input.now - input.graceMs;
   return input.pullRequests.filter((pullRequest) => {
-    const mergedAt = Date.parse(pullRequest.mergedAt);
-    return (
-      Number.isFinite(mergedAt) && mergedAt >= oldest && mergedAt <= youngest
-    );
+    const mergedAt = tryInstantMs(pullRequest.mergedAt);
+    return mergedAt !== undefined && mergedAt >= oldest && mergedAt <= youngest;
   });
 }
 
@@ -260,14 +260,21 @@ export async function readRunRecords(
   options: PagespaceApiOptions & {
     readonly fetchImpl?: typeof fetch;
     readonly timeoutMs?: number;
+    /** The current time in milliseconds; the process's own by default. */
+    readonly nowMs?: () => number;
+    /** A signal that times out after `ms`; `AbortSignal.timeout` by default. */
+    readonly timeoutSignal?: (ms: number) => AbortSignal;
   } = {},
 ): Promise<readonly DocumentationRunRecord[]> {
   const { apiUrl, headers } = pagespaceApi(options);
   const fetchImpl = options.fetchImpl ?? fetch;
   const timeoutMs = options.timeoutMs ?? 60_000;
+  const nowMs = options.nowMs ?? (() => Date.now());
+  const timeoutSignal =
+    options.timeoutSignal ?? ((ms: number) => AbortSignal.timeout(ms));
   // One deadline for the whole read, not one per page, so a slow multi-page
   // sheet cannot take pages × timeout.
-  const end = Date.now() + timeoutMs;
+  const end = nowMs() + timeoutMs;
   const timedOut = (fromRow: number) =>
     new Error(
       `Reading Documentation Runs did not answer within ${Math.round(timeoutMs / 1000)}s at row ${fromRow}`,
@@ -275,14 +282,14 @@ export async function readRunRecords(
   const endpoint = new URL('/api/mcp/sheets', apiUrl).toString();
   const rows: SheetRow[] = [];
   for (let fromRow: number | null = 0; fromRow !== null;) {
-    if (Date.now() >= end) throw timedOut(fromRow);
+    if (nowMs() >= end) throw timedOut(fromRow);
     let response: Response;
     try {
       response = await fetchImpl(endpoint, {
         method: 'POST',
         redirect: 'error',
         headers,
-        signal: AbortSignal.timeout(Math.max(1, end - Date.now())),
+        signal: timeoutSignal(Math.max(1, end - nowMs())),
         body: JSON.stringify({
           operation: 'get-rows',
           pageId: DOCUMENTATION_RUNS_SHEET_ID,

@@ -18,7 +18,7 @@ export function ClearFilters({ href }: { readonly href: string | null }) {
 
 /**
  * The tail of a GET filter form: the result count (phone only), any extra
- * control such as a sort, and the Apply button that works without script.
+ * control such as a sort, and the Apply button that works before hydration.
  */
 export function FilterFooter({
   count,

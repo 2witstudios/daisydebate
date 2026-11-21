@@ -12,12 +12,12 @@ import {
   type MediaWindowRule,
 } from './media-session-authority';
 import type { ParticipantAdmission } from './participant-admission';
-import type { BoundedTransactionContext } from './transaction-context';
 import type { LockedRoundTickInput } from './round-clock-transaction';
 import {
   verifyBotMediaPrincipal,
   type BotMediaPrincipal,
 } from './bot-publication-context';
+import type { Tx } from './tx';
 
 export type MediaAdmissionPrincipal =
   | {
@@ -29,10 +29,7 @@ export type MediaAdmissionContext = MediaSessionSnapshot & {
   readonly binding: MediaSessionSnapshot['bindings'][number];
   readonly participantId: string;
 };
-const requiredSnapshot = async (
-  tx: BoundedTransactionContext,
-  input: MediaSessionRead,
-) => {
+const requiredSnapshot = async (tx: Tx, input: MediaSessionRead) => {
   const snapshot = await lockedMediaSnapshot(tx, input);
   if (!snapshot) throw createAppError('NOT_FOUND');
   return snapshot;
@@ -75,7 +72,10 @@ export const createMediaAdmissionStore = (run: BoundedTransaction) => ({
         });
         await verifyBotMediaPrincipal(tx, input.principal);
         participantId = input.principal.scope.roundParticipantId;
-      } else participantId = snapshot.caller!.id;
+      } else {
+        if (!snapshot.caller) throw createAppError('AUTHORIZATION');
+        participantId = snapshot.caller.id;
+      }
       const binding = snapshot.bindings.find(
         (binding) => binding.roundParticipantId === participantId,
       );

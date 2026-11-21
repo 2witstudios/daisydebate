@@ -1,9 +1,10 @@
+import { instantMs } from '@daisy/clock';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { resolveFlag } from './resolver';
 import type { FlagDefinition, FlagSnapshot, FlagState } from './model';
 
 setupRitewayBun();
-const now = Date.parse('2026-11-05T00:00:00Z');
+const now = instantMs('2026-11-05T00:00:00Z');
 const entry: FlagDefinition = {
   key: 'test-release',
   kind: 'release',
@@ -126,8 +127,24 @@ test('ops safe defaults apply during storage failure, with dependencies', () => 
   });
 });
 
+test('an invalid release default stays closed during storage failure', () => {
+  assert({
+    given:
+      'a malformed release definition defaulting on and unavailable storage',
+    should: 'keep the release disabled',
+    actual: resolveFlag({
+      catalogue: [{ ...entry, safeDefault: true } as unknown as FlagDefinition],
+      snapshot: { kind: 'unavailable' },
+      key: entry.key,
+      now,
+      releaseDefault: false,
+    }),
+    expected: { enabled: false, reason: 'ERROR' },
+  });
+});
+
 test('release expiry closes a stored or targeted release even with no policy run', () => {
-  const expires = Date.parse(entry.expiresOn) + 86_400_000;
+  const expires = instantMs(`${entry.expiresOn}T00:00:00Z`) + 86_400_000;
   assert({
     given: 'one instant before release expiry and exactly at expiry',
     should: 'close at the boundary despite a still-live account override',
@@ -176,7 +193,12 @@ test('the deployment release default sits below every stored choice', () => {
       resolve(stored('disabled'), true),
       resolve(snapshot('default', false), true),
       resolve(stored('killed'), true),
-      resolve(none, true, entry.key, Date.parse(entry.expiresOn) + 86_400_000),
+      resolve(
+        none,
+        true,
+        entry.key,
+        instantMs(`${entry.expiresOn}T00:00:00Z`) + 86_400_000,
+      ),
       resolve({ kind: 'unavailable' }, true),
       resolve(none, true, ops.key),
       resolve(none, false),

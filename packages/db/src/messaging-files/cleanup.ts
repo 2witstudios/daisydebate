@@ -1,5 +1,5 @@
+import { tryInstantMs } from '@daisy/clock';
 import { and, eq, sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import {
@@ -7,11 +7,13 @@ import {
   messagingFileDeletionIntents,
 } from '../schema/messaging-files';
 import { fileDeletionValues } from './frame';
-import type { AuthorizationTransaction } from '../authorization';
+import { inTransaction, type Tx, type TxSource } from '../tx';
+import { postgresInt8, run, query } from '../raw-rows';
+import { z } from 'zod';
 
 /** Parent calls in its message-removal transaction after channel/user fences. */
 export async function deleteMessageFiles(
-  tx: Pick<BunSQLDatabase, 'update'>,
+  tx: Tx,
   input: { channelId: string; messageId: string },
 ) {
   await tx
@@ -33,7 +35,7 @@ export async function deleteMessageFiles(
  * channel loses its authority.
  */
 export async function eraseSubjectFiles(
-  tx: AuthorizationTransaction,
+  tx: Tx,
   actorId: string,
   channelId?: string,
   { pendingOnly = false }: { readonly pendingOnly?: boolean } = {},
@@ -51,26 +53,47 @@ export async function eraseSubjectFiles(
     sql` and `,
   );
   // Canonical adopter acquires its complete sorted pair/channel set before invoking this hook.
-  await tx.execute(sql`
+  await run(
+    tx,
+    sql`
     insert into messaging_file_deletion_intents(object_key, charged_bytes)
     select object_key, reserved_bytes from messaging_files
     where owner_actor_id = ${actorId} and ${scope} and lifecycle <> 'deleted'
-  `);
-  await tx.execute(
+  `,
+  );
+  await run(
+    tx,
     sql`delete from messaging_files where owner_actor_id = ${actorId} and ${scope}`,
   );
 }
-export async function exportSubjectFiles(
-  tx: AuthorizationTransaction,
-  actorId: string,
-) {
+export async function exportSubjectFiles(tx: Tx, actorId: string) {
   if (!idSchema.safeParse(actorId).success) throw createAppError('VALIDATION');
-  const rows = await tx.execute(sql`
+  const rows = await query(
+    tx,
+    z.object({
+      id: z.string(),
+      channel_id: z.string(),
+      owner_actor_id: z.string(),
+      request_id: z.string().nullable(),
+      message_id: z.string().nullable(),
+      filename: z.string().nullable(),
+      mime: z.string().nullable(),
+      reserved_bytes: postgresInt8,
+      stored_bytes: postgresInt8.nullable(),
+      generation: postgresInt8,
+      authority_revision: postgresInt8,
+      lifecycle: z.string(),
+      created_at: z.date(),
+      expires_at: z.date(),
+      deleted_at: z.date().nullable(),
+    }),
+    sql`
     select id, channel_id, owner_actor_id, request_id, message_id, filename, mime,
       reserved_bytes, stored_bytes, generation, authority_revision, lifecycle,
       created_at, expires_at, deleted_at
     from messaging_files where owner_actor_id = ${actorId} order by id
-  `);
+  `,
+  );
   return {
     messaging_files: [...rows].map((row) =>
       Object.fromEntries(
@@ -88,14 +111,14 @@ export async function exportSubjectFiles(
 }
 /** Use inside the parent maintenance frame after canonical account/channel locks. */
 export async function expireChannelFiles(
-  tx: AuthorizationTransaction,
+  tx: Tx,
   channelId: string,
   now: string,
   fileIds?: readonly string[],
 ) {
   if (
     !idSchema.safeParse(channelId).success ||
-    !Number.isFinite(Date.parse(now)) ||
+    tryInstantMs(now) === undefined ||
     (fileIds !== undefined &&
       (!Array.isArray(fileIds) ||
         fileIds.length === 0 ||
@@ -110,23 +133,26 @@ export async function expireChannelFiles(
           fileIds.map((id) => sql`${id}`),
           sql`, `,
         )})`;
-  await tx.execute(sql`
+  await run(
+    tx,
+    sql`
     update messaging_files set lifecycle = 'deleting', filename = null, mime = null,
       request_id = null, message_id = null, generation = generation + 1
     where channel_id = ${channelId} and lifecycle in ('reserved','quarantined') and expires_at <= ${new Date(now)}
     ${selected}
-  `);
+  `,
+  );
 }
 /** The private vendor port must resolve only after actual delete acknowledgement. */
 export async function acknowledgeFileDeletion(
-  database: BunSQLDatabase,
+  database: TxSource,
   fileId: string,
   now: string,
   remove: (key: string) => Promise<void>,
 ) {
-  if (!idSchema.safeParse(fileId).success || !Number.isFinite(Date.parse(now)))
+  if (!idSchema.safeParse(fileId).success || tryInstantMs(now) === undefined)
     throw createAppError('VALIDATION');
-  return database.transaction(async (tx) => {
+  return inTransaction(database, async (tx) => {
     const [row] = await tx
       .select()
       .from(messagingFiles)
@@ -144,37 +170,42 @@ export async function acknowledgeFileDeletion(
 }
 /** Trusted failure cleanup; caller holds account/channel locks, never touches attached survivor content. */
 export async function failPendingFile(
-  tx: AuthorizationTransaction,
+  tx: Tx,
   scope: { actorId: string; channelId: string },
   token: { fileId: string; generation: number },
 ) {
-  await tx.execute(sql`
+  await run(
+    tx,
+    sql`
     update messaging_files set lifecycle = 'deleting', filename = null, mime = null,
       request_id = null, message_id = null, generation = generation + 1
     where id = ${token.fileId} and channel_id = ${scope.channelId} and owner_actor_id = ${scope.actorId}
       and generation = ${token.generation} and lifecycle in ('reserved','quarantined')
-  `);
+  `,
+  );
 }
 
 /** Global charged bytes include unlinked erasure intents until acknowledged. */
-export async function chargedFileBytes(
-  tx: AuthorizationTransaction,
-): Promise<string> {
-  const rows = await tx.execute(sql`
+export async function chargedFileBytes(tx: Tx): Promise<string> {
+  const rows = await query(
+    tx,
+    z.object({ bytes: z.string() }),
+    sql`
     select (coalesce((select sum(reserved_bytes) from messaging_files where lifecycle <> 'deleted'),0)
       + coalesce((select sum(charged_bytes) from messaging_file_deletion_intents),0))::text as bytes
-  `);
+  `,
+  );
   return String(rows[0]!.bytes);
 }
 /** Internal worker port; erased intents contain no subject or channel lookup. */
 export async function acknowledgeErasedFileDeletion(
-  database: BunSQLDatabase,
+  database: TxSource,
   objectKey: string,
   remove: (key: string) => Promise<void>,
 ) {
   if (!idSchema.safeParse(objectKey).success)
     throw createAppError('VALIDATION');
-  return database.transaction(async (tx) => {
+  return inTransaction(database, async (tx) => {
     const [intent] = await tx
       .select()
       .from(messagingFileDeletionIntents)
@@ -192,18 +223,22 @@ type FileDeletionWork =
   | { readonly kind: 'erased'; readonly objectKey: string };
 /** Internal bounded worker discovery; never an HTTP/user projection. */
 export async function pendingFileDeletions(
-  tx: AuthorizationTransaction,
+  tx: Tx,
   maxItems: number,
 ): Promise<readonly FileDeletionWork[]> {
   if (!Number.isSafeInteger(maxItems) || maxItems < 1 || maxItems > 65535)
     throw createAppError('VALIDATION');
-  const rows = await tx.execute(sql`
+  const rows = await query(
+    tx,
+    z.object({ kind: z.enum(['file', 'erased']), key: z.string() }),
+    sql`
     select kind, key from (
       select 'file' as kind, id as key from messaging_files where lifecycle='deleting'
       union all
       select 'erased' as kind, object_key as key from messaging_file_deletion_intents
     ) work order by key limit ${maxItems}
-  `);
+  `,
+  );
   return [...rows].map((row) =>
     row.kind === 'file'
       ? { kind: 'file' as const, fileId: String(row.key) }

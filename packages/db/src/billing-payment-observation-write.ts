@@ -8,7 +8,6 @@ import {
   type OwnedPaymentObservation,
   type PaymentObservationContext,
 } from '@daisy/protocol/billing';
-import type { BoundedTransactionContext } from './transaction-context';
 import { billingPaymentObservations } from './schema/billing-payment-observations';
 import { billingRefundActions } from './schema/billing-refund-actions';
 import { refundFromRow } from './billing-refund-authority';
@@ -18,10 +17,11 @@ import {
 } from './billing-payment-observation-record';
 import { linkObservedRefund } from './billing-observation-refund';
 import { readDatabaseTime } from './database-clock';
+import type { Tx } from './tx';
 
 /** Caller owns account/job fences; replay never refreshes an observation's recognition time. */
 export async function writePaymentObservation(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   input: {
     readonly read: OwnedPaymentObservation;
     readonly context: PaymentObservationContext;
@@ -105,10 +105,7 @@ function sameKnowledge(
 ) {
   return JSON.stringify(knowledge(before)) === JSON.stringify(knowledge(after));
 }
-async function originalAction(
-  tx: BoundedTransactionContext,
-  read: OwnedPaymentObservation,
-) {
+async function originalAction(tx: Tx, read: OwnedPaymentObservation) {
   if (read.evidence.kind !== 'verified') return null;
   const [action] = await tx
     .select()
@@ -124,7 +121,7 @@ async function originalAction(
 }
 
 async function persistPaymentObservation(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   next: BillingPaymentObservation,
   existing: boolean,
 ) {

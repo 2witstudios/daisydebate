@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { SQL } from 'bun';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
@@ -12,7 +13,7 @@ import { createMessagingTestFixture } from '../src/testing';
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
 
-const start = Date.parse('2026-11-01T12:00:00.000Z');
+const start = instantMs('2026-11-01T12:00:00.000Z');
 const minute = (n: number) => new Date(start + n * 60_000).toISOString();
 
 test('a message owes the other member one unread email, which ends once they read it', async () => {

@@ -6,7 +6,6 @@ import {
 } from '@daisy/protocol';
 import { and, eq, sql } from 'drizzle-orm';
 import type { BoundedTransaction } from './bounded-transaction';
-import type { BoundedTransactionContext } from './transaction-context';
 import { fenceAttendance } from './attendance-facts';
 import { rounds } from './schema/rounds';
 import { refundPlatformEndedLocked } from './round-bot-admission';
@@ -46,8 +45,11 @@ import {
   panelDigest,
   panelReceipt,
   validatePanelReceipt,
-  type PanelDurableFacts,
 } from './round-panel-decisions';
+import type { Tx } from './tx';
+import { takeLock, transactionLocks } from './locks';
+import { query } from './raw-rows';
+import { z } from 'zod';
 
 type CompletionFacts = Parameters<
   LockedRoundTickInput['buildProjection']
@@ -79,7 +81,7 @@ type Request = LockedRoundTickInput & {
   };
 };
 async function replay(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   input: Request,
   digest: string,
   sameCommand: boolean,
@@ -107,7 +109,7 @@ async function replay(
 }
 
 async function readCompletionFacts(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   input: Request,
   roundTime?: RoundTimeSource,
 ) {
@@ -115,16 +117,24 @@ async function readCompletionFacts(
   await executeLockedRoundTick(tx, input, roundTime);
   const round = await hydrateRoundRows(tx, input.roundId);
   const freeze = await readTranscriptFreeze(tx, input.roundId);
-  const [durable] =
-    await tx.execute(sql`select final_segment_ended_at,transcript_admission_cutoff,ballot_deadline_at,
+  const [durable] = await query(
+    tx,
+    z.object({
+      final_segment_ended_at: z.date().nullable(),
+      transcript_admission_cutoff: z.date().nullable(),
+      ballot_deadline_at: z.date().nullable(),
+      ratings: z.boolean(),
+    }),
+    sql`select final_segment_ended_at,transcript_admission_cutoff,ballot_deadline_at,
     exists(select 1 from rating_changes where round_id=${input.roundId}) as ratings
-    from rounds where id=${input.roundId}`);
+    from rounds where id=${input.roundId}`,
+  );
   const now = await sampleRoundExecutionTime(tx, roundTime);
   requirePanelRound(round);
   const { freeze: frozen } = requirePanelFacts({
     freezeRevision: input.freezeRevision,
     freeze,
-    durable: durable as PanelDurableFacts | undefined,
+    durable,
   });
   await assertRoundAttendanceSettled(tx, {
     roundId: input.roundId,
@@ -150,16 +160,10 @@ async function readCompletionFacts(
   };
 }
 
-async function complete(
-  tx: BoundedTransactionContext,
-  input: Request,
-  roundTime?: RoundTimeSource,
-) {
+async function complete(tx: Tx, input: Request, roundTime?: RoundTimeSource) {
   await requireCurrentWeb(tx, input.instanceId);
   const digest = panelDigest(input);
-  await tx.execute(
-    sql`select pg_advisory_xact_lock(hashtextextended(${input.commandId},59002))`,
-  );
+  await takeLock(tx, transactionLocks.roundCommand(input.commandId));
   const prior = await replay(tx, input, digest, true);
   if (prior) return { receipt: prior, ended: [] };
   try {
@@ -212,7 +216,7 @@ async function complete(
     freezeRevision: freeze.revision,
     resultingVersion: current.version + 1,
     ruling: completion.ruling,
-    outcome: projection.round!.outcome,
+    outcome: projection.round.outcome,
     noRuling: completion.noRuling,
   });
   await insertCommandRow(

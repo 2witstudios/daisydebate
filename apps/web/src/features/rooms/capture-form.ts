@@ -4,7 +4,7 @@ import type {
   RoomCapture,
 } from '@daisy/protocol';
 
-/** The host's release choices; a native select, so no script is needed. */
+/** The host's recording release choices. */
 export const releaseChoices = [
   { value: 'delay:10', label: '10 seconds, the fastest' },
   { value: 'delay:60', label: '60 seconds, the default' },

@@ -1,8 +1,9 @@
+import { sha3Hex } from '@daisy/digest';
 import { SQL } from 'bun';
 import { admitParticipants } from '@daisy/db/testing';
-import { createHash, randomBytes } from 'node:crypto';
+import { randomBytes } from 'node:crypto';
 import { requireTestServices } from '@daisy/config';
-import { systemId } from '@daisy/clock';
+import { instantMs, systemId } from '@daisy/clock';
 import { openAuthorityPeer } from './authority-peer.test-support';
 import { authorityResources } from './authority-resources.test-support';
 import { serveRealtime } from '../src/serve';
@@ -45,7 +46,7 @@ export async function socketAuthorityFixture(
   const client = new SQL(services.databaseUrl);
   const participant = authorityParticipant(client);
   const { userId, actorId, sessionId } = participant;
-  const initial = Date.parse('2026-10-09T00:00:00.000Z');
+  const initial = instantMs('2026-10-09T00:00:00.000Z');
   let elapsed = 0;
   let revalidate: (() => void) | undefined;
   const resources = await authorityResources(
@@ -124,7 +125,7 @@ export async function issueAuthorityTicket(
 ) {
   const ticket = randomBytes(32).toString('base64url');
   await fixture.resources.redis.issueConnectTicket(
-    createHash('sha3-256').update(ticket).digest('hex'),
+    sha3Hex(ticket),
     {
       actorId: fixture.actorId,
       sessionId: fixture.sessionId,

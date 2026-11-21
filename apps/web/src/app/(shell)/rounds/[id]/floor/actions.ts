@@ -7,34 +7,22 @@ import { submitContextChatMessage } from '../../../../../features/messaging/cont
 import type { ContextChatFormState } from '../../../../../features/messaging/context-chat/form-state';
 import { submitContextChatChange } from '../../../../../features/messaging/context-chat/change-form';
 import { roundFloorContext } from '../../../../../features/messaging/round-floor/floor-context';
-const send = processRoute(
-  (routes) => (request) =>
-    routes.roundFloor.send(
-      request,
-      new URL(request.url).pathname.split('/')[3] ?? '',
-    ),
-);
-const edit = processRoute(
-  (routes) => (request) =>
-    routes.roundFloor.edit(
-      request,
-      new URL(request.url).pathname.split('/')[3] ?? '',
-    ),
-);
-const remove = processRoute(
-  (routes) => (request) =>
-    routes.roundFloor.remove(
-      request,
-      new URL(request.url).pathname.split('/')[3] ?? '',
-    ),
-);
-const report = processRoute(
-  (routes) => (request) =>
-    routes.roundFloor.report(
-      request,
-      new URL(request.url).pathname.split('/')[3] ?? '',
-    ),
-);
+const send = (roundId: string) =>
+  processRoute(
+    (routes) => (request) => routes.roundFloor.send(request, roundId),
+  );
+const edit = (roundId: string) =>
+  processRoute(
+    (routes) => (request) => routes.roundFloor.edit(request, roundId),
+  );
+const remove = (roundId: string) =>
+  processRoute(
+    (routes) => (request) => routes.roundFloor.remove(request, roundId),
+  );
+const report = (roundId: string) =>
+  processRoute(
+    (routes) => (request) => routes.roundFloor.report(request, roundId),
+  );
 export async function sendFloorMessageAction(
   roundId: string,
   channelId: string,
@@ -43,7 +31,7 @@ export async function sendFloorMessageAction(
 ): Promise<ContextChatFormState> {
   return submitContextChatMessage(
     roundFloorContext,
-    inProcessFetch(send, new Headers(await headers())),
+    inProcessFetch(send(roundId), new Headers(await headers())),
     { ownerId: roundId, channelId },
     previous,
     form,
@@ -60,7 +48,10 @@ export async function mutateFloorMessageAction(
   return submitContextChatChange(
     roundFloorContext,
     (kind, url, init) =>
-      inProcessFetch(kind === 'edit' ? edit : remove, incoming)(url, init),
+      inProcessFetch((kind === 'edit' ? edit : remove)(roundId), incoming)(
+        url,
+        init,
+      ),
     { ownerId: roundId, channelId },
     previous,
     form,
@@ -76,7 +67,7 @@ export async function reportFloorMessageAction(
   const incoming = new Headers(await headers());
   return submitContextChatChange(
     roundFloorContext,
-    (_kind, url, init) => inProcessFetch(report, incoming)(url, init),
+    (_kind, url, init) => inProcessFetch(report(roundId), incoming)(url, init),
     { ownerId: roundId, channelId },
     previous,
     form,
@@ -85,15 +76,12 @@ export async function reportFloorMessageAction(
   );
 }
 
-const discover = processRoute(
-  (routes) => (request) =>
-    routes.roundFloor.discover(
-      request,
-      new URL(request.url).pathname.split('/')[3] ?? '',
-    ),
-);
+const discover = (roundId: string) =>
+  processRoute(
+    (routes) => (request) => routes.roundFloor.discover(request, roundId),
+  );
 export async function discoverFloor(roundId: string): Promise<Response> {
-  return inProcessFetch(discover, new Headers(await headers()))(
+  return inProcessFetch(discover(roundId), new Headers(await headers()))(
     roundFloorContext.address(roundId),
     { method: 'GET' },
   );

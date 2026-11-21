@@ -15,8 +15,10 @@ import { reserveUsageLocked, type AiAllowanceOptions } from './usage-ledger';
 import { roundAnalyses } from './schema/round-analyses';
 import { usageReservations } from './schema/usage-reservations';
 import { notifyWork } from './work-wake';
-
-type Tx = Parameters<Parameters<BoundedTransaction>[0]>[0];
+import type { Tx } from './tx';
+import { takeLock, transactionLocks } from './locks';
+import { query } from './raw-rows';
+import { z } from 'zod';
 
 async function requireCapacity(
   tx: Tx,
@@ -24,10 +26,14 @@ async function requireCapacity(
   capacity: number,
   now: Date,
 ) {
-  const [pending] = await tx.execute(sql`select count(*)::integer as total,
+  const [pending] = await query(
+    tx,
+    z.object({ total: z.int(), own: z.int() }),
+    sql`select count(*)::integer as total,
     count(*) filter(where p.actor_id=${actorId})::integer as own
     from round_analyses a join round_participants p on p.id=a.round_participant_id
-    where a.work->>'kind' in ('queued','leased') and (a.work->>'deadlineAt')::timestamptz>${now}`);
+    where a.work->>'kind' in ('queued','leased') and (a.work->>'deadlineAt')::timestamptz>${now}`,
+  );
   if (!pending || Number(pending.total) >= capacity || Number(pending.own) > 0)
     throw createAppError('CONFLICT', 'Round analysis capacity unavailable');
 }
@@ -55,9 +61,7 @@ export function createRoundAnalysisRequests(input: {
       if (!authority.privacy || !authority.account)
         throw createAppError('NOT_FOUND');
       // Account fences precede the feature's capacity lock; no vendor I/O or lock upgrade.
-      await tx.execute(
-        sql`select pg_advisory_xact_lock(hashtextextended('round-analysis-capacity',59004))`,
-      );
+      await takeLock(tx, transactionLocks.roundAnalysisCapacity());
       const access = await lockAnalysisRound(tx, authority.target);
       if (access.round.status !== 'completed' || !request.authorize(access))
         throw createAppError('NOT_FOUND');
@@ -74,9 +78,11 @@ export function createRoundAnalysisRequests(input: {
       const work = row ? analysisWorkSchema.parse(row.work) : null;
       // Read/retry authority does not depend on generation evidence or current paid access.
       if (work && work.kind !== 'unrequested') return work;
+      const { actorId } = authority.account;
+      if (!actorId) throw createAppError('AUTHORIZATION');
       await requireCapacity(
         tx,
-        authority.account.actorId!,
+        actorId,
         input.capacity,
         await readDatabaseTime(tx),
       );
@@ -92,7 +98,7 @@ export function createRoundAnalysisRequests(input: {
         .from(usageReservations)
         .where(
           and(
-            eq(usageReservations.actorId, authority.account.actorId!),
+            eq(usageReservations.actorId, actorId),
             eq(usageReservations.roundId, request.roundId),
             eq(usageReservations.kind, 'round_analysis'),
           ),

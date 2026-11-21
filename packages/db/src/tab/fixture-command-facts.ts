@@ -16,7 +16,7 @@ import { roundParticipants } from '../schema/round-participants';
 import { lockFixtureCommandContext } from './fixture-command-context';
 import { readFixtureCompetitionFacts } from './fixture-competition-facts';
 import { readDatabaseTime } from '../database-clock';
-import type { TabTransaction } from './tab-transaction';
+import type { Tx } from '../tx';
 
 export type FixtureCommandInput = {
   readonly senderUserId: string;
@@ -40,7 +40,7 @@ export const fixtureCommandJudgeIds = (
 };
 /** One addressed fixture, its actual slot and current ordinary owner source under the shared command fences. */
 export async function loadFixtureCommandFacts(
-  tx: TabTransaction,
+  tx: Tx,
   input: FixtureCommandInput,
 ) {
   const context = await lockFixtureCommandContext(tx, {

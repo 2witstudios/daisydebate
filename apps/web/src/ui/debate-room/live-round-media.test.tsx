@@ -47,15 +47,14 @@ test('the canonical live Round mounts its media session and truthful native fall
   assert({
     given: 'the fresh canonical debater view without an injected media slot',
     should:
-      'render the actual media session, explain native availability without exposing a judge, and make Leave the confirmed forfeit',
+      'render the actual media session without exposing a judge, and make Leave the confirmed forfeit',
     actual: [
       html.includes('aria-label="Live camera and sound"'),
-      html.includes('Live camera and sound require JavaScript.'),
       html.includes('Riley Judge'),
       html.includes('Leave and forfeit'),
       html.includes('name="type" value="forfeit"'),
       html.includes(`name="participantId" value="${aff.id}"`),
     ],
-    expected: [true, true, false, true, true, true],
+    expected: [true, false, true, true, true],
   });
 });

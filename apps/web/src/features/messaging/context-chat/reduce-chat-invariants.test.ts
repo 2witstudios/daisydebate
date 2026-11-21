@@ -8,6 +8,7 @@ import {
   NEVER_ASKED,
 } from './chat-states.test-support';
 import { reduceContextChat } from './reduce-chat';
+import { seededWalk } from '@daisy/seeded-random/testing';
 
 setupRitewayBun();
 
@@ -204,56 +205,48 @@ test('an answer changes nothing unless its own kind asked for it and still waits
   });
 });
 
-/** Seeded and reproducible: no ambient randomness in tests. */
-const seeded = (seed: number) => {
-  let value = seed >>> 0;
-  return (limit: number) => {
-    value = (value * 1664525 + 1013904223) >>> 0;
-    // The high bits: a linear generator's low bits repeat in short cycles.
-    return Math.floor((value / 2 ** 32) * limit);
-  };
-};
-
 test('any sequence of events keeps the invariants', () => {
-  const failures: string[] = [];
   let opened = 0;
   let denied = 0;
-  for (let seed = 1; seed <= 300 && failures.length === 0; seed += 1) {
-    const pick = seeded(seed);
-    let state = initialContextChatState;
-    const trace: string[] = [];
-    for (let turn = 0; turn < 120 && failures.length === 0; turn += 1) {
-      // Answers arrive in any order: often the newest request's, else any ever
-      // asked or one never asked.
+  const report = seededWalk({
+    seed: 1,
+    runs: 600,
+    steps: 120,
+    start: () => initialContextChatState,
+    // Answers arrive in any order: often the newest request's, else any ever
+    // asked or one never asked.
+    moves: (state: ContextChatState, draw) => {
       const any = () =>
-        pick(2) === 0 ? state.requests : 1 + pick(state.requests + 1);
-      const events = everyEvent({
+        draw(2) === 0 ? state.requests : 1 + draw(state.requests + 1);
+      return everyEvent({
         entry: any(),
         latest: any(),
         older: any(),
         mark: any(),
       });
-      const [name, event] = events[pick(events.length)]!;
-      trace.push(name);
+    },
+    label: ([name]) => name,
+    step: (state, [, event]) => {
       const step = reduceContextChat(state, event);
-      for (const problem of [
-        ...violations(step.state),
-        ...stepViolations(state, event, step.state, step.effects),
-      ])
-        failures.push(`seed ${seed}: ${problem}: ${trace.join(' > ')}`);
       if (step.state.standing.kind === 'ready') opened += 1;
       if (step.state.standing.kind === 'denied') denied += 1;
-      state = step.state;
-    }
-  }
+      return {
+        state: step.state,
+        problems: [
+          ...violations(step.state),
+          ...stepViolations(state, event, step.state, step.effects),
+        ],
+      };
+    },
+  });
   assert({
-    given: 'three hundred seeded sequences of a hundred and twenty events',
+    given: 'six hundred seeded walks of up to a hundred and twenty events',
     should: 'hold every invariant, through open and denied chats alike',
     actual: {
-      failures: failures.slice(0, 2),
+      failure: report.failure,
       opened: opened > 1000,
       denied: denied > 1000,
     },
-    expected: { failures: [], opened: true, denied: true },
+    expected: { failure: null, opened: true, denied: true },
   });
 });

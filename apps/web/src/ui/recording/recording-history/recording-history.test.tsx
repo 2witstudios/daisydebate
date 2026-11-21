@@ -1,3 +1,4 @@
+import { AppRouterContext } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
@@ -36,9 +37,23 @@ const screen: Extract<RecordingHistoryScreen, { kind: 'history' }> = {
     label: 'Report this recording',
   },
 };
+const noop = () => undefined;
+const router = {
+  back: noop,
+  forward: noop,
+  refresh: noop,
+  push: noop,
+  replace: noop,
+  prefetch: noop,
+  bfcacheId: 'recording',
+};
 const render = (over: Partial<typeof screen> = {}) =>
   renderToString(
-    h(RecordingHistory, { screen: { ...screen, ...over }, notice: null }),
+    h(
+      AppRouterContext.Provider,
+      { value: router },
+      h(RecordingHistory, { screen: { ...screen, ...over }, notice: null }),
+    ),
   );
 
 describe('RecordingHistory', () => {
@@ -77,6 +92,23 @@ describe('RecordingHistory', () => {
         'Remove recording',
       ].map((text) => none.includes(text)),
       expected: [false, false, false, false],
+    });
+  });
+
+  test('searches the transcript on its Recording page', () => {
+    const html = render({
+      transcript: { q: 'opening', revision: 1, coverageNote: null, rows: [] },
+    });
+    assert({
+      given: 'a viewer with transcript access and a search query',
+      should: 'submit only the search query to this Recording page',
+      actual: [
+        html.includes('action="/recordings/round"'),
+        html.includes('method="get"'),
+        html.includes('name="q"'),
+        html.includes('value="opening"'),
+      ],
+      expected: [true, true, true, true],
     });
   });
 

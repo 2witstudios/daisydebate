@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { participantAccess } from '@daisy/auth/authorization';
 import { hostLobbyResource } from '../tab/operations/host-lobby-resource';
 import type { Database } from '@daisy/db';
@@ -50,7 +51,7 @@ export const readNotificationItems = async (
     limit: PAGE,
     now: input.now,
   });
-  const nowMs = Date.parse(input.now);
+  const nowMs = instantMs(input.now);
   return {
     unread,
     next,
@@ -59,7 +60,7 @@ export const readNotificationItems = async (
       ...notificationWords(subject),
       minutesAgo: Math.max(
         0,
-        Math.floor((nowMs - Date.parse(surfacedAt)) / 60_000),
+        Math.floor((nowMs - instantMs(surfacedAt)) / 60_000),
       ),
       unread: readAt === null,
     })),

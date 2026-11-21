@@ -12,10 +12,9 @@ import {
   messageMutationConflict,
   messageMutationUnavailable,
 } from '../../../../features/messaging/forms/message-mutation-form';
-import { moveOn } from '../../../../server/form-action';
+import { hydratedPost, moveOn } from '../../../../server/form-action';
 import {
   formReadThrough,
-  markReadDestination,
   messagingMarkReadBody,
 } from '../../../../features/messaging/mark-read';
 import {
@@ -29,9 +28,9 @@ const send = processRoute((routes) => routes.messaging.send);
 const markRead = processRoute((routes) => routes.messaging.markRead);
 
 /**
- * ISSUE-606: marks a conversation read through `sequence` by native POST,
- * never on a GET, answering whether the route accepted it for this channel.
- * A refusal leaves it unread.
+ * ISSUE-606: marks a conversation read through `sequence` by POST, never on a
+ * GET, answering whether the route accepted it for this channel. A refusal
+ * leaves it unread.
  */
 async function markReadThrough(
   incoming: Headers,
@@ -50,25 +49,11 @@ async function markReadThrough(
       )) === 'accepted'
     );
   } catch {
-    // The next visit with JavaScript, or the next native post, marks it.
+    // The live history, or the next post, marks it.
     return false;
   }
 }
 
-/**
- * The no-JS "Mark as read" button: marks it, then returns to the page, with
- * a fixed notice when the route refused.
- */
-export async function markReadAction(
-  channelId: string,
-  sequence: number,
-): Promise<void> {
-  const incoming = new Headers(await headers());
-  const id = idSchema.parse(channelId);
-  const marked = await markReadThrough(incoming, id, sequence);
-  if (marked) revalidatePath('/messages');
-  moveOn(incoming, markReadDestination(id, marked));
-}
 export async function sendMessageAction(
   channelId: unknown,
   _previous: MessageFormState,
@@ -103,7 +88,9 @@ export async function sendMessageAction(
     if (!reply.success) return kept;
     await markReadThrough(incoming, command.channelId, formReadThrough(form));
     const path = `/messages/${command.channelId}`;
-    revalidatePath(path);
+    // A hydrated caller follows the receipt to a fresh page. An inline
+    // re-render can unmount its composer before it handles that receipt.
+    if (!hydratedPost(incoming)) revalidatePath(path);
     next = `${path}?sent=${reply.data.id}`;
   } catch {
     return kept;

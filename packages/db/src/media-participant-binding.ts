@@ -1,8 +1,8 @@
 import { createAppError } from '@daisy/errors';
 import { and, eq } from 'drizzle-orm';
-import type { BoundedTransactionContext } from './transaction-context';
 import { mediaId } from './media-session-authority';
 import { mediaParticipants, mediaSessions } from './schema/media-sessions';
+import type { Tx } from './tx';
 
 export const mediaBindingFields = {
   sessionId: mediaSessions.id,
@@ -14,7 +14,7 @@ export const mediaBindingFields = {
 
 /** Caller already holds canonical account and Round fences; session comes last. */
 export async function bindMediaParticipant(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   input: {
     readonly roundId: string;
     readonly roundParticipantId: string;

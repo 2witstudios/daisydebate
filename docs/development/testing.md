@@ -235,18 +235,20 @@ report in CI's advisory job) is the live audit:
   `rejectionOf` reports the same outcome as a value. Other exception paths
   use `bun:test`'s `toThrow(message)` or the exact error, never a bare
   `.toThrow()` (ESLint rejects one). `scripts/check-boundaries.ts` (in
-  `bun lint`) admits an `@daisy/*/testing` or `*.test-support` import only
-  from suites, `integration/`, `e2e/` and test support, never production
-  source. Schema
+  `bun lint`) reserves `@daisy/*/testing`, `*.test-support` and
+  `test-support/` imports for suites, `integration/`, `e2e/` and test
+  support. Schema
   tests assert the parsed value or the issue paths, not a `.success`
   boolean. `given`/`should` read as a specification sentence:
   when the assertion fails, its message is the bug report.
 - **Dead code.** `bun run knip` fails a PR on unused files, exports and
   dependencies (ADR 0013, ADR 0159). A script started by path is an entry in
   `knip.jsonc`, with a comment saying what starts it; keep its ignores
-  limited to genuine implicit uses. `bun run knip:production` reports the
-  `apps/web` modules no deployed code reaches, including one only its own
-  test imports; it is a report until that list is empty.
+  limited to genuine implicit uses. `bun run knip:production` is required in
+  CI and `bun check`. It fails when an `apps/web` production module has no
+  deployed reader. Delete dead modules, keep fixtures in test support, and
+  declare foundations awaiting an approved reader in
+  `policy/planned-readers.json` (ADR 0057).
 - **Duplication.** `bun run duplication` reports copy-pasted blocks not in
   `.jscpd-baseline.json`, and copy-pasted test blocks not in
   `.jscpd-tests-baseline.json` (tests have their own scan and baseline). It
@@ -254,10 +256,19 @@ report in CI's advisory job) is the live audit:
   loop's `/simplify` pass by extracting the shared function, component or data
   table into the owning module. Never raise `minTokens`, add an ignore, or
   re-baseline to quiet it (ADR 0026, ADR 0083).
-- **Size and complexity.** ESLint's `max-lines` and `complexity` rules warn.
-  Treat a warning as a prompt to split or simplify, not as a merge blocker.
+- **Generated inputs.** A property over generated inputs uses fast-check
+  through `@daisy/seeded-random/testing` (ADR 0164): `seededCheck` for an
+  arbitrary, `seededDraws` for an input built from draws, `seededWalk` for a
+  walk over the moves each state allows. Each run has a fixed seed and
+  reports its shrunk failure. The round engine's oracle,
+  `scripts/round-oracle.test.ts`, walks the public runtime in every format.
+- **Size and complexity.** `bun metrics` reports each file's size, churn and
+  complexity. They are not lint rules: `bun lint` prints errors only, so a
+  line of its output is always something to fix.
 - Tests are deterministic: inject clocks/IDs; never sleep-and-hope; no
-  cross-test shared state; use deterministic unit IDs and CSPRNG isolation IDs
+  cross-test shared state; a unit test drives timed code on `virtualClock`
+  from `@daisy/clock/testing`, and `test-time/no-real-sleep` fails a timed
+  `Bun.sleep`, `setTimeout` or `setInterval` in one (ADR 0164); use deterministic unit IDs and CSPRNG isolation IDs
   only in real-service integration tests; clean only records you created.
   The runner enforces it: `scripts/test-integration.ts` counts every table
   in the run's database before and after a workspace's run and fails the

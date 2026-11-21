@@ -23,7 +23,7 @@ const nativeProps = {
   },
 };
 for (const role of ['affirmative', 'judge'] as const) {
-  test(`no-JS ${role} readiness preserves the device exception`, () => {
+  test(`server-rendered ${role} readiness preserves the device exception`, () => {
     const view = {
       ...assemblySnapshot,
       capabilities: { ...assemblySnapshot.capabilities, canReady: true },
@@ -61,7 +61,7 @@ for (const role of ['affirmative', 'judge'] as const) {
           'disabled=""',
         ),
         html.includes('<video'),
-        html.includes('Camera and microphone checks require JavaScript.'),
+        html.includes('Checking your camera and microphone…'),
         html.includes('data-roster'),
       ],
       expected: [true, role !== 'judge', false, role !== 'judge', true],

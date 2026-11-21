@@ -12,7 +12,7 @@ const selectClass =
 /**
  * A ranking ballot's decision: one choice per place, best first, each
  * offering every subject. Native selects the browser owns (`defaultValue`),
- * so it posts without JavaScript and a refusal restores what was posted;
+ * so it posts before hydration and a refusal restores what was posted;
  * the parse refuses a subject placed twice.
  */
 export function RankingChoice({

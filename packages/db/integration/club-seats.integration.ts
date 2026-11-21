@@ -1,3 +1,4 @@
+import { instantMs, addMs } from '@daisy/clock';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
 import {
@@ -102,7 +103,7 @@ function withPaidClub(
       const [subscription] =
         await fixture.sql`select id from billing_subscriptions where organization_id=${organizationId} and current`;
       const [clock] = await fixture.sql`select clock_timestamp() as now`;
-      const now = Date.parse((clock!.now as Date).toISOString());
+      const now = instantMs((clock!.now as Date).toISOString());
       const paid: SubscriptionEvidence = {
         lifecycle: 'active',
         settlement: {
@@ -447,23 +448,15 @@ test('removing a seat ends its Premium at the end of that UTC day; cancellation 
           invoiceId: `in_${createId()}`,
           period: {
             subscriptionId: period.subscriptionId,
-            startsAt: new Date(
-              Date.parse(period.startsAt) - 39 * day,
-            ).toISOString(),
-            endsAt: new Date(
-              Date.parse(period.startsAt) - 9 * day,
-            ).toISOString(),
+            startsAt: addMs(period.startsAt, -(39 * day)),
+            endsAt: addMs(period.startsAt, -(9 * day)),
           },
           previous: {
             invoiceId: `in_${createId()}`,
             period: {
               subscriptionId: period.subscriptionId,
-              startsAt: new Date(
-                Date.parse(period.startsAt) - 69 * day,
-              ).toISOString(),
-              endsAt: new Date(
-                Date.parse(period.startsAt) - 39 * day,
-              ).toISOString(),
+              startsAt: addMs(period.startsAt, -(69 * day)),
+              endsAt: addMs(period.startsAt, -(39 * day)),
             },
           },
         },
@@ -750,9 +743,9 @@ test('a former member who accepts a seat rejoins now, with one open membership p
           'make them active with exactly one open period from acceptance, and advance the club version',
         actual: [
           open.length,
-          Date.parse(
+          instantMs(
             String(new Date(open[0]?.joined_at as Date).toISOString()),
-          ) > Date.parse('2026-11-01T00:00:00Z') &&
+          ) > instantMs('2026-11-01T00:00:00Z') &&
             Math.abs(
               (open[0]?.joined_at as Date).getTime() -
                 (clock!.now as Date).getTime(),

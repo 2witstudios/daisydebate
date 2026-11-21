@@ -103,7 +103,7 @@ export function completionEnvelope(value: CompletionContext, form: FormData) {
           feedback: Object.fromEntries(
             target.feedbackKeys.map((key) => [
               key,
-              singleFormField(form, `feedback:${key}`) ?? '',
+              singleFormField(form, `feedback:${key}`),
             ]),
           ),
         }

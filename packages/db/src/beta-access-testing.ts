@@ -11,9 +11,7 @@ import type { SQL } from 'bun';
 export async function removeUnowedBetaDigests(sql: SQL): Promise<void> {
   // Migration suites run fixtures on databases migrated only part way.
   const [present] =
-    (await sql`select to_regclass('public.mail_intents') is not null as present`) as {
-      present: boolean;
-    }[];
+    await sql`select to_regclass('public.mail_intents') is not null as present`;
   if (!present?.present) return;
   await sql`delete from mail_intents m
     where m.purpose = 'beta-requests-digest' and m.state = 'queued'

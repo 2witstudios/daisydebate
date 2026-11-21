@@ -82,6 +82,8 @@ test('an erasure through the privacy flow leaves no onboarding answer of its sub
 test('the onboarding export carries the free-text answers and nothing of another member', async () => {
   await withPrivacySubject(
     async ({ client, database, userId, actorId, otherId }) => {
+      await client`insert into member_interests(user_id,interest) values (${userId},'watch'),(${otherId},'debate')`;
+      await client`insert into member_topics(user_id,topic) values (${userId},'law'),(${otherId},'law')`;
       await client.unsafe(
         'insert into member_leagues(user_id,league) values($1,$2),($3,$4)',
         [userId, 'Axe League', otherId, 'Rival League'],
@@ -101,13 +103,40 @@ test('the onboarding export carries the free-text answers and nothing of another
           should:
             'export the subject’s leagues and club name and no other member’s rows',
           actual: [
-            (exported.member_leagues ?? []).map((row) => row.league),
-            (exported.member_onboarding ?? [])[0]?.club_name,
+            (exported.member_interests ?? []).map((row) => [
+              row.user_id,
+              row.interest,
+            ]),
+            (exported.member_topics ?? []).map((row) => [
+              row.user_id,
+              row.topic,
+            ]),
+            (exported.member_leagues ?? []).map((row) => [
+              row.user_id,
+              row.league,
+            ]),
+            (exported.member_onboarding ?? []).map(
+              ({ user_id, club, club_name, experience, completed_at }) => [
+                user_id,
+                club,
+                club_name,
+                experience,
+                completed_at,
+              ],
+            ),
             JSON.stringify(exported).includes('Rival League'),
           ],
-          expected: [['Axe League'], 'Debate Club', false],
+          expected: [
+            [[userId, 'watch']],
+            [[userId, 'law']],
+            [[userId, 'Axe League']],
+            [[userId, 'joining', 'Debate Club', 'class', now]],
+            false,
+          ],
         });
       } finally {
+        await client`delete from member_interests where user_id in (${userId},${otherId})`;
+        await client`delete from member_topics where user_id in (${userId},${otherId})`;
         await client.unsafe(
           'delete from member_leagues where user_id in ($1,$2)',
           [userId, otherId],

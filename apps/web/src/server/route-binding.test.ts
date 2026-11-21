@@ -51,4 +51,28 @@ describe('createRouteBinder', () => {
       },
     });
   });
+
+  test('passes named and catch-all parameters to the selected handler', async () => {
+    const bind = createRouteBinder(() => ({
+      read: async (
+        request: Request,
+        params: { recordingId: string; path: string[] },
+      ) => Response.json({ method: request.method, ...params }),
+    }));
+    const handler = bind((routes) => routes.read);
+    const response = await handler(new Request('http://localhost/rewritten'), {
+      recordingId: 'recording',
+      path: ['audio', 'playlist.m3u8'],
+    });
+    assert({
+      given: 'route params and a request targeting a rewritten URL',
+      should: 'deliver the route params intact alongside the request',
+      actual: await response.json(),
+      expected: {
+        method: 'GET',
+        recordingId: 'recording',
+        path: ['audio', 'playlist.m3u8'],
+      },
+    });
+  });
 });

@@ -4,13 +4,14 @@ import { createAppError } from '@daisy/errors';
 import type { RatingDivision } from '@daisy/protocol';
 import { and, eq, sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/bun-sql';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { seasons } from './schema/ratings';
 import {
   listSeasonRecords,
   toSeasonRecord,
   type SeasonRecord,
 } from './season-record';
+import { inTransaction, type Tx, type TxSource } from './tx';
+import { takeLock, transactionLocks } from './locks';
 
 /**
  * Season operations for the `bun season` CLI (ADR 0055): a season is opened
@@ -37,11 +38,9 @@ const onDivision = (division: RatingDivision) =>
     eq(seasons.division, division),
   );
 
-type Tx = Parameters<Parameters<BunSQLDatabase['transaction']>[0]>[0];
-
 /** Serializes opening and beta activation, each of which reads for any season. */
 const lockSeasonCreation = (tx: Tx) =>
-  tx.execute(sql`select pg_advisory_xact_lock(59091, 1)`);
+  takeLock(tx, transactionLocks.seasonCreation());
 
 async function open(tx: Tx, input: NewSeason): Promise<SeasonRecord> {
   await lockSeasonCreation(tx);
@@ -64,7 +63,7 @@ async function open(tx: Tx, input: NewSeason): Promise<SeasonRecord> {
   return toSeasonRecord(opened);
 }
 
-const seasonOperations = (database: BunSQLDatabase) => ({
+const seasonOperations = (database: TxSource) => ({
   /** Every season, newest start first. */
   listSeasons: () => listSeasonRecords(database),
 
@@ -76,7 +75,7 @@ const seasonOperations = (database: BunSQLDatabase) => ({
     readonly id: string;
     readonly division: RatingDivision;
   }): Promise<SeasonRecord> {
-    return database.transaction(async (tx) => {
+    return inTransaction(database, async (tx) => {
       await lockSeasonCreation(tx);
       const [existing] = await tx
         .select()
@@ -117,7 +116,7 @@ const seasonOperations = (database: BunSQLDatabase) => ({
   },
 
   openSeason(input: NewSeason): Promise<SeasonRecord> {
-    return database.transaction((tx) => open(tx, input));
+    return inTransaction(database, (tx) => open(tx, input));
   },
 
   /** With no next season to open, closing the only one would strand rating. */

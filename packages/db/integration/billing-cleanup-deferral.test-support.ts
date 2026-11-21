@@ -1,3 +1,4 @@
+import { addMs } from '@daisy/clock';
 import { assert } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
 import { cleanupWork } from '@daisy/protocol/billing';
@@ -40,7 +41,7 @@ export async function exerciseFailureDeferral(
   const deferredFrame = {
     ...c,
     claim: null,
-    retryAt: new Date(Date.parse(await now()) + 500).toISOString(),
+    retryAt: addMs(await now(), 500),
     turn: 'subscriptions' as const,
   };
   const skippedTurn = { ...deferredFrame, turn: 'refunds' as const };
@@ -63,7 +64,7 @@ export async function exerciseFailureDeferral(
     kind: 'failure',
     claimId: token(c),
     work: cleanupWork(c)!,
-    retryAt: new Date(Date.parse(await now()) + 500).toISOString(),
+    retryAt: addMs(await now(), 500),
   });
   const deferred = await read();
   assert({
@@ -103,7 +104,7 @@ export async function exerciseFailureDeferral(
     kind: 'failure',
     claimId: token(last),
     work: cleanupWork(last)!,
-    retryAt: new Date(Date.parse(await now()) + 500).toISOString(),
+    retryAt: addMs(await now(), 500),
   });
   const repeated = await read();
   assert({

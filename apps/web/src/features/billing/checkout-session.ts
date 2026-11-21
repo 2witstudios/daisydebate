@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import type Stripe from 'stripe';
 import { z } from 'zod';
 import {
@@ -124,10 +125,10 @@ function fixedOffer(purchase: Purchase, session: Session) {
     session.success_url === parameters.success_url &&
     session.cancel_url === parameters.cancel_url &&
     session.expires_at === parameters.expires_at &&
-    session.created >= Math.floor(Date.parse(purchase.admittedAt) / 1000) &&
+    session.created >= Math.floor(instantMs(purchase.admittedAt) / 1000) &&
     session.created <
       Math.ceil(
-        (Date.parse(purchase.admittedAt) + purchaseBounds.creationMs) / 1000,
+        (instantMs(purchase.admittedAt) + purchaseBounds.creationMs) / 1000,
       )
   );
 }

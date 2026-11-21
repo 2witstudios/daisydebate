@@ -6,11 +6,11 @@ import {
   requireAdmittedPrincipal,
   type ParticipantAdmission,
 } from './participant-admission';
-import type { TabTransaction } from './tab/tab-transaction';
+import type { Tx } from './tx';
 
 /** Fresh ordinary admission for a new identity; a profile alone never makes a human eligible. */
 export async function requireJudgeAssignmentAdmission(
-  tx: TabTransaction,
+  tx: Tx,
   input: {
     readonly actorId: string;
     readonly slot: number;

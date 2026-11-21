@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { createInvariantError } from '@daisy/errors';
 import type {
   AttendanceAdjudicationFact,
@@ -105,7 +106,7 @@ export const resolutionCutoffOf = (
 ): number | null => {
   const last = segments.find((s) => s.sequence === rules.segments.length - 1);
   return last?.endedAt
-    ? Date.parse(last.endedAt) + attendancePolicy.resolutionCutoffMs
+    ? instantMs(last.endedAt) + attendancePolicy.resolutionCutoffMs
     : null;
 };
 

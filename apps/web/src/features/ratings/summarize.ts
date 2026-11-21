@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import type { StandingsRead } from '@daisy/db/ratings';
 
 /** One debater's line in one season, summed from the ledger. */
@@ -39,7 +40,7 @@ export function summarizeStandings(
   read: StandingsRead,
   since: string,
 ): readonly StandingSummary[] {
-  const from = Date.parse(since);
+  const from = instantMs(since);
   const postings = new Map<string, Posting[]>();
   for (const change of read.changes) {
     const key = keyOf(change);
@@ -62,9 +63,7 @@ export function summarizeStandings(
       played: own.length,
       wins: count('wins'),
       losses: count('losses'),
-      weekChange: moved(
-        own.filter((row) => Date.parse(row.occurredAt) >= from),
-      ),
+      weekChange: moved(own.filter((row) => instantMs(row.occurredAt) >= from)),
       seasonChange: moved(own),
       lastRatedAt: own.reduce<string | null>(
         (latest, row) =>

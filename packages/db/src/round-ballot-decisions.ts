@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { createAppError, createRefusal } from '@daisy/errors';
 import {
   ballotSchemaFor,
@@ -12,7 +13,6 @@ import type {
   RoundJudging,
   RoundOutcome,
   RoundParticipantSeat,
-  RoundRules,
 } from '@daisy/protocol';
 
 /**
@@ -104,7 +104,7 @@ export function requireBallotAdmission(input: {
     throw createRefusal('CONFLICT', 'round-decided');
   if (
     input.ballotDeadlineAt &&
-    Date.parse(input.now) >= input.ballotDeadlineAt.getTime()
+    instantMs(input.now) >= input.ballotDeadlineAt.getTime()
   )
     throw createRefusal('CONFLICT', 'round-decided');
   if (input.submittedJudgeIds.includes(input.judgeParticipantId))
@@ -140,7 +140,7 @@ export const ballotReceipt = (input: {
 export function requireRoundBallot(
   round: {
     readonly judging: RoundJudging;
-    readonly rules: Pick<RoundRules, 'sides' | 'segments'>;
+    readonly rules: Parameters<typeof ballotSubjectsFor>[0];
     readonly participants: readonly Pick<RoundParticipantSeat, 'id' | 'seat'>[];
   },
   ballot: unknown,

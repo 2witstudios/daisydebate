@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { SQL } from 'bun';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -79,7 +80,7 @@ test('real private storage deletion acknowledgement alone releases durable quota
         tx,
         fixture.channelId,
         new Date(
-          Date.parse(fixture.now) + policy.reservationMs + 1,
+          instantMs(fixture.now) + policy.reservationMs + 1,
         ).toISOString(),
       ),
     );
@@ -179,6 +180,8 @@ test('real private storage deletion acknowledgement alone releases durable quota
         'export only own declared metadata and exclude the private deletion key',
       actual: {
         filename: ownFile.filename,
+        charged: Number(ownFile.reserved_bytes),
+        createdAt: ownFile.created_at,
         privateKey: Object.hasOwn(ownFile, 'object_key'),
         peerHasSubjectFile: peerExport.messaging_files!.some(
           (row) => row.id === next.row.id,
@@ -189,6 +192,8 @@ test('real private storage deletion acknowledgement alone releases durable quota
       },
       expected: {
         filename: 'notes.pdf',
+        charged: 60,
+        createdAt: fixture.now,
         privateKey: false,
         peerHasSubjectFile: false,
         peerHasOwnFile: true,

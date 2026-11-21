@@ -24,23 +24,25 @@ export const adobeIsolationIssue = (
 
 /** Workspace suffixes (after `@daisy/`) each workspace may depend on. */
 export const allowedWorkspaceDependencies: Record<string, readonly string[]> = {
-  'debate-engine': ['errors', 'protocol', 'seeded-random'],
+  'debate-engine': ['clock', 'digest', 'errors', 'protocol', 'seeded-random'],
   // Seeded randomness is topic-agnostic: it knows a seed and nothing else.
-  'seeded-random': [],
+  'seeded-random': ['digest'],
+  clock: [],
+  digest: [],
   // The tab engine is plain data in and out: no app, database, protocol or
-  // Room engine, only seeded randomness (slice G).
-  'tab-engine': ['seeded-random'],
+  // Room engine, only seeded randomness and digests.
+  'tab-engine': ['digest', 'seeded-random'],
   // AIDB: the OpenRouter voice layer reads the engine's turn table and the
   // protocol's ballot contract only.
   'ai-voice': ['debate-engine', 'errors', 'protocol'],
   // VIDEO-1.4: isolated LiveKit vendor adapter; no competitive authority.
-  media: ['errors', 'protocol'],
+  media: ['clock', 'digest', 'errors', 'protocol'],
   // ADR 0099: the hold worker's only credential is its broadcasts role.
-  'broadcast-worker': ['db', 'debate-engine', 'logger', 'protocol'],
+  'broadcast-worker': ['clock', 'db', 'debate-engine', 'logger', 'protocol'],
   // ADR 0112: publishes released facts; its role reads them and nothing else.
   'audience-publisher': ['db', 'debate-engine', 'logger', 'protocol', 'redis'],
   // ADR 0107: builds from the hold; its role reaches only its jobs.
-  'recording-worker': ['db', 'logger', 'protocol'],
+  'recording-worker': ['clock', 'db', 'logger', 'protocol'],
   // ADR 0053: capture deployment discovers sessions read-only under
   // daisy_media_worker and writes only through signed web ingress.
   'media-worker': [
@@ -49,6 +51,7 @@ export const allowedWorkspaceDependencies: Record<string, readonly string[]> = {
     'clock',
     'config',
     'db',
+    'digest',
     'errors',
     'logger',
     'protocol',
@@ -56,26 +59,26 @@ export const allowedWorkspaceDependencies: Record<string, readonly string[]> = {
   // ADR 0084: the log shipper reads the logger's vocabulary to admit
   // shipped lines; it holds no participant database or Redis credential.
   'log-shipper': ['clock', 'config', 'logger'],
-  protocol: [],
+  protocol: ['clock'],
   // ADR 0048: pure capability evaluation consumes portable vocabulary only.
-  auth: ['errors', 'protocol'],
+  auth: ['clock', 'errors', 'protocol'],
   errors: ['protocol'],
-  db: ['config', 'errors', 'protocol'],
-  redis: ['config', 'errors', 'protocol'],
+  db: ['clock', 'config', 'digest', 'errors', 'protocol'],
+  redis: ['config', 'digest', 'errors', 'protocol'],
   config: [],
   ingress: ['config'],
   // Test-only: the redaction tests derive their secret keys from config's
   // schema (ADR 0019); the logger itself imports nothing from it.
   logger: ['config'],
   observability: ['logger'],
-  // ADR 0031 §12: the realtime deployment's exact ten allowed edges. It
+  // ADR 0031 §12: the realtime deployment's explicit allowed edges. It
   // never depends on `debate-engine`, `apps/web` or a third-party socket
   // library. `@daisy/presence` is not yet a package (owned by a later RT
   // leaf); the edge is declared now so nothing else moves when it lands.
   // ADR 0077: the admin app holds no participant database or Redis
   // credential, so it never depends on @daisy/db or @daisy/redis; it reaches
   // the participant app only through the signed operator API (`auth`).
-  admin: ['auth', 'clock', 'config', 'errors', 'logger', 'protocol'],
+  admin: ['auth', 'clock', 'config', 'digest', 'errors', 'logger', 'protocol'],
   realtime: [
     'ingress',
     'protocol',
@@ -83,6 +86,7 @@ export const allowedWorkspaceDependencies: Record<string, readonly string[]> = {
     'db',
     'redis',
     'clock',
+    'digest',
     'config',
     'errors',
     'logger',
@@ -139,7 +143,7 @@ export const deepImportIssue = (
  * Suites, a workspace's integration and e2e folders, test support, and a
  * workspace's Playwright config, which only configures test runs.
  */
-const TEST_CODE =
+export const TEST_CODE =
   /^(?:apps|packages)\/[^/]+\/(?:(?:integration|e2e)\/|playwright\.config\.ts$)|(?:^|\/)test-support\/|\.(?:test|integration|e2e)\.tsx?$|\.test-support\.tsx?$/;
 
 /**

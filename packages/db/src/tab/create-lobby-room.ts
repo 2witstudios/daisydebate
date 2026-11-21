@@ -21,14 +21,14 @@ import {
 } from '../room-command-facts';
 import { loadStandingRoomDraft } from './standing-room-draft';
 import { appendHistory, storedCommand } from './command-record';
-import type { TabDatabase } from './tab-transaction';
+import { inTransaction, type TxOpener } from '../tx';
 
 export type CreateLobbyRoomCommand = Extract<
   LobbyCommand,
   { type: 'create-lobby-room' }
 >;
 export type LobbyRoomAssembly = Parameters<typeof assembleRoom>[1];
-export const createLobbyRoomStore = (database: TabDatabase) => ({
+export const createLobbyRoomStore = (database: TxOpener) => ({
   createLobbyRoom: <Answer>(
     input: {
       readonly senderUserId: string;
@@ -63,7 +63,7 @@ export const createLobbyRoomStore = (database: TabDatabase) => ({
       ) => Promise<LobbyCommandReceipt>;
     }) => Promise<Answer>,
   ): Promise<Answer> =>
-    database.transaction(async (tx) => {
+    inTransaction(database, async (tx) => {
       await lockCommand(tx, input.commandId);
       const actorIds = [
         ...new Set([

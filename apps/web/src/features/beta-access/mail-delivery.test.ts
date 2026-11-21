@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createResendSender } from '../mail/resend-sender';
 import type { EmailMessage } from '../mail/types';
@@ -245,7 +246,7 @@ test('invitation exhaustion distinguishes definitive rejection from uncertain pr
   for (const response of ['lost', 'rejected', 'malformed-success'] as const) {
     const sender = createResendSender({
       apiKey: 'test-key',
-      nowMs: () => Date.parse('2026-11-06T00:00:00.000Z'),
+      nowMs: () => instantMs('2026-11-06T00:00:00.000Z'),
       from: 'test@example.test',
       ids: { next: () => 'id' },
       fetch: async () => {

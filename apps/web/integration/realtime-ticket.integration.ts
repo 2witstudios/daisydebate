@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { sha3Hex } from '@daisy/digest';
 import { openTestRedis } from '@daisy/redis/testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
@@ -65,7 +65,7 @@ describe('RT-2.4a POST /api/realtime/ticket through the mounted route', () => {
       expiresInSeconds: number;
       socketUrl: string;
     };
-    const hash = createHash('sha3-256').update(body.ticket).digest('hex');
+    const hash = sha3Hex(body.ticket);
     const key = `${testApp.redisNamespace}:v1:ticket:${hash}`;
     const { value: raw, ttlMs } = await readRedisKey(key);
     const binding = raw ? (JSON.parse(raw) as unknown) : null;

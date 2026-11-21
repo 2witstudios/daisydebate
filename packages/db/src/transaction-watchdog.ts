@@ -1,4 +1,6 @@
 import type { ReservedSQL } from 'bun';
+import { z } from 'zod';
+import { query } from './raw-rows';
 
 export type OwnedBackend = { readonly pid: number; readonly started: string };
 
@@ -20,10 +22,13 @@ export async function recoverTransactionBackend(
       where pid=${backend.pid} and backend_start::text=${backend.started}
       and datname=current_database() and usename=current_user and backend_type='client backend'`;
     await control`select pg_stat_clear_snapshot()`;
-    const [row] = await control<{ absent: boolean }[]>`select not exists (
+    const [row] = await query(
+      control`select not exists (
       select 1 from pg_stat_activity where pid=${backend.pid}
       and backend_start::text=${backend.started}
-    ) as absent`;
+    ) as absent`,
+      z.object({ absent: z.boolean() }),
+    );
     await control`commit`;
     return row?.absent === true;
   };

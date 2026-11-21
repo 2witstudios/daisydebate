@@ -3,6 +3,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { SQL } from 'bun';
 import { requireTestServices } from '@daisy/config';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { createDatabase } from '../src';
 
 setupRitewayBun();
 
@@ -48,6 +49,28 @@ function withDatabaseOverride(baseUrl: string, pretendPath: string): string {
   url.searchParams.set('database', realDatabase);
   return url.toString();
 }
+
+test('currentDatabaseName reports the connected database rather than the URL path', async () => {
+  const pretend = 'not_the_connected_database_test';
+  const url = withDatabaseOverride(databaseUrl, pretend);
+  const client = new SQL(url, { max: 1 });
+  const database = createDatabase({ client, url, nextActorId: createId });
+  try {
+    const [{ name }] = await client`select current_database() as name`;
+    assert({
+      given: 'a URL whose path specifies a different database name',
+      should: 'return the exact name witnessed by the connected server',
+      actual: {
+        name: await database.currentDatabaseName(),
+        matchedDecoy: name === pretend,
+      },
+      expected: { name, matchedDecoy: false },
+    });
+  } finally {
+    await database.close();
+    await client.close();
+  }
+});
 
 /**
  * Spawns the real script and asserts it refuses through the specific guard

@@ -37,7 +37,7 @@ const missingCopy = {
  * The age step (WAIT-4.6): the birth month and year, with no default and no
  * mention of any age the answer is held to, and the Terms and Privacy
  * acceptance. A real POST to a server action, so it works before hydration
- * and without JavaScript; the server bands the answer and decides.
+ * and before hydration; the server bands the answer and decides.
  */
 export function AgeStep({
   action,

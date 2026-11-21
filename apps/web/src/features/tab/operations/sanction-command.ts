@@ -16,7 +16,7 @@ import {
   type RequestSanctionFacts,
 } from '../commands/sanction';
 import { CommandDenied, runLobbyCommand } from '../commands/run-command';
-import { commandDigest } from './command-digest';
+import { commandDigest } from '@daisy/digest';
 import { eventSettingResolution } from './event-setting-resolution';
 import { sanctionAuthority, sanctionAuthorization } from './sanction-authority';
 import type { TabPrincipal } from '../tab-principal';

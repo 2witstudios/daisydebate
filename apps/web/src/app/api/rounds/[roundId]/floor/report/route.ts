@@ -1,9 +1,11 @@
 import { processRoute } from '../../../../../../server/process-app';
+type Params = Awaited<
+  RouteContext<'/api/rounds/[roundId]/floor/report'>['params']
+>;
+
 export const runtime = 'nodejs';
-export const POST = processRoute(
-  (routes) => (request) =>
-    routes.roundFloor.report(
-      request,
-      new URL(request.url).pathname.split('/')[3] ?? '',
-    ),
+export const POST = processRoute.withParams<Params>(
+  (routes) =>
+    (request, { roundId }) =>
+      routes.roundFloor.report(request, roundId),
 );

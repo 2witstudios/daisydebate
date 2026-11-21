@@ -8,11 +8,11 @@ import { certifications } from '../schema/certifications';
 import { actors } from '../schema/actors';
 import { scopeTransaction } from '../tenant-scope';
 import { loadEventCompetition } from './event-competition';
-import type { TabTransaction } from './tab-transaction';
+import type { Tx } from '../tx';
 
 /** Automatic season admission is host membership plus a followed league template, never participation alone. */
 export async function loadLeagueMembershipEvents(
-  tx: TabTransaction,
+  tx: Tx,
   input: {
     readonly viewerUserId: string;
     readonly organizationId: string;
@@ -162,10 +162,11 @@ export async function loadLeagueMembershipEvents(
       : [];
     const certifiedEvents = new Set(certified.map((row) => row.eventId));
     for (const event of following) {
+      if (event.templateId === null) continue;
       calendar.push({
         lobby,
         event,
-        templateId: event.templateId!,
+        templateId: event.templateId,
         startsAt: at,
         certifiedAt:
           certified
@@ -212,7 +213,7 @@ export async function loadLeagueMembershipEvents(
             results.some((result) => result.fixtureId === fixture.id),
           ),
         },
-        templateId: event.templateId!,
+        templateId: event.templateId,
         certifiedAt:
           competition.certifications
             .map((row) => row.certifiedAt.toISOString())

@@ -2,7 +2,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { startRoundMediaRecovery } from '../src/server/round-media-recovery';
 import { withMediaRound } from './round-media.test-support';
-import { realWorkerTimers } from '../src/lib/worker-timers.test-support';
+import { realWorkerTimers } from './worker-timers.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
 

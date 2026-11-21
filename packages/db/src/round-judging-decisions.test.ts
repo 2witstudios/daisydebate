@@ -1,3 +1,4 @@
+import { syntheticCaseMap } from './testing-judging';
 import { assertRejects } from '@daisy/errors/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
@@ -26,31 +27,32 @@ const scope = {
   serviceId: 'agent-run:run',
   jobEpoch: 3,
 };
-type Job = NonNullable<Parameters<typeof requireCurrentJob>[0]>;
+type Job = NonNullable<Parameters<typeof requireCurrentJob>[0]> &
+  NonNullable<Parameters<typeof requireClaimableJob>[0]> &
+  Parameters<typeof pendingBallotAction>[0];
 type Run = NonNullable<Parameters<typeof requireCurrentRun>[0]>;
-const job = (overrides: Record<string, unknown> = {}) =>
-  ({
-    status: 'leased',
-    attempts: 3,
+const job = (overrides: Partial<Job> = {}): Job => ({
+  status: 'leased',
+  attempts: 3,
+  freezeRevision: 2,
+  commandId: 'command',
+  leaseExpiresAt: later,
+  retryAt: null,
+  pendingBallot: null,
+  ...overrides,
+});
+const run = (overrides: Partial<Run> = {}, config = {}): Run => ({
+  endedAt: null,
+  kind: 'judging',
+  configurationSnapshot: {
+    roundId: 'round',
+    judgeParticipantId: 'judge',
     freezeRevision: 2,
-    commandId: 'command',
-    leaseExpiresAt: later,
-    pendingBallot: null,
-    ...overrides,
-  }) as unknown as Job;
-const run = (overrides: Record<string, unknown> = {}, config = {}) =>
-  ({
-    endedAt: null,
-    kind: 'judging',
-    configurationSnapshot: {
-      roundId: 'round',
-      judgeParticipantId: 'judge',
-      freezeRevision: 2,
-      jobEpoch: 3,
-      ...config,
-    },
-    ...overrides,
-  }) as unknown as Run;
+    jobEpoch: 3,
+    ...config,
+  },
+  ...overrides,
+});
 
 test('a judging job is claimable when queued or expired and not bound elsewhere', async () => {
   assert({
@@ -163,7 +165,9 @@ test('each attempt dispatches the provider at most once', async () => {
   for (const [label, candidateJob, candidateRun] of [
     [
       'a held response',
-      job({ pendingBallot: { winner: 'affirmative' } }),
+      job({
+        pendingBallot: { rubricVersion: 'speaker-10@2', winner: 'affirmative' },
+      }),
       undefined,
     ],
     ['a recorded dispatch', job(), { outcome: 'dispatched' }],
@@ -178,7 +182,11 @@ test('each attempt dispatches the provider at most once', async () => {
 });
 
 test('the first accounted response is kept and a different one refused', async () => {
-  const ballot = { winner: 'affirmative', scores: { a: 1 } };
+  const ballot = {
+    rubricVersion: 'speaker-10@2',
+    winner: 'affirmative',
+    scores: { a: 1 },
+  };
   const received = { answeredAt: new Date(0) };
   assert({
     given: 'an accounted response, then an identical retry',
@@ -211,16 +219,16 @@ test('the first accounted response is kept and a different one refused', async (
 });
 
 test('a job needs one coherency stage at a time, and the final one reads the map (ADR 0125)', async () => {
-  const caseMap = { about: 'transit' };
-  const ballot = { winner: 'affirmative' };
-  const stages = (overrides: Record<string, unknown>) =>
-    ({
-      pendingBallot: null,
-      firstBallot: null,
-      firstBallotFailed: false,
-      caseMap: null,
-      ...overrides,
-    }) as unknown as Parameters<typeof judgingProgress>[0];
+  const caseMap = syntheticCaseMap;
+  const ballot = { rubricVersion: 'speaker-10@2', winner: 'affirmative' };
+  type Stage = Parameters<typeof judgingProgress>[0];
+  const stages = (overrides: Partial<Stage>): Stage => ({
+    pendingBallot: null,
+    firstBallot: null,
+    firstBallotFailed: false,
+    caseMap: null,
+    ...overrides,
+  });
   assert({
     given:
       'a new job, a stored or failed first pass, a stored map, and a held ballot',

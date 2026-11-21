@@ -40,9 +40,9 @@ function certifiedAt(
         )
         .sort()[0],
   );
-  return times.every((time): time is string => time !== undefined)
-    ? times.sort().at(-1)!
-    : null;
+  if (!times.every((time): time is string => time !== undefined)) return null;
+  // `resultIds` is not empty, so neither is `times`.
+  return times.sort().at(-1) ?? null;
 }
 
 function hostResultsView(
@@ -51,6 +51,16 @@ function hostResultsView(
   viewerUserId: string,
 ): HostResultsView {
   const competition = facts.competition;
+  const entryName = (entryId: string) => {
+    const entry = competition.entries.find((one) => one.id === entryId);
+    if (!entry) throw createAppError('INVARIANT', 'Fixture entry is missing');
+    return entry.name;
+  };
+  const tabRoundNumber = (tabRoundId: string) => {
+    const round = competition.rounds.find((one) => one.id === tabRoundId);
+    if (!round) throw createAppError('INVARIANT', 'Draw tab round is missing');
+    return round.number;
+  };
   const assessment = assessEventCertification(completionCertification(facts));
   const at =
     assessment.kind === 'already-certified'
@@ -221,7 +231,12 @@ function hostResultsView(
                   );
                 const round = competition.rounds.find(
                   (one) => one.id === row.tabRoundId,
-                )!;
+                );
+                if (!round)
+                  throw createAppError(
+                    'INVARIANT',
+                    'Result correction lost its tab round',
+                  );
                 return {
                   resultId: row.id,
                   supersedesResultId: row.supersedesResultId,
@@ -233,9 +248,7 @@ function hostResultsView(
                       .sort((a, b) => a.position - b.position)
                       .map((one) => ({
                         entryId: one.entryId,
-                        name: competition.entries.find(
-                          (entry) => entry.id === one.entryId,
-                        )!.name,
+                        name: entryName(one.entryId),
                       })),
                   },
                   changed: 'record',
@@ -260,9 +273,7 @@ function hostResultsView(
                     )
                     .map((one) => ({
                       drawId: one.drawId,
-                      tabRoundNumber: competition.rounds.find(
-                        (round) => round.id === one.tabRoundId,
-                      )!.number,
+                      tabRoundNumber: tabRoundNumber(one.tabRoundId),
                     })),
                 };
               }),

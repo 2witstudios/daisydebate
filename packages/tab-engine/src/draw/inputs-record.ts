@@ -1,8 +1,8 @@
+import { sha3Hex } from '@daisy/digest';
 import {
   canonicalJson,
   canonicalOrder,
   compareBytes,
-  digestOf,
   hexOf,
 } from '@daisy/seeded-random';
 import type { DrawInput, InputsRecord, Judge } from '../shapes/draw';
@@ -65,10 +65,10 @@ export const inputsRecord = (
   const common = {
     engine: { engine: ENGINE_VERSION, ...versions },
     settings,
-    settingsDigest: digestOf(canonicalJson(settings)),
+    settingsDigest: sha3Hex(canonicalJson(settings)),
     seed: hexOf(input.seed),
-    entriesDigest: digestOf(canonicalJson(canonicalOrder(request.entries))),
-    judgesDigest: digestOf(canonicalJson(canonicalOrder(judges))),
+    entriesDigest: sha3Hex(canonicalJson(canonicalOrder(request.entries))),
+    judgesDigest: sha3Hex(canonicalJson(canonicalOrder(judges))),
     existing: canonicalOrder(
       request.existing.map((f) => ({ id: f.id, hold: f.hold })),
     ),

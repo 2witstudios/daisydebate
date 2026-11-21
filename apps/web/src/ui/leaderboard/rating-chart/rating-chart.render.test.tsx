@@ -39,7 +39,7 @@ describe('renderRatingChart', () => {
   test('static chart', () => {
     const out = html(props());
     assert({
-      given: 'a chart with no script',
+      given: 'a chart before hydration',
       should:
         'draw a labelled SVG, the readout, no slider and no established mark',
       actual: [

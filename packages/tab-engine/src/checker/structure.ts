@@ -94,7 +94,7 @@ const existingViolations = (request: EventRequest, plan: Plan): Violation[] => {
     const before = existing.get(kept.id);
     if (before === undefined) continue;
     const was = before.fixture as Fixture;
-    const now = kept.fixture as Fixture;
+    const now = kept.fixture;
     if (!sameEntries(was, now))
       violations.push({
         kind: 'kept_fixture_changed',

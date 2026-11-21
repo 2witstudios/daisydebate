@@ -15,7 +15,7 @@ export const openRoomHref = '/play/room';
 /**
  * The ways to play beyond joining a listed Room, in the order a visitor most
  * often wants them. The Play dialog lists these over the Lobby, and `/play`
- * lists the same choices as a page when no script runs.
+ * lists the same choices as a page before hydration.
  */
 export const playOptions: readonly PlayOption[] = [
   {

@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { sha3Hex } from '@daisy/digest';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   EMAILED_LINK_PURPOSES,
@@ -10,8 +10,7 @@ import {
 
 setupRitewayBun();
 
-const sha3 = (value: string) =>
-  createHash('sha3-256').update(value).digest('hex');
+const sha3 = (value: string) => sha3Hex(value);
 
 describe('ISSUE-2 emailed-link tokens', () => {
   test('a fresh token is 256 CSPRNG bits, base64url, and never repeats', () => {

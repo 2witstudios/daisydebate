@@ -1,10 +1,10 @@
 import { buildRoundTopic } from '@daisy/protocol';
-import type { BoundedTransactionContext } from './transaction-context';
 import { appendOutboxEvent } from './outbox';
+import type { Tx } from './tx';
 
 /** Content-free invalidation committed with the capture write or freeze. */
 export async function appendTranscriptChanged(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   roundId: string,
   entityVersion: number,
 ) {

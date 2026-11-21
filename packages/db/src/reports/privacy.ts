@@ -2,8 +2,8 @@ import { sql } from 'drizzle-orm';
 import { idSchema } from '@daisy/protocol';
 import type { PrivacyAdopter, PrivacyExport } from '../privacy/contracts';
 import { exportRows } from '../privacy/export-rows';
-
-const rowsOf = (rows: unknown) => rows as Record<string, unknown>[];
+import { run, query } from '../raw-rows';
+import { z } from 'zod';
 
 /**
  * Reports' subject rights (ADR 0103). Closing an account never wipes its
@@ -19,7 +19,8 @@ export const reportsPrivacyAdopter: PrivacyAdopter = {
   phase: 'after-close',
   async erase(tx, subject) {
     const actorId = idSchema.parse(subject.actorId);
-    await tx.execute(
+    await run(
+      tx,
       sql`update reports set reporter_actor_id = null where reporter_actor_id=${actorId}`,
     );
   },
@@ -27,18 +28,31 @@ export const reportsPrivacyAdopter: PrivacyAdopter = {
     const actorId = idSchema.parse(subject.actorId);
     return {
       reports_filed: exportRows(
-        rowsOf(
-          await tx.execute(
-            sql`select id, subject_actor_id, reason, surface, created_at, closed_at from reports where reporter_actor_id=${actorId} order by created_at,id`,
-          ),
+        await query(
+          tx,
+          z.object({
+            id: z.string(),
+            subject_actor_id: z.string(),
+            reason: z.string(),
+            surface: z.string(),
+            created_at: z.date(),
+            closed_at: z.date().nullable(),
+          }),
+          sql`select id, subject_actor_id, reason, surface, created_at, closed_at from reports where reporter_actor_id=${actorId} order by created_at,id`,
         ),
       ),
       reports_about: exportRows(
-        rowsOf(
-          await tx.execute(
-            sql`select id, reason, surface, created_at, closed_at, outcome from reports
-              where subject_actor_id=${actorId} and surface <> 'guardian-link' order by created_at,id`,
-          ),
+        await query(
+          tx,
+          z.object({
+            id: z.string(),
+            reason: z.string(),
+            surface: z.string(),
+            created_at: z.date(),
+            closed_at: z.date().nullable(),
+            outcome: z.string().nullable(),
+          }),
+          sql`select id, reason, surface, created_at, closed_at, outcome from reports where subject_actor_id=${actorId} and surface <> 'guardian-link' order by created_at,id`,
         ),
       ),
     };

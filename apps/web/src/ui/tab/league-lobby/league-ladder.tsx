@@ -40,7 +40,7 @@ function Row({ row }: { readonly row: LadderRow }) {
 
 /**
  * A league's own ladder. Scope and search ride in the address as one GET
- * form, as on Daisy's ladder, so it filters with no script.
+ * form, as on Daisy's ladder, so it filters before hydration.
  */
 export function LeagueLadder({ ladder }: { readonly ladder: Ladder }) {
   return (

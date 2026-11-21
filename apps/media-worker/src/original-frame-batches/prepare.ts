@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import {
   canonicalCaptureEvidenceBody,
   captureStateReply,
@@ -9,7 +10,13 @@ import { contained, type CaptureState } from '../capture-history';
 import type { StagedFrame } from '../capture-staging';
 
 const MAX_FRAMES = 25;
-type Group = { readonly intervalId: string; readonly frames: StagedFrame[] };
+/** Consecutive frames, oldest first; a group is born with its first frame. */
+type Group = {
+  readonly intervalId: string;
+  readonly first: StagedFrame;
+  last: StagedFrame;
+  readonly frames: StagedFrame[];
+};
 const refused = () => ({ kind: 'refused' as const });
 /** The original signed samples, explicitly little-endian. No energy/speech heuristic runs here. */
 function pcm(frame: StagedFrame) {
@@ -32,7 +39,7 @@ function frameValid(frame: StagedFrame, state: CaptureState) {
     frame.frame.nominalStartMs === original.window.nominalStartMs &&
     frame.frame.beforeMs === Math.floor(original.window.beforeMs) &&
     frame.frame.afterMs === Math.ceil(original.window.afterMs) &&
-    frame.frame.afterMs <= Date.parse(state.serverNow) &&
+    frame.frame.afterMs <= instantMs(state.serverNow) &&
     contained(state, frame.seat, frame.frame)
   );
 }
@@ -70,9 +77,9 @@ export function prepare(input: {
     const interval = state.intervals.find(
       (grant) =>
         grant.roundParticipantId === frame.seat &&
-        Date.parse(grant.startedAt) <= frame.frame.beforeMs &&
+        instantMs(grant.startedAt) <= frame.frame.beforeMs &&
         (grant.endedAt === null ||
-          frame.frame.afterMs < Date.parse(grant.endedAt)),
+          frame.frame.afterMs < instantMs(grant.endedAt)),
     );
     if (!interval) return refused();
     const key = JSON.stringify([
@@ -83,30 +90,34 @@ export function prepare(input: {
       frame.clockEvidence.anchor,
     ]);
     let group = current.get(key);
-    const last = group?.frames.at(-1);
     if (
       !group ||
       group.frames.length === MAX_FRAMES ||
-      (last &&
-        (frame.clockEvidence.observation.sequence !==
-          last.clockEvidence.observation.sequence + 1 ||
-          frame.frame.nominalStartMs !== last.frame.nominalStartMs + 10))
+      frame.clockEvidence.observation.sequence !==
+        group.last.clockEvidence.observation.sequence + 1 ||
+      frame.frame.nominalStartMs !== group.last.frame.nominalStartMs + 10
     ) {
-      group = { intervalId: interval.id, frames: [] };
+      group = {
+        intervalId: interval.id,
+        first: frame,
+        last: frame,
+        frames: [frame],
+      };
       groups.push(group);
       current.set(key, group);
+    } else {
+      group.frames.push(frame);
+      group.last = frame;
     }
-    group.frames.push(frame);
   }
   const bodies: CaptureEvidenceBody[] = [];
   const ids = new Set<string>();
   for (const [index, group] of groups.entries()) {
-    const evidenceId = input.evidenceIds[index];
-    if (!idSchema.safeParse(evidenceId).success || ids.has(evidenceId!))
-      return refused();
-    ids.add(evidenceId!);
-    const first = group.frames[0]!,
-      last = group.frames.at(-1)!;
+    const evidence = idSchema.safeParse(input.evidenceIds[index]);
+    if (!evidence.success || ids.has(evidence.data)) return refused();
+    const evidenceId = evidence.data;
+    ids.add(evidenceId);
+    const { first, last } = group;
     const encoded = canonicalCaptureEvidenceBody({
       version: 1,
       evidenceId,
@@ -120,9 +131,9 @@ export function prepare(input: {
       intervalId: group.intervalId,
       historyVersion: state.version,
       historyReadAt: state.serverNow,
-      segmentStartedAtMs: Date.parse(state.segment.startedAt),
+      segmentStartedAtMs: instantMs(state.segment.startedAt),
       startOffsetMs:
-        first.frame.nominalStartMs - Date.parse(state.segment.startedAt),
+        first.frame.nominalStartMs - instantMs(state.segment.startedAt),
       durationMs: last.frame.nominalStartMs - first.frame.nominalStartMs + 10,
       before: new Date(
         Math.min(...group.frames.map((f) => f.frame.beforeMs)),
