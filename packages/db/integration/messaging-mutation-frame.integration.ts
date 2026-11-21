@@ -1,3 +1,4 @@
+import { addMs } from '@daisy/clock';
 import { SQL } from 'bun';
 import { requireTestServices } from '@daisy/config';
 import { createAppError } from '@daisy/errors';
@@ -18,7 +19,7 @@ test('the native mutation frame preserves identity and refuses invalid or unauth
   const scope = { actorId, userId, channelId };
   const original = createId();
   const foreign = createId();
-  const editedAt = new Date(Date.parse(now) + 1000).toISOString();
+  const editedAt = addMs(now, 1000);
   const statements: string[] = [];
   const database = drizzle({
     client,

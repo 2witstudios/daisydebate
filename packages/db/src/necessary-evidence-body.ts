@@ -1,3 +1,5 @@
+import { sha3Hex } from '@daisy/digest';
+import { instantMs } from '@daisy/clock';
 import { and, eq } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import {
@@ -44,11 +46,11 @@ async function originalHistory(tx: Tx, body: CaptureEvidenceBody, now: Date) {
   if (
     !history ||
     history.start.getTime() !== body.segmentStartedAtMs ||
-    Date.parse(body.historyReadAt) > now.getTime() ||
+    instantMs(body.historyReadAt) > now.getTime() ||
     body.historyVersion < history.startedVersion ||
     body.historyVersion > history.currentVersion ||
-    Date.parse(body.before) < history.grantStart.getTime() ||
-    (history.grantEnd && Date.parse(body.after) >= history.grantEnd.getTime())
+    instantMs(body.before) < history.grantStart.getTime() ||
+    (history.grantEnd && instantMs(body.after) >= history.grantEnd.getTime())
   )
     throw createAppError('CONFLICT', 'Original evidence history is unproven');
 }
@@ -57,9 +59,7 @@ export async function lockOriginalEvidenceBody(tx: Tx, raw: unknown) {
   const encoded = canonicalCaptureEvidenceBody(raw);
   if (encoded.kind !== 'encoded') throw createAppError('VALIDATION');
   const { body } = encoded;
-  const bodyDigest = new Bun.CryptoHasher('sha3-256')
-    .update(encoded.json)
-    .digest('hex');
+  const bodyDigest = sha3Hex(encoded.json);
   const current = await lockOriginalNecessaryEvidence(tx, {
     roundId: body.roundId,
     evidenceId: body.evidenceId,

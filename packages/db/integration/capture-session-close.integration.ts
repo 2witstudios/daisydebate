@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
 import { CAPTURE_STT_LAG_MS } from '@daisy/protocol';
@@ -24,7 +25,7 @@ async function unsafeJustAfterReceipt(
     [
       lease.sessionId,
       new Date(start.getTime() - 1000),
-      new Date(Date.parse(clip.after) + 49),
+      new Date(instantMs(clip.after) + 49),
     ],
   );
 }

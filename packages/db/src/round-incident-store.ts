@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
 import {
   isRoundRunning,
@@ -177,7 +178,7 @@ export function createRoundIncidentStore(deps: {
         }
         const due =
           read.checkpoint.incident.phase === 'resuming' &&
-          Date.parse(now) >= Date.parse(read.checkpoint.incident.until);
+          instantMs(now) >= instantMs(read.checkpoint.incident.until);
         const settling = due ? input.settle(read, now) : null;
         const settled =
           settling &&

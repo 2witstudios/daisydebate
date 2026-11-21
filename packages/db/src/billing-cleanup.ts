@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { and, eq, isNotNull } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import {
@@ -73,7 +74,7 @@ export function createBillingCleanup(input: {
         if (
           !ownsCleanupClaim(locked.state, claimId, work, context) ||
           !source ||
-          Date.parse(source.admittedAt) > Date.parse(locked.closedAt)
+          instantMs(source.admittedAt) > instantMs(locked.closedAt)
         )
           return { kind: 'unresolved' } as const;
         return {
@@ -114,7 +115,7 @@ export function createBillingCleanup(input: {
         if (!locked) return { kind: 'idle' } as const;
         const facts = await cleanupFacts(tx, locked.userId);
         const context = await cleanupContext(tx, jobId, facts.effects);
-        if (Date.parse(context.now) < locked.row.retryAt.getTime())
+        if (instantMs(context.now) < locked.row.retryAt.getTime())
           return { kind: 'idle' } as const;
         const state =
           locked.state ?? startCleanup(jobId, locked.row.retryAt.toISOString());

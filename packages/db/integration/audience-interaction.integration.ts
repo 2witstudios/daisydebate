@@ -1,3 +1,4 @@
+import { addMs, instantMs } from '@daisy/clock';
 import { resolveRoomConfiguration } from '@daisy/debate-engine';
 import { oneOnOneDefinition, oneOnOneSettings } from '../src/reference-formats';
 import { requireTestServices } from '@daisy/config';
@@ -26,8 +27,7 @@ setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
 
 const T0 = '2026-11-02T12:00:00.000Z';
-const at = (seconds: number) =>
-  new Date(Date.parse(T0) + seconds * 1000).toISOString();
+const at = (seconds: number) => addMs(T0, seconds * 1000);
 const clockAt = (seconds: number) => ({
   now: at(seconds),
   rankedDelaySeconds: 60,
@@ -705,7 +705,7 @@ test('the planner sees the ban, slow mode, last post and closed Broadcast in the
         account: { erased: false, restricted: false, underThirteen: false },
         banned: true,
         inLiveRoom: false,
-        lastPostAtMs: Date.parse(at(0)),
+        lastPostAtMs: instantMs(at(0)),
       },
     });
   });

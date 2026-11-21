@@ -1,3 +1,4 @@
+import { addMs } from '@daisy/clock';
 import { repairInvoicePassAuthority } from './billing-invoice-pass-current.test-support';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
@@ -94,7 +95,7 @@ test('unrouted predecessor invoice identities survive conversion, rotation and f
         state = await matrix.claim();
         const before = await matrix.read();
         const checkedAt = await matrix.now(),
-          nextAt = new Date(Date.parse(checkedAt) + 86_400_000).toISOString();
+          nextAt = addMs(checkedAt, 86_400_000);
         const acknowledgement = {
           kind: 'acknowledged',
           outcome: 'no-vendor-effects',
@@ -110,9 +111,7 @@ test('unrouted predecessor invoice identities survive conversion, rotation and f
           kind: 'failure',
           claimId: matrix.token(state),
           work: cleanupWork(state)!,
-          retryAt: new Date(
-            Date.parse(await matrix.now()) + 2000,
-          ).toISOString(),
+          retryAt: addMs(await matrix.now(), 2000),
         });
         assert({
           given:

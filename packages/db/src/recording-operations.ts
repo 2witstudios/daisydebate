@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
 import { readDatabaseTime } from './database-clock';
 import {
@@ -51,7 +52,7 @@ export const recordingOperations = ({
           !admission ||
           admission.admissionId !== input.eligibility.admissionId ||
           admission.deadlineAt !== input.eligibility.deadlineAt ||
-          now.getTime() >= Date.parse(admission.deadlineAt)
+          now.getTime() >= instantMs(admission.deadlineAt)
         )
           throw createAppError('AUTHORIZATION');
       }

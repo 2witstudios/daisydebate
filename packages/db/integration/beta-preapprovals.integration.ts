@@ -1,9 +1,10 @@
+import { sha3Hex } from '@daisy/digest';
+import { instantMs } from '@daisy/clock';
 import { subjectRightsVerificationBindings } from '../src/privacy/verification-bindings';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { runPrivacyErasure } from '../src/privacy/operations';
 import { betaAccessPrivacyAdopter } from '../src/beta-access-privacy';
 import { SQL } from 'bun';
-import { createHash } from 'node:crypto';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
@@ -20,9 +21,7 @@ const inputFor = (command: PreapprovalCommand, live = () => true) => ({
   command,
   serviceId: 'daisy-admin',
   operatorRef: 'o'.repeat(24),
-  requestDigest: createHash('sha3-256')
-    .update(JSON.stringify(command))
-    .digest('hex'),
+  requestDigest: sha3Hex(JSON.stringify(command)),
   nextId: createId,
   live,
 });
@@ -997,7 +996,7 @@ test('long-outage invitation recovery preserves the grant and never assumes an e
           'expose an elapsed send deadline and unknown outcome while the unused grant remains valid for explicit fresh resend',
         actual: [
           delivery.kind === 'invitation' &&
-            Date.parse(delivery.sendBefore) < new Date().getTime(),
+            instantMs(delivery.sendBefore) < new Date().getTime(),
           result?.action === 'beta.preapproval.update'
             ? result.mailState
             : null,

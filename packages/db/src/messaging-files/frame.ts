@@ -1,3 +1,4 @@
+import { tryInstantMs, instantMs, addMs } from '@daisy/clock';
 import { and, eq, gt, ne, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
@@ -95,8 +96,8 @@ export function channelFileFrame(
   };
   const live = async (row: Row, now: string) => {
     if (
-      !Number.isFinite(Date.parse(now)) ||
-      row.expiresAt.getTime() <= Date.parse(now) ||
+      tryInstantMs(now) === undefined ||
+      row.expiresAt.getTime() <= instantMs(now) ||
       row.authorityRevision !== (await currentRevision())
     )
       throw createAppError('CONFLICT');
@@ -118,7 +119,7 @@ export function channelFileFrame(
     if (
       !message ||
       message.removedAt !== null ||
-      !Number.isFinite(Date.parse(now))
+      tryInstantMs(now) === undefined
     )
       throw createAppError('NOT_FOUND');
     if (row.storedBytes === null) throw createAppError('INVARIANT');
@@ -126,9 +127,7 @@ export function channelFileFrame(
       ...reservation(row),
       messageId: row.messageId,
       storedBytes: row.storedBytes,
-      accessExpiresAt: new Date(
-        Date.parse(now) + policy.accessMs,
-      ).toISOString(),
+      accessExpiresAt: addMs(now, policy.accessMs),
     };
   };
   return {
@@ -183,10 +182,7 @@ export function channelFileFrame(
         .where(
           and(
             eq(messagingFiles.ownerActorId, input.actorId),
-            gt(
-              messagingFiles.createdAt,
-              new Date(Date.parse(now) - 86_400_000),
-            ),
+            gt(messagingFiles.createdAt, new Date(instantMs(now) - 86_400_000)),
           ),
         );
       if (!today) throw createAppError('INVARIANT');
@@ -205,7 +201,7 @@ export function channelFileFrame(
         generation: 1,
         authorityRevision: await currentRevision(),
         createdAt: new Date(now),
-        expiresAt: new Date(Date.parse(now) + policy.reservationMs),
+        expiresAt: new Date(instantMs(now) + policy.reservationMs),
       };
       const [inserted] = await tx
         .insert(messagingFiles)
@@ -251,7 +247,7 @@ export function channelFileFrame(
         .set({
           generation: row.generation + 1,
           authorityRevision: await currentRevision(),
-          expiresAt: new Date(Date.parse(now) + policy.reservationMs),
+          expiresAt: new Date(instantMs(now) + policy.reservationMs),
         })
         .where(eq(messagingFiles.id, row.id))
         .returning();

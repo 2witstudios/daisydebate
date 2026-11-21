@@ -1,3 +1,4 @@
+import { addMs } from '@daisy/clock';
 import type { TransactionSQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 
@@ -116,7 +117,7 @@ function historicalWriter(tx: TransactionSQL, jobId: string, retryAt: string) {
       claim: {
         id: createId(),
         claimedAt: at,
-        expiresAt: new Date(Date.parse(at) + 30000).toISOString(),
+        expiresAt: addMs(at, 30000),
       },
     };
     await persist();
@@ -148,7 +149,7 @@ function historicalWriter(tx: TransactionSQL, jobId: string, retryAt: string) {
         break;
       }
     }
-    const retryAt = new Date(Date.parse(await now()) + 1000).toISOString();
+    const retryAt = addMs(await now(), 1000);
     value = next
       ? { ...value, scans, turn: next, claim: null, retryAt }
       : { kind: 'deleting', jobId, retryAt, claim: null };
@@ -158,7 +159,7 @@ function historicalWriter(tx: TransactionSQL, jobId: string, retryAt: string) {
     claim,
     page,
     async fail() {
-      const retryAt = new Date(Date.parse(await now()) + 1000).toISOString();
+      const retryAt = addMs(await now(), 1000);
       if (value.kind !== 'scanning') throw Error('Expected historical page');
       value = { ...value, turn: 'subscriptions', claim: null, retryAt };
       await tx`update privacy_jobs set billing_cleanup=${JSON.stringify(value)}::text::jsonb,retry_at=${retryAt}::timestamptz,attempts=attempts+1 where id=${jobId}`;
@@ -172,7 +173,7 @@ function historicalWriter(tx: TransactionSQL, jobId: string, retryAt: string) {
     async acknowledge() {
       await claim();
       const at = await now();
-      await tx`update privacy_jobs set status='succeeded',succeeded_at=${at}::timestamptz,billing_cleanup=${JSON.stringify({ kind: 'acknowledged', jobId, outcome: 'vendor-deleted', checkedAt: at, nextAt: new Date(Date.parse(at) + 86400000).toISOString() })}::text::jsonb where id=${jobId}`;
+      await tx`update privacy_jobs set status='succeeded',succeeded_at=${at}::timestamptz,billing_cleanup=${JSON.stringify({ kind: 'acknowledged', jobId, outcome: 'vendor-deleted', checkedAt: at, nextAt: addMs(at, 86400000) })}::text::jsonb where id=${jobId}`;
     },
   };
 }

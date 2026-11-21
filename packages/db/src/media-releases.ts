@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
 import {
   decideAnswer,
@@ -247,8 +248,7 @@ export function createMediaReleases(input: {
             where recipient_hash = ${command.recipientHash}`,
         );
         const asksToday = facts.requests.filter(
-          (r) =>
-            now.getTime() - Date.parse(r.requestedAt) < 24 * 60 * 60 * 1000,
+          (r) => now.getTime() - instantMs(r.requestedAt) < 24 * 60 * 60 * 1000,
         ).length;
         const decision = decideAsk(
           {

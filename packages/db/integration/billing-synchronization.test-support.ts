@@ -1,3 +1,4 @@
+import { addMs } from '@daisy/clock';
 import type { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { clubSeatGrants, subscriptionGrants } from '@daisy/auth/authorization';
@@ -58,7 +59,7 @@ export function withBillingSynchronization(
         period: {
           subscriptionId,
           startsAt: now,
-          endsAt: new Date(Date.parse(now) + 30 * 86400000).toISOString(),
+          endsAt: addMs(now, 30 * 86400000),
         },
       },
     };

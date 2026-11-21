@@ -63,7 +63,7 @@ export const allowedWorkspaceDependencies: Record<string, readonly string[]> = {
   // ADR 0048: pure capability evaluation consumes portable vocabulary only.
   auth: ['clock', 'errors', 'protocol'],
   errors: ['protocol'],
-  db: ['config', 'errors', 'protocol'],
+  db: ['clock', 'config', 'digest', 'errors', 'protocol'],
   redis: ['config', 'digest', 'errors', 'protocol'],
   config: [],
   ingress: ['config'],

@@ -1,3 +1,4 @@
+import { tryInstantMs, instantMs } from '@daisy/clock';
 import { createAppError, createRefusal } from '@daisy/errors';
 import {
   attendanceLedgerFactsSchema,
@@ -66,7 +67,7 @@ export async function assertRoundAttendanceSettled(
 ): Promise<void> {
   if (
     !idSchema.safeParse(input.roundId).success ||
-    !Number.isFinite(Date.parse(input.now))
+    tryInstantMs(input.now) === undefined
   )
     throw createAppError('VALIDATION');
   const locked = await query(
@@ -76,6 +77,6 @@ export async function assertRoundAttendanceSettled(
   );
   if (locked.length !== 1) throw createAppError('NOT_FOUND');
   const ledger = await readAttendanceLedger(tx, input.roundId);
-  if (!input.attendanceSettled(ledger, Date.parse(input.now)))
+  if (!input.attendanceSettled(ledger, instantMs(input.now)))
     throw createRefusal('CONFLICT', 'attendance-unsettled');
 }

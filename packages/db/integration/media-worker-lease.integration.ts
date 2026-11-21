@@ -1,3 +1,4 @@
+import { tryInstantMs, instantMs } from '@daisy/clock';
 import { captureRule } from '@daisy/debate-engine';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
@@ -51,8 +52,8 @@ test('internal capture token admission requires a fresh exact lease and safe non
         given: 'the fresh post-lock PostgreSQL calibration stamp',
         should: 'precede this verified lease deadline',
         actual:
-          Number.isFinite(Date.parse(serverNow)) &&
-          Date.parse(serverNow) < Date.parse(claimed.expiresAt),
+          tryInstantMs(serverNow) !== undefined &&
+          instantMs(serverNow) < instantMs(claimed.expiresAt),
         expected: true,
       });
       assert({

@@ -1,3 +1,4 @@
+import { tryInstantMs } from '@daisy/clock';
 import { sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import type { ContactPairKey, ContactReactions } from './reactions';
@@ -29,9 +30,9 @@ const at = (now: number) => new Date(now).toISOString();
 const MAX_DECLINES_TO_BLOCK = 3;
 
 function requireLimits(limits: SocialRequestLimits, now: string) {
-  const instant = Date.parse(now);
+  const instant = tryInstantMs(now);
   if (
-    !Number.isFinite(instant) ||
+    instant === undefined ||
     !Object.values(limits).every(
       (value) => Number.isSafeInteger(value) && value > 0,
     ) ||
@@ -61,8 +62,8 @@ export async function refuseDeclineBlock(
   counterpartActorId: string,
   now: string,
 ) {
-  const instant = Date.parse(now);
-  if (!Number.isFinite(instant)) throw createAppError('VALIDATION');
+  const instant = tryInstantMs(now);
+  if (instant === undefined) throw createAppError('VALIDATION');
   const [row] = await query(
     tx,
     z.object({ blocked: z.boolean() }),

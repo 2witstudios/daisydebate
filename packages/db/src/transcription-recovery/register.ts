@@ -1,3 +1,4 @@
+import { sha3Hex } from '@daisy/digest';
 import { and, desc, eq, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import type {
@@ -27,24 +28,22 @@ export async function register(
     .from(sources)
     .where(eq(sources.evidenceId, body.evidenceId));
   if (existing) return;
-  const sourceKey = new Bun.CryptoHasher('sha3-256')
-    .update(
-      JSON.stringify([
-        body.roundId,
-        body.sessionId,
-        body.workerId,
-        body.epoch,
-        body.segmentId,
-        body.roundParticipantId,
-        body.trackId,
-        body.intervalId,
-        body.frames[0]!.clock.anchor,
-        original.authorityId,
-        original.originalSubjectActorIds,
-        original.originalSpeaker,
-      ]),
-    )
-    .digest('hex');
+  const sourceKey = sha3Hex(
+    JSON.stringify([
+      body.roundId,
+      body.sessionId,
+      body.workerId,
+      body.epoch,
+      body.segmentId,
+      body.roundParticipantId,
+      body.trackId,
+      body.intervalId,
+      body.frames[0]!.clock.anchor,
+      original.authorityId,
+      original.originalSubjectActorIds,
+      original.originalSpeaker,
+    ]),
+  );
   const unit = {
     sourceKey,
     startOffsetMs: body.startOffsetMs,

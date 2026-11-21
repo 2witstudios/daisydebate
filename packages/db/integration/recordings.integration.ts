@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { recordingModeration } from '../src/recording-moderation';
 import { requireTestServices } from '@daisy/config';
 import { captureRule } from '@daisy/debate-engine';
@@ -525,7 +526,7 @@ test('erasure under an open report keeps a taken-down casual Recording hidden, t
           given: 'the hold',
           should: 'last 90 days from the request, and keep the media',
           actual: [
-            Date.parse(heldUntil!) - Date.parse(requestedAt!),
+            instantMs(heldUntil!) - instantMs(requestedAt!),
             held.status === 'taken_down' && held.held !== null,
           ],
           expected: [90 * 24 * 60 * 60 * 1000, true],

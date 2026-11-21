@@ -1,3 +1,4 @@
+import { tryInstantMs } from '@daisy/clock';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
@@ -71,7 +72,7 @@ test('a new durable admission holds a shared Flags lock through commit; later di
         should:
           'return the sampled admission instant to persist with its intent',
         actual: {
-          instant: Number.isFinite(Date.parse(admittedAt)),
+          instant: tryInstantMs(admittedAt) !== undefined,
           persisted: witness!.name,
         },
         expected: { instant: true, persisted: admittedAt },

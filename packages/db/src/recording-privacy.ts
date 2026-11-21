@@ -1,3 +1,4 @@
+import { addMs } from '@daisy/clock';
 import {
   RECORDING_EVIDENCE_HOLD_MS,
   transitionRecording,
@@ -39,9 +40,7 @@ export const recordingPrivacyAdopter: PrivacyAdopter = {
         and rec.round_id in (${seatedRounds(subject.actorId)})
       order by rec.id`,
     );
-    const heldUntil = new Date(
-      Date.parse(now) + RECORDING_EVIDENCE_HOLD_MS,
-    ).toISOString();
+    const heldUntil = addMs(now, RECORDING_EVIDENCE_HOLD_MS);
     for (const { id, reported } of rows) {
       const applied = await moveRecording(tx, id, (record) =>
         transitionRecording(record, {

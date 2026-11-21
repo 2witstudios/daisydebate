@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { publicLobbyId } from './daisy-reference';
 import { leagueRoomSelection } from './league-room-selection';
 import { eq, inArray } from 'drizzle-orm';
@@ -117,7 +118,7 @@ export const assembleRoom = async (
       .for('share');
     if (known.length !== heldActors.length)
       throw createRefusal('CONFLICT', 'illegal-config');
-    const until = new Date(Date.parse(input.now) + ROOM_SEAT_HOLD_MS);
+    const until = new Date(instantMs(input.now) + ROOM_SEAT_HOLD_MS);
     await tx.insert(roomSeatHolds).values(
       heldActors.map((actorId) => ({
         roomId: input.room.id,

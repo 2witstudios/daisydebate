@@ -1,3 +1,4 @@
+import { tryInstantMs } from '@daisy/clock';
 import { sql } from 'drizzle-orm';
 import { idSchema } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
@@ -115,14 +116,14 @@ function sessionUserMatches(
 function sessionInstant(
   input: RealtimeSessionInput & { readonly userId?: string },
 ): number {
-  const instant = Date.parse(input.now);
+  const instant = tryInstantMs(input.now);
   if (
     ![
       input.sessionId,
       input.actorId,
       ...(input.userId === undefined ? [] : [input.userId]),
     ].every((id) => idSchema.safeParse(id).success) ||
-    !Number.isFinite(instant)
+    instant === undefined
   )
     throw createAppError('VALIDATION');
   return instant;

@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
 import {
   mediaReleasePolicy,
@@ -131,7 +132,7 @@ export function mediaReleaseMailOperations({
             sql`select clock_timestamp() as now`,
           );
           if (!now) throw createAppError('INVARIANT');
-          const nowMs = Date.parse(iso(now.now));
+          const nowMs = instantMs(iso(now.now));
           let linkExpiresAt: string;
           let signed: Extract<PreparedReleaseMail, { kind: 'owed' }>['signed'] =
             null;
@@ -139,7 +140,7 @@ export function mediaReleaseMailOperations({
             // A request and its reminder are owed only while it is open.
             if (
               mail.outcome !== null ||
-              Date.parse(iso(mail.expires_at)) <= nowMs
+              instantMs(iso(mail.expires_at)) <= nowMs
             )
               return { kind: 'not-owed' };
             linkExpiresAt = iso(mail.expires_at);

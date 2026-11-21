@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import type { JudgingTerminalReason, RoundEnding } from '@daisy/protocol';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { roundJudgingJobs } from './schema/round-judging-jobs';
@@ -54,7 +55,7 @@ export async function endOpenJudgingJobs(
       select judge_participant_id from round_judging_jobs
       where round_id=${roundId} and status in ('queued','leased','recovering','blocked'))`,
   );
-  const nowMs = Date.parse(input.now);
+  const nowMs = instantMs(input.now);
   const reasons: JudgingTerminalReason[] = [];
   for (const job of open) {
     const terminalReason = input.judgingEndReason(

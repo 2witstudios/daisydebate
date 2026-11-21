@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { eq } from 'drizzle-orm';
 import { isRefusal } from '@daisy/errors';
 import {
@@ -88,7 +89,7 @@ const liveLease = (
     (lease) =>
       lease.participantId === seatId &&
       lease.segmentId === segmentId &&
-      lease.expiresAt.getTime() > Date.parse(now),
+      lease.expiresAt.getTime() > instantMs(now),
   );
 };
 

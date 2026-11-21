@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { entitlementKinds, type EntitlementGrant } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
 import { sql } from 'drizzle-orm';
@@ -15,7 +16,7 @@ const grantsSchema = z
         expiresAt: z.iso.datetime(),
       })
       .refine(
-        (grant) => Date.parse(grant.startsAt) < Date.parse(grant.expiresAt),
+        (grant) => instantMs(grant.startsAt) < instantMs(grant.expiresAt),
       ),
   )
   .max(entitlementKinds.length)

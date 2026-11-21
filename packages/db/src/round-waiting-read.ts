@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
 import type {
   LaunchedRound,
@@ -34,7 +35,7 @@ async function readWaitingFacts(
   if (!facts.ended) return { speeches: 'running' };
   return {
     speeches: 'ended',
-    nowMs: Date.parse(facts.now),
+    nowMs: instantMs(facts.now),
     attendance: await readAttendanceLedger(tx, round.id),
     frozen: round.transcriptCompleteness
       ? await readJudgingPanelFacts(tx, {

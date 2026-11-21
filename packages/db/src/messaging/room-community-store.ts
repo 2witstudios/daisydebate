@@ -1,3 +1,4 @@
+import { addMs } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
 import { isOpenRoomStatus } from '@daisy/protocol';
 import {
@@ -37,9 +38,7 @@ export const roomCommunityMetadataOf = (fact: RoomCommunityFact) => {
     expiresAt:
       fact.endedAt === null
         ? null
-        : new Date(
-            Date.parse(fact.endedAt) + roomCommunityRetentionMs,
-          ).toISOString(),
+        : addMs(fact.endedAt, roomCommunityRetentionMs),
   };
 };
 /** The most authors one page may label: the page's own and the newest messages'. */

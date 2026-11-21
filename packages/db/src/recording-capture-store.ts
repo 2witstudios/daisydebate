@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import {
   listExpiredRecordingAdmissions,
   settleUndispatchedRecordingAdmission,
@@ -363,7 +364,7 @@ export const createRecordingCaptureStore = (database: TxSource) => ({
       capture: {
         captureDeadlineExpired:
           admission !== null &&
-          checkedAt.getTime() >= Date.parse(admission.deadlineAt),
+          checkedAt.getTime() >= instantMs(admission.deadlineAt),
         stageCredentialHash: capture.stageCredentialHash,
         observerRevokedAt: capture.observerRevokedAt,
         completedAt: capture.endedAt,

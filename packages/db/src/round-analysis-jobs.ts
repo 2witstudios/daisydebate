@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
 import {
   analysisRequest,
@@ -180,7 +181,7 @@ export function createRoundAnalysisJobs(input: {
               expiresAt: new Date(
                 Math.min(
                   now.getTime() + input.leaseMs,
-                  Date.parse(request.deadlineAt),
+                  instantMs(request.deadlineAt),
                 ),
               ).toISOString(),
             },

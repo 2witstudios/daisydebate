@@ -1,3 +1,4 @@
+import { tryInstantMs } from '@daisy/clock';
 import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
@@ -17,7 +18,7 @@ export function createFileListing(
   return async (messageIds, now, supplied) => {
     await authorize();
     const policy = requireFilePolicy(supplied);
-    if (!Array.isArray(messageIds) || !Number.isFinite(Date.parse(now)))
+    if (!Array.isArray(messageIds) || tryInstantMs(now) === undefined)
       throw createAppError('VALIDATION');
     const ids = [...new Set(messageIds)];
     if (ids.some((id) => !idSchema.safeParse(id).success))

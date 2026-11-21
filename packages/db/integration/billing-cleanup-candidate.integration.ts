@@ -1,3 +1,4 @@
+import { addMs } from '@daisy/clock';
 import { installInvoicePassGuards } from './billing-invoice-pass-current.test-support';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
@@ -92,9 +93,7 @@ test(
           const badSkip = { ...c } as CleanupState;
           if (badSkip.kind !== 'scanning') throw Error('Wrong matrix lane');
           badSkip.claim = null;
-          badSkip.retryAt = new Date(
-            Date.parse(await now()) + 1000,
-          ).toISOString();
+          badSkip.retryAt = addMs(await now(), 1000);
           badSkip.scans = { ...badSkip.scans, purchases: { kind: 'complete' } };
           assert({
             given: 'a durable two-resource page',
@@ -204,7 +203,7 @@ test(
             kind: 'failure',
             claimId: token(replacement),
             work: cleanupWork(replacement)!,
-            retryAt: new Date(Date.parse(await now()) + 60_000).toISOString(),
+            retryAt: addMs(await now(), 60_000),
           });
           const failed = await read();
           const noClaim = await state();

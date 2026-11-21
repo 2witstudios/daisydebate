@@ -1,3 +1,4 @@
+import { tryInstantMs } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
 import { sql } from 'drizzle-orm';
 import { instrumented, type DatabaseEventSink } from './instrumented';
@@ -37,7 +38,7 @@ export function flagOperations({
             !Number.isSafeInteger(limit) ||
             limit < 1 ||
             limit > 500 ||
-            !Number.isFinite(Date.parse(before))
+            tryInstantMs(before) === undefined
           )
             throw createAppError('VALIDATION');
           await lockFlags(tx, 'write');

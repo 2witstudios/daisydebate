@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { and, eq, isNull } from 'drizzle-orm';
 import { isRoundRunning, idSchema } from '@daisy/protocol';
 import { recordingCaptures as captures } from './schema/recording-captures';
@@ -72,7 +73,7 @@ export const beginRecordingEgressAttempt = (
       recording.eligibility.kind === 'tournament_admission' &&
       (!admission ||
         admission.admissionId !== recording.eligibility.admissionId ||
-        now.getTime() >= Date.parse(admission.deadlineAt))
+        now.getTime() >= instantMs(admission.deadlineAt))
     )
       return false;
     const rows = await tx

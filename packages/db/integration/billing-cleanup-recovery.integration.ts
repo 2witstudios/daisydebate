@@ -1,3 +1,4 @@
+import { addMs } from '@daisy/clock';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
@@ -31,9 +32,10 @@ test('cleanup samples current claim time after a real canonical account lock wai
     )
       throw Error('Missing initial fixture claim');
     const claimId = transition.state.claim.id;
-    transition.state.claim.expiresAt = new Date(
-      Date.parse(transition.state.claim.claimedAt) + 700,
-    ).toISOString();
+    transition.state.claim.expiresAt = addMs(
+      transition.state.claim.claimedAt,
+      700,
+    );
     await fixture.sql`update privacy_jobs set billing_cleanup=${JSON.stringify(transition.state)}::text::jsonb where id=${jobId}`;
     const [before] =
       await fixture.sql`select attempts,retry_at,billing_cleanup from privacy_jobs where id=${jobId}`;

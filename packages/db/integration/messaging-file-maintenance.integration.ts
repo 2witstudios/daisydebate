@@ -1,3 +1,4 @@
+import { addMs, instantMs } from '@daisy/clock';
 import { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -32,7 +33,7 @@ test('maintenance validates bounds and defers a selected owner changed while the
   const worker = createMessagingFileMaintenance(database);
   const objectKey = createId();
   const now = new Date(
-    Date.parse(fixture.now) + fileDatabaseProofPolicy.reservationMs + 1,
+    instantMs(fixture.now) + fileDatabaseProofPolicy.reservationMs + 1,
   ).toISOString();
   const removed: string[] = [];
   const remove = async (key: string) => {
@@ -144,7 +145,7 @@ test('trusted maintenance expires real pending reservations and releases quota o
           mime: 'application/pdf',
           bytes: 20,
         },
-        new Date(Date.parse(fixture.now) + 1).toISOString(),
+        addMs(fixture.now, 1),
         fileDatabaseProofPolicy,
       ),
     );
@@ -154,7 +155,7 @@ test('trusted maintenance expires real pending reservations and releases quota o
       mode: 0o600,
     });
     const now = new Date(
-      Date.parse(fixture.now) + fileDatabaseProofPolicy.reservationMs + 1,
+      instantMs(fixture.now) + fileDatabaseProofPolicy.reservationMs + 1,
     ).toISOString();
     const maintenance = createMessagingFileMaintenance(database);
     await assertRejects({
@@ -310,7 +311,7 @@ test('a poison physical object preserves its charge while later real file and er
       actual: () =>
         createMessagingFileMaintenance(database).run({
           now: new Date(
-            Date.parse(owner.now) + fileDatabaseProofPolicy.reservationMs + 1,
+            instantMs(owner.now) + fileDatabaseProofPolicy.reservationMs + 1,
           ).toISOString(),
           maxItems: 3,
           remove: async (key) => {
