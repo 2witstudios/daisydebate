@@ -815,6 +815,10 @@ describe('database statement and lock boundaries', () => {
       `const resolve = Promise.resolve.bind(Promise); return resolve(${statement});`,
       `return Promise.all(...[[${statement}]] as const);`,
       `function* queries() { yield ${statement}; } return Promise.all(queries());`,
+      `return Promise.resolve.call(Promise, ${statement});`,
+      `return Promise.all.apply(Promise, [[${statement}]]);`,
+      `const iterator: typeof Symbol.iterator = Symbol.iterator; return Promise.all({ *[iterator]() { yield ${statement}; } });`,
+      `const settle = <T extends SQL.Query<unknown>>(value: T) => Promise.resolve(value); return settle(${statement});`,
       `return Promise.all([${parsed}]);`,
       `return Promise.resolve(${parsed});`,
       `function* values() { yield 1; return ${statement}; } return Promise.all(values());`,
@@ -836,7 +840,7 @@ describe('database statement and lock boundaries', () => {
       given: 'native SQL queries or validated values passed to Promise methods',
       should: 'report native thenable inputs and accept the validated values',
       actual: errors,
-      expected: [1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 0, 0],
+      expected: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 0, 0],
     });
   });
 });
