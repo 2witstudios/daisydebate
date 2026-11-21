@@ -2,7 +2,6 @@
 import { headers } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 import {
-  moved,
   refused,
   unacknowledged,
 } from '../../../../../features/forms/form-state';
@@ -14,6 +13,7 @@ import {
   type StandingLobbyFormState,
 } from '../../../../../features/tab/standing-lobby-form';
 import { hostRoutes } from '../../../../../features/tab/routes';
+import { moveOn } from '../../../../../server/form-action';
 import { inProcessFetch } from '../../../../../server/in-process-fetch';
 import { requestNow } from '../../../../../lib/request-session';
 import { POST } from '../../../../api/tab/lobby-command/route';
@@ -28,9 +28,10 @@ export async function submitStandingLobby(
   const body = standingLobbyFormBody(context, form, requestNow().slice(0, 10));
   if (!body.ok) return refused(form, body.error);
 
+  const incoming = new Headers(await headers());
   let data;
   try {
-    const response = await inProcessFetch(POST, new Headers(await headers()))(
+    const response = await inProcessFetch(POST, incoming)(
       '/api/tab/lobby-command',
       {
         method: 'POST',
@@ -54,5 +55,5 @@ export async function submitStandingLobby(
   const lobby =
     context.kind === 'new-lobby' ? data.aggregate.id : context.lobbyId;
   revalidatePath(hostRoutes.league(context.slug));
-  return moved(hostRoutes.standingLobbies(context.slug, { lobby }));
+  return moveOn(incoming, hostRoutes.standingLobbies(context.slug, { lobby }));
 }

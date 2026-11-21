@@ -145,7 +145,7 @@ const apply = async (
             version: write.set.version,
             endsAt:
               write.set.status === 'closed'
-                ? sql`coalesce(${seasons.endsAt}, greatest(statement_timestamp(), ${seasons.startsAt}+interval '1 millisecond'))`
+                ? sql`greatest(statement_timestamp(), ${seasons.startsAt} + interval '1 millisecond')`
                 : write.set.endsAt === undefined
                   ? undefined
                   : at(write.set.endsAt),

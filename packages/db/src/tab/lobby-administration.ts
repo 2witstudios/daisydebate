@@ -20,6 +20,7 @@ import type {
   LobbyAdministrationSession,
 } from './lobby-administration-facts';
 import { actors } from '../schema/actors';
+import { grants } from '../schema/grants';
 
 const fence = async (tx: TabTransaction, input: LobbyAdministrationInput) => {
   const { command } = input;
@@ -32,20 +33,29 @@ const fence = async (tx: TabTransaction, input: LobbyAdministrationInput) => {
       sql`select pg_advisory_xact_lock(hashtextextended(${`tab-lobby-handle:${command.handle.toLowerCase()}`}, 0))`,
     );
   }
+  const addressedOrganization =
+    'organizationId' in command ? command.organizationId : undefined;
   const [lobby] =
     'lobbyId' in command
-      ? await tx.select().from(lobbies).where(eq(lobbies.id, command.lobbyId))
+      ? await tx
+          .select({
+            id: lobbies.id,
+            ownerOrganizationId: lobbies.ownerOrganizationId,
+          })
+          .from(lobbies)
+          .where(
+            and(
+              eq(lobbies.id, command.lobbyId),
+              addressedOrganization === undefined
+                ? undefined
+                : eq(lobbies.ownerOrganizationId, addressedOrganization),
+            ),
+          )
       : [];
   const organizationId =
-    command.type === 'create-lobby'
-      ? command.owner.kind === 'organization'
-        ? command.owner.organizationId
-        : null
-      : command.type === 'create-season'
-        ? lobby?.ownerOrganizationId
-        : 'organizationId' in command
-          ? command.organizationId
-          : lobby?.ownerOrganizationId;
+    command.type === 'create-lobby' && command.owner.kind === 'organization'
+      ? command.owner.organizationId
+      : (addressedOrganization ?? lobby?.ownerOrganizationId);
   const [organization] = organizationId
     ? await tx
         .select({ id: organizations.id })
@@ -140,6 +150,7 @@ const load = async (
             and(
               eq(seasons.id, command.seasonId),
               eq(seasons.lobbyId, row?.id ?? ''),
+              eq(seasons.organizationId, scope.organizationId ?? ''),
             ),
           )
           .for('update')
@@ -218,8 +229,6 @@ const load = async (
     scope,
   };
 };
-
-import { grants } from '../schema/grants';
 
 export const createLobbyAdministrationStore = (database: TabDatabase) => ({
   lobbyAdministrationCommand: <Answer>(

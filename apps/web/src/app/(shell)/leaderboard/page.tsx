@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { ratingDivisionForAgeRule } from '@daisy/protocol';
 import { systemClock } from '@daisy/clock';
 import type { Metadata } from 'next';
@@ -15,6 +14,7 @@ import {
   requestOfficialStandingLobbies,
   requestLandingLobby,
 } from '../../../lib/request-session';
+import { Segmented } from '../../../ui/components/segmented/segmented';
 import { Leaderboard } from '../../../ui/leaderboard/leaderboard';
 
 export const metadata: Metadata = { title: 'Leaderboard' };
@@ -51,17 +51,15 @@ export default async function LeaderboardPage({
       <div className="p-6">
         <h1>Leaderboard</h1>
         <p>No season is active.</p>
-        <nav aria-label="Lobby" className="flex flex-wrap gap-3">
-          {available.map(({ id, name }) => (
-            <Link
-              key={id}
-              href={lobbyHref(query, id)}
-              aria-current={lobby?.id === id ? 'page' : undefined}
-            >
-              {name}
-            </Link>
-          ))}
-        </nav>
+        <Segmented
+          label="Lobby"
+          wrap
+          segments={available.map(({ id, name }) => ({
+            label: name,
+            href: lobbyHref(query, id),
+            selected: lobby?.id === id,
+          }))}
+        />
       </div>
     );
   const { data, viewer } = read;

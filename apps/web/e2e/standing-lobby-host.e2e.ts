@@ -40,7 +40,10 @@ test('a league manager opens and closes seasons from the host and publishes an o
     const management = page.url();
 
     await page.goto('/');
-    await page.getByRole('link', { name: /^Play\b/ }).click();
+    await page
+      .getByRole('list', { name: 'Debate destinations' })
+      .getByRole('link', { name: /^Play\b/ })
+      .click();
     await expect(page).toHaveURL(/\/lobby/);
     await expect(page.getByRole('link', { name: lobbyName })).toBeVisible();
     await page.goto('/watch');

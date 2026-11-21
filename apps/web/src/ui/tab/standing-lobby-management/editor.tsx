@@ -195,7 +195,6 @@ export function StandingLobbyEditor({
           <ActionButton action={linkTo('Cancel', cancel)} />
         </div>
       </form>
-      {next ? <ActionButton action={linkTo('Continue', next)} /> : null}
     </ListCard>
   );
 }

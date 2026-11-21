@@ -130,6 +130,13 @@ export const lobbyAdministrationCommand =
                   stored: session.stored,
                   facts: async () => {
                     const loaded = await session.load();
+                    if (
+                      ('organizationId' in command &&
+                        'lobbyId' in command &&
+                        !loaded.lobby) ||
+                      ('seasonId' in command && !loaded.season)
+                    )
+                      throw new CommandDenied('not-found');
                     now = loaded.hosting.checkedAt;
                     return loaded;
                   },

@@ -126,6 +126,7 @@ export function Lobby({
       {lobbies.length > 0 ? (
         <Segmented
           label="Lobby"
+          wrap
           fillOnPhone
           segments={lobbies.map(({ id, name }) => ({
             label: name,

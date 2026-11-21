@@ -80,6 +80,7 @@ test('sibling standing lobbies own independent age rules', async () => {
 
 test('standing-lobby management keeps ladder identities and season history in the owning league', async () => {
   const organizationId = createId();
+  const rivalOrganizationId = createId();
   await withRolledBackDatabase(databaseUrl, {
     seed: async (sql) => {
       const [director, other] = await createBots(sql, [
@@ -88,6 +89,8 @@ test('standing-lobby management keeps ladder identities and season history in th
       ]);
       await sql`insert into organizations (id, kind, name, handle, owner_user_id)
         values (${organizationId}, 'league', 'Debate league', ${organizationId}, ${director!.userId})`;
+      await sql`insert into organizations (id, kind, name, handle, owner_user_id)
+        values (${rivalOrganizationId}, 'league', 'Rival league', ${rivalOrganizationId}, ${other!.userId})`;
       return { director: director!, other: other! };
     },
     work: async (database, { director, other }, sql) => {
@@ -186,6 +189,68 @@ test('standing-lobby management keeps ladder identities and season history in th
         rule: {},
         name: 'Season 1',
       } as const;
+      const rivalLobbyId = await accept(
+        send(
+          {
+            type: 'create-lobby',
+            owner: {
+              kind: 'organization',
+              organizationId: rivalOrganizationId,
+            },
+            name: 'Rival lobby',
+            handle: createId(),
+            lobby: { kind: 'standing' },
+          },
+          {},
+          other,
+        ),
+      );
+      const rivalSeasonId = await accept(
+        send(
+          {
+            ...open,
+            organizationId: rivalOrganizationId,
+            lobbyId: rivalLobbyId,
+          },
+          {},
+          other,
+        ),
+      );
+      const targetDenied = async (result: ReturnType<typeof send>) =>
+        result.then(
+          () => false,
+          (error: unknown) => {
+            if (error instanceof CommandDenied)
+              return error.reason === 'not-found';
+            throw error;
+          },
+        );
+      for (const version of [1, 99]) {
+        assert({
+          given:
+            'a league manager addresses another league’s lobby and season with any version',
+          should: 'hide the foreign targets before comparing versions',
+          actual: [
+            await targetDenied(
+              send({ ...edit, lobbyId: rivalLobbyId }, { lobby: version }),
+            ),
+            await targetDenied(
+              send(
+                {
+                  type: 'edit-season',
+                  ...address,
+                  lobbyId: rivalLobbyId,
+                  seasonId: rivalSeasonId,
+                  name: 'Rival season',
+                  endsAt: null,
+                },
+                { season: version },
+              ),
+            ),
+          ],
+          expected: [true, true],
+        });
+      }
       const first = await accept(send(open));
       const duplicate = await send(open);
       await accept(send({ ...open, lobbyId: sibling }));
@@ -196,7 +261,7 @@ test('standing-lobby management keeps ladder identities and season history in th
             ...address,
             seasonId: first,
             name: 'Inaugural season',
-            endsAt: '2027-01-01T00:00:00.000Z',
+            endsAt: '2099-01-01T00:00:00.000Z',
           },
           { season: 1 },
         ),
@@ -210,6 +275,18 @@ test('standing-lobby management keeps ladder identities and season history in th
         { viewerUserId: director.userId, organizationId },
         async (_facts, read) => read(),
       );
+      const closed = stored
+        .find(({ id }) => id === lobbyId)
+        ?.seasons.find(({ id }) => id === first);
+      assert({
+        given: 'a season closed before its planned end date',
+        should:
+          'record the actual end so standings have the right closing date',
+        actual:
+          closed?.endsAt !== null &&
+          (closed?.endsAt?.getUTCFullYear() ?? 2099) < 2099,
+        expected: true,
+      });
       assert({
         given: 'host edits and season rollover in one of two standing lobbies',
         should:
