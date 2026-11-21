@@ -1,11 +1,27 @@
-/** A control is either an addressed link or explicitly unavailable. */
-export type TabAction = {
+/** A control carries the address or command that the screen offers. */
+export type TabAction<Command = never> = {
   readonly label: string;
   readonly primary: boolean;
 } & (
   | { readonly kind: 'link'; readonly href: string }
   | { readonly kind: 'unavailable' }
+  | ([Command] extends [never]
+      ? never
+      : { readonly kind: 'command'; readonly command: Command })
 );
+
+export const commandAction = <Command>(
+  label: string,
+  command: Command,
+  primary = false,
+): CommandAction<Command> => ({ kind: 'command', label, command, primary });
+
+export type CommandAction<Command> = {
+  readonly kind: 'command';
+  readonly label: string;
+  readonly primary: boolean;
+  readonly command: Command;
+};
 
 export const linkTo = (
   label: string,

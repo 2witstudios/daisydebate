@@ -1,5 +1,5 @@
 import { asc, eq } from 'drizzle-orm';
-import { events } from '../schema/events';
+import { events, tabRounds, timeSlots } from '../schema/events';
 import { organizations } from '../schema/organizations';
 import { scopeTransaction } from '../tenant-scope';
 import { fenceTabAccountRead } from './account-read-fence';
@@ -50,6 +50,28 @@ async function load(tx: Tx, input: Input) {
       .from(events)
       .where(eq(events.lobbyId, authority.lobby.id))
       .orderBy(asc(events.createdAt), asc(events.id)),
+    readSchedule: async () => ({
+      slots: await tx
+        .select({
+          timeSlotId: timeSlots.id,
+          name: timeSlots.name,
+          startsAt: timeSlots.startsAt,
+        })
+        .from(timeSlots)
+        .where(eq(timeSlots.lobbyId, authority.lobby.id))
+        .orderBy(asc(timeSlots.startsAt), asc(timeSlots.id)),
+      rounds: await tx
+        .select({
+          tabRoundId: tabRounds.id,
+          eventId: tabRounds.eventId,
+          timeSlotId: tabRounds.timeSlotId,
+          number: tabRounds.number,
+          name: tabRounds.name,
+        })
+        .from(tabRounds)
+        .where(eq(tabRounds.lobbyId, authority.lobby.id))
+        .orderBy(asc(tabRounds.number), asc(tabRounds.id)),
+    }),
   };
 }
 export type HostNavigationFacts = NonNullable<Awaited<ReturnType<typeof load>>>;

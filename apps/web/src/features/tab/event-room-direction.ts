@@ -8,6 +8,38 @@ import type { RoomDirectionInput } from '@daisy/db/tab';
 import type { RoomAssemblyState } from '@daisy/protocol';
 import { eventSettingResolution } from './operations/event-setting-resolution';
 
+/** Relationships belong to the addressed fixture, including school authority. */
+export const eventFixtureAudiences = (
+  input: Pick<RoomDirectionInput, 'authorization' | 'audience'>,
+  now: string,
+) => [
+  ...(input.authorization.account?.ageBand === 'adult' &&
+  (input.audience.responsibleAdult ||
+    input.audience.schools.some(
+      (school) =>
+        school.organization &&
+        school.account?.actorId &&
+        authorize({
+          principal: {
+            kind: 'user',
+            userId: school.account.userId,
+            actorId: school.account.actorId,
+          },
+          capability: 'school.roster.manage',
+          resource: school.organization,
+          context: {
+            account: school.account,
+            grants: school.grants,
+            now,
+          },
+        }).allow,
+    ))
+    ? ['responsible_adults' as const]
+    : []),
+  ...(input.audience.ownEntry ? ['competitors' as const] : []),
+  ...(input.audience.participant ? ['participants' as const] : []),
+];
+
 export const eventRoomOwner = (
   input: RoomDirectionInput,
   now: string,
@@ -32,33 +64,7 @@ export const eventRoomOwner = (
       waiverId: input.readWaiverId,
     },
     viewing: {
-      audiences: [
-        ...(input.authorization.account?.ageBand === 'adult' &&
-        (input.audience.responsibleAdult ||
-          input.audience.schools.some(
-            (school) =>
-              school.organization &&
-              school.account?.actorId &&
-              authorize({
-                principal: {
-                  kind: 'user',
-                  userId: school.account.userId,
-                  actorId: school.account.actorId,
-                },
-                capability: 'school.roster.manage',
-                resource: school.organization,
-                context: {
-                  account: school.account,
-                  grants: school.grants,
-                  now,
-                },
-              }).allow,
-          ))
-          ? ['responsible_adults' as const]
-          : []),
-        ...(input.audience.ownEntry ? ['competitors' as const] : []),
-        ...(input.audience.participant ? ['participants' as const] : []),
-      ],
+      audiences: eventFixtureAudiences(input, now),
       releases: input.audience.releases,
     },
     video: { minorSeated: false, guardianCap: 'officials' },

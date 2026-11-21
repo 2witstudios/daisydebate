@@ -34,8 +34,8 @@ const rowShape = {
     kind: z.enum(responsibleKinds),
     name: name.nullable(),
   }),
-  wins: count,
-  opponentWins: count,
+  wins: z.number().nonnegative(),
+  opponentWins: z.number().nonnegative(),
   /** The entry's rating at the start of the event; null when unrated. */
   rating: z.int().nullable(),
   /** Which tiebreak placed the entry on this line, as the computation put it. */

@@ -1,3 +1,4 @@
+import { hostBallotBoard } from '../../../../../../features/tab/host-ballot-board';
 import { systemId } from '@daisy/clock';
 import { roundBallotReadSchema } from '@daisy/protocol';
 import { hostBallotsViewSchema } from '@daisy/protocol/lobby/host-ballots-read';
@@ -78,41 +79,24 @@ export default async function Page({
           selected?.roundId === one.roundId,
         ),
       }))}
-      view={view}
-      review={(i) => {
-        const entry = view?.ballots[i];
-        if (
-          !selected ||
-          !index.canResolve ||
-          entry?.review?.screening !== 'held'
-        )
-          return null;
-        const written = {
-          ...(entry.ballot.reason === undefined
-            ? {}
-            : { reason: entry.ballot.reason }),
-          ...(entry.ballot.feedback === undefined
-            ? {}
-            : { feedback: entry.ballot.feedback }),
-        };
-        return (
-          <ScreeningEditor
-            written={written}
-            action={eventCompletionAction.bind(null, {
-              commandId: systemId.next(),
+      board={hostBallotBoard(
+        view,
+        selected && index.canResolve
+          ? {
               lobbyId: index.lobbyId,
               eventId: index.eventId,
               handle: slug,
-              target: {
-                type: 'resolve-screening-hold',
-                ballotId: entry.review.ballotId,
-                roundId: selected.roundId,
-                feedbackKeys: Object.keys(written.feedback ?? {}),
-              },
-            })}
-          />
-        );
-      }}
+              roundId: selected.roundId,
+              nextId: systemId.next,
+            }
+          : null,
+      )}
+      renderCommand={({ command }) => (
+        <ScreeningEditor
+          written={command.written}
+          action={eventCompletionAction.bind(null, command.context)}
+        />
+      )}
     />
   );
 }

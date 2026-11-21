@@ -4,7 +4,8 @@ import { requireTabRelease } from '../../../../../../features/tab/release';
 import { requireAccess } from '../../../../../../lib/access';
 import { hostRoutes } from '../../../../../../features/tab/routes';
 import { People } from '../../../../../../ui/tab/people/people';
-import { peopleControls } from './controls';
+import { PeopleCommandForm } from '../../../../../../ui/tab/people/people-command-form';
+import { peopleCommandAction } from './actions';
 import { readStoredPeople } from './stored-people';
 
 export const metadata: Metadata = { title: 'People' };
@@ -32,7 +33,12 @@ export default async function Page({
     <People
       rail={stored.rail}
       people={stored.people}
-      controls={peopleControls(stored.view, slug)}
+      renderCommand={({ model, context }) => (
+        <PeopleCommandForm
+          model={model}
+          action={peopleCommandAction.bind(null, context)}
+        />
+      )}
     />
   );
 }

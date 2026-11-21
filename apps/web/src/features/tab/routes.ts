@@ -4,7 +4,7 @@
  */
 const tournament = (slug: string) => `/tournaments/${slug}`;
 const league = (slug: string) => `/leagues/${slug}`;
-const room = (id: string) => `/rooms/sample/${id}`;
+const room = (id: string) => `/rooms/event/${id}`;
 const withEvent = (path: string, event: string | null) =>
   event === null ? path : `${path}?event=${event}`;
 

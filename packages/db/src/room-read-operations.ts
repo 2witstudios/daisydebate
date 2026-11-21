@@ -185,7 +185,12 @@ export const roomReadOperations = ({
           viewerAgeBand: account?.ageBand ?? null,
           state: {
             ...facts.state,
-            topic: await currentRoomTopic(tx, facts.state, readTopic),
+            topic:
+              row.lobbyKind === 'tournament' &&
+              !direction?.resolutionReleasedAt &&
+              facts.state.roundRef === null
+                ? null
+                : await currentRoomTopic(tx, facts.state, readTopic),
           },
         };
       }),

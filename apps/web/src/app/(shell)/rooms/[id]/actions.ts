@@ -74,10 +74,11 @@ export async function roomInvitationAction(
   return answer;
 }
 
-export async function roomAssembly(id: string) {
+export async function roomAssembly(id: string, kind?: 'event') {
   return readAssembly(
     inProcessFetch(read(id), new Headers(await headers())),
     id,
+    kind,
   );
 }
 

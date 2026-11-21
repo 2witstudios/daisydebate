@@ -1,3 +1,5 @@
+import type { DrawCommand } from '@daisy/protocol/lobby/draw-command';
+import type { DrawFormContext } from './draw-form';
 import { drawAtScale } from './at-scale-rooms';
 import type {
   DrawFindingSeverity,
@@ -47,6 +49,8 @@ type FixtureDetail = {
   readonly title: string;
   readonly why: readonly string[];
   readonly seats: readonly Choice[];
+  readonly cast?: readonly string[];
+  readonly change?: TabAction<DrawFormContext>;
   readonly alternative: FixtureAlternative | null;
 };
 
@@ -59,11 +63,10 @@ export type DrawBoard = {
   readonly basis: string;
   readonly rulesBroken: number;
   readonly preferencesBent: number;
-  readonly again: TabAction;
-  readonly publish: TabAction;
+  readonly actions: readonly TabAction<DrawFormContext>[];
   readonly groups: readonly RecordGroup[];
   readonly rest: string | null;
-  readonly back: TabAction | null;
+  readonly back: TabAction<DrawFormContext> | null;
   readonly selected: FixtureDetail | null;
 };
 
@@ -72,6 +75,14 @@ export type DrawBoardContext = {
   readonly event: EventSwitch;
   readonly selectedFixtureId: string | null;
   readonly fixtureAddress: (fixtureId: string) => string;
+  readonly commands?: {
+    readonly act: (
+      label: string,
+      command: DrawCommand,
+      overrideKeys?: readonly string[],
+    ) => TabAction<DrawFormContext>;
+    readonly generation: TabAction<DrawFormContext> | null;
+  };
 };
 
 /** The record groups at the top of the draw are listed; the rest are summed up. */
@@ -191,11 +202,44 @@ export const drawBoardOf = (
         : `from results through round ${read.resultsThroughRound}`,
     rulesBroken: counted('rule_broken'),
     preferencesBent: counted('preference_bent'),
-    again: unavailableAction('Draw again'),
-    publish: unavailableAction(
-      `Publish round ${round}`,
-      read.capabilities.publish,
-    ),
+    actions: context.commands
+      ? [
+          ...(context.commands.generation ? [context.commands.generation] : []),
+          ...(read.capabilities.edit
+            ? [
+                context.commands.act('Assign judges', {
+                  type: 'assign-judges',
+                  drawId: read.draw.drawId,
+                }),
+              ]
+            : []),
+          ...(read.capabilities.publish
+            ? [
+                context.commands.act(
+                  `Publish round ${round}`,
+                  {
+                    type: 'publish-draw',
+                    drawId: read.draw.drawId,
+                    overrides: [],
+                  },
+                  [
+                    ...new Set(
+                      findings
+                        .filter((finding) => finding.severity === 'rule_broken')
+                        .map((finding) => finding.text),
+                    ),
+                  ],
+                ),
+              ]
+            : []),
+        ]
+      : [
+          unavailableAction('Draw again'),
+          unavailableAction(
+            `Publish round ${round}`,
+            read.capabilities.publish,
+          ),
+        ],
     groups: (read.recordGroups.flatMap((group) => group.fixtures).length > 20
       ? read.recordGroups
       : read.recordGroups.slice(0, listedGroups)
@@ -207,10 +251,45 @@ export const drawBoardOf = (
       read.recordGroups.flatMap((group) => group.fixtures).length > 20
         ? null
         : restOf(read.recordGroups.slice(listedGroups)),
-    back:
-      read.capabilities.edit && read.draw.basedOn !== null
-        ? unavailableAction(`Go back to draft ${read.draw.basedOn.version}`)
-        : null,
-    selected: chosen === null ? null : detailOf(read, chosen),
+    back: read.capabilities.edit
+      ? (context.commands?.act('Discard draft', {
+          type: 'discard-draft',
+          drawId: read.draw.drawId,
+        }) ??
+        (read.draw.basedOn
+          ? unavailableAction(`Go back to draft ${read.draw.basedOn.version}`)
+          : null))
+      : null,
+    selected:
+      chosen === null
+        ? null
+        : {
+            ...detailOf(read, chosen),
+            ...(context.commands
+              ? {
+                  cast: [
+                    ...chosen.entries.map(
+                      (entry) =>
+                        `${entry.side ? entry.side + ': ' : ''}${entry.name}`,
+                    ),
+                    ...chosen.judges.map(
+                      (judge) =>
+                        `${judge.chair ? 'Chair' : 'Judge'}: ${judge.name}`,
+                    ),
+                  ],
+                  ...(chosen.kind === 'pairing' && read.capabilities.edit
+                    ? {
+                        change: context.commands.act('Swap sides', {
+                          type: 'edit-draw',
+                          basedOnDrawId: read.draw.drawId,
+                          edits: [
+                            { type: 'swap-sides', fixtureId: chosen.fixtureId },
+                          ],
+                        }),
+                      }
+                    : {}),
+                }
+              : {}),
+          },
   };
 };

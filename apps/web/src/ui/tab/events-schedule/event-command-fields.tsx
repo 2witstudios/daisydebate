@@ -117,10 +117,12 @@ export function RoundFields({
   name,
   selected,
   choices,
+  released = false,
 }: {
   readonly name: string | null;
   readonly selected: string;
   readonly choices: HostEventsView['resolutionChoices'];
+  readonly released?: boolean;
 }) {
   return (
     <>
@@ -133,26 +135,30 @@ export function RoundFields({
           defaultValue={name ?? ''}
         />
       </label>
-      <label className={fieldClass}>
-        <span className={labelClass}>Resolution source</span>
-        <select
-          className={controlClass}
-          name="resolution"
-          defaultValue={selected}
-        >
-          <option value="">None</option>
-          {choices.map((choice) => (
-            <option key={choice.key} value={choice.key}>
-              {choice.label} ·{' '}
-              {choice.wording === null
-                ? 'Room draw'
-                : choice.wording.kind === 'shown'
-                  ? choice.wording.text
-                  : `wording withheld · added ${choice.wording.addedAt}`}
-            </option>
-          ))}
-        </select>
-      </label>
+      {released ? (
+        <p>Resolution released.</p>
+      ) : (
+        <label className={fieldClass}>
+          <span className={labelClass}>Resolution source</span>
+          <select
+            className={controlClass}
+            name="resolution"
+            defaultValue={selected}
+          >
+            <option value="">None</option>
+            {choices.map((choice) => (
+              <option key={choice.key} value={choice.key}>
+                {choice.label} ·{' '}
+                {choice.wording === null
+                  ? 'Room draw'
+                  : choice.wording.kind === 'shown'
+                    ? choice.wording.text
+                    : `wording withheld · added ${choice.wording.addedAt}`}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
     </>
   );
 }
@@ -192,7 +198,10 @@ export function SlotFields({
 export function ResolutionFields({
   pools,
 }: {
-  readonly pools: HostEventsView['setup']['resolutionPools'];
+  readonly pools: readonly Pick<
+    HostEventsView['setup']['resolutionPools'][number],
+    'resolutionPoolId' | 'name'
+  >[];
 }) {
   return (
     <>

@@ -1,4 +1,6 @@
 import { poolResolutions } from '../schema/resolution-pools';
+import { draws } from '../schema/draws';
+import { releases } from '../schema/releases';
 import { and, eq, isNull, or, inArray } from 'drizzle-orm';
 import { loadFormatCatalogue } from '../format-catalogue';
 import { formatRevisions } from '../schema/format-revisions';
@@ -91,6 +93,21 @@ async function load(tx: Tx, input: Input) {
       ).values(),
     ],
     templates: followed,
+    publishedRounds: await tx
+      .select({ id: draws.tabRoundId })
+      .from(draws)
+      .where(
+        and(eq(draws.lobbyId, setup.lobby.id), eq(draws.status, 'published')),
+      ),
+    postingReleases: await tx
+      .select({ tabRoundId: releases.tabRoundId, audience: releases.audience })
+      .from(releases)
+      .where(
+        and(
+          eq(releases.lobbyId, setup.lobby.id),
+          eq(releases.thing, 'posting'),
+        ),
+      ),
     resolutions: setup.pools.length
       ? await tx
           .select()
