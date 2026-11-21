@@ -44,7 +44,7 @@ export async function readWaitingFriendApprovals(
       join users other_user on other_user.id=other.user_id and other_user.deleted_at is null
       where l.guardian_user_id=${guardianUserId} and l.status='active'
         and public.daisy_is_protection_guardian(child.id)
-        and f.state='waiting-for-guardian' and ${liveGuardianHold(sql`approval`)}
+        and f.state='pending' and ${liveGuardianHold(sql`approval`)}
         and child_user.username is not null and other_user.username is not null
       order by f.requested_at desc, approval.id
       limit 100`,
@@ -131,11 +131,7 @@ export async function answerFriendApproval(
     .select()
     .from(friendGuardianApprovals)
     .where(approvalKey);
-  if (
-    !approval ||
-    approval.cleared ||
-    request?.state !== 'waiting-for-guardian'
-  )
+  if (!approval || approval.cleared || request?.state !== 'pending')
     return false;
 
   const holds = await guardianHoldsForRequest(
@@ -174,7 +170,6 @@ export async function answerFriendApproval(
       });
     return true;
   }
-  await tx.update(friendships).set({ state: 'pending' }).where(pair);
   await tellFriend(tx, {
     kind: 'friend_request_received',
     pair: request,

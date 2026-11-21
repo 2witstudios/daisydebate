@@ -20,7 +20,7 @@ The protocol's `protectionLimits` expands each choice. The database's private
 lookup uses the finite table generated from that function. Only the child
 and a current guardian can read the full choice. The contact transaction
 evaluates holds at creation and before acceptance, including reciprocal
-friend requests. An approval clears the hold for one child and one request.
+friend requests. The friendship keeps its ordinary pending state in shared storage. The private approval rows determine who sees it waiting. An approval clears the hold for one child and one request.
 The recipient then chooses whether to accept. A child can decline an incoming
 request or cancel their own while it waits. A guardian's decline of an incoming
 request applies the child's existing repeat-contact bounds. A guardian's

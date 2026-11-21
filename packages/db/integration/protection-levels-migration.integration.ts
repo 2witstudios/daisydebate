@@ -97,10 +97,10 @@ test(
         }
         const checks =
           await f.sql`select convalidated from pg_constraint where conname in (
-      'friendships_state', 'friendships_time', 'notification_preferences_pair_check',
+      'notification_preferences_pair_check',
       'notifications_kind_check', 'notifications_subject_check')`;
         expect<unknown>(checks).toEqual(
-          Array.from({ length: 5 }, () => ({ convalidated: true })),
+          Array.from({ length: 3 }, () => ({ convalidated: true })),
         );
       } finally {
         await f.sql`delete from contact_pairs where ${recipient} in (low_actor_id, high_actor_id)`;

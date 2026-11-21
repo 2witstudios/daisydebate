@@ -24,7 +24,7 @@ export const protectionChoices: readonly ProtectionLevel[] = [
 ];
 
 /** SQL is a literal lookup of the protocol's finite choice space. */
-export const protectionPolicyRows = (): string =>
+const protectionPolicyRows = (): string =>
   protectionChoices
     .map((choice) => {
       const limits = protectionLimits(choice);

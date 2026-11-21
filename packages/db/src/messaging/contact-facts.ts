@@ -7,6 +7,7 @@ import {
   type AuthorizationTransaction,
 } from '../authorization';
 import { rowsOf } from '../raw-rows';
+import { currentTenantScope, scopeTransaction } from '../tenant-scope';
 
 type Account = {
   readonly account: {
@@ -14,6 +15,12 @@ type Account = {
     readonly actorId: string | null;
   };
   readonly age: { readonly state: string; readonly band?: string };
+};
+
+type NewDmRequest = {
+  readonly userId: string;
+  readonly actorId: string;
+  readonly recipientActorId: string;
 };
 
 /**
@@ -25,7 +32,8 @@ type Account = {
  * account, in the order given.
  */
 export const bindMessagingContactFacts =
-  (tx: AuthorizationTransaction) => async (accounts: readonly Account[]) => {
+  (tx: AuthorizationTransaction, request?: NewDmRequest) =>
+  async (accounts: readonly Account[]) => {
     // An account without a current age is refused before any of this is
     // read, so it gets the closed answer and costs no statement.
     const closed = {
@@ -44,6 +52,17 @@ export const bindMessagingContactFacts =
           (age.band === '13-15' || age.band === '16-17'),
       })),
     );
+    const previous = request ? await currentTenantScope(tx) : undefined;
+    if (request && previous)
+      await scopeTransaction(tx, {
+        ...previous,
+        subjectUserId: request.userId,
+      });
+    const protection = request
+      ? sql`case when c.minor and c.actor_id = ${request.recipientActorId}
+          then coalesce(public.daisy_message_requests_friends_only(c.user_id, ${request.actorId}), true)
+          else false end`
+      : sql`false`;
     const rows = await rowsOf<{
       user_id: string;
       setting: MessageRequestSetting;
@@ -57,7 +76,7 @@ export const bindMessagingContactFacts =
             as c(user_id text, actor_id text, minor boolean))
         select c.user_id,
           coalesce(s.setting, 'everyone') as setting,
-          c.minor and public.daisy_message_requests_friends_only(c.user_id) as friends_only,
+          ${protection} as friends_only,
           array(select case when f.low_actor_id=c.actor_id
               then f.high_actor_id else f.low_actor_id end
             from friendships f
@@ -72,6 +91,7 @@ export const bindMessagingContactFacts =
         from cast_rows c
         left join messaging_request_settings s on s.user_id=c.user_id`,
     );
+    if (previous) await scopeTransaction(tx, previous);
     return accounts.map(({ account, age }) => {
       if (age.state !== 'known') return closed;
       const row = rows.find(

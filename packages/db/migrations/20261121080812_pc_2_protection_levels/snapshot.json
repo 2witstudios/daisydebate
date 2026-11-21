@@ -52253,14 +52253,14 @@
       "table": "friendships"
     },
     {
-      "value": "\"state\" in ('pending', 'waiting-for-guardian', 'accepted')",
+      "value": "\"state\" in ('pending', 'accepted')",
       "name": "friendships_state",
       "entityType": "checks",
       "schema": "public",
       "table": "friendships"
     },
     {
-      "value": "(\"state\" in ('pending', 'waiting-for-guardian') and \"accepted_at\" is null) or (\"state\" = 'accepted' and \"accepted_at\" is not null and \"accepted_at\" >= \"requested_at\")",
+      "value": "(\"state\" = 'pending' and \"accepted_at\" is null) or (\"state\" = 'accepted' and \"accepted_at\" is not null and \"accepted_at\" >= \"requested_at\")",
       "name": "friendships_time",
       "entityType": "checks",
       "schema": "public",

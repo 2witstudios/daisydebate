@@ -24,8 +24,6 @@ CREATE TABLE "protection_levels" (
 CREATE INDEX "friend_guardian_approvals_child_idx" ON "friend_guardian_approvals" ("child_actor_id");--> statement-breakpoint
 ALTER TABLE "friend_guardian_approvals" ADD CONSTRAINT "friend_guardian_approvals_friendship_fk" FOREIGN KEY ("low_actor_id","high_actor_id") REFERENCES "friendships"("low_actor_id","high_actor_id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "protection_levels" ADD CONSTRAINT "protection_levels_user_id_users_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "friendships" DROP CONSTRAINT "friendships_state", ADD CONSTRAINT "friendships_state" CHECK ("state" in ('pending', 'waiting-for-guardian', 'accepted')) NOT VALID;--> statement-breakpoint
-ALTER TABLE "friendships" DROP CONSTRAINT "friendships_time", ADD CONSTRAINT "friendships_time" CHECK (("state" in ('pending', 'waiting-for-guardian') and "accepted_at" is null) or ("state" = 'accepted' and "accepted_at" is not null and "accepted_at" >= "requested_at")) NOT VALID;--> statement-breakpoint
 ALTER TABLE "notification_preferences" DROP CONSTRAINT "notification_preferences_pair_check", ADD CONSTRAINT "notification_preferences_pair_check" CHECK (("kind", "channel") in (('followed_debater_live', 'in_app'), ('recording_ready', 'in_app'), ('round_started', 'in_app'), ('round_decision_released', 'in_app'), ('round_decision_released', 'email'), ('room_invitation', 'in_app'), ('room_invitation', 'email'), ('challenge_received', 'in_app'), ('challenge_accepted', 'in_app'), ('friend_request_received', 'in_app'), ('friend_request_received', 'email'), ('friend_request_accepted', 'in_app'), ('friend_guardian_approval', 'in_app'), ('dm_request', 'in_app'), ('dm_request', 'email'), ('judge_assigned', 'in_app'), ('judge_replaced', 'in_app'), ('judge_unassigned', 'in_app'), ('tournament_draw_changed', 'in_app'), ('tournament_room_ready', 'in_app'), ('tournament_results_released', 'in_app'), ('media_release_requested', 'in_app'), ('media_release_declined', 'in_app'), ('media_release_signed', 'in_app'), ('media_release_club_confirmed', 'in_app'), ('media_release_withdrawn', 'in_app'), ('media_release_club_asked', 'in_app'))) NOT VALID;--> statement-breakpoint
 ALTER TABLE "notifications" DROP CONSTRAINT "notifications_kind_check", ADD CONSTRAINT "notifications_kind_check" CHECK ("kind" in ('followed_debater_live', 'recording_ready', 'round_started', 'round_decision_released', 'room_invitation', 'challenge_received', 'challenge_accepted', 'friend_request_received', 'friend_request_accepted', 'friend_guardian_approval', 'dm_request', 'judge_assigned', 'judge_replaced', 'judge_unassigned', 'tournament_draw_changed', 'tournament_room_ready', 'tournament_results_released', 'media_release_requested', 'media_release_declined', 'media_release_signed', 'media_release_club_confirmed', 'media_release_withdrawn', 'media_release_club_asked')) NOT VALID;--> statement-breakpoint
 ALTER TABLE "notifications" DROP CONSTRAINT "notifications_subject_check", ADD CONSTRAINT "notifications_subject_check" CHECK (("kind" in ('followed_debater_live', 'recording_ready', 'round_started', 'round_decision_released')) = ("round_id" is not null) and ("kind" in ('room_invitation')) = ("room_invitation_id" is not null) and ("kind" in ('challenge_received', 'challenge_accepted')) = ("challenge_id" is not null) and ("kind" in ('friend_request_received', 'friend_request_accepted', 'friend_guardian_approval')) = ("friendship_low_actor_id" is not null) and ("kind" in ('friend_request_received', 'friend_request_accepted', 'friend_guardian_approval')) = ("friendship_high_actor_id" is not null) and ("kind" in ('judge_assigned', 'judge_replaced', 'judge_unassigned', 'tournament_draw_changed', 'tournament_room_ready', 'tournament_results_released')) = ("fixture_id" is not null) and ("kind" in ('judge_assigned', 'judge_replaced', 'judge_unassigned', 'tournament_draw_changed', 'tournament_room_ready', 'tournament_results_released')) = ("notification_lobby_id" is not null) and ("kind" in ('judge_assigned', 'judge_replaced', 'judge_unassigned', 'tournament_draw_changed', 'tournament_room_ready', 'tournament_results_released')) = ("tab_command_id" is not null) and ("kind" in ('media_release_requested', 'media_release_declined')) = ("media_release_request_id" is not null) and ("kind" in ('media_release_signed', 'media_release_club_confirmed', 'media_release_withdrawn')) = ("media_release_id" is not null) and ("kind" in ('media_release_club_asked')) = ("media_release_club_ask_id" is not null) and ("kind" in ('dm_request')) = ("dm_channel_id" is not null)) NOT VALID;
@@ -51,13 +49,27 @@ REVOKE ALL ON FUNCTION public.daisy_protection_guardians(text) FROM PUBLIC;
 --> statement-breakpoint
 ALTER TABLE public.protection_levels ENABLE ROW LEVEL SECURITY;
 --> statement-breakpoint
-CREATE POLICY protection_levels_subject ON public.protection_levels FOR ALL
-  USING (user_id = daisy_subject_scope())
-  WITH CHECK (user_id = daisy_subject_scope());
+CREATE POLICY protection_levels_subject ON public.protection_levels FOR SELECT
+  USING (user_id = daisy_subject_scope());
 --> statement-breakpoint
-GRANT SELECT, DELETE ON public.protection_levels TO daisy_web;
+GRANT SELECT ON public.protection_levels TO daisy_web;
 --> statement-breakpoint
-REVOKE INSERT, UPDATE ON public.protection_levels FROM daisy_web;
+REVOKE INSERT, UPDATE, DELETE ON public.protection_levels FROM daisy_web;
+--> statement-breakpoint
+CREATE FUNCTION public.daisy_erase_protection_choice()
+RETURNS void
+LANGUAGE sql VOLATILE SECURITY DEFINER
+SET search_path = pg_catalog, public, pg_temp
+AS $$
+  DELETE FROM public.protection_levels level
+  USING public.users child
+  WHERE level.user_id = public.daisy_subject_scope()
+    AND child.id = level.user_id AND child.deleted_at IS NOT NULL
+$$;
+--> statement-breakpoint
+REVOKE ALL ON FUNCTION public.daisy_erase_protection_choice() FROM PUBLIC;
+--> statement-breakpoint
+GRANT EXECUTE ON FUNCTION public.daisy_erase_protection_choice() TO daisy_web;
 --> statement-breakpoint
 CREATE FUNCTION public.daisy_effective_protection_choice(child_id text)
 RETURNS jsonb
@@ -115,7 +127,7 @@ REVOKE ALL ON FUNCTION public.daisy_protection_level(text) FROM PUBLIC;
 --> statement-breakpoint
 GRANT EXECUTE ON FUNCTION public.daisy_protection_level(text) TO daisy_web;
 --> statement-breakpoint
-CREATE FUNCTION public.daisy_ranked_protection_allows(entrant_ids text[])
+CREATE FUNCTION public.daisy_ranked_protection_allows(entrant_ids text[], room_id text DEFAULT NULL)
 RETURNS boolean
 LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, public, pg_temp
@@ -127,24 +139,45 @@ AS $$
     WHERE entrant.id = ANY(entrant_ids) AND entrant.user_id IS NOT NULL
       AND NOT limits.ranked_allowed
   )
+  WHERE (cardinality(entrant_ids) = 1 AND public.daisy_subject_actor_scope() = entrant_ids[1])
+    OR (room_id IS NULL AND cardinality(entrant_ids) = 2
+      AND public.daisy_subject_actor_scope() = ANY(entrant_ids)
+      AND EXISTS (SELECT 1 FROM public.contact_pairs pair
+        WHERE pair.low_actor_id = least(entrant_ids[1], entrant_ids[2])
+          AND pair.high_actor_id = greatest(entrant_ids[1], entrant_ids[2])
+          AND NOT pair.low_blocks_high AND NOT pair.high_blocks_low))
+    OR EXISTS (SELECT 1 FROM public.rooms room
+      WHERE room.id = room_id AND
+        (room.host_actor_id = public.daisy_subject_actor_scope()
+          OR (room.host_actor_id IS NULL AND room.lobby_id = public.daisy_lobby_scope()
+            AND public.daisy_subject_actor_scope() IS NOT NULL)))
 $$;
 --> statement-breakpoint
-REVOKE ALL ON FUNCTION public.daisy_ranked_protection_allows(text[]) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.daisy_ranked_protection_allows(text[], text) FROM PUBLIC;
 --> statement-breakpoint
-GRANT EXECUTE ON FUNCTION public.daisy_ranked_protection_allows(text[]) TO daisy_web;
+GRANT EXECUTE ON FUNCTION public.daisy_ranked_protection_allows(text[], text) TO daisy_web;
 --> statement-breakpoint
-CREATE FUNCTION public.daisy_message_requests_friends_only(recipient_id text)
+CREATE FUNCTION public.daisy_message_requests_friends_only(recipient_id text, requester_actor_id text DEFAULT NULL)
 RETURNS boolean
 LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, public, pg_temp
 AS $$
   SELECT friends_only FROM public.daisy_expand_protection(
     public.daisy_effective_protection_choice(recipient_id))
+  WHERE (requester_actor_id IS NULL AND recipient_id = public.daisy_subject_scope())
+    OR (requester_actor_id = public.daisy_subject_actor_scope() AND EXISTS (
+      SELECT 1 FROM public.actors recipient
+      JOIN public.users account ON account.id = recipient.user_id AND account.deleted_at IS NULL
+      LEFT JOIN public.contact_pairs pair ON pair.low_actor_id = least(requester_actor_id, recipient.id)
+        AND pair.high_actor_id = greatest(requester_actor_id, recipient.id)
+      WHERE recipient.user_id = recipient_id AND recipient.id <> requester_actor_id
+        AND NOT coalesce(pair.low_blocks_high OR pair.high_blocks_low, false)
+    ))
 $$;
 --> statement-breakpoint
-REVOKE ALL ON FUNCTION public.daisy_message_requests_friends_only(text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.daisy_message_requests_friends_only(text, text) FROM PUBLIC;
 --> statement-breakpoint
-GRANT EXECUTE ON FUNCTION public.daisy_message_requests_friends_only(text) TO daisy_web;
+GRANT EXECUTE ON FUNCTION public.daisy_message_requests_friends_only(text, text) TO daisy_web;
 --> statement-breakpoint
 CREATE FUNCTION public.daisy_protection_choice_lock(child_id text)
 RETURNS void
@@ -195,6 +228,16 @@ $$;
 --> statement-breakpoint
 REVOKE ALL ON FUNCTION public.daisy_friend_approval_needed(text, text, text, jsonb) FROM PUBLIC;
 --> statement-breakpoint
+-- Ordinary notices retain their existing readers. Guardian notices are private at storage.
+ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
+--> statement-breakpoint
+CREATE POLICY notifications_standard_access ON public.notifications AS PERMISSIVE FOR ALL
+  USING (true) WITH CHECK (true);
+--> statement-breakpoint
+CREATE POLICY notifications_guardian_recipient ON public.notifications AS RESTRICTIVE FOR ALL
+  USING (kind <> 'friend_guardian_approval' OR user_id = public.daisy_subject_scope())
+  WITH CHECK (kind <> 'friend_guardian_approval' OR user_id = public.daisy_subject_scope());
+--> statement-breakpoint
 CREATE FUNCTION public.daisy_guardian_notice(hold_id text, happened_at timestamptz, notice_ids text[] DEFAULT NULL)
 RETURNS void
 LANGUAGE plpgsql VOLATILE
@@ -244,14 +287,35 @@ $$;
 --> statement-breakpoint
 REVOKE ALL ON FUNCTION public.daisy_guardian_notice(text, timestamptz, text[]) FROM PUBLIC;
 --> statement-breakpoint
-CREATE FUNCTION public.daisy_set_protection_level(child_id text, selected jsonb)
+CREATE FUNCTION public.daisy_require_notice_ids(notice_ids text[], slots integer)
 RETURNS void
+LANGUAGE plpgsql IMMUTABLE
+SET search_path = pg_catalog, public, pg_temp
+AS $$
+BEGIN
+  IF coalesce(cardinality(notice_ids), 0) < slots OR EXISTS (
+    SELECT 1 FROM unnest(notice_ids) notice(id) WHERE id IS NULL OR id !~ '^[a-z0-9]{24}$'
+  ) THEN
+    RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Invalid notification identifiers';
+  END IF;
+END
+$$;
+--> statement-breakpoint
+REVOKE ALL ON FUNCTION public.daisy_require_notice_ids(text[], integer) FROM PUBLIC;
+--> statement-breakpoint
+CREATE FUNCTION public.daisy_set_protection_level(child_id text, selected jsonb,
+  happened_at timestamptz DEFAULT statement_timestamp(), notice_ids text[] DEFAULT NULL)
+RETURNS integer
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, public, pg_temp
 AS $$
 DECLARE
   previous_choice jsonb;
+  live_holds text[];
   became_live text;
+  recipients integer;
+  slots integer;
+  first_slot integer := 1;
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM public.daisy_protection_guardians(child_id)
     WHERE user_id = public.daisy_subject_scope()) THEN
@@ -266,33 +330,42 @@ BEGIN
     RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Protection level cannot be changed';
   END IF;
   previous_choice := public.daisy_effective_protection_choice(child_id);
+  SELECT coalesce(array_agg(approval.id ORDER BY approval.low_actor_id, approval.high_actor_id), '{}')
+    INTO live_holds
+    FROM public.friend_guardian_approvals approval
+    JOIN public.actors child ON child.id = approval.child_actor_id
+    JOIN public.friendships request USING (low_actor_id, high_actor_id)
+    JOIN public.contact_pairs pair USING (low_actor_id, high_actor_id)
+    CROSS JOIN LATERAL (SELECT CASE WHEN approval.low_actor_id = child.id
+      THEN approval.high_actor_id ELSE approval.low_actor_id END AS actor_id) other
+    WHERE child.user_id = child_id AND NOT approval.cleared AND request.state = 'pending'
+      AND NOT pair.low_blocks_high AND NOT pair.high_blocks_low
+      AND NOT public.daisy_friend_approval_needed(child.id, other.actor_id,
+        request.requester_actor_id, previous_choice)
+      AND public.daisy_friend_approval_needed(child.id, other.actor_id,
+        request.requester_actor_id, selected);
+  SELECT count(*)::integer INTO recipients FROM public.daisy_protection_guardians(child_id);
+  slots := cardinality(live_holds) * recipients;
+  IF slots > 0 AND notice_ids IS NULL THEN
+    RETURN slots;
+  END IF;
+  PERFORM public.daisy_require_notice_ids(notice_ids, slots);
   INSERT INTO public.protection_levels(user_id, choice) VALUES (child_id, selected)
     ON CONFLICT (user_id) DO UPDATE SET choice = EXCLUDED.choice
     WHERE protection_levels.choice IS DISTINCT FROM excluded.choice;
-  IF previous_choice = selected THEN
-    RETURN;
-  END IF;
-
-  FOR became_live IN
-    SELECT approval.id FROM public.friend_guardian_approvals approval
-    JOIN public.actors child ON child.id = approval.child_actor_id
-    JOIN public.friendships request USING (low_actor_id, high_actor_id)
-    CROSS JOIN LATERAL (SELECT CASE WHEN approval.low_actor_id = child.id
-      THEN approval.high_actor_id ELSE approval.low_actor_id END AS actor_id) other
-    WHERE child.user_id = child_id AND NOT approval.cleared AND request.state = 'waiting-for-guardian'
-      AND NOT public.daisy_friend_approval_needed(child.id, other.actor_id,
-        request.requester_actor_id, previous_choice)
-      AND public.daisy_friend_approval_needed(child.id, other.actor_id, request.requester_actor_id)
-    ORDER BY approval.low_actor_id, approval.high_actor_id
+  FOREACH became_live IN ARRAY live_holds
   LOOP
-    PERFORM public.daisy_guardian_notice(became_live, statement_timestamp());
+    PERFORM public.daisy_guardian_notice(became_live, happened_at,
+      notice_ids[first_slot:(first_slot + recipients - 1)]);
+    first_slot := first_slot + recipients;
   END LOOP;
+  RETURN 0;
 END
 $$;
 --> statement-breakpoint
-REVOKE ALL ON FUNCTION public.daisy_set_protection_level(text, jsonb) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.daisy_set_protection_level(text, jsonb, timestamptz, text[]) FROM PUBLIC;
 --> statement-breakpoint
-GRANT EXECUTE ON FUNCTION public.daisy_set_protection_level(text, jsonb) TO daisy_web;
+GRANT EXECUTE ON FUNCTION public.daisy_set_protection_level(text, jsonb, timestamptz, text[]) TO daisy_web;
 --> statement-breakpoint
 CREATE FUNCTION public.daisy_clear_unlinked_protection()
 RETURNS trigger
@@ -394,7 +467,7 @@ AS $$
     SELECT 1 FROM public.friend_guardian_approvals approval
     JOIN public.friendships request USING (low_actor_id, high_actor_id)
     JOIN public.contact_pairs pair USING (low_actor_id, high_actor_id)
-    WHERE approval.id = hold_id AND NOT approval.cleared AND request.state = 'waiting-for-guardian'
+    WHERE approval.id = hold_id AND NOT approval.cleared AND request.state = 'pending'
       AND NOT pair.low_blocks_high AND NOT pair.high_blocks_low
       AND public.daisy_friend_approval_needed(approval.child_actor_id,
         CASE WHEN approval.child_actor_id = approval.low_actor_id
@@ -468,7 +541,7 @@ BEGIN
 
   PERFORM 1 FROM public.friendships request
   WHERE request.low_actor_id = low_id AND request.high_actor_id = high_id
-    AND request.state = 'waiting-for-guardian'
+    AND request.state = 'pending'
     AND EXISTS (SELECT 1 FROM public.daisy_friend_guardian_holds(low_id, high_id,
       request.requester_actor_id) needed WHERE needed.child_actor_id = child_id)
     AND NOT EXISTS (SELECT 1 FROM public.friend_guardian_approvals existing
@@ -482,11 +555,7 @@ BEGIN
   IF notice_ids IS NULL THEN
     RETURN slots;
   END IF;
-  IF cardinality(notice_ids) < slots OR EXISTS (
-    SELECT 1 FROM unnest(notice_ids) notice(id) WHERE id IS NULL OR id !~ '^[a-z0-9]{24}$'
-  ) THEN
-    RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Invalid notification identifiers';
-  END IF;
+  PERFORM public.daisy_require_notice_ids(notice_ids, slots);
   INSERT INTO public.friend_guardian_approvals(id, low_actor_id, high_actor_id, child_actor_id)
   VALUES (approval_id, low_id, high_id, child_id)
   ON CONFLICT DO NOTHING

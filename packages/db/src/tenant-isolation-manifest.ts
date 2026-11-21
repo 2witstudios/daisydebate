@@ -140,7 +140,6 @@ export const tenantIsolationManifest: TenantIsolationManifest = {
       table: 'protection_levels',
       key: 'person',
       subject: 'user',
-      subjectWrites: true,
     },
     {
       table: 'friend_guardian_approvals',
@@ -231,7 +230,7 @@ export const tenantIsolationManifest: TenantIsolationManifest = {
     {
       table: 'notifications',
       reason:
-        'The existing inbox is owned and read by its recipient account. Fixture, lobby and command references provide notification provenance only; reads recheck current account, boundary and relationship authority before exposing a subject. They confer no tenant read authority.',
+        'Fixture, lobby and command references convey provenance only. Guardian notices are additionally fenced to their recipient at storage. Other kinds retain the existing inbox authority checks.',
     },
     {
       table: 'challenges',
@@ -355,6 +354,11 @@ export const tenantIsolationManifest: TenantIsolationManifest = {
       executors: ['daisy_web'],
       reason:
         'Writes one child choice from an active guardian’s subject scope under the account fence.',
+    },
+    {
+      name: 'daisy_erase_protection_choice',
+      executors: ['daisy_web'],
+      reason: 'Erases the subject’s choice only after the account has closed.',
     },
     {
       name: 'daisy_clear_unlinked_protection',

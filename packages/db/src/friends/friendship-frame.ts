@@ -146,6 +146,8 @@ export function friendshipFrame(
       }
       if (next.state === 'accepted')
         await clearSocialDeclines(tx, input.actorId, otherActorId);
+      // The approval record carries family state. The shared friendship stores an ordinary request.
+      const storedState = next.state === 'accepted' ? 'accepted' : 'pending';
       if (!previous) {
         if (next.state !== 'accepted')
           await (
@@ -166,7 +168,7 @@ export function friendshipFrame(
           lowActorId: pair.lowActorId,
           highActorId: pair.highActorId,
           requesterActorId: next.requesterActorId,
-          state: next.state,
+          state: storedState,
           requestedAt: new Date(now),
           acceptedAt: next.state === 'accepted' ? new Date(now) : null,
         });
@@ -174,7 +176,7 @@ export function friendshipFrame(
         await tx
           .update(friendships)
           .set({
-            state: next.state,
+            state: storedState,
             requesterActorId: next.requesterActorId,
             acceptedAt: next.state === 'accepted' ? new Date(now) : null,
           })

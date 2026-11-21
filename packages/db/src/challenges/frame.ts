@@ -190,7 +190,7 @@ export function challengeFrame(
       // read under the pair's lock.
       if (
         mode === 'ranked' &&
-        !(await rankedProtectionAllows(tx, [input.actorId, other]))
+        !(await rankedProtectionAllows(tx, [input.actorId, other], input))
       )
         throw createAppError('NOT_FOUND');
       const lobbyId = await pairLobby(tx, input.actorId, other, mode);
@@ -299,7 +299,7 @@ export function challengeFrame(
       if (
         !offer ||
         (offer.mode === 'ranked' &&
-          !(await rankedProtectionAllows(tx, [input.actorId, other]))) ||
+          !(await rankedProtectionAllows(tx, [input.actorId, other], input))) ||
         !(await pairLobby(tx, other, input.actorId, offer.mode, offer.lobbyId))
       )
         throw createAppError('NOT_FOUND');

@@ -32,9 +32,9 @@ export const friendsPrivacyAdopter: PrivacyAdopter = {
           rowsOf(
             await tx.execute(sql`select f.low_actor_id, f.high_actor_id,
               f.requester_actor_id, f.requested_at, f.accepted_at,
-              case when f.state='waiting-for-guardian' and
-                ${guardianWaitingLabel(sql`f`)} is distinct from 'waiting-for-guardian'
-                then 'pending' else f.state end as state
+              case when f.state='pending' and
+                ${guardianWaitingLabel(sql`f`)} = 'waiting-for-guardian'
+                then 'waiting-for-guardian' else f.state end as state
               from friendships f where ${actorId} in (f.low_actor_id, f.high_actor_id)
               order by f.low_actor_id, f.high_actor_id`),
           ),

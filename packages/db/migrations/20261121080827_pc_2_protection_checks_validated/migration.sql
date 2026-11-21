@@ -5,8 +5,6 @@ DECLARE
 BEGIN
   FOR pending IN
     SELECT * FROM (VALUES
-      ('friendships', 'friendships_state'),
-      ('friendships', 'friendships_time'),
       ('notification_preferences', 'notification_preferences_pair_check'),
       ('notifications', 'notifications_kind_check'),
       ('notifications', 'notifications_subject_check')

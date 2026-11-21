@@ -191,6 +191,7 @@ const applyInitialCast = async (
     await requireRankedProtection(
       tx,
       seats.map(({ actorId }) => actorId),
+      { userId: caller.userId, roomId: room.id },
     );
   // Eligibility and seatKind live on these profile rows, not the account
   // authorization fence. Lock extant profiles in actor-id order before

@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm';
 import type { PrivacyAdopter } from '../privacy/contracts';
 import { exportRows } from '../privacy/export-rows';
 import { rowsOf } from '../raw-rows';
+import { scopeTransaction } from '../tenant-scope';
 
 /**
  * The subject's notifications, choices, presentation and digests go, and any
@@ -14,6 +15,7 @@ export const notificationPrivacyAdopter: PrivacyAdopter = {
   id: 'notifications',
   phase: 'after-close',
   erase: async (tx, subject) => {
+    await scopeTransaction(tx, { subjectUserId: subject.userId });
     await tx.execute(sql`delete from notifications
       where user_id=${subject.userId} or actor_id=${subject.actorId}
         or friendship_low_actor_id=${subject.actorId}
@@ -27,35 +29,41 @@ export const notificationPrivacyAdopter: PrivacyAdopter = {
     await tx.execute(
       sql`delete from notification_presentation where user_id=${subject.userId}`,
     );
+    await scopeTransaction(tx, {});
   },
-  export: async (tx, subject) => ({
-    notifications: exportRows(
-      await rowsOf<Record<string, unknown>>(
-        tx,
-        sql`select kind,round_id,room_invitation_id,challenge_id,dm_channel_id,fixture_id,notification_lobby_id,tab_command_id,media_release_request_id,media_release_id,media_release_club_ask_id,read_at,surfaced_at,created_at
+  export: async (tx, subject) => {
+    await scopeTransaction(tx, { subjectUserId: subject.userId });
+    const result = {
+      notifications: exportRows(
+        await rowsOf<Record<string, unknown>>(
+          tx,
+          sql`select kind,round_id,room_invitation_id,challenge_id,dm_channel_id,fixture_id,notification_lobby_id,tab_command_id,media_release_request_id,media_release_id,media_release_club_ask_id,read_at,surfaced_at,created_at
           from notifications where user_id=${subject.userId} order by created_at,id`,
+        ),
       ),
-    ),
-    notification_preferences: exportRows(
-      await rowsOf<Record<string, unknown>>(
-        tx,
-        sql`select kind,channel,enabled from notification_preferences
+      notification_preferences: exportRows(
+        await rowsOf<Record<string, unknown>>(
+          tx,
+          sql`select kind,channel,enabled from notification_preferences
           where user_id=${subject.userId} order by kind,channel`,
+        ),
       ),
-    ),
-    notification_presentation: exportRows(
-      await rowsOf<Record<string, unknown>>(
-        tx,
-        sql`select toasts,sound,desktop_alerts,email from notification_presentation
+      notification_presentation: exportRows(
+        await rowsOf<Record<string, unknown>>(
+          tx,
+          sql`select toasts,sound,desktop_alerts,email from notification_presentation
           where user_id=${subject.userId}`,
+        ),
       ),
-    ),
-    notification_digests: exportRows(
-      await rowsOf<Record<string, unknown>>(
-        tx,
-        sql`select state,attempts,last_error_code,first_owed_at,created_at,completed_at
+      notification_digests: exportRows(
+        await rowsOf<Record<string, unknown>>(
+          tx,
+          sql`select state,attempts,last_error_code,first_owed_at,created_at,completed_at
           from notification_digests where user_id=${subject.userId} order by created_at,id`,
+        ),
       ),
-    ),
-  }),
+    };
+    await scopeTransaction(tx, {});
+    return result;
+  },
 };

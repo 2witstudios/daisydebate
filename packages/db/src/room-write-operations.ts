@@ -318,7 +318,10 @@ async function executeOnce(
       next.hostActorId
     )
       entrants.push(next.hostActorId);
-    await requireRankedProtection(tx, entrants);
+    await requireRankedProtection(tx, entrants, {
+      userId: input.caller.userId,
+      roomId: input.roomId,
+    });
   }
   // Admission, allowance and capture below all name the Round by this id.
   if (outcome.mutation.freeze && next.roundRef?.id !== input.roundId)

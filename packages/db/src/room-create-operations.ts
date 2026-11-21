@@ -124,7 +124,11 @@ export const roomCreateOperations = ({
         );
         if (replay) return replay;
         if (input.room.competitionType === 'ranked')
-          await requireRankedProtection(tx, [input.caller.actorId]);
+          await requireRankedProtection(
+            tx,
+            [input.caller.actorId],
+            input.caller,
+          );
         if (
           input.selection &&
           !input.selection.admits(

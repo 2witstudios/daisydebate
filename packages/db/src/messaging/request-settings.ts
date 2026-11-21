@@ -5,6 +5,7 @@ import { sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
 import { rowsOf } from '../raw-rows';
+import { scopeTransaction } from '../tenant-scope';
 
 /**
  * A member's own "who can send me message requests" (decision 90, ADR 0160).
@@ -29,17 +30,20 @@ export const messageRequestSettingOperations = ({
     });
   },
   readMessageRequestPolicy({ userId }: { readonly userId: string }) {
-    return instrumented(eventSink, 'readMessageRequestPolicy', async () => {
-      const [stored] = await rowsOf<{ setting: MessageRequestSetting }>(
-        database,
-        sql`select setting from messaging_request_settings where user_id=${userId}`,
-      );
-      const locked = await messageRequestsFriendsOnly(database, userId);
-      return {
-        setting: locked ? 'friends' : (stored?.setting ?? 'everyone'),
-        locked,
-      };
-    });
+    return instrumented(eventSink, 'readMessageRequestPolicy', () =>
+      database.transaction(async (tx) => {
+        await scopeTransaction(tx, { subjectUserId: userId });
+        const [stored] = await rowsOf<{ setting: MessageRequestSetting }>(
+          tx,
+          sql`select setting from messaging_request_settings where user_id=${userId}`,
+        );
+        const locked = await messageRequestsFriendsOnly(tx, userId);
+        const setting: MessageRequestSetting = locked
+          ? 'friends'
+          : (stored?.setting ?? 'everyone');
+        return { setting, locked };
+      }),
+    );
   },
   writeMessageRequestSetting(input: {
     readonly userId: string;
@@ -52,6 +56,7 @@ export const messageRequestSettingOperations = ({
         await tx.execute(
           sql`select id from users where id=${input.userId} for update`,
         );
+        await scopeTransaction(tx, { subjectUserId: input.userId });
         if (await messageRequestsFriendsOnly(tx, input.userId))
           throw createAppError('AUTHORIZATION');
         if (input.setting === 'everyone') {

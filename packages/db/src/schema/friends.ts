@@ -9,7 +9,6 @@ import {
   text,
   unique,
 } from 'drizzle-orm/pg-core';
-import { friendshipStates } from '@daisy/protocol';
 import { oneOf, timestampColumn } from './columns';
 import { contactActorColumn, contactPairs } from './contacts';
 
@@ -19,13 +18,17 @@ import { contactActorColumn, contactPairs } from './contacts';
  * removing deletes the row, and a block deletes it too, so unblocking never
  * restores a friendship.
  */
+const storedFriendshipStates = ['pending', 'accepted'] as const;
+
 export const friendships = pgTable(
   'friendships',
   {
     lowActorId: contactActorColumn('low_actor_id'),
     highActorId: contactActorColumn('high_actor_id'),
     requesterActorId: text('requester_actor_id').notNull(),
-    state: text('state').$type<(typeof friendshipStates)[number]>().notNull(),
+    state: text('state')
+      .$type<(typeof storedFriendshipStates)[number]>()
+      .notNull(),
     requestedAt: timestampColumn('requested_at').notNull(),
     acceptedAt: timestampColumn('accepted_at'),
   },
@@ -37,10 +40,10 @@ export const friendships = pgTable(
       'friendships_requester',
       sql`${table.requesterActorId} in (${table.lowActorId}, ${table.highActorId})`,
     ),
-    check('friendships_state', oneOf(table.state, friendshipStates)),
+    check('friendships_state', oneOf(table.state, storedFriendshipStates)),
     check(
       'friendships_time',
-      sql`(${table.state} in ('pending', 'waiting-for-guardian') and ${table.acceptedAt} is null) or (${table.state} = 'accepted' and ${table.acceptedAt} is not null and ${table.acceptedAt} >= ${table.requestedAt})`,
+      sql`(${table.state} = 'pending' and ${table.acceptedAt} is null) or (${table.state} = 'accepted' and ${table.acceptedAt} is not null and ${table.acceptedAt} >= ${table.requestedAt})`,
     ),
     foreignKey({
       name: 'friendships_contact_fk',

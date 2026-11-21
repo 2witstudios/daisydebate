@@ -345,6 +345,7 @@ export const notificationInboxOperations = ({
   }) {
     return instrumented(eventSink, 'markNotificationsRead', () =>
       database.transaction(async (tx) => {
+        await scopeTransaction(tx, { subjectUserId: input.userId });
         const some =
           input.notificationIds === 'all'
             ? sql``

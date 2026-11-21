@@ -286,8 +286,7 @@ test('daisy_web has the exact runtime DML scope on every public table and sequen
         -- ADR 0165: writes go through the guardian-scoped definer.
         when c.relname = 'protection_levels' then
           has_table_privilege('daisy_web', c.oid, 'SELECT')
-          and has_table_privilege('daisy_web', c.oid, 'DELETE')
-          and not has_table_privilege('daisy_web', c.oid, 'INSERT,UPDATE')
+          and not has_table_privilege('daisy_web', c.oid, 'INSERT,UPDATE,DELETE')
         when c.relname = 'restriction_lobbies' then
           has_table_privilege('daisy_web', c.oid, 'SELECT')
           and not has_table_privilege('daisy_web', c.oid, 'INSERT')

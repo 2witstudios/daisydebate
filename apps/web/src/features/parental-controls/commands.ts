@@ -444,7 +444,12 @@ async function setProtectionLevel(
     return refused('not-found');
   const link = await session.link(command.linkId);
   if (link?.status !== 'active') return refused('not-active');
-  await session.setProtectionLevel(link.minorUserId, command.choice);
+  await session.setProtectionLevel(
+    link.minorUserId,
+    command.choice,
+    context.at,
+    createId,
+  );
   return accepted;
 }
 

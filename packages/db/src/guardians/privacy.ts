@@ -54,10 +54,7 @@ export const guardianLinksPrivacyAdopter: PrivacyAdopter = {
       where (guardian_user_id = ${subject.userId} or minor_user_id = ${subject.userId})
         and status in ('active', 'requested')`,
     );
-    await run(
-      tx,
-      sql`delete from protection_levels where user_id = ${subject.userId}`,
-    );
+    await run(tx, sql`select public.daisy_erase_protection_choice()`);
     await scopeTransaction(tx, {});
   },
   export: async (tx, subject) => {

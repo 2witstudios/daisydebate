@@ -23,19 +23,42 @@ test('two guardians share one choice and only current guardians can clear a hold
   const birth = `${at.getUTCFullYear() - 15}-${String(at.getUTCMonth() + 1).padStart(2, '0')}`;
   await withRolledBackDatabase(databaseUrl, {
     seed: async (sql) => {
-      const [parent, child, coGuardian, stranger, sibling] = await createBots(
-        sql,
-        ['Parent', 'Child', 'Co-guardian', 'Stranger', 'Sibling'],
-      );
-      if (!parent || !child || !coGuardian || !stranger || !sibling)
+      const [parent, child, coGuardian, stranger, sibling, replacement] =
+        await createBots(sql, [
+          'Parent',
+          'Child',
+          'Co-guardian',
+          'Stranger',
+          'Sibling',
+          'Replacement guardian',
+        ]);
+      if (
+        !parent ||
+        !child ||
+        !coGuardian ||
+        !stranger ||
+        !sibling ||
+        !replacement
+      )
         throw new Error('Missing family fixture');
-      for (const person of [parent, child, coGuardian, stranger, sibling])
+      for (const person of [
+        parent,
+        child,
+        coGuardian,
+        stranger,
+        sibling,
+        replacement,
+      ])
         await sql`update users set email=${`${person.userId}@example.test`} where id=${person.userId}`;
       await sql`update account_age set birth_month=${birth}, version=version+1
         where user_id in (${child.userId},${sibling.userId})`;
-      return { parent, child, coGuardian, stranger, sibling };
+      return { parent, child, coGuardian, stranger, sibling, replacement };
     },
-    work: async (db, { parent, child, coGuardian, stranger, sibling }, sql) => {
+    work: async (
+      db,
+      { parent, child, coGuardian, stranger, sibling, replacement },
+      sql,
+    ) => {
       const store = createGuardianStore(db);
       const run = (caller: typeof parent, command: GuardianCommand) =>
         store.forSubject(caller.userId, (session) =>
@@ -141,7 +164,7 @@ test('two guardians share one choice and only current guardians can clear a hold
         await sql`insert into contact_pairs(low_actor_id,high_actor_id)
           values(${lowActorId},${highActorId}) on conflict do nothing`;
         await sql`insert into friendships(low_actor_id,high_actor_id,requester_actor_id,state,requested_at)
-          values(${lowActorId},${highActorId},${requester.actorId},'waiting-for-guardian',${at})`;
+          values(${lowActorId},${highActorId},${requester.actorId},'pending',${at})`;
       };
       const held = (
         caller: typeof child,
@@ -229,6 +252,40 @@ test('two guardians share one choice and only current guardians can clear a hold
           await sp`select set_config('daisy.subject_scope', ${subject.userId}, true)`;
           return work(sp);
         });
+      await expect(
+        scoped(
+          child,
+          (sp) =>
+            sp`delete from protection_levels where user_id=${child.userId}`,
+        ),
+      ).rejects.toThrow(/permission denied for table protection_levels/);
+      await scoped(
+        child,
+        (sp) => sp`select public.daisy_erase_protection_choice()`,
+      );
+      expect(await direct(child.userId)).toEqual([{ choice: custom }]);
+      expect<unknown>(
+        await scoped(
+          stranger,
+          (sp) => sp`select
+        public.daisy_ranked_protection_allows(ARRAY[${child.actorId}]::text[]) as ranked,
+        public.daisy_message_requests_friends_only(${child.userId}) as messaging`,
+        ),
+      ).toEqual([{ ranked: null, messaging: null }]);
+      expect<unknown>(
+        await scoped(
+          stranger,
+          (sp) =>
+            sp`select id from notifications where id=${initialAdultNotice.id}`,
+        ),
+      ).toEqual([]);
+      expect<unknown>(
+        await scoped(
+          stranger,
+          (sp) => sp`select state from friendships
+        where low_actor_id=${low} and high_actor_id=${high}`,
+        ),
+      ).toEqual([{ state: 'pending' }]);
       expect<unknown>(
         await scoped(
           stranger,
@@ -254,7 +311,8 @@ test('two guardians share one choice and only current guardians can clear a hold
       await scoped(
         stranger,
         (sp) => sp`select public.daisy_hold_friend_request(
-        ${unneededId}, ${low}, ${high}, ${stranger.actorId}, ${stamp}::timestamptz)`,
+        ${unneededId}, ${low}, ${high}, ${stranger.actorId}, ${stamp}::timestamptz,
+        ARRAY[${createId()}]::text[])`,
       );
       expect<unknown>(
         await scoped(
@@ -263,7 +321,11 @@ test('two guardians share one choice and only current guardians can clear a hold
             sp`select id from friend_guardian_approvals where id=${unneededId}`,
         ),
       ).toEqual([]);
-      await sql`update notifications set read_at=${at} where id=${initialAdultNotice.id}`;
+      await scoped(
+        parent,
+        (sp) =>
+          sp`update notifications set read_at=${at} where id=${initialAdultNotice.id}`,
+      );
       await expect(
         sql.savepoint(
           (sp) =>
@@ -313,7 +375,11 @@ test('two guardians share one choice and only current guardians can clear a hold
       expect((await inbox(parent)).rows).toMatchObject([
         { id: initialAdultNotice.id, readAt: null },
       ]);
-      await sql`update notifications set read_at=${at} where id=${initialAdultNotice.id}`;
+      await scoped(
+        parent,
+        (sp) =>
+          sp`update notifications set read_at=${at} where id=${initialAdultNotice.id}`,
+      );
       expect(
         await run(coGuardian, {
           ...supervised,
@@ -325,8 +391,33 @@ test('two guardians share one choice and only current guardians can clear a hold
         { id: initialAdultNotice.id, readAt: stamp },
       ]);
 
+      const replacementLink = await linkIdFor(replacement);
+      expect(await confirm(replacementLink)).toEqual({ kind: 'accepted' });
+      expect((await inbox(replacement)).rows).toEqual([]);
+      expect(
+        await run(coGuardian, {
+          ...supervised,
+          linkId: second,
+          choice: { level: 'independent' },
+        }),
+      ).toEqual({ kind: 'accepted' });
       const end = { version: 1, type: 'end-link', linkId: first } as const;
       expect(await run(parent, end)).toEqual({ kind: 'accepted' });
+      expect(
+        await run(replacement, {
+          ...supervised,
+          linkId: replacementLink,
+          choice: custom,
+        }),
+      ).toEqual({ kind: 'accepted' });
+      expect((await inbox(replacement)).rows).toMatchObject([
+        { kind: 'friend_guardian_approval', readAt: null },
+      ]);
+      expect(
+        await run(replacement, { ...end, linkId: replacementLink }),
+      ).toEqual({
+        kind: 'accepted',
+      });
       expect(await readApprovals(parent)).toEqual([]);
       expect(await run(parent, approve)).toEqual({
         kind: 'refused',
@@ -393,7 +484,11 @@ test('two guardians share one choice and only current guardians can clear a hold
       );
       if (!initialNotice)
         throw new Error('The first child’s notification did not stand');
-      await sql`update notifications set read_at=${at} where id=${initialNotice.id}`;
+      await scoped(
+        coGuardian,
+        (sp) =>
+          sp`update notifications set read_at=${at} where id=${initialNotice.id}`,
+      );
       expect(
         await run(coGuardian, { ...supervised, linkId: siblingLink }),
       ).toEqual({ kind: 'accepted' });
