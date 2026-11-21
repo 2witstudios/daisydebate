@@ -98,6 +98,25 @@ function nativeHashName(source, name) {
   );
 }
 
+function nativeModule(node, sourceCode, seen) {
+  if (isGlobal(node, 'Bun', sourceCode)) return 'bun';
+  if (
+    node?.type === 'CallExpression' &&
+    isGlobal(node.callee, 'require', sourceCode) &&
+    node.arguments.length === 1
+  )
+    return staticText(node.arguments[0], sourceCode);
+  const [definition] = bindingAt(node, sourceCode)?.defs ?? [];
+  if (
+    ['ImportNamespaceSpecifier', 'ImportDefaultSpecifier'].includes(
+      definition?.node.type,
+    )
+  )
+    return definition.node.parent.source.value;
+  const initializer = constant(node, sourceCode, seen);
+  if (initializer) return nativeModule(initializer, sourceCode, seen);
+}
+
 function isNativeHasher(node, sourceCode, seen = new Set()) {
   if (!node) return false;
   if (node.type === 'Identifier') {
@@ -107,17 +126,30 @@ function isNativeHasher(node, sourceCode, seen = new Set()) {
         definition.node.parent.source.value,
         definition.node.imported.name ?? definition.node.imported.value,
       );
+    if (
+      definition?.type === 'Variable' &&
+      definition.parent.kind === 'const' &&
+      definition.node.id.type === 'ObjectPattern'
+    ) {
+      const member = definition.node.id.properties.find(
+        (property) => property.value === definition.name,
+      );
+      if (member)
+        return nativeHashName(
+          nativeModule(definition.node.init, sourceCode, seen),
+          member.computed
+            ? staticText(member.key, sourceCode)
+            : (member.key.name ?? staticText(member.key)),
+        );
+    }
     return isNativeHasher(constant(node, sourceCode, seen), sourceCode, seen);
   }
-  if (node.type !== 'MemberExpression') return false;
-  const name = property(node, sourceCode);
-  if (name === 'CryptoHasher' && isGlobal(node.object, 'Bun', sourceCode))
-    return true;
-  const [definition] = bindingAt(node.object, sourceCode)?.defs ?? [];
   return (
-    ['ImportNamespaceSpecifier', 'ImportDefaultSpecifier'].includes(
-      definition?.node.type,
-    ) && nativeHashName(definition.node.parent.source.value, name)
+    node.type === 'MemberExpression' &&
+    nativeHashName(
+      nativeModule(node.object, sourceCode, seen),
+      property(node, sourceCode),
+    )
   );
 }
 

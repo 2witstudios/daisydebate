@@ -50,10 +50,14 @@ export function registerClockDigestTests() {
         "import { sha3_256 } from '@noble/hashes/sha3.js';",
         "const algorithm = 'sha3-256', indirect = algorithm;",
         "const sha256 = 'sha256';",
+        "import * as crypto from 'node:crypto';",
+        'const hashing = crypto, runtime = Bun;',
+        'const { createHash: destructured } = hashing;',
         'const nativeAlias = makeHash;',
         'export const hashes = [',
         "  makeHash(`sha3-256`), new Bun.CryptoHasher('sha3-256'), ",
         '  makeHash(sha256), nativeAlias(indirect), sha3_256(new Uint8Array()),',
+        "  hashing.createHash('sha3-256'), destructured('sha3-256'), new runtime.CryptoHasher('sha3-256'),",
         '];',
       ].join('\n');
       assert({
@@ -74,8 +78,8 @@ export function registerClockDigestTests() {
           ),
         ]),
         expected: [
-          Array<string>(4).fill('clock-digest/sha3-digest'),
-          Array<string>(4).fill('clock-digest/sha3-digest'),
+          Array<string>(7).fill('clock-digest/sha3-digest'),
+          Array<string>(7).fill('clock-digest/sha3-digest'),
           [],
           [],
           [],

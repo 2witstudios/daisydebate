@@ -170,17 +170,8 @@ export function migrateDateParse(
           staticText(checker, key.expression) === 'parse'
         );
       });
-      if (parse) {
-        if (
-          node.name.elements.length === 1 &&
-          ts.isIdentifier(parse.name) &&
-          !node.type &&
-          !parse.initializer
-        )
-          replace(node, `${parse.name.text} = ${use('instantMs')}`);
-        else manual?.();
-        return;
-      }
+      // Calls through an extracted parser can rely on its numeric refusal value.
+      if (parse) manual?.();
     }
 
     if (ts.isCallExpression(node) && node.arguments.length === 1) {
@@ -236,7 +227,7 @@ export function migrateDateParse(
       // Keep existing numeric refusal guards reachable after a failed parse.
       replace(
         node,
-        `(${use('tryInstantMs')}(${instant.getText(file)}) ?? Number.NaN)`,
+        `(${use('tryInstantMs')}(${instant.getText(file)}) ?? 0 / 0)`,
       );
       return;
     }

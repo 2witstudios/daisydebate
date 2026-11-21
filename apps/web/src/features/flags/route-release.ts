@@ -1,4 +1,4 @@
-import { nowMs } from '@daisy/clock';
+import { tryInstantMs } from '@daisy/clock';
 import type { App } from '../../server/app';
 import type { ReleaseFlagKey } from './catalogue';
 import { createRequestFlagReader } from './reader';
@@ -15,7 +15,7 @@ export const routeReleaseFor =
   (key: ReleaseFlagKey, accountId: string | null): Promise<boolean> =>
     createRequestFlagReader({
       read: app.database.readFlagSnapshot,
-      now: () => nowMs(app.clock),
+      now: () => tryInstantMs(app.clock.now()) ?? Number.NaN,
       diagnostic: () =>
         app.logger.log(
           'flags.read.failed',

@@ -38,6 +38,40 @@ function importedFrom(declaration: ts.Node) {
     : undefined;
 }
 
+function nativeHashName(
+  source: string | undefined,
+  name: string | undefined,
+): boolean {
+  return (
+    (name === 'createHash' &&
+      (source === 'crypto' || source === 'node:crypto')) ||
+    (name === 'CryptoHasher' && source === 'bun')
+  );
+}
+
+function nativeModule(
+  checker: ts.TypeChecker,
+  expression: ts.Expression,
+  seen: Set<ts.Symbol>,
+): string | undefined {
+  const node = unparenthesized(expression);
+  if (isGlobal(checker, node, 'Bun')) return 'bun';
+  if (
+    ts.isCallExpression(node) &&
+    isGlobal(checker, node.expression, 'require') &&
+    node.arguments.length === 1
+  )
+    return staticText(checker, node.arguments[0]!);
+  const declaration = checker.getSymbolAtLocation(node)?.declarations?.[0];
+  if (
+    declaration &&
+    (ts.isNamespaceImport(declaration) || ts.isImportClause(declaration))
+  )
+    return importedFrom(declaration);
+  const initializer = constInitializer(checker, node, seen);
+  return initializer && nativeModule(checker, initializer, seen);
+}
+
 function isNativeHasher(
   checker: ts.TypeChecker,
   expression: ts.Expression,
@@ -46,13 +80,34 @@ function isNativeHasher(
   const node = unparenthesized(expression);
   if (ts.isIdentifier(node)) {
     const declaration = checker.getSymbolAtLocation(node)?.declarations?.[0];
-    if (declaration && ts.isImportSpecifier(declaration)) {
-      const name = (declaration.propertyName ?? declaration.name).text;
-      const source = importedFrom(declaration);
-      return (
-        (name === 'createHash' &&
-          (source === 'crypto' || source === 'node:crypto')) ||
-        (name === 'CryptoHasher' && source === 'bun')
+    if (declaration && ts.isImportSpecifier(declaration))
+      return nativeHashName(
+        importedFrom(declaration),
+        (declaration.propertyName ?? declaration.name).text,
+      );
+    if (
+      declaration &&
+      ts.isBindingElement(declaration) &&
+      ts.isObjectBindingPattern(declaration.parent)
+    ) {
+      const variable = declaration.parent.parent;
+      if (
+        !ts.isVariableDeclaration(variable) ||
+        !(variable.parent.flags & ts.NodeFlags.Const) ||
+        !variable.initializer ||
+        declaration.dotDotDotToken
+      )
+        return false;
+      const key = declaration.propertyName ?? declaration.name;
+      const name =
+        ts.isIdentifier(key) || ts.isStringLiteralLike(key)
+          ? key.text
+          : ts.isComputedPropertyName(key)
+            ? staticText(checker, key.expression)
+            : undefined;
+      return nativeHashName(
+        nativeModule(checker, variable.initializer, seen),
+        name,
       );
     }
     const initializer = constInitializer(checker, node, seen);
@@ -60,25 +115,13 @@ function isNativeHasher(
       initializer !== undefined && isNativeHasher(checker, initializer, seen)
     );
   }
-  if (
-    !ts.isPropertyAccessExpression(node) &&
-    !ts.isElementAccessExpression(node)
-  )
-    return false;
-  const name = memberName(checker, node);
-  const owner = unparenthesized(node.expression);
-  if (name === 'CryptoHasher' && isGlobal(checker, owner, 'Bun')) return true;
-  const declaration = checker.getSymbolAtLocation(owner)?.declarations?.[0];
-  if (
-    !declaration ||
-    !(ts.isNamespaceImport(declaration) || ts.isImportClause(declaration))
-  )
-    return false;
-  const source = importedFrom(declaration);
   return (
-    (name === 'createHash' &&
-      (source === 'crypto' || source === 'node:crypto')) ||
-    (name === 'CryptoHasher' && source === 'bun')
+    (ts.isPropertyAccessExpression(node) ||
+      ts.isElementAccessExpression(node)) &&
+    nativeHashName(
+      nativeModule(checker, node.expression, seen),
+      memberName(checker, node),
+    )
   );
 }
 

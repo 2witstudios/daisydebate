@@ -5,7 +5,7 @@ export const sourceChecker = (file: ts.SourceFile) =>
   ts
     .createProgram(
       [file.fileName],
-      { noLib: true, noResolve: true },
+      { allowJs: true, noLib: true, noResolve: true },
       {
         ...ts.createCompilerHost({}),
         getSourceFile: (name) => (name === file.fileName ? file : undefined),

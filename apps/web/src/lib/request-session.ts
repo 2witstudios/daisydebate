@@ -1,4 +1,4 @@
-import { nowMs } from '@daisy/clock';
+import { nowMs, tryInstantMs } from '@daisy/clock';
 import { readFamilySettings } from '../features/parental-controls/settings';
 import { evaluatedIdentity } from '../server/member-boundary';
 import { messageOfferFor } from '../features/messaging/request-offer';
@@ -85,7 +85,7 @@ const requestFlagReader = cache(() => {
   const app = processApp();
   return createRequestFlagReader({
     read: (accountId, keys) => app.database.readFlagSnapshot(accountId, keys),
-    now: () => nowMs(app.clock),
+    now: () => tryInstantMs(app.clock.now()) ?? Number.NaN,
     diagnostic: () =>
       app.logger.log(
         'flags.read.failed',

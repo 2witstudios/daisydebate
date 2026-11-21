@@ -74,3 +74,28 @@ test('uses native bindings and an unshadowed shared alias', () => {
     expected: [expected, expected],
   });
 });
+
+test('finds native namespace aliases and destructuring in JavaScript files', () => {
+  const source = [
+    "import * as crypto from 'node:crypto';",
+    'const hashing = crypto;',
+    'const { createHash: digest } = hashing;',
+    'const native = Bun;',
+    "export const results = [hashing.createHash('sha3-256').update('a').digest('hex'), digest('sha3-256').update('b').digest('hex'), new native.CryptoHasher('sha3-256').update('c').digest('hex')];",
+    "export const local = (hashing) => hashing.createHash('sha3-256').update('local').digest('hex');",
+  ].join('\n');
+  assert({
+    given:
+      'native namespace aliases, destructuring and a locally supplied owner',
+    should: 'rewrite only the native calls in both JavaScript module formats',
+    actual: ['example.js', 'example.mjs'].map((path) =>
+      migrateSha3(path, source)
+        .split('\n')
+        .filter((line) => line.startsWith('export ')),
+    ),
+    expected: ['example.js', 'example.mjs'].map(() => [
+      "export const results = [sha3Hex('a'), sha3Hex('b'), sha3Hex('c')];",
+      "export const local = (hashing) => hashing.createHash('sha3-256').update('local').digest('hex');",
+    ]),
+  });
+});

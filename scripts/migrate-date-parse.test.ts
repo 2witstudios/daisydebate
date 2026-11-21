@@ -1,3 +1,4 @@
+import { runInNewContext } from 'node:vm';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { migrateDateParse } from './migrate-date-parse';
 
@@ -55,7 +56,7 @@ test('avoids shadowed imports and preserves a separate parse guard', () => {
     "import { instantMs as clockInstantMs, tryInstantMs, instantMs as readInstant } from '@daisy/clock';",
     'export const read = (readInstant: unknown) => clockInstantMs(input);',
     'export function check(clock: Clock) {',
-    '  const expiresAt = (tryInstantMs(clock.now()) ?? Number.NaN);',
+    '  const expiresAt = (tryInstantMs(clock.now()) ?? 0 / 0);',
     '  if (!Number.isFinite((expiresAt))) return refused;',
     '  return expiresAt;',
     '}',
@@ -77,7 +78,6 @@ test('rewrites parenthesized inline guards and constant computed Date members', 
     'const date = Date;',
     'export const valid = Number.isFinite((Date.parse(clock.now())));',
     'export const computed = date[method](input);',
-    'export const { [method]: parse } = globalThis.Date;',
     'export function localNumber(Number: Numeric) { const stamp = Date.parse(clock.now()); return Number.isFinite(stamp); }',
     'export const local = (Date: Parser) => { const date = Date; return date[method](input); };',
   ].join('\n');
@@ -87,7 +87,6 @@ test('rewrites parenthesized inline guards and constant computed Date members', 
     'const date = Date;',
     'export const valid = (tryInstantMs(clock.now()) !== undefined);',
     'export const computed = instantMs(input);',
-    'export const parse = instantMs;',
     'export function localNumber(Number: Numeric) { const stamp = nowMs(clock); return Number.isFinite(stamp); }',
     'export const local = (Date: Parser) => { const date = Date; return date[method](input); };',
   ].join('\n');
@@ -114,5 +113,52 @@ test('flags a compound destructuring for manual conversion', () => {
       'leave the compound binding in place and flag it for manual conversion',
     actual: [migrated, needsManualConversion],
     expected: [source, true],
+  });
+});
+
+test('keeps numeric refusals across independent lexical scopes', () => {
+  const source = [
+    'let stamp = 0;',
+    '{ const Number = { NaN: 0 }; void Number; stamp = Date.parse(input); }',
+    'export const refused = Number.isNaN(stamp);',
+  ].join('\n');
+  const migrated = migrateDateParse('example.js', source);
+  assert({
+    given: 'an assignment and a guarded use under different Number bindings',
+    should: 'provide an invalid sentinel independent of lexical bindings',
+    actual: migrated.includes('tryInstantMs(input) ?? 0 / 0'),
+    expected: true,
+  });
+});
+
+test('reports a destructured parser whose calls can rely on NaN', () => {
+  const source =
+    'const { parse } = Date; export const refused = Number.isNaN(parse(input));';
+  let manual = false;
+  const migrated = migrateDateParse('example.mjs', source, () => {
+    manual = true;
+  });
+  const refused = runInNewContext(
+    migrated.replace('export const refused =', ''),
+    { input: 'invalid' },
+  );
+  assert({
+    given: 'an alias whose caller uses the original numeric sentinel',
+    should: 'leave the binding and report it for manual conversion',
+    actual: [migrated, manual, refused],
+    expected: [source, true, true],
+  });
+});
+
+test('keeps a local Date binding in JavaScript', () => {
+  const source =
+    'export function custom(Date, value) { return Date.parse(value); }';
+  assert({
+    given: 'a caller-supplied Date parameter in JavaScript',
+    should: 'preserve that binding in both JavaScript module formats',
+    actual: ['example.js', 'example.mjs'].map((path) =>
+      migrateDateParse(path, source),
+    ),
+    expected: [source, source],
   });
 });
