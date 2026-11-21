@@ -1,13 +1,14 @@
 import { expect, test } from 'bun:test';
 import { requireTestServices } from '@daisy/config';
 import { createGuardianStore, withRolledBackDatabase } from '@daisy/db/testing';
+import { createId } from '@paralleldrive/cuid2';
 import type { GuardianCommand } from '@daisy/protocol/guardians';
 import { runGuardianCommand } from '../src/features/parental-controls/commands';
 import { createBots } from './tab-tournament.test-support';
 
 const { databaseUrl } = requireTestServices(process.env);
 
-test('two guardians share one choice, and only the last link closing removes it', async () => {
+test('two guardians share one choice and only current guardians can clear a hold', async () => {
   const at = new Date();
   const birth = `${at.getUTCFullYear() - 15}-${String(at.getUTCMonth() + 1).padStart(2, '0')}`;
   await withRolledBackDatabase(databaseUrl, {
@@ -105,8 +106,51 @@ test('two guardians share one choice, and only the last link closing removes it'
         }),
       ).toEqual({ kind: 'accepted' });
       expect(await direct(child.userId)).toEqual([{ choice: custom }]);
+      const [low, high] = [stranger.actorId, child.actorId].sort();
+      const approvalId = createId();
+      await sql`insert into contact_pairs(low_actor_id,high_actor_id) values(${low},${high})`;
+      await sql`insert into friendships(low_actor_id,high_actor_id,requester_actor_id,state,requested_at)
+        values(${low},${high},${stranger.actorId},'waiting-for-guardian',${at})`;
+      await sql`insert into friend_guardian_approvals(id,low_actor_id,high_actor_id,child_actor_id)
+        values(${approvalId},${low},${high},${child.actorId})`;
+      const readApprovals = (guardian: typeof parent) =>
+        store.forSubject(guardian.userId, (session) =>
+          session.waitingFriendApprovals(),
+        );
+      const approve = {
+        version: 1,
+        type: 'answer-friend-approval',
+        approvalId,
+        decision: 'approve',
+      } as const;
+      expect(await readApprovals(parent)).toEqual([
+        {
+          id: approvalId,
+          child: `bot-${child.userId}`,
+          counterpart: `bot-${stranger.userId}`,
+          direction: 'incoming',
+        },
+      ]);
+      expect(await readApprovals(stranger)).toEqual([]);
+      expect(await run(stranger, approve)).toEqual({
+        kind: 'refused',
+        refusal: 'not-waiting',
+      });
       const end = { version: 1, type: 'end-link', linkId: first } as const;
       expect(await run(parent, end)).toEqual({ kind: 'accepted' });
+      expect(await readApprovals(parent)).toEqual([]);
+      expect(await run(parent, approve)).toEqual({
+        kind: 'refused',
+        refusal: 'not-waiting',
+      });
+      expect(await run(coGuardian, approve)).toEqual({ kind: 'accepted' });
+      expect(await readApprovals(coGuardian)).toEqual([]);
+      expect(
+        await sql`select state from friendships where low_actor_id=${low} and high_actor_id=${high}`,
+      ).toEqual([{ state: 'pending' }]);
+      expect(
+        await sql`select kind from notifications where user_id=${child.userId}`,
+      ).toEqual([{ kind: 'friend_request_received' }]);
       expect(await read()).toEqual(custom);
       expect(await run(coGuardian, { ...end, linkId: second })).toMatchObject({
         kind: 'accepted',
