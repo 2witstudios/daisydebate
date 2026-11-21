@@ -115,13 +115,13 @@ export function virtualClock(startMs = 0): VirtualClock {
       now = Math.max(now, until);
     },
     run: async <T>(work: Promise<T>): Promise<T> => {
-      let done = false;
+      const outcome = { done: false };
       const finished = work.finally(() => {
-        done = true;
+        outcome.done = true;
       });
       // A rejection is the caller's to see, from the returned promise.
       finished.catch(() => undefined);
-      for (await settle(); !done; await settle())
+      for (await settle(); !outcome.done; await settle())
         if (!wakeSoonest())
           throw new Error('the work waits with nothing left to wake it');
       return finished;
