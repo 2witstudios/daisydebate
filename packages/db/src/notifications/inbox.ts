@@ -1,3 +1,4 @@
+import { createAppError } from '@daisy/errors';
 import {
   buildUserInboxTopic,
   type CompetitionType,
@@ -11,6 +12,9 @@ import { sql, type SQL } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
 import { appendOutboxEvent } from '../outbox';
+import { requireRetentionBounds, type RetentionBatch } from '../retention';
+import type { Tx, TxOpener } from '../tx';
+import { scopeTransaction } from '../tenant-scope';
 import { rowsOf } from '../raw-rows';
 import { wants } from './preferences';
 import {
@@ -70,6 +74,7 @@ export type InboxRow = {
       /** The other member, or null once their account is gone. */
       readonly friend: string | null;
     }
+  | { readonly kind: 'friend_guardian_approval' }
   | {
       readonly kind: 'dm_request';
       /** The DM the request opened, where it is answered. */
@@ -178,6 +183,8 @@ const inboxRow = (
     case 'friend_request_received':
     case 'friend_request_accepted':
       return { ...base, kind: row.kind, friend: row.about };
+    case 'friend_guardian_approval':
+      return { ...base, kind: row.kind };
     case 'dm_request':
       return {
         ...base,
@@ -263,7 +270,7 @@ export const notificationInboxOperations = ({
   database,
   eventSink,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: Pick<Tx, 'execute'> & TxOpener;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
   /**
@@ -294,36 +301,39 @@ export const notificationInboxOperations = ({
         canReadTournament: input.canReadTournament,
         unreadOnly: input.unreadOnly,
       });
-      const shown = sql`n.user_id=${input.userId}
+      return database.transaction(async (tx) => {
+        await scopeTransaction(tx, { subjectUserId: input.userId });
+        const shown = sql`n.user_id=${input.userId}
         and ${notificationStands(
           sql`${input.now}::timestamptz`,
           tournamentStanding(tournament.keys()),
         )}
         and ${wants(sql`n.kind`, 'in_app', sql`n.user_id`)}`;
-      const after =
-        input.after === null
-          ? sql``
-          : sql`and (n.surfaced_at,n.id) < (${input.after.surfacedAt}::timestamptz,${input.after.id})`;
-      const rows = await readInboxRows(database, {
-        where: sql`${shown} ${input.unreadOnly ? sql`and n.read_at is null` : sql``} ${after}`,
-        limit: input.limit + 1,
-        tournament,
-      });
-      const [count] = await rowsOf<{ unread: number | string }>(
-        database,
-        sql`select count(*) as unread from notifications n ${standingJoins}
+        const after =
+          input.after === null
+            ? sql``
+            : sql`and (n.surfaced_at,n.id) < (${input.after.surfacedAt}::timestamptz,${input.after.id})`;
+        const rows = await readInboxRows(tx, {
+          where: sql`${shown} ${input.unreadOnly ? sql`and n.read_at is null` : sql``} ${after}`,
+          limit: input.limit + 1,
+          tournament,
+        });
+        const [count] = await rowsOf<{ unread: number | string }>(
+          tx,
+          sql`select count(*) as unread from notifications n ${standingJoins}
           where ${shown} and n.read_at is null`,
-      );
-      const page = rows.slice(0, input.limit);
-      const last = page.at(-1);
-      return {
-        rows: page,
-        unread: Number(count?.unread ?? 0),
-        next:
-          rows.length > input.limit && last
-            ? { surfacedAt: last.surfacedAt, id: last.id }
-            : null,
-      };
+        );
+        const page = rows.slice(0, input.limit);
+        const last = page.at(-1);
+        return {
+          rows: page,
+          unread: Number(count?.unread ?? 0),
+          next:
+            rows.length > input.limit && last
+              ? { surfacedAt: last.surfacedAt, id: last.id }
+              : null,
+        };
+      });
     });
   },
   /**
@@ -337,6 +347,7 @@ export const notificationInboxOperations = ({
   }) {
     return instrumented(eventSink, 'markNotificationsRead', () =>
       database.transaction(async (tx) => {
+        await scopeTransaction(tx, { subjectUserId: input.userId });
         const some =
           input.notificationIds === 'all'
             ? sql``
@@ -362,18 +373,16 @@ export const notificationInboxOperations = ({
     );
   },
   /** The retention sweep: a notification goes 90 days after it is read. */
-  purgeReadNotifications(input: {
-    readonly before: string;
-    readonly limit: number;
-  }) {
+  purgeReadNotifications(input: RetentionBatch) {
     return instrumented(eventSink, 'purgeReadNotifications', async () => {
-      const gone = await rowsOf(
+      requireRetentionBounds(input);
+      const [gone] = await rowsOf<{ count: number }>(
         database,
-        sql`delete from notifications where id in (select id from notifications
-            where read_at < ${input.before}::timestamptz limit ${input.limit})
-          returning id`,
+        sql`select public.daisy_prune_read_notifications(
+          ${input.before}::timestamptz, ${input.limit}) as count`,
       );
-      return gone.length;
+      if (!gone) throw createAppError('INFRASTRUCTURE');
+      return gone.count;
     });
   },
 });

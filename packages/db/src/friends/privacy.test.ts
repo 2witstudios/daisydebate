@@ -16,7 +16,12 @@ test('Friends erases and exports only its own tables, after Messaging', async ()
       now: '2026-10-09T18:00:00.000Z',
     },
   );
-  const exported = fakeSql([[{ state: 'accepted' }], []]);
+  const exported = fakeSql([
+    [],
+    [{ id: 'g'.repeat(24), cleared: true }],
+    [{ state: 'accepted' }],
+    [],
+  ]);
   const result = await friendsPrivacyAdopter.export(
     drizzle({ client: exported.client }),
     subject,
@@ -24,7 +29,7 @@ test('Friends erases and exports only its own tables, after Messaging', async ()
   assert({
     given: 'an erased subject, then an exporting one',
     should:
-      'delete their friendships after the before-auth phase, and export them',
+      'delete their friendships after account closure, and export their own approvals and friendships',
     actual: [
       friendsPrivacyAdopter.phase,
       erased.queries.map(
@@ -32,6 +37,10 @@ test('Friends erases and exports only its own tables, after Messaging', async ()
       ),
       Object.keys(result),
     ],
-    expected: ['after-close', ['friendships'], ['friendships']],
+    expected: [
+      'after-close',
+      ['friendships'],
+      ['friend_guardian_approvals', 'friendships'],
+    ],
   });
 });

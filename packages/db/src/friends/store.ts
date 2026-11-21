@@ -5,6 +5,7 @@ import {
 } from '../contacts/fence';
 import type { ContactReactions } from '../contacts/reactions';
 import type { FriendStore } from './contracts';
+import { scopeTransaction } from '../tenant-scope';
 import { friendshipFrame } from './friendship-frame';
 
 /** Friendships over the shared Contacts fence (ADR 0072). */
@@ -23,11 +24,20 @@ export function createFriendStore({
         database,
         authorize,
         input,
-        async (tx, { rows, contacts, refresh }) =>
-          work({
+        async (tx, { rows, contacts, refresh, accounts }) => {
+          await scopeTransaction(tx, { subjectUserId: input.userId });
+          return work({
             contacts,
-            ...friendshipFrame(tx, input, rows, refresh, reactions.relations),
-          }),
+            ...friendshipFrame(
+              tx,
+              input,
+              rows,
+              refresh,
+              reactions.relations,
+              accounts,
+            ),
+          });
+        },
       ),
   };
 }

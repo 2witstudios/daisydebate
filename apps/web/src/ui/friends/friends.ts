@@ -18,7 +18,9 @@ export function relationTo(list: FriendList, username: string): FriendRelation {
   const named = (entry: { readonly username: string }) =>
     entry.username.toLowerCase() === name;
   if (list.friends.some(named)) return 'friends';
-  if (list.incoming.some(named)) return 'incoming';
-  if (list.outgoing.some(named)) return 'outgoing';
+  const incoming = list.incoming.find(named);
+  if (incoming) return incoming.waiting ?? 'incoming';
+  const outgoing = list.outgoing.find(named);
+  if (outgoing) return outgoing.waiting ?? 'outgoing';
   return 'none';
 }

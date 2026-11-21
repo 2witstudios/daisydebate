@@ -77,6 +77,11 @@ const notificationCatalogue = {
     urgency: 'durable',
     email: 'none',
   },
+  friend_guardian_approval: {
+    subject: 'friendship',
+    urgency: 'durable',
+    email: 'none',
+  },
   // Someone sent a message request (decision 90); the introduction stays in
   // Messages, never in the notice.
   dm_request: { subject: 'dm_request', urgency: 'durable', email: 'batched' },

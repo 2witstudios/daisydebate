@@ -35,6 +35,7 @@ export const toastWaits = (kind: NotificationKind): boolean => {
     case 'challenge_accepted':
     case 'room_invitation':
     case 'friend_request_received':
+    case 'friend_guardian_approval':
     case 'dm_request':
     case 'round_started':
       return true;
@@ -74,6 +75,7 @@ const toasted = (kind: NotificationKind): boolean => {
     case 'recording_ready':
     case 'room_invitation':
     case 'friend_request_received':
+    case 'friend_guardian_approval':
     case 'friend_request_accepted':
     case 'dm_request':
     case 'round_started':

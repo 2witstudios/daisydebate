@@ -25,10 +25,11 @@ export type MessagingSocialFrame = {
    * Before any budget is spent: answers the existing pending or accepted DM
    * a request converges on, or else refuses (AUTHORIZATION, as a block) a
    * new request the commit would refuse, one the other member's declines
-   * block at `now` (DEC-251) or one on an inactive channel, or answers null
+   * block at the database authorization instant (DEC-251) or one on an
+   * inactive channel, or answers null
    * for a new request to commit.
    */
-  readonly screenDmRequest: (now: string) => Promise<{
+  readonly screenDmRequest: () => Promise<{
     readonly channelId: string;
     readonly state: string;
   } | null>;

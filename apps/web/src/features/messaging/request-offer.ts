@@ -31,7 +31,11 @@ export async function messageOfferFor(
         // request would be answered.
         if (contact === 'open_dm') return 'message';
         return dmRequestOffer(
-          await loadAccountPolicyFacts(tx, accounts, now),
+          await loadAccountPolicyFacts(tx, accounts, now, 'posting', {
+            userId: principal.userId,
+            actorId: self,
+            recipientActorId: other,
+          }),
           now,
           self,
           other,

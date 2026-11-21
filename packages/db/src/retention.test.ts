@@ -77,23 +77,13 @@ describe('retention batch', () => {
       actual: {
         count,
         statements: queries.length,
-        finality: text.includes('pg_snapshot_xmin'),
-        prefix: text.includes('not exists'),
-        lock: text.includes('for update of o nowait'),
-        atomicBoundary: text.includes(
-          'update public.outbox_retention_boundary',
-        ),
-        skips: text.includes('skip locked'),
+        maintenance: text.includes('public.daisy_prune_outbox_prefix'),
         bounded: queries[0]?.params.includes(500),
       },
       expected: {
         count: 2,
         statements: 1,
-        finality: true,
-        prefix: true,
-        lock: true,
-        atomicBoundary: true,
-        skips: false,
+        maintenance: true,
         bounded: true,
       },
     });

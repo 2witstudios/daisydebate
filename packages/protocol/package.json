@@ -26,6 +26,8 @@
     "./email": "./src/email.ts",
     "./age-floor": "./src/age-floor.ts",
     "./guardians": "./src/guardians.ts",
+    "./dm-policy": "./src/messaging/dm-policy.ts",
+    "./protection-level": "./src/protection-level.ts",
     "./beta-preapproval": "./src/beta-preapproval.ts",
     "./league-request": "./src/league-request.ts",
     "./operator": "./src/operator.ts",

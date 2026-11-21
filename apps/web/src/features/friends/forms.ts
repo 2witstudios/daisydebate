@@ -111,6 +111,8 @@ export function friendDoneNotice(
   relation: FriendRelation,
 ): string {
   if (relation === 'friends') return `You and @${username} are now friends.`;
+  if (relation === 'waiting-for-guardian') return 'Waiting for your parent.';
+  if (relation === 'waiting') return 'Friend request pending.';
   switch (intent) {
     case 'request':
       return `Friend request sent to @${username}.`;

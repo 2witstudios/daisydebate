@@ -21,6 +21,15 @@ export function ProfileFriendActions({
   switch (relation) {
     case 'friends':
       return null;
+    case 'waiting':
+    case 'waiting-for-guardian':
+      return (
+        <p className="text-sm text-ink-muted">
+          {relation === 'waiting-for-guardian'
+            ? 'Waiting for your parent'
+            : 'Friend request pending'}
+        </p>
+      );
     case 'incoming':
       return (
         <FriendButtonForm

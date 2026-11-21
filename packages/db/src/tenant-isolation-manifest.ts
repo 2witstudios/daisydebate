@@ -30,6 +30,7 @@ export type TenantSubject =
   | 'actor'
   /** `guardian_user_id` and `minor_user_id` are the two people. */
   | 'guardian'
+  | 'friend-approval'
   | 'consent-signer'
   | 'child-account-request'
   /** The funding account or the person who acted on its named consent. */
@@ -135,6 +136,16 @@ export const tenantIsolationManifest: TenantIsolationManifest = {
       subject: 'child-account-request',
       subjectWrites: true,
     },
+    {
+      table: 'protection_levels',
+      key: 'person',
+      subject: 'user',
+    },
+    {
+      table: 'friend_guardian_approvals',
+      key: 'person',
+      subject: 'friend-approval',
+    },
     { table: 'restriction_lobbies', key: 'person', subject: 'guardian' },
     { table: 'action_history', key: 'history' },
     lobby('lobbies', { keyColumn: 'id', openRead: true }),
@@ -219,7 +230,7 @@ export const tenantIsolationManifest: TenantIsolationManifest = {
     {
       table: 'notifications',
       reason:
-        'The existing inbox is owned and read by its recipient account. Fixture, lobby and command references provide notification provenance only; reads recheck current account, boundary and relationship authority before exposing a subject. They confer no tenant read authority.',
+        'Fixture, lobby and command references convey provenance only. Guardian notices are additionally fenced to their recipient at storage. Other kinds retain the existing inbox authority checks.',
     },
     {
       table: 'challenges',
@@ -271,6 +282,108 @@ export const tenantIsolationManifest: TenantIsolationManifest = {
     },
   ],
   definers: [
+    {
+      name: 'daisy_protection_guardians',
+      executors: [],
+      reason:
+        'Private canonical lookup of a minor’s live guardians for scoped operations.',
+    },
+    {
+      name: 'daisy_is_protection_guardian',
+      executors: ['daisy_web'],
+      reason: 'Checks the current subject’s authority for one child.',
+    },
+    {
+      name: 'daisy_friend_guardian_holds',
+      executors: ['daisy_web'],
+      reason: 'Returns the required endpoint holds on a current contact pair.',
+    },
+    {
+      name: 'daisy_hold_friend_request',
+      executors: ['daisy_web'],
+      reason:
+        'Creates a scoped live hold and delivers its private in-app notice.',
+    },
+    {
+      name: 'daisy_clear_friend_guardian_hold',
+      executors: ['daisy_web'],
+      reason:
+        'Clears one hold on a waiting request using the subject’s current guardian authority.',
+    },
+    {
+      name: 'daisy_retire_friend_guardian_holds',
+      executors: [],
+      reason: 'Retires hold metadata when the recipient accepts a friendship.',
+    },
+    {
+      name: 'daisy_protection_level',
+      executors: ['daisy_web'],
+      reason: 'Reads the choice for its child or a current linked guardian.',
+    },
+    {
+      name: 'daisy_effective_protection_choice',
+      executors: [],
+      reason: 'Private effective protection choice for policy decisions.',
+    },
+    {
+      name: 'daisy_ranked_protection_allows',
+      executors: ['daisy_web'],
+      reason:
+        'Returns only the ranked prerequisite across prospective entrants.',
+    },
+    {
+      name: 'daisy_message_requests_friends_only',
+      executors: ['daisy_web'],
+      reason:
+        'Returns only the effective incoming message-request restriction.',
+    },
+    {
+      name: 'daisy_dm_request_access',
+      executors: ['daisy_web'],
+      reason:
+        'Returns the offered action for an eligible new DM from the scoped sender.',
+    },
+    {
+      name: 'daisy_prune_outbox_prefix',
+      executors: ['daisy_web'],
+      reason:
+        'Prunes a final expired prefix, including private guardian signals, and returns only batch status and a count.',
+    },
+    {
+      name: 'daisy_prune_read_notifications',
+      executors: ['daisy_web'],
+      reason:
+        'Expires read notifications past the retention deadline without returning private notice data.',
+    },
+    {
+      name: 'daisy_own_friend_guardian_hold_live',
+      executors: ['daisy_web'],
+      reason:
+        'Returns standing for an approval owned by the child or their guardian.',
+    },
+    {
+      name: 'daisy_friend_guardian_waiting',
+      executors: ['daisy_web'],
+      reason:
+        'Projects the participant’s own hold and generic counterpart waiting.',
+    },
+    {
+      name: 'daisy_set_protection_level',
+      executors: ['daisy_web'],
+      reason:
+        'Writes one child choice from an active guardian’s subject scope under the account fence.',
+    },
+    {
+      name: 'daisy_erase_protection_choice',
+      executors: ['daisy_web'],
+      reason: 'Erases the subject’s choice only after the account has closed.',
+    },
+    {
+      name: 'daisy_clear_unlinked_protection',
+      executors: [],
+      reason:
+        'Guardian-link close trigger erases the choice when the final active link ends.',
+    },
     {
       name: 'daisy_expire_child_account_requests',
       executors: ['daisy_web'],

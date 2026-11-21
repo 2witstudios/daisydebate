@@ -520,7 +520,7 @@ export const requestAudienceSettings = async (userId: string) => {
         clock: spectatorClockAt(clock.now()),
         limit: WATCH_HISTORY_ROWS,
       }),
-      database.readMessageRequestSetting({ userId }),
+      database.readMessageRequestPolicy({ userId }),
     ]);
   return { preferences, presentation, history, messageRequestSetting };
 };
@@ -790,6 +790,14 @@ export async function requestFamilyRows(role: 'adult' | 'child') {
   const { database, clock } = processApp();
   return database.guardians.forSubject(viewer.userId, (session) =>
     readFamilySettings(session, viewer.userId, role, new Date(clock.now())),
+  );
+}
+
+export async function requestFriendApprovals() {
+  const viewer = await requestFamilyViewer();
+  if (viewer?.role !== 'adult') return [];
+  return processApp().database.guardians.forSubject(viewer.userId, (session) =>
+    session.waitingFriendApprovals(),
   );
 }
 

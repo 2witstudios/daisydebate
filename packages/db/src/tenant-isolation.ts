@@ -122,6 +122,8 @@ const subjectPredicates: Record<TenantSubject, string> = {
   'tournament-capture':
     '((sponsor_user_id = daisy_subject_scope()) OR (official_user_id = daisy_subject_scope()))',
   actor: '(actor_id = daisy_subject_actor_scope())',
+  'friend-approval':
+    '((child_actor_id = daisy_subject_actor_scope()) OR daisy_is_protection_guardian(child_actor_id))',
   'consent-signer': '(person_user_id = daisy_subject_scope())',
   'child-account-request':
     '((guardian_user_id = daisy_subject_scope()) OR (claimed_user_id = daisy_subject_scope()) OR daisy_owns_guardian_request_email(email) OR daisy_owns_guardian_request_link(requested_link_id))',

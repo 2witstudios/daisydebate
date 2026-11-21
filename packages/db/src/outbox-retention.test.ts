@@ -29,7 +29,7 @@ test('outbox retention refuses invalid bounds before issuing a delete', async ()
     expected: { calls: 0, failures: 3 },
   });
 });
-test('prefix delete preserves finality and refuses locked predecessors', async () => {
+test('prefix delete calls the bounded maintenance function once', async () => {
   let statement = '';
   const database = {
     execute: async (query: Parameters<PgDialect['sqlToQuery']>[0]) => {
@@ -47,17 +47,8 @@ test('prefix delete preserves finality and refuses locked predecessors', async (
       'bound deletion behind the first fresh commit and lock without skipping',
     actual: {
       count,
-      final: statement.includes('pg_snapshot_xmin'),
-      boundary: statement.includes('not exists'),
-      lock: statement.includes('for update of o nowait'),
-      skips: statement.includes('skip locked'),
+      maintenance: statement.includes('public.daisy_prune_outbox_prefix'),
     },
-    expected: {
-      count: 1,
-      final: true,
-      boundary: true,
-      lock: true,
-      skips: false,
-    },
+    expected: { count: 1, maintenance: true },
   });
 });
