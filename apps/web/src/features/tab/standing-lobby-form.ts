@@ -1,7 +1,13 @@
 import { lobbySetupCommandEnvelopeSchema } from '@daisy/protocol/lobby/lobby-setup-command';
-import { lobbyCommandReceiptSchema } from '@daisy/protocol/lobby/command';
 import { z } from 'zod';
-import { field, refuse, accept } from '../forms/form-state';
+import {
+  field,
+  refuse,
+  accept,
+  refused,
+  unacknowledged,
+} from '../forms/form-state';
+import { mapTabCommandAnswer } from './command-form-answer';
 import type { Idle, Moved, Refused, Unacknowledged } from '../forms/form-state';
 
 export type StandingLobbyFormState = Idle | Refused | Unacknowledged | Moved;
@@ -137,11 +143,6 @@ export function standingLobbyFormBody(
     : refuse('Check the details and try again.');
 }
 
-export const standingLobbyAnswerSchema = z.discriminatedUnion('kind', [
-  z.object({ kind: z.literal('accepted'), receipt: lobbyCommandReceiptSchema }),
-  z.object({ kind: z.literal('refused'), refusal: z.string() }),
-]);
-
 const refusalMessages: Readonly<Record<string, string>> = {
   'version-conflict': 'These details changed. Reload this page before saving.',
   'season-open':
@@ -155,3 +156,10 @@ export const standingLobbyRefusal = (refusal: string) =>
   Object.hasOwn(refusalMessages, refusal)
     ? refusalMessages[refusal]!
     : 'This change could not be made. Reload to check your access and the current details.';
+
+export const standingLobbyAnswer = (form: FormData, body: unknown) =>
+  mapTabCommandAnswer(body, {
+    accepted: (receipt) => ({ kind: 'accepted' as const, receipt }),
+    refused: (reason) => refused(form, standingLobbyRefusal(reason)),
+    unacknowledged: () => unacknowledged(form),
+  });
