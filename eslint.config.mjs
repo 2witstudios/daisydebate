@@ -632,13 +632,15 @@ const dbNativeRowsPlugin = {
           type.isTypeParameter()
             ? (checker.getBaseConstraintOfType(type) ?? type)
             : type;
-        const nativeType = (input) => {
+        const bunSqlType = (input, names) => {
           if (input === undefined) return false;
           const type = constrainedType(input);
-          if (type.isUnionOrIntersection()) return type.types.some(nativeType);
+          if (type.isUnionOrIntersection())
+            return type.types.some((part) => bunSqlType(part, names));
           const symbol = type.getSymbol();
           return (
-            symbol?.name === 'Query' &&
+            symbol &&
+            names.includes(symbol.name) &&
             symbol
               .getDeclarations()
               ?.some((declaration) =>
@@ -648,6 +650,7 @@ const dbNativeRowsPlugin = {
               )
           );
         };
+        const nativeType = (input) => bunSqlType(input, ['Query']);
         const nativeQuery = (expression) =>
           expression != null && nativeType(typeAt(expression));
         const returnsPromise = (type) =>
@@ -657,19 +660,6 @@ const dbNativeRowsPlugin = {
               value.getProperty('then') &&
               checker.getAwaitedType(value) !== value,
           );
-        const containsNativeInput = (input, seen = new Set()) => {
-          const type = constrainedType(input);
-          if (seen.has(type)) return false;
-          seen.add(type);
-          if (nativeType(type)) return true;
-          return types(type).some((part) => {
-            const item =
-              checker.isArrayType(part) || checker.isTupleType(part)
-                ? part.getNumberIndexType()
-                : undefined;
-            return item !== undefined && containsNativeInput(item, seen);
-          });
-        };
         const returnsNativeRows = (callback) =>
           callback
             .getCallSignatures()
@@ -731,7 +721,7 @@ const dbNativeRowsPlugin = {
             if (key.flags & ts.TypeFlags.UniqueESSymbol) return key.escapedName;
           }
         })();
-        const nativeIterable = (inputType, location) => {
+        const iterableIncludes = (inputType, location, reports) => {
           if (!iteratorKey) return false;
           const propertyType = (symbol) =>
             checker.getTypeOfSymbolAtLocation(symbol, location);
@@ -762,11 +752,42 @@ const dbNativeRowsPlugin = {
                   )
                     return false;
                   const value = step.getProperty('value');
-                  return value !== undefined && nativeType(propertyType(value));
+                  return value !== undefined && reports(propertyType(value));
                 });
             });
           });
         };
+        const containsNativeInput = (
+          input,
+          location,
+          seen = new Set(),
+          packed = false,
+        ) => {
+          if (!input) return false;
+          const type = constrainedType(input);
+          if (seen.has(type)) return false;
+          seen.add(type);
+          if (nativeType(type)) return true;
+          const reports = (value) =>
+            containsNativeInput(value, location, seen, true);
+          return types(type).some((part) => {
+            if (
+              packed &&
+              !bunSqlType(part, ['SQL', 'ReservedSQL']) &&
+              returnsNativeRows(part)
+            )
+              return true;
+            if (checker.isArrayType(part) || checker.isTupleType(part))
+              return reports(part.getNumberIndexType());
+            return (
+              (part.flags & ts.TypeFlags.Object) !== 0 &&
+              iterableIncludes(part, location, reports)
+            );
+          });
+        };
+        const settlesNativeInput = (output, location) =>
+          returnsPromise(output) &&
+          !containsNativeInput(checker.getAwaitedType(output), location);
         // Command metadata lives on the Bun result outside the rows.
         const commandReceipt = (statement) =>
           statement.type === 'TaggedTemplateExpression' &&
@@ -838,6 +859,7 @@ const dbNativeRowsPlugin = {
             }
             const invocation = builtInMethod(signature);
             const result = signature?.getReturnType();
+            const call = esTreeNodeToTSNodeMap.get(node);
             // Partial application can erase the original Promise method while
             // keeping the input type. Check nested packed values at the
             // asynchronous adapter's call boundary.
@@ -847,19 +869,22 @@ const dbNativeRowsPlugin = {
               ((invocation?.owner === 'Reflect' &&
                 invocation.name === 'apply') ||
                 (result &&
-                  (returnsPromise(result) ||
+                  (settlesNativeInput(result, call) ||
                     result
                       .getCallSignatures()
                       .some((candidate) =>
-                        returnsPromise(candidate.getReturnType()),
+                        settlesNativeInput(candidate.getReturnType(), call),
                       )))) &&
               node.arguments.some((argument) => {
-                const input = typeAt(
+                const expression =
                   argument.type === 'SpreadElement'
                     ? argument.argument
-                    : argument,
+                    : argument;
+                const location = esTreeNodeToTSNodeMap.get(expression);
+                const input = checker.getTypeAtLocation(location);
+                return (
+                  !nativeType(input) && containsNativeInput(input, location)
                 );
-                return !nativeType(input) && containsNativeInput(input);
               })
             ) {
               report(node);
@@ -927,7 +952,7 @@ const dbNativeRowsPlugin = {
               if (returnsNativeRows(inputType)) report(node);
               return;
             }
-            if (nativeIterable(inputType, location)) report(node);
+            if (iterableIncludes(inputType, location, nativeType)) report(node);
           },
         };
       },

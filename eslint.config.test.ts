@@ -886,12 +886,21 @@ describe('database statement and lock boundaries', () => {
        const [rows] = await apply([[raw]]); return rows[0]?.value;`,
       `const raw = ${statement}; const all = Promise.all<[typeof raw]>;
        return Reflect.apply(all.bind, all, [Promise, [raw]])();`,
+      `const raw = ${statement};
+       const all: (input: Iterable<typeof raw>) => Promise<Awaited<typeof raw>[]> = Promise.all;
+       const apply = (Reflect.apply<typeof Promise, [Set<typeof raw>], ReturnType<typeof all>>).bind(Reflect, all, Promise);
+       const [rows] = await apply([new Set([raw])]); return rows?.[0]?.value;`,
+      `const raw = ${statement}; const attempt = Promise.try<Awaited<typeof raw>>;
+       const apply = (Reflect.apply<typeof Promise, [() => typeof raw], ReturnType<typeof attempt>>).bind(Reflect, attempt, Promise);
+       const rows = await apply([() => raw]); return rows[0]?.value;`,
       `return Promise.resolve().then(() => ${statement});`,
       `const parsed = query(${statement}, z.object({ value: z.int() }));
        const all = Promise.all<[typeof parsed]>;
        const apply = (Reflect.apply<typeof Promise, [[typeof parsed]], ReturnType<typeof all>>).bind(Reflect, all, Promise);
        const [rows] = await apply([[parsed]]); return rows[0]?.value;`,
       'const discard = async (connection: SQL) => { await connection`delete from fixture`; }; await discard(client);',
+      `const raw = ${statement}; const [input] = await Promise.resolve([raw] as const);
+       return query(input, z.object({ value: z.int() }));`,
     ];
     const errors = await Promise.all(
       cases.map(async (body) => {
@@ -909,7 +918,7 @@ describe('database statement and lock boundaries', () => {
         'a typed Promise adapter accepting nested query inputs or a query callback',
       should: 'reject raw inputs while allowing values decoded before the call',
       actual: errors,
-      expected: [1, 1, 1, 0, 0],
+      expected: [1, 1, 1, 1, 1, 0, 0, 0],
     });
   });
 });
