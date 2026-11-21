@@ -1,6 +1,7 @@
 import { idSchema } from '@daisy/protocol';
 import {
   matchOperatorRoute,
+  matchOperatorRoutePolicy,
   operatorAudienceSchema,
   operatorHeaders,
   operatorKeyIdSchema,
@@ -63,7 +64,7 @@ export function canonicalOperatorRequest(
   parts: OperatorRequestParts,
   crypto: Pick<OperatorCrypto, 'sha256Hex'>,
 ): string | null {
-  const route = matchOperatorRoute(parts.method, parts.path);
+  const route = matchOperatorRoutePolicy(parts.method, parts.path);
   if (!route) return null;
   const allowed = route.query;
   const keys = parts.query.map(([key]) => key);

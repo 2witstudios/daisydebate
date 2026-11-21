@@ -58,7 +58,8 @@ export const operatorNonceSchema = z.string().regex(/^[A-Za-z0-9_-]{22}$/);
 
 export {
   matchOperatorRoute,
-  type MatchedOperatorRoute,
+  matchOperatorRoutePolicy,
+  type MatchedOperatorRoutePolicy,
 } from './operator-routes';
 
 const accessFilter = z.enum(betaAccessStates);

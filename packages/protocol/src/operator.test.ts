@@ -35,7 +35,7 @@ test('a reconciled command state is a closed contract (ADR 0079)', () => {
   });
 });
 
-test('declared operator routes match, each with its own method (ADR 0079)', () => {
+test('only the three operator routes match, each with its own method (ADR 0079)', () => {
   const id = 'a'.repeat(24);
   assert({
     given:
@@ -51,14 +51,9 @@ test('declared operator routes match, each with its own method (ADR 0079)', () =
       matchOperatorRoute('GET', '/operator/v1/accounts/extra'),
     ],
     expected: [
-      {
-        group: 'operator',
-        route: 'listAccounts',
-        query: ['access', 'cursor', 'limit'],
-        id: null,
-      },
-      { group: 'operator', route: 'setBetaAccess', query: [], id },
-      { group: 'operator', route: 'readCommand', query: [], id },
+      { route: 'listAccounts', id: null },
+      { route: 'setBetaAccess', id },
+      { route: 'readCommand', id },
       null,
       null,
       null,

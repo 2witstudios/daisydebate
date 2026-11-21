@@ -27,7 +27,7 @@ import {
 } from '@daisy/protocol/content-moderation';
 import {
   operatorLimits,
-  type MatchedOperatorRoute,
+  type MatchedOperatorRoutePolicy,
 } from '@daisy/protocol/operator';
 import { PROFILE_PHOTO_RENDITION_MAX_BYTES } from '@daisy/protocol/public-profile';
 import type { ProfilePhotoStatus } from '@daisy/protocol/public-profile';
@@ -145,9 +145,9 @@ type Deps = {
 
 /** The operator routes moderation answers (WATCH-7, ADR 0079). */
 type ContentModerationRoute = Extract<
-  MatchedOperatorRoute,
+  MatchedOperatorRoutePolicy,
   { group: 'content-moderation' }
->;
+>['endpoint'];
 
 type OperatorPrincipal = Extract<
   AuthorizationPrincipal,

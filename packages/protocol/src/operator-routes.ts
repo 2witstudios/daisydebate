@@ -10,7 +10,7 @@ function staticRoute<Group extends OperatorRouteGroup, Route extends string>(
 ) {
   return (incomingMethod: string, pathname: string) =>
     incomingMethod === method && path.test(pathname)
-      ? ({ group, route, query, id: null } as const)
+      ? ({ group, query, endpoint: { route, id: null } } as const)
       : null;
 }
 
@@ -27,7 +27,9 @@ function parameterizedRoute<
   return (incomingMethod: string, pathname: string) => {
     if (incomingMethod !== method) return null;
     const id = path.exec(pathname)?.[1];
-    return id === undefined ? null : ({ group, route, query, id } as const);
+    return id === undefined
+      ? null
+      : ({ group, query, endpoint: { route, id } } as const);
   };
 }
 
@@ -233,18 +235,23 @@ const operatorRoutes = [
   ),
 ] as const;
 
-export type MatchedOperatorRoute = NonNullable<
+export type MatchedOperatorRoutePolicy = NonNullable<
   ReturnType<(typeof operatorRoutes)[number]>
 >;
 
 /** The route a method and path name, or null for anything else. */
-export function matchOperatorRoute(
+export function matchOperatorRoutePolicy(
   method: string,
   path: string,
-): MatchedOperatorRoute | null {
+): MatchedOperatorRoutePolicy | null {
   for (const match of operatorRoutes) {
     const route = match(method, path);
     if (route !== null) return route;
   }
   return null;
+}
+
+/** Identifies a request's endpoint and carries its ID when the route captures one. */
+export function matchOperatorRoute(method: string, path: string) {
+  return matchOperatorRoutePolicy(method, path)?.endpoint ?? null;
 }

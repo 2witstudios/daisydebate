@@ -30,7 +30,7 @@ import {
 } from './content-moderation';
 import {
   betaAccessCommandSchema,
-  matchOperatorRoute,
+  matchOperatorRoutePolicy,
   moderationLiftCommandSchema,
   operatorReportsPageSchema,
   operatorReportsQuerySchema,
@@ -44,7 +44,7 @@ import {
   operatorLimits,
   type OperatorAccountsPage,
   type OperatorCommandState,
-  type MatchedOperatorRoute,
+  type MatchedOperatorRoutePolicy,
 } from '@daisy/protocol/operator';
 
 /**
@@ -155,8 +155,8 @@ export function createOperatorApi(deps: OperatorApiDependencies) {
   };
   return async function handle(request: Request): Promise<Response> {
     const url = new URL(request.url);
-    const route = matchOperatorRoute(request.method, url.pathname);
-    if (!route) return refusal('NOT_FOUND');
+    const match = matchOperatorRoutePolicy(request.method, url.pathname);
+    if (!match) return refusal('NOT_FOUND');
     const malformed = transportRefusal(request);
     if (malformed) return refuse(malformed, 'VALIDATION');
     let body: Uint8Array;
@@ -189,7 +189,7 @@ export function createOperatorApi(deps: OperatorApiDependencies) {
     try {
       return json(
         200,
-        await dispatch(deps, principal, route, url, {
+        await dispatch(deps, principal, match, url, {
           body,
           signedAtMs: verified.timestampMs,
         }),
@@ -199,7 +199,7 @@ export function createOperatorApi(deps: OperatorApiDependencies) {
       // An unexpected failure is a defect, not a refusal (ISSUE-681).
       deps.reporter.capture(error, {
         requestId: deps.nextId(),
-        route: `operator.${route.route}`,
+        route: `operator.${match.endpoint.route}`,
         errorCode: 'INTERNAL',
       });
       return refuse('handler', 'INTERNAL');
@@ -228,11 +228,11 @@ async function nonceRefusal(
 function dispatch(
   deps: OperatorApiDependencies,
   principal: AuthorizationPrincipal,
-  route: MatchedOperatorRoute,
+  match: MatchedOperatorRoutePolicy,
   url: URL,
   request: { readonly body: Uint8Array; readonly signedAtMs: number },
 ): Promise<unknown> {
-  if (route.group === 'content-moderation') {
+  if (match.group === 'content-moderation') {
     return contentModerationRoute(
       {
         store: deps.contentModeration,
@@ -242,11 +242,12 @@ function dispatch(
         logger: deps.logger,
       },
       principal,
-      route,
+      match.endpoint,
       url,
       request,
     );
   }
+  const route = match.endpoint;
   switch (route.route) {
     case 'setFlagState':
     case 'setFlagOverride':
