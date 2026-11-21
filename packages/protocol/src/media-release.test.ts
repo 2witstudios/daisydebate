@@ -5,7 +5,6 @@ import {
   decideAnswer,
   decideAsk,
   decideClubConfirm,
-  decidePublish,
   everyDebaterReleased,
   decidePaidAdsChange,
   decideResend,
@@ -14,11 +13,13 @@ import {
   isReleaseRequestOpen,
   maskEmail,
   mediaReleasePolicy,
+  mediaReleaseWording,
   parentHeldOf,
   releaseLinkVerdict,
   releaseRequestExpiry,
   releaseRequestStanding,
   releaseStandingOf,
+  reuseFenced,
   type ClubStudent,
   type MediaReleaseRecord,
   type ReleaseRequest,
@@ -57,7 +58,7 @@ const parentRelease = (
     relation: 'parent',
     email: 'elena.rivera@fastmail.com',
   },
-  wordingVersion: '2026-11-v1',
+  wordingVersion: mediaReleaseWording.version,
   signedAt: iso(t0 + DAY),
   withdrawnAt: null,
   withdrawnBy: null,
@@ -386,8 +387,18 @@ test('a parent signs', () => {
     name: ' Elena Rivera ',
     relation: 'parent',
     attests: true,
+    wordingVersion: mediaReleaseWording.version,
     paidAds: false,
   };
+  assert({
+    given: 'missing or stale release wording',
+    should: 'refuse without accepting consent',
+    actual: [undefined, '2026-11-v1'].map(
+      (wordingVersion) =>
+        decideSignature(facts, { ...form, wordingVersion }).ok,
+    ),
+    expected: [false, false],
+  });
   assert({
     given: 'a usable link and a complete form without paid ads',
     should: 'release publishing only, signed by the addressee',
@@ -395,6 +406,7 @@ test('a parent signs', () => {
     expected: {
       ok: true,
       scopes: ['publish'],
+      wordingVersion: mediaReleaseWording.version,
       signature: {
         kind: 'parent',
         name: 'Elena Rivera',
@@ -410,6 +422,7 @@ test('a parent signs', () => {
     expected: {
       ok: true,
       scopes: ['publish', 'paid_ads'],
+      wordingVersion: mediaReleaseWording.version,
       signature: {
         kind: 'parent',
         name: 'Elena Rivera',
@@ -558,10 +571,20 @@ test('a club confirms', () => {
   });
   const form = {
     warrants: true,
+    wordingVersion: mediaReleaseWording.version,
     paidAds: false,
     name: 'Dana Mensah',
     role: 'Coach',
   };
+  assert({
+    given: 'missing or stale release wording',
+    should: 'refuse without accepting consent',
+    actual: [undefined, '2026-11-v1'].map(
+      (wordingVersion) =>
+        decideClubConfirm([student()], { ...form, wordingVersion }).ok,
+    ),
+    expected: [false, false],
+  });
   assert({
     given: 'each standing',
     should: 'admit none and waiting only',
@@ -628,6 +651,7 @@ test('a club confirms', () => {
     expected: {
       ok: true,
       scopes: ['publish'],
+      wordingVersion: mediaReleaseWording.version,
       name: 'Dana Mensah',
       role: 'Coach',
       confirm: [
@@ -643,6 +667,7 @@ test('a club confirms', () => {
     expected: {
       ok: true,
       scopes: ['publish', 'paid_ads'],
+      wordingVersion: mediaReleaseWording.version,
       name: 'Dana Mensah',
       role: 'Coach',
       confirm: [{ userId: minor, supersedes: null }],
@@ -687,29 +712,44 @@ test('a club confirms', () => {
   });
 });
 
-test('publishing a Youth Round', () => {
+test('reusing a Round', () => {
   const a = 'a'.repeat(24);
   const b = 'b'.repeat(24);
-  const active = (subjectUserId: string) => parentRelease({ subjectUserId });
-  const facts = {
-    open: true,
-    debaterUserIds: [a, b],
-    publisherUserId: a,
-    releases: [active(a), active(b)],
-    available: true,
-    published: false,
-  };
+  const active = (subjectUserId: string) =>
+    parentRelease({
+      subjectUserId,
+      wordingVersion: mediaReleaseWording.version,
+    });
+  const youth = { youth: true, debaterUserIds: [a, b] };
   assert({
-    given: 'every youth debater released and the flag open',
-    should: 'publish',
-    actual: decidePublish(facts),
-    expected: { ok: true },
+    given: 'a Round with no youth debater',
+    should: 'never be fenced, whatever releases exist',
+    actual: reuseFenced({ youth: false, debaterUserIds: [a], releases: [] }),
+    expected: false,
   });
   assert({
-    given: 'one debater without a release',
-    should: 'refuse',
-    actual: decidePublish({ ...facts, releases: [active(a)] }),
-    expected: { ok: false, refusal: 'releases_missing' },
+    given: 'a Youth Round whose every youth debater holds an active release',
+    should: 'be open to reuse',
+    actual: reuseFenced({ ...youth, releases: [active(a), active(b)] }),
+    expected: false,
+  });
+  assert({
+    given: 'a Youth Round with one youth debater unreleased',
+    should: 'stay fenced',
+    actual: reuseFenced({ ...youth, releases: [active(a)] }),
+    expected: true,
+  });
+  assert({
+    given: 'a Youth Round with an old permission to publish',
+    should: 'stay fenced until consent covers reuse',
+    actual: reuseFenced({
+      ...youth,
+      releases: [
+        active(a),
+        parentRelease({ subjectUserId: b, wordingVersion: '2026-11-v1' }),
+      ],
+    }),
+    expected: true,
   });
   assert({
     given: 'a withdrawn release, or only paid ads',
@@ -719,7 +759,7 @@ test('publishing a Youth Round', () => {
         [a],
         [
           parentRelease({
-            subjectUserId: a,
+            ...active(a),
             withdrawnAt: iso(t0),
             withdrawnBy: 'parent',
           }),
@@ -727,40 +767,16 @@ test('publishing a Youth Round', () => {
       ),
       everyDebaterReleased(
         [a],
-        [parentRelease({ subjectUserId: a, scope: 'paid_ads' })],
+        [parentRelease({ ...active(a), scope: 'paid_ads' })],
       ),
     ],
     expected: [false, false],
   });
   assert({
-    given: 'no youth debater',
-    should: 'never be publishable',
-    actual: everyDebaterReleased([], []),
-    expected: false,
-  });
-  assert({
-    given: 'the flag closed',
-    should: 'refuse, keeping it private',
-    actual: decidePublish({ ...facts, open: false }),
-    expected: { ok: false, refusal: 'closed' },
-  });
-  assert({
-    given: 'someone who did not debate',
-    should: 'refuse',
-    actual: decidePublish({ ...facts, publisherUserId: 'z'.repeat(24) }),
-    expected: { ok: false, refusal: 'not_a_debater' },
-  });
-  assert({
-    given: 'a Recording taken down',
-    should: 'refuse',
-    actual: decidePublish({ ...facts, available: false }),
-    expected: { ok: false, refusal: 'not_available' },
-  });
-  assert({
-    given: 'one already public',
-    should: 'refuse',
-    actual: decidePublish({ ...facts, published: true }),
-    expected: { ok: false, refusal: 'already_public' },
+    given: 'a Youth Round with no youth debater left in its seats',
+    should: 'fail closed and stay fenced',
+    actual: reuseFenced({ youth: true, debaterUserIds: [], releases: [] }),
+    expected: true,
   });
 });
 
@@ -777,6 +793,34 @@ test('a parent’s withdrawal outlives a new request', () => {
       }),
     ],
     nowMs: t0 + 3 * DAY,
+  });
+  const renewal = releaseStandingOf({
+    subjectUserId: minor,
+    releases: [clubRelease({ wordingVersion: '2026-11-v1' })],
+    requests: [],
+    nowMs: t0,
+  });
+  assert({
+    given: 'an active club release signed for publishing only',
+    should: 'let a parent or the club provide fresh reuse consent',
+    actual: [
+      decideAsk(
+        {
+          youth: true,
+          standing: renewal,
+          recipientStopped: false,
+          asksToday: 0,
+        },
+        'parent@example.com',
+      ).ok,
+      clubConfirmVerdict({
+        userId: minor,
+        member: true,
+        youth: true,
+        standing: renewal,
+      }),
+    ],
+    expected: [true, 'eligible'],
   });
   assert({
     given: 'a parent withdrew, then the minor asked again',

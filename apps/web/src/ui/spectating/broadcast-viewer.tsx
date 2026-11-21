@@ -183,9 +183,12 @@ export function BroadcastViewer({
   initial,
   stateUrl,
   refreshHref,
+  streamable,
   children,
 }: {
   readonly initial: SpectatorTimeline;
+  /** Whether Stream this Round may offer its feed: false past the Youth reuse fence (ADR 0161). */
+  readonly streamable: boolean;
   /** Where the published state is read; null with no Broadcast. */
   readonly stateUrl: string | null;
   readonly refreshHref: string;
@@ -223,7 +226,7 @@ export function BroadcastViewer({
   useEffect(() => {
     if (switchToRecording) router.replace(replayHref(roundId));
   }, [switchToRecording, router, roundId]);
-  const feedUrl = streamableFeedOf(timeline);
+  const feedUrl = streamable ? streamableFeedOf(timeline) : null;
   return (
     <div className="mx-auto flex w-full max-w-dash-column flex-col gap-6 px-6 pt-5 pb-8 max-compact:gap-4 max-compact:px-4">
       <Link href={watchRoutes.hub} className="self-start text-sm font-strong">

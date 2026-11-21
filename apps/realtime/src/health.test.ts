@@ -62,10 +62,8 @@ describe('checkReadiness', () => {
     const resources: ReadinessResources = {
       ...healthyResources,
       redis: {
-        health: () =>
-          new Promise<boolean>((resolve) =>
-            setTimeout(() => resolve(true), 50),
-          ),
+        // Never answers: only the readiness bound can end the wait.
+        health: () => new Promise<boolean>(() => undefined),
       },
     };
 

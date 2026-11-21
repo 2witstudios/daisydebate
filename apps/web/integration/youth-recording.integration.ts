@@ -16,6 +16,7 @@ import {
 } from '../src/features/recording/audience';
 import { openDownload } from '../src/features/recording/download';
 import { readAudienceForViewer } from '../src/features/spectating/audience-snapshot';
+import { readAudienceSnapshot } from '../src/features/spectating/read-timeline';
 import { recordingPersistence } from '../src/features/recording/persistence';
 import { requestParticipantRemoval } from '../src/features/recording/removal';
 import { spectatorClockAt } from '../src/features/spectating/spectator-clock';
@@ -39,10 +40,11 @@ setupRitewayBun();
 requireTestServices(process.env);
 
 /**
- * PYL-5: a Youth Round's Recording is private to its debaters, its judges and
- * each youth debater's linked coach or parent, against the real database and
- * its row-level security. Signed out, a stranger, a lapsed coach and the
- * public Watch listings learn nothing of it.
+ * ADR 0161: a Youth Round is viewed by Open's rules, against the real database
+ * and its row-level security: a ranked one is public to anyone, live and in
+ * the archive. Its youth debaters' linked coaches and parents see through a
+ * private or unlisted Room, until their link lapses. Its Recording is reused
+ * (downloaded) only once every youth debater holds a release.
  */
 type Database = Parameters<typeof recordingPersistence>[0]['database'];
 
@@ -66,7 +68,7 @@ const recordingRoundOf = async (
       .map((seat) => seat.actorId),
     // As the web composes it: the Round's own youth fact decides (ADR 0157).
     youth: round.youthRound
-      ? { ...(await database.readYouthRoundPeople(roundId)), public: false }
+      ? await database.readYouthRoundPeople(roundId)
       : null,
   };
 };
@@ -97,7 +99,7 @@ const people = async (f: Fixture) => {
   return { coach, parent, owner, stranger };
 };
 
-test('a Youth Round’s Recording is private to its debaters, judges and linked adults', async () => {
+test('a ranked Youth Round is public as an Open one is, and its linked adults see through private', async () => {
   await withRoomRuntime(async (f) =>
     withYouthSeason(f, () =>
       withLinks(f, async (made) => {
@@ -123,18 +125,19 @@ test('a Youth Round’s Recording is private to its debaters, judges and linked 
         const [division] =
           await f.sql`select ladder_division from rounds where id=${roundId}`;
         const round = await recordingRoundOf(database, roundId);
+        // Read past the ranked delay, as the audience reads it.
+        const later = Date.now() + 600_000;
         const release = await database.readRecordingBroadcastRelease(
           roundId,
-          spectatorClockAt(new Date().toISOString()),
+          spectatorClockAt(new Date(later).toISOString()),
         );
-        const sees = (viewer: RecordingViewer) =>
-          roundEvidencePermissions(round, release, viewer, null, Date.now())
-            .media;
+        const sees = (viewer: RecordingViewer, input: RecordingRound = round) =>
+          roundEvidencePermissions(input, release, viewer, null, later).media;
         assert({
           given:
             'a ranked Youth Round with a school coach and a parent linked to its debaters',
           should:
-            'show it to the debater, judge, coach and parent, and to nobody else, and never open a Broadcast',
+            'show it to everyone, signed out included, and discover its Broadcast',
           actual: {
             division: division!.ladder_division,
             broadcastDiscovered: unopened.some(
@@ -150,22 +153,37 @@ test('a Youth Round’s Recording is private to its debaters, judges and linked 
           },
           expected: {
             division: 'youth',
-            broadcastDiscovered: false,
+            broadcastDiscovered: true,
             debater: true,
             judge: true,
             coach: true,
             parent: true,
             schoolOwner: true,
-            stranger: false,
-            signedOut: false,
+            stranger: true,
+            signedOut: true,
           },
+        });
+        // The same people read on a private Room's Round: the bypass alone admits.
+        const hidden = { ...round, visibility: 'private' as const };
+        assert({
+          given: 'the same Round read as private',
+          should:
+            'show it to its seats and linked adults, and to no stranger or visitor',
+          actual: [f.host, coach, parent, owner, stranger]
+            .map((member) => sees(viewerOf(member), hidden))
+            .concat(sees({ kind: 'visitor' }, hidden)),
+          expected: [true, true, true, true, false, false],
         });
 
         await f.sql`update grants set revoked_at=now(), revoked_by_user_id=${owner.userId} where id=${school.grantId}`;
         await f.sql`update guardian_links set status='ended', ended_at=now() where guardian_user_id=${parent.userId}`;
-        const lapsed = await recordingRoundOf(database, roundId);
+        const lapsed = {
+          ...(await recordingRoundOf(database, roundId)),
+          visibility: 'private' as const,
+        };
         assert({
-          given: 'the coach’s grant revoked and the parent’s link ended',
+          given:
+            'the coach’s grant revoked and the parent’s link ended, on a private Round',
           should: 'admit neither any more',
           actual: [coach, parent].map(
             (adult) =>
@@ -195,20 +213,19 @@ test('a Youth Round’s Recording is private to its debaters, judges and linked 
               viewerActorId,
               clock,
               limit: 100,
-              youthPublishing: false,
             })
             .then((page) => page.rows.some((row) => row.id === roundId));
         assert({
           given: 'the public archive and the debater’s own list',
-          should: 'leave it out of the public archive and keep it in their own',
+          should: 'list it in both, as an Open ranked Round',
           actual: {
             publicArchive: await archive('all', stranger.actorId),
             ownList: await archive('mine', f.host.actorId),
           },
-          expected: { publicArchive: false, ownList: true },
+          expected: { publicArchive: true, ownList: true },
         });
 
-        // A follower of a youth debater is never told of the Recording; its seats are.
+        // A follower of a youth debater is told of the Recording, as of any public one.
         const [host] =
           await f.sql`select username from users where id=${f.host.userId}`;
         await f.store.setDebaterFollow({
@@ -234,12 +251,12 @@ test('a Youth Round’s Recording is private to its debaters, judges and linked 
         assert({
           given:
             'a stranger following a youth debater whose Recording is ready',
-          should: 'tell the debater and not the follower',
+          should: 'tell the debater and the follower',
           actual: {
             debater: await told(f.host),
             follower: await told(stranger),
           },
-          expected: { debater: true, follower: false },
+          expected: { debater: true, follower: true },
         });
         await f.sql`delete from notifications where round_id=${roundId}`;
         await f.sql`delete from notification_fanouts where round_id=${roundId}`;
@@ -315,7 +332,6 @@ type BroadcastDiscovery = {
     readonly discoverUnopened: (
       limit: number,
     ) => Promise<readonly { readonly roundId: string }[]>;
-    readonly endYouthBroadcasts: (now: Date) => Promise<readonly string[]>;
   };
 };
 
@@ -389,7 +405,7 @@ const readyCasualRecording = (
     values (${id},${roundId},'casual',${{ kind: 'host_opt_in', hostActorId }},'ready',${lifecycle})`;
 };
 
-test('a casual Round of a Youth Room holds every Youth fence; an Open casual Round does not (ADR 0157)', async () => {
+test('a public casual Round of a Youth Room is read exactly as an Open one, but its reuse and takedown (ADR 0161)', async () => {
   await withRoomRuntime(async (f) =>
     withLinks(f, async (made) => {
       const database = f.store as never as Database & BroadcastDiscovery;
@@ -407,7 +423,7 @@ test('a casual Round of a Youth Room holds every Youth fence; an Open casual Rou
 
       const youth = await endedCasualRound(f, youthCast, judge);
       const open = await endedCasualRound(f, openCast, openJudge);
-      // A Broadcast each opened before this rule shipped, released past its start.
+      // A Broadcast each opened, released past its start.
       for (const { roundId } of [youth, open])
         await f.sql`insert into broadcasts (id, round_id, feed_key, release_policy, released_through_at)
           values (${createId()}, ${roundId}, ${createId()}, ${{ kind: 'delay', seconds: 60 }}, now() + interval '1 hour')`;
@@ -447,9 +463,7 @@ test('a casual Round of a Youth Room holds every Youth fence; an Open casual Rou
           where user_id=${stranger.userId} and kind='followed_debater_live'`
       ).map((row: { round_id: string }) => row.round_id);
       await f.sql`delete from notifications where user_id=${stranger.userId}`;
-      await f.sql`delete from notification_fanouts where round_id in (${youth.roundId}, ${open.roundId})`;
-      await f.sql`delete from debater_follows where follower_user_id=${stranger.userId}`;
-      // The spectator audience (chat, reactions, snapshot) has no Youth Round.
+      // The spectator audience (chat, reactions, snapshot) reads both alike.
       const audience = async (roundId: string) =>
         (await readAudienceForViewer(
           { store: f.store as never },
@@ -457,24 +471,38 @@ test('a casual Round of a Youth Room holds every Youth fence; an Open casual Rou
         )) === null
           ? 'none'
           : 'read';
-      const audienceReads = {
-        youth: await audience(youth.roundId),
-        open: await audience(open.roundId),
-      };
       assert({
         given: 'a stranger reading the spectator audience of each Round',
-        should: 'find none for the Youth one and read the Open one',
-        actual: audienceReads,
-        expected: { youth: 'none', open: 'read' },
+        should: 'read both, as Open rules say for a public Room',
+        actual: {
+          youth: await audience(youth.roundId),
+          open: await audience(open.roundId),
+        },
+        expected: { youth: 'read', open: 'read' },
       });
-      const stopped = await database.broadcasts.endYouthBroadcasts(new Date());
-      const [youthBroadcast] =
-        await f.sql`select id from broadcasts where round_id=${youth.roundId}`;
+      // Watch offers Stream this Round only past the reuse fence (ADR 0161).
+      const streamable = async (roundId: string) =>
+        (
+          await readAudienceSnapshot(f.store as never, {
+            roundId,
+            now: new Date(Date.now() + 600_000).toISOString(),
+            feedUrlOf: () => 'https://feed.test/master.m3u8',
+          })
+        )?.streamable;
+      assert({
+        given: 'the Watch snapshot of each public casual Round',
+        should: 'offer the Open one to streamers and fence the Youth one',
+        actual: {
+          youth: await streamable(youth.roundId),
+          open: await streamable(open.roundId),
+        },
+        expected: { youth: false, open: true },
+      });
       assert({
         given:
-          'a casual Round in a Youth Room and one in an Open Room, both opted into a Broadcast',
+          'a public casual Round in a Youth Room and one in an Open Room, both opted into a Broadcast',
         should:
-          'open no Broadcast for the Youth one, offer no Watch link, tell no follower it is live, and stop one it already had; the Open one keeps the rest',
+          'discover both Broadcasts, offer both Watch links and tell a follower each is live',
         actual: {
           divisions: [youth.division, open.division],
           discovered: [youth.discovered, open.discovered],
@@ -483,14 +511,12 @@ test('a casual Round of a Youth Room holds every Youth fence; an Open casual Rou
             toldLive.includes(youth.roundId),
             toldLive.includes(open.roundId),
           ],
-          stopped,
         },
         expected: {
           divisions: ['youth', 'open'],
-          discovered: [false, true],
-          watchLink: [null, open.roundId],
-          followerToldLive: [false, true],
-          stopped: [youthBroadcast!.id],
+          discovered: [true, true],
+          watchLink: [youth.roundId, open.roundId],
+          followerToldLive: [true, true],
         },
       });
 
@@ -502,35 +528,16 @@ test('a casual Round of a Youth Room holds every Youth fence; an Open casual Rou
       await readyCasualRecording(f, youth.roundId, f.host.actorId);
       await readyCasualRecording(f, open.roundId, openCast.host.actorId);
 
-      // The stopped Broadcast finishes, its video withheld: its seats are still
-      // told the Recording is ready. A stranger who watched either Round keeps
-      // only the Open one in their history.
-      await f.sql`update broadcasts set completed_at=now() where round_id=${youth.roundId}`;
+      await f.sql`update broadcasts set final_media_end_at=now()-interval '3 minutes',stream_ended_at=now(),completed_at=now() where round_id in (${youth.roundId}, ${open.roundId})`;
       await f.store.sweepNotificationFanouts({
         clock: spectatorClockAt(new Date(Date.now() + 600_000).toISOString()),
         limit: 50,
         nextId: createId,
       });
-      const [readyTold] =
-        await f.sql`select count(*)::int as n from notifications
-        where user_id=${f.host.userId} and round_id=${youth.roundId} and kind='recording_ready'`;
-      // What a visit and a follower's notice before the deploy left behind.
-      await f.sql`insert into watch_history (user_id, round_id, watched_at)
-        values (${stranger.userId}, ${youth.roundId}, now() - interval '1 day')`;
-      for (const { roundId } of [youth, open])
-        await f.sql`insert into notifications (id, user_id, kind, round_id)
-          values (${createId()}, ${stranger.userId}, 'recording_ready', ${roundId})`;
-      const standing = (
-        await f.store.readNotifications({
-          after: null,
-          userId: stranger.userId,
-          unreadOnly: false,
-          limit: 50,
-          now: new Date().toISOString(),
-        })
-      ).rows
-        .filter((row) => row.kind === 'recording_ready')
-        .map((row) => row.roundId);
+      const readyTold = (
+        await f.sql`select round_id from notifications
+          where user_id=${stranger.userId} and kind='recording_ready'`
+      ).map((row: { round_id: string }) => row.round_id);
       await f.sql`delete from notifications where user_id=${stranger.userId}`;
       for (const { roundId } of [youth, open])
         await f.store.recordWatched({
@@ -546,91 +553,99 @@ test('a casual Round of a Youth Room holds every Youth fence; an Open casual Rou
         })
       ).map((row) => row.roundId);
       await f.sql`delete from watch_history where user_id=${stranger.userId}`;
+      await f.sql`delete from debater_follows where follower_user_id=${stranger.userId}`;
       assert({
         given:
-          'the Youth Round’s withheld Broadcast completed, and a stranger recording a visit to each Round',
+          'both Recordings ready, a follower of each host debater, and a stranger’s visit to each',
         should:
-          'tell its seated debater the Recording is ready, let a follower’s earlier notice lapse, and keep only the Open Round in the stranger’s watch history, even a visit made before the deploy',
+          'tell the follower of both Recordings and keep both in the stranger’s watch history',
         actual: {
-          seatTold: readyTold!.n,
-          followerNoticeStands: [youth.roundId, open.roundId].map((id) =>
-            standing.includes(id),
+          followerTold: [youth.roundId, open.roundId].map((id) =>
+            readyTold.includes(id),
           ),
           watched: [youth.roundId, open.roundId].map((id) =>
             watched.includes(id),
           ),
         },
-        expected: {
-          seatTold: 1,
-          followerNoticeStands: [false, true],
-          watched: [false, true],
-        },
+        expected: { followerTold: [true, true], watched: [true, true] },
       });
 
-      const youthRound = await recordingRoundOf(database, youth.roundId);
-      const openRound = await recordingRoundOf(database, open.roundId);
       const release = (roundId: string) =>
         database.readRecordingBroadcastRelease(
           roundId,
           spectatorClockAt(new Date(Date.now() + 600_000).toISOString()),
         );
-      const youthRelease = await release(youth.roundId);
-      const openRelease = await release(open.roundId);
-      const sees = (round: RecordingRound, viewer: RecordingViewer) =>
-        roundEvidencePermissions(
-          round,
-          round === youthRound ? youthRelease : openRelease,
-          viewer,
-          null,
-          Date.now() + 600_000,
-        ).open;
+      const sees = async (roundId: string, viewer: RecordingViewer) => {
+        const round = await recordingRoundOf(database, roundId);
+        const permissions = (input: RecordingRound) =>
+          roundEvidencePermissions(
+            input,
+            releases[roundId]!,
+            viewer,
+            null,
+            Date.now() + 600_000,
+          ).open;
+        return {
+          asIs: permissions(round),
+          private: permissions({ ...round, visibility: 'private' }),
+        };
+      };
+      const releases: Record<string, Awaited<ReturnType<typeof release>>> = {
+        [youth.roundId]: await release(youth.roundId),
+        [open.roundId]: await release(open.roundId),
+      };
       assert({
         given:
-          'the ended casual Youth-Room Round, with a coach and a parent linked',
+          'the ended casual Rounds, public as played and read again as private, with a coach and a parent linked to the youth debaters',
         should:
-          'open it to its debaters, judge, coach and parent only; the Open one to anyone',
+          'open both to anyone while public; when private, the Youth one to its debater, coach and parent only, the Open one to its seats only',
         actual: {
           youth: {
-            debater: sees(youthRound, viewerOf(f.host)),
-            judge: sees(youthRound, viewerOf(judge)),
-            coach: sees(youthRound, viewerOf(coach)),
-            parent: sees(youthRound, viewerOf(parent)),
-            stranger: sees(youthRound, viewerOf(stranger)),
-            signedOut: sees(youthRound, { kind: 'visitor' }),
+            debater: await sees(youth.roundId, viewerOf(f.host)),
+            coach: await sees(youth.roundId, viewerOf(coach)),
+            parent: await sees(youth.roundId, viewerOf(parent)),
+            stranger: await sees(youth.roundId, viewerOf(stranger)),
+            signedOut: await sees(youth.roundId, { kind: 'visitor' }),
           },
           open: {
-            stranger: sees(openRound, viewerOf(stranger)),
-            signedOut: sees(openRound, { kind: 'visitor' }),
+            debater: await sees(open.roundId, viewerOf(openCast.host)),
+            coach: await sees(open.roundId, viewerOf(coach)),
+            stranger: await sees(open.roundId, viewerOf(stranger)),
           },
         },
         expected: {
           youth: {
-            debater: true,
-            judge: true,
-            coach: true,
-            parent: true,
-            stranger: false,
-            signedOut: false,
+            debater: { asIs: true, private: true },
+            coach: { asIs: true, private: true },
+            parent: { asIs: true, private: true },
+            stranger: { asIs: true, private: false },
+            signedOut: { asIs: true, private: false },
           },
-          open: { stranger: true, signedOut: true },
+          open: {
+            debater: { asIs: true, private: true },
+            coach: { asIs: true, private: false },
+            stranger: { asIs: true, private: false },
+          },
         },
       });
 
       const clock = spectatorClockAt(
         new Date(Date.now() + 600_000).toISOString(),
       );
-      const archive = (scope: 'all' | 'mine', viewerActorId: string | null) =>
-        database
-          .listRecordingArchive({
-            query: { scope, mode: 'any', q: '', sort: 'newest', before: '' },
-            viewerActorId,
-            clock,
-            limit: 100,
-            youthPublishing: false,
-          })
-          .then((page) => page.rows);
-      const publicRows = await archive('all', stranger.actorId);
-      const ownRows = await archive('mine', f.host.actorId);
+      const publicRows = await database
+        .listRecordingArchive({
+          query: {
+            scope: 'all',
+            mode: 'any',
+            q: '',
+            sort: 'newest',
+            before: '',
+          },
+          viewerActorId: stranger.actorId,
+          clock,
+          limit: 100,
+        })
+        .then((page) => page.rows);
       const timeline = async (roundId: string) =>
         (await f.store.readSpectatorTimeline({
           roundId,
@@ -639,24 +654,20 @@ test('a casual Round of a Youth Room holds every Youth fence; an Open casual Rou
           ? 'missing'
           : 'served';
       assert({
-        given:
-          'the public archive, the debater’s own list and the spectator timeline',
-        should:
-          'keep the Youth one out of the archive and the timeline but in its debater’s list, marked Youth; the Open one in both',
+        given: 'the public archive and the spectator timeline',
+        should: 'list and serve both Rounds alike',
         actual: {
           publicArchive: [youth.roundId, open.roundId].map((id) =>
             publicRows.some((row) => row.id === id),
           ),
-          ownList: ownRows.find((row) => row.id === youth.roundId)?.youthRound,
           timeline: [
             await timeline(youth.roundId),
             await timeline(open.roundId),
           ],
         },
         expected: {
-          publicArchive: [false, true],
-          ownList: true,
-          timeline: ['missing', 'served'],
+          publicArchive: [true, true],
+          timeline: ['served', 'served'],
         },
       });
 
@@ -672,6 +683,10 @@ test('a casual Round of a Youth Room holds every Youth fence; an Open casual Rou
               readRound: (id) => recordingRoundOf(database, id),
               readBroadcastRelease: release,
               holdsRecordingDownload: async () => true,
+              // As the web composes it: the SQL fence, one statement.
+              readReuseFenced: async (round) =>
+                round.youth !== null &&
+                (await database.readRoundReuseFenced(round.id)),
             },
           },
           {
@@ -684,105 +699,22 @@ test('a casual Round of a Youth Room holds every Youth fence; an Open casual Rou
           () => 'link',
           () => 'refused',
         );
+      const unreleased = [
+        await downloads(youth.roundId, stranger),
+        await downloads(open.roundId, stranger),
+      ];
+      for (const minor of [f.host, f.guest])
+        await f.sql`insert into media_releases (id,user_id,scope,source,signer_name,signer_relation,signer_email,wording_version,signed_at)
+          values (${createId()},${minor.userId},'publish','parent','A Parent','parent','parent@example.test','2026-11-v2',now())`;
+      const released = await downloads(youth.roundId, stranger);
+      await f.sql`delete from media_releases where user_id in (${f.host.userId}, ${f.guest.userId})`;
       assert({
-        given: 'a subscribed debater asking to download each Recording',
-        should: 'refuse the Youth one and hand out the Open one',
-        actual: [
-          await downloads(youth.roundId, f.host),
-          await downloads(open.roundId, openCast.host),
-        ],
-        expected: ['refused', 'link'],
-      });
-
-      const publish = (roundId: string, member: Member) =>
-        database.youthRoundPublications.publishYouthRound({
-          roundId,
-          userId: member.userId,
-          open: true,
-        });
-      const refusal = (answer: Awaited<ReturnType<typeof publish>>) =>
-        answer.kind === 'refused' ? answer.reason : answer.kind;
-      const youthPublish = refusal(await publish(youth.roundId, f.host));
-      const openPublish = refusal(await publish(open.roundId, openCast.host));
-      assert({
-        given: 'a debater sharing each Round publicly with no media release',
+        given:
+          'a subscribed stranger downloading each Recording, then the Youth one once both youth debaters hold a release',
         should:
-          'hold the Youth one to its releases, and find no Youth Round in the Open one',
-        actual: [youthPublish, openPublish],
-        expected: ['releases_missing', 'not_found'],
-      });
-
-      // The same Round had its host kept the Recording for its officials only.
-      await f.sql`update rounds set capture=jsonb_set(capture,'{recordingPolicy}','"officials"') where id=${youth.roundId}`;
-      const officialsOnly = refusal(await publish(youth.roundId, f.host));
-      await f.sql`update rounds set capture=jsonb_set(capture,'{recordingPolicy}','"released"') where id=${youth.roundId}`;
-      assert({
-        given: 'a casual Youth Round whose Recording is kept for its officials',
-        should: 'never be shared publicly, whatever releases it holds',
-        actual: officialsOnly,
-        expected: 'not_available',
-      });
-
-      // Shared by a debater, with publishing open: listed publicly although the
-      // Broadcast it opened before the rule was withheld (ADR 0157).
-      await f.sql`insert into youth_round_publications (round_id, published_by_user_id, published_at)
-        values (${youth.roundId}, ${f.host.userId}, now())`;
-      const sharedRows = await database
-        .listRecordingArchive({
-          query: {
-            scope: 'all',
-            mode: 'any',
-            q: '',
-            sort: 'newest',
-            before: '',
-          },
-          viewerActorId: stranger.actorId,
-          clock,
-          limit: 100,
-          youthPublishing: true,
-        })
-        .then((page) => page.rows);
-      // The archive card and the Recording's own page agree on the stop.
-      const sharedStop = {
-        card: sharedRows.find((row) => row.id === youth.roundId)?.release.stop,
-        page: (await release(youth.roundId)).stop,
-      };
-      // Had an operator stopped that Broadcast instead, its video stays withheld.
-      await f.sql`update broadcasts set stop_reason='policy_violation', media_withheld=true where round_id=${youth.roundId}`;
-      const operatorRows = await database
-        .listRecordingArchive({
-          query: {
-            scope: 'all',
-            mode: 'any',
-            q: '',
-            sort: 'newest',
-            before: '',
-          },
-          viewerActorId: stranger.actorId,
-          clock,
-          limit: 100,
-          youthPublishing: true,
-        })
-        .then((page) => page.rows.map((row) => row.id));
-      await f.sql`update broadcasts set stop_reason='youth_round_private', media_withheld=false where round_id=${youth.roundId}`;
-      assert({
-        given: 'the same shared Round, had an operator withheld its Broadcast',
-        should: 'keep it out of the public archive',
-        actual: operatorRows.includes(youth.roundId),
-        expected: false,
-      });
-      await f.sql`delete from youth_round_publications where round_id=${youth.roundId}`;
-      assert({
-        given: 'the casual Youth Round shared, its pre-rule Broadcast withheld',
-        should: 'list it in the public archive while publishing is open',
-        actual: {
-          listed: sharedRows.some((row) => row.id === youth.roundId),
-          stop: sharedStop,
-        },
-        expected: {
-          listed: true,
-          stop: { card: 'feed_ended', page: 'feed_ended' },
-        },
+          'refuse the Youth one until every youth debater released it, and hand out the Open one',
+        actual: { unreleased, released },
+        expected: { unreleased: ['refused', 'link'], released: 'link' },
       });
 
       const takeDown = async (member: Member, roundId: string) => {

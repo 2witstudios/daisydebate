@@ -514,3 +514,72 @@ describe('a switch over a union names every member', () => {
     });
   });
 });
+
+describe('unit tests run on virtual time (ADR 0164)', () => {
+  const sleeps = async (code: string, filePath: string) => {
+    const [result] = await repositoryEslint().lintText(code, { filePath });
+    return result!.messages.filter(
+      ({ ruleId }) => ruleId === 'test-time/no-real-sleep',
+    ).length;
+  };
+  const timed = [
+    "import { setTimeout as timerSleep } from 'node:timers/promises';",
+    "import * as timers from 'node:timers';",
+    'await Bun.sleep(300);',
+    'await globalThis.Bun.sleep(300);',
+    "await Bun['sleep'](300);",
+    'Bun.sleepSync(5);',
+    'await new Promise((done) => setTimeout(done, 20));',
+    'const wait = (ms: number) => new Promise((done) => setTimeout(done, ms));',
+    'globalThis.setTimeout(() => undefined);',
+    'const beat = setInterval(() => undefined, 10);',
+    'await timerSleep(20);',
+    'timers.setTimeout(() => undefined, 20);',
+  ].join('\n');
+  const yields = [
+    "import { setTimeout as timerSleep } from 'node:timers/promises';",
+    'await Bun.sleep(0);',
+    'await new Promise((done) => setTimeout(done, 0));',
+    'await new Promise((done) => setImmediate(done));',
+    'await timerSleep(0);',
+  ].join('\n');
+  test('a timed wait in a unit test or its support is an error; a zero delay is not', async () => {
+    assert({
+      given:
+        'ten timed waits and four zero-delay yields, in unit tests, test support, an integration suite and production code',
+      should:
+        'report each timed wait in unit test code only, and no yield anywhere',
+      actual: {
+        unit: await sleeps(timed, web('features/clock-probe.test.ts')),
+        tsx: await sleeps(timed, web('ui/clock-probe.test.tsx')),
+        support: await sleeps(
+          timed,
+          'packages/media/src/probe.test-support.ts',
+        ),
+        script: await sleeps(timed, 'scripts/clock-probe.test.ts'),
+        yields: await sleeps(yields, web('features/clock-probe.test.ts')),
+        integration: await sleeps(
+          timed,
+          'apps/web/integration/clock-probe.integration.ts',
+        ),
+        integrationSupport: await sleeps(
+          timed,
+          'packages/db/integration/probe.test-support.ts',
+        ),
+        e2e: await sleeps(timed, 'apps/web/e2e/clock-probe.e2e.ts'),
+        production: await sleeps(timed, 'packages/media/src/clock-probe.ts'),
+      },
+      expected: {
+        unit: 10,
+        tsx: 10,
+        support: 10,
+        script: 10,
+        yields: 0,
+        integration: 0,
+        integrationSupport: 0,
+        e2e: 0,
+        production: 0,
+      },
+    });
+  });
+});

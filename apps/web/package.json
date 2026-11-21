@@ -61,6 +61,7 @@
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",
     "@better-auth/memory-adapter": "1.7.7",
+    "@daisy/seeded-random": "workspace:*",
     "@livekit/rtc-node": "1.2.0",
     "@playwright/test": "1.63.0",
     "@simplewebauthn/server": "13.3.2",

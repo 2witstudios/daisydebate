@@ -32,7 +32,7 @@ const router = {
   replace: noop,
   prefetch: noop,
 };
-const render = (over: Partial<SpectatorTimeline>) =>
+const render = (over: Partial<SpectatorTimeline>, streamable = true) =>
   renderToString(
     h(
       AppRouterContext,
@@ -41,6 +41,7 @@ const render = (over: Partial<SpectatorTimeline>) =>
         initial: timeline(over),
         stateUrl: 'https://feed.daisy.invalid/state/k.json',
         refreshHref: '/watch/r',
+        streamable,
       }),
     ),
   );
@@ -56,6 +57,7 @@ describe('BroadcastViewer', () => {
           initial: timeline({ stage: { kind: 'upcoming' } }),
           stateUrl: null,
           refreshHref: '/watch/r',
+          streamable: true,
         }),
       ),
     );
@@ -89,6 +91,22 @@ describe('BroadcastViewer', () => {
         shown({ broadcast: { state: 'stopped' } }),
       ],
       expected: [true, true, false],
+    });
+    assert({
+      given:
+        'a Youth Round on air whose youth debaters have not all released it (ADR 0161)',
+      should: 'still play it, but offer no Stream this Round',
+      actual: {
+        shown: render(
+          { broadcast: { state: 'on_air', stream } },
+          false,
+        ).includes('Stream this Round'),
+        playing: render(
+          { broadcast: { state: 'on_air', stream } },
+          false,
+        ).includes('<video'),
+      },
+      expected: { shown: false, playing: true },
     });
   });
 

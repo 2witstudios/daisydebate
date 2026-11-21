@@ -2,8 +2,7 @@ import type { ReactNode } from 'react';
 
 /**
  * Wording counsel has not approved yet (PYL-8): shown as the board drafts
- * it, behind the youth-publishing flag, which stays closed in production
- * until counsel answers.
+ * it, marked so, until counsel answers.
  */
 export function Counsel({ children }: { readonly children: ReactNode }) {
   return (
@@ -48,12 +47,12 @@ export function ReleaseTerms({ minor }: { readonly minor: string }) {
       <TermList
         items={[
           {
-            title: `Daisy may publish ${who}’s ranked Youth Rounds`,
-            body: 'Video, voice, username and result, on daisydebate.com, once every Youth debater in that Round has a release.',
+            title: `Daisy and others may clip, download and reuse ${who}’s Rounds`,
+            body: `Their Rounds can already be watched on Daisy under each Room’s settings, and ranked Rounds are public. This release lets their video, voice, username and result be reused beyond watching, once every Youth debater in that Round has a release.`,
           },
           {
             title: 'Daisy may make and share clips',
-            body: `On Daisy and on Daisy’s social media accounts. Clips never show ${who}’s full name, school or location unless they show them on camera.`,
+            body: `On Daisy, on Daisy’s social media accounts and in streams of the Round. Clips never show ${who}’s full name, school or location unless they show them on camera.`,
           },
           {
             title: `You or ${who} can ask for anything to come down`,
@@ -68,7 +67,7 @@ export function ReleaseTerms({ minor }: { readonly minor: string }) {
             title: `When ${who} turns 18`,
             body: (
               <Counsel>
-                whether earlier content stays published or needs their own
+                whether earlier content may still be reused or needs their own
                 consent
               </Counsel>
             ),
@@ -89,10 +88,12 @@ export function ReleaseTerms({ minor }: { readonly minor: string }) {
         </summary>
         <div className="mt-3 flex flex-col gap-3 text-sm text-ink">
           <p>
-            You, as {who}’s parent or legal guardian, allow Daisy Debate to
-            record, publish and share {who}’s ranked Youth Rounds on Daisy
-            Debate, including their video, voice, username and result, once
-            every Youth debater in a Round holds a release.
+            You, as {who}’s parent or legal guardian, allow Daisy Debate and
+            others to clip, download and reuse {who}’s Rounds on Daisy Debate,
+            including their video, voice, username and result, once every Youth
+            debater in a Round holds a release. Watching their Rounds on Daisy
+            Debate does not need this release: it follows each Room’s settings,
+            and ranked Rounds are public.
           </p>
           <p>
             You allow Daisy Debate to make clips of those Rounds and share them
@@ -105,7 +106,7 @@ export function ReleaseTerms({ minor }: { readonly minor: string }) {
             time, and Daisy Debate takes it down within{' '}
             <Counsel>takedown period</Counsel>. You may withdraw this release at
             any time from the link Daisy Debate emails you; withdrawing stops
-            anything new being published.
+            any new reuse.
           </p>
           <p>
             Using clips in paid advertising is a separate choice and is not
@@ -132,11 +133,11 @@ export function ReleaseUnchanged({ minor }: { readonly minor: string }) {
       <h2 className="font-display text-xl font-bold">What doesn’t change</h2>
       <ul className="flex list-disc flex-col gap-2 pl-5 text-ink-muted">
         <li>
-          {who} can still play ranked without a release; their Rounds just stay
-          private.
+          {who} can still play ranked without a release; nobody may clip,
+          download or reuse their Rounds.
         </li>
         <li>Daisy never sells {who}’s recordings or data.</li>
-        <li>Bot Rounds and practice are never published.</li>
+        <li>Bot Rounds and practice are never reused.</li>
       </ul>
     </section>
   );

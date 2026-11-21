@@ -160,12 +160,12 @@ a failure or an empty test selection.
 A retry-pass or a single green run is not this gate; all three outcomes are
 retained as artifacts.
 
-The manual Browser E2E job reserves 75 minutes for setup, all three complete
-passes and artifact retention (ISSUE-1429). Run 43728553417 measured full passes
-of 18 and 20 minutes, then reached test 458 of 573 in pass three without an
-assertion failure before its aggregate supervisor deadline. Individual test
-budgets, zero retries and complete inventory remain the qualification contract;
-the single-run push job keeps its 20-minute limit and native cohorts keep theirs.
+The manual Browser E2E job reserves 120 minutes for setup, all three complete
+passes and artifact retention (ISSUE-1501). Run 44834624902 completed its first
+two passes with 601 tests each in 29.0 and 36.9 minutes. It reached the third
+pass before the aggregate deadline interrupted it. The qualification contract
+requires the full inventory with zero retries and the configured per-test
+deadlines. The single-run push and PR jobs have a 25-minute limit.
 
 ### Multi-instance load and outage proof (AUTH-6.7)
 
@@ -256,11 +256,19 @@ report in CI's advisory job) is the live audit:
   loop's `/simplify` pass by extracting the shared function, component or data
   table into the owning module. Never raise `minTokens`, add an ignore, or
   re-baseline to quiet it (ADR 0026, ADR 0083).
+- **Generated inputs.** A property over generated inputs uses fast-check
+  through `@daisy/seeded-random/testing` (ADR 0164): `seededCheck` for an
+  arbitrary, `seededDraws` for an input built from draws, `seededWalk` for a
+  walk over the moves each state allows. Each run has a fixed seed and
+  reports its shrunk failure. The round engine's oracle,
+  `scripts/round-oracle.test.ts`, walks the public runtime in every format.
 - **Size and complexity.** `bun metrics` reports each file's size, churn and
   complexity. They are not lint rules: `bun lint` prints errors only, so a
   line of its output is always something to fix.
 - Tests are deterministic: inject clocks/IDs; never sleep-and-hope; no
-  cross-test shared state; use deterministic unit IDs and CSPRNG isolation IDs
+  cross-test shared state; a unit test drives timed code on `virtualClock`
+  from `@daisy/clock/testing`, and `test-time/no-real-sleep` fails a timed
+  `Bun.sleep`, `setTimeout` or `setInterval` in one (ADR 0164); use deterministic unit IDs and CSPRNG isolation IDs
   only in real-service integration tests; clean only records you created.
   The runner enforces it: `scripts/test-integration.ts` counts every table
   in the run's database before and after a workspace's run and fails the

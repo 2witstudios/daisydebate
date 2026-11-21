@@ -66,9 +66,9 @@ const mount = async () => {
       TextDecoder,
       performance,
       crypto,
-      // A poll waits seconds; everything React schedules runs at once.
+      // A poll waits seconds; everything React schedules runs on the next turn.
       setTimeout: (run: () => void, ms = 0) => {
-        if (ms < 1000) return setTimeout(run, ms);
+        if (ms < 1000) return setTimeout(run, 0);
         const handle = {};
         polls.set(handle, run);
         return handle;
@@ -103,7 +103,12 @@ const mount = async () => {
           { value: router },
           client.createElement(
             client.BroadcastViewer,
-            { initial: timeline, stateUrl, refreshHref: '/watch/r' },
+            {
+              initial: timeline,
+              stateUrl,
+              refreshHref: '/watch/r',
+              streamable: true,
+            },
             client.createElement('input', { id: 'beside' }),
           ),
         ),

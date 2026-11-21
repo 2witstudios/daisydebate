@@ -2,8 +2,9 @@
 
 import Link from 'next/link';
 import {
-  CONTENT_WAIVER_VERSION,
+  contentWaiverAt,
   contentWaiverDocument,
+  youthContentWaiverDocument,
 } from '../../../features/legal/agreements';
 import { contentWaiverFields } from '../../../features/agreements/submit-content-waiver';
 import type { RoomFormState } from '../../../features/rooms/command-answer';
@@ -16,13 +17,23 @@ import { RoomAnswerForm } from './assembly-command-form';
  * native form with a required box: it works before hydration, and the server
  * refuses a post without the tick. The waiver stays on screen whatever the
  * answer: when one is lost the member signs again, which is the same
- * signature.
+ * signature. A member under 18 signs the Youth waiver, which grants no
+ * licence (ADR 0161); the server names which.
  */
 export function ContentWaiverForm({
   action,
+  version,
 }: {
   readonly action: FormAction<RoomFormState>;
+  /** The waiver this viewer's lobby signs, as the Room read named it. */
+  readonly version: string | null;
 }) {
+  const waiver =
+    (version === null ? null : contentWaiverAt(version)) ??
+    contentWaiverDocument;
+  const youth = waiver === youthContentWaiverDocument;
+  const page = youth ? '/youth-content-waiver' : '/content-waiver';
+  const name = youth ? 'Youth ranked content waiver' : 'ranked content waiver';
   return (
     <RoomAnswerForm
       action={action}
@@ -34,18 +45,18 @@ export function ContentWaiverForm({
         className="flex flex-col gap-3 rounded-xl border border-border bg-surface px-4 py-3"
       >
         <h2 id="content-waiver-title" className="text-md font-semibold">
-          Sign the ranked content waiver
+          Sign the {name}
         </h2>
-        <p className="text-sm text-ink-muted">{contentWaiverDocument.lede}</p>
+        <p className="text-sm text-ink-muted">{waiver.lede}</p>
         <p className="text-sm text-ink-muted">
           You sign once per season, separately from the terms. If you’d rather
           not, play casual.
         </p>
         <details className="text-sm text-ink-muted">
           <summary className="cursor-pointer font-semibold text-ink">
-            Read the waiver, version {CONTENT_WAIVER_VERSION}
+            Read the waiver, version {waiver.version}
           </summary>
-          {contentWaiverDocument.sections.map((section) => (
+          {waiver.sections.map((section) => (
             <div key={section.id} className="mt-3 flex flex-col gap-1">
               <h3 className="font-semibold text-ink">{section.heading}</h3>
               {section.paragraphs.map((paragraph) => (
@@ -54,14 +65,14 @@ export function ContentWaiverForm({
             </div>
           ))}
           <p className="mt-3">
-            Also at <Link href="/content-waiver">the waiver page</Link> and the{' '}
+            Also at <Link href={page}>the waiver page</Link> and the{' '}
             <Link href="/content-policy">ranked content policy</Link>.
           </p>
         </details>
-        <input type="hidden" name="version" value={CONTENT_WAIVER_VERSION} />
+        <input type="hidden" name="version" value={waiver.version} />
         <label className="flex items-start gap-2 text-sm text-ink">
           <input type="checkbox" name="accepted" value="yes" required />
-          <span>I agree to the ranked content waiver for this season.</span>
+          <span>I agree to the {name} for this season.</span>
         </label>
         <button type="submit" className={buttonClass('primary')}>
           Sign waiver

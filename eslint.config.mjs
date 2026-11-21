@@ -395,6 +395,100 @@ const refusalReadRestrictions = [
   },
 ];
 
+/**
+ * A unit test never waits on real time (ADR 0164): a sleep makes it slow
+ * and, under load, wrong. Timed work takes its clock as a resource, and the
+ * test hands it `virtualClock` from `@daisy/clock/testing`. A zero delay is
+ * not a sleep (it yields one turn of the event loop), so `setTimeout(f, 0)`
+ * and `Bun.sleep(0)` stay; every other `Bun.sleep`, `Bun.sleepSync`,
+ * `setTimeout` and `setInterval` is an error.
+ */
+const zeroDelay = (node) =>
+  node !== undefined && node.type === 'Literal' && node.value === 0;
+const callableName = (node) => {
+  if (node.type === 'Identifier') return node.name;
+  if (node.type !== 'MemberExpression') return null;
+  const receiver = callableName(node.object);
+  const member = node.computed
+    ? node.property.type === 'Literal' &&
+      typeof node.property.value === 'string'
+      ? node.property.value
+      : null
+    : node.property.type === 'Identifier'
+      ? node.property.name
+      : null;
+  return receiver === null || member === null ? null : `${receiver}.${member}`;
+};
+const timerMethods = ['setTimeout', 'setInterval'];
+const importedTimers = (program) => {
+  const timers = new Map();
+  for (const statement of program.body) {
+    if (statement.type !== 'ImportDeclaration') continue;
+    const moduleName = String(statement.source.value).replace(/^node:/, '');
+    if (moduleName !== 'timers' && moduleName !== 'timers/promises') continue;
+    const delayArgument = moduleName === 'timers' ? 1 : 0;
+    for (const specifier of statement.specifiers) {
+      if (specifier.type === 'ImportSpecifier') {
+        const name = callableName(specifier.imported);
+        if (timerMethods.includes(name))
+          timers.set(specifier.local.name, { name, delayArgument });
+      } else {
+        for (const name of timerMethods)
+          timers.set(`${specifier.local.name}.${name}`, {
+            name,
+            delayArgument,
+          });
+      }
+    }
+  }
+  return timers;
+};
+const timedWait = (call, timers) => {
+  const name = callableName(call.callee)?.replace(/^globalThis\./, '');
+  const imported = timers.get(name);
+  if (imported !== undefined)
+    return imported.name === 'setInterval' ||
+      !zeroDelay(call.arguments[imported.delayArgument])
+      ? imported.name
+      : null;
+  if (name === 'Bun.sleep' || name === 'Bun.sleepSync')
+    return zeroDelay(call.arguments[0]) ? null : name;
+  if (name === 'setTimeout')
+    return zeroDelay(call.arguments[1]) ? null : 'setTimeout';
+  return name === 'setInterval' ? name : null;
+};
+const testTimePlugin = {
+  rules: {
+    'no-real-sleep': {
+      meta: {
+        type: 'problem',
+        messages: {
+          sleep:
+            '{{name}} waits on real time in a unit test. Inject the clock and drive it with virtualClock from @daisy/clock/testing (ADR 0164).',
+        },
+        schema: [],
+      },
+      create: (context) => {
+        let timers = new Map();
+        return {
+          Program: (program) => {
+            timers = importedTimers(program);
+          },
+          CallExpression: (call) => {
+            const name = timedWait(call, timers);
+            if (name !== null)
+              context.report({
+                node: call,
+                messageId: 'sleep',
+                data: { name },
+              });
+          },
+        };
+      },
+    },
+  },
+};
+
 /** The repo-wide `no-restricted-syntax` list; overrides extend or replace it. */
 const repoSyntaxRestrictions = [
   ...refusalMintRestrictions,
@@ -939,6 +1033,14 @@ export default [
   {
     files: ['**/*.config.*'],
     rules: { 'no-console': 'off' },
+  },
+  // Unit tests run on a virtual clock (ADR 0164); integration and browser
+  // suites drive real services and keep real time.
+  {
+    files: ['**/*.test.{ts,tsx}', '**/*.test-support.{ts,tsx}'],
+    ignores: ['**/integration/**', '**/e2e/**'],
+    plugins: { 'test-time': testTimePlugin },
+    rules: { 'test-time/no-real-sleep': 'error' },
   },
   // ADR 0037's vendor seam, declared last so it wins over every earlier
   // `no-restricted-imports` entry: the Sentry adapters (web's telemetry

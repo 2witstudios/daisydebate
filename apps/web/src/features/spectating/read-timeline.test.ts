@@ -1,7 +1,11 @@
 import { audienceStatePath } from '@daisy/protocol';
 import { audienceStateKey } from '@daisy/db/audience-state-key';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { readWatchRound, type AudienceSnapshot } from './read-timeline';
+import {
+  readAudienceSnapshot,
+  readWatchRound,
+  type AudienceSnapshot,
+} from './read-timeline';
 
 setupRitewayBun();
 
@@ -38,5 +42,36 @@ test('an admitted reader gets the state of the link they presented', async () =>
       1,
       new URL(audienceStatePath(audienceStateKey('feed', 'one')), origin).href,
     ],
+  });
+});
+
+test('a failed reuse read leaves the authorized Watch timeline available', async () => {
+  const result = await readAudienceSnapshot(
+    {
+      readSpectatorTimeline: async () =>
+        ({
+          round: {
+            id: roundId,
+            visibility: 'public',
+            status: 'opening',
+            rules: { sides: [] },
+          },
+          horizonMs: null,
+          broadcast: null,
+          segments: [],
+          seats: [],
+          captions: [],
+        }) as never,
+      readRoundReuseFenced: async () => {
+        throw new Error('reuse read failed');
+      },
+    },
+    { roundId, now: '2026-11-20T00:00:00.000Z', feedUrlOf: () => '' },
+  );
+  assert({
+    given: 'a public timeline whose reuse licence cannot be read',
+    should: 'show the timeline and withhold Stream this Round',
+    actual: [result?.visibility, result?.streamable],
+    expected: ['public', false],
   });
 });

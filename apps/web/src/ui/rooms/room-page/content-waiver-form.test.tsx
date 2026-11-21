@@ -7,13 +7,19 @@ import type { RoomFormState } from '../../../features/rooms/command-answer';
 import { mountBrowserClient } from '../../test-support/browser-client.test-support';
 import type * as Client from './content-waiver-form.test-support';
 import { idle } from '../../../features/forms/form-state';
-import { CONTENT_WAIVER_VERSION } from '../../../features/legal/agreements';
+import {
+  CONTENT_WAIVER_VERSION,
+  YOUTH_CONTENT_WAIVER_VERSION,
+} from '../../../features/legal/agreements';
 import { findElements } from '../../test-support/find-elements';
 import { ContentWaiverForm } from './content-waiver-form';
 
 setupRitewayBun();
 
-const tree = ContentWaiverForm({ action: async () => idle() });
+const tree = ContentWaiverForm({
+  action: async () => idle(),
+  version: CONTENT_WAIVER_VERSION,
+});
 const input = (name: string) =>
   findElements(
     tree,
@@ -31,6 +37,41 @@ describe('the content waiver form', () => {
         input('accepted')?.value,
       ],
       expected: [CONTENT_WAIVER_VERSION, true, 'yes'],
+    });
+  });
+
+  test('a Youth Room’s debater signs the Youth waiver (ADR 0161)', () => {
+    const youth = ContentWaiverForm({
+      action: async () => idle(),
+      version: YOUTH_CONTENT_WAIVER_VERSION,
+    });
+    const version = findElements(
+      youth,
+      (element) => element.type === 'input' && element.props.name === 'version',
+    )[0]?.props.value;
+    const headings = findElements(
+      youth,
+      (element) => element.type === 'h3',
+    ).map((element) => element.props.children);
+    assert({
+      given: 'the form for a member under 18, in any ranked Room',
+      should:
+        'post the Youth version and show no ownership, clip or streaming grant',
+      actual: {
+        version,
+        headings,
+      },
+      expected: {
+        version: YOUTH_CONTENT_WAIVER_VERSION,
+        headings: [
+          'The deal',
+          'Kept on Daisy',
+          'No licence to your content',
+          'Payment',
+          'What stays yours',
+          'Other rounds and events',
+        ],
+      },
     });
   });
 

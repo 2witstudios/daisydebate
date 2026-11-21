@@ -160,10 +160,8 @@ test('a session read that never answers never delays the probe (ISSUE-531)', asy
   assert({
     given: 'a get-session request that never settles',
     should: 'still answer the check-in sample',
-    actual: await Promise.race([
-      probe(),
-      Bun.sleep(1000).then(() => 'delayed'),
-    ]),
+    // A probe held by the session request never answers: the runner's timeout fails it.
+    actual: await probe(),
     expected: true,
   });
 });

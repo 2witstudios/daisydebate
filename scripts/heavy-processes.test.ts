@@ -74,20 +74,21 @@ describe('heavy queue across real processes', () => {
           DAISY_HEAVY_CONCURRENCY: '1',
           DAISY_HEAVY_LOCK_DIR: join(dir, 'slots'),
           DAISY_HEAVY_POLL_MS: '25',
+          DAISY_HEAVY_TIMEOUT_MINUTES: '0.5',
         },
         stdout: 'ignore',
         stderr: 'pipe',
       },
     );
-    const deadline = setTimeout(() => outer.kill(), 15_000);
+    // A run that queues behind its own ancestor must time out and release
+    // the process tree before the test runner reaches its own deadline.
     const code = await outer.exited;
-    clearTimeout(deadline);
     assert({
       given: 'a run that holds the only slot and starts two nested runs',
       should: 'run the innermost command without queueing and exit 0',
       actual: {
         code,
-        out: readFileSync(out, 'utf8'),
+        out: code === 0 ? readFileSync(out, 'utf8') : null,
         stderr: await new Response(outer.stderr).text(),
       },
       expected: { code: 0, out: 'ran', stderr: '' },

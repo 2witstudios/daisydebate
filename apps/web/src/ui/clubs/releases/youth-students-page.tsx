@@ -46,7 +46,7 @@ function Tile({
 
 /**
  * The coach view (board RTabCoachView, ADR 0151): the club's Youth students
- * and whether their Rounds can be published. Youth tournament entries join
+ * and whether their Rounds may be clipped, downloaded and reused. Youth tournament entries join
  * it once Youth events open; until then it lists the students themselves.
  */
 export function YouthStudentsPage({
@@ -65,7 +65,6 @@ export function YouthStudentsPage({
     readonly youth: number;
     readonly waiting: number;
     readonly waitingNames: readonly string[];
-    readonly privateRounds: number;
   };
   readonly rows: readonly YouthStudentRow[];
 }) {
@@ -73,7 +72,7 @@ export function YouthStudentsPage({
     <>
       <PageHeader
         title="Youth tournaments"
-        lede="Your students under 18, and whether their Rounds can be published."
+        lede="Your students under 18, and whether their Rounds may be clipped, downloaded and reused."
         actions={
           <Link
             href={`/clubs/${clubId}/releases`}
@@ -98,11 +97,6 @@ export function YouthStudentsPage({
               ? 'Nobody'
               : tallies.waitingNames.join(', ')
           }
-        />
-        <Tile
-          label="Private Rounds"
-          value={String(tallies.privateRounds)}
-          detail="no public video until signed"
         />
       </div>
       <AutoSubmitForm
@@ -168,9 +162,9 @@ export function YouthStudentsPage({
         </ul>
       </section>
       <p className="text-sm text-ink-muted">
-        Without a release a student’s Rounds stay private: they, their parent,
-        you and their judges can watch. A Round with any unreleased Youth
-        debater stays private for everyone in it.
+        Without a release a student’s Rounds can be watched under each Room’s
+        settings, but nobody may clip, download or reuse them. A Round with any
+        unreleased Youth debater stays unreusable for everyone in it.
       </p>
     </>
   );

@@ -1,3 +1,4 @@
+import { AppRouterContext } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
@@ -13,7 +14,7 @@ const screen: Extract<RecordingHistoryScreen, { kind: 'history' }> = {
   resolution: 'Resolved: x',
   ranked: false,
   ladder: null,
-  youth: null,
+  youth: false,
   date: '2026-11-02',
   visibility: 'unlisted',
   deletesOn: null,
@@ -36,9 +37,23 @@ const screen: Extract<RecordingHistoryScreen, { kind: 'history' }> = {
     label: 'Report this recording',
   },
 };
+const noop = () => undefined;
+const router = {
+  back: noop,
+  forward: noop,
+  refresh: noop,
+  push: noop,
+  replace: noop,
+  prefetch: noop,
+  bfcacheId: 'recording',
+};
 const render = (over: Partial<typeof screen> = {}) =>
   renderToString(
-    h(RecordingHistory, { screen: { ...screen, ...over }, notice: null }),
+    h(
+      AppRouterContext.Provider,
+      { value: router },
+      h(RecordingHistory, { screen: { ...screen, ...over }, notice: null }),
+    ),
   );
 
 describe('RecordingHistory', () => {
@@ -77,6 +92,23 @@ describe('RecordingHistory', () => {
         'Remove recording',
       ].map((text) => none.includes(text)),
       expected: [false, false, false, false],
+    });
+  });
+
+  test('searches the transcript on its Recording page', () => {
+    const html = render({
+      transcript: { q: 'opening', revision: 1, coverageNote: null, rows: [] },
+    });
+    assert({
+      given: 'a viewer with transcript access and a search query',
+      should: 'submit only the search query to this Recording page',
+      actual: [
+        html.includes('action="/recordings/round"'),
+        html.includes('method="get"'),
+        html.includes('name="q"'),
+        html.includes('value="opening"'),
+      ],
+      expected: [true, true, true, true],
     });
   });
 
@@ -132,52 +164,28 @@ describe('RecordingHistory', () => {
   });
 });
 
-describe('RecordingHistory, a Youth Round (PYL-5)', () => {
+describe('RecordingHistory, a Youth Round (ADR 0161)', () => {
   const youth = render({
     ranked: true,
     visibility: 'public',
     ladder: { style: 'freestyle', division: 'youth' },
-    youth: {
-      debaters: [
-        { actorId: 'maya', name: '@maya', released: true },
-        { actorId: 'jules', name: '@jules', released: false },
-      ],
-      releasesComplete: false,
-      public: false,
-      viewerDebated: true,
-      shareable: true,
-      videoForOfficials: false,
-    },
+    youth: true,
     removal: { recordingId: 'rec', version: 4 },
   });
 
-  test('is private, with no link to copy', () => {
+  test('shares and reads as an Open Round does', () => {
     assert({
-      given: 'a Youth Round on a public Room',
-      should: 'name no ladder, say it is private, and offer no copy link',
+      given: 'a ranked Youth Round on a public Room',
+      should:
+        'name no ladder, say anyone can replay it, offer its link, and show no Private badge or Share publicly',
       actual: [
         !/<header[\s\S]*?Youth – Freestyle[\s\S]*?<\/header>/.test(youth),
-        youth.includes(
-          'visible to the debaters, judges and their coaches or parents',
-        ),
-        youth.includes('Copy link'),
         youth.includes('Anyone can replay it'),
+        youth.includes('Copy link'),
+        youth.includes('Share publicly'),
+        youth.includes('>Private<'),
       ],
-      expected: [true, true, false, false],
-    });
-  });
-
-  test('names the missing release and keeps Share publicly closed', () => {
-    assert({
-      given: 'one youth debater without a release',
-      should: 'name them and disable Share publicly',
-      actual: [
-        youth.includes('@jules has no media release yet.'),
-        /<button(?=[^>]*\sdisabled="")[^>]*>(?:(?!<\/button>).)*Share publicly<\/button>/s.test(
-          youth,
-        ),
-      ],
-      expected: [true, true],
+      expected: [true, true, true, false, false],
     });
   });
 
@@ -191,158 +199,6 @@ describe('RecordingHistory, a Youth Round (PYL-5)', () => {
         youth.includes('Remove recording'),
       ],
       expected: [true, true, false],
-    });
-  });
-
-  test('with every release, still waits for the publishing flag', () => {
-    const released = renderToString(
-      h(RecordingHistory, {
-        screen: {
-          ...screen,
-          ranked: true,
-          youth: {
-            debaters: [{ actorId: 'maya', name: '@maya', released: true }],
-            releasesComplete: true,
-            public: false,
-            viewerDebated: true,
-            shareable: true,
-            videoForOfficials: false,
-          },
-        },
-        notice: null,
-      }),
-    );
-    assert({
-      given: 'every youth debater released, the flag closed',
-      should: 'say sharing is not open yet',
-      actual: released.includes('Sharing Youth recordings is not open yet.'),
-      expected: true,
-    });
-  });
-
-  const shared = (youth: {
-    readonly releasesComplete: boolean;
-    readonly public: boolean;
-    readonly viewerDebated: boolean;
-    readonly shareable?: boolean;
-    readonly videoForOfficials?: boolean;
-  }) =>
-    renderToString(
-      h(RecordingHistory, {
-        screen: {
-          ...screen,
-          ranked: true,
-          youth: {
-            debaters: [{ actorId: 'maya', name: '@maya', released: true }],
-            shareable: true,
-            videoForOfficials: false,
-            ...youth,
-          },
-        },
-        notice: null,
-        youthPublishing: true,
-        share: async () => {},
-      }),
-    );
-
-  test('with every release and publishing open (ADR 0151)', () => {
-    assert({
-      given: 'a debater of the Round',
-      should: 'offer Share publicly as a form',
-      actual: /<form[^>]*>.*Share publicly/s.test(
-        shared({ releasesComplete: true, public: false, viewerDebated: true }),
-      ),
-      expected: true,
-    });
-    assert({
-      given: 'a linked adult who did not debate',
-      should: 'leave Share publicly disabled and say who can share',
-      actual: shared({
-        releasesComplete: true,
-        public: false,
-        viewerDebated: false,
-      }).includes('A debater in this Round can share it.'),
-      expected: true,
-    });
-    assert({
-      given:
-        'a casual Youth Round that is not public, or not recorded for everyone (ADR 0157)',
-      should: 'keep Share publicly closed and say why',
-      actual: (() => {
-        const page = shared({
-          releasesComplete: true,
-          public: false,
-          viewerDebated: true,
-          shareable: false,
-        });
-        return [
-          page.includes(
-            'Only a public Round recorded for everyone can be shared.',
-          ),
-          /<form[^>]*>.*Share publicly/s.test(page),
-        ];
-      })(),
-      expected: [true, false],
-    });
-    assert({
-      given: 'a casual Youth Round whose host kept the video for its judges',
-      should: 'say only the judges watch it, not that its debaters can',
-      actual: (() => {
-        const page = shared({
-          releasesComplete: true,
-          public: false,
-          viewerDebated: true,
-          shareable: false,
-          videoForOfficials: true,
-        });
-        return [
-          page.includes(
-            'the video is for the judges and moderators until it is deleted',
-          ),
-          page.includes('visible to the debaters, judges'),
-        ];
-      })(),
-      expected: [true, false],
-    });
-    assert({
-      given:
-        'a shared casual Youth Round whose Room was made unlisted (not shareable) (ADR 0157)',
-      should:
-        'not say it is public, and ask for no release that could not unlock sharing',
-      actual: (() => {
-        const page = shared({
-          releasesComplete: true,
-          public: true,
-          viewerDebated: true,
-          shareable: false,
-        });
-        return [
-          page.includes('on Watch. It comes'),
-          page.includes('Share publicly needs a media release'),
-        ];
-      })(),
-      expected: [false, false],
-    });
-    assert({
-      given: 'the same shared Round, read by its debater',
-      should: 'say it is shared but hidden while the Round is not public',
-      actual: shared({
-        releasesComplete: true,
-        public: true,
-        viewerDebated: true,
-        shareable: false,
-      }).includes('Shared, but hidden:'),
-      expected: true,
-    });
-    assert({
-      given: 'a Recording already shared',
-      should: 'say it is public on Watch',
-      actual: shared({
-        releasesComplete: true,
-        public: true,
-        viewerDebated: true,
-      }).includes('on Watch. It comes'),
-      expected: true,
     });
   });
 });

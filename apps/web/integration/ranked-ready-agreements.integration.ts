@@ -9,8 +9,11 @@ import {
   contentWaiverDocument,
   casualCaptureNotice,
   CONTENT_WAIVER_VERSION,
+  youthContentWaiverDocument,
+  YOUTH_CONTENT_WAIVER_VERSION,
 } from '../src/features/legal/agreements';
 import { withRoomRuntime } from './room-runtime.test-support';
+import { setAge, withYouthSeason } from './youth-round.test-support';
 
 setupRitewayBun();
 requireTestServices(process.env);
@@ -163,6 +166,59 @@ test('an unsigned human judge cannot Ready a ranked Round until they sign', asyn
             .find((p) => p.actorId === f.outsider.actorId)!.ready,
         ],
         expected: ['content-waiver-required', 'ready'],
+      });
+    }),
+  );
+});
+
+test('a member under 18 judging an Open ranked Room signs the Youth waiver, not the Open one (ADR 0161)', async () => {
+  await withRoomRuntime(async (f) =>
+    withYouthSeason(f, async () => {
+      await setAge(f, f.outsider, '16 years');
+      const room = await rankedRoom(f);
+      const seated = (
+        await f.command(f.outsider, room, {
+          type: 'claim-seat',
+          seat: { kind: 'judge', slot: 0 },
+        })
+      ).view;
+      const asked = await f.operations.view(f.outsider, room.id);
+      // The Open waiver, with its licence, never stands in for a minor's.
+      await f.store.signContentWaiver({
+        id: createId(),
+        userId: f.outsider.userId,
+        version: CONTENT_WAIVER_VERSION,
+        words: agreementWords(contentWaiverDocument),
+      });
+      const openOnly = await refusalOf(f.consent(f.outsider, seated, 'ready'));
+      await f.store.signContentWaiver({
+        id: createId(),
+        userId: f.outsider.userId,
+        version: YOUTH_CONTENT_WAIVER_VERSION,
+        words: agreementWords(youthContentWaiverDocument),
+      });
+      const signed = await f.operations.view(f.outsider, room.id);
+      const ready = await f.consent(f.outsider, signed, 'ready');
+      const hostAsked = await f.operations.view(f.host, room.id);
+      assert({
+        given:
+          'a 16-year-old judging an Open ranked Room, signing the Open waiver, then the Youth one, beside an adult debater',
+        should:
+          'ask the judge for the Youth waiver, refuse Ready on the Open one alone, accept it on the Youth one, and ask the adult for the Open waiver',
+        actual: {
+          asked: [asked.contentWaiver, asked.contentWaiverVersion],
+          openOnly,
+          ready: ready.view.participants
+            .filter(isNamedSeat)
+            .find((p) => p.actorId === f.outsider.actorId)!.ready,
+          host: hostAsked.contentWaiverVersion,
+        },
+        expected: {
+          asked: ['unsigned', YOUTH_CONTENT_WAIVER_VERSION],
+          openOnly: 'content-waiver-required',
+          ready: 'ready',
+          host: CONTENT_WAIVER_VERSION,
+        },
       });
     }),
   );
