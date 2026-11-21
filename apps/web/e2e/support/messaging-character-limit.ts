@@ -42,9 +42,18 @@ export function testComposerCharacterLimit() {
       await composer.fill(exact);
       await expect(page.getByText('4,000 / 4,000 characters')).toBeVisible();
       await expect(composer).not.toHaveAttribute('aria-invalid');
-      await page
-        .getByRole('button', { name: 'Send message', exact: true })
-        .click();
+      const [action] = await Promise.all([
+        page.waitForResponse(
+          (response) =>
+            new URL(response.url()).pathname ===
+              `/messages/${journey.channelId}` &&
+            response.request().method() === 'POST' &&
+            'next-action' in response.request().headers(),
+        ),
+        page.getByRole('button', { name: 'Send message', exact: true }).click(),
+      ]);
+      expect(action.status()).toBe(200);
+      expect(await action.headerValue('x-action-revalidated')).toBeNull();
       await expect(page).toHaveURL(/\?sent=[a-z0-9]{24}$/);
       await expect(page.getByText(exact, { exact: true })).toBeVisible();
     } finally {
