@@ -821,6 +821,27 @@ test('a carried minor in Open cannot substitute a personal signature for a guard
               expected: ['guardian-required', 'content-waiver-required'],
             });
             const renewed = await sign(CONTENT_WAIVER_VERSION);
+            const requesterAfter = await requesterView();
+            const guardianAfter = await f.store.lobbyPermissions.read(
+              f.outsider.userId,
+              CONTENT_WAIVER_VERSION,
+              'adult',
+            );
+            assert({
+              given:
+                'the addressed guardian signed the carried player’s current Open waiver',
+              should:
+                'read the persisted grant and ranked evidence from both Family Settings roles',
+              actual: [requesterAfter, guardianAfter].map(({ requests }) =>
+                requests.some(
+                  (request) =>
+                    request.lobbyId === open.id &&
+                    request.signedAt !== null &&
+                    request.rankedWaiverSigned,
+                ),
+              ),
+              expected: [true, true],
+            });
             const ready = await everyoneReady(f, room, [f.host, f.guest]);
             assert({
               given: 'a continuing active guardian link and the current waiver',

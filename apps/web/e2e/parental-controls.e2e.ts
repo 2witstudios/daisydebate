@@ -850,10 +850,10 @@ test('a 14-year-old plays Youth and gets their guardian’s waiver to play Open 
         name: `Sign waiver and allow ${birthdayLobby.name}`,
       })
       .click();
+    const allowedBirthdayLobby = new RegExp(`${birthdayLobby.name}.*Allowed`);
+    await expect(childRow.getByText(allowedBirthdayLobby)).toBeVisible();
     await child.reload();
-    await expect(
-      carriedParent.getByText(new RegExp(`${birthdayLobby.name}.*Allowed`)),
-    ).toBeVisible();
+    await expect(carriedParent.getByText(allowedBirthdayLobby)).toBeVisible();
   } finally {
     try {
       await settleLeftRounds(members);
