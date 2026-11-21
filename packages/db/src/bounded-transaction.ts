@@ -53,7 +53,7 @@ class TransactionAttempt {
   private work: ReservedSQL | undefined;
   private backend: OwnedBackend | undefined;
   private writerBeginIssued = false;
-  private committing = false;
+  private commitState: 'not-issued' | 'issued' | 'rolled-back' = 'not-issued';
   private scopeClosed = false;
   private readonly disposed = createAppError(
     'INVARIANT',
@@ -169,10 +169,10 @@ class TransactionAttempt {
     );
     this.scopeClosed = true;
     this.checkBudget();
-    this.committing = true;
+    this.commitState = 'issued';
     const completion = await this.work<{ command: string }>`commit`;
     if (completion.command !== 'COMMIT') {
-      this.committing = false;
+      if (completion.command === 'ROLLBACK') this.commitState = 'rolled-back';
       throw createAppError(
         'INFRASTRUCTURE',
         'Bounded transaction did not commit',
@@ -214,11 +214,12 @@ class TransactionAttempt {
     // With a hidden backend start only the original writer's command receipt
     // can prove a rollback. A COMMIT in flight rules out that proof.
     const rolledBack =
-      writer !== undefined &&
-      this.writerBeginIssued &&
-      this.backend === undefined &&
-      !this.committing &&
-      (await this.rollbackWriter(writer, recoveryDeadline));
+      this.commitState === 'rolled-back' ||
+      (writer !== undefined &&
+        this.writerBeginIssued &&
+        this.backend === undefined &&
+        this.commitState === 'not-issued' &&
+        (await this.rollbackWriter(writer, recoveryDeadline)));
     // Never release an uncertain writer for another logical attempt on the same backend.
     void writer?.close({ timeout: 0 }).catch(() => undefined);
     const absent =
@@ -228,7 +229,7 @@ class TransactionAttempt {
     await this.closeAbortedLifecycle(rollbackConfirmed, recoveryDeadline);
     if (
       !rollbackConfirmed ||
-      this.committing ||
+      this.commitState === 'issued' ||
       (this.lifecycleOpened && !this.lifecycleClosed)
     )
       throw createAppError(
@@ -276,10 +277,14 @@ class TransactionAttempt {
   }
 
   private async closeAbortedLifecycle(
-    absent: boolean,
+    rollbackConfirmed: boolean,
     recoveryDeadline: number,
   ) {
-    if (absent && this.lifecycleOpened && !this.committing) {
+    if (
+      rollbackConfirmed &&
+      this.lifecycleOpened &&
+      this.commitState !== 'issued'
+    ) {
       try {
         await this.runLifecycle('aborted', recoveryDeadline);
         this.lifecycleClosed = true;

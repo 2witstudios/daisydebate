@@ -24,6 +24,7 @@ test('a hidden backend start requires an original command receipt and cannot aut
     let reservations = 0;
     let dropRollbackReply = false;
     const rollbackCommands: string[] = [];
+    const commitCommands: string[] = [];
     client.reserve = async (options) => {
       reservations += 1;
       const reserved = await reserve(options);
@@ -32,6 +33,12 @@ test('a hidden backend start requires an original command receipt and cannot aut
         apply(target, receiver, args) {
           const result = Reflect.apply(target, receiver, args);
           const template = args[0];
+          if (Array.isArray(template) && template[0] === 'commit') {
+            return result.then((receipt: { command: string }) => {
+              commitCommands.push(receipt.command);
+              return receipt;
+            });
+          }
           if (!Array.isArray(template) || template[0] !== 'rollback')
             return result;
           return result.then((receipt: { command: string }) => {
@@ -50,6 +57,21 @@ test('a hidden backend start requires an original command receipt and cannot aut
     const committed = await run(async (tx, _signal, receipt) => {
       const [row] = await tx.execute(sql`select 1 as value`);
       return [row?.value, receipt.writer.backendStart];
+    });
+    await assertRejects({
+      given: 'a caught PostgreSQL error followed by the COMMIT command',
+      should:
+        'accept its ROLLBACK receipt as conclusive without issuing another command',
+      code: 'INFRASTRUCTURE',
+      message: 'Bounded transaction did not commit',
+      actual: () =>
+        run(async (tx) => {
+          try {
+            await tx.execute(sql`select 1/0`);
+          } catch {
+            // The transaction is aborted even though the callback returns.
+          }
+        }),
     });
     const callbackRefusal = async () => {
       throw createAppError('CONFLICT');
@@ -102,6 +124,7 @@ test('a hidden backend start requires an original command receipt and cannot aut
         recoveryReservations,
         lifecycleOpened,
         rollbackCommands,
+        commitCommands,
       ],
       expected: [
         [1, null],
@@ -111,6 +134,7 @@ test('a hidden backend start requires an original command receipt and cannot aut
         0,
         false,
         ['ROLLBACK', 'ROLLBACK'],
+        ['COMMIT', 'ROLLBACK'],
       ],
     });
   });
