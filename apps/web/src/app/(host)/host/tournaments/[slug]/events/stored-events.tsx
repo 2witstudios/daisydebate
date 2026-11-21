@@ -59,6 +59,17 @@ export async function StoredEvents({
   const aside = eventAside(view.setup, { create, eventId });
   if (!aside) notFound();
   const selected = aside.kind === 'edit' ? aside.event : null;
+  const slotVersionOf = new Map(
+    view.timeSlotVersions.map((row) => [row.timeSlotId, row.version]),
+  );
+  const slots = view.setup.timeSlots.map((slot) => {
+    const version = slotVersionOf.get(slot.timeSlotId);
+    if (version === undefined)
+      throw new Error(
+        `The host events view carries no version for time slot ${slot.timeSlotId}.`,
+      );
+    return { slot, version };
+  });
   const bind = (
     label: string,
     target: EventFormContext['target'],
@@ -281,7 +292,7 @@ export async function StoredEvents({
       <ListCard>
         <ListHeading>Time slots</ListHeading>
         <div className="flex flex-col gap-5 p-4">
-          {view.setup.timeSlots.map((slot) => (
+          {slots.map(({ slot, version }) => (
             <details key={slot.timeSlotId}>
               <summary className="cursor-pointer font-strong">
                 {slot.name} · {slot.startsAt}
@@ -292,9 +303,7 @@ export async function StoredEvents({
                   {
                     kind: 'edit-slot',
                     timeSlotId: slot.timeSlotId,
-                    slotVersion: view.timeSlotVersions.find(
-                      (row) => row.timeSlotId === slot.timeSlotId,
-                    )!.version,
+                    slotVersion: version,
                   },
                   <SlotFields name={slot.name} startsAt={slot.startsAt} />,
                 )}
@@ -302,9 +311,7 @@ export async function StoredEvents({
                   'Remove time slot',
                   {
                     kind: 'command',
-                    slotVersion: view.timeSlotVersions.find(
-                      (row) => row.timeSlotId === slot.timeSlotId,
-                    )!.version,
+                    slotVersion: version,
                     command: {
                       type: 'remove-time-slot',
                       lobbyId: view.setup.lobbyId,

@@ -32,7 +32,11 @@ export const assess = (
     peopleOf(prepared.map((p) => p.request)),
   );
   return plans.map((plan) => {
-    const p = prepared.find((x) => x.request.event === plan.event)!;
+    const p = prepared.find((x) => x.request.event === plan.event);
+    if (p === undefined)
+      throw new Error(
+        `A plan names event ${plan.event}, which the input does not`,
+      );
     const assessment = assessPlan(p, plan, context);
     return { ...assessment, invalid: [...assessment.invalid, ...shared] };
   });
@@ -81,9 +85,16 @@ const drawPinned = (input: DrawInput, event: Id, entries: readonly Id[]) => {
       ? { ...input, events: input.events.map(pin) }
       : { ...input, event: pin(input.event) },
   );
-  return answer.kind === 'drawn'
-    ? answer.draws.find((d) => d.event === event)!
-    : null;
+  if (answer.kind !== 'drawn') return null;
+  return drawnFor(answer.draws, event);
+};
+
+/** The draw of one event from an answer that drew every requested event. */
+const drawnFor = (draws: readonly Draw[], event: Id): Draw => {
+  const found = draws.find((d) => d.event === event);
+  if (found === undefined)
+    throw new Error(`A drawn answer has no draw for event ${event}`);
+  return found;
 };
 
 const differenceOf = (before: Assessment, after: Assessment) => {
@@ -114,7 +125,7 @@ export const whyNot = (
 ): WhyNot => {
   const drawn = draw(input);
   if (drawn.kind !== 'drawn') return { kind: 'impossible' };
-  const before = drawn.draws.find((d) => d.event === event)!;
+  const before = drawnFor(drawn.draws, event);
   const orders =
     entries.length === 2 ? [entries, [entries[1]!, entries[0]!]] : [entries];
   const total = (d: Draw) =>
@@ -128,7 +139,8 @@ export const whyNot = (
   });
   const after = [...candidates].sort((a, b) => total(a) - total(b))[0];
   if (after === undefined) return { kind: 'impossible' };
-  const pinned = after.keep.find((k) => k.id === PIN)!;
+  const pinned = after.keep.find((k) => k.id === PIN);
+  if (pinned === undefined) throw new Error('A pinned draw keeps its pin');
   const plan = {
     event: after.event,
     keep: after.keep.filter((k) => k.id !== PIN),

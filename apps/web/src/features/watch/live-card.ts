@@ -91,7 +91,7 @@ export function liveCardOf(row: LiveRow): LiveCard {
   return {
     id: row.id,
     href: liveHref(row.id),
-    title: row.title ?? 'Debate',
+    title: row.title,
     ranked: row.competitionType === 'ranked',
     ladder: row.ladder,
     mode: modeLabel(row.competitionType),

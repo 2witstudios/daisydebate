@@ -508,23 +508,24 @@ export function contentModerationRoute(
   url: URL,
   request: { readonly body: Uint8Array; readonly signedAtMs: number },
 ): Promise<unknown> {
+  if (route === 'listContentReports') return listReports(deps, principal, url);
+  if (route === 'listRebuildableRecordings')
+    return listRebuildable(deps, principal);
+  if (route === 'listProfilePhotoReviews')
+    return listPhotoReviews(deps, principal);
+  // Every other moderation route's path captures its subject's id.
+  if (id === null) throw createAppError('NOT_FOUND');
   // eslint-disable-next-line @typescript-eslint/switch-exhaustiveness-check -- the default is every command route, which `commandOf` is keyed by.
   switch (route) {
-    case 'listContentReports':
-      return listReports(deps, principal, url);
     case 'readContentReport':
-      return readReport(deps, principal, id!);
-    case 'listRebuildableRecordings':
-      return listRebuildable(deps, principal);
-    case 'listProfilePhotoReviews':
-      return listPhotoReviews(deps, principal);
+      return readReport(deps, principal, id);
     case 'readProfilePhoto':
-      return readPhoto(deps, principal, id!);
+      return readPhoto(deps, principal, id);
     default:
       return runCommand(
         deps,
         principal,
-        commandOf[route](id!, request.body),
+        commandOf[route](id, request.body),
         request.body,
         request.signedAtMs,
       );

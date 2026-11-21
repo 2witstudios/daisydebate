@@ -368,11 +368,11 @@ export function createMediaReconcileRun(
           (entry) => entry.identity === identity,
         )?.microphoneTrack;
         // A failed read is not yet heard, and the next pass asks again.
-        const heard =
-          Boolean(track) &&
-          (await input
-            .readCaptureHeard(state.round.id, track!)
-            .catch(() => null)) === seatId;
+        const heard = track
+          ? (await input
+              .readCaptureHeard(state.round.id, track)
+              .catch(() => null)) === seatId
+          : false;
         return { seatId, heard };
       }),
     );

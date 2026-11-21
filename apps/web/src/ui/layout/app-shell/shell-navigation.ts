@@ -6,14 +6,15 @@ export function acceptShellNavigation(
   caller: ((event: NavigationChoice) => void) | undefined,
   accepted: () => void,
 ) {
-  let cancelled = false;
+  // The caller's choice lands in this record, through its preventDefault.
+  const choice = { cancelled: false };
   caller?.({
     preventDefault: () => {
-      cancelled = true;
+      choice.cancelled = true;
       event.preventDefault();
     },
   });
-  if (!cancelled) accepted();
+  if (!choice.cancelled) accepted();
 }
 
 /** Content-free same-document notice; it carries neither destination nor authority. */

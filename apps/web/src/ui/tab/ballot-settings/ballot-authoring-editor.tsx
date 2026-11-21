@@ -122,9 +122,9 @@ export function BallotAuthoringEditor({
           Ballot · {view.name}
         </h1>
         <p className="text-ink-muted">
-          {view.sourceName === null
+          {view.sourceName === null || view.definition === null
             ? 'This format has no ballot.'
-            : `${view.sourceName} · version ${view.definition!.ballot.revision}${view.followsTemplate ? ' · pinned by the followed template' : ''}`}
+            : `${view.sourceName} · version ${view.definition.ballot.revision}${view.followsTemplate ? ' · pinned by the followed template' : ''}`}
         </p>
       </header>
       {saved === 'publish' ? (

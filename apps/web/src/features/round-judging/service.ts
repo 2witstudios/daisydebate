@@ -72,6 +72,8 @@ export function startRoundJudgingService<C extends Claim>(input: {
   const entries = new Map<string, Entry<C>>();
   let stopped = false,
     renewing: Promise<void> | null = null;
+  // Read live: stop() can run during any await, which narrowing cannot see.
+  const isStopped = () => stopped;
   const key = (target: Target) =>
     `${target.roundId}:${target.judgeParticipantId}`;
   const remove = (entry: Entry<C>) => {
@@ -150,7 +152,7 @@ export function startRoundJudgingService<C extends Claim>(input: {
         : [],
     );
     for (const target of targets) {
-      if (stopped) break;
+      if (isStopped()) break;
       if (visited.has(key(target))) continue;
       const workKind: JudgingWorkKind = target.holdsBallot
         ? 'submission'
@@ -179,7 +181,7 @@ export function startRoundJudgingService<C extends Claim>(input: {
       if (!freeCapacity) continue;
       try {
         const claim = await input.store.claimRoundJudgingJob(target);
-        if (stopped) {
+        if (isStopped()) {
           // A successful durable claim recovers by lease expiry. This
           // process has not started execution; never clear an unfenced lease.
           freeCapacity();

@@ -110,6 +110,16 @@ export function createRoundRuntime(input: {
   const segmentIds = new Map(
     input.segments.map((row) => [row.sequence, row.id]),
   );
+  /** A segment's id: hydrated, or allocated when this runtime opened it. */
+  const segmentIdOf = (sequence: number): string => {
+    const id = segmentIds.get(sequence);
+    if (id === undefined)
+      throw createInvariantError(
+        debateInvariantIds.segmentMatchesRules,
+        'A clock change names a segment that was never opened',
+      );
+    return id;
+  };
 
   const capture = (on: RoundStore) => captureRoundStore(on);
   /** An internal decision applied on a scratch copy, kept only if it succeeds. */
@@ -166,28 +176,26 @@ export function createRoundRuntime(input: {
     transitionOn(on, into, advanceRoundClock(capture(on), rules, at));
   const project = (into: Queues): RoundProjection => {
     // IDs are allocated only after pure execution has been accepted, once per opening.
-    for (const change of into.changes)
-      if (change.kind === 'open')
-        segmentIds.set(change.row.sequence, input.nextSegmentId());
-    const segmentInserts: SegmentInsert[] = into.changes.flatMap((change) =>
-      change.kind === 'open'
-        ? [
-            {
-              id: segmentIds.get(change.row.sequence)!,
-              sequence: change.row.sequence,
-              type: change.row.type,
-              rulesSegmentKey: change.row.key,
-              startedAt: new Date(change.row.startedAtMs).toISOString(),
-              durationMs: change.row.durationMs,
-            },
-          ]
-        : [],
-    );
+    const segmentInserts: SegmentInsert[] = into.changes.flatMap((change) => {
+      if (change.kind !== 'open') return [];
+      const id = input.nextSegmentId();
+      segmentIds.set(change.row.sequence, id);
+      return [
+        {
+          id,
+          sequence: change.row.sequence,
+          type: change.row.type,
+          rulesSegmentKey: change.row.key,
+          startedAt: new Date(change.row.startedAtMs).toISOString(),
+          durationMs: change.row.durationMs,
+        },
+      ];
+    });
     const segmentCloses: SegmentClose[] = into.changes.flatMap((change) =>
       change.kind === 'close'
         ? [
             {
-              id: segmentIds.get(change.sequence)!,
+              id: segmentIdOf(change.sequence),
               endedAt: new Date(change.atMs).toISOString(),
             },
           ]
@@ -197,7 +205,7 @@ export function createRoundRuntime(input: {
       change.kind === 'resume'
         ? [
             {
-              id: segmentIds.get(change.sequence)!,
+              id: segmentIdOf(change.sequence),
               returnedMs: change.returnedMs,
             },
           ]
@@ -240,7 +248,7 @@ export function createRoundRuntime(input: {
         rules,
         participants: input.participants,
         changes: into.changes,
-        segmentIds,
+        segmentIdOf,
         floorChange: into.floorChange,
       }),
       round,

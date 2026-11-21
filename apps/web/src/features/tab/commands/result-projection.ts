@@ -238,9 +238,9 @@ const decidedProjection = (
     submissions.map((row) => row.contribution),
   );
   const speakers: SpeakerProjection[] = [];
-  for (const person of record.cast.filter(
-    (person) => person.entryId !== null,
-  )) {
+  for (const person of record.cast) {
+    const entryId = person.entryId;
+    if (entryId === null) continue;
     const values = ballots.flatMap((ballot) =>
       ballot.points.speakers
         .filter((row) => row.actorId === person.actorId)
@@ -258,7 +258,7 @@ const decidedProjection = (
     if (units !== null || rank !== null)
       speakers.push({
         actorId: person.actorId,
-        entryId: person.entryId!,
+        entryId,
         units,
         rank,
       });
@@ -325,20 +325,20 @@ export const projectResultCompetition = (
                     ),
           })),
         };
+  const representable =
+    credits.kind === 'awarded'
+      ? credits.entries.flatMap((entry) =>
+          entry.points === null ? [] : [{ ...entry, points: entry.points }],
+        )
+      : [];
   if (
     credits.kind === 'awarded' &&
-    credits.entries.some((entry) => entry.points === null)
+    representable.length !== credits.entries.length
   )
     return { kind: 'refused', refusal: 'unrepresentable-points' };
   const entryCredits =
     credits.kind === 'awarded'
-      ? {
-          ...credits,
-          entries: credits.entries.map((entry) => ({
-            ...entry,
-            points: entry.points!,
-          })),
-        }
+      ? { ...credits, entries: representable }
       : credits;
   const winner =
     awards.kind === 'winner'

@@ -204,7 +204,7 @@ const interruptRefusal = (facts: RoundCommandFacts) => {
     return violates(id, 'Too little of the segment remains to interrupt');
   if (!isDebater(facts.seat))
     return conflict('Only a seated debater interrupts');
-  return floorHolderOf(facts)?.id === facts.seat?.id
+  return floorHolderOf(facts)?.id === facts.seat.id
     ? violates(id, 'The floor holder cannot interrupt themselves')
     : null;
 };

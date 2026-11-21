@@ -175,8 +175,7 @@ export function createRealtimeAuthorization({
     );
     if (
       !current?.account ||
-      current.account.revision !== facts.account?.revision ||
-      current.resource.kind !== 'round'
+      current.account.revision !== facts.account?.revision
     )
       return false;
     return authorize({

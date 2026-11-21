@@ -28,7 +28,13 @@ import { SECTIONS_VERSION } from './sections';
 import { slotCollisions } from './slot';
 import { TWO_SIDED_VERSION } from './two-sided';
 
-const versionOf = (prepared: Prepared): Record<string, string> => {
+const versionOf = (
+  prepared: Prepared,
+): {
+  readonly method: string;
+  readonly judges: string;
+  readonly assess: string;
+} => {
   const method = (() => {
     switch (prepared.method.kind) {
       case 'matched':
@@ -141,7 +147,10 @@ const fixtureEntries = (prepared: Prepared, placed: Placed): Entry[] => {
   return [...placed.kept.map((k) => k.fixture), ...placed.added]
     .filter((f) => f.kind !== 'bye')
     .flatMap((f) => entriesOf(f))
-    .flatMap((id) => (byId.has(id) ? [byId.get(id)!] : []));
+    .flatMap((id) => {
+      const entry = byId.get(id);
+      return entry === undefined ? [] : [entry];
+    });
 };
 
 /**
@@ -363,7 +372,7 @@ export const draw = (input: DrawInput): DrawAnswer => {
         return {
           kind: 'unresolved',
           event: p.request.event,
-          method: versionOf(p).method!,
+          method: versionOf(p).method,
           attempt,
           broken: attempt.assessment.broken,
         };

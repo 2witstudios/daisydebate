@@ -20,7 +20,9 @@ const countField = (form: FormData, name: string, maximum: number): number =>
   z.int().min(1).max(maximum).parse(numberField(form, name));
 const checked = (form: FormData, name: string): boolean => {
   if (!form.has(name)) return false;
-  return z.literal('on').parse(singleFormField(form, name)) === 'on';
+  // A checkbox sends only its own value; anything else is refused.
+  z.literal('on').parse(singleFormField(form, name));
+  return true;
 };
 const written = (form: FormData, key: 'reason' | 'feedback') => {
   const rule = z

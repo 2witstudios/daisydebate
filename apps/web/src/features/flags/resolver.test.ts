@@ -126,6 +126,22 @@ test('ops safe defaults apply during storage failure, with dependencies', () => 
   });
 });
 
+test('an invalid release default stays closed during storage failure', () => {
+  assert({
+    given:
+      'a malformed release definition defaulting on and unavailable storage',
+    should: 'keep the release disabled',
+    actual: resolveFlag({
+      catalogue: [{ ...entry, safeDefault: true } as unknown as FlagDefinition],
+      snapshot: { kind: 'unavailable' },
+      key: entry.key,
+      now,
+      releaseDefault: false,
+    }),
+    expected: { enabled: false, reason: 'ERROR' },
+  });
+});
+
 test('release expiry closes a stored or targeted release even with no policy run', () => {
   const expires = Date.parse(entry.expiresOn) + 86_400_000;
   assert({

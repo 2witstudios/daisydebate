@@ -98,7 +98,7 @@ export function syncAnalytics(input: {
       before_send: (event) => {
         if (paused) return null;
         const sanitized = sanitizeCapture(event);
-        return event && sanitized
+        return sanitized
           ? {
               uuid: event.uuid,
               event: sanitized.event,

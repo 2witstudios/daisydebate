@@ -54,8 +54,12 @@ export function createMediaWorld(
     operation: string,
     owner?: string,
   ) => {
-    if (operation === 'enter') waiting.add(owner!);
-    if (operation === 'leave') waiting.delete(owner!);
+    if (operation === 'enter' || operation === 'leave') {
+      if (owner === undefined)
+        throw new Error('A media priority enter or leave names its owner');
+      if (operation === 'enter') waiting.add(owner);
+      else waiting.delete(owner);
+    }
     return waiting.size > 0;
   };
   const journal: string[] = [];
@@ -77,13 +81,18 @@ export function createMediaWorld(
   const rooms = new Set<string>();
   const connected = new Map<string, Grants>();
   const eligible = new Map<string, boolean>(seats.map((s) => [s.id, true]));
+  /** Every seat starts eligible and approved; the maps hold one entry per seat. */
+  const eligibleOf = (seatId: string) => eligible.get(seatId) ?? true;
+  const approved: Access = {
+    beta: 'approved',
+    ageBand: 'adult',
+    restricted: false,
+  };
   // Each seat's own fenced facts (ISSUE-714).
   const access = new Map<string, Access>(
-    seats.map((s) => [
-      s.id,
-      { beta: 'approved', ageBand: 'adult', restricted: false },
-    ]),
+    seats.map((s) => [s.id, { ...approved }]),
   );
+  const accessOf = (seatId: string) => access.get(seatId) ?? approved;
   const bindings: { roundParticipantId: string; identity: string }[] = [];
   const pending = new Set<string>();
   let status = options.status ?? 'opening';
@@ -128,7 +137,7 @@ export function createMediaWorld(
    */
   const admittedActor = (caller?: Caller) => {
     const seat = seats.find((entry) => entry.actorId === caller?.actorId);
-    if (caller && seat && !caller.admits(access.get(seat.id)!))
+    if (caller && seat && !caller.admits(accessOf(seat.id)))
       throw createAppError('AUTHORIZATION');
     return caller?.actorId;
   };
@@ -138,7 +147,7 @@ export function createMediaWorld(
     const participants = seats.map((seat) => ({
       ...seat,
       kind: 'human' as const,
-      eligible: eligible.get(seat.id)!,
+      eligible: eligibleOf(seat.id),
     }));
     const caller =
       actorId === undefined
@@ -181,7 +190,7 @@ export function createMediaWorld(
       },
       participants,
       withdrawn: seats
-        .filter((seat) => !rule(access.get(seat.id)!))
+        .filter((seat) => !rule(accessOf(seat.id)))
         .map((seat) => seat.id),
       caller,
       bindings: bindings.map((binding) => ({ ...binding, roomName })),
@@ -319,7 +328,9 @@ export function createMediaWorld(
         throw createAppError('CONFLICT', 'Round media has ended');
       if (phase === 'post-round-call-opening')
         throw createAppError('INFRASTRUCTURE', 'Media recovery is unresolved');
-      const seat = snapshot(admittedActor(input.caller)).caller!;
+      const seat = snapshot(admittedActor(input.caller)).caller;
+      // As the store: only a seated caller is bound.
+      if (seat === null) throw createAppError('AUTHORIZATION');
       return binding(seat.id);
     },
     issueMediaToken: async <T>(input: {
@@ -342,7 +353,8 @@ export function createMediaWorld(
         foreignLease
       )
         throw createAppError('INFRASTRUCTURE', 'Media recovery is unresolved');
-      const participantId = state.caller!.id;
+      if (state.caller === null) throw createAppError('AUTHORIZATION');
+      const participantId = state.caller.id;
       return input.sign({
         ...state,
         participantId,

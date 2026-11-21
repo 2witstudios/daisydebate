@@ -182,7 +182,7 @@ export const progression = (request: EventRequest): Progression | null => {
     /** Who each unit sends on. */
     const onward = units.map((unit, i): Id[] => {
       const outcome = outcomes[i]!;
-      if (outcome === 'bye' || outcome === null) return [...unit];
+      if (outcome === 'bye') return [...unit];
       switch (outcome.outcome.kind) {
         case 'winner':
           return outcome.outcome.winner === null

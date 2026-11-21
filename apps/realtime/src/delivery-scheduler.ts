@@ -42,7 +42,8 @@ export function createDeliveryScheduler({
   readonly overflow: (topic: string) => void;
 }) {
   const queues = new Map<string, TopicQueue>();
-  const ready: string[] = [];
+  // Topics with a waiting row and none running, in turn order (a Map keeps insertion order).
+  const ready = new Map<string, TopicQueue>();
   let retained = 0;
   let running = 0;
   let idle: ReturnType<typeof Promise.withResolvers<void>> | undefined;
@@ -50,8 +51,7 @@ export function createDeliveryScheduler({
   function drop(topic: string, queue: TopicQueue) {
     retained -= queue.rows.length;
     queue.rows.length = 0;
-    const position = ready.indexOf(topic);
-    if (position >= 0) ready.splice(position, 1);
+    ready.delete(topic);
     if (!queue.running) queues.delete(topic);
   }
   function resync(topic: string, overflowed: Set<string>) {
@@ -91,21 +91,25 @@ export function createDeliveryScheduler({
     queues.set(row.topic, queue);
     queue.rows.push(row);
     retained += 1;
-    if (!queue.running && queue.rows.length === 1) ready.push(row.topic);
+    if (!queue.running && queue.rows.length === 1) ready.set(row.topic, queue);
   }
   function settle(topic: string, queue: TopicQueue) {
     queue.running = undefined;
     running -= 1;
     retained -= 1;
-    if (queue.rows.length > 0) ready.push(topic);
+    if (queue.rows.length > 0) ready.set(topic, queue);
     else if (queues.get(topic) === queue) queues.delete(topic);
     pump();
   }
   function pump() {
-    while (running < maxRunningTopics && ready.length > 0) {
-      const topic = ready.shift()!;
-      const queue = queues.get(topic)!;
-      const next = queue.rows.shift()!;
+    while (running < maxRunningTopics) {
+      const turn = ready.entries().next();
+      if (turn.done) break;
+      const [topic, queue] = turn.value;
+      ready.delete(topic);
+      const next = queue.rows.shift();
+      if (next === undefined)
+        throw new Error('A ready delivery topic holds no waiting row');
       queue.running = next;
       running += 1;
       let delivery: Promise<void>;

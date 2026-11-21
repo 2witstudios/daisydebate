@@ -220,9 +220,14 @@ export const resumeIfDue = (
     return stay(state);
   const untilMs = Date.parse(incident.until);
   const open = openRow(state);
-  const returned =
+  // The time handed back to the open speech, from its resume point to now.
+  const sinceResumeMs =
     open !== undefined && incident.resume_point !== null
-      ? open.returnedMs + (untilMs - Date.parse(incident.resume_point))
+      ? untilMs - Date.parse(incident.resume_point)
+      : null;
+  const returned =
+    open !== undefined && sinceResumeMs !== null
+      ? open.returnedMs + sinceResumeMs
       : null;
   return {
     state: {
@@ -255,10 +260,7 @@ export const resumeIfDue = (
         change: {
           kind: 'resumed',
           at: incident.until,
-          returnedMs:
-            returned === null
-              ? 0
-              : untilMs - Date.parse(incident.resume_point!),
+          returnedMs: sinceResumeMs ?? 0,
         },
       },
     ],

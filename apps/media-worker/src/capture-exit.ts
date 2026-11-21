@@ -61,7 +61,8 @@ export const atStage = <T>(
 function taggedFailure(error: unknown) {
   for (let at = error, depth = 0; depth < 8; depth++) {
     if (typeof at !== 'object' || at === null) return undefined;
-    if (stages.has(at)) return at;
+    const stage = stages.get(at);
+    if (stage !== undefined) return { error: at, stage };
     at = (at as { cause?: unknown }).cause;
   }
   return undefined;
@@ -76,8 +77,8 @@ export function captureFailureExit(
   otherwise: CaptureFailureStage = 'session',
 ) {
   const tagged = taggedFailure(error);
-  const stage = tagged ? stages.get(tagged)! : otherwise;
-  const source = tagged ?? error;
+  const stage = tagged?.stage ?? otherwise;
+  const source = tagged?.error ?? error;
   const code = errorCodeOf(source, 'INTERNAL');
   return (
     STAGED_EXIT_BASE +

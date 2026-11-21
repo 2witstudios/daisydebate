@@ -3,10 +3,11 @@ import type { CutClip } from './capture-clips';
 import { isTransientControlFailure } from '@daisy/media/worker';
 import { CAPTURE_OUTAGE_BUDGET_MS } from './capture-memory';
 import {
-  contained,
+  containingGrant,
   observedWindow,
   readCaptureHistory,
   type CaptureClient,
+  type CaptureGrant,
   type CaptureState,
   type FrameWindow,
 } from './capture-history';
@@ -97,11 +98,15 @@ async function consumeClip(
     input,
     clip.segmentId,
   );
-  const allowed = contained(fresh.state, clip.roundParticipantId, {
+  const admitted = containingGrant(fresh.state, clip.roundParticipantId, {
     beforeMs: Date.parse(clip.before),
     afterMs: Date.parse(clip.after),
   });
-  if (!allowed || Date.parse(clip.after) > Date.parse(fresh.state.serverNow)) {
+  const allowed = admitted !== null;
+  if (
+    admitted === null ||
+    Date.parse(clip.after) > Date.parse(fresh.state.serverNow)
+  ) {
     input.dropped(clip.durationMs / 10);
     // Outside its grant it was never owed; inside it, it was heard and lost.
     if (allowed) input.lost(clip);
@@ -119,11 +124,7 @@ async function consumeClip(
     if (result.text) await appendClip(input, clip, result.text);
   }
   // A heard window is captured coverage, whether or not it held words.
-  const window = clipObservation(
-    fresh.state,
-    clip,
-    input.straddles(clip.trackId),
-  );
+  const window = clipObservation(admitted, clip, input.straddles(clip.trackId));
   await untilAnswered(input, () =>
     input.client.observe(
       {
@@ -141,21 +142,17 @@ async function consumeClip(
 
 /** The clip's window within its fresh grant, extended to an edge only by contiguous evidence. */
 function clipObservation(
-  state: CaptureState,
+  {
+    segment,
+    grant,
+  }: {
+    readonly segment: NonNullable<CaptureState['segment']>;
+    readonly grant: CaptureGrant;
+  },
   clip: QueuedClip,
   straddles: readonly FrameWindow[],
 ) {
-  const beforeMs = Date.parse(clip.before),
-    afterMs = Date.parse(clip.after);
-  // contained() admitted the clip, so exactly one grant of its seat holds it.
-  const grant = state.intervals.find(
-    (i) =>
-      i.roundParticipantId === clip.roundParticipantId &&
-      Date.parse(i.startedAt) <= beforeMs &&
-      (i.endedAt === null || afterMs < Date.parse(i.endedAt)),
-  )!;
-  const firstNominalMs =
-    Date.parse(state.segment!.startedAt) + clip.startOffsetMs;
+  const firstNominalMs = Date.parse(segment.startedAt) + clip.startOffsetMs;
   return observedWindow({
     clip: {
       firstNominalMs,

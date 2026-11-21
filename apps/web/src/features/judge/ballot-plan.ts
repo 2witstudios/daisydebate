@@ -158,10 +158,10 @@ export const storedBallotPlan = (
   plan: BallotPlan,
   ballot: Pick<Ballot, 'rubricVersion'>,
 ): BallotPlan => {
-  const stored: BallotDefinition | undefined =
-    daisyBallotDefinitions[
-      ballot.rubricVersion as keyof typeof daisyBallotDefinitions
-    ];
+  // A stored revision may be one Daisy no longer knows.
+  const known: Readonly<Record<string, BallotDefinition>> =
+    daisyBallotDefinitions;
+  const stored = known[ballot.rubricVersion];
   return stored && stored.key === plan.definition.key
     ? { ...plan, definition: stored }
     : plan;

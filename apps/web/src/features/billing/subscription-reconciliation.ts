@@ -20,9 +20,11 @@ export function createSubscriptionReconciliation(input: {
   let receiptCursor: string | undefined;
   let customerCursor: string | undefined;
   let stopped = false;
+  /** Read afresh after every await: stop() lands between them. */
+  const isStopped = () => stopped;
   // A read already in flight stays bounded; drain admits none of its follow-up SDK calls.
   const readIfRunning = (read: () => Promise<unknown>) =>
-    stopped ? Promise.reject(createAppError('CONFLICT')) : read();
+    isStopped() ? Promise.reject(createAppError('CONFLICT')) : read();
   const vendor: SubscriptionReadPort = {
     subscription: (id) => readIfRunning(() => input.vendor.subscription(id)),
     invoice: (id) => readIfRunning(() => input.vendor.invoice(id)),
@@ -43,7 +45,7 @@ export function createSubscriptionReconciliation(input: {
       ...(receiptCursor ? { afterId: receiptCursor } : {}),
     });
     for (const receipt of page.rows) {
-      if (stopped) return page.rows.length;
+      if (isStopped()) return page.rows.length;
       try {
         const { eventId, customerId, mode } = receipt;
         await input.store.receive({ eventId, customerId, mode });
@@ -56,7 +58,7 @@ export function createSubscriptionReconciliation(input: {
   };
   const synchronize = async (customerId: string) => {
     const claim = await input.store.claim(customerId);
-    if (!claim || stopped) return;
+    if (!claim || isStopped()) return;
     if (claim.mode !== input.mode) throw createAppError('CONFLICT');
     const identity = {
       subscriptionId: claim.subscriptionId,
@@ -70,7 +72,7 @@ export function createSubscriptionReconciliation(input: {
       claim.owner.kind === 'organization'
         ? await readClubSubscriptionObservation(vendor, identity)
         : await readSubscriptionObservation(vendor, identity);
-    if (stopped) return;
+    if (isStopped()) return;
     if (observed.kind === 'observed') {
       await input.store.apply(
         claim,
@@ -94,7 +96,7 @@ export function createSubscriptionReconciliation(input: {
       ...(customerCursor ? { afterId: customerCursor } : {}),
     });
     for (const { customerId } of page.rows) {
-      if (stopped) return page.rows.length;
+      if (isStopped()) return page.rows.length;
       try {
         await synchronize(customerId);
       } catch (error) {
@@ -107,14 +109,14 @@ export function createSubscriptionReconciliation(input: {
   return {
     /** One pass; returns how many receipts and customers it handled. */
     async run(): Promise<number> {
-      if (stopped) return 0;
+      if (isStopped()) return 0;
       let handled = 0;
       try {
         handled += await receipts();
       } catch (error) {
         input.failed(error, 'receipts');
       }
-      if (stopped) return handled;
+      if (isStopped()) return handled;
       try {
         handled += await customers();
       } catch (error) {

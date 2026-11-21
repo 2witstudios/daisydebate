@@ -63,10 +63,10 @@ export const judgeObligationEnvelope = (
       key: 'entry.judge_obligation',
       value: {
         kind: 'ratio',
-        entriesPerJudge: entries?.match(/^[1-9][0-9]*$/)
+        entriesPerJudge: entries.match(/^[1-9][0-9]*$/)
           ? Number(entries)
           : null,
-        judgesPerGroup: judges?.match(/^(0|[1-9][0-9]*)$/)
+        judgesPerGroup: judges.match(/^(0|[1-9][0-9]*)$/)
           ? Number(judges)
           : null,
       },

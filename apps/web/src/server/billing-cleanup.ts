@@ -57,16 +57,18 @@ export function startBillingCleanup(input: {
     failed: (error, stage) => failed(error, `recheck_${stage}`),
   });
   let stopped = false;
+  /** Read at each use: `stop()` flips the flag while a pass awaits. */
+  const isStopped = () => stopped;
   let counts = { deleted: 0, retried: 0 };
   const run = async (): Promise<LoopPass> => {
-    if (stopped) return 'idle';
+    if (isStopped()) return 'idle';
     const jobs = await app.database.duePrivacyJobs({
       now: app.clock.now(),
       limit: 3,
       vendors: ['stripe'],
     });
     for (const job of jobs) {
-      if (stopped) return 'worked';
+      if (isStopped()) return 'worked';
       try {
         const result = await delivery.deliver(job.id);
         if (result === 'complete')
@@ -74,7 +76,7 @@ export function startBillingCleanup(input: {
         if (result === 'failure')
           counts = { ...counts, retried: counts.retried + 1 };
       } catch (error) {
-        if (!stopped) failed(error, 'delivery');
+        if (!isStopped()) failed(error, 'delivery');
       }
     }
     return passOf(jobs.length);
@@ -92,7 +94,7 @@ export function startBillingCleanup(input: {
         counts = { deleted: 0, retried: 0 };
         return measured;
       } catch (error) {
-        if (!stopped) failed(error, 'health');
+        if (!isStopped()) failed(error, 'health');
         throw error;
       }
     },
@@ -104,22 +106,22 @@ export function startBillingCleanup(input: {
     backoff: { busyMs: 1000, idleMaxMs: HOUSEKEEPING_IDLE_MAX_MS },
     timers: input.timers,
     failed: (error) => {
-      if (!stopped) failed(error, 'due');
+      if (!isStopped()) failed(error, 'due');
     },
   });
   // Health and acknowledged-job revisits have their own bounded minute cadence; empty queues do not emit 1Hz heartbeats.
   const monitoring = startWorkerLoop({
     run: async () => {
-      if (stopped) return 'idle';
+      if (isStopped()) return 'idle';
       await rechecks.run();
-      if (!stopped) await health.run();
+      if (!isStopped()) await health.run();
       return 'idle';
     },
     // A fixed minute cadence: it measures, it does not poll for work.
     backoff: { busyMs: 60_000, idleMaxMs: 60_000 },
     timers: input.timers,
     failed: (error) => {
-      if (!stopped) failed(error, 'monitor');
+      if (!isStopped()) failed(error, 'monitor');
     },
   });
   return {

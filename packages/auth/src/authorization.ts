@@ -204,7 +204,6 @@ function serviceDecision(
   resource: AuthorizationInput['resource'],
 ): AuthorizationDecision {
   return resource.kind === 'foundation' &&
-    principal.scope === 'foundation' &&
     principal.capabilities.includes(capability)
     ? allow
     : deny('missing-capability');

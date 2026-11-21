@@ -103,11 +103,7 @@ const judgePool = (
       sum +
       Math.ceil(
         e.entries /
-          (e.format.outcome === 'winner'
-            ? 2
-            : e.format.outcome === 'ranking' && 'sides' in e.format
-              ? 4
-              : 6),
+          (e.format.outcome === 'winner' ? 2 : 'sides' in e.format ? 4 : 6),
       ),
     0,
   );
@@ -214,6 +210,13 @@ const drawSlot = (
   const settings = new Map(
     slotEvents.map(({ plan }) => [plan.id, plan.settings]),
   );
+  /** An event of this slot's settings, as relaxed so far. */
+  const settingsOf = (event: Id) => {
+    const found = settings.get(event);
+    if (found === undefined)
+      throw new Error(`Event ${event} is not drawn in this slot`);
+    return found;
+  };
   const groups = scenario.together ? [slotEvents] : slotEvents.map((e) => [e]);
   let commitments: Commitment[] = [];
   for (const [g, group] of groups.entries()) {
@@ -223,7 +226,7 @@ const drawSlot = (
         slot: label,
         events: group.map(({ plan, state }) =>
           requestFor(
-            { ...plan, settings: settings.get(plan.id)! },
+            { ...plan, settings: settingsOf(plan.id) },
             state,
             tabRound,
             cutoff,
@@ -244,7 +247,7 @@ const drawSlot = (
         settings.set(
           answer.event,
           relax(
-            settings.get(answer.event)!,
+            settingsOf(answer.event),
             answer.broken.map((b) => b.key),
           ),
         );
@@ -270,7 +273,7 @@ const drawSlot = (
         case 'rules':
           settings.set(
             answer.event,
-            relax(settings.get(answer.event)!, answer.rules),
+            relax(settingsOf(answer.event), answer.rules),
           );
           break;
         case 'slot':
@@ -278,10 +281,11 @@ const drawSlot = (
             const holder = [...collision.holders]
               .reverse()
               .find((h) => h.kind === 'entry');
-            const state =
-              holder &&
-              slotEvents.find((e) => e.plan.id === holder.event)?.state;
-            if (state && holder?.kind === 'entry')
+            if (holder === undefined) continue;
+            const state = slotEvents.find(
+              (e) => e.plan.id === holder.event,
+            )?.state;
+            if (state)
               state.entries = state.entries.map((e) =>
                 e.id === holder.entry ? { ...e, status: 'withdrawn' } : e,
               );
@@ -614,10 +618,13 @@ export const simulate = (
             ? {
                 judges,
                 commitments: events
-                  .filter((e) => e.plan.id !== plan.id && drawn.has(e.plan.id))
-                  .flatMap((e) =>
-                    occupying(drawn.get(e.plan.id)!, judges, e.state.entries),
-                  ),
+                  .filter((e) => e.plan.id !== plan.id)
+                  .flatMap((e) => {
+                    const prior = drawn.get(e.plan.id);
+                    return prior === undefined
+                      ? []
+                      : occupying(prior, judges, e.state.entries);
+                  }),
               }
             : null,
         );

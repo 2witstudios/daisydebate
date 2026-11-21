@@ -61,13 +61,15 @@ export function create(options: {
       )
         throw createAppError('VALIDATION');
       // Each pass independently visits both lanes; no attached backlog can hide detached cleanup.
-      while (!input.signal.aborted) {
+      // Read live: the signal can abort during any await, which narrowing cannot see.
+      const stopped = () => input.signal.aborted;
+      while (!stopped()) {
         await runOnce();
-        if (input.signal.aborted) break;
+        if (stopped()) break;
         try {
           await input.pause(input.pollMs, input.signal);
         } catch (error) {
-          if (!input.signal.aborted) throw error;
+          if (!stopped()) throw error;
         }
       }
       return { kind: 'stopped' as const };

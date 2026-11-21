@@ -47,7 +47,10 @@ export type SheetScores = Readonly<
 /** The row id a holistic score is held under. */
 const holisticRow = 'points';
 
-/** Anchor levels spread evenly over the scale: 1, 3 and 5 for three anchors on 1–5. */
+/**
+ * Anchor levels spread evenly over the scale: 1, 3 and 5 for three anchors
+ * on 1–5. Every index is on the lattice; a null level reads as the maximum.
+ */
 const anchorLevels = (scale: BallotPoints['scale'], count: number) => {
   const size = scoreLatticeSize(scale);
   if (size === null) return [];
@@ -55,7 +58,7 @@ const anchorLevels = (scale: BallotPoints['scale'], count: number) => {
     scoreValueAt(
       scale,
       count === 1 ? size - 1 : Math.round((index * (size - 1)) / (count - 1)),
-    )!,
+    ),
   );
 };
 
@@ -106,9 +109,10 @@ export const sheetMax = (points: BallotPoints): number =>
   sumScoreValues(
     Array.from({ length: rowsOf(points).length }, () => {
       const count = scoreLatticeSize(points.scale);
+      // The top of a sized lattice is always on it.
       return count === null
         ? Number.NaN
-        : scoreValueAt(points.scale, count - 1)!;
+        : (scoreValueAt(points.scale, count - 1) ?? Number.NaN);
     }),
   );
 

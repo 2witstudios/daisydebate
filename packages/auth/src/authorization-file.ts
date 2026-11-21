@@ -6,7 +6,6 @@ export function pendingFileCleanupAllowed(
   actorId: string,
   fact: PendingFileAuthorizationFact,
 ): boolean {
-  if (!fact.channel) return false;
   const ids = [
     fact.fileId,
     fact.channelId,

@@ -36,13 +36,15 @@ export function createCaptureSupervisor(input: {
   // Sessions the server definitely closed: never relaunched. Bounded, oldest first.
   const finished = new Set<string>();
   let stopped = false;
+  // stop() can land while a tick awaits discovery, so it is read fresh.
+  const stoppedNow = () => stopped;
   const exited = (sessionId: string, status: number) => {
     const launchedAt = running.get(sessionId)?.launchedAt ?? input.nowMs();
     running.delete(sessionId);
     if (status === CAPTURE_FINISHED_EXIT) {
       backoff.delete(sessionId);
-      if (finished.size >= 4096)
-        finished.delete(finished.values().next().value!);
+      const oldest = finished.values().next();
+      if (finished.size >= 4096 && !oldest.done) finished.delete(oldest.value);
       finished.add(sessionId);
       return;
     }
@@ -55,7 +57,8 @@ export function createCaptureSupervisor(input: {
     const failures = (held ? 0 : (backoff.get(sessionId)?.failures ?? 0)) + 1;
     backoff.delete(sessionId);
     // Bounded: the oldest retry record goes first.
-    if (backoff.size >= 1024) backoff.delete(backoff.keys().next().value!);
+    const oldest = backoff.keys().next();
+    if (backoff.size >= 1024 && !oldest.done) backoff.delete(oldest.value);
     backoff.set(sessionId, {
       failures,
       retryAt:
@@ -82,7 +85,7 @@ export function createCaptureSupervisor(input: {
       );
       const now = input.nowMs();
       for (const session of found) {
-        if (stopped || running.size >= input.maxSessions) return;
+        if (stoppedNow() || running.size >= input.maxSessions) return;
         const retry = backoff.get(session.sessionId);
         if (
           running.has(session.sessionId) ||

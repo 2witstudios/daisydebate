@@ -22,7 +22,10 @@ const gamesOf = (tournament: Tournament): LadderGame[] => {
   };
   return effectiveResults(history, Number.POSITIVE_INFINITY).flatMap(
     (result) => {
-      const row = rows.get(result.id)!;
+      const row = rows.get(result.id);
+      // Every effective result is one of the tournament's own.
+      if (row === undefined)
+        throw new Error(`Result ${result.id} is not the tournament's`);
       const [first, second] = row.fixture.sides;
       const sides = [members.get(first), members.get(second)] as const;
       const winner = result.outcome.winner;

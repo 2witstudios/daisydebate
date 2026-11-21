@@ -95,14 +95,15 @@ export function createChannelMessagesProjector(bounds: MessagingCoreBounds) {
       messages.push(view);
     }
     const older = input.records.length > messages.length;
+    const oldest = messages.at(-1);
     return historyResult.parse({
       version: 1,
       channelId: input.channelId,
       changeVersion: input.changeVersion,
       messages,
       nextBefore:
-        older && messages.length > 0
-          ? { channelId: input.channelId, sequence: messages.at(-1)!.sequence }
+        older && oldest !== undefined
+          ? { channelId: input.channelId, sequence: oldest.sequence }
           : null,
     });
   };

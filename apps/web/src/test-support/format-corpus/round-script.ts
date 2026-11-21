@@ -52,12 +52,15 @@ const run = (
       return runtime.activate({ at: now, now });
     case 'tick':
       return runtime.tick(now);
-    case 'command':
+    case 'command': {
+      const seat = state.seats.find((s) => s.id === action.seatId);
+      if (!seat) throw new Error(`No seat ${action.seatId} in the script`);
       return runtime.execute({
         command: { type: action.type },
-        actorId: state.seats.find((s) => s.id === action.seatId)!.actorId,
+        actorId: seat.actorId,
         now,
       });
+    }
     case 'complete_panel':
       return runtime.completePanel(panelCompletion(state, action.winner, now));
   }
