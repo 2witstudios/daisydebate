@@ -258,6 +258,9 @@ const processEdgeLoads = [
       'Use a literal import() specifier so the import boundaries can check it.',
   },
 ];
+
+const memberNamed = (name) =>
+  `:matches([computed=false][property.name="${name}"], [computed=true][property.value="${name}"], [computed=true][property.type="TemplateLiteral"][property.expressions.length=0][property.quasis.0.value.cooked="${name}"])`;
 const processEntries = [
   'apps/web/src/proxy.ts',
   'apps/web/src/instrumentation.ts',
@@ -945,8 +948,7 @@ export default [
         ...repoSyntaxRestrictions,
         ...processEdgeLoads,
         {
-          selector:
-            'CallExpression > MemberExpression.callee:matches([computed=false][property.name="split"], [computed=true][property.value="split"]) > MemberExpression.object:matches([computed=false][property.name="pathname"], [computed=true][property.value="pathname"])',
+          selector: `CallExpression > MemberExpression.callee${memberNamed('split')} > MemberExpression.object${memberNamed('pathname')}`,
           message:
             'Use Next.js route params or pass the bound value to the server action.',
         },
