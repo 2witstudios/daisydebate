@@ -482,13 +482,6 @@ test('a ranked Start rechecks both a seatless host and a ready debater after a p
             values(${createId()}, ${guardian.userId}, ${member.userId}, ${evidence},
               'active', 'created-account', now(), now())`;
           }
-          for (const member of [f.guest, f.outsider])
-            await f.store.signContentWaiver({
-              id: createId(),
-              userId: member.userId,
-              version: YOUTH_CONTENT_WAIVER_VERSION,
-              words: agreementWords(youthContentWaiverDocument),
-            });
           const protect = (member: Member, level: 'guided' | 'supervised') =>
             f.sql.begin(async (tx) => {
               await tx`select set_config('daisy.subject_scope', ${guardian.userId}, true)`;
@@ -496,6 +489,14 @@ test('a ranked Start rechecks both a seatless host and a ready debater after a p
               ${member.userId}, ${JSON.stringify({ level })}::text::jsonb)`;
             });
           let room = (await f.create(await ranked(f), f.host)).view;
+          for (const member of [f.guest, f.outsider])
+            await f.store.signContentWaiver({
+              id: createId(),
+              roomId: room.id,
+              userId: member.userId,
+              version: YOUTH_CONTENT_WAIVER_VERSION,
+              words: agreementWords(youthContentWaiverDocument),
+            });
           room = (
             await f.command(f.guest, room, {
               type: 'claim-seat',

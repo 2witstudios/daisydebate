@@ -382,17 +382,15 @@ async function currentPostingRecovery(world: World, priorSeasonId: string) {
           ),
         ]);
         return [
-          board?.data.entries.some((row) => row.id === projectionActorId),
-          member?.lines.some((row) => row.actorId === projectionActorId),
+          board?.data.entries.some((row) => row.id === projectionActorId) ??
+            false,
+          member?.lines.some((row) => row.actorId === projectionActorId) ??
+            false,
           cards.some((row) => row.actorId === projectionActorId),
         ];
       };
       const beforeHidden = await projectionPublished();
-      await leagueRoomRating(world, 1, 'private');
-      const early = await leagueRoomRating(world, 1, 'public');
-      const late = await leagueRoomRating(world, 1, 'public', {
-        forfeit: 'Debater 2',
-      });
+      await leagueRoomRating(world);
       assert({
         given:
           'a projection-only competitor before and after an unrelated hidden posting',
@@ -403,6 +401,10 @@ async function currentPostingRecovery(world: World, priorSeasonId: string) {
           [false, false, false],
           [false, false, false],
         ],
+      });
+      const early = await leagueRoomRating(world, 1, 'public');
+      const late = await leagueRoomRating(world, 1, 'public', {
+        forfeit: 'Debater 2',
       });
       const publication = () =>
         tab.leagueRatings(
