@@ -22,21 +22,18 @@ import { createSanctionCommandStore } from './sanction-command';
 export type { SanctionCommandFacts } from './sanction-command';
 export type { HostRosterFacts } from './host-roster';
 import { createHostEventsStore } from './host-events';
-export type { HostEventsFacts } from './host-events';
 import { createHostRoundStore } from './host-round';
-export type { HostRoundFacts, HostDrawOverviewFacts } from './host-round';
+export type { HostRoundFacts } from './host-round';
 import { createHostResultsStore } from './host-results';
 export type { HostResultsFacts } from './host-results';
 export type { EventCompletionFacts } from './event-completion';
 import { createHostBallotsStore } from './host-ballots';
-export type { HostBallotsFacts } from './host-ballots';
 import { createCompletionCommandStore } from './completion-command';
 export type {
   LoadedCompletionCommand,
   CompletionWrite,
 } from './completion-command';
 import { createHostNavigationStore } from './host-navigation';
-export type { HostNavigationFacts } from './host-navigation';
 import { createEventCompetitionStore } from './event-competition';
 export type { EventCompetitionFacts } from './event-competition';
 import { createConflictWaiverRequestStore } from './conflict-waiver-request';
@@ -58,27 +55,21 @@ export type {
 } from './release-command';
 import { createTournamentHostingPurchaseStore } from './tournament-hosting-purchases';
 export type {
-  HostedTournamentsFacts,
   TournamentHostingAccount,
   TournamentHostingPurchaseRow,
   TournamentHostingPurchaseWrites,
 } from './tournament-hosting-purchases';
-export {
-  loadTournamentHostingFacts,
-  type TournamentHostingFacts,
-} from './tournament-hosting-facts';
+export { type TournamentHostingFacts } from './tournament-hosting-facts';
 import { createTournamentSponsorshipStore } from './tournament-sponsorship';
 export type { LoadedTournamentSponsorship } from './tournament-sponsorship';
 import {
   loadAccountHostingFacts,
   type AccountHostingFacts,
 } from './account-hosting-facts';
-export type { AccountHostingFacts } from './account-hosting-facts';
 import { createResultCommandStore } from './result-command';
-export type { LoadedResultCommand, ResultWrite } from './result-command';
+export type { LoadedResultCommand } from './result-command';
 export type { RoomDirectionInput } from './room-direction';
 import { createEventBallotReadStore } from './event-ballot-read';
-export type { EventBallotFacts } from './event-ballot-read';
 import { createTournamentEventSettingReadStore } from './tournament-event-settings';
 export type { TournamentEventSettingFacts } from './tournament-event-settings';
 import { findLobbyByHandle } from './lobby-handle';
@@ -86,7 +77,7 @@ import { createTournamentSetupReadStore } from './tournament-setup-read';
 export type { TournamentSetupFacts } from './tournament-setup-read';
 import { createDrawCommandStore } from './draw-command';
 export { DrawPeopleChanged } from './draw-command-facts';
-export type { DrawCommandInput, LoadedDrawCommand } from './draw-command-facts';
+export type { LoadedDrawCommand } from './draw-command-facts';
 export type { DrawWrite } from './draw-write';
 export type { DrawRoomAssembly } from './draw-writes';
 export { EntryEnrollmentChanged } from './entry-enrollment';

@@ -63,7 +63,7 @@ export type ProfileTextRefusal = (typeof profileTextRefusals)[number];
 const handleMark = /@/u;
 
 /** The normalized text's refusal, or null when it may be saved. */
-export function profileTextRefusal(text: {
+function profileTextRefusal(text: {
   readonly displayName: string;
   readonly bio: string;
 }): ProfileTextRefusal | null {
@@ -104,7 +104,6 @@ export const publicProfileEditSchema = z
     displayName: orNull(edit.displayName),
     bio: orNull(edit.bio),
   }));
-export type PublicProfileEdit = z.infer<typeof publicProfileEditSchema>;
 
 /** The closed word a refused edit's issues name, if any. */
 export const profileTextRefusalOfIssues = (
@@ -138,12 +137,6 @@ export const profilePhotoStatuses = [
   'erased',
 ] as const;
 export type ProfilePhotoStatus = (typeof profilePhotoStatuses)[number];
-
-/** The live statuses: a photo that still has its image and may be shown. */
-export const liveProfilePhotoStatuses = [
-  'in_review',
-  'published',
-] as const satisfies readonly ProfilePhotoStatus[];
 
 /** The photo is over: its image is deleted or about to be, and nothing shows it. */
 export const isProfilePhotoTerminal = (status: ProfilePhotoStatus): boolean =>
@@ -193,20 +186,6 @@ export type ProfilePhotoRefusal =
   | 'photo-malware'
   | 'photo-blocked'
   | 'photo-unavailable';
-
-/** The member's public profile as a viewer may see it. */
-export const publicProfileSchema = z.strictObject({
-  displayName: z.string().nullable(),
-  bio: z.string().nullable(),
-  /** The photo this viewer may see, or null. */
-  photo: z
-    .strictObject({
-      photoId: idSchema,
-      status: z.enum(profilePhotoStatuses),
-    })
-    .nullable(),
-});
-export type PublicProfile = z.infer<typeof publicProfileSchema>;
 
 /** What can happen to a stored photo after it is recorded. */
 export type ProfilePhotoEvent =

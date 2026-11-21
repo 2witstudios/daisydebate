@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { idSchema } from '../primitives';
 import { lobbyCommandEnvelope, type LobbyCommandCatalogue } from './command';
 
-export const tournamentSponsorshipCommandSchema = z.discriminatedUnion('type', [
+const tournamentSponsorshipCommandSchema = z.discriminatedUnion('type', [
   z.strictObject({
     type: z.literal('propose-tournament-sponsorship'),
     lobbyId: idSchema,

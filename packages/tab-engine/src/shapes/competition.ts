@@ -93,7 +93,7 @@ type OutcomeOf<Format extends FormatDescriptor> = Format extends TwoSides
   : RankingOutcome;
 
 /** Administrative credits have no submitted judge identity or fabricated ballot. */
-export type AdministrativeCredits =
+type AdministrativeCredits =
   | {
       readonly kind: 'awarded';
       readonly entries: readonly {

@@ -14,7 +14,7 @@ type OfficialRound = Extract<
 >['tabRounds'][number];
 type Tie = OfficialRound['fixtures'][number];
 
-export const LARGE_BRACKET = 64;
+const LARGE_BRACKET = 64;
 
 const roundNames = [
   'Triple octofinals',
@@ -31,7 +31,7 @@ const starts = ['09:00', '10:30', '12:00', '13:30', '15:00', '16:30'] as const;
 const upsets = new Set([41, 38, 35]);
 
 /** Seeds in bracket order, so 1 meets 64 and the top two meet only in the final. */
-export const bracketOrder = (size: number): readonly number[] => {
+const bracketOrder = (size: number): readonly number[] => {
   let order = [1];
   while (order.length < size) {
     const width = order.length * 2;
@@ -59,9 +59,7 @@ const winnerOf = (top: number, bottom: number, index: number) =>
   index === 0 && upsets.has(bottom) ? bottom : Math.min(top, bottom);
 
 /** Varsity debate's large elimination stage: every round, finished or not. */
-export function largeBracketRounds(
-  finished: boolean,
-): readonly OfficialRound[] {
+function largeBracketRounds(finished: boolean): readonly OfficialRound[] {
   const live = 2;
   let seeds = bracketOrder(LARGE_BRACKET);
   return roundNames.map((name, index) => {

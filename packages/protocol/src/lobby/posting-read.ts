@@ -82,4 +82,3 @@ export const postingQuerySchema = z.strictObject({
   offset: z.int().nonnegative().default(0),
   pageSize: z.int().min(1).max(500).default(100),
 });
-export type PostingQuery = z.infer<typeof postingQuerySchema>;

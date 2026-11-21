@@ -16,7 +16,7 @@ import { settingCommandEnvelopeSchema } from '@daisy/protocol/lobby/setting-comm
 import { singleFormField } from '../forms/form-state';
 import { ballotBodyFromForm } from './ballot-body-form';
 
-export const ballotAuthoringContextSchema = z.strictObject({
+const ballotAuthoringContextSchema = z.strictObject({
   lobbyId: idSchema,
   eventId: idSchema,
   commandId: idSchema,

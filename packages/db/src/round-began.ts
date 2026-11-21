@@ -8,7 +8,7 @@ import { rowsOf } from './raw-rows';
  * The seated members a Round's start needs: every live account in a debater
  * or judge seat. A bot has no account, so it is never told.
  */
-export const seatedMembers = async (
+const seatedMembers = async (
   tx: Pick<AuthorizationTransaction, 'execute'>,
   roundId: string,
 ) =>

@@ -20,7 +20,7 @@ export type HoldStats = {
   readonly waits: number;
 };
 /** One operation's holds of a lane's connections since the last drain. */
-export type LaneHoldSummary = HoldStats & { readonly operation: string };
+type LaneHoldSummary = HoldStats & { readonly operation: string };
 /** A lane's holds since the last drain: the whole lane, then each operation. */
 export type LaneHolds = {
   readonly total: HoldStats;

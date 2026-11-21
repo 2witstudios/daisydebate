@@ -1,5 +1,4 @@
 import { and, asc, eq, gt, isNull } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { decideBetaAccessChange } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
 import { loadAuthorizationAccount } from '../authorization';
@@ -9,11 +8,9 @@ import { lockOpenAccount } from '../lock-open-account';
 import { childAccountRequests, guardianLinks } from '../schema/guardian-links';
 import { users } from '../schema/users';
 import { scopeTransaction } from '../tenant-scope';
+import type { Tx } from '../tx';
 
-type GuardianClaimTx = Pick<
-  BunSQLDatabase,
-  'select' | 'insert' | 'update' | 'execute'
->;
+type GuardianClaimTx = Pick<Tx, 'select' | 'insert' | 'update' | 'execute'>;
 
 async function findRequest(tx: GuardianClaimTx, userId: string, at: Date) {
   const [request] = await tx

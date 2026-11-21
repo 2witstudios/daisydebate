@@ -55,10 +55,8 @@ export type AuthorizationResourceKind = z.infer<
   typeof authorizationResourceKindSchema
 >;
 
-export const lobbyKindSchema = z.enum(['standing', 'tournament']);
-export type LobbyKind = z.infer<typeof lobbyKindSchema>;
-export const organizationKindSchema = z.enum(organizationKinds);
-export type OrganizationKind = z.infer<typeof organizationKindSchema>;
+type LobbyKind = 'standing' | 'tournament';
+export type OrganizationKind = (typeof organizationKinds)[number];
 
 /**
  * How far a capability reaches for a minor whose guardian limits their
@@ -67,7 +65,7 @@ export type OrganizationKind = z.infer<typeof organizationKindSchema>;
  * role never opens a lobby the guardian has not. The ways out (declining,
  * withdrawing, leaving, blocking, reporting) reach nothing.
  */
-export type CapabilityReach = 'lobby' | 'person' | null;
+type CapabilityReach = 'lobby' | 'person' | null;
 
 export type CapabilityMetadata = {
   /** Area reads derive from any listed permission; [] means owner-only. Null is not an area read. */

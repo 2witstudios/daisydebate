@@ -5,7 +5,7 @@ import type { SeatRef, SideKey } from '@daisy/protocol';
  * (TAB-6.17): the first side is sky and the second clay, as a two-sided
  * Round has always read; an unsided speaker is teal.
  */
-export const sideTones = ['sky', 'clay', 'teal', 'plum'] as const;
+const sideTones = ['sky', 'clay', 'teal', 'plum'] as const;
 export type SideTone = (typeof sideTones)[number];
 
 /** The tone of a seat's side; an unsided seat reads teal. */

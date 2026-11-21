@@ -29,6 +29,7 @@ const OPERATION_NAMES = [
   'watch-history.update',
   'notifications.read',
   'notifications.preferences',
+  'messaging.request_setting',
   'notifications.unsubscribe',
   'notifications.shell',
   'notifications.presentation',

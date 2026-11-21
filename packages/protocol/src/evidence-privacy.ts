@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { idSchema } from './primitives';
 import { MAX_FORMAT_SEATS } from './format-seating';
 
-export const evidencePrivacyScopeSchema = z
+const evidencePrivacyScopeSchema = z
   .strictObject({
     roundId: idSchema,
     subjectActorIds: z.array(idSchema).max(MAX_FORMAT_SEATS + 1),

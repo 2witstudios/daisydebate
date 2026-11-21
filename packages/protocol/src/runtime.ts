@@ -70,7 +70,7 @@ export type SegmentClose = {
 };
 
 /** A speech's new total of returned airtime, for the caller to write onto its row. */
-export type SegmentReturn = {
+type SegmentReturn = {
   readonly id: string;
   readonly returnedMs: number;
 };

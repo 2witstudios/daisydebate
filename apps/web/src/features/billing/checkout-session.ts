@@ -17,7 +17,7 @@ import {
 import { clubSeatPriceSchema } from './club-price';
 
 /** Where Checkout returns: the buyer's own billing page, or the club's (ADR 0148). */
-export const purchaseReturnPath = (purchase: Pick<Purchase, 'owner'>) =>
+const purchaseReturnPath = (purchase: Pick<Purchase, 'owner'>) =>
   purchase.owner.kind === 'account'
     ? '/settings/billing'
     : `/clubs/${purchase.owner.organizationId}/billing`;

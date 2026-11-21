@@ -99,7 +99,7 @@ const narrowestFirst = (a: GrantFact, b: GrantFact): number => {
 };
 
 /** The person's live grants covering the target, narrowest scope then lowest id. */
-export const coveringGrants = (
+const coveringGrants = (
   holder: Holder,
   target: AuthorityTarget,
 ): readonly GrantFact[] =>

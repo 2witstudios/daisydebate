@@ -1,5 +1,6 @@
 import { resolveSettings, roomChain } from '@daisy/protocol/setting-resolution';
 import {
+  affirmativeSide,
   formatDefinitionSchema,
   roomConfigSchema,
   type RoomConfig,
@@ -88,7 +89,7 @@ export function standingRoomConfig(
             strikeWindowMs: rule.strikeWindowMs,
             firstStriker:
               resolved.definition?.sides[rule.firstStriker]?.key ??
-              'affirmative',
+              affirmativeSide,
             source: { kind: 'host', resolutions: unique },
           }
         : rule.method === 'strike'

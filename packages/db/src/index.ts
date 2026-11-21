@@ -121,6 +121,7 @@ import {
   spectatorChatOperations,
 } from './messaging/spectator-chat';
 import { notificationOperations } from './notifications';
+import { messageRequestSettingOperations } from './messaging/request-settings';
 import { messagingUnreadEmailOperations } from './messaging/unread-emails';
 import { watchHistoryOperations } from './watch-history';
 import { preapprovalOperations } from './beta-preapprovals';
@@ -559,6 +560,7 @@ export function createDatabase({
     ...debaterFollowOperations({ database: social, eventSink }),
     ...watchHistoryOperations({ database: social, eventSink }),
     ...notificationOperations({ database: social, eventSink }),
+    ...messageRequestSettingOperations({ database: social, eventSink }),
     ...messagingUnreadEmailOperations({ database: social, eventSink }),
     ...recordingRoundReadOperations({ database: browse }),
     ...youthLiveReadOperations({ database: browse }),

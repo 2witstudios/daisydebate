@@ -39,7 +39,7 @@ const canonicalTemplateBallot = (
   const parsed = ballotDefinitionSchema.safeParse(version?.definition);
   return parsed.success ? parsed.data : null;
 };
-export const templateFact = (
+const templateFact = (
   graph: SettingGraph,
   row: SettingGraph['templates'][number],
 ): TemplateRow => ({

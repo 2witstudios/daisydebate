@@ -70,7 +70,7 @@ export type ObservedStage =
   | 'between'
   | 'judging';
 
-export type ObservedClock = {
+type ObservedClock = {
   readonly label: string;
   readonly remainingMs: number;
 };

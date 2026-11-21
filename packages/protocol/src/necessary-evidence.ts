@@ -79,7 +79,7 @@ export type NecessaryEvidenceCustody = {
 };
 
 /** Historical committed payload metadata; never fresh capture/publication/hearing permission. */
-export type NecessaryEvidencePayloadReceipt = {
+type NecessaryEvidencePayloadReceipt = {
   readonly kind: 'received';
   readonly evidenceId: string;
   readonly bindingDigest: string;

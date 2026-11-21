@@ -29,9 +29,7 @@ const matchesStatus = (
       return group.short;
   }
 };
-export const entryFilterLabels: Readonly<
-  Record<EntryFilter['status'], string>
-> = {
+const entryFilterLabels: Readonly<Record<EntryFilter['status'], string>> = {
   all: 'All',
   accepted: 'Accepted',
   not_answered: 'Not answered',

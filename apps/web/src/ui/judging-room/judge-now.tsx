@@ -8,7 +8,7 @@ import { cn } from '../cn';
 import { observedActivityLabel } from '../round-observed/observed-labels';
 import { toneInk } from '../debate-room/side-tone';
 
-export const judgeNowHeadingId = 'judge-now';
+const judgeNowHeadingId = 'judge-now';
 const judgeNowDetailId = 'judge-now-detail';
 
 /**

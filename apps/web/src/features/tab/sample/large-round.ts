@@ -10,8 +10,8 @@ import { largeJudge, largeSurname } from './large-names';
  * Autumn Open's varsity debate at scale: 200 entries in 100 rooms. The
  * ordinary sample's fixtures keep their rooms; the rest are named in order.
  */
-export const LARGE_ROUND_FIXTURES = 100;
-export const LARGE_ROUND_ENTRIES = 200;
+const LARGE_ROUND_FIXTURES = 100;
+const LARGE_ROUND_ENTRIES = 200;
 
 const minutes = (n: number) => n * 60_000;
 
@@ -56,7 +56,7 @@ const overdue = (
  * 28 more rooms judging, 40 in speeches and 25 finished, in the order the
  * tab keeps them (what needs the host first).
  */
-export function largeRoundThreeOpen(): {
+function largeRoundThreeOpen(): {
   readonly open: readonly TabRoundFixture[];
   readonly finishedTotal: number;
 } {

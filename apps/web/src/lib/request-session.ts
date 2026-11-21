@@ -1,5 +1,6 @@
 import { readFamilySettings } from '../features/parental-controls/settings';
 import { evaluatedIdentity } from '../server/member-boundary';
+import { messageOfferFor } from '../features/messaging/request-offer';
 import { leaguePageAddress } from '../features/tab/reads/league-address';
 import { readStandingRoomDraft } from '../features/tab/reads/standing-room-draft';
 import { authorize } from '@daisy/auth/authorization';
@@ -491,16 +492,18 @@ export const requestNotifications = (
 /** What this account keeps of its notification choices and watching. */
 export const requestAudienceSettings = async (userId: string) => {
   const { database, clock } = processApp();
-  const [preferences, presentation, history] = await Promise.all([
-    database.readNotificationPreferences({ userId }),
-    database.readNotificationPresentation({ userId }),
-    database.listWatchHistory({
-      userId,
-      clock: spectatorClockAt(clock.now()),
-      limit: WATCH_HISTORY_ROWS,
-    }),
-  ]);
-  return { preferences, presentation, history };
+  const [preferences, presentation, history, messageRequestSetting] =
+    await Promise.all([
+      database.readNotificationPreferences({ userId }),
+      database.readNotificationPresentation({ userId }),
+      database.listWatchHistory({
+        userId,
+        clock: spectatorClockAt(clock.now()),
+        limit: WATCH_HISTORY_ROWS,
+      }),
+      database.readMessageRequestSetting({ userId }),
+    ]);
+  return { preferences, presentation, history, messageRequestSetting };
 };
 
 /** Whether this account follows that debater; null when it cannot. */
@@ -780,3 +783,11 @@ export async function requestFamilyRows(role: 'adult' | 'child') {
     readFamilySettings(session, viewer.userId, role, new Date(clock.now())),
   );
 }
+
+/** What this member's profile view offers toward `username` (decision 90). */
+export const requestMessageOffer = async (username: string) => {
+  const identity = await requestIdentity();
+  return identity.state === 'member'
+    ? messageOfferFor(processApp(), identity.principal, username)
+    : ('none' as const);
+};

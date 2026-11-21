@@ -117,7 +117,7 @@ const onFloor = (
  * labelled clock, only a wait has time left, and only the wait between speeches knows
  * what comes next. A Round that is over is `ended`, never the `slate` before it began.
  */
-export type StagePhaseView =
+type StagePhaseView =
   | {
       readonly phase: 'speech';
       readonly clock: { readonly label: string; readonly endsAt: string };

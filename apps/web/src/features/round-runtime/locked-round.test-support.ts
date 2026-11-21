@@ -11,7 +11,7 @@ import { launched } from './round.test-support';
 
 /** The one-on-one Round with a complete human cast, as the store locks it. */
 export const seat = launched.participants[0]!;
-export const judgeSeatId = 'j'.repeat(24);
+const judgeSeatId = 'j'.repeat(24);
 const others = [
   {
     id: 'q4n6p8r2t4v6x8z1k3b5c7d9',

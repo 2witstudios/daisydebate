@@ -111,7 +111,7 @@ const citationsSchema = (points: BallotPoints, subjects: BallotSubjects) => {
 };
 
 /** Ordered places: every subject exactly once, a shared place only where ties are allowed. */
-export const placesSchema = (subjects: Keys, ties: boolean) =>
+const placesSchema = (subjects: Keys, ties: boolean) =>
   z
     .array(z.array(z.enum(subjects)).min(1).max(subjects.length))
     .min(1)

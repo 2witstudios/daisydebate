@@ -209,14 +209,14 @@ type DrawAuthorizationFact = {
   readonly scope: TournamentScopeFact;
   readonly viewing: ViewingFact;
 };
-export type FixtureAuthorizationFact = {
+type FixtureAuthorizationFact = {
   readonly kind: 'fixture';
   readonly fixtureId: string;
   readonly scope: TournamentScopeFact;
   readonly conflict: ConflictFact;
   readonly viewing: ViewingFact;
 };
-export type BallotAuthorizationFact = {
+type BallotAuthorizationFact = {
   readonly kind: 'ballot';
   readonly scope: TournamentScopeFact;
   readonly conflict: ConflictFact;
@@ -247,7 +247,7 @@ type SanctionAuthorizationFact = {
 };
 
 /** Every resource the lobby rules decide. */
-export type TournamentSponsorshipAuthorizationFact = {
+type TournamentSponsorshipAuthorizationFact = {
   readonly kind: 'tournament_sponsorship';
   readonly scope: TournamentScopeFact;
   readonly sponsorActorId: string;

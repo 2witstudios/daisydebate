@@ -5,7 +5,7 @@ export const MAX_SAMPLE_RTT_MS = 2000;
 export const RESAMPLE_EVERY_MS = 30_000;
 export const SEED_RETRY_MS = 2000;
 /** Fresh ordered samples that must agree before a server step back is believed. */
-export const ROLLBACK_CONFIRMATIONS = 3;
+const ROLLBACK_CONFIRMATIONS = 3;
 /** Doubles from the first retry to the settled cadence, with half-range jitter. */
 export const retryDelayMs = (failures: number, random: number) =>
   Math.min(SEED_RETRY_MS * 2 ** (failures - 1), RESAMPLE_EVERY_MS) *
@@ -18,7 +18,7 @@ export type RoundTimeSample = {
   /** Allocated before sending the request, never at completion. */
   readonly generation: number;
 };
-export type SampleRefusal =
+type SampleRefusal =
   | 'non-finite'
   | 'invalid-interval'
   | 'rtt-out-of-envelope'

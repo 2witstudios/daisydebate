@@ -52,7 +52,6 @@ export const formatSeatsSchema = z
         message: 'Total seats exceed the format resource budget',
       });
   });
-export type FormatSeats = z.infer<typeof formatSeatsSchema>;
 
 /**
  * The segment types a format's grammar is built from. Prep is deliberately
@@ -83,7 +82,7 @@ export const speakRightsSchema = z.discriminatedUnion('rights', [
  * What a Round decides (TAB-6.2): a winning side, a ranking of the sides or
  * of the speakers, or nothing at all.
  */
-export const formatOutcomeSchema = z.discriminatedUnion('kind', [
+const formatOutcomeSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('winner') }),
   z.strictObject({
     kind: z.literal('ranking'),

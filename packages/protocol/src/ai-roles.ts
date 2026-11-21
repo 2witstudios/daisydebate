@@ -5,7 +5,7 @@ import type { SeatKind, SeatRef } from './seats';
  * The two AI actors a seat can hold (ISSUE-750): a bot debater, or the AI
  * judge. Each actor is one of them by its profile, never both.
  */
-export const aiRoles = ['debater', 'judge'] as const;
+const aiRoles = ['debater', 'judge'] as const;
 export const aiRoleSchema = z.enum(aiRoles);
 export type AiRole = (typeof aiRoles)[number];
 

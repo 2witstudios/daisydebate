@@ -6,7 +6,7 @@ import { broadcastReleasePolicySchema } from './broadcast';
  * (judge and moderator seats, and the host) see it, or it is released as
  * Daisy releases any Recording. A ranked Round's is always released.
  */
-export const recordingPolicies = ['off', 'officials', 'released'] as const;
+const recordingPolicies = ['off', 'officials', 'released'] as const;
 export const recordingPolicySchema = z.enum(recordingPolicies);
 export type RecordingPolicy = (typeof recordingPolicies)[number];
 

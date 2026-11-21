@@ -1,5 +1,4 @@
 import { and, asc, eq, gt, inArray, isNull, or, sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { lockAuthorizationActors } from '../authorization';
 import { actors } from '../schema/actors';
 import { users } from '../schema/users';
@@ -10,11 +9,9 @@ import {
 } from '../schema/guardian-links';
 import { reports } from '../schema/reports';
 import { scopeTransaction } from '../tenant-scope';
+import { inTransaction, type Tx, type TxOpener } from '../tx';
 
-type GuardianTx = Pick<
-  BunSQLDatabase,
-  'select' | 'execute' | 'insert' | 'update'
->;
+type GuardianTx = Pick<Tx, 'select' | 'execute' | 'insert' | 'update'>;
 
 export type GuardianLinkRow = typeof guardianLinks.$inferSelect;
 type LinkInsert = typeof guardianLinks.$inferInsert;
@@ -250,15 +247,13 @@ function scopedGuardians(tx: GuardianTx, userId: string) {
 
 export type GuardianSession = ReturnType<typeof scopedGuardians>;
 
-export function createGuardianStore(database: {
-  readonly transaction: <T>(work: (tx: GuardianTx) => Promise<T>) => Promise<T>;
-}) {
+export function createGuardianStore(database: TxOpener) {
   return {
     forSubject<T>(
       userId: string,
       work: (session: GuardianSession) => Promise<T>,
     ) {
-      return database.transaction(async (tx) => {
+      return inTransaction(database, async (tx) => {
         await scopeTransaction(tx, { subjectUserId: userId });
         return work(scopedGuardians(tx, userId));
       });

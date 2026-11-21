@@ -381,10 +381,10 @@ const listedLobbySchema = z.discriminatedUnion('kind', [
 ]);
 export type ListedLobby = z.infer<typeof listedLobbySchema>;
 
-export const lobbyListDefaultPageSize = 20;
+const lobbyListDefaultPageSize = 20;
 
 /** Which tournaments a list asks for, by where they stand now. */
-export const lobbyListTabs = ['upcoming', 'live', 'past'] as const;
+const lobbyListTabs = ['upcoming', 'live', 'past'] as const;
 export type LobbyListTab = (typeof lobbyListTabs)[number];
 
 const day = z.iso.date();

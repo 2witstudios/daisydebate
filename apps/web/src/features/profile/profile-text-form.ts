@@ -21,9 +21,7 @@ export type ProfileTextFormState = SaveFormState;
 export type ProfileTextRefusal =
   TextRefusalWord | 'rate-limited' | 'not-allowed' | 'unavailable';
 
-export const profileTextRefusalCopy: Readonly<
-  Record<ProfileTextRefusal, string>
-> = {
+const profileTextRefusalCopy: Readonly<Record<ProfileTextRefusal, string>> = {
   'display-name-too-long': `A display name is at most ${DISPLAY_NAME_MAX} characters.`,
   'display-name-handle':
     'A display name can’t contain @: it would look like a username.',

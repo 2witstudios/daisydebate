@@ -39,7 +39,7 @@ export type LaneWindowLine =
  * The hold budget: a hold this long is worth naming its operation, as long
  * as the competitive lane's whole one-second wait-out.
  */
-export const SLOW_HOLD_MS = 1000;
+const SLOW_HOLD_MS = 1000;
 
 /** One more sample of a lane into its window. */
 export const sampled = (

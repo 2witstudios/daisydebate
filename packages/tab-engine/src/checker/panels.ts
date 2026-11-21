@@ -14,7 +14,7 @@ import type { Matched } from './structure';
 type Edge = { readonly to: number; cap: number; readonly back: number };
 
 /** The most that can flow from `source` to `sink`, by augmenting paths. */
-export const maxFlow = (
+const maxFlow = (
   nodes: number,
   arcs: readonly (readonly [number, number, number])[],
   source: number,

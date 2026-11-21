@@ -56,7 +56,6 @@ export const commandAuthorities = [
   'relationship',
   'service',
 ] as const;
-export type CommandAuthority = (typeof commandAuthorities)[number];
 
 /** The one container of Rooms: open-ended, or bounded with a schedule. */
 export const lobbyKinds = ['standing', 'tournament'] as const;
@@ -100,10 +99,8 @@ export const drawMethods = ['typed', 'computed'] as const;
 
 /** What is scheduled for one Room in one tab round; a bye has no Room. */
 export const fixtureKinds = ['pairing', 'section', 'bye'] as const;
-export type FixtureKind = (typeof fixtureKinds)[number];
 /** A fixture moves only forward through these, and is live while `published`. */
 export const fixtureStatuses = ['draft', 'published', 'withdrawn'] as const;
-export type FixtureStatus = (typeof fixtureStatuses)[number];
 
 /** How a person with authority is connected to a Room. */
 export const conflictBases = [
@@ -149,7 +146,6 @@ export const releaseThings = [
   'feedback',
   'video',
 ] as const;
-export type ReleaseThing = (typeof releaseThings)[number];
 
 /** Who may see a thing, narrowest first. Officials are not an audience. */
 export const audiences = [

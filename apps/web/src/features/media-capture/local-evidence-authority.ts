@@ -62,7 +62,7 @@ const refused = (reason: EvidenceRefusal['reason']): EvidenceRefusal => ({
   kind: 'refused',
   reason,
 });
-export const evidenceIdentityValid = (identity: EvidenceIdentity) =>
+const evidenceIdentityValid = (identity: EvidenceIdentity) =>
   idSchema.safeParse(identity.evidenceId).success &&
   /^[a-f0-9]{64}$/.test(identity.bindingDigest);
 const digestValid = (digest: string) => /^[a-f0-9]{64}$/.test(digest);

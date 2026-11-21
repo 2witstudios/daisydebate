@@ -27,6 +27,7 @@ test('notification kinds', () => {
       'challenge_accepted',
       'friend_request_received',
       'friend_request_accepted',
+      'dm_request',
       'judge_assigned',
       'judge_replaced',
       'judge_unassigned',
@@ -64,6 +65,8 @@ test('choice pairs', () => {
       'friend_request_received.in_app',
       'friend_request_received.email',
       'friend_request_accepted.in_app',
+      'dm_request.in_app',
+      'dm_request.email',
       'judge_assigned.in_app',
       'judge_replaced.in_app',
       'judge_unassigned.in_app',
@@ -124,6 +127,7 @@ test('catalogue', () => {
       'round_decision_released',
       'room_invitation',
       'friend_request_received',
+      'dm_request',
     ],
   });
   assert({
@@ -137,6 +141,7 @@ test('catalogue', () => {
       kindsAbout('media_release_request'),
       kindsAbout('media_release'),
       kindsAbout('media_release_club_ask'),
+      kindsAbout('dm_request'),
     ],
     expected: [
       [
@@ -163,6 +168,7 @@ test('catalogue', () => {
         'media_release_withdrawn',
       ],
       ['media_release_club_asked'],
+      ['dm_request'],
     ],
   });
 });

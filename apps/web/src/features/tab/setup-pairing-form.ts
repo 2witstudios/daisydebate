@@ -14,7 +14,7 @@ import {
   type Unacknowledged,
   type Moved,
 } from '../forms/form-state';
-export const setupPairingContextSchema = z.strictObject({
+const setupPairingContextSchema = z.strictObject({
   eventId: idSchema,
   settingsVersion: z.int().positive(),
   commandId: idSchema,

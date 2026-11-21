@@ -16,7 +16,7 @@ export const applyBallotOption = (
   _value: string,
 ): BallotDefinition => definition;
 
-export const ballotCriteria = (definition: BallotDefinition) =>
+const ballotCriteria = (definition: BallotDefinition) =>
   definition.points?.criteria.kind === 'grid'
     ? definition.points.criteria.groups.flatMap((group) => group.categories)
     : [];
@@ -35,7 +35,7 @@ export function pointsScaleLabel(
 }
 
 /** The key one score is kept under: a subject's, or one criterion of it. */
-export const scoreKey = (subject: string, criterion: string | null): string =>
+const scoreKey = (subject: string, criterion: string | null): string =>
   criterion === null ? subject : `${subject}:${criterion}`;
 
 /** A subject's points: its one score, or its criteria added up. */

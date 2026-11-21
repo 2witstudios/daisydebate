@@ -62,7 +62,7 @@ export async function submitEmailChange(
 export const emailChangeUnavailable = (form: FormData): EmailChangeState =>
   emailChangeUnsent(postedEmail(form), 'unavailable');
 
-export type EmailChangeNotice = {
+type EmailChangeNotice = {
   readonly tone: 'error' | 'info';
   readonly title: string;
 };

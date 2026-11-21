@@ -22,7 +22,6 @@ export {
 export type {
   Result,
   ResultOf,
-  AdministrativeCredits,
   FormatDescriptor,
   Fixture,
   FixtureOf,
@@ -41,7 +40,6 @@ export type {
   EventRequest,
   ExistingFixture,
   InputsRecord,
-  Judge,
   FixtureRef,
 } from './shapes/draw';
 

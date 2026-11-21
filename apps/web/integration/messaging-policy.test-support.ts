@@ -7,7 +7,7 @@ export const messagingFixturePosting: SocialContactPolicy = {
   decision: 'Integration fixture only',
   key: 'social.dm',
   revision: 1,
-  allowedBandPairs: [['adult', 'adult']],
+  earlierRevisions: [],
 };
 export const messagingFixtureReading: MessagingReadingPolicy = (input) => ({
   ...socialPolicyEvidence(input.channel, input.accounts, input.now),

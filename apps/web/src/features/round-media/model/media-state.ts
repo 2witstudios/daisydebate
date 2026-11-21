@@ -99,7 +99,7 @@ export type ReadFlight = ReadIdentity &
     | { readonly stage: 'aborting' }
   );
 
-export type LiveReads = {
+type LiveReads = {
   readonly flight: ReadFlight | null;
   /**
    * `wanted`: a read follows when nothing holds it. `starting`: it starts when this
@@ -114,12 +114,12 @@ export type PendingAnswer = {
   readonly answer: RoundMediaState;
 };
 /** One answer applies at a time; only one still current may announce. */
-export type RunningApply = PendingAnswer & {
+type RunningApply = PendingAnswer & {
   readonly next: PendingAnswer | null;
 };
 
 /** Before the first answer applies there is nothing to be out of date. */
-export type Establishment =
+type Establishment =
   | { readonly stage: 'establishing'; readonly reconnecting: boolean }
   | {
       readonly stage: 'established';

@@ -82,20 +82,19 @@ step does that work.
 ## Inner loop
 
 - `bun check:affected` is the fast loop: eslint and prettier on changed
-  files, boundaries, styling, and the affected turbo typecheck and test
-  graph. It is a convenience, not a gate.
+  files, boundaries, styling, side literals, and the affected turbo typecheck
+  and test graph. It is a convenience, not a gate.
 - `bun check` mirrors CI's blocking gates, which CI runs on every PR.
 - `bun migrations:check` runs whenever migrations change.
 - CI is per-PR isolated (service containers, concurrency cancellation). The
-  browser tier runs on main after merge, and a PR may dispatch it by choice
-  ([ADR 0098](../decisions/0098-ci-gate-only-while-greenfield.md)).
+  browser tier runs on every PR and is required
+  ([ADR 0159](../decisions/0159-signals-that-gate.md)).
 
 ## Reviewing and merging
 
 Reviews are asynchronous PR comments that the builder's PR loop consumes
 ([reviews](reviews.md)). The builder spawns `/review` and `/code-review`
-into its own worktree and asks the architecture reviewer for a pass. No
-review is a required status.
+into its own worktree. No review is a required status.
 
 Builders never merge. The point guard's flow sweep merges a PR into main
 (or, for a feature parent slice, the feature's point guard merges it into

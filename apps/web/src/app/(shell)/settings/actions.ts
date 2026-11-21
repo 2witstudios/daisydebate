@@ -6,6 +6,11 @@ import { inProcessFetch } from '../../../server/in-process-fetch';
 import { processRoute } from '../../../server/process-app';
 import { done } from '../../../features/forms/form-state';
 import {
+  saveRefused,
+  type SaveFormState,
+} from '../../../features/forms/save-form';
+import { post } from '../form-post';
+import {
   profileTextRefusalOf,
   profileTextRefused,
   profileTextUnavailable,
@@ -55,6 +60,27 @@ export async function savePublicProfileAction(
     return profileTextUnavailable(form);
   }
   // The shell's account menu shows the display name too.
+  revalidatePath('/settings');
+  return done();
+}
+
+const requestSettingRoute = processRoute((all) => all.messaging.requestSetting);
+
+/** Who may send the member message requests (decision 90), through the route. */
+export async function saveMessageRequestSettingAction(
+  _previous: SaveFormState,
+  form: FormData,
+): Promise<SaveFormState> {
+  try {
+    const response = await post(
+      requestSettingRoute,
+      '/api/messaging/request-setting',
+      { version: 1, setting: form.get('setting') },
+    );
+    if (!response.ok) return saveRefused(form);
+  } catch {
+    return saveRefused(form);
+  }
   revalidatePath('/settings');
   return done();
 }

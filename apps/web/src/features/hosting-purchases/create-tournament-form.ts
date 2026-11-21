@@ -16,7 +16,7 @@ import {
 } from '../forms/form-state';
 
 /** Ids minted when the form renders, so a resent form makes one tournament. */
-export const createTournamentContextSchema = z.strictObject({
+const createTournamentContextSchema = z.strictObject({
   lobbyCommandId: idSchema,
   eventCommandId: idSchema,
   divisionCommandId: idSchema,
@@ -105,7 +105,7 @@ export function createTournamentEnvelope(
  * Its division (PYL-16), set on the new lobby, whose settings start at
  * version 1. Open is the default and needs no row.
  */
-export const divisionSettingEnvelope = (
+const divisionSettingEnvelope = (
   context: CreateTournamentContext,
   lobbyId: string,
 ) =>
