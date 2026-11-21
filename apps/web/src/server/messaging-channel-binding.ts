@@ -1,11 +1,13 @@
 import type { Routes } from './routes';
-import type { createRouteBinder } from './route-binding';
 type ChannelReads = {
   readonly messaging: Pick<Routes['messaging'], 'typing' | 'preferences'>;
 };
+type ChannelReadHandler = (request: Request) => Promise<Response>;
 /** Both channel metadata routes receive the approved process binder; this module reaches no process globals. */
 export function messagingChannelRead(
-  bind: ReturnType<typeof createRouteBinder<ChannelReads>>,
+  bind: (
+    pick: (routes: ChannelReads) => ChannelReadHandler,
+  ) => ChannelReadHandler,
   operation: 'typing' | 'preferences',
 ) {
   return (
