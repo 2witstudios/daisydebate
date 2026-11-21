@@ -22,7 +22,12 @@ import { query } from './raw-rows';
 const TRANSACTION_MS = 3000;
 /** A writer's work connection plus the watchdog that can terminate it. */
 const WRITER_CONNECTIONS = 2;
-type TransactionReceipt = TransactionMetadata;
+type TransactionReceipt = Omit<TransactionMetadata, 'writer'> & {
+  readonly writer: {
+    readonly pid: number;
+    readonly backendStart: string | null;
+  };
+};
 type TransactionOptions = {
   readonly lifecycle?: TransactionLifecycle;
   readonly executionMs?: number;
@@ -47,6 +52,7 @@ class TransactionAttempt {
   private watchdog: ReservedSQL | undefined;
   private work: ReservedSQL | undefined;
   private backend: OwnedBackend | undefined;
+  private writerBeginIssued = false;
   private committing = false;
   private scopeClosed = false;
   private readonly disposed = createAppError(
@@ -104,23 +110,32 @@ class TransactionAttempt {
       from pg_stat_activity where pid=pg_backend_pid()`,
       z.object({
         pid: z.int().positive(),
-        started: z.string(),
+        started: z.string().nullable(),
         receivedAt: z.string(),
       }),
     );
     if (!identity)
       throw createAppError('INFRASTRUCTURE', 'Transaction backend unavailable');
-    this.backend = { pid: identity.pid, started: identity.started };
-    this.metadata = Object.freeze({
-      receivedAt: identity.receivedAt,
-      writer: Object.freeze({
-        pid: identity.pid,
-        backendStart: identity.started,
-      }),
-    });
+    const { pid, started, receivedAt } = identity;
+    // PostgreSQL can hide backend_start after SET ROLE. Such a writer can
+    // commit, but a PID alone cannot authorize a lifecycle or prove recovery.
+    if (started !== null) {
+      this.backend = { pid, started };
+      this.metadata = Object.freeze({
+        receivedAt,
+        writer: Object.freeze({ pid, backendStart: started }),
+      });
+    }
+    const receipt: TransactionReceipt =
+      this.metadata ??
+      Object.freeze({
+        receivedAt,
+        writer: Object.freeze({ pid, backendStart: null }),
+      });
     await this.runLifecycle('open');
     this.lifecycleOpened = this.lifecycle !== undefined;
     this.checkBudget();
+    this.writerBeginIssued = true;
     await this.work`begin isolation level read committed`;
     const backstop = String(Math.min(2000, this.executionMs));
     await this.work`select
@@ -150,7 +165,7 @@ class TransactionAttempt {
         },
       ),
       this.controller.signal,
-      this.metadata,
+      receipt,
     );
     this.scopeClosed = true;
     this.checkBudget();
@@ -242,11 +257,11 @@ class TransactionAttempt {
   }
 
   private confirmRollback(deadline: number): Promise<boolean> {
-    if (this.work === undefined) return Promise.resolve(true);
     if (this.controlInUse) {
       void this.watchdog?.close({ timeout: 0 }).catch(() => undefined);
       return Promise.resolve(false);
     }
+    if (!this.writerBeginIssued) return Promise.resolve(true);
     const remaining = deadline - this.now();
     if (
       this.backend === undefined ||

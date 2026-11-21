@@ -18,6 +18,71 @@ import {
 setupRitewayBun();
 requireTestServices(process.env);
 
+test('a hidden backend start permits COMMIT and cannot authorize recovery', async () => {
+  await withPool(async (client) => {
+    const reserve = client.reserve.bind(client);
+    let reservations = 0;
+    client.reserve = async (options) => {
+      reservations += 1;
+      const reserved = await reserve(options);
+      await reserved`set role daisy_web`;
+      return reserved;
+    };
+    const run = createBoundedTransaction({
+      lane: testLane(client, 4),
+      now: performance.now,
+    });
+    const committed = await run(async (tx, _signal, receipt) => {
+      const [row] = await tx.execute(sql`select 1 as value`);
+      return [row?.value, receipt.writer.backendStart];
+    });
+    const refusal = await run(async () => {
+      throw createAppError('CONFLICT');
+    }).catch((reason: unknown) => {
+      if (!isAppError(reason)) throw reason;
+      return reason;
+    });
+    const cause = refusal.cause as {
+      recovery?: string;
+      settlement?: TransactionSettlement;
+    };
+    if (!cause?.settlement) throw new Error('Missing recovery settlement');
+    const beforeConfirm = reservations;
+    const confirmed = await cause.settlement.confirm();
+    const recoveryReservations = reservations - beforeConfirm;
+    let lifecycleOpened = false;
+    await assertRejects({
+      given: 'a lifecycle that requires the hidden backend start',
+      should: 'refuse before opening its marker',
+      code: 'INVARIANT',
+      message: 'Transaction lifecycle has no backend',
+      actual: () =>
+        run(async () => undefined, {
+          lifecycle: {
+            open: async () => {
+              lifecycleOpened = true;
+            },
+            close: async () => {},
+          },
+        }),
+    });
+    assert({
+      given: 'Bun SQL on a real connection with a restricted SET ROLE',
+      should:
+        'return a commit with a null backend start and keep recovery unconfirmed',
+      actual: [
+        committed,
+        refusal.code,
+        cause.recovery,
+        confirmed,
+        recoveryReservations,
+        lifecycleOpened,
+      ],
+      expected: [[1, null], 'INFRASTRUCTURE', 'pending', false, 0, false],
+    });
+  });
+});
+
 test('a failed callback rolls back its write, disposes its native writer and preserves safe errors', async () => {
   await withBoundedRound(async (fixture, run, roundId) => {
     const [before] =
