@@ -95,7 +95,7 @@ const stages: readonly Stage<World>[] = [
   },
   {
     name: 'ballots to results: late ballot, correction',
-    run: resultsStage,
+    run: (world) => resultsStage(world, true),
   },
   {
     name: 'standings, break, bracket and certification',

@@ -55,12 +55,28 @@ export const readHostNavigation =
             return null;
           const entity =
             facts.kind === 'organization' ? facts.organization : facts.lobby;
+          const areas = authorizedHostAreas(authority);
+          const schedule =
+            facts.kind === 'lobby' && areas.includes('lobby.host.draw.read')
+              ? await facts.readSchedule()
+              : null;
           return hostNavigationViewSchema.parse({
             kind: facts.kind,
             id: entity.id,
             handle: entity.handle,
             name: entity.name,
-            areas: authorizedHostAreas(authority),
+            areas,
+            ...(schedule
+              ? {
+                  schedule: {
+                    slots: schedule.slots.map((slot) => ({
+                      ...slot,
+                      startsAt: slot.startsAt.toISOString(),
+                    })),
+                    rounds: schedule.rounds,
+                  },
+                }
+              : {}),
             manageSetup: dependencies.authorize({
               ...authority,
               capability:

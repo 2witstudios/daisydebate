@@ -409,6 +409,7 @@ export const lobbySetupRefusals = [
   'division-unknown',
   'rounds-placed',
   'draw-published',
+  'resolution-released',
   'resolution-not-fixed',
   'resolution-retired',
   'resolution-in-use',
@@ -518,6 +519,7 @@ export const lobbySetupCommandCatalogue = {
   'add-tab-round': setup(['resolution-not-fixed', 'resolution-retired']),
   'update-tab-round': setup([
     'draw-published',
+    'resolution-released',
     'resolution-not-fixed',
     'resolution-retired',
   ]),

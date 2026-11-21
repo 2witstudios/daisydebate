@@ -70,5 +70,10 @@ export async function eventAction(
       context.target.command.type === 'remove-event')
       ? null
       : context.returnEventId;
-  return moveOn(incoming, hostRoutes.events(context.handle, selected));
+  return moveOn(
+    incoming,
+    context.returnTo === 'resolutions' && selected
+      ? hostRoutes.resolutions(context.handle, selected)
+      : hostRoutes.events(context.handle, selected),
+  );
 }

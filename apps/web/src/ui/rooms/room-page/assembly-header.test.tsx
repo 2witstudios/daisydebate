@@ -230,3 +230,17 @@ test('the header names no lobby, only that the Room is ranked (YRoomPreRound)', 
     expected: [true, false],
   });
 });
+
+test('a held fixed resolution has tournament release copy', () => {
+  const view = { ...seated, topic: null };
+  const html = renderToStaticMarkup(<RoomResolution view={view} />);
+  assert({
+    given: 'a fixed-resolution Room whose wording is held',
+    should: 'say the tournament has yet to release the resolution',
+    actual: [
+      html.includes('Waiting for the tournament to release the resolution'),
+      html.includes('Chosen by strike before the round'),
+    ],
+    expected: [true, false],
+  });
+});

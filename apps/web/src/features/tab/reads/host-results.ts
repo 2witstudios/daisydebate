@@ -104,6 +104,36 @@ function hostResultsView(
     : null;
   const { settings } = eventSettingResolution(competition.configuration);
   const screening = completionScreenings(facts);
+  const published = new Set(
+    competition.draws
+      .filter((draw) => draw.status === 'published')
+      .map((draw) => draw.tabRoundId),
+  );
+  const postingOpenings = capabilities.release
+    ? competition.rounds
+        .filter((round) => published.has(round.id))
+        .flatMap((round) =>
+          audiences.flatMap((audience) =>
+            assessAudienceOpening(
+              {
+                whens: settings['audience.posting'].value,
+                releases: facts.releases,
+                screenings: [],
+              },
+              { thing: 'posting', audience },
+              [round.id],
+            ).kind === 'ready'
+              ? [
+                  {
+                    tabRoundId: round.id,
+                    tabRoundName: round.name ?? `Round ${round.number}`,
+                    audience,
+                  },
+                ]
+              : [],
+          ),
+        )
+    : [];
   const audienceRows: AudienceOpenings[] = competition.rounds.flatMap((round) =>
     audiences.flatMap((audience) => {
       const openings: AudienceOpenings['openings'] = (
@@ -173,6 +203,7 @@ function hostResultsView(
             ? { kind: 'ready' }
             : { kind: 'waiting', reason: assessment.kind },
       audiences: audienceRows,
+      ...(postingOpenings.length ? { postingOpenings } : {}),
       // Per-Round ballot authority owns private words and holds; a Results-area grant exposes neither.
       ballotAccess: 'released',
       capabilities,

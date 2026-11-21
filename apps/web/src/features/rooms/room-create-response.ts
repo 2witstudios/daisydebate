@@ -54,6 +54,7 @@ const conflictAnswer = (
     case 'not-seated':
     case 'incomplete-cast':
     case 'not-ready':
+    case 'resolution-not-released':
     case 'readiness-unavailable':
     case 'consent-conflict':
     case 'draw-unavailable':

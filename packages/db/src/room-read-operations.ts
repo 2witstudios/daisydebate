@@ -142,9 +142,13 @@ export const roomReadOperations = ({
     authorize: AuthorizeRoom,
     readTopic: ReadOpeningTopic,
   ): Promise<RoomAssemblyState> {
-    return (
-      await this.readRoomAssemblyFacts(roomId, caller, authorize, readTopic)
-    ).state;
+    const { state, resolutionHeld } = await this.readRoomAssemblyFacts(
+      roomId,
+      caller,
+      authorize,
+      readTopic,
+    );
+    return resolutionHeld ? { ...state, topic: null } : state;
   },
   /** The Room and its draw seed in one read; the seed settles projections and never leaves the server. */
   async readRoomAssemblyFacts(
@@ -154,6 +158,7 @@ export const roomReadOperations = ({
     readTopic: ReadOpeningTopic,
   ): Promise<{
     readonly state: RoomAssemblyState;
+    readonly resolutionHeld: boolean;
     readonly viewerAgeBand: NonNullable<Account>['ageBand'];
   }> {
     return instrumented(eventSink, 'readRoomAssembly', () =>
@@ -183,6 +188,11 @@ export const roomReadOperations = ({
           throw createAppError('NOT_FOUND');
         return {
           viewerAgeBand: account?.ageBand ?? null,
+          resolutionHeld:
+            row.lobbyKind === 'tournament' &&
+            !direction?.resolutionReleasedAt &&
+            facts.state.roundRef === null &&
+            facts.state.topic !== null,
           state: {
             ...facts.state,
             topic: await currentRoomTopic(tx, facts.state, readTopic),

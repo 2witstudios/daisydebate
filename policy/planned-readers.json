@@ -299,15 +299,6 @@
       "reviewBy": "2026-12-31"
     },
     {
-      "path": "packages/auth/src/authorization-audience.ts",
-      "export": "visibleThing",
-      "task": "TAB-8.9",
-      "owner": "tab",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Daisy Tab authority (slice E, TAB-5.1 to 5.7) ahead of the wiring slice's loaders, which read it.",
-      "reviewBy": "2026-12-31"
-    },
-    {
       "path": "packages/auth/src/authorization-boundary.ts",
       "export": "BoundaryFilter",
       "task": "TAB-8.2",

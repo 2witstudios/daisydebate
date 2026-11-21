@@ -1,4 +1,10 @@
 import { instantMs } from '@daisy/clock';
+import type { PeopleCommandContext } from './organization-people-forms';
+import type { PeopleCommandModel } from './people-command-model';
+type OrganizationPeopleAction = {
+  readonly model: Exclude<PeopleCommandModel, { kind: 'give-lobby' }>;
+  readonly context: PeopleCommandContext;
+};
 import type { People, PersonRow } from './people';
 import {
   peopleRoleOf,
@@ -9,7 +15,7 @@ import type {
   OrganizationPeopleView,
   OrganizationPerson,
 } from '@daisy/protocol/lobby/organization-read';
-import { unavailableAction } from './action';
+import { commandAction } from './action';
 
 const months = [
   'Jan',
@@ -61,15 +67,29 @@ const handlingWords = {
 } as const;
 
 /** An organization's people page from its people read. */
-function peopleOf(
+export function organizationPeoplePage(
   view: OrganizationPeopleView,
   context: {
     readonly role: string | null;
     readonly basePath: string;
     readonly viewerId: string;
     readonly now: string;
+    readonly handle: string;
+    readonly nextId: () => string;
   },
-): People {
+): People<OrganizationPeopleAction> {
+  const base = {
+    organizationId: view.organizationId,
+    organizationVersion: view.version,
+    lobbies: view.lobbies,
+    handle: context.handle,
+  };
+  const giveable = view.roles
+    .filter((role) => role.preset)
+    .map((role) => ({ value: role.roleId, label: role.name }));
+  const members = view.people
+    .filter((person) => person.membership === 'active' && !person.owner)
+    .map((person) => ({ value: person.userId, label: person.name }));
   const { roles, chosen } = peopleRoleSelection(
     view.roles,
     view.people.flatMap((person) => person.grants.map((grant) => grant.roleId)),
@@ -77,7 +97,9 @@ function peopleOf(
   );
   const roleName = (roleId: string) =>
     view.roles.find((role) => role.roleId === roleId)?.name ?? '';
-  const person = (member: OrganizationPerson): PersonRow => {
+  const person = (
+    member: OrganizationPerson,
+  ): PersonRow<OrganizationPeopleAction> => {
     const grants = member.grants.map((grant) =>
       joined([
         member.membership === 'invited'
@@ -110,14 +132,64 @@ function peopleOf(
       action: member.owner
         ? null
         : member.membership === 'invited'
-          ? unavailableAction('Cancel invite')
+          ? view.capabilities.cancelInvitation
+            ? commandAction<OrganizationPeopleAction>('Cancel invite', {
+                model: { kind: 'cancel', person: member.name },
+                context: {
+                  ...base,
+                  commandId: context.nextId(),
+                  intent: 'cancel',
+                  userId: member.userId,
+                  membershipVersion: member.membershipVersion,
+                },
+              })
+            : null
           : member.removable
-            ? unavailableAction('Change')
+            ? commandAction<OrganizationPeopleAction>('Change', {
+                model: {
+                  kind: 'remove',
+                  person: member.name,
+                  grants: member.grants.map((grant) => ({
+                    value: grant.grantId,
+                    label: `${roleName(grant.roleId) || 'Role'} · ${grant.scope.kind === 'organization' ? 'Whole organization' : grant.scope.name}`,
+                  })),
+                },
+                context: {
+                  ...base,
+                  commandId: context.nextId(),
+                  intent: 'remove',
+                  grants: member.grants.map(({ grantId, scope }) => ({
+                    grantId,
+                    scope,
+                  })),
+                },
+              })
             : null,
     };
   };
   return {
-    give: unavailableAction('Give someone a role', true),
+    give:
+      view.capabilities.give && members.length && giveable.length
+        ? commandAction<OrganizationPeopleAction>(
+            'Give someone a role',
+            {
+              model: {
+                kind: 'give',
+                members,
+                roles: giveable,
+                scopes: [
+                  { value: 'organization', label: 'Whole organization' },
+                  ...view.lobbies.map((lobby) => ({
+                    value: lobby.lobbyId,
+                    label: `${lobby.name}${lobby.closed ? ' (closed)' : ''}`,
+                  })),
+                ],
+              },
+              context: { ...base, commandId: context.nextId(), intent: 'give' },
+            },
+            true,
+          )
+        : null,
     people: view.people.map(person),
     roles: roles.map((role) => ({
       id: roleSlug(role),
@@ -138,14 +210,3 @@ function peopleOf(
     ),
   };
 }
-
-/** An organization's people page from its stored people read. */
-export const organizationPeoplePage = (
-  view: OrganizationPeopleView,
-  context: {
-    readonly role: string | null;
-    readonly basePath: string;
-    readonly viewerId: string;
-    readonly now: string;
-  },
-): People => peopleOf(view, context);

@@ -94,6 +94,8 @@ export function roomEditFields(answer: RoomFormState): FormFields {
 }
 
 const refusalWords: Partial<Record<RoomRefusal, string>> = {
+  'resolution-not-released':
+    'The tournament has not released the resolution. Try again after it opens.',
   'seat-unavailable':
     'That seat just went: someone has it, or it is held for another member.',
   'version-conflict': 'The room changed. Review the latest room and try again.',
