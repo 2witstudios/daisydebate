@@ -7,6 +7,7 @@ import {
   dropAllTestRunDatabases,
   sweepTestRunDatabases,
   testRunDatabaseName,
+  testRunLockLost,
   testRunToken,
 } from '../src/test-runs';
 
@@ -56,8 +57,8 @@ async function sweepUntilDropped(
 async function startRun(baseName = base) {
   const runner = connect('postgres');
   const name = testRunDatabaseName(baseName, randomToken());
-  await claimTestRunDatabase(runner, name);
-  return { runner, name };
+  const claimedBy = await claimTestRunDatabase(runner, name);
+  return { runner, name, claimedBy };
 }
 
 test(
@@ -134,6 +135,11 @@ test(
         RUN_BOUND,
       );
       const keptWhileConnected = await exists(sweeper, run.name);
+      const [afterSweep] =
+        await sweeper`select pg_try_advisory_lock(hashtextextended(${run.name}, 0)) as free`;
+      if (afterSweep?.free)
+        await sweeper`select pg_advisory_unlock(hashtextextended(${run.name}, 0))`;
+
       await inRun.close();
 
       const dropped = await sweepUntilDropped(sweeper, run.name);
@@ -146,12 +152,14 @@ test(
         actual: {
           whileConnected,
           keptWhileConnected,
+          releasedAfterSweep: afterSweep?.free,
           dropped,
           left: await exists(sweeper, run.name),
         },
         expected: {
           whileConnected: [],
           keptWhileConnected: true,
+          releasedAfterSweep: true,
           dropped: [run.name],
           left: false,
         },
@@ -249,6 +257,69 @@ test(
     } finally {
       await dropAllTestRunDatabases(sweeper, base);
       await liveRun.runner.close();
+      await sweeper.close();
+    }
+  },
+  ddlTimeoutMs,
+);
+
+test(
+  'a run claim identifies and tracks its locking backend',
+  async () => {
+    const other = connect('postgres');
+    const run = await startRun();
+    try {
+      const [lock] = await other`select pid from pg_locks
+      where locktype = 'advisory' and objsubid = 1 and granted
+        and ((classid::bigint << 32) | objid::bigint) = hashtextextended(${run.name}, 0)`;
+      const onClaimedBackend = await testRunLockLost(run.runner, run.claimedBy);
+      const onOtherBackend = await testRunLockLost(other, run.claimedBy);
+      await run.runner.close();
+      const afterClose = await testRunLockLost(run.runner, run.claimedBy);
+      assert({
+        given:
+          'a live claiming connection, a different backend, and a closed connection',
+        should:
+          'report the PostgreSQL lock owner and detect either loss of the backend',
+        actual: [lock?.pid, onClaimedBackend, onOtherBackend, afterClose],
+        expected: [run.claimedBy, false, true, true],
+      });
+    } finally {
+      await run.runner.close();
+      await dropAllTestRunDatabases(other, base);
+      await other.close();
+    }
+  },
+  ddlTimeoutMs,
+);
+
+test(
+  'slot teardown drops both live and dead runs of that slot',
+  async () => {
+    const sweeper = connect('postgres');
+    const live = await startRun();
+    const dead = await startRun();
+    try {
+      await dead.runner.close();
+      const dropped = await dropAllTestRunDatabases(sweeper, base);
+      assert({
+        given: 'a live and a closed runner on one slot',
+        should: 'return both run names and remove both databases',
+        actual: {
+          dropped: [...dropped].sort(),
+          remaining: await Promise.all(
+            [live.name, dead.name].map((name) => exists(sweeper, name)),
+          ),
+        },
+        expected: {
+          dropped: [live.name, dead.name].sort(),
+          remaining: [false, false],
+        },
+      });
+    } finally {
+      await dropAllTestRunDatabases(sweeper, base);
+      await live.runner.close();
+      await dead.runner.close();
       await sweeper.close();
     }
   },

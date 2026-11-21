@@ -1,36 +1,34 @@
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import {
   operatorCommandReceiptSchema,
   operatorLimits,
 } from '@daisy/protocol/operator';
-
-export type OperatorCommandTransaction = Parameters<
-  Parameters<BunSQLDatabase['transaction']>[0]
->[0];
-type Transaction = OperatorCommandTransaction;
+import type { Tx } from './tx';
+import { takeLock, transactionLocks } from './locks';
+import { run, query } from './raw-rows';
+import { z } from 'zod';
 
 /** The bound, then one id at a time, as a beta access command does (ADR 0079). */
-export async function commandGate(tx: Transaction, commandId: string) {
-  await tx.execute(
+export async function commandGate(tx: Tx, commandId: string) {
+  await run(
+    tx,
     sql.raw(`set local statement_timeout = ${operatorLimits.commandBoundMs}`),
   );
-  await tx.execute(
-    sql`select pg_advisory_xact_lock(hashtextextended(${commandId}, 59079))`,
-  );
+  await takeLock(tx, transactionLocks.operatorCommand(commandId));
 }
 
 export async function storedResult(
-  tx: Transaction,
+  tx: Tx,
   commandId: string,
   requestDigest: string,
 ) {
-  const [receipt] = (await tx.execute(sql`select request_digest, result
-    from operator_command_receipts where command_id = ${commandId}`)) as unknown as {
-    request_digest: string;
-    result: unknown;
-  }[];
+  const [receipt] = await query(
+    tx,
+    z.object({ request_digest: z.string(), result: z.json() }),
+    sql`select request_digest, result
+    from operator_command_receipts where command_id = ${commandId}`,
+  );
   if (!receipt) return null;
   if (receipt.request_digest !== requestDigest)
     throw createAppError('CONFLICT');
@@ -38,7 +36,7 @@ export async function storedResult(
 }
 
 export async function writeReceipt(
-  tx: Transaction,
+  tx: Tx,
   input: {
     readonly commandId: string;
     readonly serviceId: string;
@@ -50,10 +48,13 @@ export async function writeReceipt(
   body: unknown,
 ) {
   const receipt = operatorCommandReceiptSchema.parse(body);
-  await tx.execute(sql`insert into operator_command_receipts
+  await run(
+    tx,
+    sql`insert into operator_command_receipts
       (command_id, service_id, operator_ref, action, target_user_id,
        request_digest, result, admin_audit_head)
     values (${input.commandId}, ${input.serviceId}, ${input.operatorRef},
       ${receipt.action}, ${targetUserId},
-      ${input.requestDigest}, ${JSON.stringify(receipt.result)}::text::jsonb, ${input.adminAuditHead})`);
+      ${input.requestDigest}, ${JSON.stringify(receipt.result)}::text::jsonb, ${input.adminAuditHead})`,
+  );
 }

@@ -9,11 +9,11 @@ import {
   loadEventCompetition,
   type EventCompetitionInput,
 } from './event-competition';
-import type { TabTransaction } from './tab-transaction';
+import type { Tx } from '../tx';
 
 /** The same locked event sources serve the read and its completion command. */
 export async function loadEventCompletion(
-  tx: TabTransaction,
+  tx: Tx,
   input: EventCompetitionInput,
 ) {
   const eventId = input.eventId;

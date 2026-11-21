@@ -2,15 +2,11 @@ import { sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import { z } from 'zod';
 import { enqueuePrivacyJob } from './enqueue-job';
-import {
-  lockAuthorizationActors,
-  type AuthorizationTransaction,
-} from '../authorization';
+import { lockAuthorizationActors } from '../authorization';
 import type {
   PrivacyAdopter,
   PrivacyExport,
   PrivacySubject,
-  PrivacyDatabase,
 } from './contracts';
 import {
   planPrivacyErasure,
@@ -18,6 +14,8 @@ import {
   type PrivacyAdoption,
   type PrivacyErasureInput,
 } from './planner';
+import { inTransaction, type Tx, type TxOpener } from '../tx';
+import { run, query } from '../raw-rows';
 
 /** Supplied by the actual token producer, never inferred from token text. */
 export type PrivacyVerificationBinding =
@@ -30,10 +28,7 @@ export type PrivacyVerificationBinding =
       readonly subjectPath: readonly string[];
     };
 
-async function lockSubject(
-  tx: AuthorizationTransaction,
-  subject: PrivacySubject,
-) {
+async function lockSubject(tx: Tx, subject: PrivacySubject) {
   const facts = await lockAuthorizationActors(tx, [subject.actorId], {
     maxActors: 1,
   });
@@ -77,7 +72,7 @@ function checkBindings(bindings: readonly PrivacyVerificationBinding[]) {
 }
 
 async function eraseAdopters(
-  tx: AuthorizationTransaction,
+  tx: Tx,
   subject: PrivacySubject,
   now: string,
   adoption: PrivacyAdoption,
@@ -93,14 +88,14 @@ async function eraseAdopters(
  * its username stays on the competitive record and stays reserved (ADR 0087).
  */
 export async function runPrivacyErasure(
-  database: PrivacyDatabase,
+  database: TxOpener,
   input: PrivacyErasureInput,
   adoption: PrivacyAdoption,
   verificationBindings: readonly PrivacyVerificationBinding[],
 ) {
   const plan = planPrivacyErasure(input, adoption);
   checkBindings(verificationBindings);
-  return database.transaction(async (tx) => {
+  return inTransaction(database, async (tx) => {
     const account = await lockSubject(tx, plan.subject);
     if (account.erased) return { alreadyErased: true, jobs: [] };
     await eraseAdopters(tx, plan.subject, plan.now, adoption, 'before-auth');
@@ -110,11 +105,16 @@ export async function runPrivacyErasure(
           binding.subject === 'userId'
             ? sql`value::jsonb ->> 'userId' = ${plan.subject.userId}`
             : sql`lower(value::jsonb ->> 'email') = (select lower(email) from users where id = ${plan.subject.userId})`;
-        await tx.execute(sql`delete from verification where case
+        await run(
+          tx,
+          sql`delete from verification where case
           when starts_with(identifier, ${`${binding.purpose}:`}) then ${condition}
-          else false end`);
+          else false end`,
+        );
       } else {
-        await tx.execute(sql`delete from verification where case
+        await run(
+          tx,
+          sql`delete from verification where case
           when value is json object then case
             when value::jsonb ->> 'type' in (${sql.join(
               binding.jsonTypes.map((type) => sql`${type}`),
@@ -125,17 +125,22 @@ export async function runPrivacyErasure(
                 sql`, `,
               )}]::text[] = ${plan.subject.userId}
             else false end
-          else false end`);
+          else false end`,
+        );
       }
     }
     for (const table of ['session', 'account', 'passkey'])
-      await tx.execute(
+      await run(
+        tx,
         sql`delete from ${sql.identifier(table)} where user_id = ${plan.subject.userId}`,
       );
-    await tx.execute(sql`update users set email = null, image = null,
+    await run(
+      tx,
+      sql`update users set email = null, image = null,
       name = '', email_verified = false, deleted_at = ${plan.now}::timestamptz,
       updated_at = ${plan.now}::timestamptz, version = version + 1
-      where id = ${plan.subject.userId}`);
+      where id = ${plan.subject.userId}`,
+    );
     await eraseAdopters(tx, plan.subject, plan.now, adoption, 'after-close');
     for (const job of plan.jobs) await enqueuePrivacyJob(tx, job);
     return { alreadyErased: false, jobs: plan.jobs };
@@ -156,19 +161,33 @@ function checkedExport(result: PrivacyExport) {
 
 /** Locked snapshot: each adopter returns its own subject rows, never arbitrary history. */
 export async function runPrivacyExport(
-  database: PrivacyDatabase,
+  database: TxOpener,
   subject: PrivacySubject,
   adoption: PrivacyAdoption,
 ): Promise<PrivacyExport> {
   const plan = planPrivacyExport(subject, adoption);
-  return database.transaction(async (tx) => {
+  return inTransaction(database, async (tx) => {
     await lockSubject(tx, plan.subject);
-    const rows =
-      await tx.execute(sql`select id, username, email, email_verified, name, image,
+    const rows = await query(
+      tx,
+      z.object({
+        id: z.string(),
+        username: z.string().nullable(),
+        email: z.string().nullable(),
+        email_verified: z.boolean(),
+        name: z.string(),
+        image: z.string().nullable(),
+        created_at: z.string(),
+        updated_at: z.string(),
+        version: z.int(),
+        deleted_at: z.string().nullable(),
+      }),
+      sql`select id, username, email, email_verified, name, image,
       to_char(created_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as created_at,
       to_char(updated_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as updated_at,
       version, to_char(deleted_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as deleted_at
-      from users where id = ${plan.subject.userId}`);
+      from users where id = ${plan.subject.userId}`,
+    );
     const result: Record<string, readonly Readonly<Record<string, unknown>>[]> =
       { ...checkedExport({ users: rows }) };
     for (const adopter of adoption) {

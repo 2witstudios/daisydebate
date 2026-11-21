@@ -7,7 +7,6 @@ import {
   type WinnerOutcome,
 } from '@daisy/protocol';
 import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { isDebatingSeatSql } from './seat-columns';
 import { actors } from './schema/actors';
@@ -20,6 +19,9 @@ import { users } from './schema/users';
 import { listSeasonRecords, type SeasonRecord } from './season-record';
 import { factReleasedSql, type SpectatorClock } from './spectator-release-sql';
 import { releasedStandings } from './standings-release';
+import { inTransaction, type TxSource } from './tx';
+import { query } from './raw-rows';
+import { z } from 'zod';
 
 /**
  * The leaderboard's reads (ADR 0055): the seasons a ladder can show, the
@@ -85,20 +87,21 @@ export const standingsOperations = ({
   database,
   eventSink,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
   /** Ratings hidden from a member until their current judging assignment is ruled. */
   async readRatingBlindings(viewerActorId: string): Promise<readonly string[]> {
-    const rows =
-      await database.execute(sql`select distinct opponent.actor_id from round_participants judge
+    const rows = await query(
+      database,
+      z.object({ actor_id: z.string() }),
+      sql`select distinct opponent.actor_id from round_participants judge
       join rounds r on r.id=judge.round_id
       join round_participants opponent on opponent.round_id=r.id and ${isDebatingSeatSql(sql`opponent.seat_kind`)}
       where judge.actor_id=${viewerActorId} and judge.seat_kind='judge' and r.status in ('opening','active')
-      and not exists(select 1 from ballots b where b.judge_participant_id=judge.id)`);
-    return (rows as unknown as { actor_id: string }[]).map(
-      (row) => row.actor_id,
+      and not exists(select 1 from ballots b where b.judge_participant_id=judge.id)`,
     );
+    return rows.map((row) => row.actor_id);
   },
 
   /** The seasons a ladder can show, newest start first. */
@@ -151,7 +154,8 @@ export const standingsOperations = ({
       if (input.seasonIds.length === 0) return { ratings: [], changes: [] };
       // One snapshot: a rating committed between the two selects must not
       // appear in one set and not the other.
-      const { ratingRows, changeRows } = await database.transaction(
+      const { ratingRows, changeRows } = await inTransaction(
+        database,
         async (tx) => ({
           ratingRows: await tx
             .select({

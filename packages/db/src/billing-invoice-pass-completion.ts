@@ -9,13 +9,13 @@ import {
   type CleanupWork,
   type BillingPaymentObservation,
 } from '@daisy/protocol/billing';
-import type { BoundedTransactionContext } from './transaction-context';
 import { cleanupFacts, cleanupContext } from './billing-cleanup-authority';
 import { currentPassMembers } from './billing-invoice-pass-authority';
 import { billingPaymentObservations } from './schema/billing-payment-observations';
 import { paymentObservationValues } from './billing-payment-observation-record';
+import type { Tx } from './tx';
 export async function finishInvoice(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   input: {
     readonly state: Parameters<typeof advanceCleanup>[0];
     readonly work: CleanupWork;

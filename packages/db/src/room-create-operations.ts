@@ -43,6 +43,8 @@ import {
   acceptCommand,
   transactionNow,
 } from './room-command-facts';
+import { query } from './raw-rows';
+import { z } from 'zod';
 
 export const roomCreateOperations = ({
   transaction,
@@ -149,7 +151,9 @@ export const roomCreateOperations = ({
         // A ranked Room rates on its own division's ladder, so opening one
         // needs that division's active Daisy season.
         if (room.competitionType === 'ranked') {
-          const active = await tx.execute(
+          const active = await query(
+            tx,
+            z.object({ id: z.string() }),
             sql`select id from seasons where status='active' and organization_id=${daisyOrganizationId} and division=${room.division} for share`,
           );
           if (active.length === 0)

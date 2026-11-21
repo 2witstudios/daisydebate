@@ -1,11 +1,12 @@
 import { and, eq } from 'drizzle-orm';
-import type { CaptureTx, CaptureStream } from './media-capture-context';
+import type { CaptureStream } from './media-capture-context';
 import { transcriptSegments } from './schema/transcript-segments';
-const streamUpdate = (tx: CaptureTx) => tx.update(transcriptSegments);
+import type { Tx } from './tx';
+const streamUpdate = (tx: Tx) => tx.update(transcriptSegments);
 
 /** Both text appends and sealing mutate the same durable seat/segment stream. */
 export const updateCaptureStream = (
-  tx: CaptureTx,
+  tx: Tx,
   stream: CaptureStream,
   fields: Parameters<ReturnType<typeof streamUpdate>['set']>[0],
 ) =>

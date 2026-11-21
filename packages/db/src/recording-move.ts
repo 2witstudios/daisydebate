@@ -1,11 +1,15 @@
 import {
   recordingLifecycleSchema,
+  recordingEligibilitySchema,
+  recordingClasses,
   type RecordingClass,
   type RecordingEligibility,
   type RecordingLifecycle,
 } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
-import type { BoundedTransactionContext } from './transaction-context';
+import type { Tx } from './tx';
+import { query } from './raw-rows';
+import { z } from 'zod';
 
 export type StoredRecording = {
   readonly id: string;
@@ -22,21 +26,22 @@ export type RecordingDecision =
   | { readonly kind: 'unchanged' }
   | { readonly kind: 'refused'; readonly reason: string };
 
-type Row = {
-  readonly id: string;
-  readonly round_id: string;
-  readonly recording_class: RecordingClass;
-  readonly eligibility: RecordingEligibility;
-  readonly lifecycle: unknown;
-  readonly version: number;
-};
+const recordingRow = z.object({
+  id: z.string(),
+  round_id: z.string(),
+  recording_class: z.enum(recordingClasses),
+  eligibility: recordingEligibilitySchema,
+  lifecycle: recordingLifecycleSchema,
+  version: z.int(),
+});
+type Row = z.output<typeof recordingRow>;
 
 const storedRow = (row: Row): StoredRecording => ({
   id: row.id,
   roundId: row.round_id,
   class: row.recording_class,
   eligibility: row.eligibility,
-  lifecycle: recordingLifecycleSchema.parse(row.lifecycle),
+  lifecycle: row.lifecycle,
   version: row.version,
 });
 
@@ -60,16 +65,18 @@ const written = (id: string, next: RecordingLifecycle) => {
 
 /** Whether an open report names this Recording or its Round: it is evidence until decided. */
 export const recordingUnderOpenReport = async (
-  tx: Pick<BoundedTransactionContext, 'execute'>,
+  tx: Tx,
   id: string,
 ): Promise<boolean> => {
-  const [row] = (await tx.execute(sql`select exists(
+  const [row] = await query(
+    tx,
+    z.object({ reported: z.boolean() }),
+    sql`select exists(
       select 1 from recordings rec join content_reports c on c.status='open' and (
         (c.target_kind='recording' and c.target_id=rec.id)
         or (c.target_kind='round' and c.target_id=rec.round_id))
-      where rec.id=${id}) as reported`)) as unknown as {
-    readonly reported: boolean;
-  }[];
+      where rec.id=${id}) as reported`,
+  );
   return row?.reported ?? false;
 };
 
@@ -80,14 +87,16 @@ export const recordingUnderOpenReport = async (
  * longer holds answers `stale` before the decision runs.
  */
 export const moveRecording = async <Decision extends RecordingDecision>(
-  tx: Pick<BoundedTransactionContext, 'execute'>,
+  tx: Tx,
   id: string,
   decide: (record: StoredRecording) => Decision,
   expectedVersion?: number,
 ) => {
-  const [row] = (await tx.execute(
+  const [row] = await query(
+    tx,
+    recordingRow,
     sql`select ${COLUMNS} from recordings where id=${id} for update`,
-  )) as unknown as Row[];
+  );
   if (!row) return { kind: 'missing' } as const;
   const record = storedRow(row);
   if (expectedVersion !== undefined && row.version !== expectedVersion)
@@ -95,12 +104,11 @@ export const moveRecording = async <Decision extends RecordingDecision>(
   const transition = decide(record);
   if (transition.kind !== 'moved')
     return { kind: 'decided', record, transition } as const;
-  const [updated] = (await tx.execute(
-    written(id, transition.next),
-  )) as unknown as Row[];
+  const [updated] = await query(tx, recordingRow, written(id, transition.next));
+  if (!updated) throw new Error('Moved recording is missing');
   return {
     kind: 'decided',
-    record: storedRow(updated!),
+    record: storedRow(updated),
     transition,
   } as const;
 };

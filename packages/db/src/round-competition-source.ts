@@ -3,7 +3,6 @@ import { roundFinalizationJudgeAssignments } from './schema/round-finalization-j
 import { roundSourceVoided } from './round-source-state';
 import { and, eq, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import {
   idSchema,
@@ -23,10 +22,11 @@ import {
   roundFinalizations,
   roundFinalizationBallots,
 } from './schema/round-finalizations';
+import type { Tx } from './tx';
 
 /** Caller authorizes the addressed source and holds its owning aggregate fences; this export has no private words. */
 export const readRoundCompetitionSource = async (
-  tx: Pick<BunSQLDatabase, 'select'>,
+  tx: Tx,
   input: { readonly roundId: string; readonly roomId: string },
 ): Promise<RoundCompetitionSource | null> => {
   idSchema.parse(input.roundId);
@@ -235,10 +235,7 @@ export const readRoundCompetitionSource = async (
 };
 
 /** Room's published competitive progress, used only while creating a result. */
-export const readRoomCompetitionProgress = async (
-  tx: Pick<BunSQLDatabase, 'select'>,
-  roomId: string,
-) => {
+export const readRoomCompetitionProgress = async (tx: Tx, roomId: string) => {
   const [round] = await tx
     .select({ id: rounds.id, status: rounds.status })
     .from(rounds)

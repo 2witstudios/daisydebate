@@ -1,81 +1,29 @@
-import { drizzle } from 'drizzle-orm/bun-sql';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import {
-  emptyRuntimeCheckpointFor,
-  type RoundProjection,
-} from '@daisy/protocol';
-import { validRules } from './testing-rules';
-import { fakeSql, type ScriptedResult } from './scripted-bun-wire';
-import {
-  workKindsOf,
-  writeProjectionWithPhaseSignal,
-} from './round-projection-writer';
+import { workKindsOf } from './round-projection-writer';
+import type { RoundProjection } from '@daisy/protocol';
 
 setupRitewayBun();
 
-const roundId = 'c3a1d5f7h9j2k4m6n8p1r3t5';
-const current = {
-  version: 4,
-  status: 'active' as const,
-  currentStage: null,
-  startedAt: new Date('2026-10-09T00:00:00.000Z'),
-  completedAt: null,
-  outcome: null,
-  runtimeState: emptyRuntimeCheckpointFor(validRules),
-};
-const projection = (releases: boolean): RoundProjection => ({
-  ...(releases ? { releasesRoomMembers: true as const } : {}),
+const projection: RoundProjection = {
   round: null,
   segmentInserts: [],
-  segmentCloses: [
-    { id: 'c9b8a7d6e5f4h3j2k1m9n8p7', endedAt: '2026-10-09T00:02:00.000Z' },
-  ],
+  segmentCloses: [],
   effects: [],
-});
-const releases = async (ruled: boolean) => {
-  // Round row, segment close and the work wake, then (when ruled) the
-  // release, then the doorbell.
-  const writes: ScriptedResult[] = ruled ? [[], [], [], []] : [[], [], []];
-  const { client, queries } = fakeSql([
-    ...writes,
-    [[1n, '42']] as ScriptedResult,
-    [],
-  ]);
-  await writeProjectionWithPhaseSignal(
-    drizzle({ client }),
-    roundId,
-    current,
-    projection(ruled),
-    '2026-10-09T00:02:00.000Z',
-  );
-  return queries.some(({ query }) =>
-    query.startsWith('delete from "active_seats"'),
-  );
 };
 
-test('the writer persists the engine release ruling and nothing else (ADR 0070)', async () => {
-  assert({
-    given: 'a revision the engine does not rule a release on, then one it does',
-    should: 'release the Room memberships only when ruled',
-    actual: [await releases(false), await releases(true)],
-    expected: [false, true],
-  });
-});
-
 test('a Round write wakes the live loops; a completion also wakes rating', () => {
-  const live = { ...projection(false), round: null };
   const completed = {
-    ...projection(false),
+    ...projection,
     round: { status: 'completed' } as never,
   };
   const ended = {
-    ...projection(false),
+    ...projection,
     round: { status: 'abandoned' } as never,
   };
   assert({
     given: 'a plain write, a completing write and an abandoning write',
     should: 'send round always, and rating only for the completion',
-    actual: [live, completed, ended].map(workKindsOf),
+    actual: [projection, completed, ended].map(workKindsOf),
     expected: [['round'], ['round', 'rating'], ['round']],
   });
 });

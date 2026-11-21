@@ -179,6 +179,8 @@ test('real private storage deletion acknowledgement alone releases durable quota
         'export only own declared metadata and exclude the private deletion key',
       actual: {
         filename: ownFile.filename,
+        charged: Number(ownFile.reserved_bytes),
+        createdAt: ownFile.created_at,
         privateKey: Object.hasOwn(ownFile, 'object_key'),
         peerHasSubjectFile: peerExport.messaging_files!.some(
           (row) => row.id === next.row.id,
@@ -189,6 +191,8 @@ test('real private storage deletion acknowledgement alone releases durable quota
       },
       expected: {
         filename: 'notes.pdf',
+        charged: 60,
+        createdAt: fixture.now,
         privateKey: false,
         peerHasSubjectFile: false,
         peerHasOwnFile: true,

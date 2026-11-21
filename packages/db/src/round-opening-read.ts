@@ -7,10 +7,11 @@ import {
   type SeatDraw,
 } from '@daisy/protocol';
 import type { RoundOpening } from '@daisy/protocol/resolution-draw';
-import { transactionNow, type Account, type Tx } from './room-command-facts';
+import { transactionNow, type Account } from './room-command-facts';
 import { humanSeatEligible } from './seat-eligibility';
 import { loadRoundDraw } from './room-draw-persistence';
 import { rounds } from './schema/rounds';
+import type { Tx } from './tx';
 
 /** The stored opening with its secret seed: read here, never delivered. */
 export type StoredOpening = {
@@ -20,7 +21,7 @@ export type StoredOpening = {
 
 /** The one reading of a Round's stored opening; null once it has left it. */
 export const loadRoundOpening = async (
-  tx: Pick<Tx, 'select'>,
+  tx: Tx,
   round: {
     readonly id: string;
     readonly status: string;

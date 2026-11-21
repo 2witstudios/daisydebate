@@ -26,8 +26,8 @@ import {
   transactionNow,
   type Actor,
   type Caller,
-  type Tx,
 } from './room-command-facts';
+import type { Tx } from './tx';
 
 /** One initial seat a create applies before anyone joins. */
 export type InitialCastSeat = {

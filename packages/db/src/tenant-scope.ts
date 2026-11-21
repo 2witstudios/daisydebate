@@ -1,7 +1,9 @@
 import type { ReservedSQL } from 'bun';
 import { scopeBoundedTransaction } from './transaction-context';
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
+import { inTransaction, type TxSource, type Tx } from './tx';
+import { z } from 'zod';
+import { query, run as runStatement } from './raw-rows';
 
 /**
  * The tenant a transaction may reach: an organization, a lobby, and the
@@ -28,10 +30,13 @@ export const scopeTransaction = async (
   scope: TenantScope,
 ): Promise<void> => {
   if (await scopeBoundedTransaction(transaction, scope)) return;
-  await transaction.execute(sql`select
+  await runStatement(
+    transaction,
+    sql`select
     set_config('daisy.organization_scope', ${scope.organizationId ?? ''}, true),
     set_config('daisy.lobby_scope', ${scope.lobbyId ?? ''}, true),
-    set_config('daisy.subject_scope', ${scope.subjectUserId ?? ''}, true)`);
+    set_config('daisy.subject_scope', ${scope.subjectUserId ?? ''}, true)`,
+  );
 };
 
 /**
@@ -41,14 +46,18 @@ export const scopeTransaction = async (
 export const currentTenantScope = async (
   transaction: ScopedExecutor,
 ): Promise<TenantScope> => {
-  const [row] = (await transaction.execute(sql`select
+  const [row] = await query(
+    transaction,
+    z.object({
+      organization: z.string().nullable(),
+      lobby: z.string().nullable(),
+      subject: z.string().nullable(),
+    }),
+    sql`select
     current_setting('daisy.organization_scope', true) as organization,
     current_setting('daisy.lobby_scope', true) as lobby,
-    current_setting('daisy.subject_scope', true) as subject`)) as {
-    organization: string | null;
-    lobby: string | null;
-    subject: string | null;
-  }[];
+    current_setting('daisy.subject_scope', true) as subject`,
+  );
   return {
     organizationId: row?.organization || undefined,
     lobbyId: row?.lobby || undefined,
@@ -64,13 +73,11 @@ export const currentTenantScope = async (
  * row is visible or writable.
  */
 export const withScope = <T>(
-  database: BunSQLDatabase,
+  database: TxSource,
   scope: TenantScope,
-  run: (
-    transaction: Parameters<Parameters<BunSQLDatabase['transaction']>[0]>[0],
-  ) => Promise<T>,
+  run: (transaction: Tx) => Promise<T>,
 ): Promise<T> =>
-  database.transaction(async (transaction) => {
+  inTransaction(database, async (transaction) => {
     await scopeTransaction(transaction, scope);
     return run(transaction);
   });

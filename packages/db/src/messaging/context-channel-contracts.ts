@@ -1,7 +1,7 @@
 import type { ContentReportCreate } from '@daisy/protocol/content-moderation';
-import type { AuthorizationTransaction } from '../authorization';
 import type { authorizationAccountFact } from '../authorization-account';
 import type { MessagingLockedFrame, MessagingReadFrame } from './records';
+import type { Tx } from '../tx';
 
 /** The Messaging channel kinds that belong to one owning resource and take its authority. */
 export type ContextChannelKind = 'round_floor' | 'room_community';
@@ -16,7 +16,7 @@ export type ContextChannelScope = {
 };
 export type ContextChannelAction = 'read' | 'post' | 'remove';
 export type ContextChannelAuthority<Fact extends ContextChannelFact> = {
-  readonly tx: AuthorizationTransaction;
+  readonly tx: Tx;
   readonly scope: Omit<ContextChannelScope, 'channelId'>;
   readonly fact: Fact;
   readonly account: ReturnType<typeof authorizationAccountFact>;
@@ -42,18 +42,15 @@ type ContextChannelAuthor = {
 export type ContextChannelOwner<Fact extends ContextChannelFact> = {
   readonly kind: ContextChannelKind;
   /** Takes the owner's shared lock; false when there is no such owner. */
-  readonly fence: (
-    tx: AuthorizationTransaction,
-    ownerId: string,
-  ) => Promise<boolean>;
+  readonly fence: (tx: Tx, ownerId: string) => Promise<boolean>;
   readonly readFact: (
-    tx: AuthorizationTransaction,
+    tx: Tx,
     ownerId: string,
     actorId: string,
   ) => Promise<Fact | null>;
   /** Inserts the owner's one channel unless it exists; true when this call created it. */
   readonly insertChannel: (
-    tx: AuthorizationTransaction,
+    tx: Tx,
     input: { readonly ownerId: string; readonly channelId: string },
   ) => Promise<boolean>;
   /**
@@ -64,7 +61,7 @@ export type ContextChannelOwner<Fact extends ContextChannelFact> = {
    * assumes the answer is the page's authors alone.
    */
   readonly readAuthors: (
-    tx: AuthorizationTransaction,
+    tx: Tx,
     input: {
       readonly ownerId: string;
       readonly channelId: string;

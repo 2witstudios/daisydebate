@@ -1,3 +1,5 @@
+import { query } from './raw-rows';
+import { z } from 'zod';
 export { loanRoundAssignmentInterface } from './testing-round-assignment-interface';
 import { SQL } from 'bun';
 import { sql } from 'drizzle-orm';
@@ -95,14 +97,14 @@ export async function finishedOrBlockedBehind(
     deadlineMs = 5000,
   }: { readonly now: () => number; readonly deadlineMs?: number },
 ): Promise<'finished' | 'blocked'> {
-  let finished = false;
+  const completion = { finished: false };
   void work.then(
-    () => (finished = true),
-    () => (finished = true),
+    () => (completion.finished = true),
+    () => (completion.finished = true),
   );
   const deadline = now() + deadlineMs;
   for (;;) {
-    if (finished) return 'finished';
+    if (completion.finished) return 'finished';
     const [row]: Array<{ waiting: number }> = await observer.unsafe(
       'select count(*)::int as waiting from pg_stat_activity where $1 = any(pg_blocking_pids(pid))',
       [holderPid],
@@ -151,7 +153,9 @@ export async function readSpectatorHorizon(
 ): Promise<number | null> {
   const client = new SQL(url, { max: 1 });
   try {
-    const rows = (await drizzle({ client }).execute(
+    const rows = await query(
+      drizzle({ client }),
+      z.object({ horizon: z.union([z.date(), z.string()]).nullable() }),
       sql`select ${spectatorHorizonSql(
         {
           id: sql`r.id`,
@@ -161,7 +165,7 @@ export async function readSpectatorHorizon(
         },
         clock,
       )} as horizon from rounds r where r.id=${roundId}`,
-    )) as unknown as { horizon: Date | string | null }[];
+    );
     const horizon = rows[0]?.horizon ?? null;
     return horizon === null ? null : new Date(horizon).getTime();
   } finally {
@@ -173,5 +177,6 @@ export { scratchDatabase } from './testing-scratch';
 export {
   withRuntimeTestTransaction,
   committingRuntimeTestDatabase,
+  unusedTx,
   type SavepointTestDatabase,
 } from './testing-transaction';

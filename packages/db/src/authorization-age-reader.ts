@@ -1,10 +1,10 @@
 import { authorizationAccountFact } from './authorization-account';
 import { loadAuthorizationAgeFact } from './authorization-age';
-import type { AuthorizationTransaction } from './authorization';
+import type { Tx } from './tx';
 
 /** Minimal age projection on the caller's account-fenced transaction, never an external pool. */
 export const bindAuthorizationAgeFact =
-  (tx: AuthorizationTransaction) =>
+  (tx: Tx) =>
   async (
     input: NonNullable<ReturnType<typeof authorizationAccountFact>>,
     now: string,

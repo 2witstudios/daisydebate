@@ -4,11 +4,13 @@ import {
   type NotificationChannel,
   type NotificationChoices,
   type NotificationKind,
+  notificationKinds,
 } from '@daisy/protocol';
 import { sql, type SQL } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
-import { rowsOf } from '../raw-rows';
+import { run, query as queryRows } from '../raw-rows';
+import { inTransaction, type TxSource } from '../tx';
+import { z } from 'zod';
 
 /** Whether `user` wants `kind` on `channel`: on unless they turned it off. */
 export const wants = (
@@ -25,19 +27,20 @@ export const notificationPreferenceOperations = ({
   database,
   eventSink,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
   readNotificationPreferences(input: {
     readonly userId: string;
   }): Promise<NotificationChoices> {
     return instrumented(eventSink, 'readNotificationPreferences', async () => {
-      const rows = await rowsOf<{
-        kind: NotificationKind;
-        channel: NotificationChannel;
-        enabled: boolean;
-      }>(
+      const rows = await queryRows(
         database,
+        z.object({
+          kind: z.enum(notificationKinds),
+          channel: z.enum(['in_app', 'email']),
+          enabled: z.boolean(),
+        }),
         sql`select kind,channel,enabled from notification_preferences where user_id=${input.userId}`,
       );
       const choices = structuredClone(defaultNotificationChoices) as Record<
@@ -53,15 +56,18 @@ export const notificationPreferenceOperations = ({
     readonly choices: NotificationChoices;
   }) {
     return instrumented(eventSink, 'writeNotificationPreferences', () =>
-      database.transaction(async (tx) => {
+      inTransaction(database, async (tx) => {
         for (const { kind, channel } of notificationChoicePairs) {
           const enabled = (
             input.choices[kind] as Partial<Record<NotificationChannel, boolean>>
           )[channel];
-          await tx.execute(sql`insert into notification_preferences(user_id,kind,channel,enabled)
+          await run(
+            tx,
+            sql`insert into notification_preferences(user_id,kind,channel,enabled)
             select u.id,${kind},${channel},${enabled ?? true} from users u
             where u.id=${input.userId} and u.deleted_at is null
-            on conflict (user_id,kind,channel) do update set enabled=excluded.enabled`);
+            on conflict (user_id,kind,channel) do update set enabled=excluded.enabled`,
+          );
         }
       }),
     );

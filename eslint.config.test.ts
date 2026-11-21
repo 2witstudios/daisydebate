@@ -552,3 +552,47 @@ describe('unit tests run on virtual time (ADR 0164)', () => {
     });
   });
 });
+
+describe('database statement and lock boundaries', () => {
+  test('reserves each raw database form for its owning module', async () => {
+    const db = 'packages/db/src';
+    const boundaryCases = [
+      [
+        'tx.ts',
+        "import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres'; export type Database = BunSQLDatabase;",
+      ],
+      [
+        'tx.ts',
+        "export type Database = import('drizzle-orm/bun-sql/postgres').BunSQLDatabase;",
+      ],
+      [
+        'tx.ts',
+        "import type * as Driver from 'drizzle-orm/bun-sql/postgres'; export type Database = Driver.BunSQLDatabase;",
+      ],
+      ['tx.ts', 'connection.transaction(work);'],
+      ['tx.ts', "connection['transaction'](work);"],
+      ['raw-rows.ts', 'connection.execute(statement);'],
+      ['raw-rows.ts', "connection['execute'](statement);"],
+      ['raw-rows.ts', 'export const rows = result as unknown as Row[];'],
+      [
+        'locks.ts',
+        'export const statement = sql`select PG_TRY_ADVISORY_LOCK(1)`;',
+      ],
+      ['locks.ts', "export const statement = 'pg_advisory_unlock';"],
+      ['locks.ts', 'export const probe = /pg_advisory_lock/;'],
+    ] as const;
+    const cases: Problems[] = boundaryCases.flatMap(([home, code]) => [
+      [code, `${db}/feature/probe.ts`, 1],
+      [code, `${db}/${home}`, 0],
+      [code, 'packages/db/integration/probe.integration.ts', 0],
+    ]);
+    const { actual, expected } = table(cases);
+    assert({
+      given:
+        'each direct DB form in a feature, its owning module, and an integration suite',
+      should: 'require the owning boundary within DB source',
+      actual: await actual,
+      expected,
+    });
+  });
+});

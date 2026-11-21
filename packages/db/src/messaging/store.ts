@@ -1,4 +1,3 @@
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import { readMessagingChannel, withMessagingContent } from './channel-frame';
@@ -12,13 +11,14 @@ import type {
   MessagingAuthorizationFence,
   MessagingChannelStore,
 } from './records';
+import type { TxSource } from '../tx';
 
 /** Scope-specific transaction frame; never exposes a raw database to delivery. */
 export function createMessagingStore({
   database,
   authorize,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
   readonly authorize: MessagingAuthorizationFence;
 }): MessagingChannelStore {
   return {

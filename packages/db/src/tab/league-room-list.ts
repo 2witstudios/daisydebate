@@ -5,7 +5,7 @@ import { actors } from '../schema/actors';
 import { users } from '../schema/users';
 import { settings } from '../schema/settings';
 import { scopeTransaction } from '../tenant-scope';
-import type { TabTransaction } from './tab-transaction';
+import type { Tx } from '../tx';
 
 /**
  * Current standing-lobby list metadata; no ballots, results or contact
@@ -13,7 +13,7 @@ import type { TabTransaction } from './tab-transaction';
  * Room only to its host and seated people.
  */
 export async function loadLeagueRoomList(
-  tx: TabTransaction,
+  tx: Tx,
   input: {
     readonly viewerUserId: string;
     readonly organizationId: string;

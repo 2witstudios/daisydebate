@@ -1,14 +1,14 @@
 import { eq } from 'drizzle-orm';
 import type { z } from 'zod';
-import type { BoundedTransactionContext } from '../transaction-context';
 import { necessaryEvidence } from '../schema/necessary-evidence';
 import { sampleRoundExecutionTime } from '../round-execution-time';
 import { evidenceLeaseDigest } from '../necessary-evidence-policy';
 import type { receipt } from './receipt';
 import { lock } from './lock';
+import type { Tx } from '../tx';
 /** Application calls completion only after actual matching-resource revocation AND material deletion acknowledgement. */
 export async function finish(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   input: z.infer<typeof receipt>,
   retryMs: number | null,
 ) {

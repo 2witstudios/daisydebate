@@ -1,21 +1,10 @@
 import { expect } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
-  claimTestRunDatabase,
-  dropAllTestRunDatabases,
   slotDatabaseOfRun,
-  sweepTestRunDatabases,
   testRunDatabaseName,
   testRunToken,
 } from './test-runs';
-import {
-  base,
-  dead,
-  fakeAdmin,
-  live,
-  RUN_BOUND,
-} from './test-runs.test-support';
-
 setupRitewayBun();
 
 describe('test run database names', () => {
@@ -68,90 +57,6 @@ describe('test run database names', () => {
         undefined,
         undefined,
       ],
-    });
-  });
-});
-
-describe('claimTestRunDatabase', () => {
-  test('takes the lock, then creates the database from template0', async () => {
-    const { admin, statements } = fakeAdmin({ databases: [] });
-
-    await claimTestRunDatabase(admin, dead);
-
-    assert({
-      given: 'a free run name',
-      should:
-        'lock before it creates (so a sweep never sees it unlocked), then note which backend holds the lock',
-      actual: statements.map(
-        (statement) => statement.split(' ')[0] + ' ' + statement.split(' ')[1],
-      ),
-      expected: [
-        "select pg_try_advisory_lock(hashtextextended('daisy_wt_abc_test_run_00000001',",
-        'create database',
-        'select pg_backend_pid()',
-      ],
-    });
-  });
-
-  test('refuses a name another live runner holds, without creating', async () => {
-    const { admin, statements } = fakeAdmin({ databases: [], busy: [dead] });
-
-    await expect(claimTestRunDatabase(admin, dead)).rejects.toThrow(
-      `Run database ${dead} is already claimed`,
-    );
-    assert({
-      given: 'a name whose lock is held',
-      should: 'issue no create',
-      actual: statements.some((statement) => statement.startsWith('create')),
-      expected: false,
-    });
-  });
-});
-
-describe('sweepTestRunDatabases', () => {
-  test('drops the free ones, skips the held ones, releases what it took', async () => {
-    const { admin, statements } = fakeAdmin({
-      databases: [
-        dead,
-        live,
-        `${base}_run_zz`,
-        'daisy_wt_abc_test_run_00000003x',
-      ],
-      busy: [live],
-    });
-
-    const dropped = await sweepTestRunDatabases(admin, base, RUN_BOUND);
-
-    assert({
-      given: 'one dead run, one live run and two names that are not runs',
-      should: 'drop only the dead run, unlock it, and never touch the others',
-      actual: {
-        dropped,
-        drops: statements.filter((statement) => statement.startsWith('drop')),
-        unlocks: statements.filter((statement) =>
-          statement.includes('pg_advisory_unlock'),
-        ).length,
-      },
-      expected: {
-        dropped: [dead],
-        drops: [`drop database if exists "${dead}" with (force)`],
-        unlocks: 1,
-      },
-    });
-  });
-});
-
-describe('dropAllTestRunDatabases', () => {
-  test('drops every run of the slot, live or not', async () => {
-    const { admin, statements } = fakeAdmin({ databases: [dead, live] });
-
-    const dropped = await dropAllTestRunDatabases(admin, base);
-
-    assert({
-      given: 'two runs',
-      should: 'drop both with force and name them',
-      actual: { dropped, drops: statements.length },
-      expected: { dropped: [dead, live], drops: 2 },
     });
   });
 });

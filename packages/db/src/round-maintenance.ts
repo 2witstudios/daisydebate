@@ -9,7 +9,6 @@ import {
 import { createAppError } from '@daisy/errors';
 import { affirmativeSide, idSchema, negativeSide } from '@daisy/protocol';
 import type { BoundedTransaction } from './bounded-transaction';
-import type { BoundedTransactionContext } from './transaction-context';
 import {
   executeLockedRoundTick,
   type LockedRoundTickInput,
@@ -20,6 +19,7 @@ import {
   type FreezeRequest,
 } from './transcript-finalization';
 import { rounds } from './schema/rounds';
+import type { Tx } from './tx';
 
 type DueInput = LockedRoundTickInput & { readonly instanceId: string };
 /** Internal service authority, one canonical clock and the existing bounded pool. */
@@ -29,10 +29,7 @@ export function roundMaintenanceOperations(
 ) {
   const withRound = <T>(
     input: DueInput,
-    work: (
-      tx: BoundedTransactionContext,
-      assertCurrent: () => Promise<void>,
-    ) => Promise<T>,
+    work: (tx: Tx, assertCurrent: () => Promise<void>) => Promise<T>,
   ) => {
     if (
       !idSchema.safeParse(input.instanceId).success ||

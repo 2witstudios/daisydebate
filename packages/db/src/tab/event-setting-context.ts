@@ -8,7 +8,7 @@ import { settings } from '../schema/settings';
 import { formatRevisions } from '../schema/format-revisions';
 import { formatPresets } from '../schema/format-presets';
 import { scopeTransaction, type TenantScope } from '../tenant-scope';
-import type { TabTransaction } from './tab-transaction';
+import type { Tx } from '../tx';
 
 /** The named setting parents changed while the command waited for their fences. */
 export class EventSettingParentsChanged extends Error {}
@@ -19,7 +19,7 @@ export class EventSettingParentsChanged extends Error {}
  * settings writers' metadata locks. It never enumerates unrelated lobbies or their records.
  */
 export const lockEventSettingContext = async (
-  tx: Pick<TabTransaction, 'select' | 'execute'>,
+  tx: Tx,
   input: {
     readonly lobbyId: string;
     readonly eventId: string;

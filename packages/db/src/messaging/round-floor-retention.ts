@@ -1,9 +1,9 @@
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { contextChannelRetention } from './context-channel-retention';
+import type { Tx } from '../tx';
 
 /** Terminal-end cutoff, supplied as now minus the fixed 180-day floor window. Counters survive. */
-export function roundFloorRetention(database: Pick<BunSQLDatabase, 'execute'>) {
+export function roundFloorRetention(database: Tx) {
   const purge = contextChannelRetention(
     database,
     'round_floor',

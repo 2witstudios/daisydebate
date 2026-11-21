@@ -1,8 +1,6 @@
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError, isAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
-import type { AuthorizationTransaction } from '../authorization';
 import { withLockedMessagingAuthority } from '../messaging/authority-frame';
 import {
   acknowledgeErasedFileDeletion,
@@ -10,14 +8,24 @@ import {
   expireChannelFiles,
   pendingFileDeletions,
 } from './cleanup';
+import { inTransaction, type Tx, type TxSource } from '../tx';
+import { query } from '../raw-rows';
+import { z } from 'zod';
 
 async function dueOwners(
-  tx: AuthorizationTransaction,
+  tx: Tx,
   channelId: string,
   now: string,
   fileIds: readonly string[],
 ) {
-  const rows = await tx.execute(sql`
+  const rows = await query(
+    tx,
+    z.object({
+      fileId: z.string(),
+      actorId: z.string(),
+      userId: z.string().nullable(),
+    }),
+    sql`
     select f.id as "fileId", f.owner_actor_id as "actorId", a.user_id as "userId"
     from messaging_files f join actors a on a.id=f.owner_actor_id
     where f.channel_id=${channelId} and f.id in (${sql.join(
@@ -25,7 +33,8 @@ async function dueOwners(
       sql`, `,
     )}) and f.lifecycle in ('reserved','quarantined')
       and f.expires_at <= ${new Date(now)} order by f.owner_actor_id
-  `);
+  `,
+  );
   return [...rows].map((row) => ({
     fileId: idSchema.parse(row.fileId),
     actorId: idSchema.parse(row.actorId),
@@ -34,12 +43,12 @@ async function dueOwners(
 }
 
 async function expireDueChannel(
-  database: BunSQLDatabase,
+  database: TxSource,
   channelId: string,
   now: string,
   fileIds: readonly string[],
 ) {
-  return database.transaction(async (tx) => {
+  return inTransaction(database, async (tx) => {
     const owners = await dueOwners(tx, channelId, now, fileIds);
     const first = owners[0];
     if (!first) return false;
@@ -112,7 +121,7 @@ function groupSelectedFiles(rows: readonly Record<string, unknown>[]) {
   return channels;
 }
 async function acknowledgeBatch(
-  database: BunSQLDatabase,
+  database: TxSource,
   now: string,
   remove: (key: string) => Promise<void>,
   work: Awaited<ReturnType<typeof pendingFileDeletions>>,
@@ -135,7 +144,7 @@ async function acknowledgeBatch(
 }
 
 /** Trusted worker only; no user-content projection or admission authority. */
-export function createMessagingFileMaintenance(database: BunSQLDatabase) {
+export function createMessagingFileMaintenance(database: TxSource) {
   return {
     async run(input: {
       now: string;
@@ -143,11 +152,15 @@ export function createMessagingFileMaintenance(database: BunSQLDatabase) {
       remove: (key: string) => Promise<void>;
     }) {
       validateRun(input.now, input.maxItems);
-      const selected = await database.execute(sql`
+      const selected = await query(
+        database,
+        z.object({ fileId: z.string(), channelId: z.string() }),
+        sql`
         select id as "fileId", channel_id as "channelId" from messaging_files
         where lifecycle in ('reserved','quarantined') and expires_at <= ${new Date(input.now)}
         order by expires_at, id limit ${input.maxItems}
-      `);
+      `,
+      );
       const channels = groupSelectedFiles(selected);
       let expiredChannels = 0;
       for (const [channelId, fileIds] of channels) {

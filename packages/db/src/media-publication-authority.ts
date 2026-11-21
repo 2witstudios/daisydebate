@@ -5,13 +5,20 @@ import {
   isJudgeSeat,
   type RoundCommandAuthority,
 } from '@daisy/protocol';
-import type { BoundedTransactionContext } from './transaction-context';
 import type { RoundHydration } from './round-hydration';
 import { roundBotPublications } from './schema/round-bot-publications';
 import { verifyBotWorkerPrincipalLocked } from './bot-worker-authority';
 import { readBotSegmentFloor } from './bot-publication-context';
+import type { Tx } from './tx';
 
 type Participants = RoundCommandAuthority['participants'];
+type PublicationRound = {
+  readonly segments: readonly Pick<RoundHydration['segments'][number], 'id'>[];
+  readonly checkpoint: Pick<
+    RoundHydration['checkpoint'],
+    'absent_participant_ids'
+  >;
+};
 type Publication = {
   readonly participantId: string;
   readonly segmentId: string;
@@ -26,7 +33,7 @@ type Publication = {
  * actual generation scope verifier and the one bot media rule's predicates.
  */
 export async function readMediaBotLeases(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   roundId: string,
   participants: Participants,
 ) {
@@ -73,7 +80,7 @@ export async function readMediaBotLeases(
 const liveLease = (
   leases: readonly Publication[],
   seatId: string,
-  round: RoundHydration,
+  round: PublicationRound,
   now: string,
 ) => {
   const segmentId = round.segments.at(-1)?.id;
@@ -89,7 +96,7 @@ const liveLease = (
 export function mediaPublicationParticipants(
   participants: Participants,
   leases: readonly Publication[],
-  round: RoundHydration,
+  round: PublicationRound,
   now: string,
 ): Participants {
   return participants.map((seat) =>
@@ -112,7 +119,7 @@ export function mediaPublicationParticipants(
 export function mediaHearingSeats(
   participants: Participants,
   leases: readonly Publication[],
-  round: RoundHydration,
+  round: PublicationRound,
   now: string,
 ) {
   return participants
@@ -136,7 +143,7 @@ export function mediaHearingSeats(
  */
 export const mediaWithdrawnSeats = (
   revoked: readonly string[],
-  round: Pick<RoundHydration, 'checkpoint'>,
+  round: Pick<PublicationRound, 'checkpoint'>,
 ): readonly string[] => [
   ...new Set([...revoked, ...(round.checkpoint.absent_participant_ids ?? [])]),
 ];

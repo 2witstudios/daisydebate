@@ -1,9 +1,9 @@
+import { createAppError } from '@daisy/errors';
 import {
   mediaReleasePolicy,
   type ReleaseLinkPurpose,
 } from '@daisy/protocol/media-release';
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { z } from 'zod';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import {
@@ -11,7 +11,7 @@ import {
   type MailJobClaimInput,
   type MailJobOutcome,
 } from './mail-queue';
-import { rowsOf } from './raw-rows';
+import { run, query } from './raw-rows';
 import { deleteExpiredBatch, type RetentionBatch } from './retention';
 import {
   mediaReleaseMails,
@@ -20,6 +20,7 @@ import {
   type mediaReleaseMailErrorCodes,
   type mediaReleaseMailKinds,
 } from './schema/media-releases';
+import { inTransaction, type TxSource } from './tx';
 
 export type MediaReleaseMailKind = (typeof mediaReleaseMailKinds)[number];
 export type MediaReleaseMailOutcome = MailJobOutcome<
@@ -76,7 +77,7 @@ export function mediaReleaseMailOperations({
   database,
   eventSink,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) {
   return {
@@ -84,9 +85,14 @@ export function mediaReleaseMailOperations({
       input: MailJobClaimInput,
     ): Promise<readonly MediaReleaseMailClaim[]> =>
       instrumented(eventSink, 'claimMediaReleaseMails', async () =>
-        (await queue.claimDue(database, input, sql`id, kind, attempts`)).map(
-          ({ row, token }) => ({ ...claimRow.parse(row), token }),
-        ),
+        (
+          await queue.claimDue(
+            database,
+            input,
+            sql`id, kind, attempts`,
+            claimRow,
+          )
+        ).map(({ row, token }) => ({ ...row, token })),
       ),
 
     prepareMediaReleaseMail: (input: {
@@ -96,16 +102,17 @@ export function mediaReleaseMailOperations({
       readonly tokenDigest: string;
     }): Promise<PreparedReleaseMail> =>
       instrumented(eventSink, 'prepareMediaReleaseMail', () =>
-        database.transaction(async (tx) => {
-          const [mail] = await rowsOf<{
-            kind: MediaReleaseMailKind;
-            request_id: string;
-            recipient_email: string;
-            expires_at: Date | string;
-            outcome: string | null;
-            username: string | null;
-          }>(
+        inTransaction(database, async (tx) => {
+          const [mail] = await query(
             tx,
+            z.object({
+              kind: z.enum(['request', 'reminder', 'copy', 'manage_link']),
+              request_id: z.string(),
+              recipient_email: z.string(),
+              expires_at: z.union([z.string(), z.date()]),
+              outcome: z.string().nullable(),
+              username: z.string().nullable(),
+            }),
             sql`select m.kind, m.request_id, q.recipient_email, q.expires_at,
                 q.outcome, u.username
               from media_release_mails m
@@ -118,11 +125,13 @@ export function mediaReleaseMailOperations({
           const purpose = releaseLinkPurposeOf(mail.kind);
           if (!input.tokenDigest.startsWith(`${purpose}:`))
             return { kind: 'not-owed' };
-          const [now] = await rowsOf<{ now: Date | string }>(
+          const [now] = await query(
             tx,
+            z.object({ now: z.union([z.string(), z.date()]) }),
             sql`select clock_timestamp() as now`,
           );
-          const nowMs = Date.parse(iso(now!.now));
+          if (!now) throw createAppError('INVARIANT');
+          const nowMs = Date.parse(iso(now.now));
           let linkExpiresAt: string;
           let signed: Extract<PreparedReleaseMail, { kind: 'owed' }>['signed'] =
             null;
@@ -135,14 +144,15 @@ export function mediaReleaseMailOperations({
               return { kind: 'not-owed' };
             linkExpiresAt = iso(mail.expires_at);
           } else {
-            const held = await rowsOf<{
-              scope: 'publish' | 'paid_ads';
-              signer_name: string;
-              signer_relation: 'parent' | 'legal_guardian';
-              signed_at: Date | string;
-              wording_version: string;
-            }>(
+            const held = await query(
               tx,
+              z.object({
+                scope: z.enum(['publish', 'paid_ads']),
+                signer_name: z.string(),
+                signer_relation: z.enum(['parent', 'legal_guardian']),
+                signed_at: z.union([z.string(), z.date()]),
+                wording_version: z.string(),
+              }),
               sql`select scope, signer_name, signer_relation, signed_at, wording_version
                 from media_releases
                 where request_id = ${mail.request_id} and source = 'parent'
@@ -161,7 +171,8 @@ export function mediaReleaseMailOperations({
               wordingVersion: publish.wording_version,
             };
           }
-          await tx.execute(
+          await run(
+            tx,
             sql`insert into media_release_links (id, token_digest, purpose,
                 request_id, expires_at)
               values (${input.linkId}, ${input.tokenDigest}, ${purpose},

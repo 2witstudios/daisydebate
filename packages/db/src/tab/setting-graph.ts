@@ -11,9 +11,9 @@ import { formatPresets } from '../schema/format-presets';
 import { settings } from '../schema/settings';
 import { scopeTransaction, type TenantScope } from '../tenant-scope';
 import { loadTemplateRows, loadFormatRows } from './setting-definition-rows';
-import type { TabTransaction } from './tab-transaction';
+import type { Tx } from '../tx';
 
-const lobbyGraph = async (tx: TabTransaction, lobbyId: string) => ({
+const lobbyGraph = async (tx: Tx, lobbyId: string) => ({
   lobbyId,
   offers: await tx
     .select()
@@ -63,7 +63,7 @@ const lobbyGraph = async (tx: TabTransaction, lobbyId: string) => ({
  * restore the command's scope. None of this graph is a viewer projection.
  */
 export const loadSettingGraph = async (
-  tx: TabTransaction,
+  tx: Tx,
   scope: TenantScope,
   lobbyIds?: readonly string[],
 ) => {

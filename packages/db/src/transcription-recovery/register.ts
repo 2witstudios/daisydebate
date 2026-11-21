@@ -4,17 +4,17 @@ import type {
   CaptureEvidenceBody,
   CaptureEvidenceSpeaker,
 } from '@daisy/protocol';
-import type { BoundedTransactionContext } from '../transaction-context';
 import {
   transcriptionRecoveryContexts as contexts,
   transcriptionRecoverySources as sources,
 } from '../schema/transcription-recovery';
 import { contextBoundary } from './context';
 import { sampleRoundExecutionTime } from '../round-execution-time';
+import type { Tx } from '../tx';
 
 /** The caller owns the original subjects→Round→evidence fence and validated canonical body. */
 export async function register(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   body: CaptureEvidenceBody,
   original: {
     readonly authorityId: string | null;
@@ -50,7 +50,8 @@ export async function register(
     startOffsetMs: body.startOffsetMs,
     durationMs: body.durationMs,
     firstSequence: body.frames[0]!.clock.observation.sequence,
-    lastSequence: body.frames.at(-1)!.clock.observation.sequence,
+    lastSequence:
+      body.frames[body.frames.length - 1]!.clock.observation.sequence,
   };
   const [overlap] = await tx
     .select({ id: sources.evidenceId })
@@ -73,15 +74,16 @@ export async function register(
     .orderBy(desc(contexts.createdAt), desc(contexts.id))
     .limit(1);
   const enrolledAt = new Date(await sampleRoundExecutionTime(tx));
-  const append = contextBoundary(current ?? null, unit) === 'append';
-  const contextId = append ? current!.id : body.evidenceId;
+  const append =
+    current && contextBoundary(current, unit) === 'append' ? current : null;
+  const contextId = append?.id ?? body.evidenceId;
   if (append) {
     await tx
       .update(contexts)
       .set({
-        durationMs: current!.durationMs + unit.durationMs,
+        durationMs: append.durationMs + unit.durationMs,
         lastSequence: unit.lastSequence,
-        units: current!.units + 1,
+        units: append.units + 1,
         lastSourceAt: enrolledAt,
       })
       .where(eq(contexts.id, contextId));

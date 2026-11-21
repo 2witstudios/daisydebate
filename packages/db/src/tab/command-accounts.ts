@@ -3,7 +3,7 @@ import { users } from '../schema/users';
 import { eq, inArray, sql } from 'drizzle-orm';
 import { lockAuthorizationActors } from '../authorization';
 import { actors } from '../schema/actors';
-import type { TabTransaction } from './tab-transaction';
+import type { Tx } from '../tx';
 
 /**
  * Authority mutations and erasure take the same account fence. Acquire it
@@ -11,7 +11,7 @@ import type { TabTransaction } from './tab-transaction';
  * a command's account facts while its writes are being applied.
  */
 export const lockTabCommandAccounts = async (
-  tx: TabTransaction,
+  tx: Tx,
   userIds: readonly string[],
 ): Promise<void> => {
   const rows = await tx
@@ -35,7 +35,7 @@ export type AccountRevisionWrite = {
 
 /** Membership and grant changes invalidate cached authority for that account. */
 export const bumpTabAccountRevision = async (
-  tx: TabTransaction,
+  tx: Tx,
   userId: string,
 ): Promise<void> => {
   const rows = await tx

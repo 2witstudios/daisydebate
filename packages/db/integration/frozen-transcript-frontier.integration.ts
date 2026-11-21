@@ -1,4 +1,7 @@
 import { requireTestServices } from '@daisy/config';
+import { assertRejects } from '@daisy/errors/testing';
+import { drizzle } from 'drizzle-orm/bun-sql';
+import { readLockedFrozenRoundTranscript } from '../src/frozen-transcript';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { captureSchemaStream } from './capture-schema.test-support';
 import { rejectedBy, withFixture } from './constraint-helpers';
@@ -48,6 +51,41 @@ test('freeze and counter DML enforce the same immutable durable frontier (ISSUE-
       ),
     ]);
     await fixture.sql`delete from utterances where round_id=${frozen}`;
+    const database = drizzle({ client: fixture.sql });
+    const views = await Promise.all(
+      [zero, frozen].map((roundId) =>
+        readLockedFrozenRoundTranscript(database, roundId),
+      ),
+    );
+    assert({
+      given:
+        'an absent-as-zero counter and a nonzero counter after lawful erasure',
+      should:
+        'read each valid freeze from its durable frontier, independent of surviving text',
+      actual: views.map((view) => [view?.frontier, view?.utterances]),
+      expected: [
+        [0, []],
+        [7, []],
+      ],
+    });
+    const rollback = new Error('roll back corrupted test frontier');
+    await fixture.sql
+      .begin(async (tx) => {
+        await tx`alter table round_transcripts disable trigger round_transcripts_frozen_check`;
+        await tx`update round_transcripts set revision=8 where round_id=${frozen}`;
+        await assertRejects({
+          given:
+            'an actual inconsistent durable revision, with the storage guard disabled only in this transaction',
+          should: 'refuse inconsistent judging input',
+          actual: () =>
+            readLockedFrozenRoundTranscript(drizzle({ client: tx }), frozen),
+          code: 'INVARIANT',
+        });
+        throw rollback;
+      })
+      .catch((error: unknown) => {
+        if (error !== rollback) throw error;
+      });
     const [state] = await fixture.sql`select
       (select revision from round_transcripts where round_id=${frozen}) as frozen,
       (select revision from round_transcripts where round_id=${source}) as source,

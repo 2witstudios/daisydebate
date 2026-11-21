@@ -3,11 +3,11 @@ import { createAppError } from '@daisy/errors';
 import { resultCompetitionRecordSchema } from '@daisy/protocol/lobby/result-record';
 import { results, resultEntries, resultSpeakers } from '../schema/results';
 import type { ResultWrite } from './result-command';
-import type { TabTransaction } from './tab-transaction';
+import type { Tx } from '../tx';
 
 /** Immutable result records and projections share one validated writer. */
 export async function applyResultWrites(
-  tx: TabTransaction,
+  tx: Tx,
   lobbyId: string,
   writes: readonly ResultWrite[],
   notificationIds: () => string,

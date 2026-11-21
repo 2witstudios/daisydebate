@@ -69,7 +69,7 @@ export function createBillingCleanupRechecks(input: {
           rows: eligible,
           next:
             rows.length > batch
-              ? { afterId: page.at(-1)!.id, throughId }
+              ? { afterId: page[page.length - 1]!.id, throughId }
               : null,
         };
       });

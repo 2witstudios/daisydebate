@@ -4,7 +4,9 @@ import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
+import { createAppError } from '@daisy/errors';
 import { createMessagingStore } from '../src/messaging';
+import { channelReadFrame } from '../src/messaging/read-frame';
 import { createMessagingTestFixture } from '../src/testing';
 
 setupRitewayBun();
@@ -16,7 +18,7 @@ test('scoped history orders sequence independently from change version and bound
   const messages = [createId(), createId(), createId()];
   try {
     await client.unsafe(
-      'update messaging_channel_streams set message_sequence=3,change_version=5 where channel_id=$1',
+      'update messaging_channel_streams set message_sequence=3,change_version=8 where channel_id=$1',
       [f.channelId],
     );
     for (let i = 0; i < messages.length; i++)
@@ -46,10 +48,14 @@ test('scoped history orders sequence independently from change version and bound
         },
       );
     const page = await run((frame) => frame.history({ limit: 2 }));
+    const searched = await run((frame) =>
+      frame.history({ limit: 2, before: 4, query: 'MESSAGE' }),
+    );
     const next = await run((frame) =>
       frame.history({ limit: 2, before: page.nextBefore!.sequence }),
     );
     const changes = await run((frame) => frame.changes({ limit: 2, after: 0 }));
+    const final = await run((frame) => frame.changes({ limit: 2, after: 3 }));
     assert({
       given: 'three messages and an edit of sequence one at version five',
       should:
@@ -58,8 +64,20 @@ test('scoped history orders sequence independently from change version and bound
         page: page.messages.map((row) => row.sequence),
         next: next.messages.map((row) => row.sequence),
         changes: changes.messages.map((row) => row.changeVersion),
+        cursors: [searched.nextBefore, changes.nextAfter, final.nextAfter],
+        search: searched.messages.map(({ sequence }) => sequence),
       },
-      expected: { page: [3, 2], next: [1], changes: [2, 3] },
+      expected: {
+        page: [3, 2],
+        next: [1],
+        changes: [2, 3],
+        cursors: [
+          { channelId: f.channelId, sequence: 2 },
+          { channelId: f.channelId, changeVersion: 3 },
+          { channelId: f.channelId, changeVersion: 8 },
+        ],
+        search: [3, 2],
+      },
     });
     const first = await run((frame) => frame.markRead(3));
     const retry = await run((frame) => frame.markRead(1));
@@ -77,6 +95,59 @@ test('scoped history orders sequence independently from change version and bound
     });
   } finally {
     await f.cleanup();
+    await client.close();
+  }
+});
+
+test('invalid history inputs and current authority refusal issue no content SQL', async () => {
+  const client = new SQL(databaseUrl);
+  const fixture = await createMessagingTestFixture(client);
+  const { actorId, channelId } = fixture;
+  const statements: string[] = [];
+  const database = drizzle({
+    client,
+    logger: { logQuery: (query) => statements.push(query) },
+  });
+  const scope = { actorId, channelId };
+  const counters = { channelId, messageSequence: 3, changeVersion: 8 };
+  const valid = channelReadFrame(database, scope, counters, async () => {});
+  const denied = channelReadFrame(database, scope, counters, async () => {
+    throw createAppError('AUTHORIZATION');
+  });
+  try {
+    for (const attempt of [
+      () => denied.history({ limit: 2 }),
+      () => denied.changes({ limit: 2, after: 0 }),
+      () => denied.markRead(1),
+    ])
+      await assertRejects({
+        given: 'revoked reading authority',
+        should: 'refuse each protected operation',
+        actual: attempt,
+        code: 'AUTHORIZATION',
+      });
+    for (const attempt of [
+      () => valid.history({ limit: 0 }),
+      () => valid.history({ limit: 65536 }),
+      () => valid.history({ limit: 1, before: -1 }),
+      () => valid.history({ limit: 1, query: ' ' }),
+      () => valid.changes({ limit: 1, after: 0.5 }),
+      () => valid.markRead(4),
+    ])
+      await assertRejects({
+        given: 'an invalid page, search, or future cursor',
+        should: 'refuse each invalid input',
+        actual: attempt,
+        code: 'VALIDATION',
+      });
+    assert({
+      given: 'all refused read and mark operations',
+      should: 'neither query nor write content',
+      actual: statements,
+      expected: [],
+    });
+  } finally {
+    await fixture.cleanup();
     await client.close();
   }
 });

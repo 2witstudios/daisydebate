@@ -9,24 +9,29 @@ setupRitewayBun();
 
 type Seats = Parameters<typeof mediaPublicationParticipants>[0];
 type Round = Parameters<typeof mediaPublicationParticipants>[2];
-const seat = (id: string, kind: 'bot' | 'human', eligible = true) => ({
+const seat = (
+  id: string,
+  kind: 'bot' | 'human',
+  eligible = true,
+): Seats[number] => ({
   id,
+  actorId: id,
   kind,
   seat: { kind: 'side' as const, side: 'negative', slot: 0 },
   eligible,
 });
-const seats = [
+const seats: Seats = [
   seat('floor', 'bot'),
   seat('listening', 'bot'),
   seat('expired', 'bot'),
   seat('stale', 'bot'),
   seat('ineligible', 'bot', false),
   seat('person', 'human'),
-] as unknown as Seats;
-const round = {
+];
+const round: Round = {
   segments: [{ id: 'old' }, { id: 'now' }],
   checkpoint: {},
-} as unknown as Round;
+};
 const now = '2026-10-27T12:00:00.000Z';
 const live = new Date('2026-10-27T12:00:30.000Z');
 const lease = (
@@ -63,10 +68,10 @@ test('a bot seat publishes only on the floor, and hears with or without it (ISSU
 });
 
 test('a seat that left the Round is withdrawn in place, never revoked (TAB-6.8)', () => {
-  const left = {
+  const left: Round = {
     ...round,
     checkpoint: { absent_participant_ids: ['person', 'floor'] },
-  } as unknown as Round;
+  };
   assert({
     given: 'a human and a floor-holding bot recorded absent by leave',
     should:

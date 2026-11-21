@@ -67,7 +67,7 @@ test('a revoked participant is refused media and attendance inside their fences,
       verifyWorker: async () => {
         throw new Error('Human fixture cannot enter the bot verifier');
       },
-      transaction: (work) =>
+      run: (work) =>
         db.transaction((tx) =>
           work(tx, { receivedAt: '2026-10-22T05:00:00.000000Z' }),
         ),

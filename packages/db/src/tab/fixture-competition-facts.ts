@@ -8,11 +8,11 @@ import { readRoomCompetitionProgress } from '../round-competition-source';
 import { readDatabaseTime } from '../database-clock';
 import { fixtureConnections } from './fixture-conflict';
 import type { FixtureCommandContext } from './fixture-command-context';
-import type { TabTransaction } from './tab-transaction';
+import type { Tx } from '../tx';
 
 /** The fixture's named published competitive input; corrections use only the retained result's source. */
 export async function readFixtureCompetitionFacts(
-  tx: TabTransaction,
+  tx: Tx,
   context: FixtureCommandContext,
   senderUserId: string,
 ) {

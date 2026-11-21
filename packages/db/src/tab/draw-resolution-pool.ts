@@ -3,13 +3,13 @@ import { resolutionPools, poolResolutions } from '../schema/resolution-pools';
 import type { tabRounds } from '../schema/events';
 import { scopeTransaction } from '../tenant-scope';
 import type { lockEventSettingContext } from './event-setting-context';
-import type { TabTransaction } from './tab-transaction';
+import type { Tx } from '../tx';
 type Configuration = NonNullable<
   Awaited<ReturnType<typeof lockEventSettingContext>>
 >;
 /** The setup command admits only this lobby's pools and its owning organization's pools. */
 export const loadDrawResolutionPool = async (
-  tx: TabTransaction,
+  tx: Tx,
   configuration: Configuration,
   round: typeof tabRounds.$inferSelect,
 ) => {

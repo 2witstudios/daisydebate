@@ -1,12 +1,10 @@
-import type { MessageRequestSetting } from '@daisy/protocol';
+import { messageRequestSettingSchema } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
-import {
-  readAuthorizationActors,
-  type AuthorizationTransaction,
-} from '../authorization';
-import { rowsOf } from '../raw-rows';
+import { z } from 'zod';
+import { readAuthorizationActors } from '../authorization';
+import { query } from '../raw-rows';
+import { inTransaction, type Tx, type TxOpener } from '../tx';
 
 type Account = {
   readonly account: {
@@ -25,7 +23,7 @@ type Account = {
  * account, in the order given.
  */
 export const bindMessagingContactFacts =
-  (tx: AuthorizationTransaction) => async (accounts: readonly Account[]) => {
+  (tx: Tx) => async (accounts: readonly Account[]) => {
     // An account without a current age is refused before any of this is
     // read, so it gets the closed answer and costs no statement.
     const closed = {
@@ -44,13 +42,14 @@ export const bindMessagingContactFacts =
           (age.band === '13-15' || age.band === '16-17'),
       })),
     );
-    const rows = await rowsOf<{
-      user_id: string;
-      setting: MessageRequestSetting;
-      friend_actor_ids: string[];
-      linked_adult_user_ids: string[];
-    }>(
+    const rows = await query(
       tx,
+      z.object({
+        user_id: z.string(),
+        setting: messageRequestSettingSchema.shape.setting,
+        friend_actor_ids: z.array(z.string()),
+        linked_adult_user_ids: z.array(z.string()),
+      }),
       sql`with cast_rows as (
           select * from jsonb_to_recordset(${cast}::text::jsonb)
             as c(user_id text, actor_id text, minor boolean))
@@ -92,22 +91,26 @@ export const bindMessagingContactFacts =
  * grants nothing; a request still decides under its own locks.
  */
 export const createMessagingPairFactsRead =
-  (database: BunSQLDatabase) =>
+  (database: TxOpener) =>
   <T>(
     actorIds: readonly [string, string],
     work: (
-      tx: AuthorizationTransaction,
+      tx: Tx,
       accounts: Awaited<ReturnType<typeof readAuthorizationActors>>,
       contact: 'blocked' | 'open_dm' | 'none',
     ) => Promise<T>,
   ): Promise<T> =>
-    database.transaction(async (tx) => {
-      const [low, high] = [...actorIds].sort();
-      const accounts = await readAuthorizationActors(tx, [low!, high!], {
+    inTransaction(database, async (tx) => {
+      const [first, second] = actorIds;
+      const ordered: readonly [string, string] =
+        first <= second ? [first, second] : [second, first];
+      const [low, high] = ordered;
+      const accounts = await readAuthorizationActors(tx, ordered, {
         maxActors: 2,
       });
-      const [pair] = await rowsOf<{ blocked: boolean; open: boolean | null }>(
+      const [pair] = await query(
         tx,
+        z.object({ blocked: z.boolean(), open: z.boolean().nullable() }),
         sql`select p.low_blocks_high or p.high_blocks_low as blocked,
             d.request_state in ('pending','accepted') as open
           from contact_pairs p left join messaging_dm_pairs d

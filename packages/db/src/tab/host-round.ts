@@ -9,7 +9,7 @@ import { organizations } from '../schema/organizations';
 import { roundJudgeSlots } from '../schema/round-judge-assignments';
 import { roundSegments } from '../schema/round-segments';
 import { loadDrawContext } from './draw-command-facts';
-import type { TabDatabase, TabTransaction } from './tab-transaction';
+import { inTransaction, type Tx, type TxOpener } from '../tx';
 
 type HostRoundInput = {
   readonly viewerUserId: string;
@@ -17,7 +17,7 @@ type HostRoundInput = {
   readonly eventId: string;
   readonly tabRoundId: string;
 };
-async function load(tx: TabTransaction, input: HostRoundInput) {
+async function load(tx: Tx, input: HostRoundInput) {
   const draw = await loadDrawContext(tx, {
     senderUserId: input.viewerUserId,
     lobbyId: input.lobbyId,
@@ -75,7 +75,7 @@ async function load(tx: TabTransaction, input: HostRoundInput) {
 }
 export type HostRoundFacts = NonNullable<Awaited<ReturnType<typeof load>>>;
 async function loadOverview(
-  tx: TabTransaction,
+  tx: Tx,
   input: { readonly viewerUserId: string; readonly lobbyId: string },
 ) {
   const authority = await loadLobbyAuthority(tx, input);
@@ -99,15 +99,15 @@ async function loadOverview(
 export type HostDrawOverviewFacts = NonNullable<
   Awaited<ReturnType<typeof loadOverview>>
 >;
-export const createHostRoundStore = (database: TabDatabase) => ({
+export const createHostRoundStore = (database: TxOpener) => ({
   hostDrawOverview: <Answer>(
     input: { readonly viewerUserId: string; readonly lobbyId: string },
     work: (facts: HostDrawOverviewFacts | null) => Promise<Answer>,
   ): Promise<Answer> =>
-    database.transaction(async (tx) => work(await loadOverview(tx, input))),
+    inTransaction(database, async (tx) => work(await loadOverview(tx, input))),
   hostRound: <Answer>(
     input: HostRoundInput,
     work: (facts: HostRoundFacts | null) => Promise<Answer>,
   ): Promise<Answer> =>
-    database.transaction(async (tx) => work(await load(tx, input))),
+    inTransaction(database, async (tx) => work(await load(tx, input))),
 });

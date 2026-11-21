@@ -1,6 +1,5 @@
 import { SPECTATOR_MARGIN_MS } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
-import type { BoundedTransactionContext } from './transaction-context';
 import {
   captionHeardAtSql,
   captionKnownPublicSql,
@@ -8,8 +7,9 @@ import {
   roundAliasR as round,
   type SpectatorClock,
 } from './spectator-release-sql';
-
-type Tx = Pick<BoundedTransactionContext, 'execute'>;
+import type { Tx } from './tx';
+import { query } from './raw-rows';
+import { z } from 'zod';
 
 const heardAt = captionHeardAtSql({
   createdAt: sql`u.created_at`,
@@ -50,7 +50,10 @@ export async function recordFactReleases(
   tx: Tx,
   input: { readonly roundId: string; readonly clock: SpectatorClock },
 ): Promise<number> {
-  const rows = await tx.execute(sql`
+  const rows = await query(
+    tx,
+    z.object({ fact_id: z.string() }),
+    sql`
     insert into spectator_fact_releases (round_id, kind, fact_id, captured_at, released_at, watermark_at, basis)
     select r.id, f.kind, f.fact_id, f.captured_at, ${input.clock.now}::timestamptz,
       b.released_through_at,
@@ -66,8 +69,9 @@ export async function recordFactReleases(
     where r.id = ${input.roundId}
       and ${factReleasedSql(sql`f.captured_at`, round, input.clock)}
     on conflict (round_id, kind, fact_id) do nothing
-    returning fact_id`);
-  return (rows as unknown as unknown[]).length;
+    returning fact_id`,
+  );
+  return rows.length;
 }
 
 const unlogged = sql`not exists (
@@ -85,7 +89,10 @@ export async function readRoundsAwaitingFactLog(
   tx: Tx,
   input: { readonly clock: SpectatorClock; readonly limit: number },
 ): Promise<readonly string[]> {
-  const rows = await tx.execute(sql`select r.id
+  const rows = await query(
+    tx,
+    z.object({ id: z.string() }),
+    sql`select r.id
     from spectator_fact_log_open_rounds o
     join rounds r on r.id=o.round_id
     where ${hasAudience}
@@ -94,8 +101,9 @@ export async function readRoundsAwaitingFactLog(
         where ${unlogged}
           and ${factReleasedSql(sql`f.captured_at`, round, input.clock)}
       )
-    order by r.id limit ${input.limit}`);
-  return (rows as unknown as { id: string }[]).map((row) => row.id);
+    order by r.id limit ${input.limit}`,
+  );
+  return rows.map((row) => row.id);
 }
 
 /**
@@ -105,7 +113,10 @@ export async function readRoundsAwaitingFactLog(
  * and then leaves the row, however the two interleave.
  */
 export async function closeSettledFactLogRounds(tx: Tx): Promise<number> {
-  const rows = await tx.execute(sql`with settled as (
+  const rows = await query(
+    tx,
+    z.object({ round_id: z.string() }),
+    sql`with settled as (
       select o.round_id, o.touched_at
       from spectator_fact_log_open_rounds o
       join rounds r on r.id=o.round_id
@@ -115,8 +126,9 @@ export async function closeSettledFactLogRounds(tx: Tx): Promise<number> {
     )
     delete from spectator_fact_log_open_rounds o using settled s
     where o.round_id=s.round_id and o.touched_at=s.touched_at
-    returning o.round_id`);
-  return (rows as unknown as unknown[]).length;
+    returning o.round_id`,
+  );
+  return rows.length;
 }
 
 /** Records the log for every Round that may have a fact to record; a sweep's pass. */

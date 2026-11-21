@@ -1,9 +1,7 @@
-import type {
-  AuthorizationTransaction,
-  lockAuthorizationActors,
-} from '../authorization';
+import type { lockAuthorizationActors } from '../authorization';
 import type { MessagingChannelFact } from './social';
 import type { MessagingGroupInvitationFact } from './group-invitation-contracts';
+import type { Tx } from '../tx';
 export type MessagingGroupIssuanceScope = {
   readonly userId: string;
   readonly actorId: string;
@@ -12,7 +10,7 @@ export type MessagingGroupIssuanceScope = {
   readonly inviteeActorIds: readonly string[];
 };
 export type MessagingGroupIssuanceFence = (
-  tx: AuthorizationTransaction,
+  tx: Tx,
   scope: MessagingGroupIssuanceScope,
   facts: {
     readonly channel: MessagingChannelFact;

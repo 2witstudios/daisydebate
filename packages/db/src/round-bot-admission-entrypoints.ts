@@ -15,20 +15,21 @@ export function roundBotAdmissionEntrypoints(input: {
   readonly botAdmission: BotAdmissionOptions | undefined;
   readonly aiAllowance: AiAllowanceOptions | undefined;
 }) {
-  if (input.botAdmission && !input.aiAllowance)
+  const { aiAllowance, botAdmission } = input;
+  if (botAdmission && !aiAllowance)
     throw createAppError(
       'VALIDATION',
       'Bot admission requires allowance policy',
     );
   const admission =
-    input.botAdmission === undefined
+    !botAdmission || !aiAllowance
       ? undefined
       : createRoundBotAdmission({
           run: input.run,
           nextId: input.nextId,
-          allowance: input.aiAllowance!.decide,
-          accountEligible: input.aiAllowance!.accountEligible,
-          ...input.botAdmission,
+          allowance: aiAllowance.decide,
+          accountEligible: aiAllowance.accountEligible,
+          ...botAdmission,
         });
   return {
     admission,

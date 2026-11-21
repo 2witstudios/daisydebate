@@ -3,10 +3,12 @@ import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import type { BillingOwner } from '@daisy/protocol/billing';
 import { scopeTransaction } from './tenant-scope';
-import type { BoundedTransactionContext } from './transaction-context';
 import { billingCustomers } from './schema/billing-customers';
 import { billingPurchases } from './schema/billing-purchases';
 import { billingSubscriptions } from './schema/billing-subscriptions';
+import type { Tx } from './tx';
+import { query } from './raw-rows';
+import { z } from 'zod';
 
 /** A club may buy seats: a school or club, or a homeschool family (ADR 0148). */
 export const clubOrganizationKinds = ['school', 'family'] as const;
@@ -29,11 +31,8 @@ type OwnedTable =
 /** The one owner a billing row belongs to, as a WHERE condition. */
 export function ownedBy(table: OwnedTable, owner: BillingOwner): SQL {
   return owner.kind === 'account'
-    ? and(eq(table.userId, owner.userId), isNull(table.organizationId))!
-    : and(
-        eq(table.organizationId, owner.organizationId),
-        isNull(table.userId),
-      )!;
+    ? sql`(${eq(table.userId, owner.userId)} and ${isNull(table.organizationId)})`
+    : sql`(${eq(table.organizationId, owner.organizationId)} and ${isNull(table.userId)})`;
 }
 
 /**
@@ -44,14 +43,24 @@ export function ownedBy(table: OwnedTable, owner: BillingOwner): SQL {
  * own rows (their seat in another club) be read. Null when no club exists.
  */
 export async function lockClub(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   organizationId: string,
   subjectUserId?: string,
 ): Promise<LockedClub | null> {
   if (!idSchema.safeParse(organizationId).success)
     throw createAppError('VALIDATION');
   await scopeTransaction(tx, { organizationId, subjectUserId });
-  const [row] = await tx.execute(
+  const [row] = await query(
+    tx,
+    z.object({
+      id: z.string(),
+      kind: z.string(),
+      name: z.string(),
+      handle: z.string(),
+      owner_user_id: z.string().nullable(),
+      closed_at: z.date().nullable(),
+      version: z.int(),
+    }),
     sql`select id, kind, name, handle, owner_user_id, closed_at, version
       from organizations where id=${organizationId} for update`,
   );
@@ -76,10 +85,7 @@ export async function lockClub(
 }
 
 /** The owner's billing customer and current subscription, locked for update. */
-export async function lockOwnerBillingRows(
-  tx: BoundedTransactionContext,
-  owner: BillingOwner,
-) {
+export async function lockOwnerBillingRows(tx: Tx, owner: BillingOwner) {
   const [customer] = await tx
     .select()
     .from(billingCustomers)

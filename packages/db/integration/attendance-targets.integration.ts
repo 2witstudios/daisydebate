@@ -33,7 +33,7 @@ test('target discovery authenticates fresh seats and returns actual unresolved h
       verifyWorker: async () => {
         throw new Error('Human fixture cannot enter bot verifier');
       },
-      transaction: (work) =>
+      run: (work) =>
         db.transaction((tx) =>
           work(tx, { receivedAt: '2026-10-22T00:00:00.000000Z' }),
         ),

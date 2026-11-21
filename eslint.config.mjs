@@ -519,6 +519,44 @@ const repoSyntaxRestrictions = [
   ...processMutationRestrictions,
 ];
 
+const dbOpeningRestrictions = [
+  {
+    selector:
+      "ImportSpecifier[imported.name='BunSQLDatabase'], TSImportType[qualifier.name='BunSQLDatabase'], TSQualifiedName[right.name='BunSQLDatabase']",
+    message: 'Use Tx or TxSource from the database transaction boundary.',
+  },
+  {
+    selector:
+      "MemberExpression:matches([property.name='transaction'], [property.value='transaction'])",
+    message: 'Open database transactions with inTransaction.',
+  },
+];
+const dbRawStatementRestrictions = [
+  {
+    selector:
+      "MemberExpression:matches([property.name='execute'], [property.value='execute'])",
+    message: 'Use query for parsed rows or run to discard them.',
+  },
+  {
+    selector:
+      ':matches(TSAsExpression, TSTypeAssertion) > :matches(TSAsExpression, TSTypeAssertion)[typeAnnotation.type="TSUnknownKeyword"]',
+    message:
+      'Validate database rows instead of asserting them through unknown.',
+  },
+];
+const dbAdvisoryLockRestrictions = [
+  {
+    selector:
+      'Literal[value=/pg_(try_)?advisory/i], TemplateElement[value.raw=/pg_(try_)?advisory/i], Literal[regex.pattern=/pg_(try_)?advisory/i]',
+    message: 'Take the named advisory lock from the database lock registry.',
+  },
+];
+const dbBoundaryRestrictions = {
+  'tx.ts': dbOpeningRestrictions,
+  'raw-rows.ts': dbRawStatementRestrictions,
+  'locks.ts': dbAdvisoryLockRestrictions,
+};
+
 /**
  * The rules that read types. They run on workspace source only, which a
  * TypeScript project owns; a probe under an invented path turns them off
@@ -923,6 +961,31 @@ export default [
       ],
     },
   },
+  {
+    files: ['packages/db/src/**/*.ts'],
+    ignores: Object.keys(dbBoundaryRestrictions).map(
+      (home) => `packages/db/src/${home}`,
+    ),
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        ...repoSyntaxRestrictions,
+        ...Object.values(dbBoundaryRestrictions).flat(),
+      ],
+    },
+  },
+  ...Object.keys(dbBoundaryRestrictions).map((home) => ({
+    files: [`packages/db/src/${home}`],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        ...repoSyntaxRestrictions,
+        ...Object.entries(dbBoundaryRestrictions).flatMap(
+          ([owner, restrictions]) => (owner === home ? [] : restrictions),
+        ),
+      ],
+    },
+  })),
   {
     files: ['apps/web/src/app/**/route.ts', 'apps/web/src/app/**/actions.ts'],
     rules: {

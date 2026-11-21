@@ -1,4 +1,3 @@
-import { sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import type {
   ActionHistoryEntry,
@@ -18,10 +17,11 @@ import {
 import type { FixtureOwnerEffects } from './fixture-owner-write';
 import { applyFixtureWrites } from './fixture-writes';
 import type { FixtureWrite } from './fixture-write';
-import type { TabDatabase } from './tab-transaction';
+import { inTransaction, type TxOpener } from '../tx';
+import { takeLock, transactionLocks } from '../locks';
 
 /** Every panel, ordinary-owner effect and immutable result is in the fixture journal's one transaction. */
-export const createFixtureCommandStore = (database: TabDatabase) => ({
+export const createFixtureCommandStore = (database: TxOpener) => ({
   fixtureCommand: <Answer>(
     input: FixtureCommandInput,
     work: (session: {
@@ -47,11 +47,9 @@ export const createFixtureCommandStore = (database: TabDatabase) => ({
       ) => Promise<void>;
     }) => Promise<Answer>,
   ): Promise<Answer> =>
-    database.transaction(async (tx) => {
+    inTransaction(database, async (tx) => {
       // Same command fence as ordinary Round writers, before account and aggregate locks.
-      await tx.execute(
-        sql`select pg_advisory_xact_lock(59002, hashtext(${input.commandId}))`,
-      );
+      await takeLock(tx, transactionLocks.tabCommand(input.commandId));
       let loaded: LoadedFixtureCommand | null = null;
       return work({
         load: async () => {

@@ -1,23 +1,26 @@
+import { z } from 'zod';
 import {
   betaAccessStates,
   idSchema,
   type BetaAccessState,
 } from '@daisy/protocol';
 /** Minimal facts returned only by the canonical database account producer. */
-export type AuthorizationAccountRow = {
-  readonly userId: string;
-  readonly actorId: string | null;
-  readonly member: boolean;
-  readonly erased: boolean;
-  readonly revision: number;
-  /** ADR 0075: the account's own beta access row, both null when it has none. */
-  readonly betaState: string | null;
-  readonly betaRevision: number | null;
-  /** ADR 0075: the account's age band now, from its durable age record; null without one. */
-  readonly ageBand: string | null;
-  /** ADR 0103: a suspension or ban is in force. */
-  readonly restricted: boolean;
-};
+export const authorizationAccountRow = z.object({
+  userId: z.string(),
+  actorId: z.string().nullable(),
+  member: z.boolean(),
+  erased: z.boolean(),
+  revision: z.number(),
+  // ADR 0075: an account without a beta record has null state and revision.
+  betaState: z.string().nullable(),
+  betaRevision: z.number().nullable(),
+  ageBand: z.string().nullable(),
+  // ADR 0103: a suspension or ban is in force.
+  restricted: z.boolean(),
+});
+export type AuthorizationAccountRow = Readonly<
+  z.output<typeof authorizationAccountRow>
+>;
 const ageBands = ['under-13', '13-15', '16-17', 'adult'] as const;
 function validBeta(row: AuthorizationAccountRow) {
   if (row.betaState === null)

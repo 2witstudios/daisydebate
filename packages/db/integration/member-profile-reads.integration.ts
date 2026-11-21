@@ -1,4 +1,5 @@
 import { createId } from '@paralleldrive/cuid2';
+import { assertRejects } from '@daisy/errors/testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createAuthorizationSubject } from './authorization.test-support';
 import { createBotActor } from './bot-seat.test-support';
@@ -18,6 +19,23 @@ import { at } from './standings-fixtures';
 setupRitewayBun();
 
 describe('member profile reads (ISSUE-600)', () => {
+  test('invalid profile page sizes refuse', async () => {
+    await withProfileFixture(async ({ database, subject }) => {
+      for (const limit of [0, 51, 1.5])
+        await assertRejects({
+          given: `a profile page size of ${limit}`,
+          should: 'refuse with the page validation error',
+          actual: () =>
+            profileOf(database, {
+              username: subject.userId,
+              caller: null,
+              limit,
+            }),
+          code: 'VALIDATION',
+        });
+    });
+  });
+
   test('reads a live member by name, case-insensitively, and nobody else', async () => {
     await withProfileFixture(async ({ database, subject }) => {
       const found = await profileOf(database, {

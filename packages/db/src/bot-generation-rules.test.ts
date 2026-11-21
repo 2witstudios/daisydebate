@@ -8,21 +8,20 @@ import {
   requireSpeechBudget,
   requireSpeechPolicy,
   requireUsage,
-  type GenerationRequest,
 } from './bot-generation-rules';
 
 setupRitewayBun();
 
-type Run = Parameters<typeof requireRunUsage>[0];
-const run = (overrides: Record<string, unknown> = {}) =>
-  ({
-    kind: 'speech',
-    characters: 0,
-    inputTokens: 40,
-    outputTokens: 12,
-    configurationSnapshot: { providerOutcome: 'received' },
-    ...overrides,
-  }) as unknown as Run;
+type Run = Parameters<typeof requireRunUsage>[0] &
+  Parameters<typeof requireSameSettlement>[0];
+const run = (overrides: Partial<Run> = {}): Run => ({
+  kind: 'speech',
+  characters: 0,
+  inputTokens: 40,
+  outputTokens: 12,
+  configurationSnapshot: { providerOutcome: 'received' },
+  ...overrides,
+});
 const usage = { inputTokens: 40, outputTokens: 12, characters: 0 };
 
 test('a generation request is language or a non-empty speech', async () => {
@@ -45,7 +44,7 @@ test('a generation request is language or a non-empty speech', async () => {
     await assertRejects({
       given: `the request ${JSON.stringify(request)}`,
       should: 'refuse it as invalid input',
-      actual: () => requireRequest(request as unknown as GenerationRequest),
+      actual: () => requireRequest(request),
       code: 'VALIDATION',
     });
 });
@@ -149,12 +148,12 @@ test('a settled run accepts only the identical settlement again', async () => {
 test('speech needs an explicit model and stays within the seat budget', async () => {
   assert({
     given: 'an explicit model and budget, and speech that exactly fills it',
-    should: 'return the model and admit the speech',
+    should: 'return the explicit model and budget and admit the speech',
     actual: [
       requireSpeechPolicy({ ttsModel: 'voice-1', speechBudget: 1000 }),
       requireSpeechBudget(880, 120, 1000),
     ],
-    expected: ['voice-1', undefined],
+    expected: [{ model: 'voice-1', budget: 1000 }, undefined],
   });
   for (const policy of [
     {},

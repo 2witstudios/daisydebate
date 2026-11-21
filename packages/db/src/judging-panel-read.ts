@@ -1,10 +1,13 @@
+import { roundJudgingSchema } from '@daisy/protocol';
 import { currentRoundParticipant } from './round-current-participant';
 import { createAppError } from '@daisy/errors';
 import type { JudgingPanelFacts } from '@daisy/protocol';
 import { and, eq, sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { ballots } from './schema/ballots';
 import { roundJudgingJobs } from './schema/round-judging-jobs';
+import type { Tx } from './tx';
+import { query } from './raw-rows';
+import { z } from 'zod';
 
 const iso = (column: string) =>
   sql.raw(
@@ -18,14 +21,23 @@ const iso = (column: string) =>
  * is corruption, never a hold without end.
  */
 export async function readJudgingPanelFacts(
-  tx: Pick<BunSQLDatabase, 'select' | 'execute'>,
+  tx: Tx,
   input: {
     readonly roundId: string;
     readonly completeness: JudgingPanelFacts['completeness'];
   },
 ): Promise<JudgingPanelFacts> {
   const { roundId } = input;
-  const [round] = (await tx.execute(sql`select
+  const [round] = await query(
+    tx,
+    z.object({
+      ballotDeadlineAt: z.string().nullable(),
+      attendanceCutoffAt: z.string().nullable(),
+      lastAttendanceDecisionAt: z.string().nullable(),
+      lastWriterResolvedAt: z.string().nullable(),
+      judging: roundJudgingSchema.nullable(),
+    }),
+    sql`select
     ${iso('r.ballot_deadline_at')} as "ballotDeadlineAt",
     ${iso('r.attendance_resolution_cutoff_at')} as "attendanceCutoffAt",
     (select ${iso('max(decided.applied_at)')} from round_attendance_adjudications decision
@@ -34,13 +46,8 @@ export async function readJudgingPanelFacts(
     (select ${iso('max(writer.resolved_at)')} from round_check_in_attempts writer
       where writer.round_id=r.id) as "lastWriterResolvedAt",
     r.judging as "judging"
-    from rounds r where r.id=${roundId}`)) as unknown as {
-    judging: JudgingPanelFacts['judging'] | null;
-    ballotDeadlineAt: string | null;
-    attendanceCutoffAt: string | null;
-    lastAttendanceDecisionAt: string | null;
-    lastWriterResolvedAt: string | null;
-  }[];
+    from rounds r where r.id=${roundId}`,
+  );
   if (!round?.attendanceCutoffAt)
     throw createAppError(
       'INVARIANT',
@@ -60,15 +67,18 @@ export async function readJudgingPanelFacts(
         currentRoundParticipant(roundJudgingJobs.judgeParticipantId),
       ),
     );
-  const judges =
-    (await tx.execute(sql`select s.slot,p.id,a.kind from round_judge_slots s
+  const judges = await query(
+    tx,
+    z.object({
+      slot: z.number(),
+      id: z.string().nullable(),
+      kind: z.string().nullable(),
+    }),
+    sql`select s.slot,p.id,a.kind from round_judge_slots s
     left join round_participants p on p.id=s.participant_id
     left join actors a on a.id=p.actor_id
-    where s.round_id=${roundId} order by s.slot`)) as unknown as {
-      slot: number;
-      id: string | null;
-      kind: string | null;
-    }[];
+    where s.round_id=${roundId} order by s.slot`,
+  );
   const rulings = await tx
     .select({
       judgeParticipantId: ballots.judgeParticipantId,

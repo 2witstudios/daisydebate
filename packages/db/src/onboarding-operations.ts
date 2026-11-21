@@ -1,4 +1,3 @@
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { asc, eq, sql } from 'drizzle-orm';
 import type { Club, Experience, InterestCategory, Want } from '@daisy/protocol';
 import {
@@ -12,9 +11,9 @@ import { createAppError } from '@daisy/errors';
 import {
   loadAuthorizationAccount,
   lockAuthorizationActors,
-  type AuthorizationTransaction,
 } from './authorization';
 import { loadAuthorizationAgeFact } from './authorization-age';
+import { inTransaction, type Tx, type TxSource } from './tx';
 
 /** One questionnaire step as stored: the step's whole answer, replaced. */
 export type OnboardingStepWrite =
@@ -118,7 +117,7 @@ const firstCompletion = (at: string) =>
  * caller's transaction then stores nothing.
  */
 async function requireOptionalAnswerAge(
-  tx: AuthorizationTransaction,
+  tx: Tx,
   input: OnboardingAgeCheck,
 ): Promise<void> {
   const [account] = await lockAuthorizationActors(tx, [input.actorId], {
@@ -147,7 +146,7 @@ export const onboardingOperations = ({
   database,
   eventSink,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
   readonly eventSink: DatabaseEventSink | undefined;
 }) => ({
   async saveOnboardingStep({
@@ -165,7 +164,7 @@ export const onboardingOperations = ({
         }
       : { first: {}, again: {} };
     return instrumented(eventSink, 'saveOnboardingStep', () =>
-      database.transaction(async (tx) => {
+      inTransaction(database, async (tx) => {
         await requireOptionalAnswerAge(tx, { userId, actorId, now, admits });
         const columns =
           answers.step === 'about'
@@ -228,7 +227,7 @@ export const onboardingOperations = ({
   /** Whether optional answers may be asked for now; the write still decides under the fence. */
   async optionalAnswersAdmitted(input: OnboardingAgeCheck): Promise<boolean> {
     return instrumented(eventSink, 'optionalAnswersAdmitted', () =>
-      database.transaction(async (tx) => {
+      inTransaction(database, async (tx) => {
         const account = await loadAuthorizationAccount(tx, input.userId);
         const fact =
           account?.actorId === input.actorId && account.member
@@ -250,7 +249,8 @@ export const onboardingOperations = ({
    */
   async readOnboarding(userId: string): Promise<OnboardingRecord> {
     return instrumented(eventSink, 'readOnboarding', () =>
-      database.transaction(
+      inTransaction(
+        database,
         async (tx) => {
           const [row] = await tx
             .select()

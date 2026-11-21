@@ -1,5 +1,5 @@
 import { readFixtureWaiverRound } from './fixture-waiver-round';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import type { ConfirmationCommand } from '@daisy/protocol/lobby/confirmation-command';
 import { pendingCommands, conflicts } from '../schema/conflicts';
@@ -18,7 +18,8 @@ import {
 } from './fixture-command-facts';
 import { loadAuthorityContext } from './authority-context';
 import { fixtureConnections } from './fixture-conflict';
-import type { TabTransaction } from './tab-transaction';
+import type { Tx } from '../tx';
+import { takeLock, transactionLocks } from '../locks';
 
 export type ConfirmationCommandInput = {
   readonly senderUserId: string;
@@ -31,14 +32,14 @@ export type ConfirmationCommandInput = {
 };
 /** Current principals and the actual original source share account-before-parent-before-pending fences. */
 export async function loadConfirmationCommandFacts(
-  tx: TabTransaction,
+  tx: Tx,
   input: ConfirmationCommandInput,
   readTime: typeof readDatabaseTime,
 ) {
   for (const id of [
     ...new Set([input.commandId, input.command.pendingCommandId]),
   ].sort())
-    await tx.execute(sql`select pg_advisory_xact_lock(59002,hashtext(${id}))`);
+    await takeLock(tx, transactionLocks.tabCommand(id));
   await scopeTransaction(tx, {
     subjectUserId: input.senderUserId,
     lobbyId: input.lobbyId,

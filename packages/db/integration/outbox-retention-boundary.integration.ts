@@ -8,6 +8,35 @@ import { sqlStateOf } from './constraint-helpers';
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
 
+test('the boundary read fails closed when PostgreSQL has no valid ordering marker', async () => {
+  const client = new SQL(databaseUrl, { max: 1 });
+  const rollback = new Error('roll back test boundary');
+  try {
+    await client
+      .begin(async (tx) => {
+        const database = drizzle({ client: tx });
+        await tx`alter table public.outbox_retention_boundary drop constraint outbox_retention_boundary_seq`;
+        await tx`update public.outbox_retention_boundary set seq=-1 where singleton`;
+        const negative = await readOutboxRetentionBoundary(database);
+        await tx`delete from public.outbox_retention_boundary where singleton`;
+        const missing = await readOutboxRetentionBoundary(database);
+        assert({
+          given:
+            'a deliberately malformed position, then no persisted boundary',
+          should: 'withhold a replay boundary in both cases',
+          actual: [negative, missing],
+          expected: [null, null],
+        });
+        throw rollback;
+      })
+      .catch((error: unknown) => {
+        if (error !== rollback) throw error;
+      });
+  } finally {
+    await client.close();
+  }
+});
+
 test('migration creates a conservative boundary with only narrow maintenance and realtime privileges', async () => {
   const client = new SQL(databaseUrl);
   try {

@@ -1,7 +1,6 @@
 import { invalidateChannelInboxes } from './inbox-change';
 import { deleteMessageFiles } from '../messaging-files';
 import { and, eq } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import {
   messagingMessages,
@@ -13,10 +12,11 @@ import type {
   MessagingMessageRecord,
   MessagingMutationCommand,
 } from './records';
+import type { Tx } from '../tx';
 
 /** Current authority is rechecked before reading retry state and before writing. */
 export function channelMutationFrame(
-  tx: Pick<BunSQLDatabase, 'select' | 'insert' | 'update' | 'execute'>,
+  tx: Tx,
   input: { readonly actorId: string; readonly channelId: string },
   counters: {
     channelId: string;

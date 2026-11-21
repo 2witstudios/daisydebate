@@ -1,10 +1,9 @@
 import { invalidateDmInboxes } from './inbox-change';
 import { eq } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import { messagingChannels } from '../schema/messaging-channels';
 import { appendStream } from './stream';
-type Tx = Pick<BunSQLDatabase, 'execute' | 'insert' | 'update'>;
+import type { Tx } from '../tx';
 
 /**
  * An authority change is two writes: the channel's own `authority_revision`,

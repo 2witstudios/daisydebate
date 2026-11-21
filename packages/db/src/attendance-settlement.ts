@@ -5,7 +5,9 @@ import {
   type AttendanceLedgerFacts,
 } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
+import type { Tx } from './tx';
+import { query } from './raw-rows';
+import { z } from 'zod';
 
 /** The engine's one settlement rule, injected: the db never imports the engine. */
 export type AttendanceSettledRule = (
@@ -40,18 +42,22 @@ export const attendanceLedgerFacts = (row: unknown): AttendanceLedgerFacts => {
 
 /** Facts only: the Round's ledger, for the engine to say whether it settles. */
 export async function readAttendanceLedger(
-  tx: Pick<BunSQLDatabase, 'execute'>,
+  tx: Tx,
   roundId: string,
 ): Promise<AttendanceLedgerFacts> {
-  const [row] = await tx.execute(sql`select ${attendanceLedgerColumns}
-    from rounds r where r.id=${roundId}`);
+  const [row] = await query(
+    tx,
+    attendanceLedgerFactsSchema,
+    sql`select ${attendanceLedgerColumns}
+    from rounds r where r.id=${roundId}`,
+  );
   if (!row) throw createAppError('NOT_FOUND');
-  return attendanceLedgerFacts(row);
+  return row;
 }
 
 /** Final ballot completion only. Caller keeps its canonical authorization and Round transaction fences. */
 export async function assertRoundAttendanceSettled(
-  tx: Pick<BunSQLDatabase, 'execute'>,
+  tx: Tx,
   input: {
     readonly roundId: string;
     readonly now: string;
@@ -63,7 +69,9 @@ export async function assertRoundAttendanceSettled(
     !Number.isFinite(Date.parse(input.now))
   )
     throw createAppError('VALIDATION');
-  const locked = await tx.execute(
+  const locked = await query(
+    tx,
+    z.object({ id: z.string() }),
     sql`select id from rounds where id=${input.roundId} for no key update`,
   );
   if (locked.length !== 1) throw createAppError('NOT_FOUND');

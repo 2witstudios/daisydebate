@@ -1,12 +1,12 @@
 import { and, eq } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
-import type { BoundedTransactionContext } from '../transaction-context';
 import { transcriptionRecoveryAttempts as attempts } from '../schema/transcription-recovery-attempts';
 import { current } from './current';
 import type { Claim, Policy } from './policy';
+import type { Tx } from '../tx';
 /** Only an application-computed digest/size enters PG. Provider success/candidate existence is never settlement. */
 export async function candidate(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   input: Claim & { digest: string; bytes: number },
   options: Policy,
 ) {

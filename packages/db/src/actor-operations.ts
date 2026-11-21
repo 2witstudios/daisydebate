@@ -1,10 +1,10 @@
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import { idSchema, parseUsername } from '@daisy/protocol';
 import { actors } from './schema/actors';
 import { users } from './schema/users';
 import { instrumented, type DatabaseEventSink } from './instrumented';
+import type { Tx, TxSource } from './tx';
 
 type ActorRecord = {
   readonly id: string;
@@ -21,7 +21,7 @@ type ActorRecord = {
  * its `tx` and share one connection with whatever it does next.
  */
 export const queryActorByUserId = async (
-  db: Pick<BunSQLDatabase, 'select'>,
+  db: Tx,
   userId: string,
 ): Promise<ActorRecord | null> => {
   const [row] = await db
@@ -36,7 +36,7 @@ export const actorOperations = ({
   database,
   eventSink,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
   /** Public intent discovery only; all contact authority is reloaded under locks. */

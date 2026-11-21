@@ -5,11 +5,11 @@ import {
   loadEventCompetition,
   type EventCompetitionFacts,
 } from './event-competition';
-import type { TabTransaction } from './tab-transaction';
+import type { Tx } from '../tx';
 
 /** A league receives certified competitive records, never ballots or unconfirmed corrections. */
 export async function loadLeagueEvents(
-  tx: TabTransaction,
+  tx: Tx,
   input: {
     readonly viewerUserId: string;
     readonly organizationId: string;

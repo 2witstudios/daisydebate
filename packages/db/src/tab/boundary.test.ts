@@ -1,6 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { boundaryOf, BoundaryOutsideSubject, loadBoundary } from './boundary';
-import type { TabTransaction } from './tab-transaction';
+import { SQL } from 'bun';
+import { drizzle } from 'drizzle-orm/bun-sql';
 
 setupRitewayBun();
 
@@ -49,12 +50,10 @@ describe('boundaryOf', () => {
 describe('loadBoundary', () => {
   test('a person who is not the subject', async () => {
     const queried: string[] = [];
-    const tx = {
-      select: () => {
-        queried.push('select');
-        throw new Error('unreachable');
-      },
-    } as unknown as TabTransaction;
+    const tx = drizzle({
+      client: new SQL('postgres://127.0.0.1:1/daisy_inert'),
+      logger: { logQuery: (sql) => queried.push(sql) },
+    });
     const refused = await loadBoundary(
       tx,
       { userId: id('m'), actorId: id('a'), revision: 1 },

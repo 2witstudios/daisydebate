@@ -1,11 +1,9 @@
 import type { RoundIncidentChange } from '@daisy/protocol';
 import { and, eq, isNull } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { refundPlatformEndedLocked } from './round-bot-admission';
 import { roundIncidents } from './schema/round-incidents';
 import { rounds } from './schema/rounds';
-
-type Tx = Pick<BunSQLDatabase, 'select' | 'update' | 'insert' | 'execute'>;
+import type { Tx } from './tx';
 
 /**
  * The one writer of an incident's row, recording what the engine said happened in the

@@ -15,14 +15,14 @@ import { readDatabaseTime } from '../database-clock';
 import { lockTabCommandAccounts } from './command-accounts';
 import { loadAuthorityContext } from './authority-context';
 import { appendHistory, storedCommand } from './command-record';
-import type { TabDatabase, TabTransaction } from './tab-transaction';
+import { inTransaction, type Tx, type TxOpener } from '../tx';
 
 type Input = {
   readonly senderUserId: string;
   readonly command: LeagueSchoolCommand;
   readonly newId: string;
 };
-const load = async (tx: TabTransaction, input: Input) => {
+const load = async (tx: Tx, input: Input) => {
   await scopeTransaction(tx, { subjectUserId: input.senderUserId });
   await lockTabCommandAccounts(tx, [input.senderUserId]);
   const { command } = input;
@@ -86,7 +86,7 @@ export type LeagueSchoolWrite = {
   readonly version: number;
 };
 /** Account first, then both organization fences in stable order; relation, writes and journal share one transaction. */
-export const createLeagueSchoolCommandStore = (database: TabDatabase) => ({
+export const createLeagueSchoolCommandStore = (database: TxOpener) => ({
   leagueSchoolCommand: <Answer>(
     input: Input,
     work: (session: {
@@ -99,7 +99,7 @@ export const createLeagueSchoolCommandStore = (database: TabDatabase) => ({
       ) => Promise<void>;
     }) => Promise<Answer>,
   ): Promise<Answer> =>
-    database.transaction(async (tx) => {
+    inTransaction(database, async (tx) => {
       let loaded: LoadedLeagueSchoolCommand | null = null;
       return work({
         load: async () => {

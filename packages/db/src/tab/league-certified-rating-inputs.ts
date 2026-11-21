@@ -3,7 +3,7 @@ import { sanctions } from '../schema/sanctions';
 import { results } from '../schema/results';
 import { certificationResults } from '../schema/certifications';
 import { scopeTransaction } from '../tenant-scope';
-import type { TabTransaction } from './tab-transaction';
+import type { Tx } from '../tx';
 
 /**
  * A narrow immutable input: received certified competition records already
@@ -12,7 +12,7 @@ import type { TabTransaction } from './tab-transaction';
  * canonical account and actual organization/tournament fences.
  */
 export async function loadLeagueCertifiedRatingInputs(
-  tx: TabTransaction,
+  tx: Tx,
   input: { readonly viewerUserId: string; readonly organizationId: string },
 ) {
   const scope = {

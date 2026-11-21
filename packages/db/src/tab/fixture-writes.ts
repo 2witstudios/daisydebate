@@ -14,11 +14,11 @@ import type {
   FixtureCommandInput,
 } from './fixture-command-facts';
 import type { FixtureWrite } from './fixture-write';
-import type { TabTransaction } from './tab-transaction';
+import type { Tx } from '../tx';
 
 /** Both direct and confirmed officiating use the same fenced owner writer. */
 export async function applyFixtureWrites(
-  tx: TabTransaction,
+  tx: Tx,
   loaded: LoadedFixtureCommand,
   input: FixtureCommandInput,
   writes: readonly FixtureWrite[],

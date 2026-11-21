@@ -6,17 +6,17 @@ import {
   type OwnedInvoiceObservation,
   type PaymentObservationContext,
 } from '@daisy/protocol/billing';
-import type { BoundedTransactionContext } from './transaction-context';
 import { billingPaymentObservations } from './schema/billing-payment-observations';
 import {
   paymentObservationFromRow,
   paymentObservationValues,
 } from './billing-payment-observation-record';
 import { readDatabaseTime } from './database-clock';
+import type { Tx } from './tx';
 
 /** Caller owns canonical account/job authority; its progress and this exact witness share the transaction. */
 export async function retainInvoiceWitness(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   input: {
     readonly read: OwnedInvoiceObservation;
     readonly context: PaymentObservationContext;
@@ -84,7 +84,7 @@ export async function retainInvoiceWitness(
 
 /** A new execution pass retires historical enumeration coverage without changing financial observations. */
 export async function rearmInvoiceWitness(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   value: Awaited<ReturnType<typeof retainInvoiceWitness>>,
 ) {
   if (value.kind !== 'invoice' || value.state.kind !== 'resolved') return value;

@@ -3,7 +3,7 @@ import type { GrantScopeKind } from '@daisy/protocol/lobby';
 import { grants } from '../schema/grants';
 import { lobbies } from '../schema/lobbies';
 import { loadRoles, type RoleRow } from './role-rows';
-import type { TabTransaction } from './tab-transaction';
+import type { Tx } from '../tx';
 
 /** A `grants` row with its role and explicit organization or lobby scope. */
 export type GrantRow = {
@@ -31,7 +31,7 @@ const iso = (at: Date | null): string | null =>
  * `loadOrganizationGrantRows` explicitly visits an organization's owned lobbies.
  */
 export const loadGrantRows = async (
-  tx: TabTransaction,
+  tx: Tx,
   input: {
     readonly userIds: readonly string[];
     readonly grantIds?: readonly string[];

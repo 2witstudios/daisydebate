@@ -1,9 +1,9 @@
 import { eq } from 'drizzle-orm';
-import type { BoundedTransactionContext } from '../transaction-context';
 import { necessaryEvidence as evidence } from '../schema/necessary-evidence';
 import { transcriptionRecoverySources as sources } from '../schema/transcription-recovery';
+import type { Tx } from '../tx';
 /** Complete bounded immutable manifest plus current no-use facts; never ciphertext or execution secrets. */
-export function members(tx: BoundedTransactionContext, contextId: string) {
+export function members(tx: Tx, contextId: string) {
   return tx
     .select({
       evidenceId: sources.evidenceId,

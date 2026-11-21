@@ -1,9 +1,7 @@
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
-import { rowsOf } from './raw-rows';
-
-/** A connection or a transaction: the read runs on the caller's. */
-type Tx = Pick<BunSQLDatabase, 'execute'>;
+import { query } from './raw-rows';
+import type { Tx } from './tx';
+import { z } from 'zod';
 
 /**
  * A minor's linked adults (ADR 0150 §3, ADR 0158): an adult with an active
@@ -17,8 +15,9 @@ export const readLinkedAdultUserIds = async (
   minorUserId: string,
 ): Promise<readonly string[]> =>
   (
-    await rowsOf<{ user_id: string }>(
+    await query(
       tx,
+      z.object({ user_id: z.string() }),
       sql`select user_id from public.daisy_linked_adult_users(${minorUserId})`,
     )
   ).map((row) => row.user_id);
@@ -35,11 +34,15 @@ export const readLinkedAdultUserIds = async (
  * server all read it, and none writes any of it.
  */
 export const readYouthRecordingPeople = async (tx: Tx, roundId: string) => {
-  const rows = await rowsOf<{
-    debater_actor_id: string;
-    debater_user_id: string;
-    linked_adult_actor_ids: string[];
-  }>(tx, sql`select * from public.daisy_round_linked_adult_actors(${roundId})`);
+  const rows = await query(
+    tx,
+    z.object({
+      debater_actor_id: z.string(),
+      debater_user_id: z.string(),
+      linked_adult_actor_ids: z.array(z.string()),
+    }),
+    sql`select * from public.daisy_round_linked_adult_actors(${roundId})`,
+  );
   return {
     debaters: rows.map((row) => ({
       actorId: row.debater_actor_id,

@@ -1,10 +1,10 @@
 import { and, eq, isNotNull, asc } from 'drizzle-orm';
 import { conflicts } from '../schema/conflicts';
-import type { TabTransaction } from './tab-transaction';
+import type { Tx } from '../tx';
 
 /** A retained second-person waiver is scoped to this exact account and fixture; current read authority is still required. */
 export const readFixtureReadWaiver = async (
-  tx: TabTransaction,
+  tx: Tx,
   input: {
     readonly lobbyId: string;
     readonly fixtureId: string;

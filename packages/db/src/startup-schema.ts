@@ -43,7 +43,7 @@ export const startupSchemaProblems = ({
     image.migrations.every(
       (stamp, index) =>
         stamp.hash === journal[index]?.hash &&
-        stamp.createdAt === journal[index]?.createdAt,
+        stamp.createdAt === journal[index].createdAt,
     ) &&
     journal.every(
       (stamp, index) =>

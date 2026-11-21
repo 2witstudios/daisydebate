@@ -1,8 +1,11 @@
 import { captureRule } from '@daisy/debate-engine';
 import { requireTestServices } from '@daisy/config';
+import { drizzle } from 'drizzle-orm/bun-sql';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { audienceTranscript } from '../src/round-ballot-reads';
 import { readTranscriptSnapshot } from '../src/round-protected-reads';
+import { inTransaction } from '../src/tx';
+import { utteranceOperations } from '../src/utterance-operations';
 import { withBoundedRound } from './bounded-transaction.test-support';
 import { historicalCapture } from './media-capture.test-support';
 
@@ -13,6 +16,26 @@ test('a transcript read returns the committed prefix across capture epochs', asy
   await withBoundedRound(async (fixture, transaction, roundId) => {
     const f = await historicalCapture(fixture, transaction, roundId);
     try {
+      const statements: string[] = [];
+      const db = drizzle({
+        client: fixture.sql,
+        logger: { logQuery: (query) => statements.push(query) },
+      });
+      const empty = await inTransaction(db, (tx) =>
+        readTranscriptSnapshot(tx, roundId, captureRule),
+      );
+      const reads =
+        /from\s+"?(round_transcripts|round_transcript_freezes|transcript_segments|utterances)\b/;
+      const first = statements
+        .find((query) => reads.test(query))
+        ?.match(reads)?.[1];
+      assert({
+        given:
+          'a real transcript snapshot at READ COMMITTED with no capture yet',
+        should: 'read the zero revision before querying any transcript content',
+        actual: [first, empty.revision],
+        expected: ['round_transcripts', 0],
+      });
       await f.store.claimMediaWorkerLease({ ...f.lease, leaseMs: 15000 });
       const at = (offset: number, ms: number) =>
         new Date(f.start.getTime() + offset + ms).toISOString();
@@ -39,6 +62,26 @@ test('a transcript read returns the committed prefix across capture epochs', asy
         leaseMs: 15000,
       });
       await f.store.appendCapturedTranscript(clip(epoch, 700, 'third'));
+      const utterances = utteranceOperations({
+        database: db,
+        eventSink: undefined,
+      });
+      const [segmentLines, roundLines] = await Promise.all([
+        utterances.listSegmentUtterances(f.stream.segmentId),
+        utterances.listRoundUtterances(roundId),
+      ]);
+      assert({
+        given: 'three persisted utterances across an epoch takeover',
+        should: 'list both the segment and the Round in order',
+        actual: [
+          segmentLines.map(({ text }) => text),
+          roundLines.map(({ text }) => text),
+        ],
+        expected: [
+          ['first', 'second', 'third'],
+          ['first', 'second', 'third'],
+        ],
+      });
       const read = await transaction((tx) =>
         readTranscriptSnapshot(tx, roundId, captureRule),
       );

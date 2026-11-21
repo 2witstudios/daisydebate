@@ -11,11 +11,11 @@ import { readEndingRatingFacts } from '../rating-discovery';
 import { scopeTransaction } from '../tenant-scope';
 import { loadLeagueCertifiedRatingInputs } from './league-certified-rating-inputs';
 import { loadLobbyAuthority } from './lobby-authority';
-import type { TabDatabase, TabTransaction } from './tab-transaction';
+import { inTransaction, type Tx, type TxOpener } from '../tx';
 
 /** Named, read-only competitive input. Never reads or writes Daisy's ratings. */
 export async function loadLeagueRatingInputs(
-  tx: TabTransaction,
+  tx: Tx,
   input: {
     readonly viewerUserId: string;
     readonly ladderId: string;
@@ -150,7 +150,7 @@ export async function loadLeagueRatingInputs(
 export type LeagueRatingInputs = NonNullable<
   Awaited<ReturnType<typeof loadLeagueRatingInputs>>
 >;
-export const createLeagueRatingStore = (database: TabDatabase) => ({
+export const createLeagueRatingStore = (database: TxOpener) => ({
   leagueRatings: <Answer>(
     input: { readonly viewerUserId: string; readonly lobbyId: string },
     work: (
@@ -162,7 +162,7 @@ export const createLeagueRatingStore = (database: TabDatabase) => ({
       } | null,
     ) => Promise<Answer>,
   ): Promise<Answer> =>
-    database.transaction(async (tx) => {
+    inTransaction(database, async (tx) => {
       const authority = await loadLobbyAuthority(tx, input);
       if (
         !authority ||

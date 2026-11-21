@@ -1,29 +1,28 @@
 import type { SQL } from 'bun';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { sql } from 'drizzle-orm';
+import { z } from 'zod';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { probeListen } from './listen';
 import {
-  readTenantIsolationProblems,
+  tenantIsolationProblems,
   tenantIsolationFactsSql,
-  type TenantTableFacts,
+  tenantTableFactsRow,
 } from './tenant-isolation';
 import {
   tenantDefinerFactsSql,
-  type TenantDefinerFacts,
+  tenantDefinerFactsRow,
+  tenantDefinerProblems,
 } from './tenant-definers';
-import {
-  readImageSchema,
-  startupSchemaProblems,
-  type MigrationStamp,
-} from './startup-schema';
+import { readImageSchema, startupSchemaProblems } from './startup-schema';
 import { tenantIsolationManifest } from './tenant-isolation-manifest';
 import {
   runtimeRoleFactsFrom,
   runtimeRoleFactsQuery,
   runtimeRoleProblems,
-  type RuntimeRoleFactsRow,
+  runtimeRoleFactsRow,
 } from './runtime-role';
+import { inTransaction, type TxSource } from './tx';
+import { query, run } from './raw-rows';
 
 /** Connection/role probes for doctor, startup and health checks over the owned pool. */
 export const databaseHealthOperations = ({
@@ -31,14 +30,14 @@ export const databaseHealthOperations = ({
   dedicated,
   eventSink,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
   /** LISTEN probes need a connection outside every lane. */
   readonly dedicated: SQL;
   readonly eventSink: DatabaseEventSink | undefined;
 }) => ({
   async health() {
     return instrumented(eventSink, 'health', async () => {
-      await database.execute(sql`select 1`);
+      await run(database, sql`select 1`);
       return true;
     });
   },
@@ -48,10 +47,13 @@ export const databaseHealthOperations = ({
    */
   async currentDatabaseName(): Promise<string> {
     return instrumented(eventSink, 'currentDatabaseName', async () => {
-      const [row] = (await database.execute(
+      const [row] = await query(
+        database,
+        z.object({ name: z.string() }),
         sql`select current_database() as name`,
-      )) as unknown as Array<{ name: string }>;
-      return row!.name;
+      );
+      if (!row) throw new Error('Current database is unreadable');
+      return row.name;
     });
   },
   async checkListen() {
@@ -67,9 +69,11 @@ export const databaseHealthOperations = ({
    */
   async runtimeRoleProblems() {
     return instrumented(eventSink, 'runtimeRoleProblems', async () => {
-      const [row] = (await database.execute(
+      const [row] = await query(
+        database,
+        runtimeRoleFactsRow,
         runtimeRoleFactsQuery,
-      )) as unknown as RuntimeRoleFactsRow[];
+      );
       // No row means no schema public: nothing proves the role is safe.
       if (row === undefined) throw new Error('Schema public is missing');
       return runtimeRoleProblems(runtimeRoleFactsFrom(row));
@@ -85,28 +89,50 @@ export const databaseHealthOperations = ({
     acceptNewerMigrations = false,
   } = {}): Promise<readonly string[]> {
     return instrumented(eventSink, 'tenantIsolationProblems', async () => {
-      if (!acceptNewerMigrations)
-        return readTenantIsolationProblems((statement) =>
-          database.execute(sql.raw(statement)),
+      if (!acceptNewerMigrations) {
+        const facts = await query(
+          database,
+          tenantTableFactsRow,
+          sql.raw(tenantIsolationFactsSql),
         );
+        const definers = await query(
+          database,
+          tenantDefinerFactsRow,
+          sql.raw(tenantDefinerFactsSql),
+        );
+        return [
+          ...tenantIsolationProblems(facts, tenantIsolationManifest),
+          ...tenantDefinerProblems(definers, tenantIsolationManifest),
+        ];
+      }
       const image = await readImageSchema();
-      return database.transaction(
+      return inTransaction(
+        database,
         async (tx) => {
-          const journal = (await tx.execute(
+          const journal = await query(
+            tx,
+            z.object({
+              hash: z.string(),
+              createdAt: z
+                .union([z.string().regex(/^\d+$/), z.bigint(), z.number()])
+                .pipe(z.coerce.number())
+                .pipe(z.int()),
+            }),
             sql`select hash, created_at as "createdAt" from drizzle.__drizzle_migrations order by created_at, id`,
-          )) as unknown as MigrationStamp[];
-          const facts = (await tx.execute(
+          );
+          const facts = await query(
+            tx,
+            tenantTableFactsRow,
             sql.raw(tenantIsolationFactsSql),
-          )) as unknown as TenantTableFacts[];
-          const definers = (await tx.execute(
+          );
+          const definers = await query(
+            tx,
+            tenantDefinerFactsRow,
             sql.raw(tenantDefinerFactsSql),
-          )) as unknown as TenantDefinerFacts[];
+          );
           return startupSchemaProblems({
             image,
-            journal: journal.map(({ hash, createdAt }) => ({
-              hash,
-              createdAt: Number(createdAt),
-            })),
+            journal,
             facts,
             definers,
             manifest: tenantIsolationManifest,

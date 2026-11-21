@@ -1,6 +1,5 @@
 import { createAppError, createRefusal } from '@daisy/errors';
 import { eq, sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { lockAuthorizationActors } from './authorization';
 import { actorFact } from './room-command-facts';
 import { hydrateRoundRows, type RoundHydration } from './round-hydration';
@@ -8,21 +7,19 @@ import { lockedRoundVersion } from './round-projection-writer';
 import { roundParticipants } from './schema/round-participants';
 import {
   availabilitySamplesFrom,
+  availabilityEvidenceRow,
   type AvailabilityEvidence,
 } from './availability-operations';
 import type { CheckInAttempt } from './check-in-attempts';
 import { fencedActorIds, seatEligibility } from './seat-eligibility';
 import { requireFencedParticipants } from './round-command-replay';
-export type AttendanceTransactionContext = Pick<
-  BunSQLDatabase,
-  'select' | 'insert' | 'update' | 'delete' | 'execute'
->;
+import type { Tx } from './tx';
+import { takeLock, transactionLocks } from './locks';
+import { query } from './raw-rows';
+import { z } from 'zod';
 /** The bounded same-pool producer supplies its FIRST writer identity statement's timestamp. */
 export type AttendanceTransaction = <T>(
-  run: (
-    tx: AttendanceTransactionContext,
-    receipt: { readonly receivedAt: string },
-  ) => Promise<T>,
+  run: (tx: Tx, receipt: { readonly receivedAt: string }) => Promise<T>,
   attempt?: CheckInAttempt,
 ) => Promise<T>;
 export type AttendancePrincipal =
@@ -57,14 +54,12 @@ export const principalColumns = (
     : { actorId: null, serviceId: principal.serviceId };
 
 export async function fenceAttendance(
-  tx: AttendanceTransactionContext,
+  tx: Tx,
   roundId: string,
   commandId: string,
   principalActorId: string | null,
 ) {
-  await tx.execute(
-    sql`select pg_advisory_xact_lock(hashtextextended(${commandId},59002))`,
-  );
+  await takeLock(tx, transactionLocks.roundCommand(commandId));
   const initial = await tx
     .select({ actorId: roundParticipants.actorId })
     .from(roundParticipants)
@@ -91,15 +86,15 @@ export async function fenceAttendance(
 }
 /** The speeches already decided: an immutable fact, cheap to read under the Round lock. */
 export async function finalizedAttendanceSegments(
-  tx: AttendanceTransactionContext,
+  tx: Tx,
   roundId: string,
 ): Promise<readonly string[]> {
-  const resolved = await tx.execute(
+  const resolved = await query(
+    tx,
+    z.object({ segment_id: z.string() }),
     sql`select segment_id from round_attendance_adjudications where round_id=${roundId}`,
   );
-  return (resolved as unknown as { segment_id: string }[]).map(
-    (row) => row.segment_id,
-  );
+  return resolved.map((row) => row.segment_id);
 }
 
 /**
@@ -108,15 +103,15 @@ export async function finalizedAttendanceSegments(
  * must not be refused because the speaker was fast.
  */
 export async function closedAttendanceSegments(
-  tx: AttendanceTransactionContext,
+  tx: Tx,
   roundId: string,
 ): Promise<readonly string[]> {
-  const closed = await tx.execute(
+  const closed = await query(
+    tx,
+    z.object({ segment_id: z.string() }),
     sql`select segment_id from round_attendance_adjudications where round_id=${roundId} and evidence<>'on_time_receipt'`,
   );
-  return (closed as unknown as { segment_id: string }[]).map(
-    (row) => row.segment_id,
-  );
+  return closed.map((row) => row.segment_id);
 }
 
 /**
@@ -126,16 +121,9 @@ export async function closedAttendanceSegments(
  * can get (DEC-276).
  */
 export async function attendanceSamples(
-  tx: AttendanceTransactionContext,
+  tx: Tx,
   from: string | null,
 ): Promise<readonly AvailabilityEvidence[]> {
   if (!from) return [];
-  const samples = await tx.execute(availabilitySamplesFrom(sql, from));
-  return (
-    samples as unknown as {
-      at: string;
-      healthy: boolean;
-      cause: AvailabilityEvidence['cause'];
-    }[]
-  ).map((row) => ({ at: row.at, healthy: row.healthy, cause: row.cause }));
+  return query(tx, availabilityEvidenceRow, availabilitySamplesFrom(sql, from));
 }

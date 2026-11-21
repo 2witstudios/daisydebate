@@ -25,13 +25,13 @@ export async function withRolledBackDatabase<Seeded, T>(
   },
 ): Promise<T> {
   const client = new SQL(url, { max: 1 });
-  let answer: { readonly value: T } | null = null;
+  const answer: { value?: { readonly value: T } } = {};
   try {
     await client.begin(async (outer) => {
       const seeded = await steps.seed(outer);
       await outer`set local role daisy_web`;
       const database = savepointTestDatabase(outer);
-      answer = { value: await steps.work(database, seeded, outer) };
+      answer.value = { value: await steps.work(database, seeded, outer) };
       throw new RolledBack();
     });
   } catch (error) {
@@ -39,6 +39,6 @@ export async function withRolledBackDatabase<Seeded, T>(
   } finally {
     await client.close();
   }
-  if (answer === null) throw new Error('The rolled-back work did not finish');
-  return (answer as { readonly value: T }).value;
+  if (!answer.value) throw new Error('The rolled-back work did not finish');
+  return answer.value.value;
 }

@@ -1,18 +1,17 @@
 import { createAppError } from '@daisy/errors';
 import { sql, type SQL } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type { PgColumn, PgTable } from 'drizzle-orm/pg-core';
 import { requireLeaseMs } from './lease-policy';
-import { rowsOf } from './raw-rows';
+import { run, query } from './raw-rows';
 import { isUniqueViolation } from './unique-violation';
 import { agentLeaseDigest } from './round-agent-lease';
 import type { mailJobColumns } from './schema/columns';
+import { inTransaction, type TxOpener, type Tx } from './tx';
+import { z } from 'zod';
 
 /** A table that carries the mail job recipe's columns. */
 type MailJobTable = PgTable &
   Record<keyof ReturnType<typeof mailJobColumns>, PgColumn>;
-
-type Execute = Pick<BunSQLDatabase, 'execute'>;
 
 /** How a held mail job ends, or that it waits for another attempt. */
 export type MailJobOutcome<ErrorCode extends string> =
@@ -33,7 +32,7 @@ export type MailJobClaimInput = {
 };
 
 /** One claimed job's row as the table describes it, and its lease's bearer token. */
-type Claimed = { readonly row: unknown; readonly token: string };
+type Claimed<Row> = { readonly row: Row; readonly token: string };
 
 const MAX_CLAIM = 50;
 /** No retry policy needs more; a larger cap is a caller's mistake. */
@@ -67,11 +66,12 @@ export const mailQueue = (
      * claim cannot hold a job in the queue for ever. Its last holder never
      * settled and may only be slow, so such a job ends `delivery-unknown`.
      */
-    claimDue: (
-      database: Pick<BunSQLDatabase, 'transaction'>,
+    claimDue: <Row extends z.ZodType>(
+      database: TxOpener,
       input: MailJobClaimInput,
       returning: SQL,
-    ): Promise<readonly Claimed[]> => {
+      rowSchema: Row,
+    ): Promise<readonly Claimed<z.output<Row>>[]> => {
       requireLeaseMs(input.leaseMs);
       for (const [value, most] of [
         [input.limit, MAX_CLAIM],
@@ -79,9 +79,10 @@ export const mailQueue = (
       ] as const)
         if (!Number.isSafeInteger(value) || value < 1 || value > most)
           throw createAppError('VALIDATION');
-      return database.transaction(async (tx) => {
-        const due = await rowsOf<{ id: string; spent: boolean }>(
+      return inTransaction(database, async (tx) => {
+        const due = await query(
           tx,
+          z.object({ id: z.string(), spent: z.boolean() }),
           sql`select id, attempts >= ${input.maxAttempts} as spent from ${table}
             where (state = 'queued' and next_attempt_at <= clock_timestamp())
                or (state = 'leased' and lease_expires_at <= clock_timestamp())
@@ -89,20 +90,24 @@ export const mailQueue = (
             limit ${input.limit}
             for update skip locked`,
         );
-        const claims: Claimed[] = [];
+        const claims: Claimed<z.output<Row>>[] = [];
         for (const { id, spent } of due) {
           if (spent) {
-            await tx.execute(sql`update ${table} set
+            await run(
+              tx,
+              sql`update ${table} set
                 last_error_code = case when state = 'leased' or last_error_code = 'delivery-unknown'
                   then 'delivery-unknown' else 'delivery' end,
                 state = 'failed', completed_at = clock_timestamp(),
                 lease_token_digest = null, lease_expires_at = null
-              where id = ${id}`);
+              where id = ${id}`,
+            );
             continue;
           }
           const token = input.nextToken();
-          const [row] = await rowsOf(
+          const [row] = await query(
             tx,
+            rowSchema,
             sql`update ${table} set
                 last_error_code = ${unknownIfHeld(sql`last_error_code`)},
                 state = 'leased', attempts = attempts + 1,
@@ -111,6 +116,8 @@ export const mailQueue = (
               where id = ${id}
               returning ${returning}`,
           );
+          if (row === undefined)
+            throw createAppError('INVARIANT', 'Claimed mail job is missing');
           claims.push({ row, token });
         }
         return claims;
@@ -118,7 +125,7 @@ export const mailQueue = (
     },
     /** False when the lease lapsed and another worker may now hold the job. */
     settle: async <ErrorCode extends string>(
-      database: Execute,
+      database: Tx,
       input: {
         readonly id: string;
         readonly token: string;
@@ -132,8 +139,9 @@ export const mailQueue = (
               next_attempt_at = ${outcome.nextAttemptAt}::timestamptz`
           : sql`state = ${outcome.kind}, completed_at = clock_timestamp(),
               last_error_code = ${outcome.kind === 'sent' ? sql`null` : keptUnknown(outcome.errorCode)}`;
-      const settled = await rowsOf(
+      const settled = await query(
         database,
+        z.object({ id: z.string() }),
         sql`update ${table} set ${moved}, lease_token_digest = null, lease_expires_at = null
           where id = ${input.id} and state = 'leased'
             and lease_token_digest = ${agentLeaseDigest(input.token)}
@@ -147,15 +155,16 @@ export const mailQueue = (
      * chose to wait, not failed. False when the lease lapsed.
      */
     postpone: async (
-      database: Execute,
+      database: Tx,
       input: {
         readonly id: string;
         readonly token: string;
         readonly until: string;
       },
     ): Promise<boolean> => {
-      const moved = await rowsOf(
+      const moved = await query(
         database,
+        z.object({ id: z.string() }),
         sql`update ${table} set state = 'queued', attempts = attempts - 1,
             next_attempt_at = ${input.until}::timestamptz,
             lease_token_digest = null, lease_expires_at = null
@@ -170,12 +179,15 @@ export const mailQueue = (
      * were for no longer stands. A provider request already in flight cannot
      * be recalled, so a held job ends `delivery-unknown`.
      */
-    cancelOwed: async (tx: Execute, owed: SQL): Promise<void> => {
-      await tx.execute(sql`update ${table} set
+    cancelOwed: async (tx: Tx, owed: SQL): Promise<void> => {
+      await run(
+        tx,
+        sql`update ${table} set
           last_error_code = ${unknownIfHeld('not-owed')},
           state = 'cancelled', completed_at = clock_timestamp(),
           lease_token_digest = null, lease_expires_at = null
-        where state in ('queued', 'leased') and (${owed})`);
+        where state in ('queued', 'leased') and (${owed})`,
+      );
     },
   };
 };

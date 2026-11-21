@@ -1,3 +1,4 @@
+import { createAppError } from '@daisy/errors';
 import {
   buildUserInboxTopic,
   type CompetitionType,
@@ -6,13 +7,16 @@ import {
   type RatingStyle,
   type SeatKind,
   type TournamentNotificationKind,
+  seatKindSchema,
+  competitionTypes,
+  ratingDivisions,
+  notificationKinds,
 } from '@daisy/protocol';
 import { maskEmail } from '@daisy/protocol/media-release';
 import { sql, type SQL } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
 import { appendOutboxEvent } from '../outbox';
-import { rowsOf } from '../raw-rows';
+import { postgresInt8, query } from '../raw-rows';
 import { wants } from './preferences';
 import {
   notificationStands,
@@ -24,6 +28,8 @@ import {
   type TournamentInboxAccess,
   type TournamentNotificationFacts,
 } from './tournament-inbox';
+import { inTransaction, type Tx, type TxSource } from '../tx';
+import { z } from 'zod';
 
 /** A position in the inbox, newest first: the last row a page showed. */
 export type InboxCursor = { readonly surfacedAt: string; readonly id: string };
@@ -129,6 +135,16 @@ type FlatRow = {
   surfacedAt: string;
 };
 
+const requiredInboxField = <Field extends keyof FlatRow>(
+  row: FlatRow,
+  field: Field,
+) => {
+  const value = row[field];
+  if (value === null)
+    throw createAppError('INVARIANT', 'Notification subject facts are missing');
+  return value;
+};
+
 const inboxRow = (
   row: FlatRow,
   tournament: ReadonlyMap<string, TournamentNotificationFacts>,
@@ -143,25 +159,29 @@ const inboxRow = (
       return {
         ...base,
         kind: row.kind,
-        roundId: row.roundId!,
+        roundId: requiredInboxField(row, 'roundId'),
         debater: row.about,
       };
     case 'recording_ready':
     case 'round_started':
-      return { ...base, kind: row.kind, roundId: row.roundId! };
+      return {
+        ...base,
+        kind: row.kind,
+        roundId: requiredInboxField(row, 'roundId'),
+      };
     case 'round_decision_released':
       return {
         ...base,
         kind: row.kind,
-        roundId: row.roundId!,
+        roundId: requiredInboxField(row, 'roundId'),
         opponent: row.about,
       };
     case 'room_invitation':
       return {
         ...base,
         kind: row.kind,
-        roomId: row.roomId!,
-        seat: row.seat!,
+        roomId: requiredInboxField(row, 'roomId'),
+        seat: requiredInboxField(row, 'seat'),
         host: row.about,
       };
     case 'challenge_received':
@@ -169,15 +189,15 @@ const inboxRow = (
         ...base,
         kind: row.kind,
         challenger: row.about,
-        mode: row.mode!,
-        format: row.format!,
+        mode: requiredInboxField(row, 'mode'),
+        format: requiredInboxField(row, 'format'),
         division: row.division,
       };
     case 'challenge_accepted':
       return {
         ...base,
         kind: row.kind,
-        roomId: row.challengeRoomId!,
+        roomId: requiredInboxField(row, 'challengeRoomId'),
         opponent: row.about,
       };
     case 'friend_request_received':
@@ -187,15 +207,15 @@ const inboxRow = (
       return {
         ...base,
         kind: row.kind,
-        channelId: row.dmChannelId!,
+        channelId: requiredInboxField(row, 'dmChannelId'),
         from: row.about,
       };
     case 'media_release_requested':
       return {
         ...base,
         kind: row.kind,
-        recipient: maskEmail(row.recipientEmail!),
-        expiresAt: row.requestExpiresAt!,
+        recipient: maskEmail(requiredInboxField(row, 'recipientEmail')),
+        expiresAt: requiredInboxField(row, 'requestExpiresAt'),
       };
     case 'media_release_declined':
     case 'media_release_signed':
@@ -213,7 +233,7 @@ const inboxRow = (
         ...base,
         kind: row.kind,
         student: row.about,
-        clubHandle: row.clubHandle!,
+        clubHandle: requiredInboxField(row, 'clubHandle'),
       };
     case 'judge_assigned':
     case 'judge_replaced':
@@ -239,7 +259,7 @@ const iso = (column: string) =>
  * `where` is over `n` and the standing joins.
  */
 export const readInboxRows = async (
-  database: Pick<BunSQLDatabase, 'execute'>,
+  database: Tx,
   input: {
     readonly where: SQL;
     readonly limit: number;
@@ -248,8 +268,28 @@ export const readInboxRows = async (
   },
 ): Promise<readonly InboxRow[]> =>
   (
-    await rowsOf<FlatRow>(
+    await query(
       database,
+      z.object({
+        id: z.string(),
+        kind: z.enum(notificationKinds),
+        roundId: z.string().nullable(),
+        roomId: z.string().nullable(),
+        challengeRoomId: z.string().nullable(),
+        seat: seatKindSchema.nullable(),
+        about: z.string().nullable(),
+        mode: z.enum(competitionTypes).nullable(),
+        format: z.literal('freestyle').nullable(),
+        division: z.enum(ratingDivisions).nullable(),
+        recipientEmail: z.string().nullable(),
+        requestExpiresAt: z.string().nullable(),
+        minor: z.string().nullable(),
+        ownRelease: z.boolean().nullable(),
+        clubHandle: z.string().nullable(),
+        dmChannelId: z.string().nullable(),
+        readAt: z.string().nullable(),
+        surfacedAt: z.string(),
+      }),
       sql`select n.id,n.kind,n.round_id as "roundId",i.room_id as "roomId",
           c.room_id as "challengeRoomId",i.seat,
           u.username as about,c.mode,c.format_id as format,c.division,
@@ -268,7 +308,7 @@ export const notificationInboxOperations = ({
   database,
   eventSink,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
   /**
@@ -314,8 +354,9 @@ export const notificationInboxOperations = ({
         limit: input.limit + 1,
         tournament,
       });
-      const [count] = await rowsOf<{ unread: number | string }>(
+      const [count] = await query(
         database,
+        z.object({ unread: postgresInt8 }),
         sql`select count(*) as unread from notifications n ${standingJoins}
           where ${shown} and n.read_at is null`,
       );
@@ -341,19 +382,21 @@ export const notificationInboxOperations = ({
     readonly at: string;
   }) {
     return instrumented(eventSink, 'markNotificationsRead', () =>
-      database.transaction(async (tx) => {
+      inTransaction(database, async (tx) => {
         const some =
           input.notificationIds === 'all'
             ? sql``
             : sql`and id in (select jsonb_array_elements_text(${JSON.stringify(input.notificationIds)}::text::jsonb))`;
-        const changed = await rowsOf(
+        const changed = await query(
           tx,
+          z.object({ id: z.string() }),
           sql`update notifications set read_at=${input.at}::timestamptz
             where user_id=${input.userId} and read_at is null ${some} returning id`,
         );
         if (changed.length === 0) return;
-        const [actor] = await rowsOf<{ id: string }>(
+        const [actor] = await query(
           tx,
+          z.object({ id: z.string() }),
           sql`select id from actors where user_id=${input.userId}`,
         );
         if (actor)
@@ -372,8 +415,9 @@ export const notificationInboxOperations = ({
     readonly limit: number;
   }) {
     return instrumented(eventSink, 'purgeReadNotifications', async () => {
-      const gone = await rowsOf(
+      const gone = await query(
         database,
+        z.object({ id: z.string() }),
         sql`delete from notifications where id in (select id from notifications
             where read_at < ${input.before}::timestamptz limit ${input.limit})
           returning id`,

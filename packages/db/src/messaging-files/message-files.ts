@@ -1,15 +1,15 @@
 import { and, eq, inArray, isNull } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import { messagingFiles } from '../schema/messaging-files';
 import { messagingMessages } from '../schema/messaging-messages';
 import { requireFilePolicy } from './policy';
 import type { FileFrame } from './records';
+import type { Tx } from '../tx';
 
 /** Caller supplies canonical visible history IDs inside the existing read transaction. */
 export function createFileListing(
-  tx: Pick<BunSQLDatabase, 'select'>,
+  tx: Tx,
   channelId: string,
   authorize: () => Promise<void>,
   access: FileFrame['access'],

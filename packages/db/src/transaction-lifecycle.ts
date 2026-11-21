@@ -1,23 +1,18 @@
 import type { ReservedSQL } from 'bun';
 import { createAppError } from '@daisy/errors';
 import { drizzle } from 'drizzle-orm/bun-sql';
-import {
-  transactionContext,
-  type BoundedTransactionContext,
-} from './transaction-context';
+import { transactionContext } from './transaction-context';
 import { synchronizedTransactionClient } from './transaction-client';
+import type { Tx } from './tx';
 
 export type TransactionMetadata = {
   readonly receivedAt: string;
   readonly writer: { readonly pid: number; readonly backendStart: string };
 };
 export type TransactionLifecycle = {
-  readonly open: (
-    control: BoundedTransactionContext,
-    metadata: TransactionMetadata,
-  ) => Promise<void>;
+  readonly open: (control: Tx, metadata: TransactionMetadata) => Promise<void>;
   readonly close: (
-    control: BoundedTransactionContext,
+    control: Tx,
     metadata: TransactionMetadata,
     outcome: 'committed' | 'aborted',
   ) => Promise<void>;
@@ -28,7 +23,7 @@ export async function runTransactionLifecycle(input: {
   readonly control: ReservedSQL;
   readonly now: () => number;
   readonly deadline: number;
-  readonly run: (tx: BoundedTransactionContext) => Promise<void>;
+  readonly run: (tx: Tx) => Promise<void>;
   readonly refuse: (message: string) => never;
 }) {
   const expired = createAppError(

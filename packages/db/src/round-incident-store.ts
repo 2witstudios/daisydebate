@@ -5,9 +5,7 @@ import {
   type RoundProjection,
 } from '@daisy/protocol';
 import { and, desc, eq, ne, sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type { BoundedTransaction } from './bounded-transaction';
-import type { BoundedTransactionContext } from './transaction-context';
 import { hydrateRoundRows, type RoundHydration } from './round-hydration';
 import {
   lockedRoundVersion,
@@ -17,8 +15,9 @@ import { sampleRoundExecutionTime } from './round-execution-time';
 import { writeSpeakingProjection } from './round-speaking-writer';
 import { mediaRoomRotations } from './schema/media-sessions';
 import { roundIncidentWatches } from './schema/round-incident-watches';
-
-type Reader = Pick<BunSQLDatabase, 'select'>;
+import type { Tx } from './tx';
+import { query } from './raw-rows';
+import { z } from 'zod';
 
 /** What a pass read from the vendor, as far as this store keeps it. */
 export type IncidentWatch = {
@@ -52,11 +51,11 @@ export type IncidentOutcome = {
  * start of one cut short, which it says again whole on resume. Never before the open
  * speaking interval, whose close this becomes. Null when nobody holds an interval.
  */
-async function confirmedUntil(
-  tx: Pick<BoundedTransactionContext, 'execute'>,
-  roundId: string,
-): Promise<string | null> {
-  const rows = (await tx.execute(sql`
+async function confirmedUntil(tx: Tx, roundId: string): Promise<string | null> {
+  const rows = await query(
+    tx,
+    z.object({ confirmed_until: z.union([z.string(), z.date()]).nullable() }),
+    sql`
     with holders as (
       select segment_id, round_participant_id, started_at
       from round_speaking_intervals
@@ -74,7 +73,8 @@ async function confirmedUntil(
         join holders h using (segment_id, round_participant_id)
         where u.round_id = ${roundId} and u.bot_phrase_id is not null)
     ) as confirmed_until
-  `)) as unknown as { confirmed_until: Date | string | null }[];
+  `,
+  );
   const value = rows[0]?.confirmed_until ?? null;
   return value === null ? null : new Date(value).toISOString();
 }
@@ -90,7 +90,7 @@ const outcomeOf = (projection: RoundProjection): IncidentOutcome => {
 };
 
 /** What this feature knows between passes: its own row, and media's published rotations. */
-async function readWatch(tx: Reader, roundId: string) {
+async function readWatch(tx: Tx, roundId: string) {
   const [own] = await tx
     .select()
     .from(roundIncidentWatches)

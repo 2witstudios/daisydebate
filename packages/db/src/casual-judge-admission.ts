@@ -12,7 +12,7 @@ import {
   readAllowanceLocked,
   type AiAllowanceOptions,
 } from './usage-ledger';
-import type { BoundedTransactionContext } from './transaction-context';
+import type { Tx } from './tx';
 
 /** Casual judging consumes the shared ledger, independently of bot capacity. */
 export function createCasualJudgeAdmission(input: {
@@ -21,7 +21,7 @@ export function createCasualJudgeAdmission(input: {
 }) {
   return {
     quoteLocked: async (
-      tx: BoundedTransactionContext,
+      tx: Tx,
       target: {
         readonly account: Awaited<
           ReturnType<typeof lockAuthorizationActors>
@@ -52,7 +52,7 @@ export function createCasualJudgeAdmission(input: {
         : judge;
     },
     reserveLocked: async (
-      tx: BoundedTransactionContext,
+      tx: Tx,
       target: { readonly actorId: string; readonly roundId: string },
     ) => {
       requireAdmissionTarget(target);

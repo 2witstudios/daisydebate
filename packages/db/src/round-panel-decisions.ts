@@ -7,7 +7,6 @@ import {
   type RoundProjection,
   type RoundPanelReceipt,
 } from '@daisy/protocol';
-import type { hydrateRoundRows } from './round-hydration';
 import type { roundCommands } from './schema/round-commands';
 
 /** The identity of one internal panel completion request. */
@@ -18,7 +17,6 @@ export type PanelRequest = {
   readonly freezeRevision: number;
 };
 type CommandRow = typeof roundCommands.$inferSelect;
-type HydratedRound = Awaited<ReturnType<typeof hydrateRoundRows>>;
 /** Durable Round facts read under the Round lock. */
 export type PanelDurableFacts = {
   readonly final_segment_ended_at: unknown;
@@ -136,9 +134,11 @@ const sameOutcome = (
 };
 
 /** A Round with every segment played; its judges, if any, may not have ruled. */
-export function requirePanelRound(
-  round: HydratedRound,
-): asserts round is NonNullable<HydratedRound> {
+export function requirePanelRound<
+  Round extends {
+    readonly segments: readonly { readonly endedAt: string | null }[];
+  },
+>(round: Round | null | undefined): asserts round is Round {
   if (!round || round.segments.some((p) => p.endedAt === null))
     throw ineligible();
 }
@@ -178,10 +178,21 @@ export function requirePanelFacts<
  * The engine's completion finishes the Round with no segment change, and
  * names a winner exactly when some judges ruled (`partial`).
  */
+type CompletionRound = Pick<
+  NonNullable<RoundProjection['round']>,
+  'status' | 'outcome'
+>;
+
 export function requireCompletionProjection(completion: {
-  readonly projection: RoundProjection;
+  readonly projection: {
+    readonly round?: CompletionRound | null | undefined;
+    readonly segmentInserts: readonly unknown[];
+    readonly segmentCloses: readonly unknown[];
+  };
   readonly ruling: RoundPanelReceipt['ruling'];
-}): void {
+}): asserts completion is typeof completion & {
+  readonly projection: { readonly round: CompletionRound };
+} {
   const { projection } = completion;
   if (
     projection.round?.status !== 'completed' ||

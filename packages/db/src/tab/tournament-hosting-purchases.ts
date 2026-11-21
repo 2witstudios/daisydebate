@@ -14,7 +14,7 @@ import { scopeTransaction } from '../tenant-scope';
 import { readDatabaseTime } from '../database-clock';
 import { loadLobbyAuthority } from './lobby-authority';
 import { loadTournamentHostingFacts } from './tournament-hosting-facts';
-import type { TabDatabase, TabTransaction } from './tab-transaction';
+import { inTransaction, type Tx, type TxOpener } from '../tx';
 
 /** One stored hosting payment, as the hosting feature reads it. */
 export type TournamentHostingPurchaseRow = {
@@ -33,7 +33,7 @@ export type TournamentHostingPurchaseRow = {
 };
 
 const readPurchases = async (
-  tx: TabTransaction,
+  tx: Tx,
   lobbyId: string,
 ): Promise<TournamentHostingPurchaseRow[]> =>
   (
@@ -71,7 +71,7 @@ const readPurchases = async (
  * payments. The tournament row is locked for the transaction.
  */
 const loadHostingAccount = async (
-  tx: TabTransaction,
+  tx: Tx,
   input: {
     readonly viewerUserId: string;
     readonly lobbyId: string;
@@ -117,11 +117,7 @@ export type TournamentHostingAccount = NonNullable<
   Awaited<ReturnType<typeof loadHostingAccount>>
 >;
 
-const openPurchase = (
-  tx: TabTransaction,
-  lobbyId: string,
-  purchaseId: string,
-) =>
+const openPurchase = (tx: Tx, lobbyId: string, purchaseId: string) =>
   and(
     eq(tournamentHostingPurchases.id, purchaseId),
     eq(tournamentHostingPurchases.lobbyId, lobbyId),
@@ -129,7 +125,7 @@ const openPurchase = (
   );
 
 /** The writes a hosting checkout or its settlement makes, each idempotent. */
-const purchaseWrites = (tx: TabTransaction, lobbyId: string) => ({
+const purchaseWrites = (tx: Tx, lobbyId: string) => ({
   open: async (row: {
     readonly id: string;
     readonly payerUserId: string;
@@ -194,10 +190,7 @@ export type TournamentHostingPurchaseWrites = ReturnType<typeof purchaseWrites>;
  * The open tournaments a person owns themselves, newest first, each read
  * under its own lobby scope with its tier facts and accepted entries.
  */
-const loadHostedTournaments = async (
-  tx: TabTransaction,
-  viewerUserId: string,
-) => {
+const loadHostedTournaments = async (tx: Tx, viewerUserId: string) => {
   await scopeTransaction(tx, { subjectUserId: viewerUserId });
   await fenceTabAccountRead(tx, viewerUserId);
   const owned = await tx
@@ -264,14 +257,12 @@ export type HostedTournamentsFacts = Awaited<
   ReturnType<typeof loadHostedTournaments>
 >;
 
-export const createTournamentHostingPurchaseStore = (
-  database: TabDatabase,
-) => ({
+export const createTournamentHostingPurchaseStore = (database: TxOpener) => ({
   hostedTournaments: <Answer>(
     viewerUserId: string,
     work: (facts: HostedTournamentsFacts) => Promise<Answer>,
   ): Promise<Answer> =>
-    database.transaction(async (tx) =>
+    inTransaction(database, async (tx) =>
       work(await loadHostedTournaments(tx, viewerUserId)),
     ),
   /** A host's view of a tournament's hosting, with the writes checkout makes. */
@@ -286,7 +277,7 @@ export const createTournamentHostingPurchaseStore = (
       writes: TournamentHostingPurchaseWrites,
     ) => Promise<Answer>,
   ): Promise<Answer> =>
-    database.transaction(async (tx) =>
+    inTransaction(database, async (tx) =>
       work(
         await loadHostingAccount(tx, input),
         purchaseWrites(tx, input.lobbyId),
@@ -303,7 +294,7 @@ export const createTournamentHostingPurchaseStore = (
       writes: TournamentHostingPurchaseWrites,
     ) => Promise<Answer>,
   ): Promise<Answer> =>
-    database.transaction(async (tx) => {
+    inTransaction(database, async (tx) => {
       await scopeTransaction(tx, { lobbyId: input.lobbyId });
       await loadTournamentHostingFacts(tx, input.lobbyId);
       const purchase =

@@ -12,13 +12,10 @@ import {
   lockEventSettingContext,
   type EventSettingContext,
 } from './tab/event-setting-context';
-import type { RoundWriteTransaction } from './round-write-authority';
+import type { Tx } from './tx';
 
 /** Read after account fences and before the Round lock, matching event writers' parent order. */
-export async function lockRoundBallotScreening(
-  tx: RoundWriteTransaction,
-  roundId: string,
-) {
+export async function lockRoundBallotScreening(tx: Tx, roundId: string) {
   const [room] = await tx
     .select({
       id: rooms.id,

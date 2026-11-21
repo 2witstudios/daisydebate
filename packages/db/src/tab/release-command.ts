@@ -20,7 +20,7 @@ import { appendHistory, storedCommand } from './command-record';
 import { lockTabCommandAccounts } from './command-accounts';
 import { loadDrawResolutionPool } from './draw-resolution-pool';
 import { lockEventSettingContext } from './event-setting-context';
-import type { TabDatabase, TabTransaction } from './tab-transaction';
+import { inTransaction, type Tx, type TxOpener } from '../tx';
 
 type Input = {
   readonly notificationIds: () => string;
@@ -28,7 +28,7 @@ type Input = {
   readonly lobbyId: string;
   readonly command: ReleaseCommand;
 };
-const load = async (tx: TabTransaction, input: Input) => {
+const load = async (tx: Tx, input: Input) => {
   await scopeTransaction(tx, {
     subjectUserId: input.senderUserId,
     lobbyId: input.lobbyId,
@@ -134,7 +134,7 @@ export type ReleaseCommandWrite =
     };
 
 /** Recorded openings and resolution publication share the command receipt's transaction. */
-export const createReleaseCommandStore = (database: TabDatabase) => ({
+export const createReleaseCommandStore = (database: TxOpener) => ({
   releaseCommand: <Answer>(
     input: Input,
     work: (session: {
@@ -147,7 +147,7 @@ export const createReleaseCommandStore = (database: TabDatabase) => ({
       ) => Promise<void>;
     }) => Promise<Answer>,
   ): Promise<Answer> =>
-    database.transaction(async (tx) => {
+    inTransaction(database, async (tx) => {
       let loaded: LoadedReleaseCommand | null = null;
       return work({
         load: async () => {

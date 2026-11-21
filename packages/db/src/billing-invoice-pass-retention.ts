@@ -8,7 +8,6 @@ import {
   type InvoicePassEvent,
   type BillingPaymentObservation,
 } from '@daisy/protocol/billing';
-import type { BoundedTransactionContext } from './transaction-context';
 import type { cleanupFacts } from './billing-cleanup-authority';
 import { writePaymentObservation } from './billing-payment-observation-write';
 import {
@@ -19,6 +18,7 @@ import {
   retainInvoiceWitness,
   rearmInvoiceWitness,
 } from './billing-invoice-observation';
+import type { Tx } from './tx';
 /** Producer input contains no caller-supplied retained-row authority. */
 export type CleanupInvoiceRequest =
   | Extract<CleanupInvoiceStep, { kind: 'start' }>
@@ -36,7 +36,7 @@ export type CleanupInvoiceRequest =
         | { readonly kind: 'exhausted'; readonly beforeId: string | null };
     };
 async function retainPassRead(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   event: Extract<CleanupInvoiceRequest, { kind: 'advance' }>['event'],
   witness: BillingPaymentObservation,
   current: InvoicePass | null,
@@ -79,7 +79,7 @@ async function retainPassRead(
   return event;
 }
 async function requireReadOwner(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   current: InvoicePass,
   read: import('@daisy/protocol/billing').OwnedPaymentObservation,
   route: Awaited<ReturnType<typeof cleanupFacts>>['route'],
@@ -98,7 +98,7 @@ async function requireReadOwner(
 }
 
 export async function retainInvoiceStep(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   step: CleanupInvoiceRequest,
   admitted: NonNullable<Awaited<ReturnType<typeof lockInvoiceExecution>>>,
   nextId: () => string,

@@ -4,9 +4,11 @@ import { createAppError } from '@daisy/errors';
 import {
   loadAuthorizationAccount,
   readAuthorizationActors,
-  type AuthorizationTransaction,
 } from './authorization';
 import type { authorizationAccountFact } from './authorization-account';
+import { inTransaction, type Tx, type TxOpener } from './tx';
+import { query } from './raw-rows';
+import { z } from 'zod';
 type RealtimeSessionInput = {
   readonly sessionId: string;
   readonly actorId: string;
@@ -17,7 +19,7 @@ type AuthorizationSessionInput = RealtimeSessionInput & {
 };
 /** Ticket identities are hints: reread their exact durable session and account inside the caller's fenced transaction. */
 export async function loadAuthorizationSession(
-  tx: AuthorizationTransaction,
+  tx: Tx,
   input: AuthorizationSessionInput,
 ) {
   return checkedSession(tx, input);
@@ -30,7 +32,7 @@ type AccountFact = NonNullable<ReturnType<typeof authorizationAccountFact>>;
  * session, or an account that is no longer the session's.
  */
 export async function loadAuthorizationSessions(
-  tx: AuthorizationTransaction,
+  tx: Tx,
   input: {
     readonly now: string;
     readonly sessions: readonly Omit<AuthorizationSessionInput, 'now'>[];
@@ -41,12 +43,14 @@ export async function loadAuthorizationSessions(
     sessionInstant({ ...session, now: input.now }),
   );
   if (input.sessions.length === 0) return [];
-  const rows = (await tx.execute(
+  const rows = await query(
+    tx,
+    z.object({ id: z.string(), userId: z.string(), expiresAt: z.date() }),
     sql`select id, user_id as "userId", expires_at as "expiresAt" from session where id = any(array[${sql.join(
       input.sessions.map(({ sessionId }) => sql`${sessionId}`),
       sql`, `,
     )}]::text[])`,
-  )) as unknown as { id: string; userId: string; expiresAt: Date }[];
+  );
   const byId = new Map(rows.map((row) => [row.id, row]));
   return input.sessions.map((wanted, index) => {
     const row = byId.get(wanted.sessionId);
@@ -70,13 +74,15 @@ export async function loadAuthorizationSessions(
   });
 }
 async function checkedSession(
-  tx: AuthorizationTransaction,
+  tx: Tx,
   input: RealtimeSessionInput & { readonly userId?: string },
 ) {
   const instant = sessionInstant(input);
-  const rows = (await tx.execute(
+  const rows = await query(
+    tx,
+    z.object({ userId: z.string(), expiresAt: z.date() }),
     sql`select user_id as "userId",expires_at as "expiresAt" from session where id=${input.sessionId}`,
-  )) as unknown as { userId: string; expiresAt: Date }[];
+  );
   const session = rows[0];
   if (
     !session ||
@@ -142,16 +148,13 @@ function currentSessionAccount(
 export function authorizationSessionOperations({
   database,
 }: {
-  readonly database: Pick<
-    import('drizzle-orm/bun-sql/postgres').BunSQLDatabase,
-    'transaction'
-  >;
+  readonly database: TxOpener;
 }) {
   const withSession = async (
     input: RealtimeSessionInput & { readonly userId?: string },
   ) => {
     sessionInstant(input);
-    return database.transaction(async (tx) => {
+    return inTransaction(database, async (tx) => {
       await readAuthorizationActors(tx, [input.actorId], { maxActors: 1 });
       return checkedSession(tx, input);
     });

@@ -1,14 +1,15 @@
 import {
   isDebatingSeat,
   seatAllowed,
-  type RatingDivision,
   type RoomAssemblyState,
+  ratingDivisions,
 } from '@daisy/protocol';
 import { createRefusal } from '@daisy/errors';
 import { sql } from 'drizzle-orm';
 import { divisionAgeBand, divisionOfBandSql } from './ladder-division-band';
-import { rowsOf } from './raw-rows';
-import type { Tx } from './room-command-facts';
+import { query } from './raw-rows';
+import type { Tx } from './tx';
+import { z } from 'zod';
 
 /**
  * Start's own check that every seated human debater still fits the Room's
@@ -18,7 +19,7 @@ import type { Tx } from './room-command-facts';
  * organiser's admitted cast and is left to its entries.
  */
 export async function refuseDebatersOffDivision(
-  tx: Pick<Tx, 'execute'>,
+  tx: Tx,
   room: RoomAssemblyState,
 ): Promise<void> {
   if (room.hostActorId === null) return;
@@ -26,8 +27,9 @@ export async function refuseDebatersOffDivision(
     (p) => p.kind === 'human' && isDebatingSeat(p.seat),
   );
   if (debaters.length === 0) return;
-  const rows = await rowsOf<{ id: string; division: RatingDivision | null }>(
+  const rows = await query(
     tx,
+    z.object({ id: z.string(), division: z.enum(ratingDivisions).nullable() }),
     sql`select a.id, ${divisionOfBandSql(divisionAgeBand())} as division
       from actors a left join account_age on account_age.user_id = a.user_id
       where a.id in (${sql.join(

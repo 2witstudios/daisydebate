@@ -1,5 +1,4 @@
 import { and, eq, inArray } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { grantWindows } from './capture-history';
 import { speakingEndMs, type CaptureRule } from '@daisy/protocol';
 import { actors } from './schema/actors';
@@ -7,8 +6,8 @@ import { roundParticipants } from './schema/round-participants';
 import { roundSegments } from './schema/round-segments';
 import { roundSpeakingIntervals } from './schema/round-speaking-intervals';
 import { transcriptObservations } from './schema/transcript-segments';
+import type { Tx } from './tx';
 
-type Reader = Pick<BunSQLDatabase, 'select'>;
 type Stream = {
   readonly segmentId: string;
   readonly roundParticipantId: string;
@@ -28,7 +27,7 @@ const groupBy = <T>(rows: readonly T[], of: (row: T) => string) => {
  * ended with its segment's speaking time: nothing more was owed.
  */
 export async function closedStreamGaps(
-  tx: Reader,
+  tx: Tx,
   roundId: string,
   streams: readonly Stream[],
   rule: CaptureRule,

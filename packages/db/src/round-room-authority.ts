@@ -5,7 +5,7 @@ import {
   loadRoundDirection,
   type RoomDirectionInput,
 } from './tab/room-direction';
-import type { TabTransaction } from './tab/tab-transaction';
+import type { Tx } from './tx';
 
 /** Missing event authority is explicit; it never falls through to an ordinary public Round. */
 export type RoundRoomAuthority =
@@ -24,7 +24,7 @@ export type RoundRoomSource =
 
 /** Caller already holds its canonical account fence; no capture/funding source grants reading rights. */
 export const readRoundRoomAuthority = async (
-  tx: TabTransaction,
+  tx: Tx,
   input: { readonly roomId: string | null; readonly userId: string },
 ): Promise<RoundRoomSource> => {
   const [room] =

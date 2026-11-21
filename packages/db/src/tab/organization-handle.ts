@@ -1,13 +1,13 @@
 import { eq, sql } from 'drizzle-orm';
 import { organizations } from '../schema/organizations';
-import type { TabTransaction } from './tab-transaction';
+import type { Tx } from '../tx';
 
 /**
  * The organization a handle names, case-insensitively, as its id: the
  * address a host page is at. Organizations are open to read.
  */
 export const findOrganizationByHandle = async (
-  tx: TabTransaction,
+  tx: Tx,
   handle: string,
 ): Promise<string | null> => {
   const [row] = await tx

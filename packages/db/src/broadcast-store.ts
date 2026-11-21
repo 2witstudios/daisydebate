@@ -2,7 +2,6 @@ import {
   beginBroadcastEgressAttempt,
   settleBroadcastEgressAttempt,
 } from './broadcast-egress-dispatch';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { seatOfColumns } from './seat-columns';
 import { eq, getTableColumns } from 'drizzle-orm';
 import type { BroadcastReleasePolicy } from '@daisy/protocol';
@@ -29,9 +28,10 @@ import { broadcasts } from './schema/broadcasts';
 import { mediaParticipants } from './schema/media-sessions';
 import { roundParticipants } from './schema/round-participants';
 import { rounds } from './schema/rounds';
+import { inTransaction, type TxSource } from './tx';
 
 /** The Broadcast control plane's reads and writes. No Round lock anywhere (ADR 0099). */
-export const createBroadcastStore = (database: BunSQLDatabase) => ({
+export const createBroadcastStore = (database: TxSource) => ({
   discoverUnopened: (limit: number) =>
     discoverUnopenedBroadcastRounds(database, limit),
   open: (input: {
@@ -118,7 +118,7 @@ export const createBroadcastStore = (database: BunSQLDatabase) => ({
     input: Parameters<typeof settleBroadcastEgressAttempt>[1],
   ) => settleBroadcastEgressAttempt(database, input),
   recordEgressStarted: (input: Parameters<typeof recordEgressStarted>[1]) =>
-    database.transaction((tx) => recordEgressStarted(tx, input)),
+    inTransaction(database, (tx) => recordEgressStarted(tx, input)),
   async recordObserverRevoked(
     input: Parameters<typeof recordObserverRevoked>[1],
   ) {

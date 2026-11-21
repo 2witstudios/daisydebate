@@ -7,7 +7,7 @@ import { scopeTransaction, type TenantScope } from '../tenant-scope';
 import { bumpTabAccountRevision } from './command-accounts';
 import type { EntryEnrollmentWrite } from './entry-enrollment-write';
 import type { EntryPersonRow } from './entry-person-rows';
-import type { TabTransaction } from './tab-transaction';
+import type { Tx } from '../tx';
 const one = (rows: readonly unknown[]): void => {
   if (rows.length !== 1)
     throw createAppError(
@@ -16,7 +16,7 @@ const one = (rows: readonly unknown[]): void => {
     );
 };
 const apply = async (
-  tx: TabTransaction,
+  tx: Tx,
   write: EntryEnrollmentWrite,
   scope: TenantScope,
   people: readonly EntryPersonRow[],
@@ -69,7 +69,7 @@ const apply = async (
   }
 };
 export const applyEntryEnrollmentWrites = async (
-  tx: TabTransaction,
+  tx: Tx,
   writes: readonly EntryEnrollmentWrite[],
   scope: TenantScope,
   people: readonly EntryPersonRow[],

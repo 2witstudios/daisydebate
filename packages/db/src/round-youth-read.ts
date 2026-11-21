@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { rooms } from './schema/rooms';
 import { rounds } from './schema/rounds';
+import type { Tx } from './tx';
 
 /**
  * Whether a Round's Room is in the Youth lobby (ADR 0156): a Room's division
@@ -10,7 +10,7 @@ import { rounds } from './schema/rounds';
  * anyone's links (ADR 0155): only a Youth Round's youth debaters have them.
  */
 export const readRoundYouth = async (
-  database: Pick<BunSQLDatabase, 'select'>,
+  database: Tx,
   roundId: string,
 ): Promise<boolean | null> => {
   const [row] = await database

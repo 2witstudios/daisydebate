@@ -1,9 +1,11 @@
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
+import type { Tx } from './tx';
+import { run, query } from './raw-rows';
+import { z } from 'zod';
 
 /** Caller holds the Round lock and has inserted the accepted terminal command. */
 export async function freezeRoundFinalization(
-  tx: Pick<BunSQLDatabase, 'execute'>,
+  tx: Tx,
   input: {
     readonly roundId: string;
     readonly commandId: string;
@@ -12,12 +14,19 @@ export async function freezeRoundFinalization(
     readonly ballotIds: readonly string[];
   },
 ): Promise<void> {
-  const [frozen] = await tx.execute(sql`
+  const [frozen] = await query(
+    tx,
+    z.object({ round_id: z.string() }),
+    sql`
     insert into round_finalizations(round_id,command_id,resulting_version,freeze_revision)
     values(${input.roundId},${input.commandId},${input.resultingVersion},${input.freezeRevision})
-    returning round_id`);
+    returning round_id`,
+  );
   if (!frozen) return;
   for (const ballotId of input.ballotIds)
-    await tx.execute(sql`insert into round_finalization_ballots(round_id,ballot_id,freeze_revision)
-      values(${input.roundId},${ballotId},${input.freezeRevision})`);
+    await run(
+      tx,
+      sql`insert into round_finalization_ballots(round_id,ballot_id,freeze_revision)
+      values(${input.roundId},${ballotId},${input.freezeRevision})`,
+    );
 }

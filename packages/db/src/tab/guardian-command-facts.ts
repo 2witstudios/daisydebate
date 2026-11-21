@@ -12,7 +12,7 @@ import { lockTabCommandAccounts } from './command-accounts';
 import { loadAuthorityContext } from './authority-context';
 import { loadMemberships } from './organization-facts';
 import { loadTabAccount } from './boundary';
-import type { TabTransaction } from './tab-transaction';
+import type { Tx } from '../tx';
 export type GuardianCommandInput = {
   readonly senderUserId: string;
   readonly subjectUserId: string;
@@ -23,7 +23,7 @@ export type GuardianCommandInput = {
 export class GuardianPeopleChanged extends Error {}
 /** Named family facts; no organization or lobby owns the protected subject's journal. */
 export const loadGuardianCommandFacts = async (
-  tx: TabTransaction,
+  tx: Tx,
   input: GuardianCommandInput,
 ) => {
   const { command } = input;
@@ -44,19 +44,20 @@ export const loadGuardianCommandFacts = async (
   const subjectUserId =
     command.type === 'create-guardian-link'
       ? command.wardUserId
-      : initial!.minorUserId;
+      : initial?.minorUserId;
   if (subjectUserId !== input.subjectUserId) return null;
   const guardianUserId =
     command.type === 'create-guardian-link' || command.type === 'add-guardian'
       ? command.guardianUserId
-      : initial!.guardianUserId;
+      : initial?.guardianUserId;
+  if (guardianUserId === undefined) return null;
   const authorityGuardianUserId = initial?.guardianUserId ?? guardianUserId;
   const schoolId =
     command.type === 'create-guardian-link'
       ? command.through.kind === 'school'
         ? command.through.organizationId
         : null
-      : initial!.viaOrganizationId;
+      : (initial?.viaOrganizationId ?? null);
   await lockTabCommandAccounts(tx, [
     input.senderUserId,
     subjectUserId,

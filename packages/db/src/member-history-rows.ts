@@ -8,7 +8,6 @@ import {
   type SeatRef,
 } from '@daisy/protocol';
 import { and, eq, inArray, sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { actors } from './schema/actors';
 import { botProfiles } from './schema/bot-profiles';
 import { aiJudgeProfiles } from './schema/ai-judge-profiles';
@@ -22,8 +21,9 @@ import {
   seatRowOrder,
   type SeatColumns,
 } from './seat-columns';
-
-type Tx = Pick<BunSQLDatabase, 'select' | 'execute'>;
+import type { Tx } from './tx';
+import { query as queryRows } from './raw-rows';
+import { z } from 'zod';
 
 /** A competitor's seat: a side's or an unsided speaker's. */
 export const debating = isDebatingSeatSql(roundParticipants.seatKind);
@@ -65,15 +65,17 @@ export type ListedRound = {
 
 /** The Rounds a forfeit decided, by command or by attendance. */
 const forfeitedRounds = async (tx: Tx, ids: readonly string[]) => {
-  const rows = await tx.execute(sql`select z.round_id as "roundId"
+  const rows = await queryRows(
+    tx,
+    z.object({ roundId: z.string() }),
+    sql`select z.round_id as "roundId"
     from round_finalizations z
     where z.round_id in (${sql.join(
       ids.map((id) => sql`${id}`),
       sql`,`,
-    )}) and ${forfeitRecorded}`);
-  return new Set(
-    (rows as unknown as { roundId: string }[]).map((r) => r.roundId),
+    )}) and ${forfeitRecorded}`,
   );
+  return new Set(rows.map((r) => r.roundId));
 };
 
 /**

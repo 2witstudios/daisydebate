@@ -1,19 +1,18 @@
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { decideBetaAccessChange } from '@daisy/protocol';
 import { normalizeEmail } from '@daisy/protocol/email';
 import { canClaimPreapproval } from '@daisy/protocol/beta-preapproval';
 import { loadAuthorizationAccount } from './authorization';
 import { writeBetaAccessChange } from './beta-access-change';
 import { mailIntentQueue } from './mail-intent-queue';
-
-type Tx = Pick<BunSQLDatabase, 'execute'>;
+import type { Tx } from './tx';
+import { takeLock, transactionLocks } from './locks';
+import { query } from './raw-rows';
+import { z } from 'zod';
 
 /** Account fence first, then email fence, including absent grants. */
 export const lockPreapprovalEmail = (tx: Tx, email: string) =>
-  tx.execute(
-    sql`select pg_advisory_xact_lock(hashtextextended(${normalizeEmail(email)}, 59080))`,
-  );
+  takeLock(tx, transactionLocks.betaPreapprovalEmail(normalizeEmail(email)));
 
 /**
  * A claim is the one beta access transition, decided on the fresh fact. Its
@@ -40,9 +39,11 @@ export async function claimBetaPreapproval(
     commandId: null,
   },
 ): Promise<boolean> {
-  const [user] = (await tx.execute(
+  const [user] = await query(
+    tx,
+    z.object({ email: z.string().nullable(), email_verified: z.boolean() }),
     sql`select email, email_verified from users where id = ${userId}`,
-  )) as unknown as { email: string | null; email_verified: boolean }[];
+  );
   if (!user?.email) return false;
   const email = normalizeEmail(user.email);
   await lockPreapprovalEmail(tx, email);
@@ -60,9 +61,11 @@ export async function claimBetaPreapproval(
     return false;
   const change = claimedAccess(fact.beta);
   if (!change) return false;
-  const [grant] = (await tx.execute(
+  const [grant] = await query(
+    tx,
+    z.object({ id: z.string() }),
     sql`update beta_preapprovals set claimed_user_id = ${userId}, claimed_at = now(), revision = revision + 1 where email = ${email} and claimed_user_id is null returning id`,
-  )) as unknown as { id: string }[];
+  );
   if (!grant) return false;
   await writeBetaAccessChange(tx, {
     userId,

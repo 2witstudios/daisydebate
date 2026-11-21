@@ -40,7 +40,7 @@ export function attendanceEntrypoints(input: {
   };
   return {
     ...createAttendanceOperations({
-      transaction,
+      run: transaction,
       roundTime: input.roundTime,
       nextAttemptId: input.nextId,
       verifyWorker: verifyBotWorkerPrincipalLocked,
