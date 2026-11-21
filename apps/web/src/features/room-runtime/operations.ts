@@ -229,7 +229,11 @@ export function createRoomRuntimeOperations({
     }
     return { contentWaiver: standing, contentWaiverVersion: version };
   };
-  const view = async (caller: Caller, roomId: string, eventOnly = false) => {
+  const view = async (
+    caller: Caller,
+    roomId: string,
+    eventOnly = false,
+  ): Promise<RoomView> => {
     const facts = await store.readRoomAssemblyFacts(
       roomId,
       caller,
