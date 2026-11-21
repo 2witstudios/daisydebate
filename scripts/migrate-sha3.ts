@@ -126,6 +126,18 @@ function isNativeHasher(
   );
 }
 
+function isSha3Constructor(
+  checker: ts.TypeChecker,
+  node: ts.Node,
+): node is ts.CallExpression | ts.NewExpression {
+  return (
+    (ts.isCallExpression(node) || ts.isNewExpression(node)) &&
+    node.arguments?.length === 1 &&
+    staticText(checker, node.arguments[0]!)?.toLowerCase() === 'sha3-256' &&
+    isNativeHasher(checker, node.expression)
+  );
+}
+
 function replacement(
   checker: ts.TypeChecker,
   node: ts.Node,
@@ -133,14 +145,7 @@ function replacement(
   if (!method(node, 'digest') || !literal(node.arguments[0], 'hex')) return;
   const update = node.expression.expression;
   if (!method(update, 'update')) return;
-  const hasher = update.expression.expression;
-  if (!(ts.isCallExpression(hasher) || ts.isNewExpression(hasher))) return;
-  if (
-    hasher.arguments?.length !== 1 ||
-    staticText(checker, hasher.arguments[0]!)?.toLowerCase() !== 'sha3-256' ||
-    !isNativeHasher(checker, hasher.expression)
-  )
-    return;
+  if (!isSha3Constructor(checker, update.expression.expression)) return;
   const [value, encoding] = update.arguments;
   if (encoding === undefined || literal(encoding, 'utf8')) return value;
 }
@@ -165,6 +170,12 @@ export function migrateSha3(
 ): string {
   const file = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true);
   const checker = sourceChecker(file);
+  if (usesCommonJs(checker, file)) {
+    const needsManual = (node: ts.Node): boolean | undefined =>
+      isSha3Constructor(checker, node) || ts.forEachChild(node, needsManual);
+    if (needsManual(file)) manual?.();
+    return source;
+  }
   const existing = digestImports(file)?.elements.find(
     (item) =>
       !item.isTypeOnly &&
@@ -190,11 +201,6 @@ export function migrateSha3(
   };
   visit(file);
   if (edits.length === 0) return source;
-  if (usesCommonJs(checker, file)) {
-    // Adding an ESM import would change the file's module format.
-    manual?.();
-    return source;
-  }
 
   const rewritten = edits
     .reverse()

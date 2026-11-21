@@ -202,3 +202,35 @@ test('reports CommonJS clock calls for manual conversion', () => {
     expected: [source, true],
   });
 });
+
+test('distinguishes CommonJS exports from locally bound names in JavaScript', () => {
+  const scenarios = [
+    { source: 'module.exports = Date.parse(input);', manual: true },
+    { source: "module['exports'] = Date.parse(input);", manual: true },
+    { source: 'exports.stamp = Date.parse(input);', manual: true },
+    {
+      source:
+        'function publish(module) { module.exports = Date.parse(input); }',
+      manual: false,
+    },
+    {
+      source:
+        'function publish(exports) { exports.stamp = Date.parse(input); }',
+      manual: false,
+    },
+  ];
+  assert({
+    given:
+      'export-only CommonJS files and shadowed module and exports parameters',
+    should:
+      'preserve actual CommonJS source and migrate the locally bound controls',
+    actual: scenarios.map(({ source }) => {
+      let manual = false;
+      const migrated = migrateDateParse('sample.js', source, () => {
+        manual = true;
+      });
+      return [manual, migrated === source];
+    }),
+    expected: scenarios.map(({ manual }) => [manual, manual]),
+  });
+});

@@ -90,17 +90,30 @@ export function usesCommonJs(
   checker: ts.TypeChecker,
   file: ts.SourceFile,
 ): boolean {
+  const isCommonJsName = (node: ts.Node, name: string): boolean => {
+    if (!ts.isIdentifier(node) || node.text !== name) return false;
+    const symbol = checker
+      .getSymbolsInScope(node, ts.SymbolFlags.Value | ts.SymbolFlags.Alias)
+      .find((binding) => binding.name === name);
+    // TypeScript creates a synthetic module binding from the export receiver itself.
+    return !symbol?.declarations?.some(
+      (declaration) =>
+        !ts.isIdentifier(declaration) ||
+        !(
+          ts.isPropertyAccessExpression(declaration.parent) ||
+          ts.isElementAccessExpression(declaration.parent)
+        ) ||
+        declaration.parent.expression !== declaration,
+    );
+  };
   const visit = (node: ts.Node): boolean | undefined => {
-    if (
-      ts.isCallExpression(node) &&
-      isGlobal(checker, node.expression, 'require')
-    )
+    if (ts.isCallExpression(node) && isCommonJsName(node.expression, 'require'))
       return true;
     if (
       (ts.isPropertyAccessExpression(node) ||
         ts.isElementAccessExpression(node)) &&
-      (isGlobal(checker, node.expression, 'exports') ||
-        (isGlobal(checker, node.expression, 'module') &&
+      (isCommonJsName(node.expression, 'exports') ||
+        (isCommonJsName(node.expression, 'module') &&
           memberName(checker, node) === 'exports'))
     )
       return true;

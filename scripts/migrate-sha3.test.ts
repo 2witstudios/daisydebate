@@ -123,3 +123,35 @@ test('reports native require chains without changing their module format', () =>
     expected: Array.from({ length: 6 }, () => [true, true]),
   });
 });
+
+test('reports export-only and split CommonJS hash construction', () => {
+  const chain = "new Bun.CryptoHasher('sha3-256').update('a').digest('hex')";
+  const scenarios = [
+    { file: 'sample.js', source: `module.exports = ${chain};`, manual: true },
+    { file: 'sample.js', source: `exports.digest = ${chain};`, manual: true },
+    {
+      file: 'sample.cjs',
+      source:
+        "const native = require('node:crypto'); const { createHash: hash } = native; const digest = hash('sha3-256'); digest.update('a'); module.exports = digest.digest('hex');",
+      manual: true,
+    },
+    {
+      file: 'sample.js',
+      source: `function publish(module) { module.exports = ${chain}; }`,
+      manual: false,
+    },
+  ];
+  assert({
+    given:
+      'real CommonJS exports, a split hasher and a shadowed module parameter',
+    should: 'report each actual CommonJS hash and migrate the local control',
+    actual: scenarios.map(({ file, source }) => {
+      let manual = false;
+      const migrated = migrateSha3(file, source, () => {
+        manual = true;
+      });
+      return [manual, migrated === source];
+    }),
+    expected: scenarios.map(({ manual }) => [manual, manual]),
+  });
+});
