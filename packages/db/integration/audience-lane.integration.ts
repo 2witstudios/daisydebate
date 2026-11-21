@@ -1,14 +1,14 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { isCapacityRefusal } from './capacity';
-import { WORKLOAD_PROFILES, createDatabase } from './index';
-import { fakeSql } from './index.test-support';
+import { isCapacityRefusal } from '../src/capacity';
+import { requireTestServices } from '@daisy/config';
+import { WORKLOAD_PROFILES, createDatabase } from '../src';
+import { afterAll } from 'bun:test';
 
 setupRitewayBun();
 
 /** With no audience lane, an operation on it refuses and any other reaches the client. */
 const database = createDatabase({
-  url: 'postgres://daisy:test@localhost:5432/daisy_test',
-  client: fakeSql([]).client,
+  url: requireTestServices(process.env).databaseUrl,
   nextActorId: () => 'a'.repeat(24),
   profile: {
     ...WORKLOAD_PROFILES.web,
@@ -19,6 +19,7 @@ const database = createDatabase({
     ),
   },
 });
+afterAll(() => database.close());
 const clock = { now: '2026-11-03T00:00:00.000Z', rankedDelaySeconds: 60 };
 const id = 'a'.repeat(24);
 const refusedByLane = async (work: () => Promise<unknown>) => {
@@ -63,7 +64,7 @@ test('nothing a Room or its host needs waits on the audience lane', async () => 
   assert({
     given:
       'a Room view’s Watch link, the format reads a Room makes, and a host’s link',
-    should: 'never be refused by the audience lane',
+    should: 'use their own lanes even with no audience lane',
     actual: await Promise.all(
       [
         () => database.readWatchableRoundOfRoom(id, clock),

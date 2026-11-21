@@ -49,7 +49,7 @@ for (const [scenario, raw, parsed] of [
 ] as const) {
   if (raw.total !== parsed.total)
     throw new Error(`Results differ for ${scenario}`);
-  console.log(
-    `${scenario}: ${raw.microseconds.toFixed(3)} µs without parsing, ${parsed.microseconds.toFixed(3)} µs with parsing`,
+  process.stdout.write(
+    `${scenario}: ${raw.microseconds.toFixed(3)} µs without parsing, ${parsed.microseconds.toFixed(3)} µs with parsing\n`,
   );
 }

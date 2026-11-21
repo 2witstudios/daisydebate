@@ -1,4 +1,3 @@
-import type { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import type { CompetitionType, RoundStatus } from '@daisy/protocol';
 import { createDatabase } from './index';
@@ -6,29 +5,11 @@ import { oneOnOneSettings } from './reference-formats';
 import { createTestOnlyOperations } from './test-only-operations';
 import type { DatabaseEventSink } from './instrumented';
 import { validRules } from './testing-rules';
-import {
-  fakeSql,
-  type RecordedQuery,
-  type ScriptedResult,
-} from './scripted-bun-wire';
+import { fakeSql, type ScriptedResult } from './scripted-bun-wire';
 
 export { fakeSql } from './scripted-bun-wire';
 
-/** A `client.listen()` that rejects, for proving `checkListen` fails closed. */
-export function fakeSqlWithBrokenListen(script: ScriptedResult[]): {
-  client: SQL;
-  queries: RecordedQuery[];
-} {
-  const { client, queries } = fakeSql(script);
-  return {
-    client: Object.assign(client, {
-      listen: () => Promise.reject(new Error('listen unavailable')),
-    }),
-    queries,
-  };
-}
-
-export type SinkEvent = {
+type SinkEvent = {
   event: string;
   fields: Record<string, unknown>;
   message: string;

@@ -497,7 +497,7 @@ describe('database statement and lock boundaries', () => {
       ['raw-rows.ts', 'export const rows = result as unknown as Row[];'],
       [
         'locks.ts',
-        'export const statement = sql\`select PG_TRY_ADVISORY_LOCK(1)\`;',
+        'export const statement = sql`select PG_TRY_ADVISORY_LOCK(1)`;',
       ],
       ['locks.ts', "export const statement = 'pg_advisory_unlock';"],
       ['locks.ts', 'export const probe = /pg_advisory_lock/;'],

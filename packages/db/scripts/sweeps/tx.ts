@@ -327,8 +327,8 @@ for (const [file, source] of sources) {
     changed += 1;
   }
 }
-console.log(`tx sweep: ${changed} files changed`);
+process.stdout.write(`tx sweep: ${changed} files changed\n`);
 if (refused.length > 0)
-  console.log(
-    `not openers (their work takes more than the transaction), rename them:\n  ${refused.join('\n  ')}`,
+  process.stdout.write(
+    `not openers (their work takes more than the transaction), rename them:\n  ${refused.join('\n  ')}\n`,
   );
