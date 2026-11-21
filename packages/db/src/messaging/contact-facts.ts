@@ -101,8 +101,11 @@ export const createMessagingPairFactsRead =
     ) => Promise<T>,
   ): Promise<T> =>
     inTransaction(database, async (tx) => {
-      const [low, high] = [...actorIds].sort();
-      const accounts = await readAuthorizationActors(tx, [low!, high!], {
+      const [first, second] = actorIds;
+      const ordered: readonly [string, string] =
+        first <= second ? [first, second] : [second, first];
+      const [low, high] = ordered;
+      const accounts = await readAuthorizationActors(tx, ordered, {
         maxActors: 2,
       });
       const [pair] = await query(
