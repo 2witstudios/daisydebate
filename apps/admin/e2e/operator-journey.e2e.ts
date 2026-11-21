@@ -136,7 +136,11 @@ test('enroll a passkey, sign in, and approve a pending account', async ({
     'Preapproval saved. Invitation email queued.',
   );
   await expect(silent).toContainText('queued');
+  const revision = silent.locator('input[name="expectedRevision"]');
+  const revisionBeforeResend = Number(await revision.inputValue());
   await silent.getByRole('button', { name: 'Resend invitation' }).click();
+  // The delivery label stays queued while the refreshed row brings a new revision.
+  await expect(revision).toHaveValue(String(revisionBeforeResend + 1));
   await expect(silent).toContainText('queued');
   await silent.getByRole('button', { name: 'Remove', exact: true }).click();
   await expect(silent).toHaveCount(0);
