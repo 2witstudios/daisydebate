@@ -84,8 +84,8 @@ export {
 export { readBrowserConfig } from './web-origin-config';
 export { readAuthConfig, type AuthConfig } from './auth-config';
 export { readMailConfig, type MailConfig } from './mail-config';
-export { readMigrationConfig, type MigrationConfig } from './migration-config';
-export { readRealtimeConfig, type RealtimeConfig } from './realtime-config';
+export { readMigrationConfig } from './migration-config';
+export { readRealtimeConfig } from './realtime-config';
 
 const serverFields = {
   ...billingFields,

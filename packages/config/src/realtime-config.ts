@@ -21,7 +21,7 @@ const realtimeConfigSchema = z
     requireDeploymentIdentity(config, ctx);
   })
   .transform(withoutMigrationCredential);
-export type RealtimeConfig = z.output<typeof realtimeConfigSchema>;
+type RealtimeConfig = z.output<typeof realtimeConfigSchema>;
 /** Validation reports field names only: never echo secret values. */
 export function readRealtimeConfig(
   env: Record<string, string | undefined>,

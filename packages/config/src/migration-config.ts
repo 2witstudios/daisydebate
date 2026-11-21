@@ -53,7 +53,7 @@ const migrationConfigSchema = z
       ? config.MIGRATION_DATABASE_URL
       : (config.MIGRATION_DATABASE_URL ?? config.DATABASE_URL)) as string,
   }));
-export type MigrationConfig = z.infer<typeof migrationConfigSchema>;
+type MigrationConfig = z.infer<typeof migrationConfigSchema>;
 /** Validation reports field names only: never echo secret values. */
 export function readMigrationConfig(
   env: Record<string, string | undefined>,
