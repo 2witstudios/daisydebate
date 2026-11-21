@@ -158,7 +158,6 @@
         "zod": "4.6.6",
       },
       "devDependencies": {
-        "@daisy/clock": "workspace:*",
         "riteway": "9.3.0",
       },
     },
