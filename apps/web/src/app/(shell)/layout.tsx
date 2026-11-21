@@ -54,6 +54,7 @@ export default async function ShellLayout({
   const people =
     identity.state === 'member'
       ? await PeopleShell({
+          actorId: identity.principal.actorId,
           preference: peopleRail,
           activeRoomId: activeRoom?.id ?? null,
         })

@@ -1,5 +1,6 @@
 import { holdScripts, overflowing } from './support/ballot-layout-probes';
 import { proveBallotRecovery } from './support/ballot-recovery-proof';
+import { submitAcrossFailedChallengeRead } from './support/ballot-refresh-proof';
 import { createRoomLaunchAccounts } from './support/room-launch-accounts';
 import { createHumanBallotRound } from './support/human-ballot-round';
 import { type Page } from '@playwright/test';
@@ -114,7 +115,6 @@ test.describe('actual frozen human ballots', () => {
     await pick(page, negativeName);
     await slider(page, 'Thesis', affirmativeName).fill('5');
     release();
-    await effectsRan(page);
 
     // The read-outs start from the controls, not from a fresh sheet.
     await expect(
@@ -124,14 +124,24 @@ test.describe('actual frozen human ballots', () => {
       page.getByText(`${negativeName} wins with fewer points: 30 to 32`),
     ).toBeVisible();
 
-    // A later change leaves the earlier input alone, and the refusal keeps it.
+    // A later change and a Round refresh leave the earlier input alone.
     await slider(page, 'Delivery', negativeName).fill('4');
     await expect(radio(page, negativeName)).toBeChecked();
-    await page.getByLabel('Reason for decision').fill('A close round.');
-    await submit(page);
+    const reason = page.getByLabel('Reason for decision');
+    await reason.fill('A close round.');
+    const originalForm = await submitAcrossFailedChallengeRead(
+      page,
+      ballotUrl,
+      () => submit(page),
+    );
     await expect(page.locator('#round-ballot-refusal')).toHaveText(
       'Confirm the low-point win, or change the scores.',
     );
+    expect(await originalForm.evaluate((node) => node.isConnected)).toBe(true);
+    await expect(radio(page, negativeName)).toBeChecked();
+    await expect(slider(page, 'Thesis', affirmativeName)).toHaveValue('5');
+    await expect(slider(page, 'Delivery', negativeName)).toHaveValue('4');
+    await expect(reason).toHaveValue('A close round.');
     await expect(slider(page, 'Delivery', affirmativeName)).toBeVisible();
     await submit(page);
     await expect(page.locator('#round-ballot-refusal')).toHaveText(

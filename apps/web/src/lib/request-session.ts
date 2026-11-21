@@ -182,6 +182,9 @@ export const requestNow = (): string => processApp().clock.now();
 export const requestIdentity = async (): Promise<Identity> =>
   (await requestSession()).identity;
 
+/** The configured public endpoint for the member shell's realtime connection. */
+export const requestRealtimeSocketUrl = () => processApp().websocketEndpoint;
+
 /** Browser capture's attributes for this render's `<html>` (ISSUE-1008). */
 export const requestBrowserCapture = () =>
   browserCaptureAttributes(processApp().config);
