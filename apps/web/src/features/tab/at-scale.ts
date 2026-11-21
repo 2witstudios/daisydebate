@@ -2,10 +2,8 @@
  * How a Tab screen stays readable at scale (120 rooms, 200 entries, a
  * bracket of 64): Needs you capped and kept first, similar items merged into
  * one row, long groups cut to a counted remainder, search and a status filter
- * within the page, one table per break line, and a bracket from its live
- * round onward. Every function here (and in `at-scale-tables` and
- * `at-scale-rooms`) is pure: a screen reads as it always has, and these
- * shape what it already read.
+ * within the page, and a bracket from its live round onward. The functions
+ * here and in `at-scale-rooms` shape the screen's existing read.
  *
  * In-page state rides in the URL, so it works before hydration and a page
  * gets its data the same way: `q` (search), `status` (the status filter) and

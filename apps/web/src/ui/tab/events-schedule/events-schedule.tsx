@@ -1,31 +1,21 @@
 import type { ReactNode } from 'react';
-import { WalkLink as Link } from '../walk/walk-link';
+import Link from 'next/link';
 import type { EventsSchedule as Read } from '../../../features/tab/events';
 import type { TimelineRail } from '../../../features/tab/tournament';
-import { Button } from '../../components/button/button';
 import { PageHeader } from '../../components/page-header/page-header';
-import { ActionButton, SentenceLink } from '../action-control/action-control';
-import { ChoiceField } from '../choice-field/choice-field';
+import { ActionButton } from '../action-control/action-control';
 import { HostShell } from '../host-shell/host-shell';
-import {
-  eyebrowClass,
-  ListCard,
-  ListHeading,
-  ListRow,
-} from '../list-card/list-card';
-import { SampleForm, type SampleSubmit } from '../sample-form/sample-form';
+import { ListCard, ListHeading, ListRow } from '../list-card/list-card';
 
 /** A tournament's events by the group they run in, with one event's form beside them. */
 export function EventsSchedule({
   rail,
   schedule,
-  submit,
   stored,
 }: {
   readonly rail: TimelineRail;
   readonly schedule: Read;
-  readonly submit?: SampleSubmit;
-  readonly stored?: {
+  readonly stored: {
     readonly aside: {
       readonly title: string;
       readonly content: ReactNode;
@@ -34,72 +24,13 @@ export function EventsSchedule({
     readonly schedule: ReactNode;
   };
 }) {
-  const form = schedule.selected;
   return (
     <HostShell
       rail={rail}
       current="events"
-      {...(stored
-        ? stored.aside
-          ? { asideLabel: stored.aside.title, aside: stored.aside.content }
-          : {}
-        : form === null || !submit
-          ? {}
-          : {
-              asideLabel: form.name,
-              aside: (
-                <SampleForm
-                  action={submit('Save')}
-                  label={form.name}
-                  className="flex flex-col gap-4"
-                >
-                  <h2 className="font-display text-xl font-bold">
-                    {form.name}
-                  </h2>
-                  <dl className="flex flex-col">
-                    <dt className={eyebrowClass}>Format</dt>
-                    <dd className="text-sm">
-                      {form.format.value} · {form.format.source}
-                    </dd>
-                  </dl>
-                  <ChoiceField id="event-divisions" choice={form.divisions} />
-                  <dl className="flex flex-col">
-                    <dt className={eyebrowClass}>Who counts as a novice</dt>
-                    <dd className="text-sm">
-                      {form.novice.value} · {form.novice.source}
-                    </dd>
-                  </dl>
-                  <div className="grid grid-cols-3 gap-3">
-                    <ChoiceField
-                      id="event-prelim-rounds"
-                      choice={form.prelimRounds}
-                    />
-                    <ChoiceField
-                      id="event-open-break"
-                      choice={form.openBreak}
-                    />
-                    <ChoiceField
-                      id="event-novice-break"
-                      choice={form.noviceBreak}
-                    />
-                  </div>
-                  <ChoiceField
-                    id="event-double-qualifier"
-                    choice={form.doubleQualifier}
-                  />
-                  <ChoiceField id="event-runs-with" choice={form.runsWith} />
-                  <p className="text-sm text-ink-muted">
-                    Ballot, pairing rules, tiebreaks and resolutions for this
-                    event are in <SentenceLink action={form.settings} />. Who
-                    sees results and when is set once for the tournament.
-                  </p>
-                  <div className="flex items-center gap-4">
-                    <Button type="submit">Save</Button>
-                    <ActionButton action={form.remove} />
-                  </div>
-                </SampleForm>
-              ),
-            })}
+      {...(stored.aside
+        ? { asideLabel: stored.aside.title, aside: stored.aside.content }
+        : {})}
     >
       <PageHeader
         title="Events and schedule"
@@ -127,13 +58,9 @@ export function EventsSchedule({
                   }
                   detail={event.summary}
                   tone={
-                    event.slug === (stored?.selectedEventId ?? form?.slug)
-                      ? 'held'
-                      : 'plain'
+                    event.slug === stored.selectedEventId ? 'held' : 'plain'
                   }
-                  current={
-                    event.slug === (stored?.selectedEventId ?? form?.slug)
-                  }
+                  current={event.slug === stored.selectedEventId}
                 />
               ))}
             </ul>
@@ -161,7 +88,7 @@ export function EventsSchedule({
           <ActionButton size="small" action={schedule.judgePool.action} />
         ) : null}
       </div>
-      {stored?.schedule}
+      {stored.schedule}
     </HostShell>
   );
 }

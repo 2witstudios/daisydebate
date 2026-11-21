@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { WalkLink as Link } from '../walk/walk-link';
+import Link from 'next/link';
 import type { People as Read } from '../../../features/tab/people';
 import type { TimelineRail } from '../../../features/tab/tournament';
 import { cn } from '../../cn';

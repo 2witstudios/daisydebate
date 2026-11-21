@@ -18,6 +18,7 @@ export { validateMigrationBaselines } from './policy-baselines';
 export type { MigrationBaseline } from './policy-baselines';
 import { collectExportNames } from './policy-exports';
 import { validatePlannedReaders, type PlannedReader } from './planned-readers';
+import { collectImporters } from './planned-reader-importers';
 import {
   entryObjectProblems,
   registryShapeProblems,
@@ -347,6 +348,7 @@ export async function collectPolicy(): Promise<PolicyReport> {
     ...validatePlannedReaders(readersRegistry, {
       knownPaths,
       exportNames: await collectExportNames(repositoryFiles, knownPaths),
+      importers: collectImporters(repositoryFiles),
     }),
     ...duplicateAdrNumberProblems(knownPaths),
     ...numberCollisionProblems(),

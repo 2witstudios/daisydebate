@@ -23,7 +23,6 @@ const pinnedSettingLines = [
   'ballots',
   'recording',
 ] as const;
-export type PinnedSettingLine = (typeof pinnedSettingLines)[number];
 
 const eventRoomEntrySchema = z.strictObject({
   entryId: idSchema,
@@ -43,7 +42,6 @@ const eventRoomEntrySchema = z.strictObject({
   /** The viewer's own entry. */
   own: z.boolean(),
 });
-export type EventRoomEntry = z.infer<typeof eventRoomEntrySchema>;
 
 const eventRoomJudgeSchema = z.strictObject({
   name,
@@ -91,7 +89,6 @@ export const eventRoomViewSchema = z.strictObject({
     ballot: z.boolean(),
   }),
 });
-export type EventRoomView = z.infer<typeof eventRoomViewSchema>;
 
 export const eventRoomReadCatalogue = {
   EventRoomView: { gate: ['room.read'] },

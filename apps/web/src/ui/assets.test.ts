@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { art, avatarSrc } from './assets';
-import { users } from './mock/users';
+import { users } from './mock/users.test-support';
 
 setupRitewayBun();
 

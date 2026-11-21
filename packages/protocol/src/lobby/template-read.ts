@@ -34,7 +34,6 @@ const templateSettingRowSchema = z
         path: ['key'],
       });
   });
-export type TemplateSettingRow = z.infer<typeof templateSettingRowSchema>;
 
 /**
  * A template: its name, the organization that owns it, the format and

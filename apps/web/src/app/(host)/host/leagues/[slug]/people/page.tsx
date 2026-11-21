@@ -11,7 +11,7 @@ export const metadata: Metadata = { title: 'People' };
 
 /**
  * A league's people, read from stored state; a viewer who may not read its
- * people finds no page. The sample walk's league lives beneath the walk.
+ * people finds no page.
  */
 export default async function Page({
   params,

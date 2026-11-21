@@ -50,7 +50,6 @@ const poolResolutionSchema = z
       (resolution.hold !== null && !resolution.hold.released),
     { message: 'only an unreleased resolution is withheld', path: ['text'] },
   );
-export type PoolResolution = z.infer<typeof poolResolutionSchema>;
 
 /** The tab rounds that share one resolution rule, and whether it may still change. */
 const roundRuleSchema = z.strictObject({
@@ -61,7 +60,6 @@ const roundRuleSchema = z.strictObject({
   /** How long before the round a resolution given to all is released. */
   releaseLeadMs: z.int().min(0).nullable(),
 });
-export type RoundResolutionRule = z.infer<typeof roundRuleSchema>;
 
 /** An event's resolution pool and per-round rules, for its host. */
 export const resolutionPoolViewSchema = z.strictObject({
@@ -90,7 +88,6 @@ export const resolutionPoolViewSchema = z.strictObject({
   ),
   capabilities: z.strictObject({ edit: z.boolean(), release: z.boolean() }),
 });
-export type ResolutionPoolView = z.infer<typeof resolutionPoolViewSchema>;
 
 /** One tab round's resolution as a participant sees it. */
 export const roundResolutionSchema = z.discriminatedUnion('kind', [

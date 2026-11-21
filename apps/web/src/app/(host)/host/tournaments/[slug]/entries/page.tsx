@@ -1,6 +1,6 @@
 import { requireTabRelease } from '../../../../../../features/tab/release';
 import type { Metadata } from 'next';
-import { StoredRoster } from '../entries/stored-roster';
+import { StoredRoster } from './stored-roster';
 
 export const metadata: Metadata = { title: 'Entries' };
 
