@@ -218,13 +218,17 @@ test('two guardians share one choice and only current guardians can clear a hold
           (sp) =>
             sp`select * from public.daisy_protection_guardians(${child.userId})`,
         ),
-      ).rejects.toThrow();
+      ).rejects.toThrow(
+        /permission denied for function daisy_protection_guardians/,
+      );
       await expect(
         sql.savepoint(
           (sp) =>
             sp`update friend_guardian_approvals set cleared=true where id=${approvalId}`,
         ),
-      ).rejects.toThrow();
+      ).rejects.toThrow(
+        /permission denied for table friend_guardian_approvals/,
+      );
 
       expect(
         await run(coGuardian, {

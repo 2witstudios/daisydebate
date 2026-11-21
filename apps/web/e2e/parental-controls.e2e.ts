@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import type { Page } from '@playwright/test';
 import { createId } from '@paralleldrive/cuid2';
-import { affirmativeSide, sideSeat } from '@daisy/protocol';
+import { affirmativeSide, isNamedSeat, sideSeat } from '@daisy/protocol';
 import { systemClock } from '@daisy/clock';
 import {
   confirmSignIn,
@@ -370,11 +370,13 @@ test('a guardian clears a Guided hold, then Supervised locks messages and ranked
     let childActorId: string;
     try {
       const seated = await claim(child, casual, 'Affirmative 1');
-      const childSeat = seated.participants.find(
-        (participant) =>
-          participant.kind === 'human' &&
-          participant.actorId !== casual.hostActorId,
-      );
+      const childSeat = seated.participants
+        .filter(isNamedSeat)
+        .find(
+          (participant) =>
+            participant.kind === 'human' &&
+            participant.actorId !== casual.hostActorId,
+        );
       if (!childSeat)
         throw new Error('The supervised child did not take the casual seat');
       childActorId = childSeat.actorId;
