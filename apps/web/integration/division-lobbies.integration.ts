@@ -412,6 +412,72 @@ test('a member who turns 18 mid-season finishes it on Youth', async () => {
   );
 });
 
+test('a Youth season carry uses current age for personal waivers', async () => {
+  await withRoomRuntime(async (f) =>
+    withSeasons(
+      f,
+      async () => {
+        await setAge(f, f.host, 'eighteen', '1 year');
+        await setAge(f, f.guest, 'seventeen');
+        await setAge(f, f.outsider, 'eighteen', '1 year');
+        let room = await f.assemble(await ranked(f), undefined, false);
+        room = (
+          await f.command(f.outsider, room, {
+            type: 'claim-seat',
+            seat: judgeSeat(),
+          })
+        ).view;
+        const current = [
+          { member: f.host, document: contentWaiverDocument },
+          { member: f.guest, document: youthContentWaiverDocument },
+          { member: f.outsider, document: contentWaiverDocument },
+        ];
+        const offered = [];
+        for (const { member, document } of current) {
+          offered.push(
+            (await f.operations.view(member, room.id)).contentWaiverVersion,
+          );
+          await f.store.signContentWaiver({
+            id: createId(),
+            userId: member.userId,
+            roomId: room.id,
+            version: document.version,
+            words: agreementWords(document),
+          });
+        }
+        const ready = await everyoneReady(f, room, [
+          f.host,
+          f.guest,
+          f.outsider,
+        ]);
+        assert({
+          given:
+            'a Youth debater and judge who are now 18 during the same season',
+          should:
+            'keep the debater on Youth while requiring the current-age personal waivers',
+          actual: {
+            ageRule: room.ageRule,
+            offered,
+            start: await refusalOf(
+              f.command(f.host, ready, { type: 'start-round' }),
+            ),
+          },
+          expected: {
+            ageRule: 'under-18',
+            offered: [
+              CONTENT_WAIVER_VERSION,
+              YOUTH_CONTENT_WAIVER_VERSION,
+              CONTENT_WAIVER_VERSION,
+            ],
+            start: 'accepted',
+          },
+        });
+      },
+      { youthStartedAgo: '3 months' },
+    ),
+  );
+});
+
 test('the Youth carry is bounded: no one is aged before their own record, nor more than a year back', async () => {
   await withRoomRuntime(async (f) =>
     withSeasons(

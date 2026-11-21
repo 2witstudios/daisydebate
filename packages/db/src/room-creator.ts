@@ -6,7 +6,10 @@ import {
 } from '@daisy/protocol/lobby/eligibility';
 import { sql } from 'drizzle-orm';
 import { clubOrganizationKinds } from './billing-owner-lock';
-import { readGuardianLobbyIds } from './guardians/lobby-permissions';
+import {
+  isMinorAgeBand,
+  readGuardianLobbyIds,
+} from './guardians/lobby-permissions';
 import { readCompetitionAgeBand } from './ladder-division-band';
 import { rowsOf } from './raw-rows';
 import type { Tx } from './room-command-facts';
@@ -60,6 +63,9 @@ export async function readRoomCreator(
   return {
     ageBand,
     clubStaff: staff?.staff === true,
-    guardianLobbyIds: await readGuardianLobbyIds(tx, userId),
+    guardianLobbyIds:
+      lobbyId === undefined || isMinorAgeBand(ageBand)
+        ? await readGuardianLobbyIds(tx, userId)
+        : [],
   };
 }

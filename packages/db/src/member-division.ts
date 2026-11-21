@@ -28,9 +28,8 @@ export const memberDivisionOperations = ({
       return row?.division ?? null;
     }),
   /**
-   * Who this member is as a Room creator (ADR 0156): their division and
-   * whether they are club staff, so the create form offers the Lobby choice
-   * only to staff. The create command decides again under its lock.
+   * The create form's landing preference, club staff standing and guardian
+   * grants. Submission checks the selected lobby again under its lock.
    */
   readRoomCreatorFact: (userId: string) =>
     instrumented(eventSink, 'readRoomCreatorFact', () =>

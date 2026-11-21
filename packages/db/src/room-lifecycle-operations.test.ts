@@ -23,13 +23,13 @@ test('a create whose host another Room holds is refused as active-room (ADR 0070
     [],
     [],
     [],
-    // The creator's age, temporary subject scope, and official lobby choices.
-    [],
-    [],
-    [],
-    [],
-    [],
     [[publicLobbyId, 'Open', 'open', 'adults', daisyOrganizationId]],
+    [['adult']], // Default lobby preference.
+    [['adult']], // The selected lobby's season age.
+    [], // Read the prior subject scope.
+    [],
+    [],
+    [],
     now,
     [], // No league ladder configured for this standing lobby.
     [],

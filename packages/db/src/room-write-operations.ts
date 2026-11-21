@@ -1,6 +1,5 @@
 import { requireRankedProtection } from './guardians/ranked-protection';
 import { lockActiveLobbySeason } from './ladder-season';
-import { readCompetitionAgeBand } from './ladder-division-band';
 import { refuseIneligibleDebaters } from './room-start-eligibility';
 import {
   hasGuardianLobbyWaiver,
@@ -130,7 +129,7 @@ async function requireStartWaivers(
     const account = await loadAuthorizationAccount(tx, userId);
     const agreements = agreementsOf(
       state,
-      await readCompetitionAgeBand(tx, userId, state.lobbyId),
+      account?.ageBand ?? null,
       account?.actorId ?? null,
     );
     const version = agreements?.contentWaiverVersion;
@@ -342,7 +341,7 @@ async function executeOnce(
     input.type === 'ready'
       ? input.readyAgreements(
           state,
-          await readCompetitionAgeBand(tx, input.caller.userId, state.lobbyId),
+          account?.ageBand ?? null,
           input.caller.actorId,
         )
       : null;

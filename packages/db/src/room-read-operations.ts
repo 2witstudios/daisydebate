@@ -14,7 +14,6 @@ import type { roomCommandTransaction } from './room-command-transaction';
 import type { CasualJudgeAdmission } from './casual-judge-admission';
 import type { AllowanceDecision } from '@daisy/protocol/billing';
 import { readEntitlementGrants } from './entitlement-grants';
-import { readCompetitionAgeBand } from './ladder-division-band';
 import {
   roomListQuerySchema,
   type RoomListQuery,
@@ -215,11 +214,7 @@ export const roomReadOperations = ({
             };
         }
         return {
-          viewerAgeBand: await readCompetitionAgeBand(
-            tx,
-            caller.userId,
-            row.lobbyId,
-          ),
+          viewerAgeBand: account?.ageBand ?? null,
           ratingPool,
           state: {
             ...facts.state,
