@@ -40,7 +40,11 @@ pass while independent pools continue. A season with no replay inputs reads
 the shared projections.
 
 The official leaderboard, member cards and Room discovery use the same
-public rating history. When a private or delayed result affects the stored
+public rating history. The receiving ladder reads projections, postings and
+pre-ledger results from one snapshot. A Room shows each seat's rating from
+its selected ladder and uses its frozen season once the Round has started.
+Discovery has no host rating until that host has a published standing.
+When a private or delayed result affects the stored
 projection, the public calculation uses the complete released games so
 later public results remain visible. An approved tournament result counts
 in that view when its posting and decision have been released to the public.

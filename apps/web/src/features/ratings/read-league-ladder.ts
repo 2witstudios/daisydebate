@@ -119,7 +119,7 @@ export const readLeagueLadder =
               ...row,
               games: row.played,
               state: { rating: row.rating },
-              change: row.seasonChange,
+              change: row.lastChange,
             }));
         const sorted = entries.sort(
           (a, b) =>

@@ -44,6 +44,10 @@ ALTER TABLE public.rounds DROP CONSTRAINT rounds_ranked_ladder_check;
 --> statement-breakpoint
 DROP TRIGGER rounds_league_ladder_immutable ON public.rounds;
 --> statement-breakpoint
+-- Like the earlier division backfill, rating and Youth metadata changes
+-- must preserve already completed Rounds with historical empty judge slots.
+ALTER TABLE public.rounds DISABLE TRIGGER rounds_judge_slots_complete;
+--> statement-breakpoint
 UPDATE public.rounds rd SET standing_age_rule=CASE
   WHEN rd.ladder_division='youth' THEN 'under-18'::public.lobby_age_rule
   ELSE (SELECT l.age_rule FROM public.rooms r
@@ -203,7 +207,8 @@ UPDATE public.rounds r SET season_id=coalesce(
 FROM ll2_season_destinations d WHERE d.round_id=r.id;
 --> statement-breakpoint
 -- The original projection follows its newest posting. Fill other pools
--- from their own last recorded transition, retaining the ledger verbatim.
+-- from their own last recorded transition. Legacy ledger-only identities
+-- remain ledger-only, including historical non-debating participants.
 CREATE TEMP TABLE ll2_rating_tip ON COMMIT DROP AS
 SELECT DISTINCT ON (c.actor_id,c.ladder,c.season_id,r.ladder_id,r.season_id)
   c.actor_id,c.ladder AS legacy_ladder,c.season_id AS legacy_season,
@@ -211,6 +216,10 @@ SELECT DISTINCT ON (c.actor_id,c.ladder,c.season_id,r.ladder_id,r.season_id)
   c.rating_after,c.deviation_after,c.volatility_after,c.occurred_at,c.id,
   count(*) OVER (PARTITION BY c.actor_id,r.ladder_id,r.season_id)::integer AS version
 FROM public.rating_changes c JOIN public.rounds r ON r.id=c.round_id
+WHERE EXISTS (
+  SELECT 1 FROM public.ratings p
+  WHERE p.actor_id=c.actor_id AND p.ladder=c.ladder AND p.season_id=c.season_id
+)
 ORDER BY c.actor_id,c.ladder,c.season_id,r.ladder_id,r.season_id,c.occurred_at DESC,c.id DESC;
 --> statement-breakpoint
 WITH tips AS (
@@ -246,6 +255,8 @@ UPDATE public.seasons s SET ends_at=greatest(
 WHERE s.status='closed' AND s.ends_at IS NULL;
 --> statement-breakpoint
 SET CONSTRAINTS ALL IMMEDIATE;
+--> statement-breakpoint
+ALTER TABLE public.rounds ENABLE TRIGGER rounds_judge_slots_complete;
 --> statement-breakpoint
 ALTER TABLE public.seasons ALTER COLUMN lobby_id SET NOT NULL;
 --> statement-breakpoint

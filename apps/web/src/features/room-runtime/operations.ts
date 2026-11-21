@@ -239,10 +239,12 @@ export function createRoomRuntimeOperations({
               actorIds,
               spectatorClockAt(now),
               replayPublishedStandings,
+              facts.ratingPool ?? undefined,
             ),
           blinded: () => store.readRatingBlindings(caller.actorId),
         },
         now,
+        facts.ratingPool,
       )),
       aiJudgeSeating: await roomAiJudgeSeating(state, caller.actorId, () =>
         store.readOwnCasualJudgeAllowance(
@@ -538,7 +540,6 @@ export function createRoomRuntimeOperations({
             }).allow),
         (account) => can(caller, 'room.list', account),
         (fact) => hostIdentityHidden(fact, caller.actorId),
-        clock,
         readRoundOpeningTopic,
       );
       const visibleHosts = [
@@ -567,7 +568,7 @@ export function createRoomRuntimeOperations({
           );
           return {
             ...room,
-            hostRating: rating ? Math.round(rating.rating) : room.hostRating,
+            hostRating: rating ? Math.round(rating.rating) : null,
           };
         }),
       };

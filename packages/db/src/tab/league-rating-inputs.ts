@@ -18,7 +18,7 @@ import {
 } from './league-certified-rating-inputs';
 import { loadLobbyAuthority } from './lobby-authority';
 import {
-  readActivePublishedRatings,
+  readLobbyPublishedRatings,
   type PublishStandings,
   type StandingsRead,
 } from '../standings';
@@ -248,49 +248,52 @@ export const createLeagueRatingStore = (database: TabDatabase) => ({
       } | null,
     ) => Promise<Answer>,
   ): Promise<Answer> =>
-    database.transaction(async (tx) => {
-      const authority = await loadLobbyAuthority(tx, input);
-      if (
-        !authority ||
-        authority.lobby.kind !== 'standing' ||
-        authority.authorization.organization?.organizationKind !== 'league'
-      )
-        return work(null);
-      const [ladder] = await tx
-        .select()
-        .from(ladders)
-        .where(eq(ladders.lobbyId, authority.lobby.id))
-        .orderBy(asc(ladders.createdAt), asc(ladders.id))
-        .limit(1);
-      const facts = ladder
-        ? await loadLeagueRatingInputs(tx, {
-            viewerUserId: input.viewerUserId,
-            ladderId: ladder.id,
-            publicAt: authority.checkedAt,
-            ...(input.canReadSource
-              ? { canReadSource: input.canReadSource }
-              : {}),
-          })
-        : null;
-      return work(
-        facts
-          ? {
-              authority,
-              input: facts,
-              publicStandings: async (clock, publish) =>
-                (
-                  await readActivePublishedRatings(
-                    tx,
-                    {
-                      lobbyId: authority.lobby.id,
-                      clock,
-                      leaguePublication: true,
-                    },
-                    publish,
-                  )
-                )?.standings ?? { ratings: [], changes: [] },
-            }
-          : null,
-      );
-    }),
+    database.transaction(
+      async (tx) => {
+        const authority = await loadLobbyAuthority(tx, input);
+        if (
+          !authority ||
+          authority.lobby.kind !== 'standing' ||
+          authority.authorization.organization?.organizationKind !== 'league'
+        )
+          return work(null);
+        const [ladder] = await tx
+          .select()
+          .from(ladders)
+          .where(eq(ladders.lobbyId, authority.lobby.id))
+          .orderBy(asc(ladders.createdAt), asc(ladders.id))
+          .limit(1);
+        const facts = ladder
+          ? await loadLeagueRatingInputs(tx, {
+              viewerUserId: input.viewerUserId,
+              ladderId: ladder.id,
+              publicAt: authority.checkedAt,
+              ...(input.canReadSource
+                ? { canReadSource: input.canReadSource }
+                : {}),
+            })
+          : null;
+        return work(
+          facts
+            ? {
+                authority,
+                input: facts,
+                publicStandings: async (clock, publish) =>
+                  (
+                    await readLobbyPublishedRatings(
+                      tx,
+                      {
+                        lobbyId: authority.lobby.id,
+                        clock,
+                        leaguePublication: true,
+                      },
+                      publish,
+                    )
+                  )?.standings ?? { ratings: [], changes: [] },
+              }
+            : null,
+        );
+      },
+      { isolationLevel: 'repeatable read' },
+    ),
 });

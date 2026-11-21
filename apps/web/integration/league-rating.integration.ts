@@ -408,7 +408,30 @@ async function legacyRatingRecovery(world: World, priorSeasonId: string) {
         actual: [failures, [...(await changes())], await publicStanding()],
         expected: [[early], [], before],
       });
-      const recovered = await sweep({ limit: 1 });
+      const tab = createTabStore(world.database);
+      const [recovered, beforeCommit, afterCommit] = await tab.leagueRatings(
+        { viewerUserId: world.bots.Director!.userId, lobbyId },
+        async (facts) => {
+          if (!facts) throw new Error('Missing receiving ladder');
+          const publication = () =>
+            facts.publicStandings(
+              spectatorClockAt(new Date().toISOString()),
+              (source) => source,
+            );
+          const unmaterialized = async () =>
+            (await publication()).publicResults?.legacyRooms?.length;
+          const initial = await unmaterialized();
+          const recovered = await sweep({ limit: 1 });
+          return [recovered, initial, await unmaterialized()] as const;
+        },
+      );
+      assert({
+        given:
+          'the worker settles one Room on another connection during a receiving ladder read',
+        should: 'hold one publication snapshot throughout the request',
+        actual: [beforeCommit, afterCommit],
+        expected: [2, 2],
+      });
       assert({
         given:
           'the earlier Room has posted and the second is still unmaterialized',
@@ -431,6 +454,27 @@ async function legacyRatingRecovery(world: World, priorSeasonId: string) {
           await publicStanding(),
         ],
         expected: [[early, late], true, before],
+      });
+      const league = readLeagueLadder({ store: tab, authorize });
+      const changesShown = await Promise.all(
+        ['Director', 'Coach', 'Judge A'].map(
+          async (name) =>
+            (await league(as(world.bots[name]!), { lobbyId }))?.lines.find(
+              (line) => line.actorId === actorId,
+            )?.change,
+        ),
+      );
+      const latest = posted[1]!;
+      assert({
+        given:
+          'a source-visible host, a league member and an outsider with the same two public games',
+        should: 'show the latest game movement on all three reads',
+        actual: changesShown,
+        expected: [
+          changesShown[0],
+          changesShown[0],
+          Math.round(latest.rating_after - latest.rating_before),
+        ],
       });
     },
     { databaseUrl: world.runtimeDatabaseUrl! },

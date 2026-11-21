@@ -162,6 +162,9 @@ test(
         () =>
           f.sql`update rooms set legacy_tournament_youth=false where id=${eventRooms[0]!}`,
       );
+      // The constraints above belong to LL-1. Run today's readers only once
+      // the scratch database also has their frozen Round fields.
+      await scratch.migrate(() => true);
       const db = drizzle({ client: f.sql });
       const [reuse] = await db.execute(
         sql`select ${youthReuseFencedSql(sql`${eventRound}`)} as fenced`,

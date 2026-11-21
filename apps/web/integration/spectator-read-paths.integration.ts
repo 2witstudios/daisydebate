@@ -134,15 +134,10 @@ test('every public and member read holds a ranked outcome until release', async 
         select lobby_id,${openRoomId},host_actor_id,title,null,'public',format_id,format_version,preset_version,competition_type,config,execution_plan,rules_snapshot,'assembling'
         from rooms where id=${frozen.room.id}`;
       const listedRating = async () => {
-        const page = await f.store.listRoomPage(
-          f.outsider,
-          { pageSize: 50, q: '' },
-          () => true,
-          () => true,
-          () => false,
-          spectatorClockAt(now),
-          () => null,
-        );
+        const page = await f.operations.list(f.outsider, {
+          pageSize: 50,
+          q: '',
+        });
         return page.rooms.find((r) => r.id === openRoomId)?.hostRating;
       };
       const ledger =
@@ -245,9 +240,9 @@ test('every public and member read holds a ranked outcome until release', async 
       });
       assert({
         given: 'a Room listing the host before release',
-        should: 'show the rating from before the held Round',
+        should: 'keep the host unrated when their first posting is still held',
         actual: held.listedRating,
-        expected: Math.round(ledger[0]!.rating_before),
+        expected: null,
       });
       assert({
         given: 'a public profile before release',

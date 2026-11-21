@@ -68,6 +68,7 @@ describe('standings reads (RATE-1.4.1)', () => {
             affirmative: winner,
             negative: loser,
             outcome: 'affirmative',
+            seasonId: scope.seasonId,
           });
           for (const [actorId, after] of [
             [winner, winnerAfter],

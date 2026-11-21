@@ -1,4 +1,4 @@
-import { sql } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import {
   type RatingDivision,
@@ -10,7 +10,12 @@ import { roundOutcomeSql } from './round-outcome-sql';
 import { seatOfColumns, type SeatColumns } from './seat-columns';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { readOfficialStandingLobbies } from './official-standing-lobbies';
-import { readActivePublishedRatings, type PublishStandings } from './standings';
+import {
+  readLobbyPublishedRatings,
+  type LobbyRatingSelection,
+  type PublishStandings,
+} from './standings';
+import { lobbies as standingLobbies } from './schema/lobbies';
 import { ratingDivisionForAgeRule } from '@daisy/protocol';
 import {
   outcomeReleasedSql,
@@ -44,16 +49,27 @@ const readCardRatings = (
   actorIds: readonly string[],
   clock: SpectatorClock,
   publish?: PublishStandings,
+  pool?: LobbyRatingSelection,
 ): Promise<readonly CardRatingRow[]> =>
   database.transaction(
     async (tx) => {
-      const lobbies = await readOfficialStandingLobbies(tx);
+      const lobbies = pool
+        ? await tx
+            .select({
+              id: standingLobbies.id,
+              ageRule: standingLobbies.ageRule,
+            })
+            .from(standingLobbies)
+            .where(eq(standingLobbies.id, pool.lobbyId))
+        : await readOfficialStandingLobbies(tx);
       const requested = new Set(actorIds);
       const ratings: CardRatingRow[] = [];
       for (const lobby of lobbies) {
-        const active = await readActivePublishedRatings(
+        const active = await readLobbyPublishedRatings(
           tx,
-          { lobbyId: lobby.id, clock },
+          pool
+            ? { ...pool, clock, leaguePublication: true }
+            : { lobbyId: lobby.id, clock },
           publish,
         );
         if (!active) continue;
@@ -145,10 +161,11 @@ export const memberCardOperations = ({
     actorIds: readonly string[],
     clock: SpectatorClock,
     publish?: PublishStandings,
+    pool?: LobbyRatingSelection,
   ) =>
     instrumented(eventSink, 'readMemberCardRatings', async () =>
       actorIds.length === 0
         ? []
-        : readCardRatings(ratingDatabase, actorIds, clock, publish),
+        : readCardRatings(ratingDatabase, actorIds, clock, publish, pool),
     ),
 });
