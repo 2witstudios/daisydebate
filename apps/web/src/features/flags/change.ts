@@ -1,3 +1,4 @@
+import { instantMs, tryInstantMs } from '@daisy/clock';
 import type { FlagChange } from '@daisy/protocol/flags';
 import type { FlagDefinition } from './model';
 
@@ -22,7 +23,7 @@ export function decideFlagChange({
   if (revision !== expectedRevision || revision >= 2_147_483_647)
     return { kind: 'refused', reason: 'CONFLICT' };
   if (!Number.isFinite(now)) return { kind: 'refused', reason: 'VALIDATION' };
-  const expiry = Date.parse(entry.expiresOn) + 86_400_000;
+  const expiry = instantMs(`${entry.expiresOn}T00:00:00Z`) + 86_400_000;
   if (change.action === 'flag.override.update') {
     if (!validOverride(entry, change.override, now, expiry))
       return { kind: 'refused', reason: 'VALIDATION' };
@@ -43,6 +44,6 @@ function validOverride(
 ) {
   if (entry.kind !== 'release') return false;
   if (override === null) return true;
-  const until = Date.parse(override.expiresAt);
-  return Number.isFinite(until) && until > now && until <= expiry;
+  const until = tryInstantMs(override.expiresAt);
+  return until !== undefined && until > now && until <= expiry;
 }

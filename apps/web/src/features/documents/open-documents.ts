@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import type { PaletteMode } from './command-palette';
 import type { MemberDocument } from './document';
 
@@ -50,7 +51,7 @@ export const findOpen = (
 
 const lastEdited = (documents: readonly MemberDocument[]) =>
   [...documents].sort(
-    (a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt),
+    (a, b) => instantMs(b.updatedAt) - instantMs(a.updatedAt),
   )[0]?.id;
 
 /** Bodies arriving: what is still loading takes them, and a loaded document keeps its own. */

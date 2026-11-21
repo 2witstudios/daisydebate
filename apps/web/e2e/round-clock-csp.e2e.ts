@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -36,7 +37,7 @@ test('the shared Round reader advances under the actual production nonce CSP', a
       start_gate: null,
       clock_stops: [],
     },
-    nowMs: Date.parse(origin) + 450_000,
+    nowMs: instantMs(origin) + 450_000,
   };
   const folder = mkdtempSync(join(tmpdir(), 'daisy-round-clock-csp-'));
   let bundle: string;

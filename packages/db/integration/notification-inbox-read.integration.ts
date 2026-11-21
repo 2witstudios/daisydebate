@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { drizzle } from 'drizzle-orm/bun-sql';
@@ -29,7 +30,7 @@ test('the inbox pages by cursor over what still stands', async () => {
     const member = await createAuthorizationSubject(f);
     const database = drizzle({ client: f.sql });
     const notifications = notificationOperations({ database });
-    const start = Date.parse('2026-11-01T00:00:00.000Z');
+    const start = instantMs('2026-11-01T00:00:00.000Z');
     const owe = (roundId: string, minute: number) =>
       database.transaction((tx) =>
         oweNotifications(tx, {

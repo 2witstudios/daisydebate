@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import type { BrowserContext, Page } from '@playwright/test';
 import {
   roundViewSchema,
@@ -24,7 +25,7 @@ const openSegmentRemaining = (view: RoundView, atMs: number) => {
   if (!row || row.endedAt !== null) return null;
   return (
     segmentDueAtMs({
-      startedAtMs: Date.parse(row.startedAt),
+      startedAtMs: instantMs(row.startedAt),
       durationMs: row.durationMs,
       returnedMs: row.returnedMs,
     }) - atMs

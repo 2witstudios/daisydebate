@@ -18,7 +18,7 @@ import type { LobbyCommandAnswer } from '@daisy/protocol/lobby/command';
 import type { TabPrincipal } from '../tab-principal';
 import { decideLobby, type LobbyFacts } from '../commands/lobby';
 import { CommandDenied, runLobbyCommand } from '../commands/run-command';
-import { commandDigest } from './command-digest';
+import { commandDigest } from '@daisy/digest';
 import { lobbyAdministrationAuthority } from './lobby-administration-authority';
 
 type Dependencies = {

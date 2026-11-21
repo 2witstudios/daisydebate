@@ -185,10 +185,14 @@ test('the child’s first sign-in claims the invitation', () => {
     },
   });
   assert({
-    given: 'an expired, cancelled or no-longer-minor invitation',
+    given: 'an expired, invalid, cancelled or no-longer-minor invitation',
     should: 'claim nothing: the child onboards like anyone else',
     actual: [
       claimInvitations([invitation('c', '2026-10-01T00:00:00.000Z')], now),
+      claimInvitations(
+        [invitation('f', '2026-11-18T00:00:00.000Z', { expiresAt: 'invalid' })],
+        now,
+      ),
       claimInvitations(
         [invitation('d', '2026-11-18T00:00:00.000Z', { status: 'cancelled' })],
         now,
@@ -202,7 +206,7 @@ test('the child’s first sign-in claims the invitation', () => {
         now,
       ),
     ],
-    expected: [null, null, null],
+    expected: [null, null, null, null],
   });
   assert({
     given: 'an invitation from a parent not admitted to the beta',

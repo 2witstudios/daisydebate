@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { z } from 'zod';
 import { idSchema } from './primitives';
 import { billingOwnerSchema, maxPurchaseQuantity } from './billing-owner';
@@ -8,8 +9,8 @@ export const purchaseBounds = {
   claimMs: 30_000,
   retryMs: 5_000,
 } as const;
-const instant = z.iso.datetime({ precision: 3 });
-const at = Date.parse;
+const instant = z.iso.datetime({ precision: 3, abort: true });
+const at = instantMs;
 const customerId = z
   .string()
   .regex(/^cus_[A-Za-z0-9_]+$/)

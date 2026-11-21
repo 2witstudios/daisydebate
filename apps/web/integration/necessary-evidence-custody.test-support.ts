@@ -1,7 +1,7 @@
+import { sha3Hex } from '@daisy/digest';
 import { privacyScope } from './necessary-evidence-custody-fixture.test-support';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { createHash } from 'node:crypto';
 import type { EvidenceCustodyIdentity, SealedEvidence } from '@daisy/protocol';
 import {
   initializeLocalEvidenceAuthority,
@@ -119,9 +119,7 @@ if (import.meta.main) {
         process.stdout.write(
           JSON.stringify({
             heldDigest:
-              result.kind === 'opened'
-                ? createHash('sha3-256').update(result.plaintext).digest('hex')
-                : null,
+              result.kind === 'opened' ? sha3Hex(result.plaintext) : null,
             permission,
           }),
         );
@@ -131,9 +129,7 @@ if (import.meta.main) {
             result.kind === 'opened'
               ? {
                   kind: result.kind,
-                  digest: createHash('sha3-256')
-                    .update(result.plaintext)
-                    .digest('hex'),
+                  digest: sha3Hex(result.plaintext),
                 }
               : result,
           ),

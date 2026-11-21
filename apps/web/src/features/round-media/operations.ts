@@ -1,3 +1,4 @@
+import { addMs } from '@daisy/clock';
 import { admitsPrincipalAccess } from '@daisy/auth/authorization';
 import {
   createAppError,
@@ -280,7 +281,7 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
           principal.kind === 'bot'
             ? input.urlsFor(context.binding.roomName).workerUrl
             : input.urlsFor(context.binding.roomName).publicUrl,
-        expiresAt: new Date(Date.parse(context.now) + 60_000).toISOString(),
+        expiresAt: addMs(context.now, 60_000),
         sessionId: context.session.id,
         roomName: context.binding.roomName,
       };

@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createAppError, createRefusal } from '@daisy/errors';
 import { assertRejects } from '@daisy/errors/testing';
@@ -893,7 +894,7 @@ test('once the speech’s deadline is read, a phrase authorized ahead is timed o
       (row as { phrase: { phraseId: string } }).phrase.phraseId[0] === 'b',
   ) as { phrase: { startsAt?: string } };
   // The stub's database clock reads 1_000_000 ms; the line starts ~400 ms on.
-  const startsAt = Date.parse(ahead.phrase.startsAt ?? '');
+  const startsAt = instantMs(ahead.phrase.startsAt ?? '');
   assert({
     given:
       'a phrase authorized ahead after the speech read its database deadline',

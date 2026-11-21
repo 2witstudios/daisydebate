@@ -1,3 +1,4 @@
+import { addMs } from '@daisy/clock';
 import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
@@ -419,7 +420,7 @@ test('a challenge is offered, listed both ways, repeated once, and goes on decli
     authorize: unfenced,
   });
   const members = [ctx.me.actorId, ctx.them.actorId];
-  const expiresAt = new Date(Date.parse(ctx.now) + 120_000).toISOString();
+  const expiresAt = addMs(ctx.now, 120_000);
   const send = (id: string) =>
     store.withContacts({ ...ctx.me, memberActorIds: members }, (frame) =>
       frame.send({
@@ -490,7 +491,7 @@ test('accepting names only a room made for the offer, and only for a free challe
     authorize: unfenced,
   });
   const members = [ctx.me.actorId, ctx.them.actorId];
-  const expiresAt = new Date(Date.parse(ctx.now) + 120_000).toISOString();
+  const expiresAt = addMs(ctx.now, 120_000);
   const send = (mode: 'ranked' | 'casual') =>
     store.withContacts({ ...ctx.me, memberActorIds: members }, (frame) =>
       frame.send({
@@ -565,7 +566,7 @@ test('accepting names only a room made for the offer, and only for a free challe
     const later = await listChallenges(
       ctx.database,
       ctx.me,
-      new Date(Date.parse(expiresAt) + 1).toISOString(),
+      addMs(expiresAt, 1),
       unfenced,
     );
     await ctx.client.unsafe('delete from challenges where id = $1', [
@@ -613,7 +614,7 @@ test('a challenge is refused while its target is Busy or appearing offline, and 
         mode: 'casual',
         format: 'freestyle',
         now,
-        expiresAt: new Date(Date.parse(now) + 120_000).toISOString(),
+        expiresAt: addMs(now, 120_000),
       }),
     );
   const refused = async () =>
@@ -639,7 +640,7 @@ test('a challenge is refused while its target is Busy or appearing offline, and 
       unfenced,
     );
     await send(ctx.now);
-    const later = new Date(Date.parse(ctx.now) + 121_000).toISOString();
+    const later = addMs(ctx.now, 121_000);
     const listed = await listChallenges(
       ctx.database,
       ctx.them,

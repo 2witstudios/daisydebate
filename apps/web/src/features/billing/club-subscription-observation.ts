@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import {
   subscriptionEvidenceSchema,
   type SubscriptionEvidence,
@@ -126,7 +127,7 @@ function payment(
 const newer = (left: PaidPeriod | null, right: PaidPeriod | null) => {
   if (!left) return right;
   if (!right) return left;
-  return Date.parse(left.period.endsAt) >= Date.parse(right.period.endsAt)
+  return instantMs(left.period.endsAt) >= instantMs(right.period.endsAt)
     ? left
     : right;
 };

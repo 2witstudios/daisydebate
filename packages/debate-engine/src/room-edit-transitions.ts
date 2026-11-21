@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import type {
   RoomAssemblyState,
   RoomCommand,
@@ -238,7 +239,7 @@ export const seatsHeldFrom = (
     (hold) =>
       hold.seat === seat &&
       hold.actorId !== actorId &&
-      Date.parse(hold.until) > Date.parse(now) &&
+      instantMs(hold.until) > instantMs(now) &&
       !arrived(hold.actorId),
   ).length;
 };

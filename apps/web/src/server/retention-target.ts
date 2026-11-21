@@ -1,3 +1,5 @@
+import { addMs } from '@daisy/clock';
+
 export const DAY_MS = 86_400_000;
 
 /**
@@ -14,13 +16,6 @@ export type RetentionTarget = {
     readonly now: string;
     readonly limit: number;
   }) => Promise<number>;
-};
-
-/** The UTC ISO cutoff `windowMs` before `now`; an unusable clock throws. */
-const cutoff = (now: string, windowMs: number) => {
-  const at = Date.parse(now);
-  if (Number.isNaN(at)) throw new Error('Unusable clock value');
-  return new Date(at - windowMs).toISOString();
 };
 
 type CutoffBatch = { readonly before: string; readonly limit: number };
@@ -41,5 +36,5 @@ export const retentionAfter = (
   name: `retention.${name}`,
   batchSize,
   maxBatches,
-  purge: ({ now, limit }) => purge({ before: cutoff(now, windowMs), limit }),
+  purge: ({ now, limit }) => purge({ before: addMs(now, -windowMs), limit }),
 });

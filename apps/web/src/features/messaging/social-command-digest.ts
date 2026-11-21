@@ -1,9 +1,6 @@
-import { createHash } from 'node:crypto';
+import { commandDigest } from '@daisy/digest';
 /** Version and operation bind a normalized social payload; no body is stored. */
 export const messagingSocialDigest = (
   operation: string,
   values: readonly unknown[],
-) =>
-  createHash('sha3-256')
-    .update(JSON.stringify([1, operation, ...values]))
-    .digest('hex');
+) => commandDigest([1, operation, ...values]);

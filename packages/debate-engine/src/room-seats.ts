@@ -1,3 +1,4 @@
+import { sha3Hex } from '@daisy/digest';
 import type {
   RoomAssemblyState,
   RoomCommand,
@@ -20,7 +21,6 @@ import {
 import {
   canonicalJson,
   canonicalOrder,
-  digestOf,
   uniformIndex,
   type WordStream,
 } from '@daisy/seeded-random';
@@ -286,7 +286,7 @@ export function resolveSeats(
       commitment: seatCommitment({
         roomId: room.id,
         roundId: input.roundId,
-        seatsDigest: digestOf(
+        seatsDigest: sha3Hex(
           canonicalJson({ teamOneSide: room.teamOneSide, seats: before }),
         ),
         seed: input.seed,

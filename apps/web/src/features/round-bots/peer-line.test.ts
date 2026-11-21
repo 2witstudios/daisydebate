@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { virtualClock } from '@daisy/clock/testing';
 import { createPeerLineWait } from './peer-line';
@@ -16,7 +17,7 @@ function waiting(
   const wait = createPeerLineWait({
     claim: { scope, token: 'memory-only' },
     readPeerLine: async (_scope, _token, peers, since) => {
-      reads.push(`${peers.join()}@${Date.parse(since)}`);
+      reads.push(`${peers.join()}@${instantMs(since)}`);
       if (mode === 'fails') throw new Error('pool refused');
       if (mode === 'hangs') await new Promise(() => undefined);
       return clock.nowMs() >= landsAtMs;

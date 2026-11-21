@@ -64,7 +64,9 @@
   },
   "dependencies": {
     "@better-auth/drizzle-adapter": "1.7.7",
+    "@daisy/clock": "workspace:*",
     "@daisy/config": "workspace:*",
+    "@daisy/digest": "workspace:*",
     "@daisy/errors": "workspace:*",
     "@daisy/protocol": "workspace:*",
     "@paralleldrive/cuid2": "3.3.0",

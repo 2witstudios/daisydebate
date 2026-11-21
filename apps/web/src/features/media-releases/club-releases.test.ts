@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import type { ClubReleaseStudent } from '@daisy/db';
 import type {
   MediaReleaseRecord,
@@ -177,11 +178,11 @@ test('the source line', () => {
     actual: [
       sameUtcDay(
         '2026-11-18T01:00:00.000Z',
-        Date.parse('2026-11-18T23:00:00.000Z'),
+        instantMs('2026-11-18T23:00:00.000Z'),
       ),
       sameUtcDay(
         '2026-11-17T23:00:00.000Z',
-        Date.parse('2026-11-18T01:00:00.000Z'),
+        instantMs('2026-11-18T01:00:00.000Z'),
       ),
       sameUtcDay(null, 0),
     ],

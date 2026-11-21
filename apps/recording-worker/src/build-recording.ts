@@ -1,3 +1,4 @@
+import { nowMs } from '@daisy/clock';
 import {
   holdAttemptPrefix,
   parseHoldPlaylist,
@@ -133,7 +134,7 @@ const readAttempt = async (
   const prefix = holdAttemptPrefix(holdPrefix, attempt);
   const entries = parseHoldPlaylist(
     await ports.hold.readText(`${prefix}${HOLD_PLAYLIST}`),
-    Date.parse(ports.now()),
+    nowMs(ports),
   );
   const names = new Set(await ports.hold.listNames(prefix));
   const dir = `${ports.workDir}/attempt-${attempt}`;

@@ -1,6 +1,6 @@
 'use client';
 
-import { systemClock, systemId } from '@daisy/clock';
+import { nowMs, systemClock, systemId } from '@daisy/clock';
 import { useEffect, useMemo, useReducer, useRef } from 'react';
 import type { SaveState } from './document-pane';
 import { tabConnection } from '../../features/realtime/browser-adapters';
@@ -101,7 +101,7 @@ export const browserDraftResources = (): DocumentSyncResources => ({
   timers: browserTimers,
   storage: browserStorage(),
   budget: browserKeepaliveBudget,
-  wallClock: () => Date.parse(systemClock.now()),
+  wallClock: () => nowMs(systemClock),
 });
 
 const GONE_NOTICE =

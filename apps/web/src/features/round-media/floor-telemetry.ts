@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { floorClockOf, floorDueAt } from './floor-clock';
 import type { MediaOperationInput } from './operation-context';
@@ -86,7 +87,7 @@ export function observeFloor(input: MediaOperationInput) {
         if (pass)
           pass.dueAtMs = floorDueAt(
             floorClockOf(context.round),
-            Date.parse(context.now),
+            instantMs(context.now),
           );
         return begin.authorize(context);
       },

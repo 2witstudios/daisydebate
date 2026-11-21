@@ -1,3 +1,4 @@
+import { tryInstantMs } from '@daisy/clock';
 import { and, eq, sql, type SQL } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import { idSchema, isSpokenPrefix, spokenPrefix } from '@daisy/protocol';
@@ -61,7 +62,7 @@ function requirePhrase(phrase: BotPhrase) {
     (phrase.startsInMs ?? 0) < 0 ||
     (phrase.startsInMs ?? 0) > MAX_PHRASE_MS + MAX_AHEAD_SLACK_MS ||
     (phrase.startsAt !== undefined &&
-      !Number.isFinite(Date.parse(phrase.startsAt)))
+      tryInstantMs(phrase.startsAt) === undefined)
   )
     throw createAppError('VALIDATION');
 }
@@ -193,7 +194,7 @@ export async function revealLockedBotPhrase(
   requirePhrase(phrase);
   if (
     input.startedAt !== undefined &&
-    !Number.isFinite(Date.parse(input.startedAt))
+    tryInstantMs(input.startedAt) === undefined
   )
     throw createAppError('VALIDATION');
   await requirePhraseAuthority(tx, scope, input.token, input.room);

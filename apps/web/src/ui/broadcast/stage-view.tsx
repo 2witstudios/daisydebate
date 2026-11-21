@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import type {
   StageSeatView,
   StageSnapshot,
@@ -37,7 +38,7 @@ export function StageView(props: {
           <>
             <span>{speech.clock.label}</span>
             <strong>
-              {formatCountdown(Date.parse(speech.clock.endsAt) - props.nowMs)}
+              {formatCountdown(instantMs(speech.clock.endsAt) - props.nowMs)}
             </strong>
           </>
         ) : null}

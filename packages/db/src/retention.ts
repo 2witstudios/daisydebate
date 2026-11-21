@@ -1,3 +1,4 @@
+import { tryInstantMs } from '@daisy/clock';
 import { sql, type Column, type Table, type SQL } from 'drizzle-orm';
 import type { Tx } from './tx';
 import { query } from './raw-rows';
@@ -22,7 +23,7 @@ export function requireRetentionBounds({ before, limit }: RetentionBatch) {
     !Number.isSafeInteger(limit) ||
     limit < 1 ||
     limit > RETENTION_BATCH_LIMIT ||
-    Number.isNaN(Date.parse(before))
+    tryInstantMs(before) === undefined
   )
     throw new Error('Invalid retention bounds');
 }

@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { z } from 'zod';
 import {
   attendanceTimingPolicy,
@@ -14,7 +15,7 @@ const viewOrNativeInstant = z.union([
 const observationUs = (value: string) => {
   const parsed = viewOrNativeInstant.parse(value);
   const fraction = parsed.slice(parsed.indexOf('.') + 1, -1).padEnd(6, '0');
-  return BigInt(Date.parse(parsed)) * 1_000n + BigInt(fraction.slice(3));
+  return BigInt(instantMs(parsed)) * 1_000n + BigInt(fraction.slice(3));
 };
 
 /** Compare observations only; competitive timing remains inside the PG adapter. */

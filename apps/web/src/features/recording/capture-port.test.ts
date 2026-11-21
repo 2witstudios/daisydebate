@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import type { RoundCoverageFacts } from './coverage-statement';
 import type { BuiltRecordingMedia } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -49,8 +50,8 @@ const setup = (
       readFloorIntervals: async () => [
         {
           roundParticipantId: 'aff',
-          startedAtMs: Date.parse(startedAt) + 1000,
-          endedAtMs: Date.parse(startedAt) + 5000,
+          startedAtMs: instantMs(startedAt) + 1000,
+          endedAtMs: instantMs(startedAt) + 5000,
         },
       ],
     },
@@ -62,12 +63,12 @@ test('a verified video records what it does not hold', async () => {
   const { port, rows } = setup({
     segments: [
       {
-        startedAtMs: Date.parse(startedAt) - 20_000,
-        endedAtMs: Date.parse(startedAt) + 90_000,
+        startedAtMs: instantMs(startedAt) - 20_000,
+        endedAtMs: instantMs(startedAt) + 90_000,
       },
     ],
     prepStartsAtMs: [],
-    rotationsAtMs: [Date.parse(startedAt) + 10_000],
+    rotationsAtMs: [instantMs(startedAt) + 10_000],
   });
   const record = await port.request(round);
   const id = record!.id;

@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { daisyBallotSource } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { RoundBallotRead } from '@daisy/protocol';
@@ -17,7 +18,7 @@ import { daisyWinnerBallot, panelRuleFor } from '@daisy/protocol';
 
 setupRitewayBun();
 
-const renderedAtMs = Date.parse('2026-10-22T00:05:00.000Z');
+const renderedAtMs = instantMs('2026-10-22T00:05:00.000Z');
 /** A frozen Round inside its judging window, the judge's ballot not yet cast. */
 const open: RoundBallotRead = {
   judging: {

@@ -1,4 +1,4 @@
-import { CryptoHasher } from 'bun';
+import { commandDigest } from '@daisy/digest';
 import { createAppError, createRefusal } from '@daisy/errors';
 import {
   idSchema,
@@ -42,15 +42,11 @@ export function requirePanelRequest(input: PanelRequest): void {
 
 /** Binds a command row to this Round and frozen revision, never to the caller. */
 export const panelDigest = (input: PanelRequest) =>
-  new CryptoHasher('sha3-256')
-    .update(
-      JSON.stringify({
-        purpose: 'complete-panel',
-        roundId: input.roundId,
-        freezeRevision: input.freezeRevision,
-      }),
-    )
-    .digest('hex');
+  commandDigest({
+    purpose: 'complete-panel',
+    roundId: input.roundId,
+    freezeRevision: input.freezeRevision,
+  });
 
 function requireReceiptCommand(
   row: CommandRow,

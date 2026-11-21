@@ -1,3 +1,4 @@
+import { addMs } from '@daisy/clock';
 import { assertRejects } from '@daisy/errors/testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
@@ -10,8 +11,7 @@ import {
 setupRitewayBun();
 
 const at = '2026-10-05T12:00:00.000Z';
-const daysBefore = (days: number) =>
-  new Date(Date.parse(at) - days * 86_400_000).toISOString();
+const daysBefore = (days: number) => addMs(at, -(days * 86_400_000));
 
 describe('inflateDeviation', () => {
   const state = { rating: 1500, deviation: 60, volatility: 0.06 };

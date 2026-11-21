@@ -1,3 +1,4 @@
+import { tryInstantMs } from '@daisy/clock';
 import { and, eq, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
@@ -117,7 +118,7 @@ export async function expireChannelFiles(
 ) {
   if (
     !idSchema.safeParse(channelId).success ||
-    !Number.isFinite(Date.parse(now)) ||
+    tryInstantMs(now) === undefined ||
     (fileIds !== undefined &&
       (!Array.isArray(fileIds) ||
         fileIds.length === 0 ||
@@ -149,7 +150,7 @@ export async function acknowledgeFileDeletion(
   now: string,
   remove: (key: string) => Promise<void>,
 ) {
-  if (!idSchema.safeParse(fileId).success || !Number.isFinite(Date.parse(now)))
+  if (!idSchema.safeParse(fileId).success || tryInstantMs(now) === undefined)
     throw createAppError('VALIDATION');
   return inTransaction(database, async (tx) => {
     const [row] = await tx

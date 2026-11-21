@@ -1,3 +1,4 @@
+import { addMs } from '@daisy/clock';
 import { currentPaymentObservation } from './billing-payment-observation';
 import {
   advanceInvoiceIdentityDebt,
@@ -43,9 +44,7 @@ export function progressCleanupScan(
       : value.invoiceDebt;
   if (invoiceDebt === null) return null;
   const turn = nextTurn(value.turn, scans, invoiceDebt);
-  const retryAt = new Date(
-    Date.parse(context.now) + cleanupBounds.progressMs,
-  ).toISOString();
+  const retryAt = addMs(context.now, cleanupBounds.progressMs);
   if (
     invoiceDebt.kind === 'owed' &&
     cleanupLanes.every((lane) => scans[lane].kind === 'complete')

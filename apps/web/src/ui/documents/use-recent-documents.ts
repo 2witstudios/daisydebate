@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { systemClock } from '@daisy/clock';
+import { nowMs, systemClock } from '@daisy/clock';
 import { driveApi, type RecentDocument } from './drive-api';
 import type { SaveState } from './document-pane';
 
@@ -27,7 +27,7 @@ export function useRecentDocuments(
     generation.current++;
     const read = () => {
       timer.current = null;
-      lastStarted.current = Date.parse(systemClock.now());
+      lastStarted.current = nowMs(systemClock);
       const requested = generation.current;
       driveApi.recent().then(
         (found) => {
@@ -38,8 +38,7 @@ export function useRecentDocuments(
     };
     const delay = Math.max(
       0,
-      REFRESH_INTERVAL_MS -
-        (Date.parse(systemClock.now()) - lastStarted.current),
+      REFRESH_INTERVAL_MS - (nowMs(systemClock) - lastStarted.current),
     );
     if (delay === 0) {
       if (timer.current !== null) clearTimeout(timer.current);

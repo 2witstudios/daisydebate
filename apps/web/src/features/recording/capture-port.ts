@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
 import type {
   BuiltRecordingMedia,
@@ -117,7 +118,7 @@ export const createRecordingCapturePort = ({
           media: { ...media, speeches: [] },
         });
       const capture = {
-        startedAtMs: Date.parse(media.capturedFrom),
+        startedAtMs: instantMs(media.capturedFrom),
         durationMs: media.durationMs,
       };
       const { gaps, unrecorded } = coverageStatement({

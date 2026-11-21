@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import {
   participantAccess,
   tournamentHostingGrantFor,
@@ -112,9 +113,9 @@ export const eventCaptureAdmission = (input: {
   );
   const deadline = Math.min(
     basis.kind === 'grant'
-      ? Date.parse(basis.grant.hosting.expiresAt)
+      ? instantMs(basis.grant.hosting.expiresAt)
       : Infinity,
-    Date.parse(now) + executionBudgetMs,
+    instantMs(now) + executionBudgetMs,
   );
   const limit =
     basis.kind === 'grant'
@@ -131,7 +132,7 @@ export const eventCaptureAdmission = (input: {
     !Number.isSafeInteger(executionBudgetMs) ||
     executionBudgetMs <= 0 ||
     !Number.isFinite(deadline) ||
-    deadline <= Date.parse(now)
+    deadline <= instantMs(now)
   )
     return null;
   const parsed = tournamentCaptureAdmissionSchema.safeParse({

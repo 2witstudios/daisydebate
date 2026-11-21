@@ -1,3 +1,4 @@
+import { addMs } from '@daisy/clock';
 import type { InvoicePass } from '@daisy/protocol/billing';
 import type { createCleanupInvoiceDelivery } from './cleanup-invoice-delivery';
 import { facts, claimId, binding } from './invoice-pass-reader.test-support';
@@ -30,7 +31,7 @@ export const current: Extract<
 export const request = (active: InvoicePass | null): Request => ({
   jobId: 'j'.repeat(24),
   claimId,
-  retryAt: new Date(Date.parse(facts.now) + 60000).toISOString(),
+  retryAt: addMs(facts.now, 60000),
   work: {
     kind: 'scan',
     lane: 'invoices',

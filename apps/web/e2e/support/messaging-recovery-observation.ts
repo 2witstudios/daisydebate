@@ -1,6 +1,6 @@
 import type { Page, WebSocket } from '@playwright/test';
 import { clientMessageSchema } from '@daisy/protocol';
-import { systemClock } from '@daisy/clock';
+import { nowMs, systemClock } from '@daisy/clock';
 import { expect } from './fixtures';
 import { STEP_LIMIT_MS } from './bounded-step';
 import { serverFrame } from './subscription-ledger';
@@ -20,7 +20,7 @@ export function watchRecoveredChannel(page: Page, channelId: string) {
   let sockets = 0,
     observes = 0,
     readyFrames = 0;
-  const now = () => Date.parse(systemClock.now());
+  const now = () => nowMs(systemClock);
   const view = () =>
     recoveryObservationView(
       current === null ? initialRecoveryObservation() : states.get(current)!,

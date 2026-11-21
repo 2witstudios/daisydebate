@@ -1,3 +1,4 @@
+import { addMs } from '@daisy/clock';
 import type { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
@@ -44,10 +45,9 @@ const declinesOf = async (client: SQL, decliner: string) =>
     [decliner],
   )) as { count: number; blocked: boolean }[];
 
+// Round fractional fixture days to whole milliseconds before adding them.
 const day = (offset: number) =>
-  new Date(
-    Date.parse('2026-10-09T18:00:00.000Z') + offset * 86_400_000,
-  ).toISOString();
+  addMs('2026-10-09T18:00:00.000Z', Math.round(offset * 86_400_000));
 
 /** Runs `work` over a fresh fixture pair, then removes it. */
 const withPair = async (

@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { Room } from '@livekit/rtc-node';
 import { createMediaService } from '@daisy/media';
 import {
@@ -293,7 +294,7 @@ export async function driveRound(input: {
         .filter((segment) => segment.endedAt !== null)
         .at(-1)?.endedAt;
       if (!endedAt) throw new Error('Speech end missing');
-      const dueAt = Date.parse(endedAt) + args.countdownMs - offsetMs;
+      const dueAt = instantMs(endedAt) + args.countdownMs - offsetMs;
       void read();
       const atBoundary = setTimeout(
         () => {

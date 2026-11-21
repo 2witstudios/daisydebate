@@ -16,7 +16,7 @@ import {
 } from '../commands/tournament-sponsorship';
 import { CommandDenied, runLobbyCommand } from '../commands/run-command';
 import type { TabPrincipal } from '../tab-principal';
-import { commandDigest } from './command-digest';
+import { commandDigest } from '@daisy/digest';
 import { hostLobbyResource } from './host-lobby-resource';
 
 /** Current organization authority proposes; the actual funding account separately accepts or withdraws. */

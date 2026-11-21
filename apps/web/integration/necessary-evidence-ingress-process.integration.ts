@@ -1,7 +1,7 @@
+import { sha3Hex } from '@daisy/digest';
 import { existsSync } from 'node:fs';
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { createHash } from 'node:crypto';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -113,9 +113,7 @@ for (const stage of ['after-custody-seal', 'after-payload-commit'] as const)
             expected: {
               preReceipt: stage === 'after-custody-seal' ? 'pending' : null,
               restoredDigest:
-                stage === 'after-payload-commit'
-                  ? createHash('sha3-256').update(encoded.json).digest('hex')
-                  : null,
+                stage === 'after-payload-commit' ? sha3Hex(encoded.json) : null,
               before: stage === 'after-custody-seal' ? 'acquiring' : 'retained',
               beforeReceived: stage === 'after-payload-commit',
               kind: 'received',
@@ -182,9 +180,7 @@ for (const path of ['receive', 'restore'] as const)
               currentKey: stillCurrent.kind === 'available',
               reply: stopped.reply,
               owned: stopped.ownedPlaintextCleared,
-              residual:
-                stopped.retainedDigest ===
-                createHash('sha3-256').update(encoded.json).digest('hex'),
+              residual: stopped.retainedDigest === sha3Hex(encoded.json),
               noFreshWork: stopped.calls,
             },
             expected: {
@@ -272,9 +268,7 @@ test('latest independent privacy denial reaches restored plaintext after custody
             prepared: prepared.kind,
             reply: stopped.reply,
             owned: stopped.ownedPlaintextCleared,
-            residual:
-              stopped.retainedDigest ===
-              createHash('sha3-256').update(encoded.json).digest('hex'),
+            residual: stopped.retainedDigest === sha3Hex(encoded.json),
             calls: stopped.calls,
           },
           expected: {

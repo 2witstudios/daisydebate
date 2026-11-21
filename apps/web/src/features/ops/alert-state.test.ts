@@ -1,3 +1,4 @@
+import { instantMs, addMs } from '@daisy/clock';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   ALERT_THRESHOLDS,
@@ -32,11 +33,9 @@ describe('evaluateAlerts (AUTH-7.7)', () => {
 
   test('storage unavailable for exactly the threshold fires; just under it does not', () => {
     const justUnder = new Date(
-      Date.parse(NOW) - ALERT_THRESHOLDS.unavailableMs + 1,
+      instantMs(NOW) - ALERT_THRESHOLDS.unavailableMs + 1,
     ).toISOString();
-    const atThreshold = new Date(
-      Date.parse(NOW) - ALERT_THRESHOLDS.unavailableMs,
-    ).toISOString();
+    const atThreshold = addMs(NOW, -ALERT_THRESHOLDS.unavailableMs);
     assert({
       given: 'storage unavailable for one millisecond under 2 minutes',
       should: 'not fire (negative control)',
@@ -61,7 +60,7 @@ describe('evaluateAlerts (AUTH-7.7)', () => {
 
   test('limiter unavailable for 2+ minutes fires limiter_unavailable', () => {
     const since = new Date(
-      Date.parse(NOW) - ALERT_THRESHOLDS.unavailableMs - 1000,
+      instantMs(NOW) - ALERT_THRESHOLDS.unavailableMs - 1000,
     ).toISOString();
     assert({
       given: 'the rate limiter unavailable for over 2 minutes',
@@ -133,11 +132,9 @@ describe('evaluateAlerts (AUTH-7.7)', () => {
 
   test('no complete retention run for 3+ hours, or ever, fires cleanup_missed', () => {
     const justUnder = new Date(
-      Date.parse(NOW) - ALERT_THRESHOLDS.retentionMissedMs + 1,
+      instantMs(NOW) - ALERT_THRESHOLDS.retentionMissedMs + 1,
     ).toISOString();
-    const atThreshold = new Date(
-      Date.parse(NOW) - ALERT_THRESHOLDS.retentionMissedMs,
-    ).toISOString();
+    const atThreshold = addMs(NOW, -ALERT_THRESHOLDS.retentionMissedMs);
     assert({
       given: 'a run that completed just under 3 hours ago',
       should: 'not fire (negative control)',
@@ -166,7 +163,7 @@ describe('evaluateAlerts (AUTH-7.7)', () => {
   });
 
   test('a running worker past its threshold, or never healthy, fires its own alert (ISSUE-1007)', () => {
-    const ago = (ms: number) => new Date(Date.parse(NOW) - ms).toISOString();
+    const ago = (ms: number) => addMs(NOW, -ms);
     const fresh = {
       ...baseSnapshot,
       retentionLastSuccessIso: NOW,
@@ -222,7 +219,7 @@ describe('evaluateAlerts (AUTH-7.7)', () => {
         {
           name: 'billing_cleanup' as const,
           missedAfterMs: threshold,
-          lastSuccessIso: new Date(Date.parse(NOW) - elapsed).toISOString(),
+          lastSuccessIso: addMs(NOW, -elapsed),
         },
       ],
     });
@@ -358,7 +355,7 @@ describe('evaluateAlerts (AUTH-7.7)', () => {
 
   test('every condition names its own runbook anchor', () => {
     const since = new Date(
-      Date.parse(NOW) - ALERT_THRESHOLDS.unavailableMs - 1,
+      instantMs(NOW) - ALERT_THRESHOLDS.unavailableMs - 1,
     ).toISOString();
     const conditions = evaluateAlerts({
       ...baseSnapshot,
@@ -388,7 +385,7 @@ describe('readAlertSnapshot (AUTH-7.7)', () => {
   const noLocalOutage = { limiterUnavailableSince: () => null };
 
   test('reads each durable marker and sums the request window', async () => {
-    const currentBucket = Math.floor(Date.parse(NOW) / 60_000);
+    const currentBucket = Math.floor(instantMs(NOW) / 60_000);
     const values = new Map<string, string>([
       ['alert-unavailable-storage', '2026-09-25T11:58:00.000Z'],
       ['alert-mail-consecutive-failures', '2'],

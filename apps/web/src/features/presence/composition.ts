@@ -1,3 +1,4 @@
+import { nowMs } from '@daisy/clock';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import { requireAuthorization } from '@daisy/auth/request-authorization';
 import type { OwnCollectionFence } from '@daisy/db/authorization';
@@ -46,7 +47,7 @@ const ownList =
 export function composePresenceRoutes(app: App) {
   const onlineActorIds = cachedScan(
     () => app.redis.readOnlineActorIds(ONLINE_LEASES_MAX),
-    () => Date.parse(app.clock.now()),
+    () => nowMs(app.clock),
   );
   return createPresenceHandlers({
     boundary: memberHttpBoundary(app),

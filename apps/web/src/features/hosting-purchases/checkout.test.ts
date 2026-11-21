@@ -1,3 +1,4 @@
+import { addMs } from '@daisy/clock';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type {
   TournamentHostingAccount,
@@ -311,9 +312,7 @@ const sessionlessStore = (
       state: 'open',
       vendorSessionId: null,
       receiptUrl: null,
-      createdAt: new Date(
-        Date.parse('2026-11-18T12:00:00.000Z') - ageMs,
-      ).toISOString(),
+      createdAt: addMs('2026-11-18T12:00:00.000Z', -ageMs),
       paidAt: null,
     },
   ];

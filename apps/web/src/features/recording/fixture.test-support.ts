@@ -1,10 +1,11 @@
+import { instantMs } from '@daisy/clock';
 import type { RecordingMedia } from '@daisy/protocol';
 import type { RecordingRound, RecordingViewer } from './audience';
 import { fakeObjectStore, fakeRecordingStore } from './fake-store.test-support';
 import type { RecordingRecord } from './ports';
 
 export const at = '2026-11-02T10:00:00.000Z';
-export const nowMs = Date.parse(at);
+export const nowMs = instantMs(at);
 export const prefix = 'recordings/rec/';
 const media: RecordingMedia = {
   capturedFrom: at,

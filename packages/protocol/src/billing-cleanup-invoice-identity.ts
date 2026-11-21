@@ -1,3 +1,4 @@
+import { addMs } from '@daisy/clock';
 import { currentPaymentObservation } from './billing-payment-observation';
 import { advanceInvoiceIdentityDebt } from './billing-invoice-identity-debt';
 import { nextTurn } from './billing-cleanup-scans';
@@ -34,9 +35,7 @@ export function advanceCleanupInvoiceIdentity(
   });
   if (!invoiceDebt) return null;
   const turn = nextTurn(value.turn, value.scans, invoiceDebt);
-  const retryAt = new Date(
-    Date.parse(context.now) + cleanupBounds.progressMs,
-  ).toISOString();
+  const retryAt = addMs(context.now, cleanupBounds.progressMs);
   // All execution heads restart when only retained obligations remain; nothing resolves them here.
   if (!turn)
     return {

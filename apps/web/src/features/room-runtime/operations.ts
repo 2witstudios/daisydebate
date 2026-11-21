@@ -1,3 +1,4 @@
+import { addMs } from '@daisy/clock';
 import { createAppError, createRefusal } from '@daisy/errors';
 import { canOfferFreshRoom } from './fresh-room';
 import { roomBotAdmission } from './bot-admission';
@@ -172,10 +173,7 @@ export function createRoomRuntimeOperations({
         available: true,
         readyActorIds: leases.map((lease) => lease.actorId),
         validUntil: leases.length
-          ? new Date(
-              Date.parse(beforeRead) +
-                Math.min(...leases.map((lease) => lease.ttlMs)),
-            ).toISOString()
+          ? addMs(beforeRead, Math.min(...leases.map((lease) => lease.ttlMs)))
           : null,
       };
     } catch {

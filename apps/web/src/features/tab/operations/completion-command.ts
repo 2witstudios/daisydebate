@@ -29,7 +29,7 @@ import { decideAnnounceBreak } from '../commands/break';
 import { hostResultsAuthority } from './host-results-authority';
 import { eventBreaks } from './event-breaks';
 import { competitionReleases } from './competition-releases';
-import { commandDigest } from './command-digest';
+import { commandDigest } from '@daisy/digest';
 import type { TabPrincipal } from '../tab-principal';
 
 const envelopeSchema = z.union([

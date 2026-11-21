@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
 import {
   leadSeatOf,
@@ -96,7 +97,7 @@ function requireSettledTime(
   if (
     !Number.isFinite(deadline) ||
     !Number.isFinite(c.now) ||
-    deadline < Date.parse(row.startedAt) + attendancePolicy.graceMs ||
+    deadline < instantMs(row.startedAt) + attendancePolicy.graceMs ||
     c.now < deadline + attendancePolicy.finalizationBufferMs
   )
     throw createAppError('INVARIANT');

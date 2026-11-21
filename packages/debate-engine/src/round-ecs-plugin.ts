@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { Database } from '@adobe/data/ecs';
 import { Schema } from '@adobe/data/schema';
 import {
@@ -129,13 +130,13 @@ const plugin = Database.Plugin.create({
       store.resources.activePrepStartedAtMs =
         checkpoint.active_prep === null
           ? null
-          : Date.parse(checkpoint.active_prep.started_at);
+          : instantMs(checkpoint.active_prep.started_at);
       store.resources.floorParticipantId =
         checkpoint.floor?.holder_participant_id ?? null;
       store.resources.floorGrantedAtMs =
         checkpoint.floor === null
           ? null
-          : Date.parse(checkpoint.floor.granted_at);
+          : instantMs(checkpoint.floor.granted_at);
       store.resources.absentParticipantIds =
         checkpoint.absent_participant_ids ?? [];
     },

@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import {
   isNamedSeat,
   sideOfSeat,
@@ -51,7 +52,7 @@ function Countdown({
         {mine ? 'Your time' : 'Their time'}
       </span>
       <span className="font-display text-3xl font-semibold tabular-nums">
-        {countdownClock(Math.max(0, Date.parse(draw.turn.dueAt) - nowMs))}
+        {countdownClock(Math.max(0, instantMs(draw.turn.dueAt) - nowMs))}
       </span>
     </p>
   );
@@ -323,7 +324,7 @@ export function OpeningStatus({
       <p role="timer" aria-label="Prep before the round">
         Prep ·{' '}
         <span className="tabular-nums">
-          {countdownClock(Math.max(0, Date.parse(step.endsAt) - nowMs))}
+          {countdownClock(Math.max(0, instantMs(step.endsAt) - nowMs))}
         </span>
       </p>
     );

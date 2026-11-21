@@ -1,3 +1,4 @@
+import { tryInstantMs } from '@daisy/clock';
 import { eq, sql } from 'drizzle-orm';
 import {
   analyticsConsentSchema,
@@ -42,7 +43,7 @@ export const analyticsConsentOperations = (database: TxOpener) => ({
     if (
       !result.success ||
       !idSchema.safeParse(input.userId).success ||
-      !Number.isFinite(Date.parse(input.now)) ||
+      tryInstantMs(input.now) === undefined ||
       (input.deletionJobId !== undefined &&
         (!idSchema.safeParse(input.deletionJobId).success ||
           input.consent.analytics !== 'denied' ||

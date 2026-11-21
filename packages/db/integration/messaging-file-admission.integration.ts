@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
@@ -134,7 +135,7 @@ test('native file reservation replays are immutable, and acknowledged deletion d
       code: 'CONFLICT',
     });
     const elapsed = new Date(
-      Date.parse(now) + policy.reservationMs + 1,
+      instantMs(now) + policy.reservationMs + 1,
     ).toISOString();
     await assertRejects({
       given: 'same request after the owned deadline',
@@ -178,7 +179,7 @@ test('native pending file operations refuse stale authority and advance only val
     const request = command();
     const messageId = createId();
     const late = new Date(
-      Date.parse(now) + policy.reservationMs + 1,
+      instantMs(now) + policy.reservationMs + 1,
     ).toISOString();
     const admitted = await frame((f) => f.reserve(request, now, policy));
     const token = { fileId: admitted.id, generation: 1 };

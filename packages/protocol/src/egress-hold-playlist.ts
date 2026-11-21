@@ -1,3 +1,4 @@
+import { tryInstantMs } from '@daisy/clock';
 /** One segment of an Egress attempt, as its held playlist states it. */
 export type HoldEntry = {
   readonly name: string;
@@ -23,16 +24,17 @@ export const parseHoldPlaylist = (
   nowMs: number,
 ): readonly HoldEntry[] => {
   const entries: HoldEntry[] = [];
-  let capturedAtMs = Number.NaN;
+  let capturedAtMs: number | undefined;
   let durationMs = Number.NaN;
-  for (const line of text.split('\n')) {
-    if (line.startsWith('#EXT-X-PROGRAM-DATE-TIME:'))
-      capturedAtMs = Date.parse(line.slice(25));
-    else if (line.startsWith('#EXTINF:'))
+  for (const line of text.split(/\r?\n/)) {
+    if (line.startsWith('#EXT-X-PROGRAM-DATE-TIME:')) {
+      capturedAtMs = tryInstantMs(line.slice(25));
+      if (capturedAtMs === undefined) return entries;
+    } else if (line.startsWith('#EXTINF:'))
       durationMs = Math.round(parseFloat(line.slice(8)) * 1000);
     else if (line && !line.startsWith('#')) {
       if (
-        Number.isNaN(capturedAtMs) ||
+        capturedAtMs === undefined ||
         Number.isNaN(durationMs) ||
         !SEGMENT_NAME.test(line.trim()) ||
         capturedAtMs <=
@@ -41,7 +43,7 @@ export const parseHoldPlaylist = (
       )
         return entries;
       entries.push({ name: line.trim(), capturedAtMs, durationMs });
-      capturedAtMs = Number.NaN;
+      capturedAtMs = undefined;
       durationMs = Number.NaN;
     }
   }

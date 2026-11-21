@@ -1,3 +1,4 @@
+import { nowMs } from '@daisy/clock';
 import { requireAuthorization } from '@daisy/auth/request-authorization';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { OwnPublicProfile } from '@daisy/db';
@@ -135,7 +136,7 @@ export function composePublicProfileRoutes(app: App) {
         await app.limiter.consume(`profile-photo-image:${client}`, IMAGE_RULE),
       );
     } catch {
-      const at = Date.parse(app.clock.now());
+      const at = nowMs(app.clock);
       if (at - budgetOutageLoggedAt >= 60_000) {
         budgetOutageLoggedAt = at;
         app.logger.log(

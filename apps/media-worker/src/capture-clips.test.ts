@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { cutCaptureClips } from './capture-clips';
@@ -6,7 +7,7 @@ const roundId = 'r'.repeat(24),
   roundParticipantId = 'p'.repeat(24),
   segmentId = 's'.repeat(24),
   trackId = 'microphone-track';
-const base = Date.parse('2026-10-22T12:00:00.000Z');
+const base = instantMs('2026-10-22T12:00:00.000Z');
 const frame = (offset: number, silent = false) => ({
   pcm: new Int16Array(160).fill(silent ? 0 : 1000),
   nominalStartMs: base + offset,

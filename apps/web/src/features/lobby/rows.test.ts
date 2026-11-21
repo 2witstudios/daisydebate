@@ -1,10 +1,11 @@
+import { instantMs } from '@daisy/clock';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { RoomListEntry } from '@daisy/protocol';
 import { lobbyRow, lobbySections, rowActions, type LobbyViewer } from './rows';
 setupRitewayBun();
 
 const id = (c: string) => c.repeat(24);
-const now = Date.parse('2026-10-26T12:00:00.000Z');
+const now = instantMs('2026-10-26T12:00:00.000Z');
 const entry = (over: Partial<RoomListEntry> = {}): RoomListEntry => ({
   id: id('a'),
   version: 1,

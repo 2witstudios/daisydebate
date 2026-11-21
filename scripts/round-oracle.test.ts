@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -109,7 +110,7 @@ type World = {
   readonly halted?: string;
 };
 
-const T0 = Date.parse('2026-11-19T09:00:00.000Z');
+const T0 = instantMs('2026-11-19T09:00:00.000Z');
 
 /** What happened to the Round over all walks: the walks must reach each. */
 type Reached = Record<string, number>;
@@ -172,7 +173,7 @@ const rowProblems = (rules: RoundRules, rows: Persisted): string[] => {
       problems.push(`${ids.openCount}: row ${index} open behind a later row`);
     if (
       row.endedAt !== null &&
-      Date.parse(row.endedAt) < Date.parse(row.startedAt)
+      instantMs(row.endedAt) < instantMs(row.startedAt)
     )
       problems.push(`${ids.segmentRules}: row ${index} ends before it starts`);
     if (row.returnedMs < 0)
@@ -186,7 +187,7 @@ const rowProblems = (rules: RoundRules, rows: Persisted): string[] => {
         ? startedAt !== null && completedAt === null
         : completedAt !== null &&
           (startedAt === null ||
-            Date.parse(completedAt) >= Date.parse(startedAt));
+            instantMs(completedAt) >= instantMs(startedAt));
   if (!lifecycleHolds)
     problems.push(
       `${ids.lifecycle}: ${status} with started ${startedAt}, completed ${completedAt}`,
@@ -336,7 +337,7 @@ const debatePlayed = (world: World, nowMs: number) => {
     segments.every((row) => row.endedAt !== null) &&
     last !== undefined &&
     last.endedAt !== null &&
-    Date.parse(last.endedAt) <= nowMs
+    instantMs(last.endedAt) <= nowMs
   );
 };
 
@@ -446,7 +447,7 @@ const step = (
         const settled = {
           evidence: 'settled_availability' as const,
           effectiveDeadlineMs:
-            row === undefined ? at : Date.parse(row.startedAt) + 40_000,
+            row === undefined ? at : instantMs(row.startedAt) + 40_000,
           settledHorizonMs: at,
         };
         const winner = sides[draw(Math.max(1, sides.length))] ?? 'affirmative';
@@ -828,7 +829,7 @@ describe('round engine oracle at rare clock boundaries', () => {
     const live = hydrate(rules, cast, active);
     const played = persist(active, live.tick(iso(T0 + 3_600_000)));
     const cutoff =
-      Date.parse(played.segments.at(-1)!.endedAt!) +
+      instantMs(played.segments.at(-1)!.endedAt!) +
       attendanceTimingPolicy.resolutionCutoffMs;
     const segmentId = played.segments.find(({ type }) => type === 'speech')!.id;
     const runtime = hydrate(rules, cast, played, 1_000);

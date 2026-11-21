@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { sha3Hex } from '@daisy/digest';
 import { systemClock, systemId } from '@daisy/clock';
 import { noopErrorReporter } from '@daisy/observability';
 import { readAuthConfig, readMailConfig } from '@daisy/config';
@@ -19,11 +19,7 @@ const noLedger = { isSuppressed: async () => false, record: async () => {} };
 
 /** The limiter's real Redis key for a gate bucket key (`server/rate-limit.ts`). */
 const limiterKey = (testApp: TestApp, bucket: string) =>
-  redisKey(
-    testApp.redisNamespace,
-    'rl',
-    createHash('sha3-256').update(bucket).digest('hex'),
-  );
+  redisKey(testApp.redisNamespace, 'rl', sha3Hex(bucket));
 
 /** A recipient bucket key for one mail flow, as `rate-limit.ts` builds it. */
 export const recipientBucket = (

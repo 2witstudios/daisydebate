@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
@@ -25,8 +26,8 @@ test('concurrent activation, reconnect and closed-season retry preserve one actu
       actual: [
         results[1],
         first.name,
-        Date.parse(first.startsAt) >= new Date(started!.at).getTime() &&
-          Date.parse(first.startsAt) <= new Date(bounds!.now).getTime(),
+        instantMs(first.startsAt) >= new Date(started!.at).getTime() &&
+          instantMs(first.startsAt) <= new Date(bounds!.now).getTime(),
       ],
       expected: [first, 'Season 1', true],
     });
@@ -59,7 +60,7 @@ test('concurrent activation, reconnect and closed-season retry preserve one actu
       ],
       expected: [first, before],
     });
-    await f.sql`update seasons set status='closed', ends_at=${new Date(Date.parse(first.startsAt) + 1)} where id=${first.id}`;
+    await f.sql`update seasons set status='closed', ends_at=${new Date(instantMs(first.startsAt) + 1)} where id=${first.id}`;
     const retried = await withSeasons(url, (s) =>
       s.activateBetaSeason({ id: createId(), division: 'open' }),
     );

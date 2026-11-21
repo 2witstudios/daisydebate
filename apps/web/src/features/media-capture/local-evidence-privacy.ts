@@ -1,5 +1,5 @@
+import { sha3Hex } from '@daisy/digest';
 import type { Database } from 'bun:sqlite';
-import { createHash } from 'node:crypto';
 import {
   encodeEvidencePrivacyScope,
   evidencePrivacyIntentSchema,
@@ -8,8 +8,7 @@ import {
   type EvidencePrivacyIntentRecord,
   type EvidenceRefusal,
 } from '@daisy/protocol';
-export const evidencePrivacyDigest = (document: string) =>
-  createHash('sha3-256').update(document).digest('hex');
+export const evidencePrivacyDigest = (document: string) => sha3Hex(document);
 const refused = (reason: EvidenceRefusal['reason']): EvidenceRefusal => ({
   kind: 'refused',
   reason,

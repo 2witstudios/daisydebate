@@ -1,3 +1,4 @@
+import { tryInstantMs } from '@daisy/clock';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
@@ -80,7 +81,7 @@ test('durable rounds survive reconnect; optimistic executions reject stale write
             winner: {
               status: after?.status,
               callerTime: after?.startedAt === '2001-01-01T00:00:00.000Z',
-              validTime: !Number.isNaN(Date.parse(after?.startedAt ?? '')),
+              validTime: tryInstantMs(after?.startedAt ?? '') !== undefined,
             },
           },
           expected: {

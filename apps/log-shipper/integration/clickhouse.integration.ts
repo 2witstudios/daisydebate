@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { createClient } from '@clickhouse/client-web';
-import { fixedClock, sequentialId } from '@daisy/clock';
+import { addMs, fixedClock, sequentialId } from '@daisy/clock';
 import { requireTestClickHouse, requireTestServices } from '@daisy/config';
 import { createLogger } from '@daisy/logger';
 import { afterAll, expect } from 'bun:test';
@@ -187,9 +187,7 @@ describe('the log store', () => {
       new URL('../../../infra/clickhouse/sweep.sql', import.meta.url),
     ).text();
     const plusDays = (days: number) =>
-      new Date(Date.parse(`${day}T00:00:00Z`) + days * 86_400_000)
-        .toISOString()
-        .slice(0, 10);
+      addMs(`${day}T00:00:00Z`, days * 86_400_000).slice(0, 10);
     const swept = async (today: string) => {
       const result = await reader.exec({
         query: sweepSql,

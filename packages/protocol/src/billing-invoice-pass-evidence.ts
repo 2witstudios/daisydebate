@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import {
   applyPaymentObservationRead,
   type OwnedPaymentObservation,
@@ -98,7 +99,7 @@ export function readInvoicePassWitness(
     value.userId !== owner.userId ||
     value.closedAt !== owner.closedAt ||
     !sameInvoiceOwner(owner, value) ||
-    Date.parse(value.observedAt) > Date.parse(context.now)
+    instantMs(value.observedAt) > instantMs(context.now)
   )
     return null;
   const retained = retainPaymentObservationSource(value, source, {
@@ -126,7 +127,7 @@ function currentRetainedRow(
   return (
     row.userId === owner.userId &&
     row.closedAt === owner.closedAt &&
-    Date.parse(row.observedAt) <= Date.parse(context.now)
+    instantMs(row.observedAt) <= instantMs(context.now)
   );
 }
 

@@ -1,3 +1,4 @@
+import { instantMs, tryInstantMs } from '@daisy/clock';
 import { assertNever } from './assert-never';
 import type {
   UsageState,
@@ -107,28 +108,27 @@ function terminalAt(state: UsageState): string | null {
   }
 }
 function validHistory(state: UsageState, start: number, now: number): boolean {
-  const counted = 'countedAt' in state ? Date.parse(state.countedAt) : start;
-  if (!(start <= counted && counted <= now)) return false;
+  const counted = 'countedAt' in state ? tryInstantMs(state.countedAt) : start;
+  if (counted === undefined || counted < start || counted > now) return false;
   const terminal = terminalAt(state);
-  return (
-    terminal === null ||
-    (counted <= Date.parse(terminal) && Date.parse(terminal) <= now)
-  );
+  if (terminal === null) return true;
+  const ended = tryInstantMs(terminal);
+  return ended !== undefined && counted <= ended && ended <= now;
 }
 function validTime(reservation: Reservation, now: number): boolean {
-  const start = Date.parse(reservation.admittedAt);
+  const start = tryInstantMs(reservation.admittedAt);
   return (
-    [now, start].every(Number.isFinite) &&
+    start !== undefined &&
     now >= start &&
     validHistory(reservation.state, start, now)
   );
 }
 function mayDispatch(before: string, context: Context): boolean {
-  const cutoff = Date.parse(before);
+  const cutoff = tryInstantMs(before);
   return (
     context.authorized &&
-    Number.isFinite(cutoff) &&
-    Date.parse(context.now) < cutoff
+    cutoff !== undefined &&
+    instantMs(context.now) < cutoff
   );
 }
 function dispatch(
@@ -173,14 +173,14 @@ export function advanceUsage(
   context: Context,
 ): Decision {
   const { state } = reservation;
-  const now = Date.parse(context.now);
-  if (!validTime(reservation, now)) return refused;
+  const now = tryInstantMs(context.now);
+  if (now === undefined || !validTime(reservation, now)) return refused;
   switch (event.kind) {
     case 'dispatch':
       return dispatch(reservation, event.before, context);
     case 'expire':
-      if (!Number.isFinite(Date.parse(event.before))) return refused;
-      return now >= Date.parse(event.before) && state.kind === 'reserved'
+      if (tryInstantMs(event.before) === undefined) return refused;
+      return now >= instantMs(event.before) && state.kind === 'reserved'
         ? changed({ kind: 'released', releasedAt: context.now })
         : unchanged(state);
     case 'abandon':

@@ -18,7 +18,7 @@ import {
 } from '@daisy/protocol/lobby/organization-command';
 import { decideOrganization } from '../commands/organization';
 import { CommandDenied, runLobbyCommand } from '../commands/run-command';
-import { commandDigest } from './command-digest';
+import { commandDigest } from '@daisy/digest';
 import type { TabPrincipal } from '../tab-principal';
 import { organizationAuthorityOf } from './organization-authority';
 

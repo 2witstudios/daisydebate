@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { roundStartPolicy } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { at, ran } from '../../ui/debate-room/live-round.test-support';
@@ -11,7 +12,7 @@ test('media refresh follows actual countdown and early closure anchors', () => {
     should: 'request a server read at its countdown boundary',
     actual: nextMediaRefreshAt(starting, 0),
     expected:
-      Date.parse(starting.startedAt!) +
+      instantMs(starting.startedAt!) +
       starting.rules.countdownMs -
       Math.min(roundStartPolicy.microphoneLeadMs, starting.rules.countdownMs),
   });
@@ -20,7 +21,7 @@ test('media refresh follows actual countdown and early closure anchors', () => {
     should: 'use that committed close as its next countdown anchor',
     actual: nextMediaRefreshAt(gap, 0),
     expected:
-      Date.parse(gap.segments[0]!.endedAt!) +
+      instantMs(gap.segments[0]!.endedAt!) +
       gap.rules.countdownMs -
       Math.min(roundStartPolicy.microphoneLeadMs, gap.rules.countdownMs),
   });
@@ -38,20 +39,20 @@ test('prep refresh overrides the ordinary gap and judging uses actual final clos
     given: 'active prep with its remaining budget',
     should: 'refresh at prep expiry without scheduling an ordinary gap opening',
     actual: nextMediaRefreshAt(prep, 0),
-    expected: Date.parse(at(20000)) + prep.rules.inRoundPrep!.budgetMsPerSide,
+    expected: instantMs(at(20000)) + prep.rules.inRoundPrep!.budgetMsPerSide,
   });
   const final = ran(gap.rules.segments.length, true);
   assert({
     given: 'all actual segments closed while awaiting a ballot',
     should: 'refresh at the judging-window boundary',
     actual: nextMediaRefreshAt(final, 0),
-    expected: Date.parse(final.segments.at(-1)!.endedAt!) + 1800000,
+    expected: instantMs(final.segments.at(-1)!.endedAt!) + 1800000,
   });
 });
 
 test('a refresh is asked for at each boundary still ahead', () => {
   const starting = ran(0);
-  const due = Date.parse(starting.startedAt!) + starting.rules.countdownMs;
+  const due = instantMs(starting.startedAt!) + starting.rules.countdownMs;
   assert({
     given: 'the microphone lead already passed',
     should: 'ask for a read at the clock itself',

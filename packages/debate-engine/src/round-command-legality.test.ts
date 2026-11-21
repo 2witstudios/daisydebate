@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { assertRejects } from '@daisy/errors/testing';
 import {
   emptyRuntimeCheckpointFor,
@@ -40,7 +41,7 @@ const speechFacts = (
   rules,
   participants: oneOnOneSeats,
   seat: respondent,
-  nowMs: Date.parse(at(1_000)),
+  nowMs: instantMs(at(1_000)),
   state: normalizeRoundClock({
     round: {
       status: 'active',
@@ -112,7 +113,7 @@ test('every seat gets its options from one derivation (ISSUE-1013)', () => {
     should: 'keep interrupt offered and mark it illegal',
     actual: types(
       speechFacts(enabled, {
-        nowMs: Date.parse(at(enabled.segments[0]!.durationMs - 500)),
+        nowMs: instantMs(at(enabled.segments[0]!.durationMs - 500)),
       }),
     )[0],
     expected: ['interrupt', false],
@@ -240,14 +241,14 @@ test('hydrating lifecycle columns (ISSUE-1014)', async () => {
     expected: [
       {
         status: 'completed',
-        startedAtMs: Date.parse(at(0)),
-        completedAtMs: Date.parse(at(5)),
+        startedAtMs: instantMs(at(0)),
+        completedAtMs: instantMs(at(5)),
         outcome: winnerOutcome('affirmative'),
       },
       {
         status: 'abandoned',
         startedAtMs: null,
-        completedAtMs: Date.parse(at(5)),
+        completedAtMs: instantMs(at(5)),
       },
     ],
   });

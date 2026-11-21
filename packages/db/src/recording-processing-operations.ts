@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
 import {
   broadcastHoldPrefix,
@@ -130,7 +131,7 @@ export const readRecordingPublicHistory = async (
   return {
     captureUntilMs:
       eligibility.kind === 'tournament_admission'
-        ? Date.parse(eligibility.deadlineAt)
+        ? instantMs(eligibility.deadlineAt)
         : null,
     prepStartsAtMs: preps.map((prep) => prep.startedAt.getTime()),
     segments: segments.map((segment) => ({

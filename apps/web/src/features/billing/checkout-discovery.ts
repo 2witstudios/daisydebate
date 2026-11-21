@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import type Stripe from 'stripe';
 import { z } from 'zod';
 import {
@@ -53,9 +54,9 @@ export function checkoutSearchParameters(purchase: Purchase) {
   const after = cursor(purchase);
   return {
     created: {
-      gte: Math.floor(Date.parse(purchase.admittedAt) / 1000),
+      gte: Math.floor(instantMs(purchase.admittedAt) / 1000),
       lt: Math.ceil(
-        (Date.parse(purchase.admittedAt) + purchaseBounds.creationMs) / 1000,
+        (instantMs(purchase.admittedAt) + purchaseBounds.creationMs) / 1000,
       ),
     },
     limit: 100,

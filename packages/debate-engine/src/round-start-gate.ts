@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import type { RoundStartGate } from '@daisy/protocol';
 import {
   clockStopsOf,
@@ -39,7 +40,7 @@ export const countdownDue = (
 ) => {
   const prepEnded = state.checkpoint.prep_ended_at;
   return dueAfterStops(
-    prepEnded === null ? countdownAnchor(state) : Date.parse(prepEnded),
+    prepEnded === null ? countdownAnchor(state) : instantMs(prepEnded),
     prepEnded === null ? countdownMs : roundStartPolicy.microphoneLeadMs,
     clockStopsOf(state.checkpoint),
     nowMs,
@@ -55,7 +56,7 @@ export const segmentStartsAt = (
   const due = countdownDue(state, countdownMs, nowMs);
   const gate = state.checkpoint.start_gate;
   if (gate === null || gate.sequence !== closedCount(state)) return due;
-  return Math.max(due, Date.parse(startGateInstant(gate)));
+  return Math.max(due, instantMs(startGateInstant(gate)));
 };
 
 const awaitCapture = (

@@ -1,3 +1,4 @@
+import { sha3Hex } from '@daisy/digest';
 import { sql as query } from 'drizzle-orm';
 import { roundCommands } from '../src/schema/round-commands';
 import { SQL } from 'bun';
@@ -109,9 +110,7 @@ async function completeOrdinaryForfeit(
         actorId: first.actorId,
         serviceId: null,
         type: 'forfeit',
-        payloadDigest: new Bun.CryptoHasher('sha3-256')
-          .update('actual ordinary forfeit')
-          .digest('hex'),
+        payloadDigest: sha3Hex('actual ordinary forfeit'),
       },
     });
   });
@@ -189,9 +188,7 @@ test(
             assignmentVersion: input.assignmentVersion + 1,
             participantId: input.participantId,
           };
-          const digest = new Bun.CryptoHasher('sha3-256')
-            .update(JSON.stringify(result))
-            .digest('hex');
+          const digest = sha3Hex(JSON.stringify(result));
           await tx`insert into round_commands(command_id,round_id,actor_id,service_id,type,payload_digest,result,resulting_version,applied_at) values(${input.commandId},${roundId},${actorId},null,'change_judge',${digest},${result},${input.roundVersion + 1},date_trunc('milliseconds',clock_timestamp()))`;
           return tx`select public.daisy_append_round_judge_assignment(${roundId},0,${input.roundVersion},${input.assignmentVersion},${input.participantId},${input.commandId}) version`;
         });
@@ -391,9 +388,7 @@ for (const ending of ['opening', 'completed'] as const)
           roundId,
           commandId,
           actorId,
-          payloadDigest: new Bun.CryptoHasher('sha3-256')
-            .update(commandId)
-            .digest('hex'),
+          payloadDigest: sha3Hex(commandId),
           expectedVersion: Number(before!.version),
           fencedActorIds: actorIds,
           // This test exercises the ordinary internal owner port, not a Tab authorization policy.

@@ -1,3 +1,4 @@
+import { nowMs } from '@daisy/clock';
 import { refuseSchemaAlteringRole } from '@daisy/db';
 import type { RealtimeApp } from './app';
 import { createRealtimeServer } from './server';
@@ -168,8 +169,7 @@ export async function serveRealtime({
       outbox: {
         cursor: drain.cursor,
         highWaterMark: resources.database.readOutboxHighWaterMark,
-        backlog: () =>
-          delivery.registry.backlog(Date.parse(resources.clock.now())),
+        backlog: () => delivery.registry.backlog(nowMs(resources.clock)),
       },
     },
     allowedOrigins: resources.transport.allowedOrigins,

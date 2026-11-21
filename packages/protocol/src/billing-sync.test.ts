@@ -1,5 +1,9 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { advanceBillingSync, type BillingSyncState } from './billing-sync';
+import {
+  advanceBillingSync,
+  billingSyncStateSchema,
+  type BillingSyncState,
+} from './billing-sync';
 setupRitewayBun();
 const at = (seconds: number) =>
   new Date(Date.UTC(2026, 10, 5, 0, 0, seconds)).toISOString();
@@ -17,6 +21,18 @@ const claimed: BillingSyncState = {
   requestedAt: at(0),
   claim: { id, claimedAt: at(1), expiresAt: at(31) },
 };
+
+test('malformed timestamps produce a persisted state refusal', () => {
+  assert({
+    given: 'a pending state with an invalid request timestamp',
+    should: 'return an unsuccessful schema result',
+    actual: billingSyncStateSchema.safeParse({
+      ...pending,
+      requestedAt: 'garbage',
+    }).success,
+    expected: false,
+  });
+});
 
 test('duplicate webhook hints preserve a healthy synchronization claim while a new hint invalidates its response', () => {
   assert({

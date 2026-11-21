@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import {
@@ -478,7 +479,7 @@ export function createClubSeats(input: {
               (candidate) => candidate.id === command.invitationId,
             );
             if (!invitation) return refused('invitation-not-found');
-            if (Date.parse(invitation.expiresAt) <= now.getTime())
+            if (instantMs(invitation.expiresAt) <= now.getTime())
               return refused('invitation-expired');
             const limit = await invitationMailLimit(tx, {
               organizationId: club.id,

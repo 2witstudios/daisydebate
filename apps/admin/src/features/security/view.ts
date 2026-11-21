@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { z } from 'zod';
 import { securityViews, type SecurityView } from './sections';
 
@@ -39,20 +40,20 @@ const chTime = (ms: number) =>
   new Date(ms).toISOString().replace('T', ' ').replace('Z', '');
 /** ClickHouse's text for a DateTime64 or DateTime value, as epoch ms. */
 const fromChTime = (text: string) =>
-  Date.parse(`${text.replace(' ', 'T')}${text.length > 19 ? '' : '.000'}Z`);
+  instantMs(`${text.replace(' ', 'T')}${text.length > 19 ? '' : '.000'}Z`);
 
 export function windowBounds(
   now: string,
   window: SecurityWindow,
 ): { readonly from: string; readonly to: string } {
-  const to = Date.parse(now);
+  const to = instantMs(now);
   return { from: chTime(to - windowMs[window]), to: chTime(to) };
 }
 
 /** The coverage reads look back one day, and the flow check one hour. */
 export const coverageBounds = (now: string) => ({
-  floor: chTime(Date.parse(now) - windowMs['24h']),
-  recent: chTime(Date.parse(now) - windowMs['1h']),
+  floor: chTime(instantMs(now) - windowMs['24h']),
+  recent: chTime(instantMs(now) - windowMs['1h']),
 });
 
 /** A heartbeat older than this means the counts below may be incomplete. */
@@ -145,7 +146,7 @@ export function coverageOf({
   readonly oldest: readonly Oldest[];
   readonly lastSweep: string | null;
 }): Coverage {
-  const nowMs = Date.parse(now);
+  const nowMs = instantMs(now);
   const refusing = flow
     .filter(
       ({ admitted, dropped }) =>

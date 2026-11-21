@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import {
   canonicalCaptureEvidenceBody,
   captureStateReply,
@@ -38,7 +39,7 @@ function frameValid(frame: StagedFrame, state: CaptureState) {
     frame.frame.nominalStartMs === original.window.nominalStartMs &&
     frame.frame.beforeMs === Math.floor(original.window.beforeMs) &&
     frame.frame.afterMs === Math.ceil(original.window.afterMs) &&
-    frame.frame.afterMs <= Date.parse(state.serverNow) &&
+    frame.frame.afterMs <= instantMs(state.serverNow) &&
     contained(state, frame.seat, frame.frame)
   );
 }
@@ -76,9 +77,9 @@ export function prepare(input: {
     const interval = state.intervals.find(
       (grant) =>
         grant.roundParticipantId === frame.seat &&
-        Date.parse(grant.startedAt) <= frame.frame.beforeMs &&
+        instantMs(grant.startedAt) <= frame.frame.beforeMs &&
         (grant.endedAt === null ||
-          frame.frame.afterMs < Date.parse(grant.endedAt)),
+          frame.frame.afterMs < instantMs(grant.endedAt)),
     );
     if (!interval) return refused();
     const key = JSON.stringify([
@@ -130,9 +131,9 @@ export function prepare(input: {
       intervalId: group.intervalId,
       historyVersion: state.version,
       historyReadAt: state.serverNow,
-      segmentStartedAtMs: Date.parse(state.segment.startedAt),
+      segmentStartedAtMs: instantMs(state.segment.startedAt),
       startOffsetMs:
-        first.frame.nominalStartMs - Date.parse(state.segment.startedAt),
+        first.frame.nominalStartMs - instantMs(state.segment.startedAt),
       durationMs: last.frame.nominalStartMs - first.frame.nominalStartMs + 10,
       before: new Date(
         Math.min(...group.frames.map((f) => f.frame.beforeMs)),

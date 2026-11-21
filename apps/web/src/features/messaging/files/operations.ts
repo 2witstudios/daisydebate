@@ -1,3 +1,4 @@
+import { nowMs, instantMs } from '@daisy/clock';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { Clock, IdGenerator } from '@daisy/clock';
 import {
@@ -221,7 +222,7 @@ export async function readMessagingFile(
       const access = await frame.access(token, d.clock.now(), policy);
       const bytes = await d.objects.read(access.objectKey, access.storedBytes);
       await frame.access(token, d.clock.now(), policy);
-      if (Date.parse(d.clock.now()) >= Date.parse(access.accessExpiresAt))
+      if (nowMs(d.clock) >= instantMs(access.accessExpiresAt))
         throw createAppError('NOT_FOUND');
       return {
         bytes,

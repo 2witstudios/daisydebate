@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { z } from 'zod';
 import { idSchema } from './primitives';
 import { advanceCleanupScan, nextTurn } from './billing-cleanup-scans';
@@ -15,7 +16,7 @@ import {
   type CleanupState,
 } from './billing-cleanup';
 const idle = { kind: 'idle' } as const;
-const at = Date.parse;
+const at = instantMs;
 type Active = Exclude<CleanupState, { kind: 'acknowledged' }>;
 export type CleanupTransition =
   | {

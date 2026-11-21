@@ -1,3 +1,4 @@
+import { nowMs, instantMs } from '@daisy/clock';
 import type { Clock } from '@daisy/clock';
 import type { LogFields, Logger } from '@daisy/logger';
 import { workerSuccessKey } from './alert-state';
@@ -14,8 +15,7 @@ const SUCCESS_MARKER_TTL_SECONDS = 30 * 24 * 60 * 60;
 const HTTP_BUCKET_TTL_SECONDS = 11 * 60;
 
 /** The current one-minute bucket `alert-state.ts` sums trailing windows of. */
-const minuteBucket = (clock: Clock) =>
-  Math.floor(Date.parse(clock.now()) / MINUTE_MS);
+const minuteBucket = (clock: Clock) => Math.floor(nowMs(clock) / MINUTE_MS);
 
 export type AlertRecorderRedis = {
   readonly markOccurrenceSince: (
@@ -73,7 +73,7 @@ const recordHttpOutcome = (
 type OutageMark = { readonly sinceIso: string; readonly lastIso: string };
 
 const withinBridge = (mark: OutageMark, nowIso: string): boolean =>
-  Date.parse(nowIso) - Date.parse(mark.lastIso) <=
+  instantMs(nowIso) - instantMs(mark.lastIso) <=
   UNAVAILABLE_MARK_TTL_SECONDS * 1000;
 
 /**

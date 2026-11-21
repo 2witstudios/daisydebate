@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { drawnTopicLabel } from '../../features/debate-room/vocabulary';
 import {
   roundPositionAt,
@@ -235,7 +236,7 @@ function liveParts(
       liveIndex: -1,
       clock: {
         label: 'Prep',
-        remainingMs: Math.max(0, Date.parse(step.endsAt) - nowMs),
+        remainingMs: Math.max(0, instantMs(step.endsAt) - nowMs),
       },
       prep: null,
     };

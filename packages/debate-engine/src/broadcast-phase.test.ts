@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { broadcastPhase, type PhasePosition } from './broadcast-phase';
 
@@ -32,7 +33,7 @@ describe('broadcastPhase', () => {
         { ...base, openSegment: { type: 'speech', endsAt, sequence: 6 } },
         6,
       ),
-      expected: { kind: 'private-at', atMs: Date.parse(endsAt) },
+      expected: { kind: 'private-at', atMs: instantMs(endsAt) },
     });
   });
   test('prep, the wait for a ballot and before the first segment are private', () => {

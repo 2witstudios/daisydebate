@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { SQL } from 'bun';
 import { judgingPolicy } from '@daisy/protocol';
 import { atFinalJudgingStage } from '../src/testing-judging';
@@ -95,8 +96,8 @@ test(
               state.kind,
               'countedAt' in state
                 ? row.mode === 'missing_attempt'
-                  ? Date.parse(state.countedAt) >= beforeMigration &&
-                    Date.parse(state.countedAt) <= afterMigration
+                  ? instantMs(state.countedAt) >= beforeMigration &&
+                    instantMs(state.countedAt) <= afterMigration
                     ? 'migration_observation'
                     : 'invalid_observation'
                   : new Date(state.countedAt).toISOString()

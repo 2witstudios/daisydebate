@@ -1,10 +1,10 @@
+import { sha3Hex } from '@daisy/digest';
 import { requireTestServices } from '@daisy/config';
 import { privacyScope } from './necessary-evidence-custody-fixture.test-support';
 import { runCustodyProcess as child } from './necessary-evidence-custody.test-support';
 import { copyFile, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createHash } from 'node:crypto';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   initializeLocalEvidenceAuthority,
@@ -105,7 +105,7 @@ test('fresh processes use stable authority after restoring old material and payl
       actual: opened,
       expected: {
         kind: 'opened',
-        digest: createHash('sha3-256').update(payload).digest('hex'),
+        digest: sha3Hex(payload),
       },
     });
     const retry = await child({

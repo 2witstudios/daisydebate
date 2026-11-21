@@ -1,3 +1,4 @@
+import { tryInstantMs, instantMs } from '@daisy/clock';
 import type { EntitlementGrant, PremiumEntitlementKind } from '@daisy/protocol';
 import type {
   BillingAccess,
@@ -9,14 +10,14 @@ const graceMs = 7 * 24 * 60 * 60 * 1000;
 const none = { kind: 'none' } as const;
 const validPeriod = (period: SubscriptionPeriod) =>
   period.subscriptionId.length > 0 &&
-  Number.isFinite(Date.parse(period.startsAt)) &&
-  Number.isFinite(Date.parse(period.endsAt)) &&
-  Date.parse(period.startsAt) < Date.parse(period.endsAt);
+  tryInstantMs(period.startsAt) !== undefined &&
+  tryInstantMs(period.endsAt) !== undefined &&
+  instantMs(period.startsAt) < instantMs(period.endsAt);
 
 function paidAccess(period: SubscriptionPeriod, now: number): BillingAccess {
   return validPeriod(period) &&
-    Date.parse(period.startsAt) <= now &&
-    now < Date.parse(period.endsAt)
+    instantMs(period.startsAt) <= now &&
+    now < instantMs(period.endsAt)
     ? { kind: 'paid', period }
     : none;
 }
@@ -41,10 +42,10 @@ function renewalPeriod(
     !validPeriod(previous) ||
     !validPeriod(renewal) ||
     previous.subscriptionId !== renewal.subscriptionId ||
-    Date.parse(previous.endsAt) !== Date.parse(renewal.startsAt)
+    instantMs(previous.endsAt) !== instantMs(renewal.startsAt)
   )
     return null;
-  const end = new Date(Date.parse(previous.endsAt) + graceMs);
+  const end = new Date(instantMs(previous.endsAt) + graceMs);
   return Number.isFinite(end.getTime())
     ? {
         kind: 'renewal_failed',
@@ -79,14 +80,14 @@ export function subscriptionAccess(
   evidence: SubscriptionEvidence,
   instant: string,
 ): BillingAccess {
-  const now = Date.parse(instant);
+  const now = tryInstantMs(instant);
   const verified = verifiedAccessPeriod(evidence);
-  if (!Number.isFinite(now) || !verified) return none;
+  if (now === undefined || !verified) return none;
   const paid = paidAccess(verified.period, now);
   if (paid.kind === 'paid') return paid;
   return verified.kind === 'renewal_failed' &&
-    Date.parse(verified.period.endsAt) <= now &&
-    now < Date.parse(verified.graceEndsAt)
+    instantMs(verified.period.endsAt) <= now &&
+    now < instantMs(verified.graceEndsAt)
     ? {
         kind: 'grace',
         period: verified.period,

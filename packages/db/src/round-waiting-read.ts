@@ -23,9 +23,9 @@ async function readWaitingFacts(
 ): Promise<RoundWaitingFacts> {
   const [facts] = await queryRows(
     tx,
-    z.object({ now: z.string(), ended: z.boolean() }),
+    z.object({ now: z.date(), ended: z.boolean() }),
     sql`select
-    clock_timestamp()::text as now,
+    clock_timestamp() as now,
     r.final_segment_ended_at is not null as ended
     from rounds r where r.id=${round.id}`,
   );
@@ -34,7 +34,7 @@ async function readWaitingFacts(
   if (!facts.ended) return { speeches: 'running' };
   return {
     speeches: 'ended',
-    nowMs: Date.parse(facts.now),
+    nowMs: facts.now.getTime(),
     attendance: await readAttendanceLedger(tx, round.id),
     frozen: round.transcriptCompleteness
       ? await readJudgingPanelFacts(tx, {

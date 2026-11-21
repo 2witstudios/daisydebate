@@ -1,5 +1,5 @@
 'use client';
-import { systemClock } from '@daisy/clock';
+import { nowMs, systemClock } from '@daisy/clock';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { readRoundClock } from '../../features/round-runtime/read-round-clock';
 import {
@@ -41,7 +41,7 @@ export function useRoundTime(options: {
       scheduler: systemScheduler,
       visibility: browserSyncEdges(null).visibility,
       random: secureRandom,
-      wallNowMs: () => Date.parse(systemClock.now()),
+      wallNowMs: () => nowMs(systemClock),
       events: window,
     });
     wake.current = clock.wake;

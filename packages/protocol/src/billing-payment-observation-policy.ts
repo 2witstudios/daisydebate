@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { retainPaymentObservationFacts } from './billing-payment-observation-retention';
 import {
   mergePaymentFacts,
@@ -58,7 +59,7 @@ function validAction(
 ) {
   const parsed = refundActionSchema.safeParse(action);
   return parsed.success &&
-    Date.parse(parsed.data.admittedAt) <= Date.parse(now) &&
+    instantMs(parsed.data.admittedAt) <= instantMs(now) &&
     matchesAction(value, payment, parsed.data)
     ? parsed.data
     : null;

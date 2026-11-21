@@ -1,3 +1,4 @@
+import { sha3Hex } from '@daisy/digest';
 import { resolve } from 'node:path';
 import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
@@ -10,8 +11,7 @@ import { requireLaunchSlot } from './room-launch-slot';
  * as capture's append would: the line, the stream's count and the revision.
  * Text here is fixture wording, never a person's speech.
  */
-const digest = (value: string) =>
-  new Bun.CryptoHasher('sha3-256').update(value).digest('hex');
+const digest = (value: string) => sha3Hex(value);
 
 if (import.meta.main) {
   const checkout = resolve(import.meta.dir, '../../../..');

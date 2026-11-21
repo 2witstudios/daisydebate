@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { and, eq } from 'drizzle-orm';
 import { segmentDueAtMs, type RoundCommandPrincipal } from '@daisy/protocol';
 import type { RoundHydration } from './round-hydration';
@@ -74,8 +75,8 @@ function currentWorkerSegment(
   const segment = round.segments.at(-1);
   if (!segment || segment.id !== segmentId || segment.endedAt !== null)
     return false;
-  const at = Date.parse(now),
-    startedAtMs = Date.parse(segment.startedAt);
+  const at = instantMs(now),
+    startedAtMs = instantMs(segment.startedAt);
   return (
     at >= startedAtMs &&
     at <
@@ -96,7 +97,7 @@ function currentLease(
     claim.agentRunId !== principal.agentRunId ||
     claim.serviceId !== `agent-run:${principal.agentRunId}` ||
     claim.serviceId !== principal.serviceId ||
-    claim.leaseExpiresAt.getTime() <= Date.parse(now)
+    claim.leaseExpiresAt.getTime() <= instantMs(now)
   )
     return false;
   return true;

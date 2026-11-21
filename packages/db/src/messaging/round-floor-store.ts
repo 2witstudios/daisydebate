@@ -1,3 +1,4 @@
+import { addMs } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
 import { isRoundOver } from '@daisy/protocol';
 import { isDebatingSeatSql } from '../seat-columns';
@@ -34,9 +35,7 @@ export const roundFloorMetadataOf = (fact: RoundFloorFact) => {
     expiresAt:
       fact.completedAt === null
         ? null
-        : new Date(
-            Date.parse(fact.completedAt) + roundFloorRetentionMs,
-          ).toISOString(),
+        : addMs(fact.completedAt, roundFloorRetentionMs),
   };
 };
 

@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { unknownPaymentFacts } from './billing-payment-observation-facts';
 import { recordInvoiceEnumeration } from './billing-payment-observation-retention';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -62,7 +63,7 @@ test('positive payment chronology distinguishes pre-closure, overlap, future evi
       value,
       {
         ...proof,
-        paidAtSeconds: Date.parse(`2026-11-05T00:00:0${second}.000Z`) / 1000,
+        paidAtSeconds: instantMs(`2026-11-05T00:00:0${second}.000Z`) / 1000,
       },
       context,
     ),

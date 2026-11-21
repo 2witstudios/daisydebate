@@ -1,3 +1,4 @@
+import { addMs } from '@daisy/clock';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -82,15 +83,15 @@ test('an opaque body digest cannot hide altered original capture window metadata
       await store.reserveCaptureEvidence(original);
       const shifted = {
         startOffsetMs: window.startOffsetMs + 10,
-        before: new Date(Date.parse(window.before) + 10).toISOString(),
-        after: new Date(Date.parse(window.after) + 10).toISOString(),
+        before: addMs(window.before, 10),
+        after: addMs(window.after, 10),
       };
       const variants = [
         { trackId: createId() },
         shifted,
         {
           durationMs: 200,
-          after: new Date(Date.parse(window.after) + 100).toISOString(),
+          after: addMs(window.after, 100),
         },
       ];
       const refused = [];

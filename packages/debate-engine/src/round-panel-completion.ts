@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { captureWithinLimit, type FrozenCapture } from '@daisy/protocol';
 import { createInvariantError } from '@daisy/errors';
 import {
@@ -168,7 +169,7 @@ export function decidePanelCompletion(input: {
   const noRuling = judgeSeatIds.filter((id) => !ruled.has(id));
   const window = panel.humanWindow;
   const humanWindowOpen =
-    window !== null && input.nowMs < Date.parse(window.deadlineAt);
+    window !== null && input.nowMs < instantMs(window.deadlineAt);
   const awaited = awaitedSeat(panel, ruled, humanWindowOpen);
   if (awaited) return { kind: 'pending', waiting: awaited };
   if (submitted.length > 0 && submitted.length < judging.panel.quorum)

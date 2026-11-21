@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createRequestFlagReader } from './reader';
 import { releaseAdmission } from './admission';
@@ -23,10 +24,10 @@ test('display requests deduplicate their own snapshot and never reuse another su
               },
             ],
           },
-          now: Date.parse('2026-11-05'),
+          now: instantMs('2026-11-05T00:00:00Z'),
         };
       },
-      now: () => Date.parse('2026-11-05'),
+      now: () => instantMs('2026-11-05T00:00:00Z'),
       diagnostic: () => {},
       releaseDefault: false,
     });
@@ -53,7 +54,7 @@ test('failed display reads close the gate and diagnose once without personal con
     read: async () => {
       throw new Error('private database detail');
     },
-    now: () => Date.parse('2026-11-05'),
+    now: () => instantMs('2026-11-05T00:00:00Z'),
     diagnostic: () => {
       diagnostics += 1;
     },
@@ -72,7 +73,7 @@ test('failed display reads close the gate and diagnose once without personal con
   });
 });
 test('the deployment release default reaches display reads and durable admission alike', async () => {
-  const now = Date.parse('2026-11-05');
+  const now = instantMs('2026-11-05T00:00:00Z');
   const snapshot = {
     kind: 'available',
     flags: [

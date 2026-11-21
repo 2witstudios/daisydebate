@@ -1,4 +1,6 @@
 #!/usr/bin/env bun
+
+import { tryInstantMs } from '@daisy/clock';
 import { execFileSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import { assessEventText, type DocumentationRunRecord } from './docs-contracts';
@@ -97,10 +99,8 @@ export function selectReconcilableMerges<
   const oldest = input.now - input.sinceMs;
   const youngest = input.now - input.graceMs;
   return input.pullRequests.filter((pullRequest) => {
-    const mergedAt = Date.parse(pullRequest.mergedAt);
-    return (
-      Number.isFinite(mergedAt) && mergedAt >= oldest && mergedAt <= youngest
-    );
+    const mergedAt = tryInstantMs(pullRequest.mergedAt);
+    return mergedAt !== undefined && mergedAt >= oldest && mergedAt <= youngest;
   });
 }
 

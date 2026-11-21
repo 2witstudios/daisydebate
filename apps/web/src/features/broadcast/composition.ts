@@ -1,3 +1,4 @@
+import { nowMs } from '@daisy/clock';
 import type { WorkerTimers } from '../../lib/worker-timers';
 import { passOf } from '../../lib/idle-backoff';
 import {
@@ -31,7 +32,7 @@ export const startBroadcastSweep = (
   const sweep = createBroadcastSweep({
     store: app.database.broadcasts,
     egress,
-    now: () => Date.parse(app.clock.now()),
+    now: () => nowMs(app.clock),
     nextId: () => app.ids.next(),
     newFeedKey: () => newFeedKey(),
     newCredential: () => newStageCredential(),

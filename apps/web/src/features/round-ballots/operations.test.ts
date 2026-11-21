@@ -1,3 +1,5 @@
+import { sha3Hex } from '@daisy/digest';
+import { addMs } from '@daisy/clock';
 import { daisyBallotSource } from '@daisy/protocol';
 import { assertRejects } from '@daisy/errors/testing';
 import type { LockedRoundBallotInput } from '@daisy/db/round-ballot';
@@ -66,13 +68,7 @@ test('only the seated judge is authorized, under the envelope digest', async () 
       prepared.payloadDigest,
       prepared.nextBallotId(),
     ],
-    expected: [
-      undefined,
-      new Bun.CryptoHasher('sha3-256')
-        .update(JSON.stringify(envelope))
-        .digest('hex'),
-      'b'.repeat(24),
-    ],
+    expected: [undefined, sha3Hex(JSON.stringify(envelope)), 'b'.repeat(24)],
   });
   const debater = await prepare({
     kind: 'human',
@@ -104,7 +100,7 @@ test('completion follows the panel decision', async () => {
     emptyJudgeSlots: [],
     humanJudgeSeatIds: [seat.id],
     aiJudgeSeatIds: [],
-    ballotDeadlineAt: new Date(Date.parse(context.now) + 1).toISOString(),
+    ballotDeadlineAt: addMs(context.now, 1),
     jobs: [],
     held: {
       attendanceCutoffAt: context.now,

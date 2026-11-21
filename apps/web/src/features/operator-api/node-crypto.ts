@@ -1,3 +1,4 @@
+import { sha3Hex } from '@daisy/digest';
 import { createHash, createHmac } from 'node:crypto';
 import type { OperatorCrypto } from '@daisy/auth/operator-signature';
 
@@ -6,7 +7,7 @@ export const nodeOperatorCrypto: OperatorCrypto = {
   hmacSha256: (key, text) =>
     createHmac('sha256', key).update(text, 'utf8').digest('base64url'),
   sha256Hex: (bytes) => createHash('sha256').update(bytes).digest('hex'),
-  sha3Hex: (text) => createHash('sha3-256').update(text, 'utf8').digest('hex'),
+  sha3Hex,
 };
 
 export const decodeBase64url = (text: string): Uint8Array =>

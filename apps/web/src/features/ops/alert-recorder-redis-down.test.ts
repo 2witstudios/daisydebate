@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { fixedClock } from '@daisy/clock';
+import { instantMs, fixedClock } from '@daisy/clock';
 import { createAlertRecorder, type AlertRecorderRedis } from './alert-recorder';
 
 setupRitewayBun();
@@ -21,7 +21,7 @@ const NOW = '2026-09-25T12:00:00.000Z';
 
 /** A clock the test moves forward by hand. */
 const steppedClock = (startIso: string) => {
-  let nowMs = Date.parse(startIso);
+  let nowMs = instantMs(startIso);
   return {
     clock: { now: () => new Date(nowMs).toISOString() },
     advance: (ms: number) => {

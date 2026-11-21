@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { execFileSync } from 'node:child_process';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -209,7 +210,7 @@ test('a full Freestyle bot Round speaks every bot turn on the configured model',
         rule?.type === 'speech' &&
         leadSideOf(rule.speak) === affirmativeSide &&
         human &&
-        nowMs() - Date.parse(open.startedAt) >= HOLD_SPEECH_MS
+        nowMs() - instantMs(open.startedAt) >= HOLD_SPEECH_MS
       )
         await ballotRoundCommand(request, view, {
           type: 'yield',
@@ -260,7 +261,7 @@ test('a full Freestyle bot Round speaks every bot turn on the configured model',
             durationMs: s.durationMs,
             ranMs:
               s.startedAt && s.endedAt
-                ? Date.parse(s.endedAt) - Date.parse(s.startedAt)
+                ? instantMs(s.endedAt) - instantMs(s.startedAt)
                 : null,
           })),
           models: [...new Set(own.map((run) => `${run.kind}:${run.model}`))],

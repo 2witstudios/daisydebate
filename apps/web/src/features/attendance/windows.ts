@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import type { RoundHydration } from '@daisy/db/rounds';
 import { finalSpeechKey, type AttendanceWindow } from '@daisy/debate-engine';
 import { createAppError, createRefusal } from '@daisy/errors';
@@ -47,7 +48,7 @@ export function attendanceWindowFor(
     );
   return {
     segmentId,
-    openedAtMs: Date.parse(actual.startedAt),
+    openedAtMs: instantMs(actual.startedAt),
     speakerId: speaker.id,
     speakerSide: sideOfSeat(scheduledSeat),
     forfeitsTo: forfeitsToOf(round.rules, sideOfSeat(scheduledSeat)),

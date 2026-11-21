@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import {
   everySeatOf,
   sameSeat,
@@ -43,7 +44,7 @@ export const seatAt = (
 };
 
 /** The corpus's first instant; every other instant is an offset from it. */
-export const corpusStartMs = Date.parse('2026-10-06T09:00:00.000Z');
+export const corpusStartMs = instantMs('2026-10-06T09:00:00.000Z');
 
 /** An ISO instant `ms` after the corpus start. */
 export const corpusAt = (ms: number): string =>

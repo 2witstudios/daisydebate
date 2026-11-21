@@ -1,7 +1,7 @@
 import { requireTestServices } from '@daisy/config';
 import { Database } from 'bun:sqlite';
 import { existsSync } from 'node:fs';
-import { createHash } from 'node:crypto';
+import { sha3Hex } from '@daisy/digest';
 import { necessaryEvidencePolicy } from '@daisy/protocol';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -85,10 +85,7 @@ function materialSummary(dir: string) {
     count: rows.length,
     digest:
       rows.length === 1
-        ? createHash('sha3-256')
-            .update(rows[0]!.key)
-            .update(rows[0]!.nonce)
-            .digest('hex')
+        ? sha3Hex(Buffer.concat([rows[0]!.key, rows[0]!.nonce]))
         : null,
   };
 }

@@ -18,7 +18,7 @@ import {
 import type { LobbyCommandAnswer } from '@daisy/protocol/lobby/command';
 import { decideLeagueSchool } from '../commands/league-schools';
 import { CommandDenied, runLobbyCommand } from '../commands/run-command';
-import { commandDigest } from './command-digest';
+import { commandDigest } from '@daisy/digest';
 import type { TabPrincipal } from '../tab-principal';
 
 type Dependencies = {

@@ -1,7 +1,7 @@
 import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import type { Page } from '@playwright/test';
-import { systemClock } from '@daisy/clock';
+import { instantMs, systemClock } from '@daisy/clock';
 import {
   affirmativeSide,
   negativeSide,
@@ -90,7 +90,7 @@ const PLAY_OUT_LIMIT_MS = 300_000;
 const SEAL_LIMIT_MS = 180_000;
 
 const pause = (ms: number) => new Promise((done) => setTimeout(done, ms));
-const ms = (value: string) => Date.parse(value);
+const ms = (value: string) => instantMs(value);
 
 type Member = Awaited<
   ReturnType<typeof createRoomLaunchAccounts>
@@ -239,7 +239,7 @@ async function playOutRound(members: readonly Member[], roundId: string) {
       speechesHeld += 1;
     }
     const hold = speechesHeld === 1 ? NEXT_SPEECH_MS : LATER_SPEECH_MS;
-    if (open?.startedAt && nowMs() - Date.parse(open.startedAt) >= hold)
+    if (open?.startedAt && nowMs() - instantMs(open.startedAt) >= hold)
       await endOpenSpeech(members, roundId).catch(() => false);
     await pause(1000);
   }
@@ -403,7 +403,7 @@ async function drillOneKill(
         intervals: [2000],
       })
       .toBeGreaterThan(0);
-    const into = nowMs() - Date.parse(speech.startedAt!);
+    const into = nowMs() - instantMs(speech.startedAt!);
     if (into < SPEECH_BEFORE_KILL_MS) await pause(SPEECH_BEFORE_KILL_MS - into);
     const transports: readonly IceTransport[] = before.flat();
     node = nodeCarrying(target.nodes, transports);
@@ -415,7 +415,7 @@ async function drillOneKill(
     while (watches.some((watch) => watch.reads.length < 2))
       await pause(READ_EVERY_MS);
     const killSentAt = systemClock.now();
-    const killMs = Date.parse(killSentAt);
+    const killMs = instantMs(killSentAt);
     const admissions = seats.map((seat) => countAdmissions(seat.page));
     await killNode(target, node);
     const killCommandMs = nowMs() - killMs;

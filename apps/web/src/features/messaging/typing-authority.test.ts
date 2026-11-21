@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import {
   messagingTestGroupPolicy,
   messagingTestGroupReading,
@@ -141,7 +142,7 @@ test('sealed peer reading evidence is consumed again at aggregate response time'
       ),
     ],
     expected: [
-      { typing: true, expiresAt: Date.parse('2026-10-10T12:00:05.000Z') },
+      { typing: true, expiresAt: instantMs('2026-10-10T12:00:05.000Z') },
       { typing: false, expiresAt: null },
     ],
   });

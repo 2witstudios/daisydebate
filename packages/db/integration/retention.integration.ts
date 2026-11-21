@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
@@ -10,7 +11,7 @@ const { databaseUrl: url } = requireTestServices(process.env);
 setupRitewayBun();
 
 const HOUR = 3_600_000;
-const now = Date.parse('2026-09-20T12:00:00.000Z');
+const now = instantMs('2026-09-20T12:00:00.000Z');
 const cutoff = new Date(now - 24 * HOUR).toISOString();
 const hoursAgo = (hours: number) => new Date(now - hours * HOUR).toISOString();
 

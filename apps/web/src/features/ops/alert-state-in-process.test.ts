@@ -1,3 +1,4 @@
+import { addMs } from '@daisy/clock';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   ALERT_THRESHOLDS,
@@ -16,9 +17,7 @@ const clock = { now: () => NOW };
  */
 describe('alert state with the limiter kept in process (ISSUE-191)', () => {
   test('an unreadable alert Redis evaluates only the in-process limiter marker (ISSUE-191)', () => {
-    const since = new Date(
-      Date.parse(NOW) - ALERT_THRESHOLDS.unavailableMs,
-    ).toISOString();
+    const since = addMs(NOW, -ALERT_THRESHOLDS.unavailableMs);
     assert({
       given:
         'a snapshot whose Redis state could not be read, with the limiter unavailable for 2 minutes in process',

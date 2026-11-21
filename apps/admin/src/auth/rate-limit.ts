@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { sha3 } from './secrets';
 
 /**
@@ -13,7 +14,7 @@ export const clientDigest = (attemptKey: string, address: string): string =>
   sha3(`daisy-admin-attempt-v1\n${attemptKey}\n${address}`);
 
 export function attemptWindow(now: string): string {
-  const at = Date.parse(now);
+  const at = instantMs(now);
   return new Date(at - (at % ATTEMPT_WINDOW_MS)).toISOString();
 }
 
