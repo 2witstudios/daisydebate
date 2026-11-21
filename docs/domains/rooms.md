@@ -308,6 +308,11 @@ content waiver, signed once per season, is the ranked agreement, and it alone
 fences a ranked Ready (`content-waiver-required`, or `ranked-unavailable` with
 no season open).
 
+**Target model** ([ADR 0162](../decisions/0162-daisy-is-a-league-open-and-youth-are-lobbies.md)):
+Daisy is an ordinary league and Open and Youth are its standing lobbies; who
+may compete is the lobby's age rule. The division columns described below are
+being replaced by the lobby; add no new readers of them.
+
 A Room belongs to the lobby it was created in
 ([ADR 0156](../decisions/0156-room-division-from-its-lobby.md), amending
 [ADR 0147](../decisions/0147-ladder-style-and-division.md)). `rooms.division`

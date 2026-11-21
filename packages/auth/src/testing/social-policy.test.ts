@@ -13,14 +13,14 @@ const now = input.context.now!;
 test('shared social fixture declares only isolated adult DM posting', () => {
   assert({
     given: 'the explicit test-only posting fixture',
-    should: 'approve only adult/adult social.dm revision1 for isolated tests',
+    should: 'approve social.dm revision 1 for isolated tests only',
     actual: messagingTestPosting,
     expected: {
       state: 'approved',
       decision: 'isolated browser fixture only',
       key: 'social.dm',
       revision: 1,
-      allowedBandPairs: [['adult', 'adult']],
+      earlierRevisions: [],
     },
   });
 });

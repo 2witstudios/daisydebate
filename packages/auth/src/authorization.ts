@@ -73,6 +73,7 @@ export type {
   AuthorizationDecision,
   SocialPolicyEvidence,
   SocialAccountFact,
+  SocialContactFact,
   SocialCreationFact,
   SocialCreationPolicy,
   ContactAuthorizationFact,

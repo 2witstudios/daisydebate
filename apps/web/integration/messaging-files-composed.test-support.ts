@@ -91,7 +91,7 @@ export async function openComposedFileFixture(
           decision: 'Explicit file integration fixture only',
           key: group ? 'social.private_group' : 'social.dm',
           revision: 1,
-          allowedBandPairs: [['adult', 'adult']],
+          earlierRevisions: [],
         },
         readingPolicy,
       }),

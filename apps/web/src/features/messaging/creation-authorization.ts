@@ -5,10 +5,11 @@ import type {
   SocialCreationPolicy,
 } from '@daisy/auth/authorization';
 import type { Clock } from '@daisy/clock';
-import type { ContactAuthorizationFence } from '@daisy/db/contacts';
+import type { Database } from '@daisy/db';
 import { createAppError } from '@daisy/errors';
 import { requireAuthorization } from '@daisy/auth/request-authorization';
 import { loadAccountPolicyFacts } from '../authorization/account-policy-facts';
+import type { MessagingReadingPolicy } from './authorization-fence';
 
 type CreationOperation = {
   readonly kind: 'dm' | 'private_group';
@@ -24,12 +25,14 @@ export function messagingCreationFence({
   principal,
   clock,
   operation,
+  readingPolicy,
 }: {
   readonly principal: AuthorizationPrincipal;
   readonly clock: Clock;
-  readonly operation: CreationOperation;
-}): ContactAuthorizationFence {
-  return async (tx, input, facts) => {
+  readonly operation: CreationOperation & { readonly kind: 'dm' };
+  readonly readingPolicy: MessagingReadingPolicy;
+}): Parameters<Database['messagingSocialStore']>[0] {
+  return async (tx, input, facts, existing) => {
     if (
       principal.kind !== 'user' ||
       principal.userId !== input.userId ||
@@ -44,7 +47,35 @@ export function messagingCreationFence({
       tx,
       facts.accounts,
       now,
+      existing ? 'reading' : 'posting',
     );
+    if (existing) {
+      const dm = existing.authority;
+      if (dm.kind !== 'dm') throw createAppError('INFRASTRUCTURE');
+      const capability =
+        dm.state === 'accepted'
+          ? 'channel.read'
+          : dm.requestSenderActorId === input.actorId
+            ? 'channel.request.status'
+            : 'channel.request.read';
+      const socialReading = readingPolicy({
+        channel: existing,
+        accounts: socialAccounts,
+        now,
+      });
+      requireAuthorization({
+        principal,
+        capability,
+        resource: existing,
+        context: {
+          account,
+          now,
+          socialAccounts,
+          ...(socialReading === undefined ? {} : { socialReading }),
+        },
+      });
+      return;
+    }
     const resource = creationResource(
       operation,
       input.actorId,
@@ -54,10 +85,7 @@ export function messagingCreationFence({
     );
     requireAuthorization({
       principal,
-      capability:
-        operation.kind === 'dm'
-          ? 'channel.dm.request'
-          : 'channel.create.private_group',
+      capability: 'channel.dm.request',
       resource,
       context: {
         account,

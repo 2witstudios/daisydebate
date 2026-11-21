@@ -35,6 +35,7 @@ const kindLabel: Record<NotificationKind, string> = {
   challenge_accepted: 'Someone accepts my challenge',
   friend_request_received: 'Someone asks to be friends',
   friend_request_accepted: 'Someone accepts my friend request',
+  dm_request: 'Someone sends me a message request',
   media_release_requested: 'My media release request is sent',
   media_release_declined: 'My media release is declined',
   media_release_signed: 'My media release is signed',

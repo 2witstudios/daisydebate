@@ -7,6 +7,7 @@ import { FollowButton } from '../../../../ui/following/follow-button';
 import {
   requestDebaterFollow,
   requestMemberStandings,
+  requestMessageOffer,
 } from '../../../../lib/request-session';
 import { MemberStandings } from '../../../../ui/ranked/member-standings';
 import {
@@ -140,9 +141,33 @@ async function ProfileFollow({ username }: { readonly username: string }) {
 }
 
 /**
+ * Message toward someone else, as the DM rule would answer a request now
+ * (decision 90): the button, or, where only a friendship opens one (an
+ * adult toward a minor, or someone taking requests from friends only),
+ * the reason to Add friend instead. The two read the same, so no age shows.
+ */
+async function ProfileMessage({ username }: { readonly username: string }) {
+  const offer = await requestMessageOffer(username);
+  if (offer === 'befriend')
+    return (
+      <p className="text-sm text-ink-muted" data-message-offer="befriend">
+        Add @{username} as a friend to send them a message.
+      </p>
+    );
+  if (offer === 'none') return null;
+  return (
+    <MessageUserButton
+      username={username}
+      requestId={systemId.next()}
+      action={createConversationAction.bind(null, 'dm')}
+    />
+  );
+}
+
+/**
  * A member's Add friend, Message, Challenge, Report and Block, toward someone else;
- * nothing for a visitor. Message goes through the ordinary DM request, so a
- * friendship never bypasses DM admission.
+ * nothing for a visitor. Message goes through the ordinary DM request, under
+ * the DM rule.
  */
 async function friendActionsFor(
   username: string,
@@ -163,11 +188,7 @@ async function friendActionsFor(
         />
       ) : null}
       <ProfileFollow username={username} />
-      <MessageUserButton
-        username={username}
-        requestId={systemId.next()}
-        action={createConversationAction.bind(null, 'dm')}
-      />
+      <ProfileMessage username={username} />
       <ProfilePersonActions
         username={username}
         memberDivision={ladders.memberDivision}

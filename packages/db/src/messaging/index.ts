@@ -71,3 +71,4 @@ export type {
   ContextChannelWriteFrame,
 } from './context-channel-contracts';
 export { roomCommunityMetadataOf } from './room-community-store';
+export { bindMessagingContactFacts } from './contact-facts';

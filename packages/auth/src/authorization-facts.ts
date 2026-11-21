@@ -354,6 +354,20 @@ export type { AuthorizationDecision } from './authorization-decision';
 export type SocialAccountFact = {
   readonly account: AccountAuthorizationFact;
   readonly age: import('./account-age').AccountAgeFact;
+  /**
+   * What the DM rule reads about this account's contacts (decision 90), read
+   * under the same fences; absent where no DM rule runs (reading), and then
+   * no friendship, no staff link and a setting of no one.
+   */
+  readonly contact?: SocialContactFact;
+};
+export type SocialContactFact = {
+  /** Who may send this account a new message request. */
+  readonly requestSetting: import('@daisy/protocol').MessageRequestSetting;
+  /** The other accounts in the cast it holds an accepted friendship with. */
+  readonly friendActorIds: readonly string[];
+  /** Its linked adults (`daisy_linked_adult_users`); empty for an adult. */
+  readonly linkedAdultUserIds: readonly string[];
 };
 export type SocialPolicyEvidence = {
   readonly channelId: string;

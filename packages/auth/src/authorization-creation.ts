@@ -98,6 +98,9 @@ function currentAdmission(
     context.socialAccounts,
     context.now,
     policy,
+    resource.mode === 'dm'
+      ? { stage: 'request', initiatorActorId: resource.initiatorActorId }
+      : null,
   )
     ? policy
     : null;

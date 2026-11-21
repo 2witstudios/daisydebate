@@ -13,6 +13,19 @@ export type MessagingSocialBounds = Readonly<{
   batchActors: number;
 }>;
 
+/**
+ * Who may send a member a new message request (decision 90): everyone (the
+ * default), only their friends, or no one. It gates new requests only; an
+ * accepted conversation is already consented.
+ */
+export const messageRequestSettings = ['everyone', 'friends', 'none'] as const;
+export type MessageRequestSetting = (typeof messageRequestSettings)[number];
+/** The body that stores a member's own request setting. */
+export const messageRequestSettingSchema = z.strictObject({
+  version: z.literal(1),
+  setting: z.enum(messageRequestSettings),
+});
+
 export const messagingDmResultSchema = z.strictObject({
   version: z.literal(1),
   channelId: idSchema,

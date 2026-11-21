@@ -204,3 +204,39 @@ test('own-message removal is independent of posting admission', () => {
     expected: [true, false, false, false],
   });
 });
+
+test('declining and cancelling are never held to the DM rule (decision 90)', () => {
+  const refused = { ...policy, allowed: false };
+  const at = (actorId: string, userId: string) => ({
+    ...input,
+    principal: { kind: 'user' as const, userId, actorId },
+    resource: pendingResource,
+    context: {
+      ...input.context,
+      account: accounts.find((row) => row.account.actorId === actorId)!.account,
+      socialPosting: refused,
+    },
+  });
+  const recipient = at('b', 'v');
+  assert({
+    given: 'a pending request the DM rule no longer allows posting on',
+    should:
+      'refuse accepting, and still let the recipient decline and the sender cancel',
+    actual: [
+      authorize({ ...recipient, capability: 'channel.request.decide' }).allow,
+      authorize({
+        ...recipient,
+        capability: 'channel.request.decide',
+        context: { ...recipient.context, answer: 'accept' },
+      }).allow,
+      authorize({
+        ...recipient,
+        capability: 'channel.request.decide',
+        context: { ...recipient.context, answer: 'decline' },
+      }).allow,
+      authorize({ ...at('a', 'u'), capability: 'channel.request.cancel' })
+        .allow,
+    ],
+    expected: [false, false, true, true],
+  });
+});

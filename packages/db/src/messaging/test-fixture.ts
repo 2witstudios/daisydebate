@@ -6,6 +6,7 @@ import { deliverPrivacyJob } from '../privacy';
 import { accountAgePrivacyAdopter } from '../account-age';
 import { admitParticipants } from '../beta-access-testing';
 import { socialPrivacyAdoption } from '../social-privacy-composition';
+import { notificationPrivacyAdopter } from '../notifications/privacy';
 
 /** Isolated integration data only; never collection or production policy authority. */
 export async function createMessagingTestFixture(client: SQL) {
@@ -113,7 +114,7 @@ export async function createMessagingTestFixture(client: SQL) {
             userId: subjectActorId === actorId ? userId : otherUserId,
             actorId: subjectActorId,
           },
-          socialPrivacyAdoption(),
+          [...socialPrivacyAdoption(), notificationPrivacyAdopter],
         );
       },
       eraseSubject: async (subjectActorId: string, typingJobId?: string) => {

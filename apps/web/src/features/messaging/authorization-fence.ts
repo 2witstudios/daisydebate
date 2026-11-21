@@ -41,18 +41,21 @@ export async function loadMessagingAuthorizationInput(
   input: BoundInput,
   frame: BoundFrame,
   options: MessagingFenceOptions,
+  purpose: 'reading' | 'posting',
 ) {
   requireBoundFrame(options.principal, input, frame.fact.channelId);
   const accounts = await loadAccountPolicyFacts(
     tx,
     frame.accounts,
     options.clock.now(),
+    purpose,
   );
   return messagingAuthorizationInput(
     input,
     frame.fact,
     { accounts, now: options.clock.now() },
     options,
+    purpose,
   );
 }
 /** The same producer over policy facts already read under the fences. */
@@ -64,6 +67,7 @@ export function messagingAuthorizationInput(
     readonly now: string;
   },
   options: MessagingFenceOptions,
+  purpose: 'reading' | 'posting',
 ): Omit<AuthorizationInput, 'capability' | 'resource'> & {
   readonly resource: ChannelAuthorizationFact;
 } {
@@ -83,13 +87,17 @@ export function messagingAuthorizationInput(
       now,
       socialAccounts: accounts,
       ...(reading === undefined ? {} : { socialReading: reading }),
-      socialPosting: socialPostingPolicy({
-        ...policyInput,
-        policy:
-          fact.authority.kind === 'private_group'
-            ? (groupPostingPolicy ?? postingPolicy)
-            : postingPolicy,
-      }),
+      ...(purpose === 'posting'
+        ? {
+            socialPosting: socialPostingPolicy({
+              ...policyInput,
+              policy:
+                fact.authority.kind === 'private_group'
+                  ? (groupPostingPolicy ?? postingPolicy)
+                  : postingPolicy,
+            }),
+          }
+        : {}),
     },
   };
 }
@@ -101,12 +109,18 @@ export function messagingAuthorizationFence(
     readonly answer?: 'accept' | 'decline';
   },
 ): MessagingAuthorizationFence {
+  const { capability, answer } = options;
+  const needsPosting =
+    capability === 'channel.post' ||
+    capability === 'channel.manage' ||
+    (capability === 'channel.request.decide' && answer !== 'decline');
   return async (tx, input, frame) => {
     const loaded = await loadMessagingAuthorizationInput(
       tx,
       input,
       frame,
       options,
+      needsPosting ? 'posting' : 'reading',
     );
     return requireAuthorization({
       ...loaded,
