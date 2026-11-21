@@ -39,7 +39,7 @@ export function ClubReleasesPage({
     <>
       <PageHeader
         title="Media releases"
-        lede={`Confirm releases ${clubName} already holds, so your Youth students’ Rounds can be published. Students without one stay private.`}
+        lede={`Confirm releases ${clubName} already holds, so your Youth students’ Rounds may be clipped, downloaded and reused. Without one, their Rounds can still be watched but not reused.`}
       />
       <TabLinks
         label="Filter students"

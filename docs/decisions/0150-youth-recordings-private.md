@@ -12,6 +12,7 @@ Round without media.
 Amended by [ADR 0157](0157-every-youth-room-round-is-a-youth-round.md): every
 Round of a Youth Room, casual included, is a Youth Round (§1), and the
 sweep in §4 stops a Youth Broadcast without withholding its video.
+Amended by [ADR 0161](0161-youth-rounds-follow-open-visibility.md): a Youth Round is viewed by Open's rules; §1, §2 and §4's "never broadcast" are replaced, linked adults see through private, and only reuse needs releases.
 
 ## Context
 

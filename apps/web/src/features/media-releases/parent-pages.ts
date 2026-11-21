@@ -123,6 +123,7 @@ export const signBodyOf = (token: string, form: FormData) => ({
   form: {
     name: textOf(form, 'name'),
     relation: textOf(form, 'relation'),
+    wordingVersion: textOf(form, 'wordingVersion'),
     attests: ticked(form, 'attests'),
     paidAds: ticked(form, 'paidAds'),
   },

@@ -202,55 +202,6 @@ describe('a Recording on a Broadcast', () => {
   });
 });
 
-describe('a Youth Round (ADR 0150)', () => {
-  test('runs its own Egress, and keeps a Broadcast that opened before the deploy', async () => {
-    const own = setup({
-      open: [row({ ladderDivision: 'youth', broadcast: null })],
-    });
-    await own.sweep();
-    const kept = setup({ open: [row({ ladderDivision: 'youth' })] });
-    await kept.sweep();
-    assert({
-      given:
-        'a Youth Round with no Broadcast, and one whose Broadcast already opened',
-      should:
-        'capture the first on its own Egress and follow the second’s Broadcast',
-      actual: [own.calls, kept.calls].map((calls) =>
-        calls
-          .map((call) => call[0])
-          .filter((name) => name === 'openOwn' || name === 'openJob'),
-      ),
-      expected: [['openOwn'], ['openJob']],
-    });
-  });
-
-  test('a casual Round of a Youth Room runs its own Egress, whatever its host chose', async () => {
-    const { sweep, calls } = setup({
-      open: [
-        row({
-          ...casualOwn,
-          roundCapture: {
-            broadcast: { release: null, debatersReadChat: false },
-            recordingPolicy: 'released',
-          },
-          ladderDivision: null,
-          roomDivision: 'youth',
-        }),
-      ],
-    });
-    await sweep();
-    assert({
-      given:
-        'a casual Youth-Room Round whose host chose a Broadcast (ADR 0157)',
-      should: 'capture it on its own Egress, never through an audience feed',
-      actual: calls
-        .map((call) => call[0])
-        .filter((name) => name === 'openOwn' || name === 'openJob'),
-      expected: ['openOwn'],
-    });
-  });
-});
-
 describe('a Recording with no Broadcast', () => {
   test('starts its own Egress under its own hold, storing only the digest', async () => {
     const { sweep, calls } = setup({ open: [row(casualOwn)] });

@@ -4,7 +4,6 @@ import { startMailQueueWorker } from '../features/mail/queue-worker';
 import { MAIL_QUEUE_BATCH } from '../features/mail/retry-policy';
 import { newReleaseLinkToken } from '../features/media-releases/link-token';
 import { createMediaReleaseMail } from '../features/media-releases/mail-delivery';
-import { mediaReleasesReleased } from '../features/media-releases/route-release';
 import { deriveReleaseStopSubkey } from '../features/media-releases/stop-token';
 import type { WorkerTimers } from '../lib/worker-timers';
 import type { App } from './app';
@@ -13,8 +12,7 @@ import { nextWorkerToken } from './worker-token';
 
 /**
  * The parent's media release email worker (ADR 0151): every web instance
- * runs it; the mail leases keep instances off each other's mail. While the
- * youth-publishing flag is closed it sends nothing and the mail waits.
+ * runs it; the mail leases keep instances off each other's mail.
  */
 export function startMediaReleaseMail(input: {
   readonly app: App;
@@ -29,8 +27,6 @@ export function startMediaReleaseMail(input: {
   );
   return startMailQueueWorker({
     run: async (limit) => {
-      // The counsel gate closed: queued mail waits; nothing reaches a parent.
-      if (!(await mediaReleasesReleased(app)(null))) return 0;
       const secret = app.mailConfig().RECIPIENT_HASH_SECRET;
       return createMediaReleaseMail({
         store: app.database,

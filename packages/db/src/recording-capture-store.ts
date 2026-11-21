@@ -115,8 +115,6 @@ export const createRecordingCaptureStore = (database: BunSQLDatabase) => ({
         eligibility: recordings.eligibility,
         competitionType: rounds.competitionType,
         roundCapture: rounds.capture,
-        ladderDivision: rounds.ladderDivision,
-        roomDivision: rooms.division,
         roundStatus: rounds.status,
         broadcast: {
           id: broadcasts.id,
@@ -139,7 +137,6 @@ export const createRecordingCaptureStore = (database: BunSQLDatabase) => ({
       })
       .from(recordings)
       .innerJoin(rounds, eq(rounds.id, recordings.roundId))
-      .leftJoin(rooms, eq(rooms.id, rounds.roomId))
       .leftJoin(broadcasts, eq(broadcasts.roundId, recordings.roundId))
       .leftJoin(captures, eq(captures.recordingId, recordings.id))
       .where(

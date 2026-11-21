@@ -13,7 +13,6 @@ import {
 export type MediaReleaseSettingsView =
   | {
       readonly kind: 'none';
-      readonly privateRounds: string;
       /** A parent withdrew the last release: asking again is still theirs. */
       readonly withdrawnNote: string | null;
       readonly clubs: readonly {
@@ -39,11 +38,6 @@ export type MediaReleaseSettingsView =
       readonly paidAds: boolean;
     };
 
-const rounds = (count: number) =>
-  count === 0
-    ? 'Your Youth Rounds will be private.'
-    : `Your ${count} Youth ${count === 1 ? 'Round is' : 'Rounds are'} private.`;
-
 export const mediaReleaseSettingsView = (
   read: MinorReleaseRead,
 ): MediaReleaseSettingsView => {
@@ -53,7 +47,6 @@ export const mediaReleaseSettingsView = (
     case 'withdrawn':
       return {
         kind: 'none',
-        privateRounds: rounds(read.privateYouthRounds),
         withdrawnNote:
           standing.kind === 'withdrawn'
             ? `Your parent withdrew your release on ${releaseDate(standing.release.withdrawnAt ?? standing.release.signedAt)}. Only they can sign again.`
