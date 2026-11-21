@@ -615,7 +615,7 @@ const dbNativeRowsPlugin = {
         messages: { boundary: 'Validate native database rows with query.' },
       },
       create(context) {
-        const { program, esTreeNodeToTSNodeMap } =
+        const { program, esTreeNodeToTSNodeMap, tsNodeToESTreeNodeMap } =
           context.sourceCode.parserServices;
         if (!program) return {};
         const checker = program.getTypeChecker();
@@ -632,15 +632,13 @@ const dbNativeRowsPlugin = {
           type.isTypeParameter()
             ? (checker.getBaseConstraintOfType(type) ?? type)
             : type;
-        const bunSqlType = (input, names) => {
+        const nativeType = (input) => {
           if (input === undefined) return false;
           const type = constrainedType(input);
-          if (type.isUnionOrIntersection())
-            return type.types.some((part) => bunSqlType(part, names));
+          if (type.isUnionOrIntersection()) return type.types.some(nativeType);
           const symbol = type.getSymbol();
           return (
-            symbol &&
-            names.includes(symbol.name) &&
+            symbol?.name === 'Query' &&
             symbol
               .getDeclarations()
               ?.some((declaration) =>
@@ -650,16 +648,8 @@ const dbNativeRowsPlugin = {
               )
           );
         };
-        const nativeType = (input) => bunSqlType(input, ['Query']);
         const nativeQuery = (expression) =>
           expression != null && nativeType(typeAt(expression));
-        const returnsPromise = (type) =>
-          types(constrainedType(type)).some(
-            (value) =>
-              !nativeType(value) &&
-              value.getProperty('then') &&
-              checker.getAwaitedType(value) !== value,
-          );
         const returnsNativeRows = (callback) =>
           callback
             .getCallSignatures()
@@ -678,11 +668,61 @@ const dbNativeRowsPlugin = {
           )
             return { owner, name: declaration.name?.getText() };
         };
-        const promiseMethodOf = (type) =>
-          type
-            .getCallSignatures()
+        const resolvedMethod = (call) =>
+          builtInMethod(
+            checker.getResolvedSignature(esTreeNodeToTSNodeMap.get(call)),
+          );
+        const constantSource = (value) => {
+          if (!value) return undefined;
+          const seen = new Set();
+          while (!seen.has(value)) {
+            seen.add(value);
+            if (
+              [
+                'TSAsExpression',
+                'TSSatisfiesExpression',
+                'TSNonNullExpression',
+                'TSInstantiationExpression',
+                'TSTypeAssertion',
+              ].includes(value.type)
+            ) {
+              value = value.expression;
+              continue;
+            }
+            if (value.type !== 'Identifier') break;
+            const symbol = checker.getSymbolAtLocation(
+              esTreeNodeToTSNodeMap.get(value),
+            );
+            const declaration = symbol?.valueDeclaration;
+            if (
+              !declaration ||
+              !ts.isVariableDeclaration(declaration) ||
+              !(ts.getCombinedNodeFlags(declaration) & ts.NodeFlags.Const) ||
+              !declaration.initializer
+            )
+              break;
+            const initializer = tsNodeToESTreeNodeMap.get(
+              declaration.initializer,
+            );
+            if (!initializer) break;
+            value = initializer;
+          }
+          return value;
+        };
+        const standardCallable = (input) => {
+          const source = constantSource(input?.expression);
+          const type = source ? typeAt(source) : input?.type;
+          return type
+            ?.getCallSignatures()
             .map(builtInMethod)
-            .find((method) => method?.owner === 'PromiseConstructor')?.name;
+            .find((method) => method);
+        };
+        const functionAdapter = (method) =>
+          method &&
+          ['CallableFunction', 'Function'].includes(method.owner) &&
+          ['call', 'apply', 'bind'].includes(method.name);
+        const reflectApply = (method) =>
+          method?.owner === 'Reflect' && method.name === 'apply';
         const logicalArgument = (args, index) => {
           let remaining = index;
           for (const argument of args) {
@@ -691,7 +731,7 @@ const dbNativeRowsPlugin = {
             const location = esTreeNodeToTSNodeMap.get(expression);
             const type = checker.getTypeAtLocation(location);
             if (argument.type !== 'SpreadElement') {
-              if (remaining === 0) return { type, location };
+              if (remaining === 0) return { type, location, expression };
               remaining -= 1;
               continue;
             }
@@ -702,6 +742,72 @@ const dbNativeRowsPlugin = {
               return { type: items[remaining], location };
             remaining -= items.length;
           }
+        };
+        const promiseArguments = (call, invocation) => {
+          const { callee, arguments: args } = call;
+          if (invocation?.owner === 'PromiseConstructor')
+            return { method: invocation.name, index: 0, packed: [] };
+
+          if (reflectApply(invocation)) {
+            const target = standardCallable(logicalArgument(args, 0));
+            if (target?.owner === 'PromiseConstructor')
+              return { method: target.name, index: 2, packed: [0] };
+            if (functionAdapter(target)) {
+              const receiver = standardCallable(logicalArgument(args, 1));
+              if (receiver?.owner === 'PromiseConstructor')
+                return {
+                  method: receiver.name,
+                  index: 2,
+                  packed: target.name === 'apply' ? [1, 0] : [1],
+                };
+            }
+          }
+
+          if (
+            functionAdapter(invocation) &&
+            callee.type === 'MemberExpression'
+          ) {
+            const target = standardCallable({ expression: callee.object });
+            if (target?.owner === 'PromiseConstructor')
+              return {
+                method: target.name,
+                index: 1,
+                packed: invocation.name === 'apply' ? [0] : [],
+              };
+            if (reflectApply(target) && invocation.name === 'bind') {
+              const bound = standardCallable(logicalArgument(args, 1));
+              if (bound?.owner === 'PromiseConstructor' && args.length >= 4)
+                return { method: bound.name, index: 3, packed: [0] };
+            }
+          }
+
+          // A typed alias can lose the underlying Reflect.apply signature.
+          // Follow a constant's binding to the standard Promise method.
+          const source = constantSource(callee);
+          if (
+            source?.type !== 'CallExpression' ||
+            source.callee.type !== 'MemberExpression'
+          )
+            return;
+          const adapter = resolvedMethod(source);
+          if (
+            !functionAdapter(adapter) ||
+            adapter.name !== 'bind' ||
+            !reflectApply(
+              standardCallable({ expression: source.callee.object }),
+            )
+          )
+            return;
+          const target = standardCallable(logicalArgument(source.arguments, 1));
+          if (
+            target?.owner === 'PromiseConstructor' &&
+            source.arguments.length < 4
+          )
+            return {
+              method: target.name,
+              index: 3 - source.arguments.length,
+              packed: [0],
+            };
         };
         // Use the well-known symbol's identity, including when a declaration
         // spells its iterator key through an alias.
@@ -721,7 +827,7 @@ const dbNativeRowsPlugin = {
             if (key.flags & ts.TypeFlags.UniqueESSymbol) return key.escapedName;
           }
         })();
-        const iterableIncludes = (inputType, location, reports) => {
+        const nativeIterable = (inputType, location) => {
           if (!iteratorKey) return false;
           const propertyType = (symbol) =>
             checker.getTypeOfSymbolAtLocation(symbol, location);
@@ -752,42 +858,11 @@ const dbNativeRowsPlugin = {
                   )
                     return false;
                   const value = step.getProperty('value');
-                  return value !== undefined && reports(propertyType(value));
+                  return value !== undefined && nativeType(propertyType(value));
                 });
             });
           });
         };
-        const containsNativeInput = (
-          input,
-          location,
-          seen = new Set(),
-          packed = false,
-        ) => {
-          if (!input) return false;
-          const type = constrainedType(input);
-          if (seen.has(type)) return false;
-          seen.add(type);
-          if (nativeType(type)) return true;
-          const reports = (value) =>
-            containsNativeInput(value, location, seen, true);
-          return types(type).some((part) => {
-            if (
-              packed &&
-              !bunSqlType(part, ['SQL', 'ReservedSQL']) &&
-              returnsNativeRows(part)
-            )
-              return true;
-            if (checker.isArrayType(part) || checker.isTupleType(part))
-              return reports(part.getNumberIndexType());
-            return (
-              (part.flags & ts.TypeFlags.Object) !== 0 &&
-              iterableIncludes(part, location, reports)
-            );
-          });
-        };
-        const settlesNativeInput = (output, location) =>
-          returnsPromise(output) &&
-          !containsNativeInput(checker.getAwaitedType(output), location);
         // Command metadata lives on the Bun result outside the rows.
         const commandReceipt = (statement) =>
           statement.type === 'TaggedTemplateExpression' &&
@@ -858,38 +933,6 @@ const dbNativeRowsPlugin = {
               return;
             }
             const invocation = builtInMethod(signature);
-            const result = signature?.getReturnType();
-            const call = esTreeNodeToTSNodeMap.get(node);
-            // Partial application can erase the original Promise method while
-            // keeping the input type. Check nested packed values at the
-            // asynchronous adapter's call boundary.
-            if (
-              !forwardsQueries &&
-              !boundary &&
-              ((invocation?.owner === 'Reflect' &&
-                invocation.name === 'apply') ||
-                (result &&
-                  (settlesNativeInput(result, call) ||
-                    result
-                      .getCallSignatures()
-                      .some((candidate) =>
-                        settlesNativeInput(candidate.getReturnType(), call),
-                      )))) &&
-              node.arguments.some((argument) => {
-                const expression =
-                  argument.type === 'SpreadElement'
-                    ? argument.argument
-                    : argument;
-                const location = esTreeNodeToTSNodeMap.get(expression);
-                const input = checker.getTypeAtLocation(location);
-                return (
-                  !nativeType(input) && containsNativeInput(input, location)
-                );
-              })
-            ) {
-              report(node);
-              return;
-            }
             if (
               (invocation?.owner === 'Promise' ||
                 invocation?.owner === 'PromiseLike') &&
@@ -903,47 +946,26 @@ const dbNativeRowsPlugin = {
               report(node);
               return;
             }
-            let method =
-              invocation?.owner === 'PromiseConstructor'
-                ? invocation.name
-                : undefined;
-            let inputIndex = 0;
-            let packed = false;
+            const promise = promiseArguments(node, invocation);
+            if (!promise) return;
+            const { method, index, packed } = promise;
             if (
-              callee.type === 'MemberExpression' &&
-              (invocation?.owner === 'CallableFunction' ||
-                invocation?.owner === 'Function') &&
-              ['call', 'apply', 'bind'].includes(invocation.name)
-            ) {
-              method = promiseMethodOf(typeAt(callee.object));
-              inputIndex = 1;
-              packed = invocation.name === 'apply';
-            }
-            if (
-              invocation?.owner === 'Reflect' &&
-              invocation.name === 'apply'
-            ) {
-              const target = logicalArgument(node.arguments, 0)?.type;
-              if (target) method = promiseMethodOf(target);
-              inputIndex = 2;
-              packed = true;
-            }
-            if (
-              method !== 'resolve' &&
-              !['all', 'allSettled', 'any', 'race', 'try'].includes(method)
+              !['resolve', 'all', 'allSettled', 'any', 'race', 'try'].includes(
+                method,
+              )
             )
               return;
-            const input = logicalArgument(node.arguments, inputIndex);
+            const input = logicalArgument(node.arguments, index);
             if (!input?.type) return;
             const { type, location } = input;
             let inputType = type;
-            if (packed) {
-              const first = type.getProperty('0');
-              inputType = first
-                ? checker.getTypeOfSymbolAtLocation(first, location)
-                : type.getNumberIndexType();
+            for (const slot of packed) {
+              const item = inputType.getProperty(String(slot));
+              inputType = item
+                ? checker.getTypeOfSymbolAtLocation(item, location)
+                : inputType.getNumberIndexType();
+              if (!inputType) return;
             }
-            if (!inputType) return;
             if (method === 'resolve') {
               if (nativeType(inputType)) report(node);
               return;
@@ -952,7 +974,7 @@ const dbNativeRowsPlugin = {
               if (returnsNativeRows(inputType)) report(node);
               return;
             }
-            if (iterableIncludes(inputType, location, nativeType)) report(node);
+            if (nativeIterable(inputType, location)) report(node);
           },
         };
       },
