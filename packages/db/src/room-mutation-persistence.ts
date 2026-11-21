@@ -1,4 +1,4 @@
-import { roundStatus, eq } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 
 import type { RoomAssemblyState, RoomMutationOutcome } from '@daisy/protocol';
 import {
@@ -8,6 +8,7 @@ import {
   freezePostRoundCall,
   freezeRoomConfig,
   roundBegan,
+  roundStatus,
 } from '@daisy/protocol';
 import { createRefusal, createAppError } from '@daisy/errors';
 import { insertRoundDraw } from './room-draw-persistence';
