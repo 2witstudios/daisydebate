@@ -28,10 +28,17 @@ certified record, requires the league standings to replace the old result
 rather than count a second game, and requires an existing draw's retained
 rating snapshot to survive both correction and rollback. Replaying the
 receiving season's corrected certification alongside its own Rooms
-preserves the effect on later competitive inputs. Room inputs keep ledger
-posting order, including games settled after subsequent Rounds. A season
-with no rateable effective certification reads the shared projections. The
-official leaderboard replays only public Room postings and certified
-tournament decisions released to the public. The league view follows its
-authorized audience. A receiving league's sanction remains in the receiving
-lobby and season, and retained tournament snapshots keep their seeded ratings.
+preserves the effect on later competitive inputs. New Room inputs keep
+ledger posting order, including games settled after subsequent Rounds.
+Completed league Rooms from before the ledger retain their completion order
+in replay and in recovery. A season with no eligible legacy or certified
+input reads the shared projections.
+
+The official leaderboard, member cards and Room discovery use the same
+public rating history. When a private or delayed result affects the stored
+projection, the public calculation uses the complete released games so
+later public results remain visible. An approved tournament result counts
+in that view when its posting and decision have been released to the public.
+The league view follows its authorized audience. A receiving league's
+sanction remains in its receiving lobby and season, and retained tournament
+snapshots keep their seeded ratings.
