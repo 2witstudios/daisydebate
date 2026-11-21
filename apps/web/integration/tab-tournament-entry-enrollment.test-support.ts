@@ -73,32 +73,28 @@ export const entryEnrollmentStage = async (world: World): Promise<void> => {
     expected: { kind: 'refused', refusal: 'no-responsible-adult' },
   });
 
-  // Decision 79: a Round that would be rated takes no entrant under 18, so
-  // an entry is refused for one (today every tournament refuses every minor,
-  // the stricter closed-minors rule). The month they turn 18, it is accepted.
   const youngest = world.bots['Debater 1']!;
   const ageOf = (age: string) =>
     world.sql`update account_age set birth_month=to_char(now() - ${age}::interval,'YYYY-MM'), version=version+1 where user_id=${youngest.userId}`;
-  await ageOf('17 years 11 months');
+  await ageOf('14 years');
   assert({
-    given: 'a self entry from a member aged 17 years 11 months',
-    should: 'refuse it without saying why',
-    actual: await deniedAsNotFound(() =>
-      send(as(youngest), lobbyId, {
-        version: 1,
-        commandId: createId(),
-        expected: { entries: entriesVersion },
-        command: {
-          type: 'submit-entry',
-          eventId,
-          name: 'Under the ranked floor',
-          memberActorIds: [youngest.actorId],
-          responsible: { kind: 'self' },
-          division: null,
-        },
-      }),
-    ),
-    expected: true,
+    given:
+      'a self entry from a member below the tournament’s adult age rule on its first day',
+    should: 'refuse that entry under the age rule',
+    actual: await send(as(youngest), lobbyId, {
+      version: 1,
+      commandId: createId(),
+      expected: { entries: entriesVersion },
+      command: {
+        type: 'submit-entry',
+        eventId,
+        name: 'Outside the age rule',
+        memberActorIds: [youngest.actorId],
+        responsible: { kind: 'self' },
+        division: null,
+      },
+    }),
+    expected: { kind: 'refused', refusal: 'under-open-age' },
   });
   // Exactly 18 this month: the loop below enters them as an adult.
   await ageOf('18 years');
