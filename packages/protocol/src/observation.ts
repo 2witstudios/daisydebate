@@ -70,11 +70,13 @@ export function observationBaseField(base: ObservationBase): string {
   return `${parsed.partition}.${parsed.disclosureRevision}`;
 }
 
+// Top-level values such as undefined and functions have no JSON encoding.
+const encodeObservationJson: (value: unknown) => string | undefined =
+  JSON.stringify;
+
 /** UTF-8 length of the JSON encoding, independent of a host TextEncoder. */
 export function observationJsonBytes(value: unknown): number {
-  // `undefined` and a function have no JSON encoding: the lib's `string` omits that.
-  const json: string | undefined = JSON.stringify(value);
-  return utf8Bytes(json ?? '');
+  return utf8Bytes(encodeObservationJson(value) ?? '');
 }
 export function utf8Bytes(text: string): number {
   let bytes = 0;
