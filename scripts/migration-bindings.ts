@@ -1,3 +1,5 @@
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
 import ts from 'typescript';
 
 /** The sweeps need lexical bindings from this file, without loading its dependencies. */
@@ -90,7 +92,8 @@ export function usesCommonJs(
   checker: ts.TypeChecker,
   file: ts.SourceFile,
 ): boolean {
-  const isCommonJsName = (node: ts.Node, name: string): boolean => {
+  const isCommonJsName = (expression: ts.Node, name: string): boolean => {
+    const node = unparenthesized(expression);
     if (!ts.isIdentifier(node) || node.text !== name) return false;
     const symbol = checker
       .getSymbolsInScope(node, ts.SymbolFlags.Value | ts.SymbolFlags.Alias)
@@ -120,4 +123,18 @@ export function usesCommonJs(
     return ts.forEachChild(node, visit);
   };
   return /\.c[jt]s$/.test(file.fileName) || visit(file) === true;
+}
+
+/** The nearest manifest determines the format of files without an explicit module suffix. */
+export function declaredCommonJs(path: string): boolean {
+  if (!/\.[jt]sx?$/.test(path)) return false;
+  let directory = dirname(resolve(path));
+  while (true) {
+    const manifest = join(directory, 'package.json');
+    if (existsSync(manifest))
+      return JSON.parse(readFileSync(manifest, 'utf8')).type === 'commonjs';
+    const parent = dirname(directory);
+    if (parent === directory) return false;
+    directory = parent;
+  }
 }

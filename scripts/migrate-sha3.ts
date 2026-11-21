@@ -1,6 +1,7 @@
 import ts from 'typescript';
 import {
   constInitializer,
+  declaredCommonJs,
   hasOtherDeclaration,
   isGlobal,
   memberName,
@@ -132,8 +133,8 @@ function isSha3Constructor(
 ): node is ts.CallExpression | ts.NewExpression {
   return (
     (ts.isCallExpression(node) || ts.isNewExpression(node)) &&
-    node.arguments?.length === 1 &&
-    staticText(checker, node.arguments[0]!)?.toLowerCase() === 'sha3-256' &&
+    node.arguments?.[0] !== undefined &&
+    staticText(checker, node.arguments[0])?.toLowerCase() === 'sha3-256' &&
     isNativeHasher(checker, node.expression)
   );
 }
@@ -145,7 +146,9 @@ function replacement(
   if (!method(node, 'digest') || !literal(node.arguments[0], 'hex')) return;
   const update = node.expression.expression;
   if (!method(update, 'update')) return;
-  if (!isSha3Constructor(checker, update.expression.expression)) return;
+  const hasher = update.expression.expression;
+  if (!isSha3Constructor(checker, hasher) || hasher.arguments?.length !== 1)
+    return;
   const [value, encoding] = update.arguments;
   if (encoding === undefined || literal(encoding, 'utf8')) return value;
 }
@@ -167,10 +170,11 @@ export function migrateSha3(
   path: string,
   source: string,
   manual?: () => void,
+  commonJsPackage = false,
 ): string {
   const file = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true);
   const checker = sourceChecker(file);
-  if (usesCommonJs(checker, file)) {
+  if (commonJsPackage || usesCommonJs(checker, file)) {
     const needsManual = (node: ts.Node): boolean | undefined =>
       isSha3Constructor(checker, node) || ts.forEachChild(node, needsManual);
     if (needsManual(file)) manual?.();
@@ -294,7 +298,7 @@ export function migrateSha3(
         text.slice(0, edit.start) + edit.text + text.slice(edit.end),
       rewritten,
     );
-  return migrateSha3(path, migrated, manual);
+  return migrateSha3(path, migrated, manual, commonJsPackage);
 }
 
 if (import.meta.main) {
@@ -322,8 +326,13 @@ if (import.meta.main) {
     const file = Bun.file(path);
     if (!(await file.exists())) continue;
     const source = await file.text();
-    if (!source.includes('sha3-256')) continue;
-    const migrated = migrateSha3(path, source, () => manual.add(path));
+    if (!source.toLowerCase().includes('sha3-256')) continue;
+    const migrated = migrateSha3(
+      path,
+      source,
+      () => manual.add(path),
+      declaredCommonJs(path),
+    );
     if (migrated === source) continue;
     changed++;
     if (mode === '--write') await Bun.write(path, migrated);

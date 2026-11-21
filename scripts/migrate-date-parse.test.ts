@@ -206,6 +206,8 @@ test('reports CommonJS clock calls for manual conversion', () => {
 test('distinguishes CommonJS exports from locally bound names in JavaScript', () => {
   const scenarios = [
     { source: 'module.exports = Date.parse(input);', manual: true },
+    { source: '(module).exports = Date.parse(input);', manual: true },
+    { source: '(exports).stamp = Date.parse(input);', manual: true },
     { source: "module['exports'] = Date.parse(input);", manual: true },
     { source: 'exports.stamp = Date.parse(input);', manual: true },
     {

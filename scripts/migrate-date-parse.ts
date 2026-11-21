@@ -1,6 +1,7 @@
 import ts from 'typescript';
 import {
   constInitializer,
+  declaredCommonJs,
   hasOtherDeclaration,
   isGlobal,
   memberName,
@@ -19,6 +20,7 @@ export function migrateDateParse(
   filePath: string,
   source: string,
   manual?: () => void,
+  commonJsPackage = false,
 ): string {
   if (
     filePath.startsWith('packages/clock/') ||
@@ -287,7 +289,7 @@ export function migrateDateParse(
   };
   visit(file);
   if (!edits.length) return source;
-  if (usesCommonJs(checker, file)) {
+  if (commonJsPackage || usesCommonJs(checker, file)) {
     manual?.();
     return source;
   }
@@ -329,7 +331,7 @@ export function migrateDateParse(
         current.slice(0, edit.start) + edit.text + current.slice(edit.end),
       source,
     );
-  return migrateDateParse(filePath, migrated, manual);
+  return migrateDateParse(filePath, migrated, manual, commonJsPackage);
 }
 
 async function run(args: string[]) {
@@ -356,7 +358,12 @@ async function run(args: string[]) {
     const file = Bun.file(path);
     if (!(await file.exists())) continue;
     const source = await file.text();
-    const migrated = migrateDateParse(path, source, () => manual.add(path));
+    const migrated = migrateDateParse(
+      path,
+      source,
+      () => manual.add(path),
+      declaredCommonJs(path),
+    );
     if (migrated === source) continue;
     changed++;
     if (mode === '--write') await Bun.write(path, migrated);

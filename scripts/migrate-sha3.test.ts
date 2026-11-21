@@ -129,6 +129,14 @@ test('reports export-only and split CommonJS hash construction', () => {
   const scenarios = [
     { file: 'sample.js', source: `module.exports = ${chain};`, manual: true },
     { file: 'sample.js', source: `exports.digest = ${chain};`, manual: true },
+    { file: 'sample.js', source: `(module).exports = ${chain};`, manual: true },
+    { file: 'sample.js', source: `(exports).digest = ${chain};`, manual: true },
+    {
+      file: 'sample.cjs',
+      source:
+        "const { createHash } = require('node:crypto'); const digest = createHash('SHA3-256', {}); digest.update('a'); module.exports = digest.digest('hex');",
+      manual: true,
+    },
     {
       file: 'sample.cjs',
       source:
@@ -137,7 +145,7 @@ test('reports export-only and split CommonJS hash construction', () => {
     },
     {
       file: 'sample.js',
-      source: `function publish(module) { module.exports = ${chain}; }`,
+      source: `function publish(module) { (module).exports = ${chain}; }`,
       manual: false,
     },
   ];
