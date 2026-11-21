@@ -1,3 +1,5 @@
+import { roomStatus } from '@daisy/protocol';
+import { lifecycleSql } from '../lifecycle-sql';
 import type { TournamentNotificationKind } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import { loadLobbyAuthority } from '../tab/lobby-authority';
@@ -94,7 +96,7 @@ export async function standingTournamentNotifications(
           (n.kind='judge_assigned' and f.status='published' and ${judge})
           or (n.kind in ('judge_replaced','judge_unassigned') and f.status='published' and ${removedJudge})
           or (n.kind='tournament_draw_changed' and (${competitor} or ${judge}) and ${released('posting')})
-          or (n.kind='tournament_room_ready' and f.status='published' and ro.status='ready' and (${competitor} or ${judge}))
+          or (n.kind='tournament_room_ready' and f.status='published' and ro.status=${lifecycleSql(roomStatus.ready)} and (${competitor} or ${judge}))
           or (n.kind='tournament_results_released' and f.status='published' and (${competitor} or ${judge}) and ${released('decision')})
         )`,
       );

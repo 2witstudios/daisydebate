@@ -1363,10 +1363,6 @@ export default [
     },
   },
   {
-    files: purePackages,
-    rules: { 'no-restricted-globals': ['error', ...pureAmbientGlobals] },
-  },
-  {
     files: ['packages/db/**/*.ts'],
     rules: {
       'no-restricted-imports': [
@@ -1684,6 +1680,10 @@ export default [
         },
       ],
     },
+  },
+  {
+    files: [...purePackages, 'apps/web/src/features/**/model/**/*.{ts,tsx}'],
+    rules: { 'no-restricted-globals': ['error', ...pureAmbientGlobals] },
   },
   {
     files: ['**/*.config.*'],

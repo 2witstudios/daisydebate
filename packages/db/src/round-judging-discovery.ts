@@ -1,5 +1,10 @@
+import { lifecycleSql } from './lifecycle-sql';
 import { createAppError } from '@daisy/errors';
-import { judgingWorkKinds, type JudgingWorkKind } from '@daisy/protocol';
+import {
+  roundStatus,
+  judgingWorkKinds,
+  type JudgingWorkKind,
+} from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import type { Tx } from './tx';
 import { query } from './raw-rows';
@@ -34,7 +39,7 @@ export async function discoverRoundJudgingJobs(
       select j.round_id,max(j.last_claimed_at) as last_claimed_at,
         min(j.created_at) as first_created_at
       from round_judging_jobs j join rounds r on r.id=j.round_id
-      where r.status='active' group by j.round_id
+      where r.status=${lifecycleSql(roundStatus.active)} group by j.round_id
     ),
     due as (
       select j.round_id,j.judge_participant_id,

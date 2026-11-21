@@ -1,3 +1,4 @@
+import { roundStatus } from '@daisy/protocol';
 import { settings } from '../schema/settings';
 import { and, asc, eq, inArray, or } from 'drizzle-orm';
 import { actors } from '../schema/actors';
@@ -48,7 +49,7 @@ export async function loadLeagueRatingInputs(
     .where(
       and(
         eq(rounds.leagueLadderId, home.ladder.id),
-        eq(rounds.status, 'completed'),
+        eq(rounds.status, roundStatus.completed),
       ),
     )
     .orderBy(asc(rounds.completedAt), asc(rounds.id));
@@ -86,7 +87,7 @@ export async function loadLeagueRatingInputs(
                 .where(
                   and(
                     eq(rounds.leagueLadderId, home.ladder.id),
-                    eq(rounds.status, 'completed'),
+                    eq(rounds.status, roundStatus.completed),
                   ),
                 ),
             ),

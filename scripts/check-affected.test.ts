@@ -91,7 +91,7 @@ describe('planGates', () => {
     assert({
       given: 'no changed files',
       should:
-        'still verify architecture boundaries, styling and side literals, as bun lint does',
+        'still verify architecture boundaries, styling, side and lifecycle literals, as bun lint does',
       actual: planGates(partitionAffected([]), 'sha0'),
       expected: [
         { name: 'boundaries', args: ['bun', 'scripts/check-boundaries.ts'] },
@@ -99,6 +99,10 @@ describe('planGates', () => {
         {
           name: 'side literals',
           args: ['bun', 'scripts/check-side-literals.ts'],
+        },
+        {
+          name: 'lifecycle literals',
+          args: ['bun', 'scripts/check-lifecycle-literals.ts'],
         },
       ],
     });
@@ -134,6 +138,7 @@ describe('planGates', () => {
         'boundaries',
         'styling',
         'side literals',
+        'lifecycle literals',
         'turbo affected (typecheck, test)',
       ],
     });

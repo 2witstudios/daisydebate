@@ -1,3 +1,5 @@
+import { runningRoundStatuses } from '@daisy/protocol';
+import { lifecycleSqlList } from './lifecycle-sql';
 import { z } from 'zod';
 import { query } from './raw-rows';
 import { roundHasAiJudge } from './round-ai-judge';
@@ -93,7 +95,7 @@ const liveBotDebaterRounds = (exceptRoundId?: string) =>
   sql`select count(distinct r.id)::int from rounds r
     join round_participants p on p.round_id=r.id and ${isDebatingSeatSql(sql`p.seat_kind`)}
     join actors a on a.id=p.actor_id and a.kind='bot'
-    where r.status in ('opening','active') and r.id<>${exceptRoundId ?? ''}`;
+    where r.status in ${lifecycleSqlList(runningRoundStatuses)} and r.id<>${exceptRoundId ?? ''}`;
 
 async function countLiveBotRounds(tx: Tx, exceptRoundId?: string) {
   const [row] = await query(

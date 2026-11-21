@@ -1,3 +1,5 @@
+import { roundStatus } from '@daisy/protocol';
+import { lifecycleSql } from './lifecycle-sql';
 import { sql } from 'drizzle-orm';
 import { isDebatingSeatSql } from './seat-columns';
 import { createAppError } from '@daisy/errors';
@@ -25,7 +27,7 @@ export async function scanBotWorkers(tx: Tx, limit: number) {
     cross join observed n
     join lateral (select id from round_segments where round_id=r.id and started_at<=n.at
       order by sequence desc limit 1) s on true
-    where r.status='active' and not exists (
+    where r.status=${lifecycleSql(roundStatus.active)} and not exists (
       select 1 from round_bot_publications c
       join agent_runs run on run.id=c.agent_run_id and run.round_participant_id=p.id
       where c.round_id=r.id and c.round_participant_id=p.id and c.segment_id=s.id

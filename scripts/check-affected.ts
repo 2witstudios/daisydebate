@@ -210,6 +210,10 @@ export function planGates(
     name: 'side literals',
     args: ['bun', 'scripts/check-side-literals.ts'],
   });
+  gates.push({
+    name: 'lifecycle literals',
+    args: ['bun', 'scripts/check-lifecycle-literals.ts'],
+  });
   // knip is a gate of its own in CI's checks matrix (ADR 0159); duplication
   // is a report (ADR 0083).
   if (plan.runRootScriptsTests)

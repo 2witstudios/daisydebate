@@ -1,3 +1,4 @@
+import { roomStatus } from '@daisy/protocol';
 import type {
   CompetitionType,
   TwoSideKey,
@@ -49,5 +50,5 @@ export const newRoomValues = (room: NewRoom) => ({
   config: room.config,
   executionPlan: room.executionPlan,
   rulesSnapshot: room.rules,
-  status: 'assembling' as const,
+  status: roomStatus.assembling,
 });

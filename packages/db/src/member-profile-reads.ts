@@ -1,3 +1,4 @@
+import { roundStatus } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
 import type { RoundOutcome, RoundStatus, SeatRef } from '@daisy/protocol';
 import { and, count, desc, eq, isNotNull, sql } from 'drizzle-orm';
@@ -153,7 +154,7 @@ async function historyPage(
 ) {
   const listed = and(
     seatsShown(input.actorId, input.scope, input.clock),
-    eq(rounds.status, 'completed'),
+    eq(rounds.status, roundStatus.completed),
   );
   if (input.before !== null) {
     const [found] = await tx

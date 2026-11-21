@@ -14,7 +14,7 @@ const ALLOWED_OUTSIDE = new Set([
 
 test('the media model reads no clock, timer, storage, SDK or track handle', async () => {
   const problems: string[] = [];
-  const folder = import.meta.dir;
+  const folder = resolve(import.meta.dir, 'model');
   for await (const path of new Glob('*.ts').scan(folder)) {
     if (path.includes('.test')) continue;
     const text = await Bun.file(resolve(folder, path)).text();
@@ -33,13 +33,13 @@ test('the media model reads no clock, timer, storage, SDK or track handle', asyn
 
 test('the stage attaches handles and decides from the model', async () => {
   const stage = await Bun.file(
-    resolve(import.meta.dir, '../media-stage.tsx'),
+    resolve(import.meta.dir, 'media-stage.tsx'),
   ).text();
   const reads = [...stage.matchAll(/\b(handle|candidate)\.(\w+)/g)].map(
     ([, , field]) => field,
   );
   const support = await Bun.file(
-    resolve(import.meta.dir, '../adapters/livekit-room.ts'),
+    resolve(import.meta.dir, 'adapters/livekit-room.ts'),
   ).text();
   assert({
     given: 'every read of a track handle on the stage, and what a handle holds',

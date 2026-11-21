@@ -1,3 +1,5 @@
+import { openRoomStatuses } from '@daisy/protocol';
+import { lifecycleSqlList } from '../lifecycle-sql';
 import { roomCommunityRetentionMs } from '@daisy/protocol/room-community';
 import { sql } from 'drizzle-orm';
 import { contextChannelModeration } from './context-channel-moderation';
@@ -14,7 +16,7 @@ import {
 export const roomCommunityModeration = contextChannelModeration({
   kind: 'room_community',
   ownerColumn: sql`c.room_id`,
-  subjectReadable: sql`exists(select 1 from rooms r where r.id=c.room_id and (r.status in ('assembling','ready') or clock_timestamp()<r.updated_at+${roomCommunityRetentionMs}*interval '1 millisecond'))`,
+  subjectReadable: sql`exists(select 1 from rooms r where r.id=c.room_id and (r.status in ${lifecycleSqlList(openRoomStatuses)} or clock_timestamp()<r.updated_at+${roomCommunityRetentionMs}*interval '1 millisecond'))`,
   fence: fenceRoomCommunity,
   readFact: readRoomCommunityFact,
 });
