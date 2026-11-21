@@ -557,8 +557,8 @@ const roomListEntryFields = z.strictObject({
     })
     .nullable(),
   /**
-   * A ranked host's current-season rating on this Room's ladder; null
-   * otherwise, while no ladder is set, or hidden.
+   * A visible ranked host's published rating on the Room's ladder, in the
+   * active season before Start and the frozen season afterward. Otherwise null.
    */
   hostRating: z.int().nullable(),
   lobbyId: idSchema,

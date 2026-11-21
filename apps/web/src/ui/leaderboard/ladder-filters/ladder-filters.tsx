@@ -137,6 +137,7 @@ export function LadderFilters({
       ) : null}
       <Segmented
         label="Lobby"
+        wrap
         segments={
           lobbies.length
             ? lobbies.map((lobby) => ({

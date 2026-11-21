@@ -32,6 +32,7 @@ mock.module(join(import.meta.dir, '../../lib/request-session.ts'), () => ({
   requestIdentity: async () => identity,
   requestReleaseEnabled: async () => true,
   requestLeaguePage: async () => null,
+  requestStandingLobbyManagement: async () => null,
   requestStandingRoomPage: async () => null,
   requestNow: () => '2027-03-06T08:00:00.000Z',
 }));

@@ -2,7 +2,8 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { createElement } from 'react';
 import { LeagueLobby } from '../../ui/tab/league-lobby/league-lobby';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { storedLeagueLobbyOf } from './stored-league';
+import { TimelineRail } from '../../ui/tab/host-shell/timeline-rail';
+import { storedLeagueLobbyOf, storedLeagueRail } from './stored-league';
 setupRitewayBun();
 test('stored league season projection', () => {
   const read = {
@@ -86,5 +87,55 @@ test('stored league season projection', () => {
         { label: 'Elimination round', points: 3 },
       ],
     ],
+  });
+});
+
+test('a league rail keeps navigation separate from its desktop season calendar', () => {
+  const rail = storedLeagueRail(
+    'actual',
+    { name: 'Southeast League', canReadPeople: true },
+    {
+      asOf: '2026-11-21T12:00:00.000Z',
+      series: [],
+      formula: null,
+      view: {
+        seasonId: 'season',
+        name: 'Season 1',
+        organization: { organizationId: 'league', name: 'Southeast League' },
+        lobby: { lobbyId: 'standing', name: 'Varsity', ageRule: 'anyone' },
+        counting: 'sanction',
+        calendar: [
+          {
+            lobbyId: 'tournament',
+            handle: 'ridgeview',
+            name: 'Ridgeview Invitational',
+            when: { precision: 'day', startsAt: '2026-11-28T00:00:00.000Z' },
+            completed: false,
+            sanction: 'requested',
+          },
+        ],
+        standings: {
+          series: { templateId: 'template', name: 'Varsity' },
+          certifiedCount: 0,
+          awaitingCertification: [],
+          rows: [],
+        },
+      },
+    },
+  );
+  const html = renderToStaticMarkup(
+    createElement(TimelineRail, { rail, current: 'league' }),
+  );
+  assert({
+    given: 'a league with a populated season calendar',
+    should:
+      'hide the calendar on phones while keeping League and People in the rail',
+    actual: [
+      rail.items.map(({ label }) => label),
+      rail.foot.map(({ label }) => label),
+      html.includes('gap-1 max-compact:hidden'),
+      html.includes('gap-1 max-compact:flex-row'),
+    ],
+    expected: [['Ridgeview Invitational'], ['League', 'People'], true, true],
   });
 });

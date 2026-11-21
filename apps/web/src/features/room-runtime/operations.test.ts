@@ -13,6 +13,7 @@ import {
   state,
 } from './operations.test-support';
 import { freestyleFacts } from './catalog-sources.test-support';
+import { seatedListingEntry } from '../rooms/assembly.test-support';
 
 setupRitewayBun();
 
@@ -52,6 +53,64 @@ test('Room runtime reads resolve catalog, cast and collection projections from i
       ],
       rooms: [[state.id, true]],
     },
+  });
+});
+
+test('discovery ratings use one release clock and respect judge blinding across pools', async () => {
+  const entry = seatedListingEntry({ ...state, status: 'assembling' });
+  const active = {
+    lobbyId: entry.lobbyId,
+    ladderId: 'freestyle',
+    seasonId: 'current',
+  };
+  const frozen = { ...active, seasonId: 'previous' };
+  const blindedHost = 'k'.repeat(24);
+  const calls: unknown[] = [];
+  const { operations } = makeOperations({
+    listRoomPage: async () => ({
+      rooms: [
+        { ...entry, competitionType: 'ranked', hostRatingPool: active },
+        { ...entry, competitionType: 'ranked', hostRatingPool: frozen },
+        {
+          ...entry,
+          competitionType: 'ranked',
+          hostRatingPool: frozen,
+          hostActorId: blindedHost,
+        },
+      ],
+      nextCursor: null,
+      retry: false,
+    }),
+    readRatingBlindings: async () => [blindedHost],
+    readMemberCardRatings: async (actors, clock, _publish, pool) => {
+      calls.push([actors, clock.now, pool?.seasonId]);
+      return actors.map((actorId) => ({
+        actorId,
+        ladder: 'freestyle',
+        lobbyId: active.lobbyId,
+        ladderId: active.ladderId,
+        division: 'open',
+        rating: pool?.seasonId === 'current' ? 1533 : 1622,
+        deviation: 100,
+        volatility: 0.06,
+        lastRatedAt: null,
+      }));
+    },
+  });
+  const page = await operations.list(caller, { pageSize: 20, q: '' });
+  assert({
+    given:
+      'one visible host in two season pools and a host whose rating is blinded',
+    should:
+      'use the database clock, keep standings isolated by season and withhold the blinded rating',
+    actual: [page.rooms.map(({ hostRating }) => hostRating), calls],
+    expected: [
+      [1533, 1622, null],
+      [
+        [[entry.hostActorId], now, 'current'],
+        [[entry.hostActorId], now, 'previous'],
+      ],
+    ],
   });
 });
 
@@ -120,7 +179,6 @@ test('Room runtime distinguishes Redis consent loss', async () => {
   const base = makeOperations();
   const withUnavailableRedis = createRoomRuntimeOperations({
     linkedAdults: noLinkedAdults,
-    now: () => '2026-11-02T00:00:00.000Z',
     store: base.store,
     redis: {
       setRoomConsent: async () => undefined,
@@ -163,7 +221,6 @@ test('Room creation pins resolved rules and replays the accepted receipt before 
   let catalogReads = 0;
   const replay = createRoomRuntimeOperations({
     linkedAdults: noLinkedAdults,
-    now: () => '2026-11-02T00:00:00.000Z',
     store: {
       readRoomCreateReceipt: async ({
         authorize,

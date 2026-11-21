@@ -82,8 +82,8 @@ given first class".
   the existing ladders, seasons, Rooms and challenges onto them, and drops
   the division columns, trigger and CHECKs in the same slice that moves their
   last reader.
-- `scripts/season.ts activate-beta` and the operations procedure for opening
-  a season are retired once the host area creates seasons.
+- League managers open, edit and close seasons in the league host area. Closing
+  pauses new ranked starts in the lobby and keeps season history available.
 
 ## Build order
 

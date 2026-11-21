@@ -3,7 +3,7 @@ import { atFinalJudgingStage } from '@daisy/db/testing';
 import { passAttendanceCutoff } from './round-attendance-fixture.test-support';
 import { createRoundJudgingOperations } from '../src/features/round-judging/operations';
 import { createId } from '@paralleldrive/cuid2';
-import { withSeasons } from '@daisy/db/seasons';
+import { seedRatingSeason } from '@daisy/db/testing';
 import { buildRoundTopic, winnerOutcome, negativeSide } from '@daisy/protocol';
 import { recoverRankedResults } from './ranked-room.test-support';
 import {
@@ -12,7 +12,6 @@ import {
   judgingJobRules,
 } from '@daisy/debate-engine';
 import { randomBytes } from 'node:crypto';
-import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { submitHumanBallot } from './round-judging.test-support';
 import { seedSettledAttendanceLedger } from './round-attendance-fixture.test-support';
@@ -36,7 +35,6 @@ import { botAdmissionForTests } from './bot-admission.test-support';
 import { deleteOrphanNotificationSignals } from './notification-signals.test-support';
 
 setupRitewayBun();
-const { databaseUrl } = requireTestServices(process.env);
 
 test('the platform ending is written when the Round ends, not at the freeze', async () => {
   await withRoomRuntime(async (f) => {
@@ -304,9 +302,7 @@ test('on a ranked Round, a failed AI judge blocks no human ballot, and the room 
     ).view;
     room = await everyoneReady(f, room, [f.host, f.guest, f.outsider]);
     const { roundId } = await launchRuntimeRound(f, room);
-    await withSeasons(databaseUrl, (s) =>
-      s.activateBetaSeason({ id: seasonId, division: 'open' }),
-    );
+    await seedRatingSeason(f.sql, seasonId);
     await f.markRanked(roundId);
     await playOut(f, roundId, true);
     await finalizeAsWeb(f, roundId);
