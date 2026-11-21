@@ -1,8 +1,8 @@
 import { createAppError } from '@daisy/errors';
 import {
   ratingStyles,
-  sideKeySchema,
-  type SideKey,
+  twoSideKeys,
+  type TwoSideKey,
   type WinnerOutcome,
 } from '@daisy/protocol';
 import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm';
@@ -66,7 +66,7 @@ export type StandingChange = {
   readonly deviationAfter: number;
   readonly occurredAt: string;
   /** A rating compares the two sides (ADR 0055): the preset's pair. */
-  readonly side: SideKey;
+  readonly side: TwoSideKey;
   readonly outcome: WinnerOutcome;
 };
 
@@ -153,6 +153,9 @@ const publishedCertifications = async (
   return published;
 };
 
+const isTwoSideKey = (key: string | null): key is TwoSideKey =>
+  twoSideKeys.some((side) => side === key);
+
 /**
  * A posting's side and outcome as a rated result. A ledger row is only ever
  * written for a debater's side of a Round a side won, so anything else is
@@ -162,14 +165,12 @@ export function ratedSeat(
   side: string | null,
   winningSide: string | null,
 ): Pick<StandingChange, 'side' | 'outcome'> {
-  const seat = sideKeySchema.safeParse(side);
-  const winner = sideKeySchema.safeParse(winningSide);
-  if (!seat.success || !winner.success)
+  if (!isTwoSideKey(side) || !isTwoSideKey(winningSide))
     throw createAppError(
       'INTERNAL',
       'A ledger posting has no rated seat or outcome',
     );
-  return { side: seat.data, outcome: { kind: 'winner', side: winner.data } };
+  return { side, outcome: { kind: 'winner', side: winningSide } };
 }
 
 export const standingsOperations = ({

@@ -17,7 +17,7 @@ test('both competitors progress after a hidden game using only public results', 
   const rooms = [
     { ...publicGame, actorId: 'ada', side: 'affirmative' },
     { ...publicGame, actorId: 'ben', side: 'negative' },
-  ];
+  ] as const;
   const people = ['ada', 'ben'].map((actorId) => ({
     actorId,
     username: actorId,

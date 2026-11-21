@@ -66,6 +66,7 @@ test('standings refuses a posting with an invalid two-sided outcome', async () =
       negative,
       outcome: 'affirmative',
       seasonId,
+      visibility: 'public',
     });
     await change(fixture, {
       seasonId,
@@ -151,6 +152,7 @@ describe('standings reads (RATE-1.4.1)', () => {
             negative: loser,
             outcome: 'affirmative',
             seasonId: scope.seasonId,
+            visibility: 'public',
           });
           for (const [actorId, after] of [
             [winner, winnerAfter],

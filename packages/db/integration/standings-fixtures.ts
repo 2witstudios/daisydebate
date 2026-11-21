@@ -51,7 +51,8 @@ export const completed = async (
     affirmative: string;
     negative: string;
     outcome: string;
-    seasonId?: string;
+    seasonId: string;
+    visibility?: 'public' | 'private';
   },
 ) => {
   // A ranked round is constructed from a sanctioned preset, so it pins one.
@@ -72,13 +73,9 @@ export const completed = async (
       runtime_state: emptyRuntimeCheckpointFor(validRules),
       judging: frozenJudgingFor(validRules),
       ladder_id: input.formatId,
-      ...(input.seasonId
-        ? {
-            rating_lobby_id: publicLobbyId,
-            season_id: input.seasonId,
-            visibility: 'public',
-          }
-        : {}),
+      rating_lobby_id: publicLobbyId,
+      season_id: input.seasonId,
+      visibility: input.visibility ?? null,
       ...(await openDivision(fixture, 'rounds', 'ladder_division')),
       started_at: at(5, 11),
       completed_at: at(5),
