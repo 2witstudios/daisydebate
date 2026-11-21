@@ -668,9 +668,61 @@ const dbNativeRowsPlugin = {
           )
             return { owner, name: declaration.name?.getText() };
         };
-        const constantSource = (value) => {
+        const declarationOf = (expression) => {
+          const location = esTreeNodeToTSNodeMap.get(expression);
+          return (
+            ts.isShorthandPropertyAssignment(location.parent)
+              ? checker.getShorthandAssignmentValueSymbol(location.parent)
+              : checker.getSymbolAtLocation(location)
+          )?.valueDeclaration;
+        };
+        const constantDeclaration = (declaration) =>
+          declaration &&
+          ts.isVariableDeclaration(declaration) &&
+          (ts.getCombinedNodeFlags(declaration) & ts.NodeFlags.Const) !== 0;
+        const staticKey = (key, computed) => {
+          if (!computed && key.type === 'Identifier') return key.name;
+          if (
+            key.type === 'Literal' &&
+            (typeof key.value === 'string' || typeof key.value === 'number')
+          )
+            return String(key.value);
+        };
+        const literalMember = (object, key) => {
+          if (object?.type !== 'ObjectExpression' || key === undefined)
+            return undefined;
+          for (const property of [...object.properties].reverse()) {
+            if (property.type === 'SpreadElement') return undefined;
+            if (staticKey(property.key, property.computed) === key)
+              return property.kind === 'init' ? property.value : undefined;
+          }
+        };
+        const destructuredMember = (declaration) => {
+          if (
+            !declaration ||
+            !ts.isBindingElement(declaration) ||
+            !ts.isObjectBindingPattern(declaration.parent) ||
+            declaration.dotDotDotToken ||
+            declaration.initializer
+          )
+            return undefined;
+          const owner = declaration.parent.parent;
+          const property = declaration.propertyName ?? declaration.name;
+          if (
+            !constantDeclaration(owner) ||
+            !owner.initializer ||
+            !(
+              ts.isIdentifier(property) ||
+              ts.isStringLiteralLike(property) ||
+              ts.isNumericLiteral(property)
+            )
+          )
+            return undefined;
+          const expression = tsNodeToESTreeNodeMap.get(owner.initializer);
+          return expression ? { expression, key: property.text } : undefined;
+        };
+        const constantSource = (value, seen = new Set()) => {
           if (!value) return undefined;
-          const seen = new Set();
           while (!seen.has(value)) {
             seen.add(value);
             if (
@@ -685,25 +737,45 @@ const dbNativeRowsPlugin = {
               value = value.expression;
               continue;
             }
-            if (value.type !== 'Identifier') break;
-            const symbol = checker.getSymbolAtLocation(
-              esTreeNodeToTSNodeMap.get(value),
-            );
-            const declaration = symbol?.valueDeclaration;
-            if (
-              !declaration ||
-              !ts.isVariableDeclaration(declaration) ||
-              !(ts.getCombinedNodeFlags(declaration) & ts.NodeFlags.Const) ||
-              !declaration.initializer
-            )
-              break;
-            const initializer = tsNodeToESTreeNodeMap.get(
-              declaration.initializer,
-            );
+            let initializer;
+            if (value.type === 'MemberExpression') {
+              initializer = literalMember(
+                constantSource(value.object, seen),
+                staticKey(value.property, value.computed),
+              );
+            }
+            if (value.type === 'Identifier') {
+              const declaration = declarationOf(value);
+              if (constantDeclaration(declaration) && declaration.initializer)
+                initializer = tsNodeToESTreeNodeMap.get(
+                  declaration.initializer,
+                );
+              const member = destructuredMember(declaration);
+              if (member)
+                initializer = literalMember(
+                  constantSource(member.expression, seen),
+                  member.key,
+                );
+            }
             if (!initializer) break;
             value = initializer;
           }
           return value;
+        };
+        const originalCallableType = (source) => {
+          const member =
+            source.type === 'Identifier' &&
+            destructuredMember(declarationOf(source));
+          if (member) {
+            const object = constantSource(member.expression);
+            const property = typeAt(object).getProperty(member.key);
+            if (property)
+              return checker.getTypeOfSymbolAtLocation(
+                property,
+                esTreeNodeToTSNodeMap.get(object),
+              );
+          }
+          return typeAt(source);
         };
         const functionAdapter = (method) =>
           ['CallableFunction', 'Function'].includes(method.owner) &&
@@ -766,7 +838,7 @@ const dbNativeRowsPlugin = {
             active.delete(source);
             if (binding) return { binding };
           }
-          const type = source ? typeAt(source) : input.type;
+          const type = source ? originalCallableType(source) : input.type;
           const method = type
             .getCallSignatures()
             .map(builtInMethod)
