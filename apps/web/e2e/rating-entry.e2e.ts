@@ -6,7 +6,7 @@ import { resetRateLimits, signUpMember } from './support/accounts';
 import { submitCreateRoom, closeRoom } from './support/room-launch-flow';
 import type { RatingStyle } from '@daisy/protocol';
 
-test('native no-JavaScript ranked entry preserves canonical setup for the one Freestyle ladder', async ({
+test('ranked entry preserves canonical setup for the one Freestyle ladder', async ({
   browser,
 }, testInfo) => {
   test.setTimeout(120_000);
@@ -25,8 +25,8 @@ test('native no-JavaScript ranked entry preserves canonical setup for the one Fr
           : resolve(),
     ),
   );
-  const context = await browser.newContext({ javaScriptEnabled: false });
-  const page = await openPage(context, 'native ranked setup');
+  const context = await browser.newContext();
+  const page = await openPage(context, 'ranked setup');
   const capture = async (label: string) => {
     const path = testInfo.outputPath(`${label}.png`);
     await page.screenshot({ path, fullPage: true });

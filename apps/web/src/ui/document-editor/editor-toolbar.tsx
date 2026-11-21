@@ -120,12 +120,12 @@ export function EditorToolbar({
         {formats.map((f, index) => (
           <button
             key={f.id}
-            type="button"
             aria-label={f.label}
             aria-pressed={Boolean(active.formats[f.id])}
             className={tool(Boolean(active.formats[f.id]))}
             onClick={() => f.run(editor)}
             {...roving(index)}
+            type="button"
           >
             <Icon name={f.icon} size={16} />
           </button>

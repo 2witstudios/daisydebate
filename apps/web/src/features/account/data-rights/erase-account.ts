@@ -48,7 +48,7 @@ export type EraseAccountNotice = 'confirm' | 'rate-limited' | 'refused';
 
 /**
  * POST /api/privacy/erase, the account's erasure request (ISSUE-833, ADR
- * 0087): a native form post that works without JavaScript. Same origin, any
+ * 0087): a native form post that works before hydration. Same origin, any
  * authenticated account (members and the waitlisted alike — data rights
  * belong to the account, not to beta participation), the erasure budget, an
  * explicit confirmation, then the one-transaction erasure that closes the

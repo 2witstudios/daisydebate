@@ -7,7 +7,7 @@ export const accountExitLink =
 
 /**
  * The account's way out (ISSUE-691, plan BETA §5): a native form, so it
- * signs out without JavaScript, beside the page's links.
+ * signs out before hydration, beside the page's links.
  */
 export function AccountExit({
   failed,

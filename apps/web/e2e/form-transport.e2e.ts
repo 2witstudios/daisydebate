@@ -10,7 +10,7 @@ import {
 import { changeEmail, claimUsername, dropServerActions } from './support/forms';
 import { effectsRan } from './support/hydration';
 
-// ISSUE-94: with JavaScript on, a form's server action is a fetch the page
+// ISSUE-94: once hydrated, a form's server action is a fetch the page
 // makes. When that fetch fails in transport (the connection drops), the
 // form shows its own unavailable notice with the typed value kept, never
 // the root error screen.

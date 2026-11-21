@@ -13,8 +13,8 @@ import {
 /**
  * One-click "Message" for a known member: posts the native direct-request
  * form, which opens the existing conversation or request with them, or sends
- * a new request without an introduction. Works as a plain POST without
- * JavaScript; the action is the page's own DM creation action.
+ * a new request without an introduction. Works as a plain POST before
+ * hydration; the action is the page's own DM creation action.
  */
 export function MessageUserButton({
   username,

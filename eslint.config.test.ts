@@ -57,6 +57,37 @@ describe('repository ESLint configuration', () => {
   });
 });
 
+describe('form actions before hydration (ADR 0114)', () => {
+  test('requires callable form actions wherever the form omits a method', async () => {
+    const [result] = await typedRepositoryEslint().lintText(
+      `export function Forms({
+        address, post, optional,
+      }: {
+        address: string;
+        post: (data: FormData) => void;
+        optional?: (data: FormData) => void;
+      }) {
+        return <>
+          <form action={address} />
+          <form action={optional} />
+          <form action={address} method="post" />
+          <form action={post} />
+        </>;
+      }`,
+      { filePath: 'apps/admin/src/app/search-form.tsx' },
+    );
+    assert({
+      given: 'form addresses, optional actions, and callable actions',
+      should: 'reject only the address and optional action without a method',
+      actual: result!.messages.map(({ ruleId, line }) => ({ ruleId, line })),
+      expected: [9, 10].map((line) => ({
+        ruleId: 'daisy-form/require-callable-action',
+        line,
+      })),
+    });
+  });
+});
+
 describe('refusal reasons, never messages (ISSUE-1010)', () => {
   const problems = async (code: string) => {
     const [result] = await repositoryEslint().lintText(code, {

@@ -99,29 +99,6 @@ test('real public ingress probe uses ordinary signed session, scoped seat and du
           actual: [outage, recovered],
           expected: [false, true],
         });
-        const native = await fetch(`${origin}/api/rounds/${roundId}/check-in`, {
-          method: 'POST',
-          headers: {
-            origin,
-            cookie: signed.cookie,
-            'content-type': 'application/x-www-form-urlencoded',
-          },
-          body: new URLSearchParams({
-            version: '1',
-            commandId: createId(),
-            segmentId,
-          }),
-        });
-        assert({
-          given: 'actual explicit native POST through the same public route',
-          should:
-            'show recorded feedback without Javascript presence inference',
-          actual: [
-            native.status,
-            (await native.text()).includes('Attendance recorded'),
-          ],
-          expected: [200, true],
-        });
         await verifyAvailabilityLeaseCadence({
           app: app.app,
           sql: f.sql,

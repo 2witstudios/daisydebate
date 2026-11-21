@@ -5,7 +5,6 @@ import {
   closeRoom,
   createFromPlay,
   setResolution,
-  createConfiguredRoom,
 } from './support/room-launch-flow';
 
 test.beforeEach(async ({ request }) => {
@@ -101,42 +100,6 @@ test.describe('authenticated Room lobby', () => {
       await page.goto('/lobby?q=not-a-real-room');
       await expect(page.getByRole('status')).toContainText('No rooms match');
       await expect(roomRows(page)).toHaveCount(0);
-    } finally {
-      if (roomId) await closeRoom(page.request, roomId);
-    }
-  });
-});
-
-test.describe('Room lobby with JavaScript off', () => {
-  test.use({ javaScriptEnabled: false });
-
-  test.beforeEach(async ({ page }) => {
-    await signUpMember(page.request);
-  });
-
-  test('native creation and search forms use the same durable Room list', async ({
-    page,
-  }) => {
-    const title = `Native lobby ${createId().slice(0, 8)}`;
-    let roomId: string | undefined;
-    try {
-      await page.goto('/play/room');
-      const form = page.getByRole('form', { name: 'Create a room' });
-      await form.getByLabel('Room name', { exact: true }).fill(title);
-      await expect(
-        form.getByRole('combobox', { name: 'Resolution', exact: true }),
-      ).toHaveValue('strike');
-      await form.getByLabel('Who can join').selectOption('public');
-      roomId = (await createConfiguredRoom(page)).id;
-
-      await page.goto('/lobby');
-      await expect(roomRows(page).filter({ hasText: title })).toHaveCount(1);
-      await page.getByRole('searchbox', { name: 'Search rooms' }).fill(title);
-      await page.getByRole('button', { name: 'Apply', exact: true }).click();
-      // The form keeps the lobby it filters (ADR 0156).
-      await expect(page).toHaveURL(/\/lobby\?lobby=open&q=/);
-      await expect(roomRows(page)).toHaveCount(1);
-      await expect(roomRows(page).first()).toContainText(title);
     } finally {
       if (roomId) await closeRoom(page.request, roomId);
     }

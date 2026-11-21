@@ -30,7 +30,7 @@ const seeOther = (location: string) =>
 
 /**
  * POST /auth/sign-out, the sign-out for a native form (ISSUE-691, plan BETA
- * §5): it works without JavaScript. Same origin only (ADR 0020). It runs
+ * §5): it works before hydration. Same origin only (ADR 0020). It runs
  * Better Auth's own sign-out with the browser's headers, then answers 303 to /sign-in carrying that response's cleared session cookies verbatim. A failed
  * sign-out goes back to the form's page, still signed in, with a notice.
  */

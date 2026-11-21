@@ -16,7 +16,7 @@ export function OnlineCount() {
 
 /**
  * The phone's Rooms and People switch (ADR 0105). Plain links, so it works
- * without script; from a tablet up the rail holds the list and this is hidden.
+ * before hydration; from a tablet up the rail holds the list and this is hidden.
  */
 export function LobbyViews({
   view,

@@ -13,7 +13,7 @@ export type UsernameFormProps = {
   readonly notice?: UsernameNotice | undefined;
   /**
    * The form's POST. Given a server action, React renders a form the browser
-   * can submit before hydration or without JavaScript.
+   * can submit before hydration.
    */
   readonly action: (form: FormData) => void | Promise<void>;
   /** The local shape check; a refused name is not posted. */
@@ -45,7 +45,7 @@ const HINT_ID = 'username-hint';
  * Choosing the public name. It is the identity opponents and spectators see,
  * so the form says so, states the rule up front, and keeps what was typed
  * through every recoverable error. It is a real POST: before hydration, or
- * without JavaScript, the browser submits it to the same server action.
+ * before hydration, the browser submits it to the same server action.
  */
 export function UsernameForm({
   username,

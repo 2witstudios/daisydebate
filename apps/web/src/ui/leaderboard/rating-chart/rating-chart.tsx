@@ -21,9 +21,8 @@ const VIEW_WIDTH = 420;
 const subscribe = (): (() => void) => () => undefined;
 
 /**
- * The scrubbable chart. Served as a static chart at the URL's step; once a
- * script runs, the slider and the pointer move the readout. The table view
- * carries the same numbers for anyone without a script.
+ * The chart opens at the step in the URL. The slider and pointer move the
+ * readout, and the table shows the same values together.
  */
 export function RatingChart({
   chart,

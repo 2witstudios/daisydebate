@@ -16,7 +16,7 @@ import {
 } from './support/webauthn';
 
 // ISSUE-107: a form disables its field and button while its answer is on
-// the way, and a disabled control loses focus. With JavaScript on, each
+// the way, and a disabled control loses focus. Each
 // answer (sent, refused, or unavailable after a transport failure) must
 // hand keyboard focus back to the form's field, or to the next step's
 // heading, never leave it on <body>. Every answer here is reached with the

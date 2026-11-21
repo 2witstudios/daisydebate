@@ -1,7 +1,6 @@
-import type { Browser, BrowserContext } from '@playwright/test';
+import type { Browser } from '@playwright/test';
 import { isJudgeSeat, roundBallotReadSchema } from '@daisy/protocol';
 import { expect, openPage } from './fixtures';
-import { origin } from './accounts';
 import { createRoomLaunchAccounts } from './room-launch-accounts';
 import { readBallotRound } from './human-ballot-round';
 import { playActualSpeeches } from './human-judged-journey';
@@ -9,7 +8,6 @@ import { playActualSpeeches } from './human-judged-journey';
 /** DEC-191 without a fixture clock, maintenance callback, ballot or outcome. */
 export async function proveUnjudgedJourney(browser: Browser) {
   const accounts = await createRoomLaunchAccounts(browser, 2);
-  let native: BrowserContext | undefined;
   try {
     const [aff, neg] = accounts.members as [
       (typeof accounts.members)[number],
@@ -41,13 +39,7 @@ export async function proveUnjudgedJourney(browser: Browser) {
       null,
       null,
     ]);
-    native = await browser.newContext({
-      baseURL: origin,
-      ignoreHTTPSErrors: true,
-      javaScriptEnabled: false,
-      storageState: await neg.context.storageState(),
-    });
-    const receipt = await openPage(native, 'native unjudged receipt');
+    const receipt = await openPage(neg.context, 'unjudged receipt');
     await receipt.goto(`/rounds/${view.id}`);
     const header = receipt.getByRole('main').locator('header');
     await expect(
@@ -57,7 +49,6 @@ export async function proveUnjudgedJourney(browser: Browser) {
     for (const untrue of ['Draw', 'Abandoned', 'won', 'ballot'])
       await expect(header).not.toContainText(untrue);
   } finally {
-    await native?.close();
     await accounts.closeContexts();
   }
 }

@@ -39,6 +39,7 @@ export default async function ClubYouth({
       section="youth"
     >
       <YouthStudentsPage
+        address={`/clubs/${club}/youth`}
         clubId={read.club.id}
         filter={filter}
         tallies={youthStudentTallies(read.students)}

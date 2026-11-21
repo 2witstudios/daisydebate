@@ -67,7 +67,7 @@ test('Train selects the addressed opponent and reports availability truthfully',
   });
 });
 
-test('every opponent card is an address link that works without JavaScript', () => {
+test('every opponent card is an address link that works before hydration', () => {
   const view = landing({ bot: 'juno-actor-id-000000' });
   assert({
     given: 'the chosen card and its neighbours',

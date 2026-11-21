@@ -73,7 +73,7 @@ test('a native ballot form redirects to the ballot page', async () => {
     id,
   );
   assert({
-    given: 'the no-JavaScript ballot form',
+    given: 'the pre-hydration ballot form',
     should: 'submit once and redirect without echoing values',
     actual: [
       response.status,

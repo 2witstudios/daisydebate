@@ -4,7 +4,7 @@ import { buttonClass } from '../../components/button/button-class';
 
 /**
  * Stops notification email from the email's own link, with no sign-in (ADR
- * 0124, ADR 0144). A native form, so it works without JavaScript.
+ * 0124, ADR 0144). A native form, so it works before hydration.
  */
 export function UnsubscribePage({ view }: { readonly view: UnsubscribeView }) {
   return (

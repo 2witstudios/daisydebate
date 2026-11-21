@@ -113,12 +113,7 @@ export function readRoomDraft(
           (choice) =>
             choice.role === 'standard' && choice.formatId === values.format,
         );
-  const resetSelectedPreset =
-    selected &&
-    (roomChoiceKey(selected) !== roomChoiceKey(source) ||
-      (values.intent === 'format' && selected.role === 'standard') ||
-      (values.intent === 'template' && selected.role === 'template'));
-  if (selected && resetSelectedPreset) {
+  if (selected && roomChoiceKey(selected) !== roomChoiceKey(source)) {
     const draft = createRoomDraft(selected);
     return {
       ok: true,

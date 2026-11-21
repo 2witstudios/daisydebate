@@ -23,12 +23,12 @@ const onboardingRoute = processRoute((routes) => routes.onboarding.POST);
 
 /**
  * A questionnaire step's POST, as a server action: it works before
- * hydration and without JavaScript. It runs POST /api/account/onboarding in
+ * hydration. It runs POST /api/account/onboarding in
  * process with this request's headers, so every gate of that route applies.
  * Every argument comes from the browser: the step and `next` are checked
  * again here. The route finishes onboarding with the last question's own
  * write. A saved step moves
- * on (a 303 without JavaScript, `next` for a hydrated page to navigate to).
+ * on (a 303 before hydration, `next` for a hydrated page to navigate to).
  */
 export async function saveStepAction(
   step: unknown,

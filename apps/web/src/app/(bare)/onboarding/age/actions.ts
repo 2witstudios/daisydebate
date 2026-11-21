@@ -21,7 +21,7 @@ const ageRoute = processRoute((routes) => routes.age.POST);
 
 /**
  * The age form's POST, as a server action: it works before hydration and
- * without JavaScript. It runs POST /api/account/age in process with this
+ * before hydration. It runs POST /api/account/age in process with this
  * request's headers, so every gate of that route applies and the server
  * alone bands the answer. Accepted (now or by an earlier answer, see
  * readAgeAnswer), it moves on to the lobby landing (YLS-8), which names

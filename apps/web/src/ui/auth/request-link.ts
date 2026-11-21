@@ -105,7 +105,7 @@ export const linkUnavailable = (form: FormData): LinkSettled =>
 /**
  * The state a page render starts from: where the last posted form ended,
  * with a sent link's cooldown counted from `at` (UTC ISO, this render's
- * clock). Without JavaScript, every post renders the page again from here.
+ * clock). Before hydration, every post renders the page again from here.
  */
 export function signInStateFrom(
   answer: LinkFormState,

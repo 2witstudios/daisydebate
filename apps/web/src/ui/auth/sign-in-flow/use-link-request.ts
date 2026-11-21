@@ -62,7 +62,7 @@ export type LinkRequest = {
 /**
  * The email-link request every surface shares: the reducer holds the state,
  * the server action sends links, and the first render starts from the
- * action's last answer, so a post made without JavaScript renders the step
+ * action's last answer, so a post made before hydration renders the step
  * it led to. Each answer settles the request in flight, timed by this
  * browser's clock so the resend countdown never depends on the server's,
  * and hands focus to the step it leads to (ISSUE-107).

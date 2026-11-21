@@ -1,6 +1,5 @@
 'use server';
 import { headers } from 'next/headers';
-import { readNativeAttendanceState } from '../../../../../features/attendance/read-native';
 import {
   submitRoundForm,
   type RoundFormState,
@@ -47,16 +46,4 @@ export async function leaveRoundAction(
   const { incoming, answer } = await submitRound(roundId, form);
   if (answer.kind !== 'acknowledged') return answer;
   return moveOn(incoming, `/rounds/${roundId}`);
-}
-
-const nativeState = (roundId: string) =>
-  processRoute(
-    (routes) => (request) =>
-      routes.attendance.readNativeState(request, roundId),
-  );
-export async function readPersistedAttendance(roundId: string) {
-  return readNativeAttendanceState(
-    inProcessFetch(nativeState(roundId), new Headers(await headers())),
-    roundId,
-  );
 }

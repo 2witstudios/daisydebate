@@ -17,7 +17,6 @@ import {
   receiptAfterReload,
   closeAttendedFixture,
 } from './support/attendance-browser';
-import { nativeAttendanceOutage } from './support/native-attendance-proof';
 import { serviceAttendanceOutage } from './support/service-attendance-proof';
 import { rollingAttendancePeer } from './support/rolling-attendance-proof';
 import { authenticatedAttendanceSocket } from './support/attendance-socket';
@@ -171,13 +170,6 @@ for (const attendance of ['opponent-only', 'neither'] as const)
       await accounts.closeContexts();
     }
   });
-
-test('native explicit attendance crosses the original grace during a real public outage and refuses a finalized stale form', async ({
-  browser,
-}) => {
-  test.setTimeout(180_000);
-  await nativeAttendanceOutage({ browser });
-});
 
 for (const service of ['web', 'realtime'] as const)
   test(`whole ${service} outage postpones an actual speech and recovers without a false forfeit`, async ({

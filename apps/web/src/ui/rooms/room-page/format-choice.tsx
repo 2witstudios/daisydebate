@@ -104,6 +104,8 @@ const drawing = (view: RoomView) => view.executionPlan.resolutionDraw.enabled;
 function StandardsForm({ view, choices, ids, action }: FormProps) {
   const legendId = useId();
   const standing = view.format.standing;
+  const selectedStandard =
+    standing.kind === 'standard' ? standing.formatId : null;
   return (
     <AssemblyCommandForm action={action} className="flex flex-col gap-3">
       <CommandFields view={view} commandId={ids.choose} intent="choose" />
@@ -111,6 +113,7 @@ function StandardsForm({ view, choices, ids, action }: FormProps) {
         Format
       </span>
       <div
+        key={selectedStandard ?? 'custom'}
         role="radiogroup"
         aria-labelledby={legendId}
         className="grid w-full grid-cols-2 gap-2 max-compact:grid-cols-1"
@@ -122,10 +125,7 @@ function StandardsForm({ view, choices, ids, action }: FormProps) {
               name="format"
               className="sr-only"
               value={choiceTuple(choice)}
-              defaultChecked={
-                standing.kind === 'standard' &&
-                standing.formatId === choice.formatId
-              }
+              defaultChecked={selectedStandard === choice.formatId}
             />
             <span className="font-strong">{choice.label}</span>
             <span className="text-xs text-ink-muted">
@@ -217,7 +217,7 @@ function LeagueForm({ view, choices, ids, action }: FormProps) {
 /**
  * Room setup's format: Daisy's standards and Custom (FMT-3, FMT-4). Choosing
  * a standard posts select-format; Custom is never chosen directly, it is
- * what any edit makes the room. Every form works without JavaScript.
+ * what any edit makes the room. Every form works before hydration.
  */
 export function FormatChoice(props: FormProps) {
   return (

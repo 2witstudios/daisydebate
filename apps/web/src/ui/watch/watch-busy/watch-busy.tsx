@@ -3,7 +3,7 @@ import { StateCard } from '../state-card/state-card';
 
 /**
  * Watching refused for now: the audience's share of the database is full, and the
- * debates themselves are unaffected. A real link, so it works without script.
+ * debates themselves are unaffected. A real link, so it works before hydration.
  */
 export function WatchBusy({ retryHref }: { readonly retryHref: string }) {
   return (

@@ -5,21 +5,17 @@ import { expect, openPage } from './fixtures';
 import { origin } from './accounts';
 import { createRoomLaunchAccounts } from './room-launch-accounts';
 import { reread } from './room-launch-flow';
+import { hydrated } from './hydration';
 
 /**
- * Edit settings' format choice with scripts off (FMT-3, FMT-4, ADR 0142): a
+ * Edit settings' format choice (FMT-3, FMT-4, ADR 0142): a
  * Freestyle room whose prep was edited reads Custom based on Freestyle, Back
  * to Freestyle restores the standard, and the league browser posts
- * select-format natively with the resolution a set-wording format needs.
+ * select-format with the resolution a set-wording format needs.
  */
-export async function proveNoScriptFormatChoice(browser: Browser) {
+export async function proveFormatChoice(browser: Browser) {
   const accounts = await createRoomLaunchAccounts(browser, 1);
   const host = accounts.members[0]!;
-  const noScript = await browser.newContext({
-    baseURL: origin,
-    javaScriptEnabled: false,
-    storageState: await host.context.storageState(),
-  });
   try {
     const catalog = await host.context.request.get('/api/rooms/catalog');
     const freestyle = (await catalog.json()).choices
@@ -61,21 +57,22 @@ export async function proveNoScriptFormatChoice(browser: Browser) {
     );
     expect(edited.status()).toBe(200);
 
-    const page = await openPage(noScript, 'format choice, no JavaScript');
+    const page = await openPage(host.context, 'format choice');
     await page.goto(`/rooms/${room.id}#room-setup`);
     const custom = page.getByRole('region', { name: 'Custom format' });
     await expect(custom.getByText('Custom, based on Freestyle')).toBeVisible();
     await expect(
       custom.getByText('Prep before the round 20:00 → 15:00'),
     ).toBeVisible();
-    await custom.getByRole('button', { name: 'Back to Freestyle' }).click();
+    const back = custom.getByRole('button', { name: 'Back to Freestyle' });
+    await hydrated(back);
+    await back.click();
     await expect
       .poll(async () => (await reread(page.request, room.id)).format.standing)
       .toEqual({ kind: 'standard', formatId: 'freestyle' });
 
     // Freestyle and Custom are the only format radios; the league browser
     // is the way to a set-resolution format, so it asks for the wording.
-    await page.goto(`/rooms/${room.id}#room-setup`);
     const radios = page
       .getByRole('radiogroup', { name: 'Format', exact: true })
       .getByRole('radio');
@@ -98,7 +95,6 @@ export async function proveNoScriptFormatChoice(browser: Browser) {
       })
       .toEqual(['nsda-ld', topic, 'custom']);
   } finally {
-    await noScript.close();
     await accounts.closeContexts();
   }
 }

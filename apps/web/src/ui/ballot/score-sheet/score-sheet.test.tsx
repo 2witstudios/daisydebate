@@ -60,7 +60,7 @@ describe('ScoreSheet', () => {
     });
   });
 
-  test('without script', () => {
+  test('before hydration', () => {
     const still = render(false);
     assert({
       given: 'a sheet rendered before script runs',

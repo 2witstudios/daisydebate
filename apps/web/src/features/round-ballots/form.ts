@@ -50,7 +50,7 @@ export function ballotFormFields(answer: RoundBallotFormState): FormFields {
       return formFields(answer);
   }
 }
-/** The same strict API boundary before hydration, without JavaScript and with enhanced retry. */
+/** The same strict API boundary before hydration and with enhanced retry. */
 export async function submitRoundBallotForm(
   fetch: FetchLike,
   roundId: string,

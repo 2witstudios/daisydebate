@@ -6,11 +6,8 @@ import { openMessagingJourney } from './messaging-journey';
  * Both sides of a pending request press Message on each other's profile:
  * the requester reaches their sent status, the requested member the request.
  */
-async function proveProfileMessageEntry(
-  browser: Browser,
-  javaScriptEnabled: boolean,
-) {
-  const journey = await openMessagingJourney(browser, javaScriptEnabled);
+async function proveProfileMessageEntry(browser: Browser) {
+  const journey = await openMessagingJourney(browser);
   try {
     const sender = await openPage(journey.sender, 'the requester profile');
     await sender.goto(`/profile/${journey.recipientUsername}`);
@@ -48,10 +45,9 @@ async function proveProfileMessageEntry(
 }
 
 export function testProfileMessageEntry() {
-  for (const javaScriptEnabled of [true, false])
-    test(`a profile's Message button opens the existing request from either side (JavaScript ${javaScriptEnabled ? 'on' : 'off'})`, async ({
-      browser,
-    }) => {
-      await proveProfileMessageEntry(browser, javaScriptEnabled);
-    });
+  test("a profile's Message button opens the existing request from either side", async ({
+    browser,
+  }) => {
+    await proveProfileMessageEntry(browser);
+  });
 }

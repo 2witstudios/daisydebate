@@ -228,32 +228,6 @@ export function testMessagingRecovery() {
     }
   });
 
-  test('native Messaging refusal offers a fresh authorized GET', async ({
-    browser,
-  }, info) => {
-    const journey = await openMessagingJourney(browser, false);
-    let observer: ReturnType<typeof watchConversationRecovery> | undefined;
-    try {
-      const page = await acceptMessagingJourney(journey);
-      observer = watchConversationRecovery(page, journey.channelId);
-      await control('refuse-messaging-history', journey.pressureSelectors);
-      await page.goto(`/messages/${journey.channelId}`);
-      await expect(refused(page)).toBeVisible();
-      await control('allow-messaging-reads');
-      await page.getByRole('link', { name: 'Try again', exact: true }).click();
-      await expect(composer(page)).toBeVisible();
-      expect(observer.snapshot().dispatches).toBe(0);
-      await evidence(info, observer);
-    } finally {
-      try {
-        await control('allow-messaging-reads');
-      } finally {
-        observer?.stop();
-        await journey.close();
-      }
-    }
-  });
-
   test('permanent Messaging denial shows no history and starts no automatic owner', async ({
     browser,
   }) => {

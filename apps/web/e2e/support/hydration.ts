@@ -45,3 +45,19 @@ export async function hydrated(locator: Locator) {
       await locator.elementHandle(),
     );
 }
+
+/** Holds the page's scripts until `release` runs, so input lands before hydration. */
+export async function holdScripts(page: Page): Promise<() => void> {
+  let release: () => void = () => undefined;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  // Only the scripts: the stylesheets live beside them and block painting.
+  const script = (url: URL) =>
+    url.pathname.startsWith('/_next/static/') && url.pathname.endsWith('.js');
+  await page.route(script, async (route) => {
+    await gate;
+    await route.continue();
+  });
+  return release;
+}

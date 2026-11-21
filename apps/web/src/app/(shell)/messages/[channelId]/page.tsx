@@ -17,7 +17,6 @@ import {
   readThroughSequence,
   conversationNames,
 } from '../../../../features/messaging/conversation';
-import { markReadUnavailableNotice } from '../../../../features/messaging/mark-read';
 import { Button } from '../../../../ui/components/button/button';
 import { Icon } from '../../../../ui/components/icon/icon';
 import { ConversationOptions } from '../../../../ui/messaging/conversation-options';
@@ -33,7 +32,7 @@ import { ConversationReconnecting } from '../../../../ui/messaging/conversation-
 import { GET } from '../../../api/messaging/channels/[channelId]/messages/route';
 import { GET as SEARCH } from '../../../api/messaging/channels/[channelId]/messages/search/route';
 import { GET as ENTRY } from '../../../api/messaging/channels/[channelId]/entry/route';
-import { markReadAction, sendMessageAction } from './actions';
+import { sendMessageAction } from './actions';
 import { reactToMessageAction } from './reactions/actions';
 export const metadata = { title: 'Messages' };
 export default async function ConversationPage({
@@ -109,29 +108,6 @@ export default async function ConversationPage({
           </p>
         ) : (
           <>
-            {query.notice === markReadUnavailableNotice ? (
-              // Only a no-JS reader posts the native form, so only they see it.
-              <noscript>
-                <p role="status" className="px-6 pt-2 text-ink-muted">
-                  This conversation could not be marked read. Try again.
-                </p>
-              </noscript>
-            ) : null}
-            {readThrough === null ? null : (
-              <>
-                {/* With JavaScript the live history marks what it shows. */}
-                <noscript>
-                  <form
-                    action={markReadAction.bind(null, id.data, readThrough)}
-                    className="px-6 pt-2"
-                  >
-                    <button type="submit" className="text-accent underline">
-                      Mark as read
-                    </button>
-                  </form>
-                </noscript>
-              </>
-            )}
             {searchQuery === undefined && !paging ? (
               // The latest page is live on the tab's socket (ADR 0089).
               <ConversationLive
@@ -246,7 +222,6 @@ function ConversationSearch({
       <div className="absolute inset-x-0 top-pane-header z-20 border-b border-border bg-surface px-6 py-2 max-narrow:px-4">
         <ConversationSearchForm
           action={`/messages/${channelId}`}
-          method="get"
           className="flex items-center gap-3"
         >
           <label className="flex h-10 min-w-0 flex-1 items-center gap-2 rounded-md border border-border bg-surface-raised px-3 text-ink-muted focus-within:border-border-strong">
