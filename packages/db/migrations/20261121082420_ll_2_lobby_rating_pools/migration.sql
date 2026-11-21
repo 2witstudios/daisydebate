@@ -124,6 +124,8 @@ UPDATE public.rating_changes c SET lobby_id=s.lobby_id,
   ladder=CASE WHEN c.division='youth' THEN 'b4bcwbtct1ufmo5ng71fn2i6' ELSE c.ladder END
 FROM public.seasons s WHERE s.id=c.season_id;
 --> statement-breakpoint
+SET CONSTRAINTS ALL IMMEDIATE;
+--> statement-breakpoint
 ALTER TABLE public.seasons ALTER COLUMN lobby_id SET NOT NULL;
 --> statement-breakpoint
 ALTER TABLE public.ratings ALTER COLUMN lobby_id SET NOT NULL;

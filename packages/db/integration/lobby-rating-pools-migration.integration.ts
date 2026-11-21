@@ -1,5 +1,4 @@
 import { afterAll } from 'bun:test';
-import { readdir } from 'node:fs/promises';
 import { SQL } from 'bun';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
@@ -18,9 +17,7 @@ const scratch = scratchDatabase(
   requireTestServices(process.env).databaseUrl,
   'll2',
 );
-const migration = (
-  await readdir(new URL('../migrations', import.meta.url))
-).find((name) => name.endsWith('_ll_2_lobby_rating_pools'))!;
+const migration = '20261121082420_ll_2_lobby_rating_pools';
 afterAll(() => scratch.drop());
 
 test(
@@ -40,6 +37,24 @@ test(
       };
       const actor = { open: await f.actor(), youth: await f.actor() };
       const opponent = await f.actor();
+      const orphanLeague = createId();
+      const orphanSeason = createId();
+      await f.insert('organizations', {
+        id: orphanLeague,
+        kind: 'league',
+        name: 'Spring league',
+        handle: orphanLeague,
+        owner_user_id: await f.user(),
+        league_division: 'youth',
+      });
+      await f.insert('seasons', {
+        id: orphanSeason,
+        organization_id: orphanLeague,
+        name: 'Spring',
+        division: 'youth',
+        starts_at: start,
+        status: 'active',
+      });
       const oldSeason = {
         organization_id: daisyOrganizationId,
         name: 'Season 1',
@@ -131,6 +146,15 @@ test(
         should: 'keep every historical season and Glicko state and posting',
         actual: (await data()).map((rows) => Array.from(rows)),
         expected: before.map((rows) => Array.from(rows)),
+      });
+      const [relocated] = await client`select s.lobby_id,l.age_rule
+        from seasons s join lobbies l on l.id=s.lobby_id where s.id=${orphanSeason}`;
+      assert({
+        given: 'a league season created before any standing lobby',
+        should:
+          'give that season a standing lobby in the same league with the historical age rule',
+        actual: [relocated?.lobby_id, relocated?.age_rule],
+        expected: [orphanLeague, 'under-18'],
       });
       const [youth] =
         await client`select id as ladder, lobby_id from ladders where lobby_id <> ${publicLobbyId}`;
