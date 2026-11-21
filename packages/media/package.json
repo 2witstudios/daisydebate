@@ -28,6 +28,7 @@
     "zod": "4.6.6"
   },
   "devDependencies": {
+    "@daisy/clock": "workspace:*",
     "@daisy/config": "workspace:*",
     "@daisy/db": "workspace:*",
     "riteway": "9.3.0"

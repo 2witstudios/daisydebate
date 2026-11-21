@@ -1,7 +1,9 @@
+import { virtualClock } from '@daisy/clock/testing';
 import { createAppError } from '@daisy/errors';
 import { createMediaWorkerClient } from '@daisy/media/worker';
 import { createMediaWorkerAuthentication } from '@daisy/media/internal';
 import { subscriptionClosed } from '@daisy/media/subscription';
+import { CAPTURE_HISTORY_READ_MS } from '@daisy/protocol';
 import { captureFailureExit, describeCaptureExit } from './capture-exit';
 import type { CaptureClient } from './capture-history';
 import { runCaptureSession } from './capture-session';
@@ -25,15 +27,6 @@ const calibration = {
   serverNowMs: 0,
   precisionMs: 1,
 };
-/** Like the real client, an in-flight call refuses with CONFLICT once its caller aborts. */
-const answer = <T>(value: T, ms: number, signal?: AbortSignal) =>
-  new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => resolve(value), ms);
-    signal?.addEventListener('abort', () => {
-      clearTimeout(timer);
-      reject(createAppError('CONFLICT', 'Media control was cancelled'));
-    });
-  });
 /** The server's answer once a Round's capture is closed for good. */
 const closedForGood = createMediaWorkerClient({
   scope: {
@@ -55,7 +48,7 @@ const closedForGood = createMediaWorkerClient({
 });
 
 /**
- * A session joined to a fake LiveKit room that the test may drop, with a
+ * A session on a virtual clock (ADR 0161), joined to a fake LiveKit room that the test may drop, with a
  * clip consumer the test may fail, and a server that may close the capture
  * once the room drops. `read` replaces the canned history answer outright
  * ('closed' answers with the server's capture-closed refusal) and
@@ -99,13 +92,21 @@ export function createCaptureSessionFixture(
     readonly closingFirst?: boolean;
   } = {},
 ) {
+  const clock = virtualClock();
+  /** Like the real client, an in-flight call refuses with CONFLICT once its caller aborts. */
+  const answer = async <T>(value: T, ms: number, signal?: AbortSignal) => {
+    await clock.sleep(ms, signal);
+    if (signal?.aborted)
+      throw createAppError('CONFLICT', 'Media control was cancelled');
+    return value;
+  };
   const closed = Promise.withResolvers<'disconnected' | 'closed'>();
   let dropped = false;
   if (options.drop !== undefined)
-    setTimeout(() => {
+    void clock.sleep(options.drop).then(() => {
       dropped = true;
       if (!options.closingFirst) closed.resolve('disconnected');
-    }, options.drop);
+    });
   let reads = 0;
   let summary = { silentClips: 0, audibleClips: 0 };
   const seals: number[] = [];
@@ -152,27 +153,26 @@ export function createCaptureSessionFixture(
     heard: async () => undefined,
     release: async () => undefined,
   } as unknown as CaptureClient;
-  const done = runCaptureSession(
+  const running = runCaptureSession(
     {
       roundId: captureRoundId,
       client,
       voice: { transcribe: async () => '' } as never,
       sttModel: 'model',
       pendingBytes: options.pendingBytes ?? 32 * 1024 * 1024,
-      nowMs: performance.now,
-      waitUntilMs:
-        options.waitUntilMs ??
-        ((due, signal) =>
-          new Promise((resolve) => {
-            const timer = setTimeout(
-              resolve,
-              Math.max(1, due - performance.now()),
-            );
-            signal.addEventListener('abort', () => {
-              clearTimeout(timer);
-              resolve();
-            });
-          })),
+      nowMs: clock.nowMs,
+      waitUntilMs: options.waitUntilMs ?? clock.waitUntilMs,
+      historyDeadline: () => {
+        const deadline = new AbortController();
+        void clock
+          .sleep(CAPTURE_HISTORY_READ_MS)
+          .then(() =>
+            deadline.abort(
+              new DOMException('The history read timed out', 'TimeoutError'),
+            ),
+          );
+        return deadline.signal;
+      },
       subscribe: (async (setup: { onFrame: (frame: never) => void }) => {
         options.onSubscribe?.((frame) => setup.onFrame(frame as never));
         return {
@@ -191,14 +191,13 @@ export function createCaptureSessionFixture(
           return new Promise<void>((resolve) =>
             signal.addEventListener('abort', () => resolve()),
           );
-        await new Promise((resolve) =>
-          setTimeout(resolve, options.consumerFails),
-        );
+        await clock.sleep(options.consumerFails);
         throw createAppError('INFRASTRUCTURE', 'append outlasted its retries');
       },
     },
     new AbortController().signal,
-  ).then(
+  );
+  const done = clock.run(running).then(
     (ended) => {
       summary = {
         silentClips: ended.silentClips,
