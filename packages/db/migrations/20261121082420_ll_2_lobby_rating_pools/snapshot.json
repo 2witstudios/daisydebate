@@ -1,9 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "5de822f5-e1c4-4d5a-8f47-702c041cc7f3",
+  "id": "8926953b-d794-412e-85a5-e009405ac90b",
   "prevIds": [
-    "46d3e129-7574-4cd3-9292-7b86bdf28ce0"
+    "deabd41a-8708-4fef-ab54-78842365f423"
   ],
   "ddl": [
     {
@@ -414,6 +414,12 @@
     },
     {
       "isRlsEnabled": false,
+      "name": "friend_guardian_approvals",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
       "name": "friendships",
       "entityType": "tables",
       "schema": "public"
@@ -799,6 +805,12 @@
     {
       "isRlsEnabled": false,
       "name": "privacy_jobs",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "protection_levels",
       "entityType": "tables",
       "schema": "public"
     },
@@ -8432,6 +8444,71 @@
       "default": null,
       "generated": null,
       "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "friend_guardian_approvals"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "low_actor_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "friend_guardian_approvals"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "high_actor_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "friend_guardian_approvals"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "child_actor_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "friend_guardian_approvals"
+    },
+    {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "false",
+      "generated": null,
+      "identity": null,
+      "name": "cleared",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "friend_guardian_approvals"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
       "name": "low_actor_id",
       "entityType": "columns",
       "schema": "public",
@@ -15519,6 +15596,32 @@
       "entityType": "columns",
       "schema": "public",
       "table": "privacy_jobs"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "user_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "protection_levels"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "choice",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "protection_levels"
     },
     {
       "type": "text",
@@ -29217,6 +29320,27 @@
       "nameExplicit": true,
       "columns": [
         {
+          "value": "child_actor_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "friend_guardian_approvals_child_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "friend_guardian_approvals"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
           "value": "high_actor_id",
           "isExpression": false,
           "asc": true,
@@ -41877,6 +42001,25 @@
       "table": "formats"
     },
     {
+      "nameExplicit": true,
+      "columns": [
+        "low_actor_id",
+        "high_actor_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "friendships",
+      "columnsTo": [
+        "low_actor_id",
+        "high_actor_id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "friend_guardian_approvals_friendship_fk",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "friend_guardian_approvals"
+    },
+    {
       "nameExplicit": false,
       "columns": [
         "low_actor_id"
@@ -44168,6 +44311,23 @@
       "entityType": "fks",
       "schema": "public",
       "table": "privacy_jobs"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "user_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "users",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "protection_levels_user_id_users_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "protection_levels"
     },
     {
       "nameExplicit": false,
@@ -48853,6 +49013,16 @@
     },
     {
       "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "friend_guardian_approvals_pkey",
+      "schema": "public",
+      "table": "friend_guardian_approvals",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
         "command_id"
       ],
       "nameExplicit": false,
@@ -49309,6 +49479,16 @@
       "name": "privacy_jobs_pkey",
       "schema": "public",
       "table": "privacy_jobs",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "user_id"
+      ],
+      "nameExplicit": false,
+      "name": "protection_levels_pkey",
+      "schema": "public",
+      "table": "protection_levels",
       "entityType": "pks"
     },
     {
@@ -50172,6 +50352,19 @@
       "entityType": "uniques",
       "schema": "public",
       "table": "fixtures"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "low_actor_id",
+        "high_actor_id",
+        "child_actor_id"
+      ],
+      "nullsNotDistinct": false,
+      "name": "friend_guardian_approvals_pair_child",
+      "entityType": "uniques",
+      "schema": "public",
+      "table": "friend_guardian_approvals"
     },
     {
       "nameExplicit": true,
@@ -52264,6 +52457,13 @@
       "table": "formats"
     },
     {
+      "value": "\"child_actor_id\" in (\"low_actor_id\", \"high_actor_id\")",
+      "name": "friend_guardian_approvals_child",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "friend_guardian_approvals"
+    },
+    {
       "value": "\"low_actor_id\" < \"high_actor_id\"",
       "name": "friendships_order",
       "entityType": "checks",
@@ -53559,21 +53759,21 @@
       "table": "notification_fanouts"
     },
     {
-      "value": "(\"kind\", \"channel\") in (('followed_debater_live', 'in_app'), ('recording_ready', 'in_app'), ('round_started', 'in_app'), ('round_decision_released', 'in_app'), ('round_decision_released', 'email'), ('room_invitation', 'in_app'), ('room_invitation', 'email'), ('challenge_received', 'in_app'), ('challenge_accepted', 'in_app'), ('friend_request_received', 'in_app'), ('friend_request_received', 'email'), ('friend_request_accepted', 'in_app'), ('dm_request', 'in_app'), ('dm_request', 'email'), ('judge_assigned', 'in_app'), ('judge_replaced', 'in_app'), ('judge_unassigned', 'in_app'), ('tournament_draw_changed', 'in_app'), ('tournament_room_ready', 'in_app'), ('tournament_results_released', 'in_app'), ('media_release_requested', 'in_app'), ('media_release_declined', 'in_app'), ('media_release_signed', 'in_app'), ('media_release_club_confirmed', 'in_app'), ('media_release_withdrawn', 'in_app'), ('media_release_club_asked', 'in_app'))",
+      "value": "(\"kind\", \"channel\") in (('followed_debater_live', 'in_app'), ('recording_ready', 'in_app'), ('round_started', 'in_app'), ('round_decision_released', 'in_app'), ('round_decision_released', 'email'), ('room_invitation', 'in_app'), ('room_invitation', 'email'), ('challenge_received', 'in_app'), ('challenge_accepted', 'in_app'), ('friend_request_received', 'in_app'), ('friend_request_received', 'email'), ('friend_request_accepted', 'in_app'), ('friend_guardian_approval', 'in_app'), ('dm_request', 'in_app'), ('dm_request', 'email'), ('judge_assigned', 'in_app'), ('judge_replaced', 'in_app'), ('judge_unassigned', 'in_app'), ('tournament_draw_changed', 'in_app'), ('tournament_room_ready', 'in_app'), ('tournament_results_released', 'in_app'), ('media_release_requested', 'in_app'), ('media_release_declined', 'in_app'), ('media_release_signed', 'in_app'), ('media_release_club_confirmed', 'in_app'), ('media_release_withdrawn', 'in_app'), ('media_release_club_asked', 'in_app'))",
       "name": "notification_preferences_pair_check",
       "entityType": "checks",
       "schema": "public",
       "table": "notification_preferences"
     },
     {
-      "value": "\"kind\" in ('followed_debater_live', 'recording_ready', 'round_started', 'round_decision_released', 'room_invitation', 'challenge_received', 'challenge_accepted', 'friend_request_received', 'friend_request_accepted', 'dm_request', 'judge_assigned', 'judge_replaced', 'judge_unassigned', 'tournament_draw_changed', 'tournament_room_ready', 'tournament_results_released', 'media_release_requested', 'media_release_declined', 'media_release_signed', 'media_release_club_confirmed', 'media_release_withdrawn', 'media_release_club_asked')",
+      "value": "\"kind\" in ('followed_debater_live', 'recording_ready', 'round_started', 'round_decision_released', 'room_invitation', 'challenge_received', 'challenge_accepted', 'friend_request_received', 'friend_request_accepted', 'friend_guardian_approval', 'dm_request', 'judge_assigned', 'judge_replaced', 'judge_unassigned', 'tournament_draw_changed', 'tournament_room_ready', 'tournament_results_released', 'media_release_requested', 'media_release_declined', 'media_release_signed', 'media_release_club_confirmed', 'media_release_withdrawn', 'media_release_club_asked')",
       "name": "notifications_kind_check",
       "entityType": "checks",
       "schema": "public",
       "table": "notifications"
     },
     {
-      "value": "(\"kind\" in ('followed_debater_live', 'recording_ready', 'round_started', 'round_decision_released')) = (\"round_id\" is not null) and (\"kind\" in ('room_invitation')) = (\"room_invitation_id\" is not null) and (\"kind\" in ('challenge_received', 'challenge_accepted')) = (\"challenge_id\" is not null) and (\"kind\" in ('friend_request_received', 'friend_request_accepted')) = (\"friendship_low_actor_id\" is not null) and (\"kind\" in ('friend_request_received', 'friend_request_accepted')) = (\"friendship_high_actor_id\" is not null) and (\"kind\" in ('judge_assigned', 'judge_replaced', 'judge_unassigned', 'tournament_draw_changed', 'tournament_room_ready', 'tournament_results_released')) = (\"fixture_id\" is not null) and (\"kind\" in ('judge_assigned', 'judge_replaced', 'judge_unassigned', 'tournament_draw_changed', 'tournament_room_ready', 'tournament_results_released')) = (\"notification_lobby_id\" is not null) and (\"kind\" in ('judge_assigned', 'judge_replaced', 'judge_unassigned', 'tournament_draw_changed', 'tournament_room_ready', 'tournament_results_released')) = (\"tab_command_id\" is not null) and (\"kind\" in ('media_release_requested', 'media_release_declined')) = (\"media_release_request_id\" is not null) and (\"kind\" in ('media_release_signed', 'media_release_club_confirmed', 'media_release_withdrawn')) = (\"media_release_id\" is not null) and (\"kind\" in ('media_release_club_asked')) = (\"media_release_club_ask_id\" is not null) and (\"kind\" in ('dm_request')) = (\"dm_channel_id\" is not null)",
+      "value": "(\"kind\" in ('followed_debater_live', 'recording_ready', 'round_started', 'round_decision_released')) = (\"round_id\" is not null) and (\"kind\" in ('room_invitation')) = (\"room_invitation_id\" is not null) and (\"kind\" in ('challenge_received', 'challenge_accepted')) = (\"challenge_id\" is not null) and (\"kind\" in ('friend_request_received', 'friend_request_accepted', 'friend_guardian_approval')) = (\"friendship_low_actor_id\" is not null) and (\"kind\" in ('friend_request_received', 'friend_request_accepted', 'friend_guardian_approval')) = (\"friendship_high_actor_id\" is not null) and (\"kind\" in ('judge_assigned', 'judge_replaced', 'judge_unassigned', 'tournament_draw_changed', 'tournament_room_ready', 'tournament_results_released')) = (\"fixture_id\" is not null) and (\"kind\" in ('judge_assigned', 'judge_replaced', 'judge_unassigned', 'tournament_draw_changed', 'tournament_room_ready', 'tournament_results_released')) = (\"notification_lobby_id\" is not null) and (\"kind\" in ('judge_assigned', 'judge_replaced', 'judge_unassigned', 'tournament_draw_changed', 'tournament_room_ready', 'tournament_results_released')) = (\"tab_command_id\" is not null) and (\"kind\" in ('media_release_requested', 'media_release_declined')) = (\"media_release_request_id\" is not null) and (\"kind\" in ('media_release_signed', 'media_release_club_confirmed', 'media_release_withdrawn')) = (\"media_release_id\" is not null) and (\"kind\" in ('media_release_club_asked')) = (\"media_release_club_ask_id\" is not null) and (\"kind\" in ('dm_request')) = (\"dm_channel_id\" is not null)",
       "name": "notifications_subject_check",
       "entityType": "checks",
       "schema": "public",
@@ -53830,6 +54030,20 @@
       "entityType": "checks",
       "schema": "public",
       "table": "privacy_jobs"
+    },
+    {
+      "value": "jsonb_typeof(\"choice\") = 'object'",
+      "name": "protection_levels_choice_is_object",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "protection_levels"
+    },
+    {
+      "value": "case when \"choice\"->>'level' = 'custom' then\n        (\"choice\"->>'friendApproval' in ('none', 'inbound-adult', 'all')\n          and jsonb_typeof(\"choice\"->'friendsOnlyMessages') = 'boolean'\n          and jsonb_typeof(\"choice\"->'rankedAllowed') = 'boolean'\n          and \"choice\" - array['level','friendApproval','friendsOnlyMessages','rankedAllowed'] = '{}'::jsonb) is true\n        else \"choice\" in ('{\"level\":\"independent\"}'::jsonb,\n          '{\"level\":\"guided\"}'::jsonb, '{\"level\":\"supervised\"}'::jsonb) end",
+      "name": "protection_levels_choice",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "protection_levels"
     },
     {
       "value": "\"display_name\" is null or char_length(\"display_name\") between 1 and 40",
