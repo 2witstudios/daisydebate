@@ -40,20 +40,40 @@ export async function leagueRoomSelection(
   });
 }
 
+type StandingLadderScope = Parameters<typeof roomChain>[0];
+
+export const standingLadderSetting = (
+  chain: ReturnType<typeof roomChain>,
+  rows: readonly (typeof settings.$inferSelect)[],
+) =>
+  resolveSetting(
+    'standings.rating_ladder',
+    chain,
+    rows.map(
+      (row) =>
+        settingRowSchema.parse({
+          scope: {
+            kind: row.scopeKind,
+            id:
+              row.organizationId && row.scopeKind === 'organization'
+                ? row.organizationId
+                : row.scopeKind === 'template'
+                  ? row.templateId
+                  : row.lobbyId,
+          },
+          key: row.key,
+          hold: row.hold,
+          value: row.value,
+        }) as SettingRow,
+    ),
+  ).value.ladderId;
+
 /** Resolve the persisted setting against the exact standing lobby's ladders. */
 export async function configuredStandingLadder(
   tx: Pick<Tx, 'select'>,
-  input: {
-    readonly organizationId: string;
-    readonly lobbyId: string;
-    readonly templateId: string | null;
-  },
+  input: StandingLadderScope,
 ) {
-  const chain = roomChain({
-    organizationId: input.organizationId,
-    templateId: input.templateId,
-    lobbyId: input.lobbyId,
-  });
+  const chain = roomChain(input);
   const rows = await tx
     .select()
     .from(settings)
@@ -77,27 +97,7 @@ export async function configuredStandingLadder(
         ),
       ),
     );
-  const selected = resolveSetting(
-    'standings.rating_ladder',
-    chain,
-    rows.map(
-      (row) =>
-        settingRowSchema.parse({
-          scope: {
-            kind: row.scopeKind,
-            id:
-              row.organizationId && row.scopeKind === 'organization'
-                ? row.organizationId
-                : row.scopeKind === 'template'
-                  ? row.templateId
-                  : row.lobbyId,
-          },
-          key: row.key,
-          hold: row.hold,
-          value: row.value,
-        }) as SettingRow,
-    ),
-  ).value.ladderId;
+  const selected = standingLadderSetting(chain, rows);
   if (!selected) return null;
   const [ladder] = await tx
     .select({ id: ladders.id })

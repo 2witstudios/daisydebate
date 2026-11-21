@@ -10,6 +10,8 @@ import { readLeagueSeason } from '../src/features/tab/reads/league-season';
 import { judgeSeat, sideSeat } from '@daisy/protocol';
 import { withRoomRuntime } from './room-runtime.test-support';
 import { readLeagueLadder } from '../src/features/ratings/read-league-ladder';
+import { readLadder } from '../src/features/leaderboard/read-leaderboard';
+import { readRatingStandings } from '../src/features/ratings/read';
 import { rateCompletedRound } from '../src/features/ratings/rate-debate';
 import { createRoundRuntimeOperations } from '../src/features/round-runtime/operations';
 import { as } from './tab-tournament-organization-wiring.test-support';
@@ -337,6 +339,43 @@ export async function selectedLobbyCases(world: World) {
             await gamesFor('Coach'),
           ],
           expected: [selectedLadder, 1, 1],
+        });
+        if (posted.kind !== 'rated')
+          throw new Error(`Expected a posting: ${posted.kind}`);
+        const postedRating = posted.changes.find(
+          (change) => change.actorId === debater.actorId,
+        )!.after.rating;
+        const clock = {
+          seasonId: null,
+          ladder: { style: 'freestyle', division: 'open' } as const,
+          now: new Date().toISOString(),
+        };
+        const [board, older] = await Promise.all([
+          readLadder(f.store, { ...clock, lobbyId, username: null }),
+          readRatingStandings(f.store, {
+            ...clock,
+            frozenLadder: { lobbyId, ladderId: primaryLadder },
+          }),
+        ]);
+        const published = board?.data.entries.find(
+          (row) => row.id === debater.actorId,
+        );
+        const control = older?.entriesBySeason[older.season.id]?.find(
+          (row) => row.id === debater.actorId,
+        );
+        assert({
+          given:
+            'a signed-out leaderboard request for this official lobby with two ladders',
+          should:
+            'publish the configured ladder’s released game and keep 1666 on the older ladder',
+          actual: [
+            board?.viewer,
+            published?.played,
+            published?.rating,
+            control?.played,
+            control?.rating,
+          ],
+          expected: [null, 1, postedRating, 0, 1666],
         });
       },
       { databaseUrl: world.runtimeDatabaseUrl },
