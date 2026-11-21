@@ -33,8 +33,8 @@ export type HeroJoinProps = {
 /**
  * The hero's one-email join. It is the sign-in link request, not a second
  * one: the same server action and the same reducer, so an answer here is
- * what `/sign-in` answers for the same request. The form posts without
- * JavaScript; a sent link swaps the banner for the sign-in inbox step.
+ * what `/sign-in` answers for the same request. The form posts before
+ * hydration; a sent link swaps the banner for the sign-in inbox step.
  */
 export function HeroJoin({
   requestLink,

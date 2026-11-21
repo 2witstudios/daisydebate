@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { clockLabel } from '../../../features/watch/labels';
 
 export type LiveClockProps = {
-  /** Seconds left when the page rendered: what shows with no script. */
+  /** Seconds left when the page rendered: what shows before hydration. */
   readonly initialSeconds: number;
   readonly className?: string;
 };

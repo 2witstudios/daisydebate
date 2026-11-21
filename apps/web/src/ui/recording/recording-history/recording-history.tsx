@@ -1,9 +1,10 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import type { RecordingHistoryScreen } from '../../../features/recording/history';
-import { watchRoutes } from '../../../features/watch/routes';
+import { replayHref, watchRoutes } from '../../../features/watch/routes';
 import { Badge } from '../../components/badge/badge';
 import { buttonClass } from '../../components/button/button-class';
+import { SearchForm } from '../../components/search-form/search-form';
 import { CopyLink } from '../../watch/copy-link/copy-link';
 import { StateCard } from '../../watch/state-card/state-card';
 import { RecordingPlayer } from '../recording-player/recording-player';
@@ -60,8 +61,10 @@ function Media({ media }: { media: History['media'] }) {
 }
 
 function Transcript({
+  roundId,
   transcript,
 }: {
+  roundId: string;
   transcript: NonNullable<History['transcript']>;
 }) {
   return (
@@ -70,7 +73,11 @@ function Transcript({
       {transcript.coverageNote ? (
         <p className="text-sm text-ink-muted">{transcript.coverageNote}</p>
       ) : null}
-      <form method="get" role="search" aria-label="Search the transcript">
+      <SearchForm
+        action={replayHref(roundId)}
+        role="search"
+        aria-label="Search the transcript"
+      >
         <input
           type="search"
           name="q"
@@ -80,7 +87,7 @@ function Transcript({
           placeholder="Search the transcript"
           className="w-full rounded-md border border-border bg-surface px-3 py-2 text-ink placeholder:text-ink-faint"
         />
-      </form>
+      </SearchForm>
       {transcript.rows.length === 0 ? (
         <p className="text-sm text-ink-muted">No turns to show.</p>
       ) : (
@@ -246,7 +253,10 @@ export function RecordingHistory({
         <div className="flex min-w-0 flex-1 flex-col gap-4 max-compact:w-full">
           <Media media={screen.media} />
           {screen.transcript ? (
-            <Transcript transcript={screen.transcript} />
+            <Transcript
+              roundId={screen.roundId}
+              transcript={screen.transcript}
+            />
           ) : null}
         </div>
         <div className="flex basis-1/3 flex-col gap-4 max-compact:w-full max-compact:basis-auto">

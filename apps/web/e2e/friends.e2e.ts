@@ -4,23 +4,20 @@ import { origin, resetRateLimits, signUpMember } from './support/accounts';
 import { expectNotInUrl } from './support/forms';
 
 /**
- * Friendships with JavaScript off (ADR 0072; docs/development/
- * ui-conventions.md): one member asks by username, the other accepts, and
- * either removes; every step is a native form POST and no username ever
- * lands in the URL.
+ * Friendships (ADR 0072): one member asks by username, the other accepts,
+ * and either removes; no username ever lands in the URL.
  */
-type NoScriptContext = Awaited<ReturnType<Browser['newContext']>>;
+type MemberContext = Awaited<ReturnType<Browser['newContext']>>;
 
-/** Two signed-out contexts that run no script at all, closed after `work`. */
-async function withTwoNoScriptContexts(
+/** Two signed-out contexts, closed after `work`. */
+async function withTwoContexts(
   browser: Browser,
-  work: (first: NoScriptContext, second: NoScriptContext) => Promise<void>,
+  work: (first: MemberContext, second: MemberContext) => Promise<void>,
 ) {
   const open = () =>
     browser.newContext({
       baseURL: origin,
       ignoreHTTPSErrors: true,
-      javaScriptEnabled: false,
     });
   const [first, second] = await Promise.all([open(), open()]);
   try {
@@ -30,15 +27,14 @@ async function withTwoNoScriptContexts(
   }
 }
 
-/** One signed-out context that runs no script at all, closed after `work`. */
-async function withNoScriptContext(
+/** One signed-out context, closed after `work`. */
+async function withContext(
   browser: Browser,
-  work: (context: NoScriptContext) => Promise<void>,
+  work: (context: MemberContext) => Promise<void>,
 ) {
   const context = await browser.newContext({
     baseURL: origin,
     ignoreHTTPSErrors: true,
-    javaScriptEnabled: false,
   });
   try {
     await work(context);
@@ -51,11 +47,9 @@ test.beforeEach(async ({ request }) => {
   await resetRateLimits(request);
 });
 
-test('two members befriend each other and part with JavaScript off', async ({
-  browser,
-}) => {
+test('two members befriend each other and part', async ({ browser }) => {
   test.setTimeout(90_000);
-  await withTwoNoScriptContexts(browser, async (asker, answerer) => {
+  await withTwoContexts(browser, async (asker, answerer) => {
     const { username: askerName } = await signUpMember(asker.request);
     const { username: answererName } = await signUpMember(answerer.request);
     const askerPage = await openPage(asker, 'the asking member');
@@ -102,7 +96,7 @@ test('two members befriend each other and part with JavaScript off', async ({
 test('an unknown username is refused with the name kept', async ({
   browser,
 }) => {
-  await withNoScriptContext(browser, async (context) => {
+  await withContext(browser, async (context) => {
     await signUpMember(context.request);
     const page = await openPage(context, 'a member adding nobody');
     await page.goto('/friends');
@@ -118,11 +112,9 @@ test('an unknown username is refused with the name kept', async ({
   });
 });
 
-test('a member asks from a profile with JavaScript off', async ({
-  browser,
-}) => {
+test('a member asks from a profile', async ({ browser }) => {
   test.setTimeout(90_000);
-  await withTwoNoScriptContexts(browser, async (asker, other) => {
+  await withTwoContexts(browser, async (asker, other) => {
     await signUpMember(asker.request);
     const { username } = await signUpMember(other.request);
     const page = await openPage(asker, 'a member on a profile');
@@ -134,10 +126,10 @@ test('a member asks from a profile with JavaScript off', async ({
   });
 });
 
-test('a member sets their status from the account menu with JavaScript off', async ({
+test('a member sets their status from the account menu', async ({
   browser,
 }) => {
-  await withNoScriptContext(browser, async (context) => {
+  await withContext(browser, async (context) => {
     await signUpMember(context.request);
     const page = await openPage(context, 'a member choosing their status');
     await page.goto('/friends');
@@ -147,6 +139,10 @@ test('a member sets their status from the account menu with JavaScript off', asy
       .click();
     const status = page.getByRole('form', { name: 'Status' }).first();
     await status.getByRole('button', { name: 'Busy' }).click();
+    await expect(status.getByRole('button', { name: 'Busy' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
     await page.goto('/friends');
     await page
       .getByLabel(/^Your account/)

@@ -74,7 +74,7 @@ const readRemovalForm = async (request: Request) => {
 
 /**
  * The Recording routes. Reads authorize on every request. Removal is a native form
- * post, so it works with no script, and answers with a notice on the same page.
+ * post, so it works before hydration, and answers with a notice on the same page.
  */
 export const createRecordingHandlers = (deps: Deps) => ({
   /** GET one file of a Recording's HLS, for anyone who may watch it. */

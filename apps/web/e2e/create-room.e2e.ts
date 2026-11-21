@@ -3,8 +3,8 @@ import { execFile } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import { casualCaptureNotice } from '../src/features/legal/agreements';
-import { expect, openPage, test } from './support/fixtures';
-import { signUpMember, origin } from './support/accounts';
+import { expect, test } from './support/fixtures';
+import { signUpMember } from './support/accounts';
 import { closeRoom, createConfiguredRoom } from './support/room-launch-flow';
 import { hydrated } from './support/hydration';
 
@@ -146,147 +146,6 @@ test('a new Room opens as just the room: no seat menu shows until someone asks f
     ).toBeFocused();
   } finally {
     await closeRoom(page.request, view.id);
-  }
-});
-
-test('without JavaScript a new Room shows no seat menu until its opener is pressed', async ({
-  browser,
-  page,
-}) => {
-  await signUpMember(page.request);
-  await page.goto('/play/room');
-  await hydrated(formOf(page));
-  await formOf(page)
-    .getByLabel('Room name', { exact: true })
-    .fill(`Native ${createId().slice(0, 8)}`);
-  const view = await createConfiguredRoom(page);
-  const context = await browser.newContext({
-    baseURL: origin,
-    ignoreHTTPSErrors: true,
-    javaScriptEnabled: false,
-    storageState: await page.context().storageState(),
-  });
-  try {
-    const native = await openPage(context, 'native room page');
-    await native.goto(`/rooms/${view.id}`);
-    await fillMenusStayHiddenUntilAsked(native);
-  } finally {
-    await context.close();
-    await closeRoom(page.request, view.id);
-  }
-});
-
-test('native format, resolution and speech editing create a room without JavaScript', async ({
-  browser,
-}) => {
-  const context = await browser.newContext({
-    baseURL: origin,
-    ignoreHTTPSErrors: true,
-    javaScriptEnabled: false,
-  });
-  const page = await openPage(context, 'native create-room editor');
-  let roomId: string | undefined;
-  try {
-    await signUpMember(context.request);
-    await page.goto('/play/room');
-    const form = formOf(page);
-    await form
-      .getByLabel('Room name', { exact: true })
-      .fill('Native custom room');
-    await form
-      .getByRole('checkbox', { name: 'Record match', exact: true })
-      .check();
-    const ranked = form.getByRole('checkbox', { name: 'Ranked', exact: true });
-    await ranked.check();
-    // RCHAT-13: a ranked draft owes no capture notice. A native render shows
-    // it; Create is not pressed, since whether a ranked create is accepted
-    // depends on a season being open, which other specs in this run decide.
-    // Apply resolution re-renders the draft as posted; Apply format would
-    // reset it to the preset and clear Ranked.
-    await form
-      .getByRole('button', { name: 'Apply resolution', exact: true })
-      .click();
-    await expect(page).toHaveURL(/\/play\/room\?draft=/);
-    await expect(ranked).toBeChecked();
-    await expect(
-      form.getByText('Recording is on for ranked matches.', { exact: true }),
-    ).toBeVisible();
-    await expect(form.getByText(casualCaptureNotice.text)).toHaveCount(0);
-    await expect(form.locator('[name="noticeVersion"]')).toHaveCount(0);
-    // Back to casual with the recording choice kept: the next native render
-    // shows the casual notice before any create can claim it. Settings render
-    // only for Custom, so the native editor applies Custom first; the
-    // submission posts no settings and starts at the preset.
-    await ranked.uncheck();
-    await form.locator('[name="format"][value="custom"]').check();
-    await form
-      .getByRole('button', { name: 'Apply format', exact: true })
-      .click();
-    await expect(form.locator('[name="format"][value="custom"]')).toBeChecked();
-    await expect(
-      form.getByRole('checkbox', { name: 'Record match', exact: true }),
-    ).toBeChecked();
-    await expect(
-      form.getByText(casualCaptureNotice.text, { exact: true }),
-    ).toBeVisible();
-    const prep = form.locator('[name="duration.inRound"]');
-    await form.getByText('Preparation and timing', { exact: true }).click();
-    await prep.fill('1:23');
-    await form
-      .getByRole('button', { name: 'Apply resolution', exact: true })
-      .click();
-    await expect(form.locator('[name="format"][value="custom"]')).toBeChecked();
-    await form.locator('[name="format"][value="freestyle"]').check();
-    await form
-      .getByRole('button', { name: 'Apply format', exact: true })
-      .click();
-    await expect(
-      form.locator('[name="format"][value="freestyle"]'),
-    ).toBeChecked();
-    await expect(form.getByLabel('Room name', { exact: true })).toHaveValue(
-      'Native custom room',
-    );
-    // Back into Custom: the discarded edit must not leak; the field returns
-    // at Freestyle's preset (no prep during the round), not '1:23'.
-    await form.locator('[name="format"][value="custom"]').check();
-    await form
-      .getByRole('button', { name: 'Apply format', exact: true })
-      .click();
-    await expect(form.locator('[name="format"][value="custom"]')).toBeChecked();
-    await expect(form.locator('[name="duration.inRound"]')).toHaveValue('0:00');
-    await form.locator('[name="format"][value="freestyle"]').check();
-    await form
-      .getByRole('button', { name: 'Apply format', exact: true })
-      .click();
-    // Freestyle always strikes; host wording below makes the draft Custom.
-    await expect(form.locator('[name="resolutionMethod"]')).toHaveValue(
-      'strike',
-    );
-    await form.locator('[name="resolutionMethod"]').selectOption('custom');
-    await form
-      .getByRole('button', { name: 'Apply resolution', exact: true })
-      .click();
-    await form
-      .getByLabel('Custom resolution', { exact: true })
-      .fill('Cities should build more homes.');
-    await form
-      .getByText('Speeches and question periods', { exact: false })
-      .click();
-    await form
-      .getByRole('button', { name: 'Add affirmative speech', exact: true })
-      .click();
-    await expect(form.locator('[name="format"][value="custom"]')).toBeChecked();
-    const view = await createConfiguredRoom(page);
-    roomId = view.id;
-    expect(view.capture).toEqual({
-      broadcast: null,
-      recordingPolicy: 'released',
-    });
-    expect(view.topic).toBe('Cities should build more homes.');
-    expect(view.format.standing.kind).toBe('custom');
-  } finally {
-    if (roomId) await closeRoom(context.request, roomId);
-    await context.close();
   }
 });
 

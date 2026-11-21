@@ -57,7 +57,7 @@ const MAX_SEARCH_LENGTH = 100;
 
 /**
  * Status tabs plus search, mode and sort as one GET form: the URL carries
- * the state, so the Lobby filters and sorts on the server with no script. On
+ * the state, so the Lobby filters and sorts on the server before hydration. On
  * the phone the mode and sort sit in a panel behind "Filters"; the sort is an
  * order, not a filter, so it never counts toward the Filters badge. The lobby
  * travels with the form, so filtering stays in the lobby on screen.

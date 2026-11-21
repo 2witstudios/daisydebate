@@ -1,11 +1,11 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import {
-  ResultUnavailable,
-  resultPart,
-  resultRetryOf,
-  type ResultPart,
-} from './result-part';
+import type { ResultPart } from './result-part';
+import { mockNextRouter } from '../../lib/testing/mock-router';
+
+await mockNextRouter();
+const { ResultUnavailable, resultPart, resultRetryOf } =
+  await import('./result-part');
 
 setupRitewayBun();
 
@@ -51,14 +51,9 @@ test('a temporary failure is announced and tried again by itself', () => {
   const html = renderToStaticMarkup(<ResultUnavailable retrySeconds={3} />);
   assert({
     given: 'a part refused for now',
-    should: 'announce it, refresh as a plain GET and offer it now',
-    actual: [
-      html.includes('role="status"'),
-      html.includes('http-equiv="refresh"'),
-      html.includes('content="3"'),
-      html.includes('href=""'),
-    ],
-    expected: [true, true, true, true],
+    should: 'announce it and offer it now',
+    actual: [html.includes('role="status"'), html.includes('href=""')],
+    expected: [true, true],
   });
 });
 
@@ -69,7 +64,7 @@ test('a failure that may last is announced with no refresh loop', () => {
     should: 'announce it and leave asking again to the reader',
     actual: [
       html.includes('role="status"'),
-      html.includes('http-equiv="refresh"'),
+      html.includes('Trying again'),
       html.includes('href=""'),
     ],
     expected: [true, false, true],

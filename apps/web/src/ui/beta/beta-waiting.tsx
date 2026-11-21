@@ -91,7 +91,7 @@ function WaitingStatus() {
 
 /**
  * The beta waiting page (ADR 0075): an account that finished sign-up and
- * waits for an operator. Plain markup, so it works without JavaScript: it
+ * waits for an operator. Plain markup, so it works before hydration: it
  * signs out in place, and the account's settings (export, deletion) stay one
  * link away.
  */

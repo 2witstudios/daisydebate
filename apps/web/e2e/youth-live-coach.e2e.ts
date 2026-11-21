@@ -13,7 +13,7 @@ import {
  * Watch's "Your students, live" and watches it through the Room's privacy as
  * timing, transcript and read-only floor chat (the student's message there
  * included), with no media and nothing to post; the Round link takes them
- * there too, with JavaScript on and off, and a stranger finds nothing, as on
+ * there too, and a stranger finds nothing, as on
  * any private Round. The floor message arriving live
  * through realtime is proven in the messaging realtime cohort
  * (`support/youth-coach-floor-live.ts`).
@@ -87,32 +87,12 @@ test("a coach watches their student's private live Youth Round, and a stranger c
   ).toEqual({ status: 403, code: 'AUTHORIZATION' });
   await assertNoSeriousFindings(page);
 
-  // The Round link leads to the same room, with JavaScript and without. (The
+  // The Round link leads to the same room. (The
   // Room link's answer, `live_room`, is proven on a real Room in
   // youth-live-audience.integration.ts: these seeded rows carry no Room
   // configuration a Room page could read.)
   await page.goto(`/rounds/${round.roundId}`);
   await expect(page).toHaveURL(`/rounds/${round.roundId}/room`);
-  const noScript = await browser.newContext({
-    baseURL: origin,
-    ignoreHTTPSErrors: true,
-    javaScriptEnabled: false,
-    storageState: await context.storageState(),
-  });
-  try {
-    const plain = await openPage(noScript, 'coach without JavaScript');
-    await plain.goto(`/rounds/${round.roundId}`);
-    await expect(plain).toHaveURL(`/rounds/${round.roundId}/room`);
-    await expect(plain.getByText('Watching', { exact: true })).toBeVisible();
-    // Without JavaScript the transcript is still there, behind its summary.
-    await expect(
-      plain
-        .getByRole('region', { name: 'Transcript' })
-        .getByText(round.caption),
-    ).toBeAttached();
-  } finally {
-    await noScript.close();
-  }
 
   // A stranger who is a member finds no section and no room.
   const strangerContext = await browser.newContext({

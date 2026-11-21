@@ -11,8 +11,8 @@ import { newerAudience } from './newer-audience';
  * The audience's activity, and from a fresh render as soon as there is one, so a
  * poster sees their own message at once. A viewer reads what the worker published
  * beside the player. Someone in the live room reads web, signed in, since what they
- * may see is their own (`audienceFor`). Without script the server's render stands. A
- * refusal or a failed read backs off, and the last view stands until one succeeds.
+ * may see is their own (`audienceFor`). A refusal or a failed read backs off,
+ * and the last view stands until one succeeds.
  */
 export function useAudienceSnapshot(
   initial: AudienceSnapshot,

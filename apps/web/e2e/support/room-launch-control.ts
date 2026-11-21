@@ -7,6 +7,8 @@ export type LaunchControlOperation =
   | 'restore-check-in'
   | 'refuse-round-reads'
   | 'allow-round-reads'
+  | 'refuse-challenge-reads'
+  | 'allow-challenge-reads'
   | 'refuse-identity-reads'
   | 'allow-identity-reads'
   | 'refuse-messaging-history'

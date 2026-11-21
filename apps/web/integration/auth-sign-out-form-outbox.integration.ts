@@ -20,7 +20,7 @@ setupRitewayBun();
 const { databaseUrl: url } = requireTestServices(process.env);
 
 /**
- * The no-JS form (ISSUE-691) is a fifth session-deleting caller: through the
+ * The pre-hydration form (ISSUE-691) is a fifth session-deleting caller: through the
  * real route wrapper and the real `signOutFailsClosedPlugin`, a refused
  * delete returns the person to the form's page still signed in, never to
  * /sign-in with a cleared cookie (ISSUE-719).

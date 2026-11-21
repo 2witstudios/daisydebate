@@ -182,7 +182,7 @@ describe('a ballot opened before attendance settles', () => {
     assert({
       given: 'the frozen transcript 12 seconds before attendance settles',
       should:
-        'say when submitting opens and that entries are kept, above the full ballot whose Submit still posts without script',
+        'say when submitting opens and that entries are kept, above the full ballot whose Submit still posts before hydration',
       actual: [
         html.includes('Submitting opens in about 12 seconds.'),
         html.includes(

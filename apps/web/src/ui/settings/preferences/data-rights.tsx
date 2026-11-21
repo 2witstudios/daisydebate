@@ -24,8 +24,8 @@ const eraseNotice: Readonly<
 /**
  * The member's data rights (ISSUE-833): a download of everything their
  * export returns, and the one control that closes their account. Both are
- * native form posts to real routes, so they work before hydration and with
- * JavaScript off; the server re-checks every gate. The copy says the
+ * native form posts to real routes, so they work before hydration; the
+ * server re-checks every gate. The copy says the
  * consequence, once, and links the page that owns the policy.
  */
 export function DataRights({

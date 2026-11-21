@@ -65,7 +65,7 @@ test('a native Checkout form returns a no-store 303 to validated hosted payment'
   const { handlers, called } = setup();
   const r = await handlers.checkout(post());
   assert({
-    given: 'a plain same-origin form without JavaScript',
+    given: 'a plain same-origin form before hydration',
     should: 'use authenticated identity and navigate by POST/redirect/GET',
     actual: [
       r.status,

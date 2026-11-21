@@ -26,12 +26,10 @@ const seasons = () =>
     ),
   );
 
-test('a ranked seat signs the content waiver without JavaScript', async ({
-  browser,
-}) => {
+test('a ranked seat signs the content waiver', async ({ browser }) => {
   await seasons();
-  const context = await browser.newContext({ javaScriptEnabled: false });
-  const page = await openPage(context, 'native content waiver');
+  const context = await browser.newContext();
+  const page = await openPage(context, 'content waiver');
   try {
     await resetRateLimits(page.request);
     await signUpMember(page.request);
@@ -95,7 +93,7 @@ test('a Youth member’s ranked seat signs the Youth waiver, which licenses noth
   browser,
 }) => {
   await seasons();
-  const context = await browser.newContext({ javaScriptEnabled: false });
+  const context = await browser.newContext();
   const page = await openPage(context, 'Youth content waiver');
   try {
     await resetRateLimits(page.request);

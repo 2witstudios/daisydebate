@@ -9,7 +9,7 @@ import {
 /**
  * After the age step, for a member aged 13 to 17 (YLS-8, the
  * YOnboardingAge board): one line naming where they play, then on to the
- * username. A plain link, so it works without JavaScript.
+ * username. A plain link, so it works before hydration.
  */
 export function YouthLanding({ next }: { readonly next: string }) {
   return (

@@ -28,7 +28,7 @@ const steps = {
 
 /**
  * A questionnaire step bound to its server action. The form posts to the
- * action itself, so a submit before hydration or without JavaScript is the
+ * action itself, so a submit before hydration is the
  * same POST; JavaScript adds the pending state, keeps the choices when the
  * call fails in transport (ISSUE-94), focuses the heading after a refusal
  * (ISSUE-107) and navigates once the save landed.

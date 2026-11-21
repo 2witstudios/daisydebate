@@ -13,7 +13,7 @@ export const followAnswer = (router: RouteReplacer, next: string): void =>
 
 /**
  * Navigates to `next` once a form's server action has answered with it. A
- * form posted without JavaScript is moved on by a 303 instead (`moveOn`);
+ * form posted before hydration is moved on by a 303 instead (`moveOn`);
  * this is the hydrated page doing the same (`replaceRoute` loads a media
  * page as a document when this one lacks its Permissions-Policy).
  */

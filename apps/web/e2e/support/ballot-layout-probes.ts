@@ -1,20 +1,4 @@
-import type { Locator, Page } from '@playwright/test';
-/** Holds the page's scripts until `release` runs, so input lands before hydration. */
-export async function holdScripts(page: Page): Promise<() => void> {
-  let release: () => void = () => undefined;
-  const gate = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  // Only the scripts: the stylesheets live beside them and block painting.
-  const script = (url: URL) =>
-    url.pathname.startsWith('/_next/static/') && url.pathname.endsWith('.js');
-  await page.route(script, async (route) => {
-    await gate;
-    await route.continue();
-  });
-  return release;
-}
-
+import type { Locator } from '@playwright/test';
 /**
  * Every box's visible text, numbers and labels included, as laid out: any
  * text that runs past its own box or the scope's edge is reported.

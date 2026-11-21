@@ -23,7 +23,6 @@ const withdraw = async (name: 'ai-judge' | 'capture', user: string) => {
     { timeout: 20000, maxBuffer: 4096 },
   );
 };
-test.use({ javaScriptEnabled: false });
 test('locked features show the upgrade panel in place, keep native withdrawal and never count', async ({
   page,
 }, info) => {
@@ -47,9 +46,11 @@ test('locked features show the upgrade panel in place, keep native withdrawal an
   await page
     .getByRole('button', { name: 'Save broadcast and recording', exact: true })
     .click();
-  expect((await reread(page.request, roomId)).capture?.recordingPolicy).toBe(
-    'released',
-  );
+  await expect
+    .poll(
+      async () => (await reread(page.request, roomId)).capture?.recordingPolicy,
+    )
+    .toBe('released');
   await withdraw('capture', username);
   await page.goto('/rooms/' + roomId);
   const view = await reread(page.request, roomId);
@@ -102,7 +103,9 @@ test('locked features show the upgrade panel in place, keep native withdrawal an
       exact: true,
     })
     .click();
-  expect((await reread(page.request, roomId)).capture).toBeNull();
+  await expect
+    .poll(async () => (await reread(page.request, roomId)).capture)
+    .toBeNull();
   await expect(
     page.getByRole('button', {
       name: 'Turn off broadcast and recording',

@@ -2,9 +2,9 @@ import { expect, openPage, test } from './support/fixtures';
 import { origin, resetRateLimits, signUpMember } from './support/accounts';
 
 /**
- * The people list's forms with JavaScript off (ADR 0103). The live journeys
- * need a real realtime service, so they run in the realtime proof
- * (support/people-list-live.ts, from messaging-realtime.e2e.ts).
+ * The people list (ADR 0103). The live journeys need a real realtime
+ * service, so they run in the realtime proof (support/people-list-live.ts,
+ * from messaging-realtime.e2e.ts).
  */
 test.beforeEach(async ({ request }) => {
   await resetRateLimits(request);
@@ -28,22 +28,15 @@ test('the people list is only for members', async ({ browser }) => {
   }
 });
 
-test('a row reaches its actions with JavaScript off', async ({ browser }) => {
+test('a row reaches its actions', async ({ browser }) => {
   test.setTimeout(90_000);
   const open = () =>
-    browser.newContext({
-      baseURL: origin,
-      ignoreHTTPSErrors: true,
-      javaScriptEnabled: false,
-    });
-  const [context, target] = await Promise.all([
-    open(),
-    browser.newContext({ baseURL: origin, ignoreHTTPSErrors: true }),
-  ]);
+    browser.newContext({ baseURL: origin, ignoreHTTPSErrors: true });
+  const [context, target] = await Promise.all([open(), open()]);
   try {
     await signUpMember(context.request);
     const { username } = await signUpMember(target.request);
-    const page = await openPage(context, 'a member without script');
+    const page = await openPage(context, 'a member');
     await page.goto(`/profile/${username}`);
     await page.getByText('Challenge', { exact: true }).click();
     await expect(

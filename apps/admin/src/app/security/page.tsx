@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { SearchForm } from '../search-form';
 import { systemClock } from '@daisy/clock';
 import {
   sections,
@@ -205,7 +206,7 @@ export default async function SecurityPage({
           </Link>
         ))}
       </nav>
-      <form method="get" action="/security" className="toolbar">
+      <SearchForm action="/security" className="toolbar">
         <input type="hidden" name="view" value={query.view} />
         <label>
           Window{' '}
@@ -218,7 +219,7 @@ export default async function SecurityPage({
           </select>
         </label>{' '}
         <button type="submit">Show</button>
-      </form>
+      </SearchForm>
       {result.kind === 'ok'
         ? sections[query.view].map((section, index) => (
             <SectionTable

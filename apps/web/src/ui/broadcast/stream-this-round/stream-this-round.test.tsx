@@ -10,7 +10,7 @@ const render = (mode: 'ranked' | 'casual') =>
   renderToString(h(StreamThisRound, { feedUrl, mode }));
 
 describe('StreamThisRound', () => {
-  test('the feed and the steps work with no script', () => {
+  test('the feed and the steps work before hydration', () => {
     const html = render('casual');
     assert({
       given: 'a server render',

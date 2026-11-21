@@ -50,11 +50,14 @@ function Tile({
  * it once Youth events open; until then it lists the students themselves.
  */
 export function YouthStudentsPage({
+  address,
   clubId,
   filter,
   tallies,
   rows,
 }: {
+  /** The page's own address, whose query the filter sets. */
+  readonly address: string;
   readonly clubId: string;
   readonly filter: YouthStudentFilter;
   readonly tallies: {
@@ -96,7 +99,10 @@ export function YouthStudentsPage({
           }
         />
       </div>
-      <AutoSubmitForm className="flex flex-wrap items-end gap-3">
+      <AutoSubmitForm
+        action={address}
+        className="flex flex-wrap items-end gap-3"
+      >
         <div className="flex min-w-0 flex-col gap-1">
           <label htmlFor="youth-release" className="text-sm font-strong">
             Release

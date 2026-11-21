@@ -39,7 +39,7 @@ const picked = (tone: number) =>
  * time. A long name wraps between words and is never cut: the judge has to
  * read whom they are voting for. The side label stays whole. A real
  * radio group named `winner` that the browser owns (`defaultChecked`), so it
- * posts without JavaScript and a form reset after a refusal restores the
+ * posts before hydration and a form reset after a refusal restores the
  * pick it was rendered with. Once one is picked the other steps back.
  */
 export function WinnerChoice({

@@ -39,7 +39,7 @@ export const consentReturnPath = (referer: string | null, appUrl: string) => {
 };
 
 /**
- * Native POST: no consent action depends on hydration or JavaScript. A
+ * Native POST: no consent action depends on hydration. A
  * navigation is redirected back to its page; a script's request gets 204 and
  * stays where it is.
  */

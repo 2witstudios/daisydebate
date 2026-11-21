@@ -17,18 +17,12 @@ import {
 import { TranscriptSeedRecovery } from '../../../../../ui/round-result/transcript-seed-recovery';
 import { readPersistedJudgeRound } from '../../../../(shell)/judge/ballot/[roundId]/actions';
 import { LiveJudgeRoom } from '../../../../../ui/judging-room/live-judge-room';
-import {
-  leaveRoundAction,
-  roundCommandAction,
-  readPersistedAttendance,
-} from './actions';
-import { RoundNativeAttendance } from '../../../../../features/attendance/native-state';
+import { leaveRoundAction, roundCommandAction } from './actions';
 import { roundCommandIds } from '../../../../../features/round-runtime/command-ids';
 import { systemClock, systemId } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
 import { idSchema, type RoundView } from '@daisy/protocol';
 import { ratingsUnlessRefused } from '../../../../../features/ratings/ratings-unless-refused';
-import { drawReconnectDelaySeconds } from '../../../../../ui/debate-room/reconnect-delay';
 import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
 import { postRoundCallOffered } from '../../../../../features/post-round-call/offered';
@@ -206,15 +200,6 @@ export default async function RoundRoomPage({
               view={await ratingsUnlessRefused(() =>
                 requestRoundRatings(result.round),
               )}
-            />
-            <RoundNativeAttendance
-              view={result.round}
-              read={
-                result.round.status === 'active'
-                  ? await readPersistedAttendance(id)
-                  : null
-              }
-              retrySeconds={drawReconnectDelaySeconds()}
             />
           </>
         }
