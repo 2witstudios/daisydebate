@@ -352,7 +352,7 @@ export const rounds = pgTable(
       ),
       check(
         'rounds_ranked_ladder_check',
-        sql`${table.competitionType} <> 'ranked' or ${table.ladderId} is not null or ${table.status} in ('completed','abandoned')`,
+        sql`${table.competitionType} <> 'ranked' or ${table.ladderId} is not null or ${table.status} in ${lifecycleSqlList([roundStatus.completed, roundStatus.abandoned])}`,
       ),
       check(
         'rounds_ranked_has_preset_check',
