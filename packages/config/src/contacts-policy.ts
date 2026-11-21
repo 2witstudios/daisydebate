@@ -26,3 +26,7 @@ export const contactsPolicyConfig = optionalJsonConfig(
 export type ContactsPolicyOverride = NonNullable<
   z.output<typeof contactsPolicyConfig>
 >;
+
+export const contactsFields = {
+  CONTACTS_POLICY: contactsPolicyConfig,
+};

@@ -27,3 +27,8 @@ export const messagingPolicyConfig = optionalJsonConfig(
 export type MessagingPolicyOverride = NonNullable<
   z.output<typeof messagingPolicyConfig>
 >;
+
+export const messagingFields = {
+  /** DEC-251 tightening overrides for the composed beta messaging policy. */
+  MESSAGING_POLICY: messagingPolicyConfig,
+};

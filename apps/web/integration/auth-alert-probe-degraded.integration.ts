@@ -4,10 +4,8 @@ import { createId } from '@paralleldrive/cuid2';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import nextConfig from '../next.config';
-import {
-  createRetentionSweep,
-  retentionTargets,
-} from '../src/server/retention-sweep';
+import { createRetentionSweep } from '../src/server/retention-sweep';
+import { retentionTargets } from '../src/server/retention-targets';
 import { createSelfSignedTlsEdge } from '../e2e/support/tls-edge';
 import { ALERT_STATE_READ_TIMEOUT_MS } from '../src/features/ops/alert-state';
 import { createFaultedApp } from './fault-proxy';

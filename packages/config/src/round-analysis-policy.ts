@@ -15,3 +15,12 @@ const policy = z.strictObject({
 /** Round analysis runs if and only if this is set (DEC-247, ISSUE-749). */
 export const roundAnalysisPolicyConfig = optionalJsonConfig(policy);
 export type RoundAnalysisPolicy = z.output<typeof policy>;
+
+export const roundAnalysisFields = {
+  ROUND_ANALYSIS_POLICY: roundAnalysisPolicyConfig,
+  /** DEC-247: beta-sourced round analysis grants count as premium; false at launch. */
+  PREMIUM_BETA_GRANT: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((value) => value === 'true'),
+};
