@@ -489,14 +489,6 @@ test('a ranked Start rechecks both a seatless host and a ready debater after a p
               ${member.userId}, ${JSON.stringify({ level })}::text::jsonb)`;
             });
           let room = (await f.create(await ranked(f), f.host)).view;
-          for (const member of [f.guest, f.outsider])
-            await f.store.signContentWaiver({
-              id: createId(),
-              roomId: room.id,
-              userId: member.userId,
-              version: YOUTH_CONTENT_WAIVER_VERSION,
-              words: agreementWords(youthContentWaiverDocument),
-            });
           room = (
             await f.command(f.guest, room, {
               type: 'claim-seat',
@@ -509,6 +501,17 @@ test('a ranked Start rechecks both a seatless host and a ready debater after a p
               seat: sideSeat(negativeSide),
             })
           ).view;
+          for (const member of [f.guest, f.outsider]) {
+            const signed = await f.store.signContentWaiver({
+              id: createId(),
+              roomId: room.id,
+              userId: member.userId,
+              version: YOUTH_CONTENT_WAIVER_VERSION,
+              words: agreementWords(youthContentWaiverDocument),
+            });
+            if (signed !== 'signed')
+              throw new Error('Expected a Youth waiver for the claimed seat');
+          }
           room = (
             await f.command(f.host, room, {
               type: 'assign-seat',
