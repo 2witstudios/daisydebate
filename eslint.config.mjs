@@ -668,10 +668,6 @@ const dbNativeRowsPlugin = {
           )
             return { owner, name: declaration.name?.getText() };
         };
-        const resolvedMethod = (call) =>
-          builtInMethod(
-            checker.getResolvedSignature(esTreeNodeToTSNodeMap.get(call)),
-          );
         const constantSource = (value) => {
           if (!value) return undefined;
           const seen = new Set();
@@ -709,117 +705,148 @@ const dbNativeRowsPlugin = {
           }
           return value;
         };
-        const standardCallable = (input) => {
-          const source = constantSource(input?.expression);
-          const type = source ? typeAt(source) : input?.type;
-          return type
-            ?.getCallSignatures()
-            .map(builtInMethod)
-            .find((method) => method);
-        };
         const functionAdapter = (method) =>
-          method &&
           ['CallableFunction', 'Function'].includes(method.owner) &&
           ['call', 'apply', 'bind'].includes(method.name);
         const reflectApply = (method) =>
-          method?.owner === 'Reflect' && method.name === 'apply';
-        const logicalArgument = (args, index) => {
-          let remaining = index;
-          for (const argument of args) {
-            const expression =
-              argument.type === 'SpreadElement' ? argument.argument : argument;
-            const location = esTreeNodeToTSNodeMap.get(expression);
-            const type = checker.getTypeAtLocation(location);
-            if (argument.type !== 'SpreadElement') {
-              if (remaining === 0) return { type, location, expression };
-              remaining -= 1;
-              continue;
-            }
-            if (!checker.isTupleType(type))
-              return { type: type.getNumberIndexType(), location };
-            const items = checker.getTypeArguments(type);
-            if (remaining < items.length) {
-              const tuple = constantSource(expression);
-              const item =
-                tuple?.type === 'ArrayExpression' &&
-                tuple.elements.every(
-                  (element) => element?.type !== 'SpreadElement',
-                )
-                  ? tuple.elements[remaining]
-                  : undefined;
-              return { type: items[remaining], location, expression: item };
-            }
-            remaining -= items.length;
-          }
+          method.owner === 'Reflect' && method.name === 'apply';
+        const promiseMethod = (method) =>
+          (method.owner === 'PromiseConstructor' &&
+            ['resolve', 'all', 'allSettled', 'any', 'race', 'try'].includes(
+              method.name,
+            )) ||
+          (['Promise', 'PromiseLike'].includes(method.owner) &&
+            ['then', 'catch', 'finally'].includes(method.name));
+        const supportedMethod = (method) =>
+          method !== undefined &&
+          (promiseMethod(method) ||
+            functionAdapter(method) ||
+            reflectApply(method));
+        const inputValue = (expression) => {
+          const location = esTreeNodeToTSNodeMap.get(expression);
+          return {
+            expression,
+            location,
+            type: checker.getTypeAtLocation(location),
+          };
         };
-        const promiseArguments = (call, invocation) => {
-          const { callee, arguments: args } = call;
-          if (invocation?.owner === 'PromiseConstructor')
-            return { method: invocation.name, index: 0, packed: [] };
-
-          if (reflectApply(invocation)) {
-            const target = standardCallable(logicalArgument(args, 0));
-            if (target?.owner === 'PromiseConstructor')
-              return { method: target.name, index: 2, packed: [0] };
-            if (functionAdapter(target)) {
-              const receiver = standardCallable(logicalArgument(args, 1));
-              if (receiver?.owner === 'PromiseConstructor')
-                return {
-                  method: receiver.name,
-                  index: 2,
-                  packed: target.name === 'apply' ? [1, 0] : [1],
-                };
-            }
+        const inputAt = (inputs, index) => {
+          const rest = inputs.findIndex((input) => input?.rest);
+          return inputs[rest >= 0 && rest <= index ? rest : index];
+        };
+        const afterReceiver = (inputs) =>
+          inputs[0]?.rest ? inputs : inputs.slice(1);
+        const packedInputs = (input) => {
+          if (!input) return [];
+          const source = constantSource(input.expression);
+          if (source?.type === 'ArrayExpression')
+            return callInputs(source.elements);
+          const type = constrainedType(input.type);
+          if (checker.isTupleType(type))
+            return checker
+              .getTypeArguments(type)
+              .map((type) => ({ type, location: input.location }));
+          const element = type.getNumberIndexType();
+          return element
+            ? [{ type: element, location: input.location, rest: true }]
+            : [];
+        };
+        const callInputs = (args) =>
+          args.flatMap((argument) => {
+            if (argument?.type === 'SpreadElement')
+              return packedInputs(inputValue(argument.argument));
+            return [argument ? inputValue(argument) : undefined];
+          });
+        const callableInput = (input, active, remaining) => {
+          if (!input || remaining === 0) return undefined;
+          const source = constantSource(input.expression);
+          if (source?.type === 'CallExpression' && !active.has(source)) {
+            active.add(source);
+            const binding = resolveCall(source, active, remaining - 1)?.binding;
+            active.delete(source);
+            if (binding) return { binding };
           }
-
-          if (
-            functionAdapter(invocation) &&
-            callee.type === 'MemberExpression'
-          ) {
-            const target = standardCallable({ expression: callee.object });
-            if (target?.owner === 'PromiseConstructor')
+          const type = source ? typeAt(source) : input.type;
+          const method = type
+            .getCallSignatures()
+            .map(builtInMethod)
+            .find(supportedMethod);
+          return method ? { method } : undefined;
+        };
+        const invoke = (callable, receiver, inputs, active, remaining) => {
+          if (!callable || remaining === 0) return undefined;
+          if (callable.binding) {
+            const { target, receiver, inputs: bound } = callable.binding;
+            return invoke(
+              target,
+              receiver,
+              [...bound, ...inputs],
+              active,
+              remaining - 1,
+            );
+          }
+          const { method } = callable;
+          if (reflectApply(method))
+            return invoke(
+              callableInput(inputAt(inputs, 0), active, remaining - 1),
+              inputAt(inputs, 1),
+              packedInputs(inputAt(inputs, 2)),
+              active,
+              remaining - 1,
+            );
+          if (functionAdapter(method)) {
+            const target = callableInput(receiver, active, remaining - 1);
+            if (!target) return undefined;
+            const thisArg = inputAt(inputs, 0);
+            if (method.name === 'bind')
               return {
-                method: target.name,
-                index: 1,
-                packed: invocation.name === 'apply' ? [0] : [],
+                binding: {
+                  target,
+                  receiver: thisArg,
+                  inputs: afterReceiver(inputs),
+                },
               };
-            if (reflectApply(target) && invocation.name === 'bind') {
-              const bound = standardCallable(logicalArgument(args, 1));
-              if (
-                bound?.owner === 'PromiseConstructor' &&
-                logicalArgument(args, 3)
-              )
-                return { method: bound.name, index: 3, packed: [0] };
-            }
+            const unwrapped =
+              method.name === 'apply'
+                ? packedInputs(inputAt(inputs, 1))
+                : afterReceiver(inputs);
+            return invoke(target, thisArg, unwrapped, active, remaining - 1);
           }
-
-          // A typed alias can lose the underlying Reflect.apply signature.
-          // Follow a constant's binding to the standard Promise method.
-          const source = constantSource(callee);
-          if (
-            source?.type !== 'CallExpression' ||
-            source.callee.type !== 'MemberExpression'
-          )
-            return;
-          const adapter = resolvedMethod(source);
-          if (
-            !functionAdapter(adapter) ||
-            adapter.name !== 'bind' ||
-            !reflectApply(
-              standardCallable({ expression: source.callee.object }),
-            )
-          )
-            return;
-          const target = standardCallable(logicalArgument(source.arguments, 1));
-          if (
-            target?.owner === 'PromiseConstructor' &&
-            !logicalArgument(source.arguments, 3)
-          )
-            return {
-              method: target.name,
-              index: logicalArgument(source.arguments, 2) ? 0 : 1,
-              packed: [0],
-            };
+          return { method, inputs };
+        };
+        const resolveCall = (call, active, remaining, signature) => {
+          const { callee, arguments: args } = call;
+          const source = callableInput(
+            inputValue(callee),
+            active,
+            remaining - 1,
+          );
+          const method = builtInMethod(
+            signature ??
+              checker.getResolvedSignature(esTreeNodeToTSNodeMap.get(call)),
+          );
+          const callable =
+            source ?? (supportedMethod(method) ? { method } : undefined);
+          if (!callable) return undefined;
+          const receiver =
+            callee.type === 'MemberExpression'
+              ? inputValue(callee.object)
+              : undefined;
+          return invoke(
+            callable,
+            receiver,
+            callInputs(args),
+            active,
+            remaining - 1,
+          );
+        };
+        const promiseInputs = (call, signature) => {
+          // Aliases in incomplete or recursive source can point back to the call.
+          const active = new Set([call]);
+          const plan = resolveCall(call, active, 32, signature);
+          return plan?.binding
+            ? invoke({ binding: plan.binding }, undefined, [], active, 32)
+            : plan;
         };
         // Use the well-known symbol's identity, including when a declaration
         // spells its iterator key through an alias.
@@ -944,47 +971,24 @@ const dbNativeRowsPlugin = {
               report(node);
               return;
             }
-            const invocation =
-              builtInMethod(signature) ??
-              standardCallable({ expression: callee });
-            if (
-              (invocation?.owner === 'Promise' ||
-                invocation?.owner === 'PromiseLike') &&
-              ['then', 'catch', 'finally'].includes(invocation.name) &&
-              node.arguments.some(
-                (argument) =>
-                  argument.type !== 'SpreadElement' &&
-                  returnsNativeRows(typeAt(argument)),
+            const settlement = promiseInputs(node, signature);
+            if (!settlement?.method) return;
+            const { method, inputs } = settlement;
+            if (method.owner !== 'PromiseConstructor') {
+              if (
+                inputs.some((input) => input && returnsNativeRows(input.type))
               )
-            ) {
-              report(node);
+                report(node);
               return;
             }
-            const promise = promiseArguments(node, invocation);
-            if (!promise) return;
-            const { method, index, packed } = promise;
-            if (
-              !['resolve', 'all', 'allSettled', 'any', 'race', 'try'].includes(
-                method,
-              )
-            )
-              return;
-            const input = logicalArgument(node.arguments, index);
-            if (!input?.type) return;
-            const { type, location } = input;
-            let inputType = type;
-            for (const slot of packed) {
-              const item = inputType.getProperty(String(slot));
-              inputType = item
-                ? checker.getTypeOfSymbolAtLocation(item, location)
-                : inputType.getNumberIndexType();
-              if (!inputType) return;
-            }
-            if (method === 'resolve') {
+            const input = inputAt(inputs, 0);
+            if (!input) return;
+            const { type: inputType, location } = input;
+            if (method.name === 'resolve') {
               if (nativeType(inputType)) report(node);
               return;
             }
-            if (method === 'try') {
+            if (method.name === 'try') {
               if (returnsNativeRows(inputType)) report(node);
               return;
             }

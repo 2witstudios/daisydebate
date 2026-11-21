@@ -734,7 +734,7 @@ describe('database statement and lock boundaries', () => {
     });
   });
 
-  test('routes consumed and returned native rows through query', async () => {
+  test('native SQL consumption matrix preserves the decoder boundary', async () => {
     const lint = typedRepositoryEslint();
     const rule = 'db-native-rows/require-query';
     const feature = 'packages/db/src/attendance-facts.ts';
@@ -745,199 +745,462 @@ describe('database statement and lock boundaries', () => {
       body +
       ' }';
     const tagged = 'client`select 1 as value`';
+    const imports =
+      'import { z } from "zod";\n' +
+      'import { availabilityEvidenceRow, availabilitySamplesFrom } from "./availability-operations";\n' +
+      'import { query } from "./raw-rows";\n';
+    const typedStatement = 'client<{ value: number }[]>`select 1 as value`';
+    const parsedStatement =
+      'query(' + tagged + ', z.object({ value: z.int() }))';
     const cases = [
       [
+        1,
         source(
           'return z.array(availabilityEvidenceRow).parse(await availabilitySamplesFrom((strings, ...values) => client(strings, ...values), "2026-11-20T00:00:00Z"));',
           'import { z } from "zod";\nimport { availabilityEvidenceRow, availabilitySamplesFrom } from "./availability-operations";\n',
         ),
         feature,
       ],
-      [source('return ' + tagged + ';'), feature],
+      [1, source('return ' + tagged + ';'), feature],
       [
+        1,
         'import type { SQL } from "bun"; export const read = async (client: SQL) => ' +
           tagged +
           ';',
         feature,
       ],
-      [source('return ' + tagged + '.then((rows) => rows);'), feature],
-      [source('return await ' + tagged + ';'), feature],
-      [source('return await client.unsafe("select 1 as value");'), feature],
-      [source('return await client["unsafe"]("select 1 as value");'), feature],
+      [1, source('return ' + tagged + '.then((rows) => rows);'), feature],
+      [1, source('return await ' + tagged + ';'), feature],
+      [1, source('return await client.unsafe("select 1 as value");'), feature],
       [
+        1,
+        source('return await client["unsafe"]("select 1 as value");'),
+        feature,
+      ],
+      [
+        0,
         source(
           'return query(' + tagged + ', z.object({ value: z.int() }));',
           'import { z } from "zod";\nimport { query } from "./raw-rows";\n',
         ),
         feature,
       ],
-      [source('await client`delete from fixture`;'), feature],
+      [0, source('await client`delete from fixture`;'), feature],
       [
+        0,
         source(
           'const receipt = await client<{ command: string }>`commit`; return receipt.command;',
         ),
         'packages/db/src/bounded-transaction.ts',
       ],
       [
+        0,
         source('return ' + tagged + ';'),
         'packages/db/integration/db-boundary.integration.ts',
       ],
       [
+        0,
         source('return ' + tagged + ';'),
         'packages/db/src/transaction-client.ts',
       ],
       [
+        1,
         source('return await ' + tagged + ';'),
         'packages/db/src/transaction-client.ts',
       ],
-    ] as const;
-    const errors = await Promise.all(
-      cases.map(async ([code, filePath]) => {
-        const [result] = await lint.lintText(code, { filePath });
-        return (
-          result?.messages.filter(({ ruleId }) => ruleId === rule).length ?? 0
-        );
-      }),
-    );
-    assert({
-      given:
-        'the original availability wrapper, native returns and validated boundary controls',
-      should:
-        'reject consumed native results and keep parsed rows, discarded writes and COMMIT metadata',
-      actual: errors,
-      expected: [1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 1],
-    });
-  });
-
-  test('requires parsed rows before a native query is passed to a Promise combinator', async () => {
-    const lint = typedRepositoryEslint();
-    const filePath = 'packages/db/src/attendance-facts.ts';
-    const imports = `
-      import type { SQL } from 'bun';
-      import { z } from 'zod';
-      import { availabilityEvidenceRow, availabilitySamplesFrom } from './availability-operations';
-      import { query } from './raw-rows';
-    `;
-    const statement = 'client`select 1 as value`';
-    const parsed = `query(${statement}, z.object({ value: z.int() }))`;
-    const cases = [
-      `const [rows] = await Promise.all([${statement}]); return rows[0];`,
-      `return Promise.resolve(${statement});`,
-      `return z.array(availabilityEvidenceRow).parse(await Promise.resolve(availabilitySamplesFrom((strings, ...values) => client(strings, ...values), '2026-11-20T00:00:00Z')));`,
-      `return Promise.allSettled([${statement}]);`,
-      `return globalThis.Promise.any(new Set([${statement}]));`,
-      `const queries = [${statement}] as const; const settle = Promise; return settle['race'](queries);`,
-      `const resolve = Promise.resolve.bind(Promise); return resolve(${statement});`,
-      `return Promise.all(...[[${statement}]] as const);`,
-      `function* queries() { yield ${statement}; } return Promise.all(queries());`,
-      `return Promise.resolve.call(Promise, ${statement});`,
-      `return Promise.all.apply(Promise, [[${statement}]]);`,
-      'const raw = client<{ value: number }[]>`select 1 as value`; const [rows] = await (Promise.all<[typeof raw]>).bind(Promise, [raw])(); return rows[0]?.value;',
-      'const raw = client<{ value: number }[]>`select 1 as value`; return (Promise.try<Awaited<typeof raw>>).bind(Promise, () => raw)();',
-      'const raw = client<{ value: number }[]>`select 1 as value`; return Promise.all.call(...[Promise, [raw]] as const);',
-      `return Reflect.apply(Promise.all, Promise, [[${statement}]]);`,
-      `const iterator: typeof Symbol.iterator = Symbol.iterator; return Promise.all({ *[iterator]() { yield ${statement}; } });`,
-      `const settle = <T extends SQL.Query<unknown>>(value: T) => Promise.resolve(value); return settle(${statement});`,
-      `const rows = await Promise.try(() => ${statement}); return rows[0];`,
-      `return z.array(availabilityEvidenceRow).parse(await Promise.try(() => availabilitySamplesFrom((strings, ...values) => client(strings, ...values), '2026-11-20T00:00:00Z')));`,
-      `const raw = ${statement}; const rows = await new Promise<Awaited<typeof raw>>((resolve) => resolve(raw)); return rows[0];`,
-      `return Promise.all([${parsed}]);`,
-      `return Promise.resolve(${parsed});`,
-      `return Promise.all.bind(Promise, [${parsed}])();`,
-      `const rows = await Promise.try(() => ${parsed}); return rows[0];`,
-      `function* values() { yield 1; return ${statement}; } return Promise.all(values());`,
-      'const writer = async () => { await client`delete from fixture`; }; return Promise.all([writer()]);',
-      'const receipt = await client<{ command: string }>`commit`; return Promise.resolve(receipt.command);',
-    ];
-    const errors = await Promise.all(
-      cases.map(async (body) => {
-        const [result] = await lint.lintText(
-          `${imports}\nexport async function read(client: SQL) { ${body} }`,
-          { filePath },
-        );
-        return result!.messages.filter(
-          ({ ruleId }) => ruleId === 'db-native-rows/require-query',
-        ).length;
-      }),
-    );
-    assert({
-      given: 'native SQL queries or validated values passed to Promise methods',
-      should: 'report native thenable inputs and accept the validated values',
-      actual: errors,
-      expected: [
-        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0,
-        1, 0, 0,
+      [
+        1,
+        source(
+          `const [rows] = await Promise.all([${tagged}]); return rows[0];`,
+          imports,
+        ),
+        feature,
       ],
-    });
-  });
-
-  test('requires a decoder when a typed Promise adapter receives native inputs', async () => {
-    const lint = typedRepositoryEslint();
-    const imports = `
-      import type { SQL } from 'bun';
-      import { z } from 'zod';
-      import { query } from './raw-rows';
-    `;
-    const statement = 'client<{ value: number }[]>`select 1 as value`';
-    const cases = [
-      `const raw = ${statement};
+      [1, source(`return Promise.resolve(${tagged});`, imports), feature],
+      [
+        1,
+        source(
+          `return z.array(availabilityEvidenceRow).parse(await Promise.resolve(availabilitySamplesFrom((strings, ...values) => client(strings, ...values), '2026-11-20T00:00:00Z')));`,
+          imports,
+        ),
+        feature,
+      ],
+      [1, source(`return Promise.allSettled([${tagged}]);`, imports), feature],
+      [
+        1,
+        source(`return globalThis.Promise.any(new Set([${tagged}]));`, imports),
+        feature,
+      ],
+      [
+        1,
+        source(
+          `const queries = [${tagged}] as const; const settle = Promise; return settle['race'](queries);`,
+          imports,
+        ),
+        feature,
+      ],
+      [
+        1,
+        source(
+          `const resolve = Promise.resolve.bind(Promise); return resolve(${tagged});`,
+          imports,
+        ),
+        feature,
+      ],
+      [
+        1,
+        source(`return Promise.all(...[[${tagged}]] as const);`, imports),
+        feature,
+      ],
+      [
+        1,
+        source(
+          `function* queries() { yield ${tagged}; } return Promise.all(queries());`,
+          imports,
+        ),
+        feature,
+      ],
+      [
+        1,
+        source(`return Promise.resolve.call(Promise, ${tagged});`, imports),
+        feature,
+      ],
+      [
+        1,
+        source(`return Promise.all.apply(Promise, [[${tagged}]]);`, imports),
+        feature,
+      ],
+      [
+        1,
+        source(
+          'const raw = client<{ value: number }[]>`select 1 as value`; const [rows] = await (Promise.all<[typeof raw]>).bind(Promise, [raw])(); return rows[0]?.value;',
+          imports,
+        ),
+        feature,
+      ],
+      [
+        1,
+        source(
+          'const raw = client<{ value: number }[]>`select 1 as value`; return (Promise.try<Awaited<typeof raw>>).bind(Promise, () => raw)();',
+          imports,
+        ),
+        feature,
+      ],
+      [
+        1,
+        source(
+          'const raw = client<{ value: number }[]>`select 1 as value`; return Promise.all.call(...[Promise, [raw]] as const);',
+          imports,
+        ),
+        feature,
+      ],
+      [
+        1,
+        source(
+          `return Reflect.apply(Promise.all, Promise, [[${tagged}]]);`,
+          imports,
+        ),
+        feature,
+      ],
+      [
+        1,
+        source(
+          `const iterator: typeof Symbol.iterator = Symbol.iterator; return Promise.all({ *[iterator]() { yield ${tagged}; } });`,
+          imports,
+        ),
+        feature,
+      ],
+      [
+        1,
+        source(
+          `const settle = <T extends SQL.Query<unknown>>(value: T) => Promise.resolve(value); return settle(${tagged});`,
+          imports,
+        ),
+        feature,
+      ],
+      [
+        1,
+        source(
+          `const rows = await Promise.try(() => ${tagged}); return rows[0];`,
+          imports,
+        ),
+        feature,
+      ],
+      [
+        1,
+        source(
+          `return z.array(availabilityEvidenceRow).parse(await Promise.try(() => availabilitySamplesFrom((strings, ...values) => client(strings, ...values), '2026-11-20T00:00:00Z')));`,
+          imports,
+        ),
+        feature,
+      ],
+      [
+        1,
+        source(
+          `const raw = ${tagged}; const rows = await new Promise<Awaited<typeof raw>>((resolve) => resolve(raw)); return rows[0];`,
+          imports,
+        ),
+        feature,
+      ],
+      [
+        0,
+        source(`return Promise.all([${parsedStatement}]);`, imports),
+        feature,
+      ],
+      [
+        0,
+        source(`return Promise.resolve(${parsedStatement});`, imports),
+        feature,
+      ],
+      [
+        0,
+        source(
+          `return Promise.all.bind(Promise, [${parsedStatement}])();`,
+          imports,
+        ),
+        feature,
+      ],
+      [
+        0,
+        source(
+          `const rows = await Promise.try(() => ${parsedStatement}); return rows[0];`,
+          imports,
+        ),
+        feature,
+      ],
+      [
+        1,
+        source(
+          `function* values() { yield 1; return ${tagged}; } return Promise.all(values());`,
+          imports,
+        ),
+        feature,
+      ],
+      [
+        0,
+        source(
+          'const writer = async () => { await client`delete from fixture`; }; return Promise.all([writer()]);',
+          imports,
+        ),
+        feature,
+      ],
+      [
+        0,
+        source(
+          'const receipt = await client<{ command: string }>`commit`; return Promise.resolve(receipt.command);',
+          imports,
+        ),
+        feature,
+      ],
+      [
+        1,
+        source(
+          `const raw = ${typedStatement};
        const all = Promise.all<[typeof raw]>;
        const apply = (Reflect.apply<typeof Promise, [[typeof raw]], ReturnType<typeof all>>).bind(Reflect, all, Promise);
        const [rows] = await apply([[raw]]); return rows[0]?.value;`,
-      `const raw = ${statement}; const all = Promise.all<[typeof raw]>;
+          imports,
+        ),
+        feature,
+      ],
+      [
+        1,
+        source(
+          `const raw = ${typedStatement}; const all = Promise.all<[typeof raw]>;
        return Reflect.apply(all.bind, all, [Promise, [raw]])();`,
-      `const raw = ${statement};
+          imports,
+        ),
+        feature,
+      ],
+      [
+        1,
+        source(
+          `const raw = ${typedStatement};
        const all: (input: Iterable<typeof raw>) => Promise<Awaited<typeof raw>[]> = Promise.all;
        const apply = (Reflect.apply<typeof Promise, [Set<typeof raw>], ReturnType<typeof all>>).bind(Reflect, all, Promise);
        const [rows] = await apply([new Set([raw])]); return rows?.[0]?.value;`,
-      `const raw = ${statement}; const attempt = Promise.try<Awaited<typeof raw>>;
+          imports,
+        ),
+        feature,
+      ],
+      [
+        1,
+        source(
+          `const raw = ${typedStatement}; const attempt = Promise.try<Awaited<typeof raw>>;
        const apply = (Reflect.apply<typeof Promise, [() => typeof raw], ReturnType<typeof attempt>>).bind(Reflect, attempt, Promise);
        const rows = await apply([() => raw]); return rows[0]?.value;`,
-      `const raw = ${statement}; const all = Promise.all<[typeof raw, [typeof raw]]>;
+          imports,
+        ),
+        feature,
+      ],
+      [
+        1,
+        source(
+          `const raw = ${typedStatement}; const all = Promise.all<[typeof raw, [typeof raw]]>;
        const apply = (Reflect.apply<typeof Promise, [[typeof raw, [typeof raw]]], ReturnType<typeof all>>).bind(Reflect, all, Promise);
        const [rows] = await apply([[raw, [raw]]]); return rows[0]?.value;`,
-      `const raw = ${statement};
+          imports,
+        ),
+        feature,
+      ],
+      [
+        1,
+        source(
+          `const raw = ${typedStatement};
        const all: (input: Set<typeof raw>) => Promise<Awaited<typeof raw>[]> = Promise.all;
        const invoke: (target: typeof all, receiver: typeof Promise, args: [Set<typeof raw>]) => ReturnType<typeof all> = Reflect.apply;
        const [rows] = await invoke(all, Promise, [new Set([raw])]); return rows?.[0]?.value;`,
-      `const raw = ${statement};
+          imports,
+        ),
+        feature,
+      ],
+      [
+        1,
+        source(
+          `const raw = ${typedStatement};
        const all: (input: Set<typeof raw>) => Promise<Awaited<typeof raw>[]> = Promise.all;
        const args = [Reflect, all, Promise] as const;
        const apply = (Reflect.apply<typeof Promise, [Set<typeof raw>], ReturnType<typeof all>>).bind(...args);
        const [rows] = await apply([new Set([raw])]); return rows?.[0]?.value;`,
-      `return Promise.resolve().then(() => ${statement});`,
-      `const parsed = query(${statement}, z.object({ value: z.int() }));
+          imports,
+        ),
+        feature,
+      ],
+      [
+        1,
+        source(
+          `return Promise.resolve().then(() => ${typedStatement});`,
+          imports,
+        ),
+        feature,
+      ],
+      [
+        0,
+        source(
+          `const parsed = query(${typedStatement}, z.object({ value: z.int() }));
        const all = Promise.all<[typeof parsed]>;
        const apply = (Reflect.apply<typeof Promise, [[typeof parsed]], ReturnType<typeof all>>).bind(Reflect, all, Promise);
        const [rows] = await apply([[parsed]]); return rows[0]?.value;`,
-      'const discard = async (connection: SQL) => { await connection`delete from fixture`; }; await discard(client);',
-      `const raw = ${statement}; const decode = async (inputs: Set<typeof raw>) =>
+          imports,
+        ),
+        feature,
+      ],
+      [
+        0,
+        source(
+          'const discard = async (connection: SQL) => { await connection`delete from fixture`; }; await discard(client);',
+          imports,
+        ),
+        feature,
+      ],
+      [
+        0,
+        source(
+          `const raw = ${typedStatement}; const decode = async (inputs: Set<typeof raw>) =>
          Promise.all([...inputs].map((input) => query(input, z.object({ value: z.int() }))));
        return decode(new Set([raw]));`,
-      `const raw = ${statement}; const keep = (inputs: Set<typeof raw>) => inputs;
+          imports,
+        ),
+        feature,
+      ],
+      [
+        0,
+        source(
+          `const raw = ${typedStatement}; const keep = (inputs: Set<typeof raw>) => inputs;
        const preserved = Reflect.apply(keep, undefined, [new Set([raw])]);
        for (const input of preserved) return query(input, z.object({ value: z.int() }));
        return [];`,
-      `const raw = ${statement}; const [input] = await Promise.resolve([raw] as const);
+          imports,
+        ),
+        feature,
+      ],
+      [
+        0,
+        source(
+          `const raw = ${typedStatement}; const [input] = await Promise.resolve([raw] as const);
        return query(input, z.object({ value: z.int() }));`,
-    ];
-    const errors = await Promise.all(
-      cases.map(async (body) => {
-        const [result] = await lint.lintText(
-          `${imports}\nexport async function read(client: SQL) { ${body} }`,
-          { filePath: 'packages/db/src/attendance-facts.ts' },
-        );
-        return result!.messages.filter(
-          ({ ruleId }) => ruleId === 'db-native-rows/require-query',
-        ).length;
-      }),
-    );
+          imports,
+        ),
+        feature,
+      ],
+      [
+        1,
+        source(
+          'const raw = ' +
+            typedStatement +
+            '; const all: (input: (typeof raw)[]) => Promise<Awaited<typeof raw>[]> = Promise.all; const settle = all.bind(Promise); const [rows] = await settle([raw]); return rows?.[0]?.value;',
+          imports,
+        ),
+        feature,
+      ],
+      [
+        1,
+        source(
+          'const raw = ' +
+            typedStatement +
+            '; const all: (input: Set<typeof raw>) => Promise<Awaited<typeof raw>[]> = Promise.all; const settle = all.bind(Promise); const [rows] = await settle(new Set([raw])); return rows?.[0]?.value;',
+          imports,
+        ),
+        feature,
+      ],
+      [
+        1,
+        source(
+          'const raw = ' +
+            typedStatement +
+            '; const all: (input: (typeof raw)[]) => Promise<Awaited<typeof raw>[]> = Promise.all; const apply = Reflect.apply<typeof Promise, [(typeof raw)[]], ReturnType<typeof all>>; const [rows] = await apply.call(Reflect, all, Promise, [[raw]]); return rows?.[0]?.value;',
+          imports,
+        ),
+        feature,
+      ],
+      [
+        1,
+        source(
+          'const raw = ' +
+            typedStatement +
+            '; const all = Promise.all<[typeof raw]>; const apply = (Reflect.apply<typeof Promise, [[typeof raw]], ReturnType<typeof all>>).bind(Reflect, all, Promise); const [rows] = await apply.call(undefined, [[raw]]); return rows[0]?.value;',
+          imports,
+        ),
+        feature,
+      ],
+      [
+        1,
+        source(
+          'const raw = ' +
+            typedStatement +
+            '; const all = Promise.all<[typeof raw]>; const apply = (Reflect.apply<typeof Promise, [[typeof raw]], ReturnType<typeof all>>).bind(Reflect, all, Promise); const [rows] = await Reflect.apply(apply, undefined, [[[raw]]]); return rows[0]?.value;',
+          imports,
+        ),
+        feature,
+      ],
+      [
+        0,
+        source(
+          'const decoded = query(' +
+            typedStatement +
+            ', z.object({ value: z.int() })); const all = Promise.all<[typeof decoded]>; const apply = (Reflect.apply<typeof Promise, [[typeof decoded]], ReturnType<typeof all>>).bind(Reflect, all, Promise); const [rows] = await Reflect.apply(apply, undefined, [[[decoded]]]); return rows[0]?.value;',
+          imports,
+        ),
+        feature,
+      ],
+    ] as const;
+    const mismatches = (
+      await Promise.all(
+        cases.map(async ([expected, code, filePath]) => {
+          const [result] = await lint.lintText(code, { filePath });
+          const actual =
+            result?.messages.filter(({ ruleId }) => ruleId === rule).length ??
+            0;
+          return { code, filePath, expected, actual };
+        }),
+      )
+    ).filter(({ expected, actual }) => expected !== actual);
     assert({
       given:
-        'a typed Promise adapter accepting nested query inputs or a query callback',
-      should: 'reject raw inputs while allowing values decoded before the call',
-      actual: errors,
-      expected: [1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0],
+        'native reads, composed Promise settlement and preserved decoder controls',
+      should: 'report exactly the unvalidated reads',
+      actual: mismatches,
+      expected: [],
     });
   });
 });
