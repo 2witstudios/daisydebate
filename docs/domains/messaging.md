@@ -21,7 +21,11 @@ for 180 days from Round end, then immediately deny reads/observation independent
 of sweep progress. The bounded sweep drains receipts before message reply leaves,
 then read state; ordinary Messaging erasure/export and durable observation purge
 apply. Own-message withdrawal remains available without posting admission.
-`/rounds/:id/floor` is the retained-history entry. See ADR 0120.
+`/rounds/:id/floor` is the retained-history entry. A temporary refusal of
+server-side floor discovery shows the Round reconnect page, whose next request
+reauthorizes the read. The browser retries an entry discovery once after the
+social admission lane's declared delay, then reads the protected latest page
+before enabling pagination. See ADR 0120.
 
 Room chat storage uses kind `room_community` and policy `room.community`, with
 `room_id` as its one owner and a unique `(room_id, kind)` pair: a Room channel

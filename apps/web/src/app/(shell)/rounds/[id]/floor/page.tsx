@@ -6,7 +6,9 @@ import { requireAccess } from '../../../../../lib/access';
 import type { SearchParams } from '../../../../../features/access/decision';
 import { FloorChat } from '../../../../../ui/round-floor/floor-chat';
 import { readPersistedRound } from '../actions';
-import { floorProps } from './floor-props';
+import { readFloorProps } from './floor-props';
+import { temporarilyRefused } from '../../../../../server/temporary-read';
+import { reconnectingRoundPage } from '../../../../../ui/debate-room/round-reconnecting';
 export const metadata = { title: 'Round chat' };
 export default async function RoundFloorPage({
   params,
@@ -22,19 +24,20 @@ export default async function RoundFloorPage({
   const round = await readPersistedRound(id);
   if (round.kind === 'missing') notFound();
   if (round.kind !== 'found') throw createAppError('INFRASTRUCTURE');
-  const props = await floorProps(
+  const floor = await readFloorProps(
     id,
     identity.principal.actorId,
     round.socketUrl,
     isRoundOver(round.round.status),
-    true,
   );
-  if (!props) notFound();
+  if (floor.kind === 'missing') notFound();
+  if (temporarilyRefused(floor)) return reconnectingRoundPage();
+  if (floor.kind !== 'found') throw createAppError('INFRASTRUCTURE');
   return (
     <main className="mx-auto flex w-full max-w-reading flex-col gap-4 p-4">
       <MediaPageLink href={`/rounds/${id}`}>Back to Round</MediaPageLink>
       <h1 className="text-xl font-strong">Round chat</h1>
-      <FloorChat {...props} />
+      <FloorChat {...floor.props} />
     </main>
   );
 }
