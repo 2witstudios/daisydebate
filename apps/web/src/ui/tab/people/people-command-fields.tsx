@@ -7,7 +7,7 @@ import {
   labelClass,
 } from '../../components/form-field/form-field-class';
 import type { FormValues } from '../../../features/forms/form-state';
-import type { PeopleCommandModel } from './people-command-model';
+import type { PeopleCommandModel } from '../../../features/tab/people-command-model';
 
 const options = (
   items: readonly { readonly value: string; readonly label: string }[],

@@ -103,6 +103,8 @@ export const setupFacts = (
       number: round.number,
       timeSlotId: round.timeSlotId,
       poolResolutionId: round.poolResolutionId,
+      resolutionPoolId: round.resolutionPoolId,
+      resolutionReleased: round.resolutionReleasedAt !== null,
       version: round.version,
       drawPublished: loaded.draws.some(
         (draw) => draw.tabRoundId === round.id && draw.status === 'published',

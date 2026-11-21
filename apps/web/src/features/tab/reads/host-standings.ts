@@ -1,3 +1,4 @@
+import { showTournamentEntrant } from '../shown-entrant';
 import { eventResultsVersion } from '../operations/event-results-version';
 import type {
   AuthorizationInput,
@@ -16,12 +17,18 @@ import { hostResultsAuthority } from '../operations/host-results-authority';
 import { eventCompetition } from '../operations/event-competition';
 import type { TabPrincipal } from '../tab-principal';
 
-function hostStandingsView(
+export function standingsViewOf(
   facts: EventCompetitionFacts,
-  capabilities: {
-    readonly announceBreak: boolean;
-    readonly previewCorrection: boolean;
-  },
+  access:
+    | {
+        readonly kind: 'official';
+        readonly capabilities: {
+          readonly announceBreak: boolean;
+          readonly previewCorrection: boolean;
+        };
+      }
+    | { readonly kind: 'released_with_scores'; readonly allowNames: boolean }
+    | { readonly kind: 'released_decisions'; readonly allowNames: boolean },
 ): StandingsView {
   const preliminary = facts.stages.filter(
     (stage) => stage.kind === 'preliminary',
@@ -30,12 +37,25 @@ function hostStandingsView(
     preliminary.some((stage) => stage.id === round.stageId),
   );
   const cutoff = Math.max(1, ...rounds.map((round) => round.number));
-  const input = eventCompetition(facts, {
+  const competition = eventCompetition(facts, {
     stageIds: preliminary.map((stage) => stage.id),
     cutoff,
     division: null,
     seed: new TextEncoder().encode(facts.configuration.event.id),
   });
+  const input =
+    access.kind === 'released_decisions'
+      ? {
+          ...competition,
+          settings: {
+            ...competition.settings,
+            'standings.tiebreaks': {
+              ...competition.settings['standings.tiebreaks'],
+              metrics: ['wins', 'opponent_wins'] as const,
+            },
+          },
+        }
+      : competition;
   const folded = standings(input);
   const metrics = standings({
     ...input,
@@ -47,9 +67,10 @@ function hostStandingsView(
       },
     },
   });
-  const computedBreak = eventBreaks(facts).answer;
+  const computedBreak =
+    access.kind === 'official' ? eventBreaks(facts).answer : null;
   const firstBreak =
-    computedBreak.kind === 'resolved' ? computedBreak.stages[0] : null;
+    computedBreak?.kind === 'resolved' ? computedBreak.stages[0] : null;
   const firstRound = facts.rounds.find(
     (round) => round.stageId === firstBreak?.stage,
   );
@@ -106,9 +127,13 @@ function hostStandingsView(
         : null,
     breakAnnouncedAt: facts.announcements[0]?.appliedAt.toISOString() ?? null,
     entryCount: folded.rows.length,
-    visibility: 'official',
-    resultsVersion: eventResultsVersion(facts),
-    capabilities,
+    visibility: access.kind,
+    ...(access.kind === 'official'
+      ? {
+          resultsVersion: eventResultsVersion(facts),
+          capabilities: access.capabilities,
+        }
+      : {}),
     rows: folded.rows.map((row, i) => {
       const entry = facts.entries.find((entry) => entry.id === row.entry)!;
       const values = metrics.rows.find(
@@ -123,12 +148,23 @@ function hostStandingsView(
       );
       return {
         seed: i + 1,
-        entry: { entryId: entry.id, shown: { kind: 'name', name: entry.name } },
+        entry: {
+          entryId: entry.id,
+          shown: showTournamentEntrant(
+            entry.name,
+            access.kind === 'official' || access.allowNames,
+          ),
+        },
         responsible: { kind: entry.responsibleKind, name: null },
         wins: value('wins'),
         opponentWins: value('opponent_wins'),
-        points: value('total_points') * scale,
-        rating: rating?.status === 'rated' ? rating.rating : null,
+        ...(access.kind === 'released_decisions'
+          ? {}
+          : { points: value('total_points') * scale }),
+        rating:
+          access.kind === 'official' && rating?.status === 'rated'
+            ? rating.rating
+            : null,
         explanation: row.separatedBy ?? 'First in the standings',
         decidesBreak: firstBreak?.bracket.seeds.length === i + 1,
       };
@@ -163,9 +199,12 @@ export const readHostStandings =
         const ask = (capability: AuthorizationInput['capability']) =>
           dependencies.authorize({ ...authority, capability }).allow;
         if (!ask('lobby.host.results.read')) return null;
-        return hostStandingsView(facts, {
-          announceBreak: ask('tournament.results.release'),
-          previewCorrection: ask('tournament.results.enter'),
+        return standingsViewOf(facts, {
+          kind: 'official',
+          capabilities: {
+            announceBreak: ask('tournament.results.release'),
+            previewCorrection: ask('tournament.results.enter'),
+          },
         });
       },
     );

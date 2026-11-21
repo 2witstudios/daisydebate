@@ -194,6 +194,7 @@ const OPERATION_NAMES = [
   'tab.host.ballots',
   'tab.host.results',
   'tab.host.round',
+  'tab.participant.read',
   'tab.host.draw',
   'tab.host.events',
   'tab.host.roster',

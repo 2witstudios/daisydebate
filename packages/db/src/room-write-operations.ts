@@ -235,6 +235,12 @@ async function executeOnce(
   )
     throw createAppError('AUTHORIZATION');
   if ('replay' in preparation) return preparation.replay;
+  if (
+    input.type === 'start-round' &&
+    state.topic !== null &&
+    direction?.resolutionReleasedAt === null
+  )
+    throw createRefusal('CONFLICT', 'resolution-not-released');
   const execute = preparation.execute;
   if (state.participants.some((p) => !fencedActors.includes(p.actorId)))
     throw new RoomMoved('Cast changed while acquiring authority');

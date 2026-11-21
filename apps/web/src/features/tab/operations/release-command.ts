@@ -109,8 +109,8 @@ export const releaseCommand =
               const settings = eventSettingResolution(
                 facts.configuration,
               ).settings;
-              if (requested.type === 'open-audience')
-                return decideOpenAudience(
+              if (requested.type === 'open-audience') {
+                const decision = decideOpenAudience(
                   {
                     commandId: parsed.data.commandId,
                     now: facts.checkedAt,
@@ -128,6 +128,23 @@ export const releaseCommand =
                   },
                   requested,
                 );
+                const rule = settings['resolution.rule'].value;
+                if (
+                  decision.kind === 'refused' ||
+                  requested.thing !== 'posting' ||
+                  rule.method === 'strike' ||
+                  rule.release !== 'with_posting'
+                )
+                  return decision;
+                return {
+                  ...decision,
+                  writes: decision.writes.map((write) =>
+                    write.table === 'releases'
+                      ? { ...write, releasePinnedResolution: true }
+                      : write,
+                  ),
+                };
+              }
               if (!facts.target)
                 return { kind: 'refused', refusal: 'not-found' };
               const live =

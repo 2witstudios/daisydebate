@@ -47,6 +47,14 @@ export function hostNavigationRail(
                   item('judges', 'Judges', hostRoutes.judges(view.handle)),
                 ]
               : []),
+            ...(view.schedule?.slots.map((slot) => ({
+              ...item(
+                slot.timeSlotId,
+                slot.name,
+                hostRoutes.slot(view.handle, slot.timeSlotId),
+              ),
+              time: slot.startsAt.slice(11, 16),
+            })) ?? []),
             ...(has('lobby.host.ballots.read')
               ? [item('ballots', 'Ballots', hostRoutes.ballots(view.handle))]
               : []),

@@ -7,6 +7,7 @@ import {
   type Refused,
   type Unacknowledged,
   type Moved,
+  type Done,
   formFields,
   destinationOf,
 } from '../../features/forms/form-state';
@@ -20,7 +21,7 @@ type ReplayCommandState = Idle | Refused | Unacknowledged | Moved;
 export type ReplayCommandAction = (
   previous: ReplayCommandState,
   form: FormData,
-) => Promise<ReplayCommandState>;
+) => Promise<ReplayCommandState | Done>;
 /** Every retry preserves the reviewed fields and the rendered command identity. */
 export function ReplayCommandForm({
   action,
@@ -33,8 +34,9 @@ export function ReplayCommandForm({
   readonly submitLabel: string;
   readonly children: React.ReactNode;
 }) {
-  const [state, submit, pending] = useFormAction(
-    action,
+  const [state, submit, pending] = useFormAction<ReplayCommandState | Done>(
+    (previous: ReplayCommandState | Done, form) =>
+      action(previous.kind === 'done' ? idle() : previous, form),
     idle(),
     unacknowledged,
   );

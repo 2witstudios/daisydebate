@@ -1,8 +1,10 @@
+import type { SetupPairingContext } from '../../../features/tab/setup-pairing-form';
 import type { ReactNode } from 'react';
-import type { TabAction } from '../../../features/tab/action';
+import type { CommandAction, TabAction } from '../../../features/tab/action';
 import { ActionButton } from '../action-control/action-control';
 import type {
   PairingPolicy,
+  StoredTournamentSetup,
   TournamentSetup,
 } from '../../../features/tab/setup';
 import type { TimelineRail } from '../../../features/tab/tournament';
@@ -11,6 +13,7 @@ import { EventSwitcher } from '../event-switcher/event-switcher';
 import { HostShell } from '../host-shell/host-shell';
 import { eyebrowClass, ListCard } from '../list-card/list-card';
 import { SettingRow } from '../setting-row/setting-row';
+import { HostedFeatures } from '../../hosting/hosting-panels';
 
 /** How hard the engine tries, in the host's words. */
 export const forceLabel = (policy: PairingPolicy): string => {
@@ -33,20 +36,21 @@ export const forceLabel = (policy: PairingPolicy): string => {
  */
 type SetupProps = {
   readonly rail: TimelineRail;
-  /** Video and judging under the settings: the hosting tier's switches (ADR 0149). */
-  readonly hosted?: ReactNode;
 } & (
   | {
       readonly empty: { readonly addEvent: TabAction | null };
       readonly setup?: never;
       readonly panel?: never;
-      readonly pairingForm?: never;
+      readonly renderPairing?: never;
     }
   | {
       readonly empty?: never;
-      readonly setup: TournamentSetup;
+      readonly setup: StoredTournamentSetup;
       readonly panel: 'pairing' | null;
-      readonly pairingForm: ReactNode;
+      readonly renderPairing?: (
+        pairing: TournamentSetup['pairing'],
+        action: CommandAction<SetupPairingContext>,
+      ) => ReactNode;
     }
 );
 export function Setup(props: SetupProps) {
@@ -65,15 +69,17 @@ export function Setup(props: SetupProps) {
       </HostShell>
     );
   const { rail, setup, panel } = props;
+  const save = setup.pairing.save;
+  const showPairing = panel === 'pairing' && save.kind === 'command';
   return (
     <HostShell
       rail={rail}
       current="setup"
-      {...(panel === null
+      {...(!showPairing
         ? {}
         : {
             asideLabel: 'Pairing',
-            aside: props.pairingForm,
+            aside: props.renderPairing?.(setup.pairing, save),
           })}
     >
       <EventSwitcher event={setup.event} />
@@ -84,14 +90,12 @@ export function Setup(props: SetupProps) {
             <SettingRow
               key={setting.id ?? setting.keys.join('|')}
               setting={setting}
-              selected={
-                panel === 'pairing' && setting.keys.includes('pairing.preset')
-              }
+              selected={showPairing && setting.keys.includes('pairing.preset')}
             />
           ))}
         </ul>
       </ListCard>
-      {props.hosted}
+      {setup.hosted ? <HostedFeatures {...setup.hosted} /> : null}
     </HostShell>
   );
 }

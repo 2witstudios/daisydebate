@@ -9,7 +9,7 @@ import { z } from 'zod';
 import { noopErrorReporter } from '@daisy/observability';
 import { member, origin } from '../src/server/member-boundary.test-support';
 import { silentLogger } from '../src/server/test-loggers.test-support';
-import { eventAside, storedEventsSchedule } from '../src/features/tab/events';
+import { eventAside, eventScheduleBoard } from '../src/features/tab/events';
 import { proveEventScheduleForms } from './tab-events-schedule.test-support';
 import { authorize } from '@daisy/auth/authorization';
 import { requireTestServices } from '@daisy/config';
@@ -131,7 +131,11 @@ test('Events authoring retains empty setup and persisted identity through create
         actual: [
           opening?.kind,
           cancelled?.kind,
-          storedEventsSchedule(before).selected,
+          eventScheduleBoard(before, {
+            create: false,
+            eventId: null,
+            nextId: createId,
+          })?.aside,
         ],
         expected: ['create', 'none', null],
       });

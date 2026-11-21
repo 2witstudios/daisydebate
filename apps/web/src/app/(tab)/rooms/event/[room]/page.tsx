@@ -1,8 +1,7 @@
-import { notFound } from 'next/navigation';
+import { redirect } from 'next/navigation';
 import type { SearchParams } from '../../../../../features/access/decision';
-import { requireAccess } from '../../../../../lib/access';
-import { requireTabRelease } from '../../../../../features/tab/release';
 import { tabRoutes } from '../../../../../features/tab/routes';
+import { storedEventRoom } from '../read-room';
 
 export default async function Page({
   params,
@@ -12,7 +11,6 @@ export default async function Page({
   readonly searchParams: Promise<SearchParams>;
 }) {
   const { room } = await params;
-  await requireAccess(tabRoutes.room(room), searchParams);
-  await requireTabRelease();
-  notFound();
+  await storedEventRoom(room, tabRoutes.room(room), searchParams);
+  redirect(`/rooms/${room}`);
 }

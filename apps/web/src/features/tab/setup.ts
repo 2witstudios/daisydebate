@@ -1,3 +1,5 @@
+import type { SetupPairingContext } from './setup-pairing-form';
+import type { HostingAccountReadView } from '@daisy/protocol/lobby/hosting-read';
 import type {
   SetupEvent,
   TournamentSetupView,
@@ -35,7 +37,7 @@ type PairingPanel = {
   readonly policies: readonly PairingPolicy[];
   /** Who may set a policy's force one by one. */
   readonly forceNote: string;
-  readonly save: TabAction;
+  readonly save: TabAction<SetupPairingContext>;
 };
 
 /** Which event a host screen shows, and the way to each of the others. */
@@ -50,6 +52,16 @@ export type TournamentSetup = {
   readonly lede: string;
   readonly settings: readonly SettingLine[];
   readonly pairing: PairingPanel;
+};
+
+export type StoredTournamentSetup = TournamentSetup & {
+  readonly hosted: {
+    readonly account: HostingAccountReadView;
+    readonly states: Readonly<
+      Record<'recording' | 'ai_judging' | 'broadcast', boolean>
+    >;
+    readonly upgradeHref: string;
+  } | null;
 };
 
 /**

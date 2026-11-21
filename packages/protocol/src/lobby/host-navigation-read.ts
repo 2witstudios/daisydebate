@@ -15,6 +15,26 @@ export const hostNavigationViewSchema = z.strictObject({
       areas.every((area) => hostAreaCapabilities.includes(area)),
     ),
   manageSetup: z.boolean(),
+  schedule: z
+    .strictObject({
+      slots: z.array(
+        z.strictObject({
+          timeSlotId: idSchema,
+          name: z.string(),
+          startsAt: z.iso.datetime(),
+        }),
+      ),
+      rounds: z.array(
+        z.strictObject({
+          tabRoundId: idSchema,
+          eventId: idSchema,
+          timeSlotId: idSchema.nullable(),
+          number: z.int().positive(),
+          name: z.string().nullable(),
+        }),
+      ),
+    })
+    .optional(),
   events: z.array(
     z.strictObject({ eventId: idSchema, name: z.string().min(1).max(200) }),
   ),

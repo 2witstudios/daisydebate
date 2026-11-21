@@ -4,7 +4,7 @@ import { standingsViewSchema } from '@daisy/protocol/lobby/standings-read';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { readOwnRoute } from '../../../../../(shell)/friends/read-route';
-import { linkTo } from '../../../../../../features/tab/action';
+import { commandAction, linkTo } from '../../../../../../features/tab/action';
 import { hostNavigationRail } from '../../../../../../features/tab/host-navigation';
 import { hostStandingsPath } from '../../../../../../features/tab/host-standings-route';
 import { requireTabRelease } from '../../../../../../features/tab/release';
@@ -13,7 +13,7 @@ import { settingLineOf } from '../../../../../../features/tab/settings';
 import { standingsTableOf } from '../../../../../../features/tab/standings';
 
 import { tournamentEventSettingsPath } from '../../../../../../features/tab/tournament-event-settings-route';
-import { CompletionCommandForm } from '../../../../../../ui/tab/completion/completion-command-form';
+import { CommandControl } from '../../../../../../ui/tab/action-control/command-control';
 import { HostStandings } from '../../../../../../ui/tab/standings/host-standings';
 import { GET as standingsGET } from '../../../../../api/tab/host-standings/route';
 import { GET as settingsGET } from '../../../../../api/tab/tournament-event-settings/route';
@@ -61,34 +61,30 @@ export default async function Page({
       .map((metric) => metric.replaceAll('_', ' '))
       .join(' → '),
   });
-  const table = standingsTableOf(read, tiebreaks);
+  const table = standingsTableOf(read, tiebreaks, (version) =>
+    commandAction(
+      'Announce break',
+      {
+        commandId: systemId.next(),
+        lobbyId: navigation.id,
+        eventId: selected.eventId,
+        handle: slug,
+        target: { type: 'announce-break', resultsVersion: version },
+      },
+      true,
+    ),
+  );
   return (
     <HostStandings
       rail={hostNavigationRail(navigation)}
-      announcement={
-        read.visibility === 'official' &&
-        read.capabilities.announceBreak &&
-        read.progress.kind === 'complete' &&
-        read.breakAnnouncedAt === null &&
-        read.rows.some((row) => row.decidesBreak) ? (
-          <CompletionCommandForm
-            label="Announce this event’s break"
-            submitLabel="Announce break"
-            action={eventCompletionAction.bind(null, {
-              commandId: systemId.next(),
-              lobbyId: navigation.id,
-              eventId: selected.eventId,
-              handle: slug,
-              target: {
-                type: 'announce-break',
-                resultsVersion: read.resultsVersion,
-              },
-            })}
-          >
-            {null}
-          </CompletionCommandForm>
-        ) : undefined
-      }
+      renderCommand={(action) => (
+        <CommandControl
+          action={action}
+          bind={(command) => eventCompletionAction.bind(null, command)}
+        >
+          {null}
+        </CommandControl>
+      )}
       event={{
         current: selected.name,
         position: `${navigation.events.indexOf(selected) + 1} of ${navigation.events.length}`,
@@ -101,7 +97,7 @@ export default async function Page({
             ),
           ),
       }}
-      table={{ ...table, announce: null, correction: null }}
+      table={{ ...table, correction: null }}
     />
   );
 }

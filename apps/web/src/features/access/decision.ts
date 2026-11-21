@@ -33,6 +33,7 @@ const GUARDED_AREAS: Readonly<Record<string, Requirement>> = {
   '/settings': 'account',
   // Tournaments' info page stays public; these areas under it stay guarded for
   // when its screens exist (ADR 0043).
+  '/tournaments/directory': 'participant',
   '/tournaments/organize': 'participant',
   '/tournaments/mine': 'participant',
   '/tournaments/enter': 'participant',

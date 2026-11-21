@@ -11,7 +11,12 @@ import {
 import { notFound } from 'next/navigation';
 import { randomBytes } from 'node:crypto';
 import { readOwnRoute } from '../../../../../../../../(shell)/friends/read-route';
-import { linkTo } from '../../../../../../../../../features/tab/action';
+import {
+  commandAction,
+  linkTo,
+  type CommandAction,
+} from '../../../../../../../../../features/tab/action';
+import type { DrawFormContext } from '../../../../../../../../../features/tab/draw-form';
 import { drawBoardOf } from '../../../../../../../../../features/tab/draw';
 
 import {
@@ -29,7 +34,7 @@ import {
   labelClass,
 } from '../../../../../../../../../ui/components/form-field/form-field-class';
 import { PageHeader } from '../../../../../../../../../ui/components/page-header/page-header';
-import { ReplayCommandForm } from '../../../../../../../../../ui/form-action/replay-command-form';
+import { CommandControl } from '../../../../../../../../../ui/tab/action-control/command-control';
 import { DrawBoard } from '../../../../../../../../../ui/tab/draw-board/draw-board';
 import { HostShell } from '../../../../../../../../../ui/tab/host-shell/host-shell';
 import { RunningRound } from '../../../../../../../../../ui/tab/running-round/running-round';
@@ -76,56 +81,49 @@ export async function StoredRound({
       ? {}
       : { timeSlot: read.guards.timeSlot }),
   };
-  const form = (
+  const act = (
     label: string,
     command: DrawCommand,
     overrideKeys: readonly string[] = [],
-  ) => {
-    const keys = overrideKeys.map((key) =>
-      drawOverrideSchema.shape.key.parse(key),
-    );
-    return (
-      <ReplayCommandForm
-        key={label}
-        label={label}
-        submitLabel={label}
-        action={drawAction.bind(null, {
-          handle,
-          lobbyId: navigation.id,
-          eventId,
-          tabRoundId,
-          envelope: {
-            version: 1,
-            commandId: systemId.next(),
-            expected,
-            command,
-          },
-          overrideKeys: keys,
-        })}
-      >
-        {keys.map((key) => (
-          <label key={key} className={fieldClass}>
-            <span className={labelClass}>
-              Reason to override {key.replaceAll('_', ' ').replaceAll('.', ' ')}
-            </span>
-            <input
-              name={`override:${key}`}
-              required
-              maxLength={500}
-              className={controlClass}
-            />
-          </label>
-        ))}
-      </ReplayCommandForm>
-    );
-  };
-  const generation = () =>
-    form(read.kind === 'undrawn' ? 'Generate draw' : 'Draw again', {
-      type: 'generate-draw',
+  ) =>
+    commandAction<DrawFormContext>(label, {
+      handle,
+      lobbyId: navigation.id,
+      eventId,
       tabRoundId,
-      resultCutoff: Math.max(0, read.tabRound.number - 1),
-      seed: randomBytes(32).toString('hex'),
+      envelope: { version: 1, commandId: systemId.next(), expected, command },
+      overrideKeys: overrideKeys.map((key) =>
+        drawOverrideSchema.shape.key.parse(key),
+      ),
     });
+  const renderCommand = (action: CommandAction<DrawFormContext>) => (
+    <CommandControl
+      action={action}
+      bind={(command) => drawAction.bind(null, command)}
+    >
+      {action.command.overrideKeys.map((key) => (
+        <label key={key} className={fieldClass}>
+          <span className={labelClass}>
+            Reason to override {key.replaceAll('_', ' ').replaceAll('.', ' ')}
+          </span>
+          <input
+            name={`override:${key}`}
+            required
+            maxLength={500}
+            className={controlClass}
+          />
+        </label>
+      ))}
+    </CommandControl>
+  );
+  const generation = read.capabilities.generate
+    ? act(read.kind === 'undrawn' ? 'Generate draw' : 'Draw again', {
+        type: 'generate-draw',
+        tabRoundId,
+        resultCutoff: Math.max(0, read.tabRound.number - 1),
+        seed: randomBytes(32).toString('hex'),
+      })
+    : null;
   const eventSwitch = {
     current: event.name,
     position: read.tabRound.name ?? `Round ${read.tabRound.number}`,
@@ -150,7 +148,7 @@ export async function StoredRound({
           title={read.tabRound.name ?? `Round ${read.tabRound.number}`}
           lede={`${event.name} · No draw has been generated.`}
         />
-        {read.capabilities.generate ? generation() : null}
+        {generation ? renderCommand(generation) : null}
       </HostShell>
     );
   if (read.kind === 'published')
@@ -184,70 +182,6 @@ export async function StoredRound({
         })}
       />
     );
-  const chosen = read.draw.recordGroups
-    .flatMap((group) => group.fixtures)
-    .find((row) => row.fixtureId === selectedFixtureId);
-  const keys = [
-    ...new Set(
-      read.draw.recordGroups.flatMap((group) =>
-        group.fixtures.flatMap((fixture) =>
-          fixture.findings
-            .filter((finding) => finding.severity === 'rule_broken')
-            .map((finding) => finding.text),
-        ),
-      ),
-    ),
-  ];
-  const controls = (
-    <div className="flex flex-wrap items-start gap-4">
-      {read.capabilities.generate ? generation() : null}
-      {read.draw.capabilities.edit
-        ? form('Assign judges', {
-            type: 'assign-judges',
-            drawId: read.draw.draw.drawId,
-          })
-        : null}
-      {read.draw.capabilities.publish
-        ? form(
-            `Publish round ${read.tabRound.number}`,
-            {
-              type: 'publish-draw',
-              drawId: read.draw.draw.drawId,
-              overrides: [],
-            },
-            keys,
-          )
-        : null}
-      {read.draw.capabilities.edit
-        ? form('Discard draft', {
-            type: 'discard-draft',
-            drawId: read.draw.draw.drawId,
-          })
-        : null}
-    </div>
-  );
-  const seats = chosen ? (
-    <div className="flex flex-col gap-3">
-      {chosen.entries.map((entry) => (
-        <p key={entry.entryId}>
-          {entry.side ? `${entry.side}: ` : ''}
-          {entry.name}
-        </p>
-      ))}
-      {chosen.judges.map((judge) => (
-        <p key={judge.tournamentJudgeId}>
-          {judge.chair ? 'Chair' : 'Judge'}: {judge.name}
-        </p>
-      ))}
-      {chosen.kind === 'pairing' && read.draw.capabilities.edit
-        ? form('Swap sides', {
-            type: 'edit-draw',
-            basedOnDrawId: read.draw.draw.drawId,
-            edits: [{ type: 'swap-sides', fixtureId: chosen.fixtureId }],
-          })
-        : null}
-    </div>
-  ) : null;
   return (
     <DrawBoard
       rail={rail}
@@ -255,10 +189,11 @@ export async function StoredRound({
       draw={drawBoardOf(read.draw, {
         event: eventSwitch,
         selectedFixtureId,
+        commands: { act, generation },
         fixtureAddress: (fixtureId) =>
           hostRoutes.round(handle, eventId, tabRoundId, fixtureId),
       })}
-      storedControls={{ actions: controls, seats }}
+      renderCommand={renderCommand}
     />
   );
 }

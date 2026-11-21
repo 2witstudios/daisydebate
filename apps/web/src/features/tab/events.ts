@@ -1,10 +1,11 @@
-import { linkTo } from './action';
+import { commandAction, linkTo } from './action';
+import type { EventFormContext } from './event-form';
 import type { HostEventsView } from '@daisy/protocol/lobby/host-events-read';
 import type {
   SetupEvent,
   TournamentSetupView,
 } from '@daisy/protocol/lobby/lobby-setup-read';
-import type { Choice, TabAction } from './action';
+import type { TabAction } from './action';
 import { hostRoutes } from './routes';
 
 type ScheduledEvent = {
@@ -21,40 +22,10 @@ type EventGroup = {
   readonly events: readonly ScheduledEvent[];
 };
 
-type EventForm = {
-  readonly slug: string;
-  readonly name: string;
-  readonly format: { readonly value: string; readonly source: string };
-  readonly divisions: Choice;
-  readonly novice: { readonly value: string; readonly source: string };
-  readonly prelimRounds: Choice;
-  readonly openBreak: Choice;
-  readonly noviceBreak: Choice;
-  readonly doubleQualifier: Choice;
-  readonly runsWith: Choice;
-  readonly settings: TabAction;
-  readonly remove: TabAction;
-};
-
-export type EventsSchedule = {
+type EventsSchedule = {
   readonly lede: string;
   readonly actions: readonly TabAction[];
   readonly groups: readonly EventGroup[];
-  readonly entryLimit:
-    | { readonly kind: 'unconfigured' }
-    | {
-        readonly kind: 'configured';
-        readonly rule: string;
-        readonly source: string;
-      };
-  readonly judgePool:
-    | { readonly kind: 'unconfigured'; readonly action: TabAction | null }
-    | {
-        readonly kind: 'configured';
-        readonly rule: string;
-        readonly action: TabAction;
-      };
-  readonly selected: EventForm | null;
 };
 
 /** The form's fields the setup read does not decide, as the screen words them. */
@@ -144,7 +115,7 @@ export function eventAside(
   const event = setup.events.find((event) => event.eventId === input.eventId);
   return event ? { kind: 'edit', event } : null;
 }
-export function storedEventsSchedule(view: HostEventsView): EventsSchedule {
+function eventScheduleSummary(view: HostEventsView): EventsSchedule {
   const setup = view.setup,
     groups = groupsOf(setup.events);
   return {
@@ -161,8 +132,199 @@ export function storedEventsSchedule(view: HostEventsView): EventsSchedule {
         href: hostRoutes.events(setup.handle, event.eventId),
       })),
     })),
-    entryLimit: { kind: 'unconfigured' },
-    judgePool: { kind: 'unconfigured', action: null },
-    selected: null,
+  };
+}
+
+/** The event board's controls are projected from one guarded schedule read. */
+export function eventScheduleBoard(
+  view: HostEventsView,
+  selection: {
+    readonly create: boolean;
+    readonly eventId: string | null;
+    readonly nextId: () => string;
+  },
+) {
+  const { setup, resolutionChoices, pinOptions } = view;
+  const aside = eventAside(setup, selection);
+  if (!aside) return null;
+  const event = aside.kind === 'edit' ? aside.event : null;
+  const base = {
+    handle: setup.handle,
+    lobbyId: setup.lobbyId,
+    lobbyVersion: view.lobbyVersion,
+    returnEventId: event?.eventId ?? null,
+  };
+  const act = <Target extends EventFormContext['target']>(
+    label: string,
+    target: Target,
+  ) =>
+    commandAction<
+      Omit<EventFormContext, 'target'> & { readonly target: Target }
+    >(label, { ...base, target, commandId: selection.nextId() });
+  const availableSlots = setup.timeSlots.map(({ timeSlotId, name }) => ({
+    timeSlotId,
+    name,
+  }));
+  return {
+    ...eventScheduleSummary(view),
+    selectedEventId: event?.eventId ?? null,
+    cancel: linkTo('Cancel', hostRoutes.events(setup.handle)),
+    aside:
+      aside.kind === 'create'
+        ? {
+            kind: 'create' as const,
+            save: act('Create event', { kind: 'create', pinOptions }),
+          }
+        : event
+          ? {
+              kind: 'edit' as const,
+              event,
+              save: act('Save event', {
+                kind: 'edit',
+                eventId: event.eventId,
+                ballotDefinition: event.ballotDefinition
+                  ? {
+                      id: event.ballotDefinition.ballotDefinitionId,
+                      version: event.ballotDefinition.ballotDefinitionVersion,
+                    }
+                  : null,
+              }),
+              links: [
+                linkTo(
+                  'Event settings',
+                  `${hostRoutes.setup(setup.handle)}?event=${event.eventId}`,
+                ),
+                linkTo(
+                  'Ballot definition',
+                  hostRoutes.ballot(setup.handle, event.eventId),
+                ),
+                linkTo(
+                  'Resolutions',
+                  hostRoutes.resolutions(setup.handle, event.eventId),
+                ),
+              ],
+              remove: act('Remove event', {
+                kind: 'command',
+                command: {
+                  type: 'remove-event',
+                  lobbyId: setup.lobbyId,
+                  eventId: event.eventId,
+                },
+              }),
+            }
+          : null,
+    editor: event
+      ? {
+          title: `${event.name} stages and rounds`,
+          addStage: act('Add stage', {
+            kind: 'add-stage',
+            eventId: event.eventId,
+          }),
+          stages: event.stages.map((stage) => ({
+            ...stage,
+            add: act('Add round', {
+              kind: 'add-round',
+              stageId: stage.stageId,
+              resolutionChoices,
+            }),
+            rounds: event.tabRounds
+              .filter((round) => round.stageId === stage.stageId)
+              .map((round) => ({
+                ...round,
+                title: round.name ?? `Round ${round.number}`,
+                open: linkTo(
+                  'Open draw',
+                  hostRoutes.round(
+                    setup.handle,
+                    event.eventId,
+                    round.tabRoundId,
+                  ),
+                ),
+                resolution: round.poolResolutionId
+                  ? `word:${round.poolResolutionId}`
+                  : round.resolutionPoolId
+                    ? `pool:${round.resolutionPoolId}`
+                    : '',
+                save: view.publishedRoundIds?.includes(round.tabRoundId)
+                  ? null
+                  : act('Save round', {
+                      kind: 'edit-round',
+                      tabRoundId: round.tabRoundId,
+                      resolutionChoices,
+                      ...(view.releasedResolutionRoundIds?.includes(
+                        round.tabRoundId,
+                      )
+                        ? {
+                            lockedResolution: round.resolutionPoolId
+                              ? {
+                                  poolId: round.resolutionPoolId,
+                                  poolResolutionId: round.poolResolutionId,
+                                }
+                              : null,
+                          }
+                        : {}),
+                    }),
+                place:
+                  stage.timing === 'live' &&
+                  !view.publishedRoundIds?.includes(round.tabRoundId)
+                    ? act('Place round', {
+                        kind: 'place-round',
+                        tabRoundId: round.tabRoundId,
+                        timeSlots: availableSlots,
+                      })
+                    : null,
+              })),
+          })),
+        }
+      : null,
+    openTournament:
+      setup.status === 'draft'
+        ? act('Open tournament', {
+            kind: 'command',
+            command: {
+              type: 'set-tournament-status',
+              lobbyId: setup.lobbyId,
+              status: 'open',
+            },
+          })
+        : null,
+    slots: setup.timeSlots.flatMap((slot) => {
+      const slotVersion = view.timeSlotVersions.find(
+        (one) => one.timeSlotId === slot.timeSlotId,
+      )?.version;
+      if (slotVersion === undefined) return [];
+      return [
+        {
+          ...slot,
+          open: linkTo(
+            'Open time slot',
+            hostRoutes.slot(setup.handle, slot.timeSlotId),
+          ),
+          save: act('Save time slot', {
+            kind: 'edit-slot',
+            timeSlotId: slot.timeSlotId,
+            slotVersion,
+          }),
+          remove: act('Remove time slot', {
+            kind: 'command',
+            slotVersion,
+            command: {
+              type: 'remove-time-slot',
+              lobbyId: setup.lobbyId,
+              timeSlotId: slot.timeSlotId,
+            },
+          }),
+        },
+      ];
+    }),
+    addSlot: act('Add time slot', { kind: 'add-slot' }),
+    pools: setup.resolutionPools,
+    addResolution: act('Add resolution', {
+      kind: 'add-resolution',
+      pools: setup.resolutionPools.map(({ resolutionPoolId, name }) => ({
+        poolId: resolutionPoolId,
+        name,
+      })),
+    }),
   };
 }
