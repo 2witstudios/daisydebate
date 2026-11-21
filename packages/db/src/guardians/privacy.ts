@@ -17,6 +17,10 @@ const linkRow = z.object({
 });
 const permissionRow = z.object({
   guardian_link_id: z.string(),
+  created_at: z.date(),
+  signed_at: z.date().nullable(),
+  waiver_version: z.string().nullable(),
+  waiver_digest: z.string().nullable(),
   lobby_id: z.string(),
 });
 const evidenceRow = z.object({
@@ -76,8 +80,23 @@ export const guardianLinksPrivacyAdopter: PrivacyAdopter = {
       tx,
       permissionRow,
       sql`
-      select guardian_link_id, lobby_id from restriction_lobbies
+      select guardian_link_id, lobby_id, created_at, signed_at, waiver_version, waiver_digest
+      from restriction_lobbies
       where ${own} order by guardian_link_id, lobby_id`,
+    );
+    const waivers = await query(
+      tx,
+      z.object({
+        guardian_link_id: z.string(),
+        lobby_id: z.string(),
+        season_id: z.string(),
+        signed_at: z.date(),
+        waiver_version: z.string(),
+        waiver_digest: z.string(),
+      }),
+      sql`select guardian_link_id, lobby_id, season_id, signed_at, waiver_version, waiver_digest
+      from restriction_lobby_waivers where ${own}
+      order by guardian_link_id, lobby_id, signed_at, season_id, waiver_version`,
     );
     const evidence = await query(
       tx,
@@ -97,6 +116,7 @@ export const guardianLinksPrivacyAdopter: PrivacyAdopter = {
       protection_levels: exportRows(protection),
       guardian_links: exportRows(links),
       restriction_lobbies: exportRows(permissions),
+      restriction_lobby_waivers: exportRows(waivers),
       guardian_consent_evidence: exportRows(evidence),
     };
   },

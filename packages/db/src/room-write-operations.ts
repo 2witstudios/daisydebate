@@ -1,4 +1,11 @@
 import { requireRankedProtection } from './guardians/ranked-protection';
+import { lockActiveLobbySeason } from './ladder-season';
+import { readCompetitionAgeBand } from './ladder-division-band';
+import { refuseIneligibleDebaters } from './room-start-eligibility';
+import {
+  hasGuardianLobbyWaiver,
+  readGuardianLobbyIds,
+} from './guardians/lobby-permissions';
 import { reserveTournamentCapture } from './tab/tournament-capture-admission';
 import {
   locateTournamentCaptureFunder,
@@ -78,13 +85,27 @@ import {
   transactionNow,
 } from './room-command-facts';
 
-// Ready and launch check the same evidence for the seat, against the Room's standing lobby.
-const readRoomSeatContentWaiverStanding = (
+/** Ready and Start require the same evidence for the seat's own lobby. */
+const readRoomSeatContentWaiverStanding = async (
   tx: Tx,
   state: RoomAssemblyState,
   userId: string,
-  version: string,
-) => readContentWaiverStanding(tx, userId, version, state.lobbyId);
+  waiverVersion: string,
+  guardianSigns = false,
+): Promise<ContentWaiverStanding> => {
+  if (!guardianSigns)
+    return readContentWaiverStanding(tx, userId, waiverVersion, state.lobbyId);
+  const seasonId = await lockActiveLobbySeason(tx, state.lobbyId);
+  if (!seasonId) return 'no-active-season';
+  return (await hasGuardianLobbyWaiver(tx, {
+    minorUserId: userId,
+    lobbyId: state.lobbyId,
+    waiverVersion,
+    seasonId,
+  }))
+    ? 'signed'
+    : 'unsigned';
+};
 
 async function requireStartWaivers(
   tx: Tx,
@@ -107,16 +128,19 @@ async function requireStartWaivers(
     if (userId === null)
       throw createAppError('INVARIANT', 'A human seat has no account');
     const account = await loadAuthorizationAccount(tx, userId);
-    const version = agreementsOf(
+    const agreements = agreementsOf(
       state,
-      account?.ageBand ?? null,
-    )?.contentWaiverVersion;
+      await readCompetitionAgeBand(tx, userId, state.lobbyId),
+      account?.actorId ?? null,
+    );
+    const version = agreements?.contentWaiverVersion;
     if (!version) continue;
     const standing = await readRoomSeatContentWaiverStanding(
       tx,
       state,
       userId,
       version,
+      agreements.guardianSigns,
     );
     if (standing !== 'signed')
       throw createRefusal(
@@ -161,8 +185,10 @@ type CommandInput = {
     state: RoomAssemblyState,
     /** The caller's age band: which ranked waiver they sign (ADR 0161). */
     signer: AgeBand | null,
+    signerActorId: string | null,
   ) => {
     readonly contentWaiverVersion: string | null;
+    readonly guardianSigns?: boolean;
     readonly notice: {
       readonly id: string;
       readonly version: string;
@@ -298,8 +324,13 @@ async function executeOnce(
     throw new RoomMoved('Cast changed while acquiring authority');
   if (state.changeVersion !== prepared.changeVersion)
     throw new RoomMoved('Room changed while preparing consent');
+  if (input.type === 'ready')
+    await refuseIneligibleDebaters(tx, state, input.caller.actorId);
   const target = input.targetActorId
-    ? await actorFact(tx, input.targetActorId)
+    ? await actorFact(tx, input.targetActorId, {
+        lobbyId: state.lobbyId,
+        readPermissions: (userId) => readGuardianLobbyIds(tx, userId),
+      })
     : null;
   // FOR SHARE: a concurrent publication (FOR UPDATE on the format
   // row) serializes with this selection, so the policy judges facts
@@ -309,7 +340,11 @@ async function executeOnce(
     : null;
   const agreements =
     input.type === 'ready'
-      ? input.readyAgreements(state, account?.ageBand ?? null)
+      ? input.readyAgreements(
+          state,
+          await readCompetitionAgeBand(tx, input.caller.userId, state.lobbyId),
+          input.caller.actorId,
+        )
       : null;
   const draw = await drawFacts(tx, input.type, state);
   const grants = await readEntitlementGrants(tx, input.caller.userId);
@@ -319,6 +354,7 @@ async function executeOnce(
         state,
         input.caller.userId,
         agreements.contentWaiverVersion,
+        agreements.guardianSigns,
       )
     : null;
   const judgeQuote =

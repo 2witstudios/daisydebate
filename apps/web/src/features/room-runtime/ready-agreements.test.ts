@@ -3,11 +3,13 @@ import {
   YOUTH_CONTENT_WAIVER_VERSION,
   casualCaptureNotice,
 } from '../legal/agreements';
+import { judgeSeat, sideSeat } from '@daisy/protocol';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   captureNoticeRefusal,
   contentWaiverRefusal,
   createNoticeOf,
+  needsGuardianContentWaiver,
   requiredContentWaiver,
   roomCaptureNotice,
 } from './ready-agreements';
@@ -40,6 +42,31 @@ describe('Ready agreements', () => {
         CONTENT_WAIVER_VERSION,
         null,
       ],
+    });
+  });
+
+  test('a guardian signs the adult-lobby waiver for a minor debater', () => {
+    const adultRoom = {
+      ...ranked,
+      ageRule: 'adults' as const,
+      participants: [
+        { actorId: 'debater', seat: sideSeat('affirmative') },
+        { actorId: 'judge', seat: judgeSeat() },
+      ],
+    };
+    const waiver = (actorId: string) =>
+      requiredContentWaiver(
+        adultRoom,
+        '13-15',
+        needsGuardianContentWaiver(adultRoom, '13-15', actorId),
+      );
+    assert({
+      given:
+        'a 14-year-old debater and a 14-year-old judge in an adult ranked lobby',
+      should:
+        'use the guardian’s adult-lobby waiver for the debater and keep the judge’s own waiver',
+      actual: [waiver('debater'), waiver('judge')],
+      expected: [CONTENT_WAIVER_VERSION, YOUTH_CONTENT_WAIVER_VERSION],
     });
   });
 

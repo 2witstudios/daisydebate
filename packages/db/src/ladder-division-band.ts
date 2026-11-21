@@ -23,7 +23,9 @@ import type { Tx } from './tx';
  * in SQL; only the band leaves it. Over the `account_age` row joined into the
  * caller's query.
  */
-export const divisionAgeBand = (lobbyId?: string): SQL<AgeBand | null> => {
+export const divisionAgeBand = (
+  lobbyId?: string | SQL,
+): SQL<AgeBand | null> => {
   const seasonStart =
     lobbyId === undefined
       ? sql`(select s.starts_at from seasons s join lobbies l on l.id = s.lobby_id
@@ -41,9 +43,10 @@ export const divisionAgeBand = (lobbyId?: string): SQL<AgeBand | null> => {
 export const readCompetitionAgeBand = async (
   tx: Pick<Tx, 'select'>,
   userId: string,
+  lobbyId?: string,
 ): Promise<AgeBand | null> => {
   const [age] = await tx
-    .select({ band: divisionAgeBand() })
+    .select({ band: divisionAgeBand(lobbyId) })
     .from(accountAge)
     .where(eq(accountAge.userId, userId));
   return age?.band ?? null;

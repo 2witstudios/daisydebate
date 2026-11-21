@@ -31,6 +31,8 @@ export type TenantSubject =
   /** `guardian_user_id` and `minor_user_id` are the two people. */
   | 'guardian'
   | 'friend-approval'
+  | 'lobby-permission'
+  | 'lobby-waiver'
   | 'consent-signer'
   | 'child-account-request'
   /** The funding account or the person who acted on its named consent. */
@@ -146,7 +148,16 @@ export const tenantIsolationManifest: TenantIsolationManifest = {
       key: 'person',
       subject: 'friend-approval',
     },
-    { table: 'restriction_lobbies', key: 'person', subject: 'guardian' },
+    {
+      table: 'restriction_lobbies',
+      key: 'person',
+      subject: 'lobby-permission',
+    },
+    {
+      table: 'restriction_lobby_waivers',
+      key: 'person',
+      subject: 'lobby-waiver',
+    },
     { table: 'action_history', key: 'history' },
     lobby('lobbies', { keyColumn: 'id', openRead: true }),
     organization('templates', { openRead: true }),

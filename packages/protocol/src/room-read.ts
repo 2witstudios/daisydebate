@@ -131,7 +131,7 @@ const roomViewFields = z.strictObject({
    * seated human on an open ranked Room. Ready rechecks it under the Room's
    * lock. Null for anyone else.
    */
-  contentWaiver: z.enum(['signed', 'unsigned']).nullable(),
+  contentWaiver: z.enum(['signed', 'unsigned', 'guardian-required']).nullable(),
   /**
    * Which waiver that standing is on: the one this viewer's own lobby signs
    * (ADR 0161), the Youth waiver for a member under 18 whatever Room they sit

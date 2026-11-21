@@ -59,6 +59,7 @@ export type RosterProps = {
     readonly label: string;
     /** The viewer's ladder division (ADR 0147); null with no age on record. */
     readonly ageBand: AgeBand | null;
+    readonly guardianLobbyIds?: readonly string[] | undefined;
   };
   readonly bots: readonly RoomCastChoice[];
   readonly action: FormAction<RoomFormState>;
@@ -480,9 +481,7 @@ function OpenSeat({
   const takeName = `Take ${roomSeatLabel(view, seat)}`;
   // Debater seats are for the Room's own lobby, judge seats for anyone (ADR
   // 0156): another lobby's member sees the debater seat open, with no Take seat.
-  const takes =
-    !isDebatingSeat(seat) ||
-    mayDebate({ ageBand: props.viewer.ageBand, guardianAllowed: false }, view);
+  const takes = !isDebatingSeat(seat) || mayDebate(props.viewer, view);
   return (
     <>
       <span aria-hidden="true" />

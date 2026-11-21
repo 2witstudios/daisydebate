@@ -185,3 +185,8 @@ export { holdForGuardian } from './friends/hold-for-guardian';
 export { listFriendships } from './friends/reads';
 export { notificationInboxOperations } from './notifications/inbox';
 export { pinRankedFixturePool } from './testing-rating-pool';
+export { createLobbyPermissionStore } from './guardians/lobby-requests';
+export {
+  readGuardianLobbyIds,
+  hasGuardianLobbyWaiver,
+} from './guardians/lobby-permissions';

@@ -3,6 +3,7 @@ import {
   mayDebate,
 } from '@daisy/protocol/lobby/eligibility';
 import { readFamilySettings } from '../features/parental-controls/settings';
+import { CONTENT_WAIVER_VERSION } from '../features/legal/agreements';
 import { evaluatedIdentity } from '../server/member-boundary';
 import { messageOfferFor } from '../features/messaging/request-offer';
 import { leaguePageAddress } from '../features/tab/reads/league-address';
@@ -285,11 +286,23 @@ export const requestOfficialStandingLobbies = cache(async () =>
   ),
 );
 
-export const requestCompetitionAgeBand = cache(async () => {
+export const requestCompetitionAgeBand = cache(async (lobbyId?: string) => {
   const identity = await requestIdentity();
   return identity.state === 'member' || identity.state === 'provisional'
-    ? processApp().database.readCompetitionAgeBand(identity.principal.userId)
+    ? processApp().database.readCompetitionAgeBand(
+        identity.principal.userId,
+        lobbyId,
+      )
     : null;
+});
+
+export const requestGuardianLobbyIds = cache(async (lobbyId?: string) => {
+  const identity = await requestIdentity();
+  if (identity.state !== 'member') return [];
+  const ageBand = await requestCompetitionAgeBand(lobbyId);
+  return ageBand === '13-15' || ageBand === '16-17'
+    ? processApp().database.readGuardianLobbyIds(identity.principal.userId)
+    : [];
 });
 
 export const requestProfileChallengeModes = async (username: string) => {
@@ -317,17 +330,21 @@ export const requestRoomCreateLobbyChoice = cache(
     const creator = await processApp().database.readRoomCreatorFact(
       identity.principal.userId,
     );
-    const choices = (await requestOfficialStandingLobbies()).filter(
-      (lobby) =>
+    const lobbies = await requestOfficialStandingLobbies();
+    const ages = await Promise.all(
+      lobbies.map(({ id }) => requestCompetitionAgeBand(id)),
+    );
+    const choices = lobbies.filter(
+      (lobby, index) =>
         (creator.clubStaff && lobby.ageRule === 'under-18') ||
         mayDebate(
-          { ageBand: creator.ageBand, guardianAllowed: false },
-          { ...lobby, competitionType: 'casual' },
+          { ...creator, ageBand: ages[index] ?? null },
+          { ...lobby, lobbyId: lobby.id, competitionType: 'casual' },
         ),
     );
     const selected =
       choices.find(({ id }) => id === sourceLobbyId) ??
-      (creator.clubStaff
+      (creator.clubStaff || (creator.guardianLobbyIds?.length ?? 0) > 0
         ? (defaultStandingLobby(choices, creator.ageBand) ?? choices[0])
         : null);
     return selected ? { choices, defaultId: selected.id } : null;
@@ -814,6 +831,16 @@ export async function requestFriendApprovals() {
   return processApp().database.guardians.forSubject(viewer.userId, (session) =>
     session.waitingFriendApprovals(),
   );
+}
+
+export async function requestFamilyLobbyPermissions(role: 'adult' | 'child') {
+  const viewer = await requestFamilyViewer();
+  return viewer?.role === role
+    ? processApp().database.lobbyPermissions.read(
+        viewer.userId,
+        CONTENT_WAIVER_VERSION,
+      )
+    : null;
 }
 
 /** What this member's profile view offers toward `username` (decision 90). */

@@ -93,6 +93,7 @@ export function makeOperations(
       reason: 'free-judge-unbound',
     }),
     readContentWaiverStanding: async () => 'signed',
+    hasGuardianLobbyWaiver: async () => false,
     readMemberCardRatings: async () => [],
     readRatingBlindings: async () => [],
     listRoomCatalogSources: async (

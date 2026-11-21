@@ -309,7 +309,8 @@ fences a ranked Ready (`content-waiver-required`, or `ranked-unavailable` with
 no season open).
 
 A Room belongs to the lobby it was created in. In a standing lobby,
-`mayDebate` applies the lobby's age rule to the member's competition age band
+`mayDebate` applies the lobby's age rule to the member's competition age band and any permission
+from an active guardian link for that exact lobby
 ([ADR 0162](../decisions/0162-daisy-is-a-league-open-and-youth-are-lobbies.md)).
 Members can create in an eligible lobby, club staff can also host in an
 under-18 lobby, and a challenge opens a Room in the pair's lobby. The member's
@@ -317,7 +318,8 @@ age band still uses the stored birth month and the existing season anchor
 and carry rules ([ADR 0147](../decisions/0147-ladder-style-and-division.md) §3).
 
 - **Debater seats.** Claiming or assigning a debater seat uses the Room's
-  age rule. A member without an age record may debate casually in an adults
+  age rule. A minor can claim an adult lobby’s debater seat after their guardian
+  signs that lobby’s ranked content waiver. A member without an age record may debate casually in an adults
   or anyone lobby. A bot debates only casually.
 - **Judges.** Judge seats take anyone: minors judge Open Rooms, adults Youth.
 - **Start.** Start checks seated debaters again. A ranked Round uses the

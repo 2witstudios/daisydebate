@@ -59,6 +59,7 @@ type Props = {
    * name the ladder that is theirs. Null with no age on record.
    */
   readonly viewerAgeBand: AgeBand | null;
+  readonly guardianLobbyIds?: readonly string[] | undefined;
   readonly bots: readonly RoomCastChoice[];
   /** The picker's catalog for Room setup (FMT-3). */
   readonly choices: readonly RoomCatalogChoice[];
@@ -177,6 +178,7 @@ export function RoomLive(props: Props) {
               actorId: props.actorId,
               label: props.viewerLabel,
               ageBand: props.viewerAgeBand,
+              guardianLobbyIds: props.guardianLobbyIds,
             }}
             bots={props.bots}
             action={props.commandAction}

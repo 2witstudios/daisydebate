@@ -18,6 +18,7 @@ import { hostHoldsCasualCapture } from './capture-offer';
 import {
   captureNoticeRefusal,
   contentWaiverRefusal,
+  needsGuardianContentWaiver,
   requiredContentWaiver,
   roomCaptureNotice,
 } from './ready-agreements';
@@ -94,12 +95,22 @@ export function roomCommandOperation({
           : null,
       roundId,
       seatsBotDebater: castSeatsBotDebater,
-      readyAgreements: (state, signer) => {
+      readyAgreements: (state, signer, signerActorId) => {
         const notice = roomCaptureNotice(state);
-        const contentWaiverVersion = requiredContentWaiver(state, signer);
+        const guardianSigns = needsGuardianContentWaiver(
+          state,
+          signer,
+          signerActorId,
+        );
+        const contentWaiverVersion = requiredContentWaiver(
+          state,
+          signer,
+          guardianSigns,
+        );
         return notice || contentWaiverVersion
           ? {
               contentWaiverVersion,
+              guardianSigns,
               notice: notice && {
                 id: ids.next(),
                 version: notice.version,

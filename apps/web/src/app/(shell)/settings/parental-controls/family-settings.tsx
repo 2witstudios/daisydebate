@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import type { LegalDocument } from '../../../../features/legal/documents';
 import { guardianNoticeDocument } from '../../../../features/legal/guardian-notices';
 import {
+  requestFamilyLobbyPermissions,
   requestFamilyRows,
   requestFriendApprovals,
 } from '../../../../lib/request-session';
@@ -11,6 +12,7 @@ import { protectionLevelLabels } from '../../../../features/parental-controls/pr
 import { GuardianForm } from '../../../../ui/settings/parental-controls/guardian-form';
 import { PageHeader } from '../../../../ui/components/page-header/page-header';
 import { controlClass } from '../../../../ui/components/form-field/form-field-class';
+import { LobbyPermissionControls } from './lobby-permission-controls';
 import { parentalControlsAction } from './actions';
 
 function Notice({ document }: { readonly document: LegalDocument }) {
@@ -59,9 +61,10 @@ export async function FamilySettings({
   readonly childAccountClosed?: boolean;
 }) {
   const adult = role === 'adult';
-  const [rows, approvals] = await Promise.all([
+  const [rows, approvals, lobbyPermissions] = await Promise.all([
     requestFamilyRows(role),
     adult ? requestFriendApprovals() : [],
+    requestFamilyLobbyPermissions(role),
   ]);
   if (!rows) notFound();
   const notice = guardianNoticeDocument(
@@ -172,6 +175,13 @@ export async function FamilySettings({
                       {protectionLevelLabels[row.protectionLevel.level]}
                     </p>
                   )
+                ) : null}
+                {row.status === 'active' && lobbyPermissions ? (
+                  <LobbyPermissionControls
+                    role={role}
+                    linkId={row.id}
+                    permissions={lobbyPermissions}
+                  />
                 ) : null}
                 {adult && row.request ? (
                   <div className="flex flex-wrap gap-2">
