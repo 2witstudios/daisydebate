@@ -66,3 +66,17 @@ export function messagingUnitPolicy(): MessagingRuntimePolicy {
     },
   });
 }
+/** The contact read's answer for `accounts` (decision 90): no setting row, friendship or linked adult. */
+export const contactRowsOf = (
+  accounts: readonly { readonly account: { readonly userId: string } }[],
+) =>
+  accounts.map((row) => ({
+    user_id: row.account.userId,
+    setting: 'everyone',
+    friend_actor_ids: [],
+    linked_adult_user_ids: [],
+  }));
+/** A statement of the policy fact reader: an age read or the contact read. */
+export const policyFactQuery = (query: string) =>
+  query.includes('daisy_authorization_age') ||
+  query.includes('messaging_request_settings');

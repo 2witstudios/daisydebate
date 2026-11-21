@@ -18,6 +18,8 @@ export type MessagingSocialFrame = {
     readonly policyRevision: number;
     readonly now: string;
     readonly limits: SocialRequestLimits;
+    /** Ids for the recipient's `dm_request` notification. */
+    readonly nextId: () => string;
   }) => Promise<{ readonly channelId: string; readonly state: string }>;
   /**
    * Before any budget is spent: answers the existing pending or accepted DM

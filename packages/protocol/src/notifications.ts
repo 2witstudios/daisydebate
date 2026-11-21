@@ -16,6 +16,8 @@ export const notificationSubjects = [
   'media_release_request',
   'media_release',
   'media_release_club_ask',
+  // A message request on a DM channel (decision 90).
+  'dm_request',
 ] as const;
 export type NotificationSubjectKind = (typeof notificationSubjects)[number];
 
@@ -75,6 +77,9 @@ export const notificationCatalogue = {
     urgency: 'durable',
     email: 'none',
   },
+  // Someone sent a message request (decision 90); the introduction stays in
+  // Messages, never in the notice.
+  dm_request: { subject: 'dm_request', urgency: 'durable', email: 'batched' },
   // Tab (NTF-15): what one applied command on a published fixture changed for
   // the people it seats. Each waits, in-app, for the lobby's own read fences.
   judge_assigned: { subject: 'fixture', urgency: 'durable', email: 'none' },

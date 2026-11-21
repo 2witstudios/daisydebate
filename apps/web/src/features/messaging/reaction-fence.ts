@@ -19,6 +19,7 @@ export function messagingReactionFence(
       scope,
       frame,
       options,
+      operation === 'add' ? 'posting' : 'reading',
     );
     if (operation === 'remove') {
       if (!association) throw createAppError('NOT_FOUND');

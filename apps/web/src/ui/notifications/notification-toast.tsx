@@ -144,6 +144,13 @@ const looks: Record<NotificationKind, ToastLook> = {
     eyebrow: 'New friend',
     action: 'Open Friends',
   },
+  dm_request: {
+    hue: 'bg-accent-soft text-accent',
+    ink: 'text-accent',
+    icon: 'message',
+    eyebrow: 'Message request',
+    action: 'See request',
+  },
   media_release_requested: release('send', 'Send again'),
   media_release_declined: release('lock', 'See your release'),
   media_release_signed: release('check', 'See your release'),

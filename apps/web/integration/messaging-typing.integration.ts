@@ -1,5 +1,7 @@
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
+import { betaDmPolicy } from '@daisy/auth/social-policy';
+import { socialMemberReading } from '@daisy/auth/social-reading';
 import {
   buildChannelTopic,
   ENVELOPE_VERSION,
@@ -16,6 +18,8 @@ test('mounted typing qualifies actual leases and publishes only changed aggregat
     await mountedMessaging.mountedMessagingPair(databaseUrl, {
       messagingPolicy: {
         ...mountedMessaging.messagingRoutePolicy,
+        posting: betaDmPolicy,
+        reading: socialMemberReading(betaDmPolicy),
         typing: { ttlMs: 6000, refetchMs: 1000, maxActors: 2 },
       },
     });
@@ -66,12 +70,25 @@ test('mounted typing qualifies actual leases and publishes only changed aggregat
       channelId,
       app.app.clock.now(),
     );
+    const minorBirthMonth = `${new Date(app.app.clock.now()).getUTCFullYear() - 15}-01`;
+    await client.unsafe(
+      'update account_age set birth_month=$2 where user_id=$1',
+      [me.userId, minorBirthMonth],
+    );
+    await client.unsafe(
+      'update messaging_channels set policy_revision=$2 where id=$1',
+      [channelId, betaDmPolicy.revision],
+    );
+    await client.unsafe(
+      'update messaging_dm_pairs set request_sender_actor_id=$2 where channel_id=$1',
+      [channelId, me.actorId],
+    );
     const start = await update(true),
       self = await read(first.cookie),
       observer = await read(second.cookie);
     await flushNotifications();
     assert({
-      given: 'actual accepted DM, current accounts/age and authorized start',
+      given: 'an accepted revision-2 DM initiated by a minor with an adult',
       should: 'show only peer aggregate and publish a channel-only hint',
       actual: [
         start.status,

@@ -35,6 +35,7 @@ export const toastWaits = (kind: NotificationKind): boolean => {
     case 'challenge_accepted':
     case 'room_invitation':
     case 'friend_request_received':
+    case 'dm_request':
     case 'round_started':
       return true;
     case 'followed_debater_live':
@@ -75,6 +76,7 @@ export const toasted = (kind: NotificationKind): boolean => {
     case 'room_invitation':
     case 'friend_request_received':
     case 'friend_request_accepted':
+    case 'dm_request':
     case 'round_started':
     case 'round_decision_released':
     case 'judge_assigned':

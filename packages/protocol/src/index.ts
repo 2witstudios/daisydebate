@@ -437,10 +437,13 @@ export {
   messagingDmResultSchema,
   messagingDmDecisionResultSchema,
   messagingChannelLifecycles,
+  messageRequestSettings,
+  messageRequestSettingSchema,
 } from './messaging/social';
 export type {
   MessagingChannelLifecycle,
   MessagingSocialBounds,
+  MessageRequestSetting,
 } from './messaging/social';
 export type {
   OpenRoomStatus,
