@@ -4,6 +4,53 @@ import nextVitals from 'eslint-config-next/core-web-vitals';
 import betterTailwind from 'eslint-plugin-better-tailwindcss';
 import { getDefaultSelectors } from 'eslint-plugin-better-tailwindcss/defaults';
 
+// The styling gate checks JSX attributes. Type information distinguishes a
+// URL variable from a callable React action, which supplies its own POST.
+const formActionPlugin = {
+  rules: {
+    'require-callable-action': {
+      meta: {
+        messages: {
+          method:
+            'Use method="post" for a form address. An omitted method requires a callable React action (ADR 0114).',
+        },
+      },
+      create(context) {
+        const { program, esTreeNodeToTSNodeMap } =
+          context.sourceCode.parserServices;
+        const checker = program.getTypeChecker();
+        return {
+          JSXOpeningElement(node) {
+            if (node.name.type !== 'JSXIdentifier' || node.name.name !== 'form')
+              return;
+            const named = (name) =>
+              node.attributes.find(
+                (attribute) =>
+                  attribute.type === 'JSXAttribute' &&
+                  attribute.name.type === 'JSXIdentifier' &&
+                  attribute.name.name === name,
+              );
+            if (named('method')) return;
+            const value = named('action')?.value;
+            if (
+              value?.type !== 'JSXExpressionContainer' ||
+              value.expression.type === 'JSXEmptyExpression'
+            )
+              return;
+            const expression = esTreeNodeToTSNodeMap.get(value.expression);
+            const type = checker.getTypeAtLocation(expression);
+            const members = type.isUnion() ? type.types : [type];
+            if (
+              members.some((member) => member.getCallSignatures().length === 0)
+            )
+              context.report({ node: value, messageId: 'method' });
+          },
+        };
+      },
+    },
+  },
+};
+
 /**
  * Shared between the repo-wide `no-restricted-syntax` entry and the
  * ambient-time exemption below, so the two copies can't drift: the engineering
@@ -549,53 +596,6 @@ export const typedRules = {
     'error',
     { allowThrowingAny: false, allowThrowingUnknown: true },
   ],
-};
-
-// The styling gate checks JSX attributes. Type information distinguishes a
-// URL variable from a callable React action, which supplies its own POST.
-const formActionPlugin = {
-  rules: {
-    'require-callable-action': {
-      meta: {
-        messages: {
-          method:
-            'Use method="post" for a form address. An omitted method requires a callable React action (ADR 0114).',
-        },
-      },
-      create(context) {
-        const { program, esTreeNodeToTSNodeMap } =
-          context.sourceCode.parserServices;
-        const checker = program.getTypeChecker();
-        return {
-          JSXOpeningElement(node) {
-            if (node.name.type !== 'JSXIdentifier' || node.name.name !== 'form')
-              return;
-            const named = (name) =>
-              node.attributes.find(
-                (attribute) =>
-                  attribute.type === 'JSXAttribute' &&
-                  attribute.name.type === 'JSXIdentifier' &&
-                  attribute.name.name === name,
-              );
-            if (named('method')) return;
-            const value = named('action')?.value;
-            if (
-              value?.type !== 'JSXExpressionContainer' ||
-              value.expression.type === 'JSXEmptyExpression'
-            )
-              return;
-            const expression = esTreeNodeToTSNodeMap.get(value.expression);
-            const type = checker.getTypeAtLocation(expression);
-            const members = type.isUnion() ? type.types : [type];
-            if (
-              members.some((member) => member.getCallSignatures().length === 0)
-            )
-              context.report({ node: value, messageId: 'method' });
-          },
-        };
-      },
-    },
-  },
 };
 
 export default [
