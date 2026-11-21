@@ -721,6 +721,44 @@ const dbNativeRowsPlugin = {
           const expression = tsNodeToESTreeNodeMap.get(owner.initializer);
           return expression ? { expression, key: property.text } : undefined;
         };
+        const localMember = (receiver, key, read, seen) => {
+          const object = constantSource(receiver, seen);
+          if (object?.type !== 'ObjectExpression' || key === undefined)
+            return undefined;
+          let statement = read;
+          while (
+            statement.parent &&
+            !['BlockStatement', 'Program'].includes(statement.parent.type)
+          )
+            statement = statement.parent;
+          const block = statement.parent;
+          if (block) {
+            // A straight-line write can replace a property without replacing
+            // the constant object. A destructuring read captures its earlier value.
+            for (
+              let index = block.body.indexOf(statement) - 1;
+              index >= 0;
+              index -= 1
+            ) {
+              const candidate = block.body[index];
+              if (candidate.range[0] <= object.range[0]) break;
+              if (candidate.type !== 'ExpressionStatement') continue;
+              const assignment = candidate.expression;
+              if (
+                assignment.type === 'AssignmentExpression' &&
+                assignment.operator === '=' &&
+                assignment.left.type === 'MemberExpression' &&
+                staticKey(
+                  assignment.left.property,
+                  assignment.left.computed,
+                ) === key &&
+                constantSource(assignment.left.object) === object
+              )
+                return assignment.right;
+            }
+          }
+          return literalMember(object, key);
+        };
         const constantSource = (value, seen = new Set()) => {
           if (!value) return undefined;
           while (!seen.has(value)) {
@@ -739,9 +777,11 @@ const dbNativeRowsPlugin = {
             }
             let initializer;
             if (value.type === 'MemberExpression') {
-              initializer = literalMember(
-                constantSource(value.object, seen),
+              initializer = localMember(
+                value.object,
                 staticKey(value.property, value.computed),
+                value,
+                seen,
               );
             }
             if (value.type === 'Identifier') {
@@ -752,9 +792,11 @@ const dbNativeRowsPlugin = {
                 );
               const member = destructuredMember(declaration);
               if (member)
-                initializer = literalMember(
-                  constantSource(member.expression, seen),
+                initializer = localMember(
+                  member.expression,
                   member.key,
+                  member.expression,
+                  seen,
                 );
             }
             if (!initializer) break;

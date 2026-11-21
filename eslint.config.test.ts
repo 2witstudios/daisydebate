@@ -811,6 +811,19 @@ describe('database statement and lock boundaries', () => {
     ] as const;
     const settlementCases = [
       [
+        0,
+        `const raw = ${typedStatement};
+         const adapter: { all: (input: (typeof raw)[]) => Promise<Awaited<typeof raw>[]> } = { all: Promise.all };
+         adapter.all = (inputs) => Promise.all(inputs.map((input) => query(input, z.object({ value: z.int() }))));
+         const [rows] = await adapter.all([raw]); return rows?.[0]?.value;`,
+      ],
+      [
+        1,
+        `const raw = ${typedStatement};
+         const adapter = { all: (inputs: (typeof raw)[]) => Promise.all(inputs.map((input) => query(input, z.object({ value: z.int() })))) };
+         adapter.all = Promise.all; const [rows] = await adapter.all([raw]); return rows?.[0]?.value;`,
+      ],
+      [
         1,
         `const raw = ${typedStatement}; const all = Promise.all<[typeof raw]>;
          const apply = (Reflect.apply<typeof Promise, [[typeof raw]], ReturnType<typeof all>>).bind(Reflect, all, Promise);
