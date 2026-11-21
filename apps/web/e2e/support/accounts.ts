@@ -106,6 +106,12 @@ export const youthBirth = (now: string): BirthMonth => {
   return { month: at.getUTCMonth() + 1, year: at.getUTCFullYear() - 17 };
 };
 
+/** A birth month that makes a member `years` old all this month. */
+export const birthAged = (now: string, years: number): BirthMonth => {
+  const at = new Date(now);
+  return { month: at.getUTCMonth() + 1, year: at.getUTCFullYear() - years };
+};
+
 /**
  * Signs the context's browser in as a new member with a claimed username,
  * approved for the beta (ADR 0075) as an operator would.

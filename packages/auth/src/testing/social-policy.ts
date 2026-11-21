@@ -8,7 +8,7 @@ export const messagingTestPosting = {
   decision: 'isolated browser fixture only',
   key: 'social.dm',
   revision: 1,
-  allowedBandPairs: [['adult', 'adult']],
+  earlierRevisions: [],
 } as const satisfies SocialContactPolicy;
 
 /** Selected only by isolated group browser tests; DEC127 stays unapproved. */

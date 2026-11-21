@@ -29,7 +29,9 @@ function requestResultDecision(
 ): AuthorizationDecision {
   const authority = resource.authority;
   return authority.kind === 'dm' &&
-    authority.state !== 'pending' &&
+    (authority.state === 'accepted' ||
+      authority.state === 'declined' ||
+      authority.state === 'cancelled') &&
     [authority.lowActorId, authority.highActorId].includes(actorId) &&
     currentPolicy(resource, context.socialReading, context)
     ? allow
@@ -66,16 +68,17 @@ function requestDecision(
   const sender = authority.requestSenderActorId === actorId;
   const actorAllowed =
     capability === 'channel.request.cancel' ? sender : !sender;
-  const policy =
-    capability === 'channel.request.read'
-      ? context.socialReading
-      : context.socialPosting;
+  // Only accepting opens a conversation, so only accepting asks the DM rule
+  // (decision 90): reading, cancelling and declining are open to any current
+  // member, whatever either person's age.
+  const accepting =
+    capability === 'channel.request.decide' && context.answer !== 'decline';
   return actorAllowed &&
     currentPolicy(
       resource,
-      policy,
+      accepting ? context.socialPosting : context.socialReading,
       context,
-      capability !== 'channel.request.read',
+      accepting,
     )
     ? allow
     : deny('missing-capability');

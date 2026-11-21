@@ -73,6 +73,13 @@ export type InboxRow = {
       /** The other member, or null once their account is gone. */
       readonly friend: string | null;
     }
+  | {
+      readonly kind: 'dm_request';
+      /** The DM the request opened, where it is answered. */
+      readonly channelId: string;
+      /** Who asked, or null once their account is gone. */
+      readonly from: string | null;
+    }
   | (TournamentNotificationFacts & {
       readonly kind: TournamentNotificationKind;
     })
@@ -123,6 +130,7 @@ type FlatRow = {
   minor: string | null;
   ownRelease: boolean | null;
   clubHandle: string | null;
+  dmChannelId: string | null;
   readAt: string | null;
   surfacedAt: string;
 };
@@ -181,6 +189,13 @@ const inboxRow = (
     case 'friend_request_received':
     case 'friend_request_accepted':
       return { ...base, kind: row.kind, friend: row.about };
+    case 'dm_request':
+      return {
+        ...base,
+        kind: row.kind,
+        channelId: row.dmChannelId!,
+        from: row.about,
+      };
     case 'media_release_requested':
       return {
         ...base,
@@ -249,7 +264,7 @@ export const readInboxRows = async (
           mrq.recipient_email as "recipientEmail",
           ${iso('mrq.expires_at')} as "requestExpiresAt",
           mru.username as minor,(mr.user_id=n.user_id) as "ownRelease",
-          mco.handle as "clubHandle",
+          mco.handle as "clubHandle",n.dm_channel_id as "dmChannelId",
           ${iso('n.read_at')} as "readAt",${iso('n.surfaced_at')} as "surfacedAt"
         from notifications n ${standingJoins} where ${input.where}
         order by n.surfaced_at desc,n.id desc limit ${input.limit}`,

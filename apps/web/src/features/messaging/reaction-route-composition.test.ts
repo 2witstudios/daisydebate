@@ -4,7 +4,7 @@ import { fixedClock, sequentialId } from '@daisy/clock';
 import { createScriptedAuthorizationTransaction } from '@daisy/db/testing';
 import { createMessagingUnitApp } from './messaging-app.test-support';
 import { signedMessagingAuth } from './signed-messaging.test-support';
-import { typingWorld } from './typing.test-support';
+import { contactRowsOf, typingWorld } from './typing.test-support';
 import { composeMessagingReactionRoute } from './reaction-route';
 setupRitewayBun();
 test('actual app reaction route binds signed identity and canonical operation fence ', async () => {
@@ -23,9 +23,12 @@ test('actual app reaction route binds signed identity and canonical operation fe
         }
       : row,
   );
-  const { tx, queries } = createScriptedAuthorizationTransaction(
-    Array.from({ length: 6 }, (_, index) => [accountRows[index % 2]!.age]),
-  );
+  const ages = accountRows.map((row) => [row.age]);
+  const { tx, queries } = createScriptedAuthorizationTransaction([
+    ...ages,
+    ...ages,
+    contactRowsOf(accountRows),
+  ]);
   const events: unknown[] = [];
   const messageId = 'm'.repeat(24);
   const response = {
@@ -128,7 +131,9 @@ test('actual app reaction route binds signed identity and canonical operation fe
         (await read.json()).policy,
         change.status,
         events,
-        queries.length,
+        queries.map((query) =>
+          query.query.includes('messaging_request_settings'),
+        ),
       ],
       expected: [
         200,
@@ -140,7 +145,7 @@ test('actual app reaction route binds signed identity and canonical operation fe
           { reactionUnits: 8, choices: ['👍'], distinctPerMessage: 1 },
           ['change', scope],
         ],
-        4,
+        [false, false, false, false, true],
       ],
     });
   } finally {

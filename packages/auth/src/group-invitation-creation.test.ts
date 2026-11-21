@@ -41,7 +41,7 @@ const context: AuthorizationInput['context'] = {
     key: 'social.private_group',
     revision: 1,
     groupBlockScope: 'all_pairs',
-    allowedBandPairs: [['adult', 'adult']],
+    earlierRevisions: [],
   },
 };
 const candidate = {

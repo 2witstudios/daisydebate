@@ -19,6 +19,13 @@ These rules are blockers in every plan and review (owner, 2026-10-27 and
 - **No coupling for efficiency.** Saving a call, a table or a pool is never a
   reason to merge two concepts. The anti-example is ADR 0071, which made the
   AI judge's ballot feedback double as the "coaching" report.
+- **No organization is special in code.** Daisy is an ordinary league
+  ([ADR 0162](../decisions/0162-daisy-is-a-league-open-and-youth-are-lobbies.md)).
+  Anything a league can do comes from the league model: lobbies, ladders,
+  seasons and tournaments are created in the league host area, never by
+  scripts, seeds or flags. Daisy's only difference is presentation (its
+  official lobbies appear in the lobby screens). Where a member may compete
+  is the lobby's age rule, never a separate division column.
 - **Words matter.** "Coaching" and "coach" are reserved for future human
   coaches. The AI post-round report is **Round analysis**.
 - **Pure, semantic structure is mandatory.** Pure model: state is one explicit

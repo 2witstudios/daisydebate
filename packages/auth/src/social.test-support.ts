@@ -18,4 +18,9 @@ export const adultAccount = (actorId: string, userId = actorId) => ({
     accountRevision: 1,
     validUntil: '2026-11-01T00:00:00.000Z',
   },
+  contact: {
+    requestSetting: 'everyone' as const,
+    friendActorIds: [] as readonly string[],
+    linkedAdultUserIds: [] as readonly string[],
+  },
 });

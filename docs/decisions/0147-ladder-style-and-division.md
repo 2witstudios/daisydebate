@@ -8,6 +8,8 @@ replaces the ranked age floor that PR 789 introduced (ranked play for members
 18 and over only). §4, §5 and §6 are amended by
 [ADR 0156](0156-room-division-from-its-lobby.md): a Room's division is the
 lobby it was created in, not who sits.
+[ADR 0162](0162-daisy-is-a-league-open-and-youth-are-lobbies.md) makes the
+division a standing lobby's age rule: a ladder belongs to its lobby.
 
 ## Context
 

@@ -2,18 +2,26 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { createScriptedAuthorizationTransaction } from '@daisy/db/testing';
 import { messagingReactionFence } from './reaction-fence';
-import { typingWorld } from './typing.test-support';
+import { policyFactQuery, typingWorld } from './typing.test-support';
 setupRitewayBun();
-function fixture() {
+function fixture(contactUnavailable = false) {
   const f = typingWorld(),
     self = f.accounts[0]!.account;
   if (f.channel.authority.kind !== 'dm')
     throw new Error('Accepted DM fixture required');
-  const { tx, queries } = createScriptedAuthorizationTransaction([]);
+  // Unknown ages: the contact facts are never read.
+  const { tx, queries } = createScriptedAuthorizationTransaction(
+    contactUnavailable
+      ? [
+          ...f.accounts.map((row) => [row.age]),
+          new Error('DM contact facts unavailable'),
+        ]
+      : [],
+  );
   const channel = {
     ...f.channel,
-    lifecycle: 'archived' as const,
-    authority: { ...f.channel.authority, blocked: true },
+    lifecycle: contactUnavailable ? ('active' as const) : ('archived' as const),
+    authority: { ...f.channel.authority, blocked: !contactUnavailable },
   };
   const scope = {
     actorId: self.actorId,
@@ -38,6 +46,25 @@ function fixture() {
   };
   return { tx, queries, fence, scope, association, authority };
 }
+test('reaction reads and own removals bypass unavailable contact facts', async () => {
+  const read = fixture(true);
+  const remove = fixture(true);
+  await read.fence(read.tx, read.scope, read.authority, 'read');
+  await remove.fence(
+    remove.tx,
+    remove.scope,
+    remove.authority,
+    'remove',
+    remove.association,
+  );
+  assert({
+    given: 'an accepted DM with known ages and an unavailable contact query',
+    should:
+      'authorize reading reactions and removing the member’s own reaction without loading contact facts',
+    actual: [read.queries.length, remove.queries.length],
+    expected: [2, 2],
+  });
+});
 test('own reaction cleanup consumes actual canonical reading with blocked archived unknown-age history', async () => {
   const f = fixture();
   await f.fence(f.tx, f.scope, f.authority, 'remove', f.association);
@@ -54,9 +81,7 @@ test('own reaction cleanup consumes actual canonical reading with blocked archiv
     should: 'reuse the same adapter and expose no raw birth query',
     actual: [
       f.queries.length,
-      f.queries.every((query) =>
-        query.query.includes('daisy_authorization_age'),
-      ),
+      f.queries.every((query) => policyFactQuery(query.query)),
     ],
     expected: [6, true],
   });
