@@ -6,7 +6,6 @@ import {
   operatorKeyIdSchema,
   operatorLimits,
   operatorNonceSchema,
-  operatorRoutes,
   operatorSignatureVersion,
 } from '@daisy/protocol/operator';
 
@@ -66,7 +65,7 @@ export function canonicalOperatorRequest(
 ): string | null {
   const route = matchOperatorRoute(parts.method, parts.path);
   if (!route) return null;
-  const allowed: readonly string[] = operatorRoutes[route.route].query;
+  const allowed = route.query;
   const keys = parts.query.map(([key]) => key);
   if (
     new Set(keys).size !== keys.length ||

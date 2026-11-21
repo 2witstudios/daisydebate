@@ -44,6 +44,7 @@ import {
   operatorLimits,
   type OperatorAccountsPage,
   type OperatorCommandState,
+  type MatchedOperatorRoute,
 } from '@daisy/protocol/operator';
 
 /**
@@ -227,15 +228,29 @@ async function nonceRefusal(
 function dispatch(
   deps: OperatorApiDependencies,
   principal: AuthorizationPrincipal,
-  route: NonNullable<ReturnType<typeof matchOperatorRoute>>,
+  route: MatchedOperatorRoute,
   url: URL,
   request: { readonly body: Uint8Array; readonly signedAtMs: number },
 ): Promise<unknown> {
-  // eslint-disable-next-line @typescript-eslint/switch-exhaustiveness-check -- the default is every ContentModerationRoute, which its handler's parameter type proves.
+  if (route.group === 'content-moderation') {
+    return contentModerationRoute(
+      {
+        store: deps.contentModeration,
+        profilePhotos: deps.profilePhotos,
+        crypto: deps.crypto,
+        nowMs: deps.nowMs,
+        logger: deps.logger,
+      },
+      principal,
+      route,
+      url,
+      request,
+    );
+  }
   switch (route.route) {
     case 'setFlagState':
     case 'setFlagOverride':
-      return changeFlag(deps, principal, route.route, route.id!, request);
+      return changeFlag(deps, principal, route.route, route.id, request);
     case 'listPreapprovals':
       return listPreapprovals(deps, principal, url);
     case 'updatePreapproval':
@@ -243,32 +258,17 @@ function dispatch(
     case 'listAccounts':
       return listAccounts(deps, principal, url);
     case 'setBetaAccess':
-      return setBetaAccess(deps, principal, route.id!, request);
+      return setBetaAccess(deps, principal, route.id, request);
     case 'listReports':
       return listReports(deps, principal, url);
     case 'resolveReport':
-      return resolveReport(deps, principal, route.id!, request);
+      return resolveReport(deps, principal, route.id, request);
     case 'listRestrictions':
       return listRestrictions(deps, principal, url);
     case 'liftModeration':
-      return liftModeration(deps, principal, route.id!, request);
+      return liftModeration(deps, principal, route.id, request);
     case 'readCommand':
-      return readCommand(deps, principal, route.id!);
-    default:
-      return contentModerationRoute(
-        {
-          store: deps.contentModeration,
-          profilePhotos: deps.profilePhotos,
-          crypto: deps.crypto,
-          nowMs: deps.nowMs,
-          logger: deps.logger,
-        },
-        principal,
-        route.route,
-        route.id,
-        url,
-        request,
-      );
+      return readCommand(deps, principal, route.id);
   }
 }
 
