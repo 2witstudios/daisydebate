@@ -924,6 +924,20 @@ export default [
     },
   },
   {
+    files: ['apps/web/src/app/**/route.ts', 'apps/web/src/app/**/actions.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            ...appImportRestrictions,
+            { ...processEdgeImport, allowImportNames: ['processRoute'] },
+          ],
+        },
+      ],
+    },
+  },
+  {
     files: ['apps/web/src/app/**/*.{ts,tsx}'],
     rules: {
       'no-restricted-syntax': [
@@ -935,20 +949,6 @@ export default [
             'CallExpression > MemberExpression.callee:matches([computed=false][property.name="split"], [computed=true][property.value="split"]) > MemberExpression.object:matches([computed=false][property.name="pathname"], [computed=true][property.value="pathname"])',
           message:
             'Use Next.js route params or pass the bound value to the server action.',
-        },
-      ],
-    },
-  },
-  {
-    files: ['apps/web/src/app/**/route.ts', 'apps/web/src/app/**/actions.ts'],
-    rules: {
-      'no-restricted-imports': [
-        'error',
-        {
-          patterns: [
-            ...appImportRestrictions,
-            { ...processEdgeImport, allowImportNames: ['processRoute'] },
-          ],
         },
       ],
     },
