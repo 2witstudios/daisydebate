@@ -1,4 +1,4 @@
-import { instantMs } from '@daisy/clock';
+import { isInstantBefore } from '@daisy/clock';
 import { z } from 'zod';
 import { settingKeys, type SettingKey } from './keys';
 import { conflictHandlingSchema } from '../authorization';
@@ -181,7 +181,7 @@ export const settingValueSchemas = {
         closesAt: instant,
       })
       .refine(
-        (window) => instantMs(window.opensAt) < instantMs(window.closesAt),
+        (window) => isInstantBefore(window.opensAt, window.closesAt),
         'A registration window closes after it opens.',
       ),
   ]),

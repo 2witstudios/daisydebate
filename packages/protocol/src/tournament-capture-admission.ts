@@ -1,4 +1,4 @@
-import { instantMs } from '@daisy/clock';
+import { isInstantAtOrBefore, tryInstantMs } from '@daisy/clock';
 import { z } from 'zod';
 import { idSchema } from './primitives';
 import { tournamentHostingGrantSchema } from './tournament-hosting';
@@ -78,11 +78,14 @@ export const tournamentCaptureAdmissionSchema = z
     }),
   })
   .refine((value) => {
-    const admitted = instantMs(value.admittedAt),
-      deadline = instantMs(value.deadlineAt);
-    if (!(
-      admitted < deadline && deadline <= admitted + value.executionBudgetMs
-    ))
+    const admitted = tryInstantMs(value.admittedAt);
+    const deadline = tryInstantMs(value.deadlineAt);
+    if (
+      admitted === undefined ||
+      deadline === undefined ||
+      admitted >= deadline ||
+      deadline > admitted + value.executionBudgetMs
+    )
       return false;
     const { basis } = value;
     if (basis.kind === 'hosting-purchase') {
@@ -90,15 +93,15 @@ export const tournamentCaptureAdmissionSchema = z
       return (
         value.funding.kind === 'personal-owner' &&
         basis.purchase.lobbyId === value.lobbyId &&
-        instantMs(basis.purchase.paidAt) <= admitted &&
+        isInstantAtOrBefore(basis.purchase.paidAt, value.admittedAt) &&
         value.capacity.sponsorLimit === limit &&
         value.capacity.tournamentLimit === limit
       );
     }
     const { hosting } = basis.grant;
     return (
-      instantMs(hosting.startsAt) <= admitted &&
-      deadline <= instantMs(hosting.expiresAt) &&
+      isInstantAtOrBefore(hosting.startsAt, value.admittedAt) &&
+      isInstantAtOrBefore(value.deadlineAt, hosting.expiresAt) &&
       hosting.coverage.tournamentIds.includes(value.lobbyId) &&
       value.capacity.sponsorLimit ===
         hosting.coverage.sponsorConcurrencyLimit &&

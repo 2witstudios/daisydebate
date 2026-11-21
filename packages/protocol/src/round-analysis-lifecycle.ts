@@ -1,4 +1,4 @@
-import { instantMs } from '@daisy/clock';
+import { instantMs, tryInstantMs } from '@daisy/clock';
 import type { RoundAnalysisReport } from './round-analysis';
 import {
   analysisRequest,
@@ -255,8 +255,8 @@ function purge(state: AnalysisWork, now: string) {
   });
 }
 function validTime(state: AnalysisWork | null, now: string) {
-  const instant = at(now);
-  if (!Number.isFinite(instant)) return false;
+  const instant = tryInstantMs(now);
+  if (instant === undefined) return false;
   if (!state) return true;
   const facts = analysisRequest(state);
   const times = [
@@ -268,7 +268,11 @@ function validTime(state: AnalysisWork | null, now: string) {
     state.kind === 'purged' ? state.purgedAt : null,
     state.kind === 'leased' ? state.lease.claimedAt : null,
   ];
-  return times.every((time) => !time || instant >= at(time));
+  return times.every((time) => {
+    if (!time) return true;
+    const recorded = tryInstantMs(time);
+    return recorded !== undefined && instant >= recorded;
+  });
 }
 function publish(
   state: RequestedAnalysis,

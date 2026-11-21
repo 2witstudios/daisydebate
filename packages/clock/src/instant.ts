@@ -38,3 +38,21 @@ export function addMs(instant: string, durationMs: number): string {
     throw new RangeError('Expected a whole millisecond duration');
   return new Date(instantMs(instant) + durationMs).toISOString();
 }
+
+const instantDifference = (left: unknown, right: unknown) => {
+  const a = tryInstantMs(left);
+  const b = tryInstantMs(right);
+  return a === undefined || b === undefined ? undefined : a - b;
+};
+
+/** Whether two valid instants are strictly ordered. */
+export function isInstantBefore(left: unknown, right: unknown): boolean {
+  const difference = instantDifference(left, right);
+  return difference !== undefined && difference < 0;
+}
+
+/** Whether two valid instants are ordered or equal. */
+export function isInstantAtOrBefore(left: unknown, right: unknown): boolean {
+  const difference = instantDifference(left, right);
+  return difference !== undefined && difference <= 0;
+}

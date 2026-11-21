@@ -1,4 +1,4 @@
-import { instantMs } from '@daisy/clock';
+import { isInstantAtOrBefore } from '@daisy/clock';
 import { z } from 'zod';
 import { idSchema } from './primitives';
 import { ownedInvoiceObservationSchema } from './billing-payment-observation-source';
@@ -90,10 +90,9 @@ export const invoicePassSchema = pass.refine(
 );
 function validPassTimes(value: InvoicePass) {
   return (
-    instantMs(value.beganAt) >= instantMs(value.owner.closedAt) &&
+    isInstantAtOrBefore(value.owner.closedAt, value.beganAt) &&
     (value.owner.source.kind !== 'purchase' ||
-      instantMs(value.owner.source.admittedAt) <=
-        instantMs(value.owner.closedAt))
+      isInstantAtOrBefore(value.owner.source.admittedAt, value.owner.closedAt))
   );
 }
 function validPassComparison(value: InvoicePass) {
@@ -187,8 +186,8 @@ function finalHeadBinding(
     head.passId === value.id &&
     head.jobId === value.jobId &&
     head.request.invoiceId === value.owner.invoiceId &&
-    instantMs(head.startedAt) >= instantMs(value.beganAt) &&
-    instantMs(head.observedAt) >= instantMs(head.startedAt) &&
+    isInstantAtOrBefore(value.beganAt, head.startedAt) &&
+    isInstantAtOrBefore(head.startedAt, head.observedAt) &&
     JSON.stringify(head.owner) === JSON.stringify(value.owner)
   );
 }

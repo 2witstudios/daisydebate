@@ -38,4 +38,11 @@ export function fixedIds(values: readonly string[]): IdGenerator {
   };
 }
 
-export { addMs, instantMs, nowMs, tryInstantMs } from './instant';
+export {
+  addMs,
+  instantMs,
+  isInstantAtOrBefore,
+  isInstantBefore,
+  nowMs,
+  tryInstantMs,
+} from './instant';

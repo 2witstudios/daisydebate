@@ -1,5 +1,6 @@
-import { instantMs } from '@daisy/clock';
+import { instantMs, tryInstantMs } from '@daisy/clock';
 import { speakingChangesOf } from './round-speaking';
+import { debateInvariantIds } from './invariant-ids';
 import { closePlayedRound, startRound } from './round-commands';
 import { roundHoldsMembers } from './room-membership';
 import { applyPanelCompletion } from './round-panel-completion';
@@ -124,10 +125,10 @@ export function createRoundRuntime(input: {
 
   const capture = (on: RoundStore) => captureRoundStore(on);
   /** An internal decision applied on a scratch copy, kept only if it succeeds. */
-  const onScratch = (now: string, apply: (c: CommandContext) => void) => {
+  const onScratch = (now: number, apply: (c: CommandContext) => void) => {
     const scratch = restoreRoundStore(capture(store));
     const into = queues();
-    apply(contextOn(scratch, into, null, instantMs(now)));
+    apply(contextOn(scratch, into, null, now));
     store = scratch;
     return project(into);
   };
@@ -347,15 +348,22 @@ export function createRoundRuntime(input: {
       return project(into);
     },
     stop: (now) =>
-      onScratch(now, (c) => {
+      onScratch(instantMs(now), (c) => {
         const ending = abandonedLifecycle(c.on.lifecycle(), c.now);
         closePlayedRound(c);
         c.on.setLifecycle(ending);
       }),
-    completePanel: (completion) =>
-      onScratch(completion.now, (c) =>
+    completePanel: (completion) => {
+      const at = tryInstantMs(completion.now);
+      if (at === undefined)
+        throw createInvariantError(
+          debateInvariantIds.panelPlayedRound,
+          'Panel completion requires a valid clock',
+        );
+      return onScratch(at, (c) =>
         applyPanelCompletion(c, completion, input.participants),
-      ),
+      );
+    },
     /**
      * The opening has run: the Round becomes active at the instant it ended,
      * and the clock catches up to `now`, so a late sweep cannot move the

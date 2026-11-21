@@ -1,4 +1,4 @@
-import { instantMs } from '@daisy/clock';
+import { tryInstantMs } from '@daisy/clock';
 import { z } from 'zod';
 import { idSchema } from './primitives';
 import { evidenceEnvelopeSchema } from './evidence-envelope';
@@ -17,13 +17,16 @@ export const evidenceIngressReplySchema: z.ZodType<NecessaryEvidenceIngressReply
         payloadAcceptedAt: z.iso.datetime({ precision: 3 }),
         receipt: evidenceEnvelopeSchema.shape.receipt,
       })
-      .refine(
-        (reply) =>
+      .refine((reply) => {
+        const acceptedAt = tryInstantMs(reply.payloadAcceptedAt);
+        return (
           reply.evidenceId === reply.receipt.evidenceId &&
           reply.bindingDigest === reply.receipt.bindingDigest &&
-          instantMs(reply.payloadAcceptedAt) >= reply.receipt.receivedAtMs &&
-          instantMs(reply.payloadAcceptedAt) < reply.receipt.expiresAtMs,
-      ),
+          acceptedAt !== undefined &&
+          acceptedAt >= reply.receipt.receivedAtMs &&
+          acceptedAt < reply.receipt.expiresAtMs
+        );
+      }),
     z.strictObject({ kind: z.literal('pending'), evidenceId: idSchema }),
     z.strictObject({
       kind: z.literal('refused'),

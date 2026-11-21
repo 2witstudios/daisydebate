@@ -1,5 +1,13 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { addMs, fixedClock, instantMs, nowMs, tryInstantMs } from './index';
+import {
+  addMs,
+  fixedClock,
+  instantMs,
+  isInstantAtOrBefore,
+  isInstantBefore,
+  nowMs,
+  tryInstantMs,
+} from './index';
 
 setupRitewayBun();
 
@@ -49,6 +57,24 @@ describe('ISO instants', () => {
         addMs('2000-03-01T00:00Z', -1),
       ],
       expected: [951868799999, '2000-03-01T00:00:00.000Z', instant],
+    });
+  });
+
+  test('orders only valid instants', () => {
+    const at = '2026-11-20T05:00:00Z';
+    const equal = '2026-11-20T00:00:00-05:00';
+    const earlier = '2026-11-20T04:59:59Z';
+    assert({
+      given: 'equivalent offsets, an earlier instant and malformed input',
+      should: 'distinguish strict ordering and refuse either malformed operand',
+      actual: [
+        isInstantBefore(earlier, at),
+        isInstantBefore(at, equal),
+        isInstantAtOrBefore(at, equal),
+        isInstantBefore('bad', at),
+        isInstantAtOrBefore(at, 'bad'),
+      ],
+      expected: [true, false, true, false, false],
     });
   });
 

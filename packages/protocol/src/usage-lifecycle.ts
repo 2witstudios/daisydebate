@@ -108,18 +108,17 @@ function terminalAt(state: UsageState): string | null {
   }
 }
 function validHistory(state: UsageState, start: number, now: number): boolean {
-  const counted = 'countedAt' in state ? instantMs(state.countedAt) : start;
-  if (!(start <= counted && counted <= now)) return false;
+  const counted = 'countedAt' in state ? tryInstantMs(state.countedAt) : start;
+  if (counted === undefined || counted < start || counted > now) return false;
   const terminal = terminalAt(state);
-  return (
-    terminal === null ||
-    (counted <= instantMs(terminal) && instantMs(terminal) <= now)
-  );
+  if (terminal === null) return true;
+  const ended = tryInstantMs(terminal);
+  return ended !== undefined && counted <= ended && ended <= now;
 }
 function validTime(reservation: Reservation, now: number): boolean {
-  const start = instantMs(reservation.admittedAt);
+  const start = tryInstantMs(reservation.admittedAt);
   return (
-    [now, start].every(Number.isFinite) &&
+    start !== undefined &&
     now >= start &&
     validHistory(reservation.state, start, now)
   );
@@ -174,8 +173,8 @@ export function advanceUsage(
   context: Context,
 ): Decision {
   const { state } = reservation;
-  const now = instantMs(context.now);
-  if (!validTime(reservation, now)) return refused;
+  const now = tryInstantMs(context.now);
+  if (now === undefined || !validTime(reservation, now)) return refused;
   switch (event.kind) {
     case 'dispatch':
       return dispatch(reservation, event.before, context);

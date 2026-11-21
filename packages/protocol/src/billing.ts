@@ -1,4 +1,4 @@
-import { instantMs } from '@daisy/clock';
+import { isInstantAtOrBefore, isInstantBefore } from '@daisy/clock';
 export {
   classifyPaymentObservation,
   paymentObservationComplete,
@@ -327,7 +327,7 @@ const interval = {
   endsAt: z.iso.datetime(),
 };
 const orderedInterval = (value: { startsAt: string; endsAt: string }) =>
-  instantMs(value.startsAt) < instantMs(value.endsAt);
+  isInstantBefore(value.startsAt, value.endsAt);
 const subscriptionPeriodSchema = z
   .strictObject({
     subscriptionId: idSchema,
@@ -406,7 +406,7 @@ export const usageStateSchema: z.ZodType<UsageState> = z.discriminatedUnion(
         refundedAt: z.iso.datetime(),
       })
       .refine(
-        (state) => instantMs(state.countedAt) <= instantMs(state.refundedAt),
+        (state) => isInstantAtOrBefore(state.countedAt, state.refundedAt),
         'Refund cannot precede counting',
       ),
     z
@@ -426,7 +426,7 @@ export const usageStateSchema: z.ZodType<UsageState> = z.discriminatedUnion(
         ]),
       })
       .refine(
-        (state) => instantMs(state.countedAt) <= instantMs(state.creditedAt),
+        (state) => isInstantAtOrBefore(state.countedAt, state.creditedAt),
         'Credit cannot precede counting',
       ),
     z.strictObject({

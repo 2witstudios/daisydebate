@@ -1,4 +1,4 @@
-import { instantMs } from '@daisy/clock';
+import { instantMs, isInstantAtOrBefore, isInstantBefore } from '@daisy/clock';
 import { z } from 'zod';
 import { idSchema } from './primitives';
 import { closurePaymentDisposition } from './billing-refund';
@@ -17,7 +17,7 @@ const seconds = z
   .refine((value) => Number.isSafeInteger(value * 1000));
 const period = z
   .strictObject({ startsAt: instant, endsAt: instant })
-  .refine((value) => instantMs(value.startsAt) < instantMs(value.endsAt));
+  .refine((value) => isInstantBefore(value.startsAt, value.endsAt));
 /** Unknown source knowledge never substitutes today's offer or an invented purchase. */
 export const paymentObservationSourceSchema = z.discriminatedUnion('kind', [
   z.strictObject({
@@ -193,10 +193,10 @@ function paymentOf(
 }
 function validObservationTime(value: BillingPaymentObservation) {
   return (
-    instantMs(value.createdAt) >= instantMs(value.closedAt) &&
-    instantMs(value.observedAt) >= instantMs(value.createdAt) &&
+    isInstantAtOrBefore(value.closedAt, value.createdAt) &&
+    isInstantAtOrBefore(value.createdAt, value.observedAt) &&
     (value.source.kind !== 'purchase' ||
-      instantMs(value.source.admittedAt) <= instantMs(value.closedAt))
+      isInstantAtOrBefore(value.source.admittedAt, value.closedAt))
   );
 }
 export function ownsObservedPayment(
