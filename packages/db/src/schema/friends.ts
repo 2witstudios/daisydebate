@@ -1,4 +1,5 @@
 import { sql } from 'drizzle-orm';
+import { friendshipStates } from '@daisy/protocol';
 import {
   boolean,
   check,
@@ -12,14 +13,16 @@ import {
 import { oneOf, timestampColumn } from './columns';
 import { contactActorColumn, contactPairs } from './contacts';
 
+const storedFriendshipStates = friendshipStates.filter(
+  (state) => state !== 'waiting-for-guardian',
+);
+
 /**
  * The friendship producer (ADR 0072): one row per asked or accepted pair,
  * fenced by the same contact pair row as blocks and DMs. Declining or
  * removing deletes the row, and a block deletes it too, so unblocking never
  * restores a friendship.
  */
-const storedFriendshipStates = ['pending', 'accepted'] as const;
-
 export const friendships = pgTable(
   'friendships',
   {
