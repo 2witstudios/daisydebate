@@ -2,6 +2,7 @@ import { execFile } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { createId } from '@paralleldrive/cuid2';
 import { test, expect, openPage } from './support/fixtures';
+import { hydrated } from './support/hydration';
 import {
   resetRateLimits,
   signUpMember,
@@ -109,9 +110,19 @@ test('anyone in the live room is told why they cannot post', async ({
 
     // A form rendered before they took a seat is refused, and stores nothing.
     await debaterPage.goto(here);
-    await debaterPage.getByLabel('Your message').fill('A draft');
+    const composer = debaterPage.getByRole('form', {
+      name: 'Post to spectator chat',
+    });
+    const post = composer.getByRole('button', { name: 'Post' });
+    await hydrated(post);
+    await composer.getByLabel('Your message').fill('A draft');
     await seed('seat', debater.username, roundId);
-    await debaterPage.getByRole('button', { name: 'Post' }).click();
+    await post.click();
+    await expect(composer.getByRole('alert')).toHaveText(LIVE_ROOM_COPY);
+    await expect(debaterPage.getByText('No messages yet.')).toBeVisible();
+
+    // The fresh page uses the member's new seat when rendering its controls.
+    await debaterPage.reload();
     await expect(debaterPage.getByText(LIVE_ROOM_COPY)).toBeVisible();
     await expect(debaterPage.getByRole('textbox')).toHaveCount(0);
     await expect(debaterPage.getByText('No messages yet.')).toBeVisible();

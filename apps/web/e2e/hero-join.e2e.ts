@@ -124,7 +124,7 @@ test('a refused link shows an alert naming a minute’s wait and passkey sign-in
   await page.goto('/');
   await page.getByLabel('Email').fill(email);
   await page.getByRole('button', { name: 'Join the waitlist' }).click();
-  const alert = page.getByRole('alert');
+  const alert = page.getByRole('alert').and(page.locator('#hero-join-notice'));
   await expect(alert).toContainText('Too many sign-in requests right now.');
   await expect(alert).toContainText('Wait a minute');
   await expect(alert).toContainText('sign in with a passkey');
