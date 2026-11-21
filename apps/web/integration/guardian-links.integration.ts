@@ -434,19 +434,20 @@ test('resend recovers an invitation to a provisional holder using the original p
   const email = `${createId()}@example.test`;
   const unusedEmail = `${createId()}@example.test`;
   const child = { userId: createId(), actorId: createId() };
+  const requestedAt = new Date(at.getTime() - 60_000);
   await withRolledBackDatabase(databaseUrl, {
     seed: async (sql) => {
       const [parent] = await createBots(sql, ['Parent']);
       if (!parent) throw new Error('Missing parent fixture');
       await sql`update users set email=${`${parent.userId}@example.test`} where id=${parent.userId}`;
       await sql`insert into users (id, email, email_verified, created_at)
-        values (${child.userId}, ${email}, true, ${new Date(at.getTime() - 1000)})`;
+        values (${child.userId}, ${email}, true, ${new Date(requestedAt.getTime() - 1000)})`;
       return parent;
     },
     work: async (db, parent, sql) => {
       const store = createGuardianStore(db);
       const invite = (address: string) =>
-        submitGuardianCommand(store, parent, stamp, {
+        submitGuardianCommand(store, parent, requestedAt.toISOString(), {
           version: 1,
           type: 'create-child-account',
           email: address,
@@ -457,7 +458,7 @@ test('resend recovers an invitation to a provisional holder using the original p
       const initial = await invite(email);
       await invite(unusedEmail);
       const waiting = await store.forSubject(parent.userId, (session) =>
-        session.liveRequest(email, at),
+        session.liveRequest(email, requestedAt),
       );
       if (!waiting) throw new Error('Missing invitation');
       const exportParent = () =>
@@ -483,7 +484,7 @@ test('resend recovers an invitation to a provisional holder using the original p
         ],
       });
 
-      const onboardedAt = new Date(at.getTime() + 1000).toISOString();
+      const onboardedAt = new Date(requestedAt.getTime() + 1000).toISOString();
       await ageStepOperations({
         database: db,
         eventSink: undefined,
@@ -507,7 +508,7 @@ test('resend recovers an invitation to a provisional holder using the original p
       const linkId = attached?.requestedLinkId;
       if (!linkId) throw new Error('Resend did not attach a link');
       const privateExport = await exportParent();
-      const confirmedAt = new Date(at.getTime() + 2000).toISOString();
+      const confirmedAt = new Date(requestedAt.getTime() + 2000).toISOString();
       const confirmed = await submitGuardianCommand(store, child, confirmedAt, {
         version: 1,
         type: 'confirm-parent',
@@ -528,9 +529,10 @@ test('resend recovers an invitation to a provisional holder using the original p
         expected: ['confirm-link', waiting.guardianConsentId, [], 'accepted'],
       });
 
-      await sql`update users set deleted_at=${stamp}, email=null, name='' where id=${child.userId}`;
+      const erasureAt = requestedAt.toISOString();
+      await sql`update users set deleted_at=${erasureAt}, email=null, name='' where id=${child.userId}`;
       await db.transaction((tx) =>
-        guardianLinksPrivacyAdopter.erase(tx, child, { now: stamp }),
+        guardianLinksPrivacyAdopter.erase(tx, child, { now: erasureAt }),
       );
       const ended = await store.forSubject(parent.userId, (session) =>
         session.link(linkId),
