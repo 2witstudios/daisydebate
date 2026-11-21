@@ -1,6 +1,5 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
 import { headers } from 'next/headers';
 import { z } from 'zod';
 import {
@@ -64,7 +63,6 @@ export async function guardianMoreAction(
     return unacknowledged(form);
   }
   if (type === 'sign') return done();
-  revalidatePath('/settings/parental-controls');
   return moveOn(
     new Headers(await headers()),
     '/settings/parental-controls?childAccount=closed',
