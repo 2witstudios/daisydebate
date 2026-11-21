@@ -162,13 +162,13 @@ export class Fixture {
     const [current] = await this.sql`select 1 from information_schema.columns
       where table_schema='public' and table_name='seasons' and column_name='lobby_id'`;
     if (!current) return row;
-    const {
-      division,
-      ladder_division,
-      league_division: _leagueDivision,
-      ...value
-    } = row;
-    if (table === 'organizations') return value;
+    const { division, ladder_division, ...value } = row;
+    if (table === 'organizations')
+      return Object.fromEntries(
+        Object.entries(value).filter(
+          ([column]) => column !== 'league_division',
+        ),
+      );
     if (table === 'seasons' && value.lobby_id === undefined) {
       const [found] = await this
         .sql`select id from lobbies where kind='standing'
