@@ -19,8 +19,8 @@ const scratch = scratchDatabase(
   requireTestServices(process.env).databaseUrl,
   'tflobby',
 );
-const migration = '20261121082437_tournament_lobby_eligibility';
-const validated = '20261121082457_tournament_lobby_eligibility_validated';
+const migration = '20261121211343_tournament_lobby_eligibility';
+const validated = '20261121211346_tournament_lobby_eligibility_validated';
 
 afterAll(() => scratch.drop());
 
