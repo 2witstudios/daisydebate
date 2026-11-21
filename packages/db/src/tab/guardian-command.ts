@@ -18,8 +18,7 @@ import {
   applyGuardianCommandWrites,
   type GuardianCommandWrite,
 } from './guardian-command-writes';
-import type { TabDatabase } from './tab-transaction';
-import { inTransaction } from '../tx';
+import { inTransaction, type TxOpener } from '../tx';
 export type GuardianCommandSession = {
   readonly load: () => Promise<LoadedGuardianCommand | null>;
   readonly stored: (commandId: string) => Promise<StoredTabCommand | null>;
@@ -30,7 +29,7 @@ export type GuardianCommandSession = {
   ) => Promise<void>;
 };
 /** Ordinary scoped transactions only; no family write privilege is added or elevated. */
-export const createGuardianCommandStore = (database: TabDatabase) => ({
+export const createGuardianCommandStore = (database: TxOpener) => ({
   guardianCommand: <Answer>(
     input: GuardianCommandInput,
     work: (session: GuardianCommandSession) => Promise<Answer>,

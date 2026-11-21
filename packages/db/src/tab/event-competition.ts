@@ -8,8 +8,7 @@ import { certificationResults, certifications } from '../schema/certifications';
 import { actionHistory } from '../schema/grants';
 import { draws } from '../schema/draws';
 import { loadTournamentEventSettingFacts } from './tournament-event-settings';
-import type { TabDatabase } from './tab-transaction';
-import { inTransaction, type Tx } from '../tx';
+import { inTransaction, type Tx, type TxOpener } from '../tx';
 
 export type EventCompetitionInput = {
   readonly viewerUserId: string;
@@ -102,7 +101,7 @@ export async function loadEventCompetition(
 export type EventCompetitionFacts = NonNullable<
   Awaited<ReturnType<typeof loadEventCompetition>>
 >;
-export const createEventCompetitionStore = (database: TabDatabase) => ({
+export const createEventCompetitionStore = (database: TxOpener) => ({
   eventCompetition: <Answer>(
     input: EventCompetitionInput,
     work: (facts: EventCompetitionFacts | null) => Promise<Answer>,

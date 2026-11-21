@@ -12,8 +12,7 @@ import { resolutionPools, poolResolutions } from '../schema/resolution-pools';
 import { scopeTransaction } from '../tenant-scope';
 import { loadAuthorityContext } from './authority-context';
 import { loadTemplateRows } from './setting-definition-rows';
-import type { TabDatabase } from './tab-transaction';
-import { inTransaction, type Tx } from '../tx';
+import { inTransaction, type Tx, type TxOpener } from '../tx';
 
 type Input = { readonly viewerUserId: string; readonly lobbyId: string };
 const eventRows = (tx: Tx, lobbyId: string) =>
@@ -207,7 +206,7 @@ export const loadTournamentSetupFacts = async (tx: Tx, input: Input) => {
 export type TournamentSetupFacts = NonNullable<
   Awaited<ReturnType<typeof loadTournamentSetupFacts>>
 >;
-export const createTournamentSetupReadStore = (database: TabDatabase) => ({
+export const createTournamentSetupReadStore = (database: TxOpener) => ({
   tournamentSetup: <Answer>(
     input: Input,
     work: (facts: TournamentSetupFacts | null) => Promise<Answer>,

@@ -9,8 +9,7 @@ import {
   recordFixtureConflict,
   storedFixtureCommand,
 } from './fixture-command-observation';
-import type { TabDatabase } from './tab-transaction';
-import { inTransaction, type Tx } from '../tx';
+import { inTransaction, type Tx, type TxOpener } from '../tx';
 import { takeLock, transactionLocks } from '../locks';
 
 const load = async (
@@ -49,7 +48,7 @@ export type LoadedConflictWaiverRequest = NonNullable<
 >;
 
 /** A request can persist only an observation and a finite hold; only settlement can grant a waiver. */
-export const createConflictWaiverRequestStore = (database: TabDatabase) => ({
+export const createConflictWaiverRequestStore = (database: TxOpener) => ({
   conflictWaiverRequest: <Answer>(
     input: {
       readonly senderUserId: string;

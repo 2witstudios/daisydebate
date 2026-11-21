@@ -15,8 +15,7 @@ import { loadLeagueEvents } from './league-events';
 import { loadLeagueMembershipEvents } from './league-membership-events';
 import { loadLeagueRoomList } from './league-room-list';
 import { scopeTransaction } from '../tenant-scope';
-import type { TabDatabase } from './tab-transaction';
-import { inTransaction, type Tx } from '../tx';
+import { inTransaction, type Tx, type TxOpener } from '../tx';
 
 type Input = {
   readonly viewerUserId: string;
@@ -195,7 +194,7 @@ async function load(tx: Tx, input: Input) {
   };
 }
 export type LeagueSeasonFacts = NonNullable<Awaited<ReturnType<typeof load>>>;
-export const createLeagueSeasonStore = (database: TabDatabase) => ({
+export const createLeagueSeasonStore = (database: TxOpener) => ({
   leagueSeason: <Answer>(
     input: Input,
     work: (facts: LeagueSeasonFacts | null) => Promise<Answer>,

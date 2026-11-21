@@ -9,8 +9,7 @@ import { organizations } from '../schema/organizations';
 import { daisyOrganizationId } from '../daisy-reference';
 import { readDatabaseTime } from '../database-clock';
 import { loadTournamentSetupFacts } from './tournament-setup-read';
-import type { TabDatabase } from './tab-transaction';
-import { inTransaction, type Tx } from '../tx';
+import { inTransaction, type Tx, type TxOpener } from '../tx';
 
 type Input = { readonly viewerUserId: string; readonly lobbyId: string };
 async function load(tx: Tx, input: Input) {
@@ -109,7 +108,7 @@ async function load(tx: Tx, input: Input) {
   };
 }
 export type HostEventsFacts = NonNullable<Awaited<ReturnType<typeof load>>>;
-export const createHostEventsStore = (database: TabDatabase) => ({
+export const createHostEventsStore = (database: TxOpener) => ({
   hostEvents: <Answer>(
     input: Input,
     work: (facts: HostEventsFacts | null) => Promise<Answer>,

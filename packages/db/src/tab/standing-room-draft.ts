@@ -11,8 +11,7 @@ import { settings } from '../schema/settings';
 import { scopeTransaction } from '../tenant-scope';
 import { loadAuthorityContext } from './authority-context';
 import { loadTemplateRows } from './setting-definition-rows';
-import type { TabDatabase } from './tab-transaction';
-import { inTransaction, type Tx } from '../tx';
+import { inTransaction, type Tx, type TxOpener } from '../tx';
 
 type Input = { readonly viewerUserId: string; readonly lobbyId: string };
 const offeredTemplates = (tx: Tx, lobbyId: string) =>
@@ -212,7 +211,7 @@ export const loadStandingRoomDraft = async (tx: Tx, input: Input) => {
 export type StandingRoomDraftFacts = NonNullable<
   Awaited<ReturnType<typeof loadStandingRoomDraft>>
 >;
-export const createStandingRoomDraftStore = (database: TabDatabase) => ({
+export const createStandingRoomDraftStore = (database: TxOpener) => ({
   standingRoomDraft: <Answer>(
     input: Input,
     work: (facts: StandingRoomDraftFacts | null) => Promise<Answer>,

@@ -27,8 +27,7 @@ import {
 import { applyEntryEnrollmentWrites } from './entry-enrollment-writes';
 import { loadTournamentHostingFacts } from './tournament-hosting-facts';
 import type { EntryEnrollmentWrite } from './entry-enrollment-write';
-import type { TabDatabase } from './tab-transaction';
-import { inTransaction, type Tx } from '../tx';
+import { inTransaction, type Tx, type TxOpener } from '../tx';
 export type EntryEnrollmentCommand = Exclude<
   EntryCommand,
   { readonly type: 'replace-entry-member' | 'choose-break' }
@@ -245,7 +244,7 @@ export type EntryEnrollmentSession = {
     receipt: LobbyCommandReceipt,
   ) => Promise<void>;
 };
-export const createEntryEnrollmentStore = (database: TabDatabase) => ({
+export const createEntryEnrollmentStore = (database: TxOpener) => ({
   entryEnrollmentCommand: <Answer>(
     input: EntryEnrollmentInput,
     work: (session: EntryEnrollmentSession) => Promise<Answer>,

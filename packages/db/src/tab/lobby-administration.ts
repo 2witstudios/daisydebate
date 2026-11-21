@@ -11,7 +11,6 @@ import { scopeTransaction, type TenantScope } from '../tenant-scope';
 import { appendHistory, storedCommand } from './command-record';
 import { loadAuthorityContext } from './authority-context';
 import { ladders } from '../schema/ladders';
-import type { TabDatabase } from './tab-transaction';
 import { applyLobbyAdministrationWrites } from './lobby-administration-writes';
 
 import type {
@@ -201,10 +200,10 @@ const load = async (
 };
 
 import { grants } from '../schema/grants';
-import { inTransaction, type Tx } from '../tx';
+import { inTransaction, type Tx, type TxOpener } from '../tx';
 import { takeLock, transactionLocks } from '../locks';
 
-export const createLobbyAdministrationStore = (database: TabDatabase) => ({
+export const createLobbyAdministrationStore = (database: TxOpener) => ({
   lobbyAdministrationCommand: <Answer>(
     input: LobbyAdministrationInput,
     work: (session: LobbyAdministrationSession) => Promise<Answer>,

@@ -5,8 +5,7 @@ import { scopeTransaction } from '../tenant-scope';
 import { fenceTabAccountRead } from './account-read-fence';
 import { lockEventSettingContext } from './event-setting-context';
 import { loadAuthorityContext } from './authority-context';
-import type { TabDatabase } from './tab-transaction';
-import { inTransaction, type Tx } from '../tx';
+import { inTransaction, type Tx, type TxOpener } from '../tx';
 type Input = {
   readonly viewerUserId: string;
   readonly lobbyId: string;
@@ -58,9 +57,7 @@ export const loadTournamentEventSettingFacts = async (tx: Tx, input: Input) => {
 export type TournamentEventSettingFacts = NonNullable<
   Awaited<ReturnType<typeof loadTournamentEventSettingFacts>>
 >;
-export const createTournamentEventSettingReadStore = (
-  database: TabDatabase,
-) => ({
+export const createTournamentEventSettingReadStore = (database: TxOpener) => ({
   tournamentEventSettings: <Answer>(
     input: Input,
     work: (facts: TournamentEventSettingFacts | null) => Promise<Answer>,

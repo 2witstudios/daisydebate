@@ -1,10 +1,5 @@
 import type { Tx } from '../tx';
 
-/** A real atomic transaction or savepoint; subject-rights steps need statements, not rollback controls. */
-export type PrivacyDatabase = {
-  readonly transaction: <T>(work: (tx: Tx) => Promise<T>) => Promise<T>;
-};
-
 /** When a step runs: before sign-in rows go, or after the account closes. */
 export const privacyPhases = ['before-auth', 'after-close'] as const;
 

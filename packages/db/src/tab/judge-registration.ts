@@ -24,8 +24,7 @@ import {
 } from './command-record';
 import { applyJudgeRegistrationWrites } from './judge-registration-writes';
 import type { JudgeRegistrationWrite } from './judge-registration-write';
-import type { TabDatabase } from './tab-transaction';
-import { inTransaction, type Tx } from '../tx';
+import { inTransaction, type Tx, type TxOpener } from '../tx';
 
 export type JudgeRegistrationCommand = Exclude<
   JudgeCommand,
@@ -175,7 +174,7 @@ export type JudgeRegistrationSession = {
     receipt: LobbyCommandReceipt,
   ) => Promise<void>;
 };
-export const createJudgeRegistrationStore = (database: TabDatabase) => ({
+export const createJudgeRegistrationStore = (database: TxOpener) => ({
   judgeRegistrationCommand: <Answer>(
     input: JudgeRegistrationInput,
     work: (session: JudgeRegistrationSession) => Promise<Answer>,

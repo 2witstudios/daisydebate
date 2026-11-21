@@ -23,8 +23,7 @@ import {
 } from './command-record';
 import { applySetupWrites } from './setup-writes';
 import type { SetupWrite } from './setup-write';
-import type { TabDatabase } from './tab-transaction';
-import { inTransaction, type Tx } from '../tx';
+import { inTransaction, type Tx, type TxOpener } from '../tx';
 import { takeLock, transactionLocks } from '../locks';
 
 export type SetupCommandInput = {
@@ -136,7 +135,7 @@ export type SetupCommandSession = {
     receipt: LobbyCommandReceipt,
   ) => Promise<void>;
 };
-export const createSetupCommandStore = (database: TabDatabase) => ({
+export const createSetupCommandStore = (database: TxOpener) => ({
   setupCommand: <Answer>(
     input: SetupCommandInput,
     work: (session: SetupCommandSession) => Promise<Answer>,

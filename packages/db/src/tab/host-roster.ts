@@ -20,8 +20,7 @@ import { fenceTabAccountsRead } from './account-read-fence';
 import { lockEventSettingContext } from './event-setting-context';
 import { loadLobbyAuthority } from './lobby-authority';
 import { loadTabCounterpart } from './boundary';
-import type { TabDatabase } from './tab-transaction';
-import { inTransaction, type Tx } from '../tx';
+import { inTransaction, type Tx, type TxOpener } from '../tx';
 
 type Input = {
   readonly viewerUserId: string;
@@ -193,7 +192,7 @@ async function load(tx: Tx, input: Input) {
   };
 }
 export type HostRosterFacts = NonNullable<Awaited<ReturnType<typeof load>>>;
-export const createHostRosterStore = (database: TabDatabase) => ({
+export const createHostRosterStore = (database: TxOpener) => ({
   hostRoster: <Answer>(
     input: Input,
     work: (facts: HostRosterFacts | null) => Promise<Answer>,

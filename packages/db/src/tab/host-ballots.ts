@@ -6,8 +6,7 @@ import { rooms } from '../schema/rooms';
 import { fixtures } from '../schema/fixtures';
 import { fixtureRoomSources } from '../schema/fixture-room-sources';
 import { tabRounds, stages } from '../schema/events';
-import type { TabDatabase } from './tab-transaction';
-import { inTransaction, type Tx } from '../tx';
+import { inTransaction, type Tx, type TxOpener } from '../tx';
 
 type Input = {
   readonly viewerUserId: string;
@@ -55,7 +54,7 @@ async function load(tx: Tx, input: Input) {
   };
 }
 export type HostBallotsFacts = NonNullable<Awaited<ReturnType<typeof load>>>;
-export const createHostBallotsStore = (database: TabDatabase) => ({
+export const createHostBallotsStore = (database: TxOpener) => ({
   hostBallots: <Answer>(
     input: Input,
     work: (facts: HostBallotsFacts | null) => Promise<Answer>,

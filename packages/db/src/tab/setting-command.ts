@@ -17,10 +17,9 @@ import {
   storedCommand,
   type StoredTabCommand,
 } from './command-record';
-import type { TabDatabase } from './tab-transaction';
 import { applySettingWrites, type SettingWrite } from './setting-writes';
 import { loadTournamentHostingFacts } from './tournament-hosting-facts';
-import { inTransaction, type Tx } from '../tx';
+import { inTransaction, type Tx, type TxOpener } from '../tx';
 import { takeLock, transactionLocks } from '../locks';
 
 export type SettingCommandInput = {
@@ -148,7 +147,7 @@ export type SettingCommandSession = {
     receipt: LobbyCommandReceipt,
   ) => Promise<void>;
 };
-export const createSettingCommandStore = (database: TabDatabase) => ({
+export const createSettingCommandStore = (database: TxOpener) => ({
   settingCommand: <Answer>(
     input: SettingCommandInput,
     work: (session: SettingCommandSession) => Promise<Answer>,

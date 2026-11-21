@@ -14,8 +14,7 @@ import type {
 import type { ResultCommand } from '@daisy/protocol/lobby/result-command';
 import { results, resultEntries, resultSpeakers } from '../schema/results';
 import { appendHistory, storedCommand } from './command-record';
-import type { TabDatabase } from './tab-transaction';
-import { inTransaction, type Tx } from '../tx';
+import { inTransaction, type Tx, type TxOpener } from '../tx';
 
 type Command = Extract<ResultCommand, { fixtureId: string }>;
 export type ResultCommandInput = {
@@ -57,7 +56,7 @@ export type ResultWrite =
       readonly op: 'insert';
       readonly row: typeof resultSpeakers.$inferInsert;
     };
-export const createResultCommandStore = (database: TabDatabase) => ({
+export const createResultCommandStore = (database: TxOpener) => ({
   resultCommand: <Answer>(
     input: ResultCommandInput,
     work: (session: {

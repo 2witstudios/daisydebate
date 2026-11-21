@@ -21,8 +21,7 @@ import { scopeTransaction } from '../tenant-scope';
 import { lockTabCommandAccounts } from './command-accounts';
 import { loadEventCompletion } from './event-completion';
 import { storedCommand, appendHistory } from './command-record';
-import type { TabDatabase } from './tab-transaction';
-import { inTransaction, type Tx } from '../tx';
+import { inTransaction, type Tx, type TxOpener } from '../tx';
 
 type Command =
   | Extract<
@@ -124,7 +123,7 @@ export type CompletionWrite =
       };
     };
 
-export const createCompletionCommandStore = (database: TabDatabase) => ({
+export const createCompletionCommandStore = (database: TxOpener) => ({
   completionCommand: <Answer>(
     input: Input,
     work: (session: {

@@ -7,7 +7,6 @@ import type {
   PrivacyAdopter,
   PrivacyExport,
   PrivacySubject,
-  PrivacyDatabase,
 } from './contracts';
 import {
   planPrivacyErasure,
@@ -15,7 +14,7 @@ import {
   type PrivacyAdoption,
   type PrivacyErasureInput,
 } from './planner';
-import { inTransaction, type Tx } from '../tx';
+import { inTransaction, type Tx, type TxOpener } from '../tx';
 import { run, query } from '../raw-rows';
 
 /** Supplied by the actual token producer, never inferred from token text. */
@@ -89,7 +88,7 @@ async function eraseAdopters(
  * its username stays on the competitive record and stays reserved (ADR 0087).
  */
 export async function runPrivacyErasure(
-  database: PrivacyDatabase,
+  database: TxOpener,
   input: PrivacyErasureInput,
   adoption: PrivacyAdoption,
   verificationBindings: readonly PrivacyVerificationBinding[],
@@ -162,7 +161,7 @@ function checkedExport(result: PrivacyExport) {
 
 /** Locked snapshot: each adopter returns its own subject rows, never arbitrary history. */
 export async function runPrivacyExport(
-  database: PrivacyDatabase,
+  database: TxOpener,
   subject: PrivacySubject,
   adoption: PrivacyAdoption,
 ): Promise<PrivacyExport> {

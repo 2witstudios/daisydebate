@@ -1,5 +1,4 @@
 import { createId } from '@paralleldrive/cuid2';
-import type { CompetitionType, RoundStatus } from '@daisy/protocol';
 import { createDatabase } from './index';
 import { oneOnOneSettings } from './reference-formats';
 import { createTestOnlyOperations } from './test-only-operations';
@@ -49,79 +48,6 @@ export const createTestDatabase = (
   };
   return { database, queries };
 };
-
-// Schema-definition column order; the driver returns rows positionally.
-export const roundRow = (record: {
-  id: string;
-  roomId: string | null;
-  createdByActorId: string | null;
-  visibility?: string | null;
-  roomConfigSnapshot?: unknown;
-  resolution: string;
-  competitionType: CompetitionType;
-  formatId: string;
-  formatVersion: number;
-  presetVersion: number | null;
-  rules: unknown;
-  status: RoundStatus;
-  currentStage: string | null;
-  /** The winning side; a ranking is never mocked here. */
-  outcome: string | null;
-  judging?: unknown;
-  leagueLadderId?: string | null;
-  ladderId: string | null;
-  ladderDivision?: string | null;
-  startedAt: string | null;
-  completedAt: string | null;
-  checkpoint: unknown;
-  finalSegmentEndedAt?: string | null;
-  transcriptAdmissionCutoff?: string | null;
-  createdAt: string;
-  updatedAt: string;
-  version: number;
-}): unknown[] => [
-  record.id,
-  record.roomId,
-  record.createdByActorId,
-  false,
-  record.visibility ?? null,
-  record.resolution,
-  null,
-  record.competitionType,
-  record.formatId,
-  record.formatVersion,
-  record.presetVersion,
-  record.roomConfigSnapshot ?? null,
-  null,
-  false,
-  null,
-  // seat_draw (ADR 0145)
-  null,
-  record.rules,
-  record.status,
-  record.currentStage,
-  record.outcome,
-  null,
-  record.judging ?? null,
-  null, // generated stored-ballot identity (Daisy/unjudged fixture)
-  null, // generated stored-ballot version
-  record.leagueLadderId ?? null,
-  record.ladderId,
-  record.ladderDivision ?? (record.ladderId === null ? null : 'open'),
-  record.startedAt === null ? null : new Date(record.startedAt),
-  record.completedAt === null ? null : new Date(record.completedAt),
-  record.checkpoint,
-  null,
-  record.finalSegmentEndedAt ? new Date(record.finalSegmentEndedAt) : null,
-  record.transcriptAdmissionCutoff
-    ? new Date(record.transcriptAdmissionCutoff)
-    : null,
-  null,
-  null,
-  new Date(record.createdAt),
-  new Date(record.updatedAt),
-  record.version,
-];
 
 export const roomRow = (overrides: Record<string, unknown> = {}) => {
   const row = {

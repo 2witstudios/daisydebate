@@ -6,8 +6,7 @@ import {
 } from '../schema/ballot-definitions';
 import { daisyOrganizationId } from '../daisy-reference';
 import { loadTournamentEventSettingFacts } from './tournament-event-settings';
-import type { TabDatabase } from './tab-transaction';
-import { inTransaction, type Tx } from '../tx';
+import { inTransaction, type Tx, type TxOpener } from '../tx';
 
 const load = async (
   tx: Tx,
@@ -56,7 +55,7 @@ const load = async (
   return { ...context, definitions, versions, entriesExist: held.length > 0 };
 };
 export type EventBallotFacts = NonNullable<Awaited<ReturnType<typeof load>>>;
-export const createEventBallotReadStore = (database: TabDatabase) => ({
+export const createEventBallotReadStore = (database: TxOpener) => ({
   eventBallot: <Answer>(
     input: {
       readonly viewerUserId: string;

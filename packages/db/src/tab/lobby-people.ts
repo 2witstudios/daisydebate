@@ -7,8 +7,7 @@ import { loadLobbyAuthority } from './lobby-authority';
 import { loadGrantRows, type GrantRow } from './grant-rows';
 import { loadOfferedRoles, type RoleRow } from './role-rows';
 import type { TabAuthorization } from './authority-facts';
-import type { TabDatabase } from './tab-transaction';
-import { inTransaction, type Tx } from '../tx';
+import { inTransaction, type Tx, type TxOpener } from '../tx';
 
 export type LobbyPeopleFacts = {
   readonly lobby: Pick<
@@ -89,7 +88,7 @@ async function load(
   };
 }
 
-export const createLobbyPeopleStore = (database: TabDatabase) => ({
+export const createLobbyPeopleStore = (database: TxOpener) => ({
   lobbyPeople: <Answer>(
     input: { readonly viewerUserId: string; readonly lobbyId: string },
     work: (facts: LobbyPeopleFacts | null) => Promise<Answer>,

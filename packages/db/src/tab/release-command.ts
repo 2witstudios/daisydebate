@@ -20,8 +20,7 @@ import { appendHistory, storedCommand } from './command-record';
 import { lockTabCommandAccounts } from './command-accounts';
 import { loadDrawResolutionPool } from './draw-resolution-pool';
 import { lockEventSettingContext } from './event-setting-context';
-import type { TabDatabase } from './tab-transaction';
-import { inTransaction, type Tx } from '../tx';
+import { inTransaction, type Tx, type TxOpener } from '../tx';
 
 type Input = {
   readonly notificationIds: () => string;
@@ -135,7 +134,7 @@ export type ReleaseCommandWrite =
     };
 
 /** Recorded openings and resolution publication share the command receipt's transaction. */
-export const createReleaseCommandStore = (database: TabDatabase) => ({
+export const createReleaseCommandStore = (database: TxOpener) => ({
   releaseCommand: <Answer>(
     input: Input,
     work: (session: {

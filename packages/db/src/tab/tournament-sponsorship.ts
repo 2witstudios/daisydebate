@@ -21,8 +21,7 @@ import { lockTabCommandAccounts } from './command-accounts';
 import { loadAuthorityContext } from './authority-context';
 import { loadAccountHostingFacts } from './account-hosting-facts';
 import { appendHistory, storedCommand } from './command-record';
-import type { TabDatabase } from './tab-transaction';
-import { inTransaction, type Tx } from '../tx';
+import { inTransaction, type Tx, type TxOpener } from '../tx';
 
 export const currentTournamentSponsorship = async (
   tx: Tx,
@@ -142,7 +141,7 @@ export type TournamentSponsorshipWrite = {
   readonly sponsorship: TournamentSponsorshipChange;
   readonly lobbyVersion: number;
 };
-export const createTournamentSponsorshipStore = (database: TabDatabase) => ({
+export const createTournamentSponsorshipStore = (database: TxOpener) => ({
   tournamentSponsorshipCommand: <Answer>(
     input: Parameters<typeof load>[1],
     work: (session: {

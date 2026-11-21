@@ -1,7 +1,6 @@
 import { and, eq, inArray } from 'drizzle-orm';
 import { loadEventCompletion } from './event-completion';
 import type { EventCompetitionInput } from './event-competition';
-import type { TabDatabase } from './tab-transaction';
 import { results } from '../schema/results';
 import { actionHistory } from '../schema/grants';
 import { actors } from '../schema/actors';
@@ -11,7 +10,7 @@ import { organizations } from '../schema/organizations';
 import { drawResultInputs } from '../schema/draws';
 import { rooms } from '../schema/rooms';
 import { timeSlots } from '../schema/events';
-import { inTransaction, type Tx } from '../tx';
+import { inTransaction, type Tx, type TxOpener } from '../tx';
 
 async function load(tx: Tx, input: EventCompetitionInput) {
   const completion = await loadEventCompletion(tx, input);
@@ -92,7 +91,7 @@ async function load(tx: Tx, input: EventCompetitionInput) {
   };
 }
 export type HostResultsFacts = NonNullable<Awaited<ReturnType<typeof load>>>;
-export const createHostResultsStore = (database: TabDatabase) => ({
+export const createHostResultsStore = (database: TxOpener) => ({
   hostResults: <Answer>(
     input: EventCompetitionInput,
     work: (facts: HostResultsFacts | null) => Promise<Answer>,

@@ -5,8 +5,7 @@ import { scopeTransaction } from '../tenant-scope';
 import { fenceTabAccountRead } from './account-read-fence';
 import { loadAuthorityContext } from './authority-context';
 import { loadLobbyAuthority } from './lobby-authority';
-import type { TabDatabase } from './tab-transaction';
-import { inTransaction, type Tx } from '../tx';
+import { inTransaction, type Tx, type TxOpener } from '../tx';
 
 type Input = {
   readonly viewerUserId: string;
@@ -54,7 +53,7 @@ async function load(tx: Tx, input: Input) {
   };
 }
 export type HostNavigationFacts = NonNullable<Awaited<ReturnType<typeof load>>>;
-export const createHostNavigationStore = (database: TabDatabase) => ({
+export const createHostNavigationStore = (database: TxOpener) => ({
   hostNavigation: <Answer>(
     input: Input,
     work: (facts: HostNavigationFacts | null) => Promise<Answer>,

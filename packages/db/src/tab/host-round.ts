@@ -9,8 +9,7 @@ import { organizations } from '../schema/organizations';
 import { roundJudgeSlots } from '../schema/round-judge-assignments';
 import { roundSegments } from '../schema/round-segments';
 import { loadDrawContext } from './draw-command-facts';
-import type { TabDatabase } from './tab-transaction';
-import { inTransaction, type Tx } from '../tx';
+import { inTransaction, type Tx, type TxOpener } from '../tx';
 
 type HostRoundInput = {
   readonly viewerUserId: string;
@@ -100,7 +99,7 @@ async function loadOverview(
 export type HostDrawOverviewFacts = NonNullable<
   Awaited<ReturnType<typeof loadOverview>>
 >;
-export const createHostRoundStore = (database: TabDatabase) => ({
+export const createHostRoundStore = (database: TxOpener) => ({
   hostDrawOverview: <Answer>(
     input: { readonly viewerUserId: string; readonly lobbyId: string },
     work: (facts: HostDrawOverviewFacts | null) => Promise<Answer>,

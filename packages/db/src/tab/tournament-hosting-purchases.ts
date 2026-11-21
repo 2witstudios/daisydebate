@@ -14,8 +14,7 @@ import { scopeTransaction } from '../tenant-scope';
 import { readDatabaseTime } from '../database-clock';
 import { loadLobbyAuthority } from './lobby-authority';
 import { loadTournamentHostingFacts } from './tournament-hosting-facts';
-import type { TabDatabase } from './tab-transaction';
-import { inTransaction, type Tx } from '../tx';
+import { inTransaction, type Tx, type TxOpener } from '../tx';
 
 /** One stored hosting payment, as the hosting feature reads it. */
 export type TournamentHostingPurchaseRow = {
@@ -258,9 +257,7 @@ export type HostedTournamentsFacts = Awaited<
   ReturnType<typeof loadHostedTournaments>
 >;
 
-export const createTournamentHostingPurchaseStore = (
-  database: TabDatabase,
-) => ({
+export const createTournamentHostingPurchaseStore = (database: TxOpener) => ({
   hostedTournaments: <Answer>(
     viewerUserId: string,
     work: (facts: HostedTournamentsFacts) => Promise<Answer>,

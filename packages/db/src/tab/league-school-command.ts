@@ -15,8 +15,7 @@ import { readDatabaseTime } from '../database-clock';
 import { lockTabCommandAccounts } from './command-accounts';
 import { loadAuthorityContext } from './authority-context';
 import { appendHistory, storedCommand } from './command-record';
-import type { TabDatabase } from './tab-transaction';
-import { inTransaction, type Tx } from '../tx';
+import { inTransaction, type Tx, type TxOpener } from '../tx';
 
 type Input = {
   readonly senderUserId: string;
@@ -87,7 +86,7 @@ export type LeagueSchoolWrite = {
   readonly version: number;
 };
 /** Account first, then both organization fences in stable order; relation, writes and journal share one transaction. */
-export const createLeagueSchoolCommandStore = (database: TabDatabase) => ({
+export const createLeagueSchoolCommandStore = (database: TxOpener) => ({
   leagueSchoolCommand: <Answer>(
     input: Input,
     work: (session: {

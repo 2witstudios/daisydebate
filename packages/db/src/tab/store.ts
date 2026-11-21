@@ -145,9 +145,8 @@ import {
   applyOrganizationWrites,
   type OrganizationWrite,
 } from './organization-writes';
-import type { TabDatabase } from './tab-transaction';
 import { createLobbyAdministrationStore } from './lobby-administration';
-import { inTransaction } from '../tx';
+import { inTransaction, type TxOpener } from '../tx';
 export type {
   LobbyAdministrationCommand,
   LobbyAdministrationFacts,
@@ -155,7 +154,6 @@ export type {
 export type { LobbyAdministrationWrite } from './lobby-administration-writes';
 
 export type { TabAccount } from './boundary';
-export type { TabDatabase } from './tab-transaction';
 export type { OrganizationAuthority, RoleAuthority } from './authority-facts';
 export type { OrganizationCommandInput } from './organization-facts';
 export type { OrganizationPeopleFacts } from './organization-people';
@@ -203,7 +201,7 @@ const roleNamedOf = (
  * command id another tenant already recorded throws `CommandIdTaken` from
  * `apply`, and the transaction ends without the command.
  */
-export const createTabStore = (database: TabDatabase) => ({
+export const createTabStore = (database: TxOpener) => ({
   ...createSanctionCommandStore(database),
   ...createLeagueSeasonStore(database),
   ...createLeagueSchoolCommandStore(database),

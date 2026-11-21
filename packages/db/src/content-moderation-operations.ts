@@ -46,8 +46,6 @@ import { inTransaction, type TxSource, type Tx } from './tx';
 import { takeLock, transactionLocks } from './locks';
 import { run, query as queryRows } from './raw-rows';
 
-type Database = TxSource;
-
 const roundFacts = async (tx: Tx, roundId: string, actorId: string) => {
   const [round] = await queryRows(
     tx,
@@ -544,7 +542,7 @@ export function contentModerationOperations({
   floor = noSpectatorChat,
   roomChat = noSpectatorChat,
 }: {
-  readonly database: Database;
+  readonly database: TxSource;
   readonly eventSink?: DatabaseEventSink | undefined;
   readonly recordings?: RecordingModeration;
   readonly chat?: SpectatorChatModeration;

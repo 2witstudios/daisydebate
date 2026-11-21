@@ -17,12 +17,11 @@ import {
 import type { FixtureOwnerEffects } from './fixture-owner-write';
 import { applyFixtureWrites } from './fixture-writes';
 import type { FixtureWrite } from './fixture-write';
-import type { TabDatabase } from './tab-transaction';
-import { inTransaction } from '../tx';
+import { inTransaction, type TxOpener } from '../tx';
 import { takeLock, transactionLocks } from '../locks';
 
 /** Every panel, ordinary-owner effect and immutable result is in the fixture journal's one transaction. */
-export const createFixtureCommandStore = (database: TabDatabase) => ({
+export const createFixtureCommandStore = (database: TxOpener) => ({
   fixtureCommand: <Answer>(
     input: FixtureCommandInput,
     work: (session: {

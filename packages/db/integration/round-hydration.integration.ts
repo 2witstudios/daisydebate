@@ -101,8 +101,8 @@ test('unlocked Round hydration retries a real interleaved version and bounds per
       moves--;
       return fixture.sql`update rounds set version=version+1 where id=${id}`;
     };
-    client.unsafe = (statement, params, options) => {
-      const query = unsafe(statement, params, options);
+    client.unsafe = (statement, params) => {
+      const query = unsafe(statement, params);
       if (!statement.includes('from "round_participants"') || moves <= 0)
         return query;
       return new Proxy(query, {

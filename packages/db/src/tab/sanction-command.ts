@@ -16,8 +16,7 @@ import { loadAuthorityContext } from './authority-context';
 import { lockEventSettingContext } from './event-setting-context';
 import { loadLobbyAuthority } from './lobby-authority';
 import { appendHistory, storedCommand } from './command-record';
-import type { TabDatabase } from './tab-transaction';
-import { inTransaction, type Tx } from '../tx';
+import { inTransaction, type Tx, type TxOpener } from '../tx';
 
 type Input = {
   readonly senderUserId: string;
@@ -167,7 +166,7 @@ export type SanctionStoreWrite =
         readonly version: number;
       };
     };
-export const createSanctionCommandStore = (database: TabDatabase) => ({
+export const createSanctionCommandStore = (database: TxOpener) => ({
   sanctionCommand: <Answer>(
     input: Input,
     work: (session: {
