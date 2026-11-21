@@ -12,6 +12,7 @@ import { sql, type SQL } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
 import { appendOutboxEvent } from '../outbox';
+import { requireRetentionBounds, type RetentionBatch } from '../retention';
 import type { Tx, TxOpener } from '../tx';
 import { scopeTransaction } from '../tenant-scope';
 import { rowsOf } from '../raw-rows';
@@ -372,11 +373,9 @@ export const notificationInboxOperations = ({
     );
   },
   /** The retention sweep: a notification goes 90 days after it is read. */
-  purgeReadNotifications(input: {
-    readonly before: string;
-    readonly limit: number;
-  }) {
+  purgeReadNotifications(input: RetentionBatch) {
     return instrumented(eventSink, 'purgeReadNotifications', async () => {
+      requireRetentionBounds(input);
       const [gone] = await rowsOf<{ count: number }>(
         database,
         sql`select public.daisy_prune_read_notifications(
