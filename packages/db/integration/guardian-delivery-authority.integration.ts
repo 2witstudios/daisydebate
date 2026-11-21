@@ -1,9 +1,9 @@
 import { expect, test } from 'bun:test';
-import type { SavepointSQL, TransactionSQL } from 'bun';
+import type { SavepointSQL, SQL, TransactionSQL } from 'bun';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { buildUserInboxTopic } from '@daisy/protocol';
-import type { SQL } from 'drizzle-orm';
+import { drizzle } from 'drizzle-orm/bun-sql';
 import { holdForGuardian } from '../src/friends/hold-for-guardian';
 import { notificationDigestOperations } from '../src/notifications/digests';
 import { notificationInboxOperations } from '../src/notifications/inbox';
@@ -57,9 +57,10 @@ test('guardian delivery and retention enforce private role boundaries and a held
   await withRolledBackDatabase(databaseUrl, {
     seed,
     work: async (db, { child, guardian, recent, expired }, sql) => {
+      const direct = drizzle({ client: sql as SQL });
       const database = {
         ...db,
-        execute: (query: SQL) => db.transaction((tx) => tx.execute(query)),
+        execute: direct.execute.bind(direct),
       };
       const inbox = notificationInboxOperations({ database });
       const digest = notificationDigestOperations({ database });
