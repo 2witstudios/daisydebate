@@ -1,4 +1,5 @@
 import type { MessageRequestSetting } from '@daisy/protocol';
+import type { DmRequestAction } from '@daisy/protocol/dm-policy';
 import { createAppError } from '@daisy/errors';
 import { sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
@@ -23,6 +24,34 @@ type NewDmRequest = {
   readonly recipientActorId: string;
 };
 
+const closed = {
+  requestSetting: 'none' as const,
+  friendActorIds: [],
+  linkedAdultUserIds: [],
+};
+
+async function readDmRequestAction(
+  tx: AuthorizationTransaction,
+  recipientId: string,
+  request: NewDmRequest,
+) {
+  const previous = await currentTenantScope(tx);
+  await scopeTransaction(tx, { ...previous, subjectUserId: request.userId });
+  const [row] = await rowsOf<{ action: DmRequestAction | null }>(
+    tx,
+    sql`select public.daisy_dm_request_access(${recipientId}, ${request.actorId}) as action`,
+  );
+  await scopeTransaction(tx, previous);
+  if (!row) throw createAppError('INFRASTRUCTURE');
+  return {
+    ...closed,
+    dmRequest: {
+      initiatorActorId: request.actorId,
+      action: row.action ?? 'none',
+    },
+  };
+}
+
 /**
  * What the DM rule reads about each account (decision 90, ADR 0160), in one
  * statement on the caller's fenced transaction: its message-request setting
@@ -34,13 +63,20 @@ type NewDmRequest = {
 export const bindMessagingContactFacts =
   (tx: AuthorizationTransaction, request?: NewDmRequest) =>
   async (accounts: readonly Account[]) => {
-    // An account without a current age is refused before any of this is
-    // read, so it gets the closed answer and costs no statement.
-    const closed = {
-      requestSetting: 'none' as const,
-      friendActorIds: [],
-      linkedAdultUserIds: [],
-    };
+    if (request) {
+      const recipient = accounts.find(
+        ({ account }) => account.actorId === request.recipientActorId,
+      );
+      if (!recipient) return accounts.map(() => closed);
+      const action = await readDmRequestAction(
+        tx,
+        recipient.account.userId,
+        request,
+      );
+      return accounts.map((row) => (row === recipient ? action : closed));
+    }
+
+    // Only current age facts need conversation contact facts.
     const known = accounts.filter((row) => row.age.state === 'known');
     if (known.length === 0) return accounts.map(() => closed);
     const cast = JSON.stringify(
@@ -52,20 +88,6 @@ export const bindMessagingContactFacts =
           (age.band === '13-15' || age.band === '16-17'),
       })),
     );
-    const previous = request ? await currentTenantScope(tx) : undefined;
-    if (request && previous)
-      await scopeTransaction(tx, {
-        ...previous,
-        subjectUserId: request.userId,
-      });
-    const requestSetting = request
-      ? sql`case when c.actor_id = ${request.recipientActorId} then
-           case public.daisy_dm_request_access(c.user_id, ${request.actorId})
-             when 'message' then 'everyone'
-             when 'befriend' then 'friends'
-             else 'none' end
-           else coalesce(s.setting, 'everyone') end`
-      : sql`coalesce(s.setting, 'everyone')`;
     const rows = await rowsOf<{
       user_id: string;
       setting: MessageRequestSetting;
@@ -77,7 +99,7 @@ export const bindMessagingContactFacts =
           select * from jsonb_to_recordset(${cast}::text::jsonb)
             as c(user_id text, actor_id text, minor boolean))
         select c.user_id,
-          ${requestSetting} as setting,
+          coalesce(s.setting, 'everyone') as setting,
           array(select case when f.low_actor_id=c.actor_id
               then f.high_actor_id else f.low_actor_id end
             from friendships f
@@ -92,7 +114,6 @@ export const bindMessagingContactFacts =
         from cast_rows c
         left join messaging_request_settings s on s.user_id=c.user_id`,
     );
-    if (previous) await scopeTransaction(tx, previous);
     return accounts.map(({ account, age }) => {
       if (age.state !== 'known') return closed;
       const row = rows.find(

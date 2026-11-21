@@ -362,6 +362,11 @@ export type SocialAccountFact = {
   readonly contact?: SocialContactFact;
 };
 export type SocialContactFact = {
+  /** The scoped new-request action for this recipient and this sender. */
+  readonly dmRequest?: {
+    readonly initiatorActorId: string;
+    readonly action: import('@daisy/protocol/dm-policy').DmRequestAction;
+  };
   /** Who may send this account a new message request. */
   readonly requestSetting: import('@daisy/protocol').MessageRequestSetting;
   readonly protectedMessageRequests?: import('@daisy/protocol/protection-level').ProtectionLimits['messageRequests'];

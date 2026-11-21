@@ -1,6 +1,12 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { ageBands, messageRequestSettings } from '@daisy/protocol';
-import { dmAllowed, dmRequestOffer, type DmQuestion } from './social-policy';
+import {
+  betaDmPolicy,
+  dmAllowed,
+  dmRequestOffer,
+  socialAccountsEligible,
+  type DmQuestion,
+} from './social-policy';
 import { adultAccount } from './social.test-support';
 setupRitewayBun();
 
@@ -211,6 +217,46 @@ describe('dmRequestOffer', () => {
       contact: { ...row.contact, ...contact },
     };
   };
+  test('the scoped action survives a changed age band and binds the sender', () => {
+    const initiator = person('a', 'adult');
+    const recipient = person('b', 'adult', { requestSetting: 'friends' });
+    const accounts = [
+      initiator,
+      {
+        ...recipient,
+        contact: {
+          ...recipient.contact,
+          dmRequest: { initiatorActorId: 'a', action: 'message' as const },
+        },
+      },
+    ];
+    const beforeBirthday = [
+      { ...initiator, age: { ...initiator.age, band: 'under-13' as const } },
+      accounts[1]!,
+    ];
+    assert({
+      given: 'a database read just after the sender became eligible',
+      should:
+        'use the scoped action for the offer and request from that sender',
+      actual: {
+        offer: dmRequestOffer(beforeBirthday, now, 'a', 'b'),
+        request: socialAccountsEligible(
+          ['a', 'b'],
+          beforeBirthday,
+          now,
+          betaDmPolicy,
+          { stage: 'request', initiatorActorId: 'a' },
+        ),
+        otherSender: dmRequestOffer(
+          [person('c', 'adult'), accounts[1]!],
+          now,
+          'c',
+          'b',
+        ),
+      },
+      expected: { offer: 'message', request: true, otherSender: 'none' },
+    });
+  });
   test('what the profile offers', () =>
     assert({
       given:

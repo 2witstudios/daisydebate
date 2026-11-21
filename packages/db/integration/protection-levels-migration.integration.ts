@@ -1,8 +1,11 @@
 import { afterAll, expect, test } from 'bun:test';
-import { readdirSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { createId } from '@paralleldrive/cuid2';
 import { protectionLimits } from '@daisy/protocol/protection-level';
-import { protectionChoices } from '../scripts/protection-policy-sql';
+import {
+  dmRequestPolicyRows,
+  protectionChoices,
+} from '../scripts/protection-policy-sql';
 import { requireTestServices } from '@daisy/config';
 import { withFixture } from './constraint-helpers';
 import {
@@ -22,6 +25,16 @@ const validation = folders.find((folder) =>
 if (!migration || !validation)
   throw new Error('Protection migrations are missing');
 afterAll(() => scratch.drop());
+
+test('the DM projection installs the canonical request rule', () => {
+  const source = readFileSync(
+    new URL(`../migrations/${migration}/migration.sql`, import.meta.url),
+    'utf8',
+  );
+  expect(source).toContain(
+    `VALUES\n    ${dmRequestPolicyRows()}\n  ), instant`,
+  );
+});
 
 test(
   'the protection migration preserves an existing friendship, request and notification preference',
@@ -69,6 +82,11 @@ test(
       values(${recipientUser},'friend_request_received','email',false)`;
 
         await scratch.migrate((folder) => folder <= validation);
+        expect<unknown>(
+          await f.sql`select
+            has_function_privilege('daisy_web', 'public.daisy_linked_adult_users_at(text,timestamptz)', 'EXECUTE') as web,
+            has_function_privilege('daisy_realtime', 'public.daisy_linked_adult_users_at(text,timestamptz)', 'EXECUTE') as realtime`,
+        ).toEqual([{ web: false, realtime: false }]);
         expect<unknown>(
           await f.sql`select state from friendships where ${recipient} in (low_actor_id, high_actor_id) order by state`,
         ).toEqual([{ state: 'accepted' }, { state: 'pending' }]);

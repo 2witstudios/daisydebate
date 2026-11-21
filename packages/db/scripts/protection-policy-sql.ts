@@ -1,4 +1,5 @@
-import { ageBands } from '@daisy/protocol';
+import { ageBands, messageRequestSettings } from '@daisy/protocol';
+import { dmRequestAction } from '@daisy/protocol/dm-policy';
 import {
   friendApprovalLimits,
   friendRequestNeedsGuardian,
@@ -45,7 +46,36 @@ const friendApprovalRows = () =>
     )
     .join(',\n      ');
 
+/** Both minor bands answer identically under the new-request rule. */
+export const dmRequestPolicyRows = () =>
+  (['13-15', 'adult'] as const)
+    .flatMap((initiator) =>
+      (['13-15', 'adult'] as const).flatMap((recipient) =>
+        [false, true].flatMap((friends) =>
+          [false, true].flatMap((linkedStaff) =>
+            messageRequestSettings.map((recipientSetting) => {
+              const action = dmRequestAction({
+                initiator,
+                recipient,
+                friends,
+                linkedStaff,
+                recipientSetting,
+              });
+              return `(${initiator === 'adult'}, ${recipient === 'adult'}, ${friends}, ${linkedStaff}, '${recipientSetting}', '${action}')`;
+            }),
+          ),
+        ),
+      ),
+    )
+    .join(',\n    ');
+
 if (import.meta.main)
   process.stdout.write(
-    `${process.argv.includes('--holds') ? friendApprovalRows() : protectionPolicyRows()}\n`,
+    `${
+      process.argv.includes('--dm-requests')
+        ? dmRequestPolicyRows()
+        : process.argv.includes('--holds')
+          ? friendApprovalRows()
+          : protectionPolicyRows()
+    }\n`,
   );
