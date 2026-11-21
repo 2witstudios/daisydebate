@@ -184,12 +184,18 @@ function scopedGuardians(tx: GuardianTx, userId: string) {
     async linkRequest(id: string, linkId: string | null, now: Date) {
       const [row] = await tx
         .update(childAccountRequests)
-        .set({ status: 'linked', requestedLinkId: linkId, closedAt: now })
+        .set({
+          status: 'linked',
+          requestedLinkId: linkId,
+          closedAt: sql`coalesce(${childAccountRequests.closedAt}, ${now})`,
+        })
         .where(
           and(
             eq(childAccountRequests.id, id),
             eq(childAccountRequests.guardianUserId, userId),
-            eq(childAccountRequests.status, 'open'),
+            inArray(childAccountRequests.status, ['open', 'linked']),
+            isNull(childAccountRequests.requestedLinkId),
+            gt(childAccountRequests.expiresAt, now),
           ),
         )
         .returning({ id: childAccountRequests.id });

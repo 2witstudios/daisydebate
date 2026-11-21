@@ -473,6 +473,11 @@ likeness or streaming right (owner decision 89,
   Rooms seat only members in it, so a Youth league seats only members under
   18 and an Open league only adults. Tournament entries already refuse every entrant
   under 18 (the closed minors rule above).
+- **Guardian links** ([ADR 0163](../decisions/0163-guardian-links-and-consent-evidence.md)).
+  A guardian’s data export describes the consent they gave with the same label
+  for every email invitation. Daisy keeps the original method with the immutable
+  evidence. The person who files a guardian refusal can export their own report.
+
 - **Youth Rounds** ([ADR 0161](../decisions/0161-youth-rounds-follow-open-visibility.md),
   amending ADRs 0150, 0151 and 0157). A Youth Round is any Round of a Room in
   the Youth lobby, casual included. It is viewed exactly as an Open Round is:

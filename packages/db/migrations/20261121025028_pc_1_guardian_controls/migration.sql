@@ -254,12 +254,15 @@ BEGIN
         )))
       OR (OLD.status = 'open' AND NEW.status = 'claimed' AND NEW.claimed_user_id = subject
         AND NEW.closed_at < OLD.expires_at AND public.daisy_owns_guardian_request_email(OLD.email))
-      OR (OLD.status = 'open' AND NEW.status = 'linked' AND OLD.guardian_user_id = subject
+      OR ((OLD.status = 'open' OR (
+          OLD.status = 'linked' AND OLD.requested_link_id IS NULL
+          AND NEW.requested_link_id IS NOT NULL AND NEW.closed_at = OLD.closed_at
+        )) AND NEW.status = 'linked' AND OLD.guardian_user_id = subject
         AND NEW.closed_at < OLD.expires_at AND NEW.email = OLD.email AND NEW.first_name = OLD.first_name
         AND NEW.birth_month = OLD.birth_month AND (NEW.requested_link_id IS NULL OR EXISTS (
           SELECT 1 FROM public.guardian_links g WHERE g.id = NEW.requested_link_id
             AND g.guardian_user_id = subject AND g.guardian_consent_id = NEW.guardian_consent_id
-            AND g.status = 'requested'
+            AND g.status = 'requested' AND g.created_at < OLD.expires_at
         ))) THEN
       RETURN NEW;
     END IF;

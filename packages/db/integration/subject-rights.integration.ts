@@ -5,6 +5,7 @@ import { requireTestServices } from '@daisy/config';
 import { ratingStyles } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { erasePrivacySubject, exportPrivacySubject } from '../src/privacy';
+import { withRolledBackDatabase } from '../src/testing-rolled-back';
 import { createAuthorizationSubject } from './authorization.test-support';
 import { rejectedBy, withFixture, type Fixture } from './constraint-helpers';
 import { played } from './member-profile.test-support';
@@ -21,6 +22,42 @@ const rooms = {
   eraseSeats: <T>(room: T) => room,
   activeRoomMembers: () => [],
 };
+
+test('the default privacy export keeps a guardian refusal private from its subject', async () => {
+  await withRolledBackDatabase(url, {
+    seed: async (sql) => {
+      const parent = { userId: createId(), actorId: createId() };
+      const child = { userId: createId(), actorId: createId() };
+      for (const person of [parent, child]) {
+        await sql`insert into users (id) values (${person.userId})`;
+        await sql`insert into actors (id, user_id, kind) values (${person.actorId}, ${person.userId}, 'human')`;
+      }
+      const ordinary = createId();
+      const refusal = createId();
+      await sql`insert into reports (id, reporter_actor_id, subject_actor_id, reason, surface)
+        values (${ordinary}, ${child.actorId}, ${parent.actorId}, 'harassment', 'people'),
+          (${refusal}, ${child.actorId}, ${parent.actorId}, 'not-my-parent', 'guardian-link')`;
+      return { parent, child, ordinary, refusal };
+    },
+    work: async (database, { parent, child, ordinary, refusal }, sql) => {
+      const parentExport = await exportPrivacySubject(database, parent, rooms);
+      const childExport = await exportPrivacySubject(database, child, rooms);
+      const [stored] = await sql`select id from reports where id=${refusal}`;
+      assert({
+        given:
+          'an ordinary report and a guardian refusal about the same account',
+        should:
+          'export the ordinary report to its subject and retain the refusal for its reporter and Safety',
+        actual: [
+          parentExport.reports_about?.map(({ id }) => id),
+          childExport.reports_filed?.map(({ id }) => id).sort(),
+          stored?.id,
+        ],
+        expected: [[ordinary], [ordinary, refusal].sort(), refusal],
+      });
+    },
+  });
+});
 
 test('closing an account through every feature step keeps the competitive record and what alt detection matches on (ADR 0087)', async () => {
   await withFixture(url, async (fixture) => {

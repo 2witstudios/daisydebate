@@ -1,6 +1,7 @@
 import { requireTestServices } from '@daisy/config';
 import {
   ageStepOperations,
+  admitParticipants,
   createGuardianStore,
   guardianLinksPrivacyAdopter,
   withRolledBackDatabase,
@@ -424,6 +425,121 @@ test('resend asks a now-existing child to confirm instead of reviving an open cl
           scrubbed[1]?.status,
         ],
         expected: ['cancelled', null, null, null, 'cancelled'],
+      });
+    },
+  });
+});
+
+test('resend recovers an invitation to a provisional holder using the original private consent', async () => {
+  const email = `${createId()}@example.test`;
+  const unusedEmail = `${createId()}@example.test`;
+  const child = { userId: createId(), actorId: createId() };
+  await withRolledBackDatabase(databaseUrl, {
+    seed: async (sql) => {
+      const [parent] = await createBots(sql, ['Parent']);
+      if (!parent) throw new Error('Missing parent fixture');
+      await sql`update users set email=${`${parent.userId}@example.test`} where id=${parent.userId}`;
+      await sql`insert into users (id, email, email_verified, created_at)
+        values (${child.userId}, ${email}, true, ${new Date(at.getTime() - 1000)})`;
+      return parent;
+    },
+    work: async (db, parent, sql) => {
+      const store = createGuardianStore(db);
+      const invite = (address: string) =>
+        submitGuardianCommand(store, parent, stamp, {
+          version: 1,
+          type: 'create-child-account',
+          email: address,
+          birthMonth: birth(15),
+          firstName: 'Sam',
+          noticeVersion: 'draft-1',
+        });
+      const initial = await invite(email);
+      await invite(unusedEmail);
+      const waiting = await store.forSubject(parent.userId, (session) =>
+        session.liveRequest(email, at),
+      );
+      if (!waiting) throw new Error('Missing invitation');
+      const exportParent = () =>
+        db.transaction((tx) => guardianLinksPrivacyAdopter.export(tx, parent));
+      const exported = await exportParent();
+      assert({
+        given: 'a provisional holder and an unused address',
+        should:
+          'give the parent the same evidence projection for both invitations',
+        actual: [
+          initial.kind === 'accepted' && initial.mail?.kind,
+          waiting.status,
+          waiting.requestedLinkId,
+          exported.guardian_links,
+          exported.guardian_consent_evidence?.map((row) => row.method),
+        ],
+        expected: [
+          'account-not-changed',
+          'linked',
+          null,
+          [],
+          ['parental-consent', 'parental-consent'],
+        ],
+      });
+
+      const onboardedAt = new Date(at.getTime() + 1000).toISOString();
+      await ageStepOperations({
+        database: db,
+        eventSink: undefined,
+      }).recordAgeStep({
+        userId: child.userId,
+        birthMonth: birth(15),
+        now: onboardedAt,
+        termsVersion: 'fixture',
+      });
+      await sql`update users set username=${`teen-${child.userId}`} where id=${child.userId}`;
+      await sql`insert into actors (id, user_id, kind) values (${child.actorId}, ${child.userId}, 'human')`;
+      await admitParticipants(sql, [child.userId]);
+      const sent = await submitGuardianCommand(store, parent, onboardedAt, {
+        version: 1,
+        type: 'send-again',
+        request: { kind: 'invitation', id: waiting.id },
+      });
+      const attached = await store.forSubject(parent.userId, (session) =>
+        session.request(waiting.id),
+      );
+      const linkId = attached?.requestedLinkId;
+      if (!linkId) throw new Error('Resend did not attach a link');
+      const privateExport = await exportParent();
+      const confirmedAt = new Date(at.getTime() + 2000).toISOString();
+      const confirmed = await submitGuardianCommand(store, child, confirmedAt, {
+        version: 1,
+        type: 'confirm-parent',
+        linkId,
+        noticeVersion: 'draft-1',
+      });
+      assert({
+        given:
+          'the original holder finishes onboarding and the guardian resends',
+        should:
+          'ask the child privately and activate only on confirmation of the original agreement',
+        actual: [
+          sent.kind === 'accepted' && sent.mail?.kind,
+          attached?.guardianConsentId,
+          privateExport.guardian_links,
+          confirmed.kind,
+        ],
+        expected: ['confirm-link', waiting.guardianConsentId, [], 'accepted'],
+      });
+
+      await sql`update users set deleted_at=${stamp}, email=null, name='' where id=${child.userId}`;
+      await db.transaction((tx) =>
+        guardianLinksPrivacyAdopter.erase(tx, child, { now: stamp }),
+      );
+      const ended = await store.forSubject(parent.userId, (session) =>
+        session.link(linkId),
+      );
+      assert({
+        given: 'erasure sampled its time before the child’s later activation',
+        should: 'close the link without backdating it before activation',
+        actual: [ended?.status, ended?.closedAt?.toISOString()],
+        expected: ['ended', confirmedAt],
       });
     },
   });

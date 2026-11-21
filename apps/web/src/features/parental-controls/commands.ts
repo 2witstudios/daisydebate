@@ -99,10 +99,8 @@ async function routeWaitingInvitation(
   )
     return mailed(pending.email, 'sign-in');
 
-  const awaiting = pending.requestedLinkId
-    ? await session.link(pending.requestedLinkId)
-    : null;
-  if (pending.status === 'linked') {
+  if (pending.requestedLinkId) {
+    const awaiting = await session.link(pending.requestedLinkId);
     return mailed(
       pending.email,
       awaiting?.status === 'requested' &&
@@ -126,7 +124,10 @@ async function routeWaitingInvitation(
     minor && !current
       ? await addRequestedLink(context, minor.userId, pending.guardianConsentId)
       : null;
-  if (!(await session.linkRequest(pending.id, linkId, new Date(at))))
+  if (
+    (pending.status === 'open' || linkId !== null) &&
+    !(await session.linkRequest(pending.id, linkId, new Date(at)))
+  )
     throw createAppError('CONFLICT');
   return mailed(
     pending.email,

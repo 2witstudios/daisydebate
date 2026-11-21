@@ -36,17 +36,20 @@ export const guardianLinksPrivacyAdopter: PrivacyAdopter = {
     await run(
       tx,
       sql`update child_account_requests
-      set status = 'cancelled', closed_at = ${now}, email = null, first_name = null, birth_month = null
+      set status = 'cancelled', closed_at = greatest(${now}::timestamptz, created_at, closed_at),
+        email = null, first_name = null, birth_month = null
       where status in ('open', 'linked') and (
         guardian_user_id = ${subject.userId} or
         requested_link_id in (select id from guardian_links where minor_user_id = ${subject.userId})
       )`,
     );
+    // The erasure timestamp can precede an activation that won the account lock.
+    const closedAt = sql`greatest(${now}::timestamptz, created_at, activated_at, updated_at)`;
     await run(
       tx,
       sql`update guardian_links
       set status = case when status = 'active' then 'ended' else 'cancelled' end,
-        version = version + 1, closed_at = ${now}, updated_at = ${now}
+        version = version + 1, closed_at = ${closedAt}, updated_at = ${closedAt}
       where (guardian_user_id = ${subject.userId} or minor_user_id = ${subject.userId})
         and status in ('active', 'requested')`,
     );
@@ -78,7 +81,8 @@ export const guardianLinksPrivacyAdopter: PrivacyAdopter = {
       tx,
       evidenceRow,
       sql`
-      select id, role, method, notice_kind, notice_version, notice_digest, recorded_at
+      select id, role, case when role = 'guardian' then 'parental-consent' else method end as method,
+        notice_kind, notice_version, notice_digest, recorded_at
       from guardian_consent_evidence where person_user_id = ${subject.userId} order by id`,
     );
     await scopeTransaction(tx, {});
