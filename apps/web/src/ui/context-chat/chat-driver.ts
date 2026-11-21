@@ -29,7 +29,11 @@ const json = (body: unknown): RequestInit => ({
 });
 
 /** Holds one owner's chat state and does what its model asks: the reads, the marker and the expiry timer. */
-export function createContextChatDriver(context: ChatContext, ownerId: string) {
+export function createContextChatDriver(
+  context: ChatContext,
+  ownerId: string,
+  retryDiscovery = false,
+) {
   const base = idSchema.safeParse(ownerId).success
     ? context.address(ownerId)
     : null;
@@ -50,7 +54,24 @@ export function createContextChatDriver(context: ChatContext, ownerId: string) {
 
   const discover = async (base: string, { request }: Effect<'discover'>) => {
     try {
-      const response = await fetch(base, { cache: 'no-store' });
+      const readDiscovery = () => fetch(base, { cache: 'no-store' });
+      const waiting = () =>
+        !stopped &&
+        state.standing.kind === 'loading' &&
+        state.standing.request === request;
+      let response = await readDiscovery();
+      // An admission refusal means this GET never ran. Give entry one fresh
+      // attempt after the server's one-second wait; keep the same read fence.
+      if (
+        retryDiscovery &&
+        response.status === 503 &&
+        response.headers.get('retry-after') === '1' &&
+        waiting()
+      ) {
+        await new Promise<void>((resolve) => setTimeout(resolve, 1000));
+        if (!waiting()) return;
+        response = await readDiscovery();
+      }
       const found = response.ok
         ? parseContextChatDiscovery(context, await response.json(), ownerId)
         : null;

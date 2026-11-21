@@ -2,6 +2,7 @@ import type { Page } from '@playwright/test';
 import { createId } from '@paralleldrive/cuid2';
 import {
   affirmativeSide,
+  isNamedSeat,
   roomViewSchema,
   roundViewSchema,
   serverMessageSchema,
@@ -21,6 +22,7 @@ import {
   revealFloorMessage,
 } from './round-floor-pagination';
 import { proveFloorControlFocus } from './round-floor-controls';
+import { openFloorThroughRefusals } from './round-floor-recovery';
 import { proveFloorResilience } from './round-floor-resilience';
 import { turnOnDevices } from './turn-on-devices';
 
@@ -116,7 +118,7 @@ async function readyFloorDebater(page: Page) {
   ).toBeVisible();
 }
 
-/** Real durable floor operations and native observation permits, with no intercepted floor responses. */
+/** Real durable floor operations and native observation permits, with real Floor responses. */
 export function testRoundFloorLive() {
   test('Round floor prep messages reach both debaters without replacing drafts, documents or media, and retain read-only history', async ({
     browser,
@@ -478,9 +480,16 @@ export function testRoundFloorLive() {
         roundId,
         (seat) => sideOfSeat(seat.seat) === affirmativeSide,
       );
+      const hostSeat = opening.participants
+        .filter(isNamedSeat)
+        .find((seat) => sideOfSeat(seat.seat) === affirmativeSide);
+      expect(hostSeat).toBeDefined();
+      await openFloorThroughRefusals(host, roundId, hostSeat!.actorId);
       for (const page of [host, peer]) {
-        await page.goto(`/rounds/${roundId}/floor`);
-        await expect(floor(page)).toBeVisible({ timeout: 15_000 });
+        if (page === peer) await page.goto(`/rounds/${roundId}/floor`);
+        await expect(
+          floor(page).getByRole('list', { name: 'Floor messages' }),
+        ).toBeVisible({ timeout: 15_000 });
         await revealFloorMessage(page, retainedOwnText);
         await expect(message(page, retainedOwnText)).toBeVisible();
         await expect(message(page, second)).toBeVisible();
@@ -515,6 +524,10 @@ export function testRoundFloorLive() {
           '0',
         );
       }
+      const terminalOutsider = await accounts.members[2]!.context.request.get(
+        `/api/rounds/${roundId}/floor/messages?channelId=${channelId}`,
+      );
+      expect(terminalOutsider.status()).toBe(404);
     } finally {
       if (roundId)
         await forfeitOwnSeat(

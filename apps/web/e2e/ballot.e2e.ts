@@ -1,5 +1,6 @@
 import { overflowing } from './support/ballot-layout-probes';
 import { proveBallotRecovery } from './support/ballot-recovery-proof';
+import { submitAcrossFailedChallengeRead } from './support/ballot-refresh-proof';
 import { createRoomLaunchAccounts } from './support/room-launch-accounts';
 import { createHumanBallotRound } from './support/human-ballot-round';
 import { type Page } from '@playwright/test';
@@ -113,7 +114,7 @@ test.describe('actual frozen human ballots', () => {
       page.getByText(`${negativeName} wins with fewer points: 30 to 32`),
     ).toBeVisible();
 
-    // A later change leaves the earlier input alone, and the refusal keeps it.
+    // A later change and a Round refresh leave the earlier input alone.
     await slider(page, 'Delivery', negativeName).fill('4');
     await expect(radio(page, negativeName)).toBeChecked();
     const reasonField = page.getByLabel('Reason for decision');
@@ -124,8 +125,17 @@ test.describe('actual frozen human ballots', () => {
       'form[aria-label="Your ballot"] input[name="commandId"]',
     );
     const originalCommand = await command.inputValue();
-    await submit(page);
+    const originalForm = await submitAcrossFailedChallengeRead(page, path, () =>
+      submit(page),
+    );
     await expect(refusal).toHaveText(lowPoint);
+    expect(await originalForm.evaluate((node) => node.isConnected)).toBe(true);
+    await expect(command).toHaveValue(originalCommand);
+    await expect(radio(page, negativeName)).toBeChecked();
+    await expect(slider(page, 'Thesis', affirmativeName)).toHaveValue('5');
+    await expect(slider(page, 'Delivery', negativeName)).toHaveValue('4');
+    await expect(feedback).toHaveValue('Slow down.');
+    await expect(reasonField).toHaveValue('A close round.');
     await expect(slider(page, 'Delivery', affirmativeName)).toBeVisible();
 
     const reason = 'The negative compared the decisive impacts.';
