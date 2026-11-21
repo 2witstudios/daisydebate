@@ -37,6 +37,7 @@ import { launchCustomSelection } from './support/room-launch-custom';
 import { proveLoopbackUpstreams } from './support/launch-loopback';
 import { createRoomLaunchAccounts } from './support/room-launch-accounts';
 import { launchEvidence } from './support/room-launch-evidence';
+import { hydrated } from './support/hydration';
 import { readyOwnSeat } from './support/human-ballot-round';
 import { readRoomBotRoster, startTrainPractice } from './support/ai-cast';
 import {
@@ -213,6 +214,15 @@ test('judge Ready and eligible stored bot debaters start one frozen Round', asyn
     await expect(
       judge.getByText('Round · In progress', { exact: true }),
     ).toBeVisible();
+    // Leave explicitly so the Lobby stays open instead of auto-resuming the judge.
+    await judge.goto(`/rounds/${round.id}/room`);
+    const backToLobby = judge.getByRole('link', {
+      name: 'Back to the lobby',
+      exact: true,
+    });
+    await hydrated(backToLobby);
+    await backToLobby.click();
+    await expect(judge).toHaveURL(/\/lobby$/);
     await judge.goto(`/lobby?${new URLSearchParams({ q: view.title })}`);
     // The judge holds a seat, so the row leads back into the round room.
     await expect(
