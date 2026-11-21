@@ -1,9 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "8b13e8a6-1708-4d1a-ba66-0036b1a3314f",
+  "id": "b86abdff-e82b-4f5a-b148-11b789d5d47d",
   "prevIds": [
-    "cd1b9049-272e-4c34-9d89-3d3eddc1e2c3"
+    "2d842f1a-6d56-40c1-9eb3-c85f95d23b84"
   ],
   "ddl": [
     {
@@ -597,6 +597,12 @@
     {
       "isRlsEnabled": false,
       "name": "messaging_receipts",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "messaging_request_settings",
       "entityType": "tables",
       "schema": "public"
     },
@@ -12331,6 +12337,45 @@
       "default": null,
       "generated": null,
       "identity": null,
+      "name": "user_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "messaging_request_settings"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "setting",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "messaging_request_settings"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "messaging_request_settings"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
       "name": "channel_id",
       "entityType": "columns",
       "schema": "public",
@@ -14087,6 +14132,19 @@
       "generated": null,
       "identity": null,
       "name": "media_release_club_ask_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "notifications"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "dm_channel_id",
       "entityType": "columns",
       "schema": "public",
       "table": "notifications"
@@ -32260,6 +32318,62 @@
       "nameExplicit": true,
       "columns": [
         {
+          "value": "user_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "kind",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "dm_channel_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": "\"dm_channel_id\" is not null",
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "notifications_dm_request_once",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "notifications"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "dm_channel_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "notifications_dm_channel_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "notifications"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
           "value": "target_user_id",
           "isExpression": false,
           "asc": true,
@@ -42367,6 +42481,23 @@
     {
       "nameExplicit": false,
       "columns": [
+        "user_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "users",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "messaging_request_settings_user_id_users_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "messaging_request_settings"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
         "channel_id"
       ],
       "schemaTo": "public",
@@ -42965,6 +43096,23 @@
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
       "name": "notifications_KlUC91rDK59R_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "notifications"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "dm_channel_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "messaging_dm_pairs",
+      "columnsTo": [
+        "channel_id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "notifications_dm_channel_id_messaging_dm_pairs_channel_id_fkey",
       "entityType": "fks",
       "schema": "public",
       "table": "notifications"
@@ -48172,6 +48320,16 @@
     },
     {
       "columns": [
+        "user_id"
+      ],
+      "nameExplicit": false,
+      "name": "messaging_request_settings_pkey",
+      "schema": "public",
+      "table": "messaging_request_settings",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
         "id"
       ],
       "nameExplicit": false,
@@ -52196,6 +52354,13 @@
       "table": "messaging_receipts"
     },
     {
+      "value": "\"setting\" in ('everyone', 'friends', 'none')",
+      "name": "messaging_request_settings_setting",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "messaging_request_settings"
+    },
+    {
       "value": "\"low_actor_id\" < \"high_actor_id\"",
       "name": "messaging_dm_pairs_order",
       "entityType": "checks",
@@ -52560,21 +52725,21 @@
       "table": "notification_fanouts"
     },
     {
-      "value": "(\"kind\", \"channel\") in (('followed_debater_live', 'in_app'), ('recording_ready', 'in_app'), ('round_started', 'in_app'), ('round_decision_released', 'in_app'), ('round_decision_released', 'email'), ('room_invitation', 'in_app'), ('room_invitation', 'email'), ('challenge_received', 'in_app'), ('challenge_accepted', 'in_app'), ('friend_request_received', 'in_app'), ('friend_request_received', 'email'), ('friend_request_accepted', 'in_app'), ('judge_assigned', 'in_app'), ('judge_replaced', 'in_app'), ('judge_unassigned', 'in_app'), ('tournament_draw_changed', 'in_app'), ('tournament_room_ready', 'in_app'), ('tournament_results_released', 'in_app'), ('media_release_requested', 'in_app'), ('media_release_declined', 'in_app'), ('media_release_signed', 'in_app'), ('media_release_club_confirmed', 'in_app'), ('media_release_withdrawn', 'in_app'), ('media_release_club_asked', 'in_app'))",
+      "value": "(\"kind\", \"channel\") in (('followed_debater_live', 'in_app'), ('recording_ready', 'in_app'), ('round_started', 'in_app'), ('round_decision_released', 'in_app'), ('round_decision_released', 'email'), ('room_invitation', 'in_app'), ('room_invitation', 'email'), ('challenge_received', 'in_app'), ('challenge_accepted', 'in_app'), ('friend_request_received', 'in_app'), ('friend_request_received', 'email'), ('friend_request_accepted', 'in_app'), ('dm_request', 'in_app'), ('dm_request', 'email'), ('judge_assigned', 'in_app'), ('judge_replaced', 'in_app'), ('judge_unassigned', 'in_app'), ('tournament_draw_changed', 'in_app'), ('tournament_room_ready', 'in_app'), ('tournament_results_released', 'in_app'), ('media_release_requested', 'in_app'), ('media_release_declined', 'in_app'), ('media_release_signed', 'in_app'), ('media_release_club_confirmed', 'in_app'), ('media_release_withdrawn', 'in_app'), ('media_release_club_asked', 'in_app'))",
       "name": "notification_preferences_pair_check",
       "entityType": "checks",
       "schema": "public",
       "table": "notification_preferences"
     },
     {
-      "value": "\"kind\" in ('followed_debater_live', 'recording_ready', 'round_started', 'round_decision_released', 'room_invitation', 'challenge_received', 'challenge_accepted', 'friend_request_received', 'friend_request_accepted', 'judge_assigned', 'judge_replaced', 'judge_unassigned', 'tournament_draw_changed', 'tournament_room_ready', 'tournament_results_released', 'media_release_requested', 'media_release_declined', 'media_release_signed', 'media_release_club_confirmed', 'media_release_withdrawn', 'media_release_club_asked')",
+      "value": "\"kind\" in ('followed_debater_live', 'recording_ready', 'round_started', 'round_decision_released', 'room_invitation', 'challenge_received', 'challenge_accepted', 'friend_request_received', 'friend_request_accepted', 'dm_request', 'judge_assigned', 'judge_replaced', 'judge_unassigned', 'tournament_draw_changed', 'tournament_room_ready', 'tournament_results_released', 'media_release_requested', 'media_release_declined', 'media_release_signed', 'media_release_club_confirmed', 'media_release_withdrawn', 'media_release_club_asked')",
       "name": "notifications_kind_check",
       "entityType": "checks",
       "schema": "public",
       "table": "notifications"
     },
     {
-      "value": "(\"kind\" in ('followed_debater_live', 'recording_ready', 'round_started', 'round_decision_released')) = (\"round_id\" is not null) and (\"kind\" in ('room_invitation')) = (\"room_invitation_id\" is not null) and (\"kind\" in ('challenge_received', 'challenge_accepted')) = (\"challenge_id\" is not null) and (\"kind\" in ('friend_request_received', 'friend_request_accepted')) = (\"friendship_low_actor_id\" is not null) and (\"kind\" in ('friend_request_received', 'friend_request_accepted')) = (\"friendship_high_actor_id\" is not null) and (\"kind\" in ('judge_assigned', 'judge_replaced', 'judge_unassigned', 'tournament_draw_changed', 'tournament_room_ready', 'tournament_results_released')) = (\"fixture_id\" is not null) and (\"kind\" in ('judge_assigned', 'judge_replaced', 'judge_unassigned', 'tournament_draw_changed', 'tournament_room_ready', 'tournament_results_released')) = (\"notification_lobby_id\" is not null) and (\"kind\" in ('judge_assigned', 'judge_replaced', 'judge_unassigned', 'tournament_draw_changed', 'tournament_room_ready', 'tournament_results_released')) = (\"tab_command_id\" is not null) and (\"kind\" in ('media_release_requested', 'media_release_declined')) = (\"media_release_request_id\" is not null) and (\"kind\" in ('media_release_signed', 'media_release_club_confirmed', 'media_release_withdrawn')) = (\"media_release_id\" is not null) and (\"kind\" in ('media_release_club_asked')) = (\"media_release_club_ask_id\" is not null)",
+      "value": "(\"kind\" in ('followed_debater_live', 'recording_ready', 'round_started', 'round_decision_released')) = (\"round_id\" is not null) and (\"kind\" in ('room_invitation')) = (\"room_invitation_id\" is not null) and (\"kind\" in ('challenge_received', 'challenge_accepted')) = (\"challenge_id\" is not null) and (\"kind\" in ('friend_request_received', 'friend_request_accepted')) = (\"friendship_low_actor_id\" is not null) and (\"kind\" in ('friend_request_received', 'friend_request_accepted')) = (\"friendship_high_actor_id\" is not null) and (\"kind\" in ('judge_assigned', 'judge_replaced', 'judge_unassigned', 'tournament_draw_changed', 'tournament_room_ready', 'tournament_results_released')) = (\"fixture_id\" is not null) and (\"kind\" in ('judge_assigned', 'judge_replaced', 'judge_unassigned', 'tournament_draw_changed', 'tournament_room_ready', 'tournament_results_released')) = (\"notification_lobby_id\" is not null) and (\"kind\" in ('judge_assigned', 'judge_replaced', 'judge_unassigned', 'tournament_draw_changed', 'tournament_room_ready', 'tournament_results_released')) = (\"tab_command_id\" is not null) and (\"kind\" in ('media_release_requested', 'media_release_declined')) = (\"media_release_request_id\" is not null) and (\"kind\" in ('media_release_signed', 'media_release_club_confirmed', 'media_release_withdrawn')) = (\"media_release_id\" is not null) and (\"kind\" in ('media_release_club_asked')) = (\"media_release_club_ask_id\" is not null) and (\"kind\" in ('dm_request')) = (\"dm_channel_id\" is not null)",
       "name": "notifications_subject_check",
       "entityType": "checks",
       "schema": "public",

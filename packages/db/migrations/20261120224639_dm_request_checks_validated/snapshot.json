@@ -1,10 +1,10 @@
 {
+  "id": "2d842f1a-6d56-40c1-9eb3-c85f95d23b84",
+  "prevIds": [
+    "7f25e979-4cd1-494c-8f97-d2ff86525787"
+  ],
   "version": "8",
   "dialect": "postgres",
-  "id": "cd1b9049-272e-4c34-9d89-3d3eddc1e2c3",
-  "prevIds": [
-    "492289ef-f5a3-4f2f-97ef-d0dd43775a89"
-  ],
   "ddl": [
     {
       "isRlsEnabled": false,
@@ -524,6 +524,12 @@
     },
     {
       "isRlsEnabled": false,
+      "name": "youth_round_publications",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
       "name": "media_participants",
       "entityType": "tables",
       "schema": "public"
@@ -597,6 +603,12 @@
     {
       "isRlsEnabled": false,
       "name": "messaging_receipts",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "messaging_request_settings",
       "entityType": "tables",
       "schema": "public"
     },
@@ -11031,6 +11043,58 @@
       "default": null,
       "generated": null,
       "identity": null,
+      "name": "round_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "youth_round_publications"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "published_by_user_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "youth_round_publications"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "published_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "youth_round_publications"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "ended_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "youth_round_publications"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
       "name": "id",
       "entityType": "columns",
       "schema": "public",
@@ -12322,6 +12386,45 @@
       "entityType": "columns",
       "schema": "public",
       "table": "messaging_receipts"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "user_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "messaging_request_settings"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "setting",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "messaging_request_settings"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "messaging_request_settings"
     },
     {
       "type": "text",
@@ -14087,6 +14190,19 @@
       "generated": null,
       "identity": null,
       "name": "media_release_club_ask_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "notifications"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "dm_channel_id",
       "entityType": "columns",
       "schema": "public",
       "table": "notifications"
@@ -30384,6 +30500,27 @@
       "nameExplicit": true,
       "columns": [
         {
+          "value": "published_by_user_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "youth_round_publications_published_by_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "youth_round_publications"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
           "value": "session_id",
           "isExpression": false,
           "asc": true,
@@ -32252,6 +32389,62 @@
       "method": "btree",
       "concurrently": false,
       "name": "notifications_media_release_club_ask_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "notifications"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "user_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "kind",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "dm_channel_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": "\"dm_channel_id\" is not null",
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "notifications_dm_request_once",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "notifications"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "dm_channel_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "notifications_dm_channel_idx",
       "entityType": "indexes",
       "schema": "public",
       "table": "notifications"
@@ -41960,6 +42153,40 @@
       "table": "media_releases"
     },
     {
+      "nameExplicit": false,
+      "columns": [
+        "round_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "rounds",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "youth_round_publications_round_id_rounds_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "youth_round_publications"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "published_by_user_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "users",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "SET NULL",
+      "name": "youth_round_publications_published_by_user_id_users_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "youth_round_publications"
+    },
+    {
       "nameExplicit": true,
       "columns": [
         "session_id",
@@ -42363,6 +42590,23 @@
       "entityType": "fks",
       "schema": "public",
       "table": "messaging_receipts"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "user_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "users",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "messaging_request_settings_user_id_users_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "messaging_request_settings"
     },
     {
       "nameExplicit": false,
@@ -42965,6 +43209,23 @@
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
       "name": "notifications_KlUC91rDK59R_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "notifications"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "dm_channel_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "messaging_dm_pairs",
+      "columnsTo": [
+        "channel_id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "notifications_dm_channel_id_messaging_dm_pairs_channel_id_fkey",
       "entityType": "fks",
       "schema": "public",
       "table": "notifications"
@@ -48082,6 +48343,16 @@
     },
     {
       "columns": [
+        "round_id"
+      ],
+      "nameExplicit": false,
+      "name": "youth_round_publications_pkey",
+      "schema": "public",
+      "table": "youth_round_publications",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
         "id"
       ],
       "nameExplicit": false,
@@ -48168,6 +48439,16 @@
       "name": "messaging_messages_pkey",
       "schema": "public",
       "table": "messaging_messages",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "user_id"
+      ],
+      "nameExplicit": false,
+      "name": "messaging_request_settings_pkey",
+      "schema": "public",
+      "table": "messaging_request_settings",
       "entityType": "pks"
     },
     {
@@ -50495,7 +50776,7 @@
       "table": "broadcasts"
     },
     {
-      "value": "\"stop_reason\" is null or \"stop_reason\" in ('policy_violation', 'legal_request', 'participant_safety', 'technical', 'recording_removed', 'recording_legally_removed', 'recording_removed_by_participant', 'recording_removed_by_erasure')",
+      "value": "\"stop_reason\" is null or \"stop_reason\" in ('policy_violation', 'legal_request', 'participant_safety', 'technical', 'recording_removed', 'recording_legally_removed', 'recording_removed_by_participant', 'recording_removed_by_erasure', 'youth_round_private')",
       "name": "broadcasts_stop_reason_check",
       "entityType": "checks",
       "schema": "public",
@@ -51958,6 +52239,13 @@
       "table": "media_releases"
     },
     {
+      "value": "isfinite(\"published_at\") and (\"ended_at\" is null or \"ended_at\" >= \"published_at\")",
+      "name": "youth_round_publications_ended_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "youth_round_publications"
+    },
+    {
       "value": "\"cause\" in ('absent', 'unreachable', 'seat-revoked', 'lost')",
       "name": "media_room_rotations_cause_check",
       "entityType": "checks",
@@ -52194,6 +52482,13 @@
       "entityType": "checks",
       "schema": "public",
       "table": "messaging_receipts"
+    },
+    {
+      "value": "\"setting\" in ('everyone', 'friends', 'none')",
+      "name": "messaging_request_settings_setting",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "messaging_request_settings"
     },
     {
       "value": "\"low_actor_id\" < \"high_actor_id\"",
@@ -52560,21 +52855,21 @@
       "table": "notification_fanouts"
     },
     {
-      "value": "(\"kind\", \"channel\") in (('followed_debater_live', 'in_app'), ('recording_ready', 'in_app'), ('round_started', 'in_app'), ('round_decision_released', 'in_app'), ('round_decision_released', 'email'), ('room_invitation', 'in_app'), ('room_invitation', 'email'), ('challenge_received', 'in_app'), ('challenge_accepted', 'in_app'), ('friend_request_received', 'in_app'), ('friend_request_received', 'email'), ('friend_request_accepted', 'in_app'), ('judge_assigned', 'in_app'), ('judge_replaced', 'in_app'), ('judge_unassigned', 'in_app'), ('tournament_draw_changed', 'in_app'), ('tournament_room_ready', 'in_app'), ('tournament_results_released', 'in_app'), ('media_release_requested', 'in_app'), ('media_release_declined', 'in_app'), ('media_release_signed', 'in_app'), ('media_release_club_confirmed', 'in_app'), ('media_release_withdrawn', 'in_app'), ('media_release_club_asked', 'in_app'))",
+      "value": "(\"kind\", \"channel\") in (('followed_debater_live', 'in_app'), ('recording_ready', 'in_app'), ('round_started', 'in_app'), ('round_decision_released', 'in_app'), ('round_decision_released', 'email'), ('room_invitation', 'in_app'), ('room_invitation', 'email'), ('challenge_received', 'in_app'), ('challenge_accepted', 'in_app'), ('friend_request_received', 'in_app'), ('friend_request_received', 'email'), ('friend_request_accepted', 'in_app'), ('dm_request', 'in_app'), ('dm_request', 'email'), ('judge_assigned', 'in_app'), ('judge_replaced', 'in_app'), ('judge_unassigned', 'in_app'), ('tournament_draw_changed', 'in_app'), ('tournament_room_ready', 'in_app'), ('tournament_results_released', 'in_app'), ('media_release_requested', 'in_app'), ('media_release_declined', 'in_app'), ('media_release_signed', 'in_app'), ('media_release_club_confirmed', 'in_app'), ('media_release_withdrawn', 'in_app'), ('media_release_club_asked', 'in_app'), ('youth_round_published', 'in_app'))",
       "name": "notification_preferences_pair_check",
       "entityType": "checks",
       "schema": "public",
       "table": "notification_preferences"
     },
     {
-      "value": "\"kind\" in ('followed_debater_live', 'recording_ready', 'round_started', 'round_decision_released', 'room_invitation', 'challenge_received', 'challenge_accepted', 'friend_request_received', 'friend_request_accepted', 'judge_assigned', 'judge_replaced', 'judge_unassigned', 'tournament_draw_changed', 'tournament_room_ready', 'tournament_results_released', 'media_release_requested', 'media_release_declined', 'media_release_signed', 'media_release_club_confirmed', 'media_release_withdrawn', 'media_release_club_asked')",
+      "value": "\"kind\" in ('followed_debater_live', 'recording_ready', 'round_started', 'round_decision_released', 'room_invitation', 'challenge_received', 'challenge_accepted', 'friend_request_received', 'friend_request_accepted', 'dm_request', 'judge_assigned', 'judge_replaced', 'judge_unassigned', 'tournament_draw_changed', 'tournament_room_ready', 'tournament_results_released', 'media_release_requested', 'media_release_declined', 'media_release_signed', 'media_release_club_confirmed', 'media_release_withdrawn', 'media_release_club_asked', 'youth_round_published')",
       "name": "notifications_kind_check",
       "entityType": "checks",
       "schema": "public",
       "table": "notifications"
     },
     {
-      "value": "(\"kind\" in ('followed_debater_live', 'recording_ready', 'round_started', 'round_decision_released')) = (\"round_id\" is not null) and (\"kind\" in ('room_invitation')) = (\"room_invitation_id\" is not null) and (\"kind\" in ('challenge_received', 'challenge_accepted')) = (\"challenge_id\" is not null) and (\"kind\" in ('friend_request_received', 'friend_request_accepted')) = (\"friendship_low_actor_id\" is not null) and (\"kind\" in ('friend_request_received', 'friend_request_accepted')) = (\"friendship_high_actor_id\" is not null) and (\"kind\" in ('judge_assigned', 'judge_replaced', 'judge_unassigned', 'tournament_draw_changed', 'tournament_room_ready', 'tournament_results_released')) = (\"fixture_id\" is not null) and (\"kind\" in ('judge_assigned', 'judge_replaced', 'judge_unassigned', 'tournament_draw_changed', 'tournament_room_ready', 'tournament_results_released')) = (\"notification_lobby_id\" is not null) and (\"kind\" in ('judge_assigned', 'judge_replaced', 'judge_unassigned', 'tournament_draw_changed', 'tournament_room_ready', 'tournament_results_released')) = (\"tab_command_id\" is not null) and (\"kind\" in ('media_release_requested', 'media_release_declined')) = (\"media_release_request_id\" is not null) and (\"kind\" in ('media_release_signed', 'media_release_club_confirmed', 'media_release_withdrawn')) = (\"media_release_id\" is not null) and (\"kind\" in ('media_release_club_asked')) = (\"media_release_club_ask_id\" is not null)",
+      "value": "(\"kind\" in ('followed_debater_live', 'recording_ready', 'round_started', 'round_decision_released', 'youth_round_published')) = (\"round_id\" is not null) and (\"kind\" in ('room_invitation')) = (\"room_invitation_id\" is not null) and (\"kind\" in ('challenge_received', 'challenge_accepted')) = (\"challenge_id\" is not null) and (\"kind\" in ('friend_request_received', 'friend_request_accepted')) = (\"friendship_low_actor_id\" is not null) and (\"kind\" in ('friend_request_received', 'friend_request_accepted')) = (\"friendship_high_actor_id\" is not null) and (\"kind\" in ('judge_assigned', 'judge_replaced', 'judge_unassigned', 'tournament_draw_changed', 'tournament_room_ready', 'tournament_results_released')) = (\"fixture_id\" is not null) and (\"kind\" in ('judge_assigned', 'judge_replaced', 'judge_unassigned', 'tournament_draw_changed', 'tournament_room_ready', 'tournament_results_released')) = (\"notification_lobby_id\" is not null) and (\"kind\" in ('judge_assigned', 'judge_replaced', 'judge_unassigned', 'tournament_draw_changed', 'tournament_room_ready', 'tournament_results_released')) = (\"tab_command_id\" is not null) and (\"kind\" in ('media_release_requested', 'media_release_declined')) = (\"media_release_request_id\" is not null) and (\"kind\" in ('media_release_signed', 'media_release_club_confirmed', 'media_release_withdrawn')) = (\"media_release_id\" is not null) and (\"kind\" in ('media_release_club_asked')) = (\"media_release_club_ask_id\" is not null) and (\"kind\" in ('dm_request')) = (\"dm_channel_id\" is not null)",
       "name": "notifications_subject_check",
       "entityType": "checks",
       "schema": "public",

@@ -75,7 +75,7 @@ export const canReadRound = (
  * on a Youth Round when `youth` names them (ADR 0155); a seat reads through
  * the seat.
  */
-export const canObserveUndelayed = (
+const canObserveUndelayed = (
   caller: { readonly userId: string; readonly actorId: string },
   round: LaunchedRound,
   account: AccountAuthorizationFact | null,

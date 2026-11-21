@@ -9,7 +9,9 @@ setupRitewayBun();
 setDefaultTimeout(30_000);
 
 /**
- * Runs the approval step against a stub `gh` answering `pulls` and `runs`.
+ * Runs the approval step against a stub `gh` answering `pulls`, CI's `runs`
+ * and Browser E2E's `browserRuns` (already started unless a test says
+ * otherwise, so the CI cases read as they always did).
  * `failOnce` fails the first call of that kind, as a transient API error does,
  * and `stale head` answers the first lookup with an older pull request head.
  * Returns the exit status and each run the step asked GitHub to approve.
@@ -19,6 +21,7 @@ const approveRun = (
   runs: unknown[],
   failOnce?: 'pulls' | 'runs' | 'approve' | 'every approve' | 'stale head',
   pushed = true,
+  browserRuns: unknown[] = [prRun(900, 'in_progress', null)],
 ) => {
   const step = workflow.jobs['start-checks']!.steps.find(
     ({ id }) => id === 'approve',
@@ -43,6 +46,7 @@ const approveRun = (
 case "$*" in
   *"/pulls?state=open&head=owner:pu/lobby") ${fail('pulls')}${staleHead}echo '${JSON.stringify(pulls)}' ;;
   *"/actions/workflows/ci.yml/runs?per_page=100") ${fail('runs')}echo '${JSON.stringify({ workflow_runs: runs })}' ;;
+  *"/actions/workflows/e2e.yml/runs?per_page=100") echo '${JSON.stringify({ workflow_runs: browserRuns })}' ;;
   *"/approve") ${fail('approve')}: ;;
 esac`,
           sleep: ':',
@@ -62,7 +66,7 @@ esac`,
         .map((call) => call.match(/runs\/(\d+)\/approve/)?.[1]),
       listings: readFileSync(join(dir, 'calls'), 'utf8')
         .split('\n')
-        .filter((call) => call.includes('/runs?per_page=')).length,
+        .filter((call) => call.includes('ci.yml/runs?per_page=')).length,
     }),
   );
 };
@@ -90,6 +94,46 @@ const prRun = (
 });
 const held = (id: number, head_sha?: string) =>
   prRun(id, 'completed', 'action_required', head_sha);
+
+describe('Rebaseline visuals start-checks, Browser E2E', () => {
+  test('a held Browser E2E run at the head is approved after CI is', () => {
+    assert({
+      given:
+        'a held CI run and a held Browser E2E run at the head, then CI started with Browser E2E alone held',
+      should:
+        'approve each held run, because both workflows carry required checks',
+      actual: [
+        runApprove([openPull()].flat(), [held(1)], undefined, true, [held(2)]),
+        runApprove(
+          [openPull()].flat(),
+          [prRun(1, 'in_progress', null)],
+          undefined,
+          true,
+          [held(2)],
+        ),
+      ],
+      expected: [
+        { ok: true, approved: ['1', '2'] },
+        { ok: true, approved: ['2'] },
+      ],
+    });
+  });
+
+  test('a push whose Browser E2E run never appears fails the step', () => {
+    assert({
+      given: 'a fresh push with CI started and no Browser E2E run listed',
+      should: 'fail, so nobody waits on a required check that will not report',
+      actual: runApprove(
+        [openPull()].flat(),
+        [prRun(1, 'in_progress', null)],
+        undefined,
+        true,
+        [],
+      ),
+      expected: { ok: false, approved: [] },
+    });
+  });
+});
 
 describe('Rebaseline visuals start-checks', () => {
   test('the job that holds actions: write', () => {

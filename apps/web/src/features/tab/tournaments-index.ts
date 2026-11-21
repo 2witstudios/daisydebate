@@ -36,8 +36,8 @@ export type IndexParams = Readonly<
   Record<string, string | readonly string[] | undefined>
 >;
 
-export type IndexView = 'list' | 'calendar';
-export type IndexMode = 'online' | 'in_person';
+type IndexView = 'list' | 'calendar';
+type IndexMode = 'online' | 'in_person';
 
 /** Everything the index's address carries. Absent narrows nothing. */
 export type IndexState = {
@@ -88,7 +88,7 @@ export type RowGroup = {
   readonly rows: readonly IndexRow[];
 };
 
-export type FilterChip = {
+type FilterChip = {
   readonly label: string;
   /** The address without this filter. */
   readonly remove: string;
@@ -96,7 +96,7 @@ export type FilterChip = {
 
 export type IndexOption = readonly [value: string, label: string];
 
-export type IndexTabLink = {
+type IndexTabLink = {
   readonly id: LobbyListTab;
   readonly label: string;
   readonly count: number | null;
@@ -138,7 +138,7 @@ export type IndexCalendar = {
   } | null;
 };
 
-export type IndexList = {
+type IndexList = {
   /** `128 tournaments, soonest first`. */
   readonly summary: string;
   /** The phone's grouping. */
@@ -178,11 +178,11 @@ export type TournamentsIndex = {
   readonly host: TabAction | null;
 };
 
-export const indexPageSize = 20;
+const indexPageSize = 20;
 /** A calendar day lists this many before "Show all". */
-export const dayPageSize = 5;
+const dayPageSize = 5;
 /** How far "near me" reaches. */
-export const nearMiles = 50;
+const nearMiles = 50;
 
 const formats = [
   'Lincoln-Douglas',
@@ -204,7 +204,7 @@ const shortFormats: Readonly<Record<string, string>> = {
   'British Parliamentary': 'BP',
 };
 
-export const divisionLabels: Readonly<Record<TournamentDivision, string>> = {
+const divisionLabels: Readonly<Record<TournamentDivision, string>> = {
   novice: 'Novice',
   jv: 'JV',
   varsity: 'Varsity',
@@ -414,7 +414,7 @@ const tabOf = (lobby: Listed): LobbyListTab =>
       : 'upcoming';
 
 /** Whether a tournament takes entries now, with a place left. */
-export const entryOpen = (lobby: Listed, asOf: string): boolean =>
+const entryOpen = (lobby: Listed, asOf: string): boolean =>
   lobby.status === 'open' &&
   lobby.entry.opensAt === null &&
   lobby.entry.closesAt > asOf &&
@@ -433,7 +433,7 @@ const runsFormat = (lobby: Listed, format: string): boolean => {
 };
 
 /** Whether a tournament passes every filter of a state. */
-export function matches(
+function matches(
   lobby: Listed,
   state: IndexState,
   asOf: string,

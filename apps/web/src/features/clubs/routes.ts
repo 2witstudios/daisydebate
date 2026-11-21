@@ -28,7 +28,7 @@ const member = z.strictObject({ kind: z.literal('member'), userId: id });
 const invitee = z.strictObject({ kind: z.literal('invite'), email });
 
 /** What a manager may send: the club comes from the path, never the body. */
-export const clubSeatCommandSchema = z.discriminatedUnion('kind', [
+const clubSeatCommandSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('invite'), email }),
   z.strictObject({ kind: z.literal('assign'), userId: id }),
   z.strictObject({
@@ -40,7 +40,7 @@ export const clubSeatCommandSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('cancel'), invitationId: id }),
   z.strictObject({ kind: z.literal('resend'), invitationId: id }),
 ]);
-export const seatCountChangeSchema = z.strictObject({
+const seatCountChangeSchema = z.strictObject({
   seatCount: z.number().int().min(1).max(clubSeatBounds.maxSeats),
   release: z
     .strictObject({
@@ -49,7 +49,7 @@ export const seatCountChangeSchema = z.strictObject({
     })
     .default({ seats: [], invitations: [] }),
 });
-export const startClubSchema = z.strictObject({
+const startClubSchema = z.strictObject({
   kind: z.enum(['school', 'family']),
   name: z.string().trim().min(2).max(80),
   handle: z

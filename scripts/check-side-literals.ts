@@ -14,6 +14,7 @@
 //   - packages/debate-engine/src/rating.ts
 //   - packages/debate-engine/src/rating-decision.ts
 //   - apps/web/src/features/ratings/read-round.ts
+//   - apps/web/src/features/ratings/league-fold.ts
 // Every other file, the resolution strike included, reads its sides through
 // the protocol preset. Tests, their fixtures and test-support modules are
 // exempt.
@@ -26,6 +27,7 @@ const pairwise: readonly RegExp[] = [
   /^packages\/debate-engine\/src\/rating\.ts$/,
   /^packages\/debate-engine\/src\/rating-decision\.ts$/,
   /^apps\/web\/src\/features\/ratings\/read-round\.ts$/,
+  /^apps\/web\/src\/features\/ratings\/league-fold\.ts$/,
 ];
 
 /** Paths allowed to spell a side key: the preset itself, tests and their fixtures. */

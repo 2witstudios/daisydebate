@@ -2,9 +2,9 @@
 /**
  * Runs after every merge to main (.github/workflows/notify-merge.yml). It
  * moves each task the PR names to Done when the PR's latest collaborator
- * review verdict approves its merged head (reviews are PR comments, ADR
- * 0083), and otherwise to Merged,
- * where the board keeper reconciles it.
+ * review verdict approves a commit of the PR (reviews are PR comments, ADR
+ * 0083; the commit need not be the merged head, ADR 0159), and otherwise to
+ * Merged, where the board keeper reconciles it.
  */
 import {
   approvedByReview,
@@ -90,6 +90,8 @@ export type FollowupDeps = {
   ) => Promise<void>;
   /** The bodies of the PR's comments by repository collaborators, oldest first. */
   readonly comments: () => Promise<readonly string[]>;
+  /** The SHA of every commit the PR carried, its merged head included. */
+  readonly commits: () => Promise<readonly string[]>;
 };
 
 async function moveTasks(
@@ -129,7 +131,9 @@ export async function followUpMerge(
   const pages = findTaskPages(await deps.drivePages()).filter((page) =>
     codes.includes(page.code),
   );
-  const approved = approvedByReview(await deps.comments(), pr.headSha);
+  const approved = approvedByReview(await deps.comments(), [
+    ...new Set([pr.headSha, ...(await deps.commits())]),
+  ]);
   return {
     moved: await moveTasks(deps, pages, approved),
     status: approved ? 'completed' : MERGED_STATUS.slug,
@@ -201,6 +205,22 @@ function liveDeps(repository: string, pr: number): FollowupDeps {
         .filter(Boolean)
         .map((line): unknown => JSON.parse(line))
         .filter((body): body is string => typeof body === 'string');
+    },
+    commits: async () => {
+      const result = Bun.spawnSync(
+        [
+          'gh',
+          'api',
+          '--paginate',
+          `repos/${repository}/pulls/${pr}/commits`,
+          '--jq',
+          '.[].sha',
+        ],
+        { stdout: 'pipe', stderr: 'inherit' },
+      );
+      if (result.exitCode !== 0)
+        throw new Error(`gh could not read the commits of PR #${pr}`);
+      return result.stdout.toString().split('\n').filter(Boolean);
     },
   };
 }

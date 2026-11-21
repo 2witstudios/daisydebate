@@ -42,7 +42,7 @@ export const acquisitionCommands = () => [
  * archive after each is verified against the current index's SHA256 (apt
  * itself accepts a cached archive on its size alone).
  */
-export const stagePaths = (stage: string) => ({
+const stagePaths = (stage: string) => ({
   archives: `${stage}/archives`,
   lists: `${stage}/lists`,
   image: `${stage}/image`,
@@ -124,7 +124,7 @@ export const dropStageCommand = (stage: string) => ['rm', '-rf', '--', stage];
  * Copies apt's archive aside before dpkg runs: an image whose apt hook cleans
  * the archive after installation (Ubuntu's docker-clean) still leaves a set.
  */
-export const holdArchivesCommand = (stage: string) => {
+const holdArchivesCommand = (stage: string) => {
   const next = stagePaths(`${stage}.next`);
   return [
     'sh',

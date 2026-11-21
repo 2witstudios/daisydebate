@@ -24,7 +24,7 @@ export const markedProvisional = (standing: MemberStanding): boolean =>
   standing.provisional && standing.rating !== null && !standing.hidden;
 
 /** "Final rating, Spring 2026. Kept as history." */
-export const historyLine = (standing: MemberStanding): string =>
+const historyLine = (standing: MemberStanding): string =>
   `Final rating, ${standing.season}. Kept as history.`;
 
 /** "1604 · #12 of 388 · 31–12": rank only once established. */

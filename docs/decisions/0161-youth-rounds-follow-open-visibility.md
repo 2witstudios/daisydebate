@@ -85,7 +85,7 @@ an open stream-and-earn grant, which a minor cannot give alone.
    `endYouthBroadcasts` sweep and the `youth_round_private` stop reason
    (stored stops read as `technical`, still stopped); Share publicly, the
    `youth_round_publications` table and its `youth_round_published` notices
-   and preferences (migration `20261119165444_youth_like_open`, proven on
+   and preferences (migration `20261121020535_youth_like_open_and_reuse`, proven on
    seeded rows); the Recording page's Private badge and Youth panel; the
    waiting-for-release Round counts.
 8. **Kept.** Lobby-bound debater seats (ADR 0156), Youth ladders and seasons

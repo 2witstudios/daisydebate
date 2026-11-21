@@ -10,7 +10,7 @@ as the source of truth. Do your own discovery: AGENTS.md, the drive's product
 intent and constraints, the relevant architecture and ADRs, the `Issues` buckets
 touching the slice, and the PRs and branches you inherit. Write one plan with a
 task list in `Plans/<slice>` and post its link on the PageSpace Delivery channel for one
-confirmation by the architecture reviewer and the point guard.
+confirmation by the point guard.
 
 Plan from intent, not from the existing code: the plan's sections and the
 planning dialogue are in the task workflow's plan() step. The repository's

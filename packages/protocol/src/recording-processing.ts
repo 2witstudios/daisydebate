@@ -8,7 +8,7 @@ import {
 } from './recording';
 
 /** What the processing worker found. Only the web's capture port can make it ready. */
-export const builtRecordingMediaSchema = recordingMediaSchema.omit({
+const builtRecordingMediaSchema = recordingMediaSchema.omit({
   speeches: true,
   unrecorded: true,
 });

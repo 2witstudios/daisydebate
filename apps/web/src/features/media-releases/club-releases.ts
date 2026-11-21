@@ -12,7 +12,7 @@ import {
  * source line under each release, and the coach view's tallies. Pure.
  */
 
-export const clubReleaseFilters = ['needs', 'on_file', 'everyone'] as const;
+const clubReleaseFilters = ['needs', 'on_file', 'everyone'] as const;
 export type ClubReleaseFilter = (typeof clubReleaseFilters)[number];
 
 export const clubReleaseFilterOf = (value: unknown): ClubReleaseFilter =>
@@ -125,12 +125,7 @@ export const recordingsLineOf = (
 ): string => recordingLineWords[standingBadgeOf(student.standing)];
 
 /** The coach view's release filter. */
-export const youthStudentFilters = [
-  'any',
-  'none',
-  'waiting',
-  'on_file',
-] as const;
+const youthStudentFilters = ['any', 'none', 'waiting', 'on_file'] as const;
 export type YouthStudentFilter = (typeof youthStudentFilters)[number];
 
 export const youthStudentFilterOf = (value: unknown): YouthStudentFilter =>

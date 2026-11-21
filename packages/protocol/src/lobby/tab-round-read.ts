@@ -261,5 +261,3 @@ export const tabRoundQuerySchema = z.strictObject({
 export const timeSlotQuerySchema = tabRoundQuerySchema.extend({
   eventId: idSchema.optional(),
 });
-export type TabRoundQuery = z.infer<typeof tabRoundQuerySchema>;
-export type TimeSlotQuery = z.infer<typeof timeSlotQuerySchema>;

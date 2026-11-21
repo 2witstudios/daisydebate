@@ -36,7 +36,7 @@ test('group browser fixture is explicit isolated adult policy without changing D
       decision: 'isolated browser fixture only',
       key: 'social.private_group',
       revision: 1,
-      allowedBandPairs: [['adult', 'adult']],
+      earlierRevisions: [],
       groupBlockScope: 'all_pairs',
     },
   });

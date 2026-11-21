@@ -3,7 +3,6 @@ export {
   privateSpanChanges,
   publicClips,
   publicIntervals,
-  publicIntervalsSchema,
   settledByHeartbeat,
   stageTimeline,
   startEdgeLagMs,
@@ -35,27 +34,20 @@ export {
   YOUTH_CARRY_MONTHS,
   ageBands,
   daisyLadders,
-  daisyLaddersOf,
   divisionOfAgeBand,
   ladderKey,
-  ladderSchema,
   ratingDivisions,
   roundCompetition,
 } from './ladder';
-export type {
-  AgeBand,
-  Ladder,
-  RatingDivision,
-  RoundCompetition,
-} from './ladder';
+export type { AgeBand, Ladder, RatingDivision } from './ladder';
 export {
   isYouthRound,
   lobbyOf,
   roomLobbyAtCreation,
   seatAllowed,
 } from './division-lobby';
-export type { LiveStanding, RoomCreator, SeatTaker } from './division-lobby';
-export { aiRoleFits, aiRoleOfSeat, aiRoleSchema, aiRoles } from './ai-roles';
+export type { LiveStanding, RoomCreator } from './division-lobby';
+export { aiRoleFits, aiRoleOfSeat } from './ai-roles';
 export type { AiRole } from './ai-roles';
 export {
   affirmativeSide,
@@ -76,9 +68,7 @@ export {
   seatLabel,
   seatOrder,
   seatRefSchema,
-  sideKeySchema,
   sideOfSeat,
-  sideSchema,
   sideSeat,
   twoSideKeys,
   twoSides,
@@ -104,28 +94,15 @@ export {
   speakingSeatsOf,
 } from './format-seating';
 export type { FormatSeating, SpeakRights } from './format-seating';
-export {
-  rateableOutcome,
-  roundOutcomeSchema,
-  winnerOutcome,
-  winningSideOf,
-} from './round-outcome';
+export { rateableOutcome, winnerOutcome, winningSideOf } from './round-outcome';
 export type { RoundOutcome, WinnerOutcome } from './round-outcome';
 export {
   formatDefinitionSchema,
-  formatOutcomeSchema,
   formatSeatsSchema,
   roundRulesSchema,
   segmentTypes,
-  speakRightsSchema,
 } from './format';
-export type {
-  FormatDefinition,
-  FormatOutcome,
-  FormatSeats,
-  RoundRules,
-  SegmentType,
-} from './format';
+export type { FormatDefinition, RoundRules, SegmentType } from './format';
 export type {
   FormatChange,
   FormatSelectionFacts,
@@ -148,7 +125,6 @@ export {
 } from './capture-timing';
 export type { RoomConfig, RoomExecutionPlan } from './room';
 export {
-  chatSlowModeSchema,
   CONTENT_MODERATION_DELIVERY_BOUND_MS,
   contentReportCreateSchema,
   reasonsForTarget,
@@ -158,11 +134,7 @@ export type {
   ContentReportReason,
   ContentReportTargetKind,
 } from './content-moderation';
-export {
-  recordingPolicies,
-  recordingPolicySchema,
-  roomCaptureSchema,
-} from './room-capture';
+export { roomCaptureSchema } from './room-capture';
 export type { RecordingPolicy, RoomCapture } from './room-capture';
 export { formatSettingsSchema } from './format-settings';
 export type { RoomResolutionSelection } from './room-resolution';
@@ -174,7 +146,6 @@ export type {
   RoundCommand,
   SegmentInsert,
   SegmentClose,
-  SegmentReturn,
   RoundEffect,
   RoundIncidentChange,
   RoundProjection,
@@ -200,18 +171,13 @@ export {
   prepConsumedOf,
   clockStopsOf,
   platformIncidentCauses,
-  roundPlatformEndings,
 } from './round';
 export {
   isRoundEndState,
   isRoundLifecycle,
   roundLifecycleFault,
 } from './round-lifecycle';
-export type {
-  RoundEndState,
-  RoundLifecycle,
-  RoundLifecycleColumns,
-} from './round-lifecycle';
+export type { RoundLifecycle, RoundLifecycleColumns } from './round-lifecycle';
 export type {
   CompetitionType,
   RoundStatus,
@@ -232,7 +198,6 @@ export {
   judgingStages,
   type JudgingStage,
   type JudgingStageInput,
-  judgingFinishes,
   judgingRecordedIssueLimit,
   judgingTerminalReasons,
   judgingRecoveryReasons,
@@ -245,18 +210,12 @@ export {
   type JudgingTerminalReason,
 } from './round-judging-attempt';
 export {
-  ballotDefaultScore,
   ballotLimits,
-  ballotScoreMax,
-  ballotRubric,
-  ballotRubrics,
   ballotRubricVersion,
-  ballotRubricVersions,
   ballotCategories,
   speakerTotal,
 } from './ballot';
 export {
-  ballotDecisionSchema,
   ballotDefinitionIdentity,
   ballotDefinitionSchema,
   ballotDefinitionPinSchema,
@@ -268,20 +227,14 @@ export {
   daisyBallotFor,
   daisyWinnerBallot,
   panelRuleFor,
-  panelRuleSchema,
   roundJudgingSchema,
-  ballotDefinitionSourceSchema,
   daisyBallotSource,
   freezeBallotJudging,
-  type BallotJudgingSelection,
-  type BallotJudgingFreeze,
   type BallotDefinitionSource,
 } from './ballot-definition';
 export type {
   BallotDefinition,
   BallotSubjects,
-  DaisyBallotDefinitionId,
-  PanelRule,
   RoundJudging,
 } from './ballot-definition';
 export {
@@ -290,13 +243,10 @@ export {
   type BallotWrittenRecord,
   ballotTextScreeningSchema,
   type BallotTextScreening,
-  ballotCompetitionRecordSchema,
-  ballotCompetitionSchemaFor,
   ballotSchemaFor,
   ballotScoresRecordSchema,
   ballotSubjectsFor,
   feedbackSubjectOf,
-  feedbackSubjectSchema,
   isLowPointWin,
   pointsTotal,
   storedBallotSchemaFor,
@@ -304,12 +254,11 @@ export {
 export type { Ballot, BallotCompetition } from './ballot-schema';
 export { caseMapSchema } from './case-map';
 export type { CaseMap } from './case-map';
-export type { BallotCategory, BallotRubricVersion } from './ballot';
+export type { BallotCategory } from './ballot';
 export type {
   DebaterStanding,
   EndingRating,
   EndingRatingFacts,
-  EndingUnrated,
   PlannedRatingChange,
   RatingEligibility,
   RatingEligibilityFacts,
@@ -413,14 +362,12 @@ export type {
 
 // Room teams and the Start round seat draw (ADR 0145).
 export {
-  roomTeamSchema,
   seatDrawSchema,
   seatsTwoTeams,
   sideOfTeam,
   sidesSwappable,
   teamOfPlacement,
   teamPlacementOf,
-  teamSideSchema,
 } from './seat-draw';
 export type { RoomTeam, SeatDraw } from './seat-draw';
 
@@ -436,16 +383,18 @@ export {
   messagingDmResultSchema,
   messagingDmDecisionResultSchema,
   messagingChannelLifecycles,
+  messageRequestSettings,
+  messageRequestSettingSchema,
 } from './messaging/social';
 export type {
   MessagingChannelLifecycle,
   MessagingSocialBounds,
+  MessageRequestSetting,
 } from './messaging/social';
 export type {
   OpenRoomStatus,
   RoomAssemblyState,
   RoomRoundLink,
-  RoomSeatHold,
   RoomConsent,
   RoomMutationOutcome,
   RoomCastChoice,
@@ -454,7 +403,6 @@ export type {
 export {
   isNamedSeat,
   roundViewSchema,
-  roundWaitingOnSchema,
   type RoundWaitingFacts,
   type RoundWaitingOn,
   type LaunchedRound,
@@ -468,7 +416,6 @@ export {
   roomCatalogChoiceSchema,
   roomCastChoiceSchema,
   roomRefusalSchema,
-  roomWatchSchema,
   type RoomWatch,
 } from './room-read';
 export type { YouthLiveFact } from './youth-live';
@@ -481,11 +428,9 @@ export {
   type ActiveRoomFacts,
 } from './active-room';
 export {
-  hostedRoomSchema,
   hostedRoomsReadSchema,
   maxHostedRooms,
   type HostedRoom,
-  type HostedRoomsRead,
 } from './hosted-rooms';
 
 export { serverMessageSchema, type ServerMessage } from './realtime-server';
@@ -573,14 +518,9 @@ export {
 } from './entitlements';
 export {
   tournamentHostingCoverageSchema,
-  tournamentHostingIssuerSchema,
-  tournamentHostingVersionSchema,
   tournamentHostingGrantSchema,
 } from './tournament-hosting';
-export type {
-  TournamentHostingGrant,
-  TournamentHostingVersion,
-} from './tournament-hosting';
+export type { TournamentHostingGrant } from './tournament-hosting';
 export type { EntitlementGrant, PremiumEntitlementKind } from './entitlements';
 export {
   roundAnalysisLimits,
@@ -596,8 +536,6 @@ export type {
   RoundAnalysisView,
 } from './round-analysis';
 export {
-  judgeRulingSchema,
-  panelRulingSchema,
   roundPanelReceiptSchema,
   type RoundPanelReceipt,
   type RoundPanelCompletion,
@@ -644,10 +582,8 @@ export {
   roomInvitationCommandSchemas,
   roomInvitationRefusals,
   roomInvitationStates,
-  roomInvitationViewSchema,
   settledRoomInvitations,
   type RoomInvitationRefusal,
-  type RoomInvitationState,
   type InvitationDecision,
   type InvitationEndDecision,
   type InviteeFacts,
@@ -738,7 +674,7 @@ export {
   type AttendanceLedgerFacts,
 } from './attendance';
 export { attendanceRoundReadSchema } from './attendance';
-export { roundRecordSchema, type RoundRecord } from './round-view';
+export { type RoundRecord } from './round-view';
 export { frozenCaptureGapsSchema } from './capture-gap';
 export type { FrozenCaptureGaps } from './capture-gap';
 export { roundMediaPolicy } from './round-media-policy';
@@ -784,21 +720,16 @@ export {
 } from './audience';
 export {
   defaultNotificationChoices,
-  emailedNotificationKinds,
   isEmailedNotificationKind,
   isUrgentNotificationKind,
   kindsAbout,
-  notificationCatalogue,
-  notificationChannels,
   notificationChannelsOf,
   notificationChoicePairs,
-  notificationChoicesSchema,
   notificationKinds,
   tournamentNotificationKinds,
   type TournamentNotificationKind,
   notificationPreferencesSchema,
   notificationSubjects,
-  NOTIFICATIONS_READ_AT_ONCE,
   notificationsReadSchema,
   notificationPresentationSchema,
   notificationShellSchema,
@@ -811,8 +742,6 @@ export {
   type NotificationChannel,
   type NotificationChoices,
   type NotificationKind,
-  type NotificationKindSpec,
-  type NotificationPreferences,
   type NotificationSubjectKind,
   type SubjectOf,
 } from './notifications';
@@ -820,21 +749,16 @@ export {
   RECORDING_EVIDENCE_HOLD_MS,
   recordingClasses,
   recordingEligibilitySchema,
-  recordingFailureReasons,
   recordingHiddenByModeration,
   recordingHoldPrefix,
   holdAttemptPrefix,
   recordingLifecycleSchema,
-  recordingMediaSchema,
-  recordingRemovalCauses,
-  recordingSourceSchema,
   recordingStatuses,
   type CoverageGap,
   type RecordingClass,
   type RecordingEligibility,
   type RecordingLifecycle,
   type RecordingMedia,
-  type RecordingRemovalCause,
   type RecordingSource,
   type RecordingSpeech,
   type RecordingStatus,
@@ -855,7 +779,6 @@ export {
   type RecordingPreparation,
 } from './recording-processing';
 export {
-  builtRecordingMediaSchema,
   recordingJobStateSchema,
   recordingJobStatuses,
   type BuiltRecordingMedia,
@@ -872,12 +795,10 @@ export {
   maxUnheardShare,
   platformLostTooMuch,
   type FrozenCapture,
-  type FrozenCaptureColumns,
 } from './capture-judging-limit';
 export {
   capturePartialReasons,
   partialReasonsStateLoss,
-  capturePartialReasonSchema,
   type CaptureFacts,
   type CaptureGap,
   type CaptureInterval,
@@ -916,7 +837,6 @@ export {
   viewerBucketOf,
   viewersFromSample,
   VIEWER_PULSE_MS,
-  VIEWER_PULSES_PER_SECOND,
 } from './audience-state';
 export type { AudienceState } from './audience-state';
 export {
@@ -927,7 +847,6 @@ export {
   type EvidenceRefusal,
   type SealedEvidence,
   type NecessaryEvidenceCustody,
-  type NecessaryEvidencePayloadReceipt,
   type NecessaryEvidenceIngressReply,
   type NecessaryEvidenceRestoreReply,
   type NecessaryEvidenceRestore,
@@ -946,7 +865,6 @@ export {
 } from './capture-evidence-body';
 
 export {
-  evidencePrivacyScopeSchema,
   encodeEvidencePrivacyScope,
   evidencePrivacyIntentSchema,
   type EvidencePrivacyScope,
@@ -981,9 +899,6 @@ export {
   isScoreOnScale,
   scoreUnitFor,
   scoreUnits,
-  scoreUnitSchema,
-  commonScoreUnit,
-  convertScoreUnits,
   scoreLatticeValues,
   scoreLatticeSize,
   scoreValueAt,
@@ -992,11 +907,8 @@ export {
 
 export {
   roundCompetitionSourceSchema,
-  roundCompetitionFreezeSchema,
   type RoundCompetitionSource,
 } from './round-competition-source';
-export { formatRevisionPinSchema } from './format-reference';
-
 export { aiBallotAdmissionRefusal } from './ai-ballot-admission';
 
 export { tournamentSponsorshipVersionSchema } from './tournament-sponsorship';

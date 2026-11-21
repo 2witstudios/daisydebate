@@ -25,10 +25,7 @@ type BallotRow = typeof ballots.$inferSelect;
  * side, and the decision is spelled only where the definition admits more
  * than a win; a ranking carries its places.
  */
-export const ballotOfRow = (
-  row: BallotRow,
-  definition: BallotDefinition,
-): Ballot => {
+const ballotOfRow = (row: BallotRow, definition: BallotDefinition): Ballot => {
   const spellsDecision =
     definition.decision.kind === 'winner' &&
     (definition.decision.tie || definition.decision.doubleLoss);

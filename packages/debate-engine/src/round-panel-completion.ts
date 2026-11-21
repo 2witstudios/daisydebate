@@ -18,7 +18,7 @@ import { debateIsOver, type CommandContext } from './round-commands';
 import { deriveRoundOutcome, participatingRulings } from './round-outcome';
 
 /** Why a panel is still pending. */
-export type PanelWait =
+type PanelWait =
   | { readonly on: 'human_window'; readonly deadlineAt: string }
   | { readonly on: 'ai_generating'; readonly deadlineAt: string }
   | { readonly on: 'ai_recovering' }

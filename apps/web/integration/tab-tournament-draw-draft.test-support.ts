@@ -77,7 +77,7 @@ export const drawHttp = (world: World, released = true) =>
     },
     released: async () => released,
   });
-export const drawRequest = (lobbyId: string, envelope: unknown) =>
+const drawRequest = (lobbyId: string, envelope: unknown) =>
   new Request(
     `${origin}/api/tab/draw-command?${new URLSearchParams({ lobbyId })}`,
     {

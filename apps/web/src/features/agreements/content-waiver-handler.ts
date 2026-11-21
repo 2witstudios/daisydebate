@@ -22,7 +22,7 @@ const signatureRequest = z.strictObject({
 });
 
 /** A closed vocabulary: the words moved on, or no season is open to sign for. */
-export const contentWaiverRefusals = [
+const contentWaiverRefusals = [
   'content-waiver-changed',
   'ranked-unavailable',
 ] as const;

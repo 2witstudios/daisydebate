@@ -10,7 +10,7 @@ export type RoundFloorScope = {
   readonly userId: string;
   readonly actorId: string;
 };
-export type RoundFloorAuthority = Omit<
+type RoundFloorAuthority = Omit<
   ContextChannelAuthority<RoundFloorFact>,
   'scope'
 > & { readonly scope: Omit<RoundFloorScope, 'channelId'> };

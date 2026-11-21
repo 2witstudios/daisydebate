@@ -11,7 +11,7 @@ export {
   type ChatMessage,
   type OpenRouter,
 } from './openrouter';
-export { aiJudgeFor, type AiJudge, type AiJudgeRules } from './ai-judge';
+export { aiJudgeFor, type AiJudge } from './ai-judge';
 export { parseRoundAnalysis, roundAnalysisMessages } from './round-analysis';
 export {
   transcriptLines,

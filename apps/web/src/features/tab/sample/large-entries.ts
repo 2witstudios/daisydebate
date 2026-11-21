@@ -35,7 +35,7 @@ const schoolsByName = (): readonly string[] =>
   );
 
 /** The schools that owe more judges than they have named, and by how much. */
-export const largeShortSchools: ReadonlyMap<string, number> = new Map([
+const largeShortSchools: ReadonlyMap<string, number> = new Map([
   ['Brook Hill', 1],
   ['Hartwell', 1],
   ['Lakeside', 2],

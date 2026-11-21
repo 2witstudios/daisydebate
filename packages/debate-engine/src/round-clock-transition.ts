@@ -3,7 +3,7 @@ import type { PlatformIncidentCause } from '@daisy/protocol';
 import { debateInvariantIds } from './invariant-ids';
 import type { ClockSegment, ClockState } from './round-clock-state';
 
-export type ClockIncidentChange =
+type ClockIncidentChange =
   | {
       readonly kind: 'opened';
       readonly since: string;

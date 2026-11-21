@@ -14,7 +14,7 @@ import { ListRow } from '../list-card/list-card';
  * action is a button, never an underlined link. It is a list item, so it
  * sits in the `<ul>` of the rows it counts.
  */
-export function CountedRow({
+function CountedRow({
   title,
   detail,
   action,

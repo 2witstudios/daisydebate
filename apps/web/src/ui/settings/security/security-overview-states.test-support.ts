@@ -14,11 +14,11 @@ import {
   type SignOutOfOthers,
 } from './security-overview-model';
 
-export const passkey = (id: string): PasskeyRow => ({
+const passkey = (id: string): PasskeyRow => ({
   id,
   createdAt: '2026-11-01T00:00:00.000Z',
 });
-export const session = (id: string): SessionRow => ({
+const session = (id: string): SessionRow => ({
   id,
   createdAt: '2026-11-01T00:00:00.000Z',
   updatedAt: '2026-11-01T00:00:00.000Z',
@@ -109,7 +109,7 @@ export const everyPartState = (): readonly (readonly [
 ];
 
 /** A number no state has given out. */
-export const NEVER_MINTED = 999;
+const NEVER_MINTED = 999;
 
 /** Every event the screen can receive in this state, named; answers come both current and stale. */
 export const everyEvent = (

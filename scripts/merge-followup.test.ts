@@ -35,7 +35,12 @@ const approve = review(
 );
 
 function fakes(
-  options: { statuses?: string[]; comments?: string[]; leaf1?: string } = {},
+  options: {
+    statuses?: string[];
+    comments?: string[];
+    commits?: string[];
+    leaf1?: string;
+  } = {},
 ) {
   const log: string[] = [];
   const tasks: Record<string, { id: string; pageId: string; status: string }> =
@@ -59,6 +64,7 @@ function fakes(
     updateStatus: async (listId, taskId, status) =>
       void log.push(`status ${listId} ${taskId} ${status}`),
     comments: async () => options.comments ?? [],
+    commits: async () => options.commits ?? [pr.headSha],
   };
   return { deps, log };
 }
@@ -97,6 +103,23 @@ describe('merge follow-up', () => {
     assert({
       given: 'changes requested, then a later approving verdict',
       should: 'move GRD-6.1 to Done without creating a Merged status',
+      actual: [log, result.status],
+      expected: [['status phase t1 completed'], 'completed'],
+    });
+  });
+
+  test('an approval of an earlier commit of the PR moves the merge to Done', async () => {
+    const reviewed = 'c'.repeat(40);
+    const { deps, log } = fakes({
+      commits: [reviewed, pr.headSha],
+      comments: [approve.replace(pr.headSha, reviewed)],
+    });
+    const result = await followUpMerge(deps, pr);
+    assert({
+      given:
+        'an approving verdict at a commit before the merged head, with nothing after it',
+      should:
+        'move GRD-6.1 to Done: a fix after an approval needs no fresh full review',
       actual: [log, result.status],
       expected: [['status phase t1 completed'], 'completed'],
     });

@@ -30,9 +30,9 @@ The owner steers product intent; agents own routine execution
    [architecture rules](../architecture/rules.md#architecture-rules) block a plan that
    breaks them.
 
-3. **One confirmation, after a dialogue.** The architecture reviewer and the
-   point guard confirm or redirect once the plan's ideal design and its
-   divergence have been discussed on Delivery.
+3. **One confirmation, after a dialogue.** The point guard confirms or
+   redirects once the plan's ideal design and its divergence have been
+   discussed on Delivery.
    No other approval follows. Product,
    architecture or scope questions that come up later go to the point guard
    on the Delivery channel and are answered there.
@@ -46,21 +46,22 @@ The owner steers product intent; agents own routine execution
    `PR_READY`: PR Loop (Ralph Loop) `cvslieavdwwkbz8l551hhhsz` for Claude
    Code, PR Loop (Goal) `asdc6hmpbeyu9ujlqrnes1oc` for Codex and opencode.
    That requires:
-   - zero unresolved threads;
-   - three consecutive clean scans;
+   - a review verdict with zero blockers and zero majors: the one full
+     review, or the difference review after it;
+   - a reply on every thread;
    - green required checks and no conflicts;
-   - the slice plan satisfied.
+   - the slice plan satisfied, with its proof shown in the PR description.
 
-   After 50 iterations without convergence the loop emits `BLOCKED` with
-   what it needs.
+   The loop stops there ([reviews](reviews.md#when-the-loop-stops),
+   [ADR 0159](../decisions/0159-signals-that-gate.md)). If the same blocker
+   survives two fixes it emits `BLOCKED` with what it needs.
 
    A slice of a feature with a parent branch runs PR Loop (Feature slice)
-   instead, which has no three-clean-scans condition
-   ([ADR 0128](../decisions/0128-feature-parent-branch.md)).
+   ([ADR 0128](../decisions/0128-feature-parent-branch.md)), which has the
+   same stopping rule against the parent.
 
-6. **Async reviews.** `/review`, `/code-review` and the architecture
-   reviewer post PR comments during the loop, and the loop consumes them
-   ([reviews](reviews.md)).
+6. **Async reviews.** `/review` and `/code-review` post PR comments during
+   the loop, and the loop consumes them ([reviews](reviews.md)).
 
 The point guard's flow sweep merges once `PR_READY` is out and the required
 checks are green at the exact head. The builder then posts `SLICE DONE`, or
@@ -96,20 +97,22 @@ touched. CI holds the blocking gates. Heavy commands queue machine-wide through
 - `bun check:affected` is the inner loop. `bun check` mirrors the blocking
   CI gates: format, lint, policy, invariants, typecheck, unit tests and
   build.
-- `bun run knip`, `bun run duplication`, `bun evidence` and
-  `bun metrics:check` are reports. CI runs them in its non-blocking
-  "Advisory reports" job, and knip blocks only the nightly main run.
+- `bun run knip` is a gate: unused files, exports and dependencies fail the
+  PR. `bun run knip:production`, `bun run duplication`, `bun evidence` and
+  `bun metrics:check` are reports, which CI runs in its non-blocking
+  "Advisory reports" job.
 - CI runs the quick check once per PR or main push; a branch push without a
   PR runs no CI, so open the slice PR early. On a PR it then runs `policy`,
-  `invariants` and `build`, plus image, audit, migrations and Infrastructure
-  contracts. The only required check is CI gate.
-- Browser E2E (Chromium Playwright and Isolated Room Launch) runs on main after
-  merge, and a PR may dispatch it by choice; a builder proves the specs its
-  change touches, locally or by that dispatch. Staging deploys on a green CI
-  gate without waiting for it. A red browser run on main gets an owner at once,
-  who fixes forward or reverts. The nightly run on main adds every Playwright
-  project. Strict gating returns before real users
-  ([ADR 0098](../decisions/0098-ci-gate-only-while-greenfield.md)).
+  `invariants`, `build` and `knip`, plus image, audit, migrations and
+  Infrastructure contracts. The audit asks the live advisory database only
+  when the branch changed a dependency input, and nightly on main.
+- Browser E2E (Chromium Playwright, and Isolated Room Launch as five shards)
+  runs on every PR, and a newer push replaces the run in progress. The
+  required checks are CI gate, Playwright E2E and Isolated Room Launch E2E
+  ([ADR 0159](../decisions/0159-signals-that-gate.md)). It runs again on main
+  after merge; a red run there gets an owner at once, who fixes forward or
+  reverts, and nothing else merges until it is green. Staging deploys on a
+  green CI gate. The nightly run on main adds every Playwright project.
 - Run `bun migrations:check` whenever migrations change.
 
 Treat a failing check as review input: fix it, or record why it is

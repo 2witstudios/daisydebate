@@ -160,10 +160,9 @@ export const drawQuerySchema = z.strictObject({
   offset: z.int().nonnegative().default(0),
   pageSize: z.int().min(1).max(500).default(100),
 });
-export type DrawQuery = z.infer<typeof drawQuerySchema>;
 
 /** Current command guards sampled with the addressed draw's retained sources. */
-export const hostDrawGuardsSchema = z.strictObject({
+const hostDrawGuardsSchema = z.strictObject({
   draw: z.int().positive().nullable(),
   entries: z.int().positive(),
   settings: z.int().positive(),
@@ -248,8 +247,3 @@ export const hostDrawOverviewSchema = z.strictObject({
   ),
 });
 export type HostDrawOverview = z.infer<typeof hostDrawOverviewSchema>;
-
-export const hostDrawReadCatalogue = {
-  HostRoundView: { gate: ['lobby.host.draw.read'] },
-  HostDrawOverview: { gate: ['lobby.host.draw.read'] },
-} as const satisfies LobbyReadCatalogue<'HostRoundView' | 'HostDrawOverview'>;

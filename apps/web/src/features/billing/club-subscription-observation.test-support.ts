@@ -6,7 +6,7 @@ import {
 
 export const seats = 14;
 export const month = 30 * 86400;
-export const clubPrice = {
+const clubPrice = {
   ...subscription.items.data[0]!.price,
   unit_amount: 1000,
   lookup_key: 'daisy_club_seat_monthly_usd_10',

@@ -13,7 +13,7 @@ import type { LegalDocument } from './documents';
 export const CONTENT_WAIVER_VERSION = 'draft-4';
 /** The Youth lobby's waiver (ADR 0161): no licence, signed in place of the Open one. */
 export const YOUTH_CONTENT_WAIVER_VERSION = 'youth-draft-1';
-export const CONTENT_POLICY_VERSION = 'draft-4';
+const CONTENT_POLICY_VERSION = 'draft-4';
 
 const notReviewed =
   'This text has not been reviewed by counsel, and its wording may change after any review.';

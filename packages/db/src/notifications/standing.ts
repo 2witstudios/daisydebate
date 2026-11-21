@@ -13,7 +13,8 @@ import { releaseRequestWaiting } from '../media-release-standing';
  * Round, `u` the live account it is about, `rc` the Round's Recording, `i`
  * and `ro` the invitation and its Room, `c` the challenge, `fr` the friendship,
  * `mrq` a media release request, `mr` a release and `mru` its minor, `mca` and
- * `mco` a club ask and its club, `yp` a Youth Round's publication.
+ * `mco` a club ask and its club, `yp` a Youth Round's publication, `dmp` a
+ * message request's DM pair.
  */
 export const standingJoins = sql`left join rounds r on r.id=n.round_id
   left join actors a on a.id=n.actor_id
@@ -28,7 +29,8 @@ export const standingJoins = sql`left join rounds r on r.id=n.round_id
   left join media_releases mr on mr.id=n.media_release_id
   left join users mru on mru.id=mr.user_id and mru.deleted_at is null
   left join media_release_club_asks mca on mca.id=n.media_release_club_ask_id
-  left join organizations mco on mco.id=mca.organization_id and mco.closed_at is null`;
+  left join organizations mco on mco.id=mca.organization_id and mco.closed_at is null
+  left join messaging_dm_pairs dmp on dmp.channel_id=n.dm_channel_id`;
 
 /**
  * The tournament notifications Tab's own read found standing, as a `jsonb`
@@ -37,7 +39,7 @@ export const standingJoins = sql`left join rounds r on r.id=n.round_id
  * a read that asked Tab nothing (a digest: no Tab kind is emailed) passes none.
  */
 export type TournamentStanding = SQL;
-export const noTournamentStanding: TournamentStanding = sql`'[]'::jsonb`;
+const noTournamentStanding: TournamentStanding = sql`'[]'::jsonb`;
 export const tournamentStanding = (ids: Iterable<string>): TournamentStanding =>
   sql`${JSON.stringify([...ids])}::text::jsonb`;
 
@@ -72,6 +74,14 @@ const subjectStands = (
       return friendRequestOpen(sql`fr`);
     case 'friend_request_accepted':
       return friendshipAccepted(sql`fr`);
+    case 'dm_request':
+      // Until the request is answered or withdrawn, only as its sender's,
+      // and never across a block either way.
+      return sql`(dmp.request_state='pending'
+        and dmp.request_sender_actor_id=n.actor_id
+        and not exists (select 1 from contact_pairs cp
+          where cp.low_actor_id=dmp.low_actor_id and cp.high_actor_id=dmp.high_actor_id
+            and (cp.low_blocks_high or cp.high_blocks_low)))`;
     case 'media_release_requested':
       return releaseRequestWaiting(now, sql`mrq`);
     case 'media_release_declined':

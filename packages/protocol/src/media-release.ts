@@ -19,7 +19,6 @@ export type MediaReleaseScope = (typeof mediaReleaseScopes)[number];
 
 /** Who gave a release: a parent or guardian signing, or a club attesting. */
 export const mediaReleaseSources = ['parent', 'club'] as const;
-export type MediaReleaseSource = (typeof mediaReleaseSources)[number];
 
 /** How a signer is related to the minor. */
 export const guardianRelations = ['parent', 'legal_guardian'] as const;
@@ -32,7 +31,7 @@ export const releaseWithdrawers = [
   'erasure',
   'superseded',
 ] as const;
-export type ReleaseWithdrawer = (typeof releaseWithdrawers)[number];
+type ReleaseWithdrawer = (typeof releaseWithdrawers)[number];
 
 /** How a release request ended; an open request has none. */
 export const releaseRequestOutcomes = [
@@ -46,7 +45,7 @@ export const releaseRequestOutcomes = [
   /** The address asked Daisy not to send it release requests. */
   'stopped',
 ] as const;
-export type ReleaseRequestOutcome = (typeof releaseRequestOutcomes)[number];
+type ReleaseRequestOutcome = (typeof releaseRequestOutcomes)[number];
 
 /** The two kinds of emailed link: sign a request, or manage a signed release. */
 export const releaseLinkPurposes = ['sign', 'manage'] as const;
@@ -85,7 +84,7 @@ export const mediaReleaseWording = {
 export const reuseLicensingWordings: readonly string[] = ['2026-11-v2'];
 
 /** A parent's or guardian's signature. */
-export type ParentSignature = {
+type ParentSignature = {
   readonly kind: 'parent';
   readonly name: string;
   readonly relation: GuardianRelation;
@@ -94,7 +93,7 @@ export type ParentSignature = {
 };
 
 /** A club's confirmation that it holds a signed release. */
-export type ClubAttestation = {
+type ClubAttestation = {
   readonly kind: 'club';
   readonly organizationId: string;
   readonly organizationName: string;
@@ -146,7 +145,7 @@ export const isReleaseRequestOpen = (
 ): boolean => releaseRequestStanding(request, nowMs) === 'open';
 
 /** Whether a release still holds. */
-export const isReleaseActive = (
+const isReleaseActive = (
   release: Pick<MediaReleaseRecord, 'withdrawnAt'>,
 ): boolean => release.withdrawnAt === null;
 
@@ -333,16 +332,15 @@ export const releaseLinkVerdict = (
 
 // -------------------------------------------------------------- the parent
 
-export const signatureFormSchema = z.object({
+const signatureFormSchema = z.object({
   wordingVersion: z.literal(mediaReleaseWording.version),
   name: z.string().trim().min(1).max(mediaReleasePolicy.nameMaxLength),
   relation: z.enum(guardianRelations),
   attests: z.literal(true),
   paidAds: z.boolean(),
 });
-export type SignatureForm = z.infer<typeof signatureFormSchema>;
 
-export type SignRefusal =
+type SignRefusal =
   ReleaseLinkVerdict | 'request_closed' | 'invalid_form' | 'already_released';
 
 export type SignDecision =
@@ -350,7 +348,7 @@ export type SignDecision =
       readonly ok: true;
       readonly scopes: readonly MediaReleaseScope[];
       readonly signature: ParentSignature;
-      readonly wordingVersion: SignatureForm['wordingVersion'];
+      readonly wordingVersion: typeof mediaReleaseWording.version;
     }
   | { readonly ok: false; readonly refusal: Exclude<SignRefusal, 'usable'> };
 
@@ -424,7 +422,7 @@ export const parentHeldOf = (
   };
 };
 
-export const withdrawalFormSchema = z.object({
+const withdrawalFormSchema = z.object({
   what: z.enum(['whole', 'paid_ads']),
   attests: z.literal(true),
   note: z.string().trim().max(mediaReleasePolicy.noteMaxLength).default(''),
@@ -517,7 +515,7 @@ export const clubConfirmVerdict = (
   }
 };
 
-export const clubConfirmFormSchema = z.object({
+const clubConfirmFormSchema = z.object({
   wordingVersion: z.literal(mediaReleaseWording.version),
   warrants: z.literal(true),
   paidAds: z.boolean(),

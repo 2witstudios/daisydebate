@@ -1127,6 +1127,7 @@ test('a follower hears nothing before release, once after it, and only of a publ
           'challenge_id',
           'created_at',
           'digest_id',
+          'dm_channel_id',
           'fixture_id',
           'friendship_high_actor_id',
           'friendship_low_actor_id',

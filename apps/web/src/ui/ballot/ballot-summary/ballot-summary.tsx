@@ -7,7 +7,7 @@ import { Avatar } from '../../components/avatar/avatar';
 import { ballotEyebrowClass, ballotHeadingClass } from '../ballot-class';
 
 /** What a ballot decided, in a line: who it voted for, or the order it placed them in. */
-export const ballotVerdict = (plan: BallotPlan, ballot: Ballot): string => {
+const ballotVerdict = (plan: BallotPlan, ballot: Ballot): string => {
   const name = (key: string) => subjectOf(plan, key)?.name ?? key;
   if (ballot.ranking)
     return `Ranked ${ballot.ranking.map((place) => place.map(name).join(' and ')).join(', then ')}`;

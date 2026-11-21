@@ -56,7 +56,7 @@ export type HistoryRound = RecordingRound & {
   }[];
 };
 
-export type HistoryTranscript = {
+type HistoryTranscript = {
   readonly revision: number;
   readonly completeness: 'complete' | 'incomplete';
   readonly gaps: readonly unknown[];
@@ -68,7 +68,7 @@ export type HistoryTranscript = {
   }[];
 };
 
-export type HistoryBallot = {
+type HistoryBallot = {
   /** Null for a ballot that named no winning side. */
   readonly winner: string | null;
   readonly reason: string | null;

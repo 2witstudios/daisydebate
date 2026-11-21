@@ -223,7 +223,6 @@ export const standingsQuerySchema = z.strictObject({
   eventId: idSchema,
   division: name.nullable(),
 });
-export type StandingsQuery = z.infer<typeof standingsQuerySchema>;
 
 export const standingsReadCatalogue = {
   StandingsView: { gate: ['standings.read'] },

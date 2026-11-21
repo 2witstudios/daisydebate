@@ -2,8 +2,20 @@
   // Dead-code gate: unused files, exports and dependencies fail the run.
   // Run with `bun run knip` (under Bun, per the toolchain contract).
   "$schema": "./node_modules/knip/schema.json",
-  // Scenario documents are loaded by the `bun scenario <name>` CLI.
-  "ignore": ["scenarios/*.ts"],
+  "ignore": [
+    // Scenario documents are loaded by the `bun scenario <name>` CLI.
+    "scenarios/*.ts",
+    // Read as text by judge-bench/remote.ts and run on a deployed web
+    // machine, against that machine's own dependencies.
+    "scripts/judge-bench/remote-read.ts",
+    // Compiled by scripts/native-sdk-declarations.test.ts as CommonJS and as
+    // an ES module; nothing imports them.
+    "packages/media/integration/native-track-stats-public.test-support.{cts,mts}",
+    // The drills' Playwright configs: Playwright reads each default export by
+    // `--config`, and loading one outside its Launch slot throws, so the
+    // Playwright plugin cannot be given them.
+    "apps/web/e2e/support/{node-kill-drill,first-word,bot-freestyle}-config.ts",
+  ],
   "includeEntryExports": true,
   // Their binaries run behind the heavy queue (`bun scripts/heavy.ts turbo
   // …`, `… sh -c 'bunx --bun jscpd …'`), where knip does not look.
@@ -30,6 +42,10 @@
     // Integration suites are globbed by scripts/test-integration.ts, which
     // each workspace's test:integration runs instead of listing files.
     "apps/web": {
+      // macOS speech for the on-demand drills' human speaker.
+      "ignoreBinaries": ["say"],
+      // Spawned from the workspace root by browser-capture.e2e.ts; an entry below.
+      "ignoreUnresolved": ["e2e/support/server.ts"],
       "playwright": {
         "config": ["playwright.config.ts", "playwright.analytics.config.ts"],
       },
@@ -44,6 +60,9 @@
         // Spawned by isolated messaging caller tests; paths belong to this workspace.
         "scripts/messaging-navigation-realm.test-support.ts",
         "scripts/messaging-reaction-realm.test-support.ts",
+        "scripts/shell-navigation-realm.test-support.ts",
+        // Writes the Recording gap slate the recording worker ships as an asset.
+        "scripts/gap-slate.ts",
         "e2e/support/server.ts",
         // Bundled by the media-stage browser proof via the Bun CLI.
         "e2e/support/media-stage-fixture.tsx",
@@ -58,6 +77,18 @@
         "e2e/support/transcript-seed-process.ts",
         "e2e/support/broadcast-seed-process.ts",
         "e2e/support/league-request-process.ts",
+        "e2e/support/hosting-seed-process.ts",
+        // Started by messaging-realtime-config.ts's webServer command.
+        "e2e/support/messaging-media-edge.ts",
+        // The on-demand drills (`bun drill:first-word`, `bun drill:bot-freestyle`)
+        // and the floor driver (`bun floor:local`, `bun floor:driver`): each
+        // runner spawns its queued entry, which names its config.
+        "e2e/support/first-word-queued.ts",
+        "e2e/support/first-word-config.ts",
+        "e2e/support/bot-freestyle-queued.ts",
+        "e2e/support/bot-freestyle-config.ts",
+        "e2e/support/floor-local-stack.ts",
+        "e2e/support/floor-control-browser.ts",
         // Launch config/server are process entries selected by runner/command replacement;
         // evidence/release are Bun subprocess CLI entries, never browser imports.
         "e2e/support/room-launch-config.ts",
@@ -100,6 +131,8 @@
       "entry": [
         "integration/**/*.integration.ts",
         "scripts/rating-preflight.ts",
+        // Prints a new tenant table's policies (docs/operations/database.md).
+        "scripts/tenant-policies.ts",
       ],
     },
     // ADR 0077: the custom server and the two CLIs are process entries
@@ -118,7 +151,14 @@
         "integration/**/*.integration.ts",
       ],
     },
-    "packages/media": { "entry": ["integration/**/*.integration.ts"] },
+    "packages/media": {
+      "entry": [
+        "integration/**/*.integration.ts",
+        // The pacing observation CLIs (docs/development/media-pacing.md).
+        "integration/observe-pacing.ts",
+        "integration/analyze-pacing.ts",
+      ],
+    },
     "apps/log-shipper": {
       "entry": ["src/start.ts", "integration/**/*.integration.ts"],
     },
@@ -138,6 +178,8 @@
         "e2e/launch-capture.ts",
         "integration/**/*.integration.ts",
         "integration/frame-capture-entry.ts",
+        // Spawned by apps/web's necessary-evidence-signed integration suite.
+        "src/original-frame-carry.process.test-support.ts",
       ],
     },
     "apps/realtime": {

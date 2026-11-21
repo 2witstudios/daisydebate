@@ -35,6 +35,7 @@ export const toastWaits = (kind: NotificationKind): boolean => {
     case 'challenge_accepted':
     case 'room_invitation':
     case 'friend_request_received':
+    case 'dm_request':
     case 'round_started':
       return true;
     case 'followed_debater_live':
@@ -64,7 +65,7 @@ export const toastWaits = (kind: NotificationKind): boolean => {
  * it on every page, and a toast over them would hide their answer. It still
  * chimes and raises a desktop alert.
  */
-export const toasted = (kind: NotificationKind): boolean => {
+const toasted = (kind: NotificationKind): boolean => {
   switch (kind) {
     case 'challenge_received':
     case 'challenge_accepted':
@@ -74,6 +75,7 @@ export const toasted = (kind: NotificationKind): boolean => {
     case 'room_invitation':
     case 'friend_request_received':
     case 'friend_request_accepted':
+    case 'dm_request':
     case 'round_started':
     case 'round_decision_released':
     case 'judge_assigned':

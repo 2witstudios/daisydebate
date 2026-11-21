@@ -15,7 +15,6 @@ export const roomInvitationStates = [
   'withdrawn',
   'expired',
 ] as const;
-export type RoomInvitationState = (typeof roomInvitationStates)[number];
 
 /** How long an unanswered invitation holds its seat. */
 export const ROOM_INVITATION_TTL_MS = 24 * 60 * 60 * 1000;

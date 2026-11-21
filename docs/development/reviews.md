@@ -2,15 +2,14 @@
 
 Reviews are asynchronous PR comments. The PR's builder runs the PR loop,
 which reads every comment, fixes or answers each one, and cannot emit
-`PR_READY` while any review thread is unresolved ([ADR 0083](../decisions/0083-lean-gates-and-slice-process.md)).
+`PR_READY` while a thread has no reply ([ADR 0083](../decisions/0083-lean-gates-and-slice-process.md)).
 No review is a required status check, and no review blocks the builder from
 pushing.
 
 ## Who reviews
 
 As soon as the PR is open, the builder spawns two reviewers into its own
-worktree, and asks the architecture reviewer (astra) for a pass on the pu
-channel:
+worktree:
 
 ```sh
 pu spawn --agent claude -w <worktree id> "/review <PR url>"
@@ -18,8 +17,9 @@ pu spawn --agent claude -w <worktree id> "/code-review --comment <PR url>"
 ```
 
 Reviewers stay read-only on the worktree and post to the PR. The builder
-kills them once they have posted. A later head gets a fresh pass when the
-loop asks for one; no reviewer has to re-review every push.
+kills them once they have posted. That is the one full review a PR gets.
+After it, a fix that changes product code gets a difference review, never a
+fresh full one (see [When the loop stops](#when-the-loop-stops)).
 
 - **`/review`** posts one PR comment. It covers acceptance criteria,
   architecture, security (each OWASP Top 10 category for runtime changes),
@@ -27,8 +27,11 @@ loop asks for one; no reviewer has to re-review every push.
 - **`/code-review --comment`** posts inline review comments on the lines it
   questions, so each finding is its own thread. It posts without asking:
   without `--comment` it would stop at a prompt nobody answers.
-- **astra** posts architecture comments on the PR, or on the Delivery channel when
-  the question is about the plan.
+
+Nobody else is asked for a pass. `/review` covers architecture, and a
+question about a plan goes to the point guard on the Delivery channel. An
+automated reviewer the repository did not spawn (a hosted review app) is
+input the builder may use; its threads never hold `PR_READY`.
 
 Every review, of a plan or a PR, judges against the stated intent and the
 ideal design, not only against the existing code: consistent-with-flawed-code
@@ -77,16 +80,16 @@ collaborators only (anyone can comment on a public repository) and takes the
 latest comment that starts with `## Review:` and carries a verdict line. It
 moves the PR's tasks to Done only when all of these hold:
 
-- that comment names the merged head SHA;
+- that comment names a commit of the PR, the merged head or one before it;
 - its Reviewer differs from its Builder;
 - its verdict approves with zero blockers and zero majors.
 
 Otherwise the tasks move to Merged, where the board keeper reconciles them.
 The latest verdict always wins, in either direction. A reply that quotes a
 verdict counts for nothing, because only a whole line in a `## Review:`
-comment does. A fix pushed after an approval moves the head, so ask for a
-fresh `/review` before `PR_READY` if the board should reach Done
-automatically.
+comment does. A fix pushed after an approval does not undo it
+([ADR 0159](../decisions/0159-signals-that-gate.md)): a difference review
+that then finds a blocker or a major is the latest verdict, and decides.
 
 ## Rules
 
@@ -112,21 +115,27 @@ automatically.
 - **Visual rebaselines.** `rebaseline-visuals.yml` commits to the PR and
   moves its head, so rebaseline before reviewers start.
 
-The loop's own discipline (three clean scans, a reply on every thread, and
-resolving only threads that were already addressed before the loop began)
-lives in the PR loop pages in PageSpace Resources › Universal prompts
-(PR Loop (Ralph Loop) `cvslieavdwwkbz8l551hhhsz` for Claude Code, PR Loop
-(Goal) `asdc6hmpbeyu9ujlqrnes1oc` for Codex and opencode); run yours
-verbatim.
+## When the loop stops
 
-A slice of a feature with a parent branch
-([ADR 0128](../decisions/0128-feature-parent-branch.md)) runs PR Loop
-(Feature slice) `ptq5uh3pf2t654xw2kdmky44` instead. That loop stops at the
-first review with zero blockers and zero majors at the current head. A fix
-that changes product code after a review gets a difference review: the
-builder spawns one reviewer with `/review <PR url>` plus the link to the
-earlier review comment and the range `<reviewed sha>..HEAD`, and that
-reviewer checks the earlier findings and the new commits only. Findings
-that arrive after the first clean verdict, and findings outside the slice,
-go on the feature's findings list in place of `Issues`; the feature's point
-guard files or drops each one at the next slice boundary.
+Every slice's loop has the same stopping rule
+([ADR 0159](../decisions/0159-signals-that-gate.md)): it emits `PR_READY` at
+the first review verdict with zero blockers and zero majors, once the required
+checks are green at the head, the slice's proof is shown in the PR
+description and every thread has a reply. It does not wait for further clean
+scans and does not keep improving.
+
+- **One full review.** The two reviewers spawned when the PR opens.
+- **Then difference reviews.** A fix that changes product code after a
+  review gets one reviewer, spawned with `/review <PR url>`, the link to the
+  earlier review comment and the range `<reviewed sha>..HEAD`. It checks the
+  earlier findings and the new commits only.
+- **Minors and nits.** Fix one only if it is a few lines and inside the
+  slice. One that arrives after the first clean verdict, and any finding
+  outside the slice, is filed in `Issues` (a feature parent slice puts it on
+  the feature's findings list, [ADR 0128](../decisions/0128-feature-parent-branch.md)).
+
+The loop itself lives in PageSpace Resources › Universal prompts; run yours
+verbatim: PR Loop (Ralph Loop) `cvslieavdwwkbz8l551hhhsz` for Claude Code,
+PR Loop (Goal) `asdc6hmpbeyu9ujlqrnes1oc` for Codex and opencode, and
+PR Loop (Feature slice) `ptq5uh3pf2t654xw2kdmky44` for a slice of a feature
+with a parent branch.

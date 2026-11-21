@@ -6,7 +6,7 @@ import type {
   ResultEntryWrite,
 } from './fixture';
 
-export type ResultSpeakerWrite = {
+type ResultSpeakerWrite = {
   readonly table: 'result_speakers';
   readonly op: 'insert';
   readonly row: {

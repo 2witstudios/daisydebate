@@ -63,22 +63,12 @@ export type {
   MessagingInboxPolicy,
 } from './inbox-page';
 
-export {
-  createRoundFloorStore,
-  roundFloorMetadataOf,
-} from './round-floor-store';
-export type {
-  RoundFloorFence,
-  RoundFloorScope,
-  RoundFloorReadFrame,
-  RoundFloorWriteFrame,
-  RoundFloorAuthority,
-} from './round-floor-contracts';
+export { roundFloorMetadataOf } from './round-floor-store';
 export type {
   ContextChannelFact,
   ContextChannelMetadata,
   ContextChannelReadFrame,
   ContextChannelWriteFrame,
 } from './context-channel-contracts';
-export { roundFloorModeration } from './round-floor-moderation';
 export { roomCommunityMetadataOf } from './room-community-store';
+export { bindMessagingContactFacts } from './contact-facts';

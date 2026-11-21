@@ -1,7 +1,7 @@
 import { adultAccount } from './social.test-support';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { authorize } from './authorization';
-import { socialPostingPolicy } from './social-policy';
+import { betaDmPolicy, socialPostingPolicy } from './social-policy';
 import type { ChannelAuthorizationFact } from './authorization';
 setupRitewayBun();
 const channel: ChannelAuthorizationFact = {
@@ -25,7 +25,7 @@ const policy = {
   decision: 'test-only explicit policy',
   key: 'social.private_group',
   revision: 1,
-  allowedBandPairs: [['adult', 'adult'] as const],
+  earlierRevisions: [],
 };
 describe('current social policy projection', () => {
   test('policy holds and missing current members never authorize', () =>
@@ -160,4 +160,74 @@ test('current peer age binding invalidates a prior allowance', () => {
       [false, false],
     ],
   });
+});
+
+describe('DM posting under decision 90 (ADR 0160)', () => {
+  const now = '2026-10-09T00:00:00.000Z';
+  const dm = (
+    requestSenderActorId: string,
+    policyRevision: number,
+  ): ChannelAuthorizationFact => ({
+    ...channel,
+    policyKey: 'social.dm',
+    policyRevision,
+    authority: {
+      kind: 'dm',
+      lowActorId: 'a',
+      highActorId: 'b',
+      requestSenderActorId,
+      state: 'accepted',
+      blocked: false,
+      revision: 1,
+    },
+  });
+  const minor = (friends: readonly string[]) => {
+    const row = adultAccount('b');
+    return {
+      ...row,
+      account: { ...row.account, ageBand: '13-15' as const },
+      age: { ...row.age, band: '13-15' as const },
+      contact: { ...row.contact, friendActorIds: friends },
+    };
+  };
+  const adult = (friends: readonly string[]) => {
+    const row = adultAccount('a');
+    return { ...row, contact: { ...row.contact, friendActorIds: friends } };
+  };
+  const posting = (
+    fact: ChannelAuthorizationFact,
+    accounts: Parameters<typeof socialPostingPolicy>[0]['accounts'],
+  ) =>
+    socialPostingPolicy({ channel: fact, accounts, now, policy: betaDmPolicy })
+      .allowed;
+  test('revision-1 and revision-2 channels', () =>
+    assert({
+      given: 'two adults on a revision-1, revision-2 and unknown-revision DM',
+      should: 'post on the current and the honoured revision only',
+      actual: [
+        posting(dm('a', 1), [adult([]), adultAccount('b')]),
+        posting(dm('a', 2), [adult([]), adultAccount('b')]),
+        posting(dm('a', 3), [adult([]), adultAccount('b')]),
+      ],
+      expected: [true, true, false],
+    }));
+  test('friendship is the basis of an adult-initiated DM with a minor', () =>
+    assert({
+      given: 'an adult-initiated DM with a 13-15, as friends and then not',
+      should: 'post while they are friends and stop once unfriended',
+      actual: [
+        posting(dm('a', 2), [adult(['b']), minor(['a'])]),
+        posting(dm('a', 2), [adult([]), minor([])]),
+        // The minor asked: no friendship needed; block is the way out.
+        posting(dm('b', 2), [adult([]), minor([])]),
+        posting(
+          {
+            ...dm('b', 2),
+            authority: { ...dm('b', 2).authority, blocked: true },
+          } as ChannelAuthorizationFact,
+          [adult([]), minor([])],
+        ),
+      ],
+      expected: [true, false, true, false],
+    }));
 });

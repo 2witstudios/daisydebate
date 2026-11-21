@@ -38,7 +38,7 @@ export type MediaReleaseMailClaim = z.infer<typeof claimRow> & {
 };
 
 /** Which link a mail carries: a request and its reminder sign; the rest manage. */
-export const releaseLinkPurposeOf = (
+const releaseLinkPurposeOf = (
   kind: MediaReleaseMailKind,
 ): ReleaseLinkPurpose =>
   kind === 'request' || kind === 'reminder' ? 'sign' : 'manage';

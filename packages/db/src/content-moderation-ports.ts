@@ -15,7 +15,7 @@ export type ContentModerationOutcome = 'applied' | 'unchanged' | null;
  * Whose audience a report's target belongs to, for the feature's one rule: a
  * target the reporter could not reach answers as if it did not exist.
  */
-export type ReportAudience = {
+type ReportAudience = {
   readonly roundId: string;
   readonly visibility: 'public' | 'unlisted' | 'private';
   readonly audienceLinkHash: string | null;

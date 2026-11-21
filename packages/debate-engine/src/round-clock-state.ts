@@ -35,13 +35,13 @@ export type Lifecycle =
     };
 
 /** A Round that has ended: the lifecycles that hold the instant it ended. */
-export const lifecycleOver = (
+const lifecycleOver = (
   lifecycle: Lifecycle,
 ): lifecycle is Extract<Lifecycle, { readonly status: OverRoundStatus }> =>
   isRoundOver(lifecycle.status);
 
 /** The instant a Round started, in the statuses that can have one. */
-export const startedAtOf = (lifecycle: Lifecycle): number | null =>
+const startedAtOf = (lifecycle: Lifecycle): number | null =>
   lifecycle.status === 'opening' ? null : lifecycle.startedAtMs;
 
 /** An active Round ends with a result; nothing else can complete. */

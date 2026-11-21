@@ -396,7 +396,7 @@ export const freeSeatsOf = (
  * A seat of one kind kept for a named member until `until`: a challenge's
  * arrival (ADR 0103) or a pending invitation (ADR 0124).
  */
-export type RoomSeatHold = {
+type RoomSeatHold = {
   readonly actorId: string;
   readonly seat: SeatKind;
   readonly until: string;

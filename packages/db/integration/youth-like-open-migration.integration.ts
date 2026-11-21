@@ -11,7 +11,7 @@ import {
 setupRitewayBun();
 const { databaseUrl: url } = requireTestServices(process.env);
 
-const migration = '20261119165444_youth_like_open';
+const migration = '20261121020535_youth_like_open_and_reuse';
 const scratch = scratchDatabase(url, 'youthopen');
 
 afterAll(() => scratch.drop());
@@ -42,7 +42,8 @@ test(
                (${ready}, ${userId}, 'recording_ready', ${roundId}, null)`;
       await f.sql`insert into notification_preferences (user_id, kind, channel, enabled)
         values (${userId}, 'youth_round_published', 'in_app', false),
-               (${userId}, 'recording_ready', 'in_app', false)`;
+               (${userId}, 'recording_ready', 'in_app', false),
+               (${userId}, 'dm_request', 'email', false)`;
       await f.sql`insert into youth_round_publications (round_id, published_by_user_id, published_at)
         values (${roundId}, ${userId}, now())`;
 
@@ -54,7 +55,7 @@ test(
       const notices =
         await f.sql`select id from notifications where user_id = ${userId} order by id`;
       const preferences =
-        await f.sql`select kind from notification_preferences where user_id = ${userId}`;
+        await f.sql`select kind from notification_preferences where user_id = ${userId} order by kind`;
       const [table] =
         await f.sql`select to_regclass('youth_round_publications') is null as dropped`;
       assert({
@@ -78,7 +79,7 @@ test(
             { id: youthStop, stop_reason: 'technical', stopped: true },
           ],
           notices: [ready],
-          preferences: ['recording_ready'],
+          preferences: ['dm_request', 'recording_ready'],
           dropped: true,
         },
       });

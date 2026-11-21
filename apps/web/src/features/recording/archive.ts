@@ -97,7 +97,7 @@ const namesOf = (debaters: readonly Debater[]): string =>
  * Who debated: each side's debaters on one line, in the format's declared
  * order; an unsided format's speakers one each.
  */
-export const debaterLines = (round: {
+const debaterLines = (round: {
   readonly sides: readonly Side[];
   readonly debaters: readonly Debater[];
 }): readonly string[] =>

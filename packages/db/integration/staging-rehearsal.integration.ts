@@ -578,7 +578,7 @@ test(
           "main's notifications of kinds Tab's checks never listed (ADR 0144)",
         should: 'keep every row, with no Tab subject named',
         actual:
-          await sql`select to_jsonb(n) - array['fixture_id','notification_lobby_id','tab_command_id','media_release_request_id','media_release_id','media_release_club_ask_id'] as row from notifications n order by id`,
+          await sql`select to_jsonb(n) - array['fixture_id','notification_lobby_id','tab_command_id','media_release_request_id','media_release_id','media_release_club_ask_id','dm_channel_id'] as row from notifications n order by id`,
         expected: notificationsBefore,
       });
       assert({

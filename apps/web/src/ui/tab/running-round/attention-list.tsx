@@ -4,7 +4,7 @@ import type {
   RoomAttention,
 } from '../../../features/tab/tab-round';
 import { ActionButton } from '../action-control/action-control';
-import { ListHeading, ListRow } from '../list-card/list-card';
+import { ListRow } from '../list-card/list-card';
 
 const labels: Readonly<Record<RoomAttention, string>> = {
   needs_you: 'Needs you',
@@ -32,26 +32,5 @@ export function AttentionRows({
       detail={room.detail}
       trailing={<ActionButton action={room.action} about={room.title} />}
     />
-  ));
-}
-
-/** Rooms in the order they want the host: what needs a person first. */
-export function AttentionList({
-  groups,
-}: {
-  readonly groups: readonly AttentionGroup[];
-}) {
-  return groups.map((group) => (
-    <section key={group.attention}>
-      <ListHeading>{attentionHeading(group)}</ListHeading>
-      <ul>
-        <AttentionRows rooms={group.rooms} />
-        {group.more === null ? null : (
-          <li className="px-4 py-3">
-            <ActionButton size="small" action={group.more} />
-          </li>
-        )}
-      </ul>
-    </section>
   ));
 }
