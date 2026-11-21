@@ -135,6 +135,49 @@ describe('test support subpaths', () => {
     });
   });
 
+  test('refuses a module in a test-support folder from production source', () => {
+    assert({
+      given:
+        "a test-support folder's module, such as Tab's sample, imported by production code",
+      should:
+        'report the production import of test support, while test code may import it',
+      actual: [
+        testSupportIssue(
+          './test-support',
+          'apps/web/src/features/tab/league.ts',
+        ),
+        testSupportIssue(
+          './test-support/sample/league',
+          'apps/web/src/features/tab/league.ts',
+        ),
+        testSupportIssue(
+          '../../features/tab/test-support/sample/draw',
+          'apps/web/src/ui/tab/draw-board/draw-board.tsx',
+        ),
+        testSupportIssue(
+          '../../features/tab/test-support/sample/draw',
+          'apps/web/src/ui/tab/draw-board/draw-board.test.tsx',
+        ),
+        testSupportIssue(
+          './draw',
+          'apps/web/src/features/tab/test-support/sample/read-draw.ts',
+        ),
+        testSupportIssue(
+          './support/sample',
+          'apps/web/src/features/tab/league.ts',
+        ),
+      ],
+      expected: [
+        'production import of test support ./test-support',
+        'production import of test support ./test-support/sample/league',
+        'production import of test support ../../features/tab/test-support/sample/draw',
+        null,
+        null,
+        null,
+      ],
+    });
+  });
+
   test('admits a relative *.test-support module from test code', () => {
     assert({
       given: 'a *.test-support module imported by suites and other support',

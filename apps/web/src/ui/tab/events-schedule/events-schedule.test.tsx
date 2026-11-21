@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { eventAside, storedEventsSchedule } from '../../../features/tab/events';
 import { eventFormEnvelope } from '../../../features/tab/event-form';
-import { sampleAutumnSetup } from '../../../features/tab/sample/setup';
+import { sampleAutumnSetup } from '../../../features/tab/test-support/sample/setup';
 import { SlotFields } from './event-command-fields';
 import type { HostEventsView } from '@daisy/protocol/lobby/host-events-read';
 setupRitewayBun();

@@ -3,10 +3,8 @@ import type {
   JudgeListView,
   JudgeSlot,
   ListedEntry,
-  SchoolEntriesView,
 } from '@daisy/protocol/lobby/entry-read';
 import { unavailableAction, type TabAction } from './action';
-import { tabRoutes } from './routes';
 import type { EventSwitch } from './setup';
 
 export type EntryStatus =
@@ -101,39 +99,8 @@ export type HostJudges = {
   readonly more: TabAction | null;
 };
 
-type SchoolStudent = {
-  readonly name: string;
-  readonly note: string | null;
-  readonly events: string;
-  /** What stops this student's entries being submitted. */
-  readonly problem: string | null;
-  readonly edit: TabAction;
-};
-
-/** A responsible adult's own entries at one tournament. */
-export type SchoolEntries = {
-  readonly tournament: { readonly name: string; readonly href: string };
-  readonly title: string;
-  readonly lede: string;
-  readonly students: readonly SchoolStudent[];
-  readonly add: TabAction;
-  readonly judges: {
-    readonly title: string;
-    readonly detail: string;
-    readonly add: TabAction;
-  };
-  readonly submit: {
-    readonly label: string;
-    readonly blocked: boolean;
-    readonly note: string;
-  };
-};
-
 const numberWords = ['no', 'one', 'two', 'three', 'four', 'five'] as const;
 const inWords = (count: number): string => numberWords[count] ?? String(count);
-const ordinals = ['first', 'second', 'third', 'fourth', 'fifth'] as const;
-const ordinal = (position: number): string =>
-  ordinals[position - 1] ?? `${position}th`;
 const plural = (count: number, one: string, many = `${one}s`) =>
   `${count} ${count === 1 ? one : many}`;
 
@@ -333,77 +300,5 @@ export function hostJudgesOf(view: JudgeListView): HostJudges {
         : unavailableAction(
             `Show ${view.notShown.count} more from ${view.notShown.schoolName}`,
           ),
-  };
-}
-
-const dayLabel = (instant: string): string => {
-  const date = new Date(instant);
-  const weekday = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][
-    date.getUTCDay()
-  ];
-  const month = [
-    'Jan',
-    'Feb',
-    'Mar',
-    'Apr',
-    'May',
-    'June',
-    'July',
-    'Aug',
-    'Sept',
-    'Oct',
-    'Nov',
-    'Dec',
-  ][date.getUTCMonth()];
-  return `${weekday} ${date.getUTCDate()} ${month}`;
-};
-
-/** A responsible adult's entries screen at one tournament. */
-export function schoolEntriesOf(
-  view: SchoolEntriesView,
-  slug: string,
-): SchoolEntries {
-  const edit = unavailableAction('Edit');
-  const guardian = view.responsible.kind === 'guardian';
-  const blocked = view.students.filter((student) => student.clash !== null);
-  const { judges } = view;
-  const judgeDue =
-    judges.named < judges.owed && judges.dueAt !== null
-      ? ` You can add the ${ordinal(judges.named + 1)} judge until ${dayLabel(judges.dueAt)}.`
-      : '';
-  return {
-    tournament: { name: view.tournamentName, href: tabRoutes.tournament(slug) },
-    title: `${view.responsible.name}'s entries`,
-    lede: view.terms,
-    students: view.students.map((student) => ({
-      name: student.name,
-      note: student.note,
-      events: student.entries
-        .map((entry) =>
-          entry.partnerNames.length === 0
-            ? entry.eventName
-            : `${entry.eventName} with ${entry.partnerNames.join(' and ')}`,
-        )
-        .join(' · '),
-      problem:
-        student.clash === null
-          ? null
-          : `${student.clash.eventNames[0]} and ${student.clash.eventNames[1]} run at the same time. Keep one.`,
-      edit,
-    })),
-    add: unavailableAction(guardian ? 'Add a child' : 'Add a student'),
-    judges: {
-      title: `You owe ${plural(judges.owed, 'judge')}, and have named ${judges.named}`,
-      detail: judges.terms,
-      add: unavailableAction('Add'),
-    },
-    submit: {
-      label: 'Submit entries',
-      blocked: blocked.length > 0,
-      note:
-        blocked.length > 0
-          ? `Fix ${blocked.map((student) => `${student.name}'s`).join(' and ')} entry to submit.${judgeDue}`
-          : 'You can change entries until they close.',
-    },
   };
 }

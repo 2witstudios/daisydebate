@@ -213,7 +213,6 @@ const schoolStudentSchema = z.strictObject({
     .strictObject({ eventNames: z.tuple([nameSchema, nameSchema]) })
     .nullable(),
 });
-export type SchoolStudent = z.infer<typeof schoolStudentSchema>;
 
 /** A school's or a family's own entries at one tournament. */
 export const schoolEntriesViewSchema = z.strictObject({
@@ -243,7 +242,6 @@ export const schoolEntriesViewSchema = z.strictObject({
     submit: z.boolean(),
   }),
 });
-export type SchoolEntriesView = z.infer<typeof schoolEntriesViewSchema>;
 
 export const entryReadCatalogue = {
   EntryListView: { gate: ['lobby.host.entries.read'] },

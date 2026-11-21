@@ -1,7 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { drawAtScale } from './at-scale-rooms';
-import { sampleDrawView } from './sample/draw';
-import type { SampleScene } from './sample/scene';
+import { sampleDrawView } from './test-support/sample/draw';
+import type { SampleScene } from './test-support/sample/scene';
 
 setupRitewayBun();
 
