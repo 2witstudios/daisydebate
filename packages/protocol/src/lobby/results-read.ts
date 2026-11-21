@@ -87,6 +87,15 @@ const eventResultsShape = {
   prelimsCertifiedAt: instant.nullable(),
   certification,
   audiences: z.array(audienceOpenings),
+  postingOpenings: z
+    .array(
+      z.strictObject({
+        tabRoundId: idSchema,
+        tabRoundName: name,
+        audience: z.enum(audiences),
+      }),
+    )
+    .optional(),
   /** Corrections recorded since prelims were certified. */
   corrections: z.array(correction),
   /** The league whose sanction receives the certified results, and when it did. */

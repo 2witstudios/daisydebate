@@ -13,6 +13,7 @@ import type { DrawFixtureFacts } from '../commands/draw';
 import { eventRoomCast } from './event-room-cast';
 import { eventAllowance } from '@daisy/protocol/lobby/hosting-tier';
 import { tournamentHostingTier } from '../hosting-tier';
+import { releaseAudiences } from '@daisy/protocol/release-audience';
 
 type Resolved = ReturnType<typeof eventSettingResolution>['settings'];
 const postingOpenedAt = (
@@ -87,6 +88,13 @@ const publicationResolution = (
     rule.release === 'with_posting'
       ? postingOpenedAt(loaded, settings, now)
       : null;
+  if (
+    rule.release === 'with_posting' &&
+    round.resolutionReleasedAt === null &&
+    releasedAt === null &&
+    settings['audience.posting'].value[releaseAudiences[0]] !== 'manual'
+  )
+    return null;
   const pin =
     round.poolResolutionId === null ||
     (round.resolutionReleasedAt === null && releasedAt !== null)

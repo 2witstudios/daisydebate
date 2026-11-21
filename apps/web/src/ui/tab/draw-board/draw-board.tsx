@@ -1,3 +1,5 @@
+import type { TabAction, CommandAction } from '../../../features/tab/action';
+import type { DrawFormContext } from '../../../features/tab/draw-form';
 import type { ReactNode } from 'react';
 import type { DrawBoard as Read } from '../../../features/tab/draw';
 import type { TimelineRail } from '../../../features/tab/tournament';
@@ -30,16 +32,21 @@ export function DrawBoard({
   rail,
   current,
   draw,
-  storedControls,
+  renderCommand,
 }: {
   readonly rail: TimelineRail;
   readonly current: string;
   readonly draw: Read;
-  readonly storedControls?: {
-    readonly actions: ReactNode;
-    readonly seats: ReactNode;
-  };
+  readonly renderCommand?: (
+    action: CommandAction<DrawFormContext>,
+  ) => ReactNode;
 }) {
+  const render = (action: TabAction<DrawFormContext>) =>
+    action.kind === 'command' ? (
+      renderCommand?.(action)
+    ) : (
+      <ActionButton action={action} />
+    );
   const chosen = draw.selected;
   return (
     <HostShell
@@ -64,16 +71,23 @@ export function DrawBoard({
                 </section>
                 <section className="flex flex-col gap-2">
                   <h3 className={eyebrowClass}>Seats</h3>
-                  {storedControls
-                    ? storedControls.seats
-                    : chosen.seats.map((seat) => (
-                        <ChoiceField
-                          key={seat.label}
-                          id={`seat-${seat.label.toLowerCase()}`}
-                          choice={seat}
-                          layout="beside"
-                        />
+                  {chosen.cast ? (
+                    <div className="flex flex-col gap-3">
+                      {chosen.cast.map((seat, index) => (
+                        <p key={`${index}-${seat}`}>{seat}</p>
                       ))}
+                      {chosen.change ? render(chosen.change) : null}
+                    </div>
+                  ) : (
+                    chosen.seats.map((seat) => (
+                      <ChoiceField
+                        key={seat.label}
+                        id={`seat-${seat.label.toLowerCase()}`}
+                        choice={seat}
+                        layout="beside"
+                      />
+                    ))
+                  )}
                 </section>
                 {chosen.alternative === null ? null : (
                   <section className="flex flex-col items-start gap-2 rounded-lg border border-border bg-surface p-4">
@@ -98,16 +112,11 @@ export function DrawBoard({
         title={draw.title}
         lede={draftSummary(draw)}
         actions={
-          <>
-            {storedControls ? (
-              storedControls.actions
-            ) : (
-              <>
-                <ActionButton action={draw.again} />
-                <ActionButton action={draw.publish} />
-              </>
-            )}
-          </>
+          <div className="flex flex-wrap items-start gap-4">
+            {draw.actions.map((action) => (
+              <div key={action.label}>{render(action)}</div>
+            ))}
+          </div>
         }
       />
       <SearchableGroups
@@ -149,10 +158,10 @@ export function DrawBoard({
           })),
         ]}
       />
-      {storedControls || draw.back === null ? null : (
+      {draw.back === null ? null : (
         <div className="flex items-center gap-3 text-sm text-ink-muted">
           <p>Draft {draw.version}.</p>
-          <ActionButton size="small" action={draw.back} />
+          {render(draw.back)}
         </div>
       )}
     </HostShell>

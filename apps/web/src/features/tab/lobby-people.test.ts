@@ -42,6 +42,8 @@ test('lobby People presents grants without inventing organization memberships', 
     role: null,
     basePath: '/host/tournaments/autumn-open/people',
     viewerId: id('u'),
+    handle: 'autumn-open',
+    nextId: () => id('c'),
   });
   assert({
     given: 'a personal lobby owner and current lobby grants',
@@ -83,6 +85,8 @@ test('same-named roles retain their actual identities in the lobby selector', ()
     role: id('q'),
     basePath: '/host/tournaments/autumn-open/people',
     viewerId: id('u'),
+    handle: 'autumn-open',
+    nextId: () => id('c'),
   });
   assert({
     given: 'two distinct offered roles with the same name',

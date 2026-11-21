@@ -1,3 +1,4 @@
+import { commandAction, unavailableAction } from './action';
 import {
   pairingForceKeys,
   judgingForceKeys,
@@ -5,9 +6,14 @@ import {
 import { settingValueSchemas } from '@daisy/protocol/setting-values';
 import type { TournamentSetupView } from '@daisy/protocol/lobby/lobby-setup-read';
 import type { TournamentEventSettingsView } from '@daisy/protocol/lobby/resolved-settings-read';
+import type { HostingAccountReadView } from '@daisy/protocol/lobby/hosting-read';
 import { linkTo } from './action';
 import { hostRoutes } from './routes';
-import { tournamentSetupOf, type SetupCopy } from './setup';
+import {
+  tournamentSetupOf,
+  type SetupCopy,
+  type StoredTournamentSetup,
+} from './setup';
 import {
   pairingSummary,
   presetLabels,
@@ -99,7 +105,9 @@ export const storedSetupOf = (
   view: TournamentSetupView,
   settings: TournamentEventSettingsView,
   now: string,
-) => {
+  nextId?: () => string,
+  hosting?: HostingAccountReadView | null,
+): StoredTournamentSetup | null => {
   if (settings.at.kind !== 'event') return null;
   const eventId = settings.at.id;
   const event = view.events.find((one) => one.eventId === eventId);
@@ -198,10 +206,25 @@ export const storedSetupOf = (
       forceNote: event.template
         ? `${event.template.organization.name} sets individual policies in its template.`
         : 'Individual policies come from the preset and inherited settings.',
-      save: { kind: 'unavailable', label: 'Save pairing', primary: true },
+      save:
+        nextId &&
+        view.capabilities.manage &&
+        settings.settings.find((row) => row.key === 'pairing.preset')
+          ?.locked === null
+          ? commandAction(
+              'Save pairing',
+              {
+                eventId,
+                settingsVersion: settings.settingsVersion,
+                commandId: nextId(),
+                handle: view.handle,
+              },
+              true,
+            )
+          : unavailableAction('Save pairing', true),
     },
   };
-  return tournamentSetupOf(
+  const projected = tournamentSetupOf(
     { setup: view, eventId: event.eventId, settings },
     {
       event: {
@@ -215,4 +238,33 @@ export const storedSetupOf = (
       copy,
     },
   );
+  if (!projected) return null;
+  const enabled = (
+    key: 'recording.capture' | 'judging.ai_judge' | 'broadcast.live',
+  ) => {
+    const setting = settingValueSchemas[key].safeParse(
+      settings.settings.find((row) => row.key === key)?.value,
+    );
+    return setting.success && setting.data.value === 'on';
+  };
+  return {
+    ...projected,
+    settings:
+      hosting?.tier === 'free'
+        ? projected.settings.filter(
+            (setting) => !setting.keys.includes('recording.capture'),
+          )
+        : projected.settings,
+    hosted: hosting
+      ? {
+          account: hosting,
+          states: {
+            recording: enabled('recording.capture'),
+            ai_judging: enabled('judging.ai_judge'),
+            broadcast: enabled('broadcast.live'),
+          },
+          upgradeHref: hostRoutes.upgrade(view.handle),
+        }
+      : null,
+  };
 };

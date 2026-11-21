@@ -1,3 +1,8 @@
+import { createParticipantTournamentStore } from './tournament-participant';
+export type {
+  ParticipantFixtureFacts,
+  ParticipantTournamentFacts,
+} from './tournament-participant';
 import { createLobbyRoomStore } from './create-lobby-room';
 export type {
   CreateLobbyRoomCommand,
@@ -197,6 +202,7 @@ const roleNamedOf = (
  * `apply`, and the transaction ends without the command.
  */
 export const createTabStore = (database: TxOpener) => ({
+  ...createParticipantTournamentStore(database),
   ...createSanctionCommandStore(database),
   ...createLeagueSeasonStore(database),
   ...createLeagueSchoolCommandStore(database),

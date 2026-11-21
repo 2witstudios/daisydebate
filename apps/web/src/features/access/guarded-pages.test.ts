@@ -50,7 +50,7 @@ mock.module(join(import.meta.dir, '../../lib/request-session.ts'), () => ({
     onlyYouthLobby ? adultCoach : { state: 'anonymous' },
   // A stored league's people page words time by the process clock.
   requestNow: () => '2027-03-06T08:00:00.000Z',
-  // The sample Room pages reach the release reader through their form action.
+  // The event Room pages reach the release reader through their form action.
   requestReleaseEnabled: async () => false,
   requestMediaReleaseSettings: async () => null,
   requestMemberDrive: () => null,
@@ -172,12 +172,14 @@ const rendered: Readonly<Record<string, () => Promise<{ default: unknown }>>> =
       import('../../app/(host)/host/leagues/[slug]/page'),
     '(host)/host/leagues/[slug]/people/page.tsx': () =>
       import('../../app/(host)/host/leagues/[slug]/people/page'),
-    '(tab)/rooms/sample/[room]/page.tsx': () =>
-      import('../../app/(tab)/rooms/sample/[room]/page'),
-    '(tab)/rooms/sample/[room]/ballot/page.tsx': () =>
-      import('../../app/(tab)/rooms/sample/[room]/ballot/page'),
-    '(tab-live)/rooms/sample/[room]/live/page.tsx': () =>
-      import('../../app/(tab-live)/rooms/sample/[room]/live/page'),
+    '(tab)/tournaments/directory/page.tsx': () =>
+      import('../../app/(tab)/tournaments/directory/page'),
+    '(tab)/rooms/event/[room]/page.tsx': () =>
+      import('../../app/(tab)/rooms/event/[room]/page'),
+    '(tab)/rooms/event/[room]/ballot/page.tsx': () =>
+      import('../../app/(tab)/rooms/event/[room]/ballot/page'),
+    '(tab-live)/rooms/event/[room]/live/page.tsx': () =>
+      import('../../app/(tab-live)/rooms/event/[room]/live/page'),
     '(shell)/play/room/page.tsx': () =>
       import('../../app/(shell)/play/room/page'),
     '(shell)/notifications/page.tsx': () =>
@@ -347,6 +349,7 @@ describe('guarded pages', () => {
         '/rooms',
         '/rounds',
         '/settings',
+        '/tournaments/directory',
         '/train',
       ],
     });

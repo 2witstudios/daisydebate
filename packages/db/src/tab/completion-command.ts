@@ -1,3 +1,4 @@
+import { releasePostingResolution } from './posting-resolution';
 import { notifyTournamentRelease } from '../notifications/tournament';
 import { fixtureRoomSources } from '../schema/fixture-room-sources';
 import { and, eq } from 'drizzle-orm';
@@ -108,6 +109,7 @@ export type CompletionWrite =
   | {
       readonly table: 'releases';
       readonly op: 'insert';
+      readonly releasePinnedResolution?: boolean;
       readonly row: Omit<typeof releases.$inferInsert, 'openedAt'> & {
         readonly openedAt: string;
       };
@@ -198,6 +200,11 @@ export const createCompletionCommandStore = (database: TxOpener) => ({
                   ...write.row,
                   openedAt: new Date(write.row.openedAt),
                 });
+                if (
+                  write.releasePinnedResolution &&
+                  write.row.thing === 'posting'
+                )
+                  await releasePostingResolution(tx, write.row);
                 await notifyTournamentRelease(
                   tx,
                   write.row,

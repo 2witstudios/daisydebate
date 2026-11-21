@@ -436,3 +436,5 @@ function unconflictedDecision(
       : roomAllowed(actorId, capability, resolved),
   );
 }
+
+export { visibleThing } from './authorization-audience';

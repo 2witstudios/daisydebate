@@ -1,4 +1,5 @@
 import { instantMs, nowMs } from '@daisy/clock';
+import { readParticipantTournament } from '../src/features/tab/reads/participant-tournament';
 import { authorize } from '@daisy/auth/authorization';
 import { createTabStore } from '@daisy/db/tab';
 import { isAppError } from '@daisy/errors';
@@ -19,7 +20,10 @@ import {
 import { scriptClock, type World } from './tab-tournament.test-support';
 
 /** Actual committed owner composition with an explicit trusted UTC resource; native media and staging are separately qualified. */
-export async function resultsStage(world: World) {
+export async function resultsStage(
+  world: World,
+  checkParticipantViews = false,
+) {
   if (!world.runtimeDatabaseUrl)
     throw new Error(
       'The tournament needs its isolated committed runtime resource',
@@ -28,6 +32,26 @@ export async function resultsStage(world: World) {
     lobbyId = world.made.get('tournament-lobby')!;
   const store = createTabStore(world.database);
   const send = tabLobbyCommand(world, 'fixtureResult');
+  const address = {
+    eventId: world.made.get('event')!,
+    roundId: world.made.get('tab-round')!,
+  };
+  const postingFor = async (actorId: string, fixtureId: string) => {
+    const person = Object.values(world.bots).find(
+      (bot) => bot.actorId === actorId,
+    );
+    if (!person)
+      throw new Error('The assigned participant cannot read their posting');
+    const posting = await readParticipantTournament(
+      store,
+      as(person),
+      lobbyId,
+      address,
+    );
+    return posting?.selected?.fixtures.find(
+      (fixture) => fixture.fixtureId === fixtureId,
+    );
+  };
   const fixtures = await world.sql<
     { id: string; room_id: string; version: number }[]
   >`select id,room_id,version from fixtures where tab_round_id=${world.made.get('tab-round')!} order by room_id`;
@@ -43,6 +67,21 @@ export async function resultsStage(world: World) {
         const cast = await world.sql<
           { actor_id: string; user_id: string }[]
         >`select p.actor_id,a.user_id from room_participants p join actors a on a.id=p.actor_id where p.room_id=${fixture.room_id}`;
+        if (checkParticipantViews) {
+          const waiting = await postingFor(cast[0]!.actor_id, fixture.id);
+          assert({
+            given: 'a real published and seated waiting Room',
+            should:
+              'offer its stored Room to its assigned participant before Launch',
+            actual: [
+              waiting?.roomId,
+              waiting?.own,
+              waiting?.waiting,
+              waiting?.live,
+            ],
+            expected: [fixture.room_id, true, true, false],
+          });
+        }
         for (const person of cast) {
           const caller = { actorId: person.actor_id, userId: person.user_id };
           await f.consent(
@@ -58,6 +97,15 @@ export async function resultsStage(world: World) {
           expectedVersion: ready.version,
         });
         const roundId = started.receipt.roundRef!.id;
+        if (checkParticipantViews) {
+          const live = await postingFor(cast[0]!.actor_id, fixture.id);
+          assert({
+            given: 'the same Room after its canonical Launch',
+            should: 'project its live state from the stored Round',
+            actual: [live?.roomId, live?.waiting, live?.live],
+            expected: [fixture.room_id, false, true],
+          });
+        }
         execution.clock = scriptClock(
           instantMs((await f.store.getRound(roundId))!.launchedAt),
         );
@@ -68,6 +116,17 @@ export async function resultsStage(world: World) {
         )!;
         if (!judge.actorId)
           throw new Error('The actual assigned human judge is missing');
+        if (checkParticipantViews) {
+          const due = await postingFor(judge.actorId, fixture.id);
+          assert({
+            given:
+              'the assigned judge after the canonical debate and capture freeze',
+            should:
+              'show their ballot as due while the Round awaits submission',
+            actual: [due?.roomId, due?.own, due?.ballotDue],
+            expected: [fixture.room_id, true, true],
+          });
+        }
         const competitors = round.participants
           .filter((person) => isDebatingSeat(person.seat))
           .sort((a, b) => seatOrder(round.rules.sides)(a.seat, b.seat));

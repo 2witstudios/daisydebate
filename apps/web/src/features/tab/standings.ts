@@ -1,3 +1,4 @@
+import type { CompletionContext } from './completion-form';
 import type { StandingsView } from '@daisy/protocol/lobby/standings-read';
 import type { standingsMetricSchema } from '@daisy/protocol/setting-values';
 import type { z } from 'zod';
@@ -34,7 +35,7 @@ export type StandingsTable = {
   readonly breakAfter: number | null;
   readonly remaining: number;
   /** Null for anyone who cannot announce the break, or once it is announced. */
-  readonly announce: TabAction | null;
+  readonly announce: TabAction<CompletionContext> | null;
   readonly correction: TabAction | null;
 };
 
@@ -63,6 +64,7 @@ const metricNames: Readonly<Record<StandingsMetric, string>> = {
 export const standingsTableOf = (
   read: StandingsView,
   tiebreaks: ResolvedSetting,
+  announce?: (resultsVersion: number) => TabAction<CompletionContext>,
 ): StandingsTable => {
   const official = read.visibility === 'official' ? read.capabilities : null;
   const rows: StandingRow[] = read.rows.map((row) => ({
@@ -97,10 +99,13 @@ export const standingsTableOf = (
     breakAfter: breakLine?.seeds ?? null,
     remaining: read.entryCount - rows.length,
     announce:
+      read.visibility === 'official' &&
       official?.announceBreak === true &&
       progress.kind === 'complete' &&
-      read.breakAnnouncedAt === null
-        ? unavailableAction('Announce the break', true)
+      read.breakAnnouncedAt === null &&
+      read.rows.some((row) => row.decidesBreak)
+        ? (announce?.(read.resultsVersion) ??
+          unavailableAction('Announce the break', true))
         : null,
     correction:
       official?.previewCorrection === true

@@ -93,6 +93,22 @@ export const readHostEvents =
             timeSlotId: slot.id,
             version: slot.version,
           })),
+          releasedResolutionRoundIds: setup.rounds
+            .filter((round) => round.resolutionReleasedAt !== null)
+            .map((round) => round.id),
+          publishedRoundIds: facts.publishedRounds.map((round) => round.id),
+          ...(dependencies.authorize({
+            principal,
+            resource: lobbyResource,
+            context: {
+              account: setup.authorization.account,
+              grants: setup.authorization.grants,
+              now: facts.checkedAt,
+            },
+            capability: 'tournament.results.release',
+          }).allow
+            ? { postingReleases: facts.postingReleases }
+            : {}),
           resolutionChoices: [
             ...setup.pools.map((pool) => ({
               key: `pool:${pool.id}`,
