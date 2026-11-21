@@ -27,12 +27,9 @@ test('what a refused seed shows while it recovers', () => {
     expected: ['', true],
   });
   assert({
-    given: 'asking, then an outdated answer',
-    should: 'tell only a no-script page to reload, and offer script a button',
-    actual: [
-      html('asking', 'sidebar').includes('<noscript> Reload to try again.'),
-      html('outdated', 'sidebar').includes('>Reload</button>'),
-    ],
-    expected: [true, true],
+    given: 'an outdated answer',
+    should: 'offer a reload button',
+    actual: html('outdated', 'sidebar').includes('>Reload</button>'),
+    expected: true,
   });
 });

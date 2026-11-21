@@ -22,11 +22,6 @@ export default async function SignInPage({
         </p>
       ) : null}
       <PasskeyCeremony kind="sign-in" />
-      <noscript>
-        <p>
-          Passkey sign-in needs JavaScript; it is the only script this app runs.
-        </p>
-      </noscript>
     </div>
   );
 }

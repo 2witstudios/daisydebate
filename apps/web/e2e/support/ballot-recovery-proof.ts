@@ -16,7 +16,7 @@ export async function proveBallotRecovery(
   page: Page,
   fixtures: Awaited<ReturnType<typeof humanBallotFixtures>>,
 ) {
-  const roundId = fixtures.rounds[4]!.id;
+  const roundId = fixtures.rounds[3]!.id;
   const path = `/judge/ballot/${roundId}`;
   await page.goto(path);
   await page.locator('label', { hasText: fixtures.negative }).first().click();

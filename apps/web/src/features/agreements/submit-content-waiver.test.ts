@@ -41,7 +41,7 @@ describe('submitting the content waiver', () => {
   test('a native post returns to the room', () => {
     const edge = { hydrated: false, view: null, move };
     assert({
-      given: 'a signature, a refusal and a lost answer, with no script',
+      given: 'a signature, a refusal and a lost answer, before hydration',
       should:
         'move to the room, with the notice of a refusal or of an unknown outcome',
       actual: (['signed', 'refused', 'unavailable'] as const).map((result) =>

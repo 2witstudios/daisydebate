@@ -29,7 +29,7 @@ const input = (name: string) =>
 describe('the content waiver form', () => {
   test('a native post states the version and the tick', () => {
     assert({
-      given: 'the form with no script',
+      given: 'the form before hydration',
       should: 'post the version and require the box',
       actual: [
         input('version')?.value,

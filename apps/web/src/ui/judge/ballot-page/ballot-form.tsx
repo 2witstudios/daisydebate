@@ -50,7 +50,7 @@ const limitHelper = (limit: {
  * The ballot's fields, rendered from the answer so far: the last posted
  * values after a refusal, or a fresh sheet. The controls are uncontrolled,
  * seeded from those values, so a refusal restores what was posted with or
- * without JavaScript; state only drives the read-outs that follow them.
+ * before hydration; state only drives the read-outs that follow them.
  * A judge can pick and score before the page hydrates, so on mount the
  * read-outs start from what the controls hold, not from the answer. What
  * is asked, and of whom, is the Round's own ballot definition (TAB-6.17).
@@ -69,7 +69,7 @@ export function BallotFields({
   readonly error: string | undefined;
   readonly pending: boolean;
   readonly errorId?: string;
-  /** While attendance settles, Submit waits, but only with script: a native post always submits. */
+  /** While attendance settles, Submit waits, but only once hydrated: a native post always submits. */
   readonly opensInMs?: number | null;
   readonly reasonAudienceLabel?: string;
 }) {

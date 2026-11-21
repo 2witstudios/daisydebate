@@ -104,7 +104,7 @@ describe('FormatChoice', () => {
     assert({
       given: 'a casual room still running the Freestyle standard',
       should:
-        'offer Freestyle plus Custom, check Freestyle, and post select-format without JavaScript',
+        'offer Freestyle plus Custom, check Freestyle, and post select-format before hydration',
       actual: {
         order: [
           ...html.matchAll(

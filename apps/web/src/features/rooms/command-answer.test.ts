@@ -124,7 +124,7 @@ test('a hydrated room command answers with the canonical view instead of navigat
   };
   assert({
     given:
-      'an accepted seat claim posted by the hydrated page, and the same without JavaScript',
+      'an accepted seat claim posted by the hydrated page, and the same before hydration',
     should:
       'hand the hydrated page the view with no navigation, and move the native post to the room',
     actual: {
@@ -202,7 +202,7 @@ test('native Room details and settings answers clear an inherited setup fragment
   });
 });
 
-test('a refused format choice says why, with and without JavaScript (PR #472 review)', () => {
+test('a refused format choice says why, before and after hydration (PR #472 review)', () => {
   const form = new FormData();
   form.set('type', 'select-format');
   const answer = (hydrated: boolean) =>

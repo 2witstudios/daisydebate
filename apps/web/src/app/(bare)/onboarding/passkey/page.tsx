@@ -17,7 +17,7 @@ export const metadata: Metadata = {
 
 /**
  * The passkey offer that follows a claimed username. The claim moves on to
- * here, with or without JavaScript. An account still choosing a name goes
+ * here, before hydration and after. An account still choosing a name goes
  * back to that step; anonymous visitors sign in first.
  */
 export default async function OnboardingPasskeyPage({

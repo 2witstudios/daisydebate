@@ -127,7 +127,7 @@ describe('DebateRoom', () => {
     });
   });
 
-  test('without script a phone keeps every panel readable', () => {
+  test('before hydration a phone keeps every panel readable', () => {
     const html = renderToString(
       h(DebateRoom, {
         round: sampleRound('opponent-speaking', 'casual'),

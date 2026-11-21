@@ -4,7 +4,7 @@ import { PageHeader } from '../../components/page-header/page-header';
 import { ReadingPage } from '../../components/reading-page/reading-page';
 import { OpenTopicFromHash } from './open-topic-from-hash';
 
-/** Common questions. Native disclosure, so it works without JavaScript; a link to /help#topic opens its answer. */
+/** Common questions. Native disclosure, so it works before hydration; a link to /help#topic opens its answer. */
 export function HelpPage({
   topics,
 }: {

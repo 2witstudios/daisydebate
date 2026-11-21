@@ -1,6 +1,5 @@
 import { origin } from './support/accounts';
 import { assertNoSeriousFindings } from './support/axe';
-import { openPage } from './support/fixtures';
 import { documentsPath, expect, test } from './support/live-room-documents';
 
 test('the round room: palette and editor', async ({ liveRoom }) => {
@@ -437,32 +436,4 @@ test('an open document survives every sidebar and phone tab switch', async ({
   await expect(editor).toBeHidden();
   await tabs.getByRole('button', { name: 'Doc', exact: true }).click();
   await expect(editor).toContainText('still here');
-});
-
-test('without JavaScript a phone reads the transcript and keeps Leave', async ({
-  liveRoom,
-  browser,
-}) => {
-  const { page } = liveRoom;
-  const native = await browser.newContext({
-    baseURL: origin,
-    javaScriptEnabled: false,
-    ignoreHTTPSErrors: false,
-    viewport: { width: 390, height: 844 },
-    storageState: await page.context().storageState(),
-  });
-  try {
-    const phone = await openPage(native, 'no-JavaScript phone room');
-    await phone.goto(new URL(page.url()).pathname);
-    await expect(
-      phone.getByRole('complementary', { name: 'Round sidebar' }),
-    ).toBeVisible();
-    await expect(
-      phone.locator('[aria-labelledby="live-transcript"]'),
-    ).toBeVisible();
-    await expect(phone.getByRole('region', { name: 'Document' })).toBeVisible();
-    await expect(phone.getByRole('link', { name: /Leave/ })).toBeVisible();
-  } finally {
-    await native.close();
-  }
 });

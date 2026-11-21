@@ -14,7 +14,7 @@ const authRoute = processRoute((routes) => routes.auth.POST);
 
 /**
  * The sign-in form's POST, as a server action: a link can be requested
- * before hydration and without JavaScript. It runs the mounted
+ * before hydration. It runs the mounted
  * POST /api/auth/sign-in/magic-link handler in process with this request's
  * headers, so the same-origin, rate-limit and delivery gates all apply.
  * Every argument comes from the browser: `next` is validated again and the

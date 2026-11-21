@@ -19,7 +19,7 @@ export type OnboardingFrameProps = {
 /**
  * One onboarding step as a card on the bare layout: progress and Skip
  * above, the step below. Plain markup, so every step renders and works
- * before hydration and without JavaScript.
+ * before hydration.
  */
 export function OnboardingFrame({
   step,

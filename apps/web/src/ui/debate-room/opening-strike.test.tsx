@@ -76,7 +76,7 @@ describe('OpeningStrike', () => {
   test('the striker gets one native form with the turn it means to take', () => {
     const html = render('neg', true);
     assert({
-      given: 'the Negative on its turn, as a page without scripts renders it',
+      given: 'the Negative on its turn, as the server renders it',
       should:
         'name its strike, count down from the due instant, and post the ordinal and seat',
       actual: [

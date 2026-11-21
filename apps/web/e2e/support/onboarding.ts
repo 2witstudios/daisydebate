@@ -7,8 +7,7 @@ const choose = (page: Page, label: string) =>
 /**
  * The whole flow after the passkey offer: five intro steps, the three
  * questionnaire steps saved one by one, and the last step's simple send-off
- * to the lobby. onboarding.e2e.ts runs it with JavaScript and
- * journey-no-js.e2e.ts without.
+ * to the lobby.
  */
 export const walkOnboarding = async (page: Page, destination = '/lobby') => {
   await expect(page).toHaveURL(/\/onboarding\/daisy\?next=/);

@@ -79,46 +79,6 @@ test('schedule additions stay valid through the maximum schedule', () => {
   });
 });
 
-test('native Apply format restores the same standard after a Custom preview', () => {
-  const original = draftFormValues(createRoomDraft(freestyleChoice));
-  const customize = new FormData();
-  Object.entries({
-    ...original,
-    title: 'Keep my room',
-    visibility: 'private',
-    'duration.inRound': '0:00',
-    intent: 'configure',
-  }).forEach(([key, text]) => customize.set(key, text));
-  const preview = prepareRoomDraft(customize, [freestyleChoice]);
-  const restore = new FormData();
-  Object.entries({
-    ...(preview.kind === 'preview' ? preview.values : {}),
-    format: 'freestyle',
-    ranked: 'on',
-    intent: 'format',
-  }).forEach(([key, text]) => restore.set(key, text));
-  const restored = prepareRoomDraft(restore, [freestyleChoice]);
-  assert({
-    given:
-      'a native Custom preview based on Freestyle, then Apply format for Freestyle again',
-    should: 'restore the full preset, preserve metadata and leave Ranked off',
-    actual: restored.kind === 'preview' && [
-      restored.values.format,
-      restored.values['duration.inRound'],
-      restored.values.title,
-      restored.values.visibility,
-      restored.values.ranked,
-    ],
-    expected: [
-      'freestyle',
-      original['duration.inRound'],
-      'Keep my room',
-      'private',
-      '',
-    ],
-  });
-});
-
 test('a ranked submission is always public and needs no notice', () => {
   const form = new FormData();
   Object.entries({

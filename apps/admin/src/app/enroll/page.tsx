@@ -13,12 +13,6 @@ export default function EnrollPage() {
         This link works once and expires 15 minutes after it was issued.
       </p>
       <PasskeyCeremony kind="enroll" />
-      <noscript>
-        <p>
-          Creating a passkey needs JavaScript; it is the only script this app
-          runs.
-        </p>
-      </noscript>
     </div>
   );
 }

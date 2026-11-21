@@ -23,10 +23,10 @@ export type ClaimAction = (
 
 /**
  * Username onboarding. The form posts to `claim`, a server action, so a
- * submission before hydration or without JavaScript is the same POST; the
- * action moves a claimed account on to the passkey offer, by a 303 without
- * JavaScript and by answering `next` for this page to navigate to with it.
- * JavaScript only adds the local shape check and the pending state.
+ * submission before hydration is the same POST; the
+ * action moves a claimed account on to the passkey offer, by a 303 before
+ * hydration and by answering `next` for a hydrated page to navigate to.
+ * Hydration only adds the local shape check and the pending state.
  */
 export function Onboarding({
   claim,
