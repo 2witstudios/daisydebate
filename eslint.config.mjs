@@ -932,7 +932,7 @@ export default [
         ...processEdgeLoads,
         {
           selector:
-            'CallExpression > MemberExpression.callee:matches([property.name="split"], [computed=true][property.value="split"]) > MemberExpression.object:matches([property.name="pathname"], [computed=true][property.value="pathname"])',
+            'CallExpression > MemberExpression.callee:matches([computed=false][property.name="split"], [computed=true][property.value="split"]) > MemberExpression.object:matches([computed=false][property.name="pathname"], [computed=true][property.value="pathname"])',
           message:
             'Use Next.js route params or pass the bound value to the server action.',
         },

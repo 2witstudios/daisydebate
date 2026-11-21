@@ -18,11 +18,11 @@ registerProcessEdgeTests();
 describe('repository ESLint configuration', () => {
   test('rejects pathname splitting under the App Router', async () => {
     const [result] = await repositoryEslint().lintText(
-      "const url = new URL('https://example.com'); url.pathname.split('/'); url['pathname']['split']('/'); url.search.split('&');",
+      "const url = new URL('https://example.com'); url.pathname.split('/'); url['pathname']['split']('/'); url.search.split('&'); const pathname = 'slug'; const lookup = { slug: 'a-b' }; lookup[pathname]?.split('-');",
       { filePath: 'apps/web/src/app/api/rooms/[roomId]/route.ts' },
     );
     assert({
-      given: 'dot and bracket notation for pathname splits and a search split',
+      given: 'dot and bracket pathname splits and unrelated string splits',
       should: 'reject both pathname splits',
       actual: result?.messages.map(({ message }) => message),
       expected: Array<string>(2).fill(
