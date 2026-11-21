@@ -138,6 +138,7 @@ export const readWatchRound = async (
     return null;
   return {
     timeline: snapshot.timeline,
+    visibility: snapshot.visibility,
     streamable: snapshot.streamable,
     stateUrl: publishedStateUrl(
       deps.publicOrigin,

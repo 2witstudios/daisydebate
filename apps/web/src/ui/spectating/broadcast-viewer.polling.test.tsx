@@ -105,6 +105,7 @@ const mount = async () => {
             client.BroadcastViewer,
             {
               initial: timeline,
+              visibility: 'unlisted',
               stateUrl,
               refreshHref: '/watch/r',
               streamable: true,
@@ -165,13 +166,11 @@ test('a replaced link starts the page reading again', async () => {
   }
 });
 
-test('an address that comes back is read again without a new link', async () => {
+test('an unlisted address that has not published is read again without a new link', async () => {
   const viewer = await mount();
   try {
-    viewer.answers.set(first, () => Response.json(published(1)));
-    await viewer.show(first);
-    await viewer.poll();
     viewer.answers.set(first, () => new Response(null, { status: 404 }));
+    await viewer.show(first);
     await viewer.poll();
     // The refresh answers with the same link: the page must keep looking.
     await viewer.show(first);
@@ -181,7 +180,7 @@ test('an address that comes back is read again without a new link', async () => 
     await viewer.poll();
     assert({
       given:
-        'an address gone for two reads on a link the server still names, then back',
+        'an address missing for its first two reads on a link the server still names, then published',
       should:
         'keep reading it, ask the server again at the second missing read, and not once it is back',
       actual: {
@@ -189,7 +188,7 @@ test('an address that comes back is read again without a new link', async () => 
         refreshed: viewer.refreshes(),
         reads: viewer.reads.length,
       },
-      expected: { whileGone: 2, refreshed: 2, reads: 4 },
+      expected: { whileGone: 2, refreshed: 2, reads: 3 },
     });
   } finally {
     await viewer.client.act(async () => viewer.client.root.unmount());

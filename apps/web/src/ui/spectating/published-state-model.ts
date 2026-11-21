@@ -5,9 +5,8 @@ import type { PollAnswer } from '../../features/spectating/poll-pace';
 export type PublishedReads = {
   readonly state: AudienceState | null;
   readonly movedAtMs: number;
-  readonly gone: boolean;
-  /** Reads in a row that found the address gone; zero unless `gone`. */
-  readonly missing: number;
+  /** A run of missing reads that warrants rechecking the server. */
+  readonly consecutiveMissing: number;
 };
 
 /** One poll's answer: a state, nothing at that address, or no answer at all. */
@@ -19,34 +18,32 @@ export type PublishedRead =
 export const firstPublishedReads = (nowMs: number): PublishedReads => ({
   state: null,
   movedAtMs: nowMs,
-  gone: false,
-  missing: 0,
+  consecutiveMissing: 0,
 });
 
 /**
- * A later object replaces an earlier one, never the reverse. A missing object says
- * nothing before a state has been seen: it may not be out yet. After one, its address
- * was withdrawn or its link replaced, so the page must ask the server again (ADR 0109).
- * Any state read after that means the address is back.
+ * A later object replaces an earlier one. A missing object may still be awaiting
+ * publication. For a link-scoped Watch address, the page must ask the server about
+ * admission even before the first state, since the link may already have been
+ * replaced (ADR 0109). Readers also recheck an address that used to answer.
  */
 export const nextPublishedReads = (
   reads: PublishedReads,
   read: PublishedRead,
   nowMs: number,
+  recheckBeforePublication = false,
 ): PublishedReads => {
+  if (read.kind === 'failed') return reads;
   if (read.kind === 'missing')
-    return reads.state === null
+    return reads.state === null && !recheckBeforePublication
       ? reads
-      : { ...reads, gone: true, missing: reads.missing + 1 };
-  if (
-    read.kind === 'state' &&
-    read.state.publishedAtMs > (reads.state?.publishedAtMs ?? -1)
-  )
-    return { state: read.state, movedAtMs: nowMs, gone: false, missing: 0 };
+      : { ...reads, consecutiveMissing: reads.consecutiveMissing + 1 };
+  if (read.state.publishedAtMs > (reads.state?.publishedAtMs ?? -1))
+    return { state: read.state, movedAtMs: nowMs, consecutiveMissing: 0 };
   // The same object readable again: the address is back, though nothing moved.
-  if (read.kind === 'state' && reads.gone)
-    return { ...reads, gone: false, missing: 0 };
-  return reads;
+  return reads.consecutiveMissing > 0
+    ? { ...reads, consecutiveMissing: 0 }
+    : reads;
 };
 
 /**
@@ -59,7 +56,9 @@ export const paceOfPublishedRead = (
   reads: PublishedReads,
   answer: PollAnswer,
 ): PollAnswer =>
-  reads.gone && answer.kind === 'answered' ? { kind: 'failed' } : answer;
+  reads.consecutiveMissing > 0 && answer.kind === 'answered'
+    ? { kind: 'failed' }
+    : answer;
 
 /**
  * How many times the page should have asked the server while this address has
@@ -69,4 +68,6 @@ export const paceOfPublishedRead = (
  * from reaching web more than a few times each (DEC-350). Zero unless gone.
  */
 export const serverAsksOf = (reads: PublishedReads): number =>
-  reads.gone ? Math.floor(Math.log2(reads.missing)) + 1 : 0;
+  reads.consecutiveMissing > 0
+    ? Math.floor(Math.log2(reads.consecutiveMissing)) + 1
+    : 0;

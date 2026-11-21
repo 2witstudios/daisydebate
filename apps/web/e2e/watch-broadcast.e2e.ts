@@ -2,7 +2,7 @@ import { execFile } from 'node:child_process';
 import { resolve } from 'node:path';
 import { promisify } from 'node:util';
 import { createId } from '@paralleldrive/cuid2';
-import type { APIRequestContext, Page } from '@playwright/test';
+import type { APIRequestContext, Page, Route } from '@playwright/test';
 import { signUpMember } from './support/accounts';
 import { assertNoSeriousFindings } from './support/axe';
 import { watchCspViolations } from './support/csp';
@@ -624,6 +624,73 @@ test.describe('an unlisted Round by its link, with JavaScript off', () => {
 });
 
 test.describe('an unlisted Round by its link', () => {
+  const stateObject = (url: URL) =>
+    url.origin === feed && url.pathname.startsWith('/state/');
+  const missingState = (route: Route) =>
+    route.fulfill({
+      status: 404,
+      headers: { 'Access-Control-Allow-Origin': '*' },
+    });
+
+  test('replacement removes the player before its first published state read', async ({
+    page,
+    context,
+    browser,
+    request,
+  }) => {
+    const { username } = await signUpMember(context.request);
+    const round = await liveRound({
+      mode: 'casual',
+      visibility: 'unlisted',
+      hostUsername: username,
+    });
+    const hostPage = `/rounds/${round.roundId}/audience-link`;
+    const watchPage = `/watch/${round.roundId}`;
+    await page.goto(hostPage);
+    const link = await issueLink(page, 'Create link');
+    await page.goto(hostPage);
+
+    const visitor = await browser.newContext({ ignoreHTTPSErrors: true });
+    const release = Promise.withResolvers<void>();
+    try {
+      const watching = await openPage(visitor, 'the link holder before state');
+      await watching.route(stateObject, async (route) => {
+        await release.promise;
+        await missingState(route);
+      });
+      const started = watching.waitForRequest((read) =>
+        stateObject(new URL(read.url())),
+      );
+      await watching.goto(link);
+      await expectPlaying(watching);
+      const streamPanel = watching.getByRole('region', {
+        name: 'Stream this Round',
+      });
+      await expect(streamPanel).toBeVisible();
+      const oldState = (await started).url();
+      // Observe real withdrawal before delivering the 404 to the browser.
+      // A late stand-in publication must never let this tab consume old state.
+      await expect
+        .poll(async () => (await request.get(oldState)).status())
+        .toBe(200);
+      await issueLink(page, 'Replace link');
+      await expect
+        .poll(async () => (await request.get(oldState)).status())
+        .toBe(404);
+      release.resolve();
+
+      await expect(
+        watching.getByRole('heading', { name: REFUSED, exact: true }),
+      ).toBeVisible({ timeout: 15_000 });
+      await expect(watching).toHaveURL(watchPage);
+      await expect(watching.locator('video')).toHaveCount(0);
+      await expect(streamPanel).toHaveCount(0);
+    } finally {
+      release.resolve();
+      await visitor.close();
+    }
+  });
+
   test('a player reads it under its random key, sends the token nowhere, and stops when the link is replaced', async ({
     page,
     context,
@@ -641,28 +708,59 @@ test.describe('an unlisted Round by its link', () => {
 
     const visitor = await browser.newContext({ ignoreHTTPSErrors: true });
     const watching = await openPage(visitor, 'the link holder');
-    const carrying: string[] = [];
+    // The first state is not out yet. The real Watch page rechecks admission
+    // and keeps showing the player, then the next reads reach the real bucket.
+    await watching.route(stateObject, missingState, { times: 1 });
+    let carriedToken = false;
     const reads: string[] = [];
     watching.on('request', (sent) => {
       reads.push(sent.url());
       const { referer } = sent.headers();
       if (sent.isNavigationRequest() && sent.url().includes(token)) return;
       if (sent.url().includes(token) || referer?.includes(token))
-        carrying.push(sent.url());
+        carriedToken = true;
     });
+    const startup = Promise.all([
+      watching.waitForResponse(
+        (read) => stateObject(new URL(read.url())) && read.ok(),
+      ),
+      watching.waitForResponse(
+        (read) =>
+          new URL(read.url()).pathname === `/watch/${round.roundId}` &&
+          read.request().headers()['rsc'] === '1' &&
+          read.ok(),
+      ),
+    ]);
     await watching.goto(link);
     await expectPlaying(watching);
-    expect(carrying).toEqual([]);
+    await startup;
+    await expect(watching.locator('video')).toBeVisible();
+    // A later change in the published object proves the tab consumed state
+    // before testing replacement in the already-published case.
+    await advance(round.roundId, 'interrupt');
+    await expect(
+      watching.getByText(
+        'The broadcast is interrupted. It resumes here by itself.',
+      ),
+    ).toBeVisible();
     expect(
       reads.some((url) => url.startsWith(`${feed}/live/${round.feedKey}/`)),
     ).toBe(true);
     expect(reads.some((url) => url.includes(round.broadcastId))).toBe(false);
 
-    await page.getByRole('button', { name: 'Replace link' }).click();
-    await expect(page.getByLabel('Round link')).toBeVisible();
+    const streamPanel = watching.getByRole('region', {
+      name: 'Stream this Round',
+    });
+    await expect(watching.locator('video')).toBeVisible();
+    await expect(streamPanel).toBeVisible();
+    await page.goto(`/rounds/${round.roundId}/audience-link`);
+    await issueLink(page, 'Replace link');
     await expect(
       watching.getByRole('heading', { name: REFUSED, exact: true }),
     ).toBeVisible({ timeout: 15_000 });
+    await expect(watching.locator('video')).toHaveCount(0);
+    await expect(streamPanel).toHaveCount(0);
+    expect(carriedToken).toBe(false);
     await visitor.close();
   });
 });
