@@ -111,6 +111,7 @@ mock.module(join(import.meta.dir, '../../lib/request-session.ts'), () => ({
   readRecordingHistory: async () => ({ kind: 'not-found' }),
   requestMemberStandings: async () => [],
   requestMemberDivision: async () => null,
+  requestRealtimeSocketUrl: () => undefined,
   requestCompetitionAgeBand: async () => (onlyYouthLobby ? 'adult' : null),
   requestOfficialStandingLobbies: async () =>
     onlyYouthLobby
