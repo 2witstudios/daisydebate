@@ -39,7 +39,11 @@ test('a league manager opens and closes seasons from the host and publishes an o
     await expect(page.getByText('No ladders yet')).toBeVisible();
     const management = page.url();
 
-    await page.goto('/lobby');
+    await page.goto('/');
+    await page.getByRole('link', { name: /^Play\b/ }).click();
+    await expect(page).toHaveURL(/\/lobby/);
+    await expect(page.getByRole('link', { name: lobbyName })).toBeVisible();
+    await page.goto('/watch');
     await expect(page.getByRole('link', { name: lobbyName })).toBeVisible();
     await page.goto('/leaderboard');
     await page.getByRole('link', { name: lobbyName }).click();
