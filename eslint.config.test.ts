@@ -492,8 +492,18 @@ describe('database statement and lock boundaries', () => {
         'tx.ts',
         "import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres'; export type Database = BunSQLDatabase;",
       ],
+      [
+        'tx.ts',
+        "export type Database = import('drizzle-orm/bun-sql/postgres').BunSQLDatabase;",
+      ],
+      [
+        'tx.ts',
+        "import type * as Driver from 'drizzle-orm/bun-sql/postgres'; export type Database = Driver.BunSQLDatabase;",
+      ],
       ['tx.ts', 'connection.transaction(work);'],
+      ['tx.ts', "connection['transaction'](work);"],
       ['raw-rows.ts', 'connection.execute(statement);'],
+      ['raw-rows.ts', "connection['execute'](statement);"],
       ['raw-rows.ts', 'export const rows = result as unknown as Row[];'],
       [
         'locks.ts',

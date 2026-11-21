@@ -427,7 +427,8 @@ const repoSyntaxRestrictions = [
 
 const dbOpeningRestrictions = [
   {
-    selector: "ImportSpecifier[imported.name='BunSQLDatabase']",
+    selector:
+      "ImportSpecifier[imported.name='BunSQLDatabase'], TSImportType[qualifier.name='BunSQLDatabase'], TSQualifiedName[right.name='BunSQLDatabase']",
     message: 'Use Tx or TxSource from the database transaction boundary.',
   },
   {
