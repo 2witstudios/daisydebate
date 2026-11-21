@@ -1,8 +1,8 @@
 import type { ContentWaiverStanding } from '@daisy/db';
-import type { RoomAssemblyState, RoomRefusal } from '@daisy/protocol';
+import type { AgeBand, RoomAssemblyState, RoomRefusal } from '@daisy/protocol';
 import {
-  CONTENT_WAIVER_VERSION,
   casualCaptureNotice,
+  contentWaiverOf,
   type RoundCaptureNotice,
 } from '../legal/agreements';
 
@@ -54,9 +54,19 @@ export const createNoticeOf = (
     : { kind: 'refused' };
 };
 
-/** The waiver version Ready on this Room needs; only ranked needs one. */
-export const requiredContentWaiver = (room: CompetitionFact) =>
-  room.competitionType === 'ranked' ? CONTENT_WAIVER_VERSION : null;
+/**
+ * The waiver version a seat's Ready on this Room needs; only ranked needs
+ * one. It follows the signer's age band (ADR 0161): a member
+ * under 18 signs the Youth waiver even judging an Open Room, and an adult
+ * judging a Youth Room signs the Open one.
+ */
+export const requiredContentWaiver = (
+  room: CompetitionFact,
+  signer: AgeBand | null,
+) =>
+  room.competitionType === 'ranked'
+    ? contentWaiverOf(signer ?? 'adult').version
+    : null;
 
 /** Unsigned is refused; with no season open, ranked play is unavailable. */
 export const contentWaiverRefusal = (

@@ -5,6 +5,7 @@ releases, tasks PYL-6 and PYL-7, decisions recorded as S4 decisions in the
 [epic plan](https://pagespace.ai/dashboard/lguvh1y1ejhadk96xcftohha/dvjf9nlzrhaojb2vw4n5ufrw)).
 Builds on [ADR 0150](0150-youth-recordings-private.md), which keeps a Youth
 Round's Recording private until every youth debater holds a media release.
+Amended by [ADR 0161](0161-youth-rounds-follow-open-visibility.md): a release is now the reuse licence (clip, download, reuse); Share publicly, `youth_round_publications` and the `youth-publishing` flag retire (§1's publish meaning and §6).
 
 ## Context
 

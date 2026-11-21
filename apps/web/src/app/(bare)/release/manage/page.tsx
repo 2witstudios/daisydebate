@@ -1,11 +1,7 @@
 import type { Metadata } from 'next';
-import { notFound } from 'next/navigation';
 import type { SearchParams } from '../../../../features/access/decision';
 import { managePageOf } from '../../../../features/media-releases/parent-pages';
-import {
-  readReleaseLink,
-  releasePagesOpen,
-} from '../../../../lib/request-session';
+import { readReleaseLink } from '../../../../lib/request-session';
 import { AskForLink } from '../../../../ui/media-releases/parent/link-forms';
 import { ManageRelease } from '../../../../ui/media-releases/parent/manage-release';
 import {
@@ -36,7 +32,6 @@ export default async function ManageReleasePage({
 }: {
   searchParams: Promise<SearchParams>;
 }) {
-  if (!(await releasePagesOpen())) notFound();
   const token = tokenOf((await searchParams)['t']);
   const page = managePageOf(
     token === '' ? null : await readReleaseLink('manage', token),

@@ -156,6 +156,7 @@ export function projectRoom(
     hostLabel: hostHidden ? null : room.hostLabel,
     aiJudgeSeating: null,
     contentWaiver: null,
+    contentWaiverVersion: null,
     captureOffer: null,
     capture: room.capture,
     captureNotice: null,

@@ -1,5 +1,4 @@
 import { readRoundReply } from './round-read-reply';
-import { CONTENT_WAIVER_VERSION } from '../../src/features/legal/agreements';
 import { foundationChoice, humanRoundSelection } from './human-round-selection';
 import type { APIRequestContext, BrowserContext } from '@playwright/test';
 import {
@@ -148,7 +147,10 @@ export async function readyOwnSeat(
     expect(
       (
         await member.context.request.post('/api/agreements/content-waiver', {
-          data: { version: CONTENT_WAIVER_VERSION, accepted: 'yes' },
+          data: {
+            version: own.contentWaiverVersion,
+            accepted: 'yes',
+          },
         })
       ).status(),
     ).toBe(200);

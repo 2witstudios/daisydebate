@@ -17,6 +17,7 @@ import {
 import { defaultNotificationChoices } from '@daisy/protocol';
 import { notificationOperations } from '../src/notifications';
 import { watchHistoryOperations } from '../src/watch-history';
+import { replaceJudge } from './judged-round.test-support';
 import { openDm } from './messaging-retained-dm.test-support';
 import { validConfig, validRules } from './round-fixtures';
 import { withFixture, type Fixture } from './constraint-helpers';
@@ -1187,6 +1188,39 @@ test('recording_ready waits for a complete Broadcast, and a takedown takes the n
         follower: true,
         afterTakedown: [],
       },
+    });
+  });
+});
+
+test('the recording-ready notice for a private Round reaches only current seats', async () => {
+  await withEnv(async (env) => {
+    const debater = await member(env.f);
+    const formerJudge = await member(env.f);
+    const roundId = await env.audienceRound('private', {}, [
+      { seat: 'affirmative', actorId: debater.actorId },
+      { seat: 'judge', actorId: formerJudge.actorId },
+    ]);
+    const replacementActorId = await replaceJudge(
+      env.f,
+      roundId,
+      debater.actorId,
+    );
+    const [replacement] =
+      await env.client`select user_id from actors where id = ${replacementActorId}`;
+    await env.client`insert into recordings (id,round_id,recording_class,eligibility,status,lifecycle)
+      values (${createId()}, ${roundId}, 'casual',
+        ${{ kind: 'casual_opted_in', hostActorId: debater.actorId }}, 'ready', ${{ status: 'ready' }})`;
+    await sweep(env, 120);
+    assert({
+      given: 'a private Recording whose first judge was replaced',
+      should:
+        'notify the debater and current judge without notifying the former judge',
+      actual: await Promise.all(
+        [debater.userId, replacement!.user_id, formerJudge.userId].map((id) =>
+          rowsFor(env, id),
+        ),
+      ),
+      expected: [['recording_ready'], ['recording_ready'], []],
     });
   });
 });

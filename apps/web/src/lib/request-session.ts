@@ -126,13 +126,6 @@ export const messagingLatestPageItems = (): number =>
 export const messagingFilesAvailable = (): boolean =>
   processApp().messagingFiles !== undefined;
 
-/**
- * Whether shared Youth Recordings are public at all (ADR 0151): the
- * youth-publishing release flag, read for Daisy as a whole, never per viewer.
- */
-const youthPublishingOpen = () =>
-  requestReleaseEnabled('youth-publishing', null);
-
 /** One archive page for this viewer, and how many Recordings are public. */
 export const readRecordingArchive = async (
   query: RecordingsQuery,
@@ -141,16 +134,14 @@ export const readRecordingArchive = async (
   const app = processApp();
   const { archive } = recordingReads(app);
   const clock = spectatorClockAt(app.clock.now());
-  const youthPublishing = await youthPublishingOpen();
   const [page, publicCount] = await Promise.all([
     archive.listArchive({
       query,
       viewerActorId: viewer.kind === 'account' ? viewer.actorId : null,
       clock,
       limit: ARCHIVE_PAGE_SIZE,
-      youthPublishing,
     }),
-    archive.countPublicArchive({ clock, youthPublishing }),
+    archive.countPublicArchive({ clock }),
   ]);
   return { page, publicCount, nowMs: Date.parse(app.clock.now()) };
 };
@@ -158,11 +149,7 @@ export const readRecordingArchive = async (
 /** A finished Round's history screen for this viewer. */
 export const readRecordingHistory = (
   input: Parameters<typeof openRecordingHistory>[1],
-) =>
-  openRecordingHistory(
-    recordingReads(processApp(), youthPublishingOpen).inputs,
-    input,
-  );
+) => openRecordingHistory(recordingReads(processApp()).inputs, input);
 
 /** When this account's suspension ends; null for a ban or nothing in force. */
 export const requestRestrictionEnd = (userId: string) => {
@@ -464,12 +451,7 @@ export const requestHubCounts = async (): Promise<HubCounts> => {
   const clock = spectatorClockAt(app.clock.now());
   const [live, recordings] = await Promise.all([
     readUnlessRefused(() => app.liveReads.count(), 0),
-    youthPublishingOpen().then((youthPublishing) =>
-      recordingReads(app).archive.countPublicArchive({
-        clock,
-        youthPublishing,
-      }),
-    ),
+    recordingReads(app).archive.countPublicArchive({ clock }),
   ]);
   return { live, recordings };
 };
@@ -714,13 +696,6 @@ export async function requestLobbyGrantTarget(
 }
 
 /**
- * The parent's media release pages (ADR 0151). The release flow is behind
- * the youth-publishing flag, the one counsel gate: closed, there is no page.
- */
-export const releasePagesOpen = (): Promise<boolean> =>
-  requestReleaseEnabled('youth-publishing', null);
-
-/**
  * What a presented release link may do, read without changing anything; a
  * value that is not a token's shape is never looked up and reads as unknown.
  */
@@ -740,14 +715,11 @@ export const releaseNowMs = (): number => Date.parse(processApp().clock.now());
 
 /**
  * A youth member's media release section (ADR 0151), or null: only on Youth –
- * Freestyle and only while the youth-publishing flag (the counsel gate) is
- * open for them.
+ * Freestyle.
  */
 export const requestMediaReleaseSettings = async (
   userId: string,
 ): Promise<MediaReleaseSettingsView | null> => {
-  // One counsel gate for Daisy as a whole, never per account (ADR 0151).
-  if (!(await requestReleaseEnabled('youth-publishing', null))) return null;
   const read =
     await processApp().database.mediaReleases.readMinorRelease(userId);
   return read.division === 'youth' ? mediaReleaseSettingsView(read) : null;

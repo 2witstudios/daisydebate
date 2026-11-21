@@ -12,7 +12,7 @@ export type StudentsLiveProps = {
 
 /**
  * "Your students, live" (ADR 0155): a linked coach's or parent's own view of
- * their students' running Youth Rounds, never part of the public listing.
+ * their students' running Youth Rounds, including private ones.
  * Nothing renders for anyone with none.
  */
 export function StudentsLive({ cards }: StudentsLiveProps) {

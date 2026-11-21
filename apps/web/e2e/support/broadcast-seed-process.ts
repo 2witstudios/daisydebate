@@ -9,6 +9,7 @@ import {
   negativeSide,
   type SideKey,
 } from '@daisy/protocol';
+import { mediaReleaseWording } from '@daisy/protocol/media-release';
 import { createId } from '@paralleldrive/cuid2';
 import { SQL } from 'bun';
 import { seatJudges } from './seat-judges';
@@ -28,12 +29,10 @@ type Create = {
   /** A signed-up member seated as the affirmative, so a browser can act as a debater. */
   readonly affUsername?: string;
   /**
-   * The Room's division (its lobby), and a ranked Round's ladder. A Youth
-   * Round, casual included, opens no Broadcast (PYL-5, ADR 0157).
+   * The Room's division (its lobby), and a ranked Round's ladder. Either
+   * lobby broadcasts alike (ADR 0161).
    */
   readonly division?: 'open' | 'youth';
-  /** Open one on a Youth Round anyway, as one opened before its rule shipped. */
-  readonly legacyBroadcast?: boolean;
   readonly title: string;
   readonly resolution: string;
 };
@@ -57,7 +56,9 @@ type Advance = {
     | 'stop'
     | 'end'
     | 'recording-ready'
-    | 'recording-takedown';
+    | 'recording-takedown'
+    | 'release-reuse'
+    | 'withdraw-reuse';
   readonly roundId: string;
 };
 
@@ -102,7 +103,6 @@ const create = async (sql: SQL, input: Create) => {
   const roomDivision = input.division ?? 'open';
   // Only a ranked Round has a ladder: its Room's division.
   const division = input.mode === 'ranked' ? roomDivision : null;
-  const broadcast = roomDivision !== 'youth' || input.legacyBroadcast === true;
   await sql.begin(async (tx) => {
     const hostActor = input.hostUsername
       ? (
@@ -141,16 +141,14 @@ const create = async (sql: SQL, input: Create) => {
     await tx`insert into utterances (id,round_id,segment_id,round_participant_id,sequence,text,complete,created_at)
       values (${createId()},${roundId},${segmentId},${participant[0].id},0,${`Caption ${suffix}`},true,now()-interval '3 minutes')`;
     // Heard from since the caption was said, or its open segment keeps it back.
-    // A Youth Round is never broadcast (PYL-5).
-    if (broadcast)
-      await tx`insert into broadcasts (id,round_id,feed_key,release_policy,released_through_at,control_heartbeat_at)
+    await tx`insert into broadcasts (id,round_id,feed_key,release_policy,released_through_at,control_heartbeat_at)
       values (${broadcastId},${roundId},${feedKey},${{ kind: 'delay', seconds: 60 }},now()-interval '60 seconds',now())`;
   });
   return {
     roundId,
     roomId,
-    broadcastId: broadcast ? broadcastId : null,
-    feedKey: broadcast ? feedKey : null,
+    broadcastId,
+    feedKey,
     aff: input.affUsername ?? `aff-${suffix}`,
     caption: `Caption ${suffix}`,
   };
@@ -204,10 +202,6 @@ const advance = async (sql: SQL, input: Advance) => {
       return;
     case 'stop':
       await sql`update broadcasts set stopped_at=now(),stop_reason='policy_violation',media_withheld=true where round_id=${roundId}`;
-      // A Round with no Broadcast (a Youth Round) still running is ended too.
-      await sql`update rounds set status='abandoned',current_stage=null,completed_at=now()
-        where id=${roundId} and status='active'
-          and not exists(select 1 from broadcasts where round_id=${roundId})`;
       return;
     case 'end':
       await sql`update rounds set status='completed',current_stage=null,winning_side=${affirmativeSide},completed_at=now()-interval '3 minutes' where id=${roundId}`;
@@ -249,6 +243,28 @@ const advance = async (sql: SQL, input: Advance) => {
       }} where round_id=${roundId}`;
       return row.id as string;
     }
+    case 'release-reuse': {
+      const debaters = await sql<{ user_id: string }[]>`select a.user_id
+        from round_participants p join actors a on a.id = p.actor_id
+        where p.round_id = ${roundId} and p.seat_kind = 'side'`;
+      if (debaters.length !== 2)
+        throw new Error('Expected two fixture debaters');
+      await sql.begin(async (tx) => {
+        for (const { user_id } of debaters)
+          await tx`insert into media_releases
+            (id, user_id, scope, source, signer_name, signer_relation, signer_email, wording_version, signed_at)
+            values (${createId()}, ${user_id}, 'publish', 'parent', 'Fixture guardian', 'parent',
+              'fixture@example.test', ${mediaReleaseWording.version}, clock_timestamp())`;
+      });
+      return;
+    }
+    case 'withdraw-reuse':
+      await sql`update media_releases m
+        set withdrawn_at = clock_timestamp(), withdrawn_by = 'parent'
+        from round_participants p join actors a on a.id = p.actor_id
+        where p.round_id = ${roundId} and p.seat_kind = 'side'
+          and p.side = ${affirmativeSide} and m.user_id = a.user_id and m.scope = 'publish'`;
+      return;
     case 'recording-takedown': {
       const at = systemClock.now();
       await sql`update recordings set status='taken_down',lifecycle=jsonb_build_object('status','taken_down','takenDownAt',${at}::text,'held',lifecycle) where round_id=${roundId}`;

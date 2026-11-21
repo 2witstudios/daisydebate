@@ -149,6 +149,7 @@ test('the posted forms', () => {
   form.set('name', 'Elena Rivera');
   form.set('relation', 'legal_guardian');
   form.set('attests', 'on');
+  form.set('wordingVersion', '2026-11-v2');
   assert({
     given: 'a sign form with the box ticked and paid ads not',
     should: 'post the token and the fields, paid ads off',
@@ -158,6 +159,7 @@ test('the posted forms', () => {
       form: {
         name: 'Elena Rivera',
         relation: 'legal_guardian',
+        wordingVersion: '2026-11-v2',
         attests: true,
         paidAds: false,
       },

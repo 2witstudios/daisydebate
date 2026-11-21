@@ -28,8 +28,6 @@ const json = (value: unknown) =>
 const minorRule: RateRule = { windowSeconds: 3_600, max: 30 };
 /** A club's confirmations: one per selection, far above a coach's pace. */
 const clubRule: RateRule = { windowSeconds: 3_600, max: 60 };
-/** A Youth Recording shared: a debater shares a few Rounds at a time. */
-const publishRule: RateRule = { windowSeconds: 3_600, max: 30 };
 /**
  * One client's parent-page posts (no account): a parent signs once, and a
  * guess at a 256-bit token is hopeless, so this only stops a script.
@@ -50,7 +48,6 @@ const confirmBody = z.object({
   students: z.array(idSchema).max(200),
   form: z.unknown(),
 });
-const publishBody = z.object({ roundId: idSchema });
 const manageLinkBody = z.object({ email: z.string().max(400) });
 const stopBody = z.object({ a: z.string().max(80), t: z.string().max(128) });
 
@@ -59,35 +56,19 @@ export type MediaReleaseRouteDependencies = {
   readonly recipientSubkey: () => string;
   readonly stopSubkey: () => string;
   readonly nowMs: () => number;
-  readonly store: Pick<
-    Database,
-    'mediaReleases' | 'mediaReleaseClubs' | 'youthRoundPublications'
-  >;
+  readonly store: Pick<Database, 'mediaReleases' | 'mediaReleaseClubs'>;
 };
 
 /**
- * The media release routes (ADR 0151), all behind the youth-publishing flag:
- * the minor's request, the parent's link pages (no account, same origin, the
- * token in the body, never the URL), the club's confirmation, and sharing a
- * Youth Recording. A closed flag answers not found. Each route takes the
- * youth-publishing flag's reader from its Next route module or server action,
- * so release flags stay out of the proxy's route table (ADR 0118).
+ * The media release routes (ADR 0151, amended by ADR 0161): the minor's
+ * request, the parent's link pages (no account, same origin, the token in
+ * the body, never the URL) and the club's confirmation. A release is the
+ * reuse licence for a minor's Rounds; viewing never needs one.
  */
-export type MediaReleasesReleased = (
-  accountId: string | null,
-) => Promise<boolean>;
-
 export function composeMediaReleaseHandlers(
   deps: MediaReleaseRouteDependencies,
 ) {
   const { boundary } = deps;
-  /**
-   * The flag is one counsel gate for Daisy as a whole (PYL-8), read the same
-   * way by every page, route, read and the mail worker: never per account.
-   */
-  const gate = async (released: MediaReleasesReleased) => {
-    if (!(await released(null))) throw createAppError('NOT_FOUND');
-  };
   const member =
     (
       name: Parameters<typeof runMemberRoute>[2]['name'],
@@ -96,16 +77,12 @@ export function composeMediaReleaseHandlers(
       work: (caller: MemberCaller, request: Request) => Promise<unknown>,
       readOnly = false,
     ) =>
-    (released: MediaReleasesReleased) =>
     (request: Request) =>
       runMemberRoute(
         boundary,
         request,
         { name, readOnly, bucket, rule },
-        async (caller) => {
-          await gate(released);
-          return json(await work(caller, request));
-        },
+        async (caller) => json(await work(caller, request)),
       );
   /** A parent's post: same origin, no account, limited per client. */
   const parent =
@@ -113,9 +90,7 @@ export function composeMediaReleaseHandlers(
       name: Parameters<typeof handleOperation>[2],
       rule: RateRule,
       work: (request: Request) => Promise<unknown>,
-      gated = true,
     ) =>
-    (released: MediaReleasesReleased) =>
     (request: Request) =>
       handleOperation(
         boundary.logger,
@@ -123,7 +98,6 @@ export function composeMediaReleaseHandlers(
         name,
         async () => {
           requireSameOrigin(request, boundary.origin());
-          if (gated) await gate(released);
           const client = request.headers.get(CLIENT_IP_HEADER) ?? 'unresolved';
           await consumeOrThrow(
             boundary.limiter(),
@@ -231,20 +205,6 @@ export function composeMediaReleaseHandlers(
         },
         true,
       ),
-    /** A debater shares a Youth Recording publicly. */
-    publish: member(
-      'media-release.publish',
-      'media-release:publish',
-      publishRule,
-      async (caller, request) => {
-        const { roundId } = await body(request, publishBody);
-        return deps.store.youthRoundPublications.publishYouthRound({
-          roundId,
-          userId: caller.userId,
-          open: true,
-        });
-      },
-    ),
     sign: parent(
       'media-release.parent.sign',
       parentClientRule,
@@ -302,7 +262,7 @@ export function composeMediaReleaseHandlers(
         return { kind: 'sent' };
       },
     ),
-    /** "Don't send me release requests": an opt-out works whatever the flag says. */
+    /** "Don't send me release requests". */
     stop: parent(
       'media-release.parent.stop',
       parentClientRule,
@@ -316,7 +276,6 @@ export function composeMediaReleaseHandlers(
         await releases.stopRequests(hash);
         return { kind: 'stopped' };
       },
-      false,
     ),
   };
 }

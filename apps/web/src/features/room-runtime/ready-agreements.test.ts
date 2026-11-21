@@ -1,5 +1,6 @@
 import {
   CONTENT_WAIVER_VERSION,
+  YOUTH_CONTENT_WAIVER_VERSION,
   casualCaptureNotice,
 } from '../legal/agreements';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
@@ -24,10 +25,21 @@ const version = casualCaptureNotice.version;
 describe('Ready agreements', () => {
   test('only ranked needs the waiver', () => {
     assert({
-      given: 'a ranked and a casual Room',
-      should: 'require the current waiver on ranked alone',
-      actual: [requiredContentWaiver(ranked), requiredContentWaiver(casual)],
-      expected: [CONTENT_WAIVER_VERSION, null],
+      given:
+        'a ranked Room read by an adult, a minor and a member with no age record, and a casual Room',
+      should: "require a waiver on ranked alone, by the signer's age band",
+      actual: [
+        requiredContentWaiver(ranked, 'adult'),
+        requiredContentWaiver(ranked, '16-17'),
+        requiredContentWaiver(ranked, null),
+        requiredContentWaiver(casual, '13-15'),
+      ],
+      expected: [
+        CONTENT_WAIVER_VERSION,
+        YOUTH_CONTENT_WAIVER_VERSION,
+        CONTENT_WAIVER_VERSION,
+        null,
+      ],
     });
   });
 

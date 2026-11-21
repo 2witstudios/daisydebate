@@ -33,6 +33,7 @@ import { withSeatRatings } from '../ratings/room-seat-ratings';
 import type { createRedis } from '@daisy/redis';
 import type {
   ActiveRoom,
+  AgeBand,
   HostedRoom,
   RoomListQuery,
   RoomAssemblyState,
@@ -40,6 +41,7 @@ import type {
   RoomCastChoice,
   RoomCommandResponse,
   RoomCreate,
+  RoomView,
 } from '@daisy/protocol';
 import {
   isDebatingSeat,
@@ -180,25 +182,33 @@ export function createRoomRuntimeOperations({
       return { available: false, readyActorIds: [], validUntil: null };
     }
   };
-  /** Only a seated human on an open ranked Room stands on the waiver. */
+  /**
+   * Only a seated human on an open ranked Room stands on the waiver: the one
+   * their age band requires (ADR 0161).
+   */
   const viewerContentWaiver = async (
     state: RoomAssemblyState,
     caller: Caller,
-  ) => {
-    const version = requiredContentWaiver(state);
+    ageBand: AgeBand | null,
+  ): Promise<Pick<RoomView, 'contentWaiver' | 'contentWaiverVersion'>> => {
+    const none = { contentWaiver: null, contentWaiverVersion: null };
     if (
-      !version ||
+      state.competitionType !== 'ranked' ||
       !isOpenRoomStatus(state.status) ||
       !state.participants.some(
         (p) => p.actorId === caller.actorId && p.kind === 'human',
       )
     )
-      return null;
+      return none;
+    const version = requiredContentWaiver(state, ageBand);
+    if (!version) return none;
     const standing = await store.readContentWaiverStanding(
       caller.userId,
       version,
     );
-    return standing === 'no-active-season' ? null : standing;
+    return standing === 'no-active-season'
+      ? none
+      : { contentWaiver: standing, contentWaiverVersion: version };
   };
   const view = async (caller: Caller, roomId: string) => {
     const facts = await store.readRoomAssemblyFacts(
@@ -235,7 +245,7 @@ export function createRoomRuntimeOperations({
           ),
         ),
       ),
-      contentWaiver: await viewerContentWaiver(state, caller),
+      ...(await viewerContentWaiver(state, caller, facts.viewerAgeBand)),
       captureOffer: await roomCaptureOffer(state, caller.actorId, async () =>
         hostHoldsCasualCapture(
           await store.readOwnEntitlementGrants(caller),
