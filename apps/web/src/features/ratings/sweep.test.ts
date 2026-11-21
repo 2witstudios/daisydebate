@@ -7,7 +7,7 @@ setupRitewayBun();
 
 const rateable: RatingEligibilityFacts = {
   competitionType: 'ranked',
-  ladder: { style: 'freestyle', division: 'open' },
+  scope: { lobbyId: 'open', ladderId: 'freestyle', seasonId: 'season' },
   status: 'completed',
   outcome: { kind: 'winner', side: 'affirmative' },
   completedAt: '2026-10-05T12:00:00.000Z',
@@ -54,7 +54,7 @@ test('rating recovery advances past failures and retries them on the next bounde
     expected: {
       attempts: ['blocked', 'ready', 'blocked', 'ready'],
       failures: ['blocked', 'blocked'],
-      page: { afterId: 'ready', exhausted: false, rated: 1 },
+      page: { afterId: 'ready', exhausted: false, rated: 0 },
     },
   });
 });
@@ -125,7 +125,7 @@ test('rating recovery reports a Round whose facts cannot be decided and pages on
     expected: {
       attempts: ['ready'],
       failures: ['corrupt'],
-      page: { afterId: 'ready', exhausted: false, rated: 1 },
+      page: { afterId: 'ready', exhausted: false, rated: 0 },
     },
   });
 });
@@ -155,7 +155,7 @@ test('one Round with an unreadable ledger row fails alone and the page moves on'
     expected: {
       attempts: ['ready'],
       failures: [['corrupt', unreadable]],
-      page: { afterId: 'ready', exhausted: false, rated: 1 },
+      page: { afterId: 'ready', exhausted: false, rated: 0 },
     },
   });
 });

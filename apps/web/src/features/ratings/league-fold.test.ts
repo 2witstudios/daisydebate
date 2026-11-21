@@ -105,3 +105,32 @@ describe('league team rating updates', () => {
     });
   });
 });
+
+describe('mixed-experience teams', () => {
+  test('uses the same pre-game opponents for every teammate', () => {
+    const first = foldLeagueRatings([game]);
+    const playedAt = '2027-02-01T00:00:00.000Z';
+    const newcomer = { state: ratingPolicy.initial, lastRatedAt: null };
+    const againstSolo = rateDebate({
+      affirmative: newcomer,
+      negative: first[1]!,
+      outcome: { kind: 'winner', side: 'affirmative' },
+      occurredAt: playedAt,
+    });
+    const actual = foldLeagueRatings([
+      game,
+      {
+        ...game,
+        result: 'r2',
+        playedAt,
+        sides: [['a', 'c'], ['b']],
+      },
+    ]);
+    assert({
+      given: 'a newcomer joining an experienced debater against one opponent',
+      should: 'rate the newcomer against the solo opponent’s pre-game state',
+      actual: actual.find(({ actorId }) => actorId === 'c')?.state,
+      expected: againstSolo.affirmative.after,
+    });
+  });
+});

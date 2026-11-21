@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 
 import type { RoomAssemblyState, RoomMutationOutcome } from '@daisy/protocol';
 import {
@@ -16,7 +16,7 @@ import { rooms, roomParticipants } from './schema/rooms';
 import { roundDrawSeeds } from './schema/round-seeds';
 import { challenges } from './schema/challenges';
 import { rounds } from './schema/rounds';
-import { legacyRoomCompetition, lockLadderSeason } from './ladder-season';
+import { lockLadderSeason } from './ladder-season';
 import { roundParticipants } from './schema/round-participants';
 import { appendRoundPhaseChanged } from './round-projection-writer';
 import { oweRoundStarted } from './round-began';
@@ -24,7 +24,6 @@ import { holdActiveRoomMembers } from './room-membership-persistence';
 import { freezeRoomBallot } from './room-ballot-freeze';
 import { columnsOfSeat } from './seat-columns';
 import { refuseIneligibleDebaters } from './room-start-eligibility';
-import { lobbies } from './schema/lobbies';
 
 import {
   appendRoomChanged,
@@ -133,35 +132,38 @@ export const persistRoomMutation = async (
     const opens = next.roundRef.status === 'opening';
     if (!opens && next.topic === null) throw createAppError('INVARIANT');
     const [source] = await tx
-      .select({ leagueLadderId: rooms.leagueLadderId })
+      .select({
+        leagueLadderId: rooms.leagueLadderId,
+        lobbyKind: rooms.lobbyKind,
+      })
       .from(rooms)
       .where(eq(rooms.id, next.id));
-    const competition = legacyRoomCompetition(next);
-    if (competition.ladder) {
-      const [lobby] = await tx
-        .select({ organizationId: lobbies.ownerOrganizationId })
-        .from(lobbies)
-        .where(eq(lobbies.id, next.lobbyId));
-      if (!lobby?.organizationId) throw createAppError('INVARIANT');
-      await lockLadderSeason(tx, competition.ladder, lobby.organizationId);
-    }
+    const selectedLadderId = source?.leagueLadderId ?? undefined;
+    const ratingScope =
+      next.competitionType === 'ranked' || selectedLadderId !== undefined
+        ? await lockLadderSeason(tx, next.lobbyId, selectedLadderId)
+        : null;
     await tx.insert(rounds).values({
-      leagueLadderId: source?.leagueLadderId ?? null,
       id: roundId,
       roomId: next.id,
       createdByActorId: next.hostActorId,
       hostInherited: next.hostInherited,
       resolution: next.topic,
       preRoundPrepMs: prepMs,
-      competitionType: competition.competitionType,
+      competitionType: next.competitionType,
       formatId: next.formatId,
       formatVersion: next.formatVersion,
       presetVersion:
-        competition.competitionType === 'ranked' ? next.presetVersion : null,
+        next.competitionType === 'ranked' ? next.presetVersion : null,
       roomConfigSnapshot: freezeRoomConfig(next.config),
       capture: next.capture,
       postRoundCall: freezePostRoundCall(next.postRoundCall, next.participants),
       visibility: next.visibility,
+      standingAgeRule: source?.lobbyKind === 'standing' ? next.ageRule : null,
+      standingYouthCast:
+        source?.lobbyKind === 'standing'
+          ? sql`coalesce(public.daisy_room_is_youth(${next.id}), false)`
+          : false,
       rulesSnapshot: next.rules,
       judging,
       runtimeState: emptyRuntimeCheckpointFor(next.rules),
@@ -170,8 +172,9 @@ export const persistRoomMutation = async (
       ...(opens
         ? {}
         : { currentStage: 'countdown' as const, startedAt: new Date(now) }),
-      ladderId: competition.ladder?.style ?? null,
-      ladderDivision: competition.ladder?.division ?? null,
+      ladderId: ratingScope?.ladderId ?? null,
+      seasonId: ratingScope?.seasonId ?? null,
+      ratingLobbyId: ratingScope?.lobbyId ?? null,
       createdAt: new Date(now),
       updatedAt: new Date(now),
     });

@@ -1,8 +1,6 @@
 import {
   competitionTypes,
   type CompetitionType,
-  ratingDivisions,
-  ratingStyles,
   roundRulesSchema,
   frozenRoomConfigSchema,
   roomCaptureSchema,
@@ -17,8 +15,6 @@ import {
   type RoundDecisionRelease,
   type RoundStage,
   type RoundStatus,
-  type RatingDivision,
-  type RatingStyle,
   seatDrawSchema,
 } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
@@ -53,6 +49,9 @@ import { formatPresets } from './format-presets';
 import { formatRevisions } from './format-revisions';
 import { formats } from './formats';
 import { rooms } from './rooms';
+import { ladders } from './ladders';
+import { lobbyAgeRule } from './lobbies';
+import { seasons } from './seasons';
 import { resolutionDrawEvidenceSchema } from '@daisy/protocol/resolution-draw';
 
 /** A ranking's places as stored: best place first, a shared place as one group. */
@@ -86,6 +85,10 @@ export const rounds = pgTable(
     /** The host took over from a restricted one, and names no human judge (DEC-331). */
     hostInherited: boolean('host_inherited').notNull().default(false),
     visibility: text('visibility').$type<'public' | 'unlisted' | 'private'>(),
+    /** The standing lobby's age rule at Start, kept for media reuse. */
+    standingAgeRule: lobbyAgeRule('standing_age_rule'),
+    /** Whether this standing lobby's actual cast needs Youth media protection. */
+    standingYouthCast: boolean('standing_youth_cast').notNull().default(false),
     /** Null until a draw's reveal; stays null if the Round ended before it. */
     resolution: text('resolution'),
     /** Pre-round prep's full length, or null when the Round has none. */
@@ -145,16 +148,14 @@ export const rounds = pgTable(
     ).generatedAlwaysAs(
       sql`case when judging->'source'->>'kind' = 'stored' then (judging->'source'->>'version')::integer else null end`,
     ),
-    /** The one authority for ratedness: null when this round never rates. */
-    /** Own standing league ladder frozen from the source Room at Start. */
-    leagueLadderId: text('league_ladder_id'),
-    ladderId: text('ladder_id').$type<RatingStyle>(),
-    /**
-     * The division of the ladder the Round rates on (ADR 0147), frozen at
-     * Start from who sat: the ladder is (`ladder_id`, `ladder_division`), and
-     * both are null together on a casual Round.
-     */
-    ladderDivision: text('ladder_division').$type<RatingDivision>(),
+    /** The competitive pool, frozen by Room Start. */
+    ladderId: text('ladder_id'),
+    seasonId: text('season_id'),
+    ratingLobbyId: text('rating_lobby_id'),
+    /** Completed league games that previously rated by replay, without a ledger. */
+    legacyLeagueRating: boolean('legacy_league_rating')
+      .notNull()
+      .default(false),
     startedAt: timestampColumn('started_at'),
     completedAt: timestampColumn('completed_at'),
     /** The Daisy checkpoint (ADR 0058 §4); only what has no durable row. */
@@ -191,28 +192,43 @@ export const rounds = pgTable(
     const completed = sql`${table.status} = 'completed' and ${table.currentStage} is null and ${table.startedAt} is not null and ${table.completedAt} is not null`;
     const abandoned = sql`${table.status} = 'abandoned' and ${table.currentStage} is null and ${noOutcome} and ${table.completedAt} is not null`;
     return [
-      index('rounds_room_league_ladder_idx').on(
+      index('rounds_room_rating_lobby_idx').on(
         table.roomId,
-        table.leagueLadderId,
+        table.ratingLobbyId,
       ),
-      index('rounds_league_ladder_completed_idx').on(
-        table.leagueLadderId,
+      index('rounds_ladder_rating_lobby_idx').on(
+        table.ladderId,
+        table.ratingLobbyId,
+      ),
+      index('rounds_season_rating_lobby_idx').on(
+        table.seasonId,
+        table.ratingLobbyId,
+      ),
+      index('rounds_ladder_season_completed_idx').on(
+        table.ladderId,
+        table.seasonId,
         table.completedAt,
       ),
       foreignKey({
-        name: 'rounds_room_league_ladder_fk',
-        columns: [table.roomId, table.leagueLadderId],
-        foreignColumns: [rooms.id, rooms.leagueLadderId],
+        name: 'rounds_room_rating_lobby_fk',
+        columns: [table.roomId, table.ratingLobbyId],
+        foreignColumns: [rooms.id, rooms.lobbyId],
       }).onDelete('restrict'),
-      check(
-        'rounds_league_ladder_source_check',
-        sql`${table.leagueLadderId} is null or (${table.roomId} is not null and ${table.ladderId} is null and ${table.competitionType} = 'casual')`,
-      ),
-      /** Lets `rating_changes` pin a change to the round's own format. */
+      foreignKey({
+        name: 'rounds_ladder_rating_lobby_fk',
+        columns: [table.ladderId, table.ratingLobbyId],
+        foreignColumns: [ladders.id, ladders.lobbyId],
+      }).onDelete('restrict'),
+      foreignKey({
+        name: 'rounds_season_rating_lobby_fk',
+        columns: [table.seasonId, table.ratingLobbyId],
+        foreignColumns: [seasons.id, seasons.lobbyId],
+      }).onDelete('restrict'),
       unique('rounds_id_format_unique').on(table.id, table.formatId),
-      unique('rounds_id_ladder_division_unique').on(
+      unique('rounds_id_rating_pool_unique').on(
         table.id,
-        table.ladderDivision,
+        table.ladderId,
+        table.seasonId,
       ),
       index('rounds_status_competition_created_idx').on(
         table.status,
@@ -331,12 +347,8 @@ export const rounds = pgTable(
           else false end, false)`,
       ),
       check(
-        'rounds_ladder_check',
-        sql`${table.ladderId} is null or ${oneOf(table.ladderId, ratingStyles)}`,
-      ),
-      check(
-        'rounds_ladder_division_check',
-        sql`(${table.ladderId} is null) = (${table.ladderDivision} is null) and (${table.ladderDivision} is null or ${oneOf(table.ladderDivision, ratingDivisions)})`,
+        'rounds_rating_pool_complete',
+        sql`num_nonnulls(${table.ladderId}, ${table.seasonId}, ${table.ratingLobbyId}) in (0, 3)`,
       ),
       check(
         'rounds_lifecycle_check',
@@ -344,7 +356,7 @@ export const rounds = pgTable(
       ),
       check(
         'rounds_ranked_ladder_check',
-        sql`(${table.competitionType} = 'ranked' and ${table.ladderId} is not null and ${table.ladderId} = ${table.formatId}) or (${table.competitionType} <> 'ranked' and ${table.ladderId} is null)`,
+        sql`${table.competitionType} <> 'ranked' or ${table.ladderId} is not null`,
       ),
       check(
         'rounds_ranked_has_preset_check',

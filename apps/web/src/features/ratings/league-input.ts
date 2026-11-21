@@ -1,3 +1,4 @@
+import { foldLeagueRatings } from './league-fold';
 import type { LeagueRatingInputs } from '@daisy/db/tab';
 import {
   ladderInput,
@@ -10,13 +11,19 @@ import { projectResultCompetition } from '../tab/commands/result-projection';
 import { createAppError } from '@daisy/errors';
 import { endingRating } from '@daisy/debate-engine';
 
-/** Consume only the league's received, certified tournament output and own frozen Rooms. */
-export function leagueGames(input: LeagueRatingInputs): LadderGame[] {
+/** The same Room eligibility applies before and after a ledger is introduced. */
+export function leagueRoomGames(input: {
+  readonly roomRounds: readonly Omit<
+    LeagueRatingInputs['roomRounds'][number],
+    'legacy'
+  >[];
+  readonly participants: readonly LeagueRatingInputs['participants'][number][];
+}): LadderGame[] {
   // One pass over the seats, so each Round reads only its own.
   const seats = new Map<string, (typeof input.participants)[number][]>();
   for (const person of input.participants)
     seats.set(person.roundId, [...(seats.get(person.roundId) ?? []), person]);
-  const rooms: LadderGame[] = input.roomRounds.flatMap((round) => {
+  return input.roomRounds.flatMap((round) => {
     const [first, second] = round.rules.sides;
     // Daisy's own rule for whether an ending rates: a Round Daisy refuses
     // (unrecorded, unjudged, check-in pending, attendance unsettled, no
@@ -40,21 +47,29 @@ export function leagueGames(input: LeagueRatingInputs): LadderGame[] {
       {
         result: round.id,
         source: 'league_room',
-        playedAt: rated.occurredAt,
+        playedAt: round.playedAt.toISOString(),
         sides: [sides[0]!, sides[1]!],
         winner: side === first.key ? 0 : 1,
       },
     ];
   });
-  const fixtures = new Map<string, (typeof input.tournaments)[number][]>();
-  for (const record of input.tournaments)
+}
+
+export const orderedLeagueGames = (
+  rooms: readonly LadderGame[],
+  certified: LeagueRatingInputs['tournaments'],
+) => ladderInput({ rooms, tournaments: certifiedTournaments(certified) });
+
+function certifiedTournaments(
+  certified: LeagueRatingInputs['tournaments'],
+): LadderInput['tournaments'] {
+  const fixtures = new Map<string, (typeof certified)[number][]>();
+  for (const record of certified)
     fixtures.set(record.fixtureId, [
       ...(fixtures.get(record.fixtureId) ?? []),
       record,
     ]);
-  const tournaments: LadderInput['tournaments'][number][] = [
-    ...fixtures.values(),
-  ].flatMap((records) => {
+  return [...fixtures.values()].flatMap((records) => {
     const latest = records.at(-1)!;
     const record = latest.competitionRecord;
     if (
@@ -82,7 +97,6 @@ export function leagueGames(input: LeagueRatingInputs): LadderGame[] {
           'INVARIANT',
           'Certified rating input cannot be projected',
         );
-      if (projected.projection.engine.outcome.kind !== 'winner') return [];
       return [
         {
           result: projected.projection.engine as ResultOf<TwoSides>,
@@ -104,5 +118,32 @@ export function leagueGames(input: LeagueRatingInputs): LadderGame[] {
       },
     ];
   });
-  return ladderInput({ rooms, tournaments });
 }
+
+export const hasRateableTournament = (games: readonly LadderGame[]) =>
+  games.some(
+    ({ source, sides: [first, second] }) =>
+      source === 'tournament' &&
+      first.length > 0 &&
+      second.length > 0 &&
+      new Set([...first, ...second]).size === first.length + second.length,
+  );
+
+export const leagueStandings = (input: LeagueRatingInputs) => {
+  const games = orderedLeagueGames(leagueRoomGames(input), input.tournaments);
+  const legacyRooms = new Set(
+    input.roomRounds.filter(({ legacy }) => legacy).map(({ id }) => id),
+  );
+  if (
+    hasRateableTournament(games) ||
+    games.some(
+      ({ source, result }) =>
+        source === 'league_room' && legacyRooms.has(result),
+    )
+  )
+    return foldLeagueRatings(games);
+  return input.standings.map(({ rating, deviation, volatility, ...row }) => ({
+    ...row,
+    state: { rating, deviation, volatility },
+  }));
+};

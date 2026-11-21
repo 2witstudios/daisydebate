@@ -548,10 +548,15 @@ export const requestAudience = async (
   );
 };
 
+export const requestOfficialRatingLadders = cache(() =>
+  processApp().database.listOfficialRatingLadders(),
+);
+
 /** Process binding for the public ladder and its signed-in blinding context. */
 export async function requestLadder(input: {
   readonly seasonId: string | null;
   readonly ladder: import('@daisy/protocol').Ladder;
+  readonly lobbyId?: string;
   readonly now: string;
 }) {
   const identity = await requestIdentity();

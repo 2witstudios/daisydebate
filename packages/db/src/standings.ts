@@ -1,25 +1,38 @@
 import { createAppError } from '@daisy/errors';
 import {
   ratingStyles,
-  twoSideKeys,
-  type Ladder,
-  type TwoSideKey,
+  sideKeySchema,
+  type EndingRatingFacts,
+  type SideKey,
   type WinnerOutcome,
 } from '@daisy/protocol';
 import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { instrumented, type DatabaseEventSink } from './instrumented';
+import { readOfficialRatingLadderCatalog } from './official-standing-lobbies';
 import { isDebatingSeatSql } from './seat-columns';
 import { actors } from './schema/actors';
 import { roundParticipants } from './schema/round-participants';
 import { rounds } from './schema/rounds';
+import { readEndingRatingFacts } from './rating-discovery';
 import { formatPresets } from './schema/format-presets';
 import { formats } from './schema/formats';
+import { ladders } from './schema/ladders';
+import { lobbies } from './schema/lobbies';
+import { organizations } from './schema/organizations';
 import { ratingChanges, ratings } from './schema/ratings';
+import { seasons } from './schema/seasons';
 import { users } from './schema/users';
 import { listSeasonRecords, type SeasonRecord } from './season-record';
 import { factReleasedSql, type SpectatorClock } from './spectator-release-sql';
 import { releasedStandings } from './standings-release';
+import { scopeTransaction } from './tenant-scope';
+import {
+  certifiedRatingActors,
+  loadLeagueCertifiedRatingInputs,
+  type CertifiedRatingResults,
+} from './tab/league-certified-rating-inputs';
+import type { TabTransaction } from './tab/tab-transaction';
 
 /**
  * The leaderboard's reads (ADR 0055): the seasons a ladder can show, the
@@ -52,17 +65,103 @@ export type StandingChange = {
   readonly deviationAfter: number;
   readonly occurredAt: string;
   /** A rating compares the two sides (ADR 0055): the preset's pair. */
-  readonly side: TwoSideKey;
+  readonly side: SideKey;
   readonly outcome: WinnerOutcome;
 };
 
 export type StandingsRead = {
   readonly ratings: readonly StandingRating[];
   readonly changes: readonly StandingChange[];
+  readonly certified?: readonly StandingCertification[];
+  readonly publicResults?: {
+    readonly replaySeasonIds: readonly string[];
+    readonly rooms: readonly ReleasedRoomResult[];
+    readonly people: readonly StandingPerson[];
+    readonly legacyRooms?: readonly ReleasedLegacyRoom[];
+  };
 };
 
-const isTwoSideKey = (key: string | null): key is TwoSideKey =>
-  (twoSideKeys as readonly (string | null)[]).includes(key);
+type StandingPerson = Pick<
+  StandingRating,
+  'actorId' | 'username' | 'accountClosed'
+>;
+type ReleasedRoomResult = Pick<
+  StandingChange,
+  'seasonId' | 'roundId' | 'actorId' | 'occurredAt' | 'side' | 'outcome'
+> & { readonly playedAt?: string };
+type ReleasedLegacyRoom = {
+  readonly id: string;
+  readonly seasonId: string;
+  readonly rules: (typeof rounds.$inferSelect)['rulesSnapshot'];
+  readonly playedAt: Date;
+  readonly ending: EndingRatingFacts | null;
+  readonly participants: readonly (StandingPerson & {
+    readonly side: string | null;
+  })[];
+};
+
+type StandingCertification = {
+  readonly seasonId: string;
+  readonly records: CertifiedRatingResults;
+  readonly people: readonly StandingPerson[];
+};
+
+const publishedCertifications = async (
+  tx: TabTransaction,
+  input: {
+    readonly lobbyId: string;
+    readonly seasonIds: readonly string[];
+    readonly publicAt: string;
+    readonly leaguePublication?: boolean;
+  },
+): Promise<StandingCertification[]> => {
+  const [owner] = await tx
+    .select({ id: organizations.id })
+    .from(lobbies)
+    .innerJoin(organizations, eq(organizations.id, lobbies.ownerOrganizationId))
+    .where(
+      and(
+        eq(lobbies.id, input.lobbyId),
+        input.leaguePublication ? undefined : eq(organizations.official, true),
+        isNull(lobbies.closedAt),
+        isNull(organizations.closedAt),
+      ),
+    );
+  if (!owner) return [];
+  const seasonRows = await listSeasonRecords(tx, input.lobbyId);
+  const published: StandingCertification[] = [];
+  for (const { id: seasonId } of seasonRows) {
+    if (!input.seasonIds.includes(seasonId)) continue;
+    const records = await loadLeagueCertifiedRatingInputs(tx, {
+      organizationId: owner.id,
+      seasonId,
+      publicAt: input.publicAt,
+    });
+    if (records.length === 0) continue;
+    const ids = [...new Set(certifiedRatingActors(records))];
+    const people =
+      ids.length === 0
+        ? []
+        : await tx
+            .select({
+              actorId: actors.id,
+              username: users.username,
+              closedAt: users.deletedAt,
+            })
+            .from(actors)
+            .leftJoin(users, eq(users.id, actors.userId))
+            .where(inArray(actors.id, ids));
+    published.push({
+      seasonId,
+      records,
+      people: people.map(({ closedAt, ...person }) => ({
+        ...person,
+        accountClosed: closedAt !== null,
+      })),
+    });
+  }
+  return published;
+};
 
 /**
  * A posting's side and outcome as a rated result. A ledger row is only ever
@@ -73,12 +172,14 @@ function ratedSeat(
   side: string | null,
   winningSide: string | null,
 ): Pick<StandingChange, 'side' | 'outcome'> {
-  if (!isTwoSideKey(side) || !isTwoSideKey(winningSide))
+  const seat = sideKeySchema.safeParse(side);
+  const winner = sideKeySchema.safeParse(winningSide);
+  if (!seat.success || !winner.success)
     throw createAppError(
       'INTERNAL',
       'A ledger posting has no rated seat or outcome',
     );
-  return { side, outcome: { kind: 'winner', side: winningSide } };
+  return { side: seat.data, outcome: { kind: 'winner', side: winner.data } };
 }
 
 export const standingsOperations = ({
@@ -102,10 +203,15 @@ export const standingsOperations = ({
   },
 
   /** The seasons a ladder can show, newest start first. */
-  listLadderSeasons(): Promise<readonly SeasonRecord[]> {
+  listLadderSeasons(lobbyId?: string): Promise<readonly SeasonRecord[]> {
     return instrumented(eventSink, 'listLadderSeasons', () =>
-      listSeasonRecords(database),
+      listSeasonRecords(database, lobbyId),
     );
+  },
+
+  /** Standing lobbies offered on the public leaderboard, with their published ladders. */
+  listOfficialRatingLadders() {
+    return readOfficialRatingLadderCatalog(database);
   },
 
   /**
@@ -135,100 +241,278 @@ export const standingsOperations = ({
   },
 
   /**
-   * One ladder's (style and division) ratings and ledger rows in the given seasons, as
+   * One ladder's ratings and ledger rows in the given seasons, as
    * the audience may know them at `now`: a posting waits for its Round's
    * spectator timeline, and a rating stands where its last released posting
    * left it. `revealRoundId` names a Round the caller already holds an
    * authorized read of, whose own postings need no wait.
    */
-  readStandings(input: {
-    readonly ladder: Ladder;
-    readonly seasonIds: readonly string[];
-    readonly clock: SpectatorClock;
-    readonly revealRoundId?: string;
-  }): Promise<StandingsRead> {
-    return instrumented(eventSink, 'readStandings', async () => {
-      if (input.seasonIds.length === 0) return { ratings: [], changes: [] };
-      // One snapshot: a rating committed between the two selects must not
-      // appear in one set and not the other.
-      const { ratingRows, changeRows } = await database.transaction(
-        async (tx) => ({
-          ratingRows: await tx
-            .select({
-              seasonId: ratings.seasonId,
-              actorId: ratings.actorId,
-              username: users.username,
-              closedAt: users.deletedAt,
-              rating: ratings.rating,
-              deviation: ratings.deviation,
-              volatility: ratings.volatility,
-            })
-            .from(ratings)
-            .innerJoin(actors, eq(actors.id, ratings.actorId))
-            .leftJoin(users, eq(users.id, actors.userId))
-            .where(
-              and(
-                eq(ratings.ladder, input.ladder.style),
-                eq(ratings.division, input.ladder.division),
-                inArray(ratings.seasonId, [...input.seasonIds]),
-              ),
-            ),
-          changeRows: await tx
-            .select({
-              seasonId: ratingChanges.seasonId,
-              actorId: ratingChanges.actorId,
-              roundId: ratingChanges.roundId,
-              ratingBefore: ratingChanges.ratingBefore,
-              ratingAfter: ratingChanges.ratingAfter,
-              deviationBefore: ratingChanges.deviationBefore,
-              deviationAfter: ratingChanges.deviationAfter,
-              volatilityBefore: ratingChanges.volatilityBefore,
-              occurredAt: ratingChanges.occurredAt,
-              side: roundParticipants.side,
-              winningSide: rounds.winningSide,
-              released: sql<boolean>`${factReleasedSql(
-                sql`greatest(${ratingChanges.occurredAt},${rounds.completedAt})`,
-                rounds,
-                input.clock,
-              )}`,
-            })
-            .from(ratingChanges)
-            .innerJoin(rounds, eq(rounds.id, ratingChanges.roundId))
-            .innerJoin(
-              roundParticipants,
-              and(
-                eq(roundParticipants.roundId, ratingChanges.roundId),
-                eq(roundParticipants.actorId, ratingChanges.actorId),
-              ),
-            )
-            .where(
-              and(
-                eq(ratingChanges.ladder, input.ladder.style),
-                eq(ratingChanges.division, input.ladder.division),
-                inArray(ratingChanges.seasonId, [...input.seasonIds]),
-                eq(roundParticipants.seatKind, 'side'),
-                inArray(roundParticipants.side, [...twoSideKeys]),
-              ),
-            ),
-        }),
-        { isolationLevel: 'repeatable read', accessMode: 'read only' },
-      );
-      return releasedStandings({
-        ratings: ratingRows.map(({ closedAt, ...row }) => ({
-          ...row,
-          username: row.username ?? null,
-          accountClosed: closedAt !== null,
-        })),
-        changes: changeRows.map(
-          ({ released, volatilityBefore, side, winningSide, ...row }) => ({
-            ...row,
-            occurredAt: row.occurredAt.toISOString(),
-            ...ratedSeat(side, winningSide),
-            released: released || row.roundId === input.revealRoundId,
-            volatilityBefore,
+  readStandings(input: StandingsInput): Promise<StandingsRead> {
+    return instrumented(eventSink, 'readStandings', () =>
+      input.seasonIds.length === 0
+        ? Promise.resolve({ ratings: [], changes: [] })
+        : database.transaction((tx) => readStandingsWithin(tx, input), {
+            isolationLevel: 'repeatable read',
+            accessMode: 'read only',
           }),
-        ),
-      });
-    });
+    );
   },
 });
+
+type StandingsInput = {
+  readonly ladderId: string;
+  readonly lobbyId: string;
+  readonly seasonIds: readonly string[];
+  readonly clock: SpectatorClock;
+  readonly revealRoundId?: string;
+  readonly includeCertified?: boolean;
+  /** The caller has authorized publication on a league's own lobby page. */
+  readonly leaguePublication?: boolean;
+};
+
+export type PublishStandings = (source: StandingsRead) => StandingsRead;
+
+export type LobbyRatingSelection = {
+  readonly lobbyId: string;
+  readonly ladderId: string;
+  readonly seasonId?: string;
+};
+
+/** Read the selected ladder in the active season or a Room's frozen season. */
+export async function readLobbyPublishedRatings(
+  tx: TabTransaction,
+  input: Pick<
+    StandingsInput,
+    'lobbyId' | 'ladderId' | 'clock' | 'leaguePublication'
+  > & {
+    readonly seasonId?: string;
+  },
+  publish?: PublishStandings,
+) {
+  const [pool] = await tx
+    .select({ seasonId: seasons.id, ladderId: ladders.id })
+    .from(seasons)
+    .innerJoin(ladders, eq(ladders.lobbyId, seasons.lobbyId))
+    .where(
+      and(
+        eq(seasons.lobbyId, input.lobbyId),
+        input.seasonId
+          ? eq(seasons.id, input.seasonId)
+          : eq(seasons.status, 'active'),
+        eq(ladders.id, input.ladderId),
+      ),
+    )
+    .limit(1);
+  if (!pool) return null;
+  const standings = await readStandingsWithin(tx, {
+    ...input,
+    ladderId: pool.ladderId,
+    seasonIds: [pool.seasonId],
+    includeCertified: publish !== undefined,
+  });
+  return { ...pool, standings: publish ? publish(standings) : standings };
+}
+
+/** Load projections and their inputs from the caller's one database snapshot. */
+async function readStandingsWithin(
+  tx: TabTransaction,
+  input: StandingsInput,
+): Promise<StandingsRead> {
+  if (input.seasonIds.length === 0) return { ratings: [], changes: [] };
+  await scopeTransaction(tx, { lobbyId: input.lobbyId });
+  const ratingRows = await tx
+    .select({
+      seasonId: ratings.seasonId,
+      actorId: ratings.actorId,
+      username: users.username,
+      closedAt: users.deletedAt,
+      rating: ratings.rating,
+      deviation: ratings.deviation,
+      volatility: ratings.volatility,
+    })
+    .from(ratings)
+    .innerJoin(actors, eq(actors.id, ratings.actorId))
+    .leftJoin(users, eq(users.id, actors.userId))
+    .where(
+      and(
+        eq(ratings.ladder, input.ladderId),
+        eq(ratings.lobbyId, input.lobbyId),
+        inArray(ratings.seasonId, [...input.seasonIds]),
+      ),
+    );
+  const changeRows = await tx
+    .select({
+      seasonId: ratingChanges.seasonId,
+      actorId: ratingChanges.actorId,
+      roundId: ratingChanges.roundId,
+      ratingBefore: ratingChanges.ratingBefore,
+      ratingAfter: ratingChanges.ratingAfter,
+      deviationBefore: ratingChanges.deviationBefore,
+      deviationAfter: ratingChanges.deviationAfter,
+      volatilityBefore: ratingChanges.volatilityBefore,
+      occurredAt: ratingChanges.occurredAt,
+      legacyPlayedAt: sql<Date | null>`case when ${rounds.legacyLeagueRating}
+        then ${rounds.completedAt} end`.mapWith(rounds.completedAt),
+      side: roundParticipants.side,
+      winningSide: rounds.winningSide,
+      released: sql<boolean>`${rounds.visibility} = 'public' and ${factReleasedSql(
+        sql`case when ${rounds.legacyLeagueRating} then ${rounds.completedAt}
+          else greatest(${ratingChanges.occurredAt},${rounds.completedAt}) end`,
+        rounds,
+        input.clock,
+      )}`,
+    })
+    .from(ratingChanges)
+    .innerJoin(rounds, eq(rounds.id, ratingChanges.roundId))
+    .innerJoin(
+      roundParticipants,
+      and(
+        eq(roundParticipants.roundId, ratingChanges.roundId),
+        eq(roundParticipants.ratingActorId, ratingChanges.actorId),
+      ),
+    )
+    .where(
+      and(
+        eq(ratingChanges.ladder, input.ladderId),
+        eq(ratingChanges.lobbyId, input.lobbyId),
+        inArray(ratingChanges.seasonId, [...input.seasonIds]),
+        eq(roundParticipants.seatKind, 'side'),
+      ),
+    );
+  const legacyRooms = input.includeCertified
+    ? await releasedLegacyRooms(tx, input)
+    : [];
+  const certified = input.includeCertified
+    ? await publishedCertifications(tx, {
+        ...input,
+        publicAt: input.clock.now,
+      })
+    : [];
+  const standings = ratingRows.map(({ closedAt, ...row }) => ({
+    ...row,
+    username: row.username ?? null,
+    accountClosed: closedAt !== null,
+  }));
+  const legacyTimes = new Map<string, string>();
+  const ledger = changeRows.map(
+    ({
+      released,
+      volatilityBefore,
+      side,
+      winningSide,
+      legacyPlayedAt,
+      ...row
+    }) => {
+      if (legacyPlayedAt)
+        legacyTimes.set(row.roundId, legacyPlayedAt.toISOString());
+      return {
+        ...row,
+        occurredAt: row.occurredAt.toISOString(),
+        ...ratedSeat(side, winningSide),
+        released: released === true || row.roundId === input.revealRoundId,
+        volatilityBefore,
+      };
+    },
+  );
+  const source = releasedStandings({ ratings: standings, changes: ledger });
+  const replaySeasonIds = [
+    ...new Set(
+      changeRows
+        .filter(({ released }) => released !== true)
+        .map(({ seasonId }) => seasonId),
+    ),
+  ];
+  if (
+    !input.includeCertified ||
+    (certified.length === 0 &&
+      replaySeasonIds.length === 0 &&
+      legacyRooms.length === 0)
+  )
+    return source;
+  const rooms = ledger
+    .filter(({ released }) => released)
+    .map(({ seasonId, actorId, roundId, occurredAt, side, outcome }) => ({
+      seasonId,
+      actorId,
+      roundId,
+      occurredAt,
+      side,
+      outcome,
+      playedAt: legacyTimes.get(roundId) ?? occurredAt,
+    }));
+  const releasedActors = new Set(rooms.map(({ actorId }) => actorId));
+  const people = standings
+    .filter(({ actorId }) => releasedActors.has(actorId))
+    .map(({ actorId, username, accountClosed }) => ({
+      actorId,
+      username,
+      accountClosed,
+    }));
+  return {
+    ...source,
+    certified,
+    publicResults: { rooms, people, replaySeasonIds, legacyRooms },
+  };
+}
+
+/** Publicly released Rooms that predate the ledger keep their place during recovery. */
+async function releasedLegacyRooms(
+  tx: TabTransaction,
+  input: StandingsInput,
+): Promise<ReleasedLegacyRoom[]> {
+  const selected = and(
+    eq(rounds.ratingLobbyId, input.lobbyId),
+    eq(rounds.ladderId, input.ladderId),
+    inArray(rounds.seasonId, [...input.seasonIds]),
+    eq(rounds.legacyLeagueRating, true),
+    eq(rounds.status, 'completed'),
+    eq(rounds.visibility, 'public'),
+    factReleasedSql(rounds.completedAt, rounds, input.clock),
+    sql`not exists (select 1 from ${ratingChanges} where ${ratingChanges.roundId} = ${rounds.id})`,
+  );
+  const rows = await tx
+    .select({
+      id: rounds.id,
+      seasonId: rounds.seasonId,
+      rules: rounds.rulesSnapshot,
+      playedAt: rounds.completedAt,
+      side: roundParticipants.side,
+      actorId: actors.id,
+      username: users.username,
+      closedAt: users.deletedAt,
+    })
+    .from(rounds)
+    .innerJoin(
+      roundParticipants,
+      and(
+        eq(roundParticipants.roundId, rounds.id),
+        eq(roundParticipants.seatKind, 'side'),
+      ),
+    )
+    .innerJoin(actors, eq(actors.id, roundParticipants.actorId))
+    .leftJoin(users, eq(users.id, actors.userId))
+    .where(selected);
+  const byRound = new Map<
+    string,
+    {
+      room: Omit<ReleasedLegacyRoom, 'ending' | 'participants'>;
+      participants: ReleasedLegacyRoom['participants'][number][];
+    }
+  >();
+  for (const { id, seasonId, rules, playedAt, closedAt, ...seat } of rows) {
+    if (!seasonId || !playedAt) continue;
+    const group = byRound.get(id) ?? {
+      room: { id, seasonId, rules, playedAt },
+      participants: [],
+    };
+    group.participants.push({ ...seat, accountClosed: closedAt !== null });
+    byRound.set(id, group);
+  }
+  const endings = await readEndingRatingFacts(tx, [...byRound.keys()]);
+  return endings.flatMap(({ roundId, facts }) => {
+    const group = byRound.get(roundId);
+    return group
+      ? [{ ...group.room, ending: facts, participants: group.participants }]
+      : [];
+  });
+}

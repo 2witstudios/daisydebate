@@ -1,7 +1,5 @@
 import {
-  isYouthRound,
   type CompetitionType,
-  type RatingDivision,
   type RecordingEligibility,
 } from '@daisy/protocol';
 
@@ -12,13 +10,7 @@ import {
  */
 export const captureEligibility = (input: {
   readonly competitionType: CompetitionType;
-  /** A ranked Round's ladder division; null for casual. */
-  readonly ladderDivision: RatingDivision | null;
-  /**
-   * Whether its Room is Youth, null with no Room: a Youth Round's Recording says so.
-   * Required, so no caller can leave it out and fail open.
-   */
-  readonly roomYouth: boolean | null;
+  readonly youthRound: boolean;
   readonly hostActorId: string | null;
   readonly hostOptedIn: boolean;
   readonly hostHoldsRecording: boolean;
@@ -31,7 +23,7 @@ export const captureEligibility = (input: {
   readonly now?: string;
 }): RecordingEligibility | null => {
   if (input.competitionType === 'ranked')
-    return isYouthRound(input, input.roomYouth)
+    return input.youthRound
       ? { kind: 'ranked', youth: true }
       : { kind: 'ranked' };
   const admitted = input.tournamentAdmission;

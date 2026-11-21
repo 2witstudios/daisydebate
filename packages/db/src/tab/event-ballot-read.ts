@@ -4,7 +4,6 @@ import {
   ballotDefinitions,
   ballotDefinitionVersions,
 } from '../schema/ballot-definitions';
-import { daisyOrganizationId } from '../daisy-reference';
 import { loadTournamentEventSettingFacts } from './tournament-event-settings';
 import type { TabDatabase, TabTransaction } from './tab-transaction';
 
@@ -26,7 +25,7 @@ const load = async (
     .where(
       or(
         eq(ballotDefinitions.lobbyId, lobby.id),
-        eq(ballotDefinitions.organizationId, daisyOrganizationId),
+        eq(ballotDefinitions.shared, true),
         ...(lobby.ownerOrganizationId
           ? [eq(ballotDefinitions.organizationId, lobby.ownerOrganizationId)]
           : []),

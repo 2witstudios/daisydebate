@@ -21,8 +21,7 @@ const media: BuiltRecordingMedia = {
 const round = {
   roundId: 'round',
   competitionType: 'ranked',
-  ladderDivision: 'open',
-  roomYouth: false,
+  youthRound: false,
   hostActorId: 'host',
   hostOptedIn: false,
   hostHoldsRecording: false,

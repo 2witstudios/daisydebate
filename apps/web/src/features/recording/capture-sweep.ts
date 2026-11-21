@@ -532,8 +532,7 @@ export const createRecordingCaptureSweep = (deps: {
         await port.request({
           roundId: round.roundId,
           competitionType: round.competitionType,
-          ladderDivision: round.ladderDivision,
-          roomYouth: round.roomYouth,
+          youthRound: round.youthRound,
           hostActorId: round.hostActorId,
           hostOptedIn: (round.capture?.recordingPolicy ?? 'off') !== 'off',
           hostHoldsRecording: deps.holdsCapture(round.hostGrants),

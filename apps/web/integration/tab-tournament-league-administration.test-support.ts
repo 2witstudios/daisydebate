@@ -96,6 +96,7 @@ export const leagueAdministrationStage = async (
     command: {
       type: 'create-season',
       organizationId,
+      lobbyId,
       name: 'Spring',
       startsAt: world.clock.now(),
       endsAt: null,

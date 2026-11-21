@@ -47,6 +47,7 @@ describe('parseLadderQuery', () => {
       }),
       expected: {
         division: 'youth',
+        lobby: null,
         season: 'ssssssssssssssssssssssss',
         scope: 'around',
         q: '@Debater-A',

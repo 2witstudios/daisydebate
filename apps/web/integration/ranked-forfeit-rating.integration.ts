@@ -79,7 +79,9 @@ for (const ladder of ratingStyles)
           await f.sql`delete from rating_changes where round_id=${roundId}`;
         await f.sql`delete from ratings where actor_id in (${f.host.actorId},${f.guest.actorId})`;
         await f.sql`delete from agreement_signatures where season_id=${seasonId}`;
-        await f.sql`delete from seasons where id=${seasonId}`;
+        f.afterRooms(async () => {
+          await f.sql`delete from seasons where id=${seasonId}`;
+        });
       }
     });
   });

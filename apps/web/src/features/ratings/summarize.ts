@@ -18,6 +18,8 @@ export type StandingSummary = {
   readonly weekChange: number;
   /** Rating movement over the whole season. */
   readonly seasonChange: number;
+  /** Rating movement in the latest released game. */
+  readonly lastChange: number;
   readonly lastRatedAt: string | null;
 };
 
@@ -51,6 +53,10 @@ export function summarizeStandings(
       own.filter((posting) => resultOf(posting) === result).length;
     const moved = (rows: readonly Posting[]) =>
       rows.reduce((sum, row) => sum + row.ratingAfter - row.ratingBefore, 0);
+    const latest = own.reduce<Posting | null>(
+      (last, row) => (!last || row.occurredAt > last.occurredAt ? row : last),
+      null,
+    );
     return {
       seasonId: rating.seasonId,
       actorId: rating.actorId,
@@ -66,11 +72,8 @@ export function summarizeStandings(
         own.filter((row) => Date.parse(row.occurredAt) >= from),
       ),
       seasonChange: moved(own),
-      lastRatedAt: own.reduce<string | null>(
-        (latest, row) =>
-          latest === null || row.occurredAt > latest ? row.occurredAt : latest,
-        null,
-      ),
+      lastChange: latest ? latest.ratingAfter - latest.ratingBefore : 0,
+      lastRatedAt: latest?.occurredAt ?? null,
     };
   });
 }

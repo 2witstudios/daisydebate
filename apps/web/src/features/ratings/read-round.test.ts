@@ -1,3 +1,4 @@
+import { officialRatingLadders } from './standing.test-support';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   asCompleted,
@@ -6,15 +7,45 @@ import {
   neg,
 } from '../../ui/debate-room/live-round.test-support';
 import { readRoundRatings } from './read-round';
+import { rateDebateSides } from '@daisy/debate-engine';
+import { sideSeat, winnerOutcome } from '@daisy/protocol';
 setupRitewayBun();
 
 const seasonId = 's'.repeat(24);
 const at = '2026-10-28T00:00:00.000Z';
 const youth = { style: 'freestyle', division: 'youth' } as const;
 
-test('a historical Round badge uses its posting rather than later established standing', async () => {
+test('team stakes use each debater’s own standing and the whole opposing side', async () => {
+  const participants = [
+    { ...aff, seat: sideSeat('affirmative') },
+    { ...aff, actorId: 'second-affirmative', seat: sideSeat('affirmative', 1) },
+    { ...neg, seat: sideSeat('negative') },
+    { ...neg, actorId: 'second-negative', seat: sideSeat('negative', 1) },
+  ];
+  const ratings = participants.map((p, index) => ({
+    seasonId,
+    actorId: p.actorId,
+    username: p.label,
+    accountClosed: false,
+    rating: 1300 + index * 155,
+    deviation: 110 + index * 35,
+    volatility: 0.06,
+  }));
+  const states = ratings.map((state) => ({ state, lastRatedAt: null }));
+  const changed = (side: string) =>
+    rateDebateSides({
+      affirmative: states.slice(0, 2),
+      negative: states.slice(2),
+      occurredAt: at,
+      outcome: winnerOutcome(side),
+    });
+  const left = changed('affirmative');
+  const right = changed('negative');
+  const wins = [...left.affirmative, ...right.negative];
+  const losses = [...right.affirmative, ...left.negative];
   const result = await readRoundRatings(
     {
+      listOfficialRatingLadders: officialRatingLadders,
       listLadderSeasons: async () => [
         {
           id: seasonId,
@@ -22,19 +53,59 @@ test('a historical Round badge uses its posting rather than later established st
           startsAt: at,
           endsAt: null,
           status: 'active',
-          division: 'youth',
-          version: 1,
-        },
-        {
-          id: 'o'.repeat(24),
-          name: 'Open Season 1',
-          startsAt: at,
-          endsAt: null,
-          status: 'active',
-          division: 'open',
+          lobbyId: 'youth',
           version: 1,
         },
       ],
+      readRatingBlindings: async () => [],
+      readRatingFacts: async () => null,
+      readStandings: async () => ({ ratings, changes: [] }),
+    },
+    {
+      round: { ...view, ladder: youth, participants },
+      now: at,
+      viewerActorId: null,
+    },
+  );
+  assert({
+    given: 'two sides with distinct pre-game standings for all four debaters',
+    should:
+      'show each of the four win and loss changes from the shared rating calculation',
+    actual: result?.rows.map(({ win, loss }) => [win, loss]),
+    expected: ratings.map((row, index) => [
+      Math.round(wins[index]!.after.rating - row.rating),
+      Math.round(losses[index]!.after.rating - row.rating),
+    ]),
+  });
+});
+
+test('a historical Round badge uses its posting rather than later established standing', async () => {
+  const result = await readRoundRatings(
+    {
+      listOfficialRatingLadders: officialRatingLadders,
+      listLadderSeasons: async (lobbyId?: string) =>
+        (
+          [
+            {
+              id: seasonId,
+              name: 'Season 1',
+              startsAt: at,
+              endsAt: null,
+              status: 'active',
+              lobbyId: 'youth',
+              version: 1,
+            },
+            {
+              id: 'o'.repeat(24),
+              name: 'Open Season 1',
+              startsAt: at,
+              endsAt: null,
+              status: 'active',
+              lobbyId: 'open',
+              version: 1,
+            },
+          ] as const
+        ).filter((season) => season.lobbyId === lobbyId),
       readRatingBlindings: async () => [],
       readRatingFacts: async () => null,
       readStandings: async () => ({
@@ -98,17 +169,21 @@ test('a blinded debater hides the posting, and only both blinded hide that it ra
   const read = (blinded: readonly string[]) =>
     readRoundRatings(
       {
-        listLadderSeasons: async () => [
-          {
-            id: seasonId,
-            name: 'Season 1',
-            startsAt: at,
-            endsAt: null,
-            status: 'active',
-            division: 'youth',
-            version: 1,
-          },
-        ],
+        listOfficialRatingLadders: officialRatingLadders,
+        listLadderSeasons: async (lobbyId?: string) =>
+          (
+            [
+              {
+                id: seasonId,
+                name: 'Season 1',
+                startsAt: at,
+                endsAt: null,
+                status: 'active',
+                lobbyId: 'youth',
+                version: 1,
+              },
+            ] as const
+          ).filter((season) => season.lobbyId === lobbyId),
         readRatingBlindings: async () => blinded,
         readRatingFacts: async () => null,
         readStandings: async () => ({
@@ -166,17 +241,21 @@ test('a decided Round is pending exactly when the rating writer would still rate
   const read = (awaits: boolean) =>
     readRoundRatings(
       {
-        listLadderSeasons: async () => [
-          {
-            id: seasonId,
-            name: 'Season',
-            startsAt: at,
-            endsAt: null,
-            status: 'active',
-            division: 'youth',
-            version: 1,
-          },
-        ],
+        listOfficialRatingLadders: officialRatingLadders,
+        listLadderSeasons: async (lobbyId?: string) =>
+          (
+            [
+              {
+                id: seasonId,
+                name: 'Season',
+                startsAt: at,
+                endsAt: null,
+                status: 'active',
+                lobbyId: 'youth',
+                version: 1,
+              },
+            ] as const
+          ).filter((season) => season.lobbyId === lobbyId),
         readRatingBlindings: async () => [],
         readStandings: async () => ({ ratings: [], changes: [] }),
         readRatingFacts: async () =>

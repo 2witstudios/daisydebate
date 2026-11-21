@@ -174,8 +174,7 @@ test('judging stage records are cleared 180 days after receipt, not before (DEC-
 
 test('a ranked Round keeps its transcript past the window, as its waiver says', () =>
   withSpokenRound(recordedAt, async ({ fixture, lines, roundId, state }) => {
-    await fixture.sql`update rounds set competition_type='ranked', format_id='freestyle', format_version=1,
-      ladder_id='freestyle',ladder_division='open', preset_version=1 where id=${roundId}`;
+    await fixture.pinRanked(roundId);
     const retention = transcriptRetention({
       database: drizzle({ client: fixture.sql }),
     });
@@ -265,32 +264,17 @@ test("erasure keeps a ranked Round's transcript lines and its pending judgment",
     async ({ fixture, subject, state, roundId }) => {
       const now = new Date().toISOString();
       const database = drizzle({ client: fixture.sql });
-      // A real seeded ladder format, so the ranked constraints hold.
-      const [preset] = await fixture.sql`
-        select format_id,version,format_version from format_presets
-        where format_id='freestyle' order by version desc limit 1`;
-      const [original] = await fixture.sql`
-        select format_id,format_version from rounds where id=${roundId}`;
-      await fixture.sql`update rounds set competition_type='ranked',
-        format_id=${preset.format_id},format_version=${preset.format_version},
-        preset_version=${preset.version},ladder_id=${preset.format_id},ladder_division='open'
-        where id=${roundId}`;
-      try {
-        const before = await state();
-        await database.transaction((tx) =>
-          roundTranscriptPrivacyAdopter.erase(tx, subject, { now }),
-        );
-        assert({
-          given: 'an erased debater with lines in a ranked Round',
-          should:
-            'keep the lines and the judgment, since they are ranked content',
-          actual: await state(),
-          expected: before,
-        });
-      } finally {
-        await fixture.sql`update rounds set competition_type='casual',
-          format_id=${original.format_id},format_version=${original.format_version},
-          preset_version=null,ladder_id=null,ladder_division=null where id=${roundId}`;
-      }
+      await fixture.pinRanked(roundId);
+      const before = await state();
+      await database.transaction((tx) =>
+        roundTranscriptPrivacyAdopter.erase(tx, subject, { now }),
+      );
+      assert({
+        given: 'an erased debater with lines in a ranked Round',
+        should:
+          'keep the lines and the judgment, since they are ranked content',
+        actual: await state(),
+        expected: before,
+      });
     },
   ));

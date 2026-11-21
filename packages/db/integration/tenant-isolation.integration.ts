@@ -90,6 +90,9 @@ test(
             'media_release_club_attestations',
             'guardian_consent_evidence',
             'child_account_requests',
+            // Rating state gains a lobby key and isolation in LL-2.
+            'ratings',
+            'rating_changes',
           ].includes(table.table),
       )
       .map((table) =>
@@ -109,9 +112,19 @@ test(
         ...originalTables,
         { table: 'restrictions', key: 'person', subject: 'guardian' },
       ],
-      exempt: tenantIsolationManifest.exempt.filter(
-        (entry) => entry.table !== 'media_release_club_asks',
-      ),
+      exempt: [
+        ...tenantIsolationManifest.exempt.filter(
+          (entry) => entry.table !== 'media_release_club_asks',
+        ),
+        {
+          table: 'ratings',
+          reason: 'The pre-LL-2 projection was public across ladders.',
+        },
+        {
+          table: 'rating_changes',
+          reason: 'The pre-LL-2 ledger had no tenant key.',
+        },
+      ],
     });
     await scratch.migrate(() => true);
     const afterAllFolders = await problemsOf(scratch.url);
@@ -129,9 +142,9 @@ test(
       expected: {
         before:
           tenantIsolationManifest.tables.length +
-          // rooms, seasons and the other altered tables exist already; the
-          // media release club asks (exempt, ADR 0151) arrive later.
-          1,
+          // The media release club asks arrive later. Ratings and the ledger
+          // already exist here, with one additional unfenced-key diagnostic each.
+          3,
         firstBefore: 'organizations is declared but does not exist',
         afterSchema: [],
         afterAllFolders: [],

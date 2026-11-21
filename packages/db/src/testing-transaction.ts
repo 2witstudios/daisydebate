@@ -1,6 +1,8 @@
 import type { SQL, TransactionSQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
+import { sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
+import type { TransactionConfig } from './tx';
 
 /** Each operation is a savepoint; the enclosing proof chooses commit or rollback. */
 export type SavepointTestDatabase = {
@@ -30,9 +32,12 @@ export const withRuntimeTestTransaction = <T>(
 
 /** Each call is a separately committed runtime request, including its decision callback. */
 export const committingRuntimeTestDatabase = (client: SQL) => ({
-  transaction: <T>(work: (tx: BunSQLDatabase) => Promise<T>): Promise<T> =>
-    client.begin(async (sql) => {
-      await sql`set local role daisy_web`;
-      return work(drizzle({ client: sql as SQL }));
-    }),
+  transaction: <T>(
+    work: (tx: BunSQLDatabase) => Promise<T>,
+    config?: TransactionConfig,
+  ): Promise<T> =>
+    drizzle({ client }).transaction(async (tx) => {
+      await tx.execute(sql`set local role daisy_web`);
+      return work(tx);
+    }, config),
 });

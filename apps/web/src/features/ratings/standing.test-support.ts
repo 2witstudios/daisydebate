@@ -13,3 +13,14 @@ export const entry = (overrides: Partial<RatingEntry> = {}): RatingEntry => ({
   seasonChange: 0,
   ...overrides,
 });
+
+export const officialRatingLadders = async () =>
+  (['open', 'youth'] as const).map((lobbyId) => ({
+    id: `${lobbyId}-ladder`,
+    name: 'Freestyle',
+    lobbyId,
+    lobbyName: lobbyId === 'open' ? 'Open' : 'Youth',
+    ageRule: (lobbyId === 'open' ? 'adults' : 'under-18') as
+      'adults' | 'under-18',
+    openedAt: new Date('2026-10-01'),
+  }));

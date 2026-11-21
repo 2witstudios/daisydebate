@@ -332,7 +332,7 @@ export const createLobbyRoom =
               const ladder =
                 resolved.settings['standings.rating_ladder'].value.ladderId;
               if (
-                ladder === loaded.ladder?.id &&
+                loaded.ladders.some((own) => own.id === ladder) &&
                 (selected.definition.outcome.kind !== 'winner' ||
                   selected.definition.sides.length !== 2)
               )

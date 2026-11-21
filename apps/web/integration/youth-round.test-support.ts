@@ -18,20 +18,22 @@ export const setAge = (f: Fixture, member: Member, age: string) =>
 /** Daisy's active seasons, one per division: a Youth Room needs its own to start ranked. */
 export const withYouthSeason = async (f: Fixture, run: () => Promise<void>) => {
   const ids: string[] = [];
-  try {
-    for (const division of ['open', 'youth'] as const) {
-      const id = createId();
-      await f.sql`insert into seasons(organization_id,id,division,name,starts_at,status)
-        values(${daisyOrganizationId},${id},${division},'Youth recording fixture',now() - interval '1 day','active')`;
-      ids.push(id);
-    }
-    await run();
-  } finally {
+  f.afterRooms(async () => {
     for (const id of ids) {
       await f.sql`delete from agreement_signatures where season_id=${id}`;
       await f.sql`delete from seasons where id=${id}`;
     }
+  });
+  for (const division of ['open', 'youth'] as const) {
+    const id = createId();
+    const rule = division === 'youth' ? 'under-18' : 'adults';
+    await f.sql`insert into seasons(organization_id,id,lobby_id,name,starts_at,status)
+        select l.owner_organization_id,${id},l.id,'Youth recording fixture',now() - interval '1 day','active'
+        from lobbies l where l.owner_organization_id=${daisyOrganizationId} and l.age_rule=${rule}
+        and l.kind='standing' order by l.created_at,l.id limit 1`;
+    ids.push(id);
   }
+  await run();
 };
 
 /** A school the youth debater belongs to, with a coach holding a roster grant. */

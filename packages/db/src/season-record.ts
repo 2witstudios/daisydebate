@@ -1,8 +1,6 @@
-import type { RatingDivision } from '@daisy/protocol';
 import { desc, eq } from 'drizzle-orm';
-import { daisyOrganizationId } from './daisy-reference';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
-import { seasons, type seasonStatuses } from './schema/ratings';
+import { seasons, type seasonStatuses } from './schema/seasons';
 
 /**
  * A season as the season operations and the standings reads return it.
@@ -11,8 +9,7 @@ import { seasons, type seasonStatuses } from './schema/ratings';
 export type SeasonRecord = {
   readonly id: string;
   readonly name: string;
-  /** The division whose ladders the season rates (ADR 0147). */
-  readonly division: RatingDivision;
+  readonly lobbyId: string;
   readonly startsAt: string;
   readonly endsAt: string | null;
   readonly status: (typeof seasonStatuses)[number];
@@ -24,24 +21,22 @@ export const toSeasonRecord = (
 ): SeasonRecord => ({
   id: row.id,
   name: row.name,
-  division: row.division,
+  lobbyId: row.lobbyId,
   startsAt: row.startsAt.toISOString(),
   endsAt: row.endsAt?.toISOString() ?? null,
   status: row.status as SeasonRecord['status'],
   version: row.version,
 });
 
-/**
- * Every one of Daisy's rating seasons, newest start first: the one listing,
- * for the CLI and the ladder. A league's season is not a rating season.
- */
+/** Seasons for the requested lobby, newest first. The operator may list all. */
 export const listSeasonRecords = async (
-  database: BunSQLDatabase,
+  database: Pick<BunSQLDatabase, 'select'>,
+  lobbyId?: string,
 ): Promise<readonly SeasonRecord[]> =>
   (
     await database
       .select()
       .from(seasons)
-      .where(eq(seasons.organizationId, daisyOrganizationId))
+      .where(lobbyId === undefined ? undefined : eq(seasons.lobbyId, lobbyId))
       .orderBy(desc(seasons.startsAt))
   ).map(toSeasonRecord);

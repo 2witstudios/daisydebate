@@ -10,6 +10,7 @@ test('stored league season projection', () => {
       seasonId: 'season',
       name: 'Spring',
       organization: { organizationId: 'league', name: 'Actual League' },
+      lobby: { lobbyId: 'lobby', name: 'League lobby', ageRule: 'adults' },
       counting: 'sanction',
       calendar: [],
       standings: {

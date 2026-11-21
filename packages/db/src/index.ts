@@ -448,7 +448,11 @@ export function createDatabase({
     ...presenceSettingOperations({ database: social, eventSink }),
     ...peopleListOperations({ database: social, eventSink }),
     ...publicProfileOperations({ database: social, eventSink }),
-    ...memberCardOperations({ database: social, eventSink }),
+    ...memberCardOperations({
+      database: social,
+      ratingDatabase: browse,
+      eventSink,
+    }),
     ...challengeReadOperations({ database: social, eventSink }),
     ...reportOperations({ database: control, eventSink, moderationReactions }),
     ...moderationOperations({ database: control, eventSink }),

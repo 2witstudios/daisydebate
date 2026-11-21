@@ -18,10 +18,11 @@ import {
 setupRitewayBun();
 
 const at = '2026-10-05T12:00:00.000Z';
+const scope = { lobbyId: 'lobby', ladderId: 'freestyle', seasonId: 'season-1' };
 
 const completed: RatingEligibilityFacts = {
   competitionType: 'ranked',
-  ladder: { style: 'freestyle', division: 'youth' } as const,
+  scope,
   status: 'completed',
   outcome: winnerOutcome('affirmative'),
   completedAt: at,
@@ -48,7 +49,7 @@ const unsettled: RatingEligibilityFacts['attendance'] = {
 
 const rated: RatingEligibility = {
   kind: 'rated',
-  ladder: { style: 'freestyle', division: 'youth' } as const,
+  scope,
   outcome: winnerOutcome('affirmative'),
   occurredAt: at,
 };
@@ -61,7 +62,7 @@ describe('ratingEligibility', () => {
       actual: ratingEligibility(completed),
       expected: {
         kind: 'rated',
-        ladder: { style: 'freestyle', division: 'youth' } as const,
+        scope,
         outcome: winnerOutcome('affirmative'),
         occurredAt: at,
       },
@@ -75,7 +76,7 @@ describe('ratingEligibility', () => {
       actual: ratingEligibility({
         ...completed,
         competitionType: 'casual',
-        ladder: null,
+        scope: null,
       }),
       expected: { kind: 'unrated', reason: 'competition' },
     });
@@ -104,7 +105,7 @@ describe('ratingEligibility', () => {
       actual: ratingEligibility({
         ...completed,
         alreadyRated: true,
-        ladder: null,
+        scope: null,
       }),
       expected: { kind: 'already-rated' },
     });
@@ -140,13 +141,13 @@ const plan = (
   overrides: Partial<Parameters<typeof planRating>[0]> = {},
 ) =>
   planRating({
-    ladder: { style: 'freestyle', division: 'youth' } as const,
+    scope,
+    sides: ['affirmative', 'negative'],
     outcome: winnerOutcome('affirmative'),
     occurredAt: at,
-    seasonId: 'season-1',
     seats,
     standings,
-    changeIds: ['change-aff', 'change-neg'],
+    changeIds: { aff: 'change-aff', neg: 'change-neg' },
     ...overrides,
   });
 
@@ -269,8 +270,7 @@ describe('planRating', () => {
         'plan one change per side equal to rateDebate, inserting new rows',
       actual: plan({ aff: newcomer, neg: newcomer }),
       expected: {
-        ladder: { style: 'freestyle', division: 'youth' } as const,
-        seasonId: 'season-1',
+        scope,
         occurredAt: at,
         calculationVersion: 'glicko2-v1',
         changes: [
@@ -347,13 +347,7 @@ describe('planRating', () => {
     });
   });
 
-  test('refuses without an active season or a debater per side', async () => {
-    await assertRejects({
-      given: 'no active season',
-      should: 'refuse as a conflict',
-      actual: () => plan({ aff: newcomer, neg: newcomer }, { seasonId: null }),
-      code: 'CONFLICT',
-    });
+  test('refuses incomplete rating inputs', async () => {
     await assertRejects({
       given: 'only an affirmative seat',
       should: 'refuse as a conflict',

@@ -15,10 +15,11 @@ export function composeAgreementRoutes(app: App) {
         readAgeBand: async (userId) =>
           (await app.auth().getParticipationByUserId(userId)).ageBand,
         limiter: () => app.limiter,
-        sign: (userId, version) =>
+        sign: (userId, version, roomId) =>
           app.database.signContentWaiver({
             id: app.ids.next(),
             userId,
+            roomId,
             version,
             // The handler admits only a version served now.
             words: agreementWords(contentWaiverAt(version)!),

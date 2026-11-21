@@ -1,13 +1,19 @@
+import Link from 'next/link';
+import { ratingDivisionForAgeRule } from '@daisy/protocol';
 import { systemClock } from '@daisy/clock';
 import type { Metadata } from 'next';
 import type { SearchParams } from '../../../features/access/decision';
 import { buildDetail } from '../../../features/leaderboard/detail';
 import { buildLadder } from '../../../features/leaderboard/ladder';
 import { boardLadder } from '../../../features/leaderboard/board-ladder';
-import { parseLadderQuery } from '../../../features/leaderboard/query';
+import {
+  lobbyHref,
+  parseLadderQuery,
+} from '../../../features/leaderboard/query';
 import {
   requestLadder,
-  requestMemberDivision,
+  requestOfficialRatingLadders,
+  requestLandingLobby,
 } from '../../../lib/request-session';
 import { Leaderboard } from '../../../ui/leaderboard/leaderboard';
 
@@ -21,24 +27,42 @@ export default async function LeaderboardPage({
 }) {
   const query = parseLadderQuery(await searchParams);
   const now = systemClock.now();
-  const read = await requestLadder({
-    seasonId: query.season,
-    ladder: boardLadder(
-      query.division,
-      // A public page: a failed division read falls back to Open.
-      await requestMemberDivision().catch(() => null),
-    ),
-    now,
-  });
+  const available = await requestOfficialRatingLadders();
+  const landingId =
+    query.lobby || query.division ? null : (await requestLandingLobby())?.id;
+  const chosen = query.lobby
+    ? available.find(({ lobbyId }) => lobbyId === query.lobby)
+    : query.division === null
+      ? available.find(({ lobbyId }) => lobbyId === landingId)
+      : available.find(
+          ({ ageRule }) => ratingDivisionForAgeRule(ageRule) === query.division,
+        );
+  const lobby = query.lobby ? chosen : (chosen ?? available[0]);
+  const read =
+    lobby &&
+    (await requestLadder({
+      lobbyId: lobby.lobbyId,
+      seasonId: query.season,
+      ladder: boardLadder(ratingDivisionForAgeRule(lobby.ageRule), null),
+      now,
+    }));
   if (!read)
     return (
       <div className="p-6">
         <h1>Leaderboard</h1>
         <p>No season is active.</p>
+        <nav aria-label="Lobby">
+          {available.map(({ lobbyId, lobbyName }) => (
+            <Link key={lobbyId} href={lobbyHref(query, lobbyId)}>
+              {lobbyName}
+            </Link>
+          ))}
+        </nav>
       </div>
     );
   const { data, viewer } = read;
-  const view = buildLadder(data, query, viewer);
+  const selected = { ...query, lobby: lobby.lobbyId, division: null };
+  const view = buildLadder(data, selected, viewer);
   const detail =
     query.debater === null
       ? null
@@ -46,14 +70,18 @@ export default async function LeaderboardPage({
           query.debater,
           data.season,
           read.debater(query.debater),
-          query,
+          selected,
           viewer,
         );
   return (
     <Leaderboard
       ladder={read.ladder}
       view={view}
-      query={query}
+      query={selected}
+      lobbies={available.map(({ lobbyId, lobbyName }) => ({
+        id: lobbyId,
+        name: lobbyName,
+      }))}
       now={now}
       judging={(viewer?.blinded.length ?? 0) > 0}
       detail={detail}

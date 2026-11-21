@@ -1,3 +1,4 @@
+import { publicLobbyId } from '../src/daisy-reference';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
@@ -67,6 +68,7 @@ describe('standings reads (RATE-1.4.1)', () => {
             affirmative: winner,
             negative: loser,
             outcome: 'affirmative',
+            seasonId: scope.seasonId,
           });
           for (const [actorId, after] of [
             [winner, winnerAfter],
@@ -95,7 +97,8 @@ describe('standings reads (RATE-1.4.1)', () => {
         await rated({ formatId, seasonId: third, ladder: 'freestyle' }, 1530);
 
         const read = await database.readStandings({
-          ladder: { style: 'freestyle', division: 'open' },
+          ladderId: 'freestyle',
+          lobbyId: publicLobbyId,
           seasonIds: [first, second],
           clock: { now: new Date().toISOString(), rankedDelaySeconds: 0 },
         });

@@ -55,7 +55,9 @@ export async function inSeason<T>(f: Fixture, work: () => Promise<T>) {
     await f.sql`delete from rating_changes where actor_id in (${f.host.actorId},${f.guest.actorId})`;
     await f.sql`delete from ratings where actor_id in (${f.host.actorId},${f.guest.actorId})`;
     await f.sql`delete from agreement_signatures where season_id=${seasonId}`;
-    await f.sql`delete from seasons where id=${seasonId}`;
+    f.afterRooms(async () => {
+      await f.sql`delete from seasons where id=${seasonId}`;
+    });
   }
 }
 
@@ -167,7 +169,7 @@ export const ballotCommand = async (
 export async function frozenRankedPanel(f: Fixture) {
   const { room, judges } = await readyTwoHumanJudgeRoom(f);
   const { roundId } = await launchRuntimeRound(f, room);
-  await f.sql`update rounds set competition_type='ranked',format_id='freestyle',format_version=1,preset_version=1,ladder_id='freestyle',ladder_division='open' where id=${roundId}`;
+  await f.markRanked(roundId);
   await playOut(f, roundId, true);
   const frozen = await finalizeAsWeb(f, roundId);
   if (frozen.status !== 'frozen' || frozen.freeze.completeness !== 'complete')

@@ -3,7 +3,6 @@ import {
   organizationKinds,
   permissions,
 } from '@daisy/protocol/lobby';
-import { ratingDivisions, type RatingDivision } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import {
   boolean,
@@ -17,7 +16,6 @@ import {
   unique,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
-import { daisyOrganizationId } from '../daisy-reference';
 import {
   createdAtColumn,
   oneOf,
@@ -29,17 +27,7 @@ import {
 import { nonEmpty } from './tenant-keys';
 import { users } from './users';
 
-/**
- * A league, or a school or club. Daisy is organization number one. The Owner
- * is a fixed position, not a role, so "an organization always keeps an owner"
- * is this column: every organization has one except Daisy itself, whose owner
- * is the operator, outside the participant database (ADR 0043).
- * `settings_version` is the optimistic counter of this scope's settings,
- * which moves apart from `version`. A league carries the division its
- * ladder, seasons and Rooms rate on (PYL-16, decision 79): Open or Youth.
- * Daisy itself (kind league) runs every division and carries none; no other
- * kind has one.
- */
+/** An organization has a participant owner or is administered by the operator. */
 export const organizations = pgTable(
   'organizations',
   {
@@ -61,7 +49,7 @@ export const organizations = pgTable(
     updatedAt: updatedAtColumn(),
     version: versionColumn(),
     settingsVersion: integer('settings_version').notNull().default(1),
-    leagueDivision: text('league_division').$type<RatingDivision>(),
+    operatorManaged: boolean('operator_managed').notNull().default(false),
   },
   (table) => [
     unique('organizations_id_kind_unique').on(table.id, table.kind),
@@ -70,13 +58,8 @@ export const organizations = pgTable(
     index('organizations_billing_owner_user_idx').on(table.billingOwnerUserId),
     check('organizations_kind_check', oneOf(table.kind, organizationKinds)),
     check(
-      'organizations_league_division_check',
-      // Daisy is kind league but runs every division; only other leagues carry one.
-      sql`(${table.kind} = 'league' and ${table.id} <> '${sql.raw(daisyOrganizationId)}') = (${table.leagueDivision} is not null) and (${table.leagueDivision} is null or ${oneOf(table.leagueDivision, ratingDivisions)})`,
-    ),
-    check(
       'organizations_has_owner',
-      sql`${table.ownerUserId} is not null or ${table.id} = '${sql.raw(daisyOrganizationId)}'`,
+      sql`${table.ownerUserId} is not null or ${table.operatorManaged}`,
     ),
     nonEmpty('organizations_name_nonempty', table.name),
     nonEmpty('organizations_handle_nonempty', table.handle),
@@ -130,7 +113,7 @@ export const memberships = pgTable(
 /**
  * A named set of permissions. `rank` orders an organization's roles, 1 the
  * highest: a person gives or removes only roles ranked below their own
- * highest. `preset` marks Daisy's own rows, which every organization and
+ * highest. `preset` marks the shared role catalogue, which every organization and
  * host may give; no command creates or edits a role yet.
  */
 export const roles = pgTable(
@@ -155,10 +138,6 @@ export const roles = pgTable(
       sql`lower(${table.name})`,
     ),
     check('roles_rank_positive', sql`${table.rank} > 0`),
-    check(
-      'roles_preset_is_daisy',
-      sql`not ${table.preset} or ${table.organizationId} = '${sql.raw(daisyOrganizationId)}'`,
-    ),
     nonEmpty('roles_name_nonempty', table.name),
     versionPositive('roles', table.version),
   ],

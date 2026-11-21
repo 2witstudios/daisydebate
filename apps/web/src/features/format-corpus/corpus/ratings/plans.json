@@ -40,12 +40,12 @@
             "expectedVersion": 3
           }
         ],
-        "ladder": {
-          "division": "open",
-          "style": "freestyle"
-        },
         "occurredAt": "2026-10-06T10:00:00.000Z",
-        "seasonId": "season000000000000000001"
+        "scope": {
+          "ladderId": "freestyle",
+          "lobbyId": "lobby0000000000000000001",
+          "seasonId": "season000000000000000001"
+        }
       }
     },
     "provisionalAfter": [
@@ -95,12 +95,12 @@
             "expectedVersion": 3
           }
         ],
-        "ladder": {
-          "division": "open",
-          "style": "freestyle"
-        },
         "occurredAt": "2026-10-06T10:00:00.000Z",
-        "seasonId": "season000000000000000001"
+        "scope": {
+          "ladderId": "freestyle",
+          "lobbyId": "lobby0000000000000000001",
+          "seasonId": "season000000000000000001"
+        }
       }
     },
     "provisionalAfter": [
@@ -150,12 +150,12 @@
             "expectedVersion": null
           }
         ],
-        "ladder": {
-          "division": "open",
-          "style": "freestyle"
-        },
         "occurredAt": "2026-10-06T10:00:00.000Z",
-        "seasonId": "season000000000000000001"
+        "scope": {
+          "ladderId": "freestyle",
+          "lobbyId": "lobby0000000000000000001",
+          "seasonId": "season000000000000000001"
+        }
       }
     },
     "provisionalAfter": [
@@ -205,12 +205,12 @@
             "expectedVersion": null
           }
         ],
-        "ladder": {
-          "division": "open",
-          "style": "freestyle"
-        },
         "occurredAt": "2026-10-06T10:00:00.000Z",
-        "seasonId": "season000000000000000001"
+        "scope": {
+          "ladderId": "freestyle",
+          "lobbyId": "lobby0000000000000000001",
+          "seasonId": "season000000000000000001"
+        }
       }
     },
     "provisionalAfter": [
@@ -260,12 +260,12 @@
             "expectedVersion": 1
           }
         ],
-        "ladder": {
-          "division": "open",
-          "style": "freestyle"
-        },
         "occurredAt": "2026-10-06T10:00:00.001Z",
-        "seasonId": "season000000000000000001"
+        "scope": {
+          "ladderId": "freestyle",
+          "lobbyId": "lobby0000000000000000001",
+          "seasonId": "season000000000000000001"
+        }
       }
     },
     "provisionalAfter": [
@@ -315,12 +315,12 @@
             "expectedVersion": 1
           }
         ],
-        "ladder": {
-          "division": "open",
-          "style": "freestyle"
-        },
         "occurredAt": "2026-10-06T10:00:00.001Z",
-        "seasonId": "season000000000000000001"
+        "scope": {
+          "ladderId": "freestyle",
+          "lobbyId": "lobby0000000000000000001",
+          "seasonId": "season000000000000000001"
+        }
       }
     },
     "provisionalAfter": [

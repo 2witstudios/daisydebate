@@ -1,5 +1,5 @@
-import { and, desc, eq, inArray } from 'drizzle-orm';
-import { seasons } from '../schema/ratings';
+import { and, asc, desc, eq, inArray } from 'drizzle-orm';
+import { seasons } from '../schema/seasons';
 import { seasonStandingRules, sanctions } from '../schema/sanctions';
 import { organizations } from '../schema/organizations';
 import { templates } from '../schema/templates';
@@ -42,10 +42,11 @@ async function load(tx: TabTransaction, input: Input) {
     .where(
       and(
         eq(seasons.organizationId, input.organizationId),
+        ...(input.lobbyId ? [eq(seasons.lobbyId, input.lobbyId)] : []),
         ...(input.seasonId ? [eq(seasons.id, input.seasonId)] : []),
       ),
     )
-    .orderBy(desc(seasons.startsAt))
+    .orderBy(asc(seasons.lobbyId), desc(seasons.startsAt), asc(seasons.id))
     .limit(1)
     .for('share');
   if (!organization || !season) return null;
@@ -67,12 +68,12 @@ async function load(tx: TabTransaction, input: Input) {
       and(
         eq(lobbies.ownerOrganizationId, organization.id),
         eq(lobbies.kind, 'standing'),
-        ...(input.lobbyId !== undefined ? [eq(lobbies.id, input.lobbyId)] : []),
+        eq(lobbies.id, season.lobbyId),
       ),
     )
     .orderBy(lobbies.id)
     .limit(1);
-  if (input.lobbyId !== undefined && !standingLobby) return null;
+  if (!standingLobby) return null;
   const templateSettings = await tx
     .select()
     .from(settings)
@@ -173,13 +174,13 @@ async function load(tx: TabTransaction, input: Input) {
   await scopeTransaction(tx, scope);
   const roomList = await loadLeagueRoomList(tx, {
     ...input,
-    lobbyId: standingLobby?.id ?? null,
+    lobbyId: standingLobby.id,
   });
   await scopeTransaction(tx, scope);
   return {
     ...roomList,
     organization,
-    standingLobby: standingLobby ?? null,
+    standingLobby,
     templateSettings,
     season,
     rule,

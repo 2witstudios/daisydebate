@@ -28,8 +28,9 @@ const seasonRow = (
   startsAt,
   startsAt,
   version,
-  'daisy',
-  'open',
+  'open-lobby',
+  'standing',
+  'league',
 ];
 
 const record = (
@@ -40,12 +41,14 @@ const record = (
 ): SeasonRecord => ({
   id,
   name: 'Season 1',
-  division: 'open',
+  lobbyId: 'open-lobby',
   startsAt: '2026-10-01T00:00:00.000Z',
   endsAt,
   status,
   version,
 });
+
+const officialLobbyRow = ['open-lobby', 'Open', 'open', 'adults', 'league'];
 
 const scripted = <T>(
   script: Parameters<typeof fakeSql>[0],
@@ -72,26 +75,30 @@ describe('season operations', () => {
     assert({
       given: 'no active season',
       should: 'return the opened season',
-      actual: await scripted([[], [], [seasonRow('s2', 'active')]], (seasons) =>
-        seasons.openSeason({
-          id: 's2',
-          name: 'Season 1',
-          division: 'open',
-          startsAt,
-        }),
+      actual: await scripted(
+        [[], [officialLobbyRow], [], [seasonRow('s2', 'active')]],
+        (seasons) =>
+          seasons.openSeason({
+            id: 's2',
+            name: 'Season 1',
+            division: 'open',
+            startsAt,
+          }),
       ).result,
       expected: record('s2', 'active'),
     });
   });
 
   test('refuses to open a season while any season exists (DEC-111)', async () => {
-    const refused = scripted([[], [{ id: 's1' }]], (seasons) =>
-      seasons.openSeason({
-        id: 's3',
-        name: 'Season 2',
-        division: 'open',
-        startsAt,
-      }),
+    const refused = scripted(
+      [[], [officialLobbyRow], [{ id: 's1' }]],
+      (seasons) =>
+        seasons.openSeason({
+          id: 's3',
+          name: 'Season 2',
+          division: 'open',
+          startsAt,
+        }),
     );
     await assertRejects({
       given: 'an earlier season, active or closed',
@@ -121,6 +128,51 @@ describe('season operations', () => {
       should: 'issue no SQL',
       actual: refused.queries.length,
       expected: 0,
+    });
+  });
+
+  test('activation and retry select the exact lobby when two official lobbies are Open', async () => {
+    const second = [
+      'second-open',
+      'Another Open Lobby',
+      'second',
+      'adults',
+      'league',
+    ];
+    const opened = seasonRow('selected', 'active');
+    opened[2] = 'beta-season-1';
+    opened[9] = 'second-open';
+    const result = await scripted(
+      [
+        [],
+        [officialLobbyRow, second],
+        [],
+        [],
+        [opened],
+        [],
+        [officialLobbyRow, second],
+        [opened],
+      ],
+      async (seasons) => [
+        await seasons.activateBetaSeason({
+          id: 'selected',
+          lobbyId: 'second-open',
+        }),
+        await seasons.activateBetaSeason({
+          id: 'retry',
+          lobbyId: 'second-open',
+        }),
+      ],
+    ).result;
+    assert({
+      given:
+        'two official adult lobbies and one explicit activation with a retry',
+      should: 'keep the first season ID on the selected lobby both times',
+      actual: result.map(({ id, lobbyId }) => [id, lobbyId]),
+      expected: [
+        ['selected', 'second-open'],
+        ['selected', 'second-open'],
+      ],
     });
   });
 });

@@ -9,8 +9,7 @@ test('captureEligibility', () => {
     hostActorId: 'host',
     hostOptedIn: true,
     hostHoldsRecording: true,
-    ladderDivision: null,
-    roomYouth: false,
+    youthRound: false,
   } as const;
   assert({
     given: 'a ranked Round with no opt-in and no entitlement',
@@ -29,8 +28,7 @@ test('captureEligibility', () => {
     actual: captureEligibility({
       ...casual,
       competitionType: 'ranked',
-      ladderDivision: 'youth',
-      roomYouth: true,
+      youthRound: true,
     }),
     expected: { kind: 'ranked', youth: true },
   });
@@ -38,7 +36,7 @@ test('captureEligibility', () => {
     given: 'a casual Round in a Youth Room whose entitled host opted in',
     should:
       'capture under the host opt-in: the Round is private by its Room (ADR 0157), and participants may remove a casual Recording',
-    actual: captureEligibility({ ...casual, roomYouth: true }),
+    actual: captureEligibility({ ...casual, youthRound: true }),
     expected: { kind: 'host_opt_in', hostActorId: 'host' },
   });
   assert({

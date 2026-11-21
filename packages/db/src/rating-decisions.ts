@@ -2,39 +2,24 @@ import { createInvariantError } from '@daisy/errors';
 import type { RatingPlan } from '@daisy/protocol';
 import type { RateDebateResult } from './rating-facts';
 
-/**
- * Ranked-round integrity (ADR 0058 §8): corruption protection on frozen
- * columns, never a decision. A ranked round carries a preset version whose
- * provenance the composite FK proves structurally; if any of that fails
- * here the round was corrupted after creation, and the failure is an
- * invariant, not an `{ kind: 'unrated', reason: … }`.
- */
-export function assertRankedRoundIntegrity(round: {
+/** Validate the frozen pool before calculating a posting. */
+export function assertRoundRatingIntegrity(round: {
   readonly competitionType: string;
   readonly presetVersion: unknown;
+  readonly ratingLobbyId: string | null;
   readonly ladderId: string | null;
-  readonly ladderDivision: string | null;
+  readonly seasonId: string | null;
 }): void {
-  if (round.competitionType === 'ranked') {
-    if (
-      round.presetVersion === null ||
-      round.ladderId === null ||
-      round.ladderDivision === null
-    )
-      throw createInvariantError(
-        'round.rating.integrity',
-        'A ranked round pins its preset and ladder',
-      );
-    return;
-  }
+  const poolKeys = [round.ratingLobbyId, round.ladderId, round.seasonId];
+  const ranked = round.competitionType === 'ranked';
   if (
-    round.presetVersion !== null ||
-    round.ladderId !== null ||
-    round.ladderDivision !== null
+    ranked !== (round.presetVersion !== null) ||
+    (poolKeys.some((key) => key === null) &&
+      (ranked || poolKeys.some((key) => key !== null)))
   )
     throw createInvariantError(
       'round.rating.integrity',
-      'Only a ranked round carries a preset or a ladder',
+      'The frozen rating pool and preset must match the Round',
     );
 }
 
@@ -45,9 +30,9 @@ export const ratingChangeRows = (
 ) =>
   plan.changes.map((change) => ({
     formatId: scope.formatId,
-    seasonId: plan.seasonId,
-    ladder: plan.ladder.style,
-    division: plan.ladder.division,
+    seasonId: plan.scope.seasonId,
+    ladder: plan.scope.ladderId,
+    lobbyId: plan.scope.lobbyId,
     id: change.changeId,
     roundId: scope.roundId,
     actorId: change.actorId,
@@ -74,8 +59,7 @@ export const projectionLockOrder = <C extends { readonly actorId: string }>(
 
 export const ratedResult = (plan: RatingPlan): RateDebateResult => ({
   kind: 'rated',
-  ladder: plan.ladder,
-  seasonId: plan.seasonId,
+  scope: plan.scope,
   changes: plan.changes.map(({ changeId, actorId, before, after }) => ({
     id: changeId,
     actorId,

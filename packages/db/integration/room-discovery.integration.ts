@@ -120,7 +120,6 @@ test('discovery work is independent of historical Room and Round volume', async 
             () => true,
             () => true,
             () => false,
-            { now: new Date().toISOString(), rankedDelaySeconds: 0 },
             () => null,
           ),
         );
@@ -203,8 +202,8 @@ test('discovery work is independent of historical Room and Round volume', async 
             .filter((q) => q.query.includes('for share'))
             .every((q) => q.params.length <= 2),
         ],
-        // Each page reads the official lobby catalog and the caller's age for its default.
-        expected: [16, true, true, false, true],
+        // Each page also reads its catalogue and age default and sets the lobby scope.
+        expected: [18, true, true, false, true],
       });
     } finally {
       await f.sql`delete from rounds where room_id=any(${historyArray}::text[]) or room_id=any(${liveArray}::text[])`;

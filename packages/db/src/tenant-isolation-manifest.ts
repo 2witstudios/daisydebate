@@ -142,6 +142,8 @@ export const tenantIsolationManifest: TenantIsolationManifest = {
     lobby('lobby_templates'),
     either('settings', { openRead: true }),
     organization('ladders', { openRead: true }),
+    lobby('ratings', { subject: 'actor' }),
+    lobby('rating_changes', { subject: 'actor' }),
     lobby('tournaments', { openRead: true }),
     lobby('tournament_rating_snapshots'),
     lobby('tournament_sponsorship_versions', {
@@ -249,15 +251,7 @@ export const tenantIsolationManifest: TenantIsolationManifest = {
     {
       table: 'seasons',
       reason:
-        "Daisy's rating seasons are public reference rows read by the ladder; a league's season is read with its standings.",
-    },
-    {
-      table: 'ratings',
-      reason: 'The public rating projection; it references a ladder only.',
-    },
-    {
-      table: 'rating_changes',
-      reason: 'The public rating ledger; it references a ladder only.',
+        'Seasons are competitive reference metadata. The leaderboard selects an official lobby before reading its seasons, and league season reads use the authorized organization and standing lobby.',
     },
     {
       table: 'formats',
@@ -271,6 +265,18 @@ export const tenantIsolationManifest: TenantIsolationManifest = {
     },
   ],
   definers: [
+    {
+      name: 'daisy_round_rating_posted',
+      executors: ['daisy_web'],
+      reason:
+        'The rating sweep and completion check need one bit of posting state for a persisted Round across standing lobbies.',
+    },
+    {
+      name: 'daisy_round_rating_release_facts',
+      executors: ['daisy_web'],
+      reason:
+        'The spectator release sweep needs only ledger ids and posting times for one Round with an audience, across standing lobbies.',
+    },
     {
       name: 'daisy_expire_child_account_requests',
       executors: ['daisy_web'],

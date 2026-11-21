@@ -1,3 +1,4 @@
+import { ratingDivisionForAgeRule } from '@daisy/protocol';
 import { settingValueSchemas } from '@daisy/protocol/setting-values';
 import { lockedSetting, openSetting, type SettingLine } from './settings';
 import type { LobbyLadder } from '@daisy/protocol/lobby/lobby-read';
@@ -136,7 +137,7 @@ export function storedLeagueLobbyOf(
           : 'season';
   const leagueLadder = {
     style: 'freestyle',
-    division: read.view.division,
+    division: ratingDivisionForAgeRule(read.view.lobby.ageRule),
   } as const;
   return {
     name: read.view.organization.name,

@@ -1,12 +1,12 @@
 import { createAppError } from '@daisy/errors';
 import {
   isDebatingSeat,
-  ratingDivisions,
-  ratingStyles,
+  ratingDivisionForAgeRule,
   type Ladder,
   type RoundOutcome,
   type SeatRef,
 } from '@daisy/protocol';
+import type { LobbyAgeRule } from '@daisy/protocol/lobby/eligibility';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { actors } from './schema/actors';
@@ -76,23 +76,17 @@ const forfeitedRounds = async (tx: Tx, ids: readonly string[]) => {
   );
 };
 
-/**
- * A Round's ladder from its frozen columns: both set on a ranked Round, both
- * null otherwise (`rounds_ladder_division_check`). A value outside the
- * vocabulary names no ladder Daisy shows.
- */
+/** Display classification frozen with the Round's ladder. */
 export const roundLadderOf = (columns: {
   readonly ladderId: string | null;
-  readonly ladderDivision: string | null;
-}): Ladder | null => {
-  const style = ratingStyles.find((each) => each === columns.ladderId);
-  const division = ratingDivisions.find(
-    (each) => each === columns.ladderDivision,
-  );
-  return style === undefined || division === undefined
+  readonly ladderAgeRule: LobbyAgeRule | null;
+}): Ladder | null =>
+  columns.ladderId === null || columns.ladderAgeRule === null
     ? null
-    : { style, division };
-};
+    : {
+        style: 'freestyle',
+        division: ratingDivisionForAgeRule(columns.ladderAgeRule),
+      };
 
 /** Each listed Round's ladder, by id. */
 const roundLadders = async (
@@ -103,7 +97,7 @@ const roundLadders = async (
     .select({
       roundId: rounds.id,
       ladderId: rounds.ladderId,
-      ladderDivision: rounds.ladderDivision,
+      ladderAgeRule: rounds.standingAgeRule,
     })
     .from(rounds)
     .where(inArray(rounds.id, ids));

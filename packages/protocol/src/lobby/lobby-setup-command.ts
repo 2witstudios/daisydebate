@@ -116,6 +116,7 @@ const createSeason = z
   .strictObject({
     type: z.literal('create-season'),
     organizationId: idSchema,
+    lobbyId: idSchema,
     name: nameSchema,
     startsAt: instantSchema,
     endsAt: instantSchema.nullable(),
@@ -473,7 +474,7 @@ export const lobbySetupCommandCatalogue = {
     aggregate: 'season',
     gate: ['organization.manage'],
     versions: [],
-    refusals: ['owner-not-league', 'season-open'],
+    refusals: ['owner-not-league', 'lobby-not-standing', 'season-open'],
     history: 'entry',
   },
   'close-season': {
