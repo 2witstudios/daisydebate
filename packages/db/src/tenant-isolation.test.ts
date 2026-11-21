@@ -13,7 +13,7 @@ import {
 
 setupRitewayBun();
 
-const commands = { all: '*', select: 'r' } as const;
+const commands = { all: '*', select: 'r', insert: 'a', update: 'w' } as const;
 
 /** The catalog a correct migration leaves for one manifest entry. */
 const fenced = (entry: TenantTable): TenantTableFacts => ({

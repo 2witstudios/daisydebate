@@ -21,9 +21,9 @@ import {
 
 export type TenantPolicy = {
   readonly name: string;
-  readonly command: 'all' | 'select';
+  readonly command: 'all' | 'select' | 'insert' | 'update';
   /** As PostgreSQL prints it (`pg_get_expr`). */
-  readonly using: string;
+  readonly using: string | null;
   readonly withCheck: string | null;
 };
 
@@ -115,6 +115,9 @@ const scopePredicate = (entry: TenantTable): string | null => {
   return predicates[entry.key];
 };
 
+const guardianSubject =
+  '((guardian_user_id = daisy_subject_scope()) OR (minor_user_id = daisy_subject_scope()))';
+
 const subjectPredicates: Record<TenantSubject, string> = {
   user: '(user_id = daisy_subject_scope())',
   'tournament-sponsorship':
@@ -127,8 +130,47 @@ const subjectPredicates: Record<TenantSubject, string> = {
   'consent-signer': '(person_user_id = daisy_subject_scope())',
   'child-account-request':
     '((guardian_user_id = daisy_subject_scope()) OR (claimed_user_id = daisy_subject_scope()) OR daisy_owns_guardian_request_email(email) OR daisy_owns_guardian_request_link(requested_link_id))',
-  guardian:
-    '((guardian_user_id = daisy_subject_scope()) OR (minor_user_id = daisy_subject_scope()))',
+  guardian: guardianSubject,
+  'lobby-permission': guardianSubject,
+  'lobby-waiver': guardianSubject,
+};
+
+const activeGuardianLink = `(EXISTS ( SELECT 1
+   FROM guardian_links link
+  WHERE ((link.id = restriction_lobbies.guardian_link_id) AND (link.status = 'active'::text))))`;
+const adultStandingLobby = `(EXISTS ( SELECT 1
+   FROM lobbies lobby
+  WHERE ((lobby.id = restriction_lobbies.lobby_id) AND (lobby.kind = 'standing'::text) AND (lobby.age_rule = 'adults'::lobby_age_rule) AND (lobby.closed_at IS NULL))))`;
+const childLobby =
+  '(minor_user_id = daisy_subject_scope()) AND (lobby_id = daisy_lobby_scope())';
+const guardianLobby =
+  '(guardian_user_id = daisy_subject_scope()) AND (lobby_id = daisy_lobby_scope())';
+
+const lobbyPermissionPolicies: readonly TenantPolicy[] = [
+  {
+    name: 'restriction_lobbies_request',
+    command: 'insert',
+    using: null,
+    withCheck: `(${childLobby} AND (signed_at IS NULL) AND (waiver_version IS NULL) AND (waiver_digest IS NULL) AND ${activeGuardianLink} AND ${adultStandingLobby})`,
+  },
+  {
+    name: 'restriction_lobbies_sign',
+    command: 'update',
+    using: `(${guardianLobby} AND (signed_at IS NULL) AND ${activeGuardianLink})`,
+    withCheck: `(${guardianLobby} AND (signed_at IS NOT NULL) AND ${adultStandingLobby})`,
+  },
+];
+
+const lobbyWaiverPolicy: TenantPolicy = {
+  name: 'restriction_lobby_waivers_sign',
+  command: 'insert',
+  using: null,
+  withCheck: `(${guardianLobby} AND (EXISTS ( SELECT 1
+   FROM (restriction_lobbies permission
+     JOIN guardian_links link ON ((link.id = permission.guardian_link_id)))
+  WHERE ((permission.guardian_link_id = restriction_lobby_waivers.guardian_link_id) AND (permission.lobby_id = restriction_lobby_waivers.lobby_id) AND (permission.signed_at IS NOT NULL) AND (link.status = 'active'::text)))) AND (EXISTS ( SELECT 1
+   FROM seasons season
+  WHERE ((season.id = restriction_lobby_waivers.season_id) AND (season.lobby_id = restriction_lobby_waivers.lobby_id) AND (season.status = 'active'::text)))))`,
 };
 
 /**
@@ -164,6 +206,8 @@ export const tenantPolicies = (entry: TenantTable): readonly TenantPolicy[] => {
               : null,
           },
         ]),
+    ...(entry.subject === 'lobby-permission' ? lobbyPermissionPolicies : []),
+    ...(entry.subject === 'lobby-waiver' ? [lobbyWaiverPolicy] : []),
     ...(entry.counterpart === undefined
       ? []
       : [
@@ -194,7 +238,7 @@ export const tenantPolicyStatements = (
   `ALTER TABLE "${entry.table}" ENABLE ROW LEVEL SECURITY;`,
   ...tenantPolicies(entry).map(
     (policy) =>
-      `CREATE POLICY "${policy.name}" ON "${entry.table}" FOR ${policy.command.toUpperCase()} USING ${policy.using === 'true' ? '(true)' : policy.using}${policy.withCheck === null ? '' : ` WITH CHECK ${policy.withCheck}`};`,
+      `CREATE POLICY "${policy.name}" ON "${entry.table}" FOR ${policy.command.toUpperCase()}${policy.using === null ? '' : ` USING ${policy.using === 'true' ? '(true)' : policy.using}`}${policy.withCheck === null ? '' : ` WITH CHECK ${policy.withCheck}`};`,
   ),
 ];
 

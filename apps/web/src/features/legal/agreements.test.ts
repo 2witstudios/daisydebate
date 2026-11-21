@@ -55,9 +55,9 @@ describe('agreements', () => {
         casualCapture: digest(casualCaptureNotice).slice(0, 16),
       },
       expected: {
-        waiver: ['draft-4', 'a5009809ca79179f'],
+        waiver: ['draft-5', '6f5e0f74680debb0'],
         youthWaiver: ['youth-draft-1', 'c83c18684671a808'],
-        policy: ['draft-4', 'b88386aedce40411'],
+        policy: ['draft-5', 'e0471da03bcf8ba9'],
         casualCapture: 'f5a46abec416c6cb',
       },
     });
@@ -113,7 +113,7 @@ describe('agreements', () => {
       expected: {
         says: [],
         grants: [],
-        lobbies: ['draft-4', 'youth-draft-1'],
+        lobbies: ['draft-5', 'youth-draft-1'],
       },
     });
   });
@@ -188,11 +188,25 @@ test('the content policy steers streamers without stopping anyone', () => {
     should:
       'recommend Stream this Round, allow self-streaming on the ladder and let a tournament ban it',
     actual: [
-      'The easiest way to stream a ranked round is Stream this Round',
-      'On the ranked ladder you may also stream with your own tools or by screen capture',
+      'the easiest way to stream is Stream this Round',
+      'You may also stream eligible rounds with your own tools or by screen capture, subject to the Youth rounds section',
       'which may also ban screen capture and self-streaming',
     ].filter((phrase) => !policy.includes(phrase)),
     expected: [],
+  });
+});
+
+test('the adult waiver and public policy both require a separate youth release', () => {
+  assert({
+    given: 'a ranked Round with a youth debater in an adult lobby',
+    should: 'require a separate media release for every youth debater',
+    actual: [contentWaiverDocument, contentPolicyDocument].map(
+      (document) =>
+        /separate media release covering every youth debater/.test(
+          words(document),
+        ) && /including in an adult lobby/.test(words(document)),
+    ),
+    expected: [true, true],
   });
 });
 

@@ -1,4 +1,5 @@
 import { requireTestServices } from '@daisy/config';
+import { SQL } from 'bun';
 import { isYouthRound, type RatingDivision } from '@daisy/protocol';
 import { createId } from '@paralleldrive/cuid2';
 import { sql } from 'drizzle-orm';
@@ -9,16 +10,183 @@ import {
   reuseFenced,
 } from '@daisy/protocol/media-release';
 import { youthReuseFencedSql, youthRoundSql } from '../src/youth-round-sql';
+import { readStudentLiveRounds } from '../src/youth-students-live';
 import { readYouthRecordingPeople } from '../src/youth-recording-people';
 import { accountAgePrivacyAdopter } from '../src/account-age';
 import { mediaReleasePrivacyAdopter } from '../src/media-release-privacy';
+import { createLobbyPermissionStore } from '../src/guardians/lobby-requests';
 import { createAuthorizationSubject } from './authorization.test-support';
-import { withFixture } from './constraint-helpers';
+import { Fixture, withFixture } from './constraint-helpers';
+import { scratchDatabase } from './scratch-migrations.test-support';
 import { validConfig } from './round-fixtures';
 import { integrationSuite } from './suite.test-support';
 
 requireTestServices(process.env);
 const { databaseUrl } = integrationSuite();
+
+test('guardian play permission in an adult lobby never supplies media release', async () => {
+  const scratch = scratchDatabase(databaseUrl, 'lobbyreuse');
+  await scratch.create();
+  const client = new SQL(scratch.url);
+  try {
+    await scratch.migrate(() => true);
+    const f = new Fixture(client);
+    const adult = await createAuthorizationSubject(f);
+    const minor = await createAuthorizationSubject(f);
+    const opponent = await createAuthorizationSubject(f);
+    const visitor = await createAuthorizationSubject(f);
+    await f.sql`update account_age set birth_month=to_char(now()-interval '14 years','YYYY-MM')
+      where user_id=${minor.userId}`;
+    const [owner] = await f.sql`select id from organizations where official`;
+    const lobbyId = createId();
+    await f.insert('lobbies', {
+      id: lobbyId,
+      name: 'Adult standing',
+      handle: lobbyId,
+      kind: 'standing',
+      owner_organization_id: owner!.id,
+      age_rule: 'adults',
+    });
+    const evidenceId = createId();
+    await f.insert('guardian_consent_evidence', {
+      id: evidenceId,
+      person_user_id: adult.userId,
+      role: 'guardian',
+      method: 'created-account',
+      notice_kind: 'parental-consent',
+      notice_version: 'fixture',
+      notice_digest: 'e'.repeat(64),
+      recorded_at: new Date(),
+    });
+    const linkId = createId();
+    const linkedAt = new Date();
+    await f.insert('guardian_links', {
+      id: linkId,
+      guardian_user_id: adult.userId,
+      minor_user_id: minor.userId,
+      guardian_consent_id: evidenceId,
+      status: 'active',
+      activation: 'created-account',
+      activated_at: linkedAt,
+      created_at: linkedAt,
+    });
+    const db = drizzle({ client: f.sql });
+    const store = createLobbyPermissionStore(db);
+    const requested = await store.apply(minor, {
+      type: 'request',
+      linkId,
+      lobbyId,
+    });
+    const allowed = await store.apply(adult, {
+      type: 'sign',
+      linkId,
+      lobbyId,
+      version: 'play-waiver',
+      digest: 'a'.repeat(64),
+    });
+    const formatId = await f.format();
+    const roomId = await f.room(opponent.actorId, formatId, {
+      lobby_id: lobbyId,
+      visibility: 'public',
+    });
+    await f.sql`insert into room_participants(id,room_id,actor_id,seat_kind,side,slot) values
+      (${createId()},${roomId},${opponent.actorId},'side','affirmative',0),
+      (${createId()},${roomId},${minor.actorId},'side','negative',0)`;
+    const [chat] = await f.sql`select youth_room, youth_staff
+      from public.daisy_room_community_fact(${roomId}, ${visitor.actorId})`;
+    assert({
+      given: 'a seated youth debater and a seatless visitor in an adult lobby',
+      should: 'preserve the Open Room chat policy',
+      actual: chat,
+      expected: { youth_room: false, youth_staff: false },
+    });
+    await f.sql`update rooms set visibility='private' where id=${roomId}`;
+    const [cast] =
+      await f.sql`select public.daisy_room_youth_recording_cast(${roomId}) as youth`;
+    const { id: roundId } = await f.roundWithCast(
+      {
+        room_id: roomId,
+        format_id: formatId,
+        room_config_snapshot: validConfig,
+        visibility: 'private',
+        standing_age_rule: 'adults',
+        standing_youth_cast: cast?.youth,
+      },
+      [
+        { seat: 'affirmative', actorId: opponent.actorId },
+        { seat: 'negative', actorId: minor.actorId },
+      ],
+    );
+    const watched = async (userId: string, scope: string) =>
+      (await readStudentLiveRounds(db, userId, scope)).map(
+        ({ roundId }) => roundId,
+      );
+    assert({
+      given: 'a private mixed-age Open Round with a linked youth debater',
+      should: 'list it on Watch for the guardian in that lobby',
+      actual: [
+        await watched(adult.userId, lobbyId),
+        await watched(adult.userId, createId()),
+        await watched(visitor.userId, lobbyId),
+      ],
+      expected: [[roundId], [], []],
+    });
+    const fence = async () =>
+      (
+        await db.execute(
+          sql`select ${youthReuseFencedSql(sql`${roundId}`)} as fenced`,
+        )
+      )[0]?.fenced;
+    const withoutRelease = await fence();
+    await f.insert('media_releases', {
+      id: createId(),
+      user_id: minor.userId,
+      scope: 'publish',
+      source: 'parent',
+      signer_name: 'Fixture Parent',
+      signer_relation: 'parent',
+      signer_email: 'fixture@example.test',
+      wording_version: mediaReleaseWording.version,
+      signed_at: new Date(),
+    });
+    const withRelease = await fence();
+    await f.sql`update lobbies set age_rule='under-18' where id=${lobbyId}`;
+    const afterLobbyChange = await fence();
+    const { debaters } = await readYouthRecordingPeople(db, roundId);
+    assert({
+      given: 'the adult lobby changed to under-18 after a mixed-age Round',
+      should:
+        'keep the recorded youth debater as the only linked-adult and release subject',
+      actual: {
+        fenced: afterLobbyChange,
+        users: debaters.map(({ userId }) => userId),
+      },
+      expected: { fenced: false, users: [minor.userId] },
+    });
+    await db.transaction(async (tx) => {
+      const context = { now: new Date().toISOString() };
+      await mediaReleasePrivacyAdopter.erase(tx, minor, context);
+      await accountAgePrivacyAdopter.erase(tx, minor, context);
+    });
+    assert({
+      given: 'a mixed adult-lobby cast with a guardian play signature',
+      should:
+        'deny media reuse until the youth debater has a separate publish release',
+      actual: [
+        requested,
+        allowed,
+        cast?.youth,
+        withoutRelease,
+        withRelease,
+        await fence(),
+      ],
+      expected: [true, true, true, true, false, true],
+    });
+  } finally {
+    await client.close();
+    await scratch.drop();
+  }
+});
 
 test('a private mixed-age Round keeps Youth reuse and linked-adult rules after the lobby changes', async () => {
   await withFixture(databaseUrl, async (f) => {

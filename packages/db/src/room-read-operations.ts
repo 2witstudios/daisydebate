@@ -14,6 +14,12 @@ import type { roomCommandTransaction } from './room-command-transaction';
 import type { CasualJudgeAdmission } from './casual-judge-admission';
 import type { AllowanceDecision } from '@daisy/protocol/billing';
 import { readEntitlementGrants } from './entitlement-grants';
+import { mayDebate } from '@daisy/protocol/lobby/eligibility';
+import { readCompetitionAgeBand } from './ladder-division-band';
+import {
+  isMinorAgeBand,
+  readGuardianLobbyIds,
+} from './guardians/lobby-permissions';
 import { roomListQuerySchema, type RoomListQuery } from '@daisy/protocol';
 import { and, eq, isNotNull, or } from 'drizzle-orm';
 import { readWaitingOn } from './round-waiting-read';
@@ -153,6 +159,8 @@ export const roomReadOperations = ({
   ): Promise<{
     readonly state: RoomAssemblyState;
     readonly viewerAgeBand: NonNullable<Account>['ageBand'];
+    readonly viewerCompetitionAgeBand: NonNullable<Account>['ageBand'];
+    readonly viewerMayDebate: boolean;
     readonly ratingPool: LobbyRatingSelection | null;
   }> {
     return instrumented(eventSink, 'readRoomAssembly', () =>
@@ -197,8 +205,24 @@ export const roomReadOperations = ({
                 frozen,
               )
             : null;
+        const viewerCompetitionAgeBand =
+          row.lobbyKind === 'standing'
+            ? await readCompetitionAgeBand(tx, caller.userId, row.lobbyId)
+            : null;
+        const guardianLobbyIds =
+          facts.state.ageRule === 'adults' &&
+          isMinorAgeBand(viewerCompetitionAgeBand)
+            ? await readGuardianLobbyIds(tx, caller.userId)
+            : [];
         return {
           viewerAgeBand: account?.ageBand ?? null,
+          viewerCompetitionAgeBand,
+          viewerMayDebate:
+            row.lobbyKind === 'standing' &&
+            mayDebate(
+              { ageBand: viewerCompetitionAgeBand, guardianLobbyIds },
+              facts.state,
+            ),
           ratingPool,
           state: {
             ...facts.state,

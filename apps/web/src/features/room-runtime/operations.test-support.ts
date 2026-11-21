@@ -93,6 +93,7 @@ export function makeOperations(
       reason: 'free-judge-unbound',
     }),
     readContentWaiverStanding: async () => 'signed',
+    hasGuardianLobbyWaiver: async () => false,
     readMemberCardRatings: async () => [],
     readRatingBlindings: async () => [],
     listRoomCatalogSources: async (
@@ -187,6 +188,8 @@ export function makeOperations(
       return {
         state,
         viewerAgeBand: account.ageBand,
+        viewerCompetitionAgeBand: account.ageBand,
+        viewerMayDebate: account.ageBand === 'adult',
         ratingPool: { lobbyId: state.lobbyId, ladderId: 'freestyle' },
       };
     },

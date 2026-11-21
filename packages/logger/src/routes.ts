@@ -168,6 +168,7 @@ const appRoutes = [
   '/api/reports',
   '/api/parental-controls/command',
   '/api/parental-controls/more',
+  '/api/parental-controls/lobby-permission',
   '/api/moderation/notices',
   '/api/privacy/erase',
   '/api/analytics/consent',

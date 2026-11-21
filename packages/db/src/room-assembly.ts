@@ -1,4 +1,5 @@
 import { requireRankedProtection } from './guardians/ranked-protection';
+import { readGuardianLobbyIds } from './guardians/lobby-permissions';
 import { leagueRoomSelection } from './league-room-selection';
 import { eq, inArray } from 'drizzle-orm';
 import { createAppError, createRefusal } from '@daisy/errors';
@@ -214,7 +215,13 @@ const applyInitialCast = async (
   if (!row) throw createAppError('INFRASTRUCTURE');
   const { state } = await roomFacts(tx, row);
   const targets: (Actor | null)[] = [];
-  for (const seat of seats) targets.push(await actorFact(tx, seat.actorId));
+  for (const seat of seats)
+    targets.push(
+      await actorFact(tx, seat.actorId, {
+        lobbyId: state.lobbyId,
+        readPermissions: (userId) => readGuardianLobbyIds(tx, userId),
+      }),
+    );
   const judgeQuote =
     judgeAdmission && targets.some((target) => target?.aiRole === 'judge')
       ? await judgeAdmission.quoteLocked(tx, {

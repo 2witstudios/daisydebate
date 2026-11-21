@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import type { LegalDocument } from '../../../../features/legal/documents';
 import { guardianNoticeDocument } from '../../../../features/legal/guardian-notices';
 import {
+  requestFamilyLobbyPermissions,
   requestFamilyRows,
   requestFriendApprovals,
 } from '../../../../lib/request-session';
@@ -11,6 +12,7 @@ import { protectionLevelLabels } from '../../../../features/parental-controls/pr
 import { GuardianForm } from '../../../../ui/settings/parental-controls/guardian-form';
 import { PageHeader } from '../../../../ui/components/page-header/page-header';
 import { controlClass } from '../../../../ui/components/form-field/form-field-class';
+import { LobbyPermissionControls } from './lobby-permission-controls';
 import { parentalControlsAction } from './actions';
 
 function Notice({ document }: { readonly document: LegalDocument }) {
@@ -59,11 +61,13 @@ export async function FamilySettings({
   readonly childAccountClosed?: boolean;
 }) {
   const adult = role === 'adult';
-  const [rows, approvals] = await Promise.all([
+  const [family, approvals, lobbyPermissions] = await Promise.all([
     requestFamilyRows(role),
     adult ? requestFriendApprovals() : [],
+    requestFamilyLobbyPermissions(role),
   ]);
-  if (!rows) notFound();
+  if (!family) notFound();
+  const { rows, lobbyPermissionOnly } = family;
   const notice = guardianNoticeDocument(
     adult ? 'parental-consent' : 'child-confirmation',
   );
@@ -129,7 +133,11 @@ export async function FamilySettings({
       ) : null}
       <section className={card} aria-labelledby="family-title">
         <h2 id="family-title" className={title}>
-          {adult ? 'Your children' : 'Linked parents and requests'}
+          {adult
+            ? 'Your children'
+            : lobbyPermissionOnly
+              ? 'Lobby permission'
+              : 'Linked parents and requests'}
         </h2>
         {rows.length === 0 ? (
           <p className="text-sm text-ink-muted">
@@ -172,6 +180,13 @@ export async function FamilySettings({
                       {protectionLevelLabels[row.protectionLevel.level]}
                     </p>
                   )
+                ) : null}
+                {row.status === 'active' && lobbyPermissions ? (
+                  <LobbyPermissionControls
+                    role={role}
+                    linkId={row.id}
+                    permissions={lobbyPermissions}
+                  />
                 ) : null}
                 {adult && row.request ? (
                   <div className="flex flex-wrap gap-2">
@@ -243,7 +258,9 @@ export async function FamilySettings({
             ))}
           </ul>
         )}
-        {!adult && rows.some((row) => row.status === 'active') ? (
+        {!adult &&
+        !lobbyPermissionOnly &&
+        rows.some((row) => row.status === 'active') ? (
           <div className="flex flex-col gap-1 text-sm text-ink">
             <h3 className="font-semibold">What your linked parents can see</h3>
             {notice.sections
@@ -253,7 +270,7 @@ export async function FamilySettings({
               ))}
           </div>
         ) : null}
-        {adult ? null : (
+        {adult || lobbyPermissionOnly ? null : (
           <Link href="/help" className="self-start text-sm">
             Get help with safety
           </Link>

@@ -24,6 +24,7 @@ export type LobbyAction = {
 export type LobbyViewer = {
   readonly actorId: string | null;
   readonly ageBand: AgeBand | null;
+  readonly guardianLobbyIds?: readonly string[] | undefined;
   /**
    * The running Youth Rounds this viewer's students debate in, so a live row
    * offers its linked coach or parent Watch (ADR 0155). A proposal only: the
@@ -131,10 +132,7 @@ export function rowActions(
   }
   const watch = action('Watch', roomHref, false);
   if (state === 'starting') return [watch];
-  const debates = mayDebate(
-    { ageBand: viewer.ageBand, guardianAllowed: false },
-    room,
-  );
+  const debates = mayDebate(viewer, room);
   if (debates) return [watch, action('Join', roomHref, true)];
   return room.openJudgeSeats > 0
     ? [watch, action('Judge', roomHref, false)]

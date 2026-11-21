@@ -1,11 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import {
-  judgeSeat,
-  sideSeat,
-  type AgeBand,
-  type RoomView,
-} from '@daisy/protocol';
+import { judgeSeat, sideSeat, type RoomView } from '@daisy/protocol';
 import { assemblySnapshot } from '../../../features/rooms/assembly.test-support';
 import { idle } from '../../../features/forms/form-state';
 import { botsForSeat, RoomRoster } from './room-roster';
@@ -18,7 +13,6 @@ type Participant = RoomView['participants'][number];
 const viewer = {
   actorId: 'v'.repeat(24),
   label: 'Viewer',
-  ageBand: 'adult' as AgeBand | null,
 };
 const judgeBot = {
   actorId: 't'.repeat(24),
@@ -67,7 +61,10 @@ const render = (
 ) =>
   renderToStaticMarkup(
     <RoomRoster
-      view={view}
+      view={{
+        ...view,
+        viewerMayDebate: view.viewerMayDebate ?? view.ageRule === 'adults',
+      }}
       viewer={{ ...viewer, actorId }}
       bots={bots}
       footer={<p>footer</p>}

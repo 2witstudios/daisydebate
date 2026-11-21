@@ -1,24 +1,30 @@
-import type { AgeBand, CompetitionType } from '@daisy/protocol';
+import type { CompetitionType } from '@daisy/protocol';
 import {
   mayDebate,
+  type DebaterEligibility,
   type LobbyAgeRule,
 } from '@daisy/protocol/lobby/eligibility';
 import { sql } from 'drizzle-orm';
 import { clubOrganizationKinds } from './billing-owner-lock';
+import {
+  isMinorAgeBand,
+  readGuardianLobbyIds,
+} from './guardians/lobby-permissions';
 import { readCompetitionAgeBand } from './ladder-division-band';
 import { rowsOf } from './raw-rows';
 import type { Tx } from './room-command-facts';
 import { currentTenantScope, scopeTransaction } from './tenant-scope';
 
 export const mayHostStandingRoom = (
-  creator: { readonly ageBand: AgeBand | null; readonly clubStaff: boolean },
+  creator: DebaterEligibility & { readonly clubStaff: boolean },
   lobby: {
+    readonly lobbyId: string;
     readonly ageRule: LobbyAgeRule;
     readonly competitionType: CompetitionType;
   },
 ): boolean =>
   (creator.clubStaff && lobby.ageRule === 'under-18') ||
-  mayDebate({ ageBand: creator.ageBand, guardianAllowed: false }, lobby);
+  mayDebate(creator, lobby);
 
 /**
  * Who creates a Room, as its lobby is decided: their competition age band and
@@ -31,8 +37,9 @@ export const mayHostStandingRoom = (
 export async function readRoomCreator(
   tx: Tx,
   userId: string,
-): Promise<{ readonly ageBand: AgeBand | null; readonly clubStaff: boolean }> {
-  const ageBand = await readCompetitionAgeBand(tx, userId);
+  lobbyId?: string,
+): Promise<DebaterEligibility & { readonly clubStaff: boolean }> {
+  const ageBand = await readCompetitionAgeBand(tx, userId, lobbyId);
   const scope = await currentTenantScope(tx);
   await scopeTransaction(tx, { subjectUserId: userId });
   const [staff] = await rowsOf<{ staff: boolean }>(
@@ -53,5 +60,12 @@ export async function readRoomCreator(
       ) as staff`,
   );
   await scopeTransaction(tx, scope);
-  return { ageBand, clubStaff: staff?.staff === true };
+  return {
+    ageBand,
+    clubStaff: staff?.staff === true,
+    guardianLobbyIds:
+      lobbyId === undefined || isMinorAgeBand(ageBand)
+        ? await readGuardianLobbyIds(tx, userId)
+        : [],
+  };
 }

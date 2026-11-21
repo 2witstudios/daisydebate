@@ -12,6 +12,7 @@ import { can, digest } from './authority';
 import { resolveRoomSelection } from './selection';
 import {
   createNoticeOf,
+  needsGuardianContentWaiver,
   requiredContentWaiver,
   roomCaptureNotice,
 } from './ready-agreements';
@@ -81,6 +82,7 @@ export type Store = Pick<
   | 'readActiveRoomFacts'
   | 'listHostedRooms'
   | 'readContentWaiverStanding'
+  | 'hasGuardianLobbyWaiver'
   | 'readWatchableRoundOfRoom'
   | 'readMemberCardRatings'
   | 'readRatingBlindings'
@@ -190,6 +192,7 @@ export function createRoomRuntimeOperations({
     state: RoomAssemblyState,
     caller: Caller,
     ageBand: AgeBand | null,
+    competitionAgeBand: AgeBand | null,
   ): Promise<Pick<RoomView, 'contentWaiver' | 'contentWaiverVersion'>> => {
     const none = { contentWaiver: null, contentWaiverVersion: null };
     if (
@@ -200,18 +203,36 @@ export function createRoomRuntimeOperations({
       )
     )
       return none;
-    const version = requiredContentWaiver(state, ageBand);
+    const guardianSigns = needsGuardianContentWaiver(
+      state,
+      competitionAgeBand,
+      caller.actorId,
+    );
+    const version = requiredContentWaiver(state, ageBand, guardianSigns);
     if (!version) return none;
     const standing = await store.readContentWaiverStanding(
       caller.userId,
       version,
       state.lobbyId,
     );
-    return standing === 'no-active-season'
-      ? none
-      : { contentWaiver: standing, contentWaiverVersion: version };
+    if (standing === 'no-active-season') return none;
+    if (guardianSigns) {
+      const signed = await store.hasGuardianLobbyWaiver({
+        minorUserId: caller.userId,
+        lobbyId: state.lobbyId,
+        waiverVersion: version,
+      });
+      return signed
+        ? { contentWaiver: 'signed', contentWaiverVersion: version }
+        : { contentWaiver: 'guardian-required', contentWaiverVersion: version };
+    }
+    return { contentWaiver: standing, contentWaiverVersion: version };
   };
-  const view = async (caller: Caller, roomId: string, eventOnly = false) => {
+  const view = async (
+    caller: Caller,
+    roomId: string,
+    eventOnly = false,
+  ): Promise<RoomView> => {
     const facts = await store.readRoomAssemblyFacts(
       roomId,
       caller,
@@ -253,7 +274,13 @@ export function createRoomRuntimeOperations({
           ),
         ),
       ),
-      ...(await viewerContentWaiver(state, caller, facts.viewerAgeBand)),
+      viewerMayDebate: facts.viewerMayDebate,
+      ...(await viewerContentWaiver(
+        state,
+        caller,
+        facts.viewerAgeBand,
+        facts.viewerCompetitionAgeBand,
+      )),
       captureOffer: await roomCaptureOffer(state, caller.actorId, async () =>
         hostHoldsCasualCapture(
           await store.readOwnEntitlementGrants(caller),

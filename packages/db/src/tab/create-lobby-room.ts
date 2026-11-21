@@ -90,10 +90,18 @@ export const createLobbyRoomStore = (database: TabDatabase) => ({
         selectionFacts: (tuple) => readFormatSelectionFacts(tx, tuple),
         now: async () => (await readDatabaseTime(tx)).toISOString(),
         mayHost: async (ageRule) =>
-          mayHostStandingRoom(await readRoomCreator(tx, input.senderUserId), {
-            ageRule,
-            competitionType: 'casual',
-          }),
+          mayHostStandingRoom(
+            await readRoomCreator(
+              tx,
+              input.senderUserId,
+              input.command.lobbyId,
+            ),
+            {
+              lobbyId: input.command.lobbyId,
+              ageRule,
+              competitionType: 'casual',
+            },
+          ),
         stored: (id) => storedCommand(tx, id),
         apply: async (
           assembly,

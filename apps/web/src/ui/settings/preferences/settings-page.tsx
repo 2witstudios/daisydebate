@@ -68,6 +68,7 @@ export type SettingsPageProps = {
   /** A youth member's media release (ADR 0151), while releases are open. */
   readonly mediaRelease?: ReactNode;
   readonly familySettings?: 'adult' | 'child' | null;
+  readonly showParentLobbyPermission?: boolean;
   readonly username: string | null;
   readonly analytics: {
     readonly choice: ConsentChoice;
@@ -102,18 +103,18 @@ export function SettingsPage({
   watchHistory,
   mediaRelease,
   familySettings,
+  showParentLobbyPermission,
 }: SettingsPageProps) {
   const sections = nav.filter(
     ([id]) =>
       (id !== 'media-release' || mediaRelease) &&
       (id !== 'messages' || messageRequests),
   );
-  const familyLink =
-    familySettings === 'adult'
-      ? (['/settings/parental-controls', 'Parental controls'] as const)
-      : familySettings === 'child'
-        ? (['/settings/your-parents', 'Your parents'] as const)
-        : null;
+  const familyLinks: (readonly [string, string])[] = [];
+  if (familySettings === 'adult')
+    familyLinks.push(['/settings/parental-controls', 'Parental controls']);
+  if (familySettings === 'child' || showParentLobbyPermission)
+    familyLinks.push(['/settings/your-parents', 'Your parents']);
   return (
     <div className="mx-auto flex w-full max-w-dash-column flex-col gap-6 px-6 pt-5 pb-8 max-compact:gap-4 max-compact:px-4">
       <PageHeader title="Settings" />
@@ -121,7 +122,7 @@ export function SettingsPage({
         <SectionJump
           sections={[
             ['/settings/billing', 'Billing'],
-            ...(familyLink ? [familyLink] : []),
+            ...familyLinks,
             ...sections.map(([id, label]) => [`#${id}`, label] as const),
           ]}
         />
@@ -135,14 +136,15 @@ export function SettingsPage({
           >
             Billing
           </Link>
-          {familyLink ? (
+          {familyLinks.map(([href, label]) => (
             <Link
-              href={familyLink[0]}
+              key={href}
+              href={href}
               className="rounded-md px-3 py-2 text-base text-ink-muted no-underline hover:bg-surface hover:text-ink hover:no-underline"
             >
-              {familyLink[1]}
+              {label}
             </Link>
-          ) : null}
+          ))}
           {sections.map(([id, label]) => (
             <a
               key={id}
