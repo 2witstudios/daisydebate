@@ -20,7 +20,9 @@ const storedPages = hostPages.filter((file) => {
   );
 });
 const storedLeaguePages = hostPages.filter((file) =>
-  readFileSync(join(app, file), 'utf8').includes('await requestLeaguePage('),
+  readFileSync(join(app, file), 'utf8').includes(
+    'await requestStandingLobbyManagement(',
+  ),
 );
 describe('the host area', () => {
   test('stored league pages require an evaluated host read', () => {
@@ -30,14 +32,18 @@ describe('the host area', () => {
         'refuse absent reads and require actual host authority before rendering',
       actual: storedLeaguePages.map((file) => {
         const source = readFileSync(join(app, file), 'utf8');
-        const read = source.indexOf('await requestLeaguePage(');
-        const render = source.indexOf('<HostLeague');
-        const guarded = source.slice(read, render);
+        const read = source.indexOf('await requestStandingLobbyManagement(');
+        const render = Math.min(
+          source.indexOf('<StandingLobbyPage'),
+          source.indexOf('<HostShell'),
+          source.indexOf('<HostLeague'),
+        );
         return [
           file,
-          guarded.includes('if (!read) notFound();'),
-          guarded.includes('if (!read.season.canHost)') &&
-            guarded.includes('notFound();'),
+          read >= 0 && render > read,
+          /if \(!management\) \{[^}]*notFound\(\);/.test(
+            source.slice(read, render),
+          ),
         ];
       }),
       expected: [['(host)/host/leagues/[slug]/page.tsx', true, true]],
