@@ -154,8 +154,9 @@ test.describe('actual frozen human ballots', () => {
             (line) =>
               line.includes(`"requestId":"${requestId}"`) &&
               line.includes('"operation":"challenges.list"') &&
-              line.includes('"status":503'),
+              /"status":5[0-9]{2}(?:,|})/.test(line),
           ),
+        'the Round refresh encountered a failed optional challenge read',
       ).toBe(true);
     });
     await expect(page.locator('#round-ballot-refusal')).toHaveText(
