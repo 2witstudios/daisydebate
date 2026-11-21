@@ -1,38 +1,24 @@
 import ts from 'typescript';
+import {
+  constInitializer,
+  hasOtherDeclaration,
+  isGlobal,
+  memberName,
+  sourceChecker,
+  staticText,
+  unparenthesized,
+} from './migration-bindings';
 
 const clockModule = '@daisy/clock';
 
 type ClockHelper = 'addMs' | 'instantMs' | 'nowMs' | 'tryInstantMs';
 type Edit = { start: number; end: number; text: string };
 
-function memberOwner(
-  node: ts.Node,
-  property: string,
-): ts.Expression | undefined {
-  if (ts.isPropertyAccessExpression(node) && node.name.text === property)
-    return node.expression;
-  if (
-    ts.isElementAccessExpression(node) &&
-    ts.isStringLiteralLike(node.argumentExpression) &&
-    node.argumentExpression.text === property
-  )
-    return node.expression;
-}
-
-function fileBindings(file: ts.SourceFile) {
-  return ts
-    .createProgram(
-      [file.fileName],
-      { noLib: true, noResolve: true },
-      {
-        ...ts.createCompilerHost({}),
-        getSourceFile: (name) => (name === file.fileName ? file : undefined),
-      },
-    )
-    .getTypeChecker();
-}
-
-export function migrateDateParse(filePath: string, source: string): string {
+export function migrateDateParse(
+  filePath: string,
+  source: string,
+  manual?: () => void,
+): string {
   if (
     filePath.startsWith('packages/clock/') ||
     !source.includes('parse') ||
@@ -45,8 +31,19 @@ export function migrateDateParse(filePath: string, source: string): string {
     ts.ScriptTarget.Latest,
     true,
   );
+
+  const checker = sourceChecker(file);
+  const memberOwner = (node: ts.Node, property: string) =>
+    (ts.isPropertyAccessExpression(node) ||
+      ts.isElementAccessExpression(node)) &&
+    memberName(checker, node) === property
+      ? node.expression
+      : undefined;
+  const isNumberMethod = (node: ts.Node, property: string) => {
+    const owner = memberOwner(node, property);
+    return owner !== undefined && isGlobal(checker, owner, 'Number');
+  };
   const usedNames = new Set<string>();
-  const shadowingNames = new Set<string>();
   const bindings = new Map<ClockHelper, string>();
   const guards: ts.Identifier[] = [];
   let namedImports: ts.NamedImports | undefined;
@@ -62,23 +59,13 @@ export function migrateDateParse(filePath: string, source: string): string {
     )
       usedNames.add(node.text);
     if (
-      ts.isIdentifier(node) &&
-      !ts.isImportSpecifier(node.parent) &&
-      ts.getNameOfDeclaration(node.parent) === node
-    )
-      shadowingNames.add(node.text);
-    if (ts.isCallExpression(node) && node.arguments.length === 1) {
-      const owner =
-        memberOwner(node.expression, 'isFinite') ??
-        memberOwner(node.expression, 'isNaN');
-      const argument = node.arguments[0]!;
-      if (
-        owner &&
-        ts.isIdentifier(owner) &&
-        owner.text === 'Number' &&
-        ts.isIdentifier(argument)
-      )
-        guards.push(argument);
+      ts.isCallExpression(node) &&
+      node.arguments.length === 1 &&
+      (isNumberMethod(node.expression, 'isFinite') ||
+        isNumberMethod(node.expression, 'isNaN'))
+    ) {
+      const argument = unparenthesized(node.arguments[0]!);
+      if (ts.isIdentifier(argument)) guards.push(argument);
     }
     if (
       ts.isImportDeclaration(node) &&
@@ -93,53 +80,33 @@ export function migrateDateParse(filePath: string, source: string): string {
   };
   collectNames(file);
 
-  // Inspect bindings in this source file without resolving its imports.
-  const checker = fileBindings(file);
   const checkedBindings = new Set(
     guards.map((name) => checker.getSymbolAtLocation(name)),
   );
-  const isGlobal = (node: ts.Node, name: string) =>
-    ts.isIdentifier(node) &&
-    node.text === name &&
-    !checker.getSymbolAtLocation(node)?.declarations?.length;
   const isDate = (
-    node: ts.Expression,
+    expression: ts.Expression,
     seen = new Set<ts.Symbol>(),
   ): boolean => {
-    if (isGlobal(node, 'Date')) return true;
+    const node = unparenthesized(expression);
+    if (isGlobal(checker, node, 'Date')) return true;
     const owner = memberOwner(node, 'Date');
     if (owner)
       return ['globalThis', 'window', 'self', 'global'].some((name) =>
-        isGlobal(owner, name),
+        isGlobal(checker, unparenthesized(owner), name),
       );
-    if (!ts.isIdentifier(node)) return false;
-    const symbol = checker.getSymbolAtLocation(node);
-    const declaration = symbol?.valueDeclaration;
-    if (
-      !symbol ||
-      seen.has(symbol) ||
-      !declaration ||
-      !ts.isVariableDeclaration(declaration) ||
-      !(declaration.parent.flags & ts.NodeFlags.Const) ||
-      !declaration.initializer
-    )
-      return false;
-    seen.add(symbol);
-    return isDate(declaration.initializer, seen);
+    const initializer = constInitializer(checker, node, seen);
+    return initializer !== undefined && isDate(initializer, seen);
   };
   const isParse = (node: ts.Node) => {
     const owner = memberOwner(node, 'parse');
     return owner !== undefined && isDate(owner);
   };
-  const parseArgument = (node: ts.Node): ts.Expression | undefined => {
+  const parseArgument = (expression: ts.Node): ts.Expression | undefined => {
+    const node = unparenthesized(expression);
     if (ts.isCallExpression(node) && isParse(node.expression)) {
       const [argument] = node.arguments;
       if (argument && !ts.isSpreadElement(argument)) return argument;
     }
-  };
-  const isNumberMethod = (node: ts.Node, property: string) => {
-    const owner = memberOwner(node, property);
-    return owner !== undefined && isGlobal(owner, 'Number');
   };
   const checkedAssignment = (node: ts.Node): boolean => {
     while (ts.isParenthesizedExpression(node.parent)) node = node.parent;
@@ -168,7 +135,7 @@ export function migrateDateParse(filePath: string, source: string): string {
     const imported = namedImports?.elements.find(
       (item) =>
         !item.isTypeOnly &&
-        !shadowingNames.has(item.name.text) &&
+        !hasOtherDeclaration(checker, file, item.name) &&
         (item.propertyName ?? item.name).text === helper,
     );
     if (imported) {
@@ -187,6 +154,35 @@ export function migrateDateParse(filePath: string, source: string): string {
   };
 
   const visit = (node: ts.Node) => {
+    if (
+      ts.isVariableDeclaration(node) &&
+      ts.isObjectBindingPattern(node.name) &&
+      node.initializer &&
+      isDate(node.initializer)
+    ) {
+      const parse = node.name.elements.find((binding) => {
+        if (binding.dotDotDotToken) return false;
+        const key = binding.propertyName ?? binding.name;
+        if (ts.isIdentifier(key) || ts.isStringLiteralLike(key))
+          return key.text === 'parse';
+        return (
+          ts.isComputedPropertyName(key) &&
+          staticText(checker, key.expression) === 'parse'
+        );
+      });
+      if (parse) {
+        if (
+          node.name.elements.length === 1 &&
+          ts.isIdentifier(parse.name) &&
+          !node.type &&
+          !parse.initializer
+        )
+          replace(node, `${parse.name.text} = ${use('instantMs')}`);
+        else manual?.();
+        return;
+      }
+    }
+
     if (ts.isCallExpression(node) && node.arguments.length === 1) {
       const invalid = isNumberMethod(node.expression, 'isNaN');
       const valid = isNumberMethod(node.expression, 'isFinite');
@@ -305,7 +301,7 @@ export function migrateDateParse(filePath: string, source: string): string {
         current.slice(0, edit.start) + edit.text + current.slice(edit.end),
       source,
     );
-  return migrateDateParse(filePath, migrated);
+  return migrateDateParse(filePath, migrated, manual);
 }
 
 async function run(args: string[]) {
@@ -326,12 +322,13 @@ async function run(args: string[]) {
   ]);
   if (result.exitCode !== 0) throw new Error(result.stderr.toString());
   let changed = 0;
+  const manual = new Set<string>();
   for (const path of new Set(result.stdout.toString().split('\0'))) {
     if (!/\.[cm]?[jt]sx?$/.test(path)) continue;
     const file = Bun.file(path);
     if (!(await file.exists())) continue;
     const source = await file.text();
-    const migrated = migrateDateParse(path, source);
+    const migrated = migrateDateParse(path, source, () => manual.add(path));
     if (migrated === source) continue;
     changed++;
     if (mode === '--write') await Bun.write(path, migrated);
@@ -340,7 +337,10 @@ async function run(args: string[]) {
   console.log(
     `${changed} files ${mode === '--write' ? 'migrated' : 'to migrate'}`,
   );
-  if (mode === '--check' && changed > 0) process.exitCode = 1;
+  for (const path of manual)
+    console.log(`Manual Date.parse binding migration needed: ${path}`);
+  if ((mode === '--check' && changed > 0) || manual.size > 0)
+    process.exitCode = 1;
 }
 
 if (import.meta.main) await run(process.argv.slice(2));

@@ -1,27 +1,35 @@
 const dateMessage = 'Read an ISO instant through @daisy/clock.';
 const digestMessage = 'Use sha3Hex or commandDigest from @daisy/digest.';
 
-function constant(node, sourceCode, seen) {
+function bindingAt(node, sourceCode) {
   if (node?.type !== 'Identifier') return;
-  let scope = sourceCode.getScope(node);
-  while (scope) {
+  for (let scope = sourceCode.getScope(node); scope; scope = scope.upper) {
     const binding = scope.set.get(node.name);
-    if (binding) {
-      const [definition] = binding.defs;
-      if (
-        binding.defs.length === 1 &&
-        !seen.has(binding) &&
-        definition?.type === 'Variable' &&
-        definition.parent.kind === 'const' &&
-        definition.node.id.type === 'Identifier'
-      ) {
-        seen.add(binding);
-        return definition.node.init;
-      }
-      return;
-    }
-    scope = scope.upper;
+    if (binding) return binding;
   }
+}
+
+function constant(node, sourceCode, seen) {
+  const binding = bindingAt(node, sourceCode);
+  const [definition] = binding?.defs ?? [];
+  if (
+    binding?.defs.length === 1 &&
+    !seen.has(binding) &&
+    definition?.type === 'Variable' &&
+    definition.parent.kind === 'const' &&
+    definition.node.id.type === 'Identifier'
+  ) {
+    seen.add(binding);
+    return definition.node.init;
+  }
+}
+
+function isGlobal(node, name, sourceCode) {
+  return (
+    node?.type === 'Identifier' &&
+    node.name === name &&
+    !bindingAt(node, sourceCode)?.defs.length
+  );
 }
 
 function staticText(node, sourceCode, seen = new Set()) {
@@ -32,22 +40,24 @@ function staticText(node, sourceCode, seen = new Set()) {
     return staticText(constant(node, sourceCode, seen), sourceCode, seen);
 }
 
-const property = (node) =>
+const property = (node, sourceCode) =>
   node.type === 'MemberExpression'
     ? node.computed
-      ? staticText(node.property)
+      ? staticText(node.property, sourceCode)
       : node.property.name
     : undefined;
 
 function isDate(node, sourceCode, seen = new Set()) {
   if (!node) return false;
   if (node.type === 'Identifier') {
-    if (node.name === 'Date') return true;
+    if (isGlobal(node, 'Date', sourceCode)) return true;
     return isDate(constant(node, sourceCode, seen), sourceCode, seen);
   }
   return (
-    property(node) === 'Date' &&
-    ['globalThis', 'window', 'self', 'global'].includes(node.object.name)
+    property(node, sourceCode) === 'Date' &&
+    ['globalThis', 'window', 'self', 'global'].some((name) =>
+      isGlobal(node.object, name, sourceCode),
+    )
   );
 }
 
@@ -58,7 +68,7 @@ const dateRule = {
     return {
       MemberExpression(node) {
         if (
-          property(node) === 'parse' &&
+          property(node, context.sourceCode) === 'parse' &&
           isDate(node.object, context.sourceCode)
         )
           report(node);
@@ -69,7 +79,10 @@ const dateRule = {
           isDate(node.init, context.sourceCode) &&
           node.id.type === 'ObjectPattern' &&
           node.id.properties.some(
-            ({ key }) => key?.name === 'parse' || staticText(key) === 'parse',
+            ({ key, computed }) =>
+              (computed
+                ? staticText(key, context.sourceCode)
+                : (key?.name ?? staticText(key))) === 'parse',
           )
         )
           report(node);
@@ -78,17 +91,46 @@ const dateRule = {
   },
 };
 
+function nativeHashName(source, name) {
+  return (
+    (source === 'bun' && name === 'CryptoHasher') ||
+    (['node:crypto', 'crypto'].includes(source) && name === 'createHash')
+  );
+}
+
+function isNativeHasher(node, sourceCode, seen = new Set()) {
+  if (!node) return false;
+  if (node.type === 'Identifier') {
+    const [definition] = bindingAt(node, sourceCode)?.defs ?? [];
+    if (definition?.node.type === 'ImportSpecifier')
+      return nativeHashName(
+        definition.node.parent.source.value,
+        definition.node.imported.name ?? definition.node.imported.value,
+      );
+    return isNativeHasher(constant(node, sourceCode, seen), sourceCode, seen);
+  }
+  if (node.type !== 'MemberExpression') return false;
+  const name = property(node, sourceCode);
+  if (name === 'CryptoHasher' && isGlobal(node.object, 'Bun', sourceCode))
+    return true;
+  const [definition] = bindingAt(node.object, sourceCode)?.defs ?? [];
+  return (
+    ['ImportNamespaceSpecifier', 'ImportDefaultSpecifier'].includes(
+      definition?.node.type,
+    ) && nativeHashName(definition.node.parent.source.value, name)
+  );
+}
+
 const hashRule = {
   meta: { messages: { required: digestMessage } },
   create(context) {
-    const names = new Set(['createHash', 'CryptoHasher']);
     const report = (node) => context.report({ node, messageId: 'required' });
     const check = (node) => {
       const algorithm = staticText(node.arguments[0], context.sourceCode);
       if (
         typeof algorithm === 'string' &&
         algorithm.toLowerCase() === 'sha3-256' &&
-        names.has(node.callee.name ?? property(node.callee))
+        isNativeHasher(node.callee, context.sourceCode)
       )
         report(node);
     };
@@ -108,12 +150,6 @@ const hashRule = {
             )
           )
             report(statement);
-          if (!['crypto', 'node:crypto', 'bun'].includes(source)) continue;
-          for (const specifier of statement.specifiers) {
-            const imported =
-              specifier.imported?.name ?? specifier.imported?.value;
-            if (names.has(imported)) names.add(specifier.local.name);
-          }
         }
       },
       CallExpression: check,

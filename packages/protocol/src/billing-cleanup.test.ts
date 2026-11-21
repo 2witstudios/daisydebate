@@ -19,18 +19,23 @@ import {
 } from './billing-cleanup.test-support';
 setupRitewayBun();
 test('malformed review times produce a persisted state refusal', () => {
+  const acknowledged = {
+    kind: 'acknowledged',
+    jobId: 'a'.repeat(24),
+    outcome: 'vendor-deleted',
+    checkedAt: at(0),
+    nextAt: at(1),
+  };
   assert({
-    given: 'an acknowledged state with an invalid checked timestamp',
-    should: 'return an unsuccessful schema result',
-    actual: billingCleanupSchema.safeParse({
-      kind: 'acknowledged',
-      version: 3,
-      jobId: 'a'.repeat(24),
-      outcome: 'vendor-deleted',
-      checkedAt: 'garbage',
-      nextAt: at(1),
-    }).success,
-    expected: false,
+    given: 'a valid acknowledged state and a malformed checked timestamp',
+    should:
+      'accept the valid state and reject the malformed one without throwing',
+    actual: [
+      billingCleanupSchema.safeParse(acknowledged).success,
+      billingCleanupSchema.safeParse({ ...acknowledged, checkedAt: 'garbage' })
+        .success,
+    ],
+    expected: [true, false],
   });
 });
 

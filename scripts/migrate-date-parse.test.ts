@@ -47,7 +47,7 @@ test('avoids shadowed imports and preserves a separate parse guard', () => {
     'export const read = (readInstant: unknown) => globalThis.Date.parse(input);',
     'export function check(clock: Clock) {',
     '  const expiresAt = Date.parse(clock.now());',
-    '  if (!Number.isFinite(expiresAt)) return refused;',
+    '  if (!Number.isFinite((expiresAt))) return refused;',
     '  return expiresAt;',
     '}',
   ].join('\n');
@@ -56,7 +56,7 @@ test('avoids shadowed imports and preserves a separate parse guard', () => {
     'export const read = (readInstant: unknown) => clockInstantMs(input);',
     'export function check(clock: Clock) {',
     '  const expiresAt = (tryInstantMs(clock.now()) ?? Number.NaN);',
-    '  if (!Number.isFinite(expiresAt)) return refused;',
+    '  if (!Number.isFinite((expiresAt))) return refused;',
     '  return expiresAt;',
     '}',
   ].join('\n');
@@ -68,5 +68,51 @@ test('avoids shadowed imports and preserves a separate parse guard', () => {
       'use an unshadowed helper and keep the refusal reachable in one pass',
     actual: [migrated, migrateDateParse('example.ts', migrated)],
     expected: [expected, expected],
+  });
+});
+
+test('rewrites parenthesized inline guards and constant computed Date members', () => {
+  const source = [
+    "const method = 'parse';",
+    'const date = Date;',
+    'export const valid = Number.isFinite((Date.parse(clock.now())));',
+    'export const computed = date[method](input);',
+    'export const { [method]: parse } = globalThis.Date;',
+    'export function localNumber(Number: Numeric) { const stamp = Date.parse(clock.now()); return Number.isFinite(stamp); }',
+    'export const local = (Date: Parser) => { const date = Date; return date[method](input); };',
+  ].join('\n');
+  const expected = [
+    "import { tryInstantMs, instantMs, nowMs } from '@daisy/clock';",
+    "const method = 'parse';",
+    'const date = Date;',
+    'export const valid = (tryInstantMs(clock.now()) !== undefined);',
+    'export const computed = instantMs(input);',
+    'export const parse = instantMs;',
+    'export function localNumber(Number: Numeric) { const stamp = nowMs(clock); return Number.isFinite(stamp); }',
+    'export const local = (Date: Parser) => { const date = Date; return date[method](input); };',
+  ].join('\n');
+  const migrated = migrateDateParse('example.ts', source);
+  assert({
+    given:
+      'a parenthesized parse guard, a constant member name and a locally supplied Date',
+    should:
+      'preserve the refusal, migrate the global call and leave the local call in place',
+    actual: [migrated, migrateDateParse('example.ts', migrated)],
+    expected: [expected, expected],
+  });
+});
+
+test('flags a compound destructuring for manual conversion', () => {
+  const source = 'export const { parse, UTC } = globalThis.Date;';
+  let needsManualConversion = false;
+  const migrated = migrateDateParse('example.ts', source, () => {
+    needsManualConversion = true;
+  });
+  assert({
+    given: 'a parse binding grouped with other native Date bindings',
+    should:
+      'leave the compound binding in place and flag it for manual conversion',
+    actual: [migrated, needsManualConversion],
+    expected: [source, true],
   });
 });

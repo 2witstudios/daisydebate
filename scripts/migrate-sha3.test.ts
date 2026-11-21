@@ -51,3 +51,26 @@ test('migrates nested constructors in one pass', () => {
     expected: [expected, expected],
   });
 });
+
+test('uses native bindings and an unshadowed shared alias', () => {
+  const source = [
+    "import { sha3Hex as digest } from '@daisy/digest';",
+    "import { createHash } from 'node:crypto';",
+    "export const existing = digest('existing');",
+    "export function native(digest: Digest) { return createHash('sha3-256').update('value').digest('hex'); }",
+    "export function local(createHash: Hasher) { return createHash('sha3-256').update('value').digest('hex'); }",
+  ].join('\n');
+  const expected = [
+    "import { sha3Hex as sharedSha3Hex, sha3Hex as digest } from '@daisy/digest';",
+    "export const existing = digest('existing');",
+    "export function native(digest: Digest) { return sharedSha3Hex('value'); }",
+    "export function local(createHash: Hasher) { return createHash('sha3-256').update('value').digest('hex'); }",
+  ].join('\n');
+  const migrated = migrateSha3('example.ts', source);
+  assert({
+    given: 'a native import, a shadowed digest alias and a local hasher',
+    should: 'migrate only the native call with an unshadowed helper',
+    actual: [migrated, migrateSha3('example.ts', migrated)],
+    expected: [expected, expected],
+  });
+});

@@ -1,4 +1,13 @@
 import ts from 'typescript';
+import {
+  constInitializer,
+  hasOtherDeclaration,
+  isGlobal,
+  memberName,
+  sourceChecker,
+  staticText,
+  unparenthesized,
+} from './migration-bindings';
 
 const digestModule = '@daisy/digest';
 
@@ -21,16 +30,71 @@ function method(
   );
 }
 
-function replacement(node: ts.Node): ts.Expression | undefined {
+function importedFrom(declaration: ts.Node) {
+  let node: ts.Node | undefined = declaration;
+  while (node && !ts.isImportDeclaration(node)) node = node.parent;
+  return node && ts.isStringLiteral(node.moduleSpecifier)
+    ? node.moduleSpecifier.text
+    : undefined;
+}
+
+function isNativeHasher(
+  checker: ts.TypeChecker,
+  expression: ts.Expression,
+  seen = new Set<ts.Symbol>(),
+): boolean {
+  const node = unparenthesized(expression);
+  if (ts.isIdentifier(node)) {
+    const declaration = checker.getSymbolAtLocation(node)?.declarations?.[0];
+    if (declaration && ts.isImportSpecifier(declaration)) {
+      const name = (declaration.propertyName ?? declaration.name).text;
+      const source = importedFrom(declaration);
+      return (
+        (name === 'createHash' &&
+          (source === 'crypto' || source === 'node:crypto')) ||
+        (name === 'CryptoHasher' && source === 'bun')
+      );
+    }
+    const initializer = constInitializer(checker, node, seen);
+    return (
+      initializer !== undefined && isNativeHasher(checker, initializer, seen)
+    );
+  }
+  if (
+    !ts.isPropertyAccessExpression(node) &&
+    !ts.isElementAccessExpression(node)
+  )
+    return false;
+  const name = memberName(checker, node);
+  const owner = unparenthesized(node.expression);
+  if (name === 'CryptoHasher' && isGlobal(checker, owner, 'Bun')) return true;
+  const declaration = checker.getSymbolAtLocation(owner)?.declarations?.[0];
+  if (
+    !declaration ||
+    !(ts.isNamespaceImport(declaration) || ts.isImportClause(declaration))
+  )
+    return false;
+  const source = importedFrom(declaration);
+  return (
+    (name === 'createHash' &&
+      (source === 'crypto' || source === 'node:crypto')) ||
+    (name === 'CryptoHasher' && source === 'bun')
+  );
+}
+
+function replacement(
+  checker: ts.TypeChecker,
+  node: ts.Node,
+): ts.Expression | undefined {
   if (!method(node, 'digest') || !literal(node.arguments[0], 'hex')) return;
   const update = node.expression.expression;
   if (!method(update, 'update')) return;
   const hasher = update.expression.expression;
   if (!(ts.isCallExpression(hasher) || ts.isNewExpression(hasher))) return;
   if (
-    !literal(hasher.arguments?.[0], 'sha3-256') ||
     hasher.arguments?.length !== 1 ||
-    !/^(?:Bun\.)?(?:createHash|CryptoHasher)$/.test(hasher.expression.getText())
+    staticText(checker, hasher.arguments[0]!)?.toLowerCase() !== 'sha3-256' ||
+    !isNativeHasher(checker, hasher.expression)
   )
     return;
   const [value, encoding] = update.arguments;
@@ -52,9 +116,12 @@ function digestImports(file: ts.SourceFile): ts.NamedImports | undefined {
 
 export function migrateSha3(path: string, source: string): string {
   const file = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true);
+  const checker = sourceChecker(file);
   const existing = digestImports(file)?.elements.find(
     (item) =>
-      !item.isTypeOnly && (item.propertyName ?? item.name).text === 'sha3Hex',
+      !item.isTypeOnly &&
+      !hasOtherDeclaration(checker, file, item.name) &&
+      (item.propertyName ?? item.name).text === 'sha3Hex',
   );
   let local = existing?.name.text ?? 'sha3Hex';
   if (!existing && /\bsha3Hex\b/.test(source)) {
@@ -64,7 +131,7 @@ export function migrateSha3(path: string, source: string): string {
   }
   const edits: Array<{ start: number; end: number; text: string }> = [];
   const visit = (node: ts.Node) => {
-    const value = replacement(node);
+    const value = replacement(checker, node);
     if (value === undefined) ts.forEachChild(node, visit);
     else
       edits.push({
@@ -90,10 +157,14 @@ export function migrateSha3(path: string, source: string): string {
     ts.ScriptTarget.Latest,
     true,
   );
-  const uses = new Set<string>();
+  const updatedChecker = sourceChecker(updated);
+  const uses = new Set<ts.Symbol>();
   const collect = (node: ts.Node) => {
     if (ts.isImportDeclaration(node)) return;
-    if (ts.isIdentifier(node)) uses.add(node.text);
+    if (ts.isIdentifier(node)) {
+      const symbol = updatedChecker.getSymbolAtLocation(node);
+      if (symbol) uses.add(symbol);
+    }
     ts.forEachChild(node, collect);
   };
   collect(updated);
@@ -112,7 +183,7 @@ export function migrateSha3(path: string, source: string): string {
         (item) =>
           !['createHash', 'CryptoHasher'].includes(
             (item.propertyName ?? item.name).text,
-          ) || uses.has(item.name.text),
+          ) || uses.has(updatedChecker.getSymbolAtLocation(item.name)!),
       );
       if (keep.length === named.elements.length) return [];
       if (keep.length === 0 && !statement.importClause?.name)

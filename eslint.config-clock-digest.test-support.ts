@@ -18,6 +18,8 @@ export function registerClockDigestTests() {
         'const { parse: alias } = Date;',
         'const DateAlias = Date, another = DateAlias;',
         'export const indirect = another.parse(input);',
+        "const method = 'parse';",
+        'export const computed = another[method](input);',
         'export { ms, fn, indexed, alias };',
       ].join('\n');
       assert({
@@ -28,10 +30,15 @@ export function registerClockDigestTests() {
           lint('packages/protocol/src/instant-probe.ts', old),
           lint('apps/web/integration/instant-probe.ts', old),
           lint('packages/clock/src/instant-probe.ts', old),
+          lint(
+            'scripts/local-date-probe.ts',
+            "export function local(Date: Parser) { const date = Date; const method = 'parse'; return date[method](input) + date.parse(input); }",
+          ),
         ]),
         expected: [
-          Array<string>(5).fill('clock-digest/iso-instant'),
-          Array<string>(5).fill('clock-digest/iso-instant'),
+          Array<string>(6).fill('clock-digest/iso-instant'),
+          Array<string>(6).fill('clock-digest/iso-instant'),
+          [],
           [],
         ],
       });
@@ -43,9 +50,10 @@ export function registerClockDigestTests() {
         "import { sha3_256 } from '@noble/hashes/sha3.js';",
         "const algorithm = 'sha3-256', indirect = algorithm;",
         "const sha256 = 'sha256';",
+        'const nativeAlias = makeHash;',
         'export const hashes = [',
         "  makeHash(`sha3-256`), new Bun.CryptoHasher('sha3-256'), ",
-        '  makeHash(sha256), makeHash(indirect), sha3_256(new Uint8Array()),',
+        '  makeHash(sha256), nativeAlias(indirect), sha3_256(new Uint8Array()),',
         '];',
       ].join('\n');
       assert({
@@ -57,6 +65,10 @@ export function registerClockDigestTests() {
           lint('scripts/digest-probe.ts', old),
           lint('packages/digest/src/digest-probe.ts', old),
           lint(
+            'scripts/local-hasher.ts',
+            "export const hash = (createHash: Hasher) => createHash('sha3-256');",
+          ),
+          lint(
             'scripts/digest-512-probe.ts',
             "import { sha3_512 } from '@noble/hashes/sha3.js'; sha3_512(new Uint8Array());",
           ),
@@ -64,6 +76,7 @@ export function registerClockDigestTests() {
         expected: [
           Array<string>(4).fill('clock-digest/sha3-digest'),
           Array<string>(4).fill('clock-digest/sha3-digest'),
+          [],
           [],
           [],
         ],
