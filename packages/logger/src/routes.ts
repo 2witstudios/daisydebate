@@ -136,6 +136,7 @@ const appRoutes = [
   '/api/messaging/preferences/clear',
   '/api/messaging/reactions',
   '/api/messaging/read',
+  '/api/messaging/request-setting',
   '/api/messaging/requests',
   '/api/messaging/requests/[channelId]',
   '/api/messaging/requests/[channelId]/status',
