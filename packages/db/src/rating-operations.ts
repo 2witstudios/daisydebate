@@ -168,6 +168,20 @@ async function rateOnce(
     throw createRefusal('CONFLICT', 'attendance-unsettled');
   if (eligibility.kind !== 'rated') return eligibility;
 
+  // Close waits for in-flight writes, but cannot move an already frozen Round.
+  const [season] = await tx
+    .select({ id: seasons.id })
+    .from(seasons)
+    .where(
+      and(
+        eq(seasons.id, eligibility.scope.seasonId),
+        eq(seasons.lobbyId, eligibility.scope.lobbyId),
+      ),
+    )
+    .for('share');
+  if (!season)
+    throw createAppError('INVARIANT', 'Missing frozen rating season');
+
   const [first, second] = round.rulesSnapshot.sides;
   if (round.rulesSnapshot.sides.length !== 2 || !first || !second)
     return { kind: 'unrated', reason: 'competition' };

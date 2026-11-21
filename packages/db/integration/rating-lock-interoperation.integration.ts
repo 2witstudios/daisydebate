@@ -1,6 +1,5 @@
 import { SQL } from 'bun';
 import { requireTestServices } from '@daisy/config';
-import { assertRejects } from '@daisy/errors/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { withRatings, ledgerOf } from './rating-fixtures';
 setupRitewayBun();
@@ -21,12 +20,12 @@ async function blockedBehind(
   throw Error('Expected database lock dependency was not observed');
 }
 
-async function holdRatingKey(actorId: string) {
+async function holdRatingKey(seasonId: string, actorId: string) {
   const client = new SQL(url, { max: 1 });
   const ready = Promise.withResolvers<number>();
   const release = Promise.withResolvers<void>();
   const work = client.begin(async (tx) => {
-    await tx`select pg_advisory_xact_lock(59090,hashtext(${'freestyle:open:' + actorId}))`;
+    await tx`select pg_advisory_xact_lock(59090,hashtext(${`freestyle:${seasonId}:${actorId}`}))`;
     const [row] = await tx`select pg_backend_pid() as pid`;
     ready.resolve(row!.pid as number);
     await release.promise;
@@ -44,7 +43,7 @@ async function holdRatingKey(actorId: string) {
 test('rating-held Round interoperates with the real account/erasure fence without reverse acquisition', async () => {
   await withRatings(url, async ({ fixture, rate, seated }) => {
     const round = await seated();
-    const blocker = await holdRatingKey(round.affirmative);
+    const blocker = await holdRatingKey(round.seasonId, round.affirmative);
     const writer = new SQL(url, { max: 1 });
     let posting: ReturnType<typeof rate> | undefined;
     let erasing: Promise<unknown> | undefined;
@@ -86,38 +85,35 @@ test('rating-held Round interoperates with the real account/erasure fence withou
   });
 });
 
-test('season closure waits for an in-flight posting, then later postings refuse unchanged', async () => {
+test('season closure waits for an in-flight posting and later writes honor the frozen pool', async () => {
   await withRatings(url, async ({ fixture, rate, seated }) => {
     const round = await seated();
-    const blocker = await holdRatingKey(round.affirmative);
+    const later = await seated({ affirmative: round.affirmative });
+    const blocker = await holdRatingKey(round.seasonId, round.affirmative);
     let posting: ReturnType<typeof rate> | undefined;
     let closing: Promise<unknown> | undefined;
     try {
       posting = rate(round.roundId);
       const ratingPid = await blockedBehind(fixture.sql, blocker.pid);
-      // Direct, and started now: the operation refuses pending DEC-111.
       closing =
         fixture.sql`update seasons set status='closed', ends_at=${new Date('2026-12-01T00:00:00.000Z')} where id=${round.seasonId}`.execute();
       await blockedBehind(fixture.sql, ratingPid);
       blocker.release();
       const result = await posting;
       await closing;
-      const later = await seated({ affirmative: round.affirmative });
-      await assertRejects({
-        given: 'a new posting after the shared season closes',
-        should: 'refuse without invoking unapproved carry-over',
-        actual: () => rate(later.roundId),
-        code: 'CONFLICT',
-      });
+      const delayed = await rate(later.roundId);
       assert({
-        given: 'a committed close concurrent with an already locked posting',
-        should: 'retain the original two changes and no late-season write',
+        given:
+          'a committed close concurrent with one posting and a second frozen Round',
+        should:
+          'retain both atomic postings under their original frozen season',
         actual: [
           result.kind,
           (await ledgerOf(fixture, round.roundId)).length,
+          delayed.kind === 'rated' && delayed.scope.seasonId,
           (await ledgerOf(fixture, later.roundId)).length,
         ],
-        expected: ['rated', 2, 0],
+        expected: ['rated', 2, round.seasonId, 2],
       });
     } finally {
       blocker.release();

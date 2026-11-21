@@ -44,6 +44,7 @@ import { createRatingSweep } from '../src/features/ratings/sweep';
 import { readLeagueLadder } from '../src/features/ratings/read-league-ladder';
 import { resolveSetting, roomChain } from '@daisy/protocol/setting-resolution';
 import { settingCommand } from '../src/features/tab/operations/settings';
+import { releaseCommand } from '../src/features/tab/operations/release-command';
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
 test('league ratings replay certified inputs and freeze the later tournament seed', async () => {
@@ -85,8 +86,10 @@ test('league ratings replay certified inputs and freeze the later tournament see
       resultsStage,
       standingsStage,
       completionStage,
-    ])
+    ]) {
       await run(world);
+      if (run === setupStage) await keepSourcePublicReleasesManual(world);
+    }
     const priorSeasonId = await openLeagueRatingSeason(world);
     await leagueRoomRating(world, 2);
     const closed = await lobbyAdministrationCommand({
@@ -127,6 +130,39 @@ test('league ratings replay certified inputs and freeze the later tournament see
     await scratch.drop();
   }
 }, 180_000);
+
+async function keepSourcePublicReleasesManual(world: World) {
+  const lobbyId = world.made.get('tournament-lobby')!;
+  const set = settingCommand({
+    store: createTabStore(world.database),
+    authorize,
+    now: world.clock.now,
+    newId: createId,
+  });
+  for (const thing of ['posting', 'decision'] as const) {
+    const [lobby] =
+      await world.sql`select settings_version from lobbies where id=${lobbyId}`;
+    const result = await set(as(world.bots.Director!), {
+      version: 1,
+      commandId: createId(),
+      expected: { settings: Number(lobby!.settings_version) },
+      command: {
+        type: 'set-setting',
+        scope: { kind: 'lobby', id: lobbyId },
+        key: `audience.${thing}`,
+        hold: 'default',
+        value: {
+          responsible_adults: 'at_once',
+          competitors: 'at_once',
+          participants: 'at_once',
+          link: 'at_once',
+          public: 'manual',
+        },
+      },
+    });
+    if (result.kind !== 'accepted') throw new Error(JSON.stringify(result));
+  }
+}
 
 async function publicRatingProgression(world: World) {
   const organizationId = world.made.get('league')!;
@@ -242,16 +278,39 @@ async function publicRatingProgression(world: World) {
         expected: [true, [1, 1], [1, 1]],
       });
       const rounds =
-        await world.sql`select distinct on (r.tab_round_id) r.tab_round_id,r.event_id,c.command_id
-      from results r join certification_results cr on cr.result_id=r.id
-      join certifications c on c.id=cr.certification_id where r.lobby_id=${tournamentId} order by r.tab_round_id,c.certified_at`;
-      for (const round of rounds) {
-        for (const thing of ['posting', 'decision'])
-          await world.sql`insert into releases
-      (id,lobby_id,event_id,tab_round_id,thing,audience,cause,command_id,opened_at)
-      values (${createId()},${tournamentId},${round.event_id},${round.tab_round_id},${thing},'public','at_once',${round.command_id},now())
-      on conflict (tab_round_id,thing,audience) do nothing`;
-      }
+        await world.sql`select distinct r.tab_round_id,r.event_id from results r
+        join certification_results cr on cr.result_id=r.id
+        where r.lobby_id=${tournamentId} order by r.tab_round_id`;
+      const send = releaseCommand({ store: tab, authorize, newId: createId });
+      const release = async (thing: 'posting' | 'decision') => {
+        for (const round of rounds) {
+          const opened = await send(as(world.bots.Director!), tournamentId, {
+            version: 1,
+            commandId: createId(),
+            expected: {},
+            command: {
+              type: 'open-audience',
+              eventId: String(round.event_id),
+              tabRounds: {
+                kind: 'one',
+                tabRoundId: String(round.tab_round_id),
+              },
+              audience: 'public',
+              thing,
+            },
+          });
+          if (opened.kind !== 'accepted')
+            throw new Error(JSON.stringify(opened));
+        }
+      };
+      await release('posting');
+      assert({
+        given: 'the source posting is public but its decision still waits',
+        should: 'keep the certified result out of public standings',
+        actual: [await read(), await counts()],
+        expected: [before, [hostBefore, memberBefore, outsiderBefore]],
+      });
+      await release('decision');
       const after = await read();
       const [hostAfter, memberAfter, outsiderAfter] = await counts();
       assert({
@@ -315,8 +374,9 @@ async function legacyRatingRecovery(world: World, priorSeasonId: string) {
         const row = board?.data.entries.find(({ id }) => id === actorId);
         return row && { games: row.played, wins: row.wins, rating: row.rating };
       };
-      const changes =
-        () => world.sql`select round_id,occurred_at,rating_before,rating_after
+      const changes = () => world.sql<
+        { round_id: string; rating_before: number; rating_after: number }[]
+      >`select round_id,rating_before,rating_after
       from rating_changes where actor_id=${actorId} and round_id in (${early},${late}) order by occurred_at`;
       const before = await publicStanding();
       assert({
@@ -348,7 +408,18 @@ async function legacyRatingRecovery(world: World, priorSeasonId: string) {
         actual: [failures, [...(await changes())], await publicStanding()],
         expected: [[early], [], before],
       });
-      await sweep({ limit: 100 });
+      const recovered = await sweep({ limit: 1 });
+      assert({
+        given:
+          'the earlier Room has posted and the second is still unmaterialized',
+        should: 'publish the same history once per Room',
+        actual: [
+          (await changes()).map(({ round_id }) => round_id),
+          await publicStanding(),
+        ],
+        expected: [[early], before],
+      });
+      await sweep({ limit: 100, afterId: recovered.afterId! });
       const posted = await changes();
       assert({
         given: 'the next recovery pass after that first write failure',
