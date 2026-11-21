@@ -115,27 +115,31 @@ export const completionCommand =
                           : [],
                       ),
                     );
-                    const openings = competitionReleases({
-                      competition: loaded.competition,
-                      openings: loaded.releases,
-                      screenings: completionScreenings(loaded).map((row) =>
-                        clear.has(row.ballotId)
-                          ? { ...row, status: 'clear' as const }
-                          : row,
-                      ),
-                      announcingBreak: command.type === 'announce-break',
-                      certifyingResultIds: writes.flatMap((write) =>
-                        write.table === 'certification_results'
-                          ? [write.row.resultId]
-                          : [],
-                      ),
-                    });
+                    const { opened, releaseResolutionWithPosting } =
+                      competitionReleases({
+                        competition: loaded.competition,
+                        openings: loaded.releases,
+                        screenings: completionScreenings(loaded).map((row) =>
+                          clear.has(row.ballotId)
+                            ? { ...row, status: 'clear' as const }
+                            : row,
+                        ),
+                        announcingBreak: command.type === 'announce-break',
+                        certifyingResultIds: writes.flatMap((write) =>
+                          write.table === 'certification_results'
+                            ? [write.row.resultId]
+                            : [],
+                        ),
+                      });
                     await session.apply(
                       [
                         ...writes,
-                        ...openings.map((opening): CompletionWrite => ({
+                        ...opened.map((opening): CompletionWrite => ({
                           table: 'releases',
                           op: 'insert',
+                          releasePinnedResolution:
+                            releaseResolutionWithPosting &&
+                            opening.thing === 'posting',
                           row: {
                             ...opening,
                             id: dependencies.newId(),

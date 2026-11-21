@@ -27,7 +27,7 @@ export const completionContextSchema = z.strictObject({
   target: z.discriminatedUnion('type', [
     z.strictObject({
       type: z.literal('open-audience'),
-      thing: z.enum(['decision', 'scores', 'reason', 'feedback']),
+      thing: z.enum(['posting', 'decision', 'scores', 'reason', 'feedback']),
       audience: z.enum(releaseAudiences),
       tabRoundId: idSchema,
     }),

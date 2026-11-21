@@ -11,8 +11,27 @@ import {
 import { destinationOf, idle, moved } from '../forms/form-state';
 import { assemblySnapshot } from './assembly.test-support';
 import { answerUnavailableOnThrow } from '../../ui/form-action/form-action';
+import { readRoomCreateAnswer } from './room-create-response';
 
 setupRitewayBun();
+test('a tournament resolution held by the host has a specific launch response', async () => {
+  const held = 'resolution-not-released';
+  assert({
+    given: 'a held tournament resolution',
+    should:
+      'explain the hold on launch and treat it as invalid settings on Room creation',
+    actual: [
+      commandRefusalText(held),
+      await readRoomCreateAnswer(
+        Response.json({ refusal: held }, { status: 409 }),
+      ),
+    ],
+    expected: [
+      'The tournament has not released the resolution. Try again after it opens.',
+      { kind: 'refused', reason: 'settings' },
+    ],
+  });
+});
 test('accepted Launch returns only the persisted Round destination', () => {
   const form = new FormData();
   form.set('type', 'start-round');

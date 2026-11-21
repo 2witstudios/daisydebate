@@ -11,7 +11,7 @@ import {
   lobbyPeopleCommandValues,
   type LobbyPeopleCommandState,
 } from '../../../features/tab/lobby-people-forms';
-import type { PeopleCommandModel } from './people-command-model';
+import type { PeopleCommandModel } from '../../../features/tab/people-command-model';
 import { PeopleCommandFields } from './people-command-fields';
 export function LobbyPeopleCommandForm({
   model,

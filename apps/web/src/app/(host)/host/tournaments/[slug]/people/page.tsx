@@ -11,7 +11,9 @@ import { People } from '../../../../../../ui/tab/people/people';
 import { readStoredHostNavigation } from '../../../read-navigation';
 import { readOwnRoute } from '../../../../../(shell)/friends/read-route';
 import { GET } from '../../../../../api/tab/lobby-people/route';
-import { lobbyPeopleControls } from './controls';
+import { systemId } from '@daisy/clock';
+import { LobbyPeopleCommandForm } from '../../../../../../ui/tab/people/lobby-people-command-form';
+import { lobbyPeopleCommandAction } from './actions';
 export const metadata: Metadata = { title: 'People' };
 
 export default async function Page({
@@ -41,8 +43,15 @@ export default async function Page({
         role: typeof role === 'string' ? role : null,
         basePath: hostRoutes.people(slug),
         viewerId: identity.principal.userId,
+        handle: slug,
+        nextId: systemId.next,
       })}
-      controls={lobbyPeopleControls(view, slug)}
+      renderCommand={({ model, context }) => (
+        <LobbyPeopleCommandForm
+          model={model}
+          action={lobbyPeopleCommandAction.bind(null, context)}
+        />
+      )}
     />
   );
 }

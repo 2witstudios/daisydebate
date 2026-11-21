@@ -42,14 +42,14 @@ describe('TournamentsInfo', () => {
     assert({
       given: 'a viewer Daisy Tab is released to, and one it is not',
       should:
-        'say early access is open to the first and rolling out to the second, linking nowhere and claiming no hybrid',
+        'say early access is open to the first and rolling out to the second, linking to the tournament directory for the released viewer',
       actual: [
         released.includes('Tabulation is open to your account in early access'),
         html.includes('Tabulation is rolling out in early access'),
-        released.includes('<a '),
+        released.includes('href="/tournaments/directory"'),
         released.includes('hybrid') || html.includes('hybrid'),
       ],
-      expected: [true, true, false, false],
+      expected: [true, true, true, false],
     });
   });
 });

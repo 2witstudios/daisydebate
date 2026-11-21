@@ -8,6 +8,7 @@ import {
 import { fixtureConnections } from './fixture-conflict';
 import { and, eq, getTableColumns } from 'drizzle-orm';
 import { actors } from '../schema/actors';
+import { tabRounds } from '../schema/events';
 import { fixtures } from '../schema/fixtures';
 import { rooms } from '../schema/rooms';
 import { scopeTransaction } from '../tenant-scope';
@@ -114,6 +115,17 @@ const loadFixtureRoomDirection = async (
         .from(actors)
         .where(eq(actors.userId, configuration.lobby.ownerUserId))
     : [];
+  const [tabRound] = await tx
+    .select({
+      releasedAt: tabRounds.resolutionReleasedAt,
+    })
+    .from(tabRounds)
+    .where(
+      and(
+        eq(tabRounds.id, fixture.tabRoundId),
+        eq(tabRounds.lobbyId, fixture.lobbyId),
+      ),
+    );
   const connections = await fixtureConnections(tx, {
     fixtureId: fixture.id,
     roomId: input.room.id,
@@ -131,6 +143,7 @@ const loadFixtureRoomDirection = async (
     authorization,
     ownerActorId: owner?.actorId ?? null,
     fixtureId: fixture.id,
+    resolutionReleasedAt: tabRound?.releasedAt ?? null,
     connections,
     readWaiverId: await readFixtureReadWaiver(tx, {
       lobbyId: fixture.lobbyId,

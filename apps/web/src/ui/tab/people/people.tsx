@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import type { TabAction } from '../../../features/tab/action';
 import Link from 'next/link';
 import type { People as Read } from '../../../features/tab/people';
 import type { TimelineRail } from '../../../features/tab/tournament';
@@ -14,18 +15,24 @@ import { eyebrowClass, ListCard, ListRow } from '../list-card/list-card';
  * Members with the grants they hold, and Daisy's preset roles with what each
  * allows. A role is shown, never edited: making your own comes later.
  */
-export function People({
+export function People<Command>({
   rail,
   people,
-  controls,
+  renderCommand,
 }: {
   readonly rail: TimelineRail;
-  readonly people: Read;
-  readonly controls?: {
-    readonly give: ReactNode;
-    readonly people: readonly ReactNode[];
-  };
+  readonly people: Read<Command>;
+  readonly renderCommand: (command: Command) => ReactNode;
 }) {
+  const renderAction = (action: TabAction<Command> | null, about?: string) =>
+    action === null ? null : action.kind === 'command' ? (
+      renderCommand(action.command)
+    ) : (
+      <ActionButton
+        action={action}
+        {...(about ? { about, size: 'small' as const } : {})}
+      />
+    );
   return (
     <HostShell
       rail={rail}
@@ -78,13 +85,11 @@ export function People({
             People
           </span>
         }
-        actions={
-          controls ? controls.give : <ActionButton action={people.give} />
-        }
+        actions={renderAction(people.give)}
       />
       <ListCard>
         <ul>
-          {people.people.map((person, index) => (
+          {people.people.map((person) => (
             <ListRow
               key={person.id}
               title={person.name}
@@ -100,16 +105,10 @@ export function People({
               }
               tone={person.conflict === null ? 'plain' : 'selected'}
               trailing={
-                controls ? (
-                  controls.people[index]
-                ) : person.owner ? (
+                person.owner ? (
                   <span className="text-sm text-ink-muted">Everything</span>
-                ) : person.action === null ? null : (
-                  <ActionButton
-                    size="small"
-                    action={person.action}
-                    about={person.name}
-                  />
+                ) : (
+                  renderAction(person.action, person.name)
                 )
               }
             />

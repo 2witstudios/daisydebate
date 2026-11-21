@@ -71,6 +71,8 @@ const round = (
   poolResolutionId: null,
   version: 1,
   drawPublished: false,
+  resolutionReleased: false,
+  resolutionPoolId: null,
   ...overrides,
 });
 
@@ -688,6 +690,30 @@ describe('tab rounds', () => {
     name: null,
     resolution: null,
   };
+  test('preserves released wording before the draw is published', () => {
+    const released = round('r2', {
+      resolutionReleased: true,
+      resolutionPoolId: id('pool'),
+      poolResolutionId: id('fixed'),
+    });
+    const input = facts({ tabRounds: [released] });
+    assert({
+      given: 'an unpublished round whose resolution is already released',
+      should: 'refuse clearing or replacing the released wording',
+      actual: refusals([
+        [input, update],
+        [
+          input,
+          {
+            ...update,
+            resolution: { poolId: id('pool'), poolResolutionId: id('spare') },
+          },
+        ],
+      ]),
+      expected: ['resolution-released', 'resolution-released'],
+    });
+  });
+
   test('updates a tab round until its draw is published', () => {
     assert({
       given: 'an unpublished tab round cleared of its name and pool',

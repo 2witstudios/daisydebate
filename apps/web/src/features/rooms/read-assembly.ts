@@ -53,6 +53,7 @@ export type RoomRead =
 export async function readAssembly(
   fetch: FetchLike,
   id: string,
+  kind?: 'event',
 ): Promise<
   | {
       readonly kind: 'found';
@@ -65,7 +66,7 @@ export async function readAssembly(
   if (!idSchema.safeParse(id).success) return { kind: 'missing' };
   const result = await readProjection(
     fetch,
-    `/api/rooms/${id}`,
+    `/api/rooms/${id}${kind === 'event' ? '?kind=event' : ''}`,
     roomViewSchema,
   );
   if (result.kind !== 'found') return result;

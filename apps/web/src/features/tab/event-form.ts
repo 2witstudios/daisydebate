@@ -4,6 +4,7 @@ import { idSchema, ballotDefinitionPinSchema } from '@daisy/protocol';
 import {
   lobbySetupCommandEnvelopeSchema,
   entryShapeSchema,
+  tabRoundResolutionSchema,
 } from '@daisy/protocol/lobby/lobby-setup-command';
 import {
   eventPinOptionSchema,
@@ -24,6 +25,7 @@ export const eventFormContextSchema = z.strictObject({
   handle: z.string().min(1).max(80),
   lobbyId: idSchema,
   returnEventId: idSchema.nullable(),
+  returnTo: z.enum(['events', 'resolutions']).optional(),
   commandId: idSchema,
   lobbyVersion: z.int().positive(),
   target: z.discriminatedUnion('kind', [
@@ -46,6 +48,7 @@ export const eventFormContextSchema = z.strictObject({
       kind: z.literal('edit-round'),
       tabRoundId: idSchema,
       resolutionChoices: z.array(eventResolutionChoiceSchema),
+      lockedResolution: tabRoundResolutionSchema.optional(),
     }),
     z.strictObject({ kind: z.literal('add-slot') }),
     z.strictObject({
@@ -127,7 +130,9 @@ export function eventFormEnvelope(value: EventFormContext, form: FormData) {
       timeSlotId: id || null,
     };
   } else if (target.kind === 'add-round' || target.kind === 'edit-round') {
-    const key = singleFormField(form, 'resolution'),
+    const locked =
+      target.kind === 'edit-round' ? target.lockedResolution : undefined;
+    const key = locked === undefined ? singleFormField(form, 'resolution') : '',
       choice = target.resolutionChoices.find((option) => option.key === key);
     if (key !== '' && !choice) throw createAppError('VALIDATION');
     command = {
@@ -137,7 +142,7 @@ export function eventFormEnvelope(value: EventFormContext, form: FormData) {
         ? { stageId: target.stageId }
         : { tabRoundId: target.tabRoundId }),
       name: singleFormField(form, 'name').trim() || null,
-      resolution: choice?.resolution ?? null,
+      resolution: locked === undefined ? (choice?.resolution ?? null) : locked,
     };
   } else if (target.kind === 'add-resolution') {
     const id = singleFormField(form, 'poolId');

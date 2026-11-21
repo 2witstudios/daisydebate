@@ -107,5 +107,10 @@ export function competitionReleases(input: {
       }
     }
   }
-  return opened;
+  const rule = settings['resolution.rule'].value;
+  return {
+    opened,
+    releaseResolutionWithPosting:
+      rule.method !== 'strike' && rule.release === 'with_posting',
+  };
 }

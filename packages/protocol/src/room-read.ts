@@ -64,6 +64,7 @@ export const roomRefusalSchema = z.enum([
   'not-seated',
   'incomplete-cast',
   'not-ready',
+  'resolution-not-released',
   'readiness-unavailable',
   'command-conflict',
   'consent-conflict',
