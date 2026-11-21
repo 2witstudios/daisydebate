@@ -254,6 +254,7 @@ async function fixture(
       host,
       guest,
     },
+    ready = true,
   ) => {
     let view = (await create(overrides, cast.host)).view;
     view = (
@@ -268,8 +269,9 @@ async function fixture(
         seat: sideSeat(negativeSide),
       })
     ).view;
-    for (const c of [cast.host, cast.guest])
-      view = (await consent(c, view, 'ready')).view;
+    if (ready)
+      for (const c of [cast.host, cast.guest])
+        view = (await consent(c, view, 'ready')).view;
     return operations.view(cast.host, view.id);
   };
   const afterRooms: (() => Promise<void>)[] = [];

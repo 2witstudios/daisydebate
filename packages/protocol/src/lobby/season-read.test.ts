@@ -80,8 +80,9 @@ describe('season reads', async () => {
   test('a season', () => {
     assert({
       given:
-        'a season, a month that is not one, a counting the vocabulary lacks, an extra field',
-      should: 'accept only the first',
+        'a season, invalid calendar and counting values, a malformed lobby and an old division field',
+      should:
+        'accept the lobby-owned season and refuse the invalid or retired fields',
       actual: [
         outcome(seasonViewSchema, season),
         outcome(seasonViewSchema, {
@@ -91,9 +92,19 @@ describe('season reads', async () => {
           ],
         }),
         outcome(seasonViewSchema, { ...season, counting: 'all' }),
-        outcome(seasonViewSchema, { ...season, stored: true }),
+        outcome(seasonViewSchema, {
+          ...season,
+          lobby: { ...season.lobby, ageRule: 'youth' },
+        }),
+        outcome(seasonViewSchema, { ...season, division: 'youth' }),
       ],
-      expected: ['ok', ['calendar.0.when.month'], ['counting'], ['(root)']],
+      expected: [
+        'ok',
+        ['calendar.0.when.month'],
+        ['counting'],
+        ['lobby.ageRule'],
+        ['(root)'],
+      ],
     });
   });
 

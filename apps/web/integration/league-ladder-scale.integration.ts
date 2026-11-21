@@ -1,4 +1,7 @@
-import { leagueRoomRating } from './league-room-rating.test-support';
+import {
+  leagueRoomRating,
+  openLeagueRatingSeason,
+} from './league-room-rating.test-support';
 import { requireTestServices } from '@daisy/config';
 import {
   scratchDatabase,
@@ -103,6 +106,7 @@ test('a league ladder of 5,000 posted games reads well under a second', async ()
       await run(world);
     // One league-rated Round made by the real Room Ready, Start and forfeit
     // operations is the template every seeded game copies.
+    await openLeagueRatingSeason(world);
     await leagueRoomRating(world);
     const lobbyId = world.made.get('standing-lobby')!;
     const [ladder] =

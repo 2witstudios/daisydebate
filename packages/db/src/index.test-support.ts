@@ -75,6 +75,7 @@ export const roundRow = (record: {
   roomId: string | null;
   createdByActorId: string | null;
   visibility?: string | null;
+  standingAgeRule?: string | null;
   roomConfigSnapshot?: unknown;
   resolution: string;
   competitionType: CompetitionType;
@@ -87,9 +88,9 @@ export const roundRow = (record: {
   /** The winning side; a ranking is never mocked here. */
   outcome: string | null;
   judging?: unknown;
-  leagueLadderId?: string | null;
   ladderId: string | null;
-  ladderDivision?: string | null;
+  seasonId?: string | null;
+  ratingLobbyId?: string | null;
   startedAt: string | null;
   completedAt: string | null;
   checkpoint: unknown;
@@ -104,6 +105,7 @@ export const roundRow = (record: {
   record.createdByActorId,
   false,
   record.visibility ?? null,
+  record.standingAgeRule ?? null,
   record.resolution,
   null,
   record.competitionType,
@@ -124,9 +126,9 @@ export const roundRow = (record: {
   record.judging ?? null,
   null, // generated stored-ballot identity (Daisy/unjudged fixture)
   null, // generated stored-ballot version
-  record.leagueLadderId ?? null,
   record.ladderId,
-  record.ladderDivision ?? (record.ladderId === null ? null : 'open'),
+  record.seasonId ?? null,
+  record.ratingLobbyId ?? null,
   record.startedAt === null ? null : new Date(record.startedAt),
   record.completedAt === null ? null : new Date(record.completedAt),
   record.checkpoint,
