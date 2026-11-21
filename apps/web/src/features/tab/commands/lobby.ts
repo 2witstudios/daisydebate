@@ -12,7 +12,6 @@ import type {
   OrganizationKind,
   TournamentStatus,
 } from '@daisy/protocol/lobby';
-import type { LobbyAgeRule } from '@daisy/protocol/lobby/eligibility';
 import type { SettingValues } from '@daisy/protocol/setting-values';
 import { refuse, type CommandDecision } from './run-command';
 
