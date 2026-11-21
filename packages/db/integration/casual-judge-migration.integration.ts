@@ -33,6 +33,7 @@ import {
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
 const predecessor = '20261107025259_round_floor_authority';
+const billingMigration = '20261107080513_fair_midnight';
 /**
  * The backfill as today's schema spells it: TAB-6 later stored a seat's role
  * as its kind, and the statement is replayed after every migration.
@@ -41,7 +42,7 @@ const replayable = (statement: string) =>
   statement.replaceAll("p.role='judge'", "p.seat_kind='judge'");
 
 const migrationPath = new URL(
-  '../migrations/20261107080513_fair_midnight/migration.sql',
+  `../migrations/${billingMigration}/migration.sql`,
   import.meta.url,
 );
 const source = {
@@ -75,12 +76,27 @@ test(
           for (const mode of judgeCases.filter((mode) => mode !== 'existing'))
             seeded.push(await seedHistoricalJudge(f, mode));
           const beforeMigration = Date.now();
-          await scratch.migrate(() => true);
+          await scratch.migrate((folder) => folder <= billingMigration);
           const afterMigration = Date.now();
+          const ranked = seeded.find((row) => row.mode === 'ranked')!;
+          assert({
+            given: 'a live ranked AI judge at the historical billing boundary',
+            should: 'create no casual judge reservation',
+            actual: await f.count(
+              'usage_reservations',
+              'round_id',
+              ranked.roundId,
+            ),
+            expected: 0,
+          });
+          // This control tests billing's exclusion of ranked play. The later
+          // rating upgrade requires live ranked Rounds to have a real pool.
+          await f.sql`delete from rounds where id=${ranked.roundId}`;
+          await scratch.migrate(() => true);
           // A judge debit cannot exist in main99; test existing-key retention on the final schema.
           seeded.push(await seedHistoricalJudge(f, 'existing'));
           const facts = [];
-          for (const row of seeded) {
+          for (const row of seeded.filter(({ mode }) => mode !== 'ranked')) {
             const [usage] =
               await f.sql`select id,actor_id,source,state,reserved_at,binds_free_judge from usage_reservations where round_id=${row.roundId} and kind='casual_ai_judge'`;
             if (!usage) {
@@ -132,28 +148,30 @@ test(
             should:
               'attribute only missing casual AI judges to their frozen human sponsor and original beta month, using actual dispatch evidence without inventing relief',
             actual: facts,
-            expected: judgeCases.map((mode) => {
-              const state = expectedStates[mode];
-              if (!state) return [mode, null];
-              const counted = state !== 'reserved' && state !== 'released';
-              return [
-                mode,
-                true,
-                mode === 'existing' ? { kind: 'lifetime' } : source,
-                state,
-                counted
-                  ? mode === 'missing_attempt'
-                    ? 'migration_observation'
-                    : ['reconstructed', 'legacy_failed'].includes(mode)
-                      ? originalAnswer
-                      : originalDispatch
-                  : null,
-                counted ? 'historical_observation' : null,
-                originalAdmission,
-                false,
-                true,
-              ];
-            }),
+            expected: judgeCases
+              .filter((mode) => mode !== 'ranked')
+              .map((mode) => {
+                const state = expectedStates[mode];
+                if (!state) return [mode, null];
+                const counted = state !== 'reserved' && state !== 'released';
+                return [
+                  mode,
+                  true,
+                  mode === 'existing' ? { kind: 'lifetime' } : source,
+                  state,
+                  counted
+                    ? mode === 'missing_attempt'
+                      ? 'migration_observation'
+                      : ['reconstructed', 'legacy_failed'].includes(mode)
+                        ? originalAnswer
+                        : originalDispatch
+                    : null,
+                  counted ? 'historical_observation' : null,
+                  originalAdmission,
+                  false,
+                  true,
+                ];
+              }),
           });
           const late = seeded.find((row) => row.mode === 'late_unknown')!;
           if (!late.execution)
