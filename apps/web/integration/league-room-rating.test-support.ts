@@ -254,6 +254,7 @@ export async function leagueRoomRating(
     await world.sql.begin(async (tx) => {
       await tx`alter table rounds disable trigger rounds_rating_pool_immutable`;
       await tx`update rounds set legacy_league_rating=true where id=${roundId}`;
+      await tx`set constraints all immediate`;
       await tx`alter table rounds enable trigger rounds_rating_pool_immutable`;
     });
     return roundId;

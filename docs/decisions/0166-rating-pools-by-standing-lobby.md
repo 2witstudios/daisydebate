@@ -8,7 +8,9 @@ A standing lobby owns its ladders and one active season. A Round freezes
 its own lobby's ladder and active season together at Start. Every rating
 posting names that pool and an eligible competitor on the Round. The ledger
 retains posted states and timestamps, and each projection uses the same
-actor, ladder and season identity. Historical postings keep their original
+actor, ladder and season identity. Closing the season waits for in-flight
+postings. Rounds already frozen to that season can settle there afterward.
+Historical postings keep their original
 season where it belongs to their Room's lobby. Where several standing
 lobbies shared an old rating period, the other lobbies receive their own
 copy of that period and its standings rule. Each posting follows its Room.
