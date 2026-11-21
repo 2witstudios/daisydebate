@@ -128,7 +128,7 @@ async function routeWaitingInvitation(
     (pending.status === 'open' || linkId !== null) &&
     !(await session.linkRequest(pending.id, linkId, new Date(at)))
   )
-    throw createAppError('CONFLICT');
+    throw reservationLost;
   return mailed(
     pending.email,
     linkId || current?.status === 'requested'
@@ -446,7 +446,7 @@ export function runGuardianCommand(
   }
 }
 
-/** A conflicting address reservation leaves no evidence or token for a losing request. */
+/** A conflicting invitation write leaves no evidence or token for a losing request. */
 export async function submitGuardianCommand(
   store: Database['guardians'],
   caller: Caller,
