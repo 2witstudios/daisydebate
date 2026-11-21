@@ -132,7 +132,7 @@ const load = async (
         .where(eq(actors.userId, row.ownerUserId))
     : [];
   const [season] =
-    command.type === 'close-season'
+    'seasonId' in command
       ? await tx
           .select()
           .from(seasons)
@@ -155,7 +155,15 @@ const load = async (
     ? await tx
         .select({ id: ladders.id })
         .from(ladders)
-        .where(eq(ladders.lobbyId, row.id))
+        .where(
+          and(
+            eq(ladders.lobbyId, row.id),
+            command.type === 'save-ladder' && command.ladderId !== null
+              ? eq(ladders.id, command.ladderId)
+              : undefined,
+          ),
+        )
+        .limit(1)
     : [];
   const [referencedRoom] = ladder
     ? await tx
@@ -199,6 +207,7 @@ const load = async (
           id: season.id,
           organizationId: season.organizationId,
           status: season.status as 'active' | 'closed',
+          startsAt: season.startsAt.toISOString(),
           version: season.version,
         }
       : null,

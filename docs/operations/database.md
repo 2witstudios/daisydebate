@@ -155,7 +155,7 @@ of 200 rows, up to 200 batches per run (40,000 rows/run), sized against an
 expected write rate of 10 rows/s (36,000 rows/hour) so one run always clears
 a full hour's growth with headroom.
 
-**Rating seasons (ADR 0055).** Each standing lobby owns its seasons and has at most one active season. The operator CLI remains available pending retirement under [ADR 0162](../decisions/0162-daisy-is-a-league-open-and-youth-are-lobbies.md). `bun season activate-beta` opens Season 1 on the default Open and Youth lobbies, with the `beta-season-1` activation key scoped to each lobby. `bun season open --name "<name>" --lobby <lobbyId> [--starts <ISO>]` opens the first season on an official standing lobby. `--division <open|youth>` selects the corresponding default lobby. The CLI refuses another season or closure while DEC-111 remains open. IDs are Cuid2 and the default start time is now. Opening the first production season remains a human-only task (RATE-H.1).
+**Rating seasons (ADR 0055 and ADR 0162).** A league manager opens, edits and closes a season under Host → League → Standing lobbies → Manage. Each lobby has at most one active season. Closing pauses ranked play in that lobby and preserves its standings. Opening the first production season remains a human-only task (RATE-H.1).
 
 Database availability is necessary but not sufficient readiness. Deployers must ensure migrations are applied, monitor storage/replication/backup lag, enforce TLS for remote database and Redis connections, and set network access policy. Local plaintext credentials are intentionally confined to loopback. Redis persistence is off locally to expose accidental reliance on durable cache state.
 
@@ -350,35 +350,7 @@ verify workflow `DEPLOY_SHA`, image `GIT_COMMIT` and the health response deploym
 the eligible merged candidate. A branch image or an unreviewed newer main tip
 is not the approved operation.
 
-On that deployed staging web image, the authorized operator runs:
-
-```sh
-fly ssh console -a daisy-debate-staging -C 'bun /app/scripts/season.ts activate-beta'
-fly ssh console -a daisy-debate-staging -C 'bun /app/scripts/season.ts list'
-```
-
-The image includes the command; it uses the existing `daisy_web` runtime
-`DATABASE_URL`, never migration-owner credentials. Record each returned season's cuid2
-ID, division, status, actual UTC database start instant and `beta-season-1` activation
-key (verify the key with an authorized read). On a database whose Open season is
-already active, the first run opens only the Youth season. Run activate-beta again and
-verify exactly the same IDs/starts/statuses, unchanged standing/ledger counts and
-no new season. Compare the full standing rows before and after the retry in the
-authorized local operator session, not only their counts; publish scrubbed proof.
-These nonmutating verification queries run in a read-only transaction:
-
-```sql
-BEGIN READ ONLY;
-SELECT id, name, activation_key, starts_at, ends_at, status, version
-FROM seasons ORDER BY starts_at, id;
-SELECT ladder, season_id, count(*) FROM ratings GROUP BY ladder, season_id;
-SELECT ladder, season_id, count(*) FROM rating_changes GROUP BY ladder, season_id;
-SELECT actor_id, ladder, season_id, rating, deviation, volatility, version
-FROM ratings ORDER BY actor_id, ladder, season_id;
-COMMIT;
-```
-
-An existing closed Season 1 is returned closed; it is never reopened. Any competing season refuses. No start date can be supplied.
+In the deployed staging app, a league manager opens the season under Host → League → Standing lobbies. Check the name, start date and active status on the specific lobby and verify that the member leaderboard shows its season. Keep competitive records intact if an operation needs investigation.
 
 Authorized beta checks cover the Freestyle ladder (ADR 0142): native opt-in setup,
 selected resolution/strike freeze, eligible human/AI judged and forfeit result,
@@ -390,13 +362,9 @@ RATE-5 until this operation occurs after deployment; isolated proofs and code
 merge-readiness do not claim it.
 
 If preflight refuses, stop migration and obtain explicit disposition. If a
-migration fails, retain its transactional failure evidence and repair forward;
-do not reset or change journal rows. If deployment/version verification fails,
-stop before activation and use the existing deploy incident process. If
-activation times out, inspect/list and retry the identical command: never
-close the season to compensate. Once competitive data commits, preserve
-it and repair forward. Operator rollover and carry-over require DEC-111 resolution.
-RATE-H.1 still gates the first production activation.
+migration fails, retain its transactional failure evidence and repair forward.
+If deployment verification fails, use the existing deploy incident process.
+RATE-H.1 gates the first production season.
 
 The main99 Billing candidate uses ordinary `SET CONSTRAINTS ALL IMMEDIATE`
 before final usage/analysis DDL and installs immutable guards after conversion.

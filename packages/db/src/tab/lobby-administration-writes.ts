@@ -21,6 +21,7 @@ type Update<Table extends string, Row> = {
   readonly set: Partial<Row>;
 };
 type LobbyRow = {
+  readonly ageRule: LobbyAgeRule;
   readonly name: string;
   readonly closedAt: string | null;
   readonly version: number;
@@ -82,6 +83,7 @@ export type LobbyAdministrationWrite =
         readonly name: string;
       }
     >
+  | Update<'ladders', { readonly name: string }>
   | { readonly table: 'ladders'; readonly op: 'delete'; readonly id: string };
 
 const one = (rows: readonly unknown[]) => {
@@ -138,9 +140,15 @@ const apply = async (
         await tx
           .update(seasons)
           .set({
+            name: write.set.name,
             status: write.set.status,
             version: write.set.version,
-            endsAt: sql`coalesce(${seasons.endsAt}, greatest(statement_timestamp(), ${seasons.startsAt}+interval '1 millisecond'))`,
+            endsAt:
+              write.set.status === 'closed'
+                ? sql`coalesce(${seasons.endsAt}, greatest(statement_timestamp(), ${seasons.startsAt}+interval '1 millisecond'))`
+                : write.set.endsAt === undefined
+                  ? undefined
+                  : at(write.set.endsAt),
           })
           .where(eq(seasons.id, write.id))
           .returning({ id: seasons.id }),
@@ -155,6 +163,14 @@ const apply = async (
         await tx.insert(ladders).values(write.row);
         return;
       }
+      if (write.op === 'update')
+        return one(
+          await tx
+            .update(ladders)
+            .set(write.set)
+            .where(eq(ladders.id, write.id))
+            .returning({ id: ladders.id }),
+        );
       return one(
         await tx
           .delete(ladders)

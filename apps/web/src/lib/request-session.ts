@@ -1,3 +1,5 @@
+import { readHostNavigation } from '../features/tab/reads/host-navigation';
+import { readStandingLobbyManagement } from '../features/tab/reads/standing-lobby-management';
 import {
   defaultStandingLobby,
   mayDebate,
@@ -635,6 +637,45 @@ export async function requestRoomDraftAnswer(
     source,
   );
 }
+
+export const requestHostedLeagues = async () => {
+  const identity = await requestIdentity();
+  if (identity.state !== 'member') return [];
+  const { principal } = identity;
+  const app = processApp();
+  const store = app.database.tabCommands;
+  const candidates = await store.hostedLeagueCandidates(principal.userId);
+  const read = readHostNavigation({ store, authorize, now: app.clock.now });
+  const listed = await Promise.all(
+    candidates.map(async (league) => {
+      const access = await read(principal, {
+        kind: 'organization',
+        id: league.id,
+      });
+      return access ? league : null;
+    }),
+  );
+  return listed.filter((league) => league !== null);
+};
+
+export const requestStandingLobbyManagement = async (handle: string) => {
+  const identity = await requestIdentity();
+  if (
+    identity.state !== 'member' ||
+    !(await requestReleaseEnabled('daisy-tab', identity.principal.userId))
+  )
+    return null;
+  const app = processApp();
+  const store = app.database.tabCommands;
+  const organizationId = await store.organizationIdOfHandle(handle);
+  return organizationId
+    ? readStandingLobbyManagement(
+        { store, authorize, now: app.clock.now() },
+        identity.principal,
+        organizationId,
+      )
+    : null;
+};
 
 /** Live league page binding with this request's durable principal and account-targeted release gate. */
 export const requestLeaguePage = async (

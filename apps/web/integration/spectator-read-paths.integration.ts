@@ -1,7 +1,7 @@
 import { eventBallotAccess } from '../src/features/round-ballots/audience';
 import { assertRejects } from '@daisy/errors/testing';
 import { requireTestServices } from '@daisy/config';
-import { withSeasons } from '@daisy/db/seasons';
+import { seedRatingSeason } from '@daisy/db/testing';
 import {
   captureRule,
   RANKED_DELAY_SECONDS,
@@ -65,9 +65,7 @@ test('every public and member read holds a ranked outcome until release', async 
     const previousSeasonId = createId();
     const discoveryTitle = `Starting ranked ${createId()}`;
     try {
-      const season = await withSeasons(process.env['TEST_DATABASE_URL']!, (s) =>
-        s.activateBetaSeason({ id: seasonId, division: 'open' }),
-      );
+      const season = await seedRatingSeason(f.sql, seasonId);
       const frozen = await frozenRankedRound(f, 'freestyle', 'human');
       roundId = frozen.roundId;
       const ballot = {

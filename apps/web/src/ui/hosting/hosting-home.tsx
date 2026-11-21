@@ -1,3 +1,5 @@
+import { ActionButton } from '../tab/action-control/action-control';
+import { linkTo } from '../../features/tab/action';
 import type { ReactNode } from 'react';
 import type { HostedTournamentsView } from '@daisy/protocol/lobby/hosting-read';
 import type { TimelineRail } from '../../features/tab/tournament';
@@ -21,6 +23,7 @@ const linkButton = (variant: 'primary' | 'secondary' | 'ghost') =>
 export function HostingHome({
   rail,
   hosted,
+  leagues,
   open,
   newHref,
   closeHref,
@@ -29,6 +32,11 @@ export function HostingHome({
 }: {
   readonly rail: TimelineRail;
   readonly hosted: HostedTournamentsView;
+  readonly leagues: readonly {
+    readonly id: string;
+    readonly name: string;
+    readonly href: string;
+  }[];
   /** Whether the start panel is open. */
   readonly open: boolean;
   readonly newHref: string;
@@ -87,6 +95,26 @@ export function HostingHome({
             </section>
           </div>
         </section>
+      ) : null}
+      {leagues.length > 0 ? (
+        <ListCard>
+          <ListHeading>Your leagues</ListHeading>
+          <ul>
+            {leagues.map((league) => (
+              <ListRow
+                key={league.id}
+                title={league.name}
+                trailing={
+                  <ActionButton
+                    size="small"
+                    about={league.name}
+                    action={linkTo('Open league', league.href)}
+                  />
+                }
+              />
+            ))}
+          </ul>
+        </ListCard>
       ) : null}
       <ListCard>
         <ListHeading>Coming up</ListHeading>

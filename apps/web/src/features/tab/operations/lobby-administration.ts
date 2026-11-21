@@ -161,6 +161,8 @@ export const lobbyAdministrationCommand =
                     if (
                       command.type === 'update-lobby' ||
                       command.type === 'set-ladder' ||
+                      command.type === 'save-ladder' ||
+                      command.type === 'edit-standing-lobby' ||
                       command.type === 'set-tournament-status'
                     )
                       return { kind: 'lobby', lobbyId: command.lobbyId };
@@ -213,4 +215,7 @@ export const isLobbyAdministration = (command: {
     'create-season',
     'close-season',
     'set-ladder',
+    'save-ladder',
+    'edit-season',
+    'edit-standing-lobby',
   ].includes(command.type);

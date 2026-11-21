@@ -9,7 +9,6 @@
     "./dev-seed": "./src/dev-seed.ts",
     "./catalog-formats": "./src/catalog-formats.ts",
     "./reference-formats": "./src/reference-formats.ts",
-    "./seasons": "./src/seasons.ts",
     "./slots": "./src/slots.ts",
     "./tenant-isolation": "./src/tenant-isolation.ts",
     "./test-runs": "./src/test-runs.ts",

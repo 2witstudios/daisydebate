@@ -8,9 +8,8 @@ import {
   roundWaitingOn,
 } from '@daisy/debate-engine';
 import { randomBytes } from 'node:crypto';
-import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
-import { withSeasons } from '@daisy/db/seasons';
+import { seedRatingSeason } from '@daisy/db/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { ratingStyles, sideOfSeat, type SeatRef } from '@daisy/protocol';
 import {
@@ -35,7 +34,6 @@ import { readMemberStandings } from '../src/features/ratings/read-member';
 import { readRoundRatings } from '../src/features/ratings/read-round';
 import { botAdmissionForTests } from './bot-admission.test-support';
 setupRitewayBun();
-const { databaseUrl } = requireTestServices(process.env);
 /** The stored seat order a Round reads in: by side, else by seat kind (as before TAB-6). */
 const storedOrderKey = (seat: SeatRef) => sideOfSeat(seat) ?? seat.kind;
 
@@ -48,9 +46,7 @@ for (const ladder of ratingStyles)
             const seasonId = createId();
             let roundId: string | undefined;
             try {
-              const season = await withSeasons(databaseUrl, (s) =>
-                s.activateBetaSeason({ id: seasonId, division: 'open' }),
-              );
+              const season = await seedRatingSeason(f.sql, seasonId);
               const room = await readyRankedRoom(f, ladder, judgeKind);
               ({ roundId } = await launchRuntimeRound(f, room));
               await runRankedOpening(f, roundId);

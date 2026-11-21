@@ -12,7 +12,7 @@ import {
 } from '../../../features/leaderboard/query';
 import {
   requestLadder,
-  requestOfficialRatingLadders,
+  requestOfficialStandingLobbies,
   requestLandingLobby,
 } from '../../../lib/request-session';
 import { Leaderboard } from '../../../ui/leaderboard/leaderboard';
@@ -27,13 +27,13 @@ export default async function LeaderboardPage({
 }) {
   const query = parseLadderQuery(await searchParams);
   const now = systemClock.now();
-  const available = await requestOfficialRatingLadders();
+  const available = await requestOfficialStandingLobbies();
   const landingId =
     query.lobby || query.division ? null : (await requestLandingLobby())?.id;
   const chosen = query.lobby
-    ? available.find(({ lobbyId }) => lobbyId === query.lobby)
+    ? available.find(({ id }) => id === query.lobby)
     : query.division === null
-      ? available.find(({ lobbyId }) => lobbyId === landingId)
+      ? available.find(({ id }) => id === landingId)
       : available.find(
           ({ ageRule }) => ratingDivisionForAgeRule(ageRule) === query.division,
         );
@@ -41,7 +41,7 @@ export default async function LeaderboardPage({
   const read =
     lobby &&
     (await requestLadder({
-      lobbyId: lobby.lobbyId,
+      lobbyId: lobby.id,
       seasonId: query.season,
       ladder: boardLadder(ratingDivisionForAgeRule(lobby.ageRule), null),
       now,
@@ -51,17 +51,21 @@ export default async function LeaderboardPage({
       <div className="p-6">
         <h1>Leaderboard</h1>
         <p>No season is active.</p>
-        <nav aria-label="Lobby">
-          {available.map(({ lobbyId, lobbyName }) => (
-            <Link key={lobbyId} href={lobbyHref(query, lobbyId)}>
-              {lobbyName}
+        <nav aria-label="Lobby" className="flex flex-wrap gap-3">
+          {available.map(({ id, name }) => (
+            <Link
+              key={id}
+              href={lobbyHref(query, id)}
+              aria-current={lobby?.id === id ? 'page' : undefined}
+            >
+              {name}
             </Link>
           ))}
         </nav>
       </div>
     );
   const { data, viewer } = read;
-  const selected = { ...query, lobby: lobby.lobbyId, division: null };
+  const selected = { ...query, lobby: lobby.id, division: null };
   const view = buildLadder(data, selected, viewer);
   const detail =
     query.debater === null
@@ -78,9 +82,9 @@ export default async function LeaderboardPage({
       ladder={read.ladder}
       view={view}
       query={selected}
-      lobbies={available.map(({ lobbyId, lobbyName }) => ({
-        id: lobbyId,
-        name: lobbyName,
+      lobbies={available.map(({ id, name }) => ({
+        id,
+        name,
       }))}
       now={now}
       judging={(viewer?.blinded.length ?? 0) > 0}

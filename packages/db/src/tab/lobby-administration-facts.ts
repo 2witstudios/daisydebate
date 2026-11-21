@@ -37,6 +37,7 @@ export type LobbyAdministrationFacts = {
     readonly id: string;
     readonly organizationId: string;
     readonly status: 'active' | 'closed';
+    readonly startsAt: string;
     readonly version: number;
   } | null;
   readonly activeSeasonId: string | null;
