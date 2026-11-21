@@ -417,6 +417,36 @@ async function actOnRequest(
   return accepted;
 }
 
+async function setProtectionLevel(
+  context: Context,
+  command: Extract<GuardianCommand, { type: 'set-protection-level' }>,
+): Promise<Result> {
+  const { caller, session } = context;
+  const first = await session.link(command.linkId);
+  if (!first || first.guardianUserId !== caller.userId)
+    return refused('not-found');
+  const child = await session.personById(first.minorUserId);
+  if (!child?.actorId) return refused('not-found');
+  const [parent, minor] = await session.lockAccounts([
+    caller.actorId,
+    child.actorId,
+  ]);
+  if (
+    !parent?.member ||
+    parent.erased ||
+    parent.restricted ||
+    parent.userId !== caller.userId ||
+    parent.ageBand !== 'adult'
+  )
+    throw createAppError('AUTHORIZATION');
+  if (!minor?.member || minor.erased || !isMinor(minor.ageBand))
+    return refused('not-found');
+  const link = await session.link(command.linkId);
+  if (link?.status !== 'active') return refused('not-active');
+  await session.setProtectionLevel(link.minorUserId, command.choice);
+  return accepted;
+}
+
 export function runGuardianCommand(
   context: Context,
   command: GuardianCommand,
@@ -441,6 +471,18 @@ export function runGuardianCommand(
       );
     case 'refuse-parent':
       return actOnLink(context, command.linkId, 'refuse');
+    case 'answer-friend-approval':
+      return context.session
+        .answerFriendApproval({
+          approvalId: command.approvalId,
+          caller: context.caller,
+          decision: command.decision,
+          at: context.at,
+          nextId: createId,
+        })
+        .then((answered) => (answered ? accepted : refused('not-waiting')));
+    case 'set-protection-level':
+      return setProtectionLevel(context, command);
     case 'end-link':
       return actOnLink(context, command.linkId, 'end');
   }

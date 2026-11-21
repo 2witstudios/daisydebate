@@ -286,3 +286,23 @@ describe('dmRequestOffer', () => {
       ],
     }));
 });
+
+describe('dmAllowed with guardian protection', () => {
+  test('a friends-only lock governs new requests without closing conversations', () =>
+    assert({
+      given:
+        'a managed minor receiving a request from a linked adult who is not a friend',
+      should: 'refuse the new request and preserve an accepted conversation',
+      actual: stages.map((stage) =>
+        dmAllowed({
+          ...plain,
+          stage,
+          initiator: 'adult',
+          recipient: '13-15',
+          linkedStaff: true,
+          protectedMessageRequests: 'friends',
+        }),
+      ),
+      expected: [false, true],
+    }));
+});

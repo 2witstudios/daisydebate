@@ -18,6 +18,12 @@ export const friendsPrivacyAdopter: PrivacyAdopter = {
   async export(tx, subject): Promise<PrivacyExport> {
     const actorId = idSchema.parse(subject.actorId);
     return {
+      friend_guardian_approvals: exportRows(
+        rowsOf(
+          await tx.execute(sql`select id, cleared from friend_guardian_approvals
+          where child_actor_id=${actorId} order by id`),
+        ),
+      ),
       friendships: exportRows(
         rowsOf(
           await tx.execute(

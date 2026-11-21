@@ -1,3 +1,4 @@
+import { rankedProtectionAllows } from '../guardians/ranked-protection';
 import { and, eq, or, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError, createRefusal } from '@daisy/errors';
@@ -187,6 +188,11 @@ export function challengeFrame(
         throw createAppError('NOT_FOUND');
       // A challenge stays inside one lobby (ADR 0156): both members',
       // read under the pair's lock.
+      if (
+        mode === 'ranked' &&
+        !(await rankedProtectionAllows(tx, [input.actorId, other]))
+      )
+        throw createAppError('NOT_FOUND');
       const lobbyId = await pairLobby(tx, input.actorId, other, mode);
       if (lobbyId === null) throw createRefusal('CONFLICT', 'other-division');
       await run(
@@ -292,6 +298,8 @@ export function challengeFrame(
         );
       if (
         !offer ||
+        (offer.mode === 'ranked' &&
+          !(await rankedProtectionAllows(tx, [input.actorId, other]))) ||
         !(await pairLobby(tx, other, input.actorId, offer.mode, offer.lobbyId))
       )
         throw createAppError('NOT_FOUND');

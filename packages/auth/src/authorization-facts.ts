@@ -364,6 +364,7 @@ export type SocialAccountFact = {
 export type SocialContactFact = {
   /** Who may send this account a new message request. */
   readonly requestSetting: import('@daisy/protocol').MessageRequestSetting;
+  readonly protectedMessageRequests?: import('@daisy/protocol/protection-level').ProtectionLimits['messageRequests'];
   /** The other accounts in the cast it holds an accepted friendship with. */
   readonly friendActorIds: readonly string[];
   /** Its linked adults (`daisy_linked_adult_users`); empty for an adult. */

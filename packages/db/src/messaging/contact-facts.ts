@@ -1,4 +1,8 @@
 import type { MessageRequestSetting } from '@daisy/protocol';
+import {
+  protectionLevelSchema,
+  protectionLimits,
+} from '@daisy/protocol/protection-level';
 import { createAppError } from '@daisy/errors';
 import { sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
@@ -47,6 +51,7 @@ export const bindMessagingContactFacts =
     const rows = await rowsOf<{
       user_id: string;
       setting: MessageRequestSetting;
+      protection: unknown;
       friend_actor_ids: string[];
       linked_adult_user_ids: string[];
     }>(
@@ -56,6 +61,8 @@ export const bindMessagingContactFacts =
             as c(user_id text, actor_id text, minor boolean))
         select c.user_id,
           coalesce(s.setting, 'everyone') as setting,
+          case when c.minor then public.daisy_protection_level(c.user_id)
+            else '{"level":"independent"}'::jsonb end as protection,
           array(select case when f.low_actor_id=c.actor_id
               then f.high_actor_id else f.low_actor_id end
             from friendships f
@@ -76,8 +83,12 @@ export const bindMessagingContactFacts =
         (candidate) => candidate.user_id === account.userId,
       );
       if (!row) throw createAppError('INFRASTRUCTURE');
+      const protection = protectionLevelSchema.safeParse(row.protection);
+      if (!protection.success) throw createAppError('INFRASTRUCTURE');
       return {
         requestSetting: row.setting,
+        protectedMessageRequests: protectionLimits(protection.data)
+          .messageRequests,
         friendActorIds: row.friend_actor_ids,
         linkedAdultUserIds: row.linked_adult_user_ids,
       };

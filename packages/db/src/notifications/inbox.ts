@@ -70,6 +70,7 @@ export type InboxRow = {
       /** The other member, or null once their account is gone. */
       readonly friend: string | null;
     }
+  | { readonly kind: 'friend_guardian_approval' }
   | {
       readonly kind: 'dm_request';
       /** The DM the request opened, where it is answered. */
@@ -178,6 +179,8 @@ const inboxRow = (
     case 'friend_request_received':
     case 'friend_request_accepted':
       return { ...base, kind: row.kind, friend: row.about };
+    case 'friend_guardian_approval':
+      return { ...base, kind: row.kind };
     case 'dm_request':
       return {
         ...base,

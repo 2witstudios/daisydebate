@@ -1,3 +1,4 @@
+import { requireRankedProtection } from './guardians/ranked-protection';
 import { leagueRoomSelection } from './league-room-selection';
 import { eq, inArray } from 'drizzle-orm';
 import { createAppError, createRefusal } from '@daisy/errors';
@@ -186,6 +187,11 @@ const applyInitialCast = async (
   const accounts = await lockAuthorizationActors(tx, fencedActors, {
     maxActors: fencedActors.length,
   });
+  if (room.competitionType === 'ranked')
+    await requireRankedProtection(
+      tx,
+      seats.map(({ actorId }) => actorId),
+    );
   // Eligibility and seatKind live on these profile rows, not the account
   // authorization fence. Lock extant profiles in actor-id order before
   // actorFact reads them, so profile removal serializes with this create.

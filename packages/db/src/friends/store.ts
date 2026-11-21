@@ -23,10 +23,17 @@ export function createFriendStore({
         database,
         authorize,
         input,
-        async (tx, { rows, contacts, refresh }) =>
+        async (tx, { rows, contacts, refresh, accounts }) =>
           work({
             contacts,
-            ...friendshipFrame(tx, input, rows, refresh, reactions.relations),
+            ...friendshipFrame(
+              tx,
+              input,
+              rows,
+              refresh,
+              reactions.relations,
+              accounts,
+            ),
           }),
       ),
   };

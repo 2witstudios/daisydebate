@@ -2,18 +2,27 @@ import { execFile } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import type { Page } from '@playwright/test';
+import { createId } from '@paralleldrive/cuid2';
+import { affirmativeSide, sideSeat } from '@daisy/protocol';
 import { systemClock } from '@daisy/clock';
 import {
   confirmSignIn,
   emailedLink,
   freshEmail,
   origin,
+  resetRateLimits,
   signUpMember,
   uniqueName,
   youthBirth,
 } from './support/accounts';
 import { expect, openPage, test } from './support/fixtures';
 import { claimUsername } from './support/forms';
+import {
+  closeRoom,
+  deniedCommand,
+  reread,
+  submitCreateRoom,
+} from './support/room-launch-flow';
 
 const flag = (state: 'enabled' | 'default') =>
   promisify(execFile)(
@@ -201,5 +210,194 @@ test('an existing child can privately confirm or refuse a link', async ({
     } finally {
       await context.close();
     }
+  }
+});
+
+test('a guardian clears a Guided hold, then Supervised locks messages and ranked entry and seats', async ({
+  page,
+  browser,
+}) => {
+  test.setTimeout(150_000);
+  await promisify(execFile)(
+    'bun',
+    [
+      fileURLToPath(
+        new URL('./support/rating-season-worker.ts', import.meta.url),
+      ),
+    ],
+    { timeout: 20_000, maxBuffer: 4096 },
+  );
+  await resetRateLimits(page.request);
+  const parent = await signUpMember(page.request);
+  const childContext = await browser.newContext({
+    baseURL: origin,
+    ignoreHTTPSErrors: true,
+  });
+  const peerContext = await browser.newContext({
+    baseURL: origin,
+    ignoreHTTPSErrors: true,
+  });
+  try {
+    const child = await openPage(childContext, 'child with protection');
+    const peer = await openPage(peerContext, 'unlinked youth peer');
+    const youth = youthBirth(systemClock.now());
+    const account = await signUpMember(child.request, youth);
+    const peerAccount = await signUpMember(peer.request, youth);
+
+    await page.goto('/settings/parental-controls');
+    await page.getByText('Link an existing account', { exact: true }).click();
+    const request = page
+      .locator('form')
+      .filter({ has: page.getByLabel('Child’s username') });
+    await request.getByLabel('Child’s username').fill(account.username);
+    await agree(request);
+    await request.getByRole('button', { name: 'Ask to link' }).click();
+    await expect(
+      page.getByText('Request sent.', { exact: true }),
+    ).toBeVisible();
+
+    await child.goto('/settings/your-parents');
+    const confirmation = familyRow(parentsOf(child), parent.username);
+    await agree(confirmation);
+    await confirmation
+      .getByRole('button', { name: 'Yes, this is my parent' })
+      .click();
+    await expect(
+      confirmation.getByText('Protection level: Guided'),
+    ).toBeVisible();
+
+    await page.goto('/friends');
+    await page.getByLabel('Username').fill(account.username);
+    await page.getByRole('button', { name: 'Send friend request' }).click();
+    await expect(page.locator('#add-friend-notice')).toContainText(
+      /friend request pending/i,
+    );
+    await child.goto('/friends');
+    await expect(
+      child.getByText('Waiting for your parent', { exact: true }),
+    ).toBeVisible();
+    await expect(
+      child.getByRole('button', { name: `Accept @${parent.username}` }),
+    ).toHaveCount(0);
+
+    await page.goto('/notifications');
+    await page
+      .getByRole('main')
+      .getByRole('link', {
+        name: 'A friend request is waiting for your approval.',
+      })
+      .click();
+    const waiting = page.getByRole('region', { name: 'Waiting for you' });
+    await expect(waiting).toContainText(
+      `@${parent.username} sent @${account.username} a friend request.`,
+    );
+    await waiting
+      .getByRole('button', { name: 'Approve friend request' })
+      .click();
+    await expect(waiting).toContainText('No friend requests need approval.');
+    await child.reload();
+    const accept = child.getByRole('button', {
+      name: `Accept @${parent.username}`,
+    });
+    await expect(accept).toBeVisible();
+    await accept.click();
+    await expect(
+      child.getByRole('region', { name: 'Your friends' }),
+    ).toContainText(`@${parent.username}`);
+
+    const family = familyRow(childrenOf(page), account.username);
+    await family
+      .getByLabel(`Protection level for @${account.username}`)
+      .selectOption('supervised');
+    await family.getByRole('button', { name: 'Save protection level' }).click();
+    await expect(family.getByText('Saved.', { exact: true })).toBeVisible();
+
+    await child.goto('/settings');
+    const messaging = child.getByRole('form', { name: 'Message requests' });
+    await expect(
+      messaging.getByRole('radio', { name: 'Friends only' }),
+    ).toBeChecked();
+    await expect(
+      messaging.getByRole('radio', { name: 'Everyone' }),
+    ).toBeDisabled();
+    const change = await child.request.post('/api/messaging/request-setting', {
+      headers: { origin },
+      data: { version: 1, setting: 'everyone' },
+    });
+    expect(change.status()).toBe(403);
+    const dm = await peer.request.post('/api/messaging/requests/username', {
+      headers: { origin },
+      data: {
+        version: 1,
+        requestId: createId(),
+        recipientUsername: account.username,
+      },
+    });
+    expect(dm.status()).toBe(404);
+
+    await child.goto('/friends');
+    await child.getByLabel('Username').fill(peerAccount.username);
+    await child.getByRole('button', { name: 'Send friend request' }).click();
+    await expect(child.locator('#add-friend-notice')).toContainText(
+      'Waiting for your parent.',
+    );
+    await peer.goto('/friends');
+    await expect(
+      peer.getByText('Friend request pending', { exact: true }),
+    ).toBeVisible();
+    await expect(
+      peer.getByText('Waiting for your parent', { exact: true }),
+    ).toHaveCount(0);
+    await page.reload();
+    await expect(waiting).toContainText(
+      `@${account.username} asked to be friends with @${peerAccount.username}.`,
+    );
+    await waiting
+      .getByRole('button', { name: 'Decline friend request' })
+      .click();
+    await expect(waiting).toContainText('No friend requests need approval.');
+    await peer.reload();
+    await expect(
+      peer.getByText('Friend request pending', { exact: true }),
+    ).toHaveCount(0);
+
+    await peer.goto('/play/room');
+    const ranked = await submitCreateRoom(
+      peer,
+      `Ranked protection ${createId().slice(0, 8)}`,
+      'freestyle',
+      true,
+    );
+    try {
+      await child.goto('/play/room');
+      const creation = child.getByRole('form', { name: 'Create a room' });
+      await creation
+        .getByLabel('Room name', { exact: true })
+        .fill('Supervised ranked entry');
+      await creation
+        .getByRole('checkbox', { name: 'Ranked', exact: true })
+        .check();
+      await creation
+        .getByRole('button', { name: 'Create room', exact: true })
+        .click();
+      await expect(
+        child.getByText(/Ranked rooms are unavailable right now/),
+      ).toBeVisible();
+      const denied = await deniedCommand(child.request, ranked, {
+        type: 'claim-seat',
+        seat: sideSeat(affirmativeSide),
+      });
+      expect(denied.status()).toBe(409);
+      expect(await denied.json()).toMatchObject({
+        refusal: 'ranked-unavailable',
+      });
+      expect((await reread(peer.request, ranked.id)).participants).toEqual(
+        ranked.participants,
+      );
+    } finally {
+      await closeRoom(peer.request, ranked.id);
+    }
+  } finally {
+    await Promise.all([childContext.close(), peerContext.close()]);
   }
 });

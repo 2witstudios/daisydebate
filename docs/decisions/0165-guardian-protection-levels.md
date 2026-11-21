@@ -1,0 +1,30 @@
+# 0165 Guardian protection levels
+
+Status: accepted in decision 92 and the PC-2 master plan.
+
+An active guardian chooses one per-child protection level in Settings. A
+linked child defaults to Guided. A child without a current guardian follows
+Independent. An active guardian can change the same choice when multiple
+guardians link to the child. Ending the final active link erases that choice.
+
+- Independent follows Daisy's ordinary teen rules.
+- Guided requires guardian approval for an adult's incoming friend request.
+- Supervised requires guardian approval for every new friendship, limits
+  incoming message requests to accepted friends, and disallows ranked entry
+  and seats.
+- Custom selects the same approval, message request and ranked limits.
+
+The protocol's `protectionLimits` expands each choice. The contact transaction
+evaluates holds at creation and before acceptance, including reciprocal
+friend requests. An approval clears the hold for one child and one request.
+The recipient then chooses whether to accept. A child can decline an incoming
+request or cancel their own while it waits. The guardian's generic in-app
+notification links to their private waiting list. Other members see a pending
+request without family or age information. Approval records go when a request
+ends, including by block or erasure.
+
+A message-request lock overrides the child's stored preference in the account
+fence. The preference applies again when the lock is lifted. Conversations
+already accepted keep the rules in ADR 0160. Ranked room creation, challenges,
+seating and launch use the current protection choice under their account
+fences. Lobby age rules and permissions continue to apply.

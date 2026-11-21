@@ -33,6 +33,7 @@ test('readFriendship reads the locked pair and both members’ counts', async ()
     [pair],
     async () => {},
     contactReactions.relations,
+    [],
   );
   assert({
     given: 'a pending request from the low member',
@@ -87,6 +88,7 @@ test('commitFriendship reauthorizes and writes the next pair', async () => {
       fences += 1;
     },
     contactReactions.relations,
+    [],
   );
   const change = (
     previous: Parameters<typeof frame.commitFriendship>[0]['previous'],
@@ -120,6 +122,7 @@ test('commitFriendship reauthorizes and writes the next pair', async () => {
         'select actors',
         'delete social_request_declines',
         'update friendships',
+        'delete friend_guardian_approvals',
         'select actors',
         'delete friendships',
       ],
@@ -137,6 +140,7 @@ test('declining a friend request counts toward the DEC-251 decline block; cancel
       [pair],
       async () => {},
       contactReactions.relations,
+      [],
     ).commitFriendship({
       previous: { state: 'pending', requesterActorId },
       next: null,

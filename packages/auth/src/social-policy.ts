@@ -1,5 +1,6 @@
 import { currentAgeFact } from './authorization-age';
 import type { AccountAgeFact } from './account-age';
+import type { ProtectionLimits } from '@daisy/protocol/protection-level';
 import type { AgeBand, MessageRequestSetting } from '@daisy/protocol';
 import type {
   ChannelAuthorizationFact,
@@ -33,6 +34,7 @@ export type DmQuestion = {
   readonly linkedStaff: boolean;
   /** The recipient's own choice; read only for a new request. */
   readonly recipientSetting: MessageRequestSetting;
+  readonly protectedMessageRequests?: ProtectionLimits['messageRequests'];
 };
 
 /**
@@ -47,8 +49,9 @@ export function dmAllowed(question: DmQuestion): boolean {
   const { initiator, recipient, friends, linkedStaff } = question;
   if (initiator === 'under-13' || recipient === 'under-13') return false;
   if (question.stage === 'request') {
-    if (question.recipientSetting === 'none') return false;
-    if (question.recipientSetting === 'friends' && !friends) return false;
+    const setting =
+      question.protectedMessageRequests ?? question.recipientSetting;
+    if (setting === 'none' || (setting === 'friends' && !friends)) return false;
   }
   const adultToMinor = initiator === 'adult' && recipient !== 'adult';
   return !adultToMinor || friends || linkedStaff;
@@ -135,6 +138,8 @@ function dmQuestionOf(
       ) === true,
     // A recipient whose setting was not read is asked as if they chose no one.
     recipientSetting: recipient.contact?.requestSetting ?? 'none',
+    protectedMessageRequests:
+      recipient.contact?.protectedMessageRequests ?? null,
   };
 }
 /**

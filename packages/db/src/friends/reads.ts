@@ -4,7 +4,7 @@ import { actors } from '../schema/actors';
 import { users } from '../schema/users';
 import { contactPairs } from '../schema/contacts';
 import { friendships } from '../schema/friends';
-import type { ChosenStatus } from '@daisy/protocol';
+import type { ChosenStatus, FriendshipState } from '@daisy/protocol';
 import { chosenStatusOf } from '../presence/settings';
 import type { MemberPlacement } from '@daisy/protocol';
 import { placementOf } from '../presence/availability';
@@ -18,7 +18,8 @@ import { instrumented, type DatabaseEventSink } from '../instrumented';
 export type FriendshipRow = {
   readonly otherActorId: string;
   readonly username: string;
-  readonly state: 'pending' | 'accepted';
+  readonly state: FriendshipState;
+  readonly waiting?: 'waiting' | 'waiting-for-guardian';
   readonly requesterActorId: string;
   readonly requestedAt: string;
   /** The status the counterpart chose. */
@@ -82,6 +83,17 @@ async function readRows(
       otherChosen: chosenStatusOf(other),
       otherPlacement: placementOf(other),
       state: friendships.state,
+      waiting: sql<'waiting' | 'waiting-for-guardian' | null>`
+        case when ${friendships.state}='waiting-for-guardian' then (
+          select case when bool_or(approval.child_actor_id=${actorId}) then 'waiting-for-guardian'
+            when count(*) > 0 then 'waiting' end
+          from friend_guardian_approvals approval
+          join actors child on child.id=approval.child_actor_id
+          where approval.low_actor_id=${friendships.lowActorId}
+            and approval.high_actor_id=${friendships.highActorId}
+            and not approval.cleared
+            and exists (select 1 from public.daisy_protection_guardians(child.user_id))
+        ) end`,
       requesterActorId: friendships.requesterActorId,
       requestedAt: friendships.requestedAt,
     })
@@ -112,7 +124,8 @@ async function readRows(
   return rows.map((row) => ({
     otherActorId: row.otherActorId,
     username: row.username!,
-    state: row.state as 'pending' | 'accepted',
+    state: row.state,
+    ...(row.waiting ? { waiting: row.waiting } : {}),
     requesterActorId: row.requesterActorId,
     requestedAt: row.requestedAt.toISOString(),
     otherChosen: row.otherChosen,

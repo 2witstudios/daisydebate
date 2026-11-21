@@ -135,6 +135,12 @@ export const tenantIsolationManifest: TenantIsolationManifest = {
       subject: 'child-account-request',
       subjectWrites: true,
     },
+    {
+      table: 'protection_levels',
+      key: 'person',
+      subject: 'user',
+      subjectWrites: true,
+    },
     { table: 'restriction_lobbies', key: 'person', subject: 'guardian' },
     { table: 'action_history', key: 'history' },
     lobby('lobbies', { keyColumn: 'id', openRead: true }),
@@ -271,6 +277,30 @@ export const tenantIsolationManifest: TenantIsolationManifest = {
     },
   ],
   definers: [
+    {
+      name: 'daisy_protection_guardians',
+      executors: ['daisy_web'],
+      reason:
+        'Reads live guardian identities for a minor for the outreach and approval authority checks.',
+    },
+    {
+      name: 'daisy_protection_level',
+      executors: ['daisy_web'],
+      reason:
+        'Returns only the effective protection choice used by account, contact and competitive fences.',
+    },
+    {
+      name: 'daisy_set_protection_level',
+      executors: ['daisy_web'],
+      reason:
+        'Writes one child choice from an active guardian’s subject scope under the account fence.',
+    },
+    {
+      name: 'daisy_clear_unlinked_protection',
+      executors: [],
+      reason:
+        'Guardian-link close trigger erases the choice when the final active link ends.',
+    },
     {
       name: 'daisy_expire_child_account_requests',
       executors: ['daisy_web'],

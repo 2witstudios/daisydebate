@@ -1,3 +1,4 @@
+import { protectionLevelSchema } from '@daisy/protocol/protection-level';
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';
 import type { PrivacyAdopter } from '../privacy/contracts';
@@ -53,6 +54,10 @@ export const guardianLinksPrivacyAdopter: PrivacyAdopter = {
       where (guardian_user_id = ${subject.userId} or minor_user_id = ${subject.userId})
         and status in ('active', 'requested')`,
     );
+    await run(
+      tx,
+      sql`delete from protection_levels where user_id = ${subject.userId}`,
+    );
     await scopeTransaction(tx, {});
   },
   export: async (tx, subject) => {
@@ -85,8 +90,14 @@ export const guardianLinksPrivacyAdopter: PrivacyAdopter = {
         notice_kind, notice_version, notice_digest, recorded_at
       from guardian_consent_evidence where person_user_id = ${subject.userId} order by id`,
     );
+    const protection = await query(
+      tx,
+      z.object({ choice: protectionLevelSchema }),
+      sql`select choice from protection_levels where user_id = ${subject.userId}`,
+    );
     await scopeTransaction(tx, {});
     return {
+      protection_levels: exportRows(protection),
       guardian_links: exportRows(links),
       restriction_lobbies: exportRows(permissions),
       guardian_consent_evidence: exportRows(evidence),

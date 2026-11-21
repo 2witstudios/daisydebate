@@ -1,4 +1,6 @@
 import type { MessageRequestSetting } from '@daisy/protocol';
+import { createAppError } from '@daisy/errors';
+import { readProtectionLimits } from '../guardians/protection-level';
 import { sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
@@ -26,6 +28,20 @@ export const messageRequestSettingOperations = ({
       return row?.setting ?? 'everyone';
     });
   },
+  readMessageRequestPolicy({ userId }: { readonly userId: string }) {
+    return instrumented(eventSink, 'readMessageRequestPolicy', async () => {
+      const [stored] = await rowsOf<{ setting: MessageRequestSetting }>(
+        database,
+        sql`select setting from messaging_request_settings where user_id=${userId}`,
+      );
+      const locked = (await readProtectionLimits(database, userId))
+        .messageRequests;
+      return {
+        setting: locked ?? stored?.setting ?? 'everyone',
+        locked: locked !== null,
+      };
+    });
+  },
   writeMessageRequestSetting(input: {
     readonly userId: string;
     readonly setting: MessageRequestSetting;
@@ -37,6 +53,8 @@ export const messageRequestSettingOperations = ({
         await tx.execute(
           sql`select id from users where id=${input.userId} for update`,
         );
+        if ((await readProtectionLimits(tx, input.userId)).messageRequests)
+          throw createAppError('AUTHORIZATION');
         if (input.setting === 'everyone') {
           await tx.execute(
             sql`delete from messaging_request_settings where user_id=${input.userId}`,

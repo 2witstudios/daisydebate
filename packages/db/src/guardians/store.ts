@@ -1,5 +1,11 @@
 import { and, asc, eq, gt, inArray, isNull, or, sql } from 'drizzle-orm';
 import { lockAuthorizationActors } from '../authorization';
+import type { ProtectionLevel } from '@daisy/protocol/protection-level';
+import { readProtectionLevel } from './protection-level';
+import {
+  answerFriendApproval,
+  readWaitingFriendApprovals,
+} from '../friends/guardian-approvals';
 import { actors } from '../schema/actors';
 import { users } from '../schema/users';
 import {
@@ -8,10 +14,14 @@ import {
   guardianLinks,
 } from '../schema/guardian-links';
 import { reports } from '../schema/reports';
+import { run } from '../raw-rows';
 import { scopeTransaction } from '../tenant-scope';
 import { inTransaction, type Tx, type TxOpener } from '../tx';
 
-type GuardianTx = Pick<Tx, 'select' | 'execute' | 'insert' | 'update'>;
+type GuardianTx = Pick<
+  Tx,
+  'select' | 'execute' | 'insert' | 'update' | 'delete'
+>;
 
 export type GuardianLinkRow = typeof guardianLinks.$inferSelect;
 type LinkInsert = typeof guardianLinks.$inferInsert;
@@ -118,6 +128,17 @@ function scopedGuardians(tx: GuardianTx, userId: string) {
         .from(childAccountRequests)
         .where(eq(childAccountRequests.guardianUserId, userId))
         .orderBy(asc(childAccountRequests.createdAt));
+    },
+    waitingFriendApprovals: () => readWaitingFriendApprovals(tx, userId),
+    answerFriendApproval: (input: Parameters<typeof answerFriendApproval>[1]) =>
+      answerFriendApproval(tx, input),
+    protectionLevel: (childUserId: string) =>
+      readProtectionLevel(tx, childUserId),
+    async setProtectionLevel(childUserId: string, choice: ProtectionLevel) {
+      await run(
+        tx,
+        sql`select public.daisy_set_protection_level(${childUserId}, ${JSON.stringify(choice)}::text::jsonb)`,
+      );
     },
     async insertEvidence(
       evidence: typeof guardianConsentEvidence.$inferInsert,
