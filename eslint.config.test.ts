@@ -1125,7 +1125,7 @@ describe('browser edges', () => {
     });
   });
 
-  test('reports host destructuring and React references above their import', async () => {
+  test('reports destructuring and React references above their import', async () => {
     assert({
       given:
         'an extracted timer and a namespace effect before its hoisted import',
@@ -1135,9 +1135,10 @@ describe('browser edges', () => {
         `const { setTimeout: schedule } = window;
          schedule(() => {}, 1);
          React.useEffect(() => {}, []);
-         import * as React from 'react';`,
+         import * as React from 'react';
+         export const { useLayoutEffect: syncLayout } = React;`,
       ),
-      expected: 2,
+      expected: 3,
     });
   });
 
