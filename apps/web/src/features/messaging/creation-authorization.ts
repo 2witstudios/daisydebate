@@ -43,11 +43,18 @@ export function messagingCreationFence({
       facts.accounts.find((row) => row?.actorId === input.actorId) ?? null;
     const contacts: readonly ContactAuthorizationFact[] = facts.contacts;
     const now = clock.now();
+    const recipientActorId = input.memberActorIds.find(
+      (id) => id !== input.actorId,
+    );
+    if (!existing && !recipientActorId) throw createAppError('INFRASTRUCTURE');
     const socialAccounts = await loadAccountPolicyFacts(
       tx,
       facts.accounts,
       now,
       existing ? 'reading' : 'posting',
+      !existing && recipientActorId
+        ? { userId: input.userId, actorId: input.actorId, recipientActorId }
+        : undefined,
     );
     if (existing) {
       const dm = existing.authority;

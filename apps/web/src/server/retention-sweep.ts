@@ -346,11 +346,11 @@ export function retentionTargets({
           limit,
         }),
     },
-    /** WATCH-12: a notification goes 90 days after it is read. */
+    /** WATCH-12: expire read notices in 500-row DB batches, up to 20,000 per run. */
     {
       name: 'retention.notifications',
-      batchSize: 1000,
-      maxBatches: 20,
+      batchSize: 500,
+      maxBatches: 40,
       purge: ({ now, limit }) =>
         database.purgeReadNotifications({
           before: cutoff(now, 90 * DAY_MS),

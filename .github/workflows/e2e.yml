@@ -33,12 +33,12 @@ jobs:
   e2e:
     name: Playwright browser suite
     runs-on: ubuntu-24.04
-    # Run 44834624902 completed its first two 601-test passes in 29.0 and
-    # 36.9 minutes. Reserve time for setup, the third pass and report upload
-    # on manual dispatch (ISSUE-1501).
+    # Run 44896579773 completed its first two 612-test passes in 32 and 42
+    # minutes and hit the old 120-minute limit in pass three (ISSUE-1501).
+    # Reserve time after the manual step deadline for artifact retention.
     # The nightly run takes every Playwright project in turn; under the
     # 20-minute bound it was cancelled on every night it ran.
-    timeout-minutes: ${{ github.event_name == 'workflow_dispatch' && 120 || github.event_name == 'schedule' && 120 || 25 }}
+    timeout-minutes: ${{ github.event_name == 'workflow_dispatch' && 180 || github.event_name == 'schedule' && 120 || 25 }}
     # The read-only fixture admission CLI derives the canonical main slot
     # from this checkout. Dev/test URLs are identity metadata only; browser
     # connections use the separately provisioned DML-only E2E login below.
@@ -203,6 +203,7 @@ jobs:
       # (the standing playwright.config.ts default), every outcome kept.
       - name: Run release-qualification (three consecutive full-suite runs)
         if: ${{ github.event_name == 'workflow_dispatch' }}
+        timeout-minutes: 165
         run: bun test:e2e:qualify
         env:
           CI: true

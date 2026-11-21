@@ -86,6 +86,7 @@ describe('jsonb columns (ISSUE-24)', () => {
         'pending_commands.expected',
         'pending_commands.payload',
         'privacy_jobs.billing_cleanup',
+        'protection_levels.choice',
         'recording_processing_jobs.state',
         'recordings.eligibility',
         'recordings.lifecycle',

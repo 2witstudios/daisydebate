@@ -15,6 +15,7 @@ const account = ownReader(me, userId);
 test('listFriendships authorizes the locked reader first', async () => {
   const { client, queries } = fakeSql([
     [account],
+    [],
     [
       [
         them,
@@ -22,6 +23,7 @@ test('listFriendships authorizes the locked reader first', async () => {
         'appearing_offline',
         null,
         'accepted',
+        null,
         me,
         new Date('2026-10-26T18:00:00.000Z'),
       ],

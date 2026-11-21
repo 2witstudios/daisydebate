@@ -12,7 +12,7 @@ import {
   messageMutationConflict,
   messageMutationUnavailable,
 } from '../../../../features/messaging/forms/message-mutation-form';
-import { moveOn } from '../../../../server/form-action';
+import { hydratedPost, moveOn } from '../../../../server/form-action';
 import {
   formReadThrough,
   markReadDestination,
@@ -103,7 +103,9 @@ export async function sendMessageAction(
     if (!reply.success) return kept;
     await markReadThrough(incoming, command.channelId, formReadThrough(form));
     const path = `/messages/${command.channelId}`;
-    revalidatePath(path);
+    // A hydrated caller follows the receipt to a fresh page. An inline
+    // re-render can unmount its composer before it handles that receipt.
+    if (!hydratedPost(incoming)) revalidatePath(path);
     next = `${path}?sent=${reply.data.id}`;
   } catch {
     return kept;

@@ -1,3 +1,4 @@
+import { requireRankedProtection } from './guardians/ranked-protection';
 import { leagueRoomSelection } from './league-room-selection';
 import { eq, inArray } from 'drizzle-orm';
 import { createAppError, createRefusal } from '@daisy/errors';
@@ -152,6 +153,14 @@ export const assembleRoom = async (
         readinessCommandId: participant.consentCommandId,
         readinessVersion: participant.consentVersion,
       })),
+    );
+  // The write still owns every cast account fence. Check the persisted cast
+  // inside this transaction so a refusal rolls back the Room and all its seats.
+  if (assembled && input.room.competitionType === 'ranked')
+    await requireRankedProtection(
+      tx,
+      assembled.participants.map(({ actorId }) => actorId),
+      { userId: input.caller.userId, roomId: input.room.id },
     );
   await holdActiveRoomMembers(
     tx,

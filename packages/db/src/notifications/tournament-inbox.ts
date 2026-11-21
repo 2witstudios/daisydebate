@@ -1,6 +1,6 @@
 import type { TournamentNotificationKind } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
+import type { TxOpener } from '../tx';
 import { loadLobbyAuthority } from '../tab/lobby-authority';
 import { rowsOf } from '../raw-rows';
 
@@ -28,7 +28,7 @@ export type TournamentInboxAccess = (
  * release opens it to them.
  */
 export async function standingTournamentNotifications(
-  database: BunSQLDatabase,
+  database: TxOpener,
   input: {
     readonly userId: string;
     readonly canReadTournament?: TournamentInboxAccess | undefined;

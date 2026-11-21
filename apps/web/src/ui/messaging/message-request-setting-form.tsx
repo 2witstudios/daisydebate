@@ -39,9 +39,11 @@ export function shownSetting(
 export function MessageRequestSettingForm({
   action,
   setting,
+  locked = false,
 }: {
   readonly action: FormAction<SaveFormState>;
   readonly setting: MessageRequestSetting;
+  readonly locked?: boolean;
 }) {
   const [answer, post, pending] = useFormAction(
     action,
@@ -56,7 +58,7 @@ export function MessageRequestSettingForm({
       aria-label="Message requests"
       className="flex flex-col gap-3"
     >
-      <fieldset key={shown} className="flex flex-col gap-2">
+      <fieldset key={shown} disabled={locked} className="flex flex-col gap-2">
         <legend className="text-base text-ink">
           Who can send me message requests
         </legend>
@@ -81,16 +83,23 @@ export function MessageRequestSettingForm({
           decline a request or block someone.
         </p>
       </fieldset>
-      <div className="flex items-center gap-3">
-        <Button type="submit" variant="secondary" disabled={pending}>
-          Save
-        </Button>
-        {notice ? (
-          <p role="status" className="text-sm text-ink-muted">
-            {notice}
-          </p>
-        ) : null}
-      </div>
+      {locked ? (
+        <p className="text-sm text-ink-muted">
+          Your parent’s protection level keeps message requests set to Friends
+          only.
+        </p>
+      ) : (
+        <div className="flex items-center gap-3">
+          <Button type="submit" variant="secondary" disabled={pending}>
+            Save
+          </Button>
+          {notice ? (
+            <p role="status" className="text-sm text-ink-muted">
+              {notice}
+            </p>
+          ) : null}
+        </div>
+      )}
     </form>
   );
 }

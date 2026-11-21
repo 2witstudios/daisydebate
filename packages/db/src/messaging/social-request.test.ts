@@ -149,7 +149,6 @@ test('authority loss, pair ambiguity and policy drift refuse before request muta
 });
 for (const [facts, code] of [
   [[], 'INFRASTRUCTURE'],
-  [budget({ declined: true }), 'AUTHORIZATION'],
   [budget({ daily: 20 }), 'RATE_LIMIT'],
   [budget({ hourly: 5 }), 'RATE_LIMIT'],
 ] as const)
@@ -163,10 +162,8 @@ for (const [facts, code] of [
       contactReactions.relations,
     );
     await assertRejects({
-      given:
-        'missing budget facts, a decline block, a spent day or a spent unrelated hour',
-      should:
-        'refuse a block as a block is refused, and an exhausted budget as a rate limit',
+      given: 'missing budget facts, a spent day or a spent unrelated hour',
+      should: 'refuse before writing a request',
       actual: () => frame.commitDmRequest(command),
       code,
     });

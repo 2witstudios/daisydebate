@@ -31,8 +31,16 @@ const refusalWords: Readonly<Record<GuardianRefusal, string>> = {
   'not-found': 'This request is no longer available.',
 };
 
+type FamilyFormCommand =
+  | Pick<GuardianCommand, 'type'>
+  | GuardianCommand
+  | Pick<
+      Extract<GuardianCommand, { type: 'set-protection-level' }>,
+      'type' | 'linkId'
+    >;
+
 export async function parentalControlsAction(
-  command: Pick<GuardianCommand, 'type'> | GuardianCommand,
+  command: FamilyFormCommand,
   _previous: GuardianFormState,
   form: FormData,
 ): Promise<GuardianFormState> {
@@ -44,10 +52,21 @@ export async function parentalControlsAction(
   if (agreeing && field(form, 'agree') !== 'yes')
     return refused(form, 'Read and agree to the notice to continue.');
   const noticeVersion = field(form, 'noticeVersion');
+  const level = field(form, 'level');
+  const choice =
+    level === 'custom'
+      ? {
+          level,
+          friendApproval: field(form, 'friendApproval'),
+          friendsOnlyMessages: field(form, 'friendsOnlyMessages') === 'yes',
+          rankedAllowed: field(form, 'rankedAllowed') === 'yes',
+        }
+      : { level };
   const input = guardianCommandSchema.safeParse({
     ...command,
     version: 1,
     ...(agreeing ? { noticeVersion } : {}),
+    ...(type === 'set-protection-level' ? { choice } : {}),
     ...(type === 'create-child-account'
       ? {
           firstName: field(form, 'firstName'),
@@ -74,6 +93,7 @@ export async function parentalControlsAction(
       return refused(form, refusalWords[result.data.refusal]);
     revalidatePath('/settings/parental-controls');
     revalidatePath('/settings/your-parents');
+    if (type === 'answer-friend-approval') revalidatePath('/notifications');
     const message =
       input.data.type === 'create-child-account'
         ? `We emailed ${input.data.email}.`

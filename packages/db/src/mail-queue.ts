@@ -1,18 +1,18 @@
 import { createAppError } from '@daisy/errors';
 import { sql, type SQL } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type { PgColumn, PgTable } from 'drizzle-orm/pg-core';
 import { requireLeaseMs } from './lease-policy';
 import { rowsOf } from './raw-rows';
 import { isUniqueViolation } from './unique-violation';
 import { agentLeaseDigest } from './round-agent-lease';
 import type { mailJobColumns } from './schema/columns';
+import type { Tx, TxOpener } from './tx';
 
 /** A table that carries the mail job recipe's columns. */
 type MailJobTable = PgTable &
   Record<keyof ReturnType<typeof mailJobColumns>, PgColumn>;
 
-type Execute = Pick<BunSQLDatabase, 'execute'>;
+type Execute = Pick<Tx, 'execute'>;
 
 /** How a held mail job ends, or that it waits for another attempt. */
 export type MailJobOutcome<ErrorCode extends string> =
@@ -68,7 +68,7 @@ export const mailQueue = (
      * settled and may only be slow, so such a job ends `delivery-unknown`.
      */
     claimDue: (
-      database: Pick<BunSQLDatabase, 'transaction'>,
+      database: TxOpener,
       input: MailJobClaimInput,
       returning: SQL,
     ): Promise<readonly Claimed[]> => {

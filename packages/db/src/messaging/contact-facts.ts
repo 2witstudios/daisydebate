@@ -1,4 +1,5 @@
 import type { MessageRequestSetting } from '@daisy/protocol';
+import type { DmRequestAction } from '@daisy/protocol/dm-policy';
 import { createAppError } from '@daisy/errors';
 import { sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
@@ -7,6 +8,7 @@ import {
   type AuthorizationTransaction,
 } from '../authorization';
 import { rowsOf } from '../raw-rows';
+import { currentTenantScope, scopeTransaction } from '../tenant-scope';
 
 type Account = {
   readonly account: {
@@ -15,6 +17,40 @@ type Account = {
   };
   readonly age: { readonly state: string; readonly band?: string };
 };
+
+type NewDmRequest = {
+  readonly userId: string;
+  readonly actorId: string;
+  readonly recipientActorId: string;
+};
+
+const closed = {
+  requestSetting: 'none' as const,
+  friendActorIds: [],
+  linkedAdultUserIds: [],
+};
+
+async function readDmRequestAction(
+  tx: AuthorizationTransaction,
+  recipientId: string,
+  request: NewDmRequest,
+) {
+  const previous = await currentTenantScope(tx);
+  await scopeTransaction(tx, { ...previous, subjectUserId: request.userId });
+  const [row] = await rowsOf<{ action: DmRequestAction | null }>(
+    tx,
+    sql`select public.daisy_dm_request_access(${recipientId}, ${request.actorId}) as action`,
+  );
+  await scopeTransaction(tx, previous);
+  if (!row) throw createAppError('INFRASTRUCTURE');
+  return {
+    ...closed,
+    dmRequest: {
+      initiatorActorId: request.actorId,
+      action: row.action ?? 'none',
+    },
+  };
+}
 
 /**
  * What the DM rule reads about each account (decision 90, ADR 0160), in one
@@ -25,14 +61,22 @@ type Account = {
  * account, in the order given.
  */
 export const bindMessagingContactFacts =
-  (tx: AuthorizationTransaction) => async (accounts: readonly Account[]) => {
-    // An account without a current age is refused before any of this is
-    // read, so it gets the closed answer and costs no statement.
-    const closed = {
-      requestSetting: 'none' as const,
-      friendActorIds: [],
-      linkedAdultUserIds: [],
-    };
+  (tx: AuthorizationTransaction, request?: NewDmRequest) =>
+  async (accounts: readonly Account[]) => {
+    if (request) {
+      const recipient = accounts.find(
+        ({ account }) => account.actorId === request.recipientActorId,
+      );
+      if (!recipient) return accounts.map(() => closed);
+      const action = await readDmRequestAction(
+        tx,
+        recipient.account.userId,
+        request,
+      );
+      return accounts.map((row) => (row === recipient ? action : closed));
+    }
+
+    // Only current age facts need conversation contact facts.
     const known = accounts.filter((row) => row.age.state === 'known');
     if (known.length === 0) return accounts.map(() => closed);
     const cast = JSON.stringify(
