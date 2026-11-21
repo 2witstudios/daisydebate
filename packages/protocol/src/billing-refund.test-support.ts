@@ -1,9 +1,8 @@
+import { addMs, instantMs } from '@daisy/clock';
 import { refundActionSchema } from './billing-refund';
 import { advanceRefund } from './billing-refund-lifecycle';
 export const at = (seconds: number) =>
-  new Date(
-    Date.parse('2026-11-05T00:00:00.000Z') + seconds * 1000,
-  ).toISOString();
+  addMs('2026-11-05T00:00:00.000Z', seconds * 1000);
 export const first = 'a'.repeat(24);
 export const second = 'b'.repeat(24);
 export const third = 'c'.repeat(24);
@@ -19,7 +18,7 @@ export const action = () =>
     vendorSubscriptionId: 'sub_original',
     amountMinor: 1000,
     currency: 'usd',
-    paidAtSeconds: Date.parse(at(1)) / 1000,
+    paidAtSeconds: instantMs(at(1)) / 1000,
     period: { startsAt: at(-86400), endsAt: at(29 * 86400) },
     closedAt: at(0),
     admittedAt: at(2),

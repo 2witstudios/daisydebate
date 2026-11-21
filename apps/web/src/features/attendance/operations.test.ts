@@ -1,3 +1,5 @@
+import { sha3Hex } from '@daisy/digest';
+import { instantMs } from '@daisy/clock';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import type {
@@ -22,7 +24,7 @@ const compiled = resolveRoomConfiguration(oneOnOneDefinition, oneOnOneSettings);
 if (!compiled.ok) throw new Error('Canonical rules fixture refused');
 const rules = compiled.rules;
 const firstSpeech = rules.segments.find((s) => s.type === 'speech')!;
-const openedAtMs = Date.parse('2026-10-22T00:02:00.000Z');
+const openedAtMs = instantMs('2026-10-22T00:02:00.000Z');
 const iso = (ms: number) => new Date(ms).toISOString();
 const segment = {
   id: 'actual-first',
@@ -343,12 +345,6 @@ test('check-in validates the envelope and records a SHA3 digest of it', async ()
     given: 'a valid envelope',
     should: 'record it with the digest of its parsed form',
     actual: [recorded.length, input!.envelope, input!.payloadDigest],
-    expected: [
-      1,
-      envelope,
-      new Bun.CryptoHasher('sha3-256')
-        .update(JSON.stringify(envelope))
-        .digest('hex'),
-    ],
+    expected: [1, envelope, sha3Hex(JSON.stringify(envelope))],
   });
 });

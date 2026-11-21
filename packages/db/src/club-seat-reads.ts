@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import {
@@ -252,7 +253,7 @@ export function createClubSeatReads(input: {
           manager: owner.name,
           email: invitation.email,
           expiresAt: invitation.expiresAt,
-          expired: Date.parse(invitation.expiresAt) <= Date.parse(now),
+          expired: instantMs(invitation.expiresAt) <= instantMs(now),
           seatedHere: own.some(
             (row) => String(row.organization_id) === organizationId,
           ),

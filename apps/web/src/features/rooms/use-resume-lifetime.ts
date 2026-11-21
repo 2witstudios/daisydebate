@@ -1,6 +1,6 @@
 'use client';
 
-import { systemClock } from '@daisy/clock';
+import { nowMs, systemClock } from '@daisy/clock';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { documentTabId } from './document-tab';
 import { markDeparture } from './resume-departure';
@@ -73,7 +73,7 @@ export function useResumeLifetime(
       tabId: documentTabId(),
       storage: advisoryStorage(),
       predecessor: tabPredecessor(actorId, roundId),
-      now: () => Date.parse(systemClock.now()),
+      now: () => nowMs(systemClock),
       holderLeft: () => {
         markDeparture(actorId, roundId);
         onHolderLeft.current();

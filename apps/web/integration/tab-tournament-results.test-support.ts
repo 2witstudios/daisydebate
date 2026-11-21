@@ -1,3 +1,4 @@
+import { instantMs, nowMs } from '@daisy/clock';
 import { authorize } from '@daisy/auth/authorization';
 import { createTabStore } from '@daisy/db/tab';
 import { isAppError } from '@daisy/errors';
@@ -58,7 +59,7 @@ export async function resultsStage(world: World) {
         });
         const roundId = started.receipt.roundRef!.id;
         execution.clock = scriptClock(
-          Date.parse((await f.store.getRound(roundId))!.launchedAt),
+          instantMs((await f.store.getRound(roundId))!.launchedAt),
         );
         const frozen = await playTournamentRound(f, roundId, execution.clock);
         const round = (await f.store.getRound(roundId))!;
@@ -146,10 +147,7 @@ export async function resultsStage(world: World) {
             { ballot_deadline_at: Date }[]
           >`select ballot_deadline_at from rounds where id=${roundId}`;
           execution.clock.advance(31);
-          if (
-            Date.parse(execution.clock.now()) <=
-            deadline!.ballot_deadline_at.getTime()
-          )
+          if (nowMs(execution.clock) <= deadline!.ballot_deadline_at.getTime())
             throw new Error(
               'The controlled late ballot did not actually miss its persisted window',
             );

@@ -29,7 +29,12 @@ export function createRequestFlagReader(deps: {
         reported = true;
         deps.diagnostic();
       }
-      return { snapshot: { kind: 'unavailable' } as const, now: deps.now() };
+      const snapshot = { kind: 'unavailable' } as const;
+      try {
+        return { snapshot, now: deps.now() };
+      } catch {
+        return { snapshot, now: Number.NaN };
+      }
     }
   };
   return async (key, accountId) => {

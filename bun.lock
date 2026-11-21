@@ -11,6 +11,7 @@
         "@daisy/config": "workspace:*",
         "@daisy/db": "workspace:*",
         "@daisy/debate-engine": "workspace:*",
+        "@daisy/digest": "workspace:*",
         "@daisy/errors": "workspace:*",
         "@daisy/logger": "workspace:*",
         "@daisy/media": "workspace:*",
@@ -46,6 +47,7 @@
         "@clickhouse/client-web": "1.24.0",
         "@daisy/auth": "workspace:*",
         "@daisy/clock": "workspace:*",
+        "@daisy/digest": "workspace:*",
         "@daisy/logger": "workspace:*",
         "@daisy/protocol": "workspace:*",
         "@simplewebauthn/server": "13.3.2",
@@ -84,6 +86,7 @@
       "name": "@daisy/broadcast-worker",
       "version": "0.0.0",
       "dependencies": {
+        "@daisy/clock": "workspace:*",
         "@daisy/db": "workspace:*",
         "@daisy/debate-engine": "workspace:*",
         "@daisy/logger": "workspace:*",
@@ -118,6 +121,7 @@
         "@daisy/clock": "workspace:*",
         "@daisy/config": "workspace:*",
         "@daisy/db": "workspace:*",
+        "@daisy/digest": "workspace:*",
         "@daisy/errors": "workspace:*",
         "@daisy/logger": "workspace:*",
         "@daisy/media": "workspace:*",
@@ -135,6 +139,7 @@
         "@daisy/clock": "workspace:*",
         "@daisy/config": "workspace:*",
         "@daisy/db": "workspace:*",
+        "@daisy/digest": "workspace:*",
         "@daisy/errors": "workspace:*",
         "@daisy/ingress": "workspace:*",
         "@daisy/logger": "workspace:*",
@@ -151,6 +156,7 @@
       "name": "@daisy/recording-worker",
       "version": "0.0.0",
       "dependencies": {
+        "@daisy/clock": "workspace:*",
         "@daisy/db": "workspace:*",
         "@daisy/logger": "workspace:*",
         "@daisy/protocol": "workspace:*",
@@ -172,6 +178,7 @@
         "@daisy/config": "workspace:*",
         "@daisy/db": "workspace:*",
         "@daisy/debate-engine": "workspace:*",
+        "@daisy/digest": "workspace:*",
         "@daisy/errors": "workspace:*",
         "@daisy/ingress": "workspace:*",
         "@daisy/logger": "workspace:*",
@@ -236,6 +243,7 @@
       "name": "@daisy/auth",
       "version": "0.0.0",
       "dependencies": {
+        "@daisy/clock": "workspace:*",
         "@daisy/errors": "workspace:*",
         "@daisy/protocol": "workspace:*",
       },
@@ -268,7 +276,9 @@
       "version": "0.0.0",
       "dependencies": {
         "@better-auth/drizzle-adapter": "1.7.7",
+        "@daisy/clock": "workspace:*",
         "@daisy/config": "workspace:*",
+        "@daisy/digest": "workspace:*",
         "@daisy/errors": "workspace:*",
         "@daisy/protocol": "workspace:*",
         "@paralleldrive/cuid2": "3.3.0",
@@ -288,9 +298,20 @@
       "version": "0.0.0",
       "dependencies": {
         "@adobe/data": "0.10.19",
+        "@daisy/clock": "workspace:*",
+        "@daisy/digest": "workspace:*",
         "@daisy/errors": "workspace:*",
         "@daisy/protocol": "workspace:*",
         "@daisy/seeded-random": "workspace:*",
+      },
+      "devDependencies": {
+        "riteway": "9.3.0",
+      },
+    },
+    "packages/digest": {
+      "name": "@daisy/digest",
+      "version": "0.0.0",
+      "dependencies": {
         "@noble/hashes": "2.4.0",
       },
       "devDependencies": {
@@ -332,6 +353,8 @@
       "name": "@daisy/media",
       "version": "0.0.0",
       "dependencies": {
+        "@daisy/clock": "workspace:*",
+        "@daisy/digest": "workspace:*",
         "@daisy/errors": "workspace:*",
         "@daisy/protocol": "workspace:*",
         "@livekit/rtc-node": "1.2.0",
@@ -340,7 +363,6 @@
         "zod": "4.6.6",
       },
       "devDependencies": {
-        "@daisy/clock": "workspace:*",
         "@daisy/config": "workspace:*",
         "@daisy/db": "workspace:*",
         "riteway": "9.3.0",
@@ -360,6 +382,7 @@
       "name": "@daisy/protocol",
       "version": "0.0.0",
       "dependencies": {
+        "@daisy/clock": "workspace:*",
         "zod": "4.6.6",
       },
       "devDependencies": {
@@ -374,6 +397,7 @@
       },
       "devDependencies": {
         "@daisy/config": "workspace:*",
+        "@daisy/digest": "workspace:*",
         "@paralleldrive/cuid2": "3.3.0",
         "riteway": "9.3.0",
       },
@@ -382,6 +406,7 @@
       "name": "@daisy/seeded-random",
       "version": "0.0.0",
       "dependencies": {
+        "@daisy/digest": "workspace:*",
         "@noble/hashes": "2.4.0",
       },
       "devDependencies": {
@@ -393,6 +418,7 @@
       "name": "@daisy/tab-engine",
       "version": "0.0.0",
       "dependencies": {
+        "@daisy/digest": "workspace:*",
         "@daisy/seeded-random": "workspace:*",
       },
       "devDependencies": {
@@ -505,6 +531,8 @@
     "@daisy/db": ["@daisy/db@workspace:packages/db"],
 
     "@daisy/debate-engine": ["@daisy/debate-engine@workspace:packages/debate-engine"],
+
+    "@daisy/digest": ["@daisy/digest@workspace:packages/digest"],
 
     "@daisy/errors": ["@daisy/errors@workspace:packages/errors"],
 

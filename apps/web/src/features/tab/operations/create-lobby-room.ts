@@ -43,7 +43,7 @@ import {
   standingRoomSettings,
   standingRoomConfig,
 } from './standing-room-settings';
-import { commandDigest } from './command-digest';
+import { commandDigest } from '@daisy/digest';
 import type { TabPrincipal } from '../tab-principal';
 
 const impossible = (): never => {

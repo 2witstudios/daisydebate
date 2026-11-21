@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
 import { idSchema, leaseReply } from '@daisy/protocol';
 import type { z } from 'zod';
@@ -181,7 +182,7 @@ export function createSignedWorkerCall(input: WorkerTransportDependencies) {
       calibration: {
         sentAtMs: reply.sentAtMs,
         receivedAtMs: reply.receivedAtMs,
-        serverNowMs: Date.parse(reply.value.serverNow),
+        serverNowMs: instantMs(reply.value.serverNow),
         precisionMs: 1,
       },
     };

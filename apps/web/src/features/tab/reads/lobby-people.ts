@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import type {
   AuthorizationDecision,
   AuthorizationInput,
@@ -29,8 +30,7 @@ export const lobbyPeopleOf = (
       grant.scopeKind === 'lobby' &&
       grant.lobbyId === facts.lobby.id &&
       grant.revokedAt === null &&
-      (grant.expiresAt === null ||
-        Date.parse(grant.expiresAt) > Date.parse(now)),
+      (grant.expiresAt === null || instantMs(grant.expiresAt) > instantMs(now)),
   );
   return {
     lobbyId: facts.lobby.id,

@@ -1,3 +1,4 @@
+import { nowMs } from '@daisy/clock';
 import { isTemporaryRefusal } from '@daisy/db/capacity';
 import {
   studentsLive,
@@ -187,7 +188,7 @@ export function createApp({
     createResendSender({
       apiKey: mail.RESEND_API_KEY,
       from: mail.EMAIL_FROM,
-      nowMs: () => Date.parse(clock.now()),
+      nowMs: () => nowMs(clock),
       ids,
       fetch,
     });
@@ -250,7 +251,7 @@ export function createApp({
       readonly actorId: string;
     }) => database.readStudentLiveRounds(member.userId),
     view: roundViewReader(database, liveLinkedAdults({ database })),
-    nowMs: () => Date.parse(clock.now()),
+    nowMs: () => nowMs(clock),
   });
   return {
     billingNative(): NativeBillingRuntime | null {

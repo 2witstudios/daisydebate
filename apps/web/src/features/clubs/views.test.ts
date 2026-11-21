@@ -1,3 +1,4 @@
+import { addMs } from '@daisy/clock';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { ClubSeatingRead } from '@daisy/db';
 import {
@@ -246,9 +247,7 @@ test('the board lists live invitations and only the latest lapsed ones', () => {
     id: `${n}`.padStart(24, 'l'),
     email: `l${n}@club.example`,
     createdAt: '2026-10-01T00:00:00.000Z',
-    expiresAt: new Date(
-      Date.parse('2026-10-15T00:00:00.000Z') + n * 60_000,
-    ).toISOString(),
+    expiresAt: addMs('2026-10-15T00:00:00.000Z', n * 60_000),
   }));
   const base = read();
   const view = clubSeatsView({

@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { mediaBindingRevoked } from '@daisy/protocol';
 import {
   createRoundRuntime,
@@ -122,7 +123,7 @@ export const conversationHeldOverdue = (
   if (!conversational(mediaRuntime(snapshot, nextId).position(snapshot.now)))
     return false;
   const since = snapshot.finalSegmentEndedAt ?? snapshot.round.launchedAt;
-  return Date.parse(snapshot.now) - Date.parse(since) > HELD_ALERT_MS;
+  return instantMs(snapshot.now) - instantMs(since) > HELD_ALERT_MS;
 };
 
 export function projectMedia(

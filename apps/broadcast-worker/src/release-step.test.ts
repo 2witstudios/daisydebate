@@ -1,9 +1,10 @@
+import { instantMs } from '@daisy/clock';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { releaseStep, type ReleasePorts } from './release-step';
 
 setupRitewayBun();
 
-const start = Date.parse('2026-11-02T00:00:00.000Z');
+const start = instantMs('2026-11-02T00:00:00.000Z');
 const playlist = (n: number) =>
   '#EXTM3U\n' +
   Array.from(

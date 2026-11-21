@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import type { SQL } from 'bun';
 import type { Ballot, BallotWrittenRecord } from '@daisy/protocol';
 import { createId } from '@paralleldrive/cuid2';
@@ -60,7 +61,7 @@ export async function withActualCopiedBallot(
       );
       const roundId = started.receipt.roundRef!.id;
       clock = scriptClock(
-        Date.parse((await runtime.store.getRound(roundId))!.launchedAt),
+        instantMs((await runtime.store.getRound(roundId))!.launchedAt),
       );
       const frozen = await playTournamentRound(runtime, roundId, clock);
       const round = (await runtime.store.getRound(roundId))!,

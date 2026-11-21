@@ -1,3 +1,4 @@
+import { sha3Hex } from '@daisy/digest';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { createAppError, isAppError } from '@daisy/errors';
@@ -24,9 +25,7 @@ export function create(
     configured = policy.parse(raw);
   const options = {
     ...configured,
-    policyDigest: new Bun.CryptoHasher('sha3-256')
-      .update(JSON.stringify({ version: 1, ...configured }))
-      .digest('hex'),
+    policyDigest: sha3Hex(JSON.stringify({ version: 1, ...configured })),
   };
   if (typeof nextToken !== 'function') throw createAppError('VALIDATION');
   const parsed = <T>(schema: z.ZodType<T>, value: unknown) => {
@@ -106,9 +105,7 @@ export function create(
         ),
         bytes = Buffer.byteLength(text);
       if (bytes > 65536) throw createAppError('VALIDATION');
-      const digest = new Bun.CryptoHasher('sha3-256')
-        .update(text)
-        .digest('hex');
+      const digest = sha3Hex(text);
       return run((tx) => candidate(tx, { ...scope, digest, bytes }, options));
     },
   };

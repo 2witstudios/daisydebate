@@ -1,3 +1,4 @@
+import { nowMs } from '@daisy/clock';
 import type { RoundBotWorkerPolicy } from '@daisy/config';
 import type { ErrorReporter } from '@daisy/observability';
 import { createAttendanceFeature } from '../features/attendance/operations';
@@ -62,7 +63,7 @@ export function startRoundBotWorkers(input: {
         timers: input.timers,
         oneShot: input.deadlineTimer,
         nextId: () => app.ids.next(),
-        nowMs: () => Date.parse(app.clock.now()),
+        nowMs: () => nowMs(app.clock),
         callTimeoutMs: policy.callTimeoutMs,
         reasoning: policy.reasoning,
         failed: failure(

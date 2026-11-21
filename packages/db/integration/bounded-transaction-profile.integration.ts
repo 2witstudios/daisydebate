@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { testLane } from '../src/testing-lane';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
@@ -35,7 +36,7 @@ test('the attendance execution slice exposes the first setup receipt and fits re
       actual: {
         receipt:
           typeof result.received === 'string' &&
-          Date.parse(result.received) <=
+          instantMs(result.received) <=
             new Date(result.after as string).getTime(),
         statement: result.statement,
         idle: result.idle,

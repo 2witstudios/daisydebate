@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { credentialHash } from '../src/features/stage-capture/stage-access';
 import { spectatorClockAt } from '../src/features/spectating/spectator-clock';
 import { requireTestServices } from '@daisy/config';
@@ -18,7 +19,7 @@ import { withRoomRuntime } from './room-runtime.test-support';
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
 
-const T0 = Date.parse('2036-01-01T10:00:00.000Z');
+const T0 = instantMs('2036-01-01T10:00:00.000Z');
 const iso = (ms: number) => new Date(ms).toISOString();
 
 type Harness = Parameters<Parameters<typeof withRoomRuntime>[0]>[0];

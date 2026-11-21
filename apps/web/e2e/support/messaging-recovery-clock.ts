@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import { expect, test } from './fixtures';
-import { systemClock } from '@daisy/clock';
+import { nowMs, systemClock } from '@daisy/clock';
 import { boundedStep } from './bounded-step';
 import { committedRefusalState } from './messaging-committed-refusal';
 import { advisedConversationBoundary } from './messaging-refusal-flight';
@@ -14,9 +14,9 @@ export async function pauseMessagingRecovery(page: Page) {
   await page.clock.setSystemTime(anchor);
 }
 
-export const recoveryDeadline = () => Date.parse(systemClock.now()) + 10000;
+export const recoveryDeadline = () => nowMs(systemClock) + 10000;
 const remaining = (deadline: number) => {
-  const budget = deadline - Date.parse(systemClock.now());
+  const budget = deadline - nowMs(systemClock);
   if (budget <= 0)
     throw new Error('Messaging recovery proof exceeded its existing10s budget');
   return budget;

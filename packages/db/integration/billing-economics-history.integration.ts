@@ -1,3 +1,4 @@
+import { addMs } from '@daisy/clock';
 import {
   scratchDatabase,
   ddlTimeoutMs,
@@ -59,7 +60,7 @@ test(
         const request = {
           requestId: createId(),
           requestedAt: requested,
-          deadlineAt: new Date(Date.parse(requested) + 900000).toISOString(),
+          deadlineAt: addMs(requested, 900000),
           evidenceLines: 2,
           claims: 0,
           calls: [] as unknown[],
@@ -70,7 +71,7 @@ test(
           tokenDigest: 'a'.repeat(64),
           model: 'actual-new-model',
           claimedAt: requested,
-          expiresAt: new Date(Date.parse(requested) + 30000).toISOString(),
+          expiresAt: addMs(requested, 30000),
         };
         const claimed = { ...request, claims: 1 };
         await fixture.sql`update round_analyses set work=${JSON.stringify({ kind: 'leased', historical, ...claimed, lease })}::text::jsonb where round_participant_id=${aff.id}`;

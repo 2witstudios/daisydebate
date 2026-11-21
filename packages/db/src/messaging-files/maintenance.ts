@@ -1,3 +1,4 @@
+import { tryInstantMs } from '@daisy/clock';
 import { sql } from 'drizzle-orm';
 import { createAppError, isAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
@@ -101,7 +102,7 @@ async function expireDueChannel(
 
 function validateRun(now: string, maxItems: number) {
   if (
-    !Number.isFinite(Date.parse(now)) ||
+    tryInstantMs(now) === undefined ||
     !Number.isSafeInteger(maxItems) ||
     maxItems < 1 ||
     maxItems > 65535

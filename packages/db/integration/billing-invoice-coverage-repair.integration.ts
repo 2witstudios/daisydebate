@@ -1,3 +1,4 @@
+import { addMs } from '@daisy/clock';
 import {
   installHistoricalInvoiceObservationProducer,
   seedHistoricalInvoiceFacts,
@@ -78,11 +79,11 @@ test(
               claim: {
                 id: createId(),
                 claimedAt: at,
-                expiresAt: new Date(Date.parse(at) + 30000).toISOString(),
+                expiresAt: addMs(at, 30000),
               },
             };
             await tx`update privacy_jobs set billing_cleanup=${JSON.stringify(claimed)}::text::jsonb where id=${jobId}`;
-            const due = new Date(Date.parse(at) + 1000).toISOString();
+            const due = addMs(at, 1000);
             await tx`update privacy_jobs set billing_cleanup=${JSON.stringify({ version: 2, kind: 'deleting', jobId, retryAt: due, claim: null })}::text::jsonb,retry_at=${due}::timestamptz where id=${jobId}`;
           });
           await tx`rollback to savepoint obsolete_completion`;

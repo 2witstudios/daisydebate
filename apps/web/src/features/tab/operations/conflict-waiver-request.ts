@@ -21,7 +21,7 @@ import {
 } from '@daisy/protocol/lobby/confirmation-command';
 import { CommandDenied } from '../commands/run-command';
 import { fixtureAuthority } from './fixture-authority';
-import { commandDigest } from './command-digest';
+import { commandDigest } from '@daisy/digest';
 import type { TabPrincipal } from '../tab-principal';
 
 /** Request the addressed read's conflict waiver; no request itself confers access. */

@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   closurePaymentDisposition,
@@ -14,7 +15,7 @@ import {
 } from './billing-refund.test-support';
 setupRitewayBun();
 test('refund eligibility uses verified payment chronology, preserving second-resolution ambiguity', () => {
-  const paidAt = Date.parse(at(0)) / 1000;
+  const paidAt = instantMs(at(0)) / 1000;
   assert({
     given:
       'a payment second wholly before/after closure, overlapping closure, unknown, or in the future',
@@ -73,7 +74,7 @@ test('refund facts refuse invalid chronology and impossible authority states', (
     actual: [
       refundActionSchema.safeParse({
         ...valid,
-        paidAtSeconds: Date.parse(at(-1)) / 1000,
+        paidAtSeconds: instantMs(at(-1)) / 1000,
       }).success,
       nextRefundWork(valid, context(1)),
       closurePaymentDisposition({
@@ -101,7 +102,7 @@ test('recorded equal-second financial facts remain readable without renewed crea
   const original = action();
   const boundary = {
     ...original,
-    paidAtSeconds: Date.parse(original.closedAt) / 1000,
+    paidAtSeconds: instantMs(original.closedAt) / 1000,
   };
   const before = changed(original, { kind: 'claim', claimId: first }, 3);
   const possible = { ...before, paidAtSeconds: boundary.paidAtSeconds };

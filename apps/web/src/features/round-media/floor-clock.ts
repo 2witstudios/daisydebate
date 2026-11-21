@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { mediaWindowEndsAt } from '@daisy/debate-engine/media-window';
 import {
   dueAfterStops,
@@ -38,7 +39,7 @@ export type FloorClock = {
 /** When the open segment is due, from its committed row. */
 export const dueAt = (segment: NonNullable<FloorClock['lastSegment']>) =>
   segmentDueAtMs({
-    startedAtMs: Date.parse(segment.startedAt),
+    startedAtMs: instantMs(segment.startedAt),
     durationMs: segment.durationMs,
     returnedMs: segment.returnedMs,
   });
@@ -97,14 +98,14 @@ const dueThroughStops = (clock: FloorClock, anchorMs: number, waitMs: number) =>
 const gapBoundaries = (clock: FloorClock): number[] => {
   if (clock.activePrep || clock.segmentCount >= clock.segmentTotal) return [];
   const gated = (due: number) =>
-    clock.startGateAt ? Math.max(due, Date.parse(clock.startGateAt)) : due;
+    clock.startGateAt ? Math.max(due, instantMs(clock.startGateAt)) : due;
   // The microphone opened when prep ended: only the clock's own start is ahead.
   if (clock.prepEndedAt)
     return [
       gated(
         dueThroughStops(
           clock,
-          Date.parse(clock.prepEndedAt),
+          instantMs(clock.prepEndedAt),
           roundStartPolicy.microphoneLeadMs,
         ),
       ),
@@ -112,7 +113,7 @@ const gapBoundaries = (clock: FloorClock): number[] => {
   const anchor =
     clock.segmentCount === 0 ? clock.startedAt : clock.lastSegment?.endedAt;
   if (!anchor) return [];
-  const due = dueThroughStops(clock, Date.parse(anchor), clock.countdownMs);
+  const due = dueThroughStops(clock, instantMs(anchor), clock.countdownMs);
   // The microphone opens before the clock, and a gate may hold the clock past its due.
   return [
     ...(clock.countdownMs > 0
@@ -134,7 +135,7 @@ export function floorBoundaries(clock: FloorClock): number[] {
   const last = clock.lastSegment;
   const prep = clock.activePrep;
   if (clock.hold)
-    return clock.hold.resumesAt ? [Date.parse(clock.hold.resumesAt)] : [];
+    return clock.hold.resumesAt ? [instantMs(clock.hold.resumesAt)] : [];
   return [
     ...gapBoundaries(clock),
     ...(last?.endedAt === null ? [dueAt(last)] : []),
@@ -142,7 +143,7 @@ export function floorBoundaries(clock: FloorClock): number[] {
       ? [
           dueThroughStops(
             clock,
-            Date.parse(prep.startedAt),
+            instantMs(prep.startedAt),
             clock.prepBudgetMs - prep.consumedMs,
           ),
         ]
@@ -161,11 +162,11 @@ export function floorDueAt(clock: FloorClock, nowMs: number): number | null {
     ...floorBoundaries(clock),
     ...(last
       ? [
-          Date.parse(last.startedAt),
-          ...(last.endedAt ? [Date.parse(last.endedAt)] : []),
+          instantMs(last.startedAt),
+          ...(last.endedAt ? [instantMs(last.endedAt)] : []),
         ]
       : []),
-    ...(clock.prepEndedAt ? [Date.parse(clock.prepEndedAt)] : []),
+    ...(clock.prepEndedAt ? [instantMs(clock.prepEndedAt)] : []),
   ].filter((at) => at <= nowMs);
   return passed.length ? Math.max(...passed) : null;
 }

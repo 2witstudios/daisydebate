@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import type { People, PersonRow } from './people';
 import {
   peopleRoleOf,
@@ -34,7 +35,7 @@ const weekdays = [
   'Saturday',
 ] as const;
 const DAY_MS = 86_400_000;
-const dayIndex = (instant: string) => Math.floor(Date.parse(instant) / DAY_MS);
+const dayIndex = (instant: string) => Math.floor(instantMs(instant) / DAY_MS);
 
 /** A UTC day as host screens word it: `14 Nov`. */
 const dayWords = (instant: string): string => {

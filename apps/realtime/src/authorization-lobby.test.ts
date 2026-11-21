@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import type { AuthorityResources } from './authorization';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
@@ -40,7 +41,7 @@ test('lobby and organization topics are refused until their facts load', async (
   const authorization = createRealtimeAuthorization({
     readingPolicy: refuseAllReading,
     resources,
-    now: () => Date.parse(instant),
+    now: () => instantMs(instant),
   });
   const id = 'l'.repeat(24);
   const actual = await Promise.all(

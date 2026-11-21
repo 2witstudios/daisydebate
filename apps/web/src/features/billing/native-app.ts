@@ -1,3 +1,4 @@
+import { nowMs } from '@daisy/clock';
 import type Stripe from 'stripe';
 import {
   canManageBilling,
@@ -68,7 +69,7 @@ export function composeNativeBilling(
     release: (key, accountId) =>
       createRequestFlagReader({
         read: app.database.readFlagSnapshot,
-        now: () => Date.parse(app.clock.now()),
+        now: () => nowMs(app.clock),
         diagnostic: () =>
           app.logger.log(
             'flags.read.failed',

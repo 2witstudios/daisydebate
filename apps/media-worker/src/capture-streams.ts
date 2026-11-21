@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
 import { speakingEndMs } from '@daisy/protocol';
 import { CAPTURE_BATCH_INTERVAL_MS } from './capture-batch';
@@ -97,17 +98,17 @@ export function createStreamTracker(ceiling: number) {
       if (!segment) return;
       for (const interval of state.intervals) {
         const end = Math.min(
-          Date.parse(interval.endedAt ?? state.serverNow),
+          instantMs(interval.endedAt ?? state.serverNow),
           speakingEndMs({
-            startedAtMs: Date.parse(segment.startedAt),
-            endedAtMs: Date.parse(segment.endedAt ?? state.serverNow),
+            startedAtMs: instantMs(segment.startedAt),
+            endedAtMs: instantMs(segment.endedAt ?? state.serverNow),
             durationMs: segment.durationMs,
             returnedMs: segment.returnedMs,
           }),
         );
         // A bot owes capture no stream: its transcript is authored (ADR 0122).
         if (
-          Date.parse(interval.startedAt) < end &&
+          instantMs(interval.startedAt) < end &&
           !botSeat(state, interval.roundParticipantId)
         )
           forClip({
@@ -152,8 +153,8 @@ function markEnded(streams: Iterable<Stream>, state: CaptureState) {
   for (const stream of streams) {
     if (stream.endedAtMs !== null) continue;
     if (stream.segmentId !== segment?.id)
-      stream.endedAtMs = Date.parse(state.serverNow);
+      stream.endedAtMs = instantMs(state.serverNow);
     else if (segment.endedAt !== null)
-      stream.endedAtMs = Date.parse(segment.endedAt);
+      stream.endedAtMs = instantMs(segment.endedAt);
   }
 }

@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
 import { SQL } from 'bun';
@@ -43,8 +44,8 @@ test('the database clock is the default and trusted Round time bypasses SQL', as
         'sample between the two PostgreSQL witnesses and use SQL only by default',
       actual: {
         between:
-          Date.parse(actual) >= before.getTime() &&
-          Date.parse(actual) <= after.getTime(),
+          instantMs(actual) >= before.getTime() &&
+          instantMs(actual) <= after.getTime(),
         controlled,
         clockReads: statements.filter((query) =>
           query.includes('clock_timestamp'),
@@ -151,8 +152,8 @@ test('Round lifecycle samples after lock acquisition and survives a delayed writ
         should: 'persist the one post-lock instant unchanged',
         actual: {
           exact: hydrated?.startedAt === sampled,
-          afterLock: Date.parse(sampled) >= unlockedAfter.now.getTime(),
-          beforeWrite: Date.parse(sampled) <= delayed.now.getTime(),
+          afterLock: instantMs(sampled) >= unlockedAfter.now.getTime(),
+          beforeWrite: instantMs(sampled) <= delayed.now.getTime(),
         },
         expected: { exact: true, afterLock: true, beforeWrite: true },
       });

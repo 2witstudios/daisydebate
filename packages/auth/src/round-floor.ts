@@ -1,3 +1,4 @@
+import { tryInstantMs } from '@daisy/clock';
 import { isRoundOver } from '@daisy/protocol';
 import {
   roundFloorPolicySchema,
@@ -41,9 +42,9 @@ export function decideRoundFloor(input: FloorDecisionInput):
       readonly expiresAt: string | null;
     } {
   const { fact, action, now } = input;
-  const instant = Date.parse(now);
+  const instant = tryInstantMs(now);
   if (
-    !Number.isFinite(instant) ||
+    instant === undefined ||
     !boundEligibleAccount(input) ||
     !currentAudience(input)
   )
@@ -58,9 +59,10 @@ export function decideRoundFloor(input: FloorDecisionInput):
     return fact.completedAt === null
       ? { allow: true, readOnly: false, expiresAt: null }
       : { allow: false };
-  const expiry = Date.parse(fact.completedAt ?? '') + roundFloorRetentionMs;
-  if (!Number.isFinite(expiry) || instant >= expiry || action === 'post')
-    return { allow: false };
+  const completedAt = tryInstantMs(fact.completedAt);
+  if (completedAt === undefined || action === 'post') return { allow: false };
+  const expiry = completedAt + roundFloorRetentionMs;
+  if (instant >= expiry) return { allow: false };
   return {
     allow: true,
     readOnly: true,

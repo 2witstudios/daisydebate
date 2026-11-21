@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { SQL } from 'bun';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
@@ -59,7 +60,7 @@ test('actual role traversal reaches a stale subscription after twelve full pages
           );
         if (page.oldestObservedAt)
           knownTail =
-            Date.parse(page.sampledAt) - Date.parse(page.oldestObservedAt) >=
+            instantMs(page.sampledAt) - instantMs(page.oldestObservedAt) >=
             1_200_000;
         cursor = page.exhausted
           ? undefined

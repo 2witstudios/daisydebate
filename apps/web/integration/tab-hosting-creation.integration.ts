@@ -110,7 +110,9 @@ test('actual creation reads canonical finite hosting, replays once, and denies r
         kind: answer.kind,
         replay,
         replays: Number(history!.n),
-        currentTime: Date.parse(String(history!.at)) > Date.UTC(2026, 0, 1),
+        currentTime:
+          history?.at instanceof Date &&
+          history.at.getTime() > Date.UTC(2026, 0, 1),
         foreign: await denied(() => send(as(other), command('league'))),
       },
       expected: {

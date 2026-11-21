@@ -1,6 +1,6 @@
+import { sha3Hex } from '@daisy/digest';
 import { judgedRound } from './judged-round.test-support';
 import { SQL } from 'bun';
-import { createHash } from 'node:crypto';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
@@ -52,7 +52,7 @@ export const send = (
       requestId,
       text,
     });
-    const digest = createHash('sha3-256').update(text).digest('hex');
+    const digest = sha3Hex(text);
     if (state.receipt) {
       if (state.receipt.payloadDigest !== digest)
         throw createAppError('CONFLICT');

@@ -1,3 +1,4 @@
+import { sha3Hex } from '@daisy/digest';
 import { assertRejects } from '@daisy/errors/testing';
 import type { RoundCommandEnvelope } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -125,12 +126,7 @@ test('a seated forfeit in the opening stands as a result, under a digest of the 
     given: 'a debater forfeiting during pre-round prep',
     should: 'complete the Round and bind the SHA3 digest of the envelope',
     actual: [projection.round.status, calls[0]!.payloadDigest],
-    expected: [
-      'completed',
-      new Bun.CryptoHasher('sha3-256')
-        .update(JSON.stringify(forfeit))
-        .digest('hex'),
-    ],
+    expected: ['completed', sha3Hex(JSON.stringify(forfeit))],
   });
 });
 

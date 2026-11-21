@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import type { Clock, IdGenerator } from '@daisy/clock';
 import type { Database } from '@daisy/db';
 import { createAppError, createRefusal } from '@daisy/errors';
@@ -25,7 +26,7 @@ const audienceReactionRefusals = [
 /** The start of the window a press falls in. */
 export const reactionWindowOf = (at: string) =>
   new Date(
-    Math.floor(Date.parse(at) / REACTION_WINDOW_MS) * REACTION_WINDOW_MS,
+    Math.floor(instantMs(at) / REACTION_WINDOW_MS) * REACTION_WINDOW_MS,
   ).toISOString();
 
 /**

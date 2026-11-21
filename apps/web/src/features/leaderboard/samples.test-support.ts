@@ -1,3 +1,4 @@
+import { addMs } from '@daisy/clock';
 import type { RatingPoint } from './history';
 import type { Season } from './season';
 import type { RatingEntry } from '../ratings/rank';
@@ -16,7 +17,7 @@ const FIELD = 240;
 const CLOSED_AT = 17;
 
 const daysFrom = (now: string, days: number): string =>
-  new Date(Date.parse(now) + days * DAY_MS).toISOString();
+  addMs(now, days * DAY_MS);
 
 /** Season 4 is live, about sixteen days in; seasons 3 and 2 are closed. */
 export const sampleSeasons = (now: string): readonly Season[] => {

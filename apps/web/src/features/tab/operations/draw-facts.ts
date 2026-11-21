@@ -15,7 +15,7 @@ import type {
   EngineRatings,
   EngineFormat,
 } from '../commands/tab-engine';
-import { commandDigest } from './command-digest';
+import { commandDigest } from '@daisy/digest';
 import { engineSettings } from './engine-settings';
 import { eventSettingResolution } from './event-setting-resolution';
 import { eligibleTournamentActors } from './tournament-participant-admission';

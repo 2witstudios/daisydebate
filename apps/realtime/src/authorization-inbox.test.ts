@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import type { AuthorityResources } from './authorization';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { buildUserInboxTopic } from '@daisy/protocol';
@@ -53,7 +54,7 @@ test('own inbox subscribes only through current canonical account authority', as
     const authorization = createRealtimeAuthorization({
       readingPolicy: refuseAllReading,
       resources,
-      now: () => Date.parse(instant),
+      now: () => instantMs(instant),
     });
     actual.push(
       (
@@ -71,7 +72,7 @@ test('own inbox subscribes only through current canonical account authority', as
       'use the sole canonical inbox capability and preserve the real session deadline',
     actual,
     expected: [
-      Date.parse(expiresAt),
+      instantMs(expiresAt),
       null,
       null,
       null,

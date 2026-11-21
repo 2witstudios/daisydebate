@@ -1,4 +1,5 @@
 'use client';
+import { nowMs } from '@daisy/clock';
 
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import type { Clock } from '@daisy/clock';
@@ -93,7 +94,7 @@ export function SignInFlow({
       offer: () => offerPasskeyAutofillSafely(port),
       onSettled: (outcome) => dispatch({ type: 'passkey-autofilled', outcome }),
       timers: browserTimers,
-      now: () => Date.parse(clock.now()),
+      now: () => nowMs(clock),
     });
   }, [autofillArmed, port, clock]);
 

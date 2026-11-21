@@ -1,4 +1,4 @@
-import { systemClock } from '@daisy/clock';
+import { nowMs, systemClock } from '@daisy/clock';
 import { createOperatorApiStub } from './operator-api-stub';
 import { e2eOperatorApi, e2ePendingAccount } from './operator-api-fixture';
 
@@ -11,7 +11,7 @@ const stub = createOperatorApiStub({
   audience: e2eOperatorApi.audience,
   keyId: e2eOperatorApi.keyId,
   key: new Uint8Array(Buffer.from(e2eOperatorApi.key, 'base64url')),
-  nowMs: () => Date.parse(systemClock.now()),
+  nowMs: () => nowMs(systemClock),
   accounts: [{ ...e2ePendingAccount }],
 });
 

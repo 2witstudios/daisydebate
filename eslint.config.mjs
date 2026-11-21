@@ -1,3 +1,4 @@
+import { clockDigestRules } from './eslint.config-clock-digest.mjs';
 import js from '@eslint/js';
 import ts from 'typescript';
 import tseslint from 'typescript-eslint';
@@ -1211,6 +1212,7 @@ export default [
       '**/test-results/**',
     ],
   },
+  ...clockDigestRules,
   js.configs.recommended,
   ...tseslint.configs.recommended,
   { plugins: { 'daisy-form': formActionPlugin } },

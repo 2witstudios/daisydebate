@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { createRoundRuntime } from '@daisy/debate-engine';
 import type { Database, RoundHydration } from '@daisy/db';
 import { roundStartPolicy } from '@daisy/protocol';
@@ -29,7 +30,7 @@ export function createRoundStartGate(input: {
         step: (round, now) =>
           runtimeOf(round).applyStartGate({
             kind: 'await',
-            atMs: Date.parse(now),
+            atMs: instantMs(now),
             seats,
             boundMs: roundStartPolicy.captureHoldBoundMs,
           }),
@@ -48,7 +49,7 @@ export function createRoundStartGate(input: {
         step: (round, now) =>
           runtimeOf(round).applyStartGate({
             kind: 'heard',
-            atMs: Date.parse(now),
+            atMs: instantMs(now),
             seat,
           }),
       });

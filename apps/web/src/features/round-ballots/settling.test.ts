@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { attendanceTimingPolicy } from '@daisy/protocol';
 import {
@@ -52,7 +53,7 @@ test('how long until the ballot can be submitted', () => {
 });
 
 test('the countdown runs on the server render time, never on the device clock', () => {
-  const renderedAtMs = Date.parse('2026-10-22T12:00:00.000Z');
+  const renderedAtMs = instantMs('2026-10-22T12:00:00.000Z');
   // A phone ten minutes slow: its wall clock reads far behind the server.
   const slow = renderedAtMs - 10 * 60_000;
   assert({

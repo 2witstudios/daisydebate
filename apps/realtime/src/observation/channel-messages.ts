@@ -1,3 +1,4 @@
+import { instantMs, nowMs } from '@daisy/clock';
 import { evaluateContextChannelPermits } from './context-channel-permits';
 import { loadAccountPolicyFacts } from '@daisy/auth/account-policy-facts';
 import { bindAuthorizationAgeFact } from '@daisy/db/account-age';
@@ -59,7 +60,7 @@ export function channelMessagesResource({
   const project = createChannelMessagesProjector(bounds);
   const { historyResult } = createMessagingCoreSchemas(bounds);
   const deadline = (expiry: string) =>
-    now() + Math.max(0, Date.parse(expiry) - Date.parse(clock.now()));
+    now() + Math.max(0, instantMs(expiry) - nowMs(clock));
   const requireOwner = () => {
     if (!owner) throw new Error('Not an observation owner process');
     return owner;

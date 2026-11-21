@@ -1,3 +1,4 @@
+import { instantMs, tryInstantMs } from '@daisy/clock';
 import type {
   RoundCommandAuthority,
   RoundParticipantSeat,
@@ -51,10 +52,10 @@ type MediaGrantInput = {
 };
 const withinMediaWindow = (input: MediaGrantInput) => {
   if (input.position.stage !== 'awaiting_ballot') return true;
-  const finalEnd = Date.parse(input.finalSegmentEndedAt ?? '');
+  const finalEnd = tryInstantMs(input.finalSegmentEndedAt);
   return (
-    Number.isFinite(finalEnd) &&
-    Date.parse(input.now) >= finalEnd &&
+    finalEnd !== undefined &&
+    instantMs(input.now) >= finalEnd &&
     !mediaWindowClosed({
       sourceVoided: false,
       status: input.position.status,
@@ -67,10 +68,10 @@ const withinMediaWindow = (input: MediaGrantInput) => {
 const speakingNow = (input: MediaGrantInput) => {
   const open = input.position.openSegment;
   if (!open) return false;
-  const now = Date.parse(input.now);
+  const now = instantMs(input.now);
   return (
-    now >= Date.parse(open.startedAt) &&
-    now < Date.parse(open.endsAt) &&
+    now >= instantMs(open.startedAt) &&
+    now < instantMs(open.endsAt) &&
     input.rules.segments[open.sequence]?.key === open.key &&
     speakingParticipants(
       input.rules,
@@ -100,7 +101,7 @@ const cameraOpen = (input: MediaGrantInput) =>
     input.cameraHeld === true &&
     phasePrivateAt(
       broadcastPhase(input.position, input.rules.segments.length - 1),
-      Date.parse(input.now),
+      instantMs(input.now),
     )
   );
 /**
@@ -154,7 +155,7 @@ export function mediaGrants(input: MediaGrantInput): RoundMediaGrants {
   );
   if (
     !seat?.eligible ||
-    !Number.isFinite(Date.parse(input.now)) ||
+    tryInstantMs(input.now) === undefined ||
     !isRoundRunning(position.status) ||
     !withinMediaWindow(input)
   )

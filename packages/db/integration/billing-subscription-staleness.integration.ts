@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { SQL } from 'bun';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
@@ -100,11 +101,10 @@ test('actual subscription application, new hints and ambiguous initialization re
           actual: [
             equal.unconfirmed,
             equal.oldestObservedAt,
-            Date.parse(hinted.sampledAt) -
-              Date.parse(hinted.oldestObservedAt!) >=
+            instantMs(hinted.sampledAt) - instantMs(hinted.oldestObservedAt!) >=
               1_200_000,
-            Date.parse(repeated.sampledAt) -
-              Date.parse(repeated.oldestRevisionRequestedAt!) <
+            instantMs(repeated.sampledAt) -
+              instantMs(repeated.oldestRevisionRequestedAt!) <
               15_000,
             repeated.oldestObservedAt === hinted.oldestObservedAt,
             repeated.unconfirmed,

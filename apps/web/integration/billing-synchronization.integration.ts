@@ -13,7 +13,7 @@ import {
   completeControlledBillingPurchase,
 } from '@daisy/db/testing';
 import { createId } from '@paralleldrive/cuid2';
-import { fixedClock } from '@daisy/clock';
+import { instantMs, fixedClock } from '@daisy/clock';
 import { withSql, testDatabaseUrl } from './fixtures';
 import { createBillingWebhook } from '../src/features/billing/webhook-handler';
 import { createSubscriptionReconciliation } from '../src/features/billing/subscription-reconciliation';
@@ -55,7 +55,7 @@ test('signed HTTP receipts and scheduled vendor observations share durable synch
     const header = await Stripe.webhooks.generateTestHeaderStringAsync({
       payload: body,
       secret,
-      timestamp: Math.floor(Date.parse(now) / 1000),
+      timestamp: Math.floor(instantMs(now) / 1000),
     });
     const request = (payload = body) =>
       new Request('https://daisy.invalid/api/webhooks/stripe', {

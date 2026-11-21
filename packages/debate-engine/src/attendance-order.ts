@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import {
   attendanceTimingPolicy as policy,
   type AttendanceLedgerFacts,
@@ -41,7 +42,7 @@ function adjudicationHolds(
   receipts: AttendanceLedgerFacts['receipts'],
   nowMs: number,
 ): boolean {
-  const openedAtMs = Date.parse(speech.startedAt);
+  const openedAtMs = instantMs(speech.startedAt);
   switch (decided.evidence) {
     case 'resolution_cutoff':
       return false;
@@ -50,16 +51,16 @@ function adjudicationHolds(
         (receipt) =>
           receipt.segmentId === decided.segmentId &&
           receipt.participantId === decided.receiptParticipantId &&
-          Date.parse(receipt.receivedAt) >= openedAtMs - policy.leadMs &&
-          Date.parse(receipt.receivedAt) <= openedAtMs + policy.graceMs,
+          instantMs(receipt.receivedAt) >= openedAtMs - policy.leadMs &&
+          instantMs(receipt.receivedAt) <= openedAtMs + policy.graceMs,
       );
     case 'settled_availability': {
       if (decided.decision === 'forfeit' || decided.decision === 'abandoned')
         return false;
-      const deadline = Date.parse(decided.effectiveDeadline);
+      const deadline = instantMs(decided.effectiveDeadline);
       return (
         deadline >= openedAtMs + policy.graceMs &&
-        Date.parse(decided.settledHorizon) >=
+        instantMs(decided.settledHorizon) >=
           deadline + policy.finalizationBufferMs &&
         deadline <= nowMs - policy.finalizationBufferMs
       );

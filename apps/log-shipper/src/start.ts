@@ -1,5 +1,5 @@
 import { connect } from '@nats-io/transport-node';
-import { systemClock, systemId } from '@daisy/clock';
+import { nowMs, systemClock, systemId } from '@daisy/clock';
 import { createLogger } from '@daisy/logger';
 import { createClickHouseSink } from './clickhouse-sink';
 import { readShipperConfig, subscriptionsFor } from './config';
@@ -89,7 +89,7 @@ while (!stoppingNow()) {
     result === 'failed'
       ? Math.min(delay * 2, MAX_BACKOFF_MS)
       : FLUSH_INTERVAL_MS;
-  const now = Date.parse(systemClock.now());
+  const now = nowMs(systemClock);
   if (now - lastBeat >= HEARTBEAT_INTERVAL_MS) {
     lastBeat = now;
     await beat();

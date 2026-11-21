@@ -1,3 +1,4 @@
+import { tryInstantMs } from '@daisy/clock';
 import { SERVICE_LEASE_WINDOW_MS } from './service-lease-lapse';
 import type { SQL, ReservedSQL } from 'bun';
 import { createAppError } from '@daisy/errors';
@@ -238,8 +239,7 @@ export function availabilityOperations(client: SQL, dedicated: SQL) {
     async readAvailabilitySamples(
       from: string,
     ): Promise<readonly AvailabilityEvidence[]> {
-      if (!Number.isFinite(Date.parse(from)))
-        throw createAppError('VALIDATION');
+      if (tryInstantMs(from) === undefined) throw createAppError('VALIDATION');
       return query(
         availabilitySamplesFrom(
           (strings, ...values) => client(strings, ...values),
@@ -281,7 +281,7 @@ export function requireRetentionBounds(input: {
   readonly limit: number;
 }): void {
   if (
-    !Number.isFinite(Date.parse(input.before)) ||
+    tryInstantMs(input.before) === undefined ||
     !Number.isSafeInteger(input.limit) ||
     input.limit < 1 ||
     input.limit > 1000

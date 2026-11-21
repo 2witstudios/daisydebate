@@ -1,3 +1,4 @@
+import { addMs } from '@daisy/clock';
 import { SQL } from 'bun';
 import { sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/bun-sql';
@@ -42,16 +43,11 @@ test('selected and unscoped pending expiry leave unrelated reservations untouche
       ),
     );
   const channelId = fixture.channelId;
-  const now = new Date(
-    Date.parse(fixture.now) + policy.reservationMs,
-  ).toISOString();
+  const now = addMs(fixture.now, policy.reservationMs);
   try {
     const selected = await reserve(fixture, fixture.now);
     const other = await reserve(fixture, fixture.now);
-    const future = await reserve(
-      fixture,
-      new Date(Date.parse(fixture.now) + 1000).toISOString(),
-    );
+    const future = await reserve(fixture, addMs(fixture.now, 1000));
     const foreign = await reserve(otherRoom, fixture.now);
     statements.length = 0;
     for (const ids of [

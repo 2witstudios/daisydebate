@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { sha3Hex } from '@daisy/digest';
 import { deriveSubkey } from '../../mail/recipient-key';
 
 /**
@@ -8,8 +8,7 @@ import { deriveSubkey } from '../../mail/recipient-key';
 export const deriveUnsubscribeSubkey = (secret: string): string =>
   deriveSubkey(secret, 'notification-unsubscribe');
 
-const digest = (value: string) =>
-  createHash('sha3-256').update(value).digest('hex');
+const digest = (value: string) => sha3Hex(value);
 
 /**
  * What an unsubscribe link does (ADR 0144): stops every notification email

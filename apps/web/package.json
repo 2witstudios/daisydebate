@@ -28,6 +28,7 @@
     "@daisy/config": "workspace:*",
     "@daisy/db": "workspace:*",
     "@daisy/debate-engine": "workspace:*",
+    "@daisy/digest": "workspace:*",
     "@daisy/errors": "workspace:*",
     "@daisy/ingress": "workspace:*",
     "@daisy/logger": "workspace:*",

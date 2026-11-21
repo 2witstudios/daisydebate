@@ -1,3 +1,4 @@
+import { isInstantAtOrBefore, isInstantBefore } from '@daisy/clock';
 import { z } from 'zod';
 import { idSchema } from './primitives';
 import { subscriptionEvidenceSchema } from './billing';
@@ -38,14 +39,14 @@ const tournamentHostingVersionSchema = z
     coverage: tournamentHostingCoverageSchema,
   })
   .refine((value) => {
-    if (Date.parse(value.startsAt) >= Date.parse(value.expiresAt)) return false;
+    if (!isInstantBefore(value.startsAt, value.expiresAt)) return false;
     if (value.issuer.kind === 'administrative') return true;
     const { settlement } = value.issuer.evidence;
     return (
       settlement.kind === 'paid' &&
       settlement.period.subscriptionId === value.issuer.subscriptionId &&
-      Date.parse(settlement.period.startsAt) <= Date.parse(value.startsAt) &&
-      Date.parse(value.expiresAt) <= Date.parse(settlement.period.endsAt)
+      isInstantAtOrBefore(settlement.period.startsAt, value.startsAt) &&
+      isInstantAtOrBefore(value.expiresAt, settlement.period.endsAt)
     );
   });
 

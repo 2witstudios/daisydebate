@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { z } from 'zod';
 import { subscriptionAccess } from '@daisy/auth/authorization';
 import type { ClubSeatingRead } from '@daisy/db';
@@ -254,9 +255,9 @@ export function prorationEstimateMinor(input: {
   readonly periodEndsAt: string;
   readonly now: string;
 }) {
-  const start = Date.parse(input.periodStartsAt);
-  const end = Date.parse(input.periodEndsAt);
-  const now = Math.min(Math.max(Date.parse(input.now), start), end);
+  const start = instantMs(input.periodStartsAt);
+  const end = instantMs(input.periodEndsAt);
+  const now = Math.min(Math.max(instantMs(input.now), start), end);
   if (!(end > start) || input.addedSeats <= 0) return 0;
   return Math.round(
     (input.addedSeats * input.seatPriceMinor * (end - now)) / (end - start),

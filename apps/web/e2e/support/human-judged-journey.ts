@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import {
   affirmativeSide,
   sideOfSeat,
@@ -144,8 +145,8 @@ export async function proveHumanJudgedJourney(browser: Browser) {
       input = await readBallot(judge.request, view.id);
       expect(input.freeze).not.toBeNull();
     }).toPass({ timeout: 160_000 });
-    expect(Date.parse(input.freeze!.frozenAt)).toBeGreaterThanOrEqual(
-      Date.parse(last.endedAt!) + TRANSCRIPT_ADMISSION_WINDOW_MS,
+    expect(instantMs(input.freeze!.frozenAt)).toBeGreaterThanOrEqual(
+      instantMs(last.endedAt!) + TRANSCRIPT_ADMISSION_WINDOW_MS,
     );
     for (const index of [2, 3]) {
       const context = accounts.members[index]!.context;

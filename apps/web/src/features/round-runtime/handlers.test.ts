@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { fixedClock } from '@daisy/clock';
+import { instantMs, fixedClock } from '@daisy/clock';
 import { memberGate } from './member-gate.test-support';
 import { createRoundHandlers } from './handlers';
 setupRitewayBun();
@@ -122,7 +122,7 @@ test('a Round read stamps its clock and names its doorbell', async () => {
     ],
     expected: [
       200,
-      String(Date.parse('2026-11-01T12:34:56.789Z')),
+      String(instantMs('2026-11-01T12:34:56.789Z')),
       'wss://socket.daisy.invalid/realtime',
     ],
   });

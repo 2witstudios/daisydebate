@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { assertRejects } from '@daisy/errors/testing';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
@@ -77,7 +78,7 @@ describe('planSpectatorPost', () => {
         refused(
           facts({
             broadcast: { open: true, slowModeSeconds: 60 },
-            lastPostAtMs: Date.parse(now) - 1000,
+            lastPostAtMs: instantMs(now) - 1000,
           }),
         ),
       ],
@@ -122,7 +123,7 @@ describe('planSpectatorPost', () => {
       actual: plan(
         facts({
           broadcast: { open: true, slowModeSeconds: 60 },
-          lastPostAtMs: Date.parse(now) - 61_000,
+          lastPostAtMs: instantMs(now) - 61_000,
         }),
       ).kind,
       expected: 'create',
@@ -156,7 +157,7 @@ describe('planSpectatorPost', () => {
         plan(
           facts({
             broadcast: { open: false, slowModeSeconds: 60 },
-            lastPostAtMs: Date.parse(now),
+            lastPostAtMs: instantMs(now),
           }),
           retried,
         ).kind,

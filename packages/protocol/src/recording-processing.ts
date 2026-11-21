@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { everyMemberOf } from './every-member';
 import { publicIntervalsSchema } from './public-interval';
 import { z } from 'zod';
@@ -37,14 +38,14 @@ export const recordingBuildCeilingMs = (mediaMs: number): number =>
 export const capturedMediaMs = (capture: {
   readonly startedAt: string;
   readonly endedAt: string;
-}): number => Date.parse(capture.endedAt) - Date.parse(capture.startedAt);
+}): number => instantMs(capture.endedAt) - instantMs(capture.startedAt);
 
 /** Whether a finished capture's build has run past its bound. */
 export const recordingBuildDelayed = (
   capture: { readonly startedAt: string; readonly endedAt: string },
   nowMs: number,
 ): boolean => {
-  const endedAtMs = Date.parse(capture.endedAt);
+  const endedAtMs = instantMs(capture.endedAt);
   return (
     nowMs - endedAtMs > recordingProcessingBoundMs(capturedMediaMs(capture))
   );

@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { postRoundCallPolicy } from '@daisy/protocol';
 import {
@@ -9,7 +10,7 @@ import {
 setupRitewayBun();
 
 const completedAt = '2026-11-12T12:00:00.000Z';
-const endedMs = Date.parse(completedAt);
+const endedMs = instantMs(completedAt);
 const chosen = {
   status: 'completed',
   postRoundCall: true,

@@ -16,10 +16,11 @@
   },
   "dependencies": {
     "@adobe/data": "0.10.19",
+    "@daisy/clock": "workspace:*",
+    "@daisy/digest": "workspace:*",
     "@daisy/errors": "workspace:*",
     "@daisy/protocol": "workspace:*",
-    "@daisy/seeded-random": "workspace:*",
-    "@noble/hashes": "2.4.0"
+    "@daisy/seeded-random": "workspace:*"
   },
   "devDependencies": {
     "riteway": "9.3.0"

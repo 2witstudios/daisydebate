@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { roundIncidentPolicy, type RoundIncident } from '@daisy/protocol';
 import {
@@ -8,7 +9,7 @@ import {
 } from './round-incident-decision';
 setupRitewayBun();
 
-const SINCE = Date.parse('2026-11-03T10:00:00.000Z');
+const SINCE = instantMs('2026-11-03T10:00:00.000Z');
 const since = new Date(SINCE).toISOString();
 const paused: RoundIncident = {
   phase: 'paused',

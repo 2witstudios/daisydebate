@@ -1,3 +1,4 @@
+import { sha3Hex } from '@daisy/digest';
 import {
   canonicalCaptureEvidenceBody,
   necessaryEvidencePolicy,
@@ -59,9 +60,7 @@ async function prepare(...[f, transaction, roundId, client]: Inputs) {
   const encoded = canonicalCaptureEvidenceBody(body);
   if (encoded.kind !== 'encoded')
     throw new Error('Invalid synthetic native-body fixture');
-  const digest = new Bun.CryptoHasher('sha3-256')
-    .update(encoded.json)
-    .digest('hex');
+  const digest = sha3Hex(encoded.json);
   const intent = await store.reserveCaptureEvidence({
     ...window,
     evidenceId: body.evidenceId,

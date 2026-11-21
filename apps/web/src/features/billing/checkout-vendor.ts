@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import type Stripe from 'stripe';
 import type { Clock } from '@daisy/clock';
 import { z } from 'zod';
@@ -74,8 +75,8 @@ export function createCheckoutVendor(input: {
         !instant.safeParse(now).success ||
         state.kind !== 'creating' ||
         state.claim.id !== claimId ||
-        Date.parse(now) < Date.parse(state.claim.claimedAt) ||
-        Date.parse(now) >= Date.parse(state.claim.expiresAt)
+        instantMs(now) < instantMs(state.claim.claimedAt) ||
+        instantMs(now) >= instantMs(state.claim.expiresAt)
       )
         return Promise.resolve(refuse);
       // A new session sells only the current offer (ADR 0146).

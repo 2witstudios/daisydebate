@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import {
   leadSeatOf,
   otherSide,
@@ -157,7 +158,7 @@ const duringSegment = (state: ScriptState, open: OpenSegment): Planned => {
     const planned = move(state, open);
     if (planned) return planned;
   }
-  return tickAt(Date.parse(open.endsAt));
+  return tickAt(instantMs(open.endsAt));
 };
 
 /** Before a segment: start prep where the rules allow, else reach the microphone lead, then the clock. */
@@ -190,7 +191,7 @@ const afterDebate = (state: ScriptState): Planned | null =>
         atMs:
           Math.max(
             state.nowMs,
-            Date.parse(state.durable.finalSegmentEndedAt ?? ''),
+            instantMs(state.durable.finalSegmentEndedAt ?? ''),
           ) + 60_000,
         action: { kind: 'complete_panel', winner: 'affirmative' },
         exercises: 'panel',

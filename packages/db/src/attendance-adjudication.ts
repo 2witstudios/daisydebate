@@ -1,4 +1,4 @@
-import { CryptoHasher } from 'bun';
+import { commandDigest } from '@daisy/digest';
 import { createAppError } from '@daisy/errors';
 import type {
   AttendanceAdjudicationFact,
@@ -69,11 +69,11 @@ export const adjudicationCommand = (
   segmentId: string,
   resolution: AttendanceResolution,
 ) => ({
-  payloadDigest: new CryptoHasher('sha3-256')
-    .update(
-      JSON.stringify({ roundId, segmentId, decision: resolution.decision }),
-    )
-    .digest('hex'),
+  payloadDigest: commandDigest({
+    roundId,
+    segmentId,
+    decision: resolution.decision,
+  }),
   result: {
     segmentId,
     decision: resolution.decision,

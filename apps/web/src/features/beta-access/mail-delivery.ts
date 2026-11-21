@@ -1,3 +1,4 @@
+import { nowMs, instantMs } from '@daisy/clock';
 import { knownDeliveryRejection } from '../mail/resend-sender';
 import { operatorConsoleOrigin } from '@daisy/protocol';
 import type { Database } from '@daisy/db';
@@ -43,7 +44,7 @@ export function createMailIntentDelivery(input: {
       return { kind: 'cancelled', errorCode: delivery.kind };
     if (
       delivery.kind === 'invitation' &&
-      Date.parse(input.now()) >= Date.parse(delivery.sendBefore)
+      nowMs(input) >= instantMs(delivery.sendBefore)
     )
       return { kind: 'failed', errorCode: 'delivery-unknown' };
     // An owner digest with no owner address configured has nowhere to go.

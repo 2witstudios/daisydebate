@@ -21,7 +21,7 @@ import type { ResultCommandRefusal } from '@daisy/protocol/lobby/result-command'
 import { decideFixtureResult } from '../commands/result';
 import { fixtureAuthority } from './fixture-authority';
 import { resultFacts } from './result-facts';
-import { commandDigest } from './command-digest';
+import { commandDigest } from '@daisy/digest';
 import type { TabPrincipal } from '../tab-principal';
 
 /** Guarded competitive result capture and complete replacement, never client-authored source provenance. */

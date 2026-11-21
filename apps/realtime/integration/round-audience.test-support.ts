@@ -1,3 +1,4 @@
+import { sha3Hex } from '@daisy/digest';
 import type { SQL } from 'bun';
 import { systemId } from '@daisy/clock';
 import { fixtureRules, oneOnOneFormatFixture } from '@daisy/protocol/testing';
@@ -52,9 +53,7 @@ export function roundAudienceFixture(client: SQL, actorId: string) {
         resultingVersion: Number(round.version) + 1,
         replayed: false,
       });
-      const digest = new Bun.CryptoHasher('sha3-256')
-        .update(JSON.stringify(receipt))
-        .digest('hex');
+      const digest = sha3Hex(JSON.stringify(receipt));
       await tx`insert into round_commands(command_id,round_id,actor_id,type,payload_digest,result,resulting_version,applied_at) values(${commandId},${roundId},${actorId},'change_judge',${digest},${receipt},${receipt.resultingVersion},date_trunc('milliseconds',clock_timestamp()))`;
       await tx`select public.daisy_append_round_judge_assignment(${roundId},0,${Number(round.version)},${Number(slot.current_version)},null,${commandId})`;
     },

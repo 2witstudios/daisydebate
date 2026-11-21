@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import {
   isRoundCompleted,
   postRoundCallPolicy,
@@ -13,7 +14,7 @@ export const postRoundCallChosen = (view: CallView): boolean =>
 /** The latest instant the call can last to, or null for a Round with no call. */
 export const postRoundCallEndsAtMs = (view: CallView): number | null =>
   postRoundCallChosen(view) && view.completedAt !== null
-    ? Date.parse(view.completedAt) + postRoundCallPolicy.maxMs
+    ? instantMs(view.completedAt) + postRoundCallPolicy.maxMs
     : null;
 
 /**

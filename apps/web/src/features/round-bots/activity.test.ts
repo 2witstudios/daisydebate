@@ -66,6 +66,17 @@ test('actual PCM activity can cancel a phrase without granting competitive autho
     actual: events,
     expected: ['barge-in', 'unknown', 'unknown'],
   });
+  observer.observe(frame(42));
+  const malformed = { ...frame(43), receivedAt: 'not an instant' };
+  observer.observe(malformed);
+  observer.observe(malformed);
+  assert({
+    given:
+      'repeated frames with a malformed receipt after hearing the peer again',
+    should: 'report the peer as unheard once',
+    actual: events,
+    expected: ['barge-in', 'unknown', 'unknown', 'unknown'],
+  });
 });
 
 /** A hearing of one peer, fed 10 ms frames on a server clock starting at T0. */

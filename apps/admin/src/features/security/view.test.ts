@@ -1,3 +1,4 @@
+import { addMs } from '@daisy/clock';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { eventRegistry } from '@daisy/logger';
 import { sections, securityViews } from './sections';
@@ -163,10 +164,7 @@ describe('coverage', () => {
 
   test('the retention alarm sits past the designed worst case', () => {
     const at = (ms: number) =>
-      new Date(Date.parse(now) - ms)
-        .toISOString()
-        .replace('T', ' ')
-        .replace('Z', '');
+      addMs(now, -ms).replace('T', ' ').replace('Z', '');
     const retentionAt = (ageMs: number) =>
       coverageOf({
         ...healthy,

@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import type {
   OrganizationCommand,
   OrganizationRefusal,
@@ -69,7 +70,7 @@ const covering = (
       grant.userId !== facts.senderUserId ||
       grant.revokedAt !== null ||
       (grant.expiresAt !== null &&
-        Date.parse(grant.expiresAt) <= Date.parse(facts.now))
+        instantMs(grant.expiresAt) <= instantMs(facts.now))
     )
       return false;
     if (grant.scopeKind === 'lobby')
@@ -175,7 +176,7 @@ export const decideGrant = (
     return refuse('age-band');
   if (
     command.expiresAt !== null &&
-    Date.parse(command.expiresAt) <= Date.parse(facts.now)
+    instantMs(command.expiresAt) <= instantMs(facts.now)
   )
     return refuse('expiry-passed');
   if (

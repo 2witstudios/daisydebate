@@ -1,3 +1,4 @@
+import { nowMs } from '@daisy/clock';
 import type { App } from '../../server/app';
 import { memberHttpBoundary } from '../../server/member-boundary';
 import { deriveRecipientSubkey } from '../mail/recipient-key';
@@ -8,7 +9,7 @@ import { deriveReleaseStopSubkey } from './stop-token';
 export const composeMediaReleaseRoutes = (app: App) =>
   composeMediaReleaseHandlers({
     boundary: memberHttpBoundary(app),
-    nowMs: () => Date.parse(app.clock.now()),
+    nowMs: () => nowMs(app.clock),
     recipientSubkey: () =>
       deriveRecipientSubkey(app.mailConfig().RECIPIENT_HASH_SECRET),
     stopSubkey: () =>

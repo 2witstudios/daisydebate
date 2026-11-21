@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   masterPlaylist,
@@ -11,7 +12,7 @@ setupRitewayBun();
 describe('mediaPlaylist', () => {
   const released = [3, 4].map((seq) => ({
     seq,
-    capturedAtMs: Date.parse('2026-11-02T00:00:00.000Z') + seq * 4000,
+    capturedAtMs: instantMs('2026-11-02T00:00:00.000Z') + seq * 4000,
     durationMs: seq === 4 ? 1500 : 4000,
   }));
   test('carries capture time and a target that fits every segment', () => {

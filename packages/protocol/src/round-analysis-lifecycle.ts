@@ -1,3 +1,4 @@
+import { instantMs, tryInstantMs } from '@daisy/clock';
 import type { RoundAnalysisReport } from './round-analysis';
 import {
   analysisRequest,
@@ -55,7 +56,7 @@ const changed = (state: AnalysisWork): AnalysisWorkTransition => {
   const parsed = analysisWorkSchema.safeParse(state);
   return parsed.success ? { kind: 'changed', state: parsed.data } : refuse;
 };
-const at = (value: string) => Date.parse(value);
+const at = (value: string) => instantMs(value);
 const requested = (state: AnalysisWork): state is RequestedAnalysis =>
   'requestedAt' in state;
 const active = (
@@ -254,8 +255,8 @@ function purge(state: AnalysisWork, now: string) {
   });
 }
 function validTime(state: AnalysisWork | null, now: string) {
-  const instant = at(now);
-  if (!Number.isFinite(instant)) return false;
+  const instant = tryInstantMs(now);
+  if (instant === undefined) return false;
   if (!state) return true;
   const facts = analysisRequest(state);
   const times = [
@@ -267,7 +268,11 @@ function validTime(state: AnalysisWork | null, now: string) {
     state.kind === 'purged' ? state.purgedAt : null,
     state.kind === 'leased' ? state.lease.claimedAt : null,
   ];
-  return times.every((time) => !time || instant >= at(time));
+  return times.every((time) => {
+    if (!time) return true;
+    const recorded = tryInstantMs(time);
+    return recorded !== undefined && instant >= recorded;
+  });
 }
 function publish(
   state: RequestedAnalysis,

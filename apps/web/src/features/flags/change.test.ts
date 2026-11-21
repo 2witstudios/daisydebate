@@ -1,10 +1,11 @@
+import { instantMs } from '@daisy/clock';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { decideFlagChange } from './change';
 import { flagCatalogue } from './catalogue';
 
 setupRitewayBun();
 test('operator changes require current revisions and live release targeting', () => {
-  const now = Date.parse('2026-11-05T00:00:00Z');
+  const now = instantMs('2026-11-05T00:00:00Z');
   const input = {
     entry: flagCatalogue[0],
     revision: 2,

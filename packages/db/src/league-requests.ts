@@ -1,3 +1,4 @@
+import { commandDigest } from '@daisy/digest';
 import type { LeagueRequest } from '@daisy/protocol/league-request';
 import {
   leagueRequestDivisions,
@@ -5,7 +6,6 @@ import {
   leagueRequestSeasonCounts,
   leagueRequestStyles,
 } from '@daisy/protocol/league-request';
-import { createHash } from 'node:crypto';
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { instrumented, type DatabaseEventSink } from './instrumented';
@@ -82,22 +82,18 @@ const requestRow = z.object({
  * once.
  */
 const leagueRequestDigest = (request: LeagueRequest): string =>
-  createHash('sha3-256')
-    .update(
-      JSON.stringify([
-        request.leagueName,
-        request.schools,
-        request.seasons,
-        request.style,
-        request.divisions,
-        request.needs,
-        request.contactName,
-        request.contactRole,
-        request.contactEmail,
-        request.contactPhone,
-      ]),
-    )
-    .digest('hex');
+  commandDigest([
+    request.leagueName,
+    request.schools,
+    request.seasons,
+    request.style,
+    request.divisions,
+    request.needs,
+    request.contactName,
+    request.contactRole,
+    request.contactEmail,
+    request.contactPhone,
+  ]);
 
 /**
  * League requests (PYL-17): stored once per request id, then told to the

@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { newDraftCopy } from '../../features/documents/document-draft';
 import {
   documentSaving,
@@ -55,7 +56,7 @@ const keyOf = (principal: string, id: string) =>
 
 const staleRecovery = async (owner: string) => {
   const store = memoryStorage();
-  const now = Date.parse('2026-10-05T18:00:00.000Z');
+  const now = instantMs('2026-10-05T18:00:00.000Z');
   store.setItem(
     keyOf('p1', 'a'),
     recoveryRecord({

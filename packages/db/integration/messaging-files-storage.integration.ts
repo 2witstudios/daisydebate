@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { SQL } from 'bun';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -79,7 +80,7 @@ test('real private storage deletion acknowledgement alone releases durable quota
         tx,
         fixture.channelId,
         new Date(
-          Date.parse(fixture.now) + policy.reservationMs + 1,
+          instantMs(fixture.now) + policy.reservationMs + 1,
         ).toISOString(),
       ),
     );

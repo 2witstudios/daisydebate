@@ -1,6 +1,6 @@
+import { commandDigest } from '@daisy/digest';
 import { isRoundRunning, runningRoundStatuses } from '@daisy/protocol';
 import { isDebatingSeatSql } from './seat-columns';
-import { CryptoHasher } from 'bun';
 import { and, eq, inArray } from 'drizzle-orm';
 import type { RoundProjection } from '@daisy/protocol';
 import type { DatabaseEventSink } from './instrumented';
@@ -104,9 +104,7 @@ export async function forfeitMemberRounds(
         actorId: null,
         serviceId: RESTRICTION_SERVICE,
         type: 'forfeit',
-        payloadDigest: new CryptoHasher('sha3-256')
-          .update(JSON.stringify({ roundId, actorId, RESTRICTION_SERVICE }))
-          .digest('hex'),
+        payloadDigest: commandDigest({ roundId, actorId, RESTRICTION_SERVICE }),
       },
     });
   }

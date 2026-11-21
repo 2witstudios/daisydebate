@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   recordingBuildCeilingMs,
@@ -9,7 +10,7 @@ import {
 setupRitewayBun();
 
 const MINUTE = 60_000;
-const endedAtMs = Date.parse('2026-11-03T12:00:00.000Z');
+const endedAtMs = instantMs('2026-11-03T12:00:00.000Z');
 const capture = {
   source: { kind: 'own_capture' as const },
   startedAt: new Date(endedAtMs - 80 * MINUTE).toISOString(),

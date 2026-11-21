@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import type { createAudioPublication } from '@daisy/media/audio';
 import { createStreamingAudioWriter } from '@daisy/media/publication';
 import type { Database } from '@daisy/db';
@@ -397,12 +398,12 @@ export function createBotPublisher(input: {
         claim.scope,
         claim.token,
       );
-      const serverNowMs = Date.parse(now);
+      const serverNowMs = instantMs(now);
       // The server read happened somewhere after `sentAtMs`: assume the
       // earliest, so the local stop is never later than the database's, and
       // a line's start is dated no earlier than its audio.
       dbOffsetMs = serverNowMs - sentAtMs;
-      return Date.parse(segmentDueAt) - dbOffsetMs;
+      return instantMs(segmentDueAt) - dbOffsetMs;
     };
     const publish = async (
       job: BotSpeechJob,

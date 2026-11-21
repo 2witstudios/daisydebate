@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { sha3Hex } from '@daisy/digest';
 
 import { normalizeEmail } from '@daisy/protocol/email';
 export { normalizeEmail } from '@daisy/protocol/email';
@@ -9,7 +9,7 @@ export { normalizeEmail } from '@daisy/protocol/email';
  * use's subkey.
  */
 export const deriveSubkey = (secret: string, label: string): string =>
-  createHash('sha3-256').update(`${secret}\0${label}`).digest('hex');
+  sha3Hex(`${secret}\0${label}`);
 
 /**
  * Keyed by `RECIPIENT_HASH_SECRET`, never `BETTER_AUTH_SECRET` (ADR 0044,
@@ -29,6 +29,4 @@ export const deriveRecipientSubkey = (secret: string): string =>
  * Keyed by the derived subkey, never a raw secret directly.
  */
 export const recipientKey = (subkey: string, email: string): string =>
-  createHash('sha3-256')
-    .update(`${subkey}\0${normalizeEmail(email)}`)
-    .digest('hex');
+  sha3Hex(`${subkey}\0${normalizeEmail(email)}`);

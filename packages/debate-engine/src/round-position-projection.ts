@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { countdownDue } from './round-start-gate';
 import {
   clockStopsOf,
@@ -93,12 +94,12 @@ const openSegmentOf = (
   const held = incident.phase !== 'none' ? incident.resume_point : null;
   const remainingMs = Math.max(
     0,
-    dueMs - (held === null ? now : Date.parse(held)),
+    dueMs - (held === null ? now : instantMs(held)),
   );
   const endsAtMs =
     held === null
       ? dueMs
-      : (incident.phase === 'resuming' ? Date.parse(incident.until) : now) +
+      : (incident.phase === 'resuming' ? instantMs(incident.until) : now) +
         remainingMs;
   return {
     key: open.key,
@@ -178,7 +179,7 @@ const prepOf = (
       0,
       budgetMsPerSide -
         prepConsumedOf(checkpoint, active.side) -
-        runningMs(Date.parse(active.started_at), now, clockStopsOf(checkpoint)),
+        runningMs(instantMs(active.started_at), now, clockStopsOf(checkpoint)),
     ),
   };
 };
@@ -200,7 +201,7 @@ const prepBudgetOf = (
           ? Math.max(
               0,
               runningMs(
-                Date.parse(checkpoint.active_prep.started_at),
+                instantMs(checkpoint.active_prep.started_at),
                 now,
                 clockStopsOf(checkpoint),
               ),

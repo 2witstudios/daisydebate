@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { conflictWaiverAuthority } from './conflict-waiver-authority';
 import {
   assessPendingProposer,
@@ -41,7 +42,7 @@ import {
   fixtureOwnerEffects,
   requireFixtureAdmissions,
 } from './fixture-owner-effects';
-import { commandDigest } from './command-digest';
+import { commandDigest } from '@daisy/digest';
 import type { TabPrincipal } from '../tab-principal';
 
 const originalCompetition = (loaded: LoadedConfirmationCommand) => {
@@ -195,7 +196,7 @@ export const settlePendingCommand =
             )
               throw new CommandDenied('not-found');
             if (command.type === 'confirm-command') {
-              if (Date.parse(at) >= Date.parse(pending.expiresAt))
+              if (instantMs(at) >= instantMs(pending.expiresAt))
                 throw createRefusal('CONFLICT', 'pending-expired');
               if (
                 loaded.proposer.deletedAt !== null ||

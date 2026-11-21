@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createAppError } from '@daisy/errors';
 import {
@@ -422,19 +423,19 @@ describe('the report routes (ADR 0103)', () => {
       }),
     );
     const input = seen[0]!;
-    const now = Date.parse(String(input['now']));
+    const now = instantMs(String(input['now']));
     assert({
       given: 'a seven-day suspension',
       should: 'end it in a week and keep evidence for the proposed year',
       actual: [
         response.status,
         input['operatorRef'],
-        Date.parse(
+        instantMs(
           String(
             (input['resolution'] as { suspendUntil: string }).suspendUntil,
           ),
         ) - now,
-        Date.parse(String(input['purgeAfter'])) - now,
+        instantMs(String(input['purgeAfter'])) - now,
         /^[0-9a-f]{64}$/.test(String(input['requestDigest'])),
       ],
       expected: [200, 'o'.repeat(24), 7 * 86_400_000, 365 * 86_400_000, true],

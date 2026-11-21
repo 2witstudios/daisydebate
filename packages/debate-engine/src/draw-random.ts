@@ -1,5 +1,5 @@
 import { createAppError } from '@daisy/errors';
-import { sha3_256 } from '@noble/hashes/sha3.js';
+import { sha3Bytes } from '@daisy/digest';
 import {
   concat,
   hexOf,
@@ -45,7 +45,9 @@ export const automaticChoice = (
 /** The salted commitment to a draw's private inputs. */
 export const inputCommitment = (salt: Uint8Array, canonicalInputs: string) =>
   hexOf(
-    sha3_256(concat(utf8('daisy-draw-v1/inputs'), salt, utf8(canonicalInputs))),
+    sha3Bytes(
+      concat(utf8('daisy-draw-v1/inputs'), salt, utf8(canonicalInputs)),
+    ),
   );
 
 /** The draw commitment: Room, draw, manifest digest and seed. */
@@ -56,7 +58,7 @@ export const drawCommitment = (input: {
   readonly seed: Uint8Array;
 }) =>
   hexOf(
-    sha3_256(
+    sha3Bytes(
       concat(
         utf8('daisy-draw-v1/commit'),
         utf8(input.roomId),
@@ -81,7 +83,7 @@ export const seatCommitment = (input: {
   readonly seed: Uint8Array;
 }) =>
   hexOf(
-    sha3_256(
+    sha3Bytes(
       concat(
         utf8('daisy-draw-v1/seats-commit'),
         utf8(input.roomId),

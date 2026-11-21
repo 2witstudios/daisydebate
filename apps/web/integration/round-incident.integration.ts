@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { createLogger } from '@daisy/logger';
@@ -242,7 +243,7 @@ test('a speech resumes from the last confirmed audio', async () => {
       await observe(room({ captureListed: false }));
       const { runtime_state: state } = await checkpointOf(f);
       actual = {
-        confirmedMs: Date.parse(state.incident.resume_point),
+        confirmedMs: instantMs(state.incident.resume_point),
         expectedMs: at.getTime(),
       };
     });

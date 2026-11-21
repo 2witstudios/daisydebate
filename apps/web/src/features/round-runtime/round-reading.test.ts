@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   floorSeatOf,
@@ -45,7 +46,7 @@ test('one reading of sides, seats, liveness and judge (ISSUE-672)', () => {
 
 test('an accepted interruption gives the floor to the interrupter for spectators and debaters alike (ISSUE-672, ISSUE-673)', () => {
   const speaking = ran(1);
-  const nowMs = Date.parse(at(startOf(0) + 1000));
+  const nowMs = instantMs(at(startOf(0) + 1000));
   // The negative's interruption, accepted half a second into the speech.
   const open = {
     ...speaking,

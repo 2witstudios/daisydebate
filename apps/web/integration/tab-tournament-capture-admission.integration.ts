@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { proveCaptureSubjectRights } from './tab-capture-privacy.test-support';
 import { proveTournamentCaptureControl } from './tab-tournament-capture-control.test-support';
 import { SQL } from 'bun';
@@ -185,10 +186,10 @@ test('actual officials-recording Start requires explicit separate sponsorship an
                 : null,
             command: stored.command_id,
             finite:
-              Date.parse(frozen.admittedAt) < Date.parse(frozen.deadlineAt) &&
+              instantMs(frozen.admittedAt) < instantMs(frozen.deadlineAt) &&
               frozen.basis.kind === 'grant' &&
-              Date.parse(frozen.deadlineAt) <=
-                Date.parse(frozen.basis.grant.hosting.expiresAt),
+              instantMs(frozen.deadlineAt) <=
+                instantMs(frozen.basis.grant.hosting.expiresAt),
             capacity: frozen.capacity,
             round: frozen.roundId === launched.receipt.roundRef?.id,
             replay: replay.receipt.replayed,

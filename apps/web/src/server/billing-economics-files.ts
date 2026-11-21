@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import type { FileHandle } from 'node:fs/promises';
 import { constants } from 'node:fs';
 import { lstat, mkdir, open, opendir, unlink } from 'node:fs/promises';
@@ -73,7 +74,7 @@ async function prunePrivateFiles(
       info = await lstat(path);
     if (
       info.isFile() &&
-      (feedMonth !== undefined || info.mtimeMs <= Date.parse(now) - retentionMs)
+      (feedMonth !== undefined || info.mtimeMs <= instantMs(now) - retentionMs)
     ) {
       await unlink(path);
       count--;

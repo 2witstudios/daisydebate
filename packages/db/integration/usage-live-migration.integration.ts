@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { SQL } from 'bun';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
@@ -136,7 +137,7 @@ for (const ending of ['ordinary', 'recovery_bound'] as const) {
               actual: {
                 status: after.status,
                 source: after.source,
-                count: Date.parse(after.state.countedAt),
+                count: instantMs(after.state.countedAt),
                 state: after.state.kind,
                 outcome: after.state.providerOutcome ?? after.state.kind,
                 requests: after.requests,
@@ -145,7 +146,7 @@ for (const ending of ['ordinary', 'recovery_bound'] as const) {
               expected: {
                 status: 'abandoned',
                 source: migrated.source,
-                count: Date.parse(originalAt),
+                count: instantMs(originalAt),
                 state: ending === 'ordinary' ? 'unknown' : 'credited',
                 outcome: 'unknown',
                 requests: 2,

@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { assertRejects } from '@daisy/errors/testing';
 import {
   emptyRuntimeCheckpointFor,
@@ -129,7 +130,7 @@ for (const shape of shapes)
         rules,
         participants: shape.participants,
         seat,
-        nowMs: Date.parse(roundAt(1_000)),
+        nowMs: instantMs(roundAt(1_000)),
         state: normalizeRoundClock({
           round: {
             status: 'active',

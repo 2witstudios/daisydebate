@@ -4,7 +4,7 @@
  * raw lines, never stripped of markup, so placeholders such as
  * `debate:&lt;id&gt;:presence` survive.
  */
-import { createHash } from 'node:crypto';
+import { sha3Hex } from '@daisy/digest';
 
 type RelatedRef = { readonly label: string; readonly id: string };
 export type RelatedEntry = RelatedRef & { readonly title: string };
@@ -60,8 +60,7 @@ const HASH = /^[0-9a-f]{64}$/;
  * SHA3-256 of a page's content: the concurrency guard, since the server
  * checks only the line count and an edit can keep it.
  */
-export const contentHash = (text: string): string =>
-  createHash('sha3-256').update(text).digest('hex');
+export const contentHash = (text: string): string => sha3Hex(text);
 const SLUG = /^[a-z][a-z0-9_-]*$/;
 
 type Parsed = BoardCommand | { readonly error: string };

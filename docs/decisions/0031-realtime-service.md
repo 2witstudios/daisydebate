@@ -326,6 +326,7 @@ connection and actor ids, and close codes (ADR 0019).
 | `@daisy/auth`          | principals and session-to-identity resolution                                                                   |
 | `@daisy/db`            | SELECT on the outbox and authorization read models; `service_instances` writes                                  |
 | `@daisy/redis`         | ticket GETDEL, presence leases, rate limits                                                                     |
+| `@daisy/digest`        | SHA3-256 for ticket and authorization digests                                                                   |
 | `@daisy/clock`         | injected time (ambient `Date` is banned)                                                                        |
 | `@daisy/config`        | validated environment                                                                                           |
 | `@daisy/errors`        | error codes and public mapping                                                                                  |
@@ -338,7 +339,7 @@ socket library. The package-map row in `docs/architecture/overview.md`
 states the same list. `scripts/check-boundaries.ts` restricts workspaces
 listed in `allowedWorkspaceDependencies` (`scripts/boundaries-rules.ts`);
 the change that creates `apps/realtime` adds a `realtime` entry with exactly
-these ten names, so the row is mechanically enforced rather than advisory.
+these names, so the row is mechanically enforced rather than advisory.
 The `@daisy/db` restriction to SELECT plus `service_instances` is enforced by
 the realtime PostgreSQL role, not by the import graph.
 

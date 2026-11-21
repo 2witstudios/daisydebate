@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import {
   roundIncidentPolicy,
   type PlatformIncidentCause,
@@ -71,7 +72,7 @@ const heldFacts = (
       room !== null && (room.captureListed || !facts.captureExpected),
     seatsBack: room?.seatsListed ?? false,
     speakerHeard: room?.speakerHeard !== false,
-    heldMs: facts.nowMs - Date.parse(since),
+    heldMs: facts.nowMs - instantMs(since),
   };
 };
 

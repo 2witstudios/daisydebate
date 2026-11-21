@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { assertRejects } from '@daisy/errors/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
@@ -11,7 +12,7 @@ import {
 
 setupRitewayBun();
 
-const t0 = Date.parse('2026-10-22T12:00:00.000Z');
+const t0 = instantMs('2026-10-22T12:00:00.000Z');
 const iso = (offsetMs: number) => new Date(t0 + offsetMs).toISOString();
 const segment = {
   startedAt: new Date(t0),

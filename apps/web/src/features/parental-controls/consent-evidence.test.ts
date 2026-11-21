@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { sha3Hex } from '@daisy/digest';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { servedNotice } from '../legal/guardian-notices';
 import { recordConsent } from './consent-evidence';
@@ -30,9 +30,7 @@ test('a parent’s consent', () => {
         method: 'created-account',
         noticeKind: 'parental-consent',
         noticeVersion: 'draft-1',
-        noticeDigest: createHash('sha3-256')
-          .update(parentNotice.words)
-          .digest('hex'),
+        noticeDigest: sha3Hex(parentNotice.words),
         recordedAt: at,
       },
     },

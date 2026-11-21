@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { noopErrorReporter } from '@daisy/observability';
 import { requireTestServices } from '@daisy/config';
@@ -136,7 +137,7 @@ test('signed native HTTP ingress uses actual lease, snapshot and vendor token pr
           snapshot.state.roundId,
           snapshot.calibration.receivedAtMs >= snapshot.calibration.sentAtMs,
           snapshot.calibration.serverNowMs ===
-            Date.parse(snapshot.state.serverNow),
+            instantMs(snapshot.state.serverNow),
           tokenClaims(actualToken.token).video.hidden,
         ],
         expected: [scope.roundId, true, true, true],

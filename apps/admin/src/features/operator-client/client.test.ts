@@ -1,4 +1,4 @@
-import { fixedClock } from '@daisy/clock';
+import { instantMs, fixedClock } from '@daisy/clock';
 import {
   signOperatorRequest,
   verifyOperatorRequest,
@@ -92,7 +92,7 @@ describe('the signing operator client', () => {
         path: `/operator/v1/accounts/${userId}/beta-access`,
         query: [],
         keyId: config.keyId,
-        timestamp: String(Date.parse(signedAt)),
+        timestamp: String(instantMs(signedAt)),
         nonce: Buffer.from(new Uint8Array(16).fill(1)).toString('base64url'),
         operatorRef,
         body,
@@ -146,7 +146,7 @@ describe('the signing operator client', () => {
         headers: Object.entries(headersOf(request?.init ?? {})),
         body: new Uint8Array(),
         keys: new Map([[config.keyId, key]]),
-        nowMs: Date.parse(now),
+        nowMs: instantMs(now),
         crypto: bunOperatorCrypto,
       }),
       expected: {
@@ -154,7 +154,7 @@ describe('the signing operator client', () => {
         keyId: config.keyId,
         operatorRef,
         nonce: Buffer.from(new Uint8Array(16).fill(1)).toString('base64url'),
-        timestampMs: Date.parse(now),
+        timestampMs: instantMs(now),
       },
     });
   });

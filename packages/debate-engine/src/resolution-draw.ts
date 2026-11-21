@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
 import {
   affirmativeSide,
@@ -114,7 +115,7 @@ export const turnOf = (
     ordinal % 2 === 0
       ? draw.manifest.firstStriker
       : otherStriker(draw.manifest.firstStriker);
-  const opensAt = Date.parse(
+  const opensAt = instantMs(
     ordinal === 0 ? draw.startedAt : draw.strikes[ordinal - 1]!.at,
   );
   const automatic = draw.manifest.controllers[side] === 'automatic';
@@ -177,8 +178,8 @@ export function settleDraw(
 ): ResolutionDrawState {
   let next = draw;
   for (;;) {
-    const turn = turnOf(next, stops, Date.parse(now));
-    if (!turn || Date.parse(now) < Date.parse(turn.dueAt)) return next;
+    const turn = turnOf(next, stops, instantMs(now));
+    if (!turn || instantMs(now) < instantMs(turn.dueAt)) return next;
     const strike: ResolutionStrike = {
       ordinal: turn.ordinal,
       position: strikePosition(

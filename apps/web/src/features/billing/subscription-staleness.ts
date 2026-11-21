@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import type { Database } from '@daisy/db';
 
 type Page = Awaited<
@@ -20,10 +21,10 @@ function observationAges(
   facts: SubscriptionFreshnessFacts,
   scan: SubscriptionScan,
 ) {
-  const at = Date.parse(facts.sampledAt),
-    startedAt = Date.parse(scan.startedAt);
+  const at = instantMs(facts.sampledAt),
+    startedAt = instantMs(scan.startedAt);
   const age = (value: string | null) =>
-    value === null ? null : at - Date.parse(value);
+    value === null ? null : at - instantMs(value);
   return {
     at,
     startedAt,

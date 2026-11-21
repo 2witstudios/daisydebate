@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { catalogueProblems } from './catalogue-validation';
 import type {
   FlagDefinition,
@@ -17,7 +18,7 @@ function ownResolution(
   if (fact?.state === 'killed') return { enabled: false, reason: 'DISABLED' };
   if (
     entry.kind === 'release' &&
-    now >= Date.parse(entry.expiresOn) + 86_400_000
+    now >= instantMs(`${entry.expiresOn}T00:00:00Z`) + 86_400_000
   )
     return { enabled: false, reason: 'EXPIRED' };
   if (snapshot.kind === 'unavailable')

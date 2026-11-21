@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { createAppError, createRefusal } from '@daisy/errors';
 import {
   ballotSchemaFor,
@@ -103,7 +104,7 @@ export function requireBallotAdmission(input: {
     throw createRefusal('CONFLICT', 'round-decided');
   if (
     input.ballotDeadlineAt &&
-    Date.parse(input.now) >= input.ballotDeadlineAt.getTime()
+    instantMs(input.now) >= input.ballotDeadlineAt.getTime()
   )
     throw createRefusal('CONFLICT', 'round-decided');
   if (input.submittedJudgeIds.includes(input.judgeParticipantId))

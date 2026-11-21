@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { z } from 'zod';
 import { sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
@@ -18,8 +19,8 @@ export function createBillingEconomicsReader(input: {
       if (
         !instant.safeParse(window.startsAt).success ||
         !instant.safeParse(window.endsAt).success ||
-        Date.parse(window.endsAt) <= Date.parse(window.startsAt) ||
-        Date.parse(window.endsAt) - Date.parse(window.startsAt) > 32 * 86400000
+        instantMs(window.endsAt) <= instantMs(window.startsAt) ||
+        instantMs(window.endsAt) - instantMs(window.startsAt) > 32 * 86400000
       )
         throw createAppError('VALIDATION');
       return run(async (tx) => {

@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { systemClock } from '@daisy/clock';
+import { nowMs, systemClock } from '@daisy/clock';
 import { CLIENT_IP_HEADER } from '@daisy/ingress/client-ip';
 import { storedSignInIdentifier } from '../confirmation/emailed-link-token';
 import { create, magicLinkRequest, tokenIn } from './abuse.test-support';
@@ -65,8 +65,7 @@ describe('AUTH-3.3 magic-link issuance', () => {
       expiresAt: Date;
     };
     // Better Auth stamps expiry from its own (ambient) clock.
-    const ttlSeconds =
-      (record.expiresAt.getTime() - Date.parse(systemClock.now())) / 1000;
+    const ttlSeconds = (record.expiresAt.getTime() - nowMs(systemClock)) / 1000;
     assert({
       given: 'a magic-link request',
       should:

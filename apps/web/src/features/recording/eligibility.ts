@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import {
   isYouthRound,
   type CompetitionType,
@@ -39,7 +40,7 @@ export const captureEligibility = (input: {
     admitted &&
     admitted.roundId === input.roundId &&
     input.now &&
-    Date.parse(input.now) < Date.parse(admitted.deadlineAt)
+    instantMs(input.now) < instantMs(admitted.deadlineAt)
   )
     return {
       kind: 'tournament_admission',

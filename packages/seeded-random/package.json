@@ -12,6 +12,7 @@
     "test": "bun test src"
   },
   "dependencies": {
+    "@daisy/digest": "workspace:*",
     "@noble/hashes": "2.4.0"
   },
   "devDependencies": {

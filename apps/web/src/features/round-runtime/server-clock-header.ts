@@ -1,3 +1,4 @@
+import { nowMs } from '@daisy/clock';
 import type { Clock } from '@daisy/clock';
 
 /** The wire contract: nonnegative decimal integer milliseconds. */
@@ -6,7 +7,7 @@ export const MAX_SERVER_INSTANT_MS = 8.64e15;
 
 /** Stamped by an authorized read from the handler's injected clock. */
 export const serverClockHeaders = (clock: Clock) => ({
-  [SERVER_CLOCK_HEADER]: String(Date.parse(clock.now())),
+  [SERVER_CLOCK_HEADER]: String(nowMs(clock)),
 });
 
 export const serverInstantOf = (headers: Headers): number | null => {

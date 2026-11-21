@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { z } from 'zod';
 import { idSchema } from './primitives';
 import { invoicePassSchema } from './billing-invoice-pass';
@@ -16,7 +17,7 @@ export const cleanupLanes = [
   'observations',
 ] as const;
 export type CleanupLane = (typeof cleanupLanes)[number];
-const instant = z.iso.datetime({ precision: 3 });
+const instant = z.iso.datetime({ precision: 3, abort: true });
 const resourceId = z
   .string()
   .min(1)
@@ -96,7 +97,7 @@ export const cleanupBounds = {
   recheckMs: 86_400_000,
   maxPage: 20,
 } as const;
-const at = Date.parse;
+const at = instantMs;
 function laneId(lane: CleanupLane, id: string) {
   if (lane === 'purchases' || lane === 'refunds' || lane === 'observations')
     return idSchema.safeParse(id).success;

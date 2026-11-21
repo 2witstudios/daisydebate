@@ -1,3 +1,4 @@
+import { addMs } from '@daisy/clock';
 import { assert } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
 import {
@@ -125,7 +126,7 @@ export async function exerciseInvoiceProgress(
   const reset = {
     ...active,
     claim: null,
-    retryAt: new Date(Date.parse(await now()) + 1000).toISOString(),
+    retryAt: addMs(await now(), 1000),
     scans: {
       ...active.scans,
       invoices: {

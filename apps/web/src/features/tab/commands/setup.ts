@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import {
   freezeBallotJudging,
   storedBallotDefinition,
@@ -681,7 +682,7 @@ const updateTimeSlot = (
   if (slot === undefined) return 'not-found';
   if (slotNameTaken(facts, command.name, slot.id)) return 'name-taken';
   if (
-    Date.parse(command.startsAt) !== Date.parse(slot.startsAt) &&
+    instantMs(command.startsAt) !== instantMs(slot.startsAt) &&
     slotInUse(facts, slot.id)
   )
     return 'slot-in-use';

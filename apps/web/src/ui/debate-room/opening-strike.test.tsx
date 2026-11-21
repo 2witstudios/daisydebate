@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { twoSides, type RoundView } from '@daisy/protocol';
@@ -7,7 +8,7 @@ setupRitewayBun();
 
 const SENTINEL = 'A drawn resolution';
 const dueAt = '2026-10-12T00:01:00.000Z';
-const nowMs = Date.parse('2026-10-12T00:00:00.000Z');
+const nowMs = instantMs('2026-10-12T00:00:00.000Z');
 const turn = {
   ordinal: 0,
   side: 'negative',

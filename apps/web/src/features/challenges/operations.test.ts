@@ -1,7 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { createAppError } from '@daisy/errors';
-import { fixedClock } from '@daisy/clock';
+import { addMs, fixedClock } from '@daisy/clock';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { ChallengeFrame, ChallengeStore } from '@daisy/db/challenges';
 import {
@@ -98,9 +98,7 @@ describe('sendChallenge', () => {
               mode: 'ranked',
               format: 'freestyle',
               now,
-              expiresAt: new Date(
-                Date.parse(now) + CHALLENGE_TTL_MS,
-              ).toISOString(),
+              expiresAt: addMs(now, CHALLENGE_TTL_MS),
             },
           ],
         ],
@@ -191,9 +189,7 @@ describe('acceptChallenge', () => {
             challengeId: id,
             roomId: room,
             now,
-            followUntil: new Date(
-              Date.parse(now) + CHALLENGE_TTL_MS,
-            ).toISOString(),
+            followUntil: addMs(now, CHALLENGE_TTL_MS),
             nextId: 'id0000000000000000000001',
           },
         ],

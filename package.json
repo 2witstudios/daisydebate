@@ -142,6 +142,7 @@
     "@daisy/config": "workspace:*",
     "@daisy/db": "workspace:*",
     "@daisy/debate-engine": "workspace:*",
+    "@daisy/digest": "workspace:*",
     "@daisy/errors": "workspace:*",
     "@daisy/logger": "workspace:*",
     "@daisy/media": "workspace:*",

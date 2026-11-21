@@ -1,10 +1,9 @@
-import { createHash } from 'node:crypto';
+import { sha3Hex } from '@daisy/digest';
 import { createAppError } from '@daisy/errors';
 
 const BEARER_PREFIX = 'Bearer ';
 
-const hash = (value: string): string =>
-  createHash('sha3-256').update(value).digest('hex');
+const hash = (value: string): string => sha3Hex(value);
 
 /**
  * Gates `/api/ops/alerts` and `/api/ops/metrics` behind `OPS_PROBE_TOKEN`

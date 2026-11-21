@@ -1,3 +1,4 @@
+import { tryInstantMs, instantMs } from '@daisy/clock';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { Clock } from '@daisy/clock';
 import type { MessagingGroupInvitationStore } from '@daisy/db/messaging';
@@ -88,8 +89,8 @@ export async function decideMessagingGroupInvitation(
       await dependencies.limit(actor.actorId);
       const now = dependencies.clock.now();
       if (
-        !Number.isFinite(Date.parse(now)) ||
-        Date.parse(now) < Date.parse(state.invitedAt)
+        tryInstantMs(now) === undefined ||
+        instantMs(now) < instantMs(state.invitedAt)
       )
         throw createAppError('VALIDATION');
       return minimalInvitationResult(

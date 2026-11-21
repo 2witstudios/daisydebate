@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { SQL } from 'bun';
 import { requireTestServices } from '@daisy/config';
 import { scratchDatabase, finishedOrBlockedBehind } from '@daisy/db/testing';
@@ -58,7 +59,7 @@ test('trusted Round time preserves actual command receipts and samples the ballo
           });
           const roundId = started.receipt.roundRef!.id;
           const initial = (await f.store.getRound(roundId))!;
-          at = Date.parse(initial.launchedAt);
+          at = instantMs(initial.launchedAt);
           const frozen = await playTournamentRound(f, roundId, clock);
           const round = (await f.store.getRound(roundId))!,
             judge = round.participants.find(

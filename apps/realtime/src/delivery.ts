@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { sha3Hex } from '@daisy/digest';
 import type { ServerMessage } from '@daisy/protocol';
 import type { RealtimeAuthorityReads } from '@daisy/db';
 import type { RealtimeApp } from './app';
@@ -102,7 +102,7 @@ export function createRealtimeDelivery({
       ticket: string,
       origin: string,
     ): Promise<SocketPrincipal | null> {
-      const digest = createHash('sha3-256').update(ticket).digest('hex');
+      const digest = sha3Hex(ticket);
       const binding = await resources.redis.consumeConnectTicket(
         digest,
         origin,

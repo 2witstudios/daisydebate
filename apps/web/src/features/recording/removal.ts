@@ -1,3 +1,4 @@
+import { addMs } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
 import { mayRequestRemoval, type RecordingViewer } from './audience';
 import {
@@ -47,9 +48,7 @@ export const requestParticipantRemoval = async (
         at: input.now,
         ...(underOpenReport
           ? {
-              evidenceHeldUntil: new Date(
-                Date.parse(input.now) + RECORDING_EVIDENCE_HOLD_MS,
-              ).toISOString(),
+              evidenceHeldUntil: addMs(input.now, RECORDING_EVIDENCE_HOLD_MS),
             }
           : {}),
       }),

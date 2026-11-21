@@ -1,3 +1,4 @@
+import { nowMs } from '@daisy/clock';
 import { lookup } from 'node:dns/promises';
 import { parseOperatorKeys } from '@daisy/auth/operator-signature';
 import { createOperatorApi } from '../features/operator-api/router';
@@ -44,7 +45,7 @@ export async function startOperatorApi(app: App, reporter: ErrorReporter) {
       audience,
       keys,
       crypto: nodeOperatorCrypto,
-      nowMs: () => Date.parse(app.clock.now()),
+      nowMs: () => nowMs(app.clock),
       admitNonce: (input) => app.redis.admitOperatorNonce(input),
       store: app.database,
       nextId: () => app.ids.next(),

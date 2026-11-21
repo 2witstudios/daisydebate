@@ -1,3 +1,4 @@
+import { nowMs } from '@daisy/clock';
 import { createRoundStartGate } from '../round-start-gate/gate';
 import { captureRule } from '@daisy/debate-engine';
 import {
@@ -94,7 +95,7 @@ export function createRoundMediaRuntime(
       }),
       deadline: (work) => withTimeout(work, 2_000),
       wait: () => Bun.sleep(25),
-      now: () => Date.parse(app.clock.now()),
+      now: () => nowMs(app.clock),
       recoveryHeartbeatMs: MEDIA_RECOVERY_HEARTBEAT_MS,
     };
     const floor = observeFloor(resources);

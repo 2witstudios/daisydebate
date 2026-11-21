@@ -1,4 +1,4 @@
-import { systemId } from '@daisy/clock';
+import { instantMs, systemId } from '@daisy/clock';
 import { requireAdminTestDatabase } from '@daisy/config';
 import { afterAll, beforeEach } from 'bun:test';
 import { sql } from 'drizzle-orm';
@@ -47,7 +47,7 @@ export function testDeps(
   db: AuthDeps['db'],
   start = '2026-10-26T12:00:00.000Z',
 ): AuthDeps & { readonly advance: (ms: number) => void } {
-  let current = Date.parse(start);
+  let current = instantMs(start);
   return {
     db,
     clock: { now: () => new Date(current).toISOString() },

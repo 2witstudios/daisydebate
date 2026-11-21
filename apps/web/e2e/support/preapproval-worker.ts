@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { sha3Hex } from '@daisy/digest';
 import { createId } from '@paralleldrive/cuid2';
 import { createDatabase } from '@daisy/db';
 import { preapprovalEmailSchema } from '@daisy/protocol/beta-preapproval';
@@ -24,9 +24,7 @@ try {
     command,
     serviceId: 'daisy-admin',
     operatorRef: 'o'.repeat(24),
-    requestDigest: createHash('sha3-256')
-      .update(JSON.stringify(command))
-      .digest('hex'),
+    requestDigest: sha3Hex(JSON.stringify(command)),
     nextId: createId,
     live: () => true,
   });

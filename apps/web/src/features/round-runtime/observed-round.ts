@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import {
   roundPositionAt,
   type RoundPosition,
@@ -226,7 +227,7 @@ function openingOf(
       stage: 'opening-prep',
       clock: {
         label: 'Prep before the round',
-        remainingMs: Math.max(0, Date.parse(step.endsAt) - nowMs),
+        remainingMs: Math.max(0, instantMs(step.endsAt) - nowMs),
       },
     };
   return null;

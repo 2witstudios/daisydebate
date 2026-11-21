@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { assertRejects } from '@daisy/errors/testing';
 import { attendanceTimingPolicy, winnerOutcome } from '@daisy/protocol';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
@@ -34,8 +35,8 @@ const decision = {
   evidence: 'settled_availability' as const,
   decision: 'forfeit' as const,
   winner: 'negative' as const,
-  effectiveDeadlineMs: Date.parse(roundAt(50_000)),
-  settledHorizonMs: Date.parse(roundAt(55_000)),
+  effectiveDeadlineMs: instantMs(roundAt(50_000)),
+  settledHorizonMs: instantMs(roundAt(55_000)),
 };
 
 test('verified attendance forfeit uses actual speech authority and closes the actual played interval', () => {
@@ -241,7 +242,7 @@ describe('a decision past the resolution cutoff', () => {
       })),
     });
   const cutoffAtMs =
-    Date.parse(roundAt(finalEndAt)) + attendanceTimingPolicy.resolutionCutoffMs;
+    instantMs(roundAt(finalEndAt)) + attendanceTimingPolicy.resolutionCutoffMs;
   const ended = (
     world: ReturnType<typeof played>,
     segmentId: string,

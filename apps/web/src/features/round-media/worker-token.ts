@@ -1,3 +1,4 @@
+import { addMs } from '@daisy/clock';
 import { admitsPrincipalAccess } from '@daisy/auth/authorization';
 import type { Database } from '@daisy/db';
 import type { MediaNodes, MediaVendor } from '@daisy/media';
@@ -91,9 +92,7 @@ export function createMediaWorkerTokenBroker(input: {
           identity,
           url: input.urlsFor(state.session.roomName).workerUrl,
           token,
-          expiresAt: new Date(
-            Date.parse(current.serverNow) + 60_000,
-          ).toISOString(),
+          expiresAt: addMs(current.serverNow, 60_000),
         };
       };
       // A safe receive-only admission skips the claim to avoid capture starvation.

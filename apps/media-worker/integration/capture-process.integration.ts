@@ -1,6 +1,6 @@
 import { resolve } from 'node:path';
 import { OPENROUTER_E2E_PLACEHOLDER } from '@daisy/ai-voice/testing';
-import { systemClock } from '@daisy/clock';
+import { nowMs as clockNowMs, systemClock } from '@daisy/clock';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   captureScope,
@@ -11,7 +11,7 @@ import {
 
 setupRitewayBun();
 
-const nowMs = () => Date.parse(systemClock.now());
+const nowMs = () => clockNowMs(systemClock);
 const sleep = (ms: number) => Bun.sleep(ms);
 const scope = {
   round: captureScope.roundId,

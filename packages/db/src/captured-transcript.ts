@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { appendTranscriptChanged } from './transcript-signal';
 import { createAppError } from '@daisy/errors';
 import { eq, sql } from 'drizzle-orm';
@@ -36,7 +37,7 @@ export async function appendCapturedTranscript(
   const { segment, stream, now } = context;
   const history = await captureHistory(tx, input, segment);
   requireCapturedWindow(input, segment, now, history);
-  const after = Date.parse(input.after);
+  const after = instantMs(input.after);
   const { clipKey, bodyDigest } = clipDigests(input);
   const [existing] = await tx
     .select({ digest: utterances.captureBodyDigest })

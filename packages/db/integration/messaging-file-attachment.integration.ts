@@ -1,3 +1,4 @@
+import { instantMs, addMs } from '@daisy/clock';
 import { SQL } from 'bun';
 import { sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/bun-sql';
@@ -37,7 +38,7 @@ test('native attachment and listing preserve the message and generation boundari
     },
   });
   const late = new Date(
-    Date.parse(now) + policy.reservationMs + 1,
+    instantMs(now) + policy.reservationMs + 1,
   ).toISOString();
   const command = () => ({
     id: createId(),
@@ -121,7 +122,7 @@ test('native attachment and listing preserve the message and generation boundari
       ],
       expected: [
         { version: 5, bells: 0 },
-        new Date(Date.parse(late) + policy.accessMs).toISOString(),
+        addMs(late, policy.accessMs),
         [
           {
             ...original,

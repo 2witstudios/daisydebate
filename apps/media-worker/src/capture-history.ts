@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { CAPTURE_HISTORY_READ_MS, speakingEndMs } from '@daisy/protocol';
 import { CAPTURE_OUTAGE_BUDGET_MS } from './capture-memory';
 import { createAppError } from '@daisy/errors';
@@ -19,12 +20,11 @@ export function containingGrant(
   const segment = state.segment;
   if (
     !segment ||
-    window.beforeMs < Date.parse(segment.startedAt) ||
+    window.beforeMs < instantMs(segment.startedAt) ||
     window.afterMs >=
       speakingEndMs({
-        startedAtMs: Date.parse(segment.startedAt),
-        endedAtMs:
-          segment.endedAt === null ? null : Date.parse(segment.endedAt),
+        startedAtMs: instantMs(segment.startedAt),
+        endedAtMs: segment.endedAt === null ? null : instantMs(segment.endedAt),
         durationMs: segment.durationMs,
         returnedMs: segment.returnedMs,
       })
@@ -33,8 +33,8 @@ export function containingGrant(
   const [grant, ...others] = state.intervals.filter(
     (i) =>
       i.roundParticipantId === seat &&
-      Date.parse(i.startedAt) <= window.beforeMs &&
-      (i.endedAt === null || window.afterMs < Date.parse(i.endedAt)),
+      instantMs(i.startedAt) <= window.beforeMs &&
+      (i.endedAt === null || window.afterMs < instantMs(i.endedAt)),
   );
   return grant !== undefined && others.length === 0 ? { segment, grant } : null;
 }
@@ -56,8 +56,8 @@ export function straddlesGrantEdge(
   return state.intervals.some(
     (i) =>
       i.roundParticipantId === seat &&
-      (straddles(frame, Date.parse(i.startedAt)) ||
-        (i.endedAt !== null && straddles(frame, Date.parse(i.endedAt)))),
+      (straddles(frame, instantMs(i.startedAt)) ||
+        (i.endedAt !== null && straddles(frame, instantMs(i.endedAt)))),
   );
 }
 

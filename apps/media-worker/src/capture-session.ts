@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import type { OpenRouter } from '@daisy/ai-voice';
 import type { createAudioSubscription } from '@daisy/media/subscription';
 import { createClipQueue } from './clip-queue';
@@ -254,11 +255,11 @@ async function captureSession(
       flushQuietCarries(
         carries,
         input.roundId,
-        Date.parse(current.state.serverNow),
+        instantMs(current.state.serverNow),
       ).forEach(enqueue);
       // A due stream's carried frames are its last clip; it seals once that is in.
       const sealable = streams
-        .due(Date.parse(current.state.serverNow), staging.holds)
+        .due(instantMs(current.state.serverNow), staging.holds)
         .filter((stream) => {
           const last = flushClipCarry(carries, input.roundId, stream);
           last.forEach(enqueue);

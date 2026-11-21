@@ -1,3 +1,4 @@
+import { addMs, instantMs } from '@daisy/clock';
 import type { MessagingConversation } from './conversation';
 
 type HistoryMessage = MessagingConversation['messages'][number];
@@ -38,9 +39,7 @@ const dayLabel = (at: string, now: string, timeZone: string) => {
   const today = dayKey(now, timeZone);
   if (key === today) return 'Today';
   // Calendar dates remain a day apart even when a local day is 23 or 25 hours.
-  const yesterday = new Date(Date.parse(`${today}T00:00:00Z`) - 86_400_000)
-    .toISOString()
-    .slice(0, 10);
+  const yesterday = addMs(`${today}T00:00:00Z`, -86_400_000).slice(0, 10);
   if (key === yesterday) return 'Yesterday';
   return new Intl.DateTimeFormat('en-US', {
     timeZone,
@@ -106,7 +105,7 @@ export function messageRows({
     const continues: boolean =
       previous !== null &&
       previous.authorActorId === message.authorActorId &&
-      Date.parse(message.createdAt) - Date.parse(previous.createdAt) <
+      instantMs(message.createdAt) - instantMs(previous.createdAt) <
         messageRunMs;
     const mine = message.authorActorId === actorId;
     rows.push({

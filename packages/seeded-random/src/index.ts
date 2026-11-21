@@ -1,4 +1,4 @@
-import { sha3_256 } from '@noble/hashes/sha3.js';
+import { sha3Bytes } from '@daisy/digest';
 import { utf8ToBytes } from '@noble/hashes/utils.js';
 
 /**
@@ -34,7 +34,7 @@ export type WordStream = (index: number) => number;
 export const wordStream =
   (domain: string, seed: Uint8Array, prefix: Uint8Array): WordStream =>
   (index) => {
-    const hash = sha3_256(concat(utf8(domain), seed, prefix, u32be(index)));
+    const hash = sha3Bytes(concat(utf8(domain), seed, prefix, u32be(index)));
     return new DataView(hash.buffer, hash.byteOffset).getUint32(0, false);
   };
 
@@ -95,5 +95,3 @@ export const canonicalJson = (value: unknown): string =>
         )
       : inner,
   );
-
-export const digestOf = (text: string) => hexOf(sha3_256(utf8(text)));

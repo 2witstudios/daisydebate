@@ -1,3 +1,4 @@
+import { sha3Hex } from '@daisy/digest';
 import { readLaunchDatabase } from './launch-evidence-database';
 if (import.meta.main) {
   const roomId = Bun.argv[2];
@@ -29,9 +30,7 @@ if (import.meta.main) {
         from rounds r where room_id=${roomId} order by id`;
       const [bells] =
         await tx`select count(*)::int count from outbox where topic=${`room:${roomId}`} and payload->>'entityVersion'=(select change_version::text from rooms where id=${roomId})`;
-      const hash = new Bun.CryptoHasher('sha3-256')
-        .update(JSON.stringify(rows))
-        .digest('hex');
+      const hash = sha3Hex(JSON.stringify(rows));
       return { hash, counts, frozen: rounds, launchDoorbells: bells!.count };
     });
     process.stdout.write(JSON.stringify(evidence));
