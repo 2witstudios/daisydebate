@@ -22,13 +22,15 @@ export const postgresInt8 = z.union([
  * refuses is an invariant failure: the statement and its schema disagree.
  * Bun SQL answers int8 as a string (a bigint inside a bounded writer),
  * numeric as a string and timestamptz as a Date; the schema says which.
+ * A Bun tagged statement carries its own connection, including a reservation.
  */
 export async function query<Row extends z.ZodType>(
-  tx: RawExecutor,
-  rowSchema: Row,
-  statement: SQL,
+  ...read:
+    | [tx: RawExecutor, rowSchema: Row, statement: SQL]
+    | [statement: PromiseLike<unknown>, rowSchema: Row]
 ): Promise<z.output<Row>[]> {
-  const parsed = z.array(rowSchema).safeParse(await tx.execute(statement));
+  const rows = await (read.length === 2 ? read[0] : read[0].execute(read[2]));
+  const parsed = z.array(read[1]).safeParse(rows);
   if (!parsed.success)
     throw createAppError(
       'INVARIANT',

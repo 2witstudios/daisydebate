@@ -1,5 +1,6 @@
 import { clockDigestRules } from './eslint.config-clock-digest.mjs';
 import js from '@eslint/js';
+import ts from 'typescript';
 import tseslint from 'typescript-eslint';
 import nextVitals from 'eslint-config-next/core-web-vitals';
 import betterTailwind from 'eslint-plugin-better-tailwindcss';
@@ -608,6 +609,519 @@ const dbBoundaryRestrictions = {
   'locks.ts': dbAdvisoryLockRestrictions,
 };
 
+const dbNativeRowsPlugin = {
+  rules: {
+    'require-query': {
+      meta: {
+        messages: { boundary: 'Validate native database rows with query.' },
+      },
+      create(context) {
+        const { program, esTreeNodeToTSNodeMap, tsNodeToESTreeNodeMap } =
+          context.sourceCode.parserServices;
+        if (!program) return {};
+        const checker = program.getTypeChecker();
+        // The bounded client's transport proxy forwards the driver's queries
+        // to Drizzle. Any row consumption inside it still needs query.
+        const forwardsQueries = context.filename.endsWith(
+          '/packages/db/src/transaction-client.ts',
+        );
+        const types = (type) =>
+          type.isUnionOrIntersection() ? type.types : [type];
+        const typeAt = (node) =>
+          checker.getTypeAtLocation(esTreeNodeToTSNodeMap.get(node));
+        const constrainedType = (type) =>
+          type.isTypeParameter()
+            ? (checker.getBaseConstraintOfType(type) ?? type)
+            : type;
+        const nativeType = (input) => {
+          if (input === undefined) return false;
+          const type = constrainedType(input);
+          if (type.isUnionOrIntersection()) return type.types.some(nativeType);
+          const symbol = type.getSymbol();
+          return (
+            symbol?.name === 'Query' &&
+            symbol
+              .getDeclarations()
+              ?.some((declaration) =>
+                declaration
+                  .getSourceFile()
+                  .fileName.endsWith('/bun-types/sql.d.ts'),
+              )
+          );
+        };
+        const nativeQuery = (expression) =>
+          expression != null && nativeType(typeAt(expression));
+        const returnsNativeRows = (callback) =>
+          callback
+            .getCallSignatures()
+            .some((signature) => nativeType(signature.getReturnType()));
+        const builtInMethod = (signature) => {
+          const declaration = signature?.getDeclaration();
+          if (!declaration) return undefined;
+          const owner = (
+            declaration.parent.name ?? declaration.parent.parent?.name
+          )?.getText();
+          const sourceFile = declaration.getSourceFile();
+          if (
+            program.isSourceFileDefaultLibrary(sourceFile) ||
+            (owner === 'PromiseConstructor' &&
+              sourceFile.fileName.endsWith('/bun-types/globals.d.ts'))
+          )
+            return { owner, name: declaration.name?.getText() };
+        };
+        const declarationOf = (expression) => {
+          const location = esTreeNodeToTSNodeMap.get(expression);
+          return (
+            ts.isShorthandPropertyAssignment(location.parent)
+              ? checker.getShorthandAssignmentValueSymbol(location.parent)
+              : checker.getSymbolAtLocation(location)
+          )?.valueDeclaration;
+        };
+        const constantDeclaration = (declaration) =>
+          declaration &&
+          ts.isVariableDeclaration(declaration) &&
+          (ts.getCombinedNodeFlags(declaration) & ts.NodeFlags.Const) !== 0;
+        const staticKey = (key, computed) => {
+          if (!computed && key.type === 'Identifier') return key.name;
+          if (
+            key.type === 'Literal' &&
+            (typeof key.value === 'string' || typeof key.value === 'number')
+          )
+            return String(key.value);
+        };
+        const literalMember = (object, key) => {
+          if (object?.type !== 'ObjectExpression' || key === undefined)
+            return undefined;
+          for (const property of [...object.properties].reverse()) {
+            if (property.type === 'SpreadElement') return undefined;
+            if (staticKey(property.key, property.computed) === key)
+              return property.kind === 'init' ? property.value : undefined;
+          }
+        };
+        const destructuredMember = (declaration) => {
+          if (
+            !declaration ||
+            !ts.isBindingElement(declaration) ||
+            !ts.isObjectBindingPattern(declaration.parent) ||
+            declaration.dotDotDotToken ||
+            declaration.initializer
+          )
+            return undefined;
+          const owner = declaration.parent.parent;
+          const property = declaration.propertyName ?? declaration.name;
+          if (
+            !constantDeclaration(owner) ||
+            !owner.initializer ||
+            !(
+              ts.isIdentifier(property) ||
+              ts.isStringLiteralLike(property) ||
+              ts.isNumericLiteral(property)
+            )
+          )
+            return undefined;
+          const expression = tsNodeToESTreeNodeMap.get(owner.initializer);
+          return expression ? { expression, key: property.text } : undefined;
+        };
+        const localMember = (receiver, key, read, seen) => {
+          const object = constantSource(receiver, seen);
+          if (object?.type !== 'ObjectExpression' || key === undefined)
+            return undefined;
+          // Check preceding statements in the read's block and its enclosing
+          // blocks. Writes outside the current function have separate timing.
+          for (
+            let statement = read;
+            statement.parent;
+            statement = statement.parent
+          ) {
+            const block = statement.parent;
+            if (
+              [
+                'ArrowFunctionExpression',
+                'FunctionExpression',
+                'FunctionDeclaration',
+              ].includes(block.type)
+            )
+              break;
+            if (!['BlockStatement', 'Program'].includes(block.type)) continue;
+            for (
+              let index = block.body.indexOf(statement) - 1;
+              index >= 0;
+              index -= 1
+            ) {
+              const candidate = block.body[index];
+              if (candidate.range[0] <= object.range[0]) break;
+              if (candidate.type !== 'ExpressionStatement') continue;
+              const assignment = candidate.expression;
+              if (
+                assignment.type === 'AssignmentExpression' &&
+                assignment.operator === '=' &&
+                assignment.left.type === 'MemberExpression' &&
+                staticKey(
+                  assignment.left.property,
+                  assignment.left.computed,
+                ) === key &&
+                constantSource(assignment.left.object) === object
+              )
+                return assignment.right;
+            }
+          }
+          return literalMember(object, key);
+        };
+        const constantSource = (value, seen = new Set()) => {
+          if (!value) return undefined;
+          while (!seen.has(value)) {
+            seen.add(value);
+            if (
+              [
+                'TSAsExpression',
+                'TSSatisfiesExpression',
+                'TSNonNullExpression',
+                'TSInstantiationExpression',
+                'TSTypeAssertion',
+              ].includes(value.type)
+            ) {
+              value = value.expression;
+              continue;
+            }
+            let initializer;
+            if (value.type === 'MemberExpression') {
+              initializer = localMember(
+                value.object,
+                staticKey(value.property, value.computed),
+                value,
+                seen,
+              );
+            }
+            if (value.type === 'Identifier') {
+              const declaration = declarationOf(value);
+              if (constantDeclaration(declaration) && declaration.initializer)
+                initializer = tsNodeToESTreeNodeMap.get(
+                  declaration.initializer,
+                );
+              const member = destructuredMember(declaration);
+              if (member)
+                initializer = localMember(
+                  member.expression,
+                  member.key,
+                  member.expression,
+                  seen,
+                );
+            }
+            if (!initializer) break;
+            value = initializer;
+          }
+          return value;
+        };
+        const originalCallableType = (source) => {
+          const member =
+            source.type === 'Identifier' &&
+            destructuredMember(declarationOf(source));
+          if (member) {
+            const object = constantSource(member.expression);
+            const property = typeAt(object).getProperty(member.key);
+            if (property)
+              return checker.getTypeOfSymbolAtLocation(
+                property,
+                esTreeNodeToTSNodeMap.get(object),
+              );
+          }
+          return typeAt(source);
+        };
+        const functionAdapter = (method) =>
+          ['CallableFunction', 'Function'].includes(method.owner) &&
+          ['call', 'apply', 'bind'].includes(method.name);
+        const reflectApply = (method) =>
+          method.owner === 'Reflect' && method.name === 'apply';
+        const promiseMethod = (method) =>
+          (method.owner === 'PromiseConstructor' &&
+            ['resolve', 'all', 'allSettled', 'any', 'race', 'try'].includes(
+              method.name,
+            )) ||
+          (['Promise', 'PromiseLike'].includes(method.owner) &&
+            ['then', 'catch', 'finally'].includes(method.name));
+        const supportedMethod = (method) =>
+          method !== undefined &&
+          (promiseMethod(method) ||
+            functionAdapter(method) ||
+            reflectApply(method));
+        const inputValue = (expression) => {
+          const location = esTreeNodeToTSNodeMap.get(expression);
+          return {
+            expression,
+            location,
+            type: checker.getTypeAtLocation(location),
+          };
+        };
+        const inputAt = (inputs, index) => {
+          const rest = inputs.findIndex((input) => input?.rest);
+          return inputs[rest >= 0 && rest <= index ? rest : index];
+        };
+        const afterReceiver = (inputs) =>
+          inputs[0]?.rest ? inputs : inputs.slice(1);
+        const packedInputs = (input) => {
+          if (!input) return [];
+          const source = constantSource(input.expression);
+          if (source?.type === 'ArrayExpression')
+            return callInputs(source.elements);
+          const type = constrainedType(input.type);
+          if (checker.isTupleType(type))
+            return checker
+              .getTypeArguments(type)
+              .map((type) => ({ type, location: input.location }));
+          const element = type.getNumberIndexType();
+          return element
+            ? [{ type: element, location: input.location, rest: true }]
+            : [];
+        };
+        const callInputs = (args) =>
+          args.flatMap((argument) => {
+            if (argument?.type === 'SpreadElement')
+              return packedInputs(inputValue(argument.argument));
+            return [argument ? inputValue(argument) : undefined];
+          });
+        const callableInput = (input, active, remaining) => {
+          if (!input || remaining === 0) return undefined;
+          const source = constantSource(input.expression);
+          if (source?.type === 'CallExpression' && !active.has(source)) {
+            active.add(source);
+            const binding = resolveCall(source, active, remaining - 1)?.binding;
+            active.delete(source);
+            if (binding) return { binding };
+          }
+          const type = source ? originalCallableType(source) : input.type;
+          const method = type
+            .getCallSignatures()
+            .map(builtInMethod)
+            .find(supportedMethod);
+          return method ? { method } : undefined;
+        };
+        const invoke = (callable, receiver, inputs, active, remaining) => {
+          if (!callable || remaining === 0) return undefined;
+          if (callable.binding) {
+            const { target, receiver, inputs: bound } = callable.binding;
+            return invoke(
+              target,
+              receiver,
+              [...bound, ...inputs],
+              active,
+              remaining - 1,
+            );
+          }
+          const { method } = callable;
+          if (reflectApply(method))
+            return invoke(
+              callableInput(inputAt(inputs, 0), active, remaining - 1),
+              inputAt(inputs, 1),
+              packedInputs(inputAt(inputs, 2)),
+              active,
+              remaining - 1,
+            );
+          if (functionAdapter(method)) {
+            const target = callableInput(receiver, active, remaining - 1);
+            if (!target) return undefined;
+            const thisArg = inputAt(inputs, 0);
+            if (method.name === 'bind')
+              return {
+                binding: {
+                  target,
+                  receiver: thisArg,
+                  inputs: afterReceiver(inputs),
+                },
+              };
+            const unwrapped =
+              method.name === 'apply'
+                ? packedInputs(inputAt(inputs, 1))
+                : afterReceiver(inputs);
+            return invoke(target, thisArg, unwrapped, active, remaining - 1);
+          }
+          return { method, inputs };
+        };
+        const resolveCall = (call, active, remaining, signature) => {
+          const { callee, arguments: args } = call;
+          const source = callableInput(
+            inputValue(callee),
+            active,
+            remaining - 1,
+          );
+          const method = builtInMethod(
+            signature ??
+              checker.getResolvedSignature(esTreeNodeToTSNodeMap.get(call)),
+          );
+          const callable =
+            source ?? (supportedMethod(method) ? { method } : undefined);
+          if (!callable) return undefined;
+          const receiver =
+            callee.type === 'MemberExpression'
+              ? inputValue(callee.object)
+              : undefined;
+          return invoke(
+            callable,
+            receiver,
+            callInputs(args),
+            active,
+            remaining - 1,
+          );
+        };
+        const promiseInputs = (call, signature) => {
+          // Aliases in incomplete or recursive source can point back to the call.
+          const active = new Set([call]);
+          const plan = resolveCall(call, active, 32, signature);
+          return plan?.binding
+            ? invoke({ binding: plan.binding }, undefined, [], active, 32)
+            : plan;
+        };
+        // Use the well-known symbol's identity, including when a declaration
+        // spells its iterator key through an alias.
+        const iteratorKey = (() => {
+          const symbol = checker.resolveName(
+            'Symbol',
+            undefined,
+            ts.SymbolFlags.Value,
+            false,
+          );
+          if (!symbol) return undefined;
+          const iterator = checker
+            .getTypeOfSymbol(symbol)
+            .getProperty('iterator');
+          if (iterator) {
+            const key = checker.getTypeOfSymbol(iterator);
+            if (key.flags & ts.TypeFlags.UniqueESSymbol) return key.escapedName;
+          }
+        })();
+        const nativeIterable = (inputType, location) => {
+          if (!iteratorKey) return false;
+          const propertyType = (symbol) =>
+            checker.getTypeOfSymbolAtLocation(symbol, location);
+          const methodResults = (symbol) =>
+            propertyType(symbol)
+              .getCallSignatures()
+              .map((signature) => signature.getReturnType());
+          return types(constrainedType(inputType)).some((type) => {
+            // Promise combinators assimilate each value yielded by the
+            // iterable. Inspect next().value, including Set and generators.
+            const iterator = type
+              .getProperties()
+              .find((symbol) => symbol.escapedName === iteratorKey);
+            if (!iterator) return false;
+            return methodResults(iterator).some((result) => {
+              const next = result.getProperty('next');
+              if (!next) return false;
+              return methodResults(next)
+                .flatMap(types)
+                .some((step) => {
+                  const done = step.getProperty('done');
+                  if (
+                    done &&
+                    checker.isTypeAssignableTo(
+                      propertyType(done),
+                      checker.getTrueType(),
+                    )
+                  )
+                    return false;
+                  const value = step.getProperty('value');
+                  return value !== undefined && nativeType(propertyType(value));
+                });
+            });
+          });
+        };
+        // Command metadata lives on the Bun result outside the rows.
+        const commandReceipt = (statement) =>
+          statement.type === 'TaggedTemplateExpression' &&
+          statement.quasi.expressions.length === 0 &&
+          ['commit', 'rollback'].includes(statement.quasi.quasis[0]?.value.raw);
+        const report = (node) =>
+          context.report({ node, messageId: 'boundary' });
+        return {
+          AwaitExpression(node) {
+            if (
+              node.parent.type !== 'ExpressionStatement' &&
+              !commandReceipt(node.argument) &&
+              nativeQuery(node.argument)
+            )
+              report(node);
+          },
+          ReturnStatement(node) {
+            if (!forwardsQueries && nativeQuery(node.argument)) report(node);
+          },
+          ArrowFunctionExpression(node) {
+            if (
+              node.async &&
+              node.expression &&
+              !forwardsQueries &&
+              nativeQuery(node.body)
+            )
+              report(node.body);
+          },
+          CallExpression(node) {
+            const callee = node.callee;
+            if (callee.type === 'MemberExpression') {
+              const method = callee.computed
+                ? callee.property.value
+                : callee.property.name;
+              if (
+                ['then', 'catch', 'finally'].includes(method) &&
+                nativeQuery(callee.object)
+              ) {
+                report(node);
+                return;
+              }
+            }
+            if (node.arguments.length === 0) return;
+            const signature = checker.getResolvedSignature(
+              esTreeNodeToTSNodeMap.get(node),
+            );
+            const boundary = signature
+              ?.getDeclaration()
+              ?.getSourceFile()
+              .fileName.endsWith('/packages/db/src/raw-rows.ts');
+            // Passing the thenable directly hands its execution to the callee,
+            // including native Promise executor and deferred resolve functions.
+            if (
+              !forwardsQueries &&
+              !boundary &&
+              node.arguments.some(
+                (argument) =>
+                  argument.type !== 'SpreadElement' &&
+                  nativeQuery(argument) &&
+                  !nativeType(
+                    checker.getContextualType(
+                      esTreeNodeToTSNodeMap.get(argument),
+                    ),
+                  ),
+              )
+            ) {
+              report(node);
+              return;
+            }
+            const settlement = promiseInputs(node, signature);
+            if (!settlement?.method) return;
+            const { method, inputs } = settlement;
+            if (method.owner !== 'PromiseConstructor') {
+              if (
+                inputs.some((input) => input && returnsNativeRows(input.type))
+              )
+                report(node);
+              return;
+            }
+            const input = inputAt(inputs, 0);
+            if (!input) return;
+            const { type: inputType, location } = input;
+            if (method.name === 'resolve') {
+              if (nativeType(inputType)) report(node);
+              return;
+            }
+            if (method.name === 'try') {
+              if (returnsNativeRows(inputType)) report(node);
+              return;
+            }
+            if (nativeIterable(inputType, location)) report(node);
+          },
+        };
+      },
+    },
+  },
+};
+
 /**
  * The rules that read types. They run on workspace source only, which a
  * TypeScript project owns; a probe under an invented path turns them off
@@ -1086,6 +1600,19 @@ export default [
     },
   })),
   {
+    files: ['packages/db/src/**/*.ts'],
+    ignores: [
+      'packages/db/src/raw-rows.ts',
+      'packages/db/src/**/testing*.ts',
+      'packages/db/src/**/*-testing.ts',
+      'packages/db/src/**/*-fixture.ts',
+      'packages/db/src/**/*.test.ts',
+      'packages/db/src/**/*.test-support.ts',
+    ],
+    plugins: { 'db-native-rows': dbNativeRowsPlugin },
+    rules: { 'db-native-rows/require-query': 'error' },
+  },
+  {
     files: ['apps/web/src/app/**/route.ts', 'apps/web/src/app/**/actions.ts'],
     rules: {
       'no-restricted-imports': [
@@ -1207,15 +1734,5 @@ export default [
     ignores: ['**/*.test.{ts,tsx}'],
     plugins: { daisy: daisyPlugin },
     rules: { 'daisy/no-non-null-assertion': 'error' },
-  },
-  // packages/db/src is the database boundary, and the recon-db-boundary slice
-  // (plan step R3.1 to R3.3) owns its needless conditions and non-null
-  // assertions. That slice fixes them and deletes this block.
-  {
-    files: ['packages/db/src/**/*.ts'],
-    rules: {
-      '@typescript-eslint/no-unnecessary-condition': 'off',
-      'daisy/no-non-null-assertion': 'off',
-    },
   },
 ];

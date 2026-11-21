@@ -9,8 +9,11 @@
  * it.
  */
 import type { SQL } from 'bun';
+import { createAppError } from '@daisy/errors';
+import { z } from 'zod';
 import { sessionLocks } from './locks';
 import { quoteIdentifier } from './identifiers';
+import { query } from './raw-rows';
 
 const tokenPattern = /^[0-9a-f]{8}$/;
 const runSuffix = /^(.*_test)_run_[0-9a-f]{8}$/;
@@ -59,10 +62,12 @@ export async function claimTestRunDatabase(
 }
 
 const backendPid = async (admin: SQL): Promise<number> => {
-  const [{ pid }]: [{ pid: number }] = await admin.unsafe(
-    'select pg_backend_pid() as pid',
+  const [row] = await query(
+    admin`select pg_backend_pid() as pid`,
+    z.object({ pid: z.int().positive() }),
   );
-  return pid;
+  if (!row) throw createAppError('INVARIANT', 'Test run backend is missing');
+  return row.pid;
 };
 
 /**
@@ -96,10 +101,12 @@ export async function dropTestRunDatabase(
 }
 
 async function runDatabasesOf(admin: SQL, slotTestDatabase: string) {
-  const rows: Array<{ name: string }> = await admin`
-    select datname as name from pg_database
-    where starts_with(datname, ${`${slotTestDatabase}_run_`})
-    order by datname`;
+  const rows = await query(
+    admin`select datname as name from pg_database
+      where starts_with(datname, ${`${slotTestDatabase}_run_`})
+      order by datname`,
+    z.object({ name: z.string() }),
+  );
   return rows
     .map(({ name }) => name)
     .filter((name) => slotDatabaseOfRun(name) === slotTestDatabase);
@@ -111,10 +118,11 @@ async function runDatabasesOf(admin: SQL, slotTestDatabase: string) {
  * run may last cannot belong to a live run.
  */
 async function sessionsOn(admin: SQL, name: string, maxRunMs: number) {
-  const [row]: Array<{ sessions: number; young: number }> = await admin.unsafe(
-    `select count(*)::int as sessions,
-       (count(*) filter (where backend_start >= now() - ${Number(maxRunMs)} * interval '1 millisecond'))::int as young
-     from pg_stat_activity where datname = '${quoteIdentifier(name).slice(1, -1)}' and pid <> pg_backend_pid()`,
+  const [row] = await query(
+    admin`select count(*)::int as sessions,
+       (count(*) filter (where backend_start >= now() - ${maxRunMs}::float8 * interval '1 millisecond'))::int as young
+     from pg_stat_activity where datname = ${name} and pid <> pg_backend_pid()`,
+    z.object({ sessions: z.int(), young: z.int() }),
   );
   return row ?? { sessions: 0, young: 0 };
 }

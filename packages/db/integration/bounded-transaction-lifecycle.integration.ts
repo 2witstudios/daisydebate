@@ -32,7 +32,17 @@ test('actual check-in marker commits before writer BEGIN and closes only after a
             const [writer] = await tx.execute(
               sql`select pg_backend_pid() as pid`,
             );
-            observed = observeReceipt(metadata, marker, writer!.pid);
+            const { pid, backendStart } = metadata.writer;
+            if (backendStart === null)
+              throw new Error('Missing writer identity');
+            observed = observeReceipt(
+              {
+                receivedAt: metadata.receivedAt,
+                writer: { pid, backendStart },
+              },
+              marker,
+              writer!.pid,
+            );
             throw createAppError('CONFLICT');
           },
           {

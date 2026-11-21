@@ -18,6 +18,128 @@ import {
 setupRitewayBun();
 requireTestServices(process.env);
 
+test('a hidden backend start requires an original command receipt and cannot authorize recovery', async () => {
+  await withPool(async (client) => {
+    const reserve = client.reserve.bind(client);
+    let reservations = 0;
+    let dropRollbackReply = false;
+    const rollbackCommands: string[] = [];
+    const commitCommands: string[] = [];
+    client.reserve = async (options) => {
+      reservations += 1;
+      const reserved = await reserve(options);
+      await reserved`set role daisy_web`;
+      return new Proxy(reserved, {
+        apply(target, receiver, args) {
+          const result = Reflect.apply(target, receiver, args);
+          const template = args[0];
+          if (Array.isArray(template) && template[0] === 'commit') {
+            return result.then((receipt: { command: string }) => {
+              commitCommands.push(receipt.command);
+              return receipt;
+            });
+          }
+          if (!Array.isArray(template) || template[0] !== 'rollback')
+            return result;
+          return result.then((receipt: { command: string }) => {
+            rollbackCommands.push(receipt.command);
+            if (dropRollbackReply)
+              throw new Error('injected lost ROLLBACK reply');
+            return receipt;
+          });
+        },
+      });
+    };
+    const run = createBoundedTransaction({
+      lane: testLane(client, 4),
+      now: performance.now,
+    });
+    const committed = await run(async (tx, _signal, receipt) => {
+      const [row] = await tx.execute(sql`select 1 as value`);
+      return [row?.value, receipt.writer.backendStart];
+    });
+    await assertRejects({
+      given: 'a caught PostgreSQL error followed by the COMMIT command',
+      should:
+        'accept its ROLLBACK receipt as conclusive without issuing another command',
+      code: 'INFRASTRUCTURE',
+      message: 'Bounded transaction did not commit',
+      actual: () =>
+        run(async (tx) => {
+          try {
+            await tx.execute(sql`select 1/0`);
+          } catch {
+            // The transaction is aborted even though the callback returns.
+          }
+        }),
+    });
+    const callbackRefusal = async () => {
+      throw createAppError('CONFLICT');
+    };
+    await assertRejects({
+      given:
+        'a callback conflict followed by a ROLLBACK receipt on the same writer',
+      should: 'preserve the callback conflict',
+      code: 'CONFLICT',
+      actual: () => run(callbackRefusal),
+    });
+    dropRollbackReply = true;
+    const refusal = await run(callbackRefusal).catch((reason: unknown) => {
+      if (!isAppError(reason)) throw reason;
+      return reason;
+    });
+    const cause = refusal.cause as {
+      recovery?: string;
+      settlement?: TransactionSettlement;
+    };
+    if (!cause?.settlement) throw new Error('Missing recovery settlement');
+    const beforeConfirm = reservations;
+    const confirmed = await cause.settlement.confirm();
+    const recoveryReservations = reservations - beforeConfirm;
+    let lifecycleOpened = false;
+    await assertRejects({
+      given: 'a lifecycle that requires the hidden backend start',
+      should: 'refuse before opening its marker',
+      code: 'INVARIANT',
+      message: 'Transaction lifecycle has no backend',
+      actual: () =>
+        run(async () => undefined, {
+          lifecycle: {
+            open: async () => {
+              lifecycleOpened = true;
+            },
+            close: async () => {},
+          },
+        }),
+    });
+    assert({
+      given: 'Bun SQL on a real connection with a restricted SET ROLE',
+      should:
+        'confirm only original command receipts and leave a lost reply pending',
+      actual: [
+        committed,
+        refusal.code,
+        cause.recovery,
+        confirmed,
+        recoveryReservations,
+        lifecycleOpened,
+        rollbackCommands,
+        commitCommands,
+      ],
+      expected: [
+        [1, null],
+        'INFRASTRUCTURE',
+        'pending',
+        false,
+        0,
+        false,
+        ['ROLLBACK', 'ROLLBACK'],
+        ['COMMIT', 'ROLLBACK'],
+      ],
+    });
+  });
+});
+
 test('a failed callback rolls back its write, disposes its native writer and preserves safe errors', async () => {
   await withBoundedRound(async (fixture, run, roundId) => {
     const [before] =

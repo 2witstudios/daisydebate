@@ -10,6 +10,7 @@ import {
 } from './outbox';
 
 import { sessionLocks } from './locks';
+import { query } from './raw-rows';
 import { z } from 'zod';
 export const availabilityEvidenceRow = z.object({
   at: z.string(),
@@ -76,7 +77,8 @@ export function createAvailabilitySampler(client: SQL) {
       running = true;
       try {
         if (!(await electSession()) || !session) return null;
-        const [row] = await session`
+        const [row] = await query(
+          session`
           with instant as (select statement_timestamp() as at,
             statement_timestamp()-${SERVICE_LEASE_WINDOW_MS}*interval '1 millisecond' as live_after),
           facts as (
@@ -96,14 +98,10 @@ export function createAvailabilitySampler(client: SQL) {
           where at > coalesce((select max(at) from availability_samples),'-infinity'::timestamptz)
             and exists(select 1 from pg_locks where locktype='advisory' and pid=pg_backend_pid()
               and classid=0 and objid=${sessionLocks.availabilitySampler.key}::oid and objsubid=1 and granted)
-          returning to_char(at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as at,healthy,cause`;
-        return row
-          ? {
-              at: row.at,
-              healthy: row.healthy,
-              cause: row.cause,
-            }
-          : null;
+          returning to_char(at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as at,healthy,cause`,
+          availabilityEvidenceRow,
+        );
+        return row ?? null;
       } catch (error) {
         retireSession();
         throw createAppError(
@@ -194,12 +192,14 @@ export function availabilityOperations(client: SQL, dedicated: SQL) {
         input.role === 'realtime'
           ? decodeOutboxCursor(encodeOutboxCursor(input.deliveredThrough))
           : null;
-      const renewed =
-        await client`insert into service_instances(instance_id,role,renewed_at,delivered_through,delivered_through_txid)
+      const renewed = await query(
+        client`insert into service_instances(instance_id,role,renewed_at,delivered_through,delivered_through_txid)
         values(${input.instanceId},${input.role},statement_timestamp(),${cursor?.seq.toString() ?? null}::bigint,${cursor?.txid ?? null}::xid8)
         on conflict(instance_id) do update set renewed_at=excluded.renewed_at,
           delivered_through=excluded.delivered_through,delivered_through_txid=excluded.delivered_through_txid
-        where service_instances.role=excluded.role returning instance_id`;
+        where service_instances.role=excluded.role returning instance_id`,
+        z.object({ instance_id: z.string() }),
+      );
       // A lease another role holds was not renewed: never let it pass as renewed.
       if (renewed.length !== 1)
         throw createAppError(
@@ -218,33 +218,46 @@ export function availabilityOperations(client: SQL, dedicated: SQL) {
       readonly segmentId: string;
       readonly participantId: string;
     }): Promise<readonly PublicProbeProblem[]> {
-      const [facts] = await client`select
+      const [facts] = await query(
+        client`select
         (select status from rounds where id=${probe.roundId}) as status,
         exists(select 1 from round_segments where id=${probe.segmentId} and round_id=${probe.roundId}) as segment,
-        exists(select 1 from round_participants where id=${probe.participantId} and round_id=${probe.roundId}) as participant`;
+        exists(select 1 from round_participants where id=${probe.participantId} and round_id=${probe.roundId}) as participant`,
+        z.object({
+          status: z.string().nullable(),
+          segment: z.boolean(),
+          participant: z.boolean(),
+        }),
+      );
+      if (!facts)
+        throw createAppError(
+          'INVARIANT',
+          'Public probe resource query returned no row',
+        );
       return publicProbeProblems(facts);
     },
     async readAvailabilitySamples(
       from: string,
     ): Promise<readonly AvailabilityEvidence[]> {
       if (tryInstantMs(from) === undefined) throw createAppError('VALIDATION');
-      return z
-        .array(availabilityEvidenceRow)
-        .parse(
-          await availabilitySamplesFrom(
-            (strings, ...values) => client(strings, ...values),
-            from,
-          ),
-        );
+      return query(
+        availabilitySamplesFrom(
+          (strings, ...values) => client(strings, ...values),
+          from,
+        ),
+        availabilityEvidenceRow,
+      );
     },
     async purgeExpiredServiceInstances(input: {
       readonly before: string;
       readonly limit: number;
     }) {
       requireRetentionBounds(input);
-      const rows =
-        await client`delete from service_instances where instance_id in
-        (select instance_id from service_instances where renewed_at < ${input.before}::timestamptz order by renewed_at limit ${input.limit}) returning instance_id`;
+      const rows = await query(
+        client`delete from service_instances where instance_id in
+        (select instance_id from service_instances where renewed_at < ${input.before}::timestamptz order by renewed_at limit ${input.limit}) returning instance_id`,
+        z.object({ instance_id: z.string() }),
+      );
       return rows.length;
     },
     async purgeExpiredAvailabilitySamples(input: {
@@ -252,8 +265,11 @@ export function availabilityOperations(client: SQL, dedicated: SQL) {
       readonly limit: number;
     }) {
       requireRetentionBounds(input);
-      const rows = await client`delete from availability_samples where at in
-        (select at from availability_samples where at < ${input.before}::timestamptz order by at limit ${input.limit}) returning at`;
+      const rows = await query(
+        client`delete from availability_samples where at in
+        (select at from availability_samples where at < ${input.before}::timestamptz order by at limit ${input.limit}) returning at`,
+        z.object({ at: z.date() }),
+      );
       return rows.length;
     },
   };

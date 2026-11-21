@@ -122,7 +122,10 @@ test(
         const started = performance.now();
         const work = run(
           async (tx, _signal, metadata) => {
-            writer = metadata.writer;
+            const { pid, backendStart } = metadata.writer;
+            if (backendStart === null)
+              throw new Error('Missing writer identity');
+            writer = { pid, backendStart };
             // Acquire contention after durable admission; the marker is already committed.
             await holder`select id from rounds where id=${attempt.roundId} for update`;
             const [row] =
