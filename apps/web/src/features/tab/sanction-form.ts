@@ -1,7 +1,7 @@
+import { mapTabCommandAnswer } from './command-form-answer';
 import { z } from 'zod';
 import { idSchema } from '@daisy/protocol';
 import { sanctionCommandEnvelopeSchema } from '@daisy/protocol/lobby/sanction-command';
-import { lobbyCommandReceiptSchema } from '@daisy/protocol/lobby/command';
 import {
   done,
   idle,
@@ -43,23 +43,21 @@ export const sanctionFormBody = (input: SanctionFormContext) => {
     }),
   };
 };
-const answerSchema = z.discriminatedUnion('kind', [
-  z.object({ kind: z.literal('accepted'), receipt: lobbyCommandReceiptSchema }),
-  z.object({ kind: z.literal('refused'), refusal: z.string() }),
-]);
 export const sanctionFormAnswer = (
   form: FormData,
   body: unknown,
 ): SanctionFormState => {
-  const parsed = answerSchema.safeParse(body);
-  if (!parsed.success) return unacknowledged(form);
-  if (parsed.data.kind === 'accepted') return done();
-  return refused(
-    form,
-    parsed.data.refusal === 'version-conflict'
-      ? 'This request changed. Reload before deciding.'
-      : parsed.data.refusal === 'template-mismatch'
-        ? 'This event no longer meets the template. Reload to check the request.'
-        : 'This request could not be decided. Reload to check its status.',
-  );
+  return mapTabCommandAnswer(body, {
+    accepted: done,
+    unacknowledged: () => unacknowledged(form),
+    refused: (reason) =>
+      refused(
+        form,
+        reason === 'version-conflict'
+          ? 'This request changed. Reload before deciding.'
+          : reason === 'template-mismatch'
+            ? 'This event no longer meets the template. Reload to check the request.'
+            : 'This request could not be decided. Reload to check its status.',
+      ),
+  });
 };

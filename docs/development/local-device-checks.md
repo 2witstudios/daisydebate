@@ -1,6 +1,6 @@
 # Local pre-round device checks
 
-VIDEO owns `apps/web/src/features/video/browser-device-checks.ts` and its
+VIDEO owns `apps/web/src/ui/round-media/browser-device-checks.ts` and its
 injected controller in `device-check-controller.ts`. ROOM owns the check UI
 and CAP readiness commands. CAP owns current-version consent and start.
 

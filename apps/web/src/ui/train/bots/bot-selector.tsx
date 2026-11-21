@@ -1,5 +1,7 @@
 'use client';
 
+import { Button } from '../../components/button/button';
+import { StatusRegion } from '../../components/status-region/status-region';
 import Link from 'next/link';
 import type { FormStateAction } from '../../form-action/action-form';
 import type { TrainLanding } from '../../../features/train/bots';
@@ -151,26 +153,35 @@ export function BotSelectorPage({
                         </p>
                       ) : null}
                       <input type="hidden" name="bot" value={chosen.actorId} />
-                      <button
+                      <Button
+                        variant="unstyled"
                         type="submit"
                         disabled={pending}
                         className={cn(buttonClass('primary'), link, 'w-full')}
                       >
                         Start practice
-                      </button>
+                      </Button>
                       {error ? (
-                        <p role="alert" className="text-sm text-live">
+                        <StatusRegion
+                          as="p"
+                          role="alert"
+                          className="text-sm text-live"
+                        >
                           {error}
-                        </p>
+                        </StatusRegion>
                       ) : null}
                     </>
                   )}
                 </ActionForm>
               ) : (
-                <p role="status" className="text-sm text-ink-muted">
+                <StatusRegion
+                  as="p"
+                  role="status"
+                  className="text-sm text-ink-muted"
+                >
                   Practice is unavailable right now: the AI seats are busy or
                   offline.
-                </p>
+                </StatusRegion>
               )}
             </article>
             <Arrow
@@ -180,9 +191,13 @@ export function BotSelectorPage({
             />
           </div>
         ) : (
-          <p role="status" className="text-center text-ink-muted">
+          <StatusRegion
+            as="p"
+            role="status"
+            className="text-center text-ink-muted"
+          >
             No opponents are available yet. Check back soon.
-          </p>
+          </StatusRegion>
         )}
         {opponents.length > 1 ? (
           <nav aria-label="All opponents">
@@ -212,9 +227,13 @@ export function BotSelectorPage({
           </nav>
         ) : null}
         {unavailable ? (
-          <p role="alert" className="text-center text-sm text-ink-muted">
+          <StatusRegion
+            as="p"
+            role="alert"
+            className="text-center text-sm text-ink-muted"
+          >
             Practice is unavailable right now. Try again shortly.
-          </p>
+          </StatusRegion>
         ) : null}
       </section>
     </TrainPage>

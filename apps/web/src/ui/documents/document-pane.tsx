@@ -1,5 +1,7 @@
 'use client';
 
+import { Button } from '../components/button/button';
+import { StatusRegion } from '../components/status-region/status-region';
 import { useRef, type Dispatch, type ReactNode } from 'react';
 import { flushSync } from 'react-dom';
 import { systemClock } from '@daisy/clock';
@@ -74,26 +76,29 @@ function DocumentTabs({
                 : 'text-ink-muted hover:text-ink',
             )}
           >
-            <button
+            <Button
+              variant="unstyled"
               type="button"
               aria-current={tab.id === active ? 'page' : undefined}
               className="h-full cursor-pointer pr-1 pl-3 text-sm whitespace-nowrap"
               onClick={() => dispatch({ type: 'tabs/activate', id: tab.id })}
             >
               {tab.title}
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="unstyled"
               type="button"
               aria-label={`Close ${tab.title}`}
               className="flex size-dense-target cursor-pointer items-center justify-center rounded-sm opacity-60 hover:opacity-100"
               onClick={() => close(tab.id)}
             >
               <Icon name="close" size={12} />
-            </button>
+            </Button>
           </div>
         ))}
         {onNew ? (
-          <button
+          <Button
+            variant="unstyled"
             type="button"
             ref={newDocument}
             aria-label="New document"
@@ -102,7 +107,7 @@ function DocumentTabs({
             onClick={onNew}
           >
             <Icon name="plus" size={14} />
-          </button>
+          </Button>
         ) : null}
       </div>
       {save ? (
@@ -165,23 +170,29 @@ export function DocumentPane({
         onLastTabClosed={onLastTabClosed}
       />
       {active?.kind === 'loading' ? (
-        <p role="status" className="p-4 text-sm text-ink-muted">
+        <StatusRegion
+          as="p"
+          role="status"
+          className="p-4 text-sm text-ink-muted"
+        >
           Opening {active.title}
-        </p>
+        </StatusRegion>
       ) : active?.kind === 'failed' ? (
-        <div
+        <StatusRegion
+          as="div"
           role="alert"
           className="flex flex-col items-start gap-2 p-4 text-sm"
         >
           <p>{active.title} did not open.</p>
-          <button
+          <Button
+            variant="unstyled"
             type="button"
             onClick={() => onRetry?.(active.id, active.title)}
             className="h-room-target cursor-pointer rounded-sm border border-border px-3 hover:bg-surface-raised"
           >
             Try again
-          </button>
-        </div>
+          </Button>
+        </StatusRegion>
       ) : active?.kind === 'loaded' ? (
         <DocumentEditor
           key={active.document.id}

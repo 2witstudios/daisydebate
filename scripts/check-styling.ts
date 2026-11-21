@@ -4,6 +4,7 @@
 // primitive, which owns their display (ADR 0153). Forms and the JavaScript-off
 // fallbacks are markup too (ADR 0114, javascript-required.ts).
 
+import { uiPrimitiveIssues } from './ui-primitive-issues';
 import { javascriptRequiredIssues } from './javascript-required';
 import { ownedUtilitiesIn } from '../apps/web/src/ui/components/popover/popover-classes';
 
@@ -94,6 +95,7 @@ if (import.meta.main) {
         const source = await file.text();
         return [
           ...popoverIssues(path, source),
+          ...uiPrimitiveIssues(path, source),
           ...javascriptRequiredIssues(path, source),
         ];
       }),

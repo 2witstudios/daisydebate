@@ -2,11 +2,13 @@
 
 // First: protocol schemas built after this load without Zod's eval probe.
 import '../../lib/zod-jitless';
+import { browserFetch } from '../edge/browser-request';
+import { startTick, stopTick } from '../edge/browser-time';
 import { onlineCountsSchema } from '@daisy/protocol';
 import {
   browserTabPresence,
   createBrowserConnectionStore,
-} from '../../features/realtime/browser-adapters';
+} from '../edge/realtime-browser';
 import { realtimeEndpointOf } from '../../features/realtime/endpoint-header';
 import { keepPresenceConnection } from '../../features/realtime/tab-presence';
 
@@ -80,12 +82,11 @@ export function createPresenceSessions(ports: SessionPorts) {
 
 /** This tab's presence session over the browser's own fetch, timers and socket. */
 export const retainPresenceSession = createPresenceSessions({
-  fetch: (url, init) => fetch(url, init),
+  fetch: (url, init) => browserFetch(url, init),
   startBeacon: (endpoint) =>
     keepPresenceConnection(browserTabPresence(), () =>
       createBrowserConnectionStore(endpoint),
     ),
-  setInterval: (callback, ms) => setInterval(callback, ms),
-  clearInterval: (handle) =>
-    clearInterval(handle as ReturnType<typeof setInterval>),
+  setInterval: (callback, ms) => startTick(callback, ms),
+  clearInterval: (handle) => stopTick(handle as ReturnType<typeof startTick>),
 });

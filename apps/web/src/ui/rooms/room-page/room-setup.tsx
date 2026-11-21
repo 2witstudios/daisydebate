@@ -1,7 +1,9 @@
 'use client';
 
+import { useBrowserEffect } from '../../edge/browser-sync';
+import { navigateDocument } from '../../edge/browser-navigation';
+import { Dialog } from '../../components/dialog/dialog';
 import {
-  useEffect,
   useRef,
   type KeyboardEvent,
   type MouseEvent,
@@ -49,7 +51,7 @@ function useModalSheet(
   sheet: RefObject<HTMLElement | null>,
   heading: RefObject<HTMLHeadingElement | null>,
 ) {
-  useEffect(() => {
+  useBrowserEffect(() => {
     const element = sheet.current;
     if (!element) return;
     return modalSheet({
@@ -68,7 +70,7 @@ function useSheetFocus(roomHref: string) {
   const key = (event: KeyboardEvent<HTMLElement>) => {
     if (event.key !== 'Escape') return;
     event.preventDefault();
-    if (!closeSheet(sheet.current)) window.location.assign(roomHref);
+    if (!closeSheet(sheet.current)) navigateDocument(roomHref);
   };
   const close = (event: MouseEvent<HTMLAnchorElement>) => {
     if (closeSheet(sheet.current)) event.preventDefault();
@@ -77,7 +79,7 @@ function useSheetFocus(roomHref: string) {
   const saved = () => {
     finishSetupSave(
       () => closeSheet(sheet.current),
-      () => window.location.assign(roomHref),
+      () => navigateDocument(roomHref),
     );
   };
   return { sheet, heading, key, close, saved };
@@ -114,10 +116,11 @@ export function RoomSetup({
   const roomHref = `/rooms/${view.id}`;
   const { sheet, heading, key, close, saved } = useSheetFocus(roomHref);
   return (
-    <section
+    <Dialog
+      as="section"
       ref={sheet}
       id={ROOM_SETUP_ID}
-      role="dialog"
+
       aria-modal="true"
       aria-labelledby="room-setup-title"
       onKeyDown={key}
@@ -224,6 +227,6 @@ export function RoomSetup({
           </section>
         </div>
       </div>
-    </section>
+    </Dialog>
   );
 }

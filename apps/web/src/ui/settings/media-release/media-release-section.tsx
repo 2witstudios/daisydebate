@@ -1,5 +1,6 @@
 'use client';
 
+import { Button } from '../../components/button/button';
 import Link from 'next/link';
 import type { MediaReleaseSettingsView } from '../../../features/media-releases/settings-view';
 import {
@@ -91,14 +92,15 @@ function AskForm({
                 />
               </FormField>
             </div>
-            <button
+            <Button
+              variant="unstyled"
               type="submit"
               disabled={pending}
               className={`${buttonClass('primary')} max-compact:w-full`}
             >
               <Icon name="send" size={18} />
               Send request
-            </button>
+            </Button>
           </div>
           <FormError error={error} />
           <span className="text-xs text-ink-muted">
@@ -129,14 +131,15 @@ function ActionButton({
     <ActionForm action={action} label={label}>
       {({ error, pending }) => (
         <>
-          <button
+          <Button
+            variant="unstyled"
             type="submit"
             disabled={pending}
             className={buttonClass(variant)}
           >
             {icon ? <Icon name={icon} size={18} /> : null}
             {children}
-          </button>
+          </Button>
           <FormError error={error} />
         </>
       )}
@@ -220,7 +223,8 @@ export function MediaReleaseSection({
                       ))}
                     </select>
                   )}
-                  <button
+                  <Button
+                    variant="unstyled"
                     type="submit"
                     disabled={pending || view.clubs.every((club) => club.asked)}
                     className={buttonClass('secondary')}
@@ -228,7 +232,7 @@ export function MediaReleaseSection({
                     {view.clubs.every((club) => club.asked)
                       ? 'Club asked'
                       : 'Ask my club'}
-                  </button>
+                  </Button>
                   <div className="w-full">
                     <FormError error={error} />
                   </div>

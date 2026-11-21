@@ -1,7 +1,9 @@
 'use client';
+import { useBrowserEffect } from '../../edge/browser-sync';
+import { cancelDelay, delay } from '../../edge/browser-time';
 import { nowMs } from '@daisy/clock';
 
-import { useEffect, useState, useSyncExternalStore } from 'react';
+import { useState, useSyncExternalStore } from 'react';
 import type { Clock } from '@daisy/clock';
 import { useFocusAfterAnswer } from '../../form-action/form-action';
 import {
@@ -37,8 +39,8 @@ const usePageVisible = (): boolean =>
   );
 
 const browserTimers: AutofillTimers = {
-  set: (run, ms) => setTimeout(run, ms),
-  clear: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>),
+  set: (run, ms) => delay(run, ms),
+  clear: (handle) => cancelDelay(handle as ReturnType<typeof delay>),
 };
 
 export type { RequestLinkAction };
@@ -80,7 +82,7 @@ export function SignInFlow({
     !passkeyInFlight(state),
   );
 
-  useEffect(() => {
+  useBrowserEffect(() => {
     if (state.step === 'signed-in') onSignedIn();
   }, [state.step, onSignedIn]);
 
@@ -88,7 +90,7 @@ export function SignInFlow({
   // button aborts the pending autofill request, so it is offered again after,
   // and a hidden tab pauses until it is shown.
   const autofillArmed = canOfferPasskeyAutofill(state, usePageVisible());
-  useEffect(() => {
+  useBrowserEffect(() => {
     if (!autofillArmed) return;
     return startPasskeyAutofill({
       offer: () => offerPasskeyAutofillSafely(port),
@@ -96,7 +98,7 @@ export function SignInFlow({
       timers: browserTimers,
       now: () => nowMs(clock),
     });
-  }, [autofillArmed, port, clock]);
+  }, [autofillArmed, port, clock, dispatch]);
 
   return renderSignInFlow(state, now, {
     typeEmail: (email) => dispatch({ type: 'email-typed', email }),

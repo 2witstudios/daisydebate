@@ -1,5 +1,10 @@
 'use client';
 
+import { useFormAnswer } from '../edge/use-form-answer';
+import { useBrowserEffect } from '../edge/browser-sync';
+import { Button } from '../components/button/button';
+import { StatusRegion } from '../components/status-region/status-region';
+import { Dialog } from '../components/dialog/dialog';
 import {
   competitionTypes,
   reportReasonLabels,
@@ -10,7 +15,7 @@ import {
   type ReportReason,
 } from '@daisy/protocol';
 import { ShellLink as Link } from '../layout/app-shell/shell-link';
-import { useEffect, useId, useRef, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import {
   challengeFields,
   challengeFormUnavailable,
@@ -80,31 +85,26 @@ function FriendItem({
   readonly label: string;
   readonly onDone: () => void;
 }) {
-  const [answer, post, pending] = useFormAction(
+  const [, post, pending] = useFormAction(
     action,
     initialFriendForm(username),
     friendFormUnavailable,
+    onDone,
   );
-  useAnswered(answer, onDone);
   return (
     <form action={post}>
       <input type="hidden" name="intent" value={intent} />
       <input type="hidden" name="username" value={username} />
-      <button type="submit" disabled={pending} className={item}>
+      <Button
+        variant="unstyled"
+        type="submit"
+        disabled={pending}
+        className={item}
+      >
         {label}
-      </button>
+      </Button>
     </form>
   );
-}
-
-/** Runs `onDone` once for each answer after the first render's. */
-function useAnswered(answer: unknown, onDone: () => void) {
-  const [initial] = useState(answer);
-  useEffect(() => {
-    if (answer !== initial) onDone();
-    // Only a new answer closes; a re-render with a new callback must not.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [answer]);
 }
 
 function CancelChallengeItem({
@@ -122,7 +122,7 @@ function CancelChallengeItem({
     challengeFormUnavailable,
   );
   const { noteCancelled, forgetCancelled } = useChallenges();
-  useAnswered(answer, () => {
+  useFormAnswer(answer, () => {
     if (challengeFields(answer).refusal) forgetCancelled(challengeId);
     onDone();
   });
@@ -130,9 +130,14 @@ function CancelChallengeItem({
     <form action={post} onSubmit={() => noteCancelled(challengeId)}>
       <input type="hidden" name="command" value="cancel" />
       <input type="hidden" name="challengeId" value={challengeId} />
-      <button type="submit" disabled={pending} className={item}>
+      <Button
+        variant="unstyled"
+        type="submit"
+        disabled={pending}
+        className={item}
+      >
         Cancel challenge
-      </button>
+      </Button>
     </form>
   );
 }
@@ -155,18 +160,23 @@ function MessageItem({
     <form action={post}>
       <input type="hidden" name="recipients" value={username} />
       <input type="hidden" name="introduction" value="" />
-      <button
+      <Button
+        variant="unstyled"
         type="submit"
 
         disabled={pending || next !== undefined}
         className={item}
       >
         Message
-      </button>
+      </Button>
       {creationFields(answer).notice ? (
-        <p role="status" className="px-2 text-xs text-ink-muted">
+        <StatusRegion
+          as="p"
+          role="status"
+          className="px-2 text-xs text-ink-muted"
+        >
           {`Could not open a conversation with @${username}. Try again.`}
-        </p>
+        </StatusRegion>
       ) : null}
     </form>
   );
@@ -186,7 +196,7 @@ function BlockItem({
     initialPersonBlock,
     personBlockUnavailable,
   );
-  useAnswered(answer, () => {
+  useFormAnswer(answer, () => {
     if (answer.kind === 'blocked') onDone();
   });
   const notice =
@@ -194,13 +204,22 @@ function BlockItem({
   return (
     <form action={post}>
       <input type="hidden" name="username" value={username} />
-      <button type="submit" disabled={pending} className={item}>
+      <Button
+        variant="unstyled"
+        type="submit"
+        disabled={pending}
+        className={item}
+      >
         Block
-      </button>
+      </Button>
       {notice ? (
-        <p role="status" className="px-2 text-xs text-ink-muted">
+        <StatusRegion
+          as="p"
+          role="status"
+          className="px-2 text-xs text-ink-muted"
+        >
           {notice}
-        </p>
+        </StatusRegion>
       ) : null}
     </form>
   );
@@ -242,7 +261,7 @@ function ChallengeView({
     initialChallengeForm,
     challengeFormUnavailable,
   );
-  useAnswered(answer, () => {
+  useFormAnswer(answer, () => {
     if (wasSent(answer)) onDone();
   });
   const { refusal } = challengeFields(answer);
@@ -254,7 +273,8 @@ function ChallengeView({
       <input type="hidden" name="format" value="freestyle" />
       <div role="group" aria-label="Mode" className="flex gap-1">
         {competitionTypes.map((value) => (
-          <button
+          <Button
+            variant="unstyled"
             key={value}
             type="button"
             aria-pressed={mode === value}
@@ -266,7 +286,7 @@ function ChallengeView({
             className={chip}
           >
             {modeLabels[value]}
-          </button>
+          </Button>
         ))}
       </div>
       {line === null ? null : (
@@ -275,24 +295,26 @@ function ChallengeView({
         </p>
       )}
       {refusal ? (
-        <p role="status" className="text-sm text-ink-muted">
+        <StatusRegion as="p" role="status" className="text-sm text-ink-muted">
           {refusal}
-        </p>
+        </StatusRegion>
       ) : null}
-      <button
+      <Button
+        variant="unstyled"
         type="submit"
         disabled={pending}
         className={cn(buttonClass('primary'), 'w-full')}
       >
         Send challenge
-      </button>
-      <button
+      </Button>
+      <Button
+        variant="unstyled"
         type="button"
         onClick={onBack}
         className={cn(item, 'w-auto self-start text-ink-muted')}
       >
         Back
-      </button>
+      </Button>
     </form>
   );
 }
@@ -315,7 +337,7 @@ function ReportView({
     reportFormUnavailable,
   );
   const { filed, refusal } = reportFields(answer);
-  useAnswered(answer, () => {
+  useFormAnswer(answer, () => {
     if (filed) onDone();
   });
   return (
@@ -325,7 +347,8 @@ function ReportView({
       <input type="hidden" name="reason" value={reason ?? ''} />
       <div role="group" aria-label="Reason" className="flex flex-col gap-1">
         {reportReasons.map((value) => (
-          <button
+          <Button
+            variant="unstyled"
             key={value}
             type="button"
             aria-pressed={reason === value}
@@ -333,28 +356,30 @@ function ReportView({
             className={cn(chip, 'text-left')}
           >
             {reportReasonLabels[value]}
-          </button>
+          </Button>
         ))}
       </div>
       {refusal ? (
-        <p role="status" className="text-sm text-ink-muted">
+        <StatusRegion as="p" role="status" className="text-sm text-ink-muted">
           {refusal}
-        </p>
+        </StatusRegion>
       ) : null}
-      <button
+      <Button
+        variant="unstyled"
         type="submit"
         disabled={pending || reason === null}
         className={cn(buttonClass('primary'), 'w-full')}
       >
         Send report
-      </button>
-      <button
+      </Button>
+      <Button
+        variant="unstyled"
         type="button"
         onClick={onBack}
         className={cn(item, 'w-auto self-start text-ink-muted')}
       >
         Back
-      </button>
+      </Button>
     </form>
   );
 }
@@ -400,10 +425,10 @@ export function PersonMenu({
   // it hands focus back to the row.
   const dialog = useRef<HTMLElement | null>(null);
   // Each view replaces the focused control, so focus moves in with every view.
-  useEffect(() => {
+  useBrowserEffect(() => {
     dialog.current?.querySelector<HTMLElement>('button, a, select')?.focus();
   }, [view]);
-  useEffect(() => {
+  useBrowserEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose();
     };
@@ -421,8 +446,9 @@ export function PersonMenu({
           onClose();
         }}
       />
-      <section
-        role="dialog"
+      <Dialog
+        as="section"
+
         aria-label={publicNameLabel(member)}
         ref={(element) => {
           dialog.current = element;
@@ -441,14 +467,15 @@ export function PersonMenu({
                 onDone={finish}
               />
             ) : canBeChallenged(member) && member.challengeModes.length > 0 ? (
-              <button
+              <Button
+                variant="unstyled"
                 type="button"
 
                 onClick={() => setView('challenge')}
                 className={cn(item, 'font-bold')}
               >
                 Challenge
-              </button>
+              </Button>
             ) : null}
             {relation === 'none' ? (
               <FriendItem
@@ -482,7 +509,8 @@ export function PersonMenu({
               Profile
             </Link>
             <hr className="my-1 border-border" />
-            <button
+            <Button
+              variant="unstyled"
               type="button"
 
               disabled={reported}
@@ -490,7 +518,7 @@ export function PersonMenu({
               className={item}
             >
               {reported ? 'Reported' : 'Report'}
-            </button>
+            </Button>
             <BlockItem
               action={actions.block}
               username={username}
@@ -520,7 +548,7 @@ export function PersonMenu({
             }}
           />
         ) : null}
-      </section>
+      </Dialog>
     </>
   );
 }

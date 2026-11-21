@@ -1,6 +1,8 @@
 'use client';
 
-import { useEffect, useId, type ReactNode } from 'react';
+import { useBrowserEffect } from '../edge/browser-sync';
+import { StatusRegion } from '../components/status-region/status-region';
+import { useId, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   useFocusAfterAnswer,
@@ -51,7 +53,7 @@ export function ClubForm({
   const router = useRouter();
   const errorId = useId();
   const next = answered.kind === 'moved' ? answered.next : undefined;
-  useEffect(() => {
+  useBrowserEffect(() => {
     if (next === undefined) return;
     if (/^https?:\/\//.test(next) && new URL(next).origin !== location.origin)
       location.assign(next);
@@ -76,10 +78,10 @@ export function ClubForm({
       <div id={errorId}>
         <FormError error={fields.error} />
         {answered.kind === 'unacknowledged' ? (
-          <p role="alert" className="text-sm text-live">
+          <StatusRegion as="p" role="alert" className="text-sm text-live">
             We could not tell whether that went through. Check the page, then
             try again.
-          </p>
+          </StatusRegion>
         ) : null}
       </div>
     </form>

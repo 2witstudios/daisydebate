@@ -1,4 +1,5 @@
 'use client';
+import { StatusRegion } from '../components/status-region/status-region';
 import { useId } from 'react';
 import { hostingOffers } from '@daisy/protocol/lobby/hosting-tier';
 import { destinationOf, formFields } from '../../features/forms/form-state';
@@ -139,11 +140,17 @@ export function CreateTournamentForm({
         </div>
       </fieldset>
       {fields.error || state.kind === 'unacknowledged' ? (
-        <p id={noticeId} tabIndex={-1} role="status" className="text-sm">
+        <StatusRegion
+          as="p"
+          id={noticeId}
+          tabIndex={-1}
+          role="status"
+          className="text-sm"
+        >
           {state.kind === 'unacknowledged'
             ? 'The answer was lost. Retry, or reload to see whether it was made.'
             : fields.error}
-        </p>
+        </StatusRegion>
       ) : null}
     </form>
   );

@@ -1,10 +1,10 @@
+import { mapTabCommandAnswer } from './command-form-answer';
 import { z } from 'zod';
 import { idSchema } from '@daisy/protocol';
 import {
   drawCommandEnvelopeSchema,
   drawOverrideSchema,
 } from '@daisy/protocol/lobby/draw-command';
-import { lobbyCommandReceiptSchema } from '@daisy/protocol/lobby/command';
 import { singleFormField } from '../forms/form-state';
 import {
   formValues,
@@ -47,15 +47,6 @@ export const drawFormRefused = (
 ): DrawFormState => refusedWith(formValues(form), message);
 export const drawFormUnacknowledged = (form: FormData): DrawFormState =>
   unacknowledged(form);
-const answer = z.discriminatedUnion('kind', [
-  z.object({ kind: z.literal('accepted'), receipt: lobbyCommandReceiptSchema }),
-  z.object({ kind: z.literal('refused'), refusal: z.string() }),
-  z.object({
-    kind: z.literal('pending'),
-    pendingCommandId: idSchema,
-    expiresAt: z.iso.datetime(),
-  }),
-]);
 const refusalCopy: Readonly<Record<string, string>> = {
   'version-conflict':
     'The draw or its inputs changed. Reload and review the current draw.',
@@ -77,18 +68,22 @@ export function drawFormAnswer(
   form: FormData,
   body: unknown,
 ): { readonly kind: 'accepted' } | DrawFormState {
-  const parsed = answer.safeParse(body);
-  if (!parsed.success) return drawFormUnacknowledged(form);
-  if (parsed.data.kind === 'pending')
-    return drawFormRefused(
-      form,
-      'This change is awaiting confirmation by another authorized person.',
-    );
-  return parsed.data.kind === 'accepted'
-    ? { kind: 'accepted' }
-    : drawFormRefused(
+  return mapTabCommandAnswer(body, {
+    accepted: () => ({ kind: 'accepted' as const }),
+    unacknowledged: () => drawFormUnacknowledged(form),
+    refused: (reason) =>
+      drawFormRefused(
         form,
-        refusalCopy[parsed.data.refusal] ??
+        refusalCopy[reason] ??
           'This draw change was refused. Reload and review the current draw.',
-      );
+      ),
+    pending: {
+      contract: 'draw',
+      answer: () =>
+        drawFormRefused(
+          form,
+          'This change is awaiting confirmation by another authorized person.',
+        ),
+    },
+  });
 }

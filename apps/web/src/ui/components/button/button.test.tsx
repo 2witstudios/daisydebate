@@ -32,3 +32,30 @@ describe('Button', () => {
     });
   });
 });
+
+test('an unstyled submitter keeps native defaults and attributes', () => {
+  const html = renderToString(
+    h(Button, {
+      variant: 'unstyled',
+      name: 'intent',
+      value: 'save',
+      form: 'settings',
+      className: 'text-ink',
+      children: 'Save',
+    }),
+  );
+  assert({
+    given: 'a form-associated button without an explicit type',
+    should: 'retain the native submit default, command value and exact classes',
+    actual: [
+      '<button',
+      'name="intent"',
+      'value="save"',
+      'form="settings"',
+      'class="text-ink"',
+      'Save</button>',
+      'type=',
+    ].map((part) => html.includes(part)),
+    expected: [true, true, true, true, true, true, false],
+  });
+});

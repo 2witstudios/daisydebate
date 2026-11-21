@@ -6,7 +6,7 @@ import { view, judge } from '../debate-room/live-round.test-support';
 setupRitewayBun();
 await mockNextRouter();
 const { LiveJudgeRoom } = await import('./live-judge-room');
-const { MediaStage } = await import('../../features/round-media/media-stage');
+const { MediaStage } = await import('../round-media/media-stage');
 test('an assigned judge watches debaters without competitive controls or attendance', () => {
   const assignedView = {
     ...view,

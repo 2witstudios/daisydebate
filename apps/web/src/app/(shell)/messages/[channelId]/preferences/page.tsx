@@ -1,3 +1,4 @@
+import { StatusRegion } from '../../../../../ui/components/status-region/status-region';
 import { ConversationPane } from '../../../../../ui/messaging/conversation-pane';
 import { headers } from 'next/headers';
 import Link from 'next/link';
@@ -37,10 +38,10 @@ export default async function PreferencePage({
           <p>Preferences do not change who can access this conversation.</p>
         </>
       ) : (
-        <p role="status">
+        <StatusRegion as="p" role="status">
           Preferences are unavailable. You can still try clearing your own saved
           state.
-        </p>
+        </StatusRegion>
       )}
       <PreferenceForm
         state={preferenceFormState(state)}

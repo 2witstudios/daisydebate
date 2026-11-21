@@ -1,5 +1,7 @@
 'use client';
 
+import { StatusRegion } from '../../components/status-region/status-region';
+import { Button } from '../../components/button/button';
 import type { AudienceLinkAnswer } from '../../../features/audience-link/submit-issue';
 import { Panel } from '../../components/panel/panel';
 import { buttonClass } from '../../components/button/button-class';
@@ -33,29 +35,32 @@ export function AudienceLinkPanel({
           Recording, and they need no account.
         </p>
         {answer.kind === 'issued' ? (
-          <div role="status" className="flex flex-col gap-2">
+          <StatusRegion as="div" role="status" className="flex flex-col gap-2">
             <CopyableUrlField url={answer.url} label="Round link" />
             <p className="text-sm text-ink-muted">
               Copy it now. It is shown only this once.
             </p>
-          </div>
+          </StatusRegion>
         ) : null}
         {answer.kind === 'refused' ? (
-          <p role="alert">That link could not be made.</p>
+          <StatusRegion as="p" role="alert">
+            That link could not be made.
+          </StatusRegion>
         ) : null}
         {answer.kind === 'unavailable' ? (
-          <p role="alert">
+          <StatusRegion as="p" role="alert">
             Links are unavailable right now. Try again in a moment.
-          </p>
+          </StatusRegion>
         ) : null}
         <form action={formAction}>
-          <button
+          <Button
+            variant="unstyled"
             type="submit"
             disabled={pending}
             className={buttonClass(hasLink ? 'secondary' : 'primary')}
           >
             {hasLink ? 'Replace link' : 'Create link'}
-          </button>
+          </Button>
         </form>
         {hasLink ? (
           <p className="text-sm text-ink-muted">

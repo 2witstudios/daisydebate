@@ -1,3 +1,5 @@
+import { StatusRegion } from '../components/status-region/status-region';
+import { Button } from '../components/button/button';
 import {
   fileFields,
   type MessagingFileFormState,
@@ -21,7 +23,11 @@ export function AttachmentForm({
       className="flex flex-col gap-4 rounded-lg border border-border p-5"
     >
       <input type="hidden" name="requestId" value={requestId} />
-      {notice ? <p role="status">{notice}</p> : null}
+      {notice ? (
+        <StatusRegion as="p" role="status">
+          {notice}
+        </StatusRegion>
+      ) : null}
       {filename ? <p>Selected file: {filename}</p> : null}
       <label>
         Image or PDF{' '}
@@ -32,7 +38,9 @@ export function AttachmentForm({
           required
         />
       </label>
-      <button type="submit">Attach file</button>
+      <Button variant="unstyled" type="submit">
+        Attach file
+      </Button>
     </form>
   );
 }

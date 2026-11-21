@@ -19,7 +19,7 @@ import {
   type Done,
 } from '../../../../../../../../features/forms/form-state';
 import { stayOn } from '../../../../../../../../server/form-action';
-import { inProcessFetch } from '../../../../../../../../server/in-process-fetch';
+import { runTabCommandForm } from '../../../../../../../../features/tab/command-form-action';
 import { POST } from '../../../../../../../api/tab/release-command/route';
 
 export async function releaseRoundContent(
@@ -33,24 +33,17 @@ export async function releaseRoundContent(
   const { lobbyId, handle, eventId } = input.data;
   const envelope = roundReleaseEnvelope(input.data);
   const incoming = new Headers(await headers());
-  try {
-    const response = await inProcessFetch(POST, incoming)(
-      `/api/tab/release-command?${new URLSearchParams({ lobbyId })}`,
-      {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(envelope),
-      },
-    );
-    if (!response.ok)
-      return response.status >= 500
-        ? eventFormUnacknowledged(form)
-        : eventFormRefused(form, 'You cannot release this round content.');
-    const answer = eventFormAnswer(form, await response.json());
-    if (answer.kind !== 'accepted') return answer;
-  } catch {
-    return eventFormUnacknowledged(form);
-  }
+  const answer = await runTabCommandForm({
+    post: POST,
+    incoming,
+    path: `/api/tab/release-command?${new URLSearchParams({ lobbyId })}`,
+    body: envelope,
+    answer: (response) => eventFormAnswer(form, response),
+    refused: () =>
+      eventFormRefused(form, 'You cannot release this round content.'),
+    unacknowledged: () => eventFormUnacknowledged(form),
+  });
+  if (answer.kind !== 'accepted') return answer;
   const destination = hostRoutes.resolutions(handle, eventId);
   revalidatePath(destination);
   return stayOn(incoming, destination) ?? done();

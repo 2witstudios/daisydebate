@@ -2,6 +2,7 @@
 
 // First: protocol schemas built after this load without Zod's eval probe.
 import '../../lib/zod-jitless';
+import { browserFetch } from '../edge/browser-request';
 import { messagingUnreadSchema, type MessagingUnread } from '@daisy/protocol';
 import {
   createContext,
@@ -14,9 +15,9 @@ import {
   createMessagesUnreadSyncDriver,
   seedMessagesUnreadSync,
 } from '../../features/messaging/unread-sync-driver';
-import { browserSyncEdges } from '../../features/resource-sync/browser';
+import { browserSyncEdges } from '../resource-sync/browser';
 import type { ResourceRead } from '../../features/resource-sync/driver';
-import { useResourceSync } from '../resource-sync/use-resource-sync';
+import { useDriver } from '../edge/use-driver';
 
 const UnreadContext = createContext<number>(0);
 
@@ -24,7 +25,7 @@ const UnreadContext = createContext<number>(0);
 export const useMessagesUnread = (): number => useContext(UnreadContext);
 
 const readUnread = async (): Promise<ResourceRead<MessagingUnread>> => {
-  const response = await fetch('/api/messaging/unread', {
+  const response = await browserFetch('/api/messaging/unread', {
     credentials: 'same-origin',
     cache: 'no-store',
   });
@@ -61,7 +62,7 @@ export function MessagesUnreadProvider({
     driver.signal();
     return driver;
   }, [actorId, seed, socketUrl]);
-  const [sync] = useResourceSync(() => seedMessagesUnreadSync(seed, 0), start);
+  const [sync] = useDriver(() => seedMessagesUnreadSync(seed, 0), start);
   return (
     <UnreadContext.Provider value={sync.value.unread}>
       {children}

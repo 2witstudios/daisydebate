@@ -1,9 +1,12 @@
 'use client';
 import '../../lib/zod-jitless';
+import { useBrowserEffect, useBrowserLayoutEffect } from '../edge/browser-sync';
+import { Button } from '../components/button/button';
+import { StatusRegion } from '../components/status-region/status-region';
 import { type SpectatorTimeline } from '@daisy/protocol';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useLayoutEffect, useReducer } from 'react';
+import { useReducer } from 'react';
 import { replayHref, watchRoutes } from '../../features/watch/routes';
 import { ActionLink } from '../watch/action-link/action-link';
 import { RecordingPreparationStatus } from '../recording/recording-preparation/recording-preparation';
@@ -128,9 +131,14 @@ function StateInsteadOfPlayer({
           icon="alert"
           title="The video could not be played"
           actions={
-            <button type="button" onClick={onRetry} className="font-strong">
+            <Button
+              variant="unstyled"
+              type="button"
+              onClick={onRetry}
+              className="font-strong"
+            >
               Try again
-            </button>
+            </Button>
           }
         />
       );
@@ -215,7 +223,7 @@ export function BroadcastViewer({
   const attempt = attemptOf(viewing);
   // A layout effect, so the viewing is on this stream before its player's own
   // effect can report: a browser with no engine gives up as the player mounts.
-  useLayoutEffect(() => {
+  useBrowserLayoutEffect(() => {
     if (playing) dispatch({ kind: 'shown', stream: playing });
   }, [playing]);
   const switchToRecording =
@@ -223,10 +231,10 @@ export function BroadcastViewer({
   // Withdrawn, or a replaced link: the server says what this reader may still see.
   // It is asked again, ever less often, while the address stays gone, since it can
   // name the same address now and a replaced link later.
-  useEffect(() => {
+  useBrowserEffect(() => {
     if (serverAsks > 0) router.refresh();
   }, [serverAsks, router]);
-  useEffect(() => {
+  useBrowserEffect(() => {
     if (switchToRecording) router.replace(replayHref(roundId));
   }, [switchToRecording, router, roundId]);
   const feedUrl = streamable ? streamableFeedOf(timeline) : null;
@@ -257,9 +265,13 @@ export function BroadcastViewer({
               }
             />
             {screen.notice ? (
-              <p role="status" className="text-sm text-ink-muted">
+              <StatusRegion
+                as="p"
+                role="status"
+                className="text-sm text-ink-muted"
+              >
                 {playerNotices[screen.notice]}
-              </p>
+              </StatusRegion>
             ) : null}
           </div>
         ) : (

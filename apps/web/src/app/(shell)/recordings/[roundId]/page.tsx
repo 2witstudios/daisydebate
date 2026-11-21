@@ -1,3 +1,4 @@
+import { StatusRegion } from '../../../../ui/components/status-region/status-region';
 import type { Metadata } from 'next';
 import type { SearchParams } from '../../../../features/access/decision';
 import { accountOf } from '../../../../features/access/account-of';
@@ -57,9 +58,13 @@ export default async function RecordingPage({
         accountOf(identity) ? (
           <>
             {reported ? (
-              <p role="status" className="text-sm text-ink-muted">
+              <StatusRegion
+                as="p"
+                role="status"
+                className="text-sm text-ink-muted"
+              >
                 {reportAnswerText(reported)}
-              </p>
+              </StatusRegion>
             ) : null}
             <ReportForm
               {...screen.reportTarget}

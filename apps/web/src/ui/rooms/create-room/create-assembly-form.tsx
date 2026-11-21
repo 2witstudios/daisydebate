@@ -1,5 +1,8 @@
 'use client';
 
+import { browserFetch } from '../../edge/browser-request';
+import { StatusRegion } from '../../components/status-region/status-region';
+import { Button } from '../../components/button/button';
 import type { CreateLobbyChoice } from '../../../features/rooms/create-lobby-choice';
 
 import type { RatingDivision } from '@daisy/protocol';
@@ -57,10 +60,17 @@ export function CreateAssemblyFields({
           />
         </label>
         <FormError error={state.error} />
-        <p role="status">No formats are available yet.</p>
-        <button type="submit" disabled className={buttonClass('primary')}>
+        <StatusRegion as="p" role="status">
+          No formats are available yet.
+        </StatusRegion>
+        <Button
+          variant="unstyled"
+          type="submit"
+          disabled
+          className={buttonClass('primary')}
+        >
           Create room
-        </button>
+        </Button>
       </div>
     );
   return (
@@ -121,7 +131,7 @@ export function CreateAssemblyForm({
           event.nativeEvent.submitter,
         );
         startTransition(async () => {
-          setState(await postRoomDraft(fetch, form));
+          setState(await postRoomDraft(browserFetch, form));
         });
       }}
       aria-label="Create a room"

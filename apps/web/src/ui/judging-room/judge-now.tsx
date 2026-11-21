@@ -1,5 +1,6 @@
 'use client';
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useBrowserEffect } from '../edge/browser-sync';
+import { useRef, type ReactNode } from 'react';
 import type { JudgeRoomStage } from '../../features/judge/judge-room-stage';
 import type { ObservedRound } from '../../features/round-runtime/observed-round';
 import { formatCountdown } from '../../lib/clock-display';
@@ -27,7 +28,7 @@ function useStageNotice(key: string, announcement: string) {
   const heading = useRef<HTMLHeadingElement>(null);
   const region = useRef<HTMLParagraphElement>(null);
   const shown = useRef(key);
-  useEffect(() => {
+  useBrowserEffect(() => {
     if (shown.current === key) return;
     shown.current = key;
     if (focusIsFree(document.activeElement, document.body)) {

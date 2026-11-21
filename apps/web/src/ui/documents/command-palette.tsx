@@ -1,13 +1,10 @@
 'use client';
 
-import {
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-  type KeyboardEvent,
-} from 'react';
+import { useBrowserEffect, useBrowserLayoutEffect } from '../edge/browser-sync';
+import { cancelDelay, delay } from '../edge/browser-time';
+import { Dialog } from '../components/dialog/dialog';
+import { StatusRegion } from '../components/status-region/status-region';
+import { useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import {
   groupRanked,
   moveSelection,
@@ -169,10 +166,10 @@ export function CommandPalette({
     | { readonly kind: 'failed'; readonly query: string }
     | null
   >(null);
-  useEffect(() => {
+  useBrowserEffect(() => {
     if (!open || creating || !search || query.trim() === '') return;
     let live = true;
-    const wait = setTimeout(() => {
+    const wait = delay(() => {
       // Results and failures belong to the query that produced them.
       search(query).then(
         (found) => {
@@ -185,7 +182,7 @@ export function CommandPalette({
     }, SEARCH_DELAY_MS);
     return () => {
       live = false;
-      clearTimeout(wait);
+      cancelDelay(wait);
     };
   }, [open, creating, query, search]);
   const shown =
@@ -212,7 +209,7 @@ export function CommandPalette({
   const choiceOf = (id: string) => commands.find((c) => c.id === id)?.choice;
   const snippetOf = (id: string) => commands.find((c) => c.id === id)?.snippet;
 
-  useLayoutEffect(() => {
+  useBrowserLayoutEffect(() => {
     const node = dialog.current;
     if (!node) return;
     if (open && !node.open) node.showModal();
@@ -246,7 +243,7 @@ export function CommandPalette({
   };
 
   return (
-    <dialog
+    <Dialog
       ref={dialog}
       aria-label="Command palette"
       onClose={closed}
@@ -326,9 +323,13 @@ export function CommandPalette({
           </div>
         ))}
         {searchFailed ? (
-          <p role="alert" className="px-2 py-6 text-center text-sm text-live">
+          <StatusRegion
+            as="p"
+            role="alert"
+            className="px-2 py-6 text-center text-sm text-live"
+          >
             Search did not run. Try another search or close and try again.
-          </p>
+          </StatusRegion>
         ) : null}
         {ranked.length === 0 && !searchFailed ? (
           <p className="px-2 py-6 text-center text-sm text-ink-faint">
@@ -343,6 +344,6 @@ export function CommandPalette({
           <span>Esc Close</span>
         </div>
       ) : null}
-    </dialog>
+    </Dialog>
   );
 }

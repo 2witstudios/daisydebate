@@ -12,7 +12,7 @@ import {
   type CompletionFormState,
 } from '../../../../../features/tab/completion-form';
 import { hostRoutes } from '../../../../../features/tab/routes';
-import { inProcessFetch } from '../../../../../server/in-process-fetch';
+import { runTabCommandForm } from '../../../../../features/tab/command-form-action';
 import { moveOn, stayOn } from '../../../../../server/form-action';
 import { done, type Done } from '../../../../../features/forms/form-state';
 import { POST } from '../../../../api/tab/result-command/route';
@@ -36,31 +36,17 @@ export async function eventCompletionAction(
     );
   }
   const incoming = new Headers(await headers());
-  let state;
-  try {
-    const opening = context.target.type === 'open-audience';
-    const response = await inProcessFetch(
-      opening ? releasePOST : POST,
-      incoming,
-    )(
-      `/api/tab/${opening ? 'release-command' : 'result-command'}?${new URLSearchParams({ lobbyId: context.lobbyId })}`,
-      {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(envelope),
-      },
-    );
-    if (!response.ok)
-      return response.status >= 500
-        ? completionUnacknowledged(form)
-        : completionRefused(
-            form,
-            'You cannot make this change. Reload the event.',
-          );
-    state = completionAnswer(form, await response.json());
-  } catch {
-    return completionUnacknowledged(form);
-  }
+  const opening = context.target.type === 'open-audience';
+  const state = await runTabCommandForm({
+    post: opening ? releasePOST : POST,
+    incoming,
+    path: `/api/tab/${opening ? 'release-command' : 'result-command'}?${new URLSearchParams({ lobbyId: context.lobbyId })}`,
+    body: envelope,
+    answer: (response) => completionAnswer(form, response),
+    refused: () =>
+      completionRefused(form, 'You cannot make this change. Reload the event.'),
+    unacknowledged: () => completionUnacknowledged(form),
+  });
   if (state.kind !== 'accepted') return state;
   for (const path of [
     hostRoutes.ballots(context.handle),

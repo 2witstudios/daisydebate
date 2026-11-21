@@ -1,5 +1,6 @@
 'use client';
 
+import { Button } from '../../components/button/button';
 import { useState } from 'react';
 import { matchesQuery } from '../../../features/tab/at-scale';
 import type { StandingsTable as Read } from '../../../features/tab/standings';
@@ -137,7 +138,8 @@ function BreakRanking({
         {title} · top {seeds}
       </h2>
       {clear === 0 || query !== '' ? null : (
-        <button
+        <Button
+          variant="unstyled"
           type="button"
           aria-expanded={expanded.clear}
           onClick={() => setExpanded({ ...expanded, clear: !expanded.clear })}
@@ -145,11 +147,12 @@ function BreakRanking({
         >
           {expanded.clear ? 'Hide' : `Show ${clear}`} · Seeds 1 to {clear} clear
           of the line
-        </button>
+        </Button>
       )}
       <Ranking table={{ ...line, rows, divisions: [] }} />
       {line.rows.length <= seeds + 3 || query !== '' ? null : (
-        <button
+        <Button
+          variant="unstyled"
           type="button"
           aria-expanded={expanded.tail}
           onClick={() => setExpanded({ ...expanded, tail: !expanded.tail })}
@@ -157,7 +160,7 @@ function BreakRanking({
         >
           {line.rows.length - seeds - 3} more below ·{' '}
           {expanded.tail ? 'Hide' : `Show all ${line.rows.length}`}
-        </button>
+        </Button>
       )}
     </section>
   );

@@ -1,3 +1,4 @@
+import { Button } from '../../components/button/button';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import {
@@ -23,7 +24,6 @@ import {
   seasonLabel,
   type Season,
 } from '../../../features/leaderboard/season';
-import { buttonClass } from '../../components/button/button-class';
 import { Icon } from '../../components/icon/icon';
 import { AutoSubmitForm } from '../../components/filter-bar/auto-submit-form';
 import { controlClass } from '../../components/filter-bar/filter-bar-class';
@@ -209,9 +209,9 @@ export function LadderFilters({
               Clear
             </Link>
           ) : null}
-          <button type="submit" className={buttonClass('secondary')}>
+          <Button variant="secondary" type="submit">
             Apply
-          </button>
+          </Button>
         </>
       </details>
     </AutoSubmitForm>

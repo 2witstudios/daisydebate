@@ -1,7 +1,7 @@
+import { mapTabCommandAnswer } from './command-form-answer';
 import { z } from 'zod';
 import { idSchema } from '@daisy/protocol';
 import { settingCommandEnvelopeSchema } from '@daisy/protocol/lobby/setting-command';
-import { lobbyCommandReceiptSchema } from '@daisy/protocol/lobby/command';
 import { singleFormField } from '../forms/form-state';
 import {
   field,
@@ -74,23 +74,21 @@ export const judgeObligationEnvelope = (
     },
   });
 };
-const answerSchema = z.discriminatedUnion('kind', [
-  z.object({ kind: z.literal('accepted'), receipt: lobbyCommandReceiptSchema }),
-  z.object({ kind: z.literal('refused'), refusal: z.string() }),
-]);
 export const judgeObligationAnswer = (
   form: FormData,
   body: unknown,
 ): { readonly kind: 'accepted' } | JudgeObligationState => {
-  const parsed = answerSchema.safeParse(body);
-  if (!parsed.success) return judgeObligationUnacknowledged(form);
-  if (parsed.data.kind === 'accepted') return { kind: 'accepted' };
-  return judgeObligationRefused(
-    form,
-    parsed.data.refusal === 'version-conflict'
-      ? 'Entries policy changed. Reload this page before trying again.'
-      : parsed.data.refusal === 'setting-enforced'
-        ? 'An inherited setting is enforced. Reload this page.'
-        : 'This judge obligation change could not be made. Reload this page.',
-  );
+  return mapTabCommandAnswer(body, {
+    accepted: () => ({ kind: 'accepted' as const }),
+    unacknowledged: () => judgeObligationUnacknowledged(form),
+    refused: (reason) =>
+      judgeObligationRefused(
+        form,
+        reason === 'version-conflict'
+          ? 'Entries policy changed. Reload this page before trying again.'
+          : reason === 'setting-enforced'
+            ? 'An inherited setting is enforced. Reload this page.'
+            : 'This judge obligation change could not be made. Reload this page.',
+      ),
+  });
 };

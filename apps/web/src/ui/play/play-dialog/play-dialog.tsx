@@ -1,5 +1,7 @@
 'use client';
 
+import { Dialog } from '../../components/dialog/dialog';
+import { Button } from '../../components/button/button';
 import { useRef, type ReactNode } from 'react';
 import { buttonClass } from '../../components/button/button-class';
 import { Icon } from '../../components/icon/icon';
@@ -47,7 +49,7 @@ export function PlayDialog({ children }: { readonly children: ReactNode }) {
       >
         Play
       </a>
-      <dialog
+      <Dialog
         ref={dialog}
         aria-labelledby="play-dialog-title"
         className="m-auto w-play-dialog max-w-full flex-col gap-4 rounded-lg border border-border-strong bg-surface-raised p-6 text-ink shadow-3 backdrop:bg-scrim/50 open:flex max-narrow:p-4"
@@ -62,17 +64,22 @@ export function PlayDialog({ children }: { readonly children: ReactNode }) {
           >
             Play
           </h2>
-          <button type="submit" aria-label="Close" className={closeClass}>
+          <Button
+            variant="unstyled"
+            type="submit"
+            aria-label="Close"
+            className={closeClass}
+          >
             <Icon name="close" size={18} />
-          </button>
+          </Button>
         </form>
         {children}
         <form method="dialog" className="flex justify-center">
-          <button type="submit" className={buttonClass('ghost')}>
+          <Button variant="ghost" type="submit">
             Just browse the Lobby
-          </button>
+          </Button>
         </form>
-      </dialog>
+      </Dialog>
     </>
   );
 }

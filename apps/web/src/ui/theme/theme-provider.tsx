@@ -1,10 +1,10 @@
 'use client';
 
+import { useBrowserEffect } from '../edge/browser-sync';
 import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
   useRef,
   useState,
@@ -52,7 +52,7 @@ export function ThemeProvider({
   const [preference, setPreference] = useState(initialPreference);
   const controller = useRef<ThemeController | null>(null);
 
-  useEffect(() => {
+  useBrowserEffect(() => {
     const channel = new BroadcastChannel(CHANNEL_NAME);
     const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
     const next = createThemeController({

@@ -1,8 +1,11 @@
 'use client';
 
+import { useBrowserEffect } from '../edge/browser-sync';
+import { scheduleDelay } from '../edge/browser-time';
+import { Button } from '../components/button/button';
 import type { NotificationKind, NotificationShell } from '@daisy/protocol';
 import Link from 'next/link';
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   TOAST_INFORMATIONAL_MS,
   toastWaits,
@@ -183,16 +186,12 @@ export function NotificationToast({
   const waits = toastWaits(row.kind);
   const [held, setHeld] = useState(false);
   const dismissRef = useRef(dismiss);
-  useEffect(() => {
+  useBrowserEffect(() => {
     dismissRef.current = dismiss;
   }, [dismiss]);
-  useEffect(() => {
+  useBrowserEffect(() => {
     if (waits || held) return;
-    const timer = setTimeout(
-      () => dismissRef.current(),
-      TOAST_INFORMATIONAL_MS,
-    );
-    return () => clearTimeout(timer);
+    return scheduleDelay(() => dismissRef.current(), TOAST_INFORMATIONAL_MS);
   }, [waits, held]);
   // What starts now sits on the stage colours.
   const stage =
@@ -240,7 +239,8 @@ export function NotificationToast({
           </Link>
         </div>
       </div>
-      <button
+      <Button
+        variant="unstyled"
         type="button"
         aria-label="Dismiss"
         onClick={dismiss}
@@ -250,7 +250,7 @@ export function NotificationToast({
         )}
       >
         <Icon name="close" className="size-4" />
-      </button>
+      </Button>
     </article>
   );
 }

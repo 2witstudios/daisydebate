@@ -1,5 +1,6 @@
 'use client';
 
+import { StatusRegion } from '../components/status-region/status-region';
 import {
   competitionTypes,
   reportReasonLabels,
@@ -125,9 +126,9 @@ export function ProfilePersonActions({
         </form>
       </details>
       {(challengeNotice ?? reportNotice) ? (
-        <p role="status" className="text-sm text-ink-muted">
+        <StatusRegion as="p" role="status" className="text-sm text-ink-muted">
           {challengeNotice ?? reportNotice}
-        </p>
+        </StatusRegion>
       ) : null}
       <form action={block} className="inline-flex items-center gap-2">
         <input type="hidden" name="username" value={username} />
@@ -135,9 +136,9 @@ export function ProfilePersonActions({
           Block
         </Button>
         {blockNotice ? (
-          <p role="status" className="text-sm text-ink-muted">
+          <StatusRegion as="p" role="status" className="text-sm text-ink-muted">
             {blockNotice}
-          </p>
+          </StatusRegion>
         ) : null}
       </form>
     </>

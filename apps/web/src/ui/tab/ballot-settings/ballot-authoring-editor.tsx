@@ -1,8 +1,10 @@
 'use client';
+import { useBrowserEffect } from '../../edge/browser-sync';
+import { StatusRegion } from '../../components/status-region/status-region';
 import { authoringControlClass as control } from './ballot-authoring-fields';
 import { BallotDefinitionSummary } from './ballot-definition-summary';
 import { BallotDefinitionFields } from './ballot-definition-fields';
-import { useEffect, useId, useRef, useState, type SyntheticEvent } from 'react';
+import { useId, useRef, useState, type SyntheticEvent } from 'react';
 import { sampleBallotPreview } from '../../../features/tab/ballot-definition';
 import {
   previewDefinition,
@@ -108,7 +110,7 @@ export function BallotAuthoringEditor({
     edited.current = { which, form };
     setEdits((count) => count + 1);
   };
-  useEffect(() => {
+  useBrowserEffect(() => {
     const mark = edited.current;
     if (edits === 0 || !mark) return;
     const values = new FormData(mark.form);
@@ -128,14 +130,18 @@ export function BallotAuthoringEditor({
         </p>
       </header>
       {saved === 'publish' ? (
-        <p role="status">
+        <StatusRegion as="p" role="status">
           Definition published. The event keeps its current ballot until you
           select another version below.
-        </p>
+        </StatusRegion>
       ) : saved === 'pin' ? (
-        <p role="status">Event ballot saved.</p>
+        <StatusRegion as="p" role="status">
+          Event ballot saved.
+        </StatusRegion>
       ) : saved === 'screening' ? (
-        <p role="status">Screening saved.</p>
+        <StatusRegion as="p" role="status">
+          Screening saved.
+        </StatusRegion>
       ) : null}
       <BallotPreviewLayout
         preview={

@@ -1,5 +1,6 @@
 'use client';
 
+import { browserFetch } from '../../edge/browser-request';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import {
@@ -32,7 +33,7 @@ export function ProfilePhotoControl(
     onChoose: (file) => {
       setActivity('uploading');
       setNotice(null);
-      void uploadProfilePhoto(fetch, file).then((outcome) => {
+      void uploadProfilePhoto(browserFetch, file).then((outcome) => {
         setActivity('idle');
         setNotice(photoUploadNotice(outcome));
         if (outcome.kind === 'accepted') router.refresh();
@@ -41,7 +42,7 @@ export function ProfilePhotoControl(
     onRemove: () => {
       setActivity('removing');
       setNotice(null);
-      void removeProfilePhoto(fetch).then((outcome) => {
+      void removeProfilePhoto(browserFetch).then((outcome) => {
         setActivity('idle');
         setNotice(photoRemovalNotice(outcome));
         if (outcome.kind === 'removed') router.refresh();

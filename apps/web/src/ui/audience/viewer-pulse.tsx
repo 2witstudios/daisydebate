@@ -1,7 +1,10 @@
 'use client';
+import { useBrowserEffect } from '../edge/browser-sync';
+import { browserFetch } from '../edge/browser-request';
+import { scheduleTick } from '../edge/browser-time';
 import { createId } from '@paralleldrive/cuid2';
 import { tabPulses, VIEWER_PULSE_MS } from '@daisy/protocol';
-import { useEffect, useRef } from 'react';
+import { useRef } from 'react';
 import { usePublishedAudience } from '../spectating/published-state';
 
 /**
@@ -22,23 +25,22 @@ export function ViewerPulse({
   // Unknown until the state arrives, and a tab sends nothing until it knows.
   const published = usePublishedAudience()?.pulseRate ?? null;
   const rate = useRef(published);
-  useEffect(() => {
+  useBrowserEffect(() => {
     rate.current = published;
   }, [published]);
-  useEffect(() => {
+  useBrowserEffect(() => {
     const token = createId();
     const draw = crypto.getRandomValues(new Uint32Array(1))[0]! / 2 ** 32;
     const pulse = () => {
       if (rate.current === null || !tabPulses(draw, rate.current)) return;
-      void fetch(`/api/rounds/${encodeURIComponent(roundId)}/viewers`, {
+      void browserFetch(`/api/rounds/${encodeURIComponent(roundId)}/viewers`, {
         method: 'POST',
         credentials: unlisted ? 'same-origin' : 'omit',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ version: 1, token }),
       }).catch(() => undefined);
     };
-    const timer = setInterval(pulse, VIEWER_PULSE_MS);
-    return () => clearInterval(timer);
+    return scheduleTick(pulse, VIEWER_PULSE_MS);
   }, [roundId, unlisted]);
   return null;
 }

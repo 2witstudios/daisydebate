@@ -1,14 +1,18 @@
 'use client';
-import { Fragment, useEffect, useRef } from 'react';
+import { useBrowserEffect } from '../edge/browser-sync';
+import { Fragment, useRef } from 'react';
 import {
   isJudgeSeat,
   type RoundView,
   type RoundMediaState,
 } from '@daisy/protocol';
-import type { TrackHandle } from './adapters/livekit-room';
-import type { ObservedPeer, ObservedTrack } from './model/media-state';
-import type { MediaConnectionLabel } from './model/media-status';
-import { seatMicrophoneCaption } from './model/seat-caption';
+import type { TrackHandle } from '../../features/round-media/adapters/livekit-room';
+import type {
+  ObservedPeer,
+  ObservedTrack,
+} from '../../features/round-media/model/media-state';
+import type { MediaConnectionLabel } from '../../features/round-media/model/media-status';
+import { seatMicrophoneCaption } from '../../features/round-media/model/seat-caption';
 
 function TrackElement({
   observed,
@@ -19,7 +23,7 @@ function TrackElement({
 }) {
   const element = useRef<HTMLVideoElement & HTMLAudioElement>(null);
   const mediaTrack = handle.track;
-  useEffect(() => {
+  useBrowserEffect(() => {
     const node = element.current;
     if (!node) return;
     mediaTrack.attach(node);

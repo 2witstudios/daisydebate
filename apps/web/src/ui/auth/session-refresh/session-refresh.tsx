@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useMount } from '../../edge/use-mount';
+
 import { authClient } from '../../../lib/auth-client';
 
 /**
@@ -11,8 +12,8 @@ import { authClient } from '../../../lib/auth-client';
  * its cookie together. It shows nothing.
  */
 export function SessionRefresh() {
-  useEffect(() => {
+  useMount(() => {
     void authClient.getSession();
-  }, []);
+  });
   return null;
 }

@@ -1,3 +1,5 @@
+import { Button } from '../../components/button/button';
+import { StatusRegion } from '../../components/status-region/status-region';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import type { RecordingHistoryScreen } from '../../../features/recording/history';
@@ -200,12 +202,13 @@ function Removal({
         <input type="checkbox" name="confirm" className="size-4" />
         {words.confirm}
       </label>
-      <button
+      <Button
+        variant="unstyled"
         type="submit"
         className={`${buttonClass('secondary')} self-start`}
       >
         {words.submit}
-      </button>
+      </Button>
     </form>
   );
 }
@@ -245,9 +248,9 @@ export function RecordingHistory({
         <p className="text-base text-ink-muted">{screen.resolution}</p>
       </header>
       {notice ? (
-        <p role="status" className="text-sm text-ink">
+        <StatusRegion as="p" role="status" className="text-sm text-ink">
           {removalNotices[notice]}
-        </p>
+        </StatusRegion>
       ) : null}
       <div className="flex items-start gap-6 max-compact:flex-col">
         <div className="flex min-w-0 flex-1 flex-col gap-4 max-compact:w-full">

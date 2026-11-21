@@ -1,3 +1,5 @@
+import { Dialog } from '../../components/dialog/dialog';
+import { Button } from '../../components/button/button';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { numberedSteps } from '../../../features/onboarding/steps';
@@ -29,8 +31,9 @@ export function OnboardingFrame({
 }: OnboardingFrameProps) {
   return (
     <div className="flex min-h-dvh items-center justify-center bg-background p-3 text-ink max-narrow:p-0">
-      <section
-        role="dialog"
+      <Dialog
+        as="section"
+
         aria-labelledby={titleId}
         className="flex min-h-onboarding-card w-full max-w-onboarding flex-col gap-4 rounded-xl border border-border bg-surface-raised px-10 pt-4 pb-5 shadow-3 max-narrow:min-h-dvh max-narrow:rounded-none max-narrow:border-0 max-narrow:px-5 max-narrow:pt-4 max-narrow:pb-6"
       >
@@ -58,7 +61,7 @@ export function OnboardingFrame({
           {skip}
         </div>
         <div className="flex flex-1 flex-col gap-4">{children}</div>
-      </section>
+      </Dialog>
     </div>
   );
 }
@@ -87,14 +90,15 @@ export function NextButton({
   readonly pending?: boolean;
 }) {
   return (
-    <button
+    <Button
+      variant="unstyled"
       type="submit"
       disabled={pending}
       aria-busy={pending || undefined}
       className={`${primary} cursor-pointer border-0 disabled:cursor-wait disabled:opacity-60`}
     >
       {children}
-    </button>
+    </Button>
   );
 }
 

@@ -1,5 +1,7 @@
 'use client';
 
+import { Dialog } from '../../components/dialog/dialog';
+import { Button } from '../../components/button/button';
 import {
   useId,
   useRef,
@@ -85,7 +87,7 @@ function FormatBrowserDialog({
   const listed = browserListing(choices, { query, tab });
   const preview = choices.find((choice) => serialize(choice) === draft);
   return (
-    <dialog
+    <Dialog
       ref={dialog}
       aria-labelledby={titleId}
       className="m-auto max-h-full w-full max-w-dash-column overflow-y-auto rounded-xl border border-border bg-surface p-6 text-ink shadow-3 backdrop:bg-scrim max-compact:rounded-none"
@@ -94,13 +96,13 @@ function FormatBrowserDialog({
         <h2 id={titleId} className="font-display text-xl font-bold">
           Choose a format
         </h2>
-        <button
+        <Button
+          variant="secondary"
           type="button"
-          className={buttonClass('secondary')}
           onClick={() => dialog.current?.close()}
         >
           Cancel
-        </button>
+        </Button>
       </header>
       <div className="grid grid-cols-2 gap-6 max-compact:grid-cols-1">
         <div className="flex min-w-0 flex-col gap-3">
@@ -119,7 +121,8 @@ function FormatBrowserDialog({
               className="flex flex-wrap gap-1"
             >
               {tabs.map((option) => (
-                <button
+                <Button
+                  variant="unstyled"
                   type="button"
                   key={option.key}
                   aria-pressed={option.key === tab}
@@ -127,7 +130,7 @@ function FormatBrowserDialog({
                   className="min-h-room-target rounded-round border border-border px-3 text-sm font-strong aria-pressed:border-accent aria-pressed:bg-accent aria-pressed:text-accent-ink"
                 >
                   {option.label}
-                </button>
+                </Button>
               ))}
             </div>
           )}
@@ -136,7 +139,8 @@ function FormatBrowserDialog({
             className="flex max-h-full flex-col gap-2 overflow-auto"
           >
             {listed.map((choice) => (
-              <button
+              <Button
+                variant="unstyled"
                 type="button"
                 key={`${choice.formatId}:${choice.formatVersion}`}
                 aria-pressed={draft === serialize(choice)}
@@ -147,7 +151,7 @@ function FormatBrowserDialog({
                 <span className="block text-xs text-ink-muted">
                   {choice.leagues.join(', ')}
                 </span>
-              </button>
+              </Button>
             ))}
             {listed.length ? null : (
               <p className="text-sm text-ink-muted">
@@ -164,17 +168,13 @@ function FormatBrowserDialog({
             <p className="text-xs text-ink-muted">
               {preview.rulesEdition ? `Rules: ${preview.rulesEdition}` : null}
             </p>
-            <button
-              type="button"
-              className={buttonClass('primary')}
-              onClick={onUse}
-            >
+            <Button variant="primary" type="button" onClick={onUse}>
               Use this format
-            </button>
+            </Button>
           </section>
         ) : null}
       </div>
-    </dialog>
+    </Dialog>
   );
 }
 
@@ -249,7 +249,8 @@ export function FormatTemplatePicker({
       ) : null}
       {choices.length > 0 ? (
         <>
-          <button
+          <Button
+            variant="unstyled"
             type="button"
             hidden={!interactive}
             className={buttonClass('secondary')}
@@ -259,7 +260,7 @@ export function FormatTemplatePicker({
             }}
           >
             Browse formats
-          </button>
+          </Button>
           <FormatBrowserDialog
             choices={choices}
             serialize={serialize}

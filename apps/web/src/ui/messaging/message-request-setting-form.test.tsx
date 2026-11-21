@@ -28,6 +28,26 @@ test('MessageRequestSettingForm', () => {
   });
 });
 
+test('a guardian-locked message request setting', () => {
+  const html = renderToStaticMarkup(
+    h(MessageRequestSettingForm, {
+      action: async (previous) => previous,
+      setting: 'friends',
+      locked: true,
+    }),
+  );
+  assert({
+    given: 'a member whose guardian locks the setting to Friends only',
+    should: 'explain the lock and render no way to change the setting',
+    actual: {
+      disabledChoices: /<fieldset[^>]*disabled=""/.test(html),
+      hasSave: /type="submit"/.test(html),
+      explainsLock: html.includes('keeps message requests set to Friends'),
+    },
+    expected: { disabledChoices: true, hasSave: false, explainsLock: true },
+  });
+});
+
 test('shownSetting', () =>
   assert({
     given: 'a refused save of No one, a forged value, idle and a done save',

@@ -1,5 +1,6 @@
 'use client';
 
+import { Button } from '../../components/button/button';
 import { useFormAction, type FormAction } from '../../form-action/form-action';
 import { useMovedOn } from '../../form-action/use-moved-on';
 import { skipClass } from '../frame/frame';
@@ -32,9 +33,14 @@ export function SkipForm({
   const pending = posting || answered.kind === 'moved';
   return (
     <form action={post} aria-busy={pending}>
-      <button type="submit" disabled={pending} className={skipClass}>
+      <Button
+        variant="unstyled"
+        type="submit"
+        disabled={pending}
+        className={skipClass}
+      >
         {stepFields(answered).unsaved ? 'Skip (try again)' : 'Skip'}
-      </button>
+      </Button>
     </form>
   );
 }

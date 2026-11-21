@@ -1,5 +1,7 @@
 'use client';
 
+import { Button } from '../../components/button/button';
+import { StatusRegion } from '../../components/status-region/status-region';
 import {
   initialInvitationForm,
   invitationFields,
@@ -50,13 +52,22 @@ export function EndInvitationForm({
     <form action={post} className="flex items-center gap-2">
       <input type="hidden" name="intent" value={intent} />
       <input type="hidden" name="invitationId" value={invitationId} />
-      <button type="submit" className={className} disabled={pending}>
+      <Button
+        variant="unstyled"
+        type="submit"
+        className={className}
+        disabled={pending}
+      >
         {label}
-      </button>
+      </Button>
       {fields.notice ? (
-        <span role="status" className="text-sm text-ink-muted">
+        <StatusRegion
+          as="span"
+          role="status"
+          className="text-sm text-ink-muted"
+        >
           {fields.notice}
-        </span>
+        </StatusRegion>
       ) : null}
     </form>
   );

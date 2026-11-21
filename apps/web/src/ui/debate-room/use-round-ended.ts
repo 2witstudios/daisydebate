@@ -1,7 +1,8 @@
 'use client';
+import { useBrowserEffect } from '../edge/browser-sync';
 import { isRoundOver, type RoundStatus } from '@daisy/protocol';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+
 import { browserDocument } from '../round-media/browser-document';
 import { replaceRoute } from '../round-media/replace-route';
 
@@ -19,7 +20,7 @@ export function useRoundEndedRoute(
 ): boolean {
   const router = useRouter();
   const ended = isRoundOver(round.status) && !onCall;
-  useEffect(() => {
+  useBrowserEffect(() => {
     if (ended) replaceRoute(router, browserDocument(), `/rounds/${round.id}`);
   }, [ended, router, round.id]);
   return ended;

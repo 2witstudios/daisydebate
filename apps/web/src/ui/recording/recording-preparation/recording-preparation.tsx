@@ -1,3 +1,4 @@
+import { StatusRegion } from '../../components/status-region/status-region';
 import {
   assertNever,
   recordingBuildSteps,
@@ -53,12 +54,12 @@ export function RecordingPreparationStatus({
       aria-label="Recording preparation"
       className="flex flex-col gap-1 text-sm"
     >
-      <p role="status">
+      <StatusRegion as="p" role="status">
         {progress
           ? `Step ${recordingBuildSteps.indexOf(progress.step) + 1} of ${recordingBuildSteps.length}. `
           : null}
         {preparationCopy(preparation ?? null)}
-      </p>
+      </StatusRegion>
       {progress && progress.total > 0 ? (
         <progress
           value={progress.done}

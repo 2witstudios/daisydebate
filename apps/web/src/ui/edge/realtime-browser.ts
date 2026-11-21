@@ -1,15 +1,20 @@
+import { cancelDelay, delay } from './browser-time';
+import { browserFetch } from './browser-request';
 import type {
   ConnectionStoreDeps,
   Scheduler,
   WebSocketLike,
-} from './connection-store';
+} from '../../features/realtime/connection-store';
 import {
   createConnectionStore,
   type ConnectionStore,
-} from './connection-store';
-import { fetchRealtimeTicket } from './ticket-client';
-import { createTabPresence, type TabPresence } from './tab-presence';
-import { sharedConnections } from './shared-connection';
+} from '../../features/realtime/connection-store';
+import { fetchRealtimeTicket } from '../../features/realtime/ticket-client';
+import {
+  createTabPresence,
+  type TabPresence,
+} from '../../features/realtime/tab-presence';
+import { sharedConnections } from '../../features/realtime/shared-connection';
 
 /**
  * The real browser clock and timer queue (production `Scheduler`). Elapsed
@@ -21,8 +26,8 @@ import { sharedConnections } from './shared-connection';
  */
 export const systemScheduler: Scheduler = {
   now: () => performance.now(),
-  setTimeout: (callback, ms) => setTimeout(callback, ms),
-  clearTimeout: (id) => clearTimeout(id as ReturnType<typeof setTimeout>),
+  setTimeout: (callback, ms) => delay(callback, ms),
+  clearTimeout: (id) => cancelDelay(id as ReturnType<typeof delay>),
 };
 
 /**
@@ -89,7 +94,7 @@ export function createBrowserConnectionStore(url: string): ConnectionStore {
       fetchRealtimeTicket({
         expectedSocketUrl: url,
         signal,
-        fetchImpl: (url, init) => fetch(url, init),
+        fetchImpl: (url, init) => browserFetch(url, init),
       }),
     random: secureRandom,
     onVisibilityChange: onDocumentVisibilityChange,

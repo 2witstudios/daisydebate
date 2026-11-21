@@ -1,5 +1,6 @@
 'use client';
 
+import { Button } from '../../components/button/button';
 import { useId } from 'react';
 import type { RoomCatalogChoice, RoomView } from '@daisy/protocol';
 import type { RoomFormState } from '../../../features/rooms/command-answer';
@@ -10,7 +11,6 @@ import {
 } from '../../../features/rooms/format-browser';
 import { formatChangeLine } from '../../../features/rooms/format-changes';
 import type { FormAction } from '../../form-action/form-action';
-import { buttonClass } from '../../components/button/button-class';
 import { AssemblyCommandForm } from './assembly-command-form';
 import { FormatTemplatePicker } from '../create-room/format-template-picker';
 import { formatTitle } from './room-labels';
@@ -150,9 +150,9 @@ function StandardsForm({ view, choices, ids, action }: FormProps) {
           </span>
         </label>
       </div>
-      <button type="submit" className={buttonClass('secondary')}>
+      <Button variant="secondary" type="submit">
         Use this format
-      </button>
+      </Button>
     </AssemblyCommandForm>
   );
 }
@@ -182,9 +182,9 @@ function CustomCard({ view, ids, action }: FormProps) {
         <AssemblyCommandForm action={action}>
           <CommandFields view={view} commandId={ids.reset} intent="reset" />
           <input type="hidden" name="format" value={tuple(basis)} />
-          <button type="submit" className={buttonClass('secondary')}>
+          <Button variant="secondary" type="submit">
             Back to {basis.name}
-          </button>
+          </Button>
         </AssemblyCommandForm>
       ) : null}
     </section>
@@ -207,9 +207,9 @@ function LeagueForm({ view, choices, ids, action }: FormProps) {
       <p className="text-xs text-ink-muted">
         The room becomes Custom, based on the league’s rules.
       </p>
-      <button type="submit" className={buttonClass('secondary')}>
+      <Button variant="secondary" type="submit">
         Start from this format
-      </button>
+      </Button>
     </AssemblyCommandForm>
   );
 }

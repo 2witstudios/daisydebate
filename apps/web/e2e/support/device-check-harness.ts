@@ -1,5 +1,5 @@
 import type { DeviceCheckSnapshot } from '../../src/features/video/device-check-controller';
-import { createBrowserDeviceChecks } from '../../src/features/video/browser-device-checks';
+import { createBrowserDeviceChecks } from '../../src/ui/round-media/browser-device-checks';
 
 export const deviceCheckHarnessEntry = new URL(import.meta.url).pathname;
 

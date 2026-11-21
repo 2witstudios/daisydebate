@@ -1,42 +1,52 @@
 'use client';
 import '../../lib/zod-jitless';
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useBrowserEffect } from '../edge/browser-sync';
+import { browserFetch } from '../edge/browser-request';
+import { scheduleDelay } from '../edge/browser-time';
+import { StatusRegion } from '../components/status-region/status-region';
+import { useRef, useState, useSyncExternalStore } from 'react';
 import { isRoundOver, type RoundView } from '@daisy/protocol';
-import { postRoundCallChosen } from '../post-round-call/offered';
+import { postRoundCallChosen } from '../../features/post-round-call/offered';
 import { hasOpenQuestioning } from '@daisy/debate-engine';
-import { selectMediaAccount } from './account-signout-cleanup';
-import { subscribeBrowserPageEvents } from './adapters/browser-page-events';
-import { createLiveKitRoom, RESUME_BUDGET_MS } from './adapters/livekit-room';
-import { createRoundViewFollower } from './follow-round-view';
+import { selectMediaAccount } from '../../features/round-media/account-signout-cleanup';
+import { subscribeBrowserPageEvents } from '../../features/round-media/adapters/browser-page-events';
+import {
+  createLiveKitRoom,
+  RESUME_BUDGET_MS,
+} from '../../features/round-media/adapters/livekit-room';
+import { createRoundViewFollower } from '../../features/round-media/follow-round-view';
 import { MediaBar } from './media-bar';
 import {
   clearMutePreference,
   readMutePreference,
   writeMutePreference,
-} from './media-preferences';
-import { createMediaRuntime } from './media-runtime';
+} from '../../features/round-media/media-preferences';
+import { createMediaRuntime } from '../../features/round-media/media-runtime';
 import { MediaStage } from './media-stage';
-import { initialMediaState, type MediaPolicy } from './model/media-state';
+import {
+  initialMediaState,
+  type MediaPolicy,
+} from '../../features/round-media/model/media-state';
 import {
   publicationOf,
   type LocalPublication,
-} from './model/media-publication';
-import { stageOf, tabOf } from './model/media-status';
+} from '../../features/round-media/model/media-publication';
+import { stageOf, tabOf } from '../../features/round-media/model/media-status';
 import {
   createMediaRequest,
   MEDIA_READ_BUDGET_MS,
   MEDIA_RETRY_DELAYS_MS,
-} from './request-media';
+} from '../../features/round-media/request-media';
 
-import { roundTimeMediaClock } from './schedule-deadline';
-import { systemScheduler } from '../realtime/browser-adapters';
-import type { RoundTime } from '../round-runtime/round-time';
-import { TabElsewhere } from '../rooms/tab-elsewhere';
+import { roundTimeMediaClock } from '../../features/round-media/schedule-deadline';
+import { systemScheduler } from '../edge/realtime-browser';
+import type { RoundTime } from '../../features/round-runtime/round-time';
+import { TabElsewhere } from '../active-room/tab-elsewhere';
 import {
   clearCheckedDevices,
   forgetCheckedDevices,
   readCheckedDevices,
-} from '../video/device-selection';
+} from '../../features/video/device-selection';
 
 const MEDIA_POLICY: MediaPolicy = {
   requestRetryDelaysMs: MEDIA_RETRY_DELAYS_MS,
@@ -50,10 +60,9 @@ const MEDIA_POLICY: MediaPolicy = {
 };
 
 const requestMedia = createMediaRequest({
-  fetch: (url, options) => fetch(url, options),
+  fetch: (url, options) => browserFetch(url, options),
   scheduleDeadline: (expire, ms) => {
-    const timer = setTimeout(expire, ms);
-    return () => clearTimeout(timer);
+    return scheduleDelay(expire, ms);
   },
 });
 
@@ -93,7 +102,7 @@ function RoundMediaSession({
   const questioning = view.ladder === null && hasOpenQuestioning(view.rules);
   const muteOffered = questioning || postRoundCallChosen(view);
   const refresh = useRef(onRefresh);
-  useEffect(() => {
+  useBrowserEffect(() => {
     refresh.current = onRefresh;
   }, [onRefresh]);
   const [runtime] = useState(() =>
@@ -107,8 +116,7 @@ function RoundMediaSession({
       // Monotonic: elapsed time, and a clock step must not skew it.
       now: () => performance.now(),
       at: (ms, fire) => {
-        const timer = setTimeout(fire, ms);
-        return () => clearTimeout(timer);
+        return scheduleDelay(fire, ms);
       },
       api: {
         admit: (id, signal) => requestMedia(id, 'session', signal),
@@ -143,23 +151,23 @@ function RoundMediaSession({
     runtime.handles,
   );
   const { dispatch } = runtime;
-  useEffect(
+  useBrowserEffect(
     () => onStepDown(() => dispatch({ type: 'tab-changed', owns: false })),
     [dispatch, onStepDown],
   );
   /** The restore must precede the first claim so one truth reaches the transport. */
-  useEffect(() => {
+  useBrowserEffect(() => {
     if (selectMediaAccount(actorId)) onAccountChanged();
     // A post-round call offers mute to everyone, so it restores the choice too.
     if (!muteOffered) return;
     const prior = readMutePreference(actorId, view.id);
     if (prior !== null) dispatch({ type: 'mute-restored', muted: prior });
   }, [view.id, actorId, muteOffered, onAccountChanged, dispatch]);
-  useEffect(() => {
+  useBrowserEffect(() => {
     dispatch({ type: 'tab-changed', owns });
     return () => dispatch({ type: 'tab-changed', owns: null });
   }, [dispatch, owns]);
-  useEffect(
+  useBrowserEffect(
     () =>
       subscribeBrowserPageEvents({
         online: window,
@@ -179,7 +187,7 @@ function RoundMediaSession({
   const follower = useRef<ReturnType<typeof createRoundViewFollower> | null>(
     null,
   );
-  useEffect(() => {
+  useBrowserEffect(() => {
     // A post-round call outlives its Round: the server's own answer ends it.
     if (isRoundOver(view.status) && !postRoundCallChosen(view)) {
       dispatch({ type: 'round-ended' });
@@ -194,21 +202,21 @@ function RoundMediaSession({
   }, [view, clock, dispatch]);
   /** Only the server knows a call ended early: everyone left, or it never opened. */
   const callEnded = useRef(onCallEnded);
-  useEffect(() => {
+  useBrowserEffect(() => {
     callEnded.current = onCallEnded;
   }, [onCallEnded]);
   const endedCall = postRoundCallChosen(view) && state.link.phase === 'ended';
-  useEffect(() => {
+  useBrowserEffect(() => {
     if (endedCall) callEnded.current?.();
   }, [endedCall]);
   /** The controls read this device's own capture truth as a named input. */
   const report = useRef(onPublication);
-  useEffect(() => {
+  useBrowserEffect(() => {
     report.current = onPublication;
   }, [onPublication]);
   const publication = publicationOf(state);
-  useEffect(() => report.current?.(publication), [publication]);
-  useEffect(() => () => report.current?.(null), []);
+  useBrowserEffect(() => report.current?.(publication), [publication]);
+  useBrowserEffect(() => () => report.current?.(null), []);
   const presence = tabOf(state);
   if (presence !== 'owned')
     return (
@@ -216,7 +224,9 @@ function RoundMediaSession({
         {presence === 'elsewhere' ? (
           <TabElsewhere takeOver={tab.takeOver} />
         ) : (
-          <p role="status">Checking this Round’s tab…</p>
+          <StatusRegion as="p" role="status">
+            Checking this Round’s tab…
+          </StatusRegion>
         )}
       </section>
     );

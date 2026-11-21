@@ -1,4 +1,5 @@
 'use client';
+import { StatusRegion } from '../../components/status-region/status-region';
 import { useId } from 'react';
 import {
   initialSanctionForm,
@@ -54,7 +55,8 @@ export function SanctionDecisionForm({
           : label}
       </Button>
       {state.kind === 'refused' || state.kind === 'unacknowledged' ? (
-        <p
+        <StatusRegion
+          as="p"
           id={notice}
           tabIndex={-1}
           role="status"
@@ -63,7 +65,7 @@ export function SanctionDecisionForm({
           {state.kind === 'refused'
             ? state.error
             : 'The answer was lost. Retry the same decision, or reload to check its status.'}
-        </p>
+        </StatusRegion>
       ) : null}
     </form>
   );

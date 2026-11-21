@@ -1,5 +1,6 @@
 'use client';
 
+import { navigateDocument } from '../../edge/browser-navigation';
 import { useCallback } from 'react';
 import { systemClock } from '@daisy/clock';
 import { authClient } from '../../../lib/auth-client';
@@ -39,7 +40,7 @@ export function SignIn({
   readonly requestLink: RequestLinkAction;
 }) {
   const onSignedIn = useCallback(
-    () => window.location.assign(destination),
+    () => navigateDocument(destination),
     [destination],
   );
   return (

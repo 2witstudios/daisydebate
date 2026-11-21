@@ -1,7 +1,7 @@
+import { mapTabCommandAnswer } from './command-form-answer';
 import { z } from 'zod';
 import { idSchema, roomConfigSchema } from '@daisy/protocol';
 import { lobbySetupCommandEnvelopeSchema } from '@daisy/protocol/lobby/lobby-setup-command';
-import { lobbyCommandReceiptSchema } from '@daisy/protocol/lobby/command';
 import { createAppError } from '@daisy/errors';
 import {
   standingRoomCreationSchema,
@@ -125,30 +125,29 @@ export function standingRoomEnvelope(
     throw createAppError('INVARIANT');
   return { ...parsed, command: parsed.command };
 }
-const answerSchema = z.discriminatedUnion('kind', [
-  z.object({ kind: z.literal('accepted'), receipt: lobbyCommandReceiptSchema }),
-  z.object({ kind: z.literal('refused'), refusal: z.string() }),
-]);
 export function standingRoomAnswer(
   form: FormData,
   body: unknown,
 ): StandingRoomState | { readonly kind: 'accepted'; readonly roomId: string } {
-  const answer = answerSchema.safeParse(body);
-  if (!answer.success) return unacknowledged(form);
-  if (answer.data.kind === 'accepted')
-    return answer.data.receipt.aggregate.kind === 'room'
-      ? { kind: 'accepted', roomId: answer.data.receipt.aggregate.id }
-      : unacknowledged(form);
-  const message =
-    answer.data.refusal === 'setting-enforced'
-      ? 'The league settings changed. Reload this form to check them.'
-      : answer.data.refusal === 'template-not-offered' ||
-          answer.data.refusal === 'template-format-mismatch'
-        ? 'This template changed. Reload this form.'
-        : answer.data.refusal === 'pool-resolution-required'
-          ? 'This resolution changed. Reload the form to choose from the current pool.'
-          : answer.data.refusal === 'rating-format-unsupported'
-            ? 'This template cannot be rated on the league ladder.'
-            : 'The room could not be created. Reload the form to check its settings.';
-  return refused(form, message);
+  return mapTabCommandAnswer(body, {
+    accepted: ({ aggregate }) =>
+      aggregate.kind === 'room'
+        ? { kind: 'accepted' as const, roomId: aggregate.id }
+        : unacknowledged(form),
+    unacknowledged: () => unacknowledged(form),
+    refused: (reason) =>
+      refused(
+        form,
+        reason === 'setting-enforced'
+          ? 'The league settings changed. Reload this form to check them.'
+          : reason === 'template-not-offered' ||
+              reason === 'template-format-mismatch'
+            ? 'This template changed. Reload this form.'
+            : reason === 'pool-resolution-required'
+              ? 'This resolution changed. Reload the form to choose from the current pool.'
+              : reason === 'rating-format-unsupported'
+                ? 'This template cannot be rated on the league ladder.'
+                : 'The room could not be created. Reload the form to check its settings.',
+      ),
+  });
 }

@@ -1,3 +1,4 @@
+import { StatusRegion } from '../../components/status-region/status-region';
 import { buttonClass } from '../../components/button/button-class';
 import { errorClass } from '../../components/form-field/form-field-class';
 import { Button } from '../../components/button/button';
@@ -175,14 +176,15 @@ export function PeopleCommandFields({
           </Button>
         </fieldset>
         {!pending && (fields.error || fields.notice) ? (
-          <p
+          <StatusRegion
+            as="p"
             id={noticeId}
             tabIndex={-1}
             role={fields.error ? 'alert' : 'status'}
             className={fields.error ? errorClass : 'text-sm text-ink-muted'}
           >
             {fields.error ?? fields.notice}
-          </p>
+          </StatusRegion>
         ) : null}
       </form>
     </details>

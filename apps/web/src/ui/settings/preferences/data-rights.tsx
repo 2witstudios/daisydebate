@@ -1,3 +1,4 @@
+import { Button } from '../../components/button/button';
 import type { DataRightsNotices } from '../../../features/account/data-rights/notices';
 import { buttonClass } from '../../components/button/button-class';
 import { Notice } from '../../components/notice/notice';
@@ -55,9 +56,13 @@ export function DataRights({
         <h3 className={fieldsetLegend}>Your data</h3>
         {/* A native post: the download answers the form itself. */}
         <form method="post" action="/api/privacy/export">
-          <button type="submit" className={buttonClass('secondary') + ' w-fit'}>
+          <Button
+            variant="unstyled"
+            type="submit"
+            className={buttonClass('secondary') + ' w-fit'}
+          >
             Download your data
-          </button>
+          </Button>
         </form>
         <p className={helper}>
           A JSON file of your data records, not video. An export cannot be
@@ -80,9 +85,13 @@ export function DataRights({
             <span>I understand this cannot be undone.</span>
           </label>
           <div className="pt-3">
-            <button type="submit" className={buttonClass('primary') + ' w-fit'}>
+            <Button
+              variant="unstyled"
+              type="submit"
+              className={buttonClass('primary') + ' w-fit'}
+            >
               Close your account
-            </button>
+            </Button>
           </div>
         </form>
       </div>

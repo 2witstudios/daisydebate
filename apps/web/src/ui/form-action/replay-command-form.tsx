@@ -1,4 +1,5 @@
 'use client';
+import { StatusRegion } from '../components/status-region/status-region';
 import { useId } from 'react';
 import {
   idle,
@@ -88,11 +89,17 @@ export function ReplayCommandForm({
         </Button>
       </fieldset>
       {fields.error || state.kind === 'unacknowledged' ? (
-        <p id={notice} tabIndex={-1} role="status" className="text-sm text-ink">
+        <StatusRegion
+          as="p"
+          id={notice}
+          tabIndex={-1}
+          role="status"
+          className="text-sm text-ink"
+        >
           {state.kind === 'unacknowledged'
             ? 'The answer was lost. Retry the same change, or reload to see what was saved.'
             : fields.error}
-        </p>
+        </StatusRegion>
       ) : null}
     </form>
   );

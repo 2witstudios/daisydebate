@@ -33,7 +33,7 @@ test('the media model reads no clock, timer, storage, SDK or track handle', asyn
 
 test('the stage attaches handles and decides from the model', async () => {
   const stage = await Bun.file(
-    resolve(import.meta.dir, 'media-stage.tsx'),
+    resolve(import.meta.dir, '../../ui/round-media/media-stage.tsx'),
   ).text();
   const reads = [...stage.matchAll(/\b(handle|candidate)\.(\w+)/g)].map(
     ([, , field]) => field,

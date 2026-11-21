@@ -1,6 +1,7 @@
 'use client';
 
 import type { ComponentPropsWithoutRef } from 'react';
+import { Dialog } from '../dialog/dialog';
 import {
   popoverClasses,
   type PopoverClassName,
@@ -32,10 +33,10 @@ export function PopoverDialog<C extends string = string>({
   ...props
 }: PopoverDialogProps<C>) {
   return (
-    <div
+    <Dialog
+      as="div"
       {...props}
       popover="auto"
-      role="dialog"
       className={popoverClasses({ layout, className })}
       onToggle={(event) => {
         props.onToggle?.(event);

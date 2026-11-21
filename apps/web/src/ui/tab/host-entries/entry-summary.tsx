@@ -1,4 +1,5 @@
 'use client';
+import { Button } from '../../components/button/button';
 import { useState } from 'react';
 import { unavailableAction } from '../../../features/tab/action';
 import {
@@ -125,7 +126,8 @@ export function EntrySummary({ entries }: { readonly entries: HostEntries }) {
           className="flex flex-wrap gap-2"
         >
           {search.choices.map((choice) => (
-            <button
+            <Button
+              variant="unstyled"
               key={choice.id}
               type="button"
               aria-pressed={filter.status === choice.id}
@@ -135,7 +137,7 @@ export function EntrySummary({ entries }: { readonly entries: HostEntries }) {
               )}
             >
               {choice.label} {choice.count}
-            </button>
+            </Button>
           ))}
         </div>
       </div>

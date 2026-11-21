@@ -1098,3 +1098,107 @@ describe('database statement and lock boundaries', () => {
     });
   });
 });
+
+describe('browser edges', () => {
+  const rule = 'daisy-client/browser-edge';
+  const probe = async (filePath: string, source: string) => {
+    const [result] = await repositoryEslint().lintText(source, { filePath });
+    return result.messages.filter(({ ruleId }) => ruleId === rule).length;
+  };
+
+  test('owns React effects and host calls', async () => {
+    assert({
+      given:
+        'aliased imports, namespace effects, direct and bracket host calls',
+      should: 'report each bypass',
+      actual: await probe(
+        web('ui/room/controls.tsx'),
+        `import React, { useEffect as reactEffect } from 'react';
+         export { useLayoutEffect } from 'react';
+         reactEffect(() => {}, []);
+         React.useLayoutEffect(() => {}, []);
+         setTimeout(() => {}, 10);
+         window['clearTimeout'](1);
+         void globalThis.fetch('/api/rooms');`,
+      ),
+      expected: 6,
+    });
+  });
+
+  test('reports destructuring and React references above their import', async () => {
+    assert({
+      given:
+        'an extracted timer and a namespace effect before its hoisted import',
+      should: 'report both paths to runtime effects',
+      actual: await probe(
+        web('ui/room/controls.tsx'),
+        `const { setTimeout: schedule } = window;
+         schedule(() => {}, 1);
+         React.useEffect(() => {}, []);
+         import * as React from 'react';
+         export const { useLayoutEffect: syncLayout } = React;`,
+      ),
+      expected: 3,
+    });
+  });
+
+  test('reports browser and React defaults while allowing injected ports', async () => {
+    assert({
+      given:
+        'destructured global defaults and locally injected window and React objects',
+      should: 'report the host defaults and respect the local bindings',
+      actual: await probe(
+        web('ui/room/controls.tsx'),
+        `import * as React from 'react';
+         export function schedule({ setTimeout: delay } = window) {
+           return delay(() => {}, 1);
+         }
+         export function useSchedule({ useEffect: onEffect } = React) {
+           onEffect(() => {}, []);
+         }
+         export function injected(
+           window: Pick<Window, 'setTimeout'>,
+           React: { useEffect: () => void },
+         ) {
+           const { setTimeout: delay } = window;
+           const { useEffect: onEffect } = React;
+           delay(() => {}, 1);
+           onEffect();
+         }`,
+      ),
+      expected: 2,
+    });
+  });
+
+  test('keeps the browser transport out of server process composition', async () => {
+    assert({
+      given:
+        'a server module that statically imports, reexports or dynamically imports the browser adapter',
+      should: 'report each cross-boundary module dependency',
+      actual: await probe(
+        web('server/probe.ts'),
+        `import { browserFetch } from '../ui/edge/browser-request';
+         export { browserFetch as transport } from '../ui/edge/browser-request';
+         export const read = () => import('../ui/edge/browser-request');
+         export const fetcher = browserFetch;`,
+      ),
+      expected: 3,
+    });
+  });
+
+  test('accepts the owner, injected ports and a server request', async () => {
+    assert({
+      given: 'edge code, a client’s injected ports and a server’s fetch',
+      should: 'allow each',
+      actual: await Promise.all([
+        probe(web('ui/edge/probe.ts'), 'void fetch("/endpoint");'),
+        probe(
+          web('ui/probe.ts'),
+          'export const read = (fetch: () => void) => fetch();',
+        ),
+        probe(web('server/probe.ts'), 'void fetch("https://example.test");'),
+      ]),
+      expected: [0, 0, 0],
+    });
+  });
+});

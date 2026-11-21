@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useBrowserEffect } from '../ui/edge/browser-sync';
+import { useState } from 'react';
 import { Button } from '../ui/components/button/button';
 import { reportClientError } from '../features/telemetry/report-client-error';
 import { prose } from './ui/prose-class';
@@ -31,7 +32,7 @@ export default function GlobalError({
   // ADR 0037: the boundary is the client capture site; the raw error goes
   // only to the scrubbed reporter, and the digest below stays the only
   // identifier anyone sees here.
-  useEffect(() => {
+  useBrowserEffect(() => {
     reportClientError(error);
   }, [error]);
   return (

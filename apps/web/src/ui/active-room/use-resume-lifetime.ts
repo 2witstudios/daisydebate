@@ -1,15 +1,17 @@
 'use client';
 
+import { useBrowserEffect } from '../edge/browser-sync';
+import { scheduleTick } from '../edge/browser-time';
 import { nowMs, systemClock } from '@daisy/clock';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { documentTabId } from './document-tab';
-import { markDeparture } from './resume-departure';
-import { createResumeLifetime } from './resume-lifetime';
+import { useCallback, useRef, useState } from 'react';
+import { documentTabId } from '../../features/rooms/document-tab';
+import { markDeparture } from '../../features/rooms/resume-departure';
+import { createResumeLifetime } from '../../features/rooms/resume-lifetime';
 import {
   resumeHeirKey,
   resumeOwnershipHeartbeatMs,
   subscribeOwnership,
-} from './resume-ownership';
+} from '../../features/rooms/resume-ownership';
 
 /** Blocked storage means no coordination, which must never mean no media. */
 const advisoryStorage = () => {
@@ -61,11 +63,11 @@ export function useResumeLifetime(
   const lifetime = useRef<ReturnType<typeof createResumeLifetime> | null>(null);
   const onStepDown = useRef(steppedDown);
   const onHolderLeft = useRef(holderLeft);
-  useEffect(() => {
+  useBrowserEffect(() => {
     onStepDown.current = steppedDown;
     onHolderLeft.current = holderLeft;
   }, [steppedDown, holderLeft]);
-  useEffect(() => {
+  useBrowserEffect(() => {
     if (actorId === null || roundId === null) return;
     const current = createResumeLifetime({
       actorId,
@@ -81,8 +83,7 @@ export function useResumeLifetime(
       subscribe: (listener) =>
         subscribeOwnership(window, actorId, roundId, listener),
       schedule: (tick) => {
-        const timer = window.setInterval(tick, resumeOwnershipHeartbeatMs);
-        return () => window.clearInterval(timer);
+        return scheduleTick(tick, resumeOwnershipHeartbeatMs);
       },
       changed: (value) => {
         if (!value) onStepDown.current?.();

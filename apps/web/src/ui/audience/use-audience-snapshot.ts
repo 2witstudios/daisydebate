@@ -1,7 +1,9 @@
 'use client';
 import '../../lib/zod-jitless';
+import { useBrowserEffect } from '../edge/browser-sync';
+import { browserFetch } from '../edge/browser-request';
 import { audienceSnapshotSchema, type AudienceSnapshot } from '@daisy/protocol';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { answerOfResponse } from '../../features/spectating/poll-pace';
 import { startBrowserPoll } from '../spectating/browser-poll';
 import { usePublishedAudience } from '../spectating/published-state';
@@ -31,11 +33,11 @@ export function useAudienceSnapshot(
     setSeen(published);
     setSnapshot(newerAudience(snapshot, published));
   }
-  useEffect(() => {
+  useBrowserEffect(() => {
     if (!polling || !liveRoom) return;
     let stopped = false;
     const stop = startBrowserPoll(async () => {
-      const response = await fetch(
+      const response = await browserFetch(
         `/api/rounds/${encodeURIComponent(initial.roundId)}/audience`,
         { credentials: 'same-origin' },
       );

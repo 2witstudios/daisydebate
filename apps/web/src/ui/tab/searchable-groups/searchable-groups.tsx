@@ -1,5 +1,6 @@
 'use client';
 
+import { Button } from '../../components/button/button';
 import { useState, type ReactNode } from 'react';
 import { collapsed } from '../../../features/tab/at-scale';
 import type { TabAction } from '../../../features/tab/action';
@@ -158,7 +159,8 @@ export function SearchableGroups({
             className="flex flex-wrap gap-2"
           >
             {[{ id: 'all', label: 'All' }, ...statuses].map((status) => (
-              <button
+              <Button
+                variant="unstyled"
                 key={status.id}
                 type="button"
                 aria-pressed={filter.status === status.id}
@@ -168,7 +170,7 @@ export function SearchableGroups({
                 )}
               >
                 {status.label} {count(status.id)}
-              </button>
+              </Button>
             ))}
           </div>
         )}

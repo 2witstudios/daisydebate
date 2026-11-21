@@ -1,3 +1,4 @@
+import { Button } from '../../components/button/button';
 import { leadSeatOf, sideOfSeat } from '@daisy/protocol';
 import type { CreateRoomDraft } from '../../../features/rooms/create-room-draft';
 import {
@@ -54,7 +55,8 @@ function ScheduleButton({
   readonly schedule: Props['schedule'];
 }) {
   return (
-    <button
+    <Button
+      variant="unstyled"
       type="submit"
       name="intent"
       value={intent}
@@ -74,7 +76,7 @@ function ScheduleButton({
           : intent.startsWith('remove:')
             ? 'Remove'
             : label}
-    </button>
+    </Button>
   );
 }
 
