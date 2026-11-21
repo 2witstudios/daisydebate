@@ -1,17 +1,18 @@
-import { readTournamentEventSettings } from '../src/features/tab/reads/tournament-event-settings';
-import { readTournamentSetup } from '../src/features/tab/reads/tournament-setup';
 import { authorize } from '@daisy/auth/authorization';
 import { createTabStore } from '@daisy/db/tab';
-import { createId } from '@paralleldrive/cuid2';
 import type { TournamentSetupCommand } from '@daisy/protocol/lobby/lobby-setup-command';
+import { tournamentSetupViewSchema } from '@daisy/protocol/lobby/lobby-setup-read';
+import { tournamentEventSettingsViewSchema } from '@daisy/protocol/lobby/resolved-settings-read';
+import { createId } from '@paralleldrive/cuid2';
 import { assert } from 'riteway/bun';
-import { setupCommand } from '../src/features/tab/operations/setup';
-import { settingCommand } from '../src/features/tab/operations/settings';
+import { readTournamentEventSettings } from '../src/features/tab/reads/tournament-event-settings';
+import { readTournamentSetup } from '../src/features/tab/reads/tournament-setup';
 import {
   as,
   deniedAsNotFound,
   StageFailed,
 } from './tab-tournament-organization-wiring.test-support';
+import { tabCommand, tabRead } from './tab-tournament-transport.test-support';
 import type { World } from './tab-tournament.test-support';
 
 /** Setup is driven through commands; SQL below only checks the stored outcome. */
@@ -20,12 +21,7 @@ export const setupStage = async (world: World): Promise<void> => {
   const coach = world.bots.Coach!;
   const lobbyId = world.made.get('tournament-lobby')!;
   const store = createTabStore(world.database);
-  const send = setupCommand({
-    store,
-    authorize,
-    now: world.clock.now,
-    newId: createId,
-  });
+  const send = tabCommand(world, 'setup');
   let version = 3;
   const accept = async (command: TournamentSetupCommand) => {
     const answer = await send(as(director), {
@@ -169,12 +165,7 @@ export const setupStage = async (world: World): Promise<void> => {
     actual: stale,
     expected: { kind: 'refused', refusal: 'version-conflict' },
   });
-  const settings = settingCommand({
-    store,
-    authorize,
-    now: world.clock.now,
-    newId: createId,
-  });
+  const settings = tabCommand(world, 'settings');
   const follow = await settings(as(director), {
     version: 1,
     commandId: createId(),
@@ -212,11 +203,17 @@ export const setupStage = async (world: World): Promise<void> => {
     actual: recording.kind,
     expected: 'accepted',
   });
-  const view = await readTournamentSetup({
-    store,
-    authorize,
-    now: world.clock.now,
-  })(as(director), lobbyId);
+  const view = await tabRead(
+    world,
+    'tournament-setup',
+    tournamentSetupViewSchema,
+    readTournamentSetup({
+      store,
+      authorize,
+      now: world.clock.now,
+    }),
+    () => ({ handle: world.made.get('tournament-handle')! }),
+  )(as(director), lobbyId);
   assert({
     given: 'the actual stored setup after the public-template follow',
     should: 'serve that event and its real scheduled round to the host',
@@ -238,11 +235,17 @@ export const setupStage = async (world: World): Promise<void> => {
       },
     ],
   });
-  const resolved = await readTournamentEventSettings({
-    store,
-    authorize,
-    now: world.clock.now,
-  })(as(director), { lobbyId, eventId });
+  const resolved = await tabRead(
+    world,
+    'tournament-event-settings',
+    tournamentEventSettingsViewSchema,
+    readTournamentEventSettings({
+      store,
+      authorize,
+      now: world.clock.now,
+    }),
+    (input) => ({ ...input }),
+  )(as(director), { lobbyId, eventId });
   assert({
     given: 'the event after its settings and template have been persisted',
     should: 'serve the actual event settings through the host read',

@@ -1,13 +1,15 @@
-import { authorize } from '@daisy/auth/authorization';
-import { createTabStore } from '@daisy/db/tab';
+import { hostRosterViewSchema } from '@daisy/protocol/lobby/entry-read';
 import { createId } from '@paralleldrive/cuid2';
 import { assert } from 'riteway/bun';
-import { judgeRegistrationCommand } from '../src/features/tab/operations/judge-registration';
 import {
   as,
   deniedAsNotFound,
   StageFailed,
 } from './tab-tournament-organization-wiring.test-support';
+import {
+  readTab,
+  tabLobbyCommand,
+} from './tab-tournament-transport.test-support';
 import type { World } from './tab-tournament.test-support';
 
 export const judgeRegistrationStage = async (world: World): Promise<void> => {
@@ -20,13 +22,7 @@ export const judgeRegistrationStage = async (world: World): Promise<void> => {
   const slotId = world.made.get('time-slot')!;
   const [before] =
     await world.sql`select version from users where id = ${judgeA.userId}`;
-  const send = judgeRegistrationCommand({
-    store: createTabStore(world.database),
-    authorize,
-    now: world.clock.now,
-    newId: createId,
-    minorsReleased: async () => false,
-  });
+  const send = tabLobbyCommand(world, 'judges');
   const invitation = {
     version: 1,
     commandId: createId(),
@@ -115,6 +111,24 @@ export const judgeRegistrationStage = async (world: World): Promise<void> => {
       },
     ],
   });
+  if (world.http) {
+    const roster = await readTab(
+      world.http,
+      director,
+      'host-roster',
+      { lobbyId, eventId },
+      hostRosterViewSchema,
+    );
+    const judge = roster?.judges.groups
+      .flatMap((group) => group.judges)
+      .find((row) => row.id === judgeId);
+    assert({
+      given: 'the judge accepted and made themselves available',
+      should: 'show a judge cleared for the event and free in its time slot',
+      actual: [judge?.clearedFor, judge?.slots],
+      expected: [[eventId], [{ state: 'free' }]],
+    });
+  }
   const lateDecline = await send(as(judgeA), lobbyId, {
     version: 1,
     commandId: createId(),

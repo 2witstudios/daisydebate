@@ -1,24 +1,36 @@
 import { authorize } from '@daisy/auth/authorization';
 import { createTabStore } from '@daisy/db/tab';
+import { noopErrorReporter } from '@daisy/observability';
+import { standingsViewSchema } from '@daisy/protocol/lobby/standings-read';
 import { standings } from '@daisy/tab-engine';
 import { createId } from '@paralleldrive/cuid2';
 import { assert } from 'riteway/bun';
-import { readHostStandings } from '../src/features/tab/reads/host-standings';
-import { eventCompetition } from '../src/features/tab/operations/event-competition';
-import { as } from './tab-tournament-organization-wiring.test-support';
-import type { World } from './tab-tournament.test-support';
 import {
   createHostStandingsRoute,
   hostStandingsPath,
 } from '../src/features/tab/host-standings-route';
+import { eventCompetition } from '../src/features/tab/operations/event-competition';
+import { readHostStandings } from '../src/features/tab/reads/host-standings';
 import { member, origin } from '../src/server/member-boundary.test-support';
 import { silentLogger } from '../src/server/test-loggers.test-support';
-import { noopErrorReporter } from '@daisy/observability';
+import { as } from './tab-tournament-organization-wiring.test-support';
+import { tabRead } from './tab-tournament-transport.test-support';
+import {
+  withClosedTabRelease,
+  type World,
+} from './tab-tournament.test-support';
 
 /** Recompute actual competitive inputs; neither standings nor break seeds are stored. */
 export async function standingsStage(world: World) {
   const store = createTabStore(world.database);
-  const read = readHostStandings({ store, authorize, now: world.clock.now });
+  const direct = readHostStandings({ store, authorize, now: world.clock.now });
+  const read = tabRead(
+    world,
+    'host-standings',
+    standingsViewSchema,
+    direct,
+    (input) => ({ ...input }),
+  );
   const lobbyId = world.made.get('tournament-lobby')!,
     eventId = world.made.get('event')!;
   const actual = await read(as(world.bots.Director!), { lobbyId, eventId });
@@ -77,13 +89,26 @@ export async function standingsStage(world: World) {
         }),
       },
       released: async () => released,
-      read,
+      read: direct,
     });
+  const path = hostStandingsPath(lobbyId, eventId);
   const request = () =>
-    new Request(`${origin}${hostStandingsPath(lobbyId, eventId)}`, {
-      headers: { origin },
-    });
-  const response = await route(world.bots.Director!)(request());
+    new Request(`${origin}${path}`, { headers: { origin } });
+  const director = world.bots.Director!,
+    entrant = world.bots['Debater 1']!;
+  const http = world.http;
+  const response = http
+    ? await http(director, path)
+    : await route(director)(request());
+  const closed = http
+    ? await withClosedTabRelease(
+        world,
+        async () => (await http(director, path)).status,
+      )
+    : (await route(director, false)(request())).status;
+  const outsider = http
+    ? await http(entrant, path)
+    : await route(entrant)(request());
   assert({
     given: 'the evaluated HTTP route over those same actual committed results',
     should:
@@ -91,9 +116,9 @@ export async function standingsStage(world: World) {
     actual: [
       response.status,
       response.headers.get('cache-control'),
-      await response.json(),
-      (await route(world.bots.Director!, false)(request())).status,
-      (await route(world.bots['Debater 1']!)(request())).status,
+      standingsViewSchema.parse(await response.json()),
+      closed,
+      outsider.status,
     ],
     expected: [200, 'no-store', actual, 404, 404],
   });

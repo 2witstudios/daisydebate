@@ -1,4 +1,8 @@
 import { createDatabase, type Database } from '@daisy/db';
+import {
+  notificationPreferencesSchema,
+  notificationShellSchema,
+} from '@daisy/protocol';
 import { createId } from '@paralleldrive/cuid2';
 import { SQL } from 'bun';
 import { assert } from 'riteway/bun';
@@ -108,18 +112,31 @@ export async function notificationsStage(world: World): Promise<void> {
     const choices = await store.readNotificationPreferences({
       userId: competitor.userId,
     });
-    await store.writeNotificationPreferences({
-      userId: competitor.userId,
-      choices: { ...choices, tournament_results_released: { in_app: false } },
+    const setPreferences = async (next: typeof choices) => {
+      if (!world.http) {
+        await store.writeNotificationPreferences({
+          userId: competitor.userId,
+          choices: next,
+        });
+        return;
+      }
+      const response = await world.http(
+        competitor,
+        '/api/notifications/preferences',
+        notificationPreferencesSchema.parse({ version: 2, choices: next }),
+      );
+      if (!response.ok)
+        throw new Error(`Notification preferences: HTTP ${response.status}`);
+    };
+    await setPreferences({
+      ...choices,
+      tournament_results_released: { in_app: false },
     });
     const hidden = await readNotificationItems(store, {
       ...input,
       userId: competitor.userId,
     });
-    await store.writeNotificationPreferences({
-      userId: competitor.userId,
-      choices,
-    });
+    await setPreferences(choices);
     assert({
       given: 'the existing saved preference switches for the actual competitor',
       should:
@@ -145,11 +162,31 @@ export async function notificationsStage(world: World): Promise<void> {
         (item) => item.text === 'Your tournament results have been released.',
       );
     const unreadBefore = await unreadOnly(new Date().toISOString());
-    await store.markNotificationsRead({
-      userId: competitor.userId,
-      notificationIds: 'all',
-      at: new Date().toISOString(),
-    });
+    if (world.http) {
+      const read = await world.http(competitor, '/api/notifications/read', {
+        version: 1,
+        kind: 'all',
+      });
+      if (!read.ok)
+        throw new Error(`Mark notifications read: HTTP ${read.status}`);
+      const shell = await world.http(competitor, '/api/notifications/shell');
+      if (!shell.ok)
+        throw new Error(`Notification shell: HTTP ${shell.status}`);
+      const badge = notificationShellSchema.parse(await shell.json());
+      assert({
+        given: 'the member marked all notices read through the account route',
+        should:
+          'clear the unread badge and recent notices through the shell read',
+        actual: [badge.unread, badge.recent.length],
+        expected: [0, 0],
+      });
+    } else {
+      await store.markNotificationsRead({
+        userId: competitor.userId,
+        notificationIds: 'all',
+        at: new Date().toISOString(),
+      });
+    }
     const unreadAfter = await unreadOnly(new Date().toISOString());
     const everything = await readNotificationItems(store, {
       ...input,

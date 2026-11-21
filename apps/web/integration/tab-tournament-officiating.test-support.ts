@@ -1,16 +1,16 @@
-import { authorize } from '@daisy/auth/authorization';
 import { createTabStore } from '@daisy/db/tab';
 import { createId } from '@paralleldrive/cuid2';
 import { assert } from 'riteway/bun';
-import { fixtureCommand } from '../src/features/tab/operations/fixture-command';
-import { settlePendingCommand } from '../src/features/tab/operations/confirmation-command';
-import { organizationCommand } from '../src/features/tab/operations/organization';
 import { registerFixtureJudge } from './tab-fixture-judge.test-support';
 import {
   as,
   deniedAsNotFound,
   presetStaffRoleId,
 } from './tab-tournament-organization-wiring.test-support';
+import {
+  tabCommand,
+  tabLobbyCommand,
+} from './tab-tournament-transport.test-support';
 import type { World } from './tab-tournament.test-support';
 
 /** A real scoped grant, connected proposal and second-person confirmation replace the unready no-show without a new draw. */
@@ -21,10 +21,9 @@ export async function officiatingStage(world: World) {
     roomId = world.made.get('first-room')!;
   const director = world.bots.Director!,
     replacement = world.bots['Judge C']!;
-  const common = { store, authorize, now: world.clock.now, newId: createId };
-  const send = fixtureCommand(common),
-    settle = settlePendingCommand(common),
-    organization = organizationCommand(common);
+  const send = tabLobbyCommand(world, 'fixture'),
+    settle = tabLobbyCommand(world, 'confirmation'),
+    organization = tabCommand(world, 'organization');
   const [before] =
     await world.sql`select f.version,j.id judge_id,j.actor_id from fixtures f join fixture_judges fj on fj.fixture_id=f.id join tournament_judges j on j.id=fj.tournament_judge_id where f.id=${fixtureId}`;
   const noShow = Object.values(world.bots).find(
@@ -40,6 +39,7 @@ export async function officiatingStage(world: World) {
     store,
     world,
     person: replacement,
+    ...(world.http ? { send: tabLobbyCommand(world, 'judges') } : {}),
   });
   const [lobby] =
     await world.sql`select version from lobbies where id=${lobbyId}`;
