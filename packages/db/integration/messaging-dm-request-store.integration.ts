@@ -4,7 +4,7 @@ import { createAppError } from '@daisy/errors';
 import { assertRejects } from '@daisy/errors/testing';
 import { createId } from '@paralleldrive/cuid2';
 import { drizzle } from 'drizzle-orm/bun-sql';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { contactReactions } from '../src/contact-composition';
 import { dmRequestFrame } from '../src/messaging/social-request';
@@ -42,6 +42,7 @@ const withDmRequests = async (
     channelId,
     now,
     low,
+    high,
   } = fixture;
   const nextChannel = createId();
   const statements: string[] = [];
@@ -50,6 +51,7 @@ const withDmRequests = async (
     logger: { logQuery: (query) => statements.push(query.trim()) },
   });
   try {
+    if (!low || !high) throw new Error('DM fixture contact key absent');
     await work({
       client,
       actorId,
@@ -72,7 +74,12 @@ const withDmRequests = async (
           const [pair] = await tx
             .select()
             .from(contactPairs)
-            .where(eq(contactPairs.lowActorId, low))
+            .where(
+              and(
+                eq(contactPairs.lowActorId, low),
+                eq(contactPairs.highActorId, high),
+              ),
+            )
             .for('update');
           if (!pair) throw new Error('DM contact fixture absent');
           statements.length = 0;
