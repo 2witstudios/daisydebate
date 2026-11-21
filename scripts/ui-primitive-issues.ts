@@ -16,13 +16,63 @@ const ownerForRole = (role: string) => {
   }
 };
 
-const roleOwner = (value: ts.Node): string | undefined => {
-  if (ts.isStringLiteralLike(value)) return ownerForRole(value.text);
-  if (ts.isConditionalExpression(value))
-    return roleOwner(value.whenTrue) ?? roleOwner(value.whenFalse);
-  if (ts.isJsxExpression(value) && value.expression !== undefined)
-    return roleOwner(value.expression);
-  return undefined;
+/** Resolve same-file const bindings only. No project or libraries are loaded. */
+const checkRolesIn = (file: ts.SourceFile) => {
+  let checker: ts.TypeChecker | undefined;
+  const constInitializer = (identifier: ts.Identifier) => {
+    if (checker === undefined) {
+      const options = {
+        noLib: true,
+        noResolve: true,
+        jsx: ts.JsxEmit.Preserve,
+      };
+      const host = ts.createCompilerHost(options);
+      const program = ts.createProgram([file.fileName], options, {
+        ...host,
+        getSourceFile: (path) => (path === file.fileName ? file : undefined),
+      });
+      checker = program.getTypeChecker();
+    }
+    const declaration =
+      checker.getSymbolAtLocation(identifier)?.valueDeclaration;
+    if (
+      declaration !== undefined &&
+      declaration.getSourceFile() === file &&
+      ts.isVariableDeclaration(declaration) &&
+      (declaration.parent.flags & ts.NodeFlags.Const) !== 0
+    )
+      return declaration.initializer;
+    return undefined;
+  };
+
+  const roleOwner = (
+    value: ts.Node,
+    visited: Set<ts.Node>,
+  ): string | undefined => {
+    if (visited.has(value)) return undefined;
+    visited.add(value);
+    if (ts.isStringLiteralLike(value)) return ownerForRole(value.text);
+    if (ts.isConditionalExpression(value))
+      return (
+        roleOwner(value.whenTrue, visited) ??
+        roleOwner(value.whenFalse, visited)
+      );
+    if (
+      ts.isParenthesizedExpression(value) ||
+      ts.isAsExpression(value) ||
+      ts.isSatisfiesExpression(value)
+    )
+      return roleOwner(value.expression, visited);
+    if (ts.isJsxExpression(value) && value.expression !== undefined)
+      return roleOwner(value.expression, visited);
+    if (ts.isIdentifier(value)) {
+      const initializer = constInitializer(value);
+      if (initializer !== undefined) return roleOwner(initializer, visited);
+    }
+    return undefined;
+  };
+
+  return (value: ts.Node) => roleOwner(value, new Set());
 };
 
 /** Native JSX outside the primitive directory should use the shared owner. */
@@ -34,6 +84,7 @@ export function uiPrimitiveIssues(path: string, source: string): string[] {
   )
     return [];
   const file = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true);
+  const roleOwner = checkRolesIn(file);
   const issues: string[] = [];
   const visit = (node: ts.Node) => {
     if (

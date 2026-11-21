@@ -9,8 +9,13 @@ const browserOperations = new Set([
   'cancelAnimationFrame',
 ]);
 const hosts = new Set(['window', 'globalThis', 'self']);
-const memberName = (node) =>
-  node.computed ? node.property.value : node.property.name;
+const memberName = (key, computed) => {
+  if (!computed && key.type === 'Identifier') return key.name;
+  if (key.type === 'Literal') return key.value;
+  if (key.type === 'TemplateLiteral' && key.expressions.length === 0)
+    return key.quasis[0].value.cooked;
+  return undefined;
+};
 
 const browserEdge = {
   meta: {
@@ -30,19 +35,51 @@ const browserEdge = {
       path.includes('/src/ui/') ||
       /\/[^/]*browser[^/]*\.[cm]?[jt]sx?$/.test(path) ||
       sourceCode.ast.body.some((node) => node.directive === 'use client');
-    const reactNamespaces = new Set();
+    const reactNamespaces = new Set(
+      sourceCode.ast.body
+        .filter(
+          (node) =>
+            node.type === 'ImportDeclaration' && node.source.value === 'react',
+        )
+        .flatMap((node) =>
+          node.specifiers
+            .filter(
+              (specifier) =>
+                specifier.type === 'ImportDefaultSpecifier' ||
+                specifier.type === 'ImportNamespaceSpecifier',
+            )
+            .map((specifier) => specifier.local.name),
+        ),
+    );
     const report = (node, messageId) => context.report({ node, messageId });
     const reactBindings = (node) => {
       if (node.source?.value !== 'react') return;
       for (const specifier of node.specifiers) {
-        const name = specifier.imported?.name ?? specifier.local.name;
-        if (effects.has(name)) report(specifier, 'effect');
-        if (
-          specifier.type === 'ImportDefaultSpecifier' ||
-          specifier.type === 'ImportNamespaceSpecifier'
-        )
-          reactNamespaces.add(specifier.local.name);
+        const binding = specifier.imported ?? specifier.local;
+        if (effects.has(memberName(binding, false)))
+          report(specifier, 'effect');
       }
+    };
+    const inspectMember = (node, object, member) => {
+      if (reactNamespaces.has(object) && effects.has(member))
+        report(node, 'effect');
+      if (
+        hosts.has(object) &&
+        browserOperations.has(member) &&
+        (browser || object === 'window')
+      )
+        report(node, 'operation');
+    };
+    const inspectPattern = (pattern, source) => {
+      if (pattern.type !== 'ObjectPattern' || source?.type !== 'Identifier')
+        return;
+      for (const property of pattern.properties)
+        if (property.type === 'Property')
+          inspectMember(
+            property,
+            source.name,
+            memberName(property.key, property.computed),
+          );
     };
     return {
       ImportDeclaration(node) {
@@ -54,18 +91,19 @@ const browserEdge = {
         reactBindings(node);
       },
       ExportNamedDeclaration: reactBindings,
-      'MemberExpression:exit'(node) {
-        if (node.object.type !== 'Identifier') return;
-        const object = node.object.name;
-        const member = memberName(node);
-        if (reactNamespaces.has(object) && effects.has(member))
-          report(node, 'effect');
-        if (
-          hosts.has(object) &&
-          browserOperations.has(member) &&
-          (browser || object === 'window')
-        )
-          report(node, 'operation');
+      MemberExpression(node) {
+        if (node.object.type === 'Identifier')
+          inspectMember(
+            node,
+            node.object.name,
+            memberName(node.property, node.computed),
+          );
+      },
+      VariableDeclarator(node) {
+        inspectPattern(node.id, node.init);
+      },
+      AssignmentExpression(node) {
+        inspectPattern(node.left, node.right);
       },
       'Program:exit'() {
         if (!browser) return;

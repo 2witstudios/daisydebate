@@ -1125,6 +1125,22 @@ describe('browser edges', () => {
     });
   });
 
+  test('reports host destructuring and React references above their import', async () => {
+    assert({
+      given:
+        'an extracted timer and a namespace effect before its hoisted import',
+      should: 'report both paths to runtime effects',
+      actual: await probe(
+        web('ui/room/controls.tsx'),
+        `const { setTimeout: schedule } = window;
+         schedule(() => {}, 1);
+         React.useEffect(() => {}, []);
+         import * as React from 'react';`,
+      ),
+      expected: 2,
+    });
+  });
+
   test('keeps the browser transport out of server process composition', async () => {
     assert({
       given: 'a server module that imports the browser fetch adapter',

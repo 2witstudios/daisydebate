@@ -121,6 +121,27 @@ describe('UI primitive gate', () => {
     });
   });
 
+  test('recognizes parenthesized roles and scoped const aliases', () => {
+    assert({
+      given: 'two raw live roles and a locally shadowed constant for tabs',
+      should: 'report both raw live roles and allow the unrelated role',
+      actual: uiPrimitiveIssues(
+        path,
+        `const role = 'alert' as const;
+         const announcement = <p role={('status')} />;
+         const refusal = <p role={role} />;
+         function Tab() {
+           const role = 'tab';
+           return <div role={role} />;
+         }`,
+      ),
+      expected: [
+        `${path}:2: use StatusRegion for this <p>`,
+        `${path}:3: use StatusRegion for this <p>`,
+      ],
+    });
+  });
+
   test('accepts shared primitives, unrelated roles and inert text', () => {
     assert({
       given: 'the components, an img role and a string with markup',
