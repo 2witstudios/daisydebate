@@ -58,7 +58,8 @@ function certifiedTournaments(
       record,
     ]);
   return [...fixtures.values()].flatMap((records) => {
-    const latest = records.at(-1)!;
+    const latest = records.at(-1);
+    if (!latest) return [];
     const record = latest.competitionRecord;
     if (
       record.fixture.kind !== 'pairing' ||

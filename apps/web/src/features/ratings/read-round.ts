@@ -104,7 +104,9 @@ export async function readRoundRatings(
     const visible = (
       side: typeof first,
     ): side is NonNullable<ReturnType<typeof standing>>[] =>
-      Boolean(side?.length) && side!.every((row) => row !== undefined);
+      side !== undefined &&
+      side.length > 0 &&
+      side.every((row) => row !== undefined);
     if (visible(first) && visible(second)) {
       const participants = [...first, ...second];
       const input = {

@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import type { RoomCreate } from '@daisy/protocol';
 import type { SharedLobbyRefusal } from '@daisy/protocol/lobby/command';
 import {
@@ -473,7 +474,7 @@ const editSeason = (
     if (season.status === 'closed') return refuse('season-closed');
     if (
       command.endsAt !== null &&
-      Date.parse(command.endsAt) <= Date.parse(season.startsAt)
+      instantMs(command.endsAt) <= instantMs(season.startsAt)
     )
       return refuse('season-end-before-start');
     const version = season.version + 1;

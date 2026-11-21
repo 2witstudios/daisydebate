@@ -25,7 +25,7 @@ export function readLeagueRooms(
   authorize: (input: AuthorizationInput) => AuthorizationDecision,
 ): LeagueRoomsRead | null {
   const lobby = facts.standingLobby;
-  if (!lobby || !facts.authorization.organization) return null;
+  if (!facts.authorization.organization) return null;
   const hosted = hostLobbyResource(
     lobby,
     facts.authorization.organization,

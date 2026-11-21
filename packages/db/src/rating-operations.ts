@@ -5,7 +5,7 @@ import {
   type PlannedRatingChange,
   type RatingState,
 } from '@daisy/protocol';
-import { and, desc, eq, inArray, max, ne, sql } from 'drizzle-orm';
+import { and, eq, inArray, max, sql } from 'drizzle-orm';
 import type { RateDebateInput, RateDebateResult } from './rating-facts';
 import {
   assertRoundRatingIntegrity,

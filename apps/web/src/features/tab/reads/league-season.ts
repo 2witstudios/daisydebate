@@ -244,13 +244,11 @@ export const readLeagueSeason =
         return {
           ...projected,
           handle: facts.organization.handle,
-          standingLobby: facts.standingLobby
-            ? {
-                id: facts.standingLobby.id,
-                handle: facts.standingLobby.handle,
-                name: facts.standingLobby.name,
-              }
-            : null,
+          standingLobby: {
+            id: facts.standingLobby.id,
+            handle: facts.standingLobby.handle,
+            name: facts.standingLobby.name,
+          },
           template: (() => {
             const template = facts.series.find(
               (row) => row.id === projected.view.standings.series.templateId,
