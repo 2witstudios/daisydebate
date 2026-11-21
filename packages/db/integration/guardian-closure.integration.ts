@@ -128,7 +128,9 @@ test(
         reason: 'already_released',
       });
       expect(
-        await sql`select scope, signer_email, wording_version from media_releases
+        await sql<
+          { scope: string; signer_email: string; wording_version: string }[]
+        >`select scope, signer_email, wording_version from media_releases
       where user_id = ${child.userId} and withdrawn_at is null`,
       ).toEqual([
         {
@@ -138,39 +140,55 @@ test(
         },
       ]);
       expect(
-        await sql`select m.kind from media_release_mails m
+        await sql<{ kind: string }[]>`select m.kind from media_release_mails m
       join media_release_requests r on r.id = m.request_id
       where r.user_id = ${child.userId}`,
       ).toEqual([{ kind: 'copy' }]);
 
       expect((await close(authority)).alreadyErased).toBe(false);
       expect(
-        await sql`select username, email, deleted_at is not null as closed from users
+        await sql<
+          { username: string; email: string | null; closed: boolean }[]
+        >`select username, email, deleted_at is not null as closed from users
       where id = ${child.userId}`,
       ).toEqual([{ username: `u-${child.userId}`, email: null, closed: true }]);
       expect(
-        await sql`select id from actors where user_id = ${child.userId}`,
+        await sql<
+          { id: string }[]
+        >`select id from actors where user_id = ${child.userId}`,
       ).toEqual([{ id: child.actorId }]);
-      expect(await sql`select id from rounds where id = ${round}`).toEqual([
-        { id: round },
-      ]);
       expect(
-        await sql`select id from session where user_id = ${child.userId}`,
+        await sql<{ id: string }[]>`select id from rounds where id = ${round}`,
+      ).toEqual([{ id: round }]);
+      expect(
+        await sql<
+          { id: string }[]
+        >`select id from session where user_id = ${child.userId}`,
       ).toEqual([]);
       expect(
-        await sql`select status from guardian_links where id = ${linkId}`,
+        await sql<
+          { status: string }[]
+        >`select status from guardian_links where id = ${linkId}`,
       ).toEqual([{ status: 'ended' }]);
       expect(
-        await sql`select id from guardian_consent_evidence where id = ${evidence}`,
+        await sql<
+          { id: string }[]
+        >`select id from guardian_consent_evidence where id = ${evidence}`,
       ).toEqual([{ id: evidence }]);
       expect(
-        await sql`select withdrawn_by from media_releases where user_id = ${child.userId}`,
+        await sql<
+          { withdrawn_by: string }[]
+        >`select withdrawn_by from media_releases where user_id = ${child.userId}`,
       ).toEqual([{ withdrawn_by: 'erasure' }]);
       expect(
-        await sql`select vendor, status from privacy_jobs where subject_ref = ${child.userId}`,
+        await sql<
+          { vendor: string; status: string }[]
+        >`select vendor, status from privacy_jobs where subject_ref = ${child.userId}`,
       ).toEqual([{ vendor: 'stripe', status: 'pending' }]);
       expect(
-        await sql`select email, deleted_at from users where id = ${guardian.userId}`,
+        await sql<
+          { email: string; deleted_at: Date | null }[]
+        >`select email, deleted_at from users where id = ${guardian.userId}`,
       ).toEqual([{ email: guardian.email, deleted_at: null }]);
     } finally {
       await sql.close();

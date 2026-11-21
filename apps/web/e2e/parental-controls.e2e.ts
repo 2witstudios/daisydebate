@@ -510,6 +510,9 @@ test('a linked guardian signs the media release and closes the child account fro
     );
     expect(rejected.status()).toBe(404);
 
+    await page
+      .getByText('Review and sign media release', { exact: true })
+      .click();
     await page.getByLabel('Your full name').fill('Taylor Guardian');
     await page.getByLabel(/I am @.*parent or legal guardian/).check();
     await page.getByRole('button', { name: 'Sign release' }).click();

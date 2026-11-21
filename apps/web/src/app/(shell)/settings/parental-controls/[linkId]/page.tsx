@@ -67,14 +67,19 @@ export default async function GuardianMorePage({
         {release.signed ? (
           <p>A media release is on file.</p>
         ) : release.username ? (
-          <>
-            <ReleaseTerms minor={release.username} />
-            <ReleaseUnchanged minor={release.username} />
-            <LinkedGuardianReleaseForm
-              minor={release.username}
-              action={guardianMoreAction.bind(null, linkId, 'sign')}
-            />
-          </>
+          <details>
+            <summary className="cursor-pointer font-semibold text-ink">
+              Review and sign media release
+            </summary>
+            <div className="flex flex-col gap-5 pt-4">
+              <ReleaseTerms minor={release.username} />
+              <ReleaseUnchanged minor={release.username} />
+              <LinkedGuardianReleaseForm
+                minor={release.username}
+                action={guardianMoreAction.bind(null, linkId, 'sign')}
+              />
+            </div>
+          </details>
         ) : null}
       </section>
       <section
