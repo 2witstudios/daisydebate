@@ -1,12 +1,13 @@
 import { participantAccess } from '@daisy/auth/authorization';
 import type { TabAccount } from '@daisy/db/tab';
 
-/** The closed-minors cast rule, using each person's canonical fenced account. */
+/** Draws use accepted entries and recheck each entrant’s fenced account. */
 export const eligibleTournamentActors = (
   accounts: readonly {
     readonly actorId: string;
     readonly account: TabAccount | null;
   }[],
+  role: 'debater' | 'judge',
 ): ReadonlySet<string> =>
   new Set(
     accounts
@@ -15,7 +16,7 @@ export const eligibleTournamentActors = (
           account?.member &&
           !account.erased &&
           participantAccess(account) &&
-          account.ageBand === 'adult',
+          (role === 'debater' || account.ageBand === 'adult'),
       )
       .map((person) => person.actorId),
   );

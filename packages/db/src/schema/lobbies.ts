@@ -84,7 +84,14 @@ export const lobbies = pgTable(
       columns: [table.standingLobbyId, table.ownerOrganizationId],
       foreignColumns: [table.id, table.ownerOrganizationId],
     }).onDelete('restrict'),
-    index('lobbies_standing_parent_idx').on(table.standingLobbyId),
+    index('lobbies_standing_parent_kind_idx').on(
+      table.standingLobbyId,
+      table.standingLobbyKind,
+    ),
+    index('lobbies_standing_parent_league_idx').on(
+      table.standingLobbyId,
+      table.ownerOrganizationId,
+    ),
     check(
       'lobbies_age_rule_source',
       sql`case when ${table.kind} = 'tournament' and ${table.ownerOrganizationId} is not null

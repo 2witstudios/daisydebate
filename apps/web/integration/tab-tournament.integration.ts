@@ -13,6 +13,7 @@ import { judgeRegistrationStage } from './tab-tournament-judge-registration.test
 import { setupStage } from './tab-tournament-setup.test-support';
 import { leagueAdministrationStage } from './tab-tournament-league-administration.test-support';
 import { requireTestServices } from '@daisy/config';
+import { withRoomRuntime } from './room-runtime.test-support';
 import {
   scratchDatabase,
   committingRuntimeTestDatabase,
@@ -157,4 +158,70 @@ test('the scripted tournament', async () => {
       )
       .join('\n'),
   });
+}, 90_000);
+
+test('a league tournament inherits Youth from entry through seated play', async () => {
+  const scratch = scratchDatabase(databaseUrl, 'youthtournament');
+  await scratch.create();
+  const owner = new SQL(scratch.url, { max: 4 });
+  try {
+    await scratch.migrate(() => true);
+    const bots = await createBots(owner, names);
+    const world: World = {
+      database: committingRuntimeTestDatabase(owner),
+      sql: owner,
+      runtimeDatabaseUrl: scratch.url,
+      clock: scriptClock(Date.now() - 60 * 60_000),
+      bots: Object.fromEntries(bots.map((bot) => [bot.name, bot])),
+      made: new Map(),
+    };
+    await organizationStage(world);
+    await leagueAdministrationStage(world, { tournamentOwner: 'organization' });
+    await setupStage(world);
+    const parent = world.made.get('standing-lobby')!;
+    const tournament = world.made.get('tournament-lobby')!;
+    await owner`update lobbies set age_rule='under-18' where id=${parent}`;
+    await entryEnrollmentStage(world, 'under-18');
+    await judgeRegistrationStage(world);
+    await draftDrawStage(world);
+    await publishDrawStage(world);
+
+    const room = world.made.get('first-room')!;
+    const director = world.bots.Director!;
+    await withRoomRuntime(
+      async (runtime) => {
+        const view = await runtime.operations.view(director, room);
+        assert({
+          given:
+            'the published Room in a league tournament whose standing parent is Youth',
+          should: 'seat two accepted debaters and project the inherited rule',
+          actual: {
+            ageRule: view.ageRule,
+            debaters: view.participants.filter(
+              ({ seat }) => seat.kind === 'side',
+            ).length,
+          },
+          expected: { ageRule: 'under-18', debaters: 2 },
+        });
+      },
+      { databaseUrl: scratch.url },
+    );
+    await resultsStage(world, true);
+    const [played] = await owner`
+      select count(*)::int as rounds,
+        bool_and(public.daisy_room_is_youth(r.room_id)) as youth
+      from rounds r join rooms room on room.id=r.room_id
+      where room.lobby_id=${tournament}
+    `;
+    assert({
+      given:
+        'the accepted Youth entries after the real Ready, Start and debate commands',
+      should: 'play two stored Youth Rounds',
+      actual: played,
+      expected: { rounds: 2, youth: true },
+    });
+  } finally {
+    await owner.close();
+    await scratch.drop();
+  }
 }, 90_000);

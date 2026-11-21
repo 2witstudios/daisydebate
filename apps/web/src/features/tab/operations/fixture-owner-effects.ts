@@ -23,7 +23,7 @@ export function requireFixtureAdmissions(
   command: FixtureCommand,
   writes: readonly FixtureWrite[],
 ) {
-  const eligible = eligibleTournamentActors(loaded.context.accounts);
+  const judges = eligibleTournamentActors(loaded.context.accounts, 'judge');
   const additions = writes.flatMap((write) =>
     write.table === 'fixture_judges' && write.op === 'insert'
       ? loaded.judges
@@ -31,12 +31,19 @@ export function requireFixtureAdmissions(
           .map((judge) => judge.actorId)
       : [],
   );
-  if (command.type === 'restart-fixture')
-    additions.push(
-      ...(loaded.roomState?.participants.map((person) => person.actorId) ?? []),
-    );
-  if (additions.some((actor) => !eligible.has(actor)))
+  if (additions.some((actor) => !judges.has(actor)))
     throw new CommandDenied('judge-unavailable');
+  if (command.type === 'restart-fixture') {
+    const debaters = eligibleTournamentActors(
+      loaded.context.accounts,
+      'debater',
+    );
+    for (const person of loaded.roomState?.participants ?? [])
+      if (
+        !(person.seat.kind === 'judge' ? judges : debaters).has(person.actorId)
+      )
+        throw new CommandDenied('judge-unavailable');
+  }
 }
 /** Direct and confirmed commands call the same ordinary owners with their actual principal and original command identity. */
 export function fixtureOwnerEffects(
