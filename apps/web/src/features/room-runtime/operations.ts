@@ -17,6 +17,7 @@ import {
 } from './ready-agreements';
 import type { Database } from '@daisy/db';
 import { standardFormatIds } from '@daisy/db/catalog-formats';
+import { isTemporaryRefusal } from '@daisy/db/capacity';
 import {
   readRoundOpeningTopic,
   activeRoomMembers,
@@ -36,6 +37,7 @@ import type {
   ActiveRoom,
   AgeBand,
   HostedRoom,
+  RoomListPage,
   RoomListQuery,
   RoomAssemblyState,
   RoomCatalogChoice,
@@ -91,7 +93,6 @@ export function createRoomRuntimeOperations({
   store,
   redis,
   ids,
-  now,
   consentTtlMs,
   aiSeats,
   betaGrantsPremium,
@@ -101,8 +102,6 @@ export function createRoomRuntimeOperations({
   readonly store: Store;
   readonly redis: Redis;
   readonly ids: IdGenerator;
-  /** A listed host's rating waits for the spectator timeline. */
-  readonly now: () => string;
   readonly consentTtlMs: () => number;
   readonly aiSeats: () => AiSeatAvailability;
   /** Whether a beta-sourced premium grant counts (`PREMIUM_BETA_GRANT`). */
@@ -524,8 +523,7 @@ export function createRoomRuntimeOperations({
           : [],
       );
     },
-    async list(caller: Caller, query: RoomListQuery) {
-      const clock = spectatorClockAt(now());
+    async list(caller: Caller, query: RoomListQuery): Promise<RoomListPage> {
       const page = await store.listRoomPage(
         caller,
         query,
@@ -542,35 +540,55 @@ export function createRoomRuntimeOperations({
         (fact) => hostIdentityHidden(fact, caller.actorId),
         readRoundOpeningTopic,
       );
-      const visibleHosts = [
-        ...new Set(
-          page.rooms.flatMap((room) =>
-            room.competitionType === 'ranked' && room.hostActorId
-              ? [room.hostActorId]
-              : [],
-          ),
-        ),
-      ];
-      if (visibleHosts.length === 0) return page;
-      const published = await store.readMemberCardRatings(
-        visibleHosts,
-        clock,
-        replayPublishedStandings,
-      );
+      type Pool = NonNullable<(typeof page.rooms)[number]['hostRatingPool']>;
+      const poolKey = (pool: Pool) =>
+        JSON.stringify([pool.lobbyId, pool.ladderId, pool.seasonId]);
+      const groups = new Map<string, { pool: Pool; actors: Set<string> }>();
+      for (const { hostRatingPool: pool, hostActorId } of page.rooms) {
+        if (!pool || !hostActorId) continue;
+        const key = poolKey(pool);
+        const group = groups.get(key) ?? { pool, actors: new Set<string>() };
+        group.actors.add(hostActorId);
+        groups.set(key, group);
+      }
+      const published = new Map<string, Map<string, number>>();
+      if (groups.size > 0) {
+        const blinded = await store
+          .readRatingBlindings(caller.actorId)
+          .catch((error: unknown) => {
+            if (!isTemporaryRefusal(error)) throw error;
+            return null;
+          });
+        if (blinded) {
+          const hidden = new Set(blinded);
+          const clock = spectatorClockAt(await store.databaseNow());
+          for (const [key, { pool, actors }] of groups) {
+            const visible = [...actors].filter((id) => !hidden.has(id));
+            if (visible.length === 0) continue;
+            const ratings = await store.readMemberCardRatings(
+              visible,
+              clock,
+              replayPublishedStandings,
+              pool,
+            );
+            published.set(
+              key,
+              new Map(
+                ratings.map((row) => [row.actorId, Math.round(row.rating)]),
+              ),
+            );
+          }
+        }
+      }
       return {
         ...page,
-        rooms: page.rooms.map((room) => {
-          if (room.competitionType !== 'ranked' || !room.hostActorId)
-            return room;
-          const rating = published.find(
-            (row) =>
-              row.actorId === room.hostActorId && row.lobbyId === room.lobbyId,
-          );
-          return {
-            ...room,
-            hostRating: rating ? Math.round(rating.rating) : null,
-          };
-        }),
+        rooms: page.rooms.map(({ hostRatingPool: pool, ...room }) => ({
+          ...room,
+          hostRating:
+            pool && room.hostActorId
+              ? (published.get(poolKey(pool))?.get(room.hostActorId) ?? null)
+              : null,
+        })),
       };
     },
     create,
