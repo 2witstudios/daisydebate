@@ -1,10 +1,10 @@
 import { and, eq, isNotNull, isNull, sql } from 'drizzle-orm';
 import { tabRounds } from '../schema/events';
-import type { TabTransaction } from './tab-transaction';
+import type { Tx } from '../tx';
 
 /** The first posting opening releases the existing pin in the same transaction. */
 export async function releasePostingResolution(
-  tx: TabTransaction,
+  tx: Tx,
   input: {
     readonly lobbyId: string;
     readonly eventId: string;
