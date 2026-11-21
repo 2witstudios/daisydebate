@@ -148,24 +148,11 @@ export type {
 } from './lobby-administration-facts';
 export type { LobbyAdministrationWrite } from './lobby-administration-writes';
 
-export type { StoredTabCommand } from './command-record';
 export type { TabAccount } from './account';
-export type { TabDatabase, TabTransaction } from './tab-transaction';
-export type {
-  GrantAuthority,
-  OrganizationAuthority,
-  TabAuthorization,
-  RoleAuthority,
-} from './authority-facts';
-export type {
-  OrganizationCommandFacts,
-  OrganizationCommandInput,
-} from './organization-facts';
-export type {
-  OrganizationPeopleFacts,
-  OrganizationPersonRow,
-} from './organization-people';
-export type { OrganizationWrite } from './organization-writes';
+export type { TabDatabase } from './tab-transaction';
+export type { OrganizationAuthority, RoleAuthority } from './authority-facts';
+export type { OrganizationCommandInput } from './organization-facts';
+export type { OrganizationPeopleFacts } from './organization-people';
 export type { GrantRow } from './grant-rows';
 export type { RoleRow } from './role-rows';
 
