@@ -801,7 +801,12 @@ test('a 14-year-old plays Youth and gets their guardian’s waiver to play Open 
     await settleLeftRounds([host, youthHost]);
     const { stdout } = await promisify(execFile)(
       'bun',
-      [seasonWorker, player.username],
+      [
+        fileURLToPath(
+          new URL('./support/guardian-birthday-fixture.ts', import.meta.url),
+        ),
+        player.username,
+      ],
       { timeout: 20_000 },
     );
     const birthdayLobby = JSON.parse(stdout) as { id: string; name: string };
