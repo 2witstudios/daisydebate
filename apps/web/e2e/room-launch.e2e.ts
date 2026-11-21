@@ -169,7 +169,7 @@ test('judge Ready and eligible stored bot debaters start one frozen Round', asyn
     // The judge's own Ready through the Room page; no readiness injection.
     const judge = page;
     await judge.goto(`/rooms/${view.id}`);
-    await readyUp(judge);
+    await readyUp(judge, false);
     view = await reread(judge.request, view.id);
     expect(view.participants.find((p) => isJudgeSeat(p.seat))!.ready).toBe(
       'ready',

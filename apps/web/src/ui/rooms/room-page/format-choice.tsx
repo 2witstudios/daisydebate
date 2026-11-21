@@ -104,6 +104,8 @@ const drawing = (view: RoomView) => view.executionPlan.resolutionDraw.enabled;
 function StandardsForm({ view, choices, ids, action }: FormProps) {
   const legendId = useId();
   const standing = view.format.standing;
+  const selectedStandard =
+    standing.kind === 'standard' ? standing.formatId : null;
   return (
     <AssemblyCommandForm action={action} className="flex flex-col gap-3">
       <CommandFields view={view} commandId={ids.choose} intent="choose" />
@@ -111,6 +113,7 @@ function StandardsForm({ view, choices, ids, action }: FormProps) {
         Format
       </span>
       <div
+        key={selectedStandard ?? 'custom'}
         role="radiogroup"
         aria-labelledby={legendId}
         className="grid w-full grid-cols-2 gap-2 max-compact:grid-cols-1"
@@ -122,10 +125,7 @@ function StandardsForm({ view, choices, ids, action }: FormProps) {
               name="format"
               className="sr-only"
               value={choiceTuple(choice)}
-              defaultChecked={
-                standing.kind === 'standard' &&
-                standing.formatId === choice.formatId
-              }
+              defaultChecked={selectedStandard === choice.formatId}
             />
             <span className="font-strong">{choice.label}</span>
             <span className="text-xs text-ink-muted">

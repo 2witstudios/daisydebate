@@ -5,6 +5,7 @@ import { expect, openPage } from './fixtures';
 import { origin } from './accounts';
 import { createRoomLaunchAccounts } from './room-launch-accounts';
 import { reread } from './room-launch-flow';
+import { hydrated } from './hydration';
 
 /**
  * Edit settings' format choice (FMT-3, FMT-4, ADR 0142): a
@@ -63,14 +64,15 @@ export async function proveFormatChoice(browser: Browser) {
     await expect(
       custom.getByText('Prep before the round 20:00 → 15:00'),
     ).toBeVisible();
-    await custom.getByRole('button', { name: 'Back to Freestyle' }).click();
+    const back = custom.getByRole('button', { name: 'Back to Freestyle' });
+    await hydrated(back);
+    await back.click();
     await expect
       .poll(async () => (await reread(page.request, room.id)).format.standing)
       .toEqual({ kind: 'standard', formatId: 'freestyle' });
 
     // Freestyle and Custom are the only format radios; the league browser
     // is the way to a set-resolution format, so it asks for the wording.
-    await page.goto(`/rooms/${room.id}#room-setup`);
     const radios = page
       .getByRole('radiogroup', { name: 'Format', exact: true })
       .getByRole('radio');

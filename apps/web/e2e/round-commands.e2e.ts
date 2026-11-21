@@ -205,11 +205,14 @@ test('a fresh Room creates a new cast after an actual result', async ({
   try {
     const host = accounts.members[0]!.context;
     const live = await createHumanBallotRound(accounts.members);
-    // Maintenance opens the first speech within a tick of start (ISSUE-489):
-    // the command must land against the Round the clock has moved on.
+    // Maintenance can open the first speech before the Launch receipt is read.
     await expect
-      .poll(async () => (await readBallotRound(host.request, live.id)).version)
-      .toBeGreaterThan(live.version);
+      .poll(async () =>
+        (await readBallotRound(host.request, live.id)).segments.some(
+          (segment) => segment.type === 'speech' && segment.endedAt === null,
+        ),
+      )
+      .toBe(true);
     const seat = live.participants
       .filter(isNamedSeat)
       .find((p) => sideOfSeat(p.seat) === affirmativeSide)!;
