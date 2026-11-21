@@ -1,6 +1,8 @@
+import { lifecycleSql } from './lifecycle-sql';
 import { daisyOrganizationId } from './daisy-reference';
 import { createAppError } from '@daisy/errors';
 import {
+  roundStatus,
   idSchema,
   competitionTypes,
   ratingDivisions,
@@ -183,7 +185,7 @@ export async function readRatingCandidates(
     throw createAppError('VALIDATION');
   return readCandidates(
     db,
-    sql`r.status='completed' and r.ladder_id is not null
+    sql`r.status=${lifecycleSql(roundStatus.completed)} and r.ladder_id is not null
       and (${input.afterId ?? null}::text is null or r.id > ${input.afterId ?? null})
       and not exists(select 1 from rating_changes l where l.round_id=r.id)
     order by r.id limit ${input.limit}`,

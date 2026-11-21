@@ -37,11 +37,24 @@ import {
   type RoundStatus,
 } from './round';
 
+export const roomStatus = {
+  assembling: 'assembling',
+  ready: 'ready',
+  started: 'started',
+  closed: 'closed',
+} as const;
+/** A Room still gathering its players (ADR 0070). */
+export const openRoomStatuses = [
+  roomStatus.assembling,
+  roomStatus.ready,
+] as const;
+export const endedAssemblyRoomStatuses = [
+  roomStatus.started,
+  roomStatus.closed,
+] as const;
 export const roomStatuses = [
-  'assembling',
-  'ready',
-  'started',
-  'closed',
+  ...openRoomStatuses,
+  ...endedAssemblyRoomStatuses,
 ] as const;
 export type RoomStatus = (typeof roomStatuses)[number];
 /**
@@ -347,14 +360,6 @@ export type RoomCommandResponse = {
 /** How long a seat stays held for a named member who has not arrived (ADR 0103). */
 export const ROOM_SEAT_HOLD_MS = 120_000;
 
-/**
- * A Room still gathering its players (ADR 0070): the only Rooms a challenge
- * or an invitation may point at.
- */
-export const openRoomStatuses = [
-  'assembling',
-  'ready',
-] as const satisfies readonly RoomStatus[];
 export type OpenRoomStatus = (typeof openRoomStatuses)[number];
 /** Whether a Room in `status` is still open. */
 export const isOpenRoomStatus = (

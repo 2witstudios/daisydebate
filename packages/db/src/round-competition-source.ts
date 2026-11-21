@@ -5,6 +5,7 @@ import { and, eq, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { createAppError } from '@daisy/errors';
 import {
+  roundStatus,
   idSchema,
   isJudgeSeat,
   roundCompetitionSourceSchema,
@@ -50,7 +51,7 @@ export const readRoundCompetitionSource = async (
       and(
         eq(r.id, input.roundId),
         eq(r.roomId, input.roomId),
-        eq(r.status, 'completed'),
+        eq(r.status, roundStatus.completed),
         sql`not ${roundSourceVoided(r.id)}`,
       ),
     )

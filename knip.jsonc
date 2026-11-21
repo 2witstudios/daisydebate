@@ -32,6 +32,7 @@
         "eslint.config.test.ts",
         "scripts/check-boundaries.ts",
         "scripts/check-styling.ts",
+        "scripts/check-lifecycle-literals.ts",
         "scripts/check-affected.ts",
         "scripts/dev-agent.ts",
         "scripts/verify.ts",

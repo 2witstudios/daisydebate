@@ -1,3 +1,5 @@
+import { endedAssemblyRoomStatuses } from '@daisy/protocol';
+import { lifecycleSqlList } from '../lifecycle-sql';
 import { sql } from 'drizzle-orm';
 import { contextChannelRetention } from './context-channel-retention';
 import type { Tx } from '../tx';
@@ -13,7 +15,7 @@ export function roomCommunityRetention(database: Tx) {
     database,
     'room_community',
     (before) =>
-      sql`join rooms r on r.id=c.room_id where r.status in ('started','closed') and r.updated_at<=${before}::timestamptz`,
+      sql`join rooms r on r.id=c.room_id where r.status in ${lifecycleSqlList(endedAssemblyRoomStatuses)} and r.updated_at<=${before}::timestamptz`,
   );
   return {
     purgeExpiredRoomCommunityMessages: purge.purgeMessages,

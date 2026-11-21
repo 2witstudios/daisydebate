@@ -8,6 +8,7 @@ import {
   freezePostRoundCall,
   freezeRoomConfig,
   roundBegan,
+  roundStatus,
 } from '@daisy/protocol';
 import { createRefusal, createAppError } from '@daisy/errors';
 import { insertRoundDraw } from './room-draw-persistence';
@@ -163,7 +164,7 @@ export const persistRoomMutation = async (
       judging,
       runtimeState: emptyRuntimeCheckpointFor(next.rules),
       seatDraw: mutation.seatDraw,
-      status: opens ? 'opening' : 'active',
+      status: opens ? roundStatus.opening : roundStatus.active,
       ...(opens
         ? {}
         : { currentStage: 'countdown' as const, startedAt: new Date(now) }),

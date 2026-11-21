@@ -1,7 +1,11 @@
+import { lifecycleSql, lifecycleSqlList } from './lifecycle-sql';
 import { sql, type SQL } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import { defaultStandingLobby } from '@daisy/protocol/lobby/eligibility';
 import {
+  runningRoundStatuses,
+  openRoomStatuses,
+  roomStatus,
   roomListQuerySchema,
   roomListPageSchema,
   seatKindSchema,
@@ -57,10 +61,10 @@ const inLaunchedRound = (caller: Caller) =>
 /** The open-Room states a status filter selects; live Rooms come from their Round. */
 const assemblyStatuses = (status: RoomListQuery['status']) =>
   status === 'open'
-    ? sql`('assembling')`
+    ? lifecycleSqlList([roomStatus.assembling])
     : status === 'starting'
-      ? sql`('ready')`
-      : sql`('assembling','ready')`;
+      ? lifecycleSqlList([roomStatus.ready])
+      : lifecycleSqlList(openRoomStatuses);
 /** Which discovery branches a status filter keeps: open Rooms, launched ones or both. */
 const statusScope = (status: RoomListQuery['status']) => ({
   assembly: status !== 'live',
@@ -73,7 +77,7 @@ const lobbyMatches = (lobbyId: string) => sql`r.lobby_id=${lobbyId}`;
 const openJudgeSeats = sql`greatest(0, (r.rules_snapshot->'seats'->>'judges')::int - (select count(*)::int from room_participants j where j.room_id=r.id and j.seat_kind='judge'))`;
 /** Seat totals and the format label, read with the page; never a lock target. */
 const seatCount = sql`((select coalesce(sum(n.count::int),0) from jsonb_each_text(r.rules_snapshot->'seats'->'sides') as n(side,count))::int+(r.rules_snapshot->'seats'->>'speakers')::int+(r.rules_snapshot->'seats'->>'judges')::int+(r.rules_snapshot->'seats'->>'moderators')::int)`;
-const seatsTaken = sql`case when r.status='started' then (select count(*)::int from round_participants s where s.round_id=d.id) else (select count(*)::int from room_participants s where s.room_id=r.id) end`;
+const seatsTaken = sql`case when r.status=${lifecycleSql(roomStatus.started)} then (select count(*)::int from round_participants s where s.round_id=d.id) else (select count(*)::int from room_participants s where s.room_id=r.id) end`;
 /** The host's rating where the audience may know it: before any posting still held by the timeline. */
 const hostRating = (clock: SpectatorClock) => {
   const held = {
@@ -150,7 +154,7 @@ export async function discoverRooms(
       order by r.created_at ${order.direction},r.id collate "C" ${order.direction} limit ${pageSize + 1})
     union all
     (select r.id,r.created_at from rounds d join rooms r on r.id=d.room_id ${joins}
-      where ${launched} and ${modeMatches(mode)} and ${lobbyMatches(lobby.id)} and d.status in ('opening','active') and d.room_id is not null and r.status='started'
+      where ${launched} and ${modeMatches(mode)} and ${lobbyMatches(lobby.id)} and d.status in ${lifecycleSqlList(runningRoundStatuses)} and d.room_id is not null and r.status=${lifecycleSql(roomStatus.started)}
         and ${order.after} and ${visible(caller)} and ${inLaunchedRound(caller)} and ${search(q, launchedTopic)}
       order by r.created_at ${order.direction},r.id collate "C" ${order.direction} limit ${pageSize + 1})
   ) candidates order by created_at ${order.direction},id collate "C" ${order.direction} limit ${pageSize + 1}
@@ -202,11 +206,11 @@ export async function discoverRooms(
   select r.id,r.version,r.title,${launchedTopic} as topic,r.visibility,r.host_actor_id as "hostActorId",
    ${hostLabel} as "hostLabel",${hostIsHumanJudge} as "hostIsHumanJudge",r.status,r.competition_type as "competitionType",
    p.actor_id is not null as seated,p.seat_kind as "seatKind",p.side,p.slot,
-   case when r.status='started' then json_build_object('id',d.id,'status',d.status) else null end as "roundRef",
+   case when r.status=${lifecycleSql(roomStatus.started)} then json_build_object('id',d.id,'status',d.status) else null end as "roundRef",
    d.version as "roundVersion",d.created_by_actor_id as "roundCreator",d.visibility as "roundVisibility",rp.seat_kind as "roundSeatKind",rp.side as "roundSide",rp.slot as "roundSlot",
    f.name as "formatLabel",${seatsTaken} as "seatsTaken",${seatCount} as "seatCount",
-   case when r.status in ('assembling','ready') then r.created_at end as "waitingSince",
-   case when r.status='started' then json_build_object('stage',d.current_stage,'startedAt',d.started_at) else null end as "live",
+   case when r.status in ${lifecycleSqlList(openRoomStatuses)} then r.created_at end as "waitingSince",
+   case when r.status=${lifecycleSql(roomStatus.started)} then json_build_object('stage',d.current_stage,'startedAt',d.started_at) else null end as "live",
    ${hostRating(clock)} as "hostRating",r.lobby_id as "lobbyId",lb.age_rule as "ageRule",
    ${openJudgeSeats} as "openJudgeSeats"
   from rooms r ${joins}
@@ -217,7 +221,7 @@ export async function discoverRooms(
   left join round_participants rp on rp.round_id=d.id and rp.actor_id=${caller.actorId}
   where r.id=any(${idSet}) and ${visible(caller)} and ${search(q, launchedTopic)}
    and ${modeMatches(mode)} and ${lobbyMatches(lobby.id)}
-   and ((${assembly} and r.status in ${assemblyStatuses(status)}) or (${launched} and r.status='started' and d.status in ('opening','active') and ${inLaunchedRound(caller)}))
+   and ((${assembly} and r.status in ${assemblyStatuses(status)}) or (${launched} and r.status=${lifecycleSql(roomStatus.started)} and d.status in ${lifecycleSqlList(runningRoundStatuses)} and ${inLaunchedRound(caller)}))
   order by r.created_at ${order.direction},r.id collate "C" ${order.direction}
  `,
   );

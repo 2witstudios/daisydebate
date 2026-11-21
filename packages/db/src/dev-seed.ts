@@ -10,6 +10,7 @@ import { rounds } from './schema/rounds';
 import { seedVersions } from './schema/seed-versions';
 import { users } from './schema/users';
 import {
+  roundStatus,
   emptyRuntimeCheckpointFor,
   type RoundRules,
   type SideSeat,
@@ -155,7 +156,7 @@ export async function applyDevSeed({
         rulesSnapshot: seed.round.rules,
         judging: frozenJudgingFor(seed.round.rules),
         runtimeState: emptyRuntimeCheckpointFor(seed.round.rules),
-        status: 'opening',
+        status: roundStatus.opening,
         ladderId: null,
       });
       for (const seat of seed.round.seats) {

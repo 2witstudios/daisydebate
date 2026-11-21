@@ -1,3 +1,4 @@
+import { lifecycleSql } from './lifecycle-sql';
 import type { RoundTimeSource } from './round-execution-time';
 import { requireCurrentWeb } from './web-service-authority';
 import { and, asc, eq, gt, isNotNull, or, sql, type SQL } from 'drizzle-orm';
@@ -7,7 +8,12 @@ import {
   roundResolutionStrikes,
 } from './schema/resolution-draws';
 import { createAppError } from '@daisy/errors';
-import { affirmativeSide, idSchema, negativeSide } from '@daisy/protocol';
+import {
+  roundStatus,
+  affirmativeSide,
+  idSchema,
+  negativeSide,
+} from '@daisy/protocol';
 import type { BoundedTransaction } from './bounded-transaction';
 import {
   executeLockedRoundTick,
@@ -78,7 +84,7 @@ export function roundMaintenanceOperations(
       // An incident only delays these deadlines, so the checks above can read
       // early and never late; the engine decides. Its countdown must still end.
       const heldOpening = sql`${rounds.runtimeState}->'incident'->>'phase' <> 'none'`;
-      const dueOpening = sql`${rounds.status} = 'opening' and ${rounds.roomId} is not null and (${heldOpening} or ${dueDraw} or (${noDraw}))`;
+      const dueOpening = sql`${rounds.status} = ${lifecycleSql(roundStatus.opening)} and ${rounds.roomId} is not null and (${heldOpening} or ${dueDraw} or (${noDraw}))`;
       return run(async (tx) => {
         await requireCurrentWeb(tx, input.instanceId);
         const rows = await tx
@@ -86,7 +92,7 @@ export function roundMaintenanceOperations(
           .from(rounds)
           .where(
             and(
-              or(eq(rounds.status, 'active'), dueOpening),
+              or(eq(rounds.status, roundStatus.active), dueOpening),
               ...(input.afterId ? [gt(rounds.id, input.afterId)] : []),
             ),
           )
@@ -102,7 +108,10 @@ export function roundMaintenanceOperations(
                 .select({ id: rounds.id })
                 .from(rounds)
                 .where(
-                  and(eq(rounds.status, 'opening'), isNotNull(rounds.roomId)),
+                  and(
+                    eq(rounds.status, roundStatus.opening),
+                    isNotNull(rounds.roomId),
+                  ),
                 )
                 .limit(1)
             : [];

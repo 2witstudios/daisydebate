@@ -1,4 +1,5 @@
 import {
+  roundStatus,
   emptyRuntimeCheckpointFor,
   roundRulesSchema,
   type RoundRules,
@@ -64,7 +65,7 @@ export const roundOperations = ({
           rulesSnapshot: input.rules,
           judging: frozenJudgingFor(input.rules),
           runtimeState: emptyRuntimeCheckpointFor(input.rules),
-          status: 'opening',
+          status: roundStatus.opening,
           ladderId: null,
           ladderDivision: null,
         });

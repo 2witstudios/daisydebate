@@ -1,5 +1,5 @@
 import { currentRoundParticipant } from './round-current-participant';
-import { isJudgeSeat } from '@daisy/protocol';
+import { roundStatus, isJudgeSeat } from '@daisy/protocol';
 import { and, desc, eq, isNotNull, or, sql, type SQL } from 'drizzle-orm';
 import { broadcastStopOf } from './broadcast-operations';
 import { namedSeats } from './member-history-rows';
@@ -49,8 +49,8 @@ const roundColumns = {
  * Round with nothing recorded has nothing to archive.
  */
 const finishedWithSomethingToFind = or(
-  eq(rounds.status, 'completed'),
-  and(eq(rounds.status, 'abandoned'), isNotNull(recordings.id)),
+  eq(rounds.status, roundStatus.completed),
+  and(eq(rounds.status, roundStatus.abandoned), isNotNull(recordings.id)),
 );
 
 /** Moderation hid the footage: its Round leaves the archive, whatever else remains. */
