@@ -640,7 +640,11 @@ export async function requestRoomDraftAnswer(
 
 export const requestHostedLeagues = async () => {
   const identity = await requestIdentity();
-  if (identity.state !== 'member') return [];
+  if (
+    identity.state !== 'member' ||
+    !(await requestReleaseEnabled('daisy-tab', identity.principal.userId))
+  )
+    return [];
   const { principal } = identity;
   const app = processApp();
   const store = app.database.tabCommands;

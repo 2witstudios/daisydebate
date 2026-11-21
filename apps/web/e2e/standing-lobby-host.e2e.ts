@@ -21,12 +21,17 @@ test('a league manager opens and closes seasons from the host and publishes an o
   const handle = `league-${createId()}`;
   const hostLeague = `/host/leagues/${handle}`;
   const lobbyName = 'Junior debate';
-  const flags = ['daisy-tab', 'host-tiers'];
+
   try {
-    for (const flag of flags)
-      await run('release-flag-process.ts', flag, 'enabled');
+    await run('release-flag-process.ts', 'host-tiers', 'default');
+    await run('release-flag-process.ts', 'daisy-tab', 'enabled');
     await run('standing-lobby-host-process.ts', 'create', handle, username);
     await page.goto('/host');
+    await expect(
+      page.getByRole('heading', { name: 'Not found' }),
+    ).toBeVisible();
+    await page.goto('/tournaments');
+    await page.getByRole('link', { name: 'Browse tournaments' }).click();
     await page
       .getByRole('link', { name: 'Open league: Southeast League' })
       .click();
@@ -57,16 +62,48 @@ test('a league manager opens and closes seasons from the host and publishes an o
 
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(management);
-    await page.getByRole('link', { name: 'Edit lobby' }).click();
-    await page.getByLabel('Name', { exact: true }).fill('Junior debates');
-    await page.getByLabel('Who can debate').selectOption('anyone');
-    await page.getByRole('button', { name: 'Save changes' }).click();
+    const phoneRail = page.getByRole('navigation', {
+      name: 'Southeast League',
+    });
     await expect(
-      page.getByRole('heading', { name: 'Junior debates' }),
+      phoneRail.getByRole('link', { name: 'League', exact: true }),
     ).toBeVisible();
+    await expect(
+      phoneRail.getByRole('link', { name: 'People', exact: true }),
+    ).toBeVisible();
+    const railBox = await phoneRail.boundingBox();
+    const firstCard = await page
+      .getByRole('heading', { name: 'Ladders' })
+      .boundingBox();
     expect(
-      await page.evaluate(() => document.documentElement.scrollWidth),
-    ).toBeLessThanOrEqual(390);
+      railBox && firstCard && railBox.y + railBox.height < firstCard.y,
+    ).toBe(true);
+
+    const editLobby = async (name: string) => {
+      await page.getByRole('link', { name: 'Edit lobby' }).click();
+      await page.getByLabel('Name', { exact: true }).fill(name);
+      await page.getByLabel('Who can debate').selectOption('anyone');
+      await page.getByRole('button', { name: 'Save changes' }).click();
+      await expect(
+        page.getByRole('heading', { name, exact: true }),
+      ).toBeVisible();
+    };
+    const longName = `Junior debate ${'x'.repeat(105)}`;
+    await editLobby(longName);
+    for (const path of ['/lobby?view=rooms', '/watch', '/leaderboard']) {
+      await page.goto(path);
+      const option = page
+        .getByRole('navigation', { name: 'Lobby', exact: true })
+        .getByRole('link', { name: longName, exact: true });
+      await expect(option).toBeVisible();
+      await option.click();
+      await expect(option).toHaveAttribute('aria-current', 'page');
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth),
+      ).toBeLessThanOrEqual(390);
+    }
+    await page.goto(management);
+    await editLobby('Junior debates');
 
     await page.getByRole('link', { name: 'New ladder' }).click();
     await page.getByLabel('Name', { exact: true }).fill('Junior ladder');
@@ -105,7 +142,6 @@ test('a league manager opens and closes seasons from the host and publishes an o
     ).toBeVisible();
   } finally {
     await run('standing-lobby-host-process.ts', 'close', handle);
-    for (const flag of flags)
-      await run('release-flag-process.ts', flag, 'default');
+    await run('release-flag-process.ts', 'daisy-tab', 'default');
   }
 });

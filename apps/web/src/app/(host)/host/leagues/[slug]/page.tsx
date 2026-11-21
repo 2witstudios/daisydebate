@@ -13,8 +13,6 @@ import {
 import { requireAccess } from '../../../../../lib/access';
 import { HostLeague } from '../../../../../ui/tab/host-league/host-league';
 import { SanctionDecisionForm } from '../../../../../ui/tab/host-league/sanction-decision-form';
-import { linkTo } from '../../../../../features/tab/action';
-import type { TimelineRail } from '../../../../../features/tab/tournament';
 import { HostShell } from '../../../../../ui/tab/host-shell/host-shell';
 import { PageHeader } from '../../../../../ui/components/page-header/page-header';
 import { StandingLobbies } from '../../../../../ui/tab/standing-lobby-management/lobbies';
@@ -49,24 +47,7 @@ export default async function Page({
       redirect(tabRoutes.league(read.season.standingLobby.handle, 'season'));
     notFound();
   }
-  const rail: TimelineRail = read
-    ? storedLeagueRail(slug, read.season)
-    : {
-        title: management.name,
-        subtitle: null,
-        heading: null,
-        footHeading: null,
-        items: [
-          {
-            id: 'league',
-            label: 'League',
-            time: null,
-            standing: null,
-            action: linkTo('League', hostRoutes.league(slug)),
-          },
-        ],
-        foot: [],
-      };
+  const rail = storedLeagueRail(slug, management, read?.season ?? null);
   if (query.area === 'lobbies')
     return (
       <StandingLobbyPage

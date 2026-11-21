@@ -46,7 +46,7 @@ export function StandingLobby({
   return (
     <>
       <PageHeader
-        title={lobby.name}
+        title={<span className="wrap-anywhere">{lobby.name}</span>}
         lede={`${name} · ${ageRuleLabel[lobby.ageRule]}`}
         actions={canManage ? link('Edit lobby', 'edit-lobby') : null}
       />

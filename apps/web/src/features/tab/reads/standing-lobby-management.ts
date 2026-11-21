@@ -45,6 +45,10 @@ export async function readStandingLobbyManagement(
           ...input,
           capability: 'organization.manage',
         }).allow,
+        canReadPeople: dependencies.authorize({
+          ...input,
+          capability: 'lobby.host.people.read',
+        }).allow,
         lobbies: await read(),
       };
     },

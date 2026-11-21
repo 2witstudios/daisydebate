@@ -26,7 +26,7 @@ export function StandingLobbies({
           return (
             <ListRow
               key={lobby.id}
-              title={lobby.name}
+              title={<span className="wrap-anywhere">{lobby.name}</span>}
               detail={[
                 ageRuleLabel[lobby.ageRule],
                 ...lobby.ladders.map(({ name }) => name),

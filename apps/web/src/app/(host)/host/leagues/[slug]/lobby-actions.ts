@@ -1,6 +1,5 @@
 'use server';
 import { headers } from 'next/headers';
-import { revalidatePath } from 'next/cache';
 import {
   refused,
   unacknowledged,
@@ -54,6 +53,5 @@ export async function submitStandingLobby(
 
   const lobby =
     context.kind === 'new-lobby' ? data.aggregate.id : context.lobbyId;
-  revalidatePath(hostRoutes.league(context.slug));
   return moveOn(incoming, hostRoutes.standingLobbies(context.slug, { lobby }));
 }
