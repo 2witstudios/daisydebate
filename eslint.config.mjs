@@ -1236,14 +1236,4 @@ export default [
     plugins: { daisy: daisyPlugin },
     rules: { 'daisy/no-non-null-assertion': 'error' },
   },
-  // packages/db/src is the database boundary, and the recon-db-boundary slice
-  // (plan step R3.1 to R3.3) owns its needless conditions and non-null
-  // assertions. That slice fixes them and deletes this block.
-  {
-    files: ['packages/db/src/**/*.ts'],
-    rules: {
-      '@typescript-eslint/no-unnecessary-condition': 'off',
-      'daisy/no-non-null-assertion': 'off',
-    },
-  },
 ];

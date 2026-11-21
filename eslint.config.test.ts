@@ -512,16 +512,16 @@ describe('a check the type already answers is refused', () => {
       expected: [1, 1, 0],
     });
   });
-  test('packages/db/src is outside the rule until recon-db-boundary', async () => {
+  test('the rule rejects a dead fallback in packages/db/src', async () => {
     const [result] = await typedRepositoryEslint().lintText(
       "export const name = (value: string): string => value ?? 'none';",
       { filePath: 'packages/db/src/index.ts' },
     );
     assert({
       given: 'a dead fallback in the database package',
-      should: 'not report it',
+      should: 'report it',
       actual: result!.messages.filter(({ ruleId }) => ruleId === rule).length,
-      expected: 0,
+      expected: 1,
     });
   });
 });
@@ -562,16 +562,16 @@ describe('a non-null assertion is refused except on an index', () => {
       expected: [1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0],
     });
   });
-  test('the rule covers app and package source; tests and packages/db/src are outside it', async () => {
+  test('the rule covers app and database source and skips unit tests', async () => {
     assert({
       given: 'value! in app source, a test file and the database package',
-      should: 'report it in app source only',
+      should: 'report it in app and database source',
       actual: [
         await count(source('value!'), web('x.tsx')),
         await count(source('value!'), 'packages/protocol/src/x.test.ts'),
         await count(source('value!'), 'packages/db/src/x.ts'),
       ],
-      expected: [1, 0, 0],
+      expected: [1, 0, 1],
     });
   });
 });
