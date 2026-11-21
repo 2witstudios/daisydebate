@@ -38,10 +38,9 @@ export async function runMigrations({
     const migrations = readMigrationFiles(config);
     // Commit each folder before the next DDL: reference inserts can leave
     // deferred FK events which PostgreSQL forbids a later ALTER to cross.
-    for (let end = 1; end <= migrations.length; end += 1) {
-      const throughCurrent = migrations.slice(0, end);
-      const current = throughCurrent.at(-1);
-      if (!current?.name?.endsWith('_tournament_lobby_eligibility')) {
+    for (const [index, current] of migrations.entries()) {
+      const throughCurrent = migrations.slice(0, index + 1);
+      if (!current.name?.endsWith('_tournament_lobby_eligibility')) {
         await migrate(throughCurrent, database, config);
         continue;
       }

@@ -41,16 +41,17 @@ export function CreateTournamentForm({
   const nameId = useId(),
     styleId = useId(),
     noticeId = useId();
-  useFocusAfterAnswer(
-    state,
-    fields.error || state.kind === 'unacknowledged' ? noticeId : undefined,
-    !pending,
-  );
+  const title = standingLobbies ? 'League tournament' : 'One tournament';
+  const unacknowledged = state.kind === 'unacknowledged';
+  const notice = unacknowledged
+    ? 'The answer was lost. Retry, or reload to see whether it was made.'
+    : fields.error;
+  useFocusAfterAnswer(state, notice ? noticeId : undefined, !pending);
   return (
     <form
       action={submit}
       aria-busy={pending}
-      aria-label={standingLobbies ? 'League tournament' : 'One tournament'}
+      aria-label={title}
       className="flex min-w-0 flex-1 flex-col gap-4 rounded-lg border border-border bg-surface-raised p-6"
     >
       <div className="flex flex-col gap-1">
@@ -58,9 +59,7 @@ export function CreateTournamentForm({
           Host
         </h3>
         <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <p className="font-display text-2xl font-bold">
-            {standingLobbies ? 'League tournament' : 'One tournament'}
-          </p>
+          <p className="font-display text-2xl font-bold">{title}</p>
           {standingLobbies ? null : (
             <span className="font-strong">Free up to 16 entries</span>
           )}
@@ -86,7 +85,7 @@ export function CreateTournamentForm({
             required
             maxLength={120}
             defaultValue={fields.values.name ?? ''}
-            readOnly={state.kind === 'unacknowledged'}
+            readOnly={unacknowledged}
             className={controlClass}
           />
         </div>
@@ -158,9 +157,7 @@ export function CreateTournamentForm({
         )}
         <div className="flex flex-col gap-2">
           <Button type="submit" className="self-start">
-            {state.kind === 'unacknowledged'
-              ? 'Retry creating it'
-              : 'Create tournament'}
+            {unacknowledged ? 'Retry creating it' : 'Create tournament'}
           </Button>
           {standingLobbies ? null : (
             <span className="text-sm text-ink-muted">
@@ -172,11 +169,9 @@ export function CreateTournamentForm({
           )}
         </div>
       </fieldset>
-      {fields.error || state.kind === 'unacknowledged' ? (
+      {notice ? (
         <p id={noticeId} tabIndex={-1} role="status" className="text-sm">
-          {state.kind === 'unacknowledged'
-            ? 'The answer was lost. Retry, or reload to see whether it was made.'
-            : fields.error}
+          {notice}
         </p>
       ) : null}
     </form>

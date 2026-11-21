@@ -1,5 +1,5 @@
 import { lockTabCommandAccounts } from './command-accounts';
-import { and, eq, sql } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import type { SettingCommand } from '@daisy/protocol/lobby/setting-command';
 import type {
   ActionHistoryEntry,
