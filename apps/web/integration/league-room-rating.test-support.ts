@@ -44,7 +44,12 @@ export async function openLeagueRatingSeason(world: World) {
 }
 
 /** Exercise Room assembly, Ready, Start and forfeit through their actual owners. */
-export async function leagueRoomRating(world: World, sideSize = 1) {
+export async function leagueRoomRating(
+  world: World,
+  sideSize = 1,
+  visibility: 'public' | 'unlisted' = 'unlisted',
+  legacy?: { readonly forfeit: 'Debater 1' | 'Debater 2' },
+) {
   const lobbyId = world.made.get('standing-lobby')!;
   const [ladder] =
     await world.sql`select id from ladders where lobby_id=${lobbyId}`;
@@ -88,7 +93,7 @@ export async function leagueRoomRating(world: World, sideSize = 1) {
         hostActorId: principal.actorId,
         title: 'League ladder Room',
         topic: 'League ladder proof',
-        visibility: 'unlisted',
+        visibility,
         formatId: 'freestyle',
         formatVersion: 1,
         presetVersion: null,
@@ -227,7 +232,9 @@ export async function leagueRoomRating(world: World, sideSize = 1) {
       });
       const round = (await f.store.getRound(roundId))!;
       const debater = round.participants.find(
-        (person) => person.actorId === world.bots['Debater 1']!.actorId,
+        (person) =>
+          person.actorId ===
+          world.bots[legacy?.forfeit ?? 'Debater 1']!.actorId,
       )!;
       await createRoundRuntimeOperations({
         store: f.store,
@@ -241,6 +248,16 @@ export async function leagueRoomRating(world: World, sideSize = 1) {
     },
     { databaseUrl: world.runtimeDatabaseUrl },
   );
+  if (legacy) {
+    // This Room follows all current runtime paths up to the pre-ledger state
+    // the migration identifies. Change the frozen marker only in this scratch DB.
+    await world.sql.begin(async (tx) => {
+      await tx`alter table rounds disable trigger rounds_rating_pool_immutable`;
+      await tx`update rounds set legacy_league_rating=true where id=${roundId}`;
+      await tx`alter table rounds enable trigger rounds_rating_pool_immutable`;
+    });
+    return roundId;
+  }
   const games = (actorId: string, lines: typeof before) => {
     const row = lines?.lines.find((row) => row.actorId === actorId);
     return row ? row.wins + row.losses : 0;

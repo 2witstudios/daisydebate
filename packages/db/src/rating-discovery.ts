@@ -155,7 +155,7 @@ export async function readRatingCandidates(
   // first in the same order, then use the regular stable Round ID cursor.
   const key = (alias: 'r' | 'witness') =>
     sql.raw(`not ${alias}.legacy_league_rating,
-    case when ${alias}.legacy_league_rating then ${alias}.completed_at else 'infinity'::timestamptz end,
+    case when ${alias}.legacy_league_rating then date_trunc('milliseconds', ${alias}.completed_at) else 'infinity'::timestamptz end,
     ${alias}.id`);
   return readCandidates(
     db,
@@ -179,3 +179,25 @@ export async function readRatingFacts(
   if (candidate?.facts === null) throw candidate.unreadable;
   return candidate?.facts ?? null;
 }
+
+/** Earlier pre-ledger games must settle before their pool rates a later one. */
+export const readEarlierLegacyRatings = (
+  db: Execute,
+  input: {
+    readonly roundId: string;
+    readonly lobbyId: string;
+    readonly ladderId: string;
+    readonly seasonId: string;
+    readonly legacy: boolean;
+  },
+) =>
+  readCandidates(
+    db,
+    sql`
+  r.status='completed' and r.legacy_league_rating and r.rating_lobby_id=${input.lobbyId}
+  and r.ladder_id=${input.ladderId}
+  and r.season_id=${input.seasonId} and not daisy_round_rating_posted(r.id)
+  and (${!input.legacy} or (date_trunc('milliseconds',r.completed_at),r.id)<
+    (select date_trunc('milliseconds',witness.completed_at),witness.id from rounds witness where witness.id=${input.roundId}))
+  order by date_trunc('milliseconds',r.completed_at),r.id`,
+  );

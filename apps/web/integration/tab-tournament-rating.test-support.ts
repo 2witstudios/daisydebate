@@ -45,12 +45,12 @@ export async function ratingStage(world: World): Promise<void> {
     expected: [null, null],
   });
   assert({
-    given: 'the active Coach member without a host grant',
-    should:
-      'read the ladder through the resolved participants posting audience',
+    given:
+      'the active Coach member without a source tournament host grant or public results',
+    should: 'read the receiving league ladder with no withheld games',
     actual: (await read(as(world.bots.Coach!), { lobbyId: standingLobbyId }))
       ?.entrants,
-    expected: before.entrants,
+    expected: 0,
   });
   const daisyBefore =
     await world.sql`select count(*)::int as count from rating_changes`;

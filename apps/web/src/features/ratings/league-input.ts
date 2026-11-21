@@ -11,13 +11,19 @@ import { projectResultCompetition } from '../tab/commands/result-projection';
 import { createAppError } from '@daisy/errors';
 import { endingRating } from '@daisy/debate-engine';
 
-/** Consume only the league's received, certified tournament output and own frozen Rooms. */
-export function leagueGames(input: LeagueRatingInputs): LadderGame[] {
+/** The same Room eligibility applies before and after a ledger is introduced. */
+export function leagueRoomGames(input: {
+  readonly roomRounds: readonly Omit<
+    LeagueRatingInputs['roomRounds'][number],
+    'legacy'
+  >[];
+  readonly participants: readonly LeagueRatingInputs['participants'][number][];
+}): LadderGame[] {
   // One pass over the seats, so each Round reads only its own.
   const seats = new Map<string, (typeof input.participants)[number][]>();
   for (const person of input.participants)
     seats.set(person.roundId, [...(seats.get(person.roundId) ?? []), person]);
-  const rooms: LadderGame[] = input.roomRounds.flatMap((round) => {
+  return input.roomRounds.flatMap((round) => {
     const [first, second] = round.rules.sides;
     // Daisy's own rule for whether an ending rates: a Round Daisy refuses
     // (unrecorded, unjudged, check-in pending, attendance unsettled, no
@@ -47,7 +53,6 @@ export function leagueGames(input: LeagueRatingInputs): LadderGame[] {
       },
     ];
   });
-  return orderedLeagueGames(rooms, input.tournaments);
 }
 
 export const orderedLeagueGames = (
@@ -125,7 +130,7 @@ export const hasRateableTournament = (games: readonly LadderGame[]) =>
   );
 
 export const leagueStandings = (input: LeagueRatingInputs) => {
-  const games = leagueGames(input);
+  const games = orderedLeagueGames(leagueRoomGames(input), input.tournaments);
   const legacyRooms = new Set(
     input.roomRounds.filter(({ legacy }) => legacy).map(({ id }) => id),
   );

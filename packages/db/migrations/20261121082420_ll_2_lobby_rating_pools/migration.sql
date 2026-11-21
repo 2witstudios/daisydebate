@@ -169,6 +169,16 @@ FROM ll2_season_destinations d JOIN public.seasons s ON s.id=d.source_id
 JOIN public.lobbies l ON l.id=d.lobby_id
 WHERE d.season_id<>d.source_id;
 --> statement-breakpoint
+INSERT INTO public.season_standing_rules
+  (season_id,organization_id,counting,counts_lobby_rooms,rule,created_at,updated_at,version)
+SELECT DISTINCT d.season_id,r.organization_id,r.counting,r.counts_lobby_rooms,
+  r.rule,r.created_at,r.updated_at,r.version
+FROM ll2_season_destinations d
+JOIN public.season_standing_rules r ON r.season_id=d.source_id
+JOIN public.seasons destination ON destination.id=d.season_id
+  AND destination.organization_id=r.organization_id
+WHERE d.season_id<>d.source_id;
+--> statement-breakpoint
 -- A legacy selected league Round could rate without a season. Preserve an
 -- active period for that established ladder when it has no prior season.
 -- Other unseasoned legacy games stay in a closed archive where needed.

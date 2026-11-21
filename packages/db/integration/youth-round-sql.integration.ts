@@ -20,7 +20,7 @@ import { integrationSuite } from './suite.test-support';
 requireTestServices(process.env);
 const { databaseUrl } = integrationSuite();
 
-test('an anyone lobby protects only the minor in a mixed cast', async () => {
+test('a private mixed-age Round keeps Youth reuse and linked-adult rules after the lobby changes', async () => {
   await withFixture(databaseUrl, async (f) => {
     const adult = await createAuthorizationSubject(f);
     const minor = await createAuthorizationSubject(f);
@@ -43,6 +43,8 @@ test('an anyone lobby protects only the minor in a mixed cast', async () => {
         room_id: roomId,
         room_config_snapshot: validConfig,
         visibility: 'private',
+        standing_age_rule: 'anyone',
+        standing_youth_cast: true,
         format_id: formatId,
       },
       [
@@ -51,6 +53,7 @@ test('an anyone lobby protects only the minor in a mixed cast', async () => {
       ],
     );
     const db = drizzle({ client: f.sql });
+    await f.sql`update lobbies set age_rule='adults' where id=${lobbyId}`;
     const facts = async () => {
       const [row] = await db.execute(sql`select
         ${youthReuseFencedSql(sql`${roundId}`)} as fenced`);
@@ -61,7 +64,8 @@ test('an anyone lobby protects only the minor in a mixed cast', async () => {
     await f.sql`insert into media_releases (id,user_id,scope,source,signer_name,signer_relation,signer_email,wording_version,signed_at)
       values (${createId()},${minor.userId},'publish','parent','A Parent','parent','parent@example.test',${mediaReleaseWording.version},now())`;
     assert({
-      given: 'an adult and a minor debating in a private anyone Round',
+      given:
+        'an adult and a minor debated privately before the anyone lobby became adults-only',
       should:
         'expose only the minor to linked-adult lookup and require only that minor’s release for reuse',
       actual: [

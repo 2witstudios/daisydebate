@@ -37,7 +37,25 @@ export async function selectedLobbyCases(world: World) {
       },
     });
     if (answer.kind !== 'accepted') throw new Error(JSON.stringify(answer));
-    siblings.push(answer.receipt.aggregate.id);
+    const lobbyId = answer.receipt.aggregate.id;
+    siblings.push(lobbyId);
+    const season = await administer(principal, {
+      version: 1,
+      commandId: createId(),
+      expected: {},
+      command: {
+        type: 'create-season',
+        organizationId,
+        lobbyId,
+        name: `${name} season`,
+        startsAt: world.clock.now(),
+        endsAt: null,
+        counting: 'sanction',
+        countsLobbyRooms: true,
+        rule: {},
+      },
+    });
+    if (season.kind !== 'accepted') throw new Error(JSON.stringify(season));
   }
   const lobbyId = siblings.sort()[1]!;
   const offered = await settingCommand(dependencies)(principal, {

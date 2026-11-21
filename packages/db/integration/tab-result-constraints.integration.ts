@@ -608,7 +608,7 @@ test('ballot definitions are versioned and pinned, and screening never rewrites 
   });
 });
 
-test('the altered tables keep Daisy as it was and admit a league beside it', async () => {
+test('rating seasons and ladders belong to standing lobbies alongside league formats and tournament consent', async () => {
   await withSample(url, async (sql, ids) => {
     const fixture = new Fixture(sql);
     const formatId = await fixture.format();
@@ -617,10 +617,10 @@ test('the altered tables keep Daisy as it was and admit a league beside it', asy
       'select user_id from actors where id = $1',
       [actorId],
     )) as Array<{ user_id: string }>;
+    const daisySeasonId = createId();
     const season = (rest: Record<string, unknown>) =>
       refusedBy(sql, () =>
         insertRow(sql, 'seasons', {
-          division: 'open',
           id: createId(),
           name: 'A season',
           starts_at: at(0),
@@ -640,13 +640,13 @@ test('the altered tables keep Daisy as it was and admit a league beside it', asy
           ...rest,
         }),
       );
-    const rating = (ladder: string) =>
+    const rating = (ladder: string, seasonId: string, lobbyId: string) =>
       refusedBy(sql, () =>
         insertRow(sql, 'ratings', {
           actor_id: actorId,
-          season_id: ids.season,
+          season_id: seasonId,
           ladder,
-          division: 'open',
+          lobby_id: lobbyId,
           rating: 1500,
           deviation: 350,
           volatility: 0.06,
@@ -667,47 +667,60 @@ test('the altered tables keep Daisy as it was and admit a league beside it', asy
       organization_id: ids.league,
       name: 'League ladder',
     });
-    const unnamedSeason = await season({});
-    const daisySeason = await season({ organization_id: daisyOrganizationId });
+    const unnamedSeason = await season({ lobby_id: publicLobbyId });
+    const daisySeason = await season({
+      id: daisySeasonId,
+      organization_id: daisyOrganizationId,
+      lobby_id: publicLobbyId,
+    });
+    const siblingSeasonId = createId();
+    const siblingSeason = await season({
+      id: siblingSeasonId,
+      organization_id: ids.league,
+      lobby_id: leagueLobby,
+    });
     assert({
       given:
-        "a season written without an organization, a second active season for one organization, a league's ladder, a league's format, and a tournament recording consent",
+        'Daisy and a league with two standing lobbies, a league format, and a tournament recording consent',
       should:
-        "refuse the unnamed season rather than make it Daisy's, keep one active season per organization, keep ratings on Daisy's ladder, and scope the consent to a lobby",
+        'require season ownership, allow one active season per standing lobby, bind ratings to that pool, and scope consent',
       actual: {
         unnamedSeason,
         daisySeason,
+        siblingSeason,
         seasonIsDaisys: (
           await sql.unsafe(
             `select count(*)::int as rows from seasons where organization_id = $1 and name = 'A season'`,
             [daisyOrganizationId],
           )
         )[0],
-        // The league's active season from the sample is not a rating season.
-        ratingSeasons: (await listSeasonRecords(drizzle({ client: sql }))).map(
-          (record) => record.name,
-        ),
+        ratingSeasons: (
+          await listSeasonRecords(drizzle({ client: sql }), publicLobbyId)
+        ).map((record) => record.name),
         secondActiveForDaisy: await season({
           organization_id: daisyOrganizationId,
+          lobby_id: publicLobbyId,
         }),
-        secondActiveForLeague: await season({ organization_id: ids.league }),
-        ratingOnDaisysLadder: await rating('freestyle'),
-        ratingOnLeagueLadder: await rating(leagueLadder),
-        ratingOnNoLadder: await refusedBy(sql, () =>
-          sql
-            .unsafe('alter table ratings drop constraint ratings_ladder_check')
-            .then(() =>
-              insertRow(sql, 'ratings', {
-                actor_id: actorId,
-                season_id: ids.season,
-                ladder: 'unknown',
-                division: 'open',
-                rating: 1500,
-                deviation: 350,
-                volatility: 0.06,
-              }),
-            ),
+        secondActiveForLeague: await season({
+          organization_id: ids.league,
+          lobby_id: ids.standingLobby,
+        }),
+        ratingOnDaisysLadder: await rating(
+          'freestyle',
+          daisySeasonId,
+          publicLobbyId,
         ),
+        ratingOnLeagueLadder: await rating(
+          leagueLadder,
+          siblingSeasonId,
+          leagueLobby,
+        ),
+        ratingOnForeignLadder: await rating(
+          leagueLadder,
+          daisySeasonId,
+          publicLobbyId,
+        ),
+        ratingOnNoLadder: await rating('unknown', daisySeasonId, publicLobbyId),
         leagueFormat: await refusedBy(sql, () =>
           sql.unsafe('update formats set organization_id = $2 where id = $1', [
             formatId,
@@ -728,13 +741,15 @@ test('the altered tables keep Daisy as it was and admit a league beside it', asy
       expected: {
         unnamedSeason: '23502',
         daisySeason: null,
+        siblingSeason: null,
         seasonIsDaisys: { rows: 1 },
         ratingSeasons: ['A season'],
         secondActiveForDaisy: 'seasons_single_active',
         secondActiveForLeague: 'seasons_single_active',
         ratingOnDaisysLadder: null,
-        ratingOnLeagueLadder: 'ratings_ladder_check',
-        ratingOnNoLadder: 'ratings_ladder_ladders_id_fkey',
+        ratingOnLeagueLadder: null,
+        ratingOnForeignLadder: 'ratings_ladder_lobby_fk',
+        ratingOnNoLadder: 'ratings_ladder_lobby_fk',
         leagueFormat: null,
         formatWithTwoOwners: 'formats_one_owner_at_most',
         consent: null,

@@ -567,7 +567,7 @@ export function createRoomRuntimeOperations({
           );
           return {
             ...room,
-            hostRating: rating ? Math.round(rating.rating) : null,
+            hostRating: rating ? Math.round(rating.rating) : room.hostRating,
           };
         }),
       };
