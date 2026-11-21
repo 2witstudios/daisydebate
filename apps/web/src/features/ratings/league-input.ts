@@ -41,21 +41,30 @@ export function leagueGames(input: LeagueRatingInputs): LadderGame[] {
       {
         result: round.id,
         source: 'league_room',
-        playedAt: rated.occurredAt,
+        playedAt: round.postedAt.toISOString(),
         sides: [sides[0]!, sides[1]!],
         winner: side === first.key ? 0 : 1,
       },
     ];
   });
-  const fixtures = new Map<string, (typeof input.tournaments)[number][]>();
-  for (const record of input.tournaments)
+  return orderedLeagueGames(rooms, input.tournaments);
+}
+
+export const orderedLeagueGames = (
+  rooms: readonly LadderGame[],
+  certified: LeagueRatingInputs['tournaments'],
+) => ladderInput({ rooms, tournaments: certifiedTournaments(certified) });
+
+function certifiedTournaments(
+  certified: LeagueRatingInputs['tournaments'],
+): LadderInput['tournaments'] {
+  const fixtures = new Map<string, (typeof certified)[number][]>();
+  for (const record of certified)
     fixtures.set(record.fixtureId, [
       ...(fixtures.get(record.fixtureId) ?? []),
       record,
     ]);
-  const tournaments: LadderInput['tournaments'][number][] = [
-    ...fixtures.values(),
-  ].flatMap((records) => {
+  return [...fixtures.values()].flatMap((records) => {
     const latest = records.at(-1)!;
     const record = latest.competitionRecord;
     if (
@@ -83,7 +92,6 @@ export function leagueGames(input: LeagueRatingInputs): LadderGame[] {
           'INVARIANT',
           'Certified rating input cannot be projected',
         );
-      if (projected.projection.engine.outcome.kind !== 'winner') return [];
       return [
         {
           result: projected.projection.engine as ResultOf<TwoSides>,
@@ -105,13 +113,22 @@ export function leagueGames(input: LeagueRatingInputs): LadderGame[] {
       },
     ];
   });
-  return ladderInput({ rooms, tournaments });
 }
 
-export const leagueStandings = (input: LeagueRatingInputs) =>
-  input.tournaments.length > 0
-    ? foldLeagueRatings(leagueGames(input))
-    : input.standings.map(({ rating, deviation, volatility, ...row }) => ({
-        ...row,
-        state: { rating, deviation, volatility },
-      }));
+export const hasRateableTournament = (games: readonly LadderGame[]) =>
+  games.some(
+    ({ source, sides: [first, second] }) =>
+      source === 'tournament' &&
+      first.length > 0 &&
+      second.length > 0 &&
+      new Set([...first, ...second]).size === first.length + second.length,
+  );
+
+export const leagueStandings = (input: LeagueRatingInputs) => {
+  const games = leagueGames(input);
+  if (hasRateableTournament(games)) return foldLeagueRatings(games);
+  return input.standings.map(({ rating, deviation, volatility, ...row }) => ({
+    ...row,
+    state: { rating, deviation, volatility },
+  }));
+};

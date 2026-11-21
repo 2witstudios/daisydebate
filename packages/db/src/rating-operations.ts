@@ -5,7 +5,7 @@ import {
   type PlannedRatingChange,
   type RatingState,
 } from '@daisy/protocol';
-import { and, desc, eq, inArray, max, lt, sql } from 'drizzle-orm';
+import { and, eq, inArray, max, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type { RateDebateInput, RateDebateResult } from './rating-facts';
 import {
@@ -19,8 +19,8 @@ import { retryStale } from './retry-stale';
 import { seatOfColumns } from './seat-columns';
 import { roundParticipants } from './schema/round-participants';
 import { rounds } from './schema/rounds';
-import { seasons } from './schema/seasons';
 import { ratingChanges, ratings } from './schema/ratings';
+import { scopeTransaction } from './tenant-scope';
 
 /**
  * Rates one completed round (ADR 0055, ADR 0058) as a thin transactional
@@ -60,25 +60,6 @@ async function loadStanding(
     .select()
     .from(ratings)
     .where(and(onLadder, eq(ratings.seasonId, scope.pool.seasonId)));
-  const [previous] = await tx
-    .select({
-      rating: ratings.rating,
-      deviation: ratings.deviation,
-      volatility: ratings.volatility,
-    })
-    .from(ratings)
-    .innerJoin(seasons, eq(seasons.id, ratings.seasonId))
-    .where(
-      and(
-        onLadder,
-        lt(
-          seasons.startsAt,
-          sql`(select starts_at from seasons where id=${scope.pool.seasonId})`,
-        ),
-      ),
-    )
-    .orderBy(desc(seasons.startsAt))
-    .limit(1);
   const [last] = await tx
     .select({ at: max(ratingChanges.occurredAt) })
     .from(ratingChanges)
@@ -89,16 +70,11 @@ async function loadStanding(
         eq(ratingChanges.seasonId, scope.pool.seasonId),
       ),
     );
-  if (!current && previous)
-    throw createAppError(
-      'CONFLICT',
-      'Season carry-over requires DEC-111 resolution',
-    );
   return {
     current: current
       ? { state: stateOf(current), version: current.version }
       : null,
-    previous: previous ? stateOf(previous) : null,
+    previous: null,
     lastRatedAt: last?.at?.toISOString() ?? null,
   };
 }
@@ -151,6 +127,8 @@ async function rateOnce(
     .for('no key update');
   if (!round) throw createAppError('NOT_FOUND', 'No such round');
   assertRoundRatingIntegrity(round);
+  if (round.ratingLobbyId !== null)
+    await scopeTransaction(tx, { lobbyId: round.ratingLobbyId });
   const facts = await readRatingFacts(tx, roundId);
   if (!facts) throw createAppError('NOT_FOUND', 'No such round');
   const eligibility = decide.eligibility(facts);

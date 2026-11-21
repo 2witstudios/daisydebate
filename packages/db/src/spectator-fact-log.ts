@@ -32,8 +32,8 @@ const factsOfRound = sql`(
   select 'ballot', b.id, r.completed_at from ballots b
     where b.round_id=r.id and r.competition_type='ranked' and r.status='completed'
   union all
-  select 'rating', c.id, greatest(c.occurred_at,r.completed_at) from rating_changes c
-    where c.round_id=r.id
+  select 'rating', c.id, greatest(c.occurred_at,r.completed_at)
+    from daisy_round_rating_release_facts(r.id) c
   union all
   select 'caption', u.id, ${heardAt} from utterances u
     where u.round_id=r.id and r.competition_type='ranked' and u.complete

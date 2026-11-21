@@ -16,7 +16,7 @@ import { as } from './tab-tournament-organization-wiring.test-support';
 import type { World } from './tab-tournament.test-support';
 
 /** Exercise Room assembly, Ready, Start and forfeit through their actual owners. */
-export async function leagueRoomRating(world: World) {
+export async function leagueRoomRating(world: World, sideSize = 1) {
   const lobbyId = world.made.get('standing-lobby')!;
   const [ladder] =
     await world.sql`select id from ladders where lobby_id=${lobbyId}`;
@@ -72,7 +72,13 @@ export async function leagueRoomRating(world: World) {
           preRoundPrep: config.preRoundPrep,
           resolutionDraw: config.resolutionDraw,
         },
-        rules: validRules,
+        rules: {
+          ...validRules,
+          seats: {
+            ...validRules.seats,
+            sides: { affirmative: sideSize, negative: sideSize },
+          },
+        },
       },
       lobby: { id: lobbyId, kind: 'standing' },
       templateId: world.made.get('league-template')!,
@@ -128,6 +134,16 @@ export async function leagueRoomRating(world: World) {
   if (!world.runtimeDatabaseUrl)
     throw new Error('League Room proof needs its committed runtime resource');
   let roundId = '';
+  const competitors = [
+    [sideSeat('affirmative'), world.bots['Debater 1']!],
+    [sideSeat('negative'), world.bots['Debater 2']!],
+    ...(sideSize === 2
+      ? ([
+          [sideSeat('affirmative', 1), world.bots['Debater 3']!],
+          [sideSeat('negative', 1), world.bots['Debater 4']!],
+        ] as const)
+      : []),
+  ] as const;
   await withRoomRuntime(
     async (f) => {
       const host = world.bots.Director!;
@@ -155,18 +171,15 @@ export async function leagueRoomRating(world: World) {
         actual: underAge,
         expected: 'other-division',
       });
-      for (const [side, person] of [
-        ['affirmative', world.bots['Debater 1']!],
-        ['negative', world.bots['Debater 2']!],
-      ] as const) {
+      for (const [seat, person] of competitors) {
         view = (
           await f.command(person, view, {
             type: 'claim-seat',
-            seat: sideSeat(side),
+            seat,
           })
         ).view;
       }
-      for (const person of [world.bots['Debater 1']!, world.bots['Debater 2']!])
+      for (const [, person] of competitors)
         view = (await f.consent(person, view, 'ready')).view;
       await f.command(host, view, { type: 'start-round' });
       const [frozen] =
@@ -213,11 +226,11 @@ export async function leagueRoomRating(world: World) {
   assert({
     given: 'a forfeited league Round whose check-in writer is still in doubt',
     should: 'count on the league ladder for no competitor, as Daisy rates it',
-    actual: [world.bots['Debater 1']!, world.bots['Debater 2']!].map(
-      (person) =>
+    actual: competitors.map(
+      ([, person]) =>
         games(person.actorId, pending) - games(person.actorId, before),
     ),
-    expected: [0, 0],
+    expected: competitors.map(() => 0),
   });
   await world.sql`update round_check_in_attempts set state='aborted',resolved_at=now() where attempt_id=${attemptId}`;
   await withRoomRuntime(
@@ -242,14 +255,14 @@ export async function leagueRoomRating(world: World) {
     given: 'a finalized own-lobby result and its frozen actor seats',
     should: 'add one game per competitor and one posting for each seat',
     actual: [
-      games(world.bots['Debater 1']!.actorId, after) -
-        games(world.bots['Debater 1']!.actorId, before),
-      games(world.bots['Debater 2']!.actorId, after) -
-        games(world.bots['Debater 2']!.actorId, before),
+      ...competitors.map(
+        ([, person]) =>
+          games(person.actorId, after) - games(person.actorId, before),
+      ),
       (
         await world.sql`select count(*)::int as count from rating_changes where round_id=${roundId}`
       )[0]!.count,
     ],
-    expected: [1, 1, 2],
+    expected: [...competitors.map(() => 1), competitors.length],
   });
 }

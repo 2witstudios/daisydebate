@@ -11,7 +11,10 @@ import { rounds } from '../schema/rounds';
 import { roundParticipants } from '../schema/round-participants';
 import { readEndingRatingFacts } from '../rating-discovery';
 import { scopeTransaction } from '../tenant-scope';
-import { loadLeagueCertifiedRatingInputs } from './league-certified-rating-inputs';
+import {
+  certifiedRatingActors,
+  loadLeagueCertifiedRatingInputs,
+} from './league-certified-rating-inputs';
 import { loadLobbyAuthority } from './lobby-authority';
 import type { TabDatabase, TabTransaction } from './tab-transaction';
 
@@ -68,10 +71,18 @@ export async function loadLeagueRatingInputs(
     : sql`false`;
   const completedRounds = tournaments.length
     ? await tx
-        .select({ id: rounds.id, rules: rounds.rulesSnapshot })
+        .select({
+          id: rounds.id,
+          rules: rounds.rulesSnapshot,
+          postedAt: sql<Date>`max(${ratingChanges.occurredAt})`.mapWith(
+            ratingChanges.occurredAt,
+          ),
+        })
         .from(rounds)
+        .innerJoin(ratingChanges, eq(ratingChanges.roundId, rounds.id))
         .where(seasonRounds)
-        .orderBy(asc(rounds.completedAt), asc(rounds.id))
+        .groupBy(rounds.id)
+        .orderBy(asc(sql`max(${ratingChanges.occurredAt})`), asc(rounds.id))
     : [];
   // The same ending facts Daisy's ratings read: the engine's `endingRating`
   // decides which of these Rounds the ladder counts.
@@ -101,9 +112,17 @@ export async function loadLeagueRatingInputs(
             // bound id per Round.
             inArray(
               roundParticipants.roundId,
-              tx.select({ id: rounds.id }).from(rounds).where(seasonRounds),
+              tx
+                .select({ id: rounds.id })
+                .from(rounds)
+                .where(
+                  and(
+                    seasonRounds,
+                    sql`exists (select 1 from ${ratingChanges} c where c.round_id=${rounds.id})`,
+                  ),
+                ),
             ),
-            inArray(roundParticipants.seatKind, ['side', 'speaker']),
+            eq(roundParticipants.seatKind, 'side'),
           ),
         )
     : [];
@@ -150,15 +169,7 @@ export async function loadLeagueRatingInputs(
     ...new Set([
       ...standings.map((row) => row.actorId),
       ...participants.map((row) => row.actorId),
-      ...tournaments.flatMap((row) =>
-        row.competitionRecord.kind === 'decided'
-          ? row.competitionRecord.cast
-              .filter((member) => member.entryId !== null)
-              .map((member) => member.actorId)
-          : row.competitionRecord.fixture.entries.flatMap(
-              (entry) => entry.members,
-            ),
-      ),
+      ...certifiedRatingActors(tournaments),
     ]),
   ];
   const actorRows = actorIds.length
@@ -222,7 +233,9 @@ export const createLeagueRatingStore = (database: TabDatabase) => ({
       const [ladder] = await tx
         .select()
         .from(ladders)
-        .where(eq(ladders.lobbyId, authority.lobby.id));
+        .where(eq(ladders.lobbyId, authority.lobby.id))
+        .orderBy(asc(ladders.createdAt), asc(ladders.id))
+        .limit(1);
       const facts = ladder
         ? await loadLeagueRatingInputs(tx, {
             viewerUserId: input.viewerUserId,

@@ -69,12 +69,12 @@ test('league ratings replay certified inputs and freeze the later tournament see
       completionStage,
     ])
       await run(world);
+    await leagueRoomRating(world, 2);
     // Sanction commands belong to the season proof. This is the exact durable
     // published input the rating consumer receives from that separate owner.
     const [season] =
       await owner`select id from seasons where organization_id=${world.made.get('league')!}`;
     await owner`insert into sanctions (id,organization_id,lobby_id,event_id,season_id,template_id,status,decided_at) values (${createId()},${world.made.get('league')!},${world.made.get('tournament-lobby')!},${world.made.get('event')!},${season!.id},${world.made.get('league-template')!},'approved',${world.clock.now()})`;
-    await leagueRoomRating(world);
     await ratingStage(world);
     await leagueRatingCorrection(world);
   } finally {

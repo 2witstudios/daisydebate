@@ -2,7 +2,9 @@ import { createRefusal } from '@daisy/errors';
 import { roundRatingScopeSchema, type RoundRatingScope } from '@daisy/protocol';
 import { and, asc, eq } from 'drizzle-orm';
 import { ladders } from './schema/ladders';
+import { lobbies } from './schema/lobbies';
 import { seasons } from './schema/seasons';
+import { currentTenantScope, scopeTransaction } from './tenant-scope';
 import type { Tx } from './tx';
 
 /** Hold the season through the write that relies on it. */
@@ -20,10 +22,24 @@ export async function lockActiveLobbySeason(
 
 /** The lobby's own selected ladder and active season, held through Start. */
 export async function lockLadderSeason(
-  tx: Pick<Tx, 'select'>,
+  tx: Pick<Tx, 'select' | 'execute'>,
   lobbyId: string,
   selectedLadderId?: string,
 ): Promise<NonNullable<RoundRatingScope>> {
+  const [lobby] = await tx
+    .select({ organizationId: lobbies.ownerOrganizationId })
+    .from(lobbies)
+    .where(and(eq(lobbies.id, lobbyId), eq(lobbies.kind, 'standing')));
+  if (!lobby?.organizationId)
+    throw createRefusal('CONFLICT', 'ranked-unavailable');
+  // A ladder is openly readable, but PostgreSQL applies its tenant write
+  // policy to row locks too. The scope comes from the persisted Room lobby.
+  const priorScope = await currentTenantScope(tx);
+  await scopeTransaction(tx, {
+    ...priorScope,
+    lobbyId,
+    organizationId: lobby.organizationId,
+  });
   const [pool] = await tx
     .select({
       lobbyId: ladders.lobbyId,
@@ -44,6 +60,7 @@ export async function lockLadderSeason(
     .orderBy(asc(ladders.createdAt), asc(ladders.id))
     .limit(1)
     .for('share', { of: [seasons, ladders] });
+  await scopeTransaction(tx, priorScope);
   if (!pool) throw createRefusal('CONFLICT', 'ranked-unavailable');
   return roundRatingScopeSchema.unwrap().parse(pool);
 }

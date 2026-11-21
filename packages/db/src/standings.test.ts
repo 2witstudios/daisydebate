@@ -73,6 +73,8 @@ describe('standings reads', () => {
     const { database } = createTestDatabase([
       // The snapshot's SET TRANSACTION statement.
       [],
+      // The lobby's RLS scope.
+      [],
       [
         ['s1', 'a1', 'ada', null, 1516, 290, 0.06],
         ['s1', 'a2', null, null, 1484, 290, 0.06],
@@ -155,7 +157,7 @@ describe('standings reads', () => {
   });
 
   test('reads both sets from one read-only snapshot', async () => {
-    const { database, queries } = createTestDatabase([[], [], []]);
+    const { database, queries } = createTestDatabase([[], [], [], []]);
     await database.readStandings({
       ladderId: 'freestyle',
       lobbyId: 'open-lobby',
@@ -180,6 +182,7 @@ describe('standings reads', () => {
       ['no outcome', 'negative', null],
     ] as const) {
       const { database } = createTestDatabase([
+        [],
         [],
         [],
         [

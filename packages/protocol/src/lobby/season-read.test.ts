@@ -29,7 +29,7 @@ const season = {
   seasonId: id('season'),
   name: '2026 to 27 season',
   organization: { organizationId: id('league'), name: 'Southeast League' },
-  division: 'youth',
+  lobby: { lobbyId: id('youth'), name: 'Youth', ageRule: 'under-18' },
   counting: 'sanction',
   calendar: [
     tournament,

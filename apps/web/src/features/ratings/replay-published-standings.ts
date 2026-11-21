@@ -1,0 +1,91 @@
+import type { StandingsRead } from '@daisy/db/ratings';
+import { affirmativeSide, negativeSide, winnerOutcome } from '@daisy/protocol';
+import type { LadderGame } from '@daisy/tab-engine';
+import { foldLeagueRatings } from './league-fold';
+import { hasRateableTournament, orderedLeagueGames } from './league-input';
+
+/** Only results already released to this audience take part in its replay. */
+export function replayPublishedStandings(source: StandingsRead): StandingsRead {
+  if (!source.certified?.length) return source;
+  const replayedSeasons = new Set<string>();
+  const ratings: StandingsRead['ratings'][number][] = [];
+  const changes: StandingsRead['changes'][number][] = [];
+  for (const { seasonId, records, people } of source.certified) {
+    const posted = new Map<string, StandingsRead['changes'][number][]>();
+    for (const change of source.changes) {
+      if (change.seasonId !== seasonId) continue;
+      const group = posted.get(change.roundId) ?? [];
+      group.push(change);
+      posted.set(change.roundId, group);
+    }
+    const rooms: LadderGame[] = [];
+    for (const [roundId, rows] of posted) {
+      const first = rows[0]!;
+      const winner = first.outcome.side;
+      const winners = rows
+        .filter(({ side }) => side === winner)
+        .map(({ actorId }) => actorId);
+      const opposition = rows
+        .filter(({ side }) => side !== winner)
+        .map(({ actorId }) => actorId);
+      rooms.push({
+        source: 'league_room',
+        result: roundId,
+        playedAt: first.occurredAt,
+        sides: [winners, opposition],
+        winner: 0,
+      });
+    }
+    const games = orderedLeagueGames(rooms, records);
+    if (!hasRateableTournament(games)) continue;
+    replayedSeasons.add(seasonId);
+    const sides = [affirmativeSide, negativeSide] as const;
+    const replay = foldLeagueRatings(
+      games,
+      ({ game, actorId, participatedOn, occurredAt, before, after }) => {
+        changes.push({
+          seasonId,
+          actorId,
+          roundId: game.result,
+          occurredAt,
+          side: sides[participatedOn],
+          outcome: winnerOutcome(sides[game.winner]),
+          ratingBefore: before.rating,
+          ratingAfter: after.rating,
+          deviationBefore: before.deviation,
+          deviationAfter: after.deviation,
+        });
+      },
+    );
+    const names = new Map(
+      [
+        ...people,
+        ...source.ratings.filter((row) => row.seasonId === seasonId),
+      ].map((person) => [person.actorId, person]),
+    );
+    for (const { actorId, state } of replay) {
+      const person = names.get(actorId);
+      ratings.push({
+        seasonId,
+        actorId,
+        ...state,
+        username: person?.username ?? null,
+        accountClosed: person?.accountClosed ?? false,
+      });
+    }
+  }
+  return {
+    ratings: [
+      ...source.ratings.filter(
+        ({ seasonId }) => !replayedSeasons.has(seasonId),
+      ),
+      ...ratings,
+    ],
+    changes: [
+      ...source.changes.filter(
+        ({ seasonId }) => !replayedSeasons.has(seasonId),
+      ),
+      ...changes,
+    ],
+  };
+}

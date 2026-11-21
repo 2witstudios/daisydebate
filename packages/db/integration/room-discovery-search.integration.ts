@@ -94,7 +94,6 @@ test('another official league appears while an ordinary league stays out of disc
           handle: leagueId,
           kind: 'league',
           owner_user_id: await f.user(),
-          league_division: 'open',
           official,
         });
         await f.insert('lobbies', {

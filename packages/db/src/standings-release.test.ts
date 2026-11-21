@@ -99,4 +99,28 @@ describe('releasedStandings', () => {
       expected: { ratings: [], changes: [] },
     });
   });
+
+  test('later postings depend on the ratings of earlier held games', () => {
+    const later = { ...third, released: true };
+    assert({
+      given: 'a publicly released game after a private or delayed posting',
+      should: 'expose only the ledger prefix preceding the held posting',
+      actual: [
+        releasedStandings({ ratings: [rating], changes: [later, second] }),
+        releasedStandings({
+          ratings: [rating],
+          changes: [later, second, first],
+        }),
+      ],
+      expected: [
+        { ratings: [], changes: [] },
+        {
+          ratings: [
+            { ...rating, rating: 1550, deviation: 155, volatility: 0.06 },
+          ],
+          changes: [publicFirst],
+        },
+      ],
+    });
+  });
 });

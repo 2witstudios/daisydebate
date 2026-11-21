@@ -104,8 +104,7 @@ export async function readLadder(
                     r.actorId ===
                     published.postings.find(
                       (other) =>
-                        other.roundId === c.roundId &&
-                        other.actorId !== c.actorId,
+                        other.roundId === c.roundId && other.side !== c.side,
                     )?.actorId,
                 )?.username ?? null,
             })),

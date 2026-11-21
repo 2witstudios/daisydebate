@@ -9,6 +9,8 @@ import {
 import { roundOutcomeSql } from './round-outcome-sql';
 import { seatOfColumns, type SeatColumns } from './seat-columns';
 import { instrumented, type DatabaseEventSink } from './instrumented';
+import { readOfficialStandingLobbies } from './official-standing-lobbies';
+import { scopeTransaction } from './tenant-scope';
 import {
   factReleasedSql,
   outcomeReleasedSql,
@@ -83,18 +85,25 @@ const readCardRatings = async (
   database: BunSQLDatabase,
   ids: SQL,
   clock: SpectatorClock,
-): Promise<readonly CardRatingRow[]> => {
-  const postingReleased = factReleasedSql(
-    sql`greatest(c.occurred_at, held_r.completed_at)`,
-    postingRound,
-    clock,
-  );
-  const postings = sql`rating_changes c join rounds held_r on held_r.id = c.round_id
+): Promise<readonly CardRatingRow[]> =>
+  database.transaction(
+    async (tx) => {
+      const lobbies = await readOfficialStandingLobbies(tx);
+      const postingReleased = sql`held_r.visibility = 'public' and ${factReleasedSql(
+        sql`greatest(c.occurred_at, held_r.completed_at)`,
+        postingRound,
+        clock,
+      )}`;
+      const postings = sql`rating_changes c join rounds held_r on held_r.id = c.round_id
     where c.actor_id = r.actor_id and c.ladder = r.ladder and c.season_id = r.season_id`;
-  const ratings = (await database.execute(sql`
+      const ratings: CardRatingRead[] = [];
+      for (const lobby of lobbies) {
+        await scopeTransaction(tx, { lobbyId: lobby.id });
+        const rows = (await tx.execute(sql`
     select r.actor_id as "actorId", 'freestyle' as ladder, case when l.age_rule='under-18' then 'youth' else 'open' end as division,
       r.lobby_id as "lobbyId", r.ladder as "ladderId", r.rating, r.deviation, r.volatility,
-      (select max(c.occurred_at) from ${postings} and ${postingReleased}) as "lastRatedAt",
+      (select max(c.occurred_at) from ${postings}
+        and (held.occurred_at is null or c.occurred_at < held.occurred_at)) as "lastRatedAt",
       held.rating_before as "heldRating",
       held.deviation_before as "heldDeviation",
       held.volatility_before as "heldVolatility"
@@ -105,13 +114,17 @@ const readCardRatings = async (
       select ld.id from ladders ld where ld.lobby_id=l.id order by ld.created_at,ld.id limit 1
     ) ladder on ladder.id=r.ladder
     left join lateral (
-      select c.rating_before, c.deviation_before, c.volatility_before
-      from ${postings} and not ${postingReleased}
+      select c.occurred_at, c.rating_before, c.deviation_before, c.volatility_before
+      from ${postings} and (${postingReleased}) is not true
       order by c.occurred_at asc limit 1
     ) held on true
-    where r.actor_id = any(${ids})`)) as unknown as CardRatingRead[];
-  return ratings.flatMap((row) => releasedCardRating(row) ?? []);
-};
+    where r.lobby_id = ${lobby.id} and r.actor_id = any(${ids})`)) as unknown as CardRatingRead[];
+        ratings.push(...rows);
+      }
+      return ratings.flatMap((row) => releasedCardRating(row) ?? []);
+    },
+    { isolationLevel: 'repeatable read', accessMode: 'read only' },
+  );
 
 const actorIdArray = (actorIds: readonly string[]) =>
   sql`array[${sql.join(

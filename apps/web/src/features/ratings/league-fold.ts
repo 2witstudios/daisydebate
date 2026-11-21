@@ -13,9 +13,19 @@ export type LeagueRating = DebaterRating & {
   readonly change: number;
 };
 
+type LeaguePosting = {
+  readonly game: LadderGame;
+  readonly actorId: string;
+  readonly participatedOn: 0 | 1;
+  readonly occurredAt: string;
+  readonly before: DebaterRating['state'];
+  readonly after: DebaterRating['state'];
+};
+
 /** Replay the league's published games; every member meets the opposing pre-game mean. */
 export function foldLeagueRatings(
   games: readonly LadderGame[],
+  onPosting?: (posting: LeaguePosting) => void,
 ): LeagueRating[] {
   const ratings = new Map<string, LeagueRating>();
   const seen = new Set<string>();
@@ -58,6 +68,14 @@ export function foldLeagueRatings(
       const won = game.winner === index;
       for (const [memberIndex, row] of side.entries()) {
         const after = changes[index]![memberIndex]!.after;
+        onPosting?.({
+          game,
+          actorId: row.actorId,
+          participatedOn: index === 0 ? 0 : 1,
+          occurredAt,
+          before: row.state,
+          after,
+        });
         ratings.set(row.actorId, {
           actorId: row.actorId,
           state: after,

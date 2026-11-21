@@ -1,4 +1,3 @@
-import { lobbies } from './schema/lobbies';
 import { currentRoundParticipant } from './round-current-participant';
 import { isDebatingSeat, type CaptureRule } from '@daisy/protocol';
 import { and, asc, eq, sql, type SQL } from 'drizzle-orm';
@@ -56,14 +55,13 @@ export const recordingRoundReadOperations = ({
           rules: rounds.rulesSnapshot,
           capture: rounds.capture,
           ladderId: rounds.ladderId,
-          ladderAgeRule: lobbies.ageRule,
+          ladderAgeRule: rounds.standingAgeRule,
           roomYouth: sql<
             boolean | null
           >`public.daisy_room_is_youth(${rounds.roomId})`,
         })
         .from(rounds)
         .leftJoin(rooms, eq(rooms.id, rounds.roomId))
-        .leftJoin(lobbies, eq(lobbies.id, rounds.ratingLobbyId))
         .where(eq(rounds.id, roundId));
       if (!round) return null;
       const outcome = outcomeOfColumns(round, round.rules);
