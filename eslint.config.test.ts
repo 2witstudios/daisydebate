@@ -793,4 +793,50 @@ describe('database statement and lock boundaries', () => {
       expected: [1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 1],
     });
   });
+
+  test('requires parsed rows before a native query is passed to a Promise combinator', async () => {
+    const lint = typedRepositoryEslint();
+    const filePath = 'packages/db/src/attendance-facts.ts';
+    const imports = `
+      import type { SQL } from 'bun';
+      import { z } from 'zod';
+      import { availabilityEvidenceRow, availabilitySamplesFrom } from './availability-operations';
+      import { query } from './raw-rows';
+    `;
+    const statement = 'client`select 1 as value`';
+    const parsed = `query(${statement}, z.object({ value: z.int() }))`;
+    const cases = [
+      `const [rows] = await Promise.all([${statement}]); return rows[0];`,
+      `return Promise.resolve(${statement});`,
+      `return z.array(availabilityEvidenceRow).parse(await Promise.resolve(availabilitySamplesFrom((strings, ...values) => client(strings, ...values), '2026-11-20T00:00:00Z')));`,
+      `return Promise.allSettled([${statement}]);`,
+      `return globalThis.Promise.any(new Set([${statement}]));`,
+      `const queries = [${statement}] as const; const settle = Promise; return settle['race'](queries);`,
+      `const resolve = Promise.resolve.bind(Promise); return resolve(${statement});`,
+      `return Promise.all(...[[${statement}]] as const);`,
+      `function* queries() { yield ${statement}; } return Promise.all(queries());`,
+      `return Promise.all([${parsed}]);`,
+      `return Promise.resolve(${parsed});`,
+      `function* values() { yield 1; return ${statement}; } return Promise.all(values());`,
+      'const writer = async () => { await client`delete from fixture`; }; return Promise.all([writer()]);',
+      'const receipt = await client<{ command: string }>`commit`; return Promise.resolve(receipt.command);',
+    ];
+    const errors = await Promise.all(
+      cases.map(async (body) => {
+        const [result] = await lint.lintText(
+          `${imports}\nexport async function read(client: SQL) { ${body} }`,
+          { filePath },
+        );
+        return result!.messages.filter(
+          ({ ruleId }) => ruleId === 'db-native-rows/require-query',
+        ).length;
+      }),
+    );
+    assert({
+      given: 'native SQL queries or validated values passed to Promise methods',
+      should: 'report native thenable inputs and accept the validated values',
+      actual: errors,
+      expected: [1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 0, 0],
+    });
+  });
 });

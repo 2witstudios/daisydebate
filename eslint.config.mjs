@@ -620,15 +620,13 @@ const dbNativeRowsPlugin = {
         const forwardsQueries = context.filename.endsWith(
           '/packages/db/src/transaction-client.ts',
         );
-        const nativeQuery = (expression) => {
-          if (!expression) return false;
-          const type = checker.getTypeAtLocation(
-            esTreeNodeToTSNodeMap.get(expression),
-          );
-          const alternatives = type.isUnionOrIntersection()
-            ? type.types
-            : [type];
-          return alternatives.some((alternative) => {
+        const types = (type) =>
+          type.isUnionOrIntersection() ? type.types : [type];
+        const typeAt = (node) =>
+          checker.getTypeAtLocation(esTreeNodeToTSNodeMap.get(node));
+        const nativeType = (type) =>
+          type !== undefined &&
+          types(type).some((alternative) => {
             const symbol = alternative.getSymbol();
             return (
               symbol?.name === 'Query' &&
@@ -640,6 +638,61 @@ const dbNativeRowsPlugin = {
                     .fileName.endsWith('/bun-types/sql.d.ts'),
                 )
             );
+          });
+        const nativeQuery = (expression) =>
+          expression != null && nativeType(typeAt(expression));
+        const promiseMethod = (call) => {
+          const declaration = checker
+            .getResolvedSignature(esTreeNodeToTSNodeMap.get(call))
+            ?.getDeclaration();
+          if (
+            declaration &&
+            program.isSourceFileDefaultLibrary(declaration.getSourceFile()) &&
+            declaration.parent.name?.getText() === 'PromiseConstructor'
+          )
+            return declaration.name?.getText();
+        };
+        const nativeIterable = (inputType, location) => {
+          const propertyType = (symbol) =>
+            checker.getTypeOfSymbolAtLocation(symbol, location);
+          const methodResults = (symbol) =>
+            propertyType(symbol)
+              .getCallSignatures()
+              .map((signature) => signature.getReturnType());
+          return types(inputType).some((type) => {
+            // Promise combinators assimilate each value yielded by the
+            // iterable. Inspect next().value, including Set and generators.
+            const iterator = type
+              .getProperties()
+              .find((symbol) =>
+                symbol
+                  .getDeclarations()
+                  ?.some((declaration) =>
+                    /^\[\s*Symbol\s*\.\s*iterator\s*\]$/.test(
+                      declaration.name?.getText() ?? '',
+                    ),
+                  ),
+              );
+            if (!iterator) return false;
+            return methodResults(iterator).some((result) => {
+              const next = result.getProperty('next');
+              if (!next) return false;
+              return methodResults(next)
+                .flatMap(types)
+                .some((step) => {
+                  const done = step.getProperty('done');
+                  if (
+                    done &&
+                    checker.isTypeAssignableTo(
+                      propertyType(done),
+                      checker.getTrueType(),
+                    )
+                  )
+                    return false;
+                  const value = step.getProperty('value');
+                  return value !== undefined && nativeType(propertyType(value));
+                });
+            });
           });
         };
         // COMMIT metadata lives on the Bun result outside the rows.
@@ -672,13 +725,40 @@ const dbNativeRowsPlugin = {
           },
           CallExpression(node) {
             const callee = node.callee;
-            if (callee.type !== 'MemberExpression') return;
-            const method = callee.computed
-              ? callee.property.value
-              : callee.property.name;
+            if (callee.type === 'MemberExpression') {
+              const method = callee.computed
+                ? callee.property.value
+                : callee.property.name;
+              if (
+                ['then', 'catch', 'finally'].includes(method) &&
+                nativeQuery(callee.object)
+              ) {
+                report(node);
+                return;
+              }
+            }
+            const input = node.arguments[0];
+            if (input === undefined) return;
+            const method = promiseMethod(node);
             if (
-              ['then', 'catch', 'finally'].includes(method) &&
-              nativeQuery(callee.object)
+              method !== 'resolve' &&
+              !['all', 'allSettled', 'any', 'race'].includes(method)
+            )
+              return;
+            const expression =
+              input.type === 'SpreadElement' ? input.argument : input;
+            const location = esTreeNodeToTSNodeMap.get(expression);
+            const expressionType = typeAt(expression);
+            let inputType = expressionType;
+            if (input.type === 'SpreadElement') {
+              const first = expressionType.getProperty('0');
+              if (!first) return;
+              inputType = checker.getTypeOfSymbolAtLocation(first, location);
+            }
+            if (
+              method === 'resolve'
+                ? nativeType(inputType)
+                : nativeIterable(inputType, location)
             )
               report(node);
           },
