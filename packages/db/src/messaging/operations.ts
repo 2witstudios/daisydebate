@@ -16,6 +16,7 @@ import { createMessagingGroupInvitationStore } from './group-invitation-store';
 import type { MessagingGroupInvitationFence } from './group-invitation-contracts';
 import { createMessagingInboxPage } from './inbox-page';
 import { createMessagingChannelAuthority } from './authority-frame';
+import { createMessagingPairFactsRead } from './contact-facts';
 import {
   createMessagingStore,
   createMessagingReactionStore,
@@ -25,7 +26,6 @@ import {
   type MessagingAuthorizationFence,
   createMessagingSocialStore,
 } from './index';
-import type { ContactAuthorizationFence } from '../contacts/fence';
 import type { ContactReactions } from '../contacts/reactions';
 import type { TxSource } from '../tx';
 
@@ -50,6 +50,7 @@ export function messagingOperations(
       authorize: Parameters<typeof createMessagingDmStore>[0]['authorize'],
     ) => createMessagingDmStore({ database, authorize }),
     messagingChannelAuthority: createMessagingChannelAuthority(database),
+    readMessagingPairFacts: createMessagingPairFactsRead(database),
     messagingFileMaintenance: createMessagingFileMaintenance(database),
     messagingFileCleanup: (
       authorize: Parameters<typeof createMessagingFileCleanup>[0]['authorize'],
@@ -78,7 +79,8 @@ export function messagingOperations(
       createMessagingGroupManagementStore({ database, authorize }),
     messagingGroupInvitationStore: (authorize: MessagingGroupInvitationFence) =>
       createMessagingGroupInvitationStore({ database, authorize }),
-    messagingSocialStore: (authorize: ContactAuthorizationFence) =>
-      createMessagingSocialStore({ database, authorize, reactions }),
+    messagingSocialStore: (
+      authorize: Parameters<typeof createMessagingSocialStore>[0]['authorize'],
+    ) => createMessagingSocialStore({ database, authorize, reactions }),
   };
 }

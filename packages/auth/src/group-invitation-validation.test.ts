@@ -72,7 +72,7 @@ test('group invitation acceptance preserves explicit block scope and policy revi
     decision: 'isolated explicit fixture only',
     key: 'social.private_group',
     revision: 1,
-    allowedBandPairs: [['adult', 'adult']] as const,
+    earlierRevisions: [],
   };
   const blocked = {
     ...invitation,

@@ -3,7 +3,7 @@ import { sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { queueObservationPurge } from '../observation-purge-jobs';
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema, messageRequestSettingSchema } from '@daisy/protocol';
 import { eraseSubjectFiles, exportSubjectFiles } from '../messaging-files';
 import {
   deleteAbandonedChannels,
@@ -232,6 +232,11 @@ export function createMessagingPrivacyAdopter(): PrivacyAdopter {
         tx,
         sql`delete from messaging_unread_emails where user_id=${subject.userId}`,
       );
+      // Erasure keeps the user row (ADR 0087), so its own choice goes here.
+      await run(
+        tx,
+        sql`delete from messaging_request_settings where user_id=${subject.userId}`,
+      );
     },
     async export(tx, subject): Promise<PrivacyExport> {
       await lockSubjectMessaging(tx, subject.actorId);
@@ -377,6 +382,15 @@ export function createMessagingPrivacyAdopter(): PrivacyAdopter {
         sql`select id,title,title_author_actor_id from messaging_channels where title_author_actor_id=${actorId} order by id`,
       );
       const files = await exportSubjectFiles(tx, actorId);
+      const requestSettings = await query(
+        tx,
+        z.object({
+          setting: messageRequestSettingSchema.shape.setting,
+          updated_at: z.date(),
+        }),
+        sql`select setting,updated_at from messaging_request_settings
+            where user_id=(select user_id from actors where id=${actorId})`,
+      );
       // Read last: Messaging's own email jobs, after every other table.
       const unreadEmails = await query(
         tx,
@@ -406,6 +420,7 @@ export function createMessagingPrivacyAdopter(): PrivacyAdopter {
           messaging_retained_authors: retained,
           messaging_social_command_subjects: commandSubjects,
           messaging_group_invitations: invitations,
+          messaging_request_settings: requestSettings,
           messaging_unread_emails: unreadEmails,
         }).map(([table, rows]) => [table, exportRows(rows)]),
       );

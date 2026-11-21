@@ -44,6 +44,7 @@ export const notificationPrivacyAdopter: PrivacyAdopter = {
           round_id: z.string().nullable(),
           room_invitation_id: z.string().nullable(),
           challenge_id: z.string().nullable(),
+          dm_channel_id: z.string().nullable(),
           fixture_id: z.string().nullable(),
           notification_lobby_id: z.string().nullable(),
           tab_command_id: z.string().nullable(),
@@ -54,7 +55,7 @@ export const notificationPrivacyAdopter: PrivacyAdopter = {
           surfaced_at: z.date(),
           created_at: z.date(),
         }),
-        sql`select kind,round_id,room_invitation_id,challenge_id,fixture_id,notification_lobby_id,tab_command_id,media_release_request_id,media_release_id,media_release_club_ask_id,read_at,surfaced_at,created_at
+        sql`select kind,round_id,room_invitation_id,challenge_id,dm_channel_id,fixture_id,notification_lobby_id,tab_command_id,media_release_request_id,media_release_id,media_release_club_ask_id,read_at,surfaced_at,created_at
           from notifications where user_id=${subject.userId} order by created_at,id`,
       ),
     ),

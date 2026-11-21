@@ -160,7 +160,13 @@ export async function decideMessagingInboxCandidate(
         readAgeFact: async (account) => ageOf(account),
       });
       requireAuthorization({
-        ...messagingAuthorizationInput(scope, fact, { accounts, now }, options),
+        ...messagingAuthorizationInput(
+          scope,
+          fact,
+          { accounts, now },
+          options,
+          'reading',
+        ),
         capability: view.capability,
       });
       return {

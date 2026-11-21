@@ -19,7 +19,7 @@ const creationPolicy: SocialCreationPolicy = {
   decision: 'Isolated creation proof only',
   key: 'social.private_group',
   revision: 1,
-  allowedBandPairs: [['adult', 'adult']],
+  earlierRevisions: [],
   groupBlockScope: 'all_pairs',
 };
 test('real group creation installs only creator authority and erases counterpart-bound command history', async () => {

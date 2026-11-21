@@ -68,6 +68,7 @@ const withDmRequests = async (
         now,
         policyRevision: 1,
         limits: socialLimits,
+        nextId: createId,
       },
       frame: (use, authorize = async () => {}, duplicate = false) =>
         db.transaction(async (tx) => {
@@ -100,6 +101,7 @@ const withDmRequests = async (
         }),
     });
   } finally {
+    await client`delete from notifications where dm_channel_id in (${channelId},${nextChannel})`;
     await client`delete from messaging_social_commands where result_channel_id=${nextChannel}`;
     await client`delete from messaging_channels where id=${nextChannel}`;
     await fixture.cleanup();

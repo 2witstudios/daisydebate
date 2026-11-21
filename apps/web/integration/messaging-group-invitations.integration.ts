@@ -22,7 +22,7 @@ const admissionPolicy: SocialCreationPolicy = {
   decision: 'Isolated group invitation fixture only',
   key: 'social.private_group',
   revision: 1,
-  allowedBandPairs: [['adult', 'adult']],
+  earlierRevisions: [],
   groupBlockScope: 'all_pairs',
 };
 async function fixture() {

@@ -27,6 +27,7 @@ import {
 import { actors } from './actors';
 import { challenges } from './challenges';
 import { friendships } from './friends';
+import { messagingDmPairs } from './messaging-social';
 import { roomInvitations } from './room-invitations';
 import { rounds } from './rounds';
 import { fixtures } from './fixtures';
@@ -52,6 +53,7 @@ export const notificationSubjectColumns = {
   media_release_request: ['media_release_request_id'],
   media_release: ['media_release_id'],
   media_release_club_ask: ['media_release_club_ask_id'],
+  dm_request: ['dm_channel_id'],
 } as const satisfies Record<NotificationSubjectKind, readonly string[]>;
 
 /** A row names exactly the subject its kind requires, and no other. */
@@ -135,6 +137,11 @@ export const notifications = pgTable(
     ),
     mediaReleaseClubAskId: text('media_release_club_ask_id').references(
       () => mediaReleaseClubAsks.id,
+      { onDelete: 'cascade' },
+    ),
+    /** A message request's DM channel; it goes when the DM does. */
+    dmChannelId: text('dm_channel_id').references(
+      () => messagingDmPairs.channelId,
       { onDelete: 'cascade' },
     ),
     /** The member's batched email this one is gathered into, if any. */
@@ -225,6 +232,10 @@ export const notifications = pgTable(
     index('notifications_media_release_club_ask_idx').on(
       table.mediaReleaseClubAskId,
     ),
+    uniqueIndex('notifications_dm_request_once')
+      .on(table.userId, table.kind, table.dmChannelId)
+      .where(sql`${table.dmChannelId} is not null`),
+    index('notifications_dm_channel_idx').on(table.dmChannelId),
     check('notifications_subject_check', subjectCheck),
     check(
       'notifications_actor_check',

@@ -147,6 +147,27 @@ export async function readMessagingChannelFact(
   return rows.length === 0 ? null : parseMessagingChannelFact(rows[0]!.fact);
 }
 
+/** The existing DM a request can open, read under the caller's pair fence. */
+export async function readOpenDmFact(
+  tx: Tx,
+  actorId: string,
+  pair: { readonly lowActorId: string; readonly highActorId: string },
+): Promise<MessagingChannelFact | null> {
+  const actor = sql`${actorId}::text`;
+  const rows = await query(
+    tx,
+    z.object({ fact: z.unknown() }),
+    sql`
+    select ${channelFactObject(actor)} as fact
+    from ${messagingChannels} c ${channelFactJoins(actor)}
+    where c.kind = 'dm' and d.low_actor_id = ${pair.lowActorId}
+      and d.high_actor_id = ${pair.highActorId}
+      and d.request_state in ('pending','accepted')
+  `,
+  );
+  return rows.length === 0 ? null : parseMessagingChannelFact(rows[0]!.fact);
+}
+
 /**
  * Each binding's channel as its actor sees it, in one statement and in
  * binding order; an absent channel is null at its index.

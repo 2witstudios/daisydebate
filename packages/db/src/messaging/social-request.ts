@@ -1,5 +1,6 @@
 import { invalidateMessagingInboxes } from './inbox-change';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
+import { z } from 'zod';
 import { createAppError } from '@daisy/errors';
 import { messagingChannels } from '../schema/messaging-channels';
 import {
@@ -17,6 +18,8 @@ import type { ContactInput } from '../contacts/fence';
 import type { MessagingSocialFrame } from './social-contracts';
 import type { ContactReactions } from '../contacts/reactions';
 import type { Tx } from '../tx';
+import { oweNotifications, resurfaceNotifications } from '../notifications/owe';
+import { query } from '../raw-rows';
 type Pair = typeof contactPairs.$inferSelect;
 
 /** Pair fence is already held; all counts share the initiating account fence. */
@@ -46,6 +49,8 @@ export function dmRequestFrame(
   };
   const converges = (current: Awaited<ReturnType<typeof read>>) =>
     current !== null && ['pending', 'accepted'].includes(current.requestState);
+  const canReopen = (current: NonNullable<Awaited<ReturnType<typeof read>>>) =>
+    current.requestState === 'declined' || current.requestState === 'cancelled';
   const activeChannel = async (channelId: string) => {
     const [channel] = await tx
       .select()
@@ -65,7 +70,10 @@ export function dmRequestFrame(
       const current = await read();
       if (current && converges(current))
         return { channelId: current.channelId, state: current.requestState };
-      if (current) await activeChannel(current.channelId);
+      if (current) {
+        if (!canReopen(current)) throw createAppError('AUTHORIZATION');
+        await activeChannel(current.channelId);
+      }
       await refuseDeclineBlock(tx, input.actorId, counterpartOf(input), now);
       return null;
     },
@@ -83,7 +91,7 @@ export function dmRequestFrame(
       const current = await read();
       // screenDmRequest owns convergence: a pending or accepted DM is no new
       // request, so committing one is a caller that skipped the screen.
-      if (current && converges(current)) throw createAppError('CONFLICT');
+      if (current && !canReopen(current)) throw createAppError('CONFLICT');
       const record = await spendSocialRequest(
         tx,
         {
@@ -135,6 +143,32 @@ export function dmRequestFrame(
         ]);
       }
       await record();
+      // The recipient hears of it in-app (and in their digest) in the same
+      // transaction; the introduction itself stays in Messages (decision 90).
+      const recipients = await query(
+        tx,
+        z.object({ user_id: z.string() }),
+        sql`select user_id from actors where id=${counterpartOf(input)} and user_id is not null`,
+      );
+      const owed = {
+        kind: 'dm_request' as const,
+        subject: { dm_channel_id: channelId },
+        at: command.now,
+        nextId: command.nextId,
+      };
+      const written = await oweNotifications(tx, {
+        ...owed,
+        recipients: recipients.map((row) => ({
+          userId: row.user_id,
+          about: input.actorId,
+        })),
+      });
+      // Asking again after a decline brings the earlier notice back unread.
+      if (written === 0)
+        await resurfaceNotifications(tx, {
+          ...owed,
+          userIds: recipients.map((row) => row.user_id),
+        });
       // Messaging's own receipt, which a retry of this request replays.
       await tx.insert(messagingSocialCommands).values({
         actorId: input.actorId,

@@ -1,7 +1,12 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { messagingAuthorizationFence } from './authorization-fence';
-import { typingWorld } from './typing.test-support';
+import { dmRequestQuestion } from './dm-composition';
+import {
+  contactRowsOf,
+  policyFactQuery,
+  typingWorld,
+} from './typing.test-support';
 import {
   createScriptedAuthorizationTransaction,
   unusedTx,
@@ -53,9 +58,10 @@ test('channel authorization fences reject misbound channel projections before ag
 test('channel fences consume minimal facts at the clock after their awaited producer returns', async () => {
   const f = typingWorld(),
     self = f.accounts[0]!.account;
-  const { tx, queries } = createScriptedAuthorizationTransaction(
-    f.accounts.map((row) => [row.age]),
-  );
+  const { tx, queries } = createScriptedAuthorizationTransaction([
+    ...f.accounts.map((row) => [row.age]),
+    contactRowsOf(f.accounts),
+  ]);
   const completedAt = '2026-10-10T12:00:01.000Z';
   let readingAt = '';
   const fence = messagingAuthorizationFence({
@@ -84,8 +90,88 @@ test('channel fences consume minimal facts at the clock after their awaited prod
     actual: [
       readingAt,
       queries.length,
-      queries.every((query) => query.query.includes('daisy_authorization_age')),
+      queries.every((query) => policyFactQuery(query.query)),
     ],
     expected: [completedAt, 2, true],
+  });
+});
+
+test('DM request reads, decline and cancel bypass an unavailable contact-fact producer', async () => {
+  const f = typingWorld();
+  const { authority } = f.channel;
+  if (authority.kind !== 'dm') throw new Error('DM fixture required');
+  const frame = {
+    fact: {
+      ...f.channel,
+      authority: { ...authority, state: 'pending' as const },
+    },
+    accounts: f.accounts.map((row) => row.account),
+  };
+  const attempted = [];
+  for (const [question, viewer] of [
+    ['read', 1],
+    ['decline', 1],
+    ['cancel', 0],
+  ] as const) {
+    const { actorId, userId } = f.accounts[viewer]!.account;
+    const { tx, queries } = createScriptedAuthorizationTransaction([
+      ...f.accounts.map((row) => [row.age]),
+      new Error('DM contact facts unavailable'),
+    ]);
+    await messagingAuthorizationFence({
+      principal: { kind: 'user', userId, actorId },
+      clock: { now: () => f.now },
+      postingPolicy: f.policy.posting,
+      readingPolicy: f.policy.reading,
+      ...dmRequestQuestion(question),
+    })(tx, { actorId, userId, channelId: f.channel.channelId }, frame);
+    attempted.push(
+      queries.some((query) =>
+        query.query.includes('messaging_request_settings'),
+      ),
+    );
+  }
+  assert({
+    given: 'an entitled recipient or sender and a failed contact-fact query',
+    should:
+      'leave reading, declining and cancelling available without querying contact facts',
+    actual: attempted,
+    expected: [false, false, false],
+  });
+});
+
+test('own message removal and preferences depend only on reading evidence', async () => {
+  const f = typingWorld();
+  const { actorId, userId } = f.accounts[0]!.account;
+  const frame = {
+    fact: f.channel,
+    accounts: f.accounts.map((row) => row.account),
+  };
+  const scope = { actorId, userId, channelId: f.channel.channelId };
+  const queried = [];
+  for (const capability of [
+    'channel.message.remove',
+    'channel.preferences.read',
+    'channel.preferences.update',
+  ] as const) {
+    const { tx, queries } = createScriptedAuthorizationTransaction([
+      ...f.accounts.map((row) => [row.age]),
+      new Error('DM contact facts unavailable'),
+    ]);
+    await messagingAuthorizationFence({
+      principal: { kind: 'user', userId, actorId },
+      clock: { now: () => f.now },
+      postingPolicy: f.policy.posting,
+      readingPolicy: f.policy.reading,
+      capability,
+    })(tx, scope, frame);
+    queried.push(queries.length);
+  }
+  assert({
+    given: 'an accepted DM and unavailable contact facts',
+    should:
+      'authorize message removal and preference reads and writes with account-age evidence alone',
+    actual: queried,
+    expected: [2, 2, 2],
   });
 });

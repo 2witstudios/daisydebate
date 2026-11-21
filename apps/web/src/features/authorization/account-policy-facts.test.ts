@@ -2,7 +2,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { Tx } from '@daisy/db/tx';
 import { loadAccountPolicyFacts } from './account-policy-facts';
 setupRitewayBun();
-test('web policy composition reads only canonical minimal age facts in its caller transaction', async () => {
+test('web policy composition reads the minimal age and contact facts in its caller transaction', async () => {
   const account = {
     userId: 'a'.repeat(24),
     actorId: 'b'.repeat(24),
@@ -22,18 +22,38 @@ test('web policy composition reads only canonical minimal age facts in its calle
     validUntil: '2026-11-01T00:00:00.000Z',
   };
   let reads = 0;
+  const contact = {
+    user_id: account.userId,
+    setting: 'friends',
+    friend_actor_ids: ['c'.repeat(24)],
+    linked_adult_user_ids: [],
+  };
   const tx = {
     execute: async () => {
       reads++;
-      return [age];
+      return reads === 1 ? [age] : [contact];
     },
   } as unknown as Tx;
   const now = '2026-10-09T00:00:00.000Z';
   const facts = await loadAccountPolicyFacts(tx, [account], now);
   assert({
-    given: 'current fenced account facts',
-    should: 'use the sole minimal age producer without reading birthmonth',
+    given: 'current fenced account facts for an adult',
+    should:
+      'read the age, then its contact facts in one statement, on the same transaction',
     actual: { facts, reads },
-    expected: { facts: [{ account, age }], reads: 1 },
+    expected: {
+      facts: [
+        {
+          account,
+          age,
+          contact: {
+            requestSetting: 'friends',
+            friendActorIds: ['c'.repeat(24)],
+            linkedAdultUserIds: [],
+          },
+        },
+      ],
+      reads: 2,
+    },
   });
 });
