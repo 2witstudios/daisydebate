@@ -157,13 +157,14 @@ export function migrateSha3(path: string, source: string): string {
       });
     }
   }
-  return imports
+  const migrated = imports
     .sort((a, b) => b.start - a.start || b.end - a.end)
     .reduce(
       (text, edit) =>
         text.slice(0, edit.start) + edit.text + text.slice(edit.end),
       rewritten,
     );
+  return migrateSha3(path, migrated);
 }
 
 if (import.meta.main) {

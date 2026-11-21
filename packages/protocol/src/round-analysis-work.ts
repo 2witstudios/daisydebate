@@ -10,7 +10,8 @@ export const analysisWorkBounds = {
   leaseClaims: 4,
   leaseMs: 180_000,
 } as const;
-const instant = z.iso.datetime({ offset: true });
+// Chronology refinements can read these instants only after format validation.
+const instant = z.iso.datetime({ offset: true, abort: true });
 const count = z.int().nonnegative();
 
 /** Original automatic-job observations: claims are possible calls, not dispatch proof. */

@@ -1,5 +1,5 @@
 import { sha3Hex } from '@daisy/digest';
-import { instantMs } from '@daisy/clock';
+import { tryInstantMs } from '@daisy/clock';
 import { createHmac } from 'node:crypto';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
@@ -117,10 +117,10 @@ export function createMediaWorkerAuthentication(input: {
       )
         throw unauthorized();
       const now = input.now(),
-        stamp = instantMs(request.timestamp);
+        stamp = tryInstantMs(request.timestamp);
       if (
         !Number.isFinite(now) ||
-        !Number.isFinite(stamp) ||
+        stamp === undefined ||
         new Date(stamp).toISOString() !== request.timestamp ||
         Math.abs(now - stamp) > 5000
       )

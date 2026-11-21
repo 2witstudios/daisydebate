@@ -31,6 +31,7 @@ test('the persisted analysis contract rejects impossible claim, call and chronol
     { ...state, claims: 0 },
     { ...state, calls: [{ ...call, dispatchedAt: at(900) }] },
     { ...state, requestedAt: at(1) },
+    { ...state, deadlineAt: 'garbage' },
     { ...state, lease: { ...state.lease, claimedAt: at(1) } },
     { ...state, lease: { ...state.lease, expiresAt: at(181) } },
     { ...state, lease: { ...state.lease, tokenDigest: digest(2) } },

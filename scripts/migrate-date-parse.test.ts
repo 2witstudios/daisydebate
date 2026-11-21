@@ -40,3 +40,33 @@ describe('the clock migration', () => {
     });
   });
 });
+
+test('avoids shadowed imports and preserves a separate parse guard', () => {
+  const source = [
+    "import { instantMs as readInstant } from '@daisy/clock';",
+    'export const read = (readInstant: unknown) => globalThis.Date.parse(input);',
+    'export function check(clock: Clock) {',
+    '  const expiresAt = Date.parse(clock.now());',
+    '  if (!Number.isFinite(expiresAt)) return refused;',
+    '  return expiresAt;',
+    '}',
+  ].join('\n');
+  const expected = [
+    "import { instantMs as clockInstantMs, tryInstantMs, instantMs as readInstant } from '@daisy/clock';",
+    'export const read = (readInstant: unknown) => clockInstantMs(input);',
+    'export function check(clock: Clock) {',
+    '  const expiresAt = (tryInstantMs(clock.now()) ?? Number.NaN);',
+    '  if (!Number.isFinite(expiresAt)) return refused;',
+    '  return expiresAt;',
+    '}',
+  ].join('\n');
+  const migrated = migrateDateParse('example.ts', source);
+  assert({
+    given:
+      'a shadowed helper, a global Date access and a separately checked injected-clock result',
+    should:
+      'use an unshadowed helper and keep the refusal reachable in one pass',
+    actual: [migrated, migrateDateParse('example.ts', migrated)],
+    expected: [expected, expected],
+  });
+});

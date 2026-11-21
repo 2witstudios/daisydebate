@@ -7,7 +7,7 @@ import { necessaryEvidencePolicy } from './necessary-evidence';
 
 const instant = () =>
   z.number().int().min(-8640000000000000).max(8640000000000000);
-const iso = z.iso.datetime({ precision: 3 });
+const iso = z.iso.datetime({ precision: 3, abort: true });
 /** Exactly 160 signed little-endian samples, canonical base64 including its final padding bits. */
 const pcmS16le = z.string().regex(/^[A-Za-z0-9+/]{426}[AEIMQUYcgkosw048]=$/);
 const captureEvidenceBodySchema = z

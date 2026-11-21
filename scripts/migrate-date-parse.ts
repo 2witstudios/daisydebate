@@ -5,29 +5,39 @@ const clockModule = '@daisy/clock';
 type ClockHelper = 'addMs' | 'instantMs' | 'nowMs' | 'tryInstantMs';
 type Edit = { start: number; end: number; text: string };
 
-function member(node: ts.Node, owner: string, property: string): boolean {
-  return (
-    (ts.isPropertyAccessExpression(node) &&
-      ts.isIdentifier(node.expression) &&
-      node.expression.text === owner &&
-      node.name.text === property) ||
-    (ts.isElementAccessExpression(node) &&
-      ts.isIdentifier(node.expression) &&
-      node.expression.text === owner &&
-      ts.isStringLiteralLike(node.argumentExpression) &&
-      node.argumentExpression.text === property)
-  );
+function memberOwner(
+  node: ts.Node,
+  property: string,
+): ts.Expression | undefined {
+  if (ts.isPropertyAccessExpression(node) && node.name.text === property)
+    return node.expression;
+  if (
+    ts.isElementAccessExpression(node) &&
+    ts.isStringLiteralLike(node.argumentExpression) &&
+    node.argumentExpression.text === property
+  )
+    return node.expression;
 }
 
-function parseArgument(node: ts.Node): ts.Expression | undefined {
-  if (ts.isCallExpression(node) && member(node.expression, 'Date', 'parse')) {
-    const [argument] = node.arguments;
-    if (argument && !ts.isSpreadElement(argument)) return argument;
-  }
+function fileBindings(file: ts.SourceFile) {
+  return ts
+    .createProgram(
+      [file.fileName],
+      { noLib: true, noResolve: true },
+      {
+        ...ts.createCompilerHost({}),
+        getSourceFile: (name) => (name === file.fileName ? file : undefined),
+      },
+    )
+    .getTypeChecker();
 }
 
 export function migrateDateParse(filePath: string, source: string): string {
-  if (filePath.startsWith('packages/clock/') || !source.includes('parse'))
+  if (
+    filePath.startsWith('packages/clock/') ||
+    !source.includes('parse') ||
+    !source.includes('Date')
+  )
     return source;
   const file = ts.createSourceFile(
     filePath,
@@ -36,7 +46,9 @@ export function migrateDateParse(filePath: string, source: string): string {
     true,
   );
   const usedNames = new Set<string>();
+  const shadowingNames = new Set<string>();
   const bindings = new Map<ClockHelper, string>();
+  const guards: ts.Identifier[] = [];
   let namedImports: ts.NamedImports | undefined;
   const collectNames = (node: ts.Node) => {
     if (
@@ -50,6 +62,25 @@ export function migrateDateParse(filePath: string, source: string): string {
     )
       usedNames.add(node.text);
     if (
+      ts.isIdentifier(node) &&
+      !ts.isImportSpecifier(node.parent) &&
+      ts.getNameOfDeclaration(node.parent) === node
+    )
+      shadowingNames.add(node.text);
+    if (ts.isCallExpression(node) && node.arguments.length === 1) {
+      const owner =
+        memberOwner(node.expression, 'isFinite') ??
+        memberOwner(node.expression, 'isNaN');
+      const argument = node.arguments[0]!;
+      if (
+        owner &&
+        ts.isIdentifier(owner) &&
+        owner.text === 'Number' &&
+        ts.isIdentifier(argument)
+      )
+        guards.push(argument);
+    }
+    if (
       ts.isImportDeclaration(node) &&
       ts.isStringLiteral(node.moduleSpecifier) &&
       node.moduleSpecifier.text === clockModule &&
@@ -62,6 +93,70 @@ export function migrateDateParse(filePath: string, source: string): string {
   };
   collectNames(file);
 
+  // Inspect bindings in this source file without resolving its imports.
+  const checker = fileBindings(file);
+  const checkedBindings = new Set(
+    guards.map((name) => checker.getSymbolAtLocation(name)),
+  );
+  const isGlobal = (node: ts.Node, name: string) =>
+    ts.isIdentifier(node) &&
+    node.text === name &&
+    !checker.getSymbolAtLocation(node)?.declarations?.length;
+  const isDate = (
+    node: ts.Expression,
+    seen = new Set<ts.Symbol>(),
+  ): boolean => {
+    if (isGlobal(node, 'Date')) return true;
+    const owner = memberOwner(node, 'Date');
+    if (owner)
+      return ['globalThis', 'window', 'self', 'global'].some((name) =>
+        isGlobal(owner, name),
+      );
+    if (!ts.isIdentifier(node)) return false;
+    const symbol = checker.getSymbolAtLocation(node);
+    const declaration = symbol?.valueDeclaration;
+    if (
+      !symbol ||
+      seen.has(symbol) ||
+      !declaration ||
+      !ts.isVariableDeclaration(declaration) ||
+      !(declaration.parent.flags & ts.NodeFlags.Const) ||
+      !declaration.initializer
+    )
+      return false;
+    seen.add(symbol);
+    return isDate(declaration.initializer, seen);
+  };
+  const isParse = (node: ts.Node) => {
+    const owner = memberOwner(node, 'parse');
+    return owner !== undefined && isDate(owner);
+  };
+  const parseArgument = (node: ts.Node): ts.Expression | undefined => {
+    if (ts.isCallExpression(node) && isParse(node.expression)) {
+      const [argument] = node.arguments;
+      if (argument && !ts.isSpreadElement(argument)) return argument;
+    }
+  };
+  const isNumberMethod = (node: ts.Node, property: string) => {
+    const owner = memberOwner(node, property);
+    return owner !== undefined && isGlobal(owner, 'Number');
+  };
+  const checkedAssignment = (node: ts.Node): boolean => {
+    while (ts.isParenthesizedExpression(node.parent)) node = node.parent;
+    const parent = node.parent;
+    const target =
+      ts.isVariableDeclaration(parent) && parent.initializer === node
+        ? parent.name
+        : ts.isBinaryExpression(parent) &&
+            parent.right === node &&
+            parent.operatorToken.kind === ts.SyntaxKind.EqualsToken
+          ? parent.left
+          : undefined;
+    if (!target || !ts.isIdentifier(target)) return false;
+    const symbol = checker.getSymbolAtLocation(target);
+    return symbol !== undefined && checkedBindings.has(symbol);
+  };
+
   const imports: string[] = [];
   function use(helper: ClockHelper): string {
     const existing = bindings.get(helper);
@@ -72,7 +167,9 @@ export function migrateDateParse(filePath: string, source: string): string {
       local = `${prefix}${suffix}`;
     const imported = namedImports?.elements.find(
       (item) =>
-        !item.isTypeOnly && (item.propertyName ?? item.name).text === helper,
+        !item.isTypeOnly &&
+        !shadowingNames.has(item.name.text) &&
+        (item.propertyName ?? item.name).text === helper,
     );
     if (imported) {
       bindings.set(helper, imported.name.text);
@@ -91,8 +188,8 @@ export function migrateDateParse(filePath: string, source: string): string {
 
   const visit = (node: ts.Node) => {
     if (ts.isCallExpression(node) && node.arguments.length === 1) {
-      const invalid = member(node.expression, 'Number', 'isNaN');
-      const valid = member(node.expression, 'Number', 'isFinite');
+      const invalid = isNumberMethod(node.expression, 'isNaN');
+      const valid = isNumberMethod(node.expression, 'isFinite');
       const argument = node.arguments[0];
       const instant =
         argument && (valid || invalid) ? parseArgument(argument) : undefined;
@@ -115,8 +212,7 @@ export function migrateDateParse(filePath: string, source: string): string {
       const date = node.expression.expression;
       if (
         ts.isNewExpression(date) &&
-        ts.isIdentifier(date.expression) &&
-        date.expression.text === 'Date' &&
+        isDate(date.expression) &&
         date.arguments?.length === 1
       ) {
         const addition = date.arguments[0];
@@ -140,6 +236,14 @@ export function migrateDateParse(filePath: string, source: string): string {
     }
 
     const instant = parseArgument(node);
+    if (instant && checkedAssignment(node)) {
+      // Keep existing numeric refusal guards reachable after a failed parse.
+      replace(
+        node,
+        `(${use('tryInstantMs')}(${instant.getText(file)}) ?? Number.NaN)`,
+      );
+      return;
+    }
     if (
       instant &&
       ts.isCallExpression(instant) &&
@@ -155,7 +259,7 @@ export function migrateDateParse(filePath: string, source: string): string {
       );
       return;
     }
-    if (member(node, 'Date', 'parse')) {
+    if (isParse(node)) {
       replace(node, use('instantMs'));
       return;
     }

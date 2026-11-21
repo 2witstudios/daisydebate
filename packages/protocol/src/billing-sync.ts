@@ -8,7 +8,7 @@ const billingSyncBounds = {
   retryMs: 5_000,
   pollMs: 300_000,
 } as const;
-const instant = z.iso.datetime({ precision: 3 });
+const instant = z.iso.datetime({ precision: 3, abort: true });
 const revision = z.number().int().positive().max(Number.MAX_SAFE_INTEGER);
 const at = instantMs;
 export const billingSyncStateSchema = z.discriminatedUnion('kind', [

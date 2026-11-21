@@ -9,7 +9,7 @@ export const purchaseBounds = {
   claimMs: 30_000,
   retryMs: 5_000,
 } as const;
-const instant = z.iso.datetime({ precision: 3 });
+const instant = z.iso.datetime({ precision: 3, abort: true });
 const at = instantMs;
 const customerId = z
   .string()

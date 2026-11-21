@@ -30,6 +30,7 @@ test('signed worker principal binds the exact route method body and timestamp', 
     { signature: '0'.repeat(64) },
     { signature: 'abc' },
     { timestamp: '2026-10-22T11:59:59.999Z' },
+    { timestamp: '2026-02-30T12:00:00.000Z' },
   ])
     await assertRejects({
       given:

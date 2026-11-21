@@ -17,7 +17,7 @@ export const cleanupLanes = [
   'observations',
 ] as const;
 export type CleanupLane = (typeof cleanupLanes)[number];
-const instant = z.iso.datetime({ precision: 3 });
+const instant = z.iso.datetime({ precision: 3, abort: true });
 const resourceId = z
   .string()
   .min(1)

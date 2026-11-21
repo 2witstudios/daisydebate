@@ -33,3 +33,21 @@ describe('the SHA3-256 migration', () => {
     });
   });
 });
+
+test('migrates nested constructors in one pass', () => {
+  const source = [
+    "import { createHash } from 'node:crypto';",
+    "export const nested = createHash('sha3-256').update(createHash('sha3-256').update('nested').digest('hex')).digest('hex');",
+  ].join('\n');
+  const expected = [
+    "import { sha3Hex } from '@daisy/digest';",
+    "export const nested = sha3Hex(sha3Hex('nested'));",
+  ].join('\n');
+  const migrated = migrateSha3('example.ts', source);
+  assert({
+    given: 'a SHA3 constructor inside another SHA3 payload',
+    should: 'rewrite both calls and remove the unused import in a single pass',
+    actual: [migrated, migrateSha3('example.ts', migrated)],
+    expected: [expected, expected],
+  });
+});

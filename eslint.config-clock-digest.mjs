@@ -1,10 +1,35 @@
 const dateMessage = 'Read an ISO instant through @daisy/clock.';
 const digestMessage = 'Use sha3Hex or commandDigest from @daisy/digest.';
 
-function staticText(node) {
+function constant(node, sourceCode, seen) {
+  if (node?.type !== 'Identifier') return;
+  let scope = sourceCode.getScope(node);
+  while (scope) {
+    const binding = scope.set.get(node.name);
+    if (binding) {
+      const [definition] = binding.defs;
+      if (
+        binding.defs.length === 1 &&
+        !seen.has(binding) &&
+        definition?.type === 'Variable' &&
+        definition.parent.kind === 'const' &&
+        definition.node.id.type === 'Identifier'
+      ) {
+        seen.add(binding);
+        return definition.node.init;
+      }
+      return;
+    }
+    scope = scope.upper;
+  }
+}
+
+function staticText(node, sourceCode, seen = new Set()) {
   if (node?.type === 'Literal') return node.value;
   if (node?.type === 'TemplateLiteral' && node.expressions.length === 0)
     return node.quasis[0]?.value.cooked;
+  if (sourceCode && node?.type === 'Identifier')
+    return staticText(constant(node, sourceCode, seen), sourceCode, seen);
 }
 
 const property = (node) =>
@@ -14,10 +39,17 @@ const property = (node) =>
       : node.property.name
     : undefined;
 
-const isDate = (node) =>
-  (node.type === 'Identifier' && node.name === 'Date') ||
-  (property(node) === 'Date' &&
-    ['globalThis', 'window', 'self', 'global'].includes(node.object.name));
+function isDate(node, sourceCode, seen = new Set()) {
+  if (!node) return false;
+  if (node.type === 'Identifier') {
+    if (node.name === 'Date') return true;
+    return isDate(constant(node, sourceCode, seen), sourceCode, seen);
+  }
+  return (
+    property(node) === 'Date' &&
+    ['globalThis', 'window', 'self', 'global'].includes(node.object.name)
+  );
+}
 
 const dateRule = {
   meta: { messages: { required: dateMessage } },
@@ -25,12 +57,16 @@ const dateRule = {
     const report = (node) => context.report({ node, messageId: 'required' });
     return {
       MemberExpression(node) {
-        if (property(node) === 'parse' && isDate(node.object)) report(node);
+        if (
+          property(node) === 'parse' &&
+          isDate(node.object, context.sourceCode)
+        )
+          report(node);
       },
       VariableDeclarator(node) {
         if (
           node.init &&
-          isDate(node.init) &&
+          isDate(node.init, context.sourceCode) &&
           node.id.type === 'ObjectPattern' &&
           node.id.properties.some(
             ({ key }) => key?.name === 'parse' || staticText(key) === 'parse',
@@ -48,7 +84,7 @@ const hashRule = {
     const names = new Set(['createHash', 'CryptoHasher']);
     const report = (node) => context.report({ node, messageId: 'required' });
     const check = (node) => {
-      const algorithm = staticText(node.arguments[0]);
+      const algorithm = staticText(node.arguments[0], context.sourceCode);
       if (
         typeof algorithm === 'string' &&
         algorithm.toLowerCase() === 'sha3-256' &&

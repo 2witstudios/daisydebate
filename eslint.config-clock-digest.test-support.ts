@@ -16,6 +16,8 @@ export function registerClockDigestTests() {
         'const fn = globalThis.Date[`parse`];',
         'const indexed = Date["parse"];',
         'const { parse: alias } = Date;',
+        'const DateAlias = Date, another = DateAlias;',
+        'export const indirect = another.parse(input);',
         'export { ms, fn, indexed, alias };',
       ].join('\n');
       assert({
@@ -28,8 +30,8 @@ export function registerClockDigestTests() {
           lint('packages/clock/src/instant-probe.ts', old),
         ]),
         expected: [
-          Array<string>(4).fill('clock-digest/iso-instant'),
-          Array<string>(4).fill('clock-digest/iso-instant'),
+          Array<string>(5).fill('clock-digest/iso-instant'),
+          Array<string>(5).fill('clock-digest/iso-instant'),
           [],
         ],
       });
@@ -39,9 +41,11 @@ export function registerClockDigestTests() {
       const old = [
         "import { createHash as makeHash } from 'node:crypto';",
         "import { sha3_256 } from '@noble/hashes/sha3.js';",
+        "const algorithm = 'sha3-256', indirect = algorithm;",
+        "const sha256 = 'sha256';",
         'export const hashes = [',
         "  makeHash(`sha3-256`), new Bun.CryptoHasher('sha3-256'), ",
-        "  makeHash('sha256'), sha3_256(new Uint8Array()),",
+        '  makeHash(sha256), makeHash(indirect), sha3_256(new Uint8Array()),',
         '];',
       ].join('\n');
       assert({
@@ -58,8 +62,8 @@ export function registerClockDigestTests() {
           ),
         ]),
         expected: [
-          Array<string>(3).fill('clock-digest/sha3-digest'),
-          Array<string>(3).fill('clock-digest/sha3-digest'),
+          Array<string>(4).fill('clock-digest/sha3-digest'),
+          Array<string>(4).fill('clock-digest/sha3-digest'),
           [],
           [],
         ],

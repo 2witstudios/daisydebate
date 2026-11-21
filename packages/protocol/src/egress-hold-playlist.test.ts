@@ -58,6 +58,19 @@ describe('a held playlist is not believed past its first lie', () => {
       expected: [['a.ts'], ['a.ts'], ['a.ts']],
     });
   });
+  test('malformed timestamps stop the playlist and CRLF preserves valid entries', () => {
+    const first = entry(t(0), 'a.ts');
+    assert({
+      given:
+        'a valid segment followed by a malformed timestamp, and a CRLF playlist',
+      should: 'keep the valid prefix in both cases',
+      actual: [
+        names(first + entry('garbage', 'b.ts') + entry(t(8), 'c.ts')),
+        names(first.replaceAll('\n', '\r\n')),
+      ],
+      expected: [['a.ts'], ['a.ts']],
+    });
+  });
   test('times must rise, and be past', () => {
     assert({
       given: 'a stamp repeating, one going back, and one in the future',
