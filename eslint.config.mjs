@@ -519,6 +519,38 @@ const repoSyntaxRestrictions = [
   ...processMutationRestrictions,
 ];
 
+/**
+ * The rules that read types. They run on workspace source only, which a
+ * TypeScript project owns; a probe under an invented path turns them off
+ * (eslint.config.test-support.ts).
+ */
+export const typedRules = {
+  'daisy-form/require-callable-action': 'error',
+  '@typescript-eslint/switch-exhaustiveness-check': [
+    'error',
+    {
+      considerDefaultExhaustiveForUnions: false,
+      requireDefaultForNonUnion: false,
+    },
+  ],
+  // A cast that changes nothing hides the one that does. State a type
+  // where the value is made (an annotation, a type argument), not after.
+  '@typescript-eslint/no-unnecessary-type-assertion': 'error',
+  // A promise nobody awaits loses its failure. Await it, return it, or mark
+  // it `void` where the callee reports its own failures.
+  '@typescript-eslint/no-floating-promises': 'error',
+  '@typescript-eslint/no-misused-promises': 'error',
+  '@typescript-eslint/await-thenable': 'error',
+  // What is thrown is an Error, so every catch can read a stack and a
+  // cause. A caught value thrown again keeps its identity.
+  // Text made from a value with no text of its own reads "[object Object]".
+  '@typescript-eslint/no-base-to-string': 'error',
+  '@typescript-eslint/only-throw-error': [
+    'error',
+    { allowThrowingAny: false, allowThrowingUnknown: true },
+  ],
+};
+
 // The styling gate checks JSX attributes. Type information distinguishes a
 // URL variable from a callable React action, which supplies its own POST.
 const formActionPlugin = {
@@ -564,38 +596,6 @@ const formActionPlugin = {
       },
     },
   },
-};
-
-/**
- * The rules that read types. They run on workspace source only, which a
- * TypeScript project owns; a probe under an invented path turns them off
- * (eslint.config.test-support.ts).
- */
-export const typedRules = {
-  'daisy-form/require-callable-action': 'error',
-  '@typescript-eslint/switch-exhaustiveness-check': [
-    'error',
-    {
-      considerDefaultExhaustiveForUnions: false,
-      requireDefaultForNonUnion: false,
-    },
-  ],
-  // A cast that changes nothing hides the one that does. State a type
-  // where the value is made (an annotation, a type argument), not after.
-  '@typescript-eslint/no-unnecessary-type-assertion': 'error',
-  // A promise nobody awaits loses its failure. Await it, return it, or mark
-  // it `void` where the callee reports its own failures.
-  '@typescript-eslint/no-floating-promises': 'error',
-  '@typescript-eslint/no-misused-promises': 'error',
-  '@typescript-eslint/await-thenable': 'error',
-  // What is thrown is an Error, so every catch can read a stack and a
-  // cause. A caught value thrown again keeps its identity.
-  // Text made from a value with no text of its own reads "[object Object]".
-  '@typescript-eslint/no-base-to-string': 'error',
-  '@typescript-eslint/only-throw-error': [
-    'error',
-    { allowThrowingAny: false, allowThrowingUnknown: true },
-  ],
 };
 
 export default [
