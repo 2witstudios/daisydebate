@@ -50,6 +50,8 @@ export type EntryRowFacts = {
   readonly id: string;
   readonly status: EntryStatus;
   readonly division: string | null;
+  /** The original authenticated submitter, when known. */
+  readonly submittedByUserId: string | null;
   readonly version: number;
   readonly members: readonly EntryPersonFacts[];
   readonly liveFixtures: readonly EntryLiveFixtureFacts[];

@@ -1,6 +1,5 @@
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import type { AgeBand } from '@daisy/protocol';
-import type { LobbyAgeRule } from '@daisy/protocol/lobby/eligibility';
 import { divisionAgeBand } from '../ladder-division-band';
 import { accountAge } from '../schema/account-age';
 import { actors } from '../schema/actors';
@@ -8,10 +7,6 @@ import { entryMembers } from '../schema/entries';
 import { guardianLinks } from '../schema/guardian-links';
 import { scopeTransaction, type TenantScope } from '../tenant-scope';
 import { loadAuthorizationAccount } from '../authorization';
-import {
-  readGuardianLobbyIds,
-  isMinorAgeBand,
-} from '../guardians/lobby-permissions';
 import type { TabTransaction } from './tab-transaction';
 
 /** Counterpart facts are read under the actual account's subject fence. */
@@ -23,7 +18,6 @@ export const loadEntryPeople = async (
     | {
         readonly kind: 'standing';
         readonly lobbyId: string;
-        readonly ageRule: LobbyAgeRule;
       }
     | { readonly kind: 'own'; readonly ageAsOf: string },
 ) => {
@@ -82,15 +76,6 @@ export const loadEntryPeople = async (
       links,
       previousEntries,
       competitionAgeBand: atCompetition?.band ?? null,
-      guardianLobbyIds:
-        eligibility.kind === 'standing' &&
-        eligibility.ageRule === 'adults' &&
-        person.userId !== null &&
-        isMinorAgeBand(atCompetition?.band ?? null)
-          ? (await readGuardianLobbyIds(tx, person.userId)).filter(
-              (id) => id === eligibility.lobbyId,
-            )
-          : undefined,
     });
   }
   await scopeTransaction(tx, scope);

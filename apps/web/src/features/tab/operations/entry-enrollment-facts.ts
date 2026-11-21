@@ -18,6 +18,7 @@ export const entryEnrollmentFacts = (
     readonly now: string;
     readonly senderUserId: string;
     readonly host: boolean;
+    readonly guardianPermittedActors?: ReadonlySet<string>;
     readonly command: EntryEnrollmentCommand;
   },
 ): EntryFacts => {
@@ -58,8 +59,8 @@ export const entryEnrollmentFacts = (
     actorId: person.actorId,
     userId: person.userId,
     ageBand: person.competitionAgeBand,
-    ...(person.guardianLobbyIds
-      ? { guardianLobbyIds: person.guardianLobbyIds }
+    ...(input.guardianPermittedActors?.has(person.actorId)
+      ? { guardianLobbyIds: [eligibility.lobbyId] }
       : {}),
     withinAgeBand: Boolean(
       person.account?.member &&
@@ -154,6 +155,7 @@ export const entryEnrollmentFacts = (
           id: loaded.entry.id,
           status: loaded.entry.status,
           division: loaded.entry.division,
+          submittedByUserId: loaded.entry.submittedByUserId,
           version: loaded.entry.version,
           members: people,
           liveFixtures: [],

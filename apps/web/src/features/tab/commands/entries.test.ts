@@ -44,6 +44,7 @@ const entry = (overrides: Partial<EntryRowFacts> = {}): EntryRowFacts => ({
   id: entryId,
   status: 'pending',
   division: 'Novice',
+  submittedByUserId: null,
   version: 1,
   members: [ada, ben],
   liveFixtures: [],

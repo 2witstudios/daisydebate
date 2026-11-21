@@ -15,6 +15,10 @@ import { draws } from '../schema/draws';
 import { tournamentJudges } from '../schema/tournament-judges';
 import { fixtureJudges, fixtures } from '../schema/fixtures';
 import { scopeTransaction } from '../tenant-scope';
+import {
+  isMinorAgeBand,
+  readGuardianLobbyIds,
+} from '../guardians/lobby-permissions';
 import { lockTabCommandAccounts } from './command-accounts';
 import { loadAuthorityContext } from './authority-context';
 import { loadEntryPeople } from './entry-person-rows';
@@ -166,7 +170,6 @@ const load = async (tx: TabTransaction, input: EntryEnrollmentInput) => {
       ? {
           kind: 'standing',
           lobbyId: eligibility.lobbyId,
-          ageRule: eligibility.ageRule,
         }
       : {
           kind: 'own',
@@ -211,6 +214,19 @@ const load = async (tx: TabTransaction, input: EntryEnrollmentInput) => {
         .from(actors)
         .where(eq(actors.userId, guardian.guardianUserId))
     : [];
+  const readGuardianPermittedActors = async () => {
+    const permitted = new Set<string>();
+    if (eligibility?.kind !== 'standing' || eligibility.ageRule !== 'adults')
+      return permitted;
+    for (const person of people) {
+      if (person.userId === null || !isMinorAgeBand(person.competitionAgeBand))
+        continue;
+      const signedLobbies = await readGuardianLobbyIds(tx, person.userId);
+      if (signedLobbies.includes(eligibility.lobbyId))
+        permitted.add(person.actorId);
+    }
+    return permitted;
+  };
   return {
     scope,
     lobby: lobby ?? null,
@@ -225,6 +241,7 @@ const load = async (tx: TabTransaction, input: EntryEnrollmentInput) => {
     configuration,
     hosting,
     eligibility,
+    readGuardianPermittedActors,
     entries: currentEntries,
     members,
     rounds: await tx
