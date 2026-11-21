@@ -60,13 +60,17 @@ test('two guardians share one choice and only current guardians can clear a hold
       sql,
     ) => {
       const store = createGuardianStore(db);
-      const run = (caller: typeof parent, command: GuardianCommand) =>
+      const run = (
+        caller: typeof parent,
+        command: GuardianCommand,
+        stamp = at.toISOString(),
+      ) =>
         store.forSubject(caller.userId, (session) =>
           runGuardianCommand(
             {
               session,
               caller,
-              at: at.toISOString(),
+              at: stamp,
               requestLimits: dec251ContactsPolicy.requests,
             },
             command,
@@ -205,12 +209,56 @@ test('two guardians share one choice and only current guardians can clear a hold
         db.transaction((tx) => friendsPrivacyAdopter.export(tx, subject));
       const { lowActorId: low, highActorId: high } = adultPair;
       const stamp = at.toISOString();
-      await seedFriendRequest(adultPair, stranger);
-      const approvalId = await held(stranger, child, adultPair, stamp);
       const readApprovals = (guardian: typeof parent) =>
         store.forSubject(guardian.userId, (session) =>
           session.waitingFriendApprovals(),
         );
+      expect(
+        await run(parent, { ...supervised, choice: { level: 'independent' } }),
+      ).toEqual({ kind: 'accepted' });
+      await seedFriendRequest(adultPair, stranger);
+      expect({
+        guardian: await readApprovals(parent),
+        notices: (await inbox(parent)).rows,
+        child: (await listRequests(child))[0]?.waiting,
+      }).toEqual({ guardian: [], notices: [], child: undefined });
+      expect(await run(parent, supervised)).toEqual({ kind: 'accepted' });
+
+      // No friend has acted since the protection change.
+      const waiting = await readApprovals(parent);
+      const firstNotices = (await inbox(parent)).rows;
+      expect({
+        guardian: waiting.map(({ child, counterpart, direction }) => ({
+          child,
+          counterpart,
+          direction,
+        })),
+        notices: firstNotices.map(({ kind }) => kind),
+        child: (await listRequests(child))[0]?.waiting,
+        counterpart: (await listRequests(stranger))[0]?.waiting,
+      }).toEqual({
+        guardian: [
+          {
+            child: `bot-${child.userId}`,
+            counterpart: `bot-${stranger.userId}`,
+            direction: 'incoming',
+          },
+        ],
+        notices: ['friend_guardian_approval'],
+        child: 'waiting-for-guardian',
+        counterpart: 'waiting',
+      });
+      const retryAt = new Date(at.getTime() + 500).toISOString();
+      expect(await run(parent, supervised, retryAt)).toEqual({
+        kind: 'accepted',
+      });
+      expect(await readApprovals(parent)).toEqual(waiting);
+      expect((await inbox(parent)).rows).toEqual(firstNotices);
+      expect(await run(parent, { ...supervised, choice: custom })).toEqual({
+        kind: 'accepted',
+      });
+      const approvalId = waiting[0]?.id;
+      if (!approvalId) throw new Error('Tightening did not create a hold');
       const approve = {
         version: 1,
         type: 'answer-friend-approval',
@@ -513,8 +561,13 @@ test('two guardians share one choice and only current guardians can clear a hold
         (sp) =>
           sp`update notifications set read_at=${at} where id=${initialNotice.id}`,
       );
+      const resurfaceAt = new Date(at.getTime() + 1000).toISOString();
       expect(
-        await run(coGuardian, { ...supervised, linkId: siblingLink }),
+        await run(
+          coGuardian,
+          { ...supervised, linkId: siblingLink },
+          resurfaceAt,
+        ),
       ).toEqual({ kind: 'accepted' });
       expect<unknown>(
         await scoped(
@@ -523,8 +576,11 @@ test('two guardians share one choice and only current guardians can clear a hold
           public.daisy_dm_request_access(${sibling.userId}, ${child.actorId}) as allowed`,
         ),
       ).toEqual([{ allowed: 'befriend' }]);
-      const resurfaceAt = new Date(at.getTime() + 1000).toISOString();
-      const secondHold = await held(sibling, sibling, childPair, resurfaceAt);
+      const secondHold = (await readApprovals(coGuardian)).find(
+        ({ child }) => child === `bot-${sibling.userId}`,
+      )?.id;
+      if (!secondHold)
+        throw new Error('Tightening did not hold for the sibling');
       const surfaced = (await inbox(coGuardian)).rows.find(
         (row) => row.kind === 'friend_guardian_approval',
       );
