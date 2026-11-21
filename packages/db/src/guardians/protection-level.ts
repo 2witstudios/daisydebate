@@ -26,16 +26,3 @@ export async function readProtectionLimits(
 ) {
   return protectionLimits(await readProtectionLevel(tx, userId));
 }
-
-export async function activeGuardianUsers(
-  tx: Pick<Tx, 'execute'>,
-  childActorId: string,
-) {
-  return query(
-    tx,
-    z.object({ user_id: z.string() }),
-    sql`select g.user_id from actors child
-      cross join lateral public.daisy_protection_guardians(child.user_id) g
-      where child.id=${childActorId}`,
-  );
-}

@@ -30,6 +30,7 @@ export type TenantSubject =
   | 'actor'
   /** `guardian_user_id` and `minor_user_id` are the two people. */
   | 'guardian'
+  | 'friend-approval'
   | 'consent-signer'
   | 'child-account-request'
   /** The funding account or the person who acted on its named consent. */
@@ -140,6 +141,11 @@ export const tenantIsolationManifest: TenantIsolationManifest = {
       key: 'person',
       subject: 'user',
       subjectWrites: true,
+    },
+    {
+      table: 'friend_guardian_approvals',
+      key: 'person',
+      subject: 'friend-approval',
     },
     { table: 'restriction_lobbies', key: 'person', subject: 'guardian' },
     { table: 'action_history', key: 'history' },
@@ -279,9 +285,37 @@ export const tenantIsolationManifest: TenantIsolationManifest = {
   definers: [
     {
       name: 'daisy_protection_guardians',
+      executors: [],
+      reason:
+        'Private canonical lookup of a minor’s live guardians for scoped operations.',
+    },
+    {
+      name: 'daisy_is_protection_guardian',
+      executors: ['daisy_web'],
+      reason: 'Checks the current subject’s authority for one child.',
+    },
+    {
+      name: 'daisy_friend_guardian_clearances',
       executors: ['daisy_web'],
       reason:
-        'Reads live guardian identities for a minor for the outreach and approval authority checks.',
+        'Returns only cleared child actors for the subject’s live request pair.',
+    },
+    {
+      name: 'daisy_hold_friend_request',
+      executors: ['daisy_web'],
+      reason:
+        'Creates a hold on a scoped waiting request and publishes the current guardian recipient identities.',
+    },
+    {
+      name: 'daisy_clear_friend_guardian_hold',
+      executors: ['daisy_web'],
+      reason:
+        'Clears one hold on a waiting request using the subject’s current guardian authority.',
+    },
+    {
+      name: 'daisy_retire_friend_guardian_holds',
+      executors: [],
+      reason: 'Retires hold metadata when the recipient accepts a friendship.',
     },
     {
       name: 'daisy_protection_level',

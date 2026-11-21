@@ -1,6 +1,6 @@
 import { createId } from '@paralleldrive/cuid2';
 import { createAppError } from '@daisy/errors';
-import type { Database, GuardianSession } from '@daisy/db';
+import type { Database, GuardianSession, SocialRequestLimits } from '@daisy/db';
 import type {
   ConsentMethod,
   GuardianCommand,
@@ -18,6 +18,7 @@ type Context = {
   readonly caller: Caller;
   readonly session: GuardianSession;
   readonly at: string;
+  readonly requestLimits?: SocialRequestLimits;
 };
 type Delivery =
   | { readonly kind: 'sign-in'; readonly email: string }
@@ -472,12 +473,14 @@ export function runGuardianCommand(
     case 'refuse-parent':
       return actOnLink(context, command.linkId, 'refuse');
     case 'answer-friend-approval':
+      if (!context.requestLimits) throw createAppError('INVARIANT');
       return context.session
         .answerFriendApproval({
           approvalId: command.approvalId,
           caller: context.caller,
           decision: command.decision,
           at: context.at,
+          limits: context.requestLimits,
           nextId: createId,
         })
         .then((answered) => (answered ? accepted : refused('not-waiting')));
@@ -494,10 +497,14 @@ export async function submitGuardianCommand(
   caller: Caller,
   at: string,
   command: GuardianCommand,
+  requestLimits?: SocialRequestLimits,
 ): Promise<Result> {
   try {
     return await store.forSubject(caller.userId, (session) =>
-      runGuardianCommand({ session, caller, at }, command),
+      runGuardianCommand(
+        { session, caller, at, ...(requestLimits ? { requestLimits } : {}) },
+        command,
+      ),
     );
   } catch (error) {
     if (error === reservationLost && command.type === 'create-child-account')

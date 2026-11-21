@@ -18,6 +18,7 @@ import {
 import { expect, openPage, test } from './support/fixtures';
 import { claimUsername } from './support/forms';
 import {
+  claim,
   closeRoom,
   deniedCommand,
   reread,
@@ -217,7 +218,7 @@ test('a guardian clears a Guided hold, then Supervised locks messages and ranked
   page,
   browser,
 }) => {
-  test.setTimeout(150_000);
+  test.setTimeout(180_000);
   await promisify(execFile)(
     'bun',
     [
@@ -362,6 +363,26 @@ test('a guardian clears a Guided hold, then Supervised locks messages and ranked
     ).toHaveCount(0);
 
     await peer.goto('/play/room');
+    const casual = await submitCreateRoom(
+      peer,
+      `Casual protection ${createId().slice(0, 8)}`,
+    );
+    let childActorId: string;
+    try {
+      const seated = await claim(child, casual, 'Affirmative 1');
+      const childSeat = seated.participants.find(
+        (participant) =>
+          participant.kind === 'human' &&
+          participant.actorId !== casual.hostActorId,
+      );
+      if (!childSeat)
+        throw new Error('The supervised child did not take the casual seat');
+      childActorId = childSeat.actorId;
+    } finally {
+      await closeRoom(peer.request, casual.id);
+    }
+
+    await peer.goto('/play/room');
     const ranked = await submitCreateRoom(
       peer,
       `Ranked protection ${createId().slice(0, 8)}`,
@@ -389,6 +410,15 @@ test('a guardian clears a Guided hold, then Supervised locks messages and ranked
       });
       expect(denied.status()).toBe(409);
       expect(await denied.json()).toMatchObject({
+        refusal: 'ranked-unavailable',
+      });
+      const assigned = await deniedCommand(peer.request, ranked, {
+        type: 'assign-seat',
+        actorId: childActorId,
+        seat: sideSeat(affirmativeSide),
+      });
+      expect(assigned.status()).toBe(409);
+      expect(await assigned.json()).toMatchObject({
         refusal: 'ranked-unavailable',
       });
       expect((await reread(peer.request, ranked.id)).participants).toEqual(

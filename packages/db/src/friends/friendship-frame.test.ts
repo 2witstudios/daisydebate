@@ -122,7 +122,6 @@ test('commitFriendship reauthorizes and writes the next pair', async () => {
         'select actors',
         'delete social_request_declines',
         'update friendships',
-        'delete friend_guardian_approvals',
         'select actors',
         'delete friendships',
       ],

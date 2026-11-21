@@ -13,6 +13,9 @@ import {
   requireOwnScope,
   type OwnCollectionFence,
 } from '../authorization';
+import type { TxOpener } from '../tx';
+import { scopeTransaction } from '../tenant-scope';
+import { liveGuardianHold } from './guardian-approval-standing';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
 
 export type FriendshipRow = {
@@ -43,14 +46,15 @@ type FriendshipListScope = {
  * reloads the pair under the contact fence (ADR 0072).
  */
 export async function listFriendships(
-  database: BunSQLDatabase,
+  database: TxOpener,
   scope: FriendshipListScope,
   authorize: OwnCollectionFence<FriendshipListScope>,
 ): Promise<readonly FriendshipRow[]> {
   requireOwnScope(scope);
-  return readOwnCollection(database, scope, authorize, (tx) =>
-    readRows(tx, scope.actorId),
-  );
+  return readOwnCollection(database, scope, authorize, async (tx) => {
+    await scopeTransaction(tx, { subjectUserId: scope.userId });
+    return readRows(tx, scope.actorId);
+  });
 }
 
 /** The database's friendship reads, instrumented like its other operations. */
@@ -88,11 +92,9 @@ async function readRows(
           select case when bool_or(approval.child_actor_id=${actorId}) then 'waiting-for-guardian'
             when count(*) > 0 then 'waiting' end
           from friend_guardian_approvals approval
-          join actors child on child.id=approval.child_actor_id
           where approval.low_actor_id=${friendships.lowActorId}
             and approval.high_actor_id=${friendships.highActorId}
-            and not approval.cleared
-            and exists (select 1 from public.daisy_protection_guardians(child.user_id))
+            and ${liveGuardianHold(sql`approval`, sql`friendships`)}
         ) end`,
       requesterActorId: friendships.requesterActorId,
       requestedAt: friendships.requestedAt,

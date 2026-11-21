@@ -2,7 +2,7 @@ import { and, count, eq, ne, or } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import { contactPairs } from '../schema/contacts';
-import { friendships, friendGuardianApprovals } from '../schema/friends';
+import { friendships } from '../schema/friends';
 import type { ContactInput } from '../contacts/fence';
 import type { FriendFrame } from './contracts';
 import {
@@ -185,15 +185,6 @@ export function friendshipFrame(
       if (next.state === 'waiting-for-guardian')
         for (const childActorId of guardianHolds)
           await holdForGuardian(tx, { pair, childActorId, at: now, nextId });
-      if (next.state === 'accepted')
-        await tx
-          .delete(friendGuardianApprovals)
-          .where(
-            and(
-              eq(friendGuardianApprovals.lowActorId, pair.lowActorId),
-              eq(friendGuardianApprovals.highActorId, pair.highActorId),
-            ),
-          );
       // Answering someone else's request tells them it was accepted.
       if (
         previous &&

@@ -1,6 +1,7 @@
-import { check, jsonb, pgTable, text } from 'drizzle-orm/pg-core';
+import { check, pgTable, text } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
-import type { ProtectionLevel } from '@daisy/protocol/protection-level';
+import { protectionLevelSchema } from '@daisy/protocol/protection-level';
+import { jsonbColumn } from './columns';
 import { users } from './users';
 
 export const protectionLevels = pgTable(
@@ -11,7 +12,7 @@ export const protectionLevels = pgTable(
       .references(() => users.id, {
         onDelete: 'cascade',
       }),
-    choice: jsonb('choice').$type<ProtectionLevel>().notNull(),
+    choice: jsonbColumn('choice', protectionLevelSchema).notNull(),
   },
   (table) => [
     check(

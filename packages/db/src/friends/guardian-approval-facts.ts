@@ -25,9 +25,8 @@ export async function guardianHoldsForRequest(
   const approvals = await query(
     tx,
     z.object({ child_actor_id: z.string() }),
-    sql`select child_actor_id from friend_guardian_approvals
-      where low_actor_id=${pair.lowActorId} and high_actor_id=${pair.highActorId}
-        and cleared`,
+    sql`select child_actor_id
+      from public.daisy_friend_guardian_clearances(${pair.lowActorId}, ${pair.highActorId})`,
   );
   const facts = await Promise.all(
     minors.flatMap((account) => {

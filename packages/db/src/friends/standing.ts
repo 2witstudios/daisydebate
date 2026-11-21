@@ -1,4 +1,5 @@
 import { sql, type SQL } from 'drizzle-orm';
+import { liveGuardianHold } from './guardian-approval-standing';
 
 /**
  * Friends' published reads (ADR 0144). `friendship` names the `friendships`
@@ -17,11 +18,10 @@ export const friendshipAccepted = (friendship: SQL) =>
 export const guardianApprovalStanding = (notice: SQL, friendship: SQL) => sql`(
   ${friendship}.state='waiting-for-guardian' and exists (
     select 1 from friend_guardian_approvals approval
-    join actors child on child.id=approval.child_actor_id
-    cross join lateral public.daisy_protection_guardians(child.user_id) guardian
     where approval.low_actor_id=${friendship}.low_actor_id
       and approval.high_actor_id=${friendship}.high_actor_id
-      and guardian.user_id=${notice}.user_id
-      and not approval.cleared
+      and ${notice}.user_id=public.daisy_subject_scope()
+      and public.daisy_is_protection_guardian(approval.child_actor_id)
+      and ${liveGuardianHold(sql`approval`, friendship)}
   )
 )`;

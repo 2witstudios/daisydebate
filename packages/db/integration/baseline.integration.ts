@@ -276,13 +276,18 @@ test('daisy_web has the exact runtime DML scope on every public table and sequen
           and has_table_privilege('daisy_web', c.oid, 'UPDATE')
           and not has_table_privilege('daisy_web', c.oid, 'DELETE')
         -- Hosting issuance remains outside the participant app; only the canonical source can be read here.
-        when c.relname in ('account_hosting_versions','fixture_room_sources','round_judge_slots','round_judge_assignments','round_finalization_judge_assignments','round_source_voids') then
+        when c.relname in ('account_hosting_versions','fixture_room_sources','friend_guardian_approvals','round_judge_slots','round_judge_assignments','round_finalization_judge_assignments','round_source_voids') then
           has_table_privilege('daisy_web', c.oid, 'SELECT')
           and not has_table_privilege('daisy_web', c.oid, 'INSERT,UPDATE,DELETE')
         when c.relname = 'guardian_consent_evidence' then
           has_table_privilege('daisy_web', c.oid, 'SELECT')
           and has_table_privilege('daisy_web', c.oid, 'INSERT')
           and not has_table_privilege('daisy_web', c.oid, 'UPDATE,DELETE')
+        -- ADR 0165: writes go through the guardian-scoped definer.
+        when c.relname = 'protection_levels' then
+          has_table_privilege('daisy_web', c.oid, 'SELECT')
+          and has_table_privilege('daisy_web', c.oid, 'DELETE')
+          and not has_table_privilege('daisy_web', c.oid, 'INSERT,UPDATE')
         when c.relname = 'restriction_lobbies' then
           has_table_privilege('daisy_web', c.oid, 'SELECT')
           and not has_table_privilege('daisy_web', c.oid, 'INSERT')

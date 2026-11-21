@@ -50,8 +50,6 @@ $$;
 --> statement-breakpoint
 REVOKE ALL ON FUNCTION public.daisy_protection_guardians(text) FROM PUBLIC;
 --> statement-breakpoint
-GRANT EXECUTE ON FUNCTION public.daisy_protection_guardians(text) TO daisy_web;
---> statement-breakpoint
 ALTER TABLE public.protection_levels ENABLE ROW LEVEL SECURITY;
 --> statement-breakpoint
 CREATE POLICY protection_levels_subject ON public.protection_levels FOR ALL
@@ -59,8 +57,6 @@ CREATE POLICY protection_levels_subject ON public.protection_levels FOR ALL
   WITH CHECK (user_id = daisy_subject_scope());
 --> statement-breakpoint
 GRANT SELECT, DELETE ON public.protection_levels TO daisy_web;
---> statement-breakpoint
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.friend_guardian_approvals TO daisy_web;
 --> statement-breakpoint
 CREATE FUNCTION public.daisy_protection_level(child_id text)
 RETURNS jsonb
@@ -115,3 +111,118 @@ CREATE TRIGGER guardian_links_clear_unlinked_protection
   AFTER UPDATE OF status ON public.guardian_links
   FOR EACH ROW WHEN (OLD.status = 'active' AND NEW.status = 'ended')
   EXECUTE FUNCTION public.daisy_clear_unlinked_protection();
+--> statement-breakpoint
+CREATE FUNCTION public.daisy_is_protection_guardian(child_actor_id text)
+RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = pg_catalog, public, pg_temp
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.actors child
+    CROSS JOIN LATERAL public.daisy_protection_guardians(child.user_id) guardian
+    WHERE child.id = child_actor_id AND guardian.user_id = public.daisy_subject_scope()
+  )
+$$;
+--> statement-breakpoint
+REVOKE ALL ON FUNCTION public.daisy_is_protection_guardian(text) FROM PUBLIC;
+--> statement-breakpoint
+GRANT EXECUTE ON FUNCTION public.daisy_is_protection_guardian(text) TO daisy_web;
+--> statement-breakpoint
+ALTER TABLE public.friend_guardian_approvals ENABLE ROW LEVEL SECURITY;
+--> statement-breakpoint
+CREATE POLICY friend_guardian_approvals_subject ON public.friend_guardian_approvals FOR SELECT
+  USING ((low_actor_id = daisy_subject_actor_scope()) OR
+    (high_actor_id = daisy_subject_actor_scope()) OR daisy_is_protection_guardian(child_actor_id));
+--> statement-breakpoint
+GRANT SELECT ON public.friend_guardian_approvals TO daisy_web;
+--> statement-breakpoint
+CREATE FUNCTION public.daisy_friend_approval_pair_scope(low_id text, high_id text)
+RETURNS boolean
+LANGUAGE sql STABLE
+SET search_path = pg_catalog, public, pg_temp
+AS $$
+  SELECT coalesce(public.daisy_subject_actor_scope() IN (low_id, high_id), false)
+    OR public.daisy_is_protection_guardian(low_id)
+    OR public.daisy_is_protection_guardian(high_id)
+$$;
+--> statement-breakpoint
+REVOKE ALL ON FUNCTION public.daisy_friend_approval_pair_scope(text, text) FROM PUBLIC;
+--> statement-breakpoint
+CREATE FUNCTION public.daisy_friend_guardian_clearances(low_id text, high_id text)
+RETURNS TABLE(child_actor_id text)
+LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = pg_catalog, public, pg_temp
+AS $$
+  SELECT approval.child_actor_id FROM public.friend_guardian_approvals approval
+  WHERE approval.low_actor_id = low_id AND approval.high_actor_id = high_id
+    AND approval.cleared AND public.daisy_friend_approval_pair_scope(low_id, high_id)
+$$;
+--> statement-breakpoint
+REVOKE ALL ON FUNCTION public.daisy_friend_guardian_clearances(text, text) FROM PUBLIC;
+--> statement-breakpoint
+GRANT EXECUTE ON FUNCTION public.daisy_friend_guardian_clearances(text, text) TO daisy_web;
+--> statement-breakpoint
+CREATE FUNCTION public.daisy_hold_friend_request(approval_id text, low_id text, high_id text, child_id text)
+RETURNS TABLE(user_id text)
+LANGUAGE sql VOLATILE SECURITY DEFINER
+SET search_path = pg_catalog, public, pg_temp
+AS $$
+  WITH held AS (
+    INSERT INTO public.friend_guardian_approvals(id, low_actor_id, high_actor_id, child_actor_id)
+    SELECT approval_id, low_id, high_id, child_id
+    FROM public.friendships friendship
+    WHERE public.daisy_friend_approval_pair_scope(low_id, high_id)
+      AND friendship.low_actor_id = low_id AND friendship.high_actor_id = high_id
+      AND friendship.state = 'waiting-for-guardian'
+    ON CONFLICT DO NOTHING
+    RETURNING child_actor_id
+  )
+  SELECT guardian.user_id FROM held
+  JOIN public.actors child ON child.id = held.child_actor_id
+  CROSS JOIN LATERAL public.daisy_protection_guardians(child.user_id) guardian
+$$;
+--> statement-breakpoint
+REVOKE ALL ON FUNCTION public.daisy_hold_friend_request(text, text, text, text) FROM PUBLIC;
+--> statement-breakpoint
+GRANT EXECUTE ON FUNCTION public.daisy_hold_friend_request(text, text, text, text) TO daisy_web;
+--> statement-breakpoint
+CREATE FUNCTION public.daisy_clear_friend_guardian_hold(approval_id text)
+RETURNS boolean
+LANGUAGE sql VOLATILE SECURITY DEFINER
+SET search_path = pg_catalog, public, pg_temp
+AS $$
+  WITH cleared AS (
+    UPDATE public.friend_guardian_approvals approval SET cleared = true
+    FROM public.friendships friendship
+    WHERE approval.id = approval_id AND NOT approval.cleared
+      AND friendship.low_actor_id = approval.low_actor_id
+      AND friendship.high_actor_id = approval.high_actor_id
+      AND friendship.state = 'waiting-for-guardian'
+      AND public.daisy_is_protection_guardian(approval.child_actor_id)
+    RETURNING approval.id
+  )
+  SELECT EXISTS (SELECT 1 FROM cleared)
+$$;
+--> statement-breakpoint
+REVOKE ALL ON FUNCTION public.daisy_clear_friend_guardian_hold(text) FROM PUBLIC;
+--> statement-breakpoint
+GRANT EXECUTE ON FUNCTION public.daisy_clear_friend_guardian_hold(text) TO daisy_web;
+--> statement-breakpoint
+CREATE FUNCTION public.daisy_retire_friend_guardian_holds()
+RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = pg_catalog, public, pg_temp
+AS $$
+BEGIN
+  DELETE FROM public.friend_guardian_approvals
+  WHERE low_actor_id = NEW.low_actor_id AND high_actor_id = NEW.high_actor_id;
+  RETURN NEW;
+END
+$$;
+--> statement-breakpoint
+REVOKE ALL ON FUNCTION public.daisy_retire_friend_guardian_holds() FROM PUBLIC;
+--> statement-breakpoint
+CREATE TRIGGER friendships_retire_guardian_holds
+  AFTER UPDATE OF state ON public.friendships
+  FOR EACH ROW WHEN (OLD.state <> 'accepted' AND NEW.state = 'accepted')
+  EXECUTE FUNCTION public.daisy_retire_friend_guardian_holds();

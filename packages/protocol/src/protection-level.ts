@@ -62,14 +62,14 @@ export function protectionLimits(choice: ProtectionLevel): ProtectionLimits {
   };
 }
 
-function friendRequestNeedsGuardian(
-  limits: ProtectionLimits,
+export function friendRequestNeedsGuardian(
+  approval: ProtectionLimits['friendApproval'],
   direction: 'incoming' | 'outgoing',
   otherAge: AgeBand | null,
 ): boolean {
   return (
-    limits.friendApproval === 'all' ||
-    (limits.friendApproval === 'inbound-adult' &&
+    approval === 'all' ||
+    (approval === 'inbound-adult' &&
       direction === 'incoming' &&
       (otherAge === 'adult' || otherAge === null))
   );
@@ -88,7 +88,8 @@ export function friendRequestState(
   const holds = members
     .filter(
       ({ limits, direction, otherAge, cleared }) =>
-        !cleared && friendRequestNeedsGuardian(limits, direction, otherAge),
+        !cleared &&
+        friendRequestNeedsGuardian(limits.friendApproval, direction, otherAge),
     )
     .map(({ actorId }) => actorId);
   return {

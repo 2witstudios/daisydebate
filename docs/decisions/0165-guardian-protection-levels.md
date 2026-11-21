@@ -18,9 +18,15 @@ The protocol's `protectionLimits` expands each choice. The contact transaction
 evaluates holds at creation and before acceptance, including reciprocal
 friend requests. An approval clears the hold for one child and one request.
 The recipient then chooses whether to accept. A child can decline an incoming
-request or cancel their own while it waits. The guardian's generic in-app
+request or cancel their own while it waits. A guardian's decline of an incoming
+request applies the child's existing repeat-contact bounds. A guardian's
+decline of an outgoing request cancels it. Each read projects current holds
+from the protocol rule. The guardian action rechecks the hold under the pair
+and account locks before changing the request. The guardian's generic in-app
 notification links to their private waiting list. Other members see a pending
-request without family or age information. Approval records go when a request
+request without family or age information. A new hold resurfaces a covered
+request for its guardian. Subject scope fences approval reads, and the scoped
+writer grants no direct updates. Approval records go when a request
 ends, including by block or erasure.
 
 A message-request lock overrides the child's stored preference in the account
