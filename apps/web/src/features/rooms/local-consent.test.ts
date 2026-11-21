@@ -21,7 +21,6 @@ const consentView = (ready: boolean, revision = 1) => ({
       teamOpen: false,
       positionOpen: false,
       rating: null,
-      division: null,
     },
   ],
 });

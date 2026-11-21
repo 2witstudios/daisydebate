@@ -22,7 +22,7 @@ const round = {
   roundId: 'round',
   competitionType: 'ranked',
   ladderDivision: 'open',
-  roomDivision: 'open',
+  roomYouth: false,
   hostActorId: 'host',
   hostOptedIn: false,
   hostHoldsRecording: false,

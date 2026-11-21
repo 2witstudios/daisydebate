@@ -1,7 +1,6 @@
 import { eq } from 'drizzle-orm';
 
 import type { RoomAssemblyState, RoomMutationOutcome } from '@daisy/protocol';
-import { roundCompetition } from '@daisy/protocol';
 import {
   emptyRuntimeCheckpointFor,
   aiBallotAdmissionRefusal,
@@ -17,14 +16,15 @@ import { rooms, roomParticipants } from './schema/rooms';
 import { roundDrawSeeds } from './schema/round-seeds';
 import { challenges } from './schema/challenges';
 import { rounds } from './schema/rounds';
-import { lockLadderSeason } from './ladder-season';
+import { legacyRoomCompetition, lockLadderSeason } from './ladder-season';
 import { roundParticipants } from './schema/round-participants';
 import { appendRoundPhaseChanged } from './round-projection-writer';
 import { oweRoundStarted } from './round-began';
 import { holdActiveRoomMembers } from './room-membership-persistence';
 import { freezeRoomBallot } from './room-ballot-freeze';
 import { columnsOfSeat } from './seat-columns';
-import { refuseDebatersOffDivision } from './room-start-division';
+import { refuseIneligibleDebaters } from './room-start-eligibility';
+import { lobbies } from './schema/lobbies';
 
 import { appendRoomChanged, publishDefinition } from './room-command-facts';
 import { isOpenRoomStatus } from '@daisy/protocol';
@@ -120,7 +120,7 @@ export const persistRoomMutation = async (
   if (mutation.freeze) {
     // The engine named the Round this Start launches, and the status it launches in.
     if (next.status !== 'started') throw createAppError('INVARIANT');
-    await refuseDebatersOffDivision(tx, next);
+    await refuseIneligibleDebaters(tx, next);
     const plan = next.executionPlan;
     const prepMs = plan.preRoundPrep.enabled
       ? plan.preRoundPrep.durationMs
@@ -133,9 +133,15 @@ export const persistRoomMutation = async (
       .select({ leagueLadderId: rooms.leagueLadderId })
       .from(rooms)
       .where(eq(rooms.id, next.id));
-    // A ranked Round rates on the Room's own division (ADR 0156).
-    const competition = roundCompetition(next);
-    if (competition.ladder) await lockLadderSeason(tx, competition.ladder);
+    const competition = legacyRoomCompetition(next);
+    if (competition.ladder) {
+      const [lobby] = await tx
+        .select({ organizationId: lobbies.ownerOrganizationId })
+        .from(lobbies)
+        .where(eq(lobbies.id, next.lobbyId));
+      if (!lobby?.organizationId) throw createAppError('INVARIANT');
+      await lockLadderSeason(tx, competition.ladder, lobby.organizationId);
+    }
     await tx.insert(rounds).values({
       leagueLadderId: source?.leagueLadderId ?? null,
       id: roundId,

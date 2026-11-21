@@ -1,6 +1,6 @@
 import { sql, type SQL } from 'drizzle-orm';
-import { daisyOrganizationId } from './daisy-reference';
 import { createAppError } from '@daisy/errors';
+import { defaultStandingLobby } from '@daisy/protocol/lobby/eligibility';
 import {
   roomListQuerySchema,
   roomListPageSchema,
@@ -18,6 +18,8 @@ import { currentRoomTopic, type ReadOpeningTopic } from './round-opening-read';
 import type { Tx } from './tx';
 import { run, query as queryRows } from './raw-rows';
 import { z } from 'zod';
+import { readOfficialStandingLobbies } from './official-standing-lobbies';
+import { readCompetitionAgeBand } from './ladder-division-band';
 type Seat = {
   readonly actorId: string;
   readonly seat: SeatRef;
@@ -66,9 +68,7 @@ const statusScope = (status: RoomListQuery['status']) => ({
 });
 const modeMatches = (mode: RoomListQuery['mode']) =>
   mode === undefined ? sql`true` : sql`r.competition_type=${mode}`;
-/** The lobby filter (ADR 0156): Rooms created in that division, casual and ranked. */
-const divisionMatches = (division: RoomListQuery['division']) =>
-  division === undefined ? sql`true` : sql`r.division=${division}`;
+const lobbyMatches = (lobbyId: string) => sql`r.lobby_id=${lobbyId}`;
 /** Free judge seats of the Room's rules, read with the page. */
 const openJudgeSeats = sql`greatest(0, (r.rules_snapshot->'seats'->>'judges')::int - (select count(*)::int from room_participants j where j.room_id=r.id and j.seat_kind='judge'))`;
 /** Seat totals and the format label, read with the page; never a lock target. */
@@ -84,7 +84,7 @@ const hostRating = (clock: SpectatorClock) => {
   };
   const earliestHeld = sql`(select c.rating_before from rating_changes c join rounds c_r on c_r.id=c.round_id where c.actor_id=rt.actor_id and c.ladder=rt.ladder and c.division=rt.division and c.season_id=rt.season_id and not ${factReleasedSql(sql`greatest(c.occurred_at,c_r.completed_at)`, held, clock)} order by c.occurred_at asc limit 1)`;
   // The host's rating on the Room's own ladder: its style in its division.
-  return sql`case when r.competition_type='ranked' then (select round(coalesce(${earliestHeld},rt.rating))::int from ratings rt join seasons z on z.id=rt.season_id and z.status='active' and z.organization_id=${daisyOrganizationId} where rt.actor_id=r.host_actor_id and rt.ladder=r.format_id and rt.division=r.division limit 1) end`;
+  return sql`case when r.competition_type='ranked' then (select round(coalesce(${earliestHeld},rt.rating))::int from ratings rt join seasons z on z.id=rt.season_id and z.status='active' and z.organization_id=lb.owner_organization_id where rt.actor_id=r.host_actor_id and rt.ladder=r.format_id and rt.division=(case when lb.age_rule='under-18' then 'youth' else 'open' end) limit 1) end`;
 };
 const search = (q: string, topic: SQL) =>
   sql`(${q}='' or strpos(lower(r.title),lower(${q}))>0 or strpos(lower(${topic}),lower(${q}))>0 or (strpos(lower(${hostLabel}),lower(${q}))>0 and not ${hostIsHumanJudge}))`;
@@ -98,6 +98,7 @@ const pageOrder = (
   sort: RoomListQuery['sort'],
   cursor: string | undefined,
   caller: Caller,
+  lobbyId: string,
 ) => {
   const direction = sort === 'longest-waiting' ? sql`asc` : sql`desc`;
   return {
@@ -107,7 +108,7 @@ const pageOrder = (
         ? sql`true`
         : sql`(r.created_at, r.id collate "C") ${sort === 'longest-waiting' ? sql`>` : sql`<`}
       (select r.created_at, r.id collate "C" from rooms r
-        where r.id=${cursor} and ${visible(caller)})`,
+        where r.id=${cursor} and ${lobbyMatches(lobbyId)} and ${visible(caller)})`,
   };
 };
 /** Bound candidates before locks; a race may shorten a page, never trigger replenishment. */
@@ -123,22 +124,30 @@ export async function discoverRooms(
 ): Promise<RoomListPage> {
   const parsed = roomListQuerySchema.safeParse(input);
   if (!parsed.success) throw createAppError('VALIDATION');
-  const { cursor, pageSize, q, status, mode, division, sort } = parsed.data;
+  const { cursor, pageSize, q, status, mode, sort } = parsed.data;
   const { assembly, launched } = statusScope(status);
-  const order = pageOrder(sort, cursor, caller);
   let account = await sharedAccount(tx, caller);
   if (!authorizeCollection(account)) throw createAppError('AUTHORIZATION');
+  const official = await readOfficialStandingLobbies(tx);
+  const lobby = parsed.data.lobbyId
+    ? official.find(({ id }) => id === parsed.data.lobbyId)
+    : defaultStandingLobby(
+        official,
+        await readCompetitionAgeBand(tx, caller.userId),
+      );
+  if (!lobby) return { rooms: [], nextCursor: null, retry: false };
+  const order = pageOrder(sort, cursor, caller, lobby.id);
   const candidates = await queryRows(
     tx,
     z.object({ id: z.string() }),
     sql`
   select id from (
     (select r.id,r.created_at from rooms r ${joins}
-      where ${assembly} and r.status in ${assemblyStatuses(status)} and ${modeMatches(mode)} and ${divisionMatches(division)} and ${order.after} and ${visible(caller)} and ${search(q, sql`r.topic`)}
+      where ${assembly} and r.status in ${assemblyStatuses(status)} and ${modeMatches(mode)} and ${lobbyMatches(lobby.id)} and ${order.after} and ${visible(caller)} and ${search(q, sql`r.topic`)}
       order by r.created_at ${order.direction},r.id collate "C" ${order.direction} limit ${pageSize + 1})
     union all
     (select r.id,r.created_at from rounds d join rooms r on r.id=d.room_id ${joins}
-      where ${launched} and ${modeMatches(mode)} and ${divisionMatches(division)} and d.status in ('opening','active') and d.room_id is not null and r.status='started'
+      where ${launched} and ${modeMatches(mode)} and ${lobbyMatches(lobby.id)} and d.status in ('opening','active') and d.room_id is not null and r.status='started'
         and ${order.after} and ${visible(caller)} and ${inLaunchedRound(caller)} and ${search(q, launchedTopic)}
       order by r.created_at ${order.direction},r.id collate "C" ${order.direction} limit ${pageSize + 1})
   ) candidates order by created_at ${order.direction},id collate "C" ${order.direction} limit ${pageSize + 1}
@@ -195,15 +204,16 @@ export async function discoverRooms(
    f.name as "formatLabel",${seatsTaken} as "seatsTaken",${seatCount} as "seatCount",
    case when r.status in ('assembling','ready') then r.created_at end as "waitingSince",
    case when r.status='started' then json_build_object('stage',d.current_stage,'startedAt',d.started_at) else null end as "live",
-   ${hostRating(clock)} as "hostRating",r.division,
+   ${hostRating(clock)} as "hostRating",r.lobby_id as "lobbyId",lb.age_rule as "ageRule",
    ${openJudgeSeats} as "openJudgeSeats"
   from rooms r ${joins}
   join formats f on f.id=r.format_id
+  join lobbies lb on lb.id=r.lobby_id
   left join room_participants p on p.room_id=r.id and p.actor_id=${caller.actorId}
   left join rounds d on d.room_id=r.id
   left join round_participants rp on rp.round_id=d.id and rp.actor_id=${caller.actorId}
   where r.id=any(${idSet}) and ${visible(caller)} and ${search(q, launchedTopic)}
-   and ${modeMatches(mode)} and ${divisionMatches(division)}
+   and ${modeMatches(mode)} and ${lobbyMatches(lobby.id)}
    and ((${assembly} and r.status in ${assemblyStatuses(status)}) or (${launched} and r.status='started' and d.status in ('opening','active') and ${inLaunchedRound(caller)}))
   order by r.created_at ${order.direction},r.id collate "C" ${order.direction}
  `,

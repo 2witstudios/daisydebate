@@ -45,7 +45,6 @@ import { broadcasts } from './schema/broadcasts';
 import { mediaParticipants } from './schema/media-sessions';
 import { recordingCaptures as captures } from './schema/recording-captures';
 import { recordings } from './schema/recordings';
-import { rooms } from './schema/rooms';
 import { roundParticipants } from './schema/round-participants';
 import { rounds } from './schema/rounds';
 import { inTransaction, type TxSource } from './tx';
@@ -68,13 +67,14 @@ export const createRecordingCaptureStore = (database: TxSource) => ({
         roundId: rounds.id,
         competitionType: rounds.competitionType,
         ladderDivision: rounds.ladderDivision,
-        roomDivision: rooms.division,
+        roomYouth: sql<
+          boolean | null
+        >`public.daisy_room_is_youth(${rounds.roomId})`,
         capture: rounds.capture,
         hostActorId: rounds.createdByActorId,
         hostUserId: actors.userId,
       })
       .from(rounds)
-      .leftJoin(rooms, eq(rooms.id, rounds.roomId))
       .leftJoin(recordings, eq(recordings.roundId, rounds.id))
       .leftJoin(actors, eq(actors.id, rounds.createdByActorId))
       .where(

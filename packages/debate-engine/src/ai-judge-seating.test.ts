@@ -27,7 +27,7 @@ const aiJudge = {
   actorId: 'ai-judge',
   kind: 'bot' as const,
   eligible: true,
-  division: 'open' as const,
+  ageBand: 'adult' as const,
   aiRole: 'judge' as const,
 };
 const humanJudge = {
@@ -35,7 +35,7 @@ const humanJudge = {
   actorId: 'host',
   kind: 'human' as const,
   eligible: true,
-  division: 'open' as const,
+  ageBand: 'adult' as const,
   aiRole: null,
 };
 const assign = (

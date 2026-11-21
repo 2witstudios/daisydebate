@@ -185,7 +185,7 @@ export function challengeListOf(
     username,
     mode,
     format,
-    division,
+    lobbyId,
     createdAt,
     expiresAt,
   }: ChallengeListRow) => ({
@@ -193,7 +193,7 @@ export function challengeListOf(
     username,
     mode,
     format,
-    division,
+    lobbyId,
     createdAt,
     expiresAt,
   });

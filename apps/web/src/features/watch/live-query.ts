@@ -1,9 +1,4 @@
-import {
-  daisyLadders,
-  idSchema,
-  ladderKey,
-  type Ladder,
-} from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol';
 import { z } from 'zod';
 import type { SearchParams } from '../access/decision';
 import { watchRoutes } from './routes';
@@ -12,11 +7,6 @@ import { watchRoutes } from './routes';
 const hubTabs = ['live', 'following'] as const;
 const modes = ['any', 'ranked', 'casual'] as const;
 
-/** Each of Daisy's ladders by its key, "freestyle:open"; empty is every ladder. */
-const ladderKeys = daisyLadders.map((ladder) =>
-  ladderKey(ladder.style, ladder.division),
-);
-
 type HubTab = (typeof hubTabs)[number];
 type LiveMode = (typeof modes)[number];
 
@@ -24,8 +14,8 @@ export type LiveQuery = {
   readonly tab: HubTab;
   readonly mode: LiveMode;
   readonly q: string;
-  /** One ladder's key, or empty for every ladder (PYL-5 board). */
-  readonly ladder: string;
+  /** The selected standing lobby id, or empty to use the landing lobby. */
+  readonly lobby: string;
   /** The Round id this page starts after; empty on the first page. */
   readonly before: string;
 };
@@ -34,7 +24,7 @@ export const defaultLiveQuery: LiveQuery = {
   tab: 'live',
   mode: 'any',
   q: '',
-  ladder: '',
+  lobby: '',
   before: '',
 };
 
@@ -49,10 +39,7 @@ const schema = z.object({
     .string()
     .transform((value) => value.trim().slice(0, MAX_SEARCH_LENGTH).trim())
     .catch(defaultLiveQuery.q),
-  ladder: z
-    .string()
-    .refine((value) => (ladderKeys as readonly string[]).includes(value))
-    .catch(defaultLiveQuery.ladder),
+  lobby: idSchema.catch(defaultLiveQuery.lobby),
   before: idSchema.catch(defaultLiveQuery.before),
 });
 
@@ -65,7 +52,7 @@ export const parseLiveQuery = (params: SearchParams): LiveQuery =>
     tab: first(params['tab']),
     mode: first(params['mode']),
     q: first(params['q']),
-    ladder: first(params['ladder']),
+    lobby: first(params['lobby']),
     before: first(params['before']),
   });
 
@@ -82,15 +69,8 @@ const withoutFilters = (query: LiveQuery): LiveQuery => ({
   ...query,
   mode: defaultLiveQuery.mode,
   q: defaultLiveQuery.q,
-  ladder: defaultLiveQuery.ladder,
   before: defaultLiveQuery.before,
 });
-
-/** The ladder a query narrows to, or null for every ladder. */
-export const ladderOfQuery = (query: LiveQuery): Ladder | null =>
-  daisyLadders.find(
-    (ladder) => ladderKey(ladder.style, ladder.division) === query.ladder,
-  ) ?? null;
 
 export const clearFiltersHref = (query: LiveQuery): string =>
   hubHref(withoutFilters(query));

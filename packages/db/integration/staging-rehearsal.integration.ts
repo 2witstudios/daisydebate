@@ -633,7 +633,7 @@ test(
       };
       const retainedAfter = {
         rooms:
-          await sql`select to_jsonb(r) - array['rules_snapshot','capture','lobby_id','lobby_kind','template_id','standing_template_id','ballot_definition_id','ballot_definition_version','league_ladder_id','holds_host','division'] as row from rooms r order by id`,
+          await sql`select to_jsonb(r) - array['rules_snapshot','capture','lobby_id','lobby_kind','template_id','standing_template_id','ballot_definition_id','ballot_definition_version','league_ladder_id','holds_host','legacy_tournament_youth'] as row from rooms r order by id`,
         rounds:
           await sql`select to_jsonb(r) - array['rules_snapshot','capture','winning_side','ranking','judging','ballot_definition_id','ballot_definition_version','league_ladder_id','ladder_division'] as row from rounds r order by id`,
         roomParticipants:
@@ -685,6 +685,14 @@ test(
           'hold no seatless host: only a Train practice created from now on holds its host',
         actual: (
           await sql`select count(*)::int n from rooms where holds_host`
+        )[0]!.n,
+        expected: 0,
+      });
+      assert({
+        given: 'the historical Rooms from before tournament lobbies existed',
+        should: 'leave the tournament-only classification unset',
+        actual: (
+          await sql`select count(*)::int n from rooms where legacy_tournament_youth is not null`
         )[0]!.n,
         expected: 0,
       });

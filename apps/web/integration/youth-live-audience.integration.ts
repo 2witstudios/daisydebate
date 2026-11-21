@@ -347,7 +347,9 @@ test('a casual Youth Room’s live Round has its debaters’ linked adults too (
       const people = await adults(f);
       await setAge(f, f.host, '15 years');
       await setAge(f, f.guest, '16 years');
-      const room = await f.assemble({ lobby: 'youth' });
+      const [lobby] =
+        await f.sql`select id from lobbies where age_rule='under-18' and kind='standing'`;
+      const room = await f.assemble({ lobby: lobby!.id });
       const { roundId } = await launchRuntimeRound(f, room);
       await schoolWithCoach(f, made, {
         owner: people.owner,
@@ -355,14 +357,14 @@ test('a casual Youth Room’s live Round has its debaters’ linked adults too (
         student: f.host,
       });
       const [row] =
-        await f.sql`select r.competition_type, rm.division from rounds r join rooms rm on rm.id=r.room_id where r.id=${roundId}`;
+        await f.sql`select r.competition_type, public.daisy_room_is_youth(rm.id) as youth from rounds r join rooms rm on rm.id=r.room_id where r.id=${roundId}`;
       assert({
         given:
           'a live casual Round in a Youth Room, read by the host’s coach and a stranger',
         should:
           'read as a Youth Round by its Room, propose it to the coach and admit them, and nobody else',
         actual: {
-          room: [row!.competition_type, row!.division],
+          room: [row!.competition_type, row!.youth],
           youth: await f.store.readRoundYouth(roundId),
           candidates: (
             await f.store.readStudentLiveRounds(people.coach.userId)
@@ -371,7 +373,7 @@ test('a casual Youth Room’s live Round has its debaters’ linked adults too (
           stranger: await watches(f, people.stranger, roundId),
         },
         expected: {
-          room: ['casual', 'youth'],
+          room: ['casual', true],
           youth: true,
           candidates: [roundId],
           coach: true,

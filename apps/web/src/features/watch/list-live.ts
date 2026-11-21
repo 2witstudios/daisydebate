@@ -1,7 +1,7 @@
 import type { Database } from '@daisy/db';
 import { spectatorClockAt } from '../spectating/spectator-clock';
 import { liveCardOf, type LiveCard } from './live-card';
-import { ladderOfQuery, type LiveQuery } from './live-query';
+import type { LiveQuery } from './live-query';
 
 /** How many live Rounds one page of the listing holds. */
 const LIVE_PAGE_SIZE = 24;
@@ -30,12 +30,12 @@ export async function listLive(
   const { query } = input;
   const [page, total] = await Promise.all([
     store.listLiveBroadcasts({
-      filter: { mode: query.mode, q: query.q, ladder: ladderOfQuery(query) },
+      filter: { mode: query.mode, q: query.q, lobbyId: query.lobby },
       before: query.before,
       clock,
       limit: LIVE_PAGE_SIZE,
     }),
-    store.countLiveBroadcasts({ clock }),
+    store.countLiveBroadcasts({ clock, lobbyId: query.lobby }),
   ]);
   const cards = page.rows.map(liveCardOf);
   const featured =
@@ -68,11 +68,19 @@ export const leadingLive = async (
 /** Each named debater's live Round, for a profile or the Friends list. */
 export const liveRoundsOf = async (
   store: LiveStore,
-  input: { readonly usernames: readonly string[]; readonly now: string },
+  input: {
+    readonly usernames: readonly string[];
+    readonly now: string;
+    readonly lobbyId?: string;
+  },
 ): Promise<ReadonlyMap<string, LiveCard>> => {
   if (input.usernames.length === 0) return new Map();
   const { rows } = await store.listLiveBroadcasts({
-    filter: { mode: 'any', q: '' },
+    filter: {
+      mode: 'any',
+      q: '',
+      ...(input.lobbyId === undefined ? {} : { lobbyId: input.lobbyId }),
+    },
     before: '',
     clock: spectatorClockAt(input.now),
     limit: input.usernames.length,

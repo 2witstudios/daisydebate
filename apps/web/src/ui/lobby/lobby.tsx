@@ -1,19 +1,14 @@
 import Link from 'next/link';
-import {
-  ratingDivisions,
-  type RatingDivision,
-  type RoomListEntry,
-  type RoomListQuery,
-} from '@daisy/protocol';
+import { type RoomListEntry, type RoomListQuery } from '@daisy/protocol';
 import { isFiltered, lobbyHref } from '../../features/lobby/discovery-query';
-import { lobbyNames } from '../../features/lobby/lobby-names';
+import type { StandingLobbyChoice } from '@daisy/protocol/lobby/eligibility';
 import { lobbySections, type LobbyViewer } from '../../features/lobby/rows';
 import { openRoomHref, playOptions } from '../../features/play/options';
 import { YourRoom, type ActiveRoomSummary } from '../active-room/your-room';
 import { buttonClass } from '../components/button/button-class';
 import { PageHeader } from '../components/page-header/page-header';
 import { Segmented } from '../components/segmented/segmented';
-import { watchRoutes } from '../../features/watch/routes';
+import { defaultLiveQuery, hubHref } from '../../features/watch/live-query';
 import { PlayChoices } from '../play/play-choices/play-choices';
 import { PlayDialog } from '../play/play-dialog/play-dialog';
 import { LobbyFilters } from './lobby-filters/lobby-filters';
@@ -24,7 +19,8 @@ export type LobbyProps = {
    * The canonical listing query: the URL's one source of filter state, its
    * lobby resolved (the viewer's own when the URL names none).
    */
-  readonly query: RoomListQuery & { readonly division: RatingDivision };
+  readonly query: RoomListQuery;
+  readonly lobbies: readonly StandingLobbyChoice[];
   /** One page of the canonical listing, already narrowed by the query. */
   readonly rooms: readonly RoomListEntry[];
   readonly nextCursor: string | null;
@@ -37,26 +33,13 @@ export type LobbyProps = {
   readonly viewer: LobbyViewer;
 };
 
-/**
- * The two lobbies (ADR 0156, YLLobbySwitch): plain links, so the switch works
- * before hydration and the choice lives in the URL.
- */
-function LobbySwitch({ query }: { readonly query: LobbyProps['query'] }) {
-  return (
-    <Segmented
-      label="Lobby"
-      fillOnPhone
-      segments={ratingDivisions.map((division) => ({
-        label: lobbyNames[division],
-        href: lobbyHref({ ...query, division, cursor: undefined }),
-        selected: query.division === division,
-      }))}
-    />
-  );
-}
-
 const emptyClass =
   'flex flex-col items-center gap-3 rounded-lg border border-border bg-surface-raised px-5 py-8 text-center';
+
+const createHref = (lobbyId: string | undefined) =>
+  lobbyId === undefined
+    ? openRoomHref
+    : `${openRoomHref}?${new URLSearchParams({ lobby: lobbyId })}`;
 
 function Empty({ query }: { readonly query: RoomListQuery }) {
   const narrowed =
@@ -71,7 +54,10 @@ function Empty({ query }: { readonly query: RoomListQuery }) {
     return (
       <div role="status" className={emptyClass}>
         <p className="text-lg font-strong">No open rooms right now</p>
-        <Link href={openRoomHref} className={buttonClass('primary')}>
+        <Link
+          href={createHref(query.lobbyId)}
+          className={buttonClass('primary')}
+        >
           New room
         </Link>
       </div>
@@ -83,7 +69,7 @@ function Empty({ query }: { readonly query: RoomListQuery }) {
         href={lobbyHref({
           q: '',
           pageSize: query.pageSize,
-          division: query.division,
+          lobbyId: query.lobbyId,
         })}
         className="font-strong"
       >
@@ -101,6 +87,7 @@ function Empty({ query }: { readonly query: RoomListQuery }) {
 export function Lobby({
   query,
   rooms,
+  lobbies,
   nextCursor,
   retry,
   activeRoom,
@@ -115,19 +102,38 @@ export function Lobby({
         title="Lobby"
         actions={
           <>
-            <Link href={watchRoutes.hub} className={buttonClass('ghost')}>
+            <Link
+              href={hubHref({
+                ...defaultLiveQuery,
+                lobby: query.lobbyId ?? '',
+              })}
+              className={buttonClass('ghost')}
+            >
               Watch live
             </Link>
             <PlayDialog>
               <PlayChoices options={playOptions} />
             </PlayDialog>
-            <Link href={openRoomHref} className={buttonClass('primary')}>
+            <Link
+              href={createHref(query.lobbyId)}
+              className={buttonClass('primary')}
+            >
               New room
             </Link>
           </>
         }
       />
-      <LobbySwitch query={query} />
+      {lobbies.length > 0 ? (
+        <Segmented
+          label="Lobby"
+          fillOnPhone
+          segments={lobbies.map(({ id, name }) => ({
+            label: name,
+            href: lobbyHref({ ...query, lobbyId: id }),
+            selected: query.lobbyId === id,
+          }))}
+        />
+      ) : null}
       {activeRoom ? <YourRoom room={activeRoom} /> : null}
       <LobbyFilters query={query} resultCount={rooms.length} />
       {retry ? (

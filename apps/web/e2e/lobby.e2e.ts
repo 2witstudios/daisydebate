@@ -73,9 +73,24 @@ test.describe('authenticated Room lobby', () => {
       );
       secondId = second.id;
 
-      await page.goto(`/lobby?q=${encodeURIComponent(second.title)}`);
+      await page.goto('/lobby');
+      const lobbyLink = page
+        .getByRole('navigation', { name: 'Lobby', exact: true })
+        .getByRole('link', { name: 'Open', exact: true });
+      const lobbyHref = await lobbyLink.getAttribute('href');
+      const lobbyId = new URL(lobbyHref ?? '', origin).searchParams.get(
+        'lobby',
+      );
+      expect(lobbyId).toMatch(/^[a-z0-9]{24}$/);
+      await page
+        .getByRole('searchbox', { name: 'Search rooms' })
+        .fill(second.title);
+      await page.getByRole('button', { name: 'Apply', exact: true }).click();
       await expect(page).toHaveURL(
-        new RegExp(`/lobby\\?q=${encodeURIComponent(second.title)}`),
+        (url) =>
+          url.pathname === '/lobby' &&
+          url.searchParams.get('lobby') === lobbyId &&
+          url.searchParams.get('q') === second.title,
       );
       await expect(roomRows(page)).toHaveCount(1);
       await expect(roomRows(page).first()).toContainText(second.title);

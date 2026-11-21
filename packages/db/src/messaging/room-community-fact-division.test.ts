@@ -36,11 +36,11 @@ test('the Room chat fact reads the Room’s own division (ADR 0156)', () => {
     given:
       'the newest migration creating daisy_room_community_fact, the TypeScript division rule and the debating-seat list',
     should:
-      'read rooms.division and the debating seats exactly, so a Youth Room in chat is the Room the lobby calls Youth (decision 84)',
+      'read the lobby classification and the debating seats exactly, so a Youth Room in chat is the Room the lobby calls Youth (decision 84)',
     actual: [
       typeof installed,
-      installed?.includes("youth_room.division='youth'") &&
-        installed.includes("r.division='youth',"),
+      installed?.includes('public.daisy_room_is_youth(youth_room.id)') &&
+        installed.includes('public.daisy_room_is_youth(r.id),'),
       installed?.includes(
         `AND ${inlined(isDebatingSeatSql(sql.raw('seated.seat_kind')))}`,
       ),

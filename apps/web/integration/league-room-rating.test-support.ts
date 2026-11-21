@@ -58,8 +58,6 @@ export async function leagueRoomRating(world: World) {
         id: roomId,
         hostActorId: principal.actorId,
         title: 'League ladder Room',
-        // A league's Rooms open in its division (ADR 0156); every league starts Open.
-        division: 'open',
         topic: 'League ladder proof',
         visibility: 'unlisted',
         formatId: 'freestyle',
@@ -156,43 +154,33 @@ export async function leagueRoomRating(world: World) {
         actual: underAge,
         expected: 'other-division',
       });
-      // PYL-16 then ADR 0156: the league set to Youth refuses an adult by the
-      // league's division, and its existing Room keeps the Open lobby it was
-      // created in, so the 17-year-old takes no debater seat there either.
+      // The old organization division only selects its rating season. It
+      // cannot change eligibility in a Room belonging to an adult lobby.
       const [league] =
         await world.sql`select l.organization_id from rooms r join ladders l on l.id = r.league_ladder_id where r.id = ${roomId}`;
-      await world.sql`update organizations set league_division = 'youth' where id = ${league!.organization_id}`;
-      await world.sql`update account_age set birth_month=to_char(now() - interval '17 years 11 months','YYYY-MM'), version=version+1 where user_id=${minor.userId}`;
-      const outcome = (
-        person: typeof minor,
-        side: 'affirmative' | 'negative',
-      ) =>
-        f
-          .command(person, view, { type: 'claim-seat', seat: sideSeat(side) })
+      try {
+        await world.sql`update organizations set league_division = 'youth' where id = ${league!.organization_id}`;
+        await world.sql`update account_age set birth_month=to_char(now() - interval '17 years 11 months','YYYY-MM'), version=version+1 where user_id=${minor.userId}`;
+        const claim = await f
+          .command(minor, view, {
+            type: 'claim-seat',
+            seat: sideSeat('negative'),
+          })
           .then(
-            (answer) => {
-              view = answer.view;
-              return 'accepted';
-            },
+            () => 'accepted',
             (error: Error) => error.message,
           );
-      const adultInYouth = await outcome(
-        world.bots['Debater 1']!,
-        'affirmative',
-      );
-      const youthInYouth = await outcome(minor, 'negative');
-      await world.sql`update organizations set league_division = 'open' where id = ${league!.organization_id}`;
-      await world.sql`update account_age set birth_month=${kept!.birth_month}, version=version+1 where user_id=${minor.userId}`;
-      assert({
-        given: 'the league set to Youth after its Open Room was created',
-        should:
-          'refuse the adult by the league’s division and the 17-year-old by the Room’s lobby',
-        actual: { adultInYouth, youthInYouth },
-        expected: {
-          adultInYouth: 'other-division',
-          youthInYouth: 'other-division',
-        },
-      });
+        assert({
+          given:
+            'the league changes its legacy season division after creating an adult Room',
+          should: 'continue to use the Room’s lobby rule for debater seats',
+          actual: claim,
+          expected: 'other-division',
+        });
+      } finally {
+        await world.sql`update organizations set league_division = 'open' where id = ${league!.organization_id}`;
+        await world.sql`update account_age set birth_month=${kept!.birth_month}, version=version+1 where user_id=${minor.userId}`;
+      }
       for (const [side, person] of [
         ['affirmative', world.bots['Debater 1']!],
         ['negative', world.bots['Debater 2']!],

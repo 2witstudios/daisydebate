@@ -1,17 +1,11 @@
 'use client';
 
-import { useId } from 'react';
 import {
   competitionTypes,
   reportReasonLabels,
   reportReasons,
-  type RatingDivision,
+  type CompetitionType,
 } from '@daisy/protocol';
-import {
-  challengeModeLine,
-  mayChallenge,
-  offersRanked,
-} from '../../features/challenges/challenge-lobby';
 import {
   challengeFields,
   challengeFormUnavailable,
@@ -46,20 +40,14 @@ const summary =
  */
 export function ProfilePersonActions({
   username,
-  memberDivision,
-  theirDivision,
+  modes,
   actions,
 }: {
   readonly username: string;
-  /** The viewer's ladder division (ADR 0147); a hint, the send decides again. */
-  readonly memberDivision: RatingDivision | null;
-  /** The profile member's division, when their ratings name it. */
-  readonly theirDivision: RatingDivision | null;
+  readonly modes: readonly CompetitionType[];
   readonly actions: Pick<PersonActions, 'sendChallenge' | 'report' | 'block'>;
 }) {
-  const ranked = offersRanked(memberDivision, theirDivision);
-  const line = ranked ? null : challengeModeLine(memberDivision);
-  const ladderLineId = useId();
+  const ranked = modes.includes('ranked');
   const [sent, send, sending] = useFormAction(
     actions.sendChallenge,
     initialChallengeForm,
@@ -80,7 +68,7 @@ export function ProfilePersonActions({
   const blockNotice = personBlockNotice(blocked);
   return (
     <>
-      {mayChallenge(memberDivision, theirDivision) ? (
+      {modes.length > 0 ? (
         <details>
           <summary className={summary}>Challenge</summary>
           <form
@@ -92,7 +80,6 @@ export function ProfilePersonActions({
               <span className="sr-only">Mode</span>
               <select
                 name="mode"
-                aria-describedby={line === null ? undefined : ladderLineId}
                 defaultValue={ranked ? 'ranked' : 'casual'}
                 className={controlClass}
               >
@@ -100,18 +87,13 @@ export function ProfilePersonActions({
                   <option
                     key={mode}
                     value={mode}
-                    disabled={mode === 'ranked' && !ranked}
+                    disabled={!modes.includes(mode)}
                   >
                     {modeLabels[mode]}
                   </option>
                 ))}
               </select>
             </label>
-            {line === null ? null : (
-              <p id={ladderLineId} className="w-full text-sm text-ink-muted">
-                {line}
-              </p>
-            )}
             <input type="hidden" name="format" value="freestyle" />
             <Button type="submit" disabled={sending}>
               Send challenge

@@ -92,7 +92,9 @@ const rankedRoom = async (
     where format_id='freestyle' and superseded_at is null`;
   const roomId = await f.room(host.actorId, 'freestyle', {
     competition_type: 'ranked',
-    division,
+    lobby_id: (
+      await f.sql`select l.id from lobbies l join organizations o on o.id=l.owner_organization_id where o.official and l.age_rule=${division === 'youth' ? 'under-18' : 'adults'}`
+    )[0]!.id,
     format_version: preset!.format_version,
     preset_version: preset!.version,
   });

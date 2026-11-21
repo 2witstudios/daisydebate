@@ -7,6 +7,7 @@ export type WatchSection = 'live' | 'recordings' | 'following';
 
 export type WatchTabsProps = {
   readonly active: WatchSection;
+  readonly lobby?: string;
   readonly counts: HubCounts;
 };
 
@@ -14,9 +15,14 @@ export type WatchTabsProps = {
  * The hub's sections are links, so they work before hydration. Live and
  * Following are public hub views; Recordings is the guarded archive route.
  */
-export function WatchTabs({ active, counts }: WatchTabsProps) {
+export function WatchTabs({ active, counts, lobby = '' }: WatchTabsProps) {
   const tabs = [
-    { id: 'live', label: 'Live', href: watchRoutes.hub, count: counts.live },
+    {
+      id: 'live',
+      label: 'Live',
+      href: hubHref({ ...defaultLiveQuery, lobby }),
+      count: counts.live,
+    },
     {
       id: 'recordings',
       label: 'Recordings',
@@ -26,7 +32,7 @@ export function WatchTabs({ active, counts }: WatchTabsProps) {
     {
       id: 'following',
       label: 'Following',
-      href: hubHref({ ...defaultLiveQuery, tab: 'following' }),
+      href: hubHref({ ...defaultLiveQuery, tab: 'following', lobby }),
     },
   ] as const;
   return (

@@ -86,6 +86,7 @@ export async function readRoomList(
     q: query.q,
     pageSize: String(query.pageSize),
     ...(query.cursor ? { cursor: query.cursor } : {}),
+    ...(query.lobbyId ? { lobbyId: query.lobbyId } : {}),
     ...(query.status ? { status: query.status } : {}),
     ...(query.mode ? { mode: query.mode } : {}),
     ...(query.sort ? { sort: query.sort } : {}),
@@ -107,6 +108,8 @@ function validPage(page: RoomListPage, query: RoomListQuery) {
   // cannot establish that order, but repeats and cursor substitution are invalid.
   return !(
     page.rooms.length > query.pageSize ||
+    (query.lobbyId !== undefined &&
+      page.rooms.some((room) => room.lobbyId !== query.lobbyId)) ||
     new Set(ids).size !== ids.length ||
     ids.includes(query.cursor ?? '') ||
     (page.nextCursor !== null && page.nextCursor !== page.rooms.at(-1)?.id) ||

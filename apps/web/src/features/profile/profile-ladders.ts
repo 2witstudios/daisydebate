@@ -19,19 +19,3 @@ export const profileLadders = (
   const shown = rated ?? own;
   return shown ? [shown] : [];
 };
-
-/**
- * The division a member's ratings say they debate on now: the one ladder they
- * are rated on this season. None or both says nothing.
- */
-export const currentDivisionOf = (
-  standings: readonly MemberStanding[],
-): RatingDivision | null => {
-  const divisions = new Set(
-    standings
-      .filter((standing) => standing.current && standing.rating !== null)
-      .map((standing) => standing.ladder.division),
-  );
-  const [only] = divisions;
-  return divisions.size === 1 && only !== undefined ? only : null;
-};

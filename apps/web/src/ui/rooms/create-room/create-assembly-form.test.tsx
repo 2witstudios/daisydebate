@@ -12,7 +12,7 @@ test('creation presents format first and a complete progressively enhanced edito
   const html = renderToStaticMarkup(
     <CreateAssemblyFields
       memberDivision="open"
-      staffLobby={null}
+      lobbyChoice={null}
       state={{ values: {}, error: undefined }}
       pending={false}
       commandId={'m'.repeat(24)}
@@ -45,7 +45,7 @@ test('an empty catalog cannot submit a fabricated template', () => {
   const html = renderToStaticMarkup(
     <CreateAssemblyFields
       memberDivision="open"
-      staffLobby={null}
+      lobbyChoice={null}
       state={{ values: {}, error: undefined }}
       pending={false}
       commandId={'m'.repeat(24)}
@@ -71,7 +71,7 @@ test('native template selection carries the immutable revision and exact default
   const html = renderToStaticMarkup(
     <CreateAssemblyFields
       memberDivision="open"
-      staffLobby={null}
+      lobbyChoice={null}
       state={{
         values: {
           title: 'Retained title',
@@ -107,7 +107,7 @@ test('a new Room cannot be made private while no invite path exists', () => {
   const html = renderToStaticMarkup(
     <CreateAssemblyFields
       memberDivision="open"
-      staffLobby={null}
+      lobbyChoice={null}
       state={{ values: {}, error: undefined }}
       pending={false}
       commandId={'q'.repeat(24)}

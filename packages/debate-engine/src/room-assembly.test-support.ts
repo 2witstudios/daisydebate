@@ -70,7 +70,8 @@ export const state = (): OpenRoom => ({
   catalogFormat: { name: 'Custom format', role: null, leagues: [] },
   basis: null,
   competitionType: 'casual',
-  division: 'open',
+  lobbyId: 'l'.repeat(24),
+  ageRule: 'adults',
   definition: {
     version: 2,
     sides: rules.sides,

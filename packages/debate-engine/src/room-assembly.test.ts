@@ -129,7 +129,7 @@ describe('Room assembly authority', () => {
         kind: 'human' as const,
         seat: sideSeat('affirmative', 1),
         eligible: true,
-        division: 'open' as const,
+        ageBand: 'adult' as const,
         teamOpen: false,
         positionOpen: false,
         consentVersion: 0,

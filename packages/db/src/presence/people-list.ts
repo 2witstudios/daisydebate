@@ -1,9 +1,11 @@
+import type { AgeBand, RatingDivision, CompetitionType } from '@daisy/protocol';
+import { ageBands, divisionOfAgeBand } from '@daisy/protocol';
+import { challengeModes } from '../challenges/lobby';
+import { readOfficialStandingLobbies } from '../official-standing-lobbies';
 import {
-  type AgeBand,
-  type RatingDivision,
-  ratingDivisions,
-} from '@daisy/protocol';
-import { divisionAgeBand, divisionOfBandSql } from '../ladder-division-band';
+  divisionAgeBand,
+  readCompetitionAgeBand,
+} from '../ladder-division-band';
 import { sql } from 'drizzle-orm';
 import {
   idSchema,
@@ -39,6 +41,7 @@ export type PersonRow = {
    * record, so a card names it even before they are rated; never an age.
    */
   readonly division: RatingDivision | null;
+  readonly challengeModes: readonly CompetitionType[];
 };
 
 export type PeopleListCursor = {
@@ -160,7 +163,7 @@ export function readPeopleListPage(
         online: z.boolean(),
         requesterActorId: z.string().nullable(),
         friendshipState: z.enum(['pending', 'accepted']).nullable(),
-        division: z.enum(ratingDivisions).nullable(),
+        ageBand: z.enum(ageBands).nullable(),
       }),
       sql`
       select a.id as "actorId", u.username,
@@ -170,13 +173,19 @@ export function readPeopleListPage(
         ${online} as online,
         f.requester_actor_id as "requesterActorId",
         f.state as "friendshipState",
-        (select ${divisionOfBandSql(divisionAgeBand())} from account_age where account_age.user_id = u.id) as division
+        (select ${divisionAgeBand()} from account_age where account_age.user_id = u.id) as "ageBand"
       ${from} ${named} ${friendsOnly} ${after}
       order by ${rank}, ${presence}, lower(u.username), a.id
       limit ${input.limit}`,
     );
+    const lobbies = await readOfficialStandingLobbies(tx);
+    const ownBand = await readCompetitionAgeBand(tx, scope.userId);
     return {
-      rows: [...rows],
+      rows: rows.map(({ ageBand, ...row }) => ({
+        ...row,
+        division: divisionOfAgeBand(ageBand),
+        challengeModes: challengeModes(lobbies, ownBand, ageBand),
+      })),
       counts: counts ?? { everyone: 0, friends: 0, online: 0 },
       self,
     };
