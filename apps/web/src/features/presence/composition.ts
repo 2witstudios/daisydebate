@@ -10,6 +10,7 @@ import { ONLINE_LEASES_MAX } from '@daisy/db/presence-people-list';
 import { readPeopleList } from './people-list';
 import { cachedScan } from './online-scan';
 import { spectatorClockAt } from '../spectating/spectator-clock';
+import { replayPublishedStandings } from '../ratings/replay-published-standings';
 import { readChosen, setChosenStatus } from './setting';
 
 /** Status changes per member per minute, Presence's own budget. */
@@ -85,6 +86,7 @@ export function composePresenceRoutes(app: App) {
           app.database.readMemberCards(
             actorIds,
             spectatorClockAt(app.clock.now()),
+            replayPublishedStandings,
           ),
         blinded: (actorId) => app.database.readRatingBlindings(actorId),
         // Names and photos decorate the list; without them it shows usernames

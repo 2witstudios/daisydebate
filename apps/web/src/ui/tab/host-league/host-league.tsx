@@ -17,9 +17,11 @@ export function HostLeague({
   rail,
   league,
   requestControls,
+  standingLobbies,
 }: {
   readonly rail: TimelineRail;
   readonly league: Read;
+  readonly standingLobbies?: ReactNode;
   readonly requestControls?: (request: Read['requests'][number]) => ReactNode;
 }) {
   return (
@@ -33,6 +35,7 @@ export function HostLeague({
           ) : null
         }
       />
+      {standingLobbies}
       {league.requests.length === 0 ? null : (
         <ListCard>
           <ListHeading>Asking to count for the season</ListHeading>

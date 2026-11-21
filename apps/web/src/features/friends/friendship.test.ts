@@ -189,3 +189,42 @@ test('friendRelationOf', () => {
     expected: ['none', 'friends', 'outgoing', 'incoming'],
   });
 });
+
+test('a request held for guardian approval', () => {
+  const holds = [me];
+  const waiting = {
+    state: 'waiting-for-guardian',
+    requesterActorId: them,
+  } as const;
+  assert({
+    given: 'a request that requires the recipient’s guardian',
+    should: 'record the request with a hold',
+    actual: decideFriendship(
+      facts({ guardianHolds: holds, actorId: them, otherActorId: me }),
+      'request',
+    ),
+    expected: { ok: true, next: waiting, changed: true },
+  });
+  assert({
+    given: 'an inbound request held for a guardian',
+    should:
+      'hold a direct acceptance and a reciprocal request, and allow decline',
+    actual: (['accept', 'request', 'decline'] as const).map((command) =>
+      decideFriendship(facts({ pair: waiting, guardianHolds: holds }), command),
+    ),
+    expected: [
+      { ok: true, next: waiting, changed: true },
+      { ok: true, next: waiting, changed: true },
+      { ok: true, next: null, changed: true },
+    ],
+  });
+  assert({
+    given: 'a request whose guardian hold has cleared',
+    should: 'let the recipient accept it',
+    actual: decideFriendship(
+      facts({ pair: waiting, guardianHolds: [] }),
+      'accept',
+    ),
+    expected: { ok: true, next: accepted, changed: true },
+  });
+});

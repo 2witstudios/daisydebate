@@ -106,19 +106,27 @@ export function FriendsPage({
       {list && list.incoming.length > 0 ? (
         <Section id="friends-incoming" title="Requests">
           <ul className="flex flex-col">
-            {list.incoming.map(({ username }) => (
+            {list.incoming.map(({ username, waiting }) => (
               <PersonRow
                 key={username}
                 username={username}
-                detail="Wants to be friends"
+                detail={
+                  waiting === 'waiting-for-guardian'
+                    ? 'Waiting for your parent'
+                    : waiting
+                      ? 'Friend request pending'
+                      : 'Wants to be friends'
+                }
               >
-                <FriendButtonForm
-                  action={friendAction}
-                  username={username}
-                  intent="accept"
-                  label="Accept"
-                  variant="primary"
-                />
+                {waiting ? null : (
+                  <FriendButtonForm
+                    action={friendAction}
+                    username={username}
+                    intent="accept"
+                    label="Accept"
+                    variant="primary"
+                  />
+                )}
                 <FriendButtonForm
                   action={friendAction}
                   username={username}
@@ -170,11 +178,15 @@ export function FriendsPage({
       {list && list.outgoing.length > 0 ? (
         <Section id="friends-outgoing" title="Sent requests">
           <ul className="flex flex-col">
-            {list.outgoing.map(({ username }) => (
+            {list.outgoing.map(({ username, waiting }) => (
               <PersonRow
                 key={username}
                 username={username}
-                detail="Waiting for an answer"
+                detail={
+                  waiting === 'waiting-for-guardian'
+                    ? 'Waiting for your parent'
+                    : 'Waiting for an answer'
+                }
               >
                 <FriendButtonForm
                   action={friendAction}

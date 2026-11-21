@@ -1,12 +1,19 @@
 import { instantMs, tryInstantMs } from '@daisy/clock';
 import { currentAgeFact } from './authorization-age';
 import type { AccountAgeFact } from './account-age';
-import type { AgeBand, MessageRequestSetting } from '@daisy/protocol';
+import {
+  dmAllowed,
+  dmRequestAction,
+  type DmQuestion,
+  type DmRequestAction,
+} from '@daisy/protocol/dm-policy';
 import type {
   ChannelAuthorizationFact,
   SocialAccountFact,
   SocialPolicyEvidence,
 } from './authorization';
+export { dmAllowed, type DmQuestion } from '@daisy/protocol/dm-policy';
+
 export type SocialContactPolicy =
   | { readonly state: 'pending' }
   | {
@@ -18,42 +25,6 @@ export type SocialContactPolicy =
       /** Earlier revisions whose channels stay readable and postable. */
       readonly earlierRevisions: readonly number[];
     };
-
-/**
- * One question to the DM rule (decision 90). `request` opens a new message
- * request; `conversation` is everything on an existing DM (accepting it,
- * posting, typing), whose initiator is the request's sender.
- */
-export type DmQuestion = {
-  readonly stage: 'request' | 'conversation';
-  readonly initiator: AgeBand;
-  readonly recipient: AgeBand;
-  /** The pair is an accepted friendship. */
-  readonly friends: boolean;
-  /** The initiator is one of the recipient's linked adults (ADR 0158). */
-  readonly linkedStaff: boolean;
-  /** The recipient's own choice; read only for a new request. */
-  readonly recipientSetting: MessageRequestSetting;
-};
-
-/**
- * Decision 90, DMs like Discord: any member 13 or over may DM any other
- * through a message request, under the recipient's request setting. An
- * adult's first contact with a minor is a friendship, so an adult may ask a
- * minor, or keep posting to one, only while they are friends or the adult is
- * the minor's own linked staff. A minor may always ask an adult. Total: every
- * question has one answer, and an under-13 party is always refused.
- */
-export function dmAllowed(question: DmQuestion): boolean {
-  const { initiator, recipient, friends, linkedStaff } = question;
-  if (initiator === 'under-13' || recipient === 'under-13') return false;
-  if (question.stage === 'request') {
-    if (question.recipientSetting === 'none') return false;
-    if (question.recipientSetting === 'friends' && !friends) return false;
-  }
-  const adultToMinor = initiator === 'adult' && recipient !== 'adult';
-  return !adultToMinor || friends || linkedStaff;
-}
 
 type SocialAccount = SocialAccountFact;
 type CurrentAccount = SocialAccount & {
@@ -101,20 +72,41 @@ function memberSetMatches(
     new Set(accounts.map((row) => row.account.actorId)).size === accounts.length
   );
 }
-function currentAccount(
-  row: SocialAccount | undefined,
-  instant: number,
-): row is CurrentAccount {
+function currentMember(row: SocialAccount | undefined): row is SocialAccount {
   return (
     row !== undefined &&
     row.account.member &&
     !row.account.erased &&
     Number.isSafeInteger(row.account.revision) &&
-    row.account.revision > 0 &&
+    row.account.revision > 0
+  );
+}
+function currentAccount(
+  row: SocialAccount | undefined,
+  instant: number,
+): row is CurrentAccount {
+  return (
+    currentMember(row) &&
     currentAgeFact(row, new Date(instant).toISOString()) &&
     row.age.state === 'known' &&
     row.age.band !== 'under-13'
   );
+}
+
+/** The fenced request read evaluated this direction at the database instant. */
+function scopedRequestAction(
+  initiator: SocialAccount | undefined,
+  recipient: SocialAccount | undefined,
+): DmRequestAction | undefined {
+  const request = recipient?.contact?.dmRequest;
+  if (!request) return undefined;
+  if (
+    !currentMember(initiator) ||
+    !currentMember(recipient) ||
+    request.initiatorActorId !== initiator.account.actorId
+  )
+    return 'none';
+  return request.action;
 }
 /** The rule's question for one asker and one asked, from their own facts. */
 function dmQuestionOf(
@@ -136,6 +128,8 @@ function dmQuestionOf(
       ) === true,
     // A recipient whose setting was not read is asked as if they chose no one.
     recipientSetting: recipient.contact?.requestSetting ?? 'none',
+    protectedMessageRequests:
+      recipient.contact?.protectedMessageRequests ?? null,
   };
 }
 /**
@@ -215,6 +209,14 @@ export function socialAccountsEligible(
   const current = members.map((actorId) =>
     accounts.find((row) => row.account.actorId === actorId),
   );
+  if (initiation?.stage === 'request' && members.length === 2) {
+    const initiator = current.find(
+      (row) => row?.account.actorId === initiation.initiatorActorId,
+    );
+    const recipient = current.find((row) => row !== initiator);
+    const action = scopedRequestAction(initiator, recipient);
+    if (action !== undefined) return action === 'message';
+  }
   const valid = current.filter((row) => currentAccount(row, instant));
   if (valid.length !== current.length) return false;
   if (initiation !== null) {
@@ -320,7 +322,7 @@ export function dmRequestOffer(
   now: string,
   initiatorActorId: string,
   recipientActorId: string,
-): 'message' | 'befriend' | 'none' {
+): DmRequestAction {
   const instant = tryInstantMs(now);
   const initiator = accounts.find(
     (row) => row.account.actorId === initiatorActorId,
@@ -328,16 +330,14 @@ export function dmRequestOffer(
   const recipient = accounts.find(
     (row) => row.account.actorId === recipientActorId,
   );
+  if (initiatorActorId === recipientActorId || instant === undefined)
+    return 'none';
+  const action = scopedRequestAction(initiator, recipient);
+  if (action !== undefined) return action;
   if (
-    initiatorActorId === recipientActorId ||
-    instant === undefined ||
     !currentAccount(initiator, instant) ||
     !currentAccount(recipient, instant)
   )
     return 'none';
-  const question = dmQuestionOf('request', initiator, recipient);
-  if (dmAllowed(question)) return 'message';
-  return !question.friends && dmAllowed({ ...question, friends: true })
-    ? 'befriend'
-    : 'none';
+  return dmRequestAction(dmQuestionOf('request', initiator, recipient));
 }

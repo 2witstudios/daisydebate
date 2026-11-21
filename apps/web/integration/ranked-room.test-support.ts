@@ -28,24 +28,19 @@ export async function readyRankedRoom(
 ) {
   const [preset] =
     await f.sql`select format_version,version from format_presets where format_id=${ladder} and superseded_at is null`;
-  // The fixture signs both versions so either signer's waiver can satisfy Ready (ADR 0161).
-  for (const member of [f.host, f.guest, f.outsider])
-    for (const waiver of [contentWaiverDocument, youthContentWaiverDocument])
-      await f.store.signContentWaiver({
-        id: createId(),
-        userId: member.userId,
-        version: waiver.version,
-        words: agreementWords(waiver),
-      });
-  let room = await f.assemble({
-    resolution: { kind: 'strike' },
-    selection: {
-      kind: 'ranked',
-      formatId: ladder,
-      formatVersion: preset!.format_version,
-      presetVersion: preset!.version,
+  let room = await f.assemble(
+    {
+      resolution: { kind: 'strike' },
+      selection: {
+        kind: 'ranked',
+        formatId: ladder,
+        formatVersion: preset!.format_version,
+        presetVersion: preset!.version,
+      },
     },
-  });
+    undefined,
+    false,
+  );
   if (judgeKind === 'human')
     room = (
       await f.command(f.outsider, room, {
@@ -61,6 +56,18 @@ export async function readyRankedRoom(
         actorId: (await f.aiJudge()).actorId,
       })
     ).view;
+  // The fixture signs both versions so either signer's waiver can satisfy Ready (ADR 0161).
+  for (const member of judgeKind === 'human'
+    ? [f.host, f.guest, f.outsider]
+    : [f.host, f.guest])
+    for (const waiver of [contentWaiverDocument, youthContentWaiverDocument])
+      await f.store.signContentWaiver({
+        id: createId(),
+        roomId: room.id,
+        userId: member.userId,
+        version: waiver.version,
+        words: agreementWords(waiver),
+      });
   room = await everyoneReady(
     f,
     room,

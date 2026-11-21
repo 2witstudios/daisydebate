@@ -38,15 +38,14 @@ export const stub = (seen: RatingPlanFacts[] = []): RatingDecision => ({
   eligibility: ratingEligibility,
   plan: (facts) => {
     seen.push(facts);
-    if (facts.seasonId === null) throw new Error('stub: no active season');
-    const change = (side: 'affirmative' | 'negative', changeId: string) => {
+    const change = (side: 'affirmative' | 'negative') => {
       const seat = facts.seats.find(({ seat }) => sideOfSeat(seat) === side);
       if (!seat) throw new Error('stub: missing seat');
       const standing = facts.standings[seat.actorId];
       const before = startOf(standing);
       const delta = deltaFor(facts.outcome, side);
       return {
-        changeId,
+        changeId: facts.changeIds[seat.actorId]!,
         actorId: seat.actorId,
         before,
         after: {
@@ -58,14 +57,10 @@ export const stub = (seen: RatingPlanFacts[] = []): RatingDecision => ({
       };
     };
     return {
-      ladder: facts.ladder,
-      seasonId: facts.seasonId,
+      scope: facts.scope,
       occurredAt: facts.occurredAt,
       calculationVersion: 'stub-v1',
-      changes: [
-        change('affirmative', facts.changeIds[0]),
-        change('negative', facts.changeIds[1]),
-      ],
+      changes: [change('affirmative'), change('negative')],
     };
   },
 });
@@ -253,7 +248,7 @@ export const withRatings = (
         rate: (roundId, decide = stub()) =>
           database.rateRound({
             roundId,
-            changeIds: ids(),
+            nextChangeId: createId,
             decide,
           }),
         seated,
@@ -268,5 +263,3 @@ export const withRatings = (
       await database.close();
     }
   });
-
-const ids = (): [string, string] => [createId(), createId()];

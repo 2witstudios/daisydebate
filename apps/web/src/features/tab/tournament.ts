@@ -34,6 +34,7 @@ export type TimelineRail = {
   /** A label over the stops, where they are not one tournament's timeline. */
   readonly heading: string | null;
   readonly items: readonly RailItem[];
+  readonly compactTimeline?: boolean;
   readonly footHeading: string | null;
   readonly foot: readonly RailItem[];
 };

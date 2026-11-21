@@ -1,3 +1,4 @@
+import { pinRankedFixturePool } from '@daisy/db/testing';
 import { SQL } from 'bun';
 import { admitParticipants } from '@daisy/db/testing';
 import { createId } from '@paralleldrive/cuid2';
@@ -253,6 +254,7 @@ async function fixture(
       host,
       guest,
     },
+    ready = true,
   ) => {
     let view = (await create(overrides, cast.host)).view;
     view = (
@@ -267,13 +269,25 @@ async function fixture(
         seat: sideSeat(negativeSide),
       })
     ).view;
-    for (const c of [cast.host, cast.guest])
-      view = (await consent(c, view, 'ready')).view;
+    if (ready)
+      for (const c of [cast.host, cast.guest])
+        view = (await consent(c, view, 'ready')).view;
     return operations.view(cast.host, view.id);
   };
+  const afterRooms: (() => Promise<void>)[] = [];
   return {
     sql,
     store,
+    markRanked: async (roundId: string) => {
+      const archive = await pinRankedFixturePool(sql, roundId);
+      if (archive)
+        afterRooms.push(async () => {
+          await sql`delete from seasons where id=${archive}`;
+        });
+    },
+    afterRooms: (cleanup: () => Promise<void>) => {
+      afterRooms.push(cleanup);
+    },
     redis,
     operations,
     roundView: roundViewReader(store, linkedAdults),
@@ -342,6 +356,7 @@ async function fixture(
           await sql`delete from rooms where id=${id}`;
           await deleteOrphanNotificationSignals(sql);
         }
+        for (const cleanup of afterRooms) await cleanup();
         for (const actorId of bots)
           await sql`delete from actors where id=${actorId}`;
         for (const c of callers) {

@@ -27,7 +27,7 @@ export function rateCompletedRound(
 ): Promise<RateDebateResult> {
   return database.rateRound({
     roundId,
-    changeIds: [ids.next(), ids.next()],
+    nextChangeId: () => ids.next(),
     decide: ratingDecision,
   });
 }

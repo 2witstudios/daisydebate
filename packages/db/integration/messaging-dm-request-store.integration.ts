@@ -109,29 +109,17 @@ const withDmRequests = async (
   }
 };
 
-test('the DM request screen converges only pending and accepted pairs and checks declines before spending', () =>
+test('the DM request screen converges only pending and accepted pairs and authorizes before reading the pair', () =>
   withDmRequests(
-    async ({
-      client,
-      actorId,
-      peerId,
-      channelId,
-      now,
-      frame,
-      command,
-      statements,
-    }) => {
-      const screen = () => frame((current) => current.screenDmRequest(now));
+    async ({ client, channelId, now, frame, command, statements }) => {
+      const screen = () => frame((current) => current.screenDmRequest());
       const reads = () =>
         statements.map((query) =>
-          query.includes('social_request_declines')
-            ? 'declines'
-            : query.includes('"messaging_channels"') &&
-                query.endsWith('for update')
-              ? 'channel'
-              : query.includes('"messaging_dm_pairs"')
-                ? 'pair'
-                : query,
+          query.includes('"messaging_channels"') && query.endsWith('for update')
+            ? 'channel'
+            : query.includes('"messaging_dm_pairs"')
+              ? 'pair'
+              : query,
         );
       for (const state of ['accepted', 'pending'] as const) {
         await client`update messaging_dm_pairs set request_state=${state},decided_at=${state === 'accepted' ? now : null} where channel_id=${channelId}`;
@@ -152,11 +140,10 @@ test('the DM request screen converges only pending and accepted pairs and checks
       await client`update messaging_dm_pairs set request_state='declined',decided_at=${now} where channel_id=${channelId}`;
       const active = await screen();
       assert({
-        given: 'a declined DM on an active channel with no decline block',
-        should:
-          'lock its channel then read decline policy before permitting commit',
+        given: 'an authorized retry on an active channel',
+        should: 'lock its channel before permitting commit',
         actual: [active, reads()],
-        expected: [null, ['pair', 'channel', 'declines']],
+        expected: [null, ['pair', 'channel']],
       });
       await client`update messaging_channels set lifecycle='archived' where id=${channelId}`;
       await assertRejects({
@@ -172,35 +159,34 @@ test('the DM request screen converges only pending and accepted pairs and checks
         expected: ['pair', 'channel'],
       });
       await client`update messaging_channels set lifecycle='active' where id=${channelId}`;
-      await client`insert into social_request_declines (decliner_actor_id, requester_actor_id, low_actor_id, high_actor_id, declined_count, last_declined_at, blocked_until, expires_at)
-      values(${peerId},${actorId},least(${actorId},${peerId}),greatest(${actorId},${peerId}),0,${now},${now}::timestamptz+interval '1 hour',${now}::timestamptz+interval '1 hour')`;
+      // The scoped decline decision runs before the frame. Its live, reverse
+      // and expired cases are covered by Web's messaging request integration.
       await assertRejects({
-        given: 'a declined active DM blocked by the peer',
-        should: 'refuse as an authorization block',
-        actual: screen,
+        given: 'current authorization refuses a retry',
+        should: 'stop before reading the pair or locking the channel',
+        actual: () =>
+          frame(
+            (current) => current.screenDmRequest(),
+            async () => {
+              throw createAppError('AUTHORIZATION');
+            },
+          ),
         code: 'AUTHORIZATION',
       });
       assert({
-        given: 'the declined screen under a block',
-        should: 'read the pair, channel and declines only',
+        given: 'the refused request',
+        should: 'issue no frame statements',
         actual: reads(),
-        expected: ['pair', 'channel', 'declines'],
+        expected: [],
       });
       await client`delete from messaging_dm_pairs where channel_id=${channelId}`;
-      await assertRejects({
-        given: 'a new pair still under the decline block',
-        should: 'refuse before spending',
-        actual: screen,
-        code: 'AUTHORIZATION',
-      });
-      await client`delete from social_request_declines where decliner_actor_id=${peerId} and requester_actor_id=${actorId}`;
       const notRecorded = await frame((current) => current.readDmRequest());
       const fresh = await screen();
       assert({
         given: 'a new request without a block',
         should: 'read no existing result and authorize a separate commit',
         actual: [notRecorded, fresh, reads()],
-        expected: [null, null, ['pair', 'declines']],
+        expected: [null, null, ['pair']],
       });
     },
   ));

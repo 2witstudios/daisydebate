@@ -5,7 +5,8 @@ import { readOutboxCatchup } from '../src/outbox-catchup';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
-import { buildRoomTopic } from '@daisy/protocol';
+import { buildRoomTopic, buildUserInboxTopic } from '@daisy/protocol';
+import { expect } from 'bun:test';
 import { createDatabase } from '../src';
 import { encodeOutboxCursor, type OutboxPosition } from '@daisy/db/outbox';
 import { waitForOutboxFinality } from '../src/testing';
@@ -158,6 +159,55 @@ test('a fresh predecessor stops deletion and a stalled drain cursor cannot certi
       },
       expected: { resync: false, positions: [encodeOutboxCursor(fresh)] },
     });
+  });
+});
+
+test('web maintenance advances past expired private delivery but keeps a recent private barrier', async () => {
+  await fixture(async (f) => {
+    const topic = buildUserInboxTopic(createId());
+    const insert = async (createdAt: string) => {
+      const id = createId();
+      const [row] =
+        await f.sql`insert into outbox(topic,kind,version,payload,created_at)
+        values(${topic},'user.notification-delivered',1,
+        ${{
+          kind: 'user.notification-delivered',
+          notificationType: 'friend_guardian_approval',
+          entityVersion: 1,
+          ids: [id],
+          occurredAt: createdAt,
+        }},${createdAt}::timestamptz) returning txid::text,seq::text`;
+      await waitForOutboxFinality(f.sql, row!.txid, { now: Date.now });
+      return { txid: row!.txid, seq: BigInt(row!.seq) };
+    };
+    try {
+      const expired = await insert('2000-01-01T00:00:00.000Z');
+      const recent = await insert(new Date().toISOString());
+      const later = await f.insert(true);
+      await f.sql.begin(async (tx) => {
+        await tx`set local role daisy_web`;
+        expect<unknown>(
+          await tx`select seq from outbox where topic=${topic}`,
+        ).toEqual([]);
+        const deleted = await deleteExpiredOutboxPrefix(
+          drizzle({ client: tx }),
+          {
+            before: new Date(Date.now() + 60_000).toISOString(),
+            limit: 5,
+          },
+        );
+        expect(deleted).toBe(1);
+      });
+      expect(await f.database.readOutboxRetentionBoundary()).toEqual(expired);
+      const rows = await f.sql`select seq::text from outbox
+        where topic in (${topic},${f.topic}) order by seq`;
+      expect<unknown>(rows).toEqual([
+        { seq: recent.seq.toString() },
+        { seq: later.seq.toString() },
+      ]);
+    } finally {
+      await f.sql`delete from outbox where topic=${topic}`;
+    }
   });
 });
 

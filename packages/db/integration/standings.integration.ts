@@ -1,3 +1,4 @@
+import { publicLobbyId } from '../src/daisy-reference';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
@@ -15,7 +16,8 @@ setupRitewayBun();
 
 const { databaseUrl: url } = requireTestServices(process.env);
 const scope = {
-  ladder: { style: 'freestyle', division: 'open' },
+  ladderId: 'freestyle',
+  lobbyId: publicLobbyId,
   clock: { now: '2026-11-02T00:00:00.000Z', rankedDelaySeconds: 0 },
 } as const;
 
@@ -63,6 +65,7 @@ test('standings refuses a posting with an invalid two-sided outcome', async () =
       affirmative,
       negative,
       outcome: 'affirmative',
+      seasonId,
     });
     await change(fixture, {
       seasonId,
@@ -147,6 +150,7 @@ describe('standings reads (RATE-1.4.1)', () => {
             affirmative: winner,
             negative: loser,
             outcome: 'affirmative',
+            seasonId: scope.seasonId,
           });
           for (const [actorId, after] of [
             [winner, winnerAfter],
@@ -175,7 +179,8 @@ describe('standings reads (RATE-1.4.1)', () => {
         await rated({ formatId, seasonId: third, ladder: 'freestyle' }, 1530);
 
         const read = await database.readStandings({
-          ladder: { style: 'freestyle', division: 'open' },
+          ladderId: 'freestyle',
+          lobbyId: publicLobbyId,
           seasonIds: [first, second],
           clock: { now: new Date().toISOString(), rankedDelaySeconds: 0 },
         });

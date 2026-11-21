@@ -141,9 +141,11 @@ function projectLeagueSeason(
         organizationId: facts.organization.id,
         name: facts.organization.name,
       },
-      // The league's own division; Daisy (kind league) has none, and its
-      // season's is the one it rates.
-      division: facts.organization.leagueDivision ?? facts.season.division,
+      lobby: {
+        lobbyId: facts.standingLobby.id,
+        name: facts.standingLobby.name,
+        ageRule: facts.standingLobby.ageRule,
+      },
       counting: facts.rule.counting,
       calendar: projectLeagueCalendar(facts, template.id),
       standings: {

@@ -2,13 +2,13 @@ import { SQL } from 'bun';
 import { assert, test } from 'riteway/bun';
 import {
   betaAccessStates,
-  friendshipStates,
   recordingJobStatuses,
   recordingStatuses,
   roomInvitationStates,
   roomStatuses,
   roundStatuses,
   runningRoundStatuses,
+  storedFriendshipStates,
 } from '@daisy/protocol';
 import { contentReportStatuses } from '@daisy/protocol/content-moderation';
 import { flagStates } from '@daisy/protocol/flags';
@@ -76,7 +76,7 @@ for (const [table, name, column, statuses] of [
     roomInvitationStates,
   ],
   [releaseFlags, 'release_flags_state_check', 'state', flagStates],
-  [friendships, 'friendships_state', 'state', friendshipStates],
+  [friendships, 'friendships_state', 'state', storedFriendshipStates],
   [
     contentReports,
     'content_reports_status_check',

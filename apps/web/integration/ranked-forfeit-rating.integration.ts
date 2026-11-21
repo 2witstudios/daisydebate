@@ -1,5 +1,4 @@
-import { requireTestServices } from '@daisy/config';
-import { withSeasons } from '@daisy/db/seasons';
+import { seedRatingSeason } from '@daisy/db/testing';
 import { createId } from '@paralleldrive/cuid2';
 import { ratingStyles } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -12,7 +11,6 @@ import {
   recoverRankedResults,
 } from './ranked-room.test-support';
 setupRitewayBun();
-const { databaseUrl } = requireTestServices(process.env);
 
 for (const ladder of ratingStyles)
   test(`${ladder}: a pre-freeze human forfeit posts the original terminal command exactly once`, async () => {
@@ -20,9 +18,7 @@ for (const ladder of ratingStyles)
       const seasonId = createId();
       let roundId: string | undefined;
       try {
-        await withSeasons(databaseUrl, (s) =>
-          s.activateBetaSeason({ id: seasonId, division: 'open' }),
-        );
+        await seedRatingSeason(f.sql, seasonId);
         const started = await launchRuntimeRound(
           f,
           await readyRankedRoom(f, ladder, 'human'),
@@ -79,7 +75,9 @@ for (const ladder of ratingStyles)
           await f.sql`delete from rating_changes where round_id=${roundId}`;
         await f.sql`delete from ratings where actor_id in (${f.host.actorId},${f.guest.actorId})`;
         await f.sql`delete from agreement_signatures where season_id=${seasonId}`;
-        await f.sql`delete from seasons where id=${seasonId}`;
+        f.afterRooms(async () => {
+          await f.sql`delete from seasons where id=${seasonId}`;
+        });
       }
     });
   });

@@ -22,6 +22,7 @@ export type LobbyProps = {
    */
   readonly query: RoomListQuery;
   readonly lobbies: readonly StandingLobbyChoice[];
+  readonly view?: 'rooms';
   /** One page of the canonical listing, already narrowed by the query. */
   readonly rooms: readonly RoomListEntry[];
   readonly nextCursor: string | null;
@@ -89,6 +90,7 @@ export function Lobby({
   query,
   rooms,
   lobbies,
+  view,
   nextCursor,
   retry,
   activeRoom,
@@ -127,10 +129,11 @@ export function Lobby({
       {lobbies.length > 0 ? (
         <Segmented
           label="Lobby"
+          wrap
           fillOnPhone
           segments={lobbies.map(({ id, name }) => ({
             label: name,
-            href: lobbyHref({ ...query, lobbyId: id }),
+            href: lobbyHref({ ...query, lobbyId: id }, undefined, view),
             selected: query.lobbyId === id,
           }))}
         />

@@ -41,6 +41,7 @@ export function guardianCommandRoute(
           caller,
           app.clock.now(),
           command,
+          app.contactsPolicy.requests,
         );
         if (result.kind === 'refused') return Response.json(result);
         if (result.mail) {

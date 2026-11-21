@@ -1,3 +1,4 @@
+import { foldLeagueRatings } from './league-fold';
 import type { LeagueRatingInputs } from '@daisy/db/tab';
 import {
   ladderInput,
@@ -8,57 +9,56 @@ import {
 } from '@daisy/tab-engine';
 import { projectResultCompetition } from '../tab/commands/result-projection';
 import { createAppError } from '@daisy/errors';
-import { endingRating } from '@daisy/debate-engine';
+import type { StandingsRead } from '@daisy/db/ratings';
 
-/** Consume only the league's received, certified tournament output and own frozen Rooms. */
-export function leagueGames(input: LeagueRatingInputs): LadderGame[] {
-  // One pass over the seats, so each Round reads only its own.
-  const seats = new Map<string, (typeof input.participants)[number][]>();
-  for (const person of input.participants)
-    seats.set(person.roundId, [...(seats.get(person.roundId) ?? []), person]);
-  const rooms: LadderGame[] = input.roomRounds.flatMap((round) => {
-    const [first, second] = round.rules.sides;
-    // Daisy's own rule for whether an ending rates: a Round Daisy refuses
-    // (unrecorded, unjudged, check-in pending, attendance unsettled, no
-    // winner) counts on no league ladder either. An unreadable row never rates.
-    const rated = round.ending ? endingRating(round.ending) : null;
-    if (
-      rated?.kind !== 'rated' ||
-      round.rules.sides.length !== 2 ||
-      !first ||
-      !second
-    )
-      return [];
-    const sides = [first, second].map((side) =>
-      (seats.get(round.id) ?? [])
-        .filter((person) => person.side === side.key)
-        .map((person) => person.actorId),
-    );
-    const { side } = rated.outcome;
-    if (side !== first.key && side !== second.key) return [];
-    return [
-      {
-        result: round.id,
-        source: 'league_room',
-        playedAt: rated.occurredAt,
-        sides: [sides[0]!, sides[1]!],
-        winner: side === first.key ? 0 : 1,
-      },
-    ];
+type RoomPosting = NonNullable<StandingsRead['publicResults']>['rooms'][number];
+
+/** A Room enters a replay only through its actual posted competitors. */
+export function leagueRoomGames(
+  postings: readonly RoomPosting[],
+): LadderGame[] {
+  const byRound = new Map<string, RoomPosting[]>();
+  for (const posting of postings) {
+    const group = byRound.get(posting.roundId) ?? [];
+    group.push(posting);
+    byRound.set(posting.roundId, group);
+  }
+  return [...byRound.entries()].map(([result, group]) => {
+    const first = group[0]!;
+    const winner = first.outcome.side;
+    return {
+      result,
+      source: 'league_room',
+      playedAt: first.occurredAt,
+      sides: [
+        group
+          .filter(({ side }) => side === winner)
+          .map(({ actorId }) => actorId),
+        group
+          .filter(({ side }) => side !== winner)
+          .map(({ actorId }) => actorId),
+      ],
+      winner: 0,
+    };
   });
-  type TournamentRecord = (typeof input.tournaments)[number];
-  const fixtures = new Map<
-    string,
-    { readonly records: TournamentRecord[]; readonly latest: TournamentRecord }
-  >();
-  for (const record of input.tournaments)
-    fixtures.set(record.fixtureId, {
-      records: [...(fixtures.get(record.fixtureId)?.records ?? []), record],
-      latest: record,
-    });
-  const tournaments: LadderInput['tournaments'][number][] = [
-    ...fixtures.values(),
-  ].flatMap(({ records, latest }) => {
+}
+
+export const orderedLeagueGames = (
+  rooms: readonly LadderGame[],
+  certified: LeagueRatingInputs['tournaments'],
+) => ladderInput({ rooms, tournaments: certifiedTournaments(certified) });
+
+function certifiedTournaments(
+  certified: LeagueRatingInputs['tournaments'],
+): LadderInput['tournaments'] {
+  const fixtures = new Map<string, (typeof certified)[number][]>();
+  for (const record of certified)
+    fixtures.set(record.fixtureId, [
+      ...(fixtures.get(record.fixtureId) ?? []),
+      record,
+    ]);
+  return [...fixtures.values()].flatMap((records) => {
+    const latest = records.at(-1)!;
     const record = latest.competitionRecord;
     if (
       record.fixture.kind !== 'pairing' ||
@@ -90,7 +90,6 @@ export function leagueGames(input: LeagueRatingInputs): LadderGame[] {
           'INVARIANT',
           'Certified rating input cannot be projected',
         );
-      if (projected.projection.engine.outcome.kind !== 'winner') return [];
       return [
         {
           result: projected.projection.engine as ResultOf<TwoSides>,
@@ -112,5 +111,25 @@ export function leagueGames(input: LeagueRatingInputs): LadderGame[] {
       },
     ];
   });
-  return ladderInput({ rooms, tournaments });
 }
+
+export const hasRateableTournament = (games: readonly LadderGame[]) =>
+  games.some(
+    ({ source, sides: [first, second] }) =>
+      source === 'tournament' &&
+      first.length > 0 &&
+      second.length > 0 &&
+      new Set([...first, ...second]).size === first.length + second.length,
+  );
+
+export const leagueStandings = (input: LeagueRatingInputs) => {
+  const games = orderedLeagueGames(
+    leagueRoomGames(input.roomPostings),
+    input.tournaments,
+  );
+  if (hasRateableTournament(games)) return foldLeagueRatings(games);
+  return input.standings.map(({ rating, deviation, volatility, ...row }) => ({
+    ...row,
+    state: { rating, deviation, volatility },
+  }));
+};

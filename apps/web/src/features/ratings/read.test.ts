@@ -1,3 +1,4 @@
+import { officialRatingLadders } from './standing.test-support';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { readRatingStandings, type RatingReadStore } from './read';
 setupRitewayBun();
@@ -8,7 +9,7 @@ const season = {
   startsAt: '2026-10-01T00:00:00.000Z',
   endsAt: at,
   status: 'closed' as const,
-  division: 'open' as const,
+  lobbyId: 'open' as const,
   version: 1,
 };
 const open = { style: 'freestyle', division: 'open' } as const;
@@ -40,7 +41,8 @@ const source = (rating = 1888.125) => ({
   ],
 });
 const store = (blinded: readonly string[] = []): RatingReadStore => ({
-  listLadderSeasons: async () => [season],
+  listOfficialRatingLadders: officialRatingLadders,
+  listLadderSeasons: async (lobbyId) => (lobbyId === 'open' ? [season] : []),
   readStandings: async () => source(),
   readRatingBlindings: async () => blinded,
 });

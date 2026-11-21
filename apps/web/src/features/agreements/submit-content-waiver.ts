@@ -23,12 +23,14 @@ export type WaiverSubmission = 'signed' | 'refused' | 'unavailable';
 export async function submitContentWaiver(
   fetch: FetchLike,
   form: FormData,
+  roomId: string,
 ): Promise<WaiverSubmission> {
   try {
     const response = await fetch('/api/agreements/content-waiver', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
+        roomId,
         version: form.get('version'),
         accepted: form.get('accepted'),
       }),

@@ -1,4 +1,6 @@
 import { nowMs, tryInstantMs } from '@daisy/clock';
+import { readHostNavigation } from '../features/tab/reads/host-navigation';
+import { readStandingLobbyManagement } from '../features/tab/reads/standing-lobby-management';
 import {
   defaultStandingLobby,
   mayDebate,
@@ -510,7 +512,7 @@ export const requestAudienceSettings = async (userId: string) => {
         clock: spectatorClockAt(clock.now()),
         limit: WATCH_HISTORY_ROWS,
       }),
-      database.readMessageRequestSetting({ userId }),
+      database.readMessageRequestPolicy({ userId }),
     ]);
   return { preferences, presentation, history, messageRequestSetting };
 };
@@ -541,10 +543,15 @@ export const requestAudience = async (
   );
 };
 
+export const requestOfficialRatingLadders = cache(() =>
+  processApp().database.listOfficialRatingLadders(),
+);
+
 /** Process binding for the public ladder and its signed-in blinding context. */
 export async function requestLadder(input: {
   readonly seasonId: string | null;
   readonly ladder: import('@daisy/protocol').Ladder;
+  readonly lobbyId?: string;
   readonly now: string;
 }) {
   const identity = await requestIdentity();
@@ -623,6 +630,49 @@ export async function requestRoomDraftAnswer(
     source,
   );
 }
+
+export const requestHostedLeagues = async () => {
+  const identity = await requestIdentity();
+  if (
+    identity.state !== 'member' ||
+    !(await requestReleaseEnabled('daisy-tab', identity.principal.userId))
+  )
+    return [];
+  const { principal } = identity;
+  const app = processApp();
+  const store = app.database.tabCommands;
+  const candidates = await store.hostedLeagueCandidates(principal.userId);
+  const read = readHostNavigation({ store, authorize, now: app.clock.now });
+  const listed = await Promise.all(
+    candidates.map(async (league) => {
+      const access = await read(principal, {
+        kind: 'organization',
+        id: league.id,
+      });
+      return access ? league : null;
+    }),
+  );
+  return listed.filter((league) => league !== null);
+};
+
+export const requestStandingLobbyManagement = async (handle: string) => {
+  const identity = await requestIdentity();
+  if (
+    identity.state !== 'member' ||
+    !(await requestReleaseEnabled('daisy-tab', identity.principal.userId))
+  )
+    return null;
+  const app = processApp();
+  const store = app.database.tabCommands;
+  const organizationId = await store.organizationIdOfHandle(handle);
+  return organizationId
+    ? readStandingLobbyManagement(
+        { store, authorize, now: app.clock.now() },
+        identity.principal,
+        organizationId,
+      )
+    : null;
+};
 
 /** Live league page binding with this request's durable principal and account-targeted release gate. */
 export const requestLeaguePage = async (
@@ -783,6 +833,24 @@ export async function requestFamilyRows(role: 'adult' | 'child') {
   const { database, clock } = processApp();
   return database.guardians.forSubject(viewer.userId, (session) =>
     readFamilySettings(session, viewer.userId, role, new Date(clock.now())),
+  );
+}
+
+export async function requestGuardianRelease(
+  guardian: { readonly userId: string; readonly actorId: string },
+  linkId: string,
+) {
+  return processApp().database.mediaReleases.readGuardianRelease({
+    guardian,
+    linkId,
+  });
+}
+
+export async function requestFriendApprovals() {
+  const viewer = await requestFamilyViewer();
+  if (viewer?.role !== 'adult') return [];
+  return processApp().database.guardians.forSubject(viewer.userId, (session) =>
+    session.waitingFriendApprovals(),
   );
 }
 

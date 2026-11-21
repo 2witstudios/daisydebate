@@ -127,6 +127,7 @@ export async function signContentWaiverAction(
   const result = await submitContentWaiver(
     inProcessFetch(signWaiver, incoming),
     form,
+    id,
   );
   const hydrated = hydratedPost(incoming);
   const current =

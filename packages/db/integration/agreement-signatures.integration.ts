@@ -1,4 +1,6 @@
-import { daisyOrganizationId } from '../src/daisy-reference';
+import type { SQL } from 'bun';
+import { Fixture } from './constraint-helpers';
+import { daisyOrganizationId, publicLobbyId } from '../src/daisy-reference';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -28,46 +30,64 @@ const count = async (
  * so the waiver stands on that season (ADR 0147); its signatures go with it.
  */
 const withActiveSeason = async (
-  client: { unsafe: (query: string, values?: unknown[]) => Promise<unknown> },
+  client: SQL,
   userId: string,
-  run: (seasonId: string) => Promise<void>,
+  run: (seasonId: string, roomId: string) => Promise<void>,
 ) => {
   const seasonId = createId();
   await client.unsafe(
-    `insert into seasons (id, organization_id, division, name, starts_at, status) values ($1, $2, 'open', 'Waiver fixture', '2000-01-01T00:00:00Z', 'active')`,
-    [seasonId, daisyOrganizationId],
+    `insert into seasons (id, organization_id, lobby_id, name, starts_at, status) values ($1, $2, $3, 'Waiver fixture', '2000-01-01T00:00:00Z', 'active')`,
+    [seasonId, daisyOrganizationId, publicLobbyId],
   );
   await client.unsafe(
     `insert into account_age (user_id, birth_month, version, recorded_at) values ($1, '1990-01', 1, '2001-01-01T00:00:00Z') on conflict do nothing`,
     [userId],
   );
+  const fixture = new Fixture(client);
+  const [actor] = await client`select id from actors where user_id=${userId}`;
+  const roomId = await fixture.room(actor!.id, 'freestyle', {
+    preset_version: 1,
+    competition_type: 'ranked',
+  });
+  await fixture.insert('room_participants', {
+    id: createId(),
+    room_id: roomId,
+    actor_id: actor!.id,
+    seat_kind: 'side',
+    side: 'affirmative',
+    slot: 0,
+  });
   try {
-    await run(seasonId);
+    await run(seasonId, roomId);
   } finally {
     await client.unsafe('delete from account_age where user_id = $1', [userId]);
     await client.unsafe(
       'delete from agreement_signatures where season_id = $1',
       [seasonId],
     );
+    await fixture.purge();
     await client.unsafe('delete from seasons where id = $1', [seasonId]);
   }
 };
 
 test('a signature records account, version, season and time, once', async () => {
   await withPrivacySubject(async ({ client, database, userId }) => {
-    await withActiveSeason(client, userId, async (seasonId) => {
+    await withActiveSeason(client, userId, async (seasonId, roomId) => {
       const agreements = agreementSignatureOperations({ database });
       const before = await agreements.readContentWaiverStanding(
         userId,
         'draft-1',
+        publicLobbyId,
       );
       await agreements.signContentWaiver({
+        roomId,
         id: createId(),
         userId,
         version: 'draft-1',
         words: 'The words of draft 1.',
       });
       await agreements.signContentWaiver({
+        roomId,
         id: createId(),
         userId,
         version: 'draft-1',
@@ -84,7 +104,7 @@ test('a signature records account, version, season and time, once', async () => 
         actual: {
           before,
           after: await database.transaction((tx) =>
-            readContentWaiverStanding(tx, userId, 'draft-1'),
+            readContentWaiverStanding(tx, userId, 'draft-1', publicLobbyId),
           ),
           rows: await count(client, userId),
           row,
@@ -105,7 +125,11 @@ test('a signature records account, version, season and time, once', async () => 
       assert({
         given: 'a newer version than the one signed',
         should: 'stand as unsigned',
-        actual: await agreements.readContentWaiverStanding(userId, 'draft-2'),
+        actual: await agreements.readContentWaiverStanding(
+          userId,
+          'draft-2',
+          publicLobbyId,
+        ),
         expected: 'unsigned',
       });
     });
@@ -144,8 +168,9 @@ test('the scope follows the agreement', async () => {
 
 test('erasure keeps the signature as evidence, and export returns it', async () => {
   await withPrivacySubject(async ({ client, database, userId, actorId }) => {
-    await withActiveSeason(client, userId, async () => {
+    await withActiveSeason(client, userId, async (_seasonId, roomId) => {
       await agreementSignatureOperations({ database }).signContentWaiver({
+        roomId,
         id: createId(),
         userId,
         version: 'draft-1',

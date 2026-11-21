@@ -1,3 +1,4 @@
+import { requireRankedProtection } from './guardians/ranked-protection';
 import {
   assembleRoom,
   type InitialCastSeat,
@@ -17,7 +18,7 @@ import type {
 } from '@daisy/protocol';
 import { defaultStandingLobby } from '@daisy/protocol/lobby/eligibility';
 import { readOfficialStandingLobbies } from './official-standing-lobbies';
-import { legacyRoomCompetition, lockLadderSeason } from './ladder-season';
+import { lockLadderSeason } from './ladder-season';
 import { mayHostStandingRoom, readRoomCreator } from './room-creator';
 import {
   readFormatSelectionFacts,
@@ -122,6 +123,12 @@ export const roomCreateOperations = ({
           input.payloadDigest,
         );
         if (replay) return replay;
+        if (input.room.competitionType === 'ranked')
+          await requireRankedProtection(
+            tx,
+            [input.caller.actorId],
+            input.caller,
+          );
         if (
           input.selection &&
           !input.selection.admits(
@@ -151,12 +158,8 @@ export const roomCreateOperations = ({
           })
         )
           throw createRefusal('CONFLICT', 'other-division');
-        const competition = legacyRoomCompetition({
-          ...room,
-          ageRule: lobby.ageRule,
-        });
-        if (competition.ladder)
-          await lockLadderSeason(tx, competition.ladder, lobby.organizationId);
+        if (room.competitionType === 'ranked')
+          await lockLadderSeason(tx, lobby.id);
         if (
           (input.recording || input.postRoundCall) &&
           input.room.competitionType === 'ranked'

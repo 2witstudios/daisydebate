@@ -40,6 +40,7 @@ type RoundInput = {
   readonly status?: 'active' | 'completed' | 'abandoned';
   readonly outcome?: string;
   readonly completedAt?: string;
+  readonly visibility?: 'public';
 };
 
 type LedgerRow = {
@@ -65,6 +66,17 @@ export async function arena(
   const users: string[] = [];
   const actors: string[] = [];
   const rounds: string[] = [];
+  const lobby = async (division: RatingDivision) => {
+    const ageRule = division === 'youth' ? 'under-18' : 'adults';
+    const [scope] = await withSql(
+      (sql) => sql`select l.id as lobby_id,d.id as ladder_id
+      from lobbies l join ladders d on d.lobby_id=l.id
+      where l.owner_organization_id=${daisyOrganizationId} and l.age_rule=${ageRule}
+      order by l.created_at,l.id,d.created_at,d.id limit 1`,
+    );
+    return scope!;
+  };
+  const active = new Map<RatingDivision, string>();
   const season = async (
     status: 'active' | 'closed',
     startsAt: string,
@@ -72,13 +84,15 @@ export async function arena(
   ) => {
     const id = createId();
     seasonIds.push(id);
+    const pool = await lobby(division);
     await withSql(
       (
         sql,
-      ) => sql`insert into seasons (organization_id, id, name, division, starts_at, ends_at, status)
-        values (${daisyOrganizationId}, ${id}, 'Season', ${division}, ${new Date(startsAt)},
+      ) => sql`insert into seasons (organization_id, id, name, lobby_id, starts_at, ends_at, status)
+        values (${daisyOrganizationId}, ${id}, 'Season', ${pool.lobby_id}, ${new Date(startsAt)},
                 ${status === 'closed' ? new Date('2026-10-01T00:00:00.000Z') : null}, ${status})`,
     );
+    if (status === 'active') active.set(division, id);
     return id;
   };
   const seasonId =
@@ -103,9 +117,9 @@ export async function arena(
     rounds.push(id);
     const status = input.status ?? 'completed';
     const competitionType = input.competitionType ?? 'ranked';
-    const ladderId = competitionType === 'ranked' ? formatId : null;
-    const ladderDivision =
-      competitionType === 'ranked' ? (input.division ?? 'open') : null;
+    const division = input.division ?? 'open';
+    const pool = competitionType === 'ranked' ? await lobby(division) : null;
+    const frozenSeason = pool ? (active.get(division) ?? null) : null;
     // Abandonment is lifecycle, not outcome: it carries completed_at like any
     // ended round (ADR 0058 §8).
     const completedAt =
@@ -115,8 +129,8 @@ export async function arena(
         // A ranked round is constructed from a sanctioned preset, so it pins
         // one (ADR 0058 §4, §8). The baseline already seeds the one-on-one
         // presets, so the arena only has to name the version it resolved from.
-        await sql`insert into rounds (id, resolution, competition_type, format_id, format_version, preset_version, rules_snapshot, status, current_stage, started_at, completed_at, winning_side, ladder_id, ladder_division, runtime_state)
-        values (${id}, 'Ratings proof', ${competitionType}, ${formatId}, 1, ${competitionType === 'ranked' ? 1 : null}, ${rules}, 'opening', null, null, null, null, ${ladderId}, ${ladderDivision}, ${emptyRuntimeCheckpointFor(rules)})`;
+        await sql`insert into rounds (id, resolution, competition_type, format_id, format_version, preset_version, rules_snapshot, status, current_stage, started_at, completed_at, winning_side, ladder_id, season_id, rating_lobby_id, runtime_state, visibility)
+        values (${id}, 'Ratings proof', ${competitionType}, ${formatId}, 1, ${competitionType === 'ranked' ? 1 : null}, ${rules}, 'opening', null, null, null, null, ${pool?.ladder_id ?? null}, ${frozenSeason}, ${pool?.lobby_id ?? null}, ${emptyRuntimeCheckpointFor(rules)}, ${input.visibility ?? null})`;
         for (const [side, actorId] of [
           [affirmativeSide, input.affirmative],
           [negativeSide, input.negative],
@@ -185,6 +199,7 @@ export async function arena(
     formatId,
     seasonId,
     season,
+    lobby,
     actor,
     round,
     rate,

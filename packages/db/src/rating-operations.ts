@@ -1,17 +1,14 @@
 import { createAppError, createRefusal } from '@daisy/errors';
-import { daisyOrganizationId } from './daisy-reference';
 import {
-  twoSideKeys,
   type DebaterStanding,
-  ladderKey,
-  type Ladder,
+  type RoundRatingScope,
   type PlannedRatingChange,
   type RatingState,
 } from '@daisy/protocol';
 import { and, desc, eq, inArray, max, ne, sql } from 'drizzle-orm';
 import type { RateDebateInput, RateDebateResult } from './rating-facts';
 import {
-  assertRankedRoundIntegrity,
+  assertRoundRatingIntegrity,
   projectionLockOrder,
   ratedResult,
   ratingChangeRows,
@@ -21,7 +18,12 @@ import { retryStale } from './retry-stale';
 import { seatOfColumns } from './seat-columns';
 import { roundParticipants } from './schema/round-participants';
 import { rounds } from './schema/rounds';
-import { ratingChanges, ratings, seasons } from './schema/ratings';
+import { ratingChanges, ratings } from './schema/ratings';
+import { seasons } from './schema/seasons';
+import { lobbies } from './schema/lobbies';
+import { seasonStandingRules } from './schema/sanctions';
+import { scopeTransaction } from './tenant-scope';
+
 import { inTransaction, type Tx, type TxSource } from './tx';
 import { takeLock, transactionLocks } from './locks';
 import { query } from './raw-rows';
@@ -42,67 +44,59 @@ async function loadStanding(
   tx: Tx,
   scope: {
     readonly actorId: string;
-    readonly ladder: Ladder;
-    readonly seasonId: string | null;
+    readonly pool: NonNullable<RoundRatingScope>;
   },
 ): Promise<DebaterStanding> {
   const onLadder = and(
     eq(ratings.actorId, scope.actorId),
-    eq(ratings.ladder, scope.ladder.style),
-    eq(ratings.division, scope.ladder.division),
+    eq(ratings.ladder, scope.pool.ladderId),
   );
-  const [current] =
-    scope.seasonId === null
-      ? []
-      : await tx
-          .select()
-          .from(ratings)
-          .where(and(onLadder, eq(ratings.seasonId, scope.seasonId)));
-  const [previous] = await tx
-    .select({
-      rating: ratings.rating,
-      deviation: ratings.deviation,
-      volatility: ratings.volatility,
-    })
+  const [current] = await tx
+    .select()
     .from(ratings)
-    .innerJoin(seasons, eq(seasons.id, ratings.seasonId))
-    .where(
-      scope.seasonId === null
-        ? onLadder
-        : and(onLadder, ne(ratings.seasonId, scope.seasonId)),
-    )
-    .orderBy(desc(seasons.startsAt))
-    .limit(1);
+    .where(and(onLadder, eq(ratings.seasonId, scope.pool.seasonId)));
+  if (!current) {
+    const [previousBetaStanding] = await tx
+      .select({ actorId: ratings.actorId })
+      .from(ratings)
+      .innerJoin(seasons, eq(seasons.id, ratings.seasonId))
+      .where(
+        and(
+          onLadder,
+          eq(ratings.lobbyId, scope.pool.lobbyId),
+          sql`${seasons.startsAt} < (select current_season.starts_at from ${seasons} current_season where current_season.id = ${scope.pool.seasonId})`,
+          sql`not exists (select 1 from ${seasonStandingRules} rules where rules.season_id = ${scope.pool.seasonId})`,
+        ),
+      )
+      .limit(1);
+    if (previousBetaStanding)
+      throw createAppError(
+        'CONFLICT',
+        'Season carry-over requires DEC-111 resolution',
+      );
+  }
   const [last] = await tx
     .select({ at: max(ratingChanges.occurredAt) })
     .from(ratingChanges)
     .where(
       and(
         eq(ratingChanges.actorId, scope.actorId),
-        eq(ratingChanges.ladder, scope.ladder.style),
-        eq(ratingChanges.division, scope.ladder.division),
+        eq(ratingChanges.ladder, scope.pool.ladderId),
+        eq(ratingChanges.seasonId, scope.pool.seasonId),
       ),
-    );
-  if (!current && previous)
-    throw createAppError(
-      'CONFLICT',
-      'Season carry-over requires DEC-111 resolution',
     );
   return {
     current: current
       ? { state: stateOf(current), version: current.version }
       : null,
-    previous: previous ? stateOf(previous) : null,
+    previous: null,
     lastRatedAt: last?.at?.toISOString() ?? null,
   };
 }
 
 async function writeProjection(
   tx: Tx,
-  scope: {
-    readonly seasonId: string;
-    readonly ladder: Ladder;
-  },
+  scope: NonNullable<RoundRatingScope>,
   change: PlannedRatingChange,
 ): Promise<void> {
   const written =
@@ -111,8 +105,8 @@ async function writeProjection(
           .insert(ratings)
           .values({
             seasonId: scope.seasonId,
-            ladder: scope.ladder.style,
-            division: scope.ladder.division,
+            ladder: scope.ladderId,
+            lobbyId: scope.lobbyId,
             actorId: change.actorId,
             ...change.after,
           })
@@ -129,8 +123,7 @@ async function writeProjection(
             and(
               eq(ratings.actorId, change.actorId),
               eq(ratings.seasonId, scope.seasonId),
-              eq(ratings.ladder, scope.ladder.style),
-              eq(ratings.division, scope.ladder.division),
+              eq(ratings.ladder, scope.ladderId),
               eq(ratings.version, change.expectedVersion),
             ),
           )
@@ -140,7 +133,7 @@ async function writeProjection(
 
 async function rateOnce(
   tx: Tx,
-  { roundId, changeIds, decide }: RateDebateInput,
+  { roundId, nextChangeId, decide }: RateDebateInput,
 ): Promise<RateDebateResult> {
   const [round] = await tx
     .select()
@@ -148,7 +141,17 @@ async function rateOnce(
     .where(eq(rounds.id, roundId))
     .for('no key update');
   if (!round) throw createAppError('NOT_FOUND', 'No such round');
-  assertRankedRoundIntegrity(round);
+  assertRoundRatingIntegrity(round);
+  if (round.ratingLobbyId !== null) {
+    const [home] = await tx
+      .select({ organizationId: lobbies.ownerOrganizationId })
+      .from(lobbies)
+      .where(eq(lobbies.id, round.ratingLobbyId));
+    await scopeTransaction(tx, {
+      lobbyId: round.ratingLobbyId,
+      organizationId: home?.organizationId ?? undefined,
+    });
+  }
   const facts = await readRatingFacts(tx, roundId);
   if (!facts) throw createAppError('NOT_FOUND', 'No such round');
   const eligibility = decide.eligibility(facts);
@@ -157,6 +160,24 @@ async function rateOnce(
     throw createRefusal('CONFLICT', 'attendance-unsettled');
   if (eligibility.kind !== 'rated') return eligibility;
 
+  // Close waits for in-flight writes, but cannot move an already frozen Round.
+  const [season] = await tx
+    .select({ id: seasons.id })
+    .from(seasons)
+    .where(
+      and(
+        eq(seasons.id, eligibility.scope.seasonId),
+        eq(seasons.lobbyId, eligibility.scope.lobbyId),
+      ),
+    )
+    .for('share');
+  if (!season)
+    throw createAppError('INVARIANT', 'Missing frozen rating season');
+
+  const [first, second] = round.rulesSnapshot.sides;
+  if (round.rulesSnapshot.sides.length !== 2 || !first || !second)
+    return { kind: 'unrated', reason: 'competition' };
+  const sides = [first.key, second.key] as const;
   // A rating compares the two sides' seats (ADR 0055): the preset's pair.
   const seats = (
     await tx
@@ -171,25 +192,10 @@ async function rateOnce(
         and(
           eq(roundParticipants.roundId, roundId),
           eq(roundParticipants.seatKind, 'side'),
-          inArray(roundParticipants.side, [...twoSideKeys]),
+          inArray(roundParticipants.side, [...sides]),
         ),
       )
   ).map(({ actorId, ...seat }) => ({ actorId, seat: seatOfColumns(seat) }));
-  const [season] = await tx
-    .select({ id: seasons.id })
-    .from(seasons)
-    // Daisy's own season on the Round's division: every organization may
-    // have an active one per division (ADR 0147).
-    .where(
-      and(
-        eq(seasons.status, 'active'),
-        eq(seasons.organizationId, daisyOrganizationId),
-        eq(seasons.division, eligibility.ladder.division),
-      ),
-    )
-    .for('share');
-  if (!season) throw createAppError('CONFLICT', 'No season is active');
-  const seasonId = season.id;
   // Two-int advisory namespace59090 belongs to ratings, disjoint from the
   // bigint command locks. Sort/dedupe actual int32 keys before acquisition;
   // a hash collision only serializes unrelated ladder/actor pairs.
@@ -197,9 +203,9 @@ async function rateOnce(
     tx,
     z.object({ key: z.string() }),
     sql`select key::text as key from (select distinct
-    hashtext(${ladderKey(eligibility.ladder.style, eligibility.ladder.division)} || ':' || actor_id) as key
+    hashtext(${eligibility.scope.ladderId} || ':' || ${eligibility.scope.seasonId} || ':' || actor_id) as key
     from round_participants where round_id=${roundId} and seat_kind='side' and side in (${sql.join(
-      twoSideKeys.map((side) => sql`${side}`),
+      sides.map((side) => sql`${side}`),
       sql`, `,
     )})) locks
     order by locks.key`,
@@ -210,28 +216,25 @@ async function rateOnce(
   for (const { actorId } of seats)
     standings[actorId] = await loadStanding(tx, {
       actorId,
-      ladder: eligibility.ladder,
-      seasonId,
+      pool: eligibility.scope,
     });
 
   const plan = decide.plan({
-    ladder: eligibility.ladder,
+    scope: eligibility.scope,
+    sides,
     outcome: eligibility.outcome,
     occurredAt: eligibility.occurredAt,
-    seasonId,
     seats,
     standings,
-    changeIds,
+    changeIds: Object.fromEntries(
+      seats.map(({ actorId }) => [actorId, nextChangeId()]),
+    ),
   });
-  const scope = {
-    seasonId: plan.seasonId,
-    ladder: plan.ladder,
-  };
   await tx
     .insert(ratingChanges)
     .values(ratingChangeRows(plan, { roundId, formatId: round.formatId }));
   for (const change of projectionLockOrder(plan.changes))
-    await writeProjection(tx, scope, change);
+    await writeProjection(tx, plan.scope, change);
   return ratedResult(plan);
 }
 

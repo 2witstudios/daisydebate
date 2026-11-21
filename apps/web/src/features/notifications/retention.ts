@@ -13,7 +13,7 @@ export const notificationRetentionTarget = (
     'notifications',
     90 * DAY_MS,
     (batch) => database.purgeReadNotifications(batch),
-    { batchSize: 1000 },
+    { maxBatches: 40 },
   );
 
 /** ADR 0144: sent, failed and cancelled notification digests are kept 30 days. */

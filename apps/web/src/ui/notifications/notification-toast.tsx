@@ -140,6 +140,13 @@ const looks: Record<NotificationKind, ToastLook> = {
     eyebrow: 'Friend request',
     action: 'See request',
   },
+  friend_guardian_approval: {
+    hue: 'bg-accent-soft text-accent',
+    ink: 'text-accent',
+    icon: 'users',
+    eyebrow: 'Friend request approval',
+    action: 'Review request',
+  },
   friend_request_accepted: {
     hue: 'bg-online/10 text-online',
     ink: 'text-online',

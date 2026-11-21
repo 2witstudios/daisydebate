@@ -117,6 +117,7 @@ const createSeason = z
   .strictObject({
     type: z.literal('create-season'),
     organizationId: idSchema,
+    lobbyId: idSchema,
     name: nameSchema,
     startsAt: instantSchema,
     endsAt: instantSchema.nullable(),
@@ -129,6 +130,27 @@ const createSeason = z
       season.endsAt === null || isInstantBefore(season.startsAt, season.endsAt),
     { message: 'A season ends after it starts.', path: ['endsAt'] },
   );
+
+const standingLobbyAddress = { organizationId: idSchema, lobbyId: idSchema };
+const editStandingLobby = z.strictObject({
+  type: z.literal('edit-standing-lobby'),
+  ...standingLobbyAddress,
+  name: nameSchema,
+  ageRule: z.enum(lobbyAgeRules),
+});
+const saveLadder = z.strictObject({
+  type: z.literal('save-ladder'),
+  ...standingLobbyAddress,
+  ladderId: idSchema.nullable(),
+  name: nameSchema,
+});
+const editSeason = z.strictObject({
+  type: z.literal('edit-season'),
+  ...standingLobbyAddress,
+  seasonId: idSchema,
+  name: nameSchema,
+  endsAt: instantSchema.nullable(),
+});
 
 const closeSeason = z.strictObject({
   type: z.literal('close-season'),
@@ -170,6 +192,9 @@ const lobbyCommandSchema = z.discriminatedUnion('type', [
   closeLobby,
   createSeason,
   closeSeason,
+  editSeason,
+  editStandingLobby,
+  saveLadder,
   setLadder,
   createLobbyRoom,
 ]);
@@ -390,6 +415,7 @@ export const lobbySetupRefusals = [
   'results-incomplete',
   'season-open',
   'season-closed',
+  'season-end-before-start',
   'ladder-foreign',
   'ladder-unchanged',
   'ladder-in-use',
@@ -470,7 +496,7 @@ export const lobbySetupCommandCatalogue = {
     aggregate: 'season',
     gate: ['organization.manage'],
     versions: [],
-    refusals: ['owner-not-league', 'season-open'],
+    refusals: ['owner-not-league', 'lobby-not-standing', 'season-open'],
     history: 'entry',
   },
   'close-season': {
@@ -478,6 +504,31 @@ export const lobbySetupCommandCatalogue = {
     gate: ['organization.manage'],
     versions: ['season'],
     refusals: ['season-closed'],
+    history: 'entry',
+  },
+  'edit-season': {
+    aggregate: 'season',
+    gate: ['organization.manage'],
+    versions: ['season'],
+    refusals: [
+      'lobby-not-standing',
+      'season-closed',
+      'season-end-before-start',
+    ],
+    history: 'entry',
+  },
+  'edit-standing-lobby': {
+    aggregate: 'lobby',
+    gate: ['organization.manage'],
+    versions: ['lobby'],
+    refusals: ['lobby-not-standing'],
+    history: 'entry',
+  },
+  'save-ladder': {
+    aggregate: 'lobby',
+    gate: ['organization.manage'],
+    versions: ['lobby'],
+    refusals: ['lobby-not-standing'],
     history: 'entry',
   },
   'set-ladder': {

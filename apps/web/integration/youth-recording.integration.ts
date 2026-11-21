@@ -123,7 +123,7 @@ test('a ranked Youth Round is public as an Open one is, and its linked adults se
         await seedGuardianLink(f.sql, parent.userId, f.guest.userId);
         await f.sql`update rounds set status='completed', current_stage=null, started_at=coalesce(started_at, now()), winning_side='affirmative', completed_at=now() where id=${roundId}`;
         const [division] =
-          await f.sql`select ladder_division from rounds where id=${roundId}`;
+          await f.sql`select l.age_rule from rounds r join lobbies l on l.id=r.rating_lobby_id where r.id=${roundId}`;
         const round = await recordingRoundOf(database, roundId);
         // Read past the ranked delay, as the audience reads it.
         const later = Date.now() + 600_000;
@@ -139,7 +139,7 @@ test('a ranked Youth Round is public as an Open one is, and its linked adults se
           should:
             'show it to everyone, signed out included, and discover its Broadcast',
           actual: {
-            division: division!.ladder_division,
+            division: division!.age_rule,
             broadcastDiscovered: unopened.some(
               (row) => row.roundId === roundId,
             ),
@@ -152,7 +152,7 @@ test('a ranked Youth Round is public as an Open one is, and its linked adults se
             signedOut: sees({ kind: 'visitor' }),
           },
           expected: {
-            division: 'youth',
+            division: 'under-18',
             broadcastDiscovered: true,
             debater: true,
             judge: true,

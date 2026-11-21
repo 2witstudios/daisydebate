@@ -76,10 +76,9 @@ over, while minors stay protected from unsolicited contact by adults.
   DM rule; it still grants no Room membership or competitive standing.
 - Compliance (Children) and the privacy policy notes describe the rule. State
   laws on 13-15 consent stay a counsel question (YLS-9).
-- A guardian link holds no rows yet (counsel); when it does, a guardian is a
-  linked adult and so may ask directly.
-- Decision 92 reserves guardian approval and parent-managed request settings
-  for PC-2. The friendship requirement counts accepted friendships. DM requests can
-  be reopened after decline or cancellation. The request-setting write and
-  admission both use the recipient's account fence, where PC-2 can enforce
-  who may change the setting and which setting applies.
+- An active guardian link counts as a linked adult relationship. The
+  recipient's effective message-request setting still applies.
+- [ADR 0165](0165-guardian-protection-levels.md) adds guardian approval and
+  protection limits. The friendship requirement counts accepted friendships.
+  DM requests can be reopened after decline or cancellation. Request-setting
+  writes and admission use the same recipient account fence.

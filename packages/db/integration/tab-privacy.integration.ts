@@ -83,9 +83,11 @@ test('closing an account ends its authority everywhere and keeps the tournament 
             [ids.staff],
           )
         )[0],
-        grants: await sql.unsafe(
-          'select scope_kind, revoked_at is not null as revoked, revoked_by_user_id = user_id as by_subject from grants where user_id = $1 order by scope_kind',
-          [ids.staff],
+        grants: Array.from(
+          await sql.unsafe(
+            'select scope_kind, revoked_at is not null as revoked, revoked_by_user_id = user_id as by_subject from grants where user_id = $1 order by scope_kind',
+            [ids.staff],
+          ),
         ),
         judgeExport: (
           await run(sql, tournamentRecordPrivacyAdopter, {
@@ -135,6 +137,7 @@ test('closing an account ends its authority everywhere and keeps the tournament 
         recordKept: { entries: 1, results: 1 },
         recordExport: [ids.teams[0]],
         guardianExport: {
+          protection_levels: [],
           guardian_links: [],
           guardian_consent_evidence: [],
           restriction_lobbies: [],

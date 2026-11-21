@@ -10,7 +10,6 @@ import {
   type ReadOpeningTopic,
 } from './round-opening-read';
 import { discoverRooms, type RoomDiscoveryFact } from './room-discovery';
-import type { SpectatorClock } from './spectator-release-sql';
 import type { roomCommandTransaction } from './room-command-transaction';
 import type { CasualJudgeAdmission } from './casual-judge-admission';
 import type { AllowanceDecision } from '@daisy/protocol/billing';
@@ -20,7 +19,7 @@ import {
   type RoomListQuery,
   type RoomListPage,
 } from '@daisy/protocol';
-import { and, eq, isNotNull, or } from 'drizzle-orm';
+import { and, asc, eq, isNotNull, or } from 'drizzle-orm';
 import { readWaitingOn } from './round-waiting-read';
 import type {
   LaunchedRound,
@@ -41,6 +40,9 @@ import { botProfiles } from './schema/bot-profiles';
 import { aiJudgeProfiles } from './schema/ai-judge-profiles';
 
 import { rooms } from './schema/rooms';
+import { rounds } from './schema/rounds';
+import { ladders } from './schema/ladders';
+import type { LobbyRatingSelection } from './standings';
 import { roundViewFor } from './round-view-projection';
 import { formats } from './schema/formats';
 
@@ -160,6 +162,7 @@ export const roomReadOperations = ({
     readonly state: RoomAssemblyState;
     readonly resolutionHeld: boolean;
     readonly viewerAgeBand: NonNullable<Account>['ageBand'];
+    readonly ratingPool: LobbyRatingSelection | null;
   }> {
     return instrumented(eventSink, 'readRoomAssembly', () =>
       inTransaction(database, async (tx) => {
@@ -186,6 +189,35 @@ export const roomReadOperations = ({
           !authorize(facts.state, account, direction, await transactionNow(tx))
         )
           throw createAppError('NOT_FOUND');
+        let ratingPool: LobbyRatingSelection | null = null;
+        if (row.lobbyKind === 'standing') {
+          const [frozen] = facts.state.roundRef
+            ? await tx
+                .select({
+                  ladderId: rounds.ladderId,
+                  seasonId: rounds.seasonId,
+                })
+                .from(rounds)
+                .where(eq(rounds.id, facts.state.roundRef.id))
+            : [];
+          const [primary] =
+            frozen?.ladderId || row.leagueLadderId
+              ? []
+              : await tx
+                  .select({ id: ladders.id })
+                  .from(ladders)
+                  .where(eq(ladders.lobbyId, row.lobbyId))
+                  .orderBy(asc(ladders.createdAt), asc(ladders.id))
+                  .limit(1);
+          const ladderId =
+            frozen?.ladderId ?? row.leagueLadderId ?? primary?.id;
+          if (ladderId)
+            ratingPool = {
+              lobbyId: row.lobbyId,
+              ladderId,
+              ...(frozen?.seasonId ? { seasonId: frozen.seasonId } : {}),
+            };
+        }
         return {
           viewerAgeBand: account?.ageBand ?? null,
           resolutionHeld:
@@ -193,6 +225,7 @@ export const roomReadOperations = ({
             !direction?.resolutionReleasedAt &&
             facts.state.roundRef === null &&
             facts.state.topic !== null,
+          ratingPool,
           state: {
             ...facts.state,
             topic: await currentRoomTopic(tx, facts.state, readTopic),
@@ -207,7 +240,6 @@ export const roomReadOperations = ({
     authorize: (fact: RoomDiscoveryFact, account: Account) => boolean,
     authorizeCollection: (account: Account) => boolean,
     hostHidden: (fact: RoomDiscoveryFact) => boolean,
-    clock: SpectatorClock,
     readTopic: ReadOpeningTopic,
   ): Promise<RoomListPage> {
     if (!roomListQuerySchema.safeParse(query).success)
@@ -221,7 +253,6 @@ export const roomReadOperations = ({
           authorize,
           authorizeCollection,
           hostHidden,
-          clock,
           readTopic,
         ),
       ),

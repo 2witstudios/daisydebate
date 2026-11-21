@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { readAuthorizationActors } from '../authorization';
 import { query } from '../raw-rows';
 import { inTransaction, type Tx, type TxOpener } from '../tx';
+import { currentTenantScope, scopeTransaction } from '../tenant-scope';
 
 type Account = {
   readonly account: {
@@ -13,6 +14,41 @@ type Account = {
   };
   readonly age: { readonly state: string; readonly band?: string };
 };
+
+type NewDmRequest = {
+  readonly userId: string;
+  readonly actorId: string;
+  readonly recipientActorId: string;
+};
+
+const closed = {
+  requestSetting: 'none' as const,
+  friendActorIds: [],
+  linkedAdultUserIds: [],
+};
+
+async function readDmRequestAction(
+  tx: Tx,
+  recipientId: string,
+  request: NewDmRequest,
+) {
+  const previous = await currentTenantScope(tx);
+  await scopeTransaction(tx, { ...previous, subjectUserId: request.userId });
+  const [row] = await query(
+    tx,
+    z.object({ action: z.enum(['message', 'befriend', 'none']).nullable() }),
+    sql`select public.daisy_dm_request_access(${recipientId}, ${request.actorId}) as action`,
+  );
+  await scopeTransaction(tx, previous);
+  if (!row) throw createAppError('INFRASTRUCTURE');
+  return {
+    ...closed,
+    dmRequest: {
+      initiatorActorId: request.actorId,
+      action: row.action ?? ('none' as const),
+    },
+  };
+}
 
 /**
  * What the DM rule reads about each account (decision 90, ADR 0160), in one
@@ -23,14 +59,21 @@ type Account = {
  * account, in the order given.
  */
 export const bindMessagingContactFacts =
-  (tx: Tx) => async (accounts: readonly Account[]) => {
-    // An account without a current age is refused before any of this is
-    // read, so it gets the closed answer and costs no statement.
-    const closed = {
-      requestSetting: 'none' as const,
-      friendActorIds: [],
-      linkedAdultUserIds: [],
-    };
+  (tx: Tx, request?: NewDmRequest) => async (accounts: readonly Account[]) => {
+    if (request) {
+      const recipient = accounts.find(
+        ({ account }) => account.actorId === request.recipientActorId,
+      );
+      if (!recipient) return accounts.map(() => closed);
+      const action = await readDmRequestAction(
+        tx,
+        recipient.account.userId,
+        request,
+      );
+      return accounts.map((row) => (row === recipient ? action : closed));
+    }
+
+    // Only current age facts need conversation contact facts.
     const known = accounts.filter((row) => row.age.state === 'known');
     if (known.length === 0) return accounts.map(() => closed);
     const cast = JSON.stringify(

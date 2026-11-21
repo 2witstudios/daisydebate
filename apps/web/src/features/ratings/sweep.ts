@@ -33,8 +33,12 @@ export function createRatingSweep(deps: {
       }
       try {
         if (!ratingAwaited(facts)) continue;
-        await rateCompletedRound(deps.database, roundId, deps.ids);
-        rated += 1;
+        const result = await rateCompletedRound(
+          deps.database,
+          roundId,
+          deps.ids,
+        );
+        if (result.kind === 'rated') rated += 1;
       } catch (error) {
         deps.onFailure(roundId, error);
       }

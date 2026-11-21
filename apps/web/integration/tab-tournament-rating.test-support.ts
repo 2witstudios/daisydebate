@@ -42,12 +42,12 @@ export async function ratingStage(world: World): Promise<void> {
     expected: [null, null],
   });
   assert({
-    given: 'the active Coach member without a host grant',
-    should:
-      'read the ladder through the resolved participants posting audience',
+    given:
+      'the active Coach member without a source tournament host grant or public results',
+    should: 'read the receiving league ladder with no withheld games',
     actual: (await read(as(world.bots.Coach!), { lobbyId: standingLobbyId }))
       ?.entrants,
-    expected: before.entrants,
+    expected: 0,
   });
   const daisyBefore =
     await world.sql`select count(*)::int as count from rating_changes`;
@@ -228,15 +228,17 @@ export async function ratingStage(world: World): Promise<void> {
       entrants.find((row: { id: string; actor_id: string }) => row.id === id)!
         .actor_id,
     );
-    return snapshot.ladders
-      .find((row) => row.ladderId === ladderId)!
-      .actors.find((row) => row.actorId === actorId)!.rating;
+    return Math.round(
+      snapshot.ladders
+        .find((row) => row.ladderId === ladderId)!
+        .actors.find((row) => row.actorId === actorId)!.rating,
+    );
   });
   assert({
     given:
       'a sanctioned certified first tournament and a later single-elimination event',
     should:
-      'freeze league ratings and seed every rated entrant in descending rating order',
+      'freeze league ratings and seed every rated entrant in descending entry-rating order',
     actual: [
       snapshot.events.some(
         (row) => row.eventId === eventId && row.ladderId === ladderId,

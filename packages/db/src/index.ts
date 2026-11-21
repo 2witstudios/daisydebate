@@ -91,7 +91,6 @@ import {
   erasePrivacySubject as runSubjectRightsErasure,
   exportPrivacySubject as runSubjectRightsExport,
 } from './privacy/subject-rights';
-import type { PrivacyErasureInput } from './privacy/planner';
 import type { PrivacySubject } from './privacy/contracts';
 import type { PrivacyVerificationBinding } from './privacy/operations';
 import type { RoomClosureTransitions } from './room-account-closure';
@@ -106,6 +105,7 @@ import {
 import { claimUsername } from './username-claim';
 import { mailIntentOperations } from './mail-intents';
 import { leagueRequestOperations } from './league-requests';
+import { eraseGuardianChild } from './privacy/subject-rights';
 import { createMediaReleases } from './media-releases';
 import { createMediaReleaseClubs } from './media-release-club';
 import { mediaReleaseMailOperations } from './media-release-mail';
@@ -404,12 +404,20 @@ export function createDatabase({
      * transitions and, for erasure, the verification bindings.
      */
     erasePrivacySubject: (
-      input: PrivacyErasureInput,
+      input: Parameters<typeof runSubjectRightsErasure>[1],
       rooms: RoomClosureTransitions,
       verificationBindings: readonly PrivacyVerificationBinding[],
     ) =>
       instrumented(eventSink, 'erasePrivacySubject', () =>
         runSubjectRightsErasure(control, input, rooms, verificationBindings),
+      ),
+    eraseGuardianChild: (
+      input: Parameters<typeof eraseGuardianChild>[1],
+      rooms: RoomClosureTransitions,
+      verificationBindings: readonly PrivacyVerificationBinding[],
+    ) =>
+      instrumented(eventSink, 'eraseGuardianChild', () =>
+        eraseGuardianChild(control, input, rooms, verificationBindings),
       ),
     exportPrivacySubject: (
       subject: PrivacySubject,
@@ -448,7 +456,11 @@ export function createDatabase({
     ...presenceSettingOperations({ database: social, eventSink }),
     ...peopleListOperations({ database: social, eventSink }),
     ...publicProfileOperations({ database: social, eventSink }),
-    ...memberCardOperations({ database: social, eventSink }),
+    ...memberCardOperations({
+      database: social,
+      ratingDatabase: browse,
+      eventSink,
+    }),
     ...challengeReadOperations({ database: social, eventSink }),
     ...reportOperations({ database: control, eventSink, moderationReactions }),
     ...moderationOperations({ database: control, eventSink }),

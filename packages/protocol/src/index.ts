@@ -38,7 +38,6 @@ export {
   ladderKey,
   ratingDivisions,
   ratingDivisionForAgeRule,
-  roundCompetition,
 } from './ladder';
 export type { AgeBand, Ladder, RatingDivision } from './ladder';
 export { isYouthRound, type LiveStanding } from './youth-round';
@@ -62,6 +61,7 @@ export {
   seatKinds,
   seatLabel,
   seatOrder,
+  sideKeySchema,
   seatRefSchema,
   sideOfSeat,
   sideSeat,
@@ -561,8 +561,8 @@ export {
   friendCommandResultSchema,
   friendCommandSchemas,
   friendListSchema,
-  friendshipStates,
   onlineCountsSchema,
+  storedFriendshipStates,
 } from './friends';
 export {
   chosenStatuses,
@@ -936,3 +936,5 @@ export {
   roundJudgeAssignmentReceiptSchema,
   type RoundJudgeAssignmentReceipt,
 } from './round-judge-assignment';
+
+export { roundRatingScopeSchema, type RoundRatingScope } from './rating-ladder';

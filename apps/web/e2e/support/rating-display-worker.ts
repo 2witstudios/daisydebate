@@ -40,12 +40,26 @@ try {
     const id = createId(),
       command = createId();
     const roomId = rooms.find((r) => r.ladder === ladder)!.id;
-    await sql.begin(async (tx) => {
+    const lobbyId = await sql.begin(async (tx) => {
       const [room] =
         await tx`select rules_snapshot from rooms where id=${roomId} and host_actor_id=${member.id}`;
       if (!room) throw new Error('Display fixture room missing');
       const checkpoint = emptyRuntimeCheckpointFor(room.rules_snapshot);
-      await tx`insert into rounds(id,room_id,created_by_actor_id,room_config_snapshot,visibility,resolution,competition_type,format_id,format_version,preset_version,rules_snapshot,runtime_state,status,current_stage,winning_side,ladder_id,ladder_division,started_at,completed_at) select ${id},id,host_actor_id,config,visibility,'Fixture display proof','ranked',format_id,format_version,preset_version,rules_snapshot,${checkpoint},'active','live',null,${ladder},'open',clock_timestamp()-interval '10 minutes',null from rooms where id=${roomId} and host_actor_id=${member.id}`;
+      const [pool] =
+        await tx`select ld.id as ladder_id, s.id as season_id, s.lobby_id, l.age_rule
+        from rooms r join lobbies l on l.id=r.lobby_id and l.kind='standing'
+        join seasons s on s.lobby_id=l.id and s.status='active'
+        join ladders ld on ld.lobby_id=l.id where r.id=${roomId}
+        order by ld.created_at,ld.id limit 1`;
+      if (!pool) throw new Error('Display fixture season missing');
+      await tx`insert into rounds(id,room_id,created_by_actor_id,room_config_snapshot,visibility,
+        resolution,competition_type,format_id,format_version,preset_version,rules_snapshot,runtime_state,
+        status,current_stage,ladder_id,season_id,rating_lobby_id,standing_age_rule,standing_youth_cast,started_at)
+        select ${id},id,host_actor_id,config,visibility,'Fixture display proof','ranked',format_id,
+          format_version,preset_version,rules_snapshot,${checkpoint},'active','live',${pool.ladder_id},
+          ${pool.season_id},${pool.lobby_id},${pool.age_rule},coalesce(public.daisy_room_is_youth(id), false),
+          clock_timestamp()-interval '10 minutes'
+        from rooms where id=${roomId} and host_actor_id=${member.id}`;
       for (const [side, actor] of [
         [affirmativeSide, member.id],
         [negativeSide, opponent],
@@ -57,18 +71,27 @@ try {
       await tx`update rounds set status='completed',current_stage=null,winning_side=${affirmativeSide},completed_at=clock_timestamp()-interval '10 minutes' where id=${id}`;
       await tx`insert into round_commands(command_id,round_id,actor_id,type,payload_digest,result,resulting_version,applied_at) values(${command},${id},${member.id},'forfeit',${'a'.repeat(64)},${{}},1,clock_timestamp())`;
       await tx`insert into round_finalizations(round_id,command_id,resulting_version) values(${id},${command},1)`;
+      return String(pool.lobby_id);
     });
-    await rateCompletedRound(database, id, { next: createId });
+    const result = await rateCompletedRound(database, id, { next: createId });
+    if (result.kind !== 'rated')
+      throw new Error(`Display fixture did not post a rating: ${result.kind}`);
     // Long past the ranked delay: the standings hold a result until it has left.
-    await sql`update rating_changes set occurred_at=clock_timestamp()-interval '10 minutes' where round_id=${id}`;
-    const [posted] =
-      await sql`select rating_before,rating_after from rating_changes where round_id=${id} and actor_id=${member.id}`;
+    const [posted] = await sql.begin(async (tx) => {
+      await tx`select set_config('daisy.lobby_scope',${lobbyId},true)`;
+      await tx`update rating_changes set occurred_at=clock_timestamp()-interval '10 minutes' where round_id=${id}`;
+      return tx`select rating_before,rating_after from rating_changes where round_id=${id} and actor_id=${member.id}`;
+    });
+    if (!posted)
+      throw new Error(
+        'Display fixture posting is absent from its lobby ledger',
+      );
     evidence.push({
       ladder,
       roundId: id,
-      rating: Math.round(Number(posted!.rating_after)),
+      rating: Math.round(Number(posted.rating_after)),
       delta: Math.round(
-        Number(posted!.rating_after) - Number(posted!.rating_before),
+        Number(posted.rating_after) - Number(posted.rating_before),
       ),
     });
   }

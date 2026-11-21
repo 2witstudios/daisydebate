@@ -13,13 +13,14 @@ export function loadAccountPolicyFacts(
   lockedAccounts: readonly (AccountAuthorizationFact | null)[],
   now: string,
   purpose: 'reading' | 'posting' = 'posting',
+  request?: Parameters<typeof bindMessagingContactFacts>[1],
 ) {
   return loadPolicyFacts({
     accounts: lockedAccounts,
     now,
     readAgeFact: bindAuthorizationAgeFact(tx),
     ...(purpose === 'posting'
-      ? { readContactFacts: bindMessagingContactFacts(tx) }
+      ? { readContactFacts: bindMessagingContactFacts(tx, request) }
       : {}),
   });
 }

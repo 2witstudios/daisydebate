@@ -7,6 +7,7 @@
 const OPERATION_NAMES = [
   'account.age.answer',
   'parental-controls.command',
+  'parental-controls.more',
   'billing.checkout',
   'billing.portal',
   'billing.settings',

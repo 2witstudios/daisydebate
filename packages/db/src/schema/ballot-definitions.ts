@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { ballotDefinitionSchema } from '@daisy/protocol';
 import {
+  boolean,
   check,
   foreignKey,
   index,
@@ -41,6 +42,7 @@ export const ballotDefinitions = pgTable(
       onDelete: 'restrict',
     }),
     name: text('name').notNull(),
+    shared: boolean('shared').notNull().default(false),
     currentVersion: integer('current_version').notNull(),
     createdAt: createdAtColumn(),
     updatedAt: updatedAtColumn(),

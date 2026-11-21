@@ -1,5 +1,12 @@
 import { and, asc, eq, gt, inArray, isNull, or, sql } from 'drizzle-orm';
 import { lockAuthorizationActors } from '../authorization';
+import type { ProtectionLevel } from '@daisy/protocol/protection-level';
+import { readProtectionLevel } from './protection-level';
+import { mintNoticeIds } from '../notifications/mint-notice-ids';
+import {
+  answerFriendApproval,
+  readWaitingFriendApprovals,
+} from '../friends/guardian-approvals';
 import { actors } from '../schema/actors';
 import { users } from '../schema/users';
 import {
@@ -116,6 +123,24 @@ function scopedGuardians(tx: Tx, userId: string) {
         .from(childAccountRequests)
         .where(eq(childAccountRequests.guardianUserId, userId))
         .orderBy(asc(childAccountRequests.createdAt));
+    },
+    waitingFriendApprovals: () => readWaitingFriendApprovals(tx, userId),
+    answerFriendApproval: (input: Parameters<typeof answerFriendApproval>[1]) =>
+      answerFriendApproval(tx, input),
+    protectionLevel: (childUserId: string) =>
+      readProtectionLevel(tx, childUserId),
+    setProtectionLevel(
+      childUserId: string,
+      choice: ProtectionLevel,
+      at: string,
+      nextId: () => string,
+    ) {
+      return mintNoticeIds(
+        tx,
+        sql`public.daisy_set_protection_level`,
+        sql`${childUserId}, ${JSON.stringify(choice)}::text::jsonb, ${at}::timestamptz`,
+        nextId,
+      );
     },
     async insertEvidence(
       evidence: typeof guardianConsentEvidence.$inferInsert,
