@@ -2,14 +2,18 @@ import { z } from 'zod';
 import { normalizeEmail } from './email';
 
 /**
- * Media releases (ADR 0151, PYL S4): a minor's Youth Rounds are recorded but
- * private (ADR 0150) until a parent or guardian signs a release, or a club
- * that already holds one confirms it on Daisy. A release is a durable,
- * revocable record of one scope for one minor. These rules are pure and
+ * Media releases (ADR 0151, amended by ADR 0161): a minor's Rounds are viewed
+ * as anyone's are, but their content may not be reused (clipped, downloaded,
+ * streamed on) until a parent or guardian signs a release, or a club that
+ * already holds one confirms it on Daisy. A release is a durable, revocable
+ * record of one scope for one minor. These rules are pure and
  * total: the instant is injected, and a refusal leaves the state unchanged.
  */
 
-/** What a release allows: publishing (with clips), and paid ads, opted into separately. */
+/**
+ * What a release allows: `publish` (the stored name, kept) is the reuse
+ * licence (clipping, download and reuse); paid ads is opted into separately.
+ */
 export const mediaReleaseScopes = ['publish', 'paid_ads'] as const;
 export type MediaReleaseScope = (typeof mediaReleaseScopes)[number];
 
@@ -20,8 +24,13 @@ export const mediaReleaseSources = ['parent', 'club'] as const;
 export const guardianRelations = ['parent', 'legal_guardian'] as const;
 export type GuardianRelation = (typeof guardianRelations)[number];
 
-/** Who withdrew a release. */
-export const releaseWithdrawers = ['parent', 'club', 'erasure'] as const;
+/** How an active release ended. */
+export const releaseWithdrawers = [
+  'parent',
+  'club',
+  'erasure',
+  'superseded',
+] as const;
 type ReleaseWithdrawer = (typeof releaseWithdrawers)[number];
 
 /** How a release request ended; an open request has none. */
@@ -63,9 +72,16 @@ export const mediaReleasePolicy = {
 
 /** The release wording shown and recorded (the [COUNSEL] draft until counsel answers). */
 export const mediaReleaseWording = {
-  version: '2026-11-v1',
-  label: '2026-11 v1',
+  version: '2026-11-v2',
+  label: '2026-11 v2',
 } as const;
+
+/**
+ * The release wordings that license reuse (ADR 0161): clipping, download and
+ * reuse by Daisy and others. A release signed at an earlier wording granted
+ * publishing only and leaves the reuse fence in place.
+ */
+export const reuseLicensingWordings: readonly string[] = ['2026-11-v2'];
 
 /** A parent's or guardian's signature. */
 type ParentSignature = {
@@ -148,7 +164,7 @@ export const activeReleaseOf = (
 
 /**
  * Where a minor stands, as Settings, the club and the coach see it. An active
- * publish release is on file; else an open request is waiting; else a release
+ * reuse release is on file; else an open request is waiting; else a release
  * a parent withdrew says so (only the parent can sign again); else none.
  */
 export type ReleaseStanding =
@@ -180,7 +196,10 @@ export const releaseStandingOf = (input: {
 }): ReleaseStanding => {
   const { subjectUserId, releases, nowMs } = input;
   const publish = activeReleaseOf(releases, subjectUserId, 'publish');
-  if (publish !== null)
+  if (
+    publish !== null &&
+    reuseLicensingWordings.includes(publish.wordingVersion)
+  )
     return {
       kind: 'on_file',
       publish,
@@ -314,6 +333,7 @@ export const releaseLinkVerdict = (
 // -------------------------------------------------------------- the parent
 
 const signatureFormSchema = z.object({
+  wordingVersion: z.literal(mediaReleaseWording.version),
   name: z.string().trim().min(1).max(mediaReleasePolicy.nameMaxLength),
   relation: z.enum(guardianRelations),
   attests: z.literal(true),
@@ -328,6 +348,7 @@ export type SignDecision =
       readonly ok: true;
       readonly scopes: readonly MediaReleaseScope[];
       readonly signature: ParentSignature;
+      readonly wordingVersion: typeof mediaReleaseWording.version;
     }
   | { readonly ok: false; readonly refusal: Exclude<SignRefusal, 'usable'> };
 
@@ -351,6 +372,7 @@ export const decideSignature = (
   return {
     ok: true,
     scopes: parsed.data.paidAds ? ['publish', 'paid_ads'] : ['publish'],
+    wordingVersion: parsed.data.wordingVersion,
     signature: {
       kind: 'parent',
       name: parsed.data.name,
@@ -494,6 +516,7 @@ export const clubConfirmVerdict = (
 };
 
 const clubConfirmFormSchema = z.object({
+  wordingVersion: z.literal(mediaReleaseWording.version),
   warrants: z.literal(true),
   paidAds: z.boolean(),
   name: z.string().trim().min(1).max(mediaReleasePolicy.nameMaxLength),
@@ -506,6 +529,7 @@ export type ClubConfirmDecision =
       readonly scopes: readonly MediaReleaseScope[];
       readonly name: string;
       readonly role: string;
+      readonly wordingVersion: typeof mediaReleaseWording.version;
       readonly confirm: readonly {
         readonly userId: string;
         /** The student's open parent request, now superseded. */
@@ -538,6 +562,7 @@ export const decideClubConfirm = (
     scopes: parsed.data.paidAds ? ['publish', 'paid_ads'] : ['publish'],
     name: parsed.data.name,
     role: parsed.data.role,
+    wordingVersion: parsed.data.wordingVersion,
     confirm: students.map((student) => ({
       userId: student.userId,
       supersedes:
@@ -548,19 +573,22 @@ export const decideClubConfirm = (
   };
 };
 
-// ------------------------------------------------------------ publishing
+// ----------------------------------------------------------------- reuse
+
+/** A release as the reuse fence reads it. */
+type ReuseRelease = Pick<
+  MediaReleaseRecord,
+  'subjectUserId' | 'scope' | 'withdrawnAt' | 'wordingVersion'
+>;
 
 /**
- * Whether every youth debater of a Round holds an active publish release: the
- * one test a Youth Round's publication needs (ADR 0150, ADR 0151). A Round
- * with no youth debater has nothing to release, so it is never publishable.
+ * Whether every youth debater of a Round holds an active release at a
+ * wording that licenses reuse. A Round with no youth debater has nothing to
+ * release, so this is false for it.
  */
 export const everyDebaterReleased = (
   debaterUserIds: readonly string[],
-  releases: readonly Pick<
-    MediaReleaseRecord,
-    'subjectUserId' | 'scope' | 'withdrawnAt'
-  >[],
+  releases: readonly ReuseRelease[],
 ): boolean =>
   debaterUserIds.length > 0 &&
   debaterUserIds.every((userId) =>
@@ -568,40 +596,25 @@ export const everyDebaterReleased = (
       (release) =>
         release.subjectUserId === userId &&
         release.scope === 'publish' &&
+        reuseLicensingWordings.includes(release.wordingVersion) &&
         isReleaseActive(release),
     ),
   );
 
-export type PublishRefusal =
-  | 'closed'
-  | 'not_a_debater'
-  | 'releases_missing'
-  | 'not_available'
-  | 'already_public';
-
-/** A debater shares a Youth Recording publicly (ADR 0151). */
-export const decidePublish = (facts: {
-  /** The youth-publishing flag is open. */
-  readonly open: boolean;
+/**
+ * The reuse fence (ADR 0161): whether a Round's content may not leave Daisy
+ * (download, Stream this Round and its official feed, the ranked content
+ * policy's stream-and-earn grant). Viewing never asks it. A Round with a youth
+ * debater is fenced unless every youth debater holds an active reuse licence.
+ * Youth with no youth debater left fails closed. Any other
+ * Round is never fenced. `youthReuseFencedSql` in `@daisy/db` is its SQL
+ * mirror.
+ */
+export const reuseFenced = (round: {
+  /** `isYouthRound` of the Round. */
+  readonly youth: boolean;
+  /** The people in its current debating seats. */
   readonly debaterUserIds: readonly string[];
-  readonly publisherUserId: string;
-  readonly releases: readonly Pick<
-    MediaReleaseRecord,
-    'subjectUserId' | 'scope' | 'withdrawnAt'
-  >[];
-  /** The Recording exists and has not been taken down. */
-  readonly available: boolean;
-  readonly published: boolean;
-}):
-  | { readonly ok: true }
-  | { readonly ok: false; readonly refusal: PublishRefusal } => {
-  if (!facts.open) return { ok: false, refusal: 'closed' };
-  if (!facts.debaterUserIds.includes(facts.publisherUserId))
-    return { ok: false, refusal: 'not_a_debater' };
-  if (!facts.available) return { ok: false, refusal: 'not_available' };
-  if (!everyDebaterReleased(facts.debaterUserIds, facts.releases))
-    return { ok: false, refusal: 'releases_missing' };
-  return facts.published
-    ? { ok: false, refusal: 'already_public' }
-    : { ok: true };
-};
+  readonly releases: readonly ReuseRelease[];
+}): boolean =>
+  round.youth && !everyDebaterReleased(round.debaterUserIds, round.releases);

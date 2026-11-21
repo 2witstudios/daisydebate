@@ -63,7 +63,6 @@ export const appRoutes: readonly string[] = [
   '/api/media-releases/cancel',
   '/api/media-releases/manage-link',
   '/api/media-releases/paid-ads',
-  '/api/media-releases/publish',
   '/api/media-releases/resend',
   '/api/media-releases/sign',
   '/api/media-releases/stop',
@@ -325,4 +324,5 @@ export const appRoutes: readonly string[] = [
   '/watch',
   '/watch/[roundId]',
   '/watch/[roundId]/link',
+  '/youth-content-waiver',
 ];

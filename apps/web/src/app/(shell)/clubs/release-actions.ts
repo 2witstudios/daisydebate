@@ -42,6 +42,7 @@ export async function confirmClubReleasesAction(
       body: JSON.stringify({
         students,
         form: {
+          wordingVersion: field(form, 'wordingVersion'),
           warrants: field(form, 'warrants') === 'on',
           paidAds: field(form, 'paidAds') === 'yes',
           name: field(form, 'name'),

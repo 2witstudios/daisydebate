@@ -7,6 +7,7 @@ decision 86). Amends [ADR 0155](0155-linked-adults-watch-youth-live.md) §2 and
 §7 and [ADR 0150](0150-youth-recordings-private.md) §3. Gives
 [ADR 0129](0129-tenant-isolation-by-row-level-security.md) its first registered
 `SECURITY DEFINER` functions and the check that holds them.
+Amended by [ADR 0161](0161-youth-rounds-follow-open-visibility.md): the same function admits linked adults through a private or unlisted Room's Recording and live room.
 
 ## Context
 

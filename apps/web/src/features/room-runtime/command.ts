@@ -94,9 +94,9 @@ export function roomCommandOperation({
           : null,
       roundId,
       seatsBotDebater: castSeatsBotDebater,
-      readyAgreements: (state) => {
+      readyAgreements: (state, signer) => {
         const notice = roomCaptureNotice(state);
-        const contentWaiverVersion = requiredContentWaiver(state);
+        const contentWaiverVersion = requiredContentWaiver(state, signer);
         return notice || contentWaiverVersion
           ? {
               contentWaiverVersion,

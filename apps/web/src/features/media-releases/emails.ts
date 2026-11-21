@@ -25,12 +25,12 @@ export function renderReleaseMail(
     case 'reminder':
       return renderEmailLayout({
         subject: `${mail.mail === 'reminder' ? 'Reminder: ' : ''}${minor} asked you to sign a media release · Daisy`,
-        preheader: `${minor}’s debate Rounds stay private unless you sign. About two minutes.`,
+        preheader: `Nobody may clip, download or reuse ${minor}’s debate Rounds unless you sign. About two minutes.`,
         eyebrow: 'Media release',
         headline: `${minor} asked you to sign a media release`,
         paragraphs: [
-          `${minor} debates on Daisy Debate, an online debate platform. Because they are under 18, their ranked Rounds are recorded but kept private.`,
-          'If you sign, Daisy may publish their Rounds and share clips of them. Using clips in paid advertising is a separate choice, off unless you turn it on. You can withdraw at any time.',
+          `${minor} debates on Daisy Debate, an online debate platform. Their Rounds can be watched on Daisy under each Room’s own settings, and ranked Rounds are public. Because they are under 18, nobody may clip, download or reuse them without a release.`,
+          'If you sign, Daisy and others may clip, download and reuse their Rounds. Using clips in paid advertising is a separate choice, off unless you turn it on. You can withdraw at any time.',
           'It takes about two minutes. You don’t need a Daisy account.',
           `This link works until ${until}.`,
         ],
@@ -50,7 +50,7 @@ export function renderReleaseMail(
           ? []
           : [
               `Signed by ${signed.name}, ${guardianRelationWords[signed.relation]}, on ${releaseDate(signed.signedAt)}. Release version ${signed.wordingVersion}.`,
-              `Publish Rounds and clips: allowed. Paid advertising: ${signed.paidAds ? 'allowed' : 'not allowed'}.`,
+              `Clipping, download and reuse: allowed. Paid advertising: ${signed.paidAds ? 'allowed' : 'not allowed'}.`,
             ];
       return renderEmailLayout({
         subject:

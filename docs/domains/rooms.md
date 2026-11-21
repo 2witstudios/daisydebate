@@ -210,7 +210,7 @@ clock and the speech order) with no controls and no media. That read is undelaye
 a seatless host acts as an event host (`round.observe.undelayed`, ADR 0099), on
 any Round, ranked included. A seated host gains nothing from hosting. On a Youth
 Round the same view, labelled "Watching", opens to each youth debater's linked
-adults, who also read the transcript and read the floor chat without posting
+adults, whatever the Room's visibility, who also read the transcript and read the floor chat without posting
 (`liveAudience`, ADR 0155); they reach it from the student's Room or Round link
 and from Watch's "Your students, live". The spectator view is the seed of
 spectating: `SpectatorKind` names why a viewer watches (`host`,
@@ -335,9 +335,16 @@ season, bounded by their own age record and a 12-month carry (ADR 0147 §3).
   and a league Room on its ladder also seats only members in that division.
   A caller's own claim there answers `other-division`, and a host's assignment
   answers `actor-ineligible`.
-- **Watching live** (`canWatchLive`). Any member may watch an Open Round; a
-  Youth Room's Round only its seats and seatless host (the spectator read
-  answers as missing).
+- **Watching** ([ADR 0161](../decisions/0161-youth-rounds-follow-open-visibility.md)).
+  A Youth Room's Round is watched, listed, broadcast and recorded exactly as
+  an Open Room's: ranked is public, casual follows the Room's visibility and
+  its host's broadcast and recording choices. The one difference: each youth
+  debater's linked coach or parent sees through an unlisted or private Room,
+  live (the "Watching" view above) and its Recording. A Youth Round's content
+  is reused (download, Stream this Round) only once every youth debater holds
+  a media release (`reuseFenced`, `youthReuseFencedSql`), and a member under
+  18 signs the Youth ranked content waiver before any ranked Ready, judging
+  included.
 
 Round writers keep their own eligibility, so a running Round is never changed
 by any of this. See [compliance](../operations/compliance.md#children).

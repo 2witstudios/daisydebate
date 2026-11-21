@@ -1,25 +1,9 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { shareNoticeOf, standingBadgeOf } from './release-words';
+import { standingBadgeOf } from './release-words';
 
 setupRitewayBun();
 
 test('release words', () => {
-  assert({
-    given: 'each share outcome key',
-    should: 'say nothing on success and the reason otherwise',
-    actual: [
-      shareNoticeOf(''),
-      shareNoticeOf('shared'),
-      shareNoticeOf('releases_missing'),
-      shareNoticeOf('constructor'),
-    ],
-    expected: [
-      null,
-      null,
-      'Every youth debater needs a media release first.',
-      'This recording could not be shared. Try again.',
-    ],
-  });
   assert({
     given: 'each standing',
     should: 'pick its badge',

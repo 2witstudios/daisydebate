@@ -1,6 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
-  canWatchLive,
   isYouthRound,
   lobbyOf,
   roomLobbyAtCreation,
@@ -128,25 +127,6 @@ test('seatAllowed', () => {
       seatAllowed(bot, room('youth', 'casual'), aff),
       seatAllowed(bot, room('open', 'casual'), aff),
       seatAllowed(bot, room('open', 'ranked'), aff),
-    ],
-    expected: [true, true, false],
-  });
-});
-
-test('canWatchLive', () => {
-  assert({
-    given: 'an Open Round',
-    should: 'let any member watch it live',
-    actual: canWatchLive({ standing: 'none' }, { division: 'open' }),
-    expected: true,
-  });
-  assert({
-    given: 'a Youth Round',
-    should: 'let only its seats and seatless host watch it live',
-    actual: [
-      canWatchLive({ standing: 'seat' }, { division: 'youth' }),
-      canWatchLive({ standing: 'seatless-host' }, { division: 'youth' }),
-      canWatchLive({ standing: 'none' }, { division: 'youth' }),
     ],
     expected: [true, true, false],
   });

@@ -1,12 +1,7 @@
 import type { Metadata } from 'next';
-import { notFound } from 'next/navigation';
 import type { SearchParams } from '../../../features/access/decision';
 import { signPageOf } from '../../../features/media-releases/parent-pages';
-import {
-  readReleaseLink,
-  releaseNowMs,
-  releasePagesOpen,
-} from '../../../lib/request-session';
+import { readReleaseLink, releaseNowMs } from '../../../lib/request-session';
 import { AlreadySigned } from '../../../ui/media-releases/parent/link-forms';
 import {
   ReleaseFrame,
@@ -42,7 +37,6 @@ export default async function ReleasePage({
 }: {
   searchParams: Promise<SearchParams>;
 }) {
-  if (!(await releasePagesOpen())) notFound();
   const token = tokenOf((await searchParams)['t']);
   const page = signPageOf(await readReleaseLink('sign', token), releaseNowMs());
   return (

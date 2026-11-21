@@ -1,22 +1,12 @@
-import { daisyOrganizationId } from '@daisy/db/testing';
+import { mediaReleaseWording } from '@daisy/protocol/media-release';
 import { requireTestServices } from '@daisy/config';
-import { plannedRecording } from '@daisy/debate-engine';
-import { isJudgeSeat, isModeratorSeat } from '@daisy/protocol';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import {
-  roundEvidencePermissions,
-  type RecordingRound,
-  type RecordingViewer,
-} from '../src/features/recording/audience';
 import {
   newReleaseLinkToken,
   releaseLinkDigest,
 } from '../src/features/media-releases/link-token';
-import { spectatorClockAt } from '../src/features/spectating/spectator-clock';
-import { readyRankedRoom } from './ranked-room.test-support';
 import { withRoomRuntime } from './room-runtime.test-support';
-import { launchRuntimeRound } from './round-runtime.test-support';
 import { deleteOrphanNotificationSignals } from './notification-signals.test-support';
 
 setupRitewayBun();
@@ -25,8 +15,7 @@ requireTestServices(process.env);
 /**
  * PYL-6 and PYL-7 (ADR 0151) against the real database and its row-level
  * security: a minor asks, a parent signs and withdraws through single-use
- * hashed links, a club attests, and a Youth Recording becomes public only
- * when every youth debater holds a release and publishing is open.
+ * hashed links, and a club attests.
  */
 type Fixture = Parameters<Parameters<typeof withRoomRuntime>[0]>[0];
 type Member = Fixture['host'];
@@ -49,9 +38,6 @@ type Store = {
       userId: string,
     ) => Promise<{ standing: { kind: string } }>;
     readonly stopRequests: (recipientHash: string) => Promise<void>;
-    readonly readActivePublishReleases: (
-      ids: readonly string[],
-    ) => Promise<readonly unknown[]>;
   };
   readonly mediaReleaseClubs: {
     readonly confirmClubReleases: (c: {
@@ -65,36 +51,11 @@ type Store = {
       ineligible?: readonly string[];
     }>;
   };
-  readonly youthRoundPublications: {
-    readonly publishYouthRound: (c: {
-      roundId: string;
-      userId: string;
-      open: boolean;
-    }) => Promise<{ kind: string; reason?: string }>;
-    readonly readYouthRoundShared: (roundId: string) => Promise<boolean>;
-  };
   readonly prepareMediaReleaseMail: (i: {
     mailId: string;
     linkId: string;
     tokenDigest: string;
   }) => Promise<{ kind: string }>;
-  readonly readRecordingRound: (
-    roundId: string,
-  ) => Promise<Parameters<typeof plannedRecording>[0] & Record<string, never>>;
-  readonly readYouthRoundPeople: (roundId: string) => Promise<{
-    debaters: readonly {
-      actorId: string;
-      userId: string;
-      linkedAdultActorIds: readonly string[];
-    }[];
-  }>;
-  readonly readRecordingBroadcastRelease: (
-    roundId: string,
-    clock: ReturnType<typeof spectatorClockAt>,
-  ) => Promise<never>;
-  readonly listRecordingArchive: (
-    input: never,
-  ) => Promise<{ rows: readonly { id: string }[] }>;
 };
 
 const setAge = (f: Fixture, member: Member, age: string) =>
@@ -102,24 +63,6 @@ const setAge = (f: Fixture, member: Member, age: string) =>
     set birth_month = to_char(now() - ${age}::interval, 'YYYY-MM'), version = version + 1,
       recorded_at = now() - interval '1 second'
     where user_id = ${member.userId}`;
-
-const withYouthSeason = async (f: Fixture, run: () => Promise<void>) => {
-  const ids: string[] = [];
-  try {
-    for (const division of ['open', 'youth'] as const) {
-      const id = createId();
-      await f.sql`insert into seasons(organization_id,id,division,name,starts_at,status)
-        values(${daisyOrganizationId},${id},${division},'Media release fixture',now() - interval '1 day','active')`;
-      ids.push(id);
-    }
-    await run();
-  } finally {
-    for (const id of ids) {
-      await f.sql`delete from agreement_signatures where season_id=${id}`;
-      await f.sql`delete from seasons where id=${id}`;
-    }
-  }
-};
 
 /** The schools a test made go after it, children first. */
 const withSchools = async (
@@ -191,7 +134,7 @@ const withNotices = async (f: Fixture, run: () => Promise<void>) => {
     await run();
   } finally {
     await f.sql`delete from notifications
-      where kind like 'media_release_%' or kind = 'youth_round_published'`;
+      where kind like 'media_release_%'`;
     await deleteOrphanNotificationSignals(f.sql as never);
   }
 };
@@ -201,6 +144,7 @@ const signForm = {
   relation: 'parent',
   attests: true,
   paidAds: false,
+  wordingVersion: mediaReleaseWording.version,
 };
 
 /** A minor asks a parent, who signs through the emailed link. */
@@ -213,49 +157,6 @@ const askAndSign = async (f: Fixture, store: Store, minor: Member) => {
   const { token } = await mailLink(f, store, asked.requestId!, 'request');
   await store.mediaReleases.sign(releaseLinkDigest('sign', token), signForm);
   return asked.requestId!;
-};
-
-const viewerOf = (member: Member): RecordingViewer => ({
-  kind: 'account',
-  userId: member.userId,
-  actorId: member.actorId,
-});
-
-/** The Round as the web composes it, public only while shared and publishing is open. */
-const recordingRoundOf = async (
-  store: Store,
-  roundId: string,
-  publishing: boolean,
-): Promise<RecordingRound> => {
-  const round = (await store.readRecordingRound(roundId)) as never as {
-    id: string;
-    competitionType: RecordingRound['competitionType'];
-    visibility: RecordingRound['visibility'];
-    audienceLinkHash: string | null;
-    hostActorId: string | null;
-    completedAtMs: number | null;
-    seats: readonly {
-      actorId: string;
-      seat: Parameters<typeof isJudgeSeat>[0];
-    }[];
-  };
-  const people = await store.readYouthRoundPeople(roundId);
-  const shared =
-    await store.youthRoundPublications.readYouthRoundShared(roundId);
-  return {
-    id: round.id,
-    competitionType: round.competitionType,
-    visibility: round.visibility,
-    audienceLinkHash: round.audienceLinkHash,
-    hostActorId: round.hostActorId,
-    completedAtMs: round.completedAtMs,
-    seatedActorIds: round.seats.map((seat) => seat.actorId),
-    recordingPolicy: plannedRecording(round as never),
-    officialActorIds: round.seats
-      .filter((seat) => isJudgeSeat(seat.seat) || isModeratorSeat(seat.seat))
-      .map((seat) => seat.actorId),
-    youth: { ...people, public: shared && publishing },
-  };
 };
 
 test('a parent signs and withdraws through single-use links, without an account', async () => {
@@ -312,6 +213,11 @@ test('a parent signs and withdraws through single-use links, without an account'
         },
       });
 
+      const stale = await store.mediaReleases.sign(
+        releaseLinkDigest('sign', token),
+        { ...signForm, wordingVersion: '2026-11-v1' },
+      );
+      const before = await store.mediaReleases.readMinorRelease(f.host.userId);
       const signed = await store.mediaReleases.sign(
         releaseLinkDigest('sign', token),
         {
@@ -336,6 +242,7 @@ test('a parent signs and withdraws through single-use links, without an account'
         should:
           'record both scopes once, refuse the second use, tell the minor, and owe no more sign mail',
         actual: {
+          stale: [stale.reason, before.standing.kind],
           signed: signed.kind,
           again: again.reason,
           scopes: scopes.map((r: Record<string, unknown>) => [
@@ -350,11 +257,12 @@ test('a parent signs and withdraws through single-use links, without an account'
           moreSignMail: reminder.prepared,
         },
         expected: {
+          stale: ['invalid_form', 'waiting'],
           signed: 'done',
           again: 'used',
           scopes: [
-            ['paid_ads', 'parent', 'Elena Rivera', '2026-11-v1'],
-            ['publish', 'parent', 'Elena Rivera', '2026-11-v1'],
+            ['paid_ads', 'parent', 'Elena Rivera', '2026-11-v2'],
+            ['publish', 'parent', 'Elena Rivera', '2026-11-v2'],
           ],
           standing: 'on_file',
           told: ['media_release_requested', 'media_release_signed'],
@@ -434,13 +342,14 @@ test('a club confirms releases for its Youth students, under row-level security'
         const form = {
           warrants: true,
           paidAds: false,
+          wordingVersion: mediaReleaseWording.version,
           name: 'Dana Mensah',
           role: 'Coach',
         };
         const confirm = (
           viewer: Member,
           students: readonly Member[],
-          answer = form,
+          answer: unknown = form,
         ) =>
           store.mediaReleaseClubs.confirmClubReleases({
             viewerUserId: viewer.userId,
@@ -457,7 +366,20 @@ test('a club confirms releases for its Youth students, under row-level security'
           ...form,
           warrants: false as never,
         });
+        const oldReleaseId = createId();
+        await f.sql`insert into media_releases (id, user_id, scope, source, wording_version, signed_at)
+          values (${oldReleaseId}, ${f.host.userId}, 'publish', 'club', '2026-11-v1', now() - interval '1 day')`;
+        const stale = await confirm(owner, [f.host], {
+          ...form,
+          wordingVersion: '2026-11-v1',
+        });
+        const before = await store.mediaReleases.readMinorRelease(
+          f.host.userId,
+        );
         const confirmed = await confirm(owner, [f.host]);
+        const [superseded] =
+          await f.sql`select withdrawn_by, wording_version from media_releases where id = ${oldReleaseId}`;
+
         const fenced = await f.sql.begin(async (tx) => {
           await tx`set local role daisy_web`;
           const [none] =
@@ -478,7 +400,9 @@ test('a club confirms releases for its Youth students, under row-level security'
             outsider: typeof outsider === 'string' ? 'refused' : outsider.kind,
             withdrawnToo: [withdrawnToo.reason, withdrawnToo.ineligible],
             noWarranty: noWarranty.reason,
+            stale: [stale.reason, before.standing.kind],
             confirmed: confirmed.kind,
+            superseded: [superseded?.withdrawn_by, superseded?.wording_version],
             standing: (
               await store.mediaReleases.readMinorRelease(f.host.userId)
             ).standing.kind,
@@ -488,113 +412,12 @@ test('a club confirms releases for its Youth students, under row-level security'
             outsider: 'refused',
             withdrawnToo: ['ineligible', [f.guest.userId]],
             noWarranty: 'invalid_form',
+            stale: ['invalid_form', 'none'],
             confirmed: 'confirmed',
+            superseded: ['superseded', '2026-11-v1'],
             standing: 'on_file',
             fenced: [0, 1],
           },
-        });
-      }),
-    ),
-  );
-});
-
-test('a Youth Recording is public only when every youth debater holds a release and publishing is open', async () => {
-  await withRoomRuntime(async (f) =>
-    withNotices(f, () =>
-      withYouthSeason(f, async () => {
-        const store = f.store as never as Store;
-        await setAge(f, f.host, '16 years');
-        await setAge(f, f.guest, '17 years');
-        await setAge(f, f.outsider, '30 years');
-        const room = await readyRankedRoom(f, 'freestyle', 'human');
-        const { roundId } = await launchRuntimeRound(f, room);
-        await f.sql`update rounds set status='completed', current_stage=null,
-        started_at=coalesce(started_at, now()), winning_side='affirmative', completed_at=now()
-        where id=${roundId}`;
-        await f.sql.begin(async (tx) => {
-          await tx`set local session_replication_role = replica`;
-          await tx`delete from recordings where round_id=${roundId}`;
-        });
-        await f.sql`insert into recordings (id,round_id,recording_class,eligibility,status,lifecycle)
-        values (${createId()},${roundId},'ranked',${{ kind: 'ranked', youth: true }},'ready',${{ status: 'ready' }})`;
-        const stranger = await f.member();
-        const publish = (member: Member, open = true) =>
-          store.youthRoundPublications.publishYouthRound({
-            roundId,
-            userId: member.userId,
-            open,
-          });
-        const strangerSees = async (publishing: boolean) => {
-          const round = await recordingRoundOf(store, roundId, publishing);
-          const release = await store.readRecordingBroadcastRelease(
-            roundId,
-            spectatorClockAt(new Date().toISOString()),
-          );
-          return roundEvidencePermissions(
-            round,
-            release,
-            viewerOf(stranger),
-            null,
-            Date.now(),
-          ).media;
-        };
-
-        await askAndSign(f, store, f.host);
-        const oneReleased = await publish(f.host);
-        await askAndSign(f, store, f.guest);
-        const flagClosed = await publish(f.host, false);
-        const judge = await publish(f.outsider);
-        const shared = await publish(f.guest);
-        const told = await f.sql`select user_id from notifications
-        where round_id=${roundId} and kind='youth_round_published'`;
-        assert({
-          given:
-            'one release, then both with the flag closed, a judge, then a debater with both and the flag open',
-          should:
-            'refuse until every youth debater is released and publishing is open, let only a debater share, and tell the other debater',
-          actual: {
-            oneReleased: oneReleased.reason,
-            flagClosed: flagClosed.reason,
-            judge: judge.reason,
-            shared: shared.kind,
-            told: told.map((r: Record<string, unknown>) => r.user_id),
-            strangerSeesOpen: await strangerSees(true),
-            strangerSeesClosed: await strangerSees(false),
-          },
-          expected: {
-            oneReleased: 'releases_missing',
-            flagClosed: 'closed',
-            judge: 'not_a_debater',
-            shared: 'published',
-            told: [f.host.userId],
-            strangerSeesOpen: true,
-            strangerSeesClosed: false,
-          },
-        });
-
-        const [request] = await f.sql`select id from media_release_requests
-        where user_id=${f.guest.userId} and outcome='signed' limit 1`;
-        const manage = await mailLink(f, store, request!.id as string, 'copy');
-        await store.mediaReleases.withdraw(
-          releaseLinkDigest('manage', manage.token),
-          {
-            what: 'whole',
-            attests: true,
-          },
-        );
-        assert({
-          given: 'one debater’s parent withdrawing after it was shared',
-          should: 'take it back to private for anyone outside its audience',
-          actual: {
-            shared:
-              await store.youthRoundPublications.readYouthRoundShared(roundId),
-            strangerSees: await strangerSees(true),
-          },
-          expected: { shared: false, strangerSees: false },
-        });
-        await f.sql.begin(async (tx) => {
-          await tx`set local session_replication_role = replica`;
-          await tx`delete from recordings where round_id=${roundId}`;
         });
       }),
     ),

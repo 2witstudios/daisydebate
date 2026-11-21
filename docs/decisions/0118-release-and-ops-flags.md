@@ -146,7 +146,7 @@ and Host a tournament follow the flags that own their destinations,
 expires 2027-03-31: the host home at `/host`, which S8 builds), and show
 "Coming soon" while those are closed.
 
-`youth-publishing` (Recording, PYL-8) defaults false and expires on 2027-03-31.
+`youth-publishing` (Recording, PYL-8) retired with [ADR 0161](0161-youth-rounds-follow-open-visibility.md): viewing a Youth Round needs no release, and the release flow is live.
 It is read for the viewer's account. A Youth Round's Recording becomes
 publishable only while it is open and every youth debater holds an active
 media release ([ADR 0150](0150-youth-recordings-private.md)). It stays closed

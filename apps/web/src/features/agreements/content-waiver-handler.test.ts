@@ -1,7 +1,11 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { noopErrorReporter } from '@daisy/observability';
 import { silentLogger } from '../../server/test-loggers.test-support';
-import { CONTENT_WAIVER_VERSION } from '../legal/agreements';
+import type { AgeBand } from '@daisy/protocol';
+import {
+  CONTENT_WAIVER_VERSION,
+  YOUTH_CONTENT_WAIVER_VERSION,
+} from '../legal/agreements';
 import { createContentWaiverHandler } from './content-waiver-handler';
 
 setupRitewayBun();
@@ -13,10 +17,12 @@ const handler = ({
   state = 'member',
   outcome = 'signed',
   limited = false,
+  ageBand = 'adult',
 }: {
   readonly state?: string;
   readonly outcome?: 'signed' | 'no-active-season';
   readonly limited?: boolean;
+  readonly ageBand?: AgeBand;
 } = {}) => {
   const signed: (readonly [string, string])[] = [];
   const handle = createContentWaiverHandler({
@@ -24,6 +30,7 @@ const handler = ({
     reporter: noopErrorReporter,
     origin: () => origin,
     identify: async () => ({ state, principal }) as never,
+    readAgeBand: async () => ageBand,
     limiter: () =>
       ({
         consume: async () => ({ allowed: !limited, retryAfterSeconds: 1 }),
@@ -54,6 +61,20 @@ describe('signing the content waiver', () => {
       should: 'record the signature for that account and version',
       actual: [response.status, signed],
       expected: [200, [[principal.userId, CONTENT_WAIVER_VERSION]]],
+    });
+  });
+
+  test('a minor can sign only the Youth waiver', async () => {
+    const { handle, signed } = handler({ ageBand: '16-17' });
+    const open = await handle(post(valid));
+    const youth = await handle(
+      post({ ...valid, version: YOUTH_CONTENT_WAIVER_VERSION }),
+    );
+    assert({
+      given: 'a minor posting the current Open and Youth waiver versions',
+      should: 'refuse the Open waiver and record the Youth waiver',
+      actual: [open.status, youth.status, signed],
+      expected: [409, 200, [[principal.userId, YOUTH_CONTENT_WAIVER_VERSION]]],
     });
   });
 

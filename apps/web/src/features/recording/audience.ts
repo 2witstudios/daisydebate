@@ -2,9 +2,8 @@ import { factReleased } from '@daisy/debate-engine';
 import { audienceAdmits } from '../audience-link/audience-link';
 import {
   mayTakeDownYouthRecording,
-  recordingAudience,
   removableStatus,
-  type YouthRound,
+  type YouthRoundPeople,
 } from './youth-audience';
 import {
   SPECTATOR_MARGIN_MS,
@@ -48,11 +47,12 @@ export type RecordingRound = {
   /** The actors in the Round's judge and moderator seats. */
   readonly officialActorIds: readonly string[];
   /**
-   * A Youth Round's youth debaters and their linked adults (ADR 0107, PYL-5):
-   * any Round of a Youth Room, casual included (ADR 0157). Null on every
-   * other Round.
+   * A Youth Round's youth debaters and their linked adults: any Round of a
+   * Youth Room, casual included (ADR 0157). Whether it may be reused is read
+   * apart (`readReuseFenced`), when deciding whether to offer a download
+   * (ADR 0161). Null on every other Round.
    */
-  readonly youth: YouthRound | null;
+  readonly youth: YouthRoundPeople | null;
 };
 
 /**
@@ -77,6 +77,13 @@ const official = (round: RecordingRound, viewer: RecordingViewer): boolean =>
 
 const seated = (round: RecordingRound, viewer: RecordingViewer): boolean =>
   viewer.kind === 'account' && round.seatedActorIds.includes(viewer.actorId);
+
+/** A linked coach or parent of one of a Youth Round's youth debaters (ADR 0155). */
+const linkedAdult = (round: RecordingRound, viewer: RecordingViewer): boolean =>
+  viewer.kind === 'account' &&
+  round.youth?.debaters.some((debater) =>
+    debater.linkedAdultActorIds.includes(viewer.actorId),
+  ) === true;
 
 const insider = (round: RecordingRound, viewer: RecordingViewer): boolean =>
   seated(round, viewer) ||
@@ -120,33 +127,6 @@ const EVERYTHING: RoundEvidencePermissions = {
   result: true,
 };
 
-/**
- * A Youth Round is private whatever its Room's visibility or a presented link:
- * its audience sees all of it once it ends, anyone else answers as missing.
- * Once a debater shared it, and while every release holds and publishing is
- * open, anyone sees it, as the public archive lists it: only on a public
- * Round (ADR 0151). Every ranked Round is one; a casual one is shared only
- * when public and recorded for everyone (ADR 0157).
- */
-const youthPermissions = (
-  round: RecordingRound & { readonly youth: YouthRound },
-  release: BroadcastRelease,
-  viewer: RecordingViewer,
-): RoundEvidencePermissions => {
-  if (round.completedAtMs === null) return NOTHING;
-  const inAudience = recordingAudience(round, viewer).kind === 'allowed';
-  const shared = round.youth.public && round.visibility === 'public';
-  if (!inAudience && !shared) return NOTHING;
-  // An operator's stop withholds the video from all but the Round's own seats,
-  // shared or not (ADR 0157).
-  const media = release.stop !== 'media_withheld' || seated(round, viewer);
-  if (inAudience) return { ...EVERYTHING, media };
-  // The public reaches a shared Round as any public audience does: a casual
-  // one's transcript and ballots stay its people's (ADR 0157).
-  const ranked = round.competitionType === 'ranked';
-  return { open: true, media, transcript: ranked, result: ranked };
-};
-
 /** An officials' Recording's video: only for those who `watch`, until its deletion date. */
 const officialsMedia = (
   round: RecordingRound,
@@ -159,17 +139,12 @@ const officialsMedia = (
   return { ...permissions, media: permissions.media && kept && watches };
 };
 
-/** A Youth Round's judges and moderators: a host who did not sit is not one. */
-const youthOfficial = (round: RecordingRound, viewer: RecordingViewer) =>
-  viewer.kind === 'account' && round.officialActorIds.includes(viewer.actorId);
-
 /**
  * Under the officials policy only the officials and the host see the video, and
- * only until its deletion date; a debater keeps the rest of their own record,
- * and the audience learns nothing of the Round. A Youth Round answers to its
- * own audience first, and a casual one kept for its officials (ADR 0157) still
- * shows its video only to its judges and moderators, not to a host who is
- * also a linked adult. `nowMs` is the caller's clock.
+ * only until its deletion date; a debater, and a youth debater's linked adult,
+ * keep the rest of the record, and the audience learns nothing of the Round.
+ * A Youth Round answers exactly as an Open one (ADR 0161). `nowMs` is the
+ * caller's clock.
  */
 export const roundEvidencePermissions = (
   round: RecordingRound,
@@ -178,16 +153,6 @@ export const roundEvidencePermissions = (
   presentedLinkHash: string | null,
   nowMs: number,
 ): RoundEvidencePermissions => {
-  if (round.youth !== null) {
-    const permissions = youthPermissions(
-      { ...round, youth: round.youth },
-      release,
-      viewer,
-    );
-    return round.recordingPolicy === 'officials'
-      ? officialsMedia(round, youthOfficial(round, viewer), permissions, nowMs)
-      : permissions;
-  }
   const permissions = releasedPermissions(
     round,
     release,
@@ -199,7 +164,9 @@ export const roundEvidencePermissions = (
     case 'released':
       return permissions;
     case 'officials':
-      return seated(round, viewer) || official(round, viewer)
+      return seated(round, viewer) ||
+        official(round, viewer) ||
+        linkedAdult(round, viewer)
         ? officialsMedia(round, official(round, viewer), permissions, nowMs)
         : NOTHING;
   }
@@ -214,6 +181,15 @@ const releasedPermissions = (
   if (round.completedAtMs === null) return NOTHING;
   if (seated(round, viewer))
     return { open: true, media: true, transcript: true, result: true };
+  // The one Youth difference (ADR 0161): a youth debater's linked coach or
+  // parent sees through unlisted and private, as a debater does, but never
+  // past an operator's stop. It comes before the host's view, which it
+  // contains: a coach hosting their own students loses nothing by hosting.
+  if (linkedAdult(round, viewer))
+    return {
+      ...EVERYTHING,
+      media: release.stop !== 'media_withheld' || insider(round, viewer),
+    };
   if (insider(round, viewer))
     return { open: true, media: true, transcript: false, result: true };
   if (!audienceAdmits(round, presentedLinkHash)) return NOTHING;
@@ -276,17 +252,19 @@ export const recordingMediaState = (
 
 /**
  * A subscriber may download any Recording they may watch, and no other. The
- * subscription is the WATCH-8 entitlement, read as a named input. Nobody
- * downloads a Youth Round's private Recording.
+ * subscription is the WATCH-8 entitlement, read as a named input. A download
+ * is reuse: a Youth Round's only once every youth debater released it (the
+ * reuse fence, ADR 0161).
  */
 export const mayDownload = (input: {
-  readonly round: Pick<RecordingRound, 'youth'>;
+  /** The reuse fence (`reuseFenced`), read for this Round. */
+  readonly reuseFenced: boolean;
   readonly viewer: RecordingViewer;
   readonly permissions: RoundEvidencePermissions;
   readonly status: RecordingStatus | null;
   readonly subscribed: boolean;
 }): boolean =>
-  input.round.youth === null &&
+  !input.reuseFenced &&
   input.viewer.kind === 'account' &&
   input.subscribed &&
   input.permissions.media &&
