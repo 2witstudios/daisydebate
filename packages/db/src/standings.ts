@@ -9,6 +9,7 @@ import {
 import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { instrumented, type DatabaseEventSink } from './instrumented';
+import { readOfficialRatingLadderCatalog } from './official-standing-lobbies';
 import { isDebatingSeatSql } from './seat-columns';
 import { actors } from './schema/actors';
 import { roundParticipants } from './schema/round-participants';
@@ -208,36 +209,9 @@ export const standingsOperations = ({
     );
   },
 
-  /** Standing lobbies offered on the public leaderboard, with their primary ladders. */
-  async listOfficialRatingLadders() {
-    const rows = await database
-      .selectDistinctOn([lobbies.id], {
-        id: ladders.id,
-        name: ladders.name,
-        lobbyId: lobbies.id,
-        lobbyName: lobbies.name,
-        ageRule: lobbies.ageRule,
-        openedAt: lobbies.createdAt,
-      })
-      .from(ladders)
-      .innerJoin(lobbies, eq(lobbies.id, ladders.lobbyId))
-      .innerJoin(
-        organizations,
-        eq(organizations.id, lobbies.ownerOrganizationId),
-      )
-      .where(
-        and(
-          eq(organizations.official, true),
-          isNull(organizations.closedAt),
-          isNull(lobbies.closedAt),
-        ),
-      )
-      .orderBy(asc(lobbies.id), asc(ladders.createdAt), asc(ladders.id));
-    return rows.sort(
-      (a, b) =>
-        a.openedAt.getTime() - b.openedAt.getTime() ||
-        a.lobbyId.localeCompare(b.lobbyId),
-    );
+  /** Standing lobbies offered on the public leaderboard, with their published ladders. */
+  listOfficialRatingLadders() {
+    return readOfficialRatingLadderCatalog(database);
   },
 
   /**
@@ -304,11 +278,13 @@ export type LobbyRatingSelection = {
   readonly seasonId?: string;
 };
 
-/** Use the lobby's active pool by default, or the Room's exact frozen pool. */
+/** Read the selected ladder in the active season or a Room's frozen season. */
 export async function readLobbyPublishedRatings(
   tx: TabTransaction,
-  input: Pick<StandingsInput, 'lobbyId' | 'clock' | 'leaguePublication'> & {
-    readonly ladderId?: string;
+  input: Pick<
+    StandingsInput,
+    'lobbyId' | 'ladderId' | 'clock' | 'leaguePublication'
+  > & {
     readonly seasonId?: string;
   },
   publish?: PublishStandings,
@@ -323,10 +299,9 @@ export async function readLobbyPublishedRatings(
         input.seasonId
           ? eq(seasons.id, input.seasonId)
           : eq(seasons.status, 'active'),
-        input.ladderId ? eq(ladders.id, input.ladderId) : undefined,
+        eq(ladders.id, input.ladderId),
       ),
     )
-    .orderBy(asc(ladders.createdAt), asc(ladders.id))
     .limit(1);
   if (!pool) return null;
   const standings = await readStandingsWithin(tx, {

@@ -9,7 +9,7 @@ import {
 import { roundOutcomeSql } from './round-outcome-sql';
 import { seatOfColumns, type SeatColumns } from './seat-columns';
 import { instrumented, type DatabaseEventSink } from './instrumented';
-import { readOfficialStandingLobbies } from './official-standing-lobbies';
+import { readOfficialRatingLadderCatalog } from './official-standing-lobbies';
 import {
   readLobbyPublishedRatings,
   type LobbyRatingSelection,
@@ -54,14 +54,16 @@ const readCardRatings = (
   database.transaction(
     async (tx) => {
       const lobbies = pool
-        ? await tx
-            .select({
-              id: standingLobbies.id,
-              ageRule: standingLobbies.ageRule,
-            })
-            .from(standingLobbies)
-            .where(eq(standingLobbies.id, pool.lobbyId))
-        : await readOfficialStandingLobbies(tx);
+        ? (
+            await tx
+              .select({
+                lobbyId: standingLobbies.id,
+                ageRule: standingLobbies.ageRule,
+              })
+              .from(standingLobbies)
+              .where(eq(standingLobbies.id, pool.lobbyId))
+          ).map((lobby) => ({ ...lobby, id: pool.ladderId }))
+        : await readOfficialRatingLadderCatalog(tx);
       const requested = new Set(actorIds);
       const ratings: CardRatingRow[] = [];
       for (const lobby of lobbies) {
@@ -69,7 +71,7 @@ const readCardRatings = (
           tx,
           pool
             ? { ...pool, clock, leaguePublication: true }
-            : { lobbyId: lobby.id, clock },
+            : { lobbyId: lobby.lobbyId, ladderId: lobby.id, clock },
           publish,
         );
         if (!active) continue;
@@ -90,7 +92,7 @@ const readCardRatings = (
             lastRatedAt: lastPosted.get(row.actorId) ?? null,
             ladder: 'freestyle',
             ladderId: active.ladderId,
-            lobbyId: lobby.id,
+            lobbyId: lobby.lobbyId,
             division: ratingDivisionForAgeRule(lobby.ageRule),
           });
         }
