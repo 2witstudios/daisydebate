@@ -68,7 +68,8 @@ test('signed Beta access applies, no-ops, replays and revokes through the actual
     const first = await handle(put(person.userId, approve));
     const result = await first.json();
     const replay = await handle(put(person.userId, approve));
-    const noOp = await handle(put(person.userId, command('approved', 2)));
+    const noOpCommand = command('approved', 2);
+    const noOp = await handle(put(person.userId, noOpCommand));
     const unchanged = await noOp.json();
     const revoked = await handle(put(person.userId, command('revoked', 2)));
     const read = await handle(
@@ -79,7 +80,7 @@ test('signed Beta access applies, no-ops, replays and revokes through the actual
     );
     const readback = await read.json();
     const [effects] =
-      await sql`select (select state from account_beta_access where user_id=${person.userId}) as state, (select revision from account_beta_access where user_id=${person.userId}) as revision, (select count(*)::int from account_access_events where user_id=${person.userId}) as events, (select count(*)::int from account_entitlement_grants where user_id=${person.userId}) as grants`;
+      await sql`select (select state from account_beta_access where user_id=${person.userId}) as state, (select revision from account_beta_access where user_id=${person.userId}) as revision, (select count(*)::int from account_access_events where user_id=${person.userId}) as events, (select count(*)::int from account_entitlement_grants where user_id=${person.userId}) as grants, (select result->>'outcome' from operator_command_receipts where command_id=${noOpCommand.commandId}) as unchanged_receipt`;
     assert({
       given:
         'real signed approval, replay, unchanged approval, revocation and issuer readback',
@@ -109,7 +110,13 @@ test('signed Beta access applies, no-ops, replays and revokes through the actual
         result,
         'queued',
         3,
-        { state: 'revoked', revision: 3, events: 2, grants: 0 },
+        {
+          state: 'revoked',
+          revision: 3,
+          events: 2,
+          grants: 0,
+          unchanged_receipt: 'unchanged',
+        },
       ],
     });
   });
