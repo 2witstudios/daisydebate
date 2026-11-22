@@ -15,7 +15,7 @@ import { createClubSeatReads } from '../src/club-seat-reads';
 import { readEntitlementGrants } from '../src/entitlement-grants';
 import { completeControlledBillingPurchase } from '../src/testing-billing-purchase';
 import { withBillingPurchases, offer } from './billing-purchases.test-support';
-import { flagCommand } from './flags.test-support';
+import { executeFlagCommand, flagCommand } from './flags.test-support';
 import { rejectedBy, type Fixture } from './constraint-helpers';
 
 setupRitewayBun();
@@ -86,7 +86,7 @@ function withPaidClub(
     const clubs = [organizationId];
     const vendorCustomerId = `cus_${createId()}`;
     try {
-      await input.store.runFlagCommand(flagCommand(input.key, 0));
+      await executeFlagCommand(input.store, flagCommand(input.key, 0));
       await completeControlledBillingPurchase({
         purchases,
         subject: { ...subject, organizationId },

@@ -2,6 +2,7 @@ import { createAppError } from '@daisy/errors';
 import {
   flagCommandResultSchema,
   type FlagChange,
+  type FlagState,
   type FlagCommandResult,
 } from '@daisy/protocol/flags';
 import { sql } from 'drizzle-orm';
@@ -23,13 +24,6 @@ export type FlagCommandInput = {
   readonly change: FlagChange;
   readonly nextId: () => string;
   readonly live: () => boolean;
-  readonly authorize: () => boolean;
-  readonly decide: (
-    revision: number,
-    now: number,
-  ) =>
-    | { readonly kind: 'apply'; readonly revision: number }
-    | { readonly kind: 'refused'; readonly reason: 'CONFLICT' | 'VALIDATION' };
 };
 
 async function lockTarget(tx: Tx, userId: string) {
@@ -45,43 +39,88 @@ async function lockTarget(tx: Tx, userId: string) {
   return account ?? null;
 }
 
-/** Every change, its revision, audit and typed receipt commit together. */
-export async function runFlagCommand(
+export type FlagCommandLoad =
+  | { readonly kind: 'replayed'; readonly result: FlagCommandResult }
+  | {
+      readonly kind: 'fresh';
+      readonly state: FlagState;
+      readonly revision: number;
+      readonly now: number;
+      readonly apply: (revision: number) => Promise<FlagCommandResult>;
+    };
+
+export type FlagCommandSession = {
+  readonly load: () => Promise<FlagCommandLoad>;
+};
+export type FlagCommandWork = (
+  session: FlagCommandSession,
+) => Promise<FlagCommandResult>;
+
+/** One transaction's fenced Flags facts and atomic writer, with application-owned policy. */
+export async function inFlagCommand(
   tx: Tx,
   input: FlagCommandInput,
+  work: FlagCommandWork,
 ): Promise<FlagCommandResult> {
-  if (!input.authorize()) throw createAppError('AUTHORIZATION');
-  await commandGate(tx, input.commandId);
-  const target =
-    input.change.action === 'flag.override.update'
-      ? input.change.accountId
-      : null;
-  const account = target === null ? null : await lockTarget(tx, target);
-  await lockFlags(tx, 'write');
-  requireLiveTarget(target, account);
-  const replay = await storedResult(tx, input.commandId, input.requestDigest);
-  if (replay) return flagCommandResultSchema.parse(replay);
-  const { snapshot, now } = await readFlagSnapshot(tx, target, [input.key]);
-  const fact = snapshot.flags[0]!;
-  const decision = input.decide(fact.revision, now);
-  if (decision.kind === 'refused') throw createAppError(decision.reason);
-  await persistChange(tx, input, fact.state, decision.revision, now);
-  const result = flagCommandResultSchema.parse({
-    commandId: input.commandId,
-    key: input.key,
-    revision: decision.revision,
-  });
-  await run(
-    tx,
-    sql`insert into flag_change_events (id, key, revision, command_id, change)
-    values (${input.nextId()}, ${input.key}, ${decision.revision}, ${input.commandId}, ${target === null ? 'state' : 'override'})`,
-  );
-  await writeReceipt(tx, input, target, {
-    action: input.change.action,
-    result,
-  });
-  if (!input.live()) throw createAppError('CONFLICT');
-  return result;
+  let phase: 'new' | 'loading' | 'fresh' | 'applying' | 'settled' | 'closed' =
+    'new';
+  const isSettled = () => phase === 'settled';
+  const load = async (): Promise<FlagCommandLoad> => {
+    if (phase !== 'new') throw createAppError('INVARIANT');
+    phase = 'loading';
+    await commandGate(tx, input.commandId);
+    const target =
+      input.change.action === 'flag.override.update'
+        ? input.change.accountId
+        : null;
+    const account = target === null ? null : await lockTarget(tx, target);
+    await lockFlags(tx, 'write');
+    requireLiveTarget(target, account);
+    const replay = await storedResult(tx, input.commandId, input.requestDigest);
+    if (replay) {
+      const result = flagCommandResultSchema.parse(replay);
+      phase = 'settled';
+      return { kind: 'replayed', result };
+    }
+    const { snapshot, now } = await readFlagSnapshot(tx, target, [input.key]);
+    const fact = snapshot.flags[0]!;
+    phase = 'fresh';
+    return {
+      kind: 'fresh',
+      state: fact.state,
+      revision: fact.revision,
+      now,
+      apply: async (revision) => {
+        if (phase !== 'fresh') throw createAppError('INVARIANT');
+        phase = 'applying';
+        await persistChange(tx, input, fact.state, revision, now);
+        const result = flagCommandResultSchema.parse({
+          commandId: input.commandId,
+          key: input.key,
+          revision,
+        });
+        await run(
+          tx,
+          sql`insert into flag_change_events (id, key, revision, command_id, change)
+          values (${input.nextId()}, ${input.key}, ${revision}, ${input.commandId}, ${target === null ? 'state' : 'override'})`,
+        );
+        await writeReceipt(tx, input, target, {
+          action: input.change.action,
+          result,
+        });
+        if (!input.live()) throw createAppError('CONFLICT');
+        phase = 'settled';
+        return result;
+      },
+    };
+  };
+  try {
+    const result = await work({ load });
+    if (!isSettled()) throw createAppError('INVARIANT');
+    return result;
+  } finally {
+    phase = 'closed';
+  }
 }
 
 function requireLiveTarget(

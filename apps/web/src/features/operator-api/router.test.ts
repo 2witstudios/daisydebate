@@ -167,7 +167,7 @@ describe('the private operator API (ADR 0079)', () => {
   test('malformed, oversize, unknown and conflicting requests map to their codes', async () => {
     const conflicting = api({
       store: {
-        runFlagCommand: async () => {
+        flagCommand: async () => {
           throw new Error('Unexpected flag command');
         },
         listBetaPreapprovals: async () => [],
@@ -285,7 +285,7 @@ test('an unexpected handler failure reaches the error reporter; a refusal does n
   const broken = api({
     reporter,
     store: {
-      runFlagCommand: async () => {
+      flagCommand: async () => {
         throw new Error('Unexpected flag command');
       },
       listBetaPreapprovals: async () => [],
@@ -359,7 +359,7 @@ describe('the report routes (ADR 0103)', () => {
     const seen: unknown[] = [];
     const { handle } = api({
       store: {
-        runFlagCommand: async () => {
+        flagCommand: async () => {
           throw new Error('Unexpected flag command');
         },
         listBetaPreapprovals: async () => [],
@@ -391,7 +391,7 @@ describe('the report routes (ADR 0103)', () => {
     const seen: Record<string, unknown>[] = [];
     const { handle } = api({
       store: {
-        runFlagCommand: async () => {
+        flagCommand: async () => {
           throw new Error('Unexpected flag command');
         },
         listBetaPreapprovals: async () => [],
@@ -471,7 +471,7 @@ describe('the report routes (ADR 0103)', () => {
     const lifted: string[] = [];
     const { handle } = api({
       store: {
-        runFlagCommand: async () => {
+        flagCommand: async () => {
           throw new Error('Unexpected flag command');
         },
         listBetaPreapprovals: async () => [],
