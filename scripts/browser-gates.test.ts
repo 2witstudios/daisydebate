@@ -187,7 +187,8 @@ describe('browser prerequisite outcomes', () => {
     const gate = workflow['native-gate'];
     assert({
       given: 'a failed, skipped, cancelled or passing native suite',
-      should: 'pass only on success, with nothing gating the suite itself',
+      should:
+        'pass only on success for full qualification; skip native work for targeted capture',
       actual: {
         suiteNeeds: workflow['room-launch'].needs,
         suiteIf: workflow['room-launch'].if,
@@ -199,8 +200,8 @@ describe('browser prerequisite outcomes', () => {
       },
       expected: {
         suiteNeeds: undefined,
-        suiteIf: undefined,
-        condition: 'always()',
+        suiteIf: '${{ !inputs.review_spec }}',
+        condition: '${{ always() && !inputs.review_spec }}',
         needs: ['room-launch'],
         results: [false, false, false, true],
       },

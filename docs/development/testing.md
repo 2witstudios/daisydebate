@@ -546,7 +546,14 @@ isolated fixture stack and uploads the sanitized bundle for seven days.
 Attach it to the PR with `bun review:evidence <pr-number> <run-id>`. The
 command checks the run's commit against the current PR head and posts a
 bundle only when the latest workflow attempt uploaded it. The comment
-identifies that attempt and the browser and workflow results. The review dispatch reports
+identifies the captured spec, exact commit, producing attempt, and browser and workflow results.
+For Prep sidebar review, select `e2e/prep-sidebar.e2e.ts`: it reuses the
+same saved-setting assertions as the native document-manager journey without
+starting a Room. Targeted review dispatches skip the unrelated admin/native
+suites; normal PR qualification still runs them. The evidence command reads
+the selected spec from the downloaded sanitized bundle, never from a supplied
+label. Native-only specs remain outside this standard-browser capture route.
+The review dispatch reports
 the **Browser review evidence** check.
 
 ## CI task caching

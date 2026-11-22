@@ -1,9 +1,11 @@
+import { runInNewContext } from 'node:vm';
 import { expect, test } from 'bun:test';
 import { reviewEvidenceComment } from './review-evidence';
 
 const head = '1'.repeat(40);
 const input = {
   prHead: head,
+  reviewSpec: 'e2e/prep-sidebar.e2e.ts',
   run: {
     head_sha: head,
     path: '.github/workflows/e2e.yml',
@@ -96,4 +98,64 @@ test('refuses stale run evidence and an expired or missing bundle', () => {
   expect(() => reviewEvidenceComment({ ...input, artifacts: [] })).toThrow(
     'unexpired',
   );
+});
+
+test('names the captured client spec and refuses a malformed bundle identity', () => {
+  expect(reviewEvidenceComment(input)).toContain('`e2e/prep-sidebar.e2e.ts`');
+  expect(() =>
+    reviewEvidenceComment({ ...input, reviewSpec: '../other.ts' }),
+  ).toThrow('Invalid string');
+});
+
+test('targeted review capture skips unrelated admin and native workloads', async () => {
+  const workflow = Bun.YAML.parse(
+    await Bun.file('.github/workflows/e2e.yml').text(),
+  ) as {
+    jobs: Record<string, { if?: string }>;
+  };
+  expect(workflow.jobs.admin?.if).toBe('${{ !inputs.review_spec }}');
+  expect(workflow.jobs['room-launch']?.if).toBe('${{ !inputs.review_spec }}');
+  expect(workflow.jobs['native-gate']?.if).toBe(
+    '${{ always() && !inputs.review_spec }}',
+  );
+});
+
+test('targeted capture eligibility preserves full native qualification', async () => {
+  const workflow = Bun.YAML.parse(
+    await Bun.file('.github/workflows/e2e.yml').text(),
+  ) as {
+    jobs: Record<string, { if: string }>;
+  };
+  const eligible = (job: string, review_spec: string) =>
+    runInNewContext(
+      workflow.jobs[job]!.if.replace(/^\$\{\{\s*|\s*\}\}$/g, ''),
+      { inputs: { review_spec }, always: () => true },
+      { timeout: 500 },
+    );
+  for (const job of ['admin', 'room-launch', 'native-gate']) {
+    expect(eligible(job, '')).toBe(true);
+    expect(eligible(job, 'e2e/prep-sidebar.e2e.ts')).toBe(false);
+  }
+});
+
+test('review capture cannot publish the full native qualification check name', async () => {
+  const workflow = Bun.YAML.parse(
+    await Bun.file('.github/workflows/e2e.yml').text(),
+  ) as {
+    jobs: Record<string, { name: string }>;
+  };
+  const name = workflow.jobs['native-gate']!.name;
+  const names = ['', 'e2e/prep-sidebar.e2e.ts'].map((review_spec) =>
+    name.startsWith('${{')
+      ? runInNewContext(
+          name.replace(/^\$\{\{\s*|\s*\}\}$/g, ''),
+          { inputs: { review_spec } },
+          { timeout: 500 },
+        )
+      : name,
+  );
+  expect(names).toEqual([
+    'Isolated Room Launch E2E',
+    'Native suites omitted from browser review',
+  ]);
 });
