@@ -48,6 +48,17 @@ const withStore = (
         digests.push(input.requestDigest);
         return { v: 1, outcome: 'applied' };
       },
+      chatRemovalCommand: async (input, work) => {
+        changes.push(input.change);
+        digests.push(input.requestDigest);
+        const outcome = await work({
+          spectator: async () => 'applied',
+          floor: async () => null,
+          room: async () => null,
+        });
+        if (outcome === null) throw new Error('Expected a found message');
+        return { v: 1, outcome };
+      },
       recordingWithdrawalCommand: async (input, work) => {
         changes.push(input.change);
         digests.push(input.requestDigest);

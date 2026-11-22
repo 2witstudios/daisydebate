@@ -1,3 +1,4 @@
+import { runChatRemovalCommand } from '../src/features/operator-api/chat-removal-command';
 import { createAppError } from '@daisy/errors';
 import { runRecordingWithdrawalCommand } from '../src/features/operator-api/recording-withdrawal-command';
 import type { ContentModerationChange } from '../src/features/operator-api/content-moderation';
@@ -170,7 +171,9 @@ const withReadyRecording = (
             change.action === 'recording.remove' ||
             change.action === 'recording.legal_remove'
             ? runRecordingWithdrawalCommand(database, { ...input, change })
-            : database.runModerationCommand({ ...input, change });
+            : change.action === 'chat_message.remove'
+              ? runChatRemovalCommand(database, { ...input, change })
+              : database.runModerationCommand({ ...input, change });
         },
       });
     } finally {

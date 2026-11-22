@@ -1,3 +1,4 @@
+import { runChatRemovalCommand } from './chat-removal-command';
 import type { Database } from '@daisy/db';
 import { runRecordingWithdrawalCommand } from './recording-withdrawal-command';
 import {
@@ -140,10 +141,14 @@ export type ContentModerationStore = {
       ContentModerationChange,
       {
         action:
-          'recording.takedown' | 'recording.remove' | 'recording.legal_remove';
+          | 'recording.takedown'
+          | 'recording.remove'
+          | 'recording.legal_remove'
+          | 'chat_message.remove';
       }
     >;
   }) => Promise<ContentModerationCommandResult>;
+  readonly chatRemovalCommand: Database['chatRemovalCommand'];
   readonly recordingWithdrawalCommand: Database['recordingWithdrawalCommand'];
 };
 
@@ -492,7 +497,9 @@ async function runCommand(
     change.action === 'recording.remove' ||
     change.action === 'recording.legal_remove'
       ? await runRecordingWithdrawalCommand(deps.store, { ...input, change })
-      : await deps.store.runModerationCommand({ ...input, change });
+      : change.action === 'chat_message.remove'
+        ? await runChatRemovalCommand(deps.store, { ...input, change })
+        : await deps.store.runModerationCommand({ ...input, change });
   deps.logger.log(
     'operator.command.applied',
     {

@@ -14,6 +14,16 @@ export const testModerationCommands = (store: Store) => ({
   ...store,
   runModerationCommand: async (input: Input) => {
     const change = input.change;
+    if (change.action === 'chat_message.remove')
+      return store.chatRemovalCommand(
+        { ...input, change },
+        async (removers) => {
+          const spectator = await removers.spectator();
+          if (spectator !== null) return spectator;
+          const floor = await removers.floor();
+          return floor === null ? removers.room() : floor;
+        },
+      );
     if (
       change.action !== 'recording.takedown' &&
       change.action !== 'recording.remove' &&

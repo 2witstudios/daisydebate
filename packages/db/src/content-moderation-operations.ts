@@ -347,7 +347,10 @@ const applyChange = (
     ContentModerationChange,
     {
       action:
-        'recording.takedown' | 'recording.remove' | 'recording.legal_remove';
+        | 'recording.takedown'
+        | 'recording.remove'
+        | 'recording.legal_remove'
+        | 'chat_message.remove';
     }
   >,
   operatorRef: string,
@@ -369,19 +372,6 @@ const applyChange = (
       return ports.recordings.restore(tx, change);
     case 'recording.rebuild':
       return ports.recordings.rebuild(tx, change);
-    case 'chat_message.remove':
-      return ports.chat
-        .remove(tx, { messageId: change.messageId, now })
-        .then((result) =>
-          result === null
-            ? ports.floor.remove(tx, { messageId: change.messageId, now })
-            : result,
-        )
-        .then((result) =>
-          result === null
-            ? ports.roomChat.remove(tx, { messageId: change.messageId, now })
-            : result,
-        );
     case 'profile_photo.review':
       return publicProfileModeration.reviewPhoto(tx, { ...change, now });
     case 'profile_photo.remove':
@@ -536,6 +526,13 @@ type WithdrawalLifecycle =
       readonly kind: 'settled';
       readonly result: ContentModerationCommandResult;
     };
+
+type ChatRemovalPorts = {
+  readonly spectator: () => Promise<ContentModerationOutcome>;
+  readonly floor: () => Promise<ContentModerationOutcome>;
+  readonly room: () => Promise<ContentModerationOutcome>;
+};
+type ChatRemovalPhase = 'ready' | 'removing' | 'found' | 'closed';
 
 export function contentModerationOperations({
   database,
@@ -756,6 +753,70 @@ export function contentModerationOperations({
           }
         }),
       ),
+    /** Fresh application fallback runs under the existing receipt and owner fences. */
+    chatRemovalCommand: (
+      input: Omit<ModerationCommandInput, 'change'> & {
+        readonly change: Extract<
+          ContentModerationChange,
+          { action: 'chat_message.remove' }
+        >;
+      },
+      work: (removers: ChatRemovalPorts) => Promise<ContentModerationOutcome>,
+    ): Promise<ContentModerationCommandResult> =>
+      instrumented(eventSink, 'runModerationCommand', () =>
+        inTransaction(database, async (tx) => {
+          await commandGate(tx, input.commandId);
+          const stored = await storedResult(
+            tx,
+            input.commandId,
+            input.requestDigest,
+          );
+          if (stored) return contentModerationCommandResultSchema.parse(stored);
+          const now = await dbNow(tx);
+          const state: { phase: ChatRemovalPhase } = { phase: 'ready' };
+          const phase = () => state.phase;
+          const remove = (owner: ChatMessageModeration) => async () => {
+            if (phase() !== 'ready') throw createAppError('INVARIANT');
+            state.phase = 'removing';
+            const result = await owner.remove(tx, {
+              messageId: input.change.messageId,
+              now,
+            });
+            if (phase() !== 'removing') throw createAppError('INVARIANT');
+            state.phase = result === null ? 'ready' : 'found';
+            return result;
+          };
+          const runFallback = async () => {
+            try {
+              const result = await work({
+                spectator: remove(ports.chat),
+                floor: remove(ports.floor),
+                room: remove(ports.roomChat),
+              });
+              if (
+                phase() === 'removing' ||
+                (result !== null && phase() !== 'found')
+              )
+                throw createAppError('INVARIANT');
+              return result;
+            } finally {
+              state.phase = 'closed';
+            }
+          };
+          const outcome = await runFallback();
+          if (outcome === null) throw createAppError('NOT_FOUND');
+          const result = contentModerationCommandResultSchema.parse({
+            v: 1,
+            outcome,
+          });
+          await writeReceipt(tx, input, null, {
+            action: 'chat_message.remove',
+            result,
+          });
+          if (!input.live()) throw createAppError('CONFLICT');
+          return result;
+        }),
+      ),
     runModerationCommand: (
       input: Omit<ModerationCommandInput, 'change'> & {
         readonly change: Exclude<
@@ -764,7 +825,8 @@ export function contentModerationOperations({
             action:
               | 'recording.takedown'
               | 'recording.remove'
-              | 'recording.legal_remove';
+              | 'recording.legal_remove'
+              | 'chat_message.remove';
           }
         >;
       },
