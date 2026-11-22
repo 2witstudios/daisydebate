@@ -36,8 +36,8 @@ test('the actual receipt application rolls back failed settlement and fences esc
             escaped = session;
             await work({
               ...session,
-              prepare: async (participantId) => {
-                const stamp = await session.prepare(participantId);
+              prepareReceipt: async (participantId) => {
+                const stamp = await session.prepareReceipt(participantId);
                 if (fault === 'prepare-refusal')
                   throw createAppError('AUTHORIZATION');
                 return stamp;
