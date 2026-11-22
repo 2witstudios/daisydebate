@@ -148,7 +148,7 @@ function feature(read: Partial<AttendanceEvaluationFacts> = {}) {
           readSamples: async () => facts(read).samples,
           readClosedSegments: async () => [],
           replay: async () => null,
-          prepare: async () => ({ receivedAt: iso(openedAtMs + 1000) }),
+          prepareReceipt: async () => ({ receivedAt: iso(openedAtMs + 1000) }),
           apply: async () => {},
         });
         return {

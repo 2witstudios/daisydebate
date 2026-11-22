@@ -122,7 +122,7 @@ test('receipt closure survives delayed real persistence during transaction clean
     for (const kind of ['first fact', 'fresh alias'] as const) {
       if (kind === 'fresh alias') {
         await store.withAttendanceReceipt(input(), async (session) => {
-          await session.prepare(seat.id);
+          await session.prepareReceipt(seat.id);
           await session.apply();
         });
       }
@@ -134,7 +134,7 @@ test('receipt closure survives delayed real persistence during transaction clean
         actual: () =>
           store.withAttendanceReceipt(request, async (session) => {
             released = session;
-            await session.prepare(seat.id);
+            await session.prepareReceipt(seat.id);
             pending = session.apply();
             void pending.catch(() => {});
           }),
