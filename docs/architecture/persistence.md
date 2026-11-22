@@ -382,3 +382,17 @@ standings projection is stored. `standings.read` on the actual league
 organization authorizes active members and organization managers through the
 evaluator and its minor boundary; public organization identity is not season
 read authority.
+
+## Club invitation resend
+
+Clubs application operations decide whether a manager may resend an invitation.
+The seat store supplies verified plan evidence, invitation and database time
+under its existing account → Club → billing lock order. It reads mail-count
+facts only when the application reaches that check, then enqueues an approved
+send before releasing the same bounded transaction. A retained count reader
+cannot be used after the decision ends. No provider call runs under the fence.
+
+The protocol's Club invitation mail rule is shared by resend, new invitations
+and moves to an invitation. Durable counts retain the rolling-day, lifetime,
+recent-send and queued/leased semantics from ADR 0148; refusal leaves the queue
+unchanged. Other seat commands retain their existing operations.
