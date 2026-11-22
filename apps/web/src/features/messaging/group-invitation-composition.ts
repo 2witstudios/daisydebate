@@ -74,11 +74,13 @@ export function composeMessagingGroupInvitationStore({
   principal,
   clock,
   admissionPolicy,
+  maxMembers,
 }: {
   readonly database: Database;
   readonly principal: AuthorizationPrincipal;
   readonly clock: Clock;
   readonly admissionPolicy?: SocialCreationPolicy;
+  readonly maxMembers?: number;
 }) {
   const authorize: MessagingGroupInvitationFence = async (
     tx,
@@ -98,6 +100,12 @@ export function composeMessagingGroupInvitationStore({
       ...facts.invitation.channel.activeMemberActorIds,
       facts.invitation.invitation.inviteeActorId,
     ];
+    if (
+      operation === 'accept' &&
+      maxMembers !== undefined &&
+      proposed.length > maxMembers
+    )
+      throw createAppError('AUTHORIZATION');
     const socialAccounts =
       operation === 'accept'
         ? await loadAccountPolicyFacts(

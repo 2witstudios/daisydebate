@@ -55,7 +55,9 @@ const mailCapture = createMailCapture({
 const files = await messagingBrowserFiles(process.env);
 const app = createApp({
   env: process.env,
-  messagingPolicy: messagingBrowserPolicy,
+  ...(process.env.E2E_STAGING_GROUPS === '1'
+    ? {}
+    : { messagingPolicy: messagingBrowserPolicy }),
   ...(files.runtime === null ? {} : { messagingFiles: files.runtime }),
   roomPolicy: launchProofPolicy,
   // Bot-cast journeys reach the admission and eligibility gates; this

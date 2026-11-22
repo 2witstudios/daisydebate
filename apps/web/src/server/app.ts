@@ -55,7 +55,10 @@ import {
   parseMessagingFileLimits,
   parseMessagingPolicyLimits,
 } from '../features/messaging/beta-limits';
-import { tightenMessagingPolicy } from '../features/messaging/beta-policy';
+import {
+  deployedMessagingPolicy,
+  tightenMessagingPolicy,
+} from '../features/messaging/beta-policy';
 import {
   dec251ContactsPolicy,
   tightenContactsPolicy,
@@ -77,10 +80,10 @@ export type AppDependencies = {
   /** Fixtures that seat bots with no worker state it; otherwise from config. */
   readonly aiSeats?: AiSeatAvailability;
   /**
-   * The messaging policy this app runs: `betaMessagingPolicy` (DEC-251) in
-   * every deployment. `MESSAGING_POLICY` may only tighten it.
+   * An isolated composition may inject a policy. Deployed processes select
+   * the validated staging activation; MESSAGING_POLICY only tightens rates.
    */
-  readonly messagingPolicy: MessagingRuntimePolicy;
+  readonly messagingPolicy?: MessagingRuntimePolicy;
   /** Explicit attachment vendors/budgets; principal-bound stores are composed per operation. */
   readonly messagingFiles?: MessagingFileRuntime;
   /** Raw environment, validated here and nowhere else. */
@@ -236,7 +239,11 @@ export function createApp({
   };
   let aiVoice: OpenRouter | undefined;
   const policy = parseMessagingPolicyLimits(
-    tightenMessagingPolicy(messagingPolicy, config.MESSAGING_POLICY),
+    tightenMessagingPolicy(
+      messagingPolicy ??
+        deployedMessagingPolicy(config.MESSAGING_PRIVATE_GROUPS),
+      config.MESSAGING_POLICY,
+    ),
   );
   const drainState = createDrainState([database, redis]);
   let startupChecked = true;

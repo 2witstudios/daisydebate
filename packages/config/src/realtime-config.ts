@@ -1,4 +1,8 @@
 import { z } from 'zod';
+import {
+  messagingGroupFields,
+  refineMessagingGroups,
+} from './messaging-groups';
 import { withoutMigrationCredential } from './credentials';
 import {
   deploymentIdentityFields,
@@ -13,10 +17,12 @@ import { serverTelemetryFields } from './telemetry-config';
  */
 const realtimeConfigSchema = z
   .object({
+    ...messagingGroupFields,
     ...deploymentIdentityFields,
     ...serverTelemetryFields,
   })
   .superRefine((config, ctx) => {
+    refineMessagingGroups(config, ctx, 'realtime');
     if (config.NODE_ENV !== 'production') return;
     requireDeploymentIdentity(config, ctx);
   })

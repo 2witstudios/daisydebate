@@ -1,3 +1,4 @@
+import { stagingGroupPolicy } from '@daisy/auth/group-policy';
 import { composeMessagingInbox } from '../src/features/messaging/inbox-composition';
 import {
   messagingFixturePosting,
@@ -17,14 +18,7 @@ import {
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
 const bounds = { introductionUnits: 100, titleUnits: 80, batchActors: 10 };
-const admissionPolicy: SocialCreationPolicy = {
-  state: 'approved',
-  decision: 'Isolated group invitation fixture only',
-  key: 'social.private_group',
-  revision: 1,
-  earlierRevisions: [],
-  groupBlockScope: 'all_pairs',
-};
+const admissionPolicy: SocialCreationPolicy = stagingGroupPolicy;
 async function fixture() {
   const base = await openMessagingFixture(databaseUrl);
   const channelId = createId();
@@ -65,12 +59,13 @@ async function fixture() {
     actorId: base.fixture.otherActorId,
   };
   const clock = { now: () => base.fixture.now };
-  const dependencies = (approved: boolean) => ({
+  const dependencies = (approved: boolean, maxMembers?: number) => ({
     store: composeMessagingGroupInvitationStore({
       database: base.database,
       principal,
       clock,
       ...(approved ? { admissionPolicy } : {}),
+      ...(maxMembers === undefined ? {} : { maxMembers }),
     }),
     bounds,
     clock,
@@ -241,6 +236,55 @@ test('real blocked archived invitation may be declined without age or manager ad
         { channelId: f.channelId, generation: 1, state: 'declined' },
         0,
       ],
+    });
+  } finally {
+    await f.cleanup();
+  }
+});
+
+test('staging member capacity is checked under the acceptance fence without consuming the invitation', async () => {
+  const f = await fixture();
+  const command = {
+    version: 1,
+    channelId: f.channelId,
+    requestId: createId(),
+    expectedGeneration: 1,
+    decision: 'accept',
+  };
+  try {
+    await assertRejects({
+      given: 'a full group and a pending invitation',
+      should: 'refuse before adding a grant or consuming the invitation',
+      actual: () =>
+        decideMessagingGroupInvitation(
+          'decide',
+          command,
+          f.principal,
+          f.dependencies(true, 1),
+        ),
+      code: 'AUTHORIZATION',
+    });
+    const preview = await readMessagingGroupInvitation(
+      { version: 1, channelId: f.channelId },
+      f.principal,
+      f.dependencies(true, 1),
+    );
+    assert({
+      given: 'the refused capacity attempt',
+      should:
+        'leave a pending invitation that may be accepted when capacity permits',
+      actual: [
+        preview.state,
+        (
+          await decideMessagingGroupInvitation(
+            'decide',
+            command,
+            f.principal,
+            f.dependencies(true, 2),
+          )
+        ).state,
+      ],
+      expected: ['pending', 'accepted'],
     });
   } finally {
     await f.cleanup();

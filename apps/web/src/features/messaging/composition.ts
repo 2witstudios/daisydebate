@@ -48,11 +48,11 @@ export type MessagingRuntimePolicy = {
   readonly editWindowMs: number;
   readonly posting: SocialContactPolicy;
   /**
-   * ISSUE-643 (DEC-127): private groups are off in beta. Group creation,
-   * invitation and admission refuse unless an isolated test composition
-   * opts in; an approved group policy alone never turns them on.
+   * Group availability is explicit and independent of admission policy.
+   * The deployment composition enables staging only; injected policy alone
+   * never turns groups on.
    */
-  readonly privateGroups: 'off' | 'isolated-test-fixture';
+  readonly privateGroups: 'off' | 'enabled';
   readonly groupPosting?: SocialContactPolicy;
   readonly reading: MessagingReadingPolicy;
   /** DEC-251 per-account windows (beta-policy.ts), each its own bucket. */

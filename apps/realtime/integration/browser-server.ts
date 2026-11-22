@@ -10,6 +10,7 @@ import {
 } from '@daisy/auth/testing';
 import { createRealtimeApp } from '../src/app';
 import { serveRealtime } from '../src/serve';
+import { productionServeOptions } from '../src/production';
 import { browserRuntimeTarget } from './browser-runtime-target';
 
 // Dedicated native-slot fixture with explicit test-only DM/group reading evidence.
@@ -104,6 +105,16 @@ const runtime = await serveRealtime({
     input.channel.authority.kind === 'private_group'
       ? messagingTestGroupReading(input)
       : messagingTestReading(input),
+  ...(process.env.E2E_STAGING_GROUPS === '1'
+    ? productionServeOptions({
+        resources,
+        port,
+        hostname: '127.0.0.1',
+        trustedProxies: [],
+        instanceId: systemId.next(),
+        nextId: () => systemId.next(),
+      })
+    : {}),
   port,
   hostname: '127.0.0.1',
   tls: { key, cert },

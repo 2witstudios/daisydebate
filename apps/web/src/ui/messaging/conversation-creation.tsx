@@ -65,7 +65,8 @@ export function ConversationCreation({
         <>
           <p id="creation-recipient-help" className="text-sm text-ink-muted">
             Separate usernames with commas or new lines. Each person receives an
-            invitation.
+            invitation. People who accept can read the group’s retained message
+            history.
           </p>
           <label htmlFor="creation-title" className="text-sm font-semibold">
             Group name
