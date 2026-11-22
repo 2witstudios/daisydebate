@@ -232,7 +232,12 @@ jobs:
             echo 'Select one existing browser spec, relative to apps/web (e.g. e2e/pricing.e2e.ts).'
             exit 2
           fi
+          set +e
           bun run --cwd apps/web test:e2e --project=chromium "^${REVIEW_SPEC//./\\.}$|/${REVIEW_SPEC//./\\.}$"
+          status=$?
+          mkdir -p apps/web/test-results
+          printf '%s\n' "$REVIEW_SPEC" > apps/web/test-results/review-spec.txt
+          exit "$status"
 
       - name: Report discovered/executed/pass/fail/skip counts
         if: ${{ !cancelled() && github.event_name != 'workflow_dispatch' }}
@@ -293,6 +298,7 @@ jobs:
   # (ephemeral local HTTPS) and its own database; Chromium only, through
   # the CDP virtual authenticator.
   admin:
+    if: ${{ !inputs.review_spec }}
     name: Admin E2E
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -393,6 +399,7 @@ jobs:
           retention-days: 7
 
   room-launch:
+    if: ${{ !inputs.review_spec }}
     name: Isolated native browser (${{ matrix.cohort }})
     runs-on: ubuntu-24.04
     # Launch as one job measured 51 to 71 minutes, 59 of them its 155 tests in
@@ -647,11 +654,11 @@ jobs:
         run: test "$SUITE" = success
 
   native-gate:
-    name: Isolated Room Launch E2E
+    name: ${{ inputs.review_spec && 'Native suites omitted from browser review' || 'Isolated Room Launch E2E' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     needs: [room-launch]
-    if: always()
+    if: ${{ always() && !inputs.review_spec }}
     steps:
       - name: Require native execution
         env:

@@ -1,3 +1,6 @@
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { z } from 'zod';
 
 const number = /^[1-9][0-9]*$/;
@@ -22,24 +25,8 @@ const artifactPages = z.array(
   }),
 );
 
-export function reviewEvidenceComment({
-  prHead,
-  run,
-  artifacts,
-  repositoryUrl,
-  runId,
-}: {
-  prHead: string;
-  run: unknown;
-  artifacts: unknown;
-  repositoryUrl: string;
-  runId: string;
-}): string {
-  const candidate = runSchema.parse(run);
-  if (candidate.head_sha !== prHead)
-    throw new Error('Browser evidence must match the current PR head');
-
-  const prefix = `browser-review-evidence-attempt-${candidate.run_attempt}`;
+function reviewEvidenceBundle(artifacts: unknown, attempt: number) {
+  const prefix = `browser-review-evidence-attempt-${attempt}`;
   const [artifact, ...others] = artifactPages
     .parse(artifacts)
     .flatMap((page) => page.artifacts)
@@ -50,13 +37,43 @@ export function reviewEvidenceComment({
     );
   if (!artifact || others.length > 0)
     throw new Error(
-      `Expected one unexpired browser review bundle from attempt ${candidate.run_attempt}`,
+      `Expected one unexpired browser review bundle from attempt ${attempt}`,
     );
 
+  return artifact;
+}
+
+export function reviewEvidenceComment({
+  prHead,
+  run,
+  reviewSpec,
+  artifacts,
+  repositoryUrl,
+  runId,
+}: {
+  prHead: string;
+  reviewSpec: unknown;
+  run: unknown;
+  artifacts: unknown;
+  repositoryUrl: string;
+  runId: string;
+}): string {
+  const capturedSpec = z
+    .string()
+    .regex(/^e2e\/([a-zA-Z0-9_-]+\/)*[a-zA-Z0-9_-]+\.e2e\.ts$/)
+    .parse(reviewSpec);
+  const candidate = runSchema.parse(run);
+  if (candidate.head_sha !== prHead)
+    throw new Error('Browser evidence must match the current PR head');
+
+  const artifact = reviewEvidenceBundle(artifacts, candidate.run_attempt);
+
   const runUrl = `${repositoryUrl}/actions/runs/${runId}`;
-  const browserOutcome = artifact.name.slice(prefix.length + 1);
+  const browserOutcome = artifact.name.split('-').at(-1);
   return [
     '## Browser review evidence',
+    '',
+    'Captured test: `' + capturedSpec + '`',
     '',
     `[Download video, trace and screenshots](${runUrl}/artifacts/${artifact.id})`,
     '',
@@ -98,15 +115,38 @@ if (import.meta.main) {
   const runPath = `repos/${repository.nameWithOwner}/actions/runs/${runId}`;
   const currentAttempt = () => runSchema.parse(JSON.parse(gh('api', runPath)));
   const run = currentAttempt();
-  const body = reviewEvidenceComment({
-    prHead,
-    run,
-    artifacts: JSON.parse(
-      gh('api', '--paginate', '--slurp', `${runPath}/artifacts`),
-    ),
-    repositoryUrl: repository.url,
-    runId,
-  });
+  const artifacts: unknown = JSON.parse(
+    gh('api', '--paginate', '--slurp', `${runPath}/artifacts`),
+  );
+  const selected = reviewEvidenceBundle(artifacts, run.run_attempt);
+  const directory = mkdtempSync(join(tmpdir(), 'daisy-review-evidence-'));
+  let body: string;
+  try {
+    gh(
+      'run',
+      'download',
+      runId,
+      '--repo',
+      repository.nameWithOwner,
+      '--name',
+      selected.name,
+      '--dir',
+      directory,
+    );
+    body = reviewEvidenceComment({
+      prHead,
+      run,
+      reviewSpec: readFileSync(
+        join(directory, 'review-spec.txt'),
+        'utf8',
+      ).trim(),
+      artifacts,
+      repositoryUrl: repository.url,
+      runId,
+    });
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
   if (currentHead() !== prHead)
     throw new Error('PR head moved while reading browser evidence');
   if (currentAttempt().run_attempt !== run.run_attempt)
