@@ -1,3 +1,22 @@
+CREATE FUNCTION public.daisy_lock_activated_protection()
+RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = pg_catalog, public, pg_temp
+AS $$
+BEGIN
+  IF NEW.status = 'active' AND (TG_OP = 'INSERT' OR OLD.status IS DISTINCT FROM NEW.status) THEN
+    PERFORM public.daisy_protection_choice_lock(NEW.minor_user_id);
+  END IF;
+  RETURN NULL;
+END
+$$;
+--> statement-breakpoint
+REVOKE ALL ON FUNCTION public.daisy_lock_activated_protection() FROM PUBLIC;
+--> statement-breakpoint
+CREATE TRIGGER guardian_links_lock_activated_protection
+  AFTER INSERT OR UPDATE OF status ON public.guardian_links
+  FOR EACH ROW EXECUTE FUNCTION public.daisy_lock_activated_protection();
+--> statement-breakpoint
 CREATE FUNCTION public.daisy_lock_protection_accounts(child_id text)
 RETURNS void
 LANGUAGE plpgsql SECURITY DEFINER
@@ -17,8 +36,8 @@ BEGIN
   -- group in account order before taking the child-choice or request locks.
   PERFORM id FROM public.users WHERE id = child_id OR id = ANY(guardian_ids)
     ORDER BY id FOR SHARE;
-  -- Link cleanup takes the same choice lock. Recheck authority and the
-  -- fenced guardian accounts after any wait for that lock.
+  -- Link activation and cleanup take the same choice lock. Recheck authority
+  -- and the fenced guardian accounts after any wait for that lock.
   PERFORM public.daisy_protection_choice_lock(child_id);
   IF NOT EXISTS (SELECT 1 FROM public.daisy_protection_guardians(child_id)
     WHERE user_id = public.daisy_subject_scope()) THEN

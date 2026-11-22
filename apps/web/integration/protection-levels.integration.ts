@@ -494,6 +494,7 @@ test('two guardians share one choice and only current guardians can clear a hold
       expect((await inbox(replacement)).rows).toMatchObject([
         { kind: 'friend_guardian_approval', readAt: null },
       ]);
+      expect((await inbox(parent)).rows).toEqual([]);
       expect(await run(parent, supervised)).toEqual({
         kind: 'refused',
         refusal: 'not-active',

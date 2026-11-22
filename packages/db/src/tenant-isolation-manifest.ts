@@ -390,6 +390,12 @@ export const tenantIsolationManifest: TenantIsolationManifest = {
       reason: 'Erases the subject’s choice only after the account has closed.',
     },
     {
+      name: 'daisy_lock_activated_protection',
+      executors: [],
+      reason:
+        'Serializes guardian-link activation with protection choices and their private notice recipients.',
+    },
+    {
       name: 'daisy_clear_unlinked_protection',
       executors: [],
       reason:
