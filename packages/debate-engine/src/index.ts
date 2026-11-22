@@ -54,6 +54,8 @@ export {
   planRating,
   ratingAwaited,
   ratingEligibility,
+  ratingCompetition,
+  requireRatingStandingRules,
 } from './rating-decision';
 export { namesHumanJudge } from './room-assembly-facts';
 export {

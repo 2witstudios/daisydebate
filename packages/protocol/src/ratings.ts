@@ -82,6 +82,11 @@ export type RatingEligibility =
   | { readonly kind: 'attendance-unsettled' }
   | RatingUnrated;
 
+/** The two-sided comparison supported by this rating calculation. */
+export type RatingCompetition =
+  | { readonly kind: 'rated'; readonly sides: readonly [SideKey, SideKey] }
+  | { readonly kind: 'unrated'; readonly reason: 'competition' };
+
 /** What the ledger holds for one debater on this ladder. */
 export type DebaterStanding = {
   /** This season's row and its version, if any. */

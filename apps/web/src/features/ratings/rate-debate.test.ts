@@ -1,3 +1,4 @@
+import { assertRejects } from '@daisy/errors/testing';
 import { fixedIds } from '@daisy/clock';
 import type { RateDebateInput } from '@daisy/db/ratings';
 import { planRating, ratingEligibility } from '@daisy/debate-engine';
@@ -39,5 +40,49 @@ describe('rateCompletedRound', () => {
         plan: true,
       },
     });
+  });
+});
+
+test('the application supplies competition admission and unresolved-carryover refusal', async () => {
+  let captured: RateDebateInput | undefined;
+  await rateCompletedRound(
+    {
+      rateRound: async (input) => {
+        captured = input;
+        return { kind: 'already-rated' };
+      },
+    },
+    'round',
+    fixedIds([]),
+  );
+  const decide = captured!.decide;
+  assert({
+    given: 'two named sides or a multi-sided competition',
+    should:
+      'preserve the two-side pool and refuse other competition without a plan',
+    actual: [
+      decide.competition([]),
+      decide.competition(['one']),
+      decide.competition(['one', 'two']),
+      decide.competition(['one', 'two', 'three']),
+    ],
+    expected: [
+      { kind: 'unrated', reason: 'competition' },
+      { kind: 'unrated', reason: 'competition' },
+      { kind: 'rated', sides: ['one', 'two'] },
+      { kind: 'unrated', reason: 'competition' },
+    ],
+  });
+  await assertRejects({
+    given: 'a prior-season standing without approved standing rules',
+    should: 'retain the DEC111 fail-closed refusal',
+    actual: () => decide.requireStandingRules({ previousWithoutRules: true }),
+    code: 'CONFLICT',
+  });
+  assert({
+    given: 'no unresolved prior-season standing',
+    should: 'leave normal planning available',
+    actual: decide.requireStandingRules({ previousWithoutRules: false }),
+    expected: undefined,
   });
 });

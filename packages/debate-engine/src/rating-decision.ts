@@ -12,6 +12,7 @@ import type {
   EndingRating,
   EndingRatingFacts,
   RatingEligibility,
+  RatingCompetition,
   RatingEligibilityFacts,
   RatingPlan,
   RatingPlanFacts,
@@ -32,6 +33,27 @@ import {
  * rates, on which ladder, from which starting state, to which result) is
  * decided here.
  */
+
+/** Only two named sides participate in the existing pairwise rating calculation. */
+export function ratingCompetition(
+  sides: readonly SideKey[],
+): RatingCompetition {
+  const [first, second] = sides;
+  return sides.length === 2 && first && second
+    ? { kind: 'rated', sides: [first, second] }
+    : { kind: 'unrated', reason: 'competition' };
+}
+
+/** DEC-111 leaves prior-season carry-over closed until its standing rules are approved. */
+export function requireRatingStandingRules(input: {
+  readonly previousWithoutRules: boolean;
+}): void {
+  if (input.previousWithoutRules)
+    throw createAppError(
+      'CONFLICT',
+      'Season carry-over requires DEC-111 resolution',
+    );
+}
 
 /** A Round rates on its frozen pool when its ending supports a result. */
 export function ratingEligibility(
