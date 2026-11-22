@@ -18,6 +18,7 @@ import { organizationCommand } from '../tab/operations/organization';
 import { stripeCheckoutPort } from '../billing/checkout-vendor';
 import { stripePortalPort } from '../billing/portal-session';
 import { createClubBilling, stripeClubPlanPort } from '../billing/club-billing';
+import { createClubSeatCommands } from './invitation-resend';
 import { composeClubRoutes, type StartClub } from './routes';
 
 /**
@@ -56,10 +57,7 @@ export function composeClubs(
     purchase: canPurchaseClub,
     granted: () => false,
   });
-  const seats = app.database.clubSeats(
-    clubSeatGrants,
-    (evidence, now) => subscriptionAccess(evidence, now).kind !== 'none',
-  );
+  const seats = createClubSeatCommands(app.database.clubSeats(clubSeatGrants));
   const returnOrigin = new URL(app.auth().config.PUBLIC_APP_URL).origin;
   const billing = createClubBilling({
     vendor:

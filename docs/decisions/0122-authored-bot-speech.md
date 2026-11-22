@@ -175,6 +175,17 @@ first phrase; and cross-examination was not a back-and-forth.
    that peer's line covering the instant they last spoke is in the
    transcript, or after 4 s.
 
+   A completed answer consumes that peer-turn boundary for the claim:
+   repeated or older end reports do not buy or publish another answer. A
+   later turn still owes its own answer.
+
+   Waiting for peer input is event-driven: a respondent stays silent until a
+   peer turn ends, with no timer that invents a turn. Timed waits own their
+   wake-up: retry pauses back off from 200 ms to 3 s, and the asking seat may
+   press an unanswered question once after 8 s of silence. Transcript
+   catch-up has the separate 4 s bound above. Ending the claim cancels its
+   retry and silence timers; it does not change peer-input behavior.
+
 Not built, on purpose, and each a later phrase source or optimization that
 needs no change to the speaker:
 
@@ -186,3 +197,23 @@ needs no change to the speaker:
   its samples before it is authorized.
 - **Keeping the publication across segment rotations.** The publication is
   already joined ahead of generation; it would save no time to first audio.
+
+## Publication and speech models
+
+The publisher's pure line ledger owns reveal receipts, handed audio, the
+first subsequent clear, credited audio and end acknowledgements. An end
+attempt closes the line immediately, even when its reply is lost; transient
+failures retain the same end directive for retry. A short phrase still
+awaiting reveal cannot replace the last phrase reported said when checking
+a cut queued tail. Authorization timing is a pure schedule: lookahead waits
+for the current audio schedule, and discarded authorization is asked afresh.
+
+One speech state owns duty, the current generation and per-phrase receipt
+phases. It selects generation, settlement, voicing and publication work as
+data. Received work survives deferrals; pending settlement is awaited before
+retrying it. Async receipts carry their generation, so an old completion
+cannot revive a replaced turn. Only the prior phrase and lookahead voices
+remain retained for queued-tail recovery. The shell interprets these
+directives against injected resources and holds native audio, provider
+answers, promises and cancellation handles; those resources do not decide
+what the bot owes or what text was heard.

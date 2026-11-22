@@ -1,3 +1,4 @@
+import type { PreapprovalResult } from '@daisy/protocol/beta-preapproval';
 import { signOperatorRequest } from '@daisy/auth/operator-signature';
 import { noopErrorReporter } from '@daisy/observability';
 import { createOperatorApi, type OperatorApiDependencies } from './router';
@@ -56,15 +57,31 @@ export const api = (overrides: Partial<OperatorApiDependencies> = {}) => {
         return { commandId: input.commandId, key: input.key, revision: 1 };
       },
       listBetaPreapprovals: async () => [],
-      runPreapprovalCommand: async (input) => {
+      preapprovalCommand: async (input, work) => {
         calls.commands.push(input);
-        return {
-          commandId: input.command.commandId,
-          preapprovalId: 'g'.repeat(24),
-          revision: 1,
-          outcome: 'saved',
-          mail: 'none',
-        };
+        const applied: { result: PreapprovalResult | null } = { result: null };
+        await work({
+          load: async () => ({
+            kind: 'fresh',
+            facts: {
+              command: input.command,
+              grant: {
+                id: 'g'.repeat(24),
+                revision: 1,
+                claimed: false,
+                invited: false,
+              },
+              claimedAccount: null,
+              activeInvitation: false,
+            },
+            apply: async (decision) => {
+              applied.result = decision.result;
+              return decision.result;
+            },
+          }),
+        });
+        if (!applied.result) throw new Error('Test command did not apply');
+        return { kind: 'settled', result: applied.result };
       },
       listOperatorReports: async () => [],
       listOperatorRestrictions: async () => [],

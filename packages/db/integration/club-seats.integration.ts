@@ -1,11 +1,8 @@
+import { clubSeatTestCommands } from './club-manager.test-support';
 import { instantMs, addMs } from '@daisy/clock';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
-import {
-  clubSeatGrants,
-  subscriptionAccess,
-  subscriptionGrants,
-} from '@daisy/auth/authorization';
+import { clubSeatGrants, subscriptionGrants } from '@daisy/auth/authorization';
 import { requireTestServices } from '@daisy/config';
 import type { SubscriptionEvidence } from '@daisy/protocol/billing';
 import { createBillingSynchronization } from '../src/billing-synchronization';
@@ -75,7 +72,7 @@ function withPaidClub(
     readonly customerId: string;
     readonly paid: SubscriptionEvidence;
     readonly sync: Sync;
-    readonly seatStore: ReturnType<typeof createClubSeats>;
+    readonly seatStore: ReturnType<typeof clubSeatTestCommands>;
     readonly reads: ReturnType<typeof createClubSeatReads>;
     readonly clubs: string[];
   }) => Promise<void>,
@@ -136,13 +133,13 @@ function withPaidClub(
               mode: 'test',
             }),
         },
-        seatStore: createClubSeats({
-          run,
-          nextId: createId,
-          grants: clubSeatGrants,
-          planActive: (evidence, at) =>
-            subscriptionAccess(evidence, at).kind !== 'none',
-        }),
+        seatStore: clubSeatTestCommands(
+          createClubSeats({
+            run,
+            nextId: createId,
+            grants: clubSeatGrants,
+          }),
+        ),
         reads: createClubSeatReads({ run }),
         clubs,
       });
@@ -753,96 +750,6 @@ test('a former member who accepts a seat rejoins now, with one open membership p
           Number(after!.version) > Number(before!.version),
         ],
         expected: [1, true, true],
-      });
-    },
-  );
-});
-
-test('invitation mail is throttled, and a lapsed plan gives no seats', async () => {
-  await withPaidClub(
-    2,
-    async ({
-      fixture,
-      owner,
-      organizationId,
-      customerId,
-      paid,
-      sync,
-      seatStore,
-    }) => {
-      await apply(sync, customerId, paid, 2);
-      await seatStore.command(owner, organizationId, {
-        kind: 'invite',
-        email: 'throttle@club.example',
-      });
-      const [invitation] =
-        await fixture.sql`select id from club_seat_invitations where organization_id=${organizationId}`;
-      const invitationId = invitation!.id as string;
-      const resend = () =>
-        seatStore.command(owner, organizationId, {
-          kind: 'resend',
-          invitationId,
-        });
-      const tooSoon = await resend();
-      await fixture.sql`update mail_intents set state='sent', completed_at=now(),
-          created_at=now() - interval '2 hours'
-        where club_seat_invitation_id=${invitationId}`;
-      const allowed = await resend();
-      await fixture.sql`update mail_intents set state='sent', completed_at=now(),
-          created_at=now() - interval '2 hours'
-        where club_seat_invitation_id=${invitationId}`;
-      for (let sent = 2; sent < 5; sent += 1)
-        await fixture.sql`insert into mail_intents
-          (id, purpose, club_seat_invitation_id, dedupe_key, state, completed_at, created_at, next_attempt_at)
-          values (${createId()}, 'club-seat-invitation', ${invitationId},
-            ${`club-seat-invitation:${organizationId}:${invitationId}:${createId()}`}, 'sent', now(), now() - interval '2 hours', now())`;
-      const capped = await resend();
-      assert({
-        given:
-          'a resend right after inviting, one an hour later, and one after five sends',
-        should: 'refuse too soon, allow, then refuse at the cap',
-        actual: [tooSoon, allowed, capped],
-        expected: [
-          { kind: 'refused', reason: 'resend-too-soon' },
-          { kind: 'changed' },
-          { kind: 'refused', reason: 'invitation-mail-limit' },
-        ],
-      });
-      await apply(sync, customerId, { ...paid, lifecycle: 'canceled' }, 2);
-      const member = await person(fixture, organizationId);
-      assert({
-        given:
-          'a cancelled plan, then an invitation, an assignment, a seat change and a resend',
-        should: 'refuse each with no active plan, writing nothing',
-        actual: [
-          await seatStore.command(owner, organizationId, {
-            kind: 'invite',
-            email: 'late@club.example',
-          }),
-          await seatStore.command(owner, organizationId, {
-            kind: 'assign',
-            userId: member.userId,
-          }),
-          await seatStore.command(owner, organizationId, {
-            kind: 'prepare-seat-count',
-            seatCount: 1,
-            release: { seats: [], invitations: [invitationId] },
-          }),
-          await seatStore.command(owner, organizationId, {
-            kind: 'resend',
-            invitationId,
-          }),
-          (
-            await fixture.sql`select count(*)::int as n from club_seat_invitations where organization_id=${organizationId}`
-          )[0]!.n,
-        ],
-        expected: [
-          { kind: 'refused', reason: 'no-active-plan' },
-          { kind: 'refused', reason: 'no-active-plan' },
-          { kind: 'refused', reason: 'no-active-plan' },
-          { kind: 'refused', reason: 'no-active-plan' },
-          1,
-        ],
       });
     },
   );

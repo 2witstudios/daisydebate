@@ -1,4 +1,3 @@
-import { instantMs } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol/primitives';
 import {
@@ -7,10 +6,10 @@ import {
 } from '@daisy/protocol/billing';
 import {
   clubSeatBounds,
-  decideClubSeating,
+  clubInvitationMailRefusal,
+  type ClubInvitationMailFacts,
   type ClubSeat,
   type ClubSeating,
-  type ClubSeatingCommand,
   type ClubSeatingRefusal,
   type SeatInvitation,
 } from '@daisy/protocol/club-seats';
@@ -56,7 +55,6 @@ export type ClubSeatManagerCommand =
     }
   | { readonly kind: 'remove'; readonly userId: string }
   | { readonly kind: 'cancel'; readonly invitationId: string }
-  | { readonly kind: 'resend'; readonly invitationId: string }
   /** Gives up exactly these seats and invitations before a seat decrease. */
   | {
       readonly kind: 'prepare-seat-count';
@@ -79,6 +77,40 @@ export type ClubSeatAnswer =
       readonly currentSeatCount: number;
       readonly seatCount: number;
     };
+
+/** The persisted facts available to the application's resend decision. */
+export type ClubInvitationResendFacts = {
+  readonly evidence: SubscriptionEvidence | null;
+  readonly seatCount: number;
+  readonly now: string;
+  readonly invitation: SeatInvitation | null;
+};
+
+type ClubInviteeAnswer = Exclude<ClubSeatAnswer, { kind: 'seat-count-ready' }>;
+type ClubInviteeLoad = {
+  readonly before: ClubSeating;
+  readonly now: string;
+  readonly elsewhere: boolean;
+  readonly apply: (after: ClubSeating) => Promise<void>;
+};
+
+type ClubManagerLoad = {
+  readonly before: ClubSeating;
+  readonly evidence: SubscriptionEvidence | null;
+  readonly now: string;
+  readonly invitationId: string;
+  readonly target: {
+    readonly member: boolean;
+    readonly elsewhere: boolean;
+  } | null;
+  readonly customer: {
+    readonly mode: string;
+    readonly vendorCustomerId: string;
+  } | null;
+  readonly subscription: { readonly vendorSubscriptionId: string } | null;
+  readonly mail: () => Promise<ClubInvitationMailFacts>;
+  readonly apply: (after: ClubSeating) => Promise<void>;
+};
 
 /** A refusal decided under the lock: the transaction rolls back and answers it. */
 class Refused extends Error {
@@ -180,7 +212,7 @@ async function queueInvitationMail(
  * sends at most 20 plus one per seat a day. Counted from the durable mail
  * intents, whose dedupe key names the club and the invitation.
  */
-async function invitationMailLimit(
+async function readInvitationMailFacts(
   tx: Tx,
   input: {
     readonly organizationId: string;
@@ -198,12 +230,13 @@ async function invitationMailLimit(
       and created_at > ${input.now}::timestamptz - interval '1 day'
       and dedupe_key like ${club}`,
   );
+  const daily = Number(today?.n ?? 0);
+  // Preserve the daily-cap short circuit before any invitation-count query.
   if (
-    Number(today?.n ?? 0) >=
-    clubSeatBounds.dailyInvitationMails + input.seatCount
+    input.invitationId === null ||
+    clubInvitationMailRefusal({ daily, invitation: null }, input.seatCount)
   )
-    return 'invitation-mail-limit' as const;
-  if (input.invitationId === null) return null;
+    return { daily, invitation: null };
   const [sent] = await query(
     tx,
     z.object({ n: z.int(), recent: z.int() }),
@@ -212,10 +245,13 @@ async function invitationMailLimit(
         or created_at > ${input.now}::timestamptz - ${`${clubSeatBounds.resendAfterMs} milliseconds`}::interval)::int as recent
     from mail_intents where club_seat_invitation_id=${input.invitationId}`,
   );
-  if (Number(sent?.n ?? 0) >= clubSeatBounds.sendsPerInvitation)
-    return 'invitation-mail-limit' as const;
-  if (Number(sent?.recent ?? 0) > 0) return 'resend-too-soon' as const;
-  return null;
+  return {
+    daily,
+    invitation: {
+      total: Number(sent?.n ?? 0),
+      recentOrOwed: Number(sent?.recent ?? 0),
+    },
+  };
 }
 
 /** Writes the difference between two seatings, and ends removed holders' Premium at the end of the UTC day. */
@@ -300,63 +336,6 @@ async function writeSeating(
   }
 }
 
-function toSeatingCommand(
-  command: ClubSeatManagerCommand,
-  facts: {
-    readonly invitationId: string;
-    readonly target: { member: boolean; elsewhere: boolean } | null;
-  },
-): ClubSeatingCommand | null {
-  switch (command.kind) {
-    case 'invite':
-      return {
-        kind: 'invite',
-        invitationId: facts.invitationId,
-        email: command.email,
-      };
-    case 'assign':
-      return {
-        kind: 'assign',
-        target: {
-          kind: 'member',
-          userId: command.userId,
-          isMember: facts.target?.member ?? false,
-          seatedElsewhere: facts.target?.elsewhere ?? false,
-        },
-      };
-    case 'move':
-      return {
-        kind: 'move',
-        fromUserId: command.fromUserId,
-        to:
-          command.to.kind === 'member'
-            ? {
-                kind: 'member',
-                userId: command.to.userId,
-                isMember: facts.target?.member ?? false,
-                seatedElsewhere: facts.target?.elsewhere ?? false,
-              }
-            : {
-                kind: 'invite',
-                invitationId: facts.invitationId,
-                email: command.to.email,
-              },
-      };
-    case 'remove':
-      return { kind: 'remove', userId: command.userId };
-    case 'cancel':
-      return { kind: 'cancel', invitationId: command.invitationId };
-    case 'prepare-seat-count':
-      return {
-        kind: 'change-seat-count',
-        seatCount: command.seatCount,
-        release: command.release,
-      };
-    case 'resend':
-      return null;
-  }
-}
-
 const targetOf = (command: ClubSeatManagerCommand) =>
   command.kind === 'assign'
     ? command.userId
@@ -383,7 +362,6 @@ function validCommand(command: ClubSeatManagerCommand) {
           : email(command.to.email))
       );
     case 'cancel':
-    case 'resend':
       return ids([command.invitationId]);
     case 'prepare-seat-count':
       return (
@@ -408,8 +386,6 @@ export function createClubSeats(input: {
   readonly run: BoundedTransaction;
   readonly nextId: () => string;
   readonly grants: ClubSeatGrantProjection;
-  /** Whether verified plan evidence grants access now (@daisy/auth's policy, injected). */
-  readonly planActive: (evidence: SubscriptionEvidence, now: string) => boolean;
 }) {
   async function fenced(
     tx: Tx,
@@ -443,132 +419,185 @@ export function createClubSeats(input: {
   }
 
   return {
-    /** A manager (the club's owner) changes its seats. */
-    command(
+    /** The application decides resend eligibility while these facts remain fenced. */
+    resend(
+      subject: ClubSeatSubject,
+      organizationId: string,
+      invitationId: string,
+      decide: (
+        facts: ClubInvitationResendFacts,
+        mail: () => Promise<ClubInvitationMailFacts>,
+      ) => Promise<ClubSeatingRefusal | null>,
+    ): Promise<ClubSeatAnswer> {
+      if (
+        !idSchema.safeParse(organizationId).success ||
+        !idSchema.safeParse(invitationId).success
+      )
+        throw createAppError('VALIDATION');
+      return input.run(async (tx): Promise<ClubSeatAnswer> => {
+        const { club } = await fenced(tx, subject, organizationId, []);
+        if (club.ownerUserId !== subject.userId)
+          throw createAppError('NOT_FOUND');
+        const plan = await readPlan(tx, club.id);
+        const now = await readDatabaseTime(tx);
+        const invitations = await readInvitations(tx, club.id);
+        let open = true;
+        const counts: { pending: Promise<ClubInvitationMailFacts> | null } = {
+          pending: null,
+        };
+        const mail = () => {
+          if (!open) throw createAppError('INVARIANT');
+          counts.pending ??= readInvitationMailFacts(tx, {
+            organizationId: club.id,
+            invitationId,
+            seatCount: plan.seatCount,
+            now,
+          });
+          return counts.pending;
+        };
+        let reason: ClubSeatingRefusal | null;
+        try {
+          reason = await decide(
+            {
+              evidence: plan.evidence,
+              seatCount: plan.seatCount,
+              now: now.toISOString(),
+              invitation:
+                invitations.find(
+                  (candidate) => candidate.id === invitationId,
+                ) ?? null,
+            },
+            mail,
+          );
+          // Detached work cannot outlive the decision or overlap its queue write.
+          if (counts.pending) await counts.pending;
+        } finally {
+          open = false;
+        }
+        if (reason) return refused(reason);
+        await queueInvitationMail(tx, {
+          organizationId: club.id,
+          invitationId,
+          sendId: input.nextId(),
+        });
+        return { kind: 'changed' };
+      });
+    },
+
+    /** One manager decision over account-first, Club and billing-fenced facts. */
+    managerCommand(
       subject: ClubSeatSubject,
       organizationId: string,
       command: ClubSeatManagerCommand,
+      work: (session: {
+        readonly load: () => Promise<ClubManagerLoad>;
+      }) => Promise<ClubSeatAnswer>,
     ): Promise<ClubSeatAnswer> {
       if (!idSchema.safeParse(organizationId).success || !validCommand(command))
         throw createAppError('VALIDATION');
       const target = targetOf(command);
       return input
         .run(async (tx): Promise<ClubSeatAnswer> => {
-          const { club, seats } = await fenced(
-            tx,
-            subject,
-            organizationId,
-            target ? [target] : [],
-          );
-          if (club.ownerUserId !== subject.userId)
-            throw createAppError('NOT_FOUND');
-          const plan = await readPlan(tx, club.id);
-          const now = await readDatabaseTime(tx);
-          const before: ClubSeating = {
-            seatCount: plan.seatCount,
-            seats,
-            invitations: await readInvitations(tx, club.id),
+          const lifecycle: {
+            phase:
+              'new' | 'loading' | 'fresh' | 'applying' | 'applied' | 'closed';
+          } = { phase: 'new' };
+          const phase = () => lifecycle.phase;
+          const counts: { pending: Promise<ClubInvitationMailFacts> | null } = {
+            pending: null,
           };
-          const active =
-            plan.evidence !== null &&
-            input.planActive(plan.evidence, now.toISOString());
-          if (command.kind === 'resend') {
-            // A lapsed plan offers no seat worth mailing.
-            if (!active) return refused('no-active-plan');
-            const invitation = before.invitations.find(
-              (candidate) => candidate.id === command.invitationId,
+          const load = async (): Promise<ClubManagerLoad> => {
+            if (phase() !== 'new') throw createAppError('INVARIANT');
+            lifecycle.phase = 'loading';
+            const { club, seats } = await fenced(
+              tx,
+              subject,
+              organizationId,
+              target ? [target] : [],
             );
-            if (!invitation) return refused('invitation-not-found');
-            if (instantMs(invitation.expiresAt) <= now.getTime())
-              return refused('invitation-expired');
-            const limit = await invitationMailLimit(tx, {
-              organizationId: club.id,
-              invitationId: invitation.id,
+            if (club.ownerUserId !== subject.userId)
+              throw createAppError('NOT_FOUND');
+            const plan = await readPlan(tx, club.id);
+            const now = await readDatabaseTime(tx);
+            const before: ClubSeating = {
               seatCount: plan.seatCount,
-              now,
-            });
-            if (limit) return refused(limit);
-            await queueInvitationMail(tx, {
+              seats,
+              invitations: await readInvitations(tx, club.id),
+            };
+            const facts = {
+              invitationId: input.nextId(),
+              target: target
+                ? {
+                    member: await isActiveMember(tx, club.id, target),
+                    elsewhere: await seatedElsewhere(tx, club, target),
+                  }
+                : null,
+            };
+            await scopeTransaction(tx, {
               organizationId: club.id,
-              invitationId: invitation.id,
-              sendId: input.nextId(),
+              subjectUserId: subject.userId,
             });
-            return { kind: 'changed' };
-          }
-          const facts = {
-            invitationId: input.nextId(),
-            target: target
-              ? {
-                  member: await isActiveMember(tx, club.id, target),
-                  elsewhere: await seatedElsewhere(tx, club, target),
-                }
-              : null,
+            if (phase() !== 'loading') throw createAppError('INVARIANT');
+            lifecycle.phase = 'fresh';
+            return {
+              before,
+              ...facts,
+              evidence: plan.evidence,
+              now: now.toISOString(),
+              customer: plan.customer
+                ? {
+                    mode: plan.customer.mode,
+                    vendorCustomerId: plan.customer.vendorCustomerId,
+                  }
+                : null,
+              subscription: plan.subscription
+                ? {
+                    vendorSubscriptionId:
+                      plan.subscription.vendorSubscriptionId,
+                  }
+                : null,
+              mail: () => {
+                if (phase() !== 'fresh') throw createAppError('INVARIANT');
+                counts.pending ??= readInvitationMailFacts(tx, {
+                  organizationId: club.id,
+                  invitationId: null,
+                  seatCount: plan.seatCount,
+                  now,
+                });
+                return counts.pending;
+              },
+              apply: async (after) => {
+                if (phase() !== 'fresh') throw createAppError('INVARIANT');
+                lifecycle.phase = 'applying';
+                if (counts.pending) await counts.pending;
+                if (phase() !== 'applying') throw createAppError('INVARIANT');
+                await writeSeating(tx, {
+                  club,
+                  before,
+                  after,
+                  invitedBy: subject.userId,
+                  now,
+                  nextId: input.nextId,
+                });
+                await project(tx, club, after.seats);
+                if (phase() !== 'applying') throw createAppError('INVARIANT');
+                lifecycle.phase = 'applied';
+              },
+            };
           };
-          await scopeTransaction(tx, {
-            organizationId: club.id,
-            subjectUserId: subject.userId,
-          });
-          // Giving a seat, or changing the plan, needs a plan that grants access;
-          // freeing a seat or cancelling an invitation never does.
-          if (
-            !active &&
-            ['invite', 'assign', 'move', 'prepare-seat-count'].includes(
-              command.kind,
+          try {
+            const result = await work({ load });
+            if (counts.pending) await counts.pending;
+            if (
+              result.kind === 'refused'
+                ? phase() !== 'fresh'
+                : phase() !== 'applied'
             )
-          )
-            return refused('no-active-plan');
-          if (
-            command.kind === 'prepare-seat-count' &&
-            (!plan.customer ||
-              !plan.subscription ||
-              (plan.customer.mode !== 'test' && plan.customer.mode !== 'live'))
-          )
-            return refused('no-active-plan');
-          if (
-            command.kind === 'invite' ||
-            (command.kind === 'move' && command.to.kind === 'invite')
-          ) {
-            const limit = await invitationMailLimit(tx, {
-              organizationId: club.id,
-              invitationId: null,
-              seatCount: plan.seatCount,
-              now,
-            });
-            if (limit) return refused(limit);
+              throw createAppError('INVARIANT');
+            return result;
+          } finally {
+            lifecycle.phase = 'closed';
           }
-          const seatingCommand = toSeatingCommand(command, facts);
-          if (!seatingCommand) throw createAppError('INVARIANT');
-          const decision = decideClubSeating(
-            before,
-            seatingCommand,
-            now.toISOString(),
-          );
-          if (decision.kind === 'refused') return refused(decision.reason);
-          await writeSeating(tx, {
-            club,
-            before,
-            after: decision.state,
-            invitedBy: subject.userId,
-            now,
-            nextId: input.nextId,
-          });
-          await project(tx, club, decision.state.seats);
-          if (command.kind !== 'prepare-seat-count') return { kind: 'changed' };
-          // Checked before any write above; repeated here only to narrow types.
-          if (
-            !plan.customer ||
-            !plan.subscription ||
-            (plan.customer.mode !== 'test' && plan.customer.mode !== 'live')
-          )
-            throw createAppError('CONFLICT');
-          return {
-            kind: 'seat-count-ready',
-            mode: plan.customer.mode,
-            vendorCustomerId: plan.customer.vendorCustomerId,
-            vendorSubscriptionId: plan.subscription.vendorSubscriptionId,
-            currentSeatCount: plan.seatCount,
-            seatCount: command.seatCount,
-          };
         })
         .catch((error: unknown) => {
           if (error instanceof Refused) return refused(error.reason);
@@ -576,69 +605,93 @@ export function createClubSeats(input: {
         });
     },
 
-    /**
-     * The invited person answers: accepting needs a signed-in account whose
-     * verified email is the invited address; it seats them, makes them an
-     * active member if they were not, and grants Premium from the plan.
-     */
-    answer(
+    /** Addressed invitee facts and their atomic seat/mail/membership/grant application. */
+    answerCommand(
       subject: ClubSeatSubject,
       organizationId: string,
       invitationId: string,
       answer: 'accept' | 'decline',
-    ): Promise<ClubSeatAnswer> {
+      work: (session: {
+        readonly load: () => Promise<ClubInviteeLoad>;
+      }) => Promise<ClubInviteeAnswer>,
+    ): Promise<ClubInviteeAnswer> {
       if (
         !idSchema.safeParse(organizationId).success ||
         !idSchema.safeParse(invitationId).success
       )
         throw createAppError('VALIDATION');
       return input
-        .run(async (tx): Promise<ClubSeatAnswer> => {
-          const { club, seats } = await fenced(tx, subject, organizationId, []);
-          const invitation = await invitedAs(tx, subject, club, invitationId);
-          if (!invitation) throw createAppError('NOT_FOUND');
-          const plan = await readPlan(tx, club.id);
-          const now = await readDatabaseTime(tx);
-          const before: ClubSeating = {
-            seatCount: plan.seatCount,
-            seats,
-            invitations: await readInvitations(tx, club.id),
-          };
-          const elsewhere = await seatedElsewhere(tx, club, subject.userId);
-          await scopeTransaction(tx, {
-            organizationId: club.id,
-            subjectUserId: subject.userId,
-          });
-          const decision = decideClubSeating(
-            before,
-            answer === 'accept'
-              ? {
-                  kind: 'accept',
-                  invitationId,
-                  userId: subject.userId,
-                  seatedElsewhere: elsewhere,
-                }
-              : { kind: 'decline', invitationId },
-            now.toISOString(),
-          );
-          if (decision.kind === 'refused') return refused(decision.reason);
-          await writeSeating(tx, {
-            club,
-            before,
-            after: decision.state,
-            invitedBy: subject.userId,
-            now,
-            nextId: input.nextId,
-          });
-          if (answer === 'accept') {
-            await activateSeatMembership(tx, {
+        .run(async (tx): Promise<ClubInviteeAnswer> => {
+          const lifecycle: {
+            phase:
+              'new' | 'loading' | 'fresh' | 'applying' | 'applied' | 'closed';
+          } = { phase: 'new' };
+          const phase = () => lifecycle.phase;
+          const load = async (): Promise<ClubInviteeLoad> => {
+            if (phase() !== 'new') throw createAppError('INVARIANT');
+            lifecycle.phase = 'loading';
+            const { club, seats } = await fenced(
+              tx,
+              subject,
+              organizationId,
+              [],
+            );
+            const invitation = await invitedAs(tx, subject, club, invitationId);
+            if (!invitation) throw createAppError('NOT_FOUND');
+            const plan = await readPlan(tx, club.id);
+            const now = await readDatabaseTime(tx);
+            const before: ClubSeating = {
+              seatCount: plan.seatCount,
+              seats,
+              invitations: await readInvitations(tx, club.id),
+            };
+            const elsewhere = await seatedElsewhere(tx, club, subject.userId);
+            await scopeTransaction(tx, {
               organizationId: club.id,
-              userId: subject.userId,
-              now: now.toISOString(),
+              subjectUserId: subject.userId,
             });
-            await project(tx, club, decision.state.seats);
+            if (phase() !== 'loading') throw createAppError('INVARIANT');
+            lifecycle.phase = 'fresh';
+            return {
+              before,
+              now: now.toISOString(),
+              elsewhere,
+              apply: async (after) => {
+                if (phase() !== 'fresh') throw createAppError('INVARIANT');
+                lifecycle.phase = 'applying';
+                await writeSeating(tx, {
+                  club,
+                  before,
+                  after,
+                  invitedBy: subject.userId,
+                  now,
+                  nextId: input.nextId,
+                });
+                if (answer === 'accept') {
+                  await activateSeatMembership(tx, {
+                    organizationId: club.id,
+                    userId: subject.userId,
+                    now: now.toISOString(),
+                  });
+                  await project(tx, club, after.seats);
+                }
+                if (phase() !== 'applying') throw createAppError('INVARIANT');
+                lifecycle.phase = 'applied';
+              },
+            };
+          };
+          try {
+            const result = await work({ load });
+            if (
+              result.kind === 'refused'
+                ? phase() !== 'fresh'
+                : phase() !== 'applied'
+            )
+              throw createAppError('INVARIANT');
+            return result;
+          } finally {
+            lifecycle.phase = 'closed';
           }
-          return { kind: 'changed' };
         })
         .catch((error: unknown) => {
           if (error instanceof Refused) return refused(error.reason);
@@ -648,7 +701,9 @@ export function createClubSeats(input: {
   };
 }
 
-const refused = (reason: ClubSeatingRefusal): ClubSeatAnswer => ({
+const refused = (
+  reason: ClubSeatingRefusal,
+): Extract<ClubSeatAnswer, { kind: 'refused' }> => ({
   kind: 'refused',
   reason,
 });

@@ -6,6 +6,26 @@ PostgreSQL is the durable source of competitive truth ([ADR 0058](../decisions/0
 
 Identifiers are application-minted cuid2 text values, except canonical format slugs and the exact historical casual-judge accounting migration exception in [ADR 0018](../decisions/0018-cuid2-identifiers.md). That exception supplies predictable derived accounting IDs only; it does not permit runtime or actor ID generation in SQL. Durations are integer milliseconds and timestamps are `timestamptz`, exposed as UTC ISO strings. Personal data is recorded per data class in [compliance](../operations/compliance.md). `users` is tombstoned when an account closes: its email, name and image are cleared, authentication rows are deleted, and active grants are revoked transactionally; the username, actors and competitive history remain ([ADR 0087](../decisions/0087-compliance-from-obligations.md)). Actor-owned documents require explicit deletion in the account-erasure operation because the user tombstone keeps its row.
 
+## Beta invitation eligibility
+
+The Beta application worker decides invitation eligibility from named fresh
+reads supplied by the mail store. The store checks purpose and leased state;
+the worker then reads the grant/current identity, claimed authorization account
+and matching verified accounts in that order, stopping at each earlier refusal.
+No transaction is retained across those reads or the provider call; the normal
+worker claim keeps its existing lease and token settlement contract.
+The same protocol eligibility rule decides invitations for preapproval commands
+over their raw fenced account facts. Provider deadlines, queue claims, token
+settlement, retry and unknown-delivery semantics are unchanged.
+
+The signed operator application owns preapproval decisions and the maximum
+three account-first attempts. Each store session owns one transaction, with
+receipt replay before account/email discovery and a single-use writer bound
+to the prepared command. Loading an add may provisionally claim its grant and
+approve an account; returning without apply, refusal or failure rolls that
+preparation back. Receipt/mail/grant changes and the final live check remain
+atomic, and session capabilities close when the attempt ends.
+
 ## Competitive records
 
 | Record                                          | Durable responsibility                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
@@ -211,6 +231,15 @@ Generate schema changes with `bun db:generate`, review SQL and snapshot metadata
 
 Email diagnostics live in `email_delivery`, `email_delivery_event`, and `email_suppression`: IDs, status rank, and a keyed SHA3-256 recipient hash, never the address or provider payload. The retention sweep removes delivery events and delivery records after their documented windows, and expired verification rows after a grace period. Suppressions remain. Revoking all sessions locks the user row before deleting sessions, so concurrent session creation is serialized against the revoke.
 
+Preapproval command policy lives in `@daisy/protocol/beta-preapproval` as
+`decidePreapprovalChange`. The operator application supplies this pure decision
+to `runPreapprovalCommand`; the adapter invokes it over the fresh grant and
+invitation facts inside the existing account-first fenced transaction. The
+adapter retains preparation writes, bounded restarts, receipt replay and atomic
+application of the decision. Receipt replay does not invoke the decision. The
+command and mail readers retain their shared claimed-invitation eligibility
+predicate.
+
 Queued mail is one lifecycle in several tables: `mail_intents` (beta access, ADR 0075), `notification_digests` (ADR 0144), Messaging's unread-messages email and `league_requests` (a League request is its own owner email, PYL-17) take their state columns and CHECKs from `mailJobColumns` and `mailJobChecks`, and `mailQueue` (`packages/db/src/mail-queue.ts`) is the only writer of that state for all of them. A job is queued, leased to one worker, and ends sent, failed or cancelled; the lease, completion and cancellation instants are `clock_timestamp()` at the write, and a retry's next attempt is the instant the worker's backoff names. A claim ends a job failed when it has already been claimed the caller's `maxAttempts` times, so a worker that keeps dying after its claim cannot hold a job in the queue. A lapsed lease may have reached the provider: for an invitation and for every notification digest the job says `delivery-unknown` from then on, whatever ends it short of a confirmed send, and any job ended at the claim's cap says it too, because its last holder never settled. Work that stops being owed is cancelled through `cancelOwed`, held or not, and a holder that chooses to wait (a digest whose member is online) puts the job back through `postpone`, spending no attempt.
 
 The outbox is a transactionally written delivery log for realtime doorbells, not event sourcing. The realtime service reads its explicitly granted projection and keeps presence in expiring Redis keys. Redis keys are validated and namespaced per deployment, with expiry set atomically; tests delete only their own namespace. Rate limiting uses atomic server-side operations and an explicit outage policy. No global flush or Redis-derived competitive outcome is permitted.
@@ -373,6 +402,37 @@ standings projection is stored. `standings.read` on the actual league
 organization authorizes active members and organization managers through the
 evaluator and its minor boundary; public organization identity is not season
 read authority.
+
+## Club invitation resend
+
+Clubs application operations decide whether a manager may resend an invitation.
+The seat store supplies verified plan evidence, invitation and database time
+under its existing account → Club → billing lock order. It reads mail-count
+facts only when the application reaches that check, then enqueues an approved
+send before releasing the same bounded transaction. A retained count reader
+cannot be used after the decision ends. No provider call runs under the fence.
+
+The protocol's Club invitation mail rule is shared by resend, new invitations
+and moves to an invitation. Durable counts retain the rolling-day, lifetime,
+recent-send and queued/leased semantics from ADR 0148; refusal leaves the queue
+unchanged.
+
+Non-resend manager commands expose one fenced `managerCommand` load/apply
+session. The Club application owns active-plan and Billing-readiness refusals,
+lazy quota checks and the pure seating decision; the actual Billing seat-count
+caller uses the same operation. The adapter keeps account → Club → billing
+locks, holder-set checks, fresh plan/target facts, seating and mail writes and
+grant projection in one bounded transaction. Refusals precede apply; missing
+settlement, incompatible post-apply refusal and repeated or escaped capabilities
+cannot commit. Inactive plans still permit removal and cancellation. Billing
+receives readiness only after the named releases commit, then performs vendor
+work outside the transaction. Invitation accept/decline uses its own fenced `answerCommand` load/apply
+operation. The Club application selects and invokes the canonical protocol
+answer decision; the adapter retains verified-address admission, account → Club
+→ billing locks, database time and atomic mail/seating/Tab membership/grant
+materialization. Refused or missing application cannot commit; repeat and
+escaped capabilities are closed. Acceptance gains no active-plan or free-seat
+guard, and decline gains no expiry guard.
 
 ## Operator Recording takedown
 
