@@ -1,3 +1,4 @@
+import { captureAdmissionPolicy } from '../media-capture/capture-policy';
 import { nowMs } from '@daisy/clock';
 import { createRoundStartGate } from '../round-start-gate/gate';
 import { captureRule } from '@daisy/debate-engine';
@@ -112,6 +113,7 @@ export function createRoundMediaRuntime(
       workerTokens: createMediaWorkerTokenBroker({
         sessions: resources.store,
         capture: app.database.createMediaCaptureOperations({
+          admission: captureAdmissionPolicy,
           sttLagMs: CAPTURE_STT_LAG_MS,
           captureRule,
           nextId: resources.nextId,

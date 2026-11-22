@@ -173,3 +173,15 @@ export const seatLabel = (
       return numbered('Judge');
   }
 };
+
+/** Eligible competitors' seats; judges and moderators never check in or forfeit. */
+export const eligibleCompetitorIds = (
+  seats: readonly {
+    readonly id: string;
+    readonly seat: SeatRef;
+    readonly eligible: boolean;
+  }[],
+) =>
+  seats
+    .filter((seat) => seat.eligible && isDebatingSeat(seat.seat))
+    .map((seat) => seat.id);

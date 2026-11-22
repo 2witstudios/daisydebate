@@ -1,4 +1,3 @@
-import { isSpeakingSeat, type SeatRef } from '@daisy/protocol/seats';
 import { createAppError } from '@daisy/errors';
 import type { BotPublicationScope } from './bot-publication-context';
 import { nextEpoch } from './lease-policy';
@@ -7,15 +6,6 @@ type Target = Pick<
   BotPublicationScope,
   'roundId' | 'roundParticipantId' | 'segmentId'
 >;
-
-/** Bots publish only for a speaking seat of an active Round. */
-export function requirePublishingSeat(
-  round: { readonly status: string },
-  seat: { readonly seat: SeatRef },
-): void {
-  if (round.status !== 'active' || !isSpeakingSeat(seat.seat))
-    throw createAppError('AUTHORIZATION');
-}
 
 /** A new claim waits for the previous lease to expire, then takes the next epoch. */
 export function nextPublicationClaim(

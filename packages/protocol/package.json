@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./bot-admission": "./src/bot-admission.ts",
     "./authorization": "./src/authorization.ts",
     "./capability-metadata": "./src/capability-metadata.ts",
     "./release-audience": "./src/release-audience.ts",
@@ -20,6 +21,7 @@
     "./billing-economics": "./src/billing-economics.ts",
     "./testing": "./src/format-fixtures.test-support.ts",
     "./format-bounds-testing": "./src/format-bounds.test-support.ts",
+    "./capture-admission": "./src/capture-admission.ts",
     "./capture-heard": "./src/capture-heard.ts",
     "./resolution-draw": "./src/resolution-draw.ts",
     "./email": "./src/email.ts",

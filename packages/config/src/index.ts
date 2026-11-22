@@ -32,6 +32,10 @@ import {
 } from './billing-config';
 export type { BillingConfig, ClubBillingConfig } from './billing-config';
 import { z } from 'zod';
+import {
+  messagingGroupFields,
+  refineMessagingGroups,
+} from './messaging-groups';
 import { roomFields } from './room-policy';
 import { messagingFields } from './messaging-policy';
 import { contactsFields } from './contacts-policy';
@@ -88,6 +92,7 @@ export { readMigrationConfig } from './migration-config';
 export { readRealtimeConfig } from './realtime-config';
 
 const serverFields = {
+  ...messagingGroupFields,
   ...billingFields,
   ...hostEventPriceFields,
   ...clubBillingFields,
@@ -115,6 +120,7 @@ const serverFields = {
 const serverConfigSchema = z
   .object(serverFields)
   .superRefine((config, ctx) => {
+    refineMessagingGroups(config, ctx, 'web');
     refineBillingConfig(config, ctx);
     refineOperatorConfig(config, ctx);
     refineReleaseFlagDefault(config, ctx);

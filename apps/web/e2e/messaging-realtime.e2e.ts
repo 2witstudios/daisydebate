@@ -1,3 +1,4 @@
+import { proveGroupObservationRefusal } from './support/group-observation-refusal';
 import { testRoundFloorLive } from './support/round-floor-live';
 import { testYouthCoachFloorLive } from './support/youth-coach-floor-live';
 import { testMessagingUnknownCommit } from './support/messaging-unknown-commit';
@@ -327,6 +328,22 @@ test('native group invitation admission and refusal', async ({ browser }) => {
     await expect(invited).toHaveURL(
       new RegExp(`/messages/${journey.channelId}$`),
     );
+    const creator = await openPage(journey.sender, 'the live group member');
+    const groupSnapshots: number[] = [];
+    let groupReady = false;
+    creator.on('websocket', (socket) =>
+      socket.on('framereceived', (frame) => {
+        const result = serverMessageSchema.safeParse(
+          JSON.parse(String(frame.payload)),
+        );
+        if (!result.success) return;
+        if (result.data.type === 'observation.ready') groupReady = true;
+        if (result.data.type === 'observation.snapshot')
+          groupSnapshots.push(result.data.contentRevision);
+      }),
+    );
+    await creator.goto(`/messages/${journey.channelId}`);
+    await expect.poll(() => groupReady).toBe(true);
     const text = 'Native admitted private group history';
     await invited
       .getByRole('textbox', { name: 'Your message', exact: true })
@@ -339,21 +356,18 @@ test('native group invitation admission and refusal', async ({ browser }) => {
         .getByRole('list', { name: 'Message history' })
         .getByText(text, { exact: true }),
     ).toHaveCount(1);
-    const creator = await openPage(
-      journey.sender,
-      'the durable group creator history',
-    );
-    await creator.goto(`/messages/${journey.channelId}`);
     await expect(
       creator
         .getByRole('list', { name: 'Message history' })
         .getByText(text, { exact: true }),
     ).toHaveCount(1);
+    expect(groupSnapshots.length).toBeGreaterThan(0);
     const declined = await openPage(
       journey.outsider,
       'the native invitation refusal',
     );
     await declined.goto('/messages');
+    await proveGroupObservationRefusal(declined, journey.channelId);
     await declined
       .getByRole('link', { name: 'Group invitation', exact: true })
       .click();
@@ -404,6 +418,7 @@ test('native group invitation admission and refusal', async ({ browser }) => {
       `/api/messaging/channels/${journey.channelId}/messages`,
     );
     expect(removedHistory.status()).toBe(404);
+    await proveGroupObservationRefusal(creator, journey.channelId);
     await expect(
       invited
         .getByRole('list', { name: 'Message history' })

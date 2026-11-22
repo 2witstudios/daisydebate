@@ -1,6 +1,5 @@
 import { commandDigest } from '@daisy/digest';
 import { instantMs } from '@daisy/clock';
-import { admitsPrincipalAccess } from '@daisy/auth/authorization';
 import {
   createRoundRuntime,
   adjudicateAttendance,
@@ -29,7 +28,10 @@ import {
 } from '@daisy/protocol/attendance';
 import { type JudgingTerminalReason } from '@daisy/protocol/round-judging-attempt';
 import { createAppError } from '@daisy/errors';
-import { acceptAttendanceReceipt } from './receipt-window';
+import {
+  readAttendanceDiscovery,
+  recordAttendanceReceipt,
+} from './receipt-session';
 import { availabilityOf } from './availability-of';
 import { attendanceWindowFor } from './windows';
 import { attendanceReceiptTime, attendanceTimestamp } from './receipt-time';
@@ -122,11 +124,11 @@ export function createAttendanceFeature(deps: {
   readonly judgingEnded?: (reason: JudgingTerminalReason) => void;
 }) {
   const readState = async (principal: AttendancePrincipal, roundId: string) => {
-    const facts = await deps.checkIns.readRoundAttendanceTargets({
+    const facts = await readAttendanceDiscovery(
+      deps.checkIns,
       principal,
       roundId,
-      admits: admitsPrincipalAccess,
-    });
+    );
     const nowMs = instantMs(facts.now);
     const availability = availabilityOf(facts);
     const targets = facts.round.segments
@@ -173,15 +175,11 @@ export function createAttendanceFeature(deps: {
       const parsed = attendanceEnvelopeSchema.safeParse(raw);
       if (!parsed.success) throw createAppError('VALIDATION');
       const envelope = parsed.data;
-      return deps.checkIns.recordRoundCheckIn({
+      return recordAttendanceReceipt(deps.checkIns, {
         roundId,
         principal,
         envelope,
         payloadDigest: commandDigest(envelope),
-        acceptWindow: (facts) =>
-          acceptAttendanceReceipt(facts, envelope.segmentId),
-        // ADR 0075: a human checks in only with participant access.
-        admits: admitsPrincipalAccess,
       });
     },
     evaluate: (roundId: string) =>

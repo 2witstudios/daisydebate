@@ -47,6 +47,9 @@ export function composeMessagingCreationOperation(
     requirePrivateGroups(policy);
     return createMessagingGroup(input, principal, {
       ...common,
+      ...(social.groupInvitationLimits === undefined
+        ? {}
+        : { limits: social.groupInvitationLimits }),
       store: composeMessagingGroupCreationStore({
         database: app.database,
         principal,

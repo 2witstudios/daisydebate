@@ -1,4 +1,5 @@
 import { judgingProgression } from '../features/round-judging/progression';
+import { botAdmission } from '../features/round-bots/admission';
 import { judgeContractVersion } from '@daisy/ai-voice';
 import { judgingJobRules } from '@daisy/debate-engine';
 import { admitAllowance, canUseAiAllowance } from '@daisy/auth/authorization';
@@ -45,6 +46,7 @@ export function roundWorkerDatabaseOptions(
     ...(bots
       ? {
           botPublication: {
+            ...botAdmission,
             leaseMs: bots.leaseMs,
             models: {
               speech: bots.models.speech,

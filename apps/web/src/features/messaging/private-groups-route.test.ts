@@ -34,7 +34,7 @@ test('beta refuses every private-group creation, invitation and admission route,
     auth: () => auth,
     messagingPolicy: {
       ...withGroupPolicy,
-      privateGroups: 'isolated-test-fixture',
+      privateGroups: 'enabled',
     },
   });
   const origin = auth.config.PUBLIC_APP_URL;

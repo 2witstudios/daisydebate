@@ -41,7 +41,7 @@ export default async function GroupInvitationPage({
         <section className="flex max-w-reading flex-col gap-6">
           <p>
             {privateGroupsOffered()
-              ? 'You have been invited to a private group. Accept to join, or decline.'
+              ? 'You have been invited to a private group. Accepting lets you read its retained message history and lets group members see your messages. You can leave at any time. Accept to join, or decline.'
               : 'You have been invited to a private group. Private groups are not available in the beta, so you can only decline.'}
           </p>
           <RequestDecision

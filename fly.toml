@@ -38,6 +38,7 @@ kill_timeout = 35
 # objects, or with MIGRATION_DATABASE_URL in its environment.
 
 [env]
+  MESSAGING_PRIVATE_GROUPS = "staging"
   # Non-secret configuration. Secrets (BETTER_AUTH_SECRET,
   # RECIPIENT_HASH_SECRET, RESEND_API_KEY, EMAIL_FROM,
   # RESEND_WEBHOOK_SECRET, OPS_PROBE_TOKEN, DATABASE_URL, REDIS_URL) are set

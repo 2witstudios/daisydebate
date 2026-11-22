@@ -14,9 +14,15 @@ export function realtimeProofProfile(name: string | undefined) {
         spec: '**/messaging-realtime.e2e.ts',
         report: 'test-results/messaging-realtime-results.json',
       } as const;
+    case 'groups':
+      return {
+        config: 'e2e/support/group-staging.config.ts',
+        spec: '**/messaging-realtime.e2e.ts',
+        report: 'test-results/group-staging-results.json',
+      } as const;
     default:
       throw new Error(
-        'Realtime proof requires an explicit room or messaging profile',
+        'Realtime proof requires an explicit room, messaging or groups profile',
       );
   }
 }

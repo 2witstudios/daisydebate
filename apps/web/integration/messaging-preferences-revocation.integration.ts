@@ -3,9 +3,10 @@ import { assertRejects } from '@daisy/errors/testing';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import {
-  messagingTestGroupPolicy,
-  messagingTestGroupReading,
-} from '@daisy/auth/testing';
+  stagingGroupPolicy as messagingTestGroupPolicy,
+  messagingMemberReading,
+} from '@daisy/auth/group-policy';
+const messagingTestGroupReading = messagingMemberReading(true);
 import {
   openMessagingParticipants,
   closeMessagingGroupFixture,

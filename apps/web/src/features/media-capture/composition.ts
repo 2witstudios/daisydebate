@@ -1,3 +1,4 @@
+import { captureAdmissionPolicy } from './capture-policy';
 import { nowMs } from '@daisy/clock';
 import { captureRule } from '@daisy/debate-engine';
 import { createRoundRuntime } from '@daisy/debate-engine';
@@ -19,6 +20,7 @@ export function composeMediaCaptureRoutes(app: App) {
   const media = createRoundMediaRuntime(app);
   const operations = () =>
     (capture ??= app.database.createMediaCaptureOperations({
+      admission: captureAdmissionPolicy,
       sttLagMs: CAPTURE_STT_LAG_MS,
       captureRule,
       sealed: (fact) =>

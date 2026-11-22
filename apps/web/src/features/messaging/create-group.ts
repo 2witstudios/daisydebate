@@ -17,6 +17,10 @@ export async function createMessagingGroup(
   dependencies: SocialOperationDependencies<MessagingGroupCreationStore> & {
     readonly ids: IdGenerator;
     readonly policyRevision?: number;
+    readonly limits?: {
+      readonly maxMembers: number;
+      readonly maxPendingInvitations: number;
+    };
   },
 ) {
   const actor = requireMemberActor(principal);
@@ -28,6 +32,12 @@ export async function createMessagingGroup(
   if (command.invitedActorIds.includes(actor.actorId))
     throw createAppError('VALIDATION');
   const invitees = [...command.invitedActorIds].sort();
+  if (
+    dependencies.limits &&
+    (invitees.length > dependencies.limits.maxPendingInvitations ||
+      invitees.length + 1 > dependencies.limits.maxMembers)
+  )
+    throw createAppError('VALIDATION');
   const digest = messagingSocialDigest('group.create', [
     command.title,
     invitees,

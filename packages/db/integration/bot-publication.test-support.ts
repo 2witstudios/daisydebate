@@ -1,3 +1,4 @@
+import { fixtureBotAdmission } from './bot-admission-session.test-support';
 import { canUseAiAllowance } from '@daisy/auth/authorization';
 import { createId } from '@paralleldrive/cuid2';
 import { randomBytes } from 'node:crypto';
@@ -44,6 +45,7 @@ export const withBotPublication = (
         run,
         target: { roundId, roundParticipantId: seat.id, segmentId },
         operations: createBotPublicationOperations({
+          ...fixtureBotAdmission,
           accountEligible: canUseAiAllowance,
           ...speech,
           run,
