@@ -53,7 +53,7 @@ export const principalColumns = (
     ? { actorId: principal.actorId, serviceId: null }
     : { actorId: null, serviceId: principal.serviceId };
 
-export async function fenceAttendance(
+export async function lockAttendanceAuthority(
   tx: Tx,
   roundId: string,
   commandId: string,
@@ -73,8 +73,14 @@ export async function fenceAttendance(
   const current = await lockedRoundVersion(tx, roundId);
   const round = await hydrateRoundRows(tx, roundId);
   if (!round) throw createAppError('NOT_FOUND');
-  if (round.status !== 'active')
-    throw createRefusal('CONFLICT', 'attendance-terminal');
+  return { current, round, actorIds, accounts };
+}
+
+export async function readAttendanceSeats(
+  tx: Tx,
+  locked: Awaited<ReturnType<typeof lockAttendanceAuthority>>,
+) {
+  const { current, round, actorIds, accounts } = locked;
   requireFencedParticipants(round.participants, actorIds);
   const seats = await Promise.all(
     round.participants.map(async (seat) => {
@@ -84,6 +90,24 @@ export async function fenceAttendance(
   );
   return { current, round, seats, accounts };
 }
+/** Evaluator and panel settlement retain their existing active-Round precondition. */
+export async function fenceAttendance(
+  tx: Tx,
+  roundId: string,
+  commandId: string,
+  principalActorId: string | null,
+) {
+  const locked = await lockAttendanceAuthority(
+    tx,
+    roundId,
+    commandId,
+    principalActorId,
+  );
+  if (locked.round.status !== 'active')
+    throw createRefusal('CONFLICT', 'attendance-terminal');
+  return readAttendanceSeats(tx, locked);
+}
+
 /** The speeches already decided: an immutable fact, cheap to read under the Round lock. */
 export async function finalizedAttendanceSegments(
   tx: Tx,

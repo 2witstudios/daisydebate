@@ -1,5 +1,5 @@
 import { aiRoleFits, type AiRole } from '@daisy/protocol/ai-roles';
-import { isDebatingSeat, type SeatRef } from '@daisy/protocol/seats';
+import { type SeatRef } from '@daisy/protocol/seats';
 
 type ActorFact = {
   readonly kind: 'human' | 'bot';
@@ -66,15 +66,3 @@ export const fencedActorIds = (
     ...extra.filter((id): id is string => !!id),
   ]),
 ];
-
-/** Eligible competitors' seats; judges and moderators never check in or forfeit. */
-export const eligibleCompetitorIds = (
-  seats: readonly {
-    readonly id: string;
-    readonly seat: SeatRef;
-    readonly eligible: boolean;
-  }[],
-) =>
-  seats
-    .filter((seat) => seat.eligible && isDebatingSeat(seat.seat))
-    .map((seat) => seat.id);

@@ -1,3 +1,5 @@
+import { createAppError } from '@daisy/errors';
+import { eligibleCompetitorIds } from '@daisy/protocol/seats';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { admitsPrincipalAccess } from '@daisy/auth/authorization';
 import { requireTestServices } from '@daisy/config';
@@ -51,11 +53,22 @@ test('target discovery authenticates fresh seats and returns actual unresolved h
       ended_at: new Date('2026-10-22T00:04:00Z'),
     });
     const principal = { kind: 'human', actorId: seat.actorId } as const;
-    const facts = await store.readRoundAttendanceTargets({
-      roundId,
-      principal,
-      admits: admitsPrincipalAccess,
-    });
+    // Adapter proof: the trusted caller supplies canonical admission; no product seat/window policy is defined here.
+    const read = () =>
+      store.withAttendanceDiscovery({ roundId, principal }, async (session) => {
+        const access = session.authority.principalAccess;
+        if (!access || !admitsPrincipalAccess(access))
+          throw createAppError('AUTHORIZATION');
+        const seats = await session.readSeats();
+        return {
+          round: session.authority.round,
+          participantId: seat.id,
+          eligibleParticipantIds: eligibleCompetitorIds(seats),
+          ...(await session.readRecorded(seat.id)),
+          finalizedSegmentIds: await session.readAdjudicatedSegments(),
+        };
+      });
+    const facts = await read();
     assert({
       given: 'actual closed speech without a receipt or resolution',
       should:
@@ -73,12 +86,7 @@ test('target discovery authenticates fresh seats and returns actual unresolved h
     await assertRejects({
       given: 'same cached principal after canonical erasure',
       should: 'refuse target discovery from fresh account facts',
-      actual: () =>
-        store.readRoundAttendanceTargets({
-          roundId,
-          principal,
-          admits: admitsPrincipalAccess,
-        }),
+      actual: () => read(),
       code: 'AUTHORIZATION',
     });
   });
