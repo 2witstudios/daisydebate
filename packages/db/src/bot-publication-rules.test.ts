@@ -3,7 +3,6 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   nextPublicationClaim,
   publicationClaim,
-  requirePublishingSeat,
 } from './bot-publication-rules';
 
 setupRitewayBun();
@@ -14,29 +13,6 @@ const target = {
   roundParticipantId: 'seat',
   segmentId: 'segment',
 };
-
-test('bots publish only for a debating seat of an active Round', async () => {
-  assert({
-    given: 'a debating seat in an active Round',
-    should: 'admit the claim',
-    actual: requirePublishingSeat(
-      { status: 'active' },
-      { seat: { kind: 'side', side: 'negative', slot: 0 } },
-    ),
-    expected: undefined,
-  });
-  for (const [status, seat] of [
-    ['opening', { kind: 'side', side: 'negative', slot: 0 }],
-    ['completed', { kind: 'side', side: 'affirmative', slot: 0 }],
-    ['active', { kind: 'judge', slot: 0 }],
-  ] as const)
-    await assertRejects({
-      given: `a ${seat.kind} seat in a ${status} Round`,
-      should: 'refuse publication authority',
-      actual: () => requirePublishingSeat({ status }, { seat }),
-      code: 'AUTHORIZATION',
-    });
-});
 
 test('a new claim waits for the previous lease, then takes the next epoch', async () => {
   assert({

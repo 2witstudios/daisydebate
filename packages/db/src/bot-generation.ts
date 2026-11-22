@@ -9,14 +9,11 @@ import {
   requireRequest,
   requireRunUsage,
   requireSameSettlement,
-  requireSpeechBudget,
-  refuseFinalSpeech,
   requireSpeechPolicy,
   requireUsage,
   type Execution,
   type GenerationRequest,
   type Outcome,
-  type SpeechPolicy,
   type Usage,
 } from './bot-generation-rules';
 import { startLockedRoundAgentRun } from './round-agent-runs';
@@ -36,65 +33,31 @@ import { agentRuns } from './schema/agent-runs';
 import { botProfiles } from './schema/bot-profiles';
 import { readOrderedRoundUtterances } from './round-utterance-projection';
 import { utterances } from './schema/utterances';
-import type { Tx } from './tx';
 
-async function speechModel(
-  tx: Tx,
-  scope: BotPublicationScope,
-  characters: number,
-  policy: SpeechPolicy,
-) {
-  const { model, budget } = requireSpeechPolicy(policy);
-  const [total] = await tx
-    .select({
-      characters: sql<number>`coalesce(sum(${agentRuns.characters}),0)`,
-    })
-    .from(agentRuns)
-    .where(
-      and(
-        eq(agentRuns.roundParticipantId, scope.roundParticipantId),
-        eq(agentRuns.kind, 'tts'),
-      ),
-    );
-  requireSpeechBudget(Number(total?.characters ?? 0), characters, budget);
-  return model;
-}
-/**
- * One answer per speech seat and segment, across worker recoveries
- * (ISSUE-456, DEC-210). An answer counts once the vendor's reply was
- * recorded, and also once the seat has said any line of it: a streamed
- * answer is spoken before its usage is known, so a worker lost mid-speech
- * must not leave its successor free to buy the speech again and start it
- * from the top.
- */
-async function requireUnansweredSpeech(tx: Tx, scope: BotPublicationScope) {
-  const [answered] = await tx
-    .select({ id: agentRuns.id })
-    .from(agentRuns)
-    .where(
-      and(
-        eq(agentRuns.roundParticipantId, scope.roundParticipantId),
-        eq(agentRuns.kind, 'speech'),
-        sql`${agentRuns.configurationSnapshot}->>'segmentId' = ${scope.segmentId}`,
-        sql`${agentRuns.configurationSnapshot}->>'providerOutcome' = 'received'`,
-      ),
-    )
-    .limit(1);
-  if (answered) throw refuseFinalSpeech('Speech already answered');
-  const [said] = await tx
-    .select({ id: utterances.id })
-    .from(utterances)
-    .where(
-      and(
-        eq(utterances.roundId, scope.roundId),
-        eq(utterances.segmentId, scope.segmentId),
-        eq(utterances.roundParticipantId, scope.roundParticipantId),
-        isNotNull(utterances.botPhraseId),
-      ),
-    )
-    .limit(1);
-  if (said) throw refuseFinalSpeech('Speech already begun');
-}
+type WorkerContext = Awaited<ReturnType<typeof verifyLockedBotWorker>>;
+type GenerationResult = {
+  readonly execution: Execution;
+  readonly round: WorkerContext['round'];
+  readonly seat: WorkerContext['seat'];
+  readonly profile: typeof botProfiles.$inferSelect;
+  readonly model: string;
+  readonly utterances: Awaited<ReturnType<typeof readOrderedRoundUtterances>>;
+  readonly reservation: Awaited<ReturnType<typeof markLockedRoundBotModelCall>>;
+};
+export type BotGenerationSession = {
+  readonly request: GenerationRequest;
+  readonly worker: { readonly kind: string; readonly model: string | null };
+  readonly readAnswered: () => Promise<boolean>;
+  readonly readSaid: () => Promise<boolean>;
+  readonly speechPolicy: () => ReturnType<typeof requireSpeechPolicy>;
+  readonly readSpoken: () => Promise<number>;
+  readonly apply: (model: string) => Promise<void>;
+};
+type GenerationState =
+  | { readonly kind: 'open' }
+  | { readonly kind: 'applying' }
+  | { readonly kind: 'settled'; readonly result: GenerationResult }
+  | { readonly kind: 'closed' };
 /** Dispatch authority and usage settlement are distinct capabilities; neither writes speech. */
 export function createBotGenerationOperations(input: {
   readonly run: BoundedTransaction;
@@ -103,6 +66,9 @@ export function createBotGenerationOperations(input: {
   readonly ttsModel?: string;
   readonly speechBudget?: number;
   readonly accountEligible: AllowanceAccountPolicy;
+  readonly generationAdmission: (
+    session: BotGenerationSession,
+  ) => Promise<void>;
 }) {
   return {
     beginGeneration: (
@@ -120,56 +86,136 @@ export function createBotGenerationOperations(input: {
           .from(botProfiles)
           .where(eq(botProfiles.actorId, context.seat.actorId));
         if (!profile) throw createAppError('AUTHORIZATION');
-        if (request.kind === 'language' && context.run.kind === 'speech')
-          await requireUnansweredSpeech(tx, scope);
-        const model =
-          request.kind === 'tts'
-            ? await speechModel(tx, scope, request.characters, input)
-            : context.run.model;
-        if (!model?.trim()) throw createAppError('INFRASTRUCTURE');
-        const history = await readOrderedRoundUtterances(
-          tx,
-          scope.roundId,
-          'spoken',
-        );
-        const reservation = await markLockedRoundBotModelCall(tx, {
-          roundId: scope.roundId,
-          before: await botSegmentDueAt(tx, scope),
-          accountEligible: input.accountEligible,
-        });
-        await verifyLockedBotWorker(tx, scope, token);
-        await requireBotSpeakingWindow(tx, scope);
-        const id = input.nextId(),
-          executionToken = input.nextToken();
-        const generated = generationRun(request, context.run.kind);
-        await startLockedRoundAgentRun(tx, {
-          id,
-          participantId: scope.roundParticipantId,
-          kind: generated.kind,
-          model,
-          configuration: {
-            ...scope,
-            parentAgentRunId: scope.agentRunId,
-            executionTokenDigest: agentLeaseDigest(executionToken),
-            providerOutcome: 'unknown',
-          },
-        });
-        await tx
-          .update(agentRuns)
-          .set({
-            requests: 1,
-            characters: generated.characters,
-          })
-          .where(eq(agentRuns.id, id));
-        return {
-          execution: { id, token: executionToken },
-          round: context.round,
-          seat: context.seat,
-          profile,
-          model,
-          utterances: history,
-          reservation,
+        let state: GenerationState = { kind: 'open' };
+        const phase = () => state;
+        const open = () => {
+          if (phase().kind !== 'open') throw createAppError('CONFLICT');
         };
+        const writing = () => {
+          if (phase().kind !== 'applying') throw createAppError('CONFLICT');
+        };
+        try {
+          await input.generationAdmission({
+            request,
+            worker: { kind: context.run.kind, model: context.run.model },
+            speechPolicy: () => {
+              open();
+              return requireSpeechPolicy(input);
+            },
+            readAnswered: async () => {
+              open();
+              const [row] = await tx
+                .select({ id: agentRuns.id })
+                .from(agentRuns)
+                .where(
+                  and(
+                    eq(agentRuns.roundParticipantId, scope.roundParticipantId),
+                    eq(agentRuns.kind, 'speech'),
+                    sql`${agentRuns.configurationSnapshot}->>'segmentId' = ${scope.segmentId}`,
+                    sql`${agentRuns.configurationSnapshot}->>'providerOutcome' = 'received'`,
+                  ),
+                )
+                .limit(1);
+              open();
+              return row !== undefined;
+            },
+            readSaid: async () => {
+              open();
+              const [row] = await tx
+                .select({ id: utterances.id })
+                .from(utterances)
+                .where(
+                  and(
+                    eq(utterances.roundId, scope.roundId),
+                    eq(utterances.segmentId, scope.segmentId),
+                    eq(utterances.roundParticipantId, scope.roundParticipantId),
+                    isNotNull(utterances.botPhraseId),
+                  ),
+                )
+                .limit(1);
+              open();
+              return row !== undefined;
+            },
+            readSpoken: async () => {
+              open();
+              const [total] = await tx
+                .select({
+                  characters: sql<number>`coalesce(sum(${agentRuns.characters}),0)`,
+                })
+                .from(agentRuns)
+                .where(
+                  and(
+                    eq(agentRuns.roundParticipantId, scope.roundParticipantId),
+                    eq(agentRuns.kind, 'tts'),
+                  ),
+                );
+              open();
+              return Number(total?.characters ?? 0);
+            },
+            apply: async (model) => {
+              open();
+              if (!model.trim()) throw createAppError('VALIDATION');
+              state = { kind: 'applying' };
+              const history = await readOrderedRoundUtterances(
+                tx,
+                scope.roundId,
+                'spoken',
+              );
+              writing();
+              const before = await botSegmentDueAt(tx, scope);
+              writing();
+              const reservation = await markLockedRoundBotModelCall(tx, {
+                roundId: scope.roundId,
+                before,
+                accountEligible: input.accountEligible,
+              });
+              writing();
+              await verifyLockedBotWorker(tx, scope, token);
+              writing();
+              await requireBotSpeakingWindow(tx, scope);
+              writing();
+              const id = input.nextId(),
+                executionToken = input.nextToken();
+              const generated = generationRun(request, context.run.kind);
+              await startLockedRoundAgentRun(tx, {
+                id,
+                participantId: scope.roundParticipantId,
+                kind: generated.kind,
+                model,
+                configuration: {
+                  ...scope,
+                  parentAgentRunId: scope.agentRunId,
+                  executionTokenDigest: agentLeaseDigest(executionToken),
+                  providerOutcome: 'unknown',
+                },
+              });
+              writing();
+              await tx
+                .update(agentRuns)
+                .set({
+                  requests: 1,
+                  characters: generated.characters,
+                })
+                .where(eq(agentRuns.id, id));
+              const result: GenerationResult = {
+                execution: { id, token: executionToken },
+                round: context.round,
+                seat: context.seat,
+                profile,
+                model,
+                utterances: history,
+                reservation,
+              };
+              writing();
+              state = { kind: 'settled', result };
+            },
+          });
+          const settled = phase();
+          if (settled.kind !== 'settled') throw createAppError('CONFLICT');
+          return settled.result;
+        } finally {
+          state = { kind: 'closed' };
+        }
       }),
     finishGeneration: (
       scope: BotPublicationScope,

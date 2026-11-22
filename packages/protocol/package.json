@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./bot-admission": "./src/bot-admission.ts",
     "./authorization": "./src/authorization.ts",
     "./capability-metadata": "./src/capability-metadata.ts",
     "./release-audience": "./src/release-audience.ts",

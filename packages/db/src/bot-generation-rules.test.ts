@@ -5,7 +5,6 @@ import {
   requireRequest,
   requireRunUsage,
   requireSameSettlement,
-  requireSpeechBudget,
   requireSpeechPolicy,
   requireUsage,
 } from './bot-generation-rules';
@@ -145,15 +144,12 @@ test('a settled run accepts only the identical settlement again', async () => {
     });
 });
 
-test('speech needs an explicit model and stays within the seat budget', async () => {
+test('speech needs an explicit model and positive configured budget', async () => {
   assert({
-    given: 'an explicit model and budget, and speech that exactly fills it',
-    should: 'return the explicit model and budget and admit the speech',
-    actual: [
-      requireSpeechPolicy({ ttsModel: 'voice-1', speechBudget: 1000 }),
-      requireSpeechBudget(880, 120, 1000),
-    ],
-    expected: [{ model: 'voice-1', budget: 1000 }, undefined],
+    given: 'an explicit model and positive budget',
+    should: 'return the checked explicit model and budget',
+    actual: [requireSpeechPolicy({ ttsModel: 'voice-1', speechBudget: 1000 })],
+    expected: [{ model: 'voice-1', budget: 1000 }],
   });
   for (const policy of [
     {},
@@ -168,12 +164,6 @@ test('speech needs an explicit model and stays within the seat budget', async ()
       actual: () => requireSpeechPolicy(policy),
       code: 'INFRASTRUCTURE',
     });
-  await assertRejects({
-    given: 'speech one character over the seat budget',
-    should: 'refuse it as exhausted',
-    actual: () => requireSpeechBudget(881, 120, 1000),
-    code: 'CONFLICT',
-  });
 });
 
 test('speech runs as tts and language keeps the worker kind', () => {

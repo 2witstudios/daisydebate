@@ -134,8 +134,24 @@ media-publication or transcript authority and does not consume a model allowance
 
 ## Scoped generation dispatch and settlement
 
-The bot publication factory also owns generation admission. `beginGeneration`
-requires the current memory bearer, fresh scoped control claim and current
+The existing round-bots application supplies required claim and generation
+admission drivers. They run inside family-local database frames: the application
+selects active speaking-seat/segment eligibility, claim activity, one-answer
+recovery and TTS model/budget admission from fenced facts. Portable
+`bot-admission` rules have one implementation; the database has no default
+product policy. Production worker composition and actual language/TTS and claim
+callers use these drivers.
+
+The database retains command/seat/run/epoch/token binding, current control and
+floor verification, native time, usage accounting and atomic takeover/execution
+writes. Claim admission precedes prior-run/claim locking; current control segment
+and lease checks precede the app's segment choice. Generation admission precedes
+usage reservation, followed by a fresh worker/floor check before an execution is
+written. Each callback must apply exactly once; refusal or exception rolls back
+all preparation and writes, and released frames reject further work even while
+transaction cleanup is still running. Activity metadata grants no media authority.
+
+`beginGeneration` requires the current memory bearer, fresh scoped control claim and current
 speaking authority. It counts the existing admitted Round reservation and
 creates a separate child AgentRun with one uncertain provider request. It reads
 only spoken utterances in actual segment order: captured from a microphone, or
