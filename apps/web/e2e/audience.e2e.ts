@@ -54,7 +54,7 @@ test('chat, reactions and reports work for an account never admitted', async ({
     await page.goto(here);
     const line = `A line ${createId().slice(0, 8)}`;
     await page.getByLabel('Your message').fill(line);
-    await page.getByRole('button', { name: 'Post' }).click();
+    await page.getByRole('button', { name: 'Post', exact: true }).click();
     await page.waitForURL(`**${here}`);
     expect(page.url()).not.toContain(encodeURIComponent(line));
     await expect(page.getByText(line)).toBeVisible();
@@ -113,7 +113,7 @@ test('anyone in the live room is told why they cannot post', async ({
     const composer = debaterPage.getByRole('form', {
       name: 'Post to spectator chat',
     });
-    const post = composer.getByRole('button', { name: 'Post' });
+    const post = composer.getByRole('button', { name: 'Post', exact: true });
     await hydrated(post);
     await composer.getByLabel('Your message').fill('A draft');
     await seed('seat', debater.username, roundId);
@@ -167,7 +167,7 @@ test('an unlisted Round opens to its link alone, for every audience form', async
     await holder.goto(here);
     const line = `A linked line ${createId().slice(0, 8)}`;
     await holder.getByLabel('Your message').fill(line);
-    await holder.getByRole('button', { name: 'Post' }).click();
+    await holder.getByRole('button', { name: 'Post', exact: true }).click();
     await holder.waitForURL(`**${here}`);
     await expect(holder.getByText(line)).toBeVisible();
     await holder.getByRole('button', { name: /^Sharp point/ }).click();
@@ -251,7 +251,7 @@ test('an unlisted Round refreshes by its link', async ({
     await poster.goto(`/audience/${roundId}`);
     const line = `A later line ${createId().slice(0, 8)}`;
     await poster.getByLabel('Your message').fill(line);
-    await poster.getByRole('button', { name: 'Post' }).click();
+    await poster.getByRole('button', { name: 'Post', exact: true }).click();
     await expect(poster.getByText(line)).toBeVisible();
     await expect(reader.getByText(line)).toBeVisible({ timeout: 10_000 });
   } finally {
@@ -334,7 +334,8 @@ test('every form answers more than once and the view refreshes itself', async ({
   const debaterPage = await openPage(debaterContext, 'audience debater');
   try {
     await resetRateLimits(page.request);
-    const member = await signUpMember(page.request);
+    // Retain the profile-name collision that previously made the Post locator ambiguous.
+    const member = await signUpMember(page.request, undefined, 'postmember');
     const debater = await signUpMember(debaterPage.request);
     const { roundId } = await seed(member.username, 'held');
 
@@ -343,15 +344,20 @@ test('every form answers more than once and the view refreshes itself', async ({
     const watcher = await openPage(watcherContext, 'audience watcher');
     await watcher.goto(`/audience/${roundId}`);
     await page.goto(`/audience/${roundId}`);
+    await expect(
+      page.getByRole('button', { name: new RegExp(`^@${member.username},`) }),
+    ).toBeVisible();
     for (const line of [
       `First ${createId().slice(0, 8)}`,
       `Second ${createId().slice(0, 8)}`,
     ]) {
       await page.getByLabel('Your message').fill(line);
-      await page.getByRole('button', { name: 'Post' }).click();
+      await page.getByRole('button', { name: 'Post', exact: true }).click();
       await expect(page.getByText(line)).toBeVisible();
       await expect(page.getByLabel('Your message')).toHaveValue('');
-      await expect(page.getByRole('button', { name: 'Post' })).toBeEnabled();
+      await expect(
+        page.getByRole('button', { name: 'Post', exact: true }),
+      ).toBeEnabled();
       await expect(watcher.getByText(line)).toBeVisible({ timeout: 10_000 });
     }
     await watcherContext.close();
