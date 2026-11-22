@@ -6,7 +6,8 @@ import { type JudgingTerminalReason } from '@daisy/protocol/round-judging-attemp
 import { sql } from 'drizzle-orm';
 import {
   attendanceSamples,
-  fenceAttendance,
+  lockAttendanceAuthority,
+  readAttendanceSeats,
   finalizedAttendanceSegments,
   type AttendanceFacts,
   type AttendanceTransaction,
@@ -70,6 +71,10 @@ export type AttendanceReceiptFacts = Omit<AttendanceFacts, 'samples'> & {
 export type AttendanceEvaluationFacts = AttendanceReceiptFacts & {
   readonly samples: AttendanceFacts['samples'];
 };
+/** The application's choice after live service authority and before any attendance evidence. */
+export type AttendanceEvaluationAdmission =
+  | { readonly kind: 'evaluate' }
+  | { readonly kind: 'held'; readonly reason: 'platform_incident' };
 /** What one attendance pass found. */
 export type AttendanceEvaluation =
   | { readonly kind: 'undecided' }
@@ -87,6 +92,10 @@ export function createAttendanceEvaluator(
     readonly roundId: string;
     readonly commandId: string;
     readonly instanceId: string;
+    readonly requireRound: (round: AttendanceFacts['round']) => void;
+    readonly admitEvaluation: (
+      round: AttendanceFacts['round'],
+    ) => AttendanceEvaluationAdmission;
     /** An AI job this decision found out of budget, with no worker to report it. */
     readonly judgingEnded?: (reason: JudgingTerminalReason) => void;
     /** The engine's speech-order rule. */
@@ -111,15 +120,17 @@ export function createAttendanceEvaluator(
     const outcome = await transaction(
       async (tx): Promise<AttendanceEvaluation> => {
         await requireCurrentWeb(tx, input.instanceId);
-        const { current, round, seats } = await fenceAttendance(
+        const locked = await lockAttendanceAuthority(
           tx,
           input.roundId,
           input.commandId,
           null,
         );
+        input.requireRound(locked.round);
+        const { current, round, seats } = await readAttendanceSeats(tx, locked);
         await requireCurrentWeb(tx, input.instanceId, true);
-        if (round.checkpoint.incident.phase !== 'none')
-          return { kind: 'held', reason: 'platform_incident' };
+        const admission = input.admitEvaluation(round);
+        if (admission.kind === 'held') return admission;
         const pending = await query(
           tx,
           z.object({ attempt_id: z.string() }),

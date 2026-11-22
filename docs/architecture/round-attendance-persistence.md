@@ -102,7 +102,17 @@ prepare and apply exactly once. Preparation exposes the existing first stamp
 apply. A refusal or exception rolls back the receipt alias and fact together.
 Released sessions reject further reads or writes. Replay and fresh aliases keep
 the original receipt stamp and do not advance the Round version. The evaluator
-and panel-completion database fences retain their separate active-Round guard.
+and panel completion require their respective application admission rules on the
+same locked facts. The evaluator reuses Attendance's active-Round rule before
+seat reads, then asks its application incident admission only after the live web
+service guard and before pending-writer, receipt and availability evidence. A
+platform hold therefore judges nobody absent. Panel completion keeps stored
+terminal replay before fresh active admission and checks fully played segments
+after the clock tick but before immutable freeze and attendance settlement.
+Storage retains receipt/freeze/version integrity, exact native stamps, final-live
+service checks and the atomic projection/notification obligation. No default
+application admission is supplied by the database; a refusal or exception rolls
+back the current transaction, including an earlier tick.
 
 An adjudication records why it holds (ADR 0095). `settled_availability` carries
 the effective deadline and settled horizon. `on_time_receipt` names the
