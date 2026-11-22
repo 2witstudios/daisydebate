@@ -186,6 +186,95 @@ test('a stop replays by its receipt, and a reused id with another digest conflic
   });
 });
 
+test('identical concurrent stops replay one receipt even after liveness expires', async () => {
+  await withOps(async (ops, _f, client, roundId) => {
+    const broadcast = await openBroadcast(drizzle({ client }), {
+      id: createId(),
+      roundId,
+      feedKey: createId(),
+      releasePolicy: { kind: 'delay', seconds: 60 },
+    });
+    const stop = command({
+      action: 'broadcast.stop',
+      broadcastId: broadcast.id,
+      reason: 'technical',
+    } as never);
+    const outcomes = await Promise.all([
+      ops.runModerationCommand(stop),
+      ops.runModerationCommand(stop),
+    ]);
+    const replay = await ops.runModerationCommand({
+      ...stop,
+      live: () => false,
+    });
+    const [receipt] =
+      await client`select count(*)::int as count from operator_command_receipts where command_id=${stop.commandId}`;
+    assert({
+      given:
+        'identical concurrent stops and an expired retry of the accepted command',
+      should: 'return the same typed applied result with one receipt',
+      actual: { outcomes: [...outcomes, replay], receipts: receipt.count },
+      expected: {
+        outcomes: Array.from({ length: 3 }, () => ({
+          v: 1,
+          outcome: 'applied',
+        })),
+        receipts: 1,
+      },
+    });
+  });
+});
+
+test('a receipt failure rolls back the stop, while audience bans retain their account target', async () => {
+  await withOps(async (ops, f, client, roundId) => {
+    const broadcast = await openBroadcast(drizzle({ client }), {
+      id: createId(),
+      roundId,
+      feedKey: createId(),
+      releasePolicy: { kind: 'delay', seconds: 60 },
+    });
+    const stop = command(
+      {
+        action: 'broadcast.stop',
+        broadcastId: broadcast.id,
+        reason: 'technical',
+      } as never,
+      { adminAuditHead: 'invalid' },
+    );
+    const failed = await Promise.allSettled([ops.runModerationCommand(stop)]);
+    const [state] = await client`select stopped_at, media_withheld,
+      (select count(*)::int from operator_command_receipts where command_id=${stop.commandId}) as receipts
+      from broadcasts where id=${broadcast.id}`;
+    assert({
+      given: 'a receipt constraint rejection after the Broadcast mutation',
+      should: 'roll back both stop and media withholding with no receipt',
+      actual: { status: failed[0]!.status, state },
+      expected: {
+        status: 'rejected',
+        state: { stopped_at: null, media_withheld: false, receipts: 0 },
+      },
+    });
+    const userId = await f.user();
+    const ban = command({
+      action: 'account.audience_ban.update',
+      userId,
+      state: 'banned',
+    } as never);
+    await ops.runModerationCommand(ban);
+    const [receipt] =
+      await client`select action, target_user_id from operator_command_receipts where command_id=${ban.commandId}`;
+    assert({
+      given: 'an accepted audience ban',
+      should: 'attribute its receipt to exactly the affected account',
+      actual: receipt,
+      expected: {
+        action: 'account.audience_ban.update',
+        target_user_id: userId,
+      },
+    });
+  });
+});
+
 test('a command past its deadline writes nothing', async () => {
   await withOps(async (ops, _f, client, roundId) => {
     const broadcast = await openBroadcast(drizzle({ client }), {
