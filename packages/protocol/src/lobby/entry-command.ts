@@ -4,7 +4,7 @@ import { lobbyCommandEnvelope, type LobbyCommandCatalogue } from './command';
 
 /**
  * The entry and judge commands of a tournament (TAB-5.11): entering people
- * in an event with their division and responsible adult, settling and
+ * in an event with their division and responsible party, settling and
  * changing entries, and inviting, striking and scheduling judges. Entry
  * commands and an entry's strikes and conflicts change the event's entries
  * (aggregate `event`, version `entries`); the other judge commands change a
@@ -79,7 +79,6 @@ export const entryRefusals = [
   'entry-cap',
   'slot-clash',
   'entry-settled',
-  'guardian-pending',
   'fixture-started',
   'stage-started',
   'not-double-qualified',
@@ -119,7 +118,9 @@ export const entryCommandCatalogue = {
     refusals: [
       'entry-settled',
       'slot-clash',
-      'guardian-pending',
+      'age-band',
+      'over-youth-age',
+      'under-open-age',
       'hosting-upgrade-required',
     ],
   },
@@ -142,7 +143,6 @@ export const entryCommandCatalogue = {
       'fixture-started',
       'slot-clash',
       'division-ineligible',
-      'guardian-pending',
       'age-band',
       'over-youth-age',
       'under-open-age',

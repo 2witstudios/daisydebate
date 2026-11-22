@@ -143,11 +143,6 @@ export type SettingFacts = {
    * to (ADR 0149); null where no tier applies.
    */
   readonly hostingTier: HostingTier | null;
-  /**
-   * Entries not withdrawn across the tournament the written lobby or event
-   * belongs to; its division is fixed once there is one (PYL-16).
-   */
-  readonly tournamentEntries: number;
   readonly now: string;
   /** The id minted at the edge for a template a command makes. */
   readonly newId: string;
@@ -473,8 +468,6 @@ function setSetting(
   command: Extract<SettingCommand, { type: 'set-setting' }>,
 ): Decision {
   const { key, hold, value } = command;
-  if (key === 'entry.age_division' && facts.tournamentEntries > 0)
-    return refuse('entries-exist');
   const feature = hostedFeatureOf[key];
   if (
     feature !== undefined &&
@@ -531,8 +524,6 @@ function clearSetting(
 ): Decision {
   if (!rowAt(facts.rows, command.scope, command.key))
     return refuse('setting-absent');
-  if (command.key === 'entry.age_division' && facts.tournamentEntries > 0)
-    return refuse('entries-exist');
   const after = withoutSettingRow(facts.rows, command.scope, command.key);
   const broken = firstBroken(facts.reached, facts.rows, after);
   if (broken) return refuse(broken);

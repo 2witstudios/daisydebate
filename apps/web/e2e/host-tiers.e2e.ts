@@ -1,8 +1,15 @@
 import { execFile } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
-import { expect, test } from './support/fixtures';
-import { signUpMember } from './support/accounts';
+import { systemClock } from '@daisy/clock';
+import { expect, openPage, test } from './support/fixtures';
+import { holdScripts } from './support/hydration';
+import {
+  birthAged,
+  origin,
+  resetRateLimits,
+  signUpMember,
+} from './support/accounts';
 
 /**
  * Host tiers (PYL-14, PYL-15, ADR 0149) in the browser: a member hosts a
@@ -99,4 +106,74 @@ test('a free event takes 16 entries; the 17th waits and Entries offers the upgra
     page.getByRole('heading', { name: 'Free hosting' }),
   ).toBeVisible();
   await expect(page.getByText('No payments for this event.')).toBeVisible();
+});
+
+test('a league host selects Youth and the participant form admits only the eligible entrant', async ({
+  page,
+  browser,
+}) => {
+  test.setTimeout(120_000);
+  const { username } = await signUpMember(page.request);
+  const seed = (step: string, argument: string) =>
+    run('tournament-eligibility-seed-process.ts', [step, argument]);
+  const league = (await seed('league', username)).stdout.trim();
+
+  const leaguePath = `/host/leagues/${league}`;
+  const release = await holdScripts(page);
+  try {
+    await page.goto(leaguePath, { waitUntil: 'commit' });
+    const leagueForm = page.getByRole('form', { name: 'League tournament' });
+    await leagueForm
+      .getByRole('textbox', { name: 'Name', exact: true })
+      .fill('League Youth Cup');
+    await leagueForm
+      .getByLabel('Standing lobby')
+      .selectOption({ label: 'League Youth · Under 18' });
+    const [post] = await Promise.all([
+      page.waitForResponse(
+        (response) =>
+          response.request().isNavigationRequest() &&
+          response.request().method() === 'POST' &&
+          new URL(response.url()).pathname === leaguePath,
+      ),
+      leagueForm.getByRole('button', { name: 'Create tournament' }).click(),
+    ]);
+    expect(post.status()).toBe(303);
+    expect(new URL(post.url()).search).toBe('');
+    await expect(page).toHaveURL(/\/host\/tournaments\/[a-z0-9-]+\/setup$/);
+  } finally {
+    release();
+  }
+  await expect(page.getByText(/League Youth · Under 18/)).toBeVisible();
+  const handle = new URL(page.url()).pathname.split('/')[3]!;
+  await seed('registration', handle);
+
+  const youthContext = await browser.newContext({
+    baseURL: origin,
+    ignoreHTTPSErrors: true,
+  });
+  try {
+    const youth = await openPage(youthContext, 'youth tournament entrant');
+    await resetRateLimits(youth.request);
+    await signUpMember(youth.request, birthAged(systemClock.now(), 14));
+    const entries = `/tournaments/${handle}/entries`;
+    await page.goto(entries);
+    await page.getByRole('textbox', { name: 'Entry name' }).fill('Adult entry');
+    await page.getByRole('button', { name: 'Enter event' }).click();
+    await expect(
+      page.getByText('This tournament is for debaters under 18.'),
+    ).toBeVisible();
+    await expect(
+      page.getByText('You have no entries in this tournament.'),
+    ).toBeVisible();
+
+    await youth.goto(entries);
+    await youth
+      .getByRole('textbox', { name: 'Entry name' })
+      .fill('Youth entry');
+    await youth.getByRole('button', { name: 'Enter event' }).click();
+    await expect(youth.getByText('Youth entry', { exact: true })).toBeVisible();
+  } finally {
+    await youthContext.close();
+  }
 });

@@ -159,7 +159,7 @@ export const eventDrawFacts = (
 ): Omit<DrawFacts, 'commandId' | 'now' | 'freshIds'> => {
   const { configuration, round, stage, slot } = loaded;
   const { event } = configuration;
-  const eligible = eligibleTournamentActors(loaded.accounts);
+  const eligible = eligibleTournamentActors(loaded.accounts, 'judge');
   if (
     !stage ||
     stage.kind !== competition.stage.kind ||

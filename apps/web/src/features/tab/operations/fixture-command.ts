@@ -107,8 +107,8 @@ export const fixtureCommand =
                       expected: held.expected,
                       conflictId: held.conflictId,
                     }),
-                  apply: (writes, history, receipt) => {
-                    requireFixtureAdmissions(loaded, command, writes);
+                  apply: async (writes, history, receipt) => {
+                    await requireFixtureAdmissions(loaded, command, writes);
                     return session.apply(
                       writes,
                       history,

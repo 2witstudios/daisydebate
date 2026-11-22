@@ -12,7 +12,6 @@ import { hostRoutes } from '../../../features/tab/routes';
 import { runTabCommandForm } from '../../../features/tab/command-form-action';
 import { moveOn } from '../../../server/form-action';
 import { POST } from '../../api/tab/lobby-command/route';
-import { POST as settingsPOST } from '../../api/tab/settings-command/route';
 
 /** Free hosting (decision 80): any adult makes a tournament, with its Freestyle event. */
 export async function createTournamentAction(
@@ -39,7 +38,6 @@ export async function createTournamentAction(
   const result = await runCreateTournament(
     {
       lobbyCommand: post(POST, '/api/tab/lobby-command'),
-      settingCommand: post(settingsPOST, '/api/tab/settings-command'),
     },
     context,
     form,

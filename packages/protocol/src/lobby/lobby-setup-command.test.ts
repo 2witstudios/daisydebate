@@ -91,16 +91,18 @@ const valid = {
       owner: { kind: 'self' },
       name: 'Spring Open',
       handle: 'spring-open-2027',
-      lobby: { kind: 'tournament', admitsMinors: true },
+      lobby: {
+        kind: 'tournament',
+        eligibility: { kind: 'own', ageRule: 'under-18' },
+      },
     },
   ],
   'update-lobby': [
-    { type: 'update-lobby', lobbyId, name: 'Spring Open', admitsMinors: false },
+    { type: 'update-lobby', lobbyId, name: 'Spring Open' },
     {
       type: 'update-lobby',
       lobbyId,
       name: 'Valley League',
-      admitsMinors: null,
     },
   ],
   'set-tournament-status': tournamentStatusMoves.map((status) => ({
@@ -371,14 +373,20 @@ const invalid: readonly (readonly [string, unknown, string])[] = [
   ['a handle ending in a hyphen', { ...standing, handle: 'valley-' }, 'handle'],
   ['a blank name', { ...standing, name: '  ' }, 'name'],
   [
-    'a standing lobby with a minors declaration',
-    { ...standing, lobby: { kind: 'standing', admitsMinors: true } },
+    'a standing lobby with a tournament eligibility source',
+    {
+      ...standing,
+      lobby: {
+        kind: 'standing',
+        eligibility: { kind: 'own', ageRule: 'under-18' },
+      },
+    },
     'lobby',
   ],
   [
-    'a tournament without its minors declaration',
+    'a tournament without its eligibility source',
     { ...tournament, lobby: { kind: 'tournament' } },
-    'lobby.admitsMinors',
+    'lobby.eligibility',
   ],
   [
     'an owner of an unknown kind',

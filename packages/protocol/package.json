@@ -39,7 +39,7 @@
     "./lobby/rating-snapshot": "./src/lobby/rating-snapshot.ts",
     "./lobby/hosting-tier": "./src/lobby/hosting-tier.ts",
     "./lobby/hosting-read": "./src/lobby/hosting-read.ts",
-    "./lobby/event-division": "./src/lobby/event-division.ts",
+    "./lobby/tournament-schedule": "./src/lobby/tournament-schedule.ts",
     "./lobby/eligibility": "./src/lobby/eligibility.ts",
     "./lobby": "./src/lobby/vocabulary.ts",
     "./lobby/command": "./src/lobby/command.ts",

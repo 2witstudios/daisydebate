@@ -21,7 +21,7 @@ test('a tournament is only the schedule extension of a tournament lobby', async 
       given:
         'a tournament row for a standing lobby, a second for one lobby, and the columns of the table',
       should:
-        'refuse both, and hold nothing but the status, the minors declaration and the link hash',
+        'refuse both and keep the link hash and lifecycle on the tournament extension',
       actual: {
         standing: await refusedBy(sql, () =>
           insertRow(sql, 'tournaments', { lobby_id: publicLobbyId }),
@@ -42,7 +42,6 @@ test('a tournament is only the schedule extension of a tournament lobby', async 
         twice: 'tournaments_pkey',
         badLinkHash: 'tournaments_link_hash_check',
         columns: [
-          'admits_minors',
           'created_at',
           'link_hash',
           'lobby_id',
@@ -78,16 +77,25 @@ test('a lobby has one kind and one owner, a person or a league, and a ladder bel
       );
     assert({
       given:
-        'lobbies with two owners, none, a school as owner and a person owning a standing lobby; and ladders on a tournament lobby and on a lobby another organization owns',
+        'invalid lobby ownership, a league tournament with no standing parent, and a ladder on a tournament or another league’s lobby',
       should:
         'refuse each, with the seeded public lobby and its one ladder there after migrating',
       actual: {
         twoOwners: await lobby({
           owner_user_id: ids.owner,
           owner_organization_id: ids.league,
+          standing_lobby_id: ids.standingLobby,
+          age_rule: null,
         }),
         noOwner: await lobby({}),
-        schoolOwner: await lobby({ owner_organization_id: ids.school }),
+        schoolOwner: await lobby({
+          kind: 'standing',
+          owner_organization_id: ids.school,
+        }),
+        missingStandingParent: await lobby({
+          owner_organization_id: ids.league,
+          age_rule: null,
+        }),
         personOwnedStanding: await lobby({
           kind: 'standing',
           owner_user_id: ids.owner,
@@ -123,6 +131,7 @@ test('a lobby has one kind and one owner, a person or a league, and a ladder bel
         twoOwners: 'lobbies_one_owner',
         noOwner: 'lobbies_one_owner',
         schoolOwner: 'lobbies_owner_league_fk',
+        missingStandingParent: 'lobbies_age_rule_source',
         personOwnedStanding: 'lobbies_standing_is_organization_owned',
         unknownKind: 'lobbies_kind_check',
         personOwnedTournament: null,

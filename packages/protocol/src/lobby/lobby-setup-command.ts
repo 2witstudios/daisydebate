@@ -88,7 +88,13 @@ const createLobby = z.strictObject({
     }),
     z.strictObject({
       kind: z.literal('tournament'),
-      admitsMinors: z.boolean(),
+      eligibility: z.discriminatedUnion('kind', [
+        z.strictObject({
+          kind: z.literal('own'),
+          ageRule: z.enum(lobbyAgeRules),
+        }),
+        z.strictObject({ kind: z.literal('standing'), lobbyId: idSchema }),
+      ]),
     }),
   ]),
 });
@@ -97,8 +103,7 @@ const updateLobby = z.strictObject({
   type: z.literal('update-lobby'),
   lobbyId: idSchema,
   name: nameSchema,
-  /** A tournament's minors declaration; null on a standing lobby. */
-  admitsMinors: z.boolean().nullable(),
+  ageRule: z.enum(lobbyAgeRules).optional(),
 });
 
 const setTournamentStatus = z.strictObject({
@@ -407,6 +412,8 @@ export const lobbySetupCommandEnvelopeSchema = lobbyCommandEnvelope(
 export const lobbySetupRefusals = [
   'owner-not-organization',
   'owner-not-league',
+  'standing-lobby-required',
+  'age-rule-inherited',
   'handle-taken',
   'lobby-not-tournament',
   'lobby-not-standing',
@@ -463,14 +470,19 @@ export const lobbySetupCommandCatalogue = {
     aggregate: 'lobby',
     gate: ['lobby.create'],
     versions: [],
-    refusals: ['owner-not-organization', 'owner-not-league', 'handle-taken'],
+    refusals: [
+      'owner-not-organization',
+      'owner-not-league',
+      'standing-lobby-required',
+      'handle-taken',
+    ],
     history: 'entry',
   },
   'update-lobby': {
     aggregate: 'lobby',
     gate: ['lobby.setup.manage'],
     versions: ['lobby'],
-    refusals: ['lobby-not-tournament'],
+    refusals: ['lobby-not-tournament', 'age-rule-inherited', 'entries-exist'],
     history: 'entry',
   },
   'set-tournament-status': {

@@ -13,7 +13,10 @@ import {
 } from './tab-tournament-transport.test-support';
 import type { World } from './tab-tournament.test-support';
 
-export const entryEnrollmentStage = async (world: World): Promise<void> => {
+export const entryEnrollmentStage = async (
+  world: World,
+  ageRule: 'adults' | 'under-18' = 'adults',
+): Promise<void> => {
   const director = world.bots.Director!;
   const lobbyId = world.made.get('tournament-lobby')!;
   const eventId = world.made.get('event')!;
@@ -44,6 +47,11 @@ export const entryEnrollmentStage = async (world: World): Promise<void> => {
   }
   const send = tabLobbyCommand(world, 'entries');
   let entriesVersion = Number(initial.entries_version);
+  const setAge = (userId: string, age: string) =>
+    world.sql`update account_age set birth_month=to_char(now() - ${age}::interval,'YYYY-MM'), version=version+1 where user_id=${userId}`;
+  const youth = ageRule === 'under-18';
+  const otherEntrant = youth ? world.bots['Debater 2']! : world.bots.Coach!;
+  if (youth) await setAge(otherEntrant.userId, '14 years');
   const otherSelf = await send(as(director), lobbyId, {
     version: 1,
     commandId: createId(),
@@ -51,8 +59,8 @@ export const entryEnrollmentStage = async (world: World): Promise<void> => {
     command: {
       type: 'submit-entry',
       eventId,
-      name: 'A host cannot name another adult as self',
-      memberActorIds: [world.bots.Coach!.actorId],
+      name: 'A host cannot name another entrant as self',
+      memberActorIds: [otherEntrant.actorId],
       responsible: { kind: 'self' },
       division: null,
     },
@@ -64,38 +72,36 @@ export const entryEnrollmentStage = async (world: World): Promise<void> => {
     expected: { kind: 'refused', refusal: 'no-responsible-adult' },
   });
 
-  // Decision 79: a Round that would be rated takes no entrant under 18, so
-  // an entry is refused for one (today every tournament refuses every minor,
-  // the stricter closed-minors rule). The month they turn 18, it is accepted.
   const youngest = world.bots['Debater 1']!;
-  const ageOf = (age: string) =>
-    world.sql`update account_age set birth_month=to_char(now() - ${age}::interval,'YYYY-MM'), version=version+1 where user_id=${youngest.userId}`;
-  await ageOf('17 years 11 months');
+  await setAge(youngest.userId, youth ? '25 years' : '14 years');
   assert({
-    given: 'a self entry from a member aged 17 years 11 months',
-    should: 'refuse it without saying why',
-    actual: await deniedAsNotFound(() =>
-      send(as(youngest), lobbyId, {
-        version: 1,
-        commandId: createId(),
-        expected: { entries: entriesVersion },
-        command: {
-          type: 'submit-entry',
-          eventId,
-          name: 'Under the ranked floor',
-          memberActorIds: [youngest.actorId],
-          responsible: { kind: 'self' },
-          division: null,
-        },
-      }),
-    ),
-    expected: true,
+    given: youth
+      ? 'an adult self entry to a tournament inheriting Youth'
+      : 'a self entry from a member below the tournament’s adult age rule on its first day',
+    should: 'refuse that entry under the age rule',
+    actual: await send(as(youngest), lobbyId, {
+      version: 1,
+      commandId: createId(),
+      expected: { entries: entriesVersion },
+      command: {
+        type: 'submit-entry',
+        eventId,
+        name: 'Outside the age rule',
+        memberActorIds: [youngest.actorId],
+        responsible: { kind: 'self' },
+        division: null,
+      },
+    }),
+    expected: {
+      kind: 'refused',
+      refusal: youth ? 'over-youth-age' : 'under-open-age',
+    },
   });
-  // Exactly 18 this month: the loop below enters them as an adult.
-  await ageOf('18 years');
+  if (!youth) await setAge(youngest.userId, '18 years');
 
   for (const name of ['Debater 1', 'Debater 2', 'Debater 3', 'Debater 4']) {
     const person = world.bots[name]!;
+    if (youth) await setAge(person.userId, '14 years');
     const submit = {
       version: 1,
       commandId: createId(),
@@ -111,17 +117,17 @@ export const entryEnrollmentStage = async (world: World): Promise<void> => {
     };
     const pending = await send(as(person), lobbyId, submit);
     if (pending.kind !== 'accepted')
-      throw new StageFailed(`adult entry ${name}: ${JSON.stringify(pending)}`);
+      throw new StageFailed(`entry ${name}: ${JSON.stringify(pending)}`);
     entriesVersion += 1;
     assert({
-      given: 'an adult self enrollment',
+      given: 'an eligible self enrollment',
       should: 'replay the original receipt',
       actual: await send(as(person), lobbyId, submit),
       expected: { ...pending, receipt: { ...pending.receipt, replayed: true } },
     });
     const [entry] =
       await world.sql`select id, status from entries where event_id = ${eventId} and name = ${name}`;
-    if (!entry) throw new StageFailed('adult entry missing');
+    if (!entry) throw new StageFailed('entry missing');
     const entryId = String(entry.id);
     world.made.set(name, entryId);
     assert({

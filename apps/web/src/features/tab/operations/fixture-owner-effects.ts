@@ -18,12 +18,12 @@ import { eligibleTournamentActors } from './tournament-participant-admission';
 import { fixtureRestartRoom } from './fixture-restart-room';
 
 /** Only newly admitted people are checked; retiring an old identity grants it nothing. */
-export function requireFixtureAdmissions(
+export async function requireFixtureAdmissions(
   loaded: LoadedFixtureCommand,
   command: FixtureCommand,
   writes: readonly FixtureWrite[],
 ) {
-  const eligible = eligibleTournamentActors(loaded.context.accounts);
+  const judges = eligibleTournamentActors(loaded.context.accounts, 'judge');
   const additions = writes.flatMap((write) =>
     write.table === 'fixture_judges' && write.op === 'insert'
       ? loaded.judges
@@ -31,12 +31,32 @@ export function requireFixtureAdmissions(
           .map((judge) => judge.actorId)
       : [],
   );
-  if (command.type === 'restart-fixture')
-    additions.push(
-      ...(loaded.roomState?.participants.map((person) => person.actorId) ?? []),
-    );
-  if (additions.some((actor) => !eligible.has(actor)))
+  if (additions.some((actor) => !judges.has(actor)))
     throw new CommandDenied('judge-unavailable');
+  if (command.type === 'restart-fixture') {
+    const debaters = eligibleTournamentActors(
+      loaded.context.accounts,
+      'debater',
+    );
+    const participants = loaded.roomState?.participants ?? [];
+    const competing = participants.filter(
+      (person) => person.seat.kind !== 'judge',
+    );
+    if (
+      participants.some(
+        (person) => person.seat.kind === 'judge' && !judges.has(person.actorId),
+      )
+    )
+      throw new CommandDenied('judge-unavailable');
+    if (
+      competing.some((person) => !debaters.has(person.actorId)) ||
+      !(await loaded.context.debatersAllowed(
+        competing.map(({ actorId }) => actorId),
+        loaded.checkedAt,
+      ))
+    )
+      throw new CommandDenied('not-found');
+  }
 }
 /** Direct and confirmed commands call the same ordinary owners with their actual principal and original command identity. */
 export function fixtureOwnerEffects(

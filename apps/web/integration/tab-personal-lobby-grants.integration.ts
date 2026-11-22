@@ -39,7 +39,10 @@ test('a personal tournament gives and removes exact lobby staff without an organ
             owner: { kind: 'self' },
             name,
             handle: `personal-${createId()}`,
-            lobby: { kind: 'tournament', admitsMinors: false },
+            lobby: {
+              kind: 'tournament',
+              eligibility: { kind: 'own', ageRule: 'adults' },
+            },
           },
         });
         if (answer.kind !== 'accepted')

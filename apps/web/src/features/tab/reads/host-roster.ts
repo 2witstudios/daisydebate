@@ -32,7 +32,7 @@ function project(
         (e) => e.status === 'accepted' && e.responsibleKind === 'school',
       ).length,
     );
-  const eligible = eligibleTournamentActors(f.accounts);
+  const eligible = eligibleTournamentActors(f.accounts, 'judge');
   const judges = f.judges.filter(
     (j) =>
       j.status === 'accepted' &&

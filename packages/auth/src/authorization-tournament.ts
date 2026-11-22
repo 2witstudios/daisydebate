@@ -28,9 +28,8 @@ export type DecideOn = (
 ) => AuthorizationDecision;
 
 /**
- * An entry is its responsible adult's: whoever manages the school's roster,
- * the guardian, or an adult entered for themselves. Tab staff who manage
- * entries may act on any of them.
+ * The school's roster manager, guardian or self-entered member can act on an
+ * entry. Tab staff who manage entries may also act on any of them.
  */
 export function entryDecision(
   holder: Holder,
@@ -52,7 +51,9 @@ export function entryDecision(
             responsible.guardianActorId === holder.actorId,
             'responsible_adult',
           )
-        : adultRelation(holder, responsible.actorId === holder.actorId, 'self');
+        : responsible.actorId === holder.actorId
+          ? allowRelated('self')
+          : deny('missing-capability');
   if (own.allow) return own;
   const staff = holdingDecision(
     holds(holder, 'tournament.entries.manage', lobby(resource.scope)),

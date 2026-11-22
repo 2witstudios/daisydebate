@@ -30,7 +30,13 @@ export const lobbyLifecycle = async (
           } as const),
     name: 'Spring Tournament',
     handle: `spring-${createId()}`,
-    lobby: { kind: 'tournament', admitsMinors: false },
+    lobby: {
+      kind: 'tournament',
+      eligibility:
+        ownership === 'personal'
+          ? { kind: 'own', ageRule: 'adults' }
+          : { kind: 'standing', lobbyId: world.made.get('standing-lobby')! },
+    },
   } as const;
   const created = await send(as(director), {
     version: 1,
@@ -103,30 +109,22 @@ export const lobbyLifecycle = async (
       type: 'update-lobby',
       lobbyId,
       name: 'Spring Open',
-      admitsMinors: false,
     },
   });
   assert({
     given: 'the opened tournament',
-    should: 'persist its changed name and minors declaration',
+    should: 'persist its changed name',
     actual: update.kind,
     expected: 'accepted',
   });
   const rows =
-    await world.sql`select l.name, l.version, t.status, t.admits_minors from lobbies l join tournaments t on t.lobby_id = l.id where l.id = ${lobbyId}`;
+    await world.sql`select l.name, l.version, t.status from lobbies l join tournaments t on t.lobby_id = l.id where l.id = ${lobbyId}`;
   assert({
     given: 'the accepted setup operations',
     should: 'reload the exact stored state',
     actual: rows.map(
-      (row: {
-        name: string;
-        version: number;
-        status: string;
-        admits_minors: boolean;
-      }) => ({ ...row }),
+      (row: { name: string; version: number; status: string }) => ({ ...row }),
     ),
-    expected: [
-      { name: 'Spring Open', version: 3, status: 'open', admits_minors: false },
-    ],
+    expected: [{ name: 'Spring Open', version: 3, status: 'open' }],
   });
 };

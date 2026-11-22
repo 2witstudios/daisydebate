@@ -65,6 +65,12 @@ const tournament = {
   name: 'Autumn Open',
   owner: league,
   status: 'open',
+  eligibility: {
+    kind: 'standing',
+    lobbyId: id('lobby'),
+    lobbyName: 'Southeast Youth',
+    ageRule: 'under-18',
+  },
   events: [event],
   timeSlots: [
     {
@@ -101,8 +107,16 @@ describe('lobby setup read', async () => {
     assert({
       given: 'a standing lobby and a tournament',
       should: 'parse each',
-      actual: [outcome(standing), outcome(tournament)],
-      expected: ['ok', 'ok'],
+      actual: [
+        outcome(standing),
+        outcome(tournament),
+        outcome({
+          ...tournament,
+          owner: null,
+          eligibility: { kind: 'own', ageRule: 'anyone' },
+        }),
+      ],
+      expected: ['ok', 'ok', 'ok'],
     });
   });
 

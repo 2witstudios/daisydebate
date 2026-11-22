@@ -1,4 +1,3 @@
-import { tournamentFirstDay } from '@daisy/protocol/lobby/event-division';
 import { and, eq, inArray } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import type { EntryCommand } from '@daisy/protocol/lobby/entry-command';
@@ -10,14 +9,22 @@ import { actors } from '../schema/actors';
 import { lobbies } from '../schema/lobbies';
 import { organizations } from '../schema/organizations';
 import { entries, entryMembers } from '../schema/entries';
-import { tabRounds, timeSlots } from '../schema/events';
+import { tabRounds } from '../schema/events';
 import { draws } from '../schema/draws';
 import { tournamentJudges } from '../schema/tournament-judges';
 import { fixtureJudges, fixtures } from '../schema/fixtures';
 import { scopeTransaction } from '../tenant-scope';
+import {
+  isMinorAgeBand,
+  readGuardianLobbyIds,
+} from '../guardians/lobby-permissions';
 import { lockTabCommandAccounts } from './command-accounts';
 import { loadAuthorityContext } from './authority-context';
 import { loadEntryPeople } from './entry-person-rows';
+import {
+  loadTournamentEligibility,
+  tournamentAgeSource,
+} from './tournament-eligibility';
 import { lockEventSettingContext } from './event-setting-context';
 import {
   appendHistory,
@@ -146,15 +153,26 @@ const load = async (tx: Tx, input: EntryEnrollmentInput) => {
           .map((member) => member.actorId);
   if (currentActorIds.some((id) => !namedActorIds.includes(id)))
     throw new EntryEnrollmentChanged();
-  const slots = await tx
-    .select({ startsAt: timeSlots.startsAt })
-    .from(timeSlots)
-    .where(eq(timeSlots.lobbyId, input.lobbyId));
-  const firstDay = tournamentFirstDay(
-    slots.map((slot) => slot.startsAt.toISOString()),
-    input.now,
+  const eligibility =
+    lobby?.kind === 'tournament'
+      ? await loadTournamentEligibility(tx, scope, lobby)
+      : null;
+  const guardianLinkId =
+    input.command.type === 'submit-entry' &&
+    input.command.responsible.kind === 'guardian'
+      ? input.command.responsible.guardianLinkId
+      : input.command.type === 'withdraw-entry'
+        ? currentEntry?.guardianLinkId
+        : null;
+  const people = await loadEntryPeople(
+    tx,
+    scope,
+    currentActorIds,
+    eligibility
+      ? await tournamentAgeSource(tx, eligibility, input.now)
+      : { kind: 'own', ageAsOf: input.now },
+    guardianLinkId ?? null,
   );
-  const people = await loadEntryPeople(tx, scope, currentActorIds, firstDay);
   const [school] = schoolId
     ? await tx
         .select({ id: organizations.id })
@@ -175,21 +193,27 @@ const load = async (tx: Tx, input: EntryEnrollmentInput) => {
     : null;
   // The school's grants are read under its scope, then the entry's scope is restored.
   await scopeTransaction(tx, scope);
-  const guardianLinkId =
-    input.command.type === 'submit-entry' &&
-    input.command.responsible.kind === 'guardian'
-      ? input.command.responsible.guardianLinkId
-      : currentEntry?.guardianLinkId;
   const guardian =
-    people
-      .flatMap((person) => person.links)
-      .find((link) => link.id === guardianLinkId) ?? null;
+    people.find((person) => person.guardian !== null)?.guardian ?? null;
   const [guardianActor] = guardian
     ? await tx
         .select({ id: actors.id })
         .from(actors)
         .where(eq(actors.userId, guardian.guardianUserId))
     : [];
+  const readGuardianPermittedActors = async () => {
+    const permitted = new Set<string>();
+    if (eligibility?.kind !== 'standing' || eligibility.ageRule !== 'adults')
+      return permitted;
+    for (const person of people) {
+      if (person.userId === null || !isMinorAgeBand(person.competitionAgeBand))
+        continue;
+      const signedLobbies = await readGuardianLobbyIds(tx, person.userId);
+      if (signedLobbies.includes(eligibility.lobbyId))
+        permitted.add(person.actorId);
+    }
+    return permitted;
+  };
   return {
     scope,
     lobby: lobby ?? null,
@@ -203,7 +227,8 @@ const load = async (tx: Tx, input: EntryEnrollmentInput) => {
     ownerActorId: owner?.id ?? null,
     configuration,
     hosting,
-    firstDay,
+    eligibility,
+    readGuardianPermittedActors,
     entries: currentEntries,
     members,
     rounds: await tx

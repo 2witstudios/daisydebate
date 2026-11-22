@@ -60,7 +60,10 @@ export async function ratingStage(world: World): Promise<void> {
       owner: { kind: 'self' },
       name: 'League rated elimination',
       handle: `rated-${createId()}`,
-      lobby: { kind: 'tournament', admitsMinors: false },
+      lobby: {
+        kind: 'tournament',
+        eligibility: { kind: 'own', ageRule: 'adults' },
+      },
     },
   });
   if (created.kind !== 'accepted')

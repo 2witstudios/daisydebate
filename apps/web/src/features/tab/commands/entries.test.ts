@@ -13,6 +13,7 @@ setupRitewayBun();
 const id = (tag: string) => tag.padEnd(24, '0');
 const lobbyId = id('lobby');
 const eventId = id('event');
+const standingLobbyId = id('standing');
 const entryId = id('entry');
 const coach = id('coachuser');
 const parent = id('parentuser');
@@ -23,27 +24,26 @@ const person = (
 ): EntryPersonFacts => ({
   actorId: id(`actor${name}`),
   userId: id(`user${name}`),
-  minor: false,
   withinAgeBand: true,
   divisions: ['Novice', 'Open'],
   enteredInEvent: false,
   enteredInSharedSlot: false,
-  bandOnFirstDay: 'adult',
+  ageBand: 'adult',
+
   ...overrides,
 });
 const ada = person('ada');
 const ben = person('ben');
 /** A minor entrant. */
 const minor = person('min', {
-  minor: true,
+  ageBand: '13-15',
+  guardianLobbyIds: [standingLobbyId],
 });
 
 const entry = (overrides: Partial<EntryRowFacts> = {}): EntryRowFacts => ({
   id: entryId,
   status: 'pending',
   division: 'Novice',
-  responsibleKind: 'school',
-  guardianUserId: null,
   submittedByUserId: null,
   version: 1,
   members: [ada, ben],
@@ -64,7 +64,7 @@ const facts = (overrides: Partial<EntryFacts> = {}): EntryFacts => ({
     approval: 'host',
     entryCap: null,
     entryCount: 3,
-    ageDivision: 'open',
+    eligibility: { ageRule: 'adults', lobbyId: standingLobbyId },
     registration: { opensAt: null, closesAt: '2026-11-20T00:00:00.000Z' },
     started: false,
   },
@@ -223,7 +223,7 @@ describe('submit-entry', () => {
     });
   });
 
-  test('an adult enters themselves; a guardian enters their ward', () => {
+  test('members enter themselves and guardians enter their wards', () => {
     const self = facts({
       sender: { userId: ada.userId, host: false },
       responsible: { kind: 'self' },
@@ -233,15 +233,14 @@ describe('submit-entry', () => {
       responsible: {
         kind: 'guardian',
         guardianLinkId: id('link'),
-        guardianUserId: parent,
         minorUserId: minor.userId!,
         active: true,
       },
     });
     assert({
       given:
-        'a self entry by the adult, a self entry for a minor, and a guardian entering their ward',
-      should: 'accept the adult and the guardian, refuse the minor',
+        'an adult entering themselves, a minor with lobby permission entering themselves, and a guardian entering their ward',
+      should: 'accept all three authorized entries',
       actual: [
         decideEntry(
           self,
@@ -268,17 +267,41 @@ describe('submit-entry', () => {
           }),
         ),
       ].map(refusalOf),
-      expected: ['accepted', 'no-responsible-adult', 'accepted'],
+      expected: ['accepted', 'accepted', 'accepted'],
     });
   });
 });
 
-describe('the event division (PYL-16)', () => {
+describe('the effective lobby age rule (TF-2.2)', () => {
+  test('an adult lobby checks the minor’s permission again at host acceptance', () => {
+    const accept = { type: 'accept-entry', entryId } as const;
+    const host = { userId: coach, host: true };
+    const pending = entry({ members: [minor] });
+    const permissionWithdrawn = entry({
+      members: [{ ...minor, guardianLobbyIds: [id('other-lobby')] }],
+    });
+
+    assert({
+      given:
+        'a pending entry with current or withdrawn permission for the standing lobby',
+      should: 'accept current permission and refuse withdrawn permission',
+      actual: [pending, permissionWithdrawn].map((entry) =>
+        refusalOf(decideEntry(facts({ sender: host, entry }), accept)),
+      ),
+      expected: ['accepted', 'under-open-age'],
+    });
+  });
   const youth = (overrides: Partial<EntryFacts> = {}) =>
-    facts({ event: { ...facts().event, ageDivision: 'youth' }, ...overrides });
+    facts({
+      event: {
+        ...facts().event,
+        eligibility: { ageRule: 'under-18', lobbyId: standingLobbyId },
+      },
+      ...overrides,
+    });
   test('an entrant outside the division is refused at registration, with the reason', () => {
-    const adult = person('ada', { bandOnFirstDay: 'adult' });
-    const sixteen = person('ada', { bandOnFirstDay: '16-17' });
+    const adult = person('ada', { ageBand: 'adult' });
+    const sixteen = person('ada', { ageBand: '16-17' });
     assert({
       given:
         'a Youth event with an entrant who is 18 on its first day, and an Open event with one who is 16',
@@ -296,8 +319,8 @@ describe('the event division (PYL-16)', () => {
         decideEntry(
           youth({
             people: [
-              person('ada', { bandOnFirstDay: '16-17', minor: true }),
-              person('ben', { bandOnFirstDay: '16-17', minor: true }),
+              person('ada', { ageBand: '16-17' }),
+              person('ben', { ageBand: '16-17' }),
             ],
           }),
           submit(),
@@ -314,7 +337,7 @@ describe('the event division (PYL-16)', () => {
       actual: refusalOf(
         decideEntry(
           youth({
-            people: [person('cat', { bandOnFirstDay: 'adult' })],
+            people: [person('cat', { ageBand: 'adult' })],
             entry: entry({ status: 'accepted' }),
           }),
           {

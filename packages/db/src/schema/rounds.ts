@@ -88,9 +88,9 @@ export const rounds = pgTable(
     /** The host took over from a restricted one, and names no human judge (DEC-331). */
     hostInherited: boolean('host_inherited').notNull().default(false),
     visibility: text('visibility').$type<'public' | 'unlisted' | 'private'>(),
-    /** The standing lobby's age rule at Start, kept for media reuse. */
+    /** The Room’s effective lobby age rule at Start, kept for audience and reuse. */
     standingAgeRule: lobbyAgeRule('standing_age_rule'),
-    /** Whether this standing lobby's actual cast needs Youth media protection. */
+    /** Whether the cast needed Youth media protection at Start. */
     standingYouthCast: boolean('standing_youth_cast').notNull().default(false),
     /** Null until a draw's reveal; stays null if the Round ended before it. */
     resolution: text('resolution'),

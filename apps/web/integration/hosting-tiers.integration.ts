@@ -130,7 +130,10 @@ test('free hosting caps entries and paid features; one payment unlocks that tour
           owner: { kind: 'self' },
           name: 'Friday scrimmage',
           handle: `friday-${createId()}`,
-          lobby: { kind: 'tournament', admitsMinors: false },
+          lobby: {
+            kind: 'tournament',
+            eligibility: { kind: 'own', ageRule: 'adults' },
+          },
         },
       });
       if (created.kind !== 'accepted') throw new Error('free hosting refused');

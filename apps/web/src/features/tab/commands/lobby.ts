@@ -1,5 +1,6 @@
 import { instantMs } from '@daisy/clock';
 import type { RoomCreate } from '@daisy/protocol';
+import type { LobbyAgeRule } from '@daisy/protocol/lobby/eligibility';
 import type { SharedLobbyRefusal } from '@daisy/protocol/lobby/command';
 import {
   isTournamentCancellable,
@@ -12,7 +13,6 @@ import type {
   OrganizationKind,
   TournamentStatus,
 } from '@daisy/protocol/lobby';
-import type { LobbyAgeRule } from '@daisy/protocol/lobby/eligibility';
 import type { SettingValues } from '@daisy/protocol/setting-values';
 import { refuse, type CommandDecision } from './run-command';
 
@@ -38,7 +38,6 @@ export type LobbyFact =
       readonly closedAt: string | null;
       readonly version: number;
       readonly status: TournamentStatus;
-      readonly admitsMinors: boolean;
     };
 
 type SeasonFact = {
@@ -78,6 +77,12 @@ export type LobbyFacts = {
   readonly newId: string;
   readonly actorUserId: string | null;
   readonly handleTaken: boolean;
+  readonly ageRuleLocked?: boolean;
+  readonly standingParent: {
+    readonly id: string;
+    readonly ownerOrganizationId: string | null;
+    readonly closedAt: Date | null;
+  } | null;
   /** The organization the command names, if it exists. */
   readonly organization: {
     readonly id: string;
@@ -124,14 +129,14 @@ type LobbyRow = {
   readonly ownerOrganizationId: string | null;
   readonly name: string;
   readonly handle: string;
-  readonly ageRule?: LobbyAgeRule;
+  readonly ageRule?: LobbyAgeRule | null;
+  readonly standingLobbyId?: string;
   readonly closedAt: string | null;
   readonly version: number;
 };
 type TournamentRow = {
   readonly lobbyId: string;
   readonly status: TournamentStatus;
-  readonly admitsMinors: boolean;
 };
 type SeasonRow = {
   readonly id: string;
@@ -243,6 +248,18 @@ const createLobby = (
       return refuse('not-found');
     if (facts.organization.kind !== 'league') return refuse('owner-not-league');
   }
+  const eligibility =
+    command.lobby.kind === 'tournament' ? command.lobby.eligibility : null;
+  if (
+    eligibility !== null &&
+    (owner.kind === 'organization'
+      ? eligibility.kind !== 'standing' ||
+        facts.standingParent?.id !== eligibility.lobbyId ||
+        facts.standingParent.ownerOrganizationId !== owner.organizationId ||
+        facts.standingParent.closedAt !== null
+      : eligibility.kind !== 'own')
+  )
+    return refuse('standing-lobby-required');
   if (facts.handleTaken) return refuse('handle-taken');
   const lobbyId = facts.newId;
   const lobby: LobbyWrite = {
@@ -256,9 +273,13 @@ const createLobby = (
         owner.kind === 'organization' ? owner.organizationId : null,
       name: command.name,
       handle: command.handle,
-      ...(command.lobby.kind === 'standing' && command.lobby.ageRule
-        ? { ageRule: command.lobby.ageRule }
-        : {}),
+      ...(eligibility?.kind === 'standing'
+        ? { standingLobbyId: eligibility.lobbyId, ageRule: null }
+        : eligibility?.kind === 'own'
+          ? { ageRule: eligibility.ageRule }
+          : command.lobby.kind === 'standing' && command.lobby.ageRule
+            ? { ageRule: command.lobby.ageRule }
+            : {}),
     },
   };
   const schedule: readonly LobbyWrite[] =
@@ -270,7 +291,6 @@ const createLobby = (
             row: {
               lobbyId,
               status: 'draft',
-              admitsMinors: command.lobby.admitsMinors,
             },
           },
         ]
@@ -283,27 +303,25 @@ const updateLobby = (
   command: Extract<LobbyCommand, { type: 'update-lobby' }>,
 ): LobbyDecision =>
   onOpenLobby(facts, (lobby, version) => {
-    if (lobby.kind === 'standing' && command.admitsMinors !== null)
-      return refuse('lobby-not-tournament');
-    const minors: readonly LobbyWrite[] =
-      lobby.kind === 'tournament' && command.admitsMinors !== null
-        ? [
-            {
-              table: 'tournaments',
-              op: 'update',
-              id: lobby.id,
-              set: { admitsMinors: command.admitsMinors },
-            },
-          ]
-        : [];
+    if (command.ageRule !== undefined) {
+      if (lobby.kind !== 'tournament') return refuse('lobby-not-tournament');
+      if (lobby.ownerOrganizationId !== null)
+        return refuse('age-rule-inherited');
+      if (facts.ageRuleLocked) return refuse('entries-exist');
+    }
     return accepted({ kind: 'lobby', id: lobby.id }, version, [
       {
         table: 'lobbies',
         op: 'update',
         id: lobby.id,
-        set: { name: command.name, version },
+        set: {
+          name: command.name,
+          version,
+          ...(command.ageRule === undefined
+            ? {}
+            : { ageRule: command.ageRule }),
+        },
       },
-      ...minors,
     ]);
   });
 

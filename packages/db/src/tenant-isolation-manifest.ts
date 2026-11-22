@@ -423,7 +423,7 @@ export const tenantIsolationManifest: TenantIsolationManifest = {
       name: 'daisy_round_reuse_age_unknown',
       executors: ['daisy_web'],
       reason:
-        'Returns whether missing age evidence on a debating seat prevents reuse of a Round from an anyone lobby or an adult lobby with a frozen youth cast. It grants no viewing authority.',
+        'Returns whether missing age evidence on a debating seat prevents reuse of a mixed-age Round or a standing adults-only Round with a frozen youth cast. It grants no viewing authority.',
     },
     {
       name: 'daisy_linked_adult_users',

@@ -66,11 +66,16 @@ const run = async ({
   stored = null,
   expected = 3,
   name = 'Autumn Open',
+  determine = decide,
 }: {
   decision?: AuthorizationDecision;
   stored?: StoredCommand | null;
   expected?: number;
   name?: string;
+  determine?: (
+    facts: Facts,
+    command: Command,
+  ) => ReturnType<typeof decide> | Promise<ReturnType<typeof decide>>;
 } = {}) => {
   const store: Store = {
     stored,
@@ -121,7 +126,7 @@ const run = async ({
       command: { type: 'rename', name },
     },
     definition,
-    decide,
+    determine,
   ).catch((error: unknown) => error);
   return { answer, store };
 };
@@ -163,6 +168,41 @@ describe('runLobbyCommand (TAB-5.8)', async () => {
           resultingVersion: 4,
         },
       ],
+    });
+  });
+
+  test('protected decision facts are read after authority and version checks', async () => {
+    let reads = 0;
+    const determine = async (facts: Facts, command: Command) => {
+      reads += 1;
+      return decide(facts, command);
+    };
+    const denied = await run({
+      decision: { allow: false, reason: 'missing-capability', conflict: null },
+      determine,
+    });
+    const stale = await run({ expected: 2, determine });
+    const beforeAuthorized = reads;
+    const current = await run({ determine });
+    assert({
+      given:
+        'an unauthorized command, a stale command and an authorized current command',
+      should:
+        'read the protected facts only for the authorized current command',
+      actual: {
+        denied: denied.answer instanceof CommandDenied,
+        stale: stale.answer,
+        beforeAuthorized,
+        reads,
+        writes: current.store.applied.length,
+      },
+      expected: {
+        denied: true,
+        stale: { kind: 'refused', refusal: 'version-conflict' },
+        beforeAuthorized: 0,
+        reads: 1,
+        writes: 1,
+      },
     });
   });
 

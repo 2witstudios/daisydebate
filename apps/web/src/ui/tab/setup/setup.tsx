@@ -36,6 +36,7 @@ export const forceLabel = (policy: PairingPolicy): string => {
  */
 type SetupProps = {
   readonly rail: TimelineRail;
+  readonly ageRule?: string;
 } & (
   | {
       readonly empty: { readonly addEvent: TabAction | null };
@@ -57,7 +58,10 @@ export function Setup(props: SetupProps) {
   if (props.empty !== undefined)
     return (
       <HostShell rail={props.rail} current="setup">
-        <PageHeader title="Setup" lede={props.rail.title} />
+        <PageHeader
+          title="Setup"
+          lede={[props.rail.title, props.ageRule].filter(Boolean).join(' · ')}
+        />
         <ListCard>
           <section className="flex flex-col items-start gap-3 p-4">
             <p>No events yet.</p>
@@ -83,7 +87,10 @@ export function Setup(props: SetupProps) {
           })}
     >
       <EventSwitcher event={setup.event} />
-      <PageHeader title="Setup" lede={setup.lede} />
+      <PageHeader
+        title="Setup"
+        lede={[setup.lede, props.ageRule].filter(Boolean).join(' · ')}
+      />
       <ListCard>
         <ul>
           {setup.settings.map((setting) => (

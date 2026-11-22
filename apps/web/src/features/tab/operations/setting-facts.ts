@@ -154,7 +154,6 @@ export const settingFacts = (
       (scope?.kind === 'lobby' || scope?.kind === 'event')
         ? tournamentHostingTier(loaded.hosting, input.now)
         : null,
-    tournamentEntries: loaded.tournamentEntries,
     rows: graph.settings.map(settingRow),
     scope: scope === null ? null : scopeFact(loaded, scope),
     reached: reachedSettingChains(graph, scope),
