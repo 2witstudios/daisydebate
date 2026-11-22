@@ -1277,8 +1277,8 @@ test('the claim’s end waits for a line end retry still in flight, and asks it 
   });
 });
 
-test('a queue clear at the exact handoff instant currently leaves the tail whole', async () => {
-  const { clock, claim, events } = harness();
+test('a queue clear at the exact handoff instant cuts the queued tail', async () => {
+  const { clock, claim, events, ends } = harness();
   claim.start();
   await clock.advance(10);
   const phrase = 'a'.repeat(24);
@@ -1289,16 +1289,61 @@ test('a queue clear at the exact handoff instant currently leaves the tail whole
   await clock
     .run(claim.publish(job(400, 'b'.repeat(24)), stop.signal, far()))
     .catch(() => undefined);
-  // R4.3 owns the same-millisecond handoff and clear ordering.
+  const cut = claim.tailCut(phrase);
+  const elapsedMs = clock.nowMs() - handoffAt;
+  await clock.advance(TAIL_PLAYS_MS);
   assert({
     given: 'a clear in the same virtual millisecond as the phrase handoff',
-    should: 'report the tail as whole under the current publisher semantics',
+    should:
+      'report the cleared tail cut and close its line once at what played',
     actual: {
       clear: events.includes('clear'),
-      elapsedMs: clock.nowMs() - handoffAt,
-      cut: claim.tailCut(phrase),
+      elapsedMs,
+      cut,
+      ends: ends.map(({ phraseId, end }) => ({ phraseId, end })),
     },
-    expected: { clear: true, elapsedMs: 0, cut: false },
+    expected: {
+      clear: true,
+      elapsedMs: 0,
+      cut: true,
+      // The last 10 ms frame leaves 310 ms queued from the 600 ms phrase:
+      // 290 ms played, which cannot credit its fifth whole word.
+      ends: [
+        {
+          phraseId: phrase,
+          end: { kind: 'cut', spoken: 'one two three four', playedMs: 290 },
+        },
+      ],
+    },
+  });
+});
+
+test('a clear before a later handoff at the same instant does not cut that later phrase', async () => {
+  const { clock, claim, ends } = harness();
+  claim.start();
+  await clock.advance(10);
+  const first = 'a'.repeat(24);
+  const next = 'b'.repeat(24);
+  await clock.run(claim.publish(job(600, first), signal(), far()));
+  claim.silence();
+  const clearedAt = clock.nowMs();
+  await clock.run(claim.publish(job(300, next), signal(), far()));
+  const nextCut = claim.tailCut(next);
+  const elapsedMs = clock.nowMs() - clearedAt;
+  await clock.advance(TAIL_PLAYS_MS);
+  await clock.run(claim.close());
+  assert({
+    given:
+      'a clear followed by a new 300 ms phrase handed over in the same millisecond',
+    should: 'preserve the later phrase and close it whole exactly once',
+    actual: {
+      elapsedMs,
+      nextCut,
+      ends: ends
+        .filter(({ phraseId }) => phraseId === next)
+        .map(({ end }) => end),
+    },
+    expected: { elapsedMs: 0, nextCut: false, ends: [{ kind: 'whole' }] },
   });
 });
 

@@ -186,14 +186,26 @@ export function createBotPublisher(input: {
      * When the native queue was cleared (an abort, a failure, a silence or the
      * end), recent ones kept, so each phrase finds the clear that cut it.
      */
-    let clears: number[] = [];
+    let clears: { readonly atMs: number; readonly sequence: number }[] = [];
     const cleared = () => {
-      clears = [...clears.slice(-31), input.monotonicNowMs()];
+      clears = [
+        ...clears.slice(-31),
+        {
+          atMs: input.monotonicNowMs(),
+          sequence: (clears.at(-1)?.sequence ?? 0) + 1,
+        },
+      ];
     };
+    // Event order distinguishes a clear before and after a handoff even when
+    // the monotonic clock reports the same millisecond for both.
+    const firstClearAfter = (sequence: number, playsUntilMs: number) =>
+      clears.find(
+        (clear) => clear.sequence > sequence && clear.atMs < playsUntilMs,
+      )?.atMs ?? null;
     /** The last phrase reported played whole, and when its queued tail plays out. */
     let lastHanded: {
       readonly phraseId: string;
-      readonly handedAtMs: number;
+      readonly clearSequence: number;
       readonly playsUntilMs: number;
     } | null = null;
     /** Each played phrase's line closes here, in order, beside the next one's audio. */
@@ -612,10 +624,10 @@ export function createBotPublisher(input: {
       // Its last frames are still queued: the line closes once they have
       // played, beside the next phrase's audio, never in front of it.
       const handedAtMs = input.monotonicNowMs();
+      const clearSequence = clears.at(-1)?.sequence ?? 0;
       const playsUntilMs = handedAtMs + Math.max(0, native.queuedMs());
       /** The first clear before its tail played out cut it there (AMEND-1). */
-      const firstClear = () =>
-        clears.find((at) => at > handedAtMs && at < playsUntilMs) ?? null;
+      const firstClear = () => firstClearAfter(clearSequence, playsUntilMs);
       const playedUntil = (cutAtMs: number | null) =>
         playedFraction({
           sentSamples: result.sentSamples,
@@ -644,7 +656,7 @@ export function createBotPublisher(input: {
         if (wasAsked()) await settleLine(job, playedUntil(cutAtMs));
         rethrow(refusal ?? createAppError('CONFLICT'));
       }
-      lastHanded = { phraseId: job.phraseId, handedAtMs, playsUntilMs };
+      lastHanded = { phraseId: job.phraseId, clearSequence, playsUntilMs };
       closing = closing.then(async () => {
         await input.waitUntilMs(playsUntilMs, ended.signal);
         await revealing;
@@ -670,9 +682,7 @@ export function createBotPublisher(input: {
         const handed = lastHanded;
         return (
           handed?.phraseId === phraseId &&
-          clears.some(
-            (at) => at > handed.handedAtMs && at < handed.playsUntilMs,
-          )
+          firstClearAfter(handed.clearSequence, handed.playsUntilMs) !== null
         );
       },
       /** Whether audio handed over is still playing out of the queue. */
