@@ -571,40 +571,6 @@ const knownDefects: readonly {
   ) => boolean;
 }[] = [
   {
-    name: 'ISSUE-1495: a Round ended while paused does not hydrate',
-    matches: (before, after, move, problem) => {
-      const { incident } = after.rows.checkpoint;
-      return (
-        before.rows.lifecycle.status === 'active' &&
-        before.rows.checkpoint.incident.phase !== 'none' &&
-        isTerminal(after.rows) &&
-        incident.phase !== 'none' &&
-        incident.resume_point !== null &&
-        after.rows.segments.every((row) => row.endedAt !== null) &&
-        problem ===
-          `${labelOf(move)}: its persisted rows do not hydrate: ${ids.openCount}`
-      );
-    },
-  },
-  {
-    name: 'ISSUE-1496: an ended Round’s incident still moves',
-    matches: (before, after, move, problem) => {
-      const { incident, clock_stops, start_gate } = after.rows.checkpoint;
-      const previous = before.rows.checkpoint;
-      return (
-        isTerminal(before.rows) &&
-        previous.incident.phase !== 'none' &&
-        !Bun.deepEquals(incident, previous.incident) &&
-        problem ===
-          `${ids.terminal}: ${labelOf(move)} moved a ${statusOf(before.rows)} Round` &&
-        Bun.deepEquals(after.rows, {
-          ...before.rows,
-          checkpoint: { ...previous, incident, clock_stops, start_gate },
-        })
-      );
-    },
-  },
-  {
     name: 'ISSUE-1497: an ended Round’s start gate still takes capture readiness',
     matches: (before, after, move, problem) => {
       const { start_gate: gate } = before.rows.checkpoint;
@@ -941,56 +907,6 @@ describe('hydration rejects inconsistent Round rows', () => {
 describe('known engine defects (reported on Delivery, fixed in R4.1)', () => {
   const format = formats[0]!;
   const cast = castOf(format.rules);
-  const pause = (atMs: number) =>
-    ({
-      kind: 'pause',
-      atMs,
-      cause: 'vendor_unreachable',
-      confirmedUntilMs: null,
-    }) as const;
-  /** A live Round paused by an incident, then stopped by its owner. */
-  const pausedThenStopped = () => {
-    let rows = openingRound(format.rules);
-    rows = persist(
-      rows,
-      hydrate(format.rules, cast, rows).activate({ at: iso(T0), now: iso(T0) }),
-    );
-    rows = persist(
-      rows,
-      hydrate(format.rules, cast, rows, 100).applyIncident(pause(T0 + 20_000)),
-    );
-    rows = persist(
-      rows,
-      hydrate(format.rules, cast, rows, 200).stop(iso(T0 + 30_000)),
-    );
-    return attempt(() =>
-      hydrate(format.rules, cast, rows, 300).tick(iso(T0 + 30_000)),
-    );
-  };
-  /** A paused Round stopped, then told the incident is resuming. */
-  const stoppedThenResumed = () => {
-    let rows = openingRound(format.rules);
-    rows = persist(
-      rows,
-      hydrate(format.rules, cast, rows).applyIncident(pause(T0)),
-    );
-    rows = persist(
-      rows,
-      hydrate(format.rules, cast, rows, 10).stop(iso(T0 + 1)),
-    );
-    const after = persist(
-      rows,
-      hydrate(format.rules, cast, rows, 20).applyIncident({
-        kind: 'begin_resume',
-        atMs: T0 + 2,
-        countdownMs: format.rules.countdownMs,
-      }),
-    );
-    return {
-      status: after.lifecycle.status,
-      moved: !Bun.deepEquals(after, rows),
-    };
-  };
   const stoppedThenHeard = () => {
     const at = iso(T0);
     const runtime = hydrate(format.rules, cast, openingRound(format.rules));
@@ -1012,23 +928,15 @@ describe('known engine defects (reported on Delivery, fixed in R4.1)', () => {
     };
   };
   test('the known engine defects still reproduce', () => {
-    const paused = pausedThenStopped();
     assert({
       given: knownDefects.map(({ name }) => name).join('; '),
       should:
         'still reproduce; once one is fixed, delete its entry from knownDefects and this case',
       actual: {
-        [knownDefects[0]!.name]:
-          !paused.accepted &&
-          paused.refusal.kind === 'invariant' &&
-          paused.refusal.id === ids.openCount,
-        [knownDefects[1]!.name]: stoppedThenResumed(),
-        [knownDefects[2]!.name]: stoppedThenHeard(),
+        [knownDefects[0]!.name]: stoppedThenHeard(),
       },
       expected: {
-        [knownDefects[0]!.name]: true,
-        [knownDefects[1]!.name]: { status: 'abandoned', moved: true },
-        [knownDefects[2]!.name]: {
+        [knownDefects[0]!.name]: {
           status: 'abandoned',
           before: 'awaiting',
           after: 'ready',

@@ -196,6 +196,7 @@ export const incidentTransition = (
   rules: RoundRules,
   event: IncidentEvent,
 ): ClockTransition => {
+  if (!isRoundRunning(state.lifecycle.status)) return stay(state);
   const row = transitions[state.checkpoint.incident.phase];
   switch (event.kind) {
     case 'pause':
@@ -217,7 +218,11 @@ export const resumeIfDue = (
   nowMs: number,
 ): ClockTransition => {
   const { incident, clock_stops: stops } = state.checkpoint;
-  if (incident.phase !== 'resuming' || nowMs < instantMs(incident.until))
+  if (
+    !isRoundRunning(state.lifecycle.status) ||
+    incident.phase !== 'resuming' ||
+    nowMs < instantMs(incident.until)
+  )
     return stay(state);
   const untilMs = instantMs(incident.until);
   const open = openRow(state);

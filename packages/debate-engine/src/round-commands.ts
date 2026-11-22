@@ -163,6 +163,17 @@ const leave = (c: CommandContext): void => {
 export function closePlayedRound(c: CommandContext): void {
   const open = c.on.openRow();
   if (open !== undefined) c.closeRowAt(open.sequence, c.now);
+  const { incident, clock_stops } = c.on.checkpoint();
+  if (incident.phase !== 'none') {
+    c.on.setIncident({
+      incident: { phase: 'none' },
+      clock_stops: [...clock_stops, { from: incident.since, to: iso(c.now) }],
+    });
+    c.into.changes.push({
+      kind: 'incident',
+      change: { kind: 'ended', at: iso(c.now) },
+    });
+  }
   c.on.endPrep();
   c.on.setPrepEndedAt(null);
   const lastPlayed = c.on.rows().at(-1)?.endedAtMs;
