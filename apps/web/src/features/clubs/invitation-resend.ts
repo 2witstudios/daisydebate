@@ -1,3 +1,4 @@
+import { runClubInviteeCommand } from './invitee-command';
 import { runClubManagerCommand } from './manager-command';
 import { instantMs } from '@daisy/clock';
 import { subscriptionAccess } from '@daisy/auth/authorization';
@@ -30,7 +31,19 @@ export function createClubSeatCommands(
   store: ReturnType<Database['clubSeats']>,
 ) {
   return {
-    answer: store.answer,
+    answer: (
+      subject: MemberCaller,
+      organizationId: string,
+      invitationId: string,
+      answer: 'accept' | 'decline',
+    ) =>
+      runClubInviteeCommand(
+        store,
+        subject,
+        organizationId,
+        invitationId,
+        answer,
+      ),
     command(
       subject: MemberCaller,
       organizationId: string,

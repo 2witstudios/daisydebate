@@ -142,6 +142,37 @@ function executeManagerCommand(
 /** Test composition only; production route/Billing composition is exercised in web integration. */
 export const clubSeatTestCommands = (store: Store) => ({
   ...store,
+  answer: (
+    subject: MemberCaller,
+    organizationId: string,
+    invitationId: string,
+    answer: 'accept' | 'decline',
+  ) =>
+    store.answerCommand(
+      subject,
+      organizationId,
+      invitationId,
+      answer,
+      async (session) => {
+        const loaded = await session.load();
+        const decision = decideClubSeating(
+          loaded.before,
+          answer === 'accept'
+            ? {
+                kind: 'accept',
+                invitationId,
+                userId: subject.userId,
+                seatedElsewhere: loaded.elsewhere,
+              }
+            : { kind: 'decline', invitationId },
+          loaded.now,
+        );
+        if (decision.kind === 'refused')
+          return { kind: 'refused', reason: decision.reason };
+        await loaded.apply(decision.state);
+        return { kind: 'changed' };
+      },
+    ),
   command: (
     subject: MemberCaller,
     organizationId: string,

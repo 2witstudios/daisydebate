@@ -397,5 +397,10 @@ grant projection in one bounded transaction. Refusals precede apply; missing
 settlement, incompatible post-apply refusal and repeated or escaped capabilities
 cannot commit. Inactive plans still permit removal and cancellation. Billing
 receives readiness only after the named releases commit, then performs vendor
-work outside the transaction. Invitation accept/decline retains its separate
-operation and gains no active-plan guard.
+work outside the transaction. Invitation accept/decline uses its own fenced `answerCommand` load/apply
+operation. The Club application selects and invokes the canonical protocol
+answer decision; the adapter retains verified-address admission, account → Club
+→ billing locks, database time and atomic mail/seating/Tab membership/grant
+materialization. Refused or missing application cannot commit; repeat and
+escaped capabilities are closed. Acceptance gains no active-plan or free-seat
+guard, and decline gains no expiry guard.

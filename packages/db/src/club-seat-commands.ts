@@ -7,7 +7,6 @@ import {
 import {
   clubSeatBounds,
   clubInvitationMailRefusal,
-  decideClubSeating,
   type ClubInvitationMailFacts,
   type ClubSeat,
   type ClubSeating,
@@ -85,6 +84,14 @@ export type ClubInvitationResendFacts = {
   readonly seatCount: number;
   readonly now: string;
   readonly invitation: SeatInvitation | null;
+};
+
+type ClubInviteeAnswer = Exclude<ClubSeatAnswer, { kind: 'seat-count-ready' }>;
+type ClubInviteeLoad = {
+  readonly before: ClubSeating;
+  readonly now: string;
+  readonly elsewhere: boolean;
+  readonly apply: (after: ClubSeating) => Promise<void>;
 };
 
 type ClubManagerLoad = {
@@ -598,69 +605,93 @@ export function createClubSeats(input: {
         });
     },
 
-    /**
-     * The invited person answers: accepting needs a signed-in account whose
-     * verified email is the invited address; it seats them, makes them an
-     * active member if they were not, and grants Premium from the plan.
-     */
-    answer(
+    /** Addressed invitee facts and their atomic seat/mail/membership/grant application. */
+    answerCommand(
       subject: ClubSeatSubject,
       organizationId: string,
       invitationId: string,
       answer: 'accept' | 'decline',
-    ): Promise<ClubSeatAnswer> {
+      work: (session: {
+        readonly load: () => Promise<ClubInviteeLoad>;
+      }) => Promise<ClubInviteeAnswer>,
+    ): Promise<ClubInviteeAnswer> {
       if (
         !idSchema.safeParse(organizationId).success ||
         !idSchema.safeParse(invitationId).success
       )
         throw createAppError('VALIDATION');
       return input
-        .run(async (tx): Promise<ClubSeatAnswer> => {
-          const { club, seats } = await fenced(tx, subject, organizationId, []);
-          const invitation = await invitedAs(tx, subject, club, invitationId);
-          if (!invitation) throw createAppError('NOT_FOUND');
-          const plan = await readPlan(tx, club.id);
-          const now = await readDatabaseTime(tx);
-          const before: ClubSeating = {
-            seatCount: plan.seatCount,
-            seats,
-            invitations: await readInvitations(tx, club.id),
-          };
-          const elsewhere = await seatedElsewhere(tx, club, subject.userId);
-          await scopeTransaction(tx, {
-            organizationId: club.id,
-            subjectUserId: subject.userId,
-          });
-          const decision = decideClubSeating(
-            before,
-            answer === 'accept'
-              ? {
-                  kind: 'accept',
-                  invitationId,
-                  userId: subject.userId,
-                  seatedElsewhere: elsewhere,
-                }
-              : { kind: 'decline', invitationId },
-            now.toISOString(),
-          );
-          if (decision.kind === 'refused') return refused(decision.reason);
-          await writeSeating(tx, {
-            club,
-            before,
-            after: decision.state,
-            invitedBy: subject.userId,
-            now,
-            nextId: input.nextId,
-          });
-          if (answer === 'accept') {
-            await activateSeatMembership(tx, {
+        .run(async (tx): Promise<ClubInviteeAnswer> => {
+          const lifecycle: {
+            phase:
+              'new' | 'loading' | 'fresh' | 'applying' | 'applied' | 'closed';
+          } = { phase: 'new' };
+          const phase = () => lifecycle.phase;
+          const load = async (): Promise<ClubInviteeLoad> => {
+            if (phase() !== 'new') throw createAppError('INVARIANT');
+            lifecycle.phase = 'loading';
+            const { club, seats } = await fenced(
+              tx,
+              subject,
+              organizationId,
+              [],
+            );
+            const invitation = await invitedAs(tx, subject, club, invitationId);
+            if (!invitation) throw createAppError('NOT_FOUND');
+            const plan = await readPlan(tx, club.id);
+            const now = await readDatabaseTime(tx);
+            const before: ClubSeating = {
+              seatCount: plan.seatCount,
+              seats,
+              invitations: await readInvitations(tx, club.id),
+            };
+            const elsewhere = await seatedElsewhere(tx, club, subject.userId);
+            await scopeTransaction(tx, {
               organizationId: club.id,
-              userId: subject.userId,
-              now: now.toISOString(),
+              subjectUserId: subject.userId,
             });
-            await project(tx, club, decision.state.seats);
+            if (phase() !== 'loading') throw createAppError('INVARIANT');
+            lifecycle.phase = 'fresh';
+            return {
+              before,
+              now: now.toISOString(),
+              elsewhere,
+              apply: async (after) => {
+                if (phase() !== 'fresh') throw createAppError('INVARIANT');
+                lifecycle.phase = 'applying';
+                await writeSeating(tx, {
+                  club,
+                  before,
+                  after,
+                  invitedBy: subject.userId,
+                  now,
+                  nextId: input.nextId,
+                });
+                if (answer === 'accept') {
+                  await activateSeatMembership(tx, {
+                    organizationId: club.id,
+                    userId: subject.userId,
+                    now: now.toISOString(),
+                  });
+                  await project(tx, club, after.seats);
+                }
+                if (phase() !== 'applying') throw createAppError('INVARIANT');
+                lifecycle.phase = 'applied';
+              },
+            };
+          };
+          try {
+            const result = await work({ load });
+            if (
+              result.kind === 'refused'
+                ? phase() !== 'fresh'
+                : phase() !== 'applied'
+            )
+              throw createAppError('INVARIANT');
+            return result;
+          } finally {
+            lifecycle.phase = 'closed';
           }
-          return { kind: 'changed' };
         })
         .catch((error: unknown) => {
           if (error instanceof Refused) return refused(error.reason);
@@ -670,7 +701,9 @@ export function createClubSeats(input: {
   };
 }
 
-const refused = (reason: ClubSeatingRefusal): ClubSeatAnswer => ({
+const refused = (
+  reason: ClubSeatingRefusal,
+): Extract<ClubSeatAnswer, { kind: 'refused' }> => ({
   kind: 'refused',
   reason,
 });

@@ -22,6 +22,12 @@ export async function withClub(
     store: ReturnType<ReturnType<typeof createDatabase>['clubSeats']>;
     seats: ReturnType<typeof createClubSeatCommands>;
     post: (command: unknown) => Promise<Response>;
+    person: () => Promise<{ userId: string; actorId: string; email: string }>;
+    answerPost: (
+      subject: { userId: string; actorId: string },
+      invitationId: string,
+      answer: 'accept' | 'decline',
+    ) => Promise<Response>;
   }) => Promise<void>,
 ) {
   await withSql(async (sql) => {
@@ -30,6 +36,15 @@ export async function withClub(
       nextActorId: createId,
     });
     const owner = { userId: createId(), actorId: createId() };
+    const people: { userId: string; actorId: string }[] = [];
+    const person = async () => {
+      const subject = { userId: createId(), actorId: createId() };
+      people.push(subject);
+      const email = `${subject.userId}@invitee.invalid`;
+      await sql`insert into users(id,username,email,email_verified) values(${subject.userId},${subject.userId},${email},true)`;
+      await sql`insert into actors(id,kind,user_id) values(${subject.actorId},'human',${subject.userId})`;
+      return { ...subject, email };
+    };
     const organizationId = createId();
     const subscriptionId = createId();
     const [clock] = await sql`select clock_timestamp() as now`;
@@ -88,6 +103,31 @@ export async function withClub(
           body: JSON.stringify(command),
         }),
       );
+    const answerPost = (
+      subject: { userId: string; actorId: string },
+      invitationId: string,
+      answer: 'accept' | 'decline',
+    ) =>
+      composeClubRoutes({
+        ...deps,
+        boundary: {
+          ...deps.boundary,
+          identify: async () => ({
+            state: 'member',
+            username: subject.userId,
+            principal: { kind: 'user', ...subject },
+          }),
+        },
+      }).invitation.POST(
+        new Request(
+          `${origin}/api/clubs/invitations/${organizationId}.${invitationId}`,
+          {
+            method: 'POST',
+            headers: { origin, 'content-type': 'application/json' },
+            body: JSON.stringify({ answer }),
+          },
+        ),
+      );
     try {
       await sql`insert into users(id,username,email_verified) values(${owner.userId},${owner.userId},true)`;
       await sql`insert into actors(id,kind,user_id) values(${owner.actorId},'human',${owner.userId})`;
@@ -103,6 +143,8 @@ export async function withClub(
         store,
         seats,
         post,
+        person,
+        answerPost,
       });
     } finally {
       await database.close();
@@ -117,6 +159,10 @@ export async function withClub(
       await sql`delete from organizations where id=${organizationId}`;
       await sql`delete from actors where id=${owner.actorId}`;
       await sql`delete from users where id=${owner.userId}`;
+      for (const subject of people) {
+        await sql`delete from actors where id=${subject.actorId}`;
+        await sql`delete from users where id=${subject.userId}`;
+      }
     }
   });
 }
