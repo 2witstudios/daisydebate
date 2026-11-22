@@ -1,3 +1,4 @@
+import { composeOpsRoutes } from '../features/ops/composition';
 import {} from '../features/broadcast/composition';
 import { composeStage } from '../features/stage-capture/composition';
 import { createConsentHandler } from '../features/analytics/handlers';
@@ -44,9 +45,6 @@ import { createAuthRouteHandlers } from '../features/auth/handlers';
 import { createDocumentHandlers } from '../features/documents/document-handlers';
 import { createDocumentOperations } from '../features/documents/document-operations';
 import { createProofHandlers } from '../features/foundation/handlers';
-import { runningWorkers } from '../features/ops/alert-state';
-import { createAlertsHandler } from '../features/ops/alerts';
-import { createMetricsHandler } from '../features/ops/metrics';
 import { createTicketHandler } from '../features/realtime/ticket';
 import { composeAudienceRoutes } from '../features/spectating/audience-composition';
 import { createAudienceLinkHandlers } from '../features/audience-link/handlers';
@@ -56,7 +54,6 @@ import { composeHostingRoutes } from '../features/hosting-purchases/routes';
 import { hostingPurchaseDependencies } from './hosting-purchases';
 import type { App } from './app';
 import { handleOperation } from './http';
-import { createReadinessHandler } from '../features/ops/readiness';
 
 /**
  * Every route handler, built from one app. The Next route modules under
@@ -263,40 +260,20 @@ export function createRoutes(app: App) {
       logger,
       reporter: app.reporter,
     }),
-    ready: {
-      GET: createReadinessHandler({
-        database,
-        redis: app.redis,
-        isDraining: app.isDraining,
-        startupChecked: app.startupChecked,
-        logger,
-        reporter: app.reporter,
-      }),
-    },
-    ops: {
-      alerts: {
-        GET: createAlertsHandler({
-          logger,
-          reporter: app.reporter,
-          redis: app.redis,
-          local: app.localAlertState,
-          clock: app.clock,
-          workers: runningWorkers({
-            fileMaintenanceIntervalMs:
-              app.messagingFiles?.maintenance?.intervalMs ?? null,
-          }),
-          token: () => app.opsProbeToken(),
-        }),
-      },
-      metrics: {
-        GET: createMetricsHandler({
-          logger,
-          reporter: app.reporter,
-          metrics: app.metrics,
-          token: () => app.opsProbeToken(),
-        }),
-      },
-    },
+    ...composeOpsRoutes({
+      database,
+      redis: app.redis,
+      isDraining: app.isDraining,
+      startupChecked: app.startupChecked,
+      logger,
+      reporter: app.reporter,
+      local: app.localAlertState,
+      clock: app.clock,
+      fileMaintenanceIntervalMs:
+        app.messagingFiles?.maintenance?.intervalMs ?? null,
+      token: () => app.opsProbeToken(),
+      metrics: app.metrics,
+    }),
   };
 }
 

@@ -970,14 +970,16 @@ test('preparing takedown rollback restores Recording and feed on missing settlem
       'after-feed',
       'receipt-failure',
       'deadline',
+      'after-settle',
     ] as const) {
+      let live = mode !== 'deadline';
       const input = {
         commandId: createId(),
         serviceId: 'daisy-admin',
         operatorRef: 'o'.repeat(24),
         requestDigest: 'd'.repeat(64),
         adminAuditHead: mode === 'receipt-failure' ? 'invalid' : AUDIT_HEAD,
-        live: () => mode !== 'deadline',
+        live: () => live,
         change: {
           action: 'recording.takedown' as const,
           recordingId: id,
@@ -1000,6 +1002,10 @@ test('preparing takedown rollback restores Recording and feed on missing settlem
             v: 1,
             outcome: feed === 'applied' ? 'applied' : loaded.recording,
           });
+          if (mode === 'after-settle') {
+            await Promise.resolve();
+            live = false;
+          }
         })
         .then(
           () => 'committed',
@@ -1017,11 +1023,11 @@ test('preparing takedown rollback restores Recording and feed on missing settlem
     }
     assert({
       given:
-        'preparing takedown followed by missing settlement, pre/post-feed exception, late receipt constraint failure or expired final liveness',
+        'preparing takedown followed by missing settlement, pre/post-feed exception, late receipt constraint failure or liveness expiring before/after settlement',
       should:
         'roll back Recording version/state, feed termination and receipt on every failure',
       actual: outcomes,
-      expected: Array.from({ length: 5 }, () => [
+      expected: Array.from({ length: 6 }, () => [
         'rejected',
         'ready',
         4,

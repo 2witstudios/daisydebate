@@ -4,7 +4,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { sql, type SQL } from 'drizzle-orm';
 import { causeChainMember } from '../src/capacity-refusal';
 import { sqlStateOf } from './constraint-helpers';
-import { flagCommand } from './flags.test-support';
+import { executeFlagCommand, flagCommand } from './flags.test-support';
 import { offer, withBillingPurchases } from './billing-purchases.test-support';
 
 requireTestServices(process.env);
@@ -13,7 +13,7 @@ setupRitewayBun();
 test('actual daisy_web purchase operations preserve admitted identity and all terminal evidence against direct mutation', async () =>
   withBillingPurchases(
     async ({ fixture, pool, run, purchases, subject, store, key }) => {
-      await store.runFlagCommand(flagCommand(key, 0));
+      await executeFlagCommand(store, flagCommand(key, 0));
       const reserve = pool.reserve.bind(pool);
       pool.reserve = async (options) => {
         const connection = await reserve(options);

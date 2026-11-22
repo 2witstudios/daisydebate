@@ -8,7 +8,7 @@ import { createBillingSynchronization } from '../src/billing-synchronization';
 import { createBillingInbox } from '../src/billing-inbox';
 import type { Fixture } from './constraint-helpers';
 import { withBillingPurchases, offer } from './billing-purchases.test-support';
-import { flagCommand } from './flags.test-support';
+import { executeFlagCommand, flagCommand } from './flags.test-support';
 import { completeControlledBillingPurchase } from '../src/testing-billing-purchase';
 
 export function withBillingSynchronization(
@@ -30,7 +30,7 @@ export function withBillingSynchronization(
     const { fixture, pool, run, userId, actorId, purchases, subject } = input;
     const vendorCustomerId = `cus_${createId()}`;
     const vendorSubscriptionId = `sub_${createId()}`;
-    await input.store.runFlagCommand(flagCommand(input.key, 0));
+    await executeFlagCommand(input.store, flagCommand(input.key, 0));
     await completeControlledBillingPurchase({
       purchases,
       subject,

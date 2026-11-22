@@ -30,7 +30,7 @@ export function mayControlFlags(
 /** Closed resource operations on the private signed listener only. */
 export async function changeFlag(
   deps: {
-    readonly store: Pick<Database, 'runFlagCommand'>;
+    readonly store: Pick<Database, 'flagCommand'>;
     readonly crypto: OperatorCrypto;
     readonly nextId: () => string;
     readonly nowMs: () => number;
@@ -67,32 +67,40 @@ export async function changeFlag(
     !mayControlFlags(principal, change.action)
   )
     throw createAppError('AUTHORIZATION');
-  return deps.store.runFlagCommand({
-    commandId: command.data.commandId,
-    serviceId: principal.serviceId,
-    operatorRef: principal.operatorRef,
-    adminAuditHead: command.data.adminAuditHead,
-    key,
-    change,
-    requestDigest: deps.crypto.sha3Hex(
-      JSON.stringify([
-        principal.serviceId,
-        principal.operatorRef,
-        key,
-        change,
-        command.data.expectedRevision,
-      ]),
-    ),
-    nextId: deps.nextId,
-    live: () => deps.nowMs() <= request.signedAtMs + operatorLimits.skewMs,
-    authorize: () => mayControlFlags(principal, change.action),
-    decide: (revision, now) =>
-      decideFlagChange({
+  return deps.store.flagCommand(
+    {
+      commandId: command.data.commandId,
+      serviceId: principal.serviceId,
+      operatorRef: principal.operatorRef,
+      adminAuditHead: command.data.adminAuditHead,
+      key,
+      change,
+      requestDigest: deps.crypto.sha3Hex(
+        JSON.stringify([
+          principal.serviceId,
+          principal.operatorRef,
+          key,
+          change,
+          command.data.expectedRevision,
+        ]),
+      ),
+      nextId: deps.nextId,
+      live: () => deps.nowMs() <= request.signedAtMs + operatorLimits.skewMs,
+    },
+    async (session) => {
+      if (!mayControlFlags(principal, change.action))
+        throw createAppError('AUTHORIZATION');
+      const loaded = await session.load();
+      if (loaded.kind === 'replayed') return loaded.result;
+      const decision = decideFlagChange({
         entry,
         change,
-        revision,
+        revision: loaded.revision,
         expectedRevision: command.data.expectedRevision,
-        now,
-      }),
-  });
+        now: loaded.now,
+      });
+      if (decision.kind === 'refused') throw createAppError(decision.reason);
+      return loaded.apply(decision.revision);
+    },
+  );
 }

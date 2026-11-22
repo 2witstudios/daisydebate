@@ -1,0 +1,55 @@
+import { runningWorkers } from './alert-state';
+import { createAlertsHandler } from './alerts';
+import { createMetricsHandler } from './metrics';
+import { createReadinessHandler } from './readiness';
+
+type OpsInputs = Omit<
+  Parameters<typeof createReadinessHandler>[0],
+  'startupChecked'
+> &
+  Pick<Parameters<typeof createAlertsHandler>[0], 'clock' | 'local' | 'token'> &
+  Pick<Parameters<typeof createMetricsHandler>[0], 'metrics'> & {
+    readonly redis: Parameters<typeof createReadinessHandler>[0]['redis'] &
+      Parameters<typeof createAlertsHandler>[0]['redis'];
+    readonly startupChecked: () => boolean;
+    readonly fileMaintenanceIntervalMs: number | null;
+  };
+
+/** Ops owns its health and probe bindings; request-time state stays lazy. */
+export function composeOpsRoutes(app: OpsInputs) {
+  return {
+    ready: {
+      GET: createReadinessHandler({
+        database: app.database,
+        redis: app.redis,
+        isDraining: app.isDraining,
+        startupChecked: app.startupChecked,
+        logger: app.logger,
+        reporter: app.reporter,
+      }),
+    },
+    ops: {
+      alerts: {
+        GET: createAlertsHandler({
+          logger: app.logger,
+          reporter: app.reporter,
+          redis: app.redis,
+          local: app.local,
+          clock: app.clock,
+          workers: runningWorkers({
+            fileMaintenanceIntervalMs: app.fileMaintenanceIntervalMs,
+          }),
+          token: app.token,
+        }),
+      },
+      metrics: {
+        GET: createMetricsHandler({
+          logger: app.logger,
+          reporter: app.reporter,
+          metrics: app.metrics,
+          token: app.token,
+        }),
+      },
+    },
+  };
+}

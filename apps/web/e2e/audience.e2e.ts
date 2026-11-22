@@ -334,9 +334,13 @@ test('every form answers more than once and the view refreshes itself', async ({
   const debaterPage = await openPage(debaterContext, 'audience debater');
   try {
     await resetRateLimits(page.request);
-    // Retain the profile-name collision that previously made the Post locator ambiguous.
-    const member = await signUpMember(page.request, undefined, 'postmember');
-    const debater = await signUpMember(debaterPage.request);
+    const member = await signUpMember(page.request);
+    // People excludes the reader: the competing Post name must belong to another member.
+    const debater = await signUpMember(
+      debaterPage.request,
+      undefined,
+      'postmember',
+    );
     const { roundId } = await seed(member.username, 'held');
 
     // A second reader's view takes the line from its own poll, within seconds.
@@ -344,8 +348,19 @@ test('every form answers more than once and the view refreshes itself', async ({
     const watcher = await openPage(watcherContext, 'audience watcher');
     await watcher.goto(`/audience/${roundId}`);
     await page.goto(`/audience/${roundId}`);
+    const people = page.getByRole('complementary', { name: 'People' });
+    await people.getByRole('button', { name: 'Expand people list' }).click();
+    await people
+      .getByRole('searchbox', { name: 'Search people' })
+      .fill(debater.username);
     await expect(
-      page.getByRole('button', { name: new RegExp(`^@${member.username},`) }),
+      people.getByRole('link', { name: new RegExp(`^@${debater.username},`) }),
+    ).toBeVisible();
+    await people.getByRole('button', { name: 'Collapse people list' }).click();
+    await expect(
+      people.getByRole('button', {
+        name: new RegExp(`^@${debater.username},`),
+      }),
     ).toBeVisible();
     for (const line of [
       `First ${createId().slice(0, 8)}`,

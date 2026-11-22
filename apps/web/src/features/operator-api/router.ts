@@ -91,7 +91,7 @@ type Store = Pick<
   | 'listBetaPreapprovals'
   | 'preapprovalCommand'
   | 'listOperatorAccounts'
-  | 'runFlagCommand'
+  | 'flagCommand'
   | 'runBetaAccessCommand'
   | 'readOperatorCommand'
   | 'listOperatorReports'

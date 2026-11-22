@@ -5,7 +5,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { erasePrivacySubject, exportPrivacySubject } from '../src/privacy';
 import { bindings } from './privacy.test-support';
-import { flagCommand } from './flags.test-support';
+import { executeFlagCommand, flagCommand } from './flags.test-support';
 import { offer, withBillingPurchases } from './billing-purchases.test-support';
 
 requireTestServices(process.env);
@@ -18,7 +18,7 @@ const rooms = {
 
 test('local erasure keeps possible Checkout effects as an obligation while refusing old dispatch authority', async () =>
   withBillingPurchases(async ({ fixture, purchases, subject, store, key }) => {
-    await store.runFlagCommand(flagCommand(key, 0));
+    await executeFlagCommand(store, flagCommand(key, 0));
     const first = await purchases.admit(subject, offer);
     const claimed = await purchases.recover(subject, first.purchase.id);
     const database = drizzle({ client: fixture.sql });

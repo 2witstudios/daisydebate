@@ -6,7 +6,7 @@ import { createDatabase } from '../src/index';
 import { lockAuthorizationActors } from '../src/authorization';
 import { finishedOrBlockedBehind } from '../src/testing';
 import { withHeldCommit } from './usage-ledger.test-support';
-import { flagCommand } from './flags.test-support';
+import { executeFlagCommand, flagCommand } from './flags.test-support';
 import { offer, withBillingPurchases } from './billing-purchases.test-support';
 
 const { databaseUrl } = requireTestServices(process.env);
@@ -15,7 +15,7 @@ setupRitewayBun();
 test('current service discovery pages durable purchase identities and preserves closed-account cleanup authority only', async () =>
   withBillingPurchases(
     async ({ fixture, pool, purchases, subject, store, key }) => {
-      await store.runFlagCommand(flagCommand(key, 0));
+      await executeFlagCommand(store, flagCommand(key, 0));
       const admitted = await purchases.admit(subject, offer);
       const claimed = await purchases.recover(subject, admitted.purchase.id);
       const database = createDatabase({
@@ -88,7 +88,7 @@ for (const operation of ['inspect', 'record'] as const)
   test(`a service that expires while waiting for the purchase account fence cannot ${operation} recovery facts`, async () =>
     withBillingPurchases(
       async ({ fixture, pool, run, purchases, subject, store, key }) => {
-        await store.runFlagCommand(flagCommand(key, 0));
+        await executeFlagCommand(store, flagCommand(key, 0));
         const admitted = await purchases.admit(subject, offer);
         await purchases.recover(subject, admitted.purchase.id);
         const database = createDatabase({
