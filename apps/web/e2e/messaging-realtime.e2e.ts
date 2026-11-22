@@ -1,3 +1,4 @@
+import { proveGroupObservationRefusal } from './support/group-observation-refusal';
 import { testRoundFloorLive } from './support/round-floor-live';
 import { testYouthCoachFloorLive } from './support/youth-coach-floor-live';
 import { testMessagingUnknownCommit } from './support/messaging-unknown-commit';
@@ -366,6 +367,7 @@ test('native group invitation admission and refusal', async ({ browser }) => {
       'the native invitation refusal',
     );
     await declined.goto('/messages');
+    await proveGroupObservationRefusal(declined, journey.channelId);
     await declined
       .getByRole('link', { name: 'Group invitation', exact: true })
       .click();
@@ -416,6 +418,7 @@ test('native group invitation admission and refusal', async ({ browser }) => {
       `/api/messaging/channels/${journey.channelId}/messages`,
     );
     expect(removedHistory.status()).toBe(404);
+    await proveGroupObservationRefusal(creator, journey.channelId);
     await expect(
       invited
         .getByRole('list', { name: 'Message history' })
