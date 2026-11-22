@@ -434,14 +434,17 @@ materialization. Refused or missing application cannot commit; repeat and
 escaped capabilities are closed. Acceptance gains no active-plan or free-seat
 guard, and decline gains no expiry guard.
 
-## Operator Recording takedown
+## Operator Recording withdrawal
 
-The operator application orchestrates only `recording.takedown` through
-`recordingTakedownCommand`. Receipt replay precedes preparation; preparing load
+The operator application orchestrates `recording.takedown`, `recording.remove`
+and `recording.legal_remove` through `recordingWithdrawalCommand`. Receipt replay precedes preparation; preparing load
 uses the existing Recording version-fenced transition. The application refuses
 a missing Recording, ends its bound Broadcast feed and gives a newly ended feed
 precedence over an unchanged Recording outcome. The adapter retains one
 transaction for Recording/feed effects, typed receipt and final liveness;
 missing settlement, failed work or an escaped capability cannot commit.
-Replay exposes no writer. Other moderation actions retain their own existing
+Replay exposes no writer. The application selects the action-specific feed end
+reason and preserves applied-feed precedence. Existing Recording materializers
+retain evidence holds, legal-removal override and version fences; participant
+withdrawal remains separate. Other moderation actions retain their own existing
 operations and atomic owner ports.

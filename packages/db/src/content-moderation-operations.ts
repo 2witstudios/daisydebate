@@ -180,8 +180,12 @@ export type ContentModerationChange =
       readonly reason: (typeof recordingLegalRemovalReasons)[number];
     }
   | {
-      readonly action:
-        'recording.restore' | 'recording.remove' | 'recording.rebuild';
+      readonly action: 'recording.remove';
+      readonly recordingId: string;
+      readonly expectedVersion: number;
+    }
+  | {
+      readonly action: 'recording.restore' | 'recording.rebuild';
       readonly recordingId: string;
       readonly expectedVersion: number;
     }
@@ -337,24 +341,15 @@ const endRecordingFeed = async (
     : null;
 };
 
-const endingFeed = async (
-  tx: Tx,
-  input: {
-    readonly recordingId: string;
-    readonly reason: BroadcastFeedEndReason;
-    readonly now: Date;
-    readonly ports: Ports;
-  },
-  moved: ContentModerationOutcome,
-): Promise<ContentModerationOutcome> => {
-  if (moved === null) return null;
-  const feed = await endRecordingFeed(tx, input);
-  return feed === 'applied' ? 'applied' : moved;
-};
-
 const applyChange = (
   tx: Tx,
-  change: Exclude<ContentModerationChange, { action: 'recording.takedown' }>,
+  change: Exclude<
+    ContentModerationChange,
+    {
+      action:
+        'recording.takedown' | 'recording.remove' | 'recording.legal_remove';
+    }
+  >,
   operatorRef: string,
   now: Date,
   ports: Ports,
@@ -372,34 +367,6 @@ const applyChange = (
       return setSlowMode(tx, change);
     case 'recording.restore':
       return ports.recordings.restore(tx, change);
-    case 'recording.remove':
-      return ports.recordings.remove(tx, { ...change, now }).then((moved) =>
-        endingFeed(
-          tx,
-          {
-            recordingId: change.recordingId,
-            reason: 'recording_removed',
-            now,
-            ports,
-          },
-          moved,
-        ),
-      );
-    case 'recording.legal_remove':
-      return ports.recordings
-        .legallyRemove(tx, { ...change, now })
-        .then((moved) =>
-          endingFeed(
-            tx,
-            {
-              recordingId: change.recordingId,
-              reason: 'recording_legally_removed',
-              now,
-              ports,
-            },
-            moved,
-          ),
-        );
     case 'recording.rebuild':
       return ports.recordings.rebuild(tx, change);
     case 'chat_message.remove':
@@ -530,13 +497,16 @@ type ModerationCommandInput = {
   readonly live: () => boolean;
   readonly change: ContentModerationChange;
 };
-type TakedownInput = Omit<ModerationCommandInput, 'change'> & {
+type WithdrawalInput = Omit<ModerationCommandInput, 'change'> & {
   readonly change: Extract<
     ContentModerationChange,
-    { action: 'recording.takedown' }
+    {
+      action:
+        'recording.takedown' | 'recording.remove' | 'recording.legal_remove';
+    }
   >;
 };
-type TakedownLoad =
+type WithdrawalLoad =
   | {
       readonly kind: 'replayed';
       readonly result: ContentModerationCommandResult;
@@ -544,12 +514,14 @@ type TakedownLoad =
   | {
       readonly kind: 'fresh';
       readonly recording: ContentModerationOutcome;
-      readonly endFeed: () => Promise<ContentModerationOutcome>;
+      readonly endFeed: (
+        reason: BroadcastFeedEndReason,
+      ) => Promise<ContentModerationOutcome>;
       readonly settle: (
         result: ContentModerationCommandResult,
       ) => Promise<void>;
     };
-type TakedownLifecycle =
+type WithdrawalLifecycle =
   | {
       readonly kind:
         | 'new'
@@ -702,19 +674,19 @@ export function contentModerationOperations({
         },
       ),
     /** Preparing Recording effects remain provisional until feed orchestration and receipt settle. */
-    recordingTakedownCommand: (
-      input: TakedownInput,
+    recordingWithdrawalCommand: (
+      input: WithdrawalInput,
       work: (session: {
-        readonly load: () => Promise<TakedownLoad>;
+        readonly load: () => Promise<WithdrawalLoad>;
       }) => Promise<void>,
     ): Promise<ContentModerationCommandResult> =>
       instrumented(eventSink, 'runModerationCommand', () =>
         inTransaction(database, async (tx) => {
-          const lifecycle: { current: TakedownLifecycle } = {
+          const lifecycle: { current: WithdrawalLifecycle } = {
             current: { kind: 'new' },
           };
           const phase = () => lifecycle.current.kind;
-          const load = async (): Promise<TakedownLoad> => {
+          const load = async (): Promise<WithdrawalLoad> => {
             if (phase() !== 'new') throw createAppError('INVARIANT');
             lifecycle.current = { kind: 'loading' };
             await commandGate(tx, input.commandId);
@@ -730,24 +702,28 @@ export function contentModerationOperations({
               return { kind: 'replayed', result };
             }
             const now = await dbNow(tx);
-            const recording = await ports.recordings.takeDown(tx, {
-              recordingId: input.change.recordingId,
-              expectedVersion: input.change.expectedVersion,
-              reason: input.change.reason,
-              now,
-            });
+            const change = input.change;
+            const recording =
+              change.action === 'recording.takedown'
+                ? await ports.recordings.takeDown(tx, { ...change, now })
+                : change.action === 'recording.remove'
+                  ? await ports.recordings.remove(tx, { ...change, now })
+                  : await ports.recordings.legallyRemove(tx, {
+                      ...change,
+                      now,
+                    });
             if (phase() !== 'loading') throw createAppError('INVARIANT');
             lifecycle.current = { kind: 'prepared' };
             return {
               kind: 'fresh',
               recording,
-              endFeed: async () => {
+              endFeed: async (reason) => {
                 if (phase() !== 'prepared' || recording === null)
                   throw createAppError('INVARIANT');
                 lifecycle.current = { kind: 'ending' };
                 const result = await endRecordingFeed(tx, {
                   recordingId: input.change.recordingId,
-                  reason: input.change.reason,
+                  reason,
                   now,
                   ports,
                 });
@@ -761,7 +737,7 @@ export function contentModerationOperations({
                 const result =
                   contentModerationCommandResultSchema.parse(value);
                 await writeReceipt(tx, input, null, {
-                  action: 'recording.takedown',
+                  action: input.change.action,
                   result,
                 });
                 if (phase() !== 'settling') throw createAppError('INVARIANT');
@@ -784,7 +760,12 @@ export function contentModerationOperations({
       input: Omit<ModerationCommandInput, 'change'> & {
         readonly change: Exclude<
           ContentModerationChange,
-          { action: 'recording.takedown' }
+          {
+            action:
+              | 'recording.takedown'
+              | 'recording.remove'
+              | 'recording.legal_remove';
+          }
         >;
       },
     ): Promise<ContentModerationCommandResult> =>

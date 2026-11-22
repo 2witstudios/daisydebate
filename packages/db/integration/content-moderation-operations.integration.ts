@@ -1047,7 +1047,7 @@ test('a preparing Recording takedown requires application settlement before rece
       reason: 'legal_request',
     } as never);
     const result = await ops
-      .recordingTakedownCommand(input, async (session) => {
+      .recordingWithdrawalCommand(input, async (session) => {
         await session.load();
       })
       .then(

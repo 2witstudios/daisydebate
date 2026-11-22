@@ -48,7 +48,7 @@ const withStore = (
         digests.push(input.requestDigest);
         return { v: 1, outcome: 'applied' };
       },
-      recordingTakedownCommand: async (input, work) => {
+      recordingWithdrawalCommand: async (input, work) => {
         changes.push(input.change);
         digests.push(input.requestDigest);
         const saved: {
