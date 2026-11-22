@@ -162,7 +162,10 @@ retained as artifacts.
 
 The manual Browser E2E job reserves 180 minutes for setup, all three complete
 passes and artifact retention (ISSUE-1501). The qualification step has a
-165-minute deadline so artifact processing can follow it. Run 44896579773
+165-minute deadline so artifact processing can follow it. The hosted step
+also sets the browser command's heavy-queue deadline to 165 minutes, so the
+local 45-minute default cannot stop a pass before its report is written.
+Run 44896579773
 completed its first two 612-test passes in 32 and 42 minutes and reached the
 third pass before the previous 120-minute job deadline. The qualification contract
 requires the full inventory with zero retries and the configured per-test

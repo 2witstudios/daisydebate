@@ -31,7 +31,13 @@ export const startAudienceStateStandIn = (input: {
       settledKeepMs: 3_600_000,
       limit: 256,
     });
-    await Promise.all(
+    const active = new Set(publishing.map(({ broadcastId }) => broadcastId));
+    for (const [broadcastId, path] of published) {
+      if (active.has(broadcastId)) continue;
+      input.withdraw(path);
+      published.delete(broadcastId);
+    }
+    const results = await Promise.allSettled(
       publishing.map(async (broadcast) => {
         const [timeline, audience] = await Promise.all([
           store.readSpectatorTimeline({
@@ -67,8 +73,22 @@ export const startAudienceStateStandIn = (input: {
         );
       }),
     );
+    const failed = results.filter(({ status }) => status === 'rejected').length;
+    if (failed) console.error(`e2e audience state: ${failed} publications failed`);
   };
-  const timer = setInterval(() => void pass().catch(() => undefined), 500);
+  // A slow pass must drain its reads before another pass queues work on the pool.
+  let publishing = false;
+  const timer = setInterval(async () => {
+    if (publishing) return;
+    publishing = true;
+    try {
+      await pass();
+    } catch {
+      console.error('e2e audience state: could not read publishing broadcasts');
+    } finally {
+      publishing = false;
+    }
+  }, 500);
   return () => {
     clearInterval(timer);
     void store.close();

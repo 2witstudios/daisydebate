@@ -37,7 +37,7 @@ const seeded: string[] = [];
 
 test.afterEach(async () => {
   await Promise.all(
-    seeded.splice(0).map((roundId) => seed({ command: 'stop', roundId })),
+    seeded.splice(0).map((roundId) => seed({ command: 'retire', roundId })),
   );
 });
 
