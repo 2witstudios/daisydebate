@@ -18,7 +18,6 @@ import type { AfterResponseLimits } from '../src/features/auth/after-response';
 import { createRoutes } from '../src/server/routes';
 import { authTestEnv } from '../src/features/auth/auth-server.test-support';
 import { createMailbox, removeMailRecords } from './mailbox';
-import { betaMessagingPolicy } from '../src/features/messaging/beta-policy';
 
 /**
  * The one fixture module for the web integration suites (ISSUE-11): the
@@ -115,7 +114,6 @@ export function createTestApp(
   // The suite's log output: kept for assertions, never printed.
   const logLines: string[] = [];
   const app = createApp({
-    messagingPolicy: betaMessagingPolicy,
     env,
     fetch: wrapFetch ? wrapFetch(mailbox.fetch) : mailbox.fetch,
     clock,

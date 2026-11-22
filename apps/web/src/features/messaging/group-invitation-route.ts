@@ -47,6 +47,9 @@ export function composeMessagingGroupInvitationRoutes(app: App) {
             database: app.database,
             principal,
             clock: app.clock,
+            ...(social.groupInvitationLimits === undefined
+              ? {}
+              : { maxMembers: social.groupInvitationLimits.maxMembers }),
             ...(social.groupAdmission === undefined
               ? {}
               : { admissionPolicy: social.groupAdmission }),

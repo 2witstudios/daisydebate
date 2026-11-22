@@ -16,7 +16,9 @@ const slot = requireLaunchSlot(checkout, process.env);
 const selected =
   Bun.argv[2] === 'room'
     ? await import('./realtime-config')
-    : await import('./messaging-realtime-config');
+    : Bun.argv[2] === 'groups'
+      ? await import('./group-staging.config')
+      : await import('./messaging-realtime-config');
 assertRealtimeProofConfig(
   profile,
   selected.default,

@@ -1,3 +1,4 @@
+import { stagingGroupPolicy } from '@daisy/auth/group-policy';
 import { closeMessagingGroupFixture } from './messaging-fixture.test-support';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
@@ -14,14 +15,7 @@ import { createMessagingGroup } from '../src/features/messaging/create-group';
 import { messagingSocialDigest } from '../src/features/messaging/social-command-digest';
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
-const creationPolicy: SocialCreationPolicy = {
-  state: 'approved',
-  decision: 'Isolated creation proof only',
-  key: 'social.private_group',
-  revision: 1,
-  earlierRevisions: [],
-  groupBlockScope: 'all_pairs',
-};
+const creationPolicy: SocialCreationPolicy = stagingGroupPolicy;
 test('real group creation installs only creator authority and erases counterpart-bound command history', async () => {
   const f = await openMessagingFixture(databaseUrl);
   const channelId = createId(),

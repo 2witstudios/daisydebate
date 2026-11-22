@@ -4,6 +4,7 @@ import {
   type ChannelAuthorizationFact,
   type SocialAccountFact,
 } from '../authorization';
+import { stagingGroupPolicy, messagingMemberReading } from '../group-policy';
 import { socialPostingPolicy } from '../social-policy';
 import { accounts, input, resource } from '../channel.test-support';
 import {
@@ -116,5 +117,53 @@ test('group fixture keeps fresh membership, exact account set and canonical gran
       context: { ...input.context, socialReading: reading },
     }).allow,
     expected: false,
+  });
+});
+
+test('deployed group history is current membership, separately from posting eligibility', () => {
+  const read = messagingMemberReading(true);
+  const post = (rows: readonly SocialAccountFact[]) =>
+    socialPostingPolicy({
+      channel,
+      accounts: rows,
+      now,
+      policy: stagingGroupPolicy,
+    }).allowed;
+  const unknown = accounts.map((row) => ({
+    ...row,
+    age: { state: 'unknown' as const },
+  }));
+  assert({
+    given:
+      'a current group, an off deployment, incomplete cast, unknown ages and an outsider without a grant',
+    should:
+      'admit current member history, deny off/incomplete/posting-unknown and require the canonical own grant',
+    actual: [
+      read({ channel, accounts, now }).allowed,
+      messagingMemberReading(false)({ channel, accounts, now }).allowed,
+      read({ channel, accounts: accounts.slice(0, 1), now }).allowed,
+      read({ channel, accounts: unknown, now }).allowed,
+      post(unknown),
+      post(accounts),
+      authorize({
+        ...input,
+        resource: {
+          ...channel,
+          authority: {
+            ...channel.authority,
+            kind: 'private_group',
+            actorId: 'a',
+            role: null,
+            generation: 0,
+            activeMemberActorIds: ['a', 'b'],
+          },
+        },
+        context: {
+          ...input.context,
+          socialReading: read({ channel, accounts, now }),
+        },
+      }).allow,
+    ],
+    expected: [true, false, false, true, false, true, false],
   });
 });

@@ -1,6 +1,5 @@
 import { systemClock, systemId } from '@daisy/clock';
 import { createApp, type App } from './app';
-import { betaMessagingPolicy } from '../features/messaging/beta-policy';
 import type { Fetch } from '../features/mail/resend-sender';
 import { captureMail, fileRecorder, readDevMailFile } from './dev-mail';
 import { createProcessEdge, type ProcessHolder } from './process-edge';
@@ -90,7 +89,6 @@ const edge = createProcessEdge(
         clock: systemClock,
         ids: systemId,
         nextWorkerToken,
-        messagingPolicy: betaMessagingPolicy,
       }),
       globalThis.fetch,
     ),
