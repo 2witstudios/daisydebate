@@ -17,6 +17,9 @@ BEGIN
   -- group in account order before taking the child-choice or request locks.
   PERFORM id FROM public.users WHERE id = child_id OR id = ANY(guardian_ids)
     ORDER BY id FOR SHARE;
+  -- Link cleanup takes the same choice lock. Recheck authority and the
+  -- fenced guardian accounts after any wait for that lock.
+  PERFORM public.daisy_protection_choice_lock(child_id);
   IF NOT EXISTS (SELECT 1 FROM public.daisy_protection_guardians(child_id)
     WHERE user_id = public.daisy_subject_scope()) THEN
     RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Protection level cannot be changed';
@@ -50,7 +53,6 @@ DECLARE
   first_slot integer := 1;
 BEGIN
   PERFORM public.daisy_lock_protection_accounts(child_id);
-  PERFORM public.daisy_protection_choice_lock(child_id);
   previous_choice := public.daisy_effective_protection_choice(child_id);
   -- Freeze the pending rows before planning IDs. The child account lock
   -- fences contact commands; the request lock also fences counterpart erasure.

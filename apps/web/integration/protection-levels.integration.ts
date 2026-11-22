@@ -108,6 +108,11 @@ test('two guardians share one choice and only current guardians can clear a hold
           return scoped`select choice from protection_levels where user_id=${child.userId}`;
         });
       };
+      const setIndependent = () =>
+        sql.savepoint(async (scoped) => {
+          await scoped`select set_config('daisy.subject_scope', ${parent.userId}, true)`;
+          return scoped`select public.daisy_set_protection_level(${child.userId}, '{"level":"independent"}') as slots`;
+        });
       const first = await linkIdFor(parent);
       const second = await linkIdFor(coGuardian);
       const supervised = {
@@ -128,6 +133,10 @@ test('two guardians share one choice and only current guardians can clear a hold
       expect(await confirm(first)).toEqual({ kind: 'accepted' });
       expect(await confirm(second)).toEqual({ kind: 'accepted' });
       expect(await read()).toEqual({ level: 'guided' });
+      expect(await setIndependent()).toEqual([{ slots: 0 }]);
+      expect(await direct(child.userId)).toEqual([
+        { choice: { level: 'independent' } },
+      ]);
       expect(await run(parent, supervised)).toEqual({ kind: 'accepted' });
       expect(await direct(child.userId)).toEqual([
         { choice: { level: 'supervised' } },
@@ -485,6 +494,12 @@ test('two guardians share one choice and only current guardians can clear a hold
       expect((await inbox(replacement)).rows).toMatchObject([
         { kind: 'friend_guardian_approval', readAt: null },
       ]);
+      expect(await run(parent, supervised)).toEqual({
+        kind: 'refused',
+        refusal: 'not-active',
+      });
+      await expect(setIndependent()).rejects.toMatchObject({ errno: '42501' });
+      expect(await direct(child.userId)).toEqual([{ choice: custom }]);
       expect(
         await run(replacement, { ...end, linkId: replacementLink }),
       ).toEqual({
