@@ -1,3 +1,5 @@
+import type { Database } from '@daisy/db';
+import { runRecordingTakedownCommand } from './recording-takedown-command';
 import {
   authorize,
   type AuthorizationPrincipal,
@@ -130,8 +132,12 @@ export type ContentModerationStore = {
     readonly requestDigest: string;
     readonly adminAuditHead: string;
     readonly live: () => boolean;
-    readonly change: ContentModerationChange;
+    readonly change: Exclude<
+      ContentModerationChange,
+      { action: 'recording.takedown' }
+    >;
   }) => Promise<ContentModerationCommandResult>;
+  readonly recordingTakedownCommand: Database['recordingTakedownCommand'];
 };
 
 type Deps = {
@@ -463,7 +469,7 @@ async function runCommand(
 ): Promise<ContentModerationCommandResult> {
   const operator = requireCapability(principal, change.action);
   const envelope = envelopeOf(change.action, body);
-  const result = await deps.store.runModerationCommand({
+  const input = {
     commandId: envelope.commandId,
     serviceId: operator.serviceId,
     operatorRef: operator.operatorRef,
@@ -473,8 +479,11 @@ async function runCommand(
     ),
     adminAuditHead: envelope.adminAuditHead,
     live: () => deps.nowMs() <= signedAtMs + operatorLimits.skewMs,
-    change,
-  });
+  };
+  const result =
+    change.action === 'recording.takedown'
+      ? await runRecordingTakedownCommand(deps.store, { ...input, change })
+      : await deps.store.runModerationCommand({ ...input, change });
   deps.logger.log(
     'operator.command.applied',
     {

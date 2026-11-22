@@ -373,3 +373,15 @@ standings projection is stored. `standings.read` on the actual league
 organization authorizes active members and organization managers through the
 evaluator and its minor boundary; public organization identity is not season
 read authority.
+
+## Operator Recording takedown
+
+The operator application orchestrates only `recording.takedown` through
+`recordingTakedownCommand`. Receipt replay precedes preparation; preparing load
+uses the existing Recording version-fenced transition. The application refuses
+a missing Recording, ends its bound Broadcast feed and gives a newly ended feed
+precedence over an unchanged Recording outcome. The adapter retains one
+transaction for Recording/feed effects, typed receipt and final liveness;
+missing settlement, failed work or an escaped capability cannot commit.
+Replay exposes no writer. Other moderation actions retain their own existing
+operations and atomic owner ports.

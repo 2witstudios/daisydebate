@@ -1,3 +1,4 @@
+import { testModerationCommands } from './content-moderation-command.test-support';
 import { judgedRound } from './judged-round.test-support';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
@@ -22,7 +23,7 @@ const { databaseUrl } = requireTestServices(process.env);
 const head = 'a'.repeat(64);
 const withOps = async (
   run: (
-    ops: ReturnType<typeof contentModerationOperations>,
+    ops: ReturnType<typeof testModerationCommands>,
     f: Fixture,
     client: SQL,
     roundId: string,
@@ -37,9 +38,11 @@ const withOps = async (
       ids.push(roundId);
       try {
         await run(
-          contentModerationOperations({
-            database: drizzle({ client }) as never,
-          }),
+          testModerationCommands(
+            contentModerationOperations({
+              database: drizzle({ client }) as never,
+            }),
+          ),
           f,
           client,
           roundId,
@@ -406,10 +409,12 @@ test('a target that is not there answers not found and writes nothing', async ()
 
 test('a Recording takedown ends the feed of its open Broadcast, and a stale one touches neither', async () => {
   await withOps(async (_ops, f, client, roundId) => {
-    const ops = contentModerationOperations({
-      database: drizzle({ client }) as never,
-      recordings: recordingModeration,
-    });
+    const ops = testModerationCommands(
+      contentModerationOperations({
+        database: drizzle({ client }) as never,
+        recordings: recordingModeration,
+      }),
+    );
     const store = recordingOperations({ database: drizzle({ client }) });
     await openBroadcast(drizzle({ client }), {
       id: createId(),
@@ -489,10 +494,12 @@ test('a Recording takedown ends the feed of its open Broadcast, and a stale one 
 test('an operator or legal removal ends the feed, and only an operator stop withholds the video', async () => {
   await withOps(async (_ops, f, client, roundId) => {
     const database = drizzle({ client });
-    const ops = contentModerationOperations({
-      database: database as never,
-      recordings: recordingModeration,
-    });
+    const ops = testModerationCommands(
+      contentModerationOperations({
+        database: database as never,
+        recordings: recordingModeration,
+      }),
+    );
     const store = recordingOperations({ database });
     const broadcastId = createId();
     await openBroadcast(database, {
@@ -615,10 +622,12 @@ test('an operator or legal removal ends the feed, and only an operator stop with
 test('a takedown just after a Broadcast completed withdraws its feed now, not after the grace', async () => {
   await withOps(async (_ops, _f, client, roundId) => {
     const database = drizzle({ client });
-    const ops = contentModerationOperations({
-      database: database as never,
-      recordings: recordingModeration,
-    });
+    const ops = testModerationCommands(
+      contentModerationOperations({
+        database: database as never,
+        recordings: recordingModeration,
+      }),
+    );
     const store = recordingOperations({ database });
     const broadcast = await openBroadcast(database, {
       id: createId(),
@@ -702,10 +711,12 @@ test('a takedown just after a Broadcast completed withdraws its feed now, not af
 test('a failed ranked Recording rebuilds, and an evidence hold yields only to a legal removal', async () => {
   await withOps(async (_ops, f, client, roundId) => {
     const database = drizzle({ client });
-    const ops = contentModerationOperations({
-      database: database as never,
-      recordings: recordingModeration,
-    });
+    const ops = testModerationCommands(
+      contentModerationOperations({
+        database: database as never,
+        recordings: recordingModeration,
+      }),
+    );
     const store = recordingOperations({ database });
     const at = '2026-11-03T10:00:00.000Z';
     const capture = {
@@ -1025,4 +1036,31 @@ test('a ranked speaker can report the feedback written under their own participa
       await client`delete from ballots where id=${ballotId}`;
     }
   }, true);
+});
+
+test('a preparing Recording takedown requires application settlement before receipt commit', async () => {
+  await withOps(async (ops, _fixture, client) => {
+    const input = command({
+      action: 'recording.takedown',
+      recordingId: createId(),
+      expectedVersion: 1,
+      reason: 'legal_request',
+    } as never);
+    const result = await ops
+      .recordingTakedownCommand(input, async (session) => {
+        await session.load();
+      })
+      .then(
+        () => 'committed',
+        (error: { code: string }) => error.code,
+      );
+    const [receipt] =
+      await client`select count(*)::int as n from operator_command_receipts where command_id=${input.commandId}`;
+    assert({
+      given: 'a preparing takedown callback returning without settling',
+      should: 'reject with no receipt',
+      actual: [result, receipt!.n],
+      expected: ['INVARIANT', 0],
+    });
+  });
 });
