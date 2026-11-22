@@ -1,4 +1,5 @@
-import { runRecordingTakedownCommand } from '../src/features/operator-api/recording-takedown-command';
+import { createAppError } from '@daisy/errors';
+import { runRecordingWithdrawalCommand } from '../src/features/operator-api/recording-withdrawal-command';
 import type { ContentModerationChange } from '../src/features/operator-api/content-moderation';
 import { api, signed } from '../src/features/operator-api/router.test-support';
 import { instantMs } from '@daisy/clock';
@@ -165,8 +166,10 @@ const withReadyRecording = (
             adminAuditHead: AUDIT_HEAD,
             live: () => true,
           };
-          return change.action === 'recording.takedown'
-            ? runRecordingTakedownCommand(database, { ...input, change })
+          return change.action === 'recording.takedown' ||
+            change.action === 'recording.remove' ||
+            change.action === 'recording.legal_remove'
+            ? runRecordingWithdrawalCommand(database, { ...input, change })
             : database.runModerationCommand({ ...input, change });
         },
       });
@@ -982,14 +985,14 @@ test('preparing takedown rollback restores Recording and feed on missing settlem
         },
       };
       const result = await database
-        .recordingTakedownCommand(input, async (session) => {
+        .recordingWithdrawalCommand(input, async (session) => {
           const loaded = await session.load();
           if (loaded.kind !== 'fresh' || loaded.recording === null)
             throw new Error('Expected preparing Recording');
           if (mode === 'missing') return;
           if (mode === 'exception')
             throw new Error('Controlled application failure');
-          const feed = await loaded.endFeed();
+          const feed = await loaded.endFeed(input.change.reason);
           if (mode === 'after-feed')
             throw new Error('Controlled post-feed failure');
           await loaded.settle({
@@ -1047,19 +1050,19 @@ test('preparing takedown rollback restores Recording and feed on missing settlem
         reason: 'legal_request' as const,
       },
     };
-    const saved = await database.recordingTakedownCommand(
+    const saved = await database.recordingWithdrawalCommand(
       input,
       async (session) => {
         const loaded = await session.load();
         if (loaded.kind !== 'fresh' || loaded.recording === null)
           throw new Error('Expected fresh');
-        escaped.end = loaded.endFeed;
+        escaped.end = () => loaded.endFeed(input.change.reason);
         escaped.settle = () => loaded.settle({ v: 1, outcome: 'applied' });
-        await loaded.endFeed();
+        await loaded.endFeed(input.change.reason);
         await loaded.settle({ v: 1, outcome: 'applied' });
         for (const repeat of [
           () => session.load(),
-          loaded.endFeed,
+          () => loaded.endFeed(input.change.reason),
           () => loaded.settle({ v: 1, outcome: 'applied' }),
         ])
           await repeat().catch((error: { code: string }) => {
@@ -1074,7 +1077,7 @@ test('preparing takedown rollback restores Recording and feed on missing settlem
       refused.push(error.code);
     });
     let replayShape: unknown;
-    const replay = await database.recordingTakedownCommand(
+    const replay = await database.recordingWithdrawalCommand(
       { ...input, live: () => false },
       async (session) => {
         const loaded = await session.load();
@@ -1095,4 +1098,149 @@ test('preparing takedown rollback restores Recording and feed on missing settlem
       ],
     });
   });
+});
+
+test('signed removal callers roll back the shared Recording withdrawal transaction on late application failure', async () => {
+  for (const operation of ['removal', 'legal-removal'] as const) {
+    await withReadyRecording(async ({ database, id, roundId, sql }) => {
+      await database.applyRecording(id, () => ({
+        kind: 'moved',
+        next: {
+          status: 'taken_down',
+          takenDownAt: at,
+          reason: 'policy_violation',
+          held: null,
+        },
+      }));
+      await sql`insert into broadcasts(id,round_id,feed_key,release_policy) values(${createId()},${roundId},${createId()},${{ kind: 'delay', seconds: 60 }})`;
+      const commandId = createId();
+      const { handle } = api({
+        store: database,
+        contentModeration: {
+          ...database,
+          recordingWithdrawalCommand: (input, work) =>
+            database.recordingWithdrawalCommand(input, async (session) => {
+              await work(session);
+              throw createAppError('CONFLICT');
+            }),
+        },
+        nextId: createId,
+      });
+      const response = await handle(
+        signed({
+          method: 'PUT',
+          path: `/operator/v1/recordings/${id}/${operation}`,
+          body: JSON.stringify({
+            v: 1,
+            commandId,
+            adminAuditHead: AUDIT_HEAD,
+            expectedVersion: 5,
+            ...(operation === 'legal-removal' ? { reason: 'court_order' } : {}),
+          }),
+        }),
+      );
+      const row = await database.findRecording(id);
+      const [effects] =
+        await sql`select (select stopped_at is null from broadcasts where round_id=${roundId}) as open,(select count(*)::int from operator_command_receipts where command_id=${commandId}) as receipts`;
+      assert({
+        given: `the actual signed ${operation} caller with a late application failure after feed and receipt work`,
+        should:
+          'refuse and restore Recording, Broadcast and receipt atomically',
+        actual: [response.status, row?.lifecycle.status, row?.version, effects],
+        expected: [409, 'taken_down', 5, { open: true, receipts: 0 }],
+      });
+    });
+  }
+});
+
+test('actual signed removal and legal removal preserve stale refusal, feed reason, replay and issuer receipt', async () => {
+  for (const operation of ['removal', 'legal-removal'] as const) {
+    await withReadyRecording(async ({ database, id, roundId, sql }) => {
+      await database.applyRecording(id, () => ({
+        kind: 'moved',
+        next: {
+          status: 'taken_down',
+          takenDownAt: at,
+          reason: 'policy_violation',
+          held: null,
+        },
+      }));
+      await sql`insert into broadcasts(id,round_id,feed_key,release_policy) values(${createId()},${roundId},${createId()},${{ kind: 'delay', seconds: 60 }})`;
+      const { handle } = api({
+        store: database,
+        contentModeration: database,
+        nextId: createId,
+      });
+      const input = {
+        v: 1,
+        commandId: createId(),
+        adminAuditHead: AUDIT_HEAD,
+        expectedVersion: 5,
+        ...(operation === 'legal-removal' ? { reason: 'court_order' } : {}),
+      };
+      const put = (body: typeof input) =>
+        signed({
+          method: 'PUT',
+          path: `/operator/v1/recordings/${id}/${operation}`,
+          body: JSON.stringify(body),
+        });
+      const stale = await handle(
+        put({ ...input, commandId: createId(), expectedVersion: 99 }),
+      );
+      const [untouched] =
+        await sql`select stopped_at is null as open from broadcasts where round_id=${roundId}`;
+      const applied = await handle(put(input));
+      const replay = await handle(put(input));
+      const conflict = await handle(put({ ...input, expectedVersion: 6 }));
+      const read = await handle(
+        signed({
+          method: 'GET',
+          path: `/operator/v1/commands/${input.commandId}`,
+        }),
+      );
+      const receipt = await read.json();
+      const row = await database.findRecording(id);
+      const [feed] =
+        await sql`select stop_reason from broadcasts where round_id=${roundId}`;
+      assert({
+        given: `real signed stale/current/replayed/digest-conflicting ${operation} and issuer readback`,
+        should:
+          'preserve public outcomes, atomic Recording/feed withdrawal, exact receipt and action-specific cause',
+        actual: [
+          stale.status,
+          untouched!.open,
+          applied.status,
+          await applied.json(),
+          replay.status,
+          await replay.json(),
+          conflict.status,
+          read.status,
+          receipt.action,
+          receipt.result,
+          row?.lifecycle.status,
+          row && 'cause' in row.lifecycle ? row.lifecycle.cause : null,
+          feed!.stop_reason,
+        ],
+        expected: [
+          409,
+          true,
+          200,
+          { v: 1, outcome: 'applied' },
+          200,
+          { v: 1, outcome: 'applied' },
+          409,
+          200,
+          operation === 'removal'
+            ? 'recording.remove'
+            : 'recording.legal_remove',
+          { v: 1, outcome: 'applied' },
+          'removing',
+          operation === 'removal' ? 'moderation' : 'legal_removal',
+          operation === 'removal'
+            ? 'recording_removed'
+            : 'recording_legally_removed',
+        ],
+      });
+    });
+  }
 });

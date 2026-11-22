@@ -1,5 +1,5 @@
 import type { Database } from '@daisy/db';
-import { runRecordingTakedownCommand } from './recording-takedown-command';
+import { runRecordingWithdrawalCommand } from './recording-withdrawal-command';
 import {
   authorize,
   type AuthorizationPrincipal,
@@ -67,8 +67,12 @@ export type ContentModerationChange =
       readonly reason: ContentModerationCommand<'recording.legal_remove'>['reason'];
     }
   | {
-      readonly action:
-        'recording.restore' | 'recording.remove' | 'recording.rebuild';
+      readonly action: 'recording.remove';
+      readonly recordingId: string;
+      readonly expectedVersion: number;
+    }
+  | {
+      readonly action: 'recording.restore' | 'recording.rebuild';
       readonly recordingId: string;
       readonly expectedVersion: number;
     }
@@ -134,10 +138,13 @@ export type ContentModerationStore = {
     readonly live: () => boolean;
     readonly change: Exclude<
       ContentModerationChange,
-      { action: 'recording.takedown' }
+      {
+        action:
+          'recording.takedown' | 'recording.remove' | 'recording.legal_remove';
+      }
     >;
   }) => Promise<ContentModerationCommandResult>;
-  readonly recordingTakedownCommand: Database['recordingTakedownCommand'];
+  readonly recordingWithdrawalCommand: Database['recordingWithdrawalCommand'];
 };
 
 type Deps = {
@@ -481,8 +488,10 @@ async function runCommand(
     live: () => deps.nowMs() <= signedAtMs + operatorLimits.skewMs,
   };
   const result =
-    change.action === 'recording.takedown'
-      ? await runRecordingTakedownCommand(deps.store, { ...input, change })
+    change.action === 'recording.takedown' ||
+    change.action === 'recording.remove' ||
+    change.action === 'recording.legal_remove'
+      ? await runRecordingWithdrawalCommand(deps.store, { ...input, change })
       : await deps.store.runModerationCommand({ ...input, change });
   deps.logger.log(
     'operator.command.applied',
