@@ -2,8 +2,7 @@ import { sha3Hex } from '@daisy/digest';
 import { SQL } from 'bun';
 import { systemId } from '@daisy/clock';
 import { createDatabase } from '@daisy/db';
-import { ageAdmitted } from '@daisy/auth/authorization';
-import { decideBetaAccessChange } from '@daisy/protocol/beta-access';
+import { runBetaAccessCommand } from '../src/features/operator-api/beta-access-command';
 
 /** Owner-authorized staging-only synthetic identity, following the existing transcript fixture conventions. */
 export async function createStagingAttendanceMember(input: {
@@ -40,29 +39,25 @@ export async function createStagingAttendanceMember(input: {
         purpose: 'PROBE-3 owner-authorized staging repair',
       }),
     );
-    await database.runBetaAccessCommand({
-      commandId,
-      serviceId: 'staging-attendance-probe',
-      operatorRef: nextId(),
-      targetUserId: userId,
-      desired: 'approved',
-      expectedRevision: account.revision,
-      requestDigest: digest,
-      adminAuditHead: digest,
-      nextId,
-      live: () => true,
-      authorize: (target) =>
-        target?.userId === userId &&
+    await runBetaAccessCommand(
+      database,
+      {
+        commandId,
+        serviceId: 'staging-attendance-probe',
+        operatorRef: nextId(),
+        targetUserId: userId,
+        desired: 'approved',
+        expectedRevision: account.revision,
+        requestDigest: digest,
+        adminAuditHead: digest,
+        nextId,
+        live: () => true,
+      },
+      (target) =>
+        target.userId === userId &&
         target.actorId === account.actor_id &&
         !target.erased,
-      decide: (current, ageBand) =>
-        decideBetaAccessChange({
-          current,
-          desired: 'approved',
-          expectedRevision: account.revision,
-          ageAdmitted: ageAdmitted(ageBand),
-        }),
-    });
+    );
     const sessionId = nextId();
     const token = Buffer.from(
       crypto.getRandomValues(new Uint8Array(32)),

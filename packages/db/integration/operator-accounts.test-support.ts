@@ -1,5 +1,6 @@
 import { createId } from '@paralleldrive/cuid2';
 import type { createDatabase } from '../src';
+import { createAppError } from '@daisy/errors';
 import type { Fixture } from './constraint-helpers';
 
 /** A claimed account waiting on the beta list, with a live session. */
@@ -58,7 +59,10 @@ export const command = (
   desired: 'approved' | 'revoked',
   expectedRevision: number,
   overrides: Partial<
-    Parameters<ReturnType<typeof createDatabase>['runBetaAccessCommand']>[0]
+    Parameters<ReturnType<typeof createDatabase>['betaAccessCommand']>[0] & {
+      authorize: (account: unknown) => boolean;
+      decide: ReturnType<typeof decide>;
+    }
   > = {},
 ) => ({
   commandId: createId(),
@@ -78,3 +82,29 @@ export const command = (
   decide: decide(desired, expectedRevision),
   ...overrides,
 });
+
+/** Test composition preserves the existing DB outcome witnesses without a production fallback. */
+export const executeBetaAccessCommand = (
+  db: Pick<ReturnType<typeof createDatabase>, 'betaAccessCommand'>,
+  input: ReturnType<typeof command>,
+) =>
+  db.betaAccessCommand(input, async (session) => {
+    const loaded = await session.load();
+    if (loaded.kind !== 'fresh') return;
+    const fact = loaded.account;
+    if (!fact || fact.erased || fact.userId !== input.targetUserId)
+      throw createAppError('NOT_FOUND');
+    if (!input.authorize(fact)) throw createAppError('AUTHORIZATION');
+    const decision = input.decide(fact.beta, fact.ageBand);
+    if (decision.kind === 'refused')
+      throw createAppError(
+        (
+          {
+            stale: 'CONFLICT',
+            'not-found': 'NOT_FOUND',
+            'age-required': 'INVARIANT',
+          } as const
+        )[decision.reason],
+      );
+    await loaded.apply(decision);
+  });

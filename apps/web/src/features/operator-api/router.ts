@@ -1,7 +1,7 @@
+import { runBetaAccessCommand } from './beta-access-command';
 import { runPreapprovalCommand } from './preapproval-command';
 import { mayReadOperatorCommand } from './command-access';
 import {
-  ageAdmitted,
   authorize,
   type AuthorizationCapability,
   type AuthorizationPrincipal,
@@ -11,7 +11,6 @@ import {
   preapprovalPageSchema,
   preapprovalQuerySchema,
 } from '@daisy/protocol/beta-preapproval';
-import { decideBetaAccessChange } from '@daisy/protocol/beta-access';
 import {
   verifyOperatorRequest,
   type OperatorCrypto,
@@ -92,7 +91,7 @@ type Store = Pick<
   | 'preapprovalCommand'
   | 'listOperatorAccounts'
   | 'runFlagCommand'
-  | 'runBetaAccessCommand'
+  | 'betaAccessCommand'
   | 'readOperatorCommand'
   | 'listOperatorReports'
   | 'listOperatorRestrictions'
@@ -367,28 +366,24 @@ async function setBetaAccess(
   }
   const command = betaAccessCommandSchema.safeParse(parsed);
   if (!command.success) throw createAppError('VALIDATION');
-  const outcome = await deps.store.runBetaAccessCommand({
-    commandId: command.data.commandId,
-    serviceId: principal.serviceId,
-    operatorRef: principal.operatorRef,
-    targetUserId,
-    desired: command.data.state,
-    expectedRevision: command.data.expectedRevision,
-    requestDigest: commandDigest(deps, principal, targetUserId, command.data),
-    adminAuditHead: command.data.adminAuditHead,
-    nextId: deps.nextId,
-    // The verifier admitted it within skew; it commits only while still so.
-    live: () => deps.nowMs() <= signedAtMs + operatorLimits.skewMs,
-    authorize: (account) =>
+  const outcome = await runBetaAccessCommand(
+    deps.store,
+    {
+      commandId: command.data.commandId,
+      serviceId: principal.serviceId,
+      operatorRef: principal.operatorRef,
+      targetUserId,
+      desired: command.data.state,
+      expectedRevision: command.data.expectedRevision,
+      requestDigest: commandDigest(deps, principal, targetUserId, command.data),
+      adminAuditHead: command.data.adminAuditHead,
+      nextId: deps.nextId,
+      // The verifier admitted it within skew; it commits only while still so.
+      live: () => deps.nowMs() <= signedAtMs + operatorLimits.skewMs,
+    },
+    (account) =>
       requireCapability(principal, 'account.beta_access.update', account),
-    decide: (current, ageBand) =>
-      decideBetaAccessChange({
-        current,
-        desired: command.data.state,
-        expectedRevision: command.data.expectedRevision,
-        ageAdmitted: ageAdmitted(ageBand),
-      }),
-  });
+  );
   if (outcome.kind === 'applied')
     deps.logger.log(
       'operator.command.applied',

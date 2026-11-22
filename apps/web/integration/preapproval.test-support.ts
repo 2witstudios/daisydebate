@@ -1,4 +1,5 @@
 import { createId } from '@paralleldrive/cuid2';
+import { buildUserInboxTopic } from '@daisy/protocol/topics';
 import { createDatabase } from '@daisy/db';
 import { withSql, testDatabaseUrl } from './fixtures';
 
@@ -24,6 +25,10 @@ export async function withBeta(
       grants: string[] = [];
     const db: Db = {
       ...database,
+      betaAccessCommand: async (input, work) => {
+        commands.push(input.commandId);
+        return database.betaAccessCommand(input, work);
+      },
       preapprovalCommand: async (input, work) => {
         commands.push(input.command.commandId);
         const result = await database.preapprovalCommand(input, work);
@@ -49,13 +54,17 @@ export async function withBeta(
       await database.close();
       for (const id of commands) {
         await sql`delete from mail_intents where dedupe_key=${`beta-invitation:${id}`}`;
+        await sql`delete from mail_intents where dedupe_key=${`beta-approved:${id}`}`;
         await sql`delete from operator_command_receipts where command_id=${id}`;
       }
       for (const id of grants)
         await sql`delete from beta_preapprovals where id=${id}`;
       for (const id of users)
         await sql`delete from account_entitlement_grants where user_id=${id}`;
-      for (const id of actors) await sql`delete from actors where id=${id}`;
+      for (const id of actors) {
+        await sql`delete from outbox where topic=${buildUserInboxTopic(id)}`;
+        await sql`delete from actors where id=${id}`;
+      }
       for (const id of users) await sql`delete from users where id=${id}`;
     }
   });

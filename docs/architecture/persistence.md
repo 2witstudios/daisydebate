@@ -231,6 +231,17 @@ Generate schema changes with `bun db:generate`, review SQL and snapshot metadata
 
 Email diagnostics live in `email_delivery`, `email_delivery_event`, and `email_suppression`: IDs, status rank, and a keyed SHA3-256 recipient hash, never the address or provider payload. The retention sweep removes delivery events and delivery records after their documented windows, and expired verification rows after a grace period. Suppressions remain. Revoking all sessions locks the user row before deleting sessions, so concurrent session creation is serialized against the revoke.
 
+Beta access commands use one bounded `betaAccessCommand` session. The adapter
+acquires the command-id fence and then the canonical exclusive target-account
+fence before receipt replay. Only a fresh load exposes a single-use apply
+capability. The operator application owns live-target validation, target
+capability, canonical Beta access decision and refusal mapping; replay bypasses
+those fresh checks. Apply retains state/grants/version/audit, approval mail or
+revocation effects, typed receipt and final liveness in one transaction, including
+a receipt for an unchanged decision. Missing settlement or an escaped writer
+cannot commit. The staging attendance fixture uses the same application driver
+with its existing synthetic-target authority; this does not authorize execution.
+
 Preapproval command policy lives in `@daisy/protocol/beta-preapproval` as
 `decidePreapprovalChange`. The operator application supplies this pure decision
 to `runPreapprovalCommand`; the adapter invokes it over the fresh grant and
