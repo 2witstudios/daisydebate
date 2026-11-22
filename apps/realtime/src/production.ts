@@ -1,5 +1,4 @@
-import { socialMemberReading } from '@daisy/auth/social-reading';
-import { betaDmPolicy } from '@daisy/auth/social-policy';
+import { messagingMemberReading } from '@daisy/auth/group-policy';
 import type { RealtimeApp } from './app';
 import type { serveRealtime } from './serve';
 
@@ -30,7 +29,9 @@ export function productionServeOptions({
     hostname,
     trustedProxies,
     presence: { instanceId, nextId },
-    readingPolicy: socialMemberReading(betaDmPolicy),
+    readingPolicy: messagingMemberReading(
+      resources.config.MESSAGING_PRIVATE_GROUPS === 'staging',
+    ),
     // Conversations observe channel messages (ADR 0089).
     observation: { nextId },
   } satisfies Parameters<typeof serveRealtime>[0];

@@ -1,16 +1,18 @@
+import { captureAdmissionClosed } from '@daisy/protocol/capture-admission';
+import { captureAdmissionPolicy } from './capture-admission.test-support';
 import { instantMs } from '@daisy/clock';
 import { assertRejects } from '@daisy/errors/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
-  captureAdmissionClosed,
   clipDigests,
-  requireCapturedWindow,
   requireLiveCaptureLease,
-  requireObservationWindow,
-  sealAction,
+  sealIntegrity,
 } from './capture-rules';
 
 setupRitewayBun();
+
+const requireCapturedWindow = captureAdmissionPolicy.requireWindow;
+const requireObservationWindow = captureAdmissionPolicy.requireObservation;
 
 const t0 = instantMs('2026-10-22T12:00:00.000Z');
 const iso = (offsetMs: number) => new Date(t0 + offsetMs).toISOString();
@@ -256,3 +258,14 @@ test('a seal refused for an open timeline names the word its worker resends on',
     reason: 'timeline-open',
   });
 });
+
+function sealAction(
+  stream: Parameters<typeof sealIntegrity>[0],
+  expected: number,
+  timeline: Parameters<typeof captureAdmissionPolicy.requireSeal>[0],
+  uncounted?: Parameters<typeof sealIntegrity>[2],
+) {
+  const action = sealIntegrity(stream, expected, uncounted);
+  if (action === 'seal') captureAdmissionPolicy.requireSeal(timeline);
+  return action;
+}

@@ -1,3 +1,4 @@
+import { botAdmission } from '../src/features/round-bots/admission';
 import { randomBytes } from 'node:crypto';
 import { sideSeat } from '@daisy/protocol/seats';
 import {
@@ -60,6 +61,7 @@ export const ownSpeech = (
 export const botControlOptions = {
   ...botAdmissionForTests,
   botPublication: {
+    ...botAdmission,
     accountEligible: canUseAiAllowance,
     leaseMs: 30000,
     models: { speech: 'explicit-speech', cross_ex: 'explicit-cross' },

@@ -1,5 +1,9 @@
 import { socialMemberReading } from '@daisy/auth/social-reading';
 import { betaDmPolicy } from '@daisy/auth/social-policy';
+import {
+  messagingMemberReading,
+  stagingGroupPolicy,
+} from '@daisy/auth/group-policy';
 import type { MessagingPolicyOverride } from '@daisy/config';
 import { tightenOnly } from '../../server/tighten-only';
 import { messagingBetaLimits } from '@daisy/protocol/messaging/core';
@@ -211,3 +215,21 @@ export function tightenMessagingPolicy(
 export const betaMessagingPolicy = composeBetaMessagingPolicy(
   dec251MessagingValues,
 );
+
+/** Explicit staging activation, after configuration has validated its deployment identity. */
+export function deployedMessagingPolicy(
+  groups: 'staging' | undefined,
+): MessagingRuntimePolicy {
+  if (groups === undefined) return betaMessagingPolicy;
+  return {
+    ...betaMessagingPolicy,
+    privateGroups: 'enabled',
+    groupPosting: stagingGroupPolicy,
+    reading: messagingMemberReading(true),
+    social: {
+      ...betaMessagingPolicy.social,
+      groupAdmission: stagingGroupPolicy,
+      groupInvitationLimits: { maxMembers: 50, maxPendingInvitations: 50 },
+    },
+  };
+}

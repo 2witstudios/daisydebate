@@ -1,11 +1,16 @@
 import type { AllowanceAccountPolicy } from './usage-ledger';
 import { and, eq, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
-import { isJudgeSeat, sameSeat } from '@daisy/protocol/seats';
-import { leadSeatOf } from '@daisy/protocol/format-seating';
 import type { BoundedTransaction } from './bounded-transaction';
-import { createBotGenerationOperations } from './bot-generation';
-export { isFinalBotSpeechRefusal } from './bot-generation-rules';
+import {
+  createBotGenerationOperations,
+  type BotGenerationSession,
+} from './bot-generation';
+import type { BotClaimActivity } from '@daisy/protocol/bot-admission';
+export {
+  isFinalBotSpeechRefusal,
+  refuseFinalSpeech,
+} from './bot-generation-rules';
 import { agentLeaseDigest, requireAgentLeaseToken } from './round-agent-lease';
 import {
   endLockedRoundAgentRun,
@@ -38,7 +43,6 @@ import { requireLeaseMs } from './lease-policy';
 import {
   nextPublicationClaim,
   publicationClaim,
-  requirePublishingSeat,
 } from './bot-publication-rules';
 export type { BotPublicationScope } from './bot-publication-context';
 export type { BotPhrase, BotPhraseEnd } from './bot-phrases';
@@ -46,6 +50,40 @@ type Target = Pick<
   BotPublicationScope,
   'roundId' | 'roundParticipantId' | 'segmentId'
 >;
+type ClaimContext = Awaited<ReturnType<typeof lockRoundAgentContext>>;
+type ClaimRow = typeof roundBotPublications.$inferSelect;
+type ClaimResult = BotClaimActivity & {
+  readonly scope: BotPublicationScope;
+  readonly token: string;
+  readonly leaseExpiresAt: string;
+};
+export type BotClaimSession = {
+  readonly round: ClaimContext['round'];
+  readonly seat: ClaimContext['seat'];
+  readonly readControl: () => Promise<
+    ClaimContext['round']['segments'][number] | undefined
+  >;
+  readonly apply: (activity: BotClaimActivity) => Promise<void>;
+};
+export type BotAdmission = {
+  readonly generationAdmission: (
+    session: BotGenerationSession,
+  ) => Promise<void>;
+  readonly claimAdmission: (session: BotClaimSession) => Promise<void>;
+};
+export type { BotGenerationSession } from './bot-generation';
+type ClaimState =
+  | { readonly kind: 'open' }
+  | { readonly kind: 'reading' }
+  | {
+      readonly kind: 'prepared';
+      readonly current: ClaimRow | undefined;
+      readonly now: Date;
+      readonly epoch: number;
+    }
+  | { readonly kind: 'applying' }
+  | { readonly kind: 'settled'; readonly result: ClaimResult }
+  | { readonly kind: 'closed' };
 /** Server-only capability; entropy and IDs are supplied by the authenticated composition edge. */
 export function createBotPublicationOperations(input: {
   readonly run: BoundedTransaction;
@@ -56,6 +94,8 @@ export function createBotPublicationOperations(input: {
   readonly ttsModel?: string;
   readonly speechBudget?: number;
   readonly accountEligible: AllowanceAccountPolicy;
+  readonly generationAdmission: BotAdmission['generationAdmission'];
+  readonly claimAdmission: BotAdmission['claimAdmission'];
 }) {
   requireLeaseMs(input.leaseMs);
   const claimWhere = (
@@ -76,94 +116,125 @@ export function createBotPublicationOperations(input: {
           target.roundId,
           target.roundParticipantId,
         );
-        requirePublishingSeat(round, seat);
-        const [previous] = await tx
-          .select()
-          .from(roundBotPublications)
-          .where(claimWhere(target));
-        if (previous)
-          await tx
-            .select()
-            .from(agentRuns)
-            .where(eq(agentRuns.id, previous.agentRunId))
-            .for('update');
-        const [current] = await tx
-          .select()
-          .from(roundBotPublications)
-          .where(claimWhere(target))
-          .for('update');
-        const now = await readDatabaseTime(tx);
-        await requireBotControlSegment(tx, target);
-        const epoch = nextPublicationClaim(current, now);
-        const segment = round.segments.find(
-          (candidate) => candidate.id === target.segmentId,
-        );
-        if (!segment) throw createAppError('CONFLICT');
-        // A bot speaks in a speech or a cross-examination, never an open floor.
-        const segmentType = segment.type;
-        if (segmentType === 'open')
-          throw createAppError('CONFLICT', 'A bot does not take an open floor');
-        const agentRunId = input.nextId(),
-          token = input.nextToken();
-        const claim = publicationClaim({
-          target,
-          agentRunId,
-          epoch,
-          leaseTokenDigest: agentLeaseDigest(token),
-          now,
-          leaseMs: input.leaseMs,
-        });
-        // A takeover first closes what the lost worker left open.
-        if (current)
-          await closeAbandonedBotLines(
-            tx,
-            target.roundId,
-            target.roundParticipantId,
-          );
-        if (current)
-          await endLockedRoundAgentRun(
-            tx,
-            current.agentRunId,
-            target.roundParticipantId,
-          );
-        await startLockedRoundAgentRun(tx, {
-          id: agentRunId,
-          participantId: target.roundParticipantId,
-          kind: segmentType,
-          model: input.models[segmentType],
-          configuration: claim.configuration,
-        });
-        const value = claim.row;
-        await tx
-          .insert(roundBotPublications)
-          .values(value)
-          .onConflictDoUpdate({
-            target: [
-              roundBotPublications.roundId,
-              roundBotPublications.roundParticipantId,
-            ],
-            set: value,
-          });
-        const { scope } = claim;
-        return {
-          scope,
-          token,
-          leaseExpiresAt: value.leaseExpiresAt.toISOString(),
-          segmentType,
-          /** In cross-examination the scheduled seat asks first. */
-          opensExchange: round.rules.segments.some((rule) => {
-            const lead = leadSeatOf(rule.speak);
-            return (
-              rule.key === segment.rulesSegmentKey &&
-              lead !== null &&
-              sameSeat(lead, seat.seat)
-            );
-          }),
-          /** Activity peers only; grants no authority over another seat. */
-          peerParticipantIds: round.participants
-            .filter((row) => !isJudgeSeat(row.seat) && row.id !== seat.id)
-            .map((row) => row.id),
+        let state: ClaimState = { kind: 'open' };
+        const phase = () => state;
+        const reading = () => {
+          if (phase().kind !== 'reading') throw createAppError('CONFLICT');
         };
+        const writing = () => {
+          if (phase().kind !== 'applying') throw createAppError('CONFLICT');
+        };
+        try {
+          await input.claimAdmission({
+            round,
+            seat,
+            readControl: async () => {
+              if (phase().kind !== 'open') throw createAppError('CONFLICT');
+              state = { kind: 'reading' };
+              const [previous] = await tx
+                .select()
+                .from(roundBotPublications)
+                .where(claimWhere(target));
+              reading();
+              if (previous)
+                await tx
+                  .select()
+                  .from(agentRuns)
+                  .where(eq(agentRuns.id, previous.agentRunId))
+                  .for('update');
+              reading();
+              const [current] = await tx
+                .select()
+                .from(roundBotPublications)
+                .where(claimWhere(target))
+                .for('update');
+              reading();
+              const now = await readDatabaseTime(tx);
+              reading();
+              await requireBotControlSegment(tx, target);
+              const epoch = nextPublicationClaim(current, now);
+
+              reading();
+              state = { kind: 'prepared', current, now, epoch };
+              return round.segments.find(
+                (candidate) => candidate.id === target.segmentId,
+              );
+            },
+            apply: async (activity) => {
+              const prepared = phase();
+              if (prepared.kind !== 'prepared')
+                throw createAppError('CONFLICT');
+              const segment = round.segments.find(
+                (candidate) => candidate.id === target.segmentId,
+              );
+              if (!segment || segment.type !== activity.segmentType)
+                throw createAppError('CONFLICT');
+              const { current, now, epoch } = prepared;
+              state = { kind: 'applying' };
+              const agentRunId = input.nextId(),
+                token = input.nextToken();
+              const claim = publicationClaim({
+                target,
+                agentRunId,
+                epoch,
+                leaseTokenDigest: agentLeaseDigest(token),
+                now,
+                leaseMs: input.leaseMs,
+              });
+              // A takeover first closes what the lost worker left open.
+              writing();
+              if (current)
+                await closeAbandonedBotLines(
+                  tx,
+                  target.roundId,
+                  target.roundParticipantId,
+                );
+              writing();
+              if (current)
+                await endLockedRoundAgentRun(
+                  tx,
+                  current.agentRunId,
+                  target.roundParticipantId,
+                );
+              writing();
+              await startLockedRoundAgentRun(tx, {
+                id: agentRunId,
+                participantId: target.roundParticipantId,
+                kind: activity.segmentType,
+                model: input.models[activity.segmentType],
+                configuration: claim.configuration,
+              });
+              writing();
+              const value = claim.row;
+              await tx
+                .insert(roundBotPublications)
+                .values(value)
+                .onConflictDoUpdate({
+                  target: [
+                    roundBotPublications.roundId,
+                    roundBotPublications.roundParticipantId,
+                  ],
+                  set: value,
+                });
+
+              writing();
+              state = {
+                kind: 'settled',
+                result: {
+                  ...activity,
+                  scope: claim.scope,
+                  token,
+                  leaseExpiresAt: value.leaseExpiresAt.toISOString(),
+                },
+              };
+            },
+          });
+          const settled = phase();
+          if (settled.kind !== 'settled') throw createAppError('CONFLICT');
+          return settled.result;
+        } finally {
+          state = { kind: 'closed' };
+        }
       }),
     /** The claim's live floor now, and when its segment is due. */
     verifyBotPublication: (scope: BotPublicationScope, token: string) =>

@@ -95,15 +95,74 @@ function feature(read: Partial<AttendanceEvaluationFacts> = {}) {
   let ids = 0;
   const instance = createAttendanceFeature({
     checkIns: {
-      readRoundAttendanceTargets: async () => ({
-        ...facts(read),
-        receipts: (read as { receipts?: unknown[] }).receipts ?? [],
-      }),
-      recordRoundCheckIn: async (input: unknown) => {
+      withAttendanceDiscovery: async (_input, work) =>
+        work({
+          authority: {
+            round: facts(read).round,
+            principalAccess: {
+              beta: 'approved',
+              ageBand: 'adult',
+              restricted: false,
+            },
+          },
+          readSeats: async () =>
+            facts(read).round.participants.map((row) => ({
+              ...row,
+              kind: 'human',
+              eligible: true,
+            })),
+          verifyWorker: async () => {},
+          readSamples: async () => facts(read).samples,
+          readAdjudicatedSegments: async () => facts(read).finalizedSegmentIds,
+          readRecorded: async () => ({
+            receipts:
+              (
+                read as {
+                  receipts?: { segmentId: string; receivedAt: string }[];
+                }
+              ).receipts ?? [],
+            now: facts(read).now,
+          }),
+        }),
+      withAttendanceReceipt: async (input, work) => {
         recorded.push(input);
-        return { recorded: true };
+        await work({
+          authority: {
+            round: {
+              ...facts(read).round,
+              segments: [{ ...segment, id: input.envelope.segmentId }],
+            },
+            principalAccess: {
+              beta: 'approved',
+              ageBand: 'adult',
+              restricted: false,
+            },
+          },
+          readSeats: async () =>
+            facts(read).round.participants.map((row) => ({
+              ...row,
+              kind: 'human',
+              eligible: true,
+            })),
+          verifyWorker: async () => {},
+          readSamples: async () => facts(read).samples,
+          readClosedSegments: async () => [],
+          replay: async () => null,
+          prepareReceipt: async () => ({ receivedAt: iso(openedAtMs + 1000) }),
+          apply: async () => {},
+        });
+        return {
+          version: 1,
+          commandId: input.envelope.commandId,
+          roundId: input.roundId,
+          segmentId: input.envelope.segmentId,
+          participantId: 'aff',
+          receivedAt: iso(openedAtMs + 1000),
+          resultingVersion: 1,
+          replayed: false,
+        };
       },
-    } as unknown as AttendanceStore,
+    } satisfies AttendanceStore,
     evaluate: (async (input: {
       readonly resolveOnReceipts: (f: AttendanceEvaluationFacts) => unknown;
       readonly resolve: (f: AttendanceEvaluationFacts) => unknown;

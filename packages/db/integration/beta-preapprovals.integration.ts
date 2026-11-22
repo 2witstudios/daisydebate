@@ -1,3 +1,4 @@
+import { executeBetaAccessCommand } from './operator-accounts.test-support';
 import { executePreapprovalCommand } from './preapproval-command.test-support';
 import { decidePreapprovalChange } from '@daisy/protocol/beta-preapproval';
 import { sha3Hex } from '@daisy/digest';
@@ -338,7 +339,8 @@ describe('beta email grants through participant operations', () => {
           actual: await access(f, account.userId),
           expected: 'approved',
         });
-        await db.runBetaAccessCommand(
+        await executeBetaAccessCommand(
+          db,
           accessCommand(account.userId, 'revoked', 2),
         );
         await db.runPreapprovalCommand(
@@ -633,12 +635,16 @@ test('concurrent preapproval and revocation never restore revoked access', async
     try {
       const [addition, revocation] = await Promise.allSettled([
         db.runPreapprovalCommand(inputFor(add(email))),
-        db.runBetaAccessCommand(accessCommand(account.userId, 'revoked', 1)),
+        executeBetaAccessCommand(
+          db,
+          accessCommand(account.userId, 'revoked', 1),
+        ),
       ]);
       if (revocation.status === 'rejected') {
         const [row] =
           await f.sql`select revision from account_beta_access where user_id = ${account.userId}`;
-        await db.runBetaAccessCommand(
+        await executeBetaAccessCommand(
+          db,
           accessCommand(account.userId, 'revoked', row.revision),
         );
       }

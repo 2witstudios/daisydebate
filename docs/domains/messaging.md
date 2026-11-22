@@ -559,3 +559,44 @@ The mounted reaction consumer accepts explicit deployment-injected size and addi
 Own actor/channel/request receipts bind the message and canonical operation fingerprint. A matching retry reads the current aggregate and never restores an association deleted since the original request. Conflicting payloads refuse; an absent own row cannot mint cleanup authority. Actual removals scope actor/channel/message/choice, preserve other participants' associations, and use the canonical removal capability after the locked row is read. Existing reaction associations and values remain personal/private under the canonical inventory and pending PRIV3/PRIV4 declarations; no new schema or retention exception is introduced. New mounted/native assertions require exact-candidate service/browser proof before acceptance.
 
 Own-message native controls select the existing authorized history snapshot by channel/message/cursor, then require current author identity before displaying the draft. They use the existing edit operation (posting and edit-window admission) or distinct own-text removal operation (current entitlement/reading and author check, independent of posting admission). Native forms preserve the draft on refusal and verify the returned message identifier before navigating. Both JavaScript modes have authored edit and blocked-posting removal controls; real hosted proof for this new consumer remains required. Live invalidation uses the existing channel subscription and authorized history re-read, never the draft as authority.
+
+### Invite-only groups on staging
+
+The group release composes the existing social routes and shared observation,
+not a fixture policy. `MESSAGING_PRIVATE_GROUPS=staging` selects revision 1 of
+`stagingGroupPolicy` in web and realtime. In a production-mode process the flag
+requires that process's exact Fly staging application name; absent activation
+keeps groups off. `fly.toml` and `fly.realtime.toml` are staging definitions.
+Production never sets the flag. Generic release flags do not activate groups.
+
+Creation, invitation issuance and acceptance check every prospective pair for
+blocks, with current account/age facts under account → contact → channel fences.
+ADR 0160's group pair rule remains: current members aged 13+; minor/minor pairs
+may mix minor bands, adult/minor pairs refuse. Missing age refuses admission and
+posting. A birthday does not delete a member's history entitlement. A later
+block does not evict a member or alter existing group posting semantics;
+removal/leave explicitly revoke membership and all protected reads/observation.
+
+The staging ceiling is 50 active members and 50 pending invitations. Creation
+bounds its proposed cast; acceptance rechecks capacity under the exclusive
+channel fence, so concurrent accepts cannot exceed it. Existing DEC-251 send,
+read and social-command budgets remain. Pending invitations show only their
+identifier/generation/state. Acceptance explains retained full-history access;
+there is no public join link. Archive, transfer, last-manager protection and
+own-message withdrawal retain their independent authorization.
+
+Group Messages retain the existing compliance class: own withdrawal scrubs
+content and receipt fingerprints, account erasure scrubs subject-authored text,
+title binding, receipts and grants while preserving peers' contributions.
+Content-free group tombstones remain under ADR 0063; DM survivor erasure is a
+separate policy. No new retention period, data class or telemetry is introduced.
+
+The seven historical fixture-dependent integrations are DM requests, group
+creation, group invitations, group management, inbox, inbox search and preference
+revocation. They now consume deployed membership reading and group policy, with
+their original behavioral assertions. `messaging-staging-groups.integration.ts`
+adds the actual signed-in route path. The dedicated browser profile
+`e2e/support/group-staging.config.ts` selects the deployed web composition and
+production realtime reading policy; its native journey requires an observed
+snapshot in a mounted member's app and covers invitation, late join and removal.
+See [staging smoke steps](../operations/group-chat-staging.md).

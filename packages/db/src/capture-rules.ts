@@ -1,84 +1,5 @@
-import { instantMs } from '@daisy/clock';
 import { createAppError, createRefusal } from '@daisy/errors';
 import { captureDigest } from './capture-input';
-import { isRoundOver, type RoundStatus } from '@daisy/protocol/round';
-import { speakingEndMs } from '@daisy/protocol/segment-end';
-import { type CaptureInterval } from '@daisy/protocol/capture-verdict';
-
-type SegmentTiming = {
-  readonly startedAt: Date;
-  readonly endedAt: Date | null;
-  readonly durationMs: number;
-  readonly returnedMs: number;
-};
-
-const speakingEnd = (segment: SegmentTiming) =>
-  speakingEndMs({
-    startedAtMs: segment.startedAt.getTime(),
-    endedAtMs: segment.endedAt?.getTime() ?? null,
-    durationMs: segment.durationMs,
-    returnedMs: segment.returnedMs,
-  });
-
-/**
- * A clip's server bracket must contain its nominal position, lie within one
- * speaking grant, end before the segment does and not be in the future.
- */
-export function requireCapturedWindow(
-  clip: {
-    readonly before: string;
-    readonly after: string;
-    readonly startOffsetMs: number;
-    readonly durationMs: number;
-  },
-  segment: SegmentTiming,
-  now: Date,
-  history: readonly CaptureInterval[],
-): void {
-  const before = instantMs(clip.before),
-    after = instantMs(clip.after);
-  const nominal = segment.startedAt.getTime() + clip.startOffsetMs;
-  if (
-    before >= after ||
-    after > now.getTime() ||
-    before > nominal ||
-    after < nominal + clip.durationMs ||
-    !history.some(
-      (grant) =>
-        grant.start <= before && (grant.end === null || after < grant.end),
-    ) ||
-    after >= speakingEnd(segment)
-  )
-    throw createAppError('CONFLICT', 'Capture window is ineligible');
-}
-
-/** An observation lies within one speaking grant, the segment and the past. */
-export function requireObservationWindow(
-  observation: {
-    readonly observedFrom: string;
-    readonly observedUntil: string;
-  },
-  segment: SegmentTiming,
-  now: Date,
-  required: readonly CaptureInterval[],
-): { readonly from: number; readonly until: number } {
-  const from = instantMs(observation.observedFrom),
-    until = instantMs(observation.observedUntil);
-  if (
-    from >= until ||
-    until > now.getTime() ||
-    until > speakingEnd(segment) ||
-    !required.some(
-      (grant) =>
-        grant.start <= from && (grant.end === null || until <= grant.end),
-    )
-  )
-    throw createAppError(
-      'CONFLICT',
-      'Observation is outside capture authority',
-    );
-  return { from, until };
-}
 
 /** A clip is keyed by its position and its body by every captured field. */
 export function clipDigests(clip: {
@@ -113,19 +34,15 @@ export function clipDigests(clip: {
 
 /**
  * A sealed stream accepts only the identical seal again. An open stream never
- * seals below its stored chunks, nor while its timeline is still open.
+ * seals below its stored chunks, and its count integrity is checked before timeline eligibility.
  */
-export function sealAction(
+export function sealIntegrity(
   stream: {
     readonly state: string;
     readonly chunkCount: number;
     readonly sealedChunkCount: number | null;
   },
   expectedChunkCount: number,
-  timeline: {
-    readonly segmentEnded: boolean;
-    readonly required: readonly CaptureInterval[];
-  },
   /** Stored chunks this worker cannot count; each makes the seal partial. */
   uncounted: {
     readonly otherEpochChunks: number;
@@ -149,31 +66,7 @@ export function sealAction(
   }
   if (!reaches(stream.chunkCount))
     throw createAppError('CONFLICT', 'Capture seal is below stored chunks');
-  if (
-    !timeline.segmentEnded ||
-    timeline.required.some((grant) => grant.end === null)
-  )
-    throw createRefusal(
-      'CONFLICT',
-      'timeline-open',
-      'Capture timeline is still open',
-    );
   return 'seal';
-}
-
-/** Capture closes at freeze, at the admission cutoff, or at a terminal Round without one. */
-export function captureAdmissionClosed(input: {
-  readonly frozen: boolean;
-  readonly roundStatus: RoundStatus | undefined;
-  readonly now: string;
-  readonly cutoff: string | null;
-}): boolean {
-  return (
-    input.frozen ||
-    input.roundStatus === undefined ||
-    (input.cutoff !== null && input.now >= input.cutoff) ||
-    (input.cutoff === null && isRoundOver(input.roundStatus))
-  );
 }
 
 export function requireLiveCaptureLease(expiresAt: Date, now: Date): void {

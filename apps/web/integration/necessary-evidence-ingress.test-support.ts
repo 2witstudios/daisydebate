@@ -1,3 +1,4 @@
+import { captureAdmissionPolicy } from '../src/features/media-capture/capture-policy';
 import { roundTickProjection } from '../src/features/round-finalization/operations';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -50,6 +51,7 @@ async function prepare(
   await f.sql`insert into round_speaking_intervals(id,round_id,segment_id,round_participant_id,started_at,ended_at,started_version,ended_version) values(${intervalId},${roundId},${segmentId},${seat!.id},${start},${new Date(start.getTime() + original.rules.segments[0]!.durationMs)},1,2)`;
   await f.sql`insert into media_sessions(id,round_id,room_name) values(${sessionId},${roundId},${createId()})`;
   const capture = f.store.createMediaCaptureOperations({
+    admission: captureAdmissionPolicy,
     sttLagMs: CAPTURE_STT_LAG_MS,
     captureRule,
     nextId: createId,

@@ -250,6 +250,17 @@ receipt and the final signed-deadline check stay in the same transaction. The
 session cannot be loaded twice or applied after completion. Admission readers
 and expiry sweeps retain their existing shared/exclusive Flags lock contract.
 
+Beta access commands use one bounded `betaAccessCommand` session. The adapter
+acquires the command-id fence and then the canonical exclusive target-account
+fence before receipt replay. Only a fresh load exposes a single-use apply
+capability. The operator application owns live-target validation, target
+capability, canonical Beta access decision and refusal mapping; replay bypasses
+those fresh checks. Apply retains state/grants/version/audit, approval mail or
+revocation effects, typed receipt and final liveness in one transaction, including
+a receipt for an unchanged decision. Missing settlement or an escaped writer
+cannot commit. The staging attendance fixture uses the same application driver
+with its existing synthetic-target authority; this does not authorize execution.
+
 Preapproval command policy lives in `@daisy/protocol/beta-preapproval` as
 `decidePreapprovalChange`. The operator application supplies this pure decision
 to `runPreapprovalCommand`; the adapter invokes it over the fresh grant and
@@ -452,3 +463,16 @@ answer decision; the adapter retains verified-address admission, account → Clu
 materialization. Refused or missing application cannot commit; repeat and
 escaped capabilities are closed. Acceptance gains no active-plan or free-seat
 guard, and decline gains no expiry guard.
+
+## Beta approval mail delivery
+
+The Beta application selects send, recipient-gone or not-owed from the current
+approval recipient facts supplied by mail-intents. Missing identity precedes
+approval state. The adapter retains erased-recipient scoping, queue leases,
+fencing and atomic settlement; provider calls remain outside transactions
+under the intent's existing idempotency key. The application also cancels a digest with zero requests in its immutable
+window before checking owner configuration. Club application eligibility uses
+open state and a strict expiry comparison against the same scoped transaction
+time, retaining UTC microsecond precision. Storage keeps purpose, lease and
+dedupe/invitation binding, tenant scoping and row-existence checks. No provider
+call runs inside that read transaction.

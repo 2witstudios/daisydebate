@@ -6,11 +6,11 @@ import {
 
 setupRitewayBun();
 
-test('dedicated realtime profiles select the two actual transport suites and reports', () => {
+test('dedicated realtime profiles select the actual transport suites and reports', () => {
   assert({
-    given: 'the two explicitly registered realtime profiles',
+    given: 'the explicitly registered realtime profiles',
     should: 'select only their exact dedicated config, spec and report',
-    actual: ['room', 'messaging'].map(realtimeProofProfile),
+    actual: ['room', 'messaging', 'groups'].map(realtimeProofProfile),
     expected: [
       {
         config: 'e2e/support/realtime-config.ts',
@@ -21,6 +21,11 @@ test('dedicated realtime profiles select the two actual transport suites and rep
         config: 'e2e/support/messaging-realtime-config.ts',
         spec: '**/messaging-realtime.e2e.ts',
         report: 'test-results/messaging-realtime-results.json',
+      },
+      {
+        config: 'e2e/support/group-staging.config.ts',
+        spec: '**/messaging-realtime.e2e.ts',
+        report: 'test-results/group-staging-results.json',
       },
     ],
   });
@@ -36,7 +41,7 @@ test('missing or arbitrary profiles cannot select another server or bypass the d
         return (
           error instanceof Error &&
           error.message ===
-            'Realtime proof requires an explicit room or messaging profile'
+            'Realtime proof requires an explicit room, messaging or groups profile'
         );
       }
     },

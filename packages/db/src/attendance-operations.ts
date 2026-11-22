@@ -1,7 +1,7 @@
 import { createAppError } from '@daisy/errors';
 import {
-  requireAdmittedPrincipal,
-  type ParticipantAdmission,
+  principalAccessOf,
+  type PrincipalAccess,
 } from './participant-admission';
 import {
   attendanceEnvelopeSchema,
@@ -20,12 +20,13 @@ import {
 import {
   attendanceSamples,
   closedAttendanceSegments,
-  fenceAttendance,
+  lockAttendanceAuthority,
+  readAttendanceSeats,
   finalizedAttendanceSegments,
   principalColumns,
+  type AttendanceFacts,
   type AttendanceTransaction,
   type AttendancePrincipal,
-  type LockedAttendanceCheckIn,
   type PrincipalColumns,
 } from './attendance-facts';
 export type {
@@ -37,51 +38,114 @@ import {
   requireCommandInput,
   requireSameCommand,
 } from './round-command-replay';
-import { eligibleCompetitorIds } from './seat-eligibility';
-import {
-  requireCheckInSegment,
-  requireSameCheckIn,
-  selectAttendanceSeat,
-} from './attendance-decisions';
+import { requireSameCheckIn } from './attendance-decisions';
 import type { Tx } from './tx';
 import { run as runStatement, query } from './raw-rows';
 import { z } from 'zod';
 
+type Scope = {
+  readonly roundId: string;
+  readonly principal: AttendancePrincipal;
+};
+type ReceiptInput = Scope & {
+  readonly envelope: AttendanceEnvelope;
+  readonly payloadDigest: string;
+};
+type Locked = Awaited<ReturnType<typeof lockAttendanceAuthority>>;
+type Seats = Awaited<ReturnType<typeof readAttendanceSeats>>['seats'];
 type WorkerVerifier = (
   tx: Tx,
   principal: Extract<AttendancePrincipal, { kind: 'agent' }>,
   roundId: string,
 ) => Promise<void>;
-type CheckInInput = {
-  readonly roundId: string;
-  readonly envelope: AttendanceEnvelope;
-  readonly principal: AttendancePrincipal;
-  readonly payloadDigest: string;
-  readonly acceptWindow: (facts: LockedAttendanceCheckIn) => void;
-  /** ADR 0075: participant access for a human principal, decided after the fence. */
-  readonly admits: ParticipantAdmission;
+type CommonSession = {
+  readonly authority: {
+    readonly round: Locked['round'];
+    readonly principalAccess: PrincipalAccess | null;
+  };
+  readonly readSeats: () => Promise<Seats>;
+  readonly verifyWorker: () => Promise<void>;
+  readonly readSamples: (
+    from: string | null,
+  ) => Promise<AttendanceFacts['samples']>;
 };
-type Fenced = Awaited<ReturnType<typeof fenceAttendance>>;
-async function authorizeSeat(
-  tx: Tx,
-  principal: AttendancePrincipal,
-  fenced: Fenced,
-  verifyWorker: WorkerVerifier,
-  admits: ParticipantAdmission,
+export type AttendanceDiscoverySession = CommonSession & {
+  readonly readAdjudicatedSegments: () => Promise<readonly string[]>;
+  readonly readRecorded: (participantId: string) => Promise<{
+    readonly receipts: readonly {
+      readonly segmentId: string;
+      readonly receivedAt: string;
+    }[];
+    readonly now: string;
+  }>;
+};
+export type AttendanceReceiptSession = CommonSession & {
+  readonly readClosedSegments: () => Promise<readonly string[]>;
+  readonly replay: (participantId: string) => Promise<AttendanceReceipt | null>;
+  readonly prepareReceipt: (
+    participantId: string,
+  ) => Promise<{ readonly receivedAt: string }>;
+  readonly apply: () => Promise<void>;
+};
+type ReceiptState =
+  | { readonly kind: 'open' }
+  | {
+      readonly kind: 'prepared';
+      readonly receipt: AttendanceReceipt;
+      readonly insert: boolean;
+    }
+  | { readonly kind: 'applying' }
+  | { readonly kind: 'settled'; readonly receipt: AttendanceReceipt }
+  | { readonly kind: 'closed' };
+
+/** The app selects a seat; storage still binds it to this fenced cast and principal. */
+function requireParticipant(
+  locked: Locked,
+  scope: Scope,
+  participantId: string,
 ) {
-  // Seats stay membership-only; the commanding human also needs access.
-  if (principal.kind === 'human')
-    requireAdmittedPrincipal(admits, fenced.accounts, principal.actorId);
-  const seat = selectAttendanceSeat(principal, fenced.seats);
-  // The required canonical verifier SHARE-locks the exact seat/run and
-  // checks active kind, config, epoch and lease in this same transaction.
-  if (principal.kind === 'agent')
-    await verifyWorker(tx, principal, fenced.round.id);
-  return seat;
+  const seat = locked.round.participants.find(
+    (row) => row.id === participantId,
+  );
+  const bound =
+    scope.principal.kind === 'human'
+      ? seat?.actorId === scope.principal.actorId
+      : seat?.id === scope.principal.participantId;
+  if (!seat || !bound) throw createAppError('CONFLICT');
+}
+function commonSession(
+  tx: Tx,
+  scope: Scope,
+  locked: Locked,
+  live: () => void,
+  verify: WorkerVerifier,
+): CommonSession {
+  return {
+    authority: {
+      round: locked.round,
+      principalAccess:
+        scope.principal.kind === 'human'
+          ? principalAccessOf(locked.accounts, scope.principal.actorId)
+          : null,
+    },
+    readSeats: async () => {
+      live();
+      return (await readAttendanceSeats(tx, locked)).seats;
+    },
+    verifyWorker: async () => {
+      live();
+      if (scope.principal.kind !== 'agent') throw createAppError('CONFLICT');
+      await verify(tx, scope.principal, scope.roundId);
+    },
+    readSamples: async (from) => {
+      live();
+      return attendanceSamples(tx, from);
+    },
+  };
 }
 async function readReplay(
   tx: Tx,
-  input: CheckInInput,
+  input: ReceiptInput,
   columns: PrincipalColumns,
   participantId: string,
 ): Promise<AttendanceReceipt | null> {
@@ -103,7 +167,8 @@ async function readReplay(
   });
   return { ...receipt, replayed: true };
 }
-/** Attendance stores facts only; competitive decisions/projections remain pure engine work. */
+
+/** Family-local fenced reads and bound persistence; the application owns attendance choices. */
 export function createAttendanceOperations(deps: {
   readonly run: AttendanceTransaction;
   readonly roundTime?: RoundTimeSource | undefined;
@@ -111,139 +176,157 @@ export function createAttendanceOperations(deps: {
   readonly verifyWorker: WorkerVerifier;
 }) {
   return {
-    /** Fresh scoped controller/human authority; timing hints never manufacture a receipt. */
-    async readRoundAttendanceTargets(input: {
-      readonly roundId: string;
-      readonly principal: AttendancePrincipal;
-      readonly admits: ParticipantAdmission;
-    }) {
+    async withAttendanceDiscovery<T>(
+      input: Scope,
+      work: (session: AttendanceDiscoverySession) => Promise<T>,
+    ): Promise<T> {
       if (!idSchema.safeParse(input.roundId).success)
         throw createAppError('VALIDATION');
       return deps.run(async (tx) => {
-        const columns = principalColumns(input.principal);
-        const fenced = await fenceAttendance(
+        const locked = await lockAttendanceAuthority(
           tx,
           input.roundId,
           deps.nextAttemptId(),
-          columns.actorId,
+          principalColumns(input.principal).actorId,
         );
-        const seat = await authorizeSeat(
-          tx,
-          input.principal,
-          fenced,
-          deps.verifyWorker,
-          input.admits,
-        );
-        const finalizedSegmentIds = await finalizedAttendanceSegments(
-          tx,
-          input.roundId,
-        );
-        // Targets are undecided windows; samples start at the earliest of them.
-        const undecided = fenced.round.segments.find(
-          (segment) =>
-            segment.type === 'speech' &&
-            !finalizedSegmentIds.includes(segment.id),
-        );
-        const evidence = {
-          finalizedSegmentIds,
-          samples: await attendanceSamples(tx, undecided?.startedAt ?? null),
+        let active = true;
+        const live = () => {
+          if (!active) throw createAppError('CONFLICT');
         };
-        const recorded = await query(
-          tx,
-          z.object({ segment_id: z.string(), received_at: z.string() }),
-          sql`select segment_id,to_char(received_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as received_at from round_check_ins where round_id=${input.roundId} and participant_id=${seat.id} order by received_at,segment_id`,
-        );
-        return {
-          round: fenced.round,
-          ...evidence,
-          participantId: seat.id,
-          eligibleParticipantIds: eligibleCompetitorIds(fenced.seats),
-          receipts: recorded.map((row) => ({
-            segmentId: row.segment_id,
-            receivedAt: row.received_at,
-          })),
-          now: await sampleRoundExecutionTime(tx, deps.roundTime),
-        };
+        try {
+          return await work({
+            ...commonSession(tx, input, locked, live, deps.verifyWorker),
+            readAdjudicatedSegments: async () => {
+              live();
+              return finalizedAttendanceSegments(tx, input.roundId);
+            },
+            readRecorded: async (participantId) => {
+              live();
+              requireParticipant(locked, input, participantId);
+              const rows = await query(
+                tx,
+                z.object({ segment_id: z.string(), received_at: z.string() }),
+                sql`select segment_id,to_char(received_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as received_at from round_check_ins where round_id=${input.roundId} and participant_id=${participantId} order by received_at,segment_id`,
+              );
+              return {
+                receipts: rows.map((row) => ({
+                  segmentId: row.segment_id,
+                  receivedAt: row.received_at,
+                })),
+                now: await sampleRoundExecutionTime(tx, deps.roundTime),
+              };
+            },
+          });
+        } finally {
+          active = false;
+        }
       });
     },
-    async recordRoundCheckIn(input: CheckInInput): Promise<AttendanceReceipt> {
+    async withAttendanceReceipt(
+      input: ReceiptInput,
+      work: (session: AttendanceReceiptSession) => Promise<void>,
+    ): Promise<AttendanceReceipt> {
       requireCommandInput(input, attendanceEnvelopeSchema);
       return deps.run(
         async (tx, first) => {
           const columns = principalColumns(input.principal);
-          const fenced = await fenceAttendance(
+          const locked = await lockAttendanceAuthority(
             tx,
             input.roundId,
             input.envelope.commandId,
             columns.actorId,
           );
-          const { round, current, seats } = fenced;
-          const seat = await authorizeSeat(
-            tx,
-            input.principal,
-            fenced,
-            deps.verifyWorker,
-            input.admits,
-          );
-          const finalizedSegmentIds = await closedAttendanceSegments(
-            tx,
-            round.id,
-          );
-          const segment = requireCheckInSegment(
-            round.segments,
-            input.envelope.segmentId,
-            finalizedSegmentIds,
-          );
-          const evidence = {
-            finalizedSegmentIds,
-            samples: await attendanceSamples(tx, segment.startedAt),
+          let state: ReceiptState = { kind: 'open' };
+          const phase = () => state;
+          const live = () => {
+            if (phase().kind === 'closed') throw createAppError('CONFLICT');
           };
-          const facts = {
-            round,
-            ...evidence,
-            eligibleParticipantIds: eligibleCompetitorIds(seats),
-            participantId: seat.id,
+          const open = () => {
+            if (phase().kind !== 'open') throw createAppError('CONFLICT');
           };
-          const replay = await readReplay(tx, input, columns, seat.id);
-          if (replay) {
-            input.acceptWindow({ ...facts, receivedAt: replay.receivedAt });
-            return replay;
+          try {
+            await work({
+              ...commonSession(tx, input, locked, live, deps.verifyWorker),
+              readClosedSegments: async () => {
+                live();
+                return closedAttendanceSegments(tx, input.roundId);
+              },
+              replay: async (participantId) => {
+                open();
+                requireParticipant(locked, input, participantId);
+                const receipt = await readReplay(
+                  tx,
+                  input,
+                  columns,
+                  participantId,
+                );
+                open();
+                if (receipt) state = { kind: 'settled', receipt };
+                return receipt;
+              },
+              prepareReceipt: async (participantId) => {
+                open();
+                requireParticipant(locked, input, participantId);
+                const segmentId = input.envelope.segmentId;
+                if (!locked.round.segments.some((row) => row.id === segmentId))
+                  throw createAppError('CONFLICT');
+                const rows = await query(
+                  tx,
+                  z.object({ received_at: z.string() }),
+                  sql`select to_char(received_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as received_at from round_check_ins where round_id=${input.roundId} and segment_id=${segmentId} and participant_id=${participantId}`,
+                );
+                open();
+                const receipt: AttendanceReceipt = {
+                  version: 1,
+                  commandId: input.envelope.commandId,
+                  roundId: input.roundId,
+                  segmentId,
+                  participantId,
+                  receivedAt: rows[0]?.received_at ?? first.receivedAt,
+                  resultingVersion: locked.current.version,
+                  replayed: rows.length > 0,
+                };
+                state = {
+                  kind: 'prepared',
+                  receipt,
+                  insert: rows.length === 0,
+                };
+                return { receivedAt: receipt.receivedAt };
+              },
+              apply: async () => {
+                const prepared = phase();
+                if (prepared.kind !== 'prepared')
+                  throw createAppError('CONFLICT');
+                state = { kind: 'applying' };
+                const { receipt } = prepared;
+                await insertCommandRow(
+                  tx,
+                  input.roundId,
+                  {
+                    commandId: input.envelope.commandId,
+                    ...columns,
+                    type: 'check_in',
+                    payloadDigest: input.payloadDigest,
+                    result: { ...receipt },
+                  },
+                  locked.current.version,
+                );
+                live();
+                if (prepared.insert)
+                  await runStatement(
+                    tx,
+                    sql`insert into round_check_ins(command_id,round_id,segment_id,participant_id,received_at) values(${receipt.commandId},${receipt.roundId},${receipt.segmentId},${receipt.participantId},${receipt.receivedAt}::timestamptz)`,
+                  );
+                live();
+                state = { kind: 'settled', receipt };
+              },
+            });
+            const settled = phase();
+            if (settled.kind !== 'settled') throw createAppError('CONFLICT');
+            return settled.receipt;
+          } finally {
+            state = { kind: 'closed' };
           }
-          const existing = await query(
-            tx,
-            z.object({ received_at: z.string() }),
-            sql`select to_char(received_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as received_at from round_check_ins where round_id=${round.id} and segment_id=${segment.id} and participant_id=${seat.id}`,
-          );
-          const stamp = existing[0]?.received_at ?? first.receivedAt;
-          input.acceptWindow({ ...facts, receivedAt: stamp });
-          const receipt: AttendanceReceipt = {
-            version: 1,
-            commandId: input.envelope.commandId,
-            roundId: round.id,
-            segmentId: segment.id,
-            participantId: seat.id,
-            receivedAt: stamp,
-            resultingVersion: current.version,
-            replayed: existing.length > 0,
-          };
-          await insertCommandRow(
-            tx,
-            round.id,
-            {
-              commandId: input.envelope.commandId,
-              ...columns,
-              type: 'check_in',
-              payloadDigest: input.payloadDigest,
-              result: { ...receipt },
-            },
-            current.version,
-          );
-          if (existing.length === 0)
-            await runStatement(
-              tx,
-              sql`insert into round_check_ins(command_id,round_id,segment_id,participant_id,received_at) values(${input.envelope.commandId},${round.id},${segment.id},${seat.id},${stamp}::timestamptz)`,
-            );
-          return receipt;
         },
         {
           attemptId: deps.nextAttemptId(),

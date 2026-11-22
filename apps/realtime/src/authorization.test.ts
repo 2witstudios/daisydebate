@@ -1,3 +1,4 @@
+import { readRealtimeConfig } from '@daisy/config';
 import { instantMs } from '@daisy/clock';
 import type { AuthorityResources } from './authorization';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -12,6 +13,29 @@ import { productionServeOptions } from './production';
 import { refuseAllReading } from './authorization.test-support';
 
 setupRitewayBun();
+/** The process composition consumes validated deployment config, without opening resources. */
+const deployedReading = (groups?: 'staging') =>
+  productionServeOptions({
+    resources: {
+      config: readRealtimeConfig({
+        NODE_ENV: 'production',
+        DATABASE_URL: 'postgres://unit:unit@db.example.test:5432/unit',
+        REDIS_URL: 'redis://cache.example.test:6379',
+        PUBLIC_APP_URL: 'https://beta.daisydebate.com',
+        APP_VERSION: '1.0.0',
+        GIT_COMMIT: 'c'.repeat(40),
+        FLY_APP_NAME: groups
+          ? 'daisy-debate-staging-realtime'
+          : 'daisy-debate-production-realtime',
+        ...(groups ? { MESSAGING_PRIVATE_GROUPS: groups } : {}),
+      }),
+    } as RealtimeApp,
+    port: 0,
+    hostname: '127.0.0.1',
+    trustedProxies: [],
+    instanceId: 'i'.repeat(24),
+    nextId: () => 'n'.repeat(24),
+  }).readingPolicy;
 const principal = {
   userId: 'u'.repeat(24),
   actorId: 'a'.repeat(24),
@@ -146,15 +170,7 @@ for (const mode of [
             readingPolicy:
               mode === 'production-policy'
                 ? // start.ts's own composition, not a copy of its policy value.
-                  productionServeOptions({
-                    // Its reading policy reads no resource.
-                    resources: {} as RealtimeApp,
-                    port: 0,
-                    hostname: '127.0.0.1',
-                    trustedProxies: [],
-                    instanceId: 'i'.repeat(24),
-                    nextId: () => 'n'.repeat(24),
-                  }).readingPolicy
+                  deployedReading()
                 : approvedTestReading,
           }),
     });
@@ -178,3 +194,48 @@ for (const mode of [
       },
     });
   });
+
+test('deployed realtime composition keeps group reading off in production and on in validated staging', () => {
+  const group: ChannelAuthorizationFact = {
+    ...fact,
+    policyKey: 'social.private_group',
+    policyRevision: 1,
+    authority: {
+      kind: 'private_group',
+      actorId: principal.actorId,
+      role: 'manager',
+      generation: 1,
+      activeMemberActorIds: [principal.actorId, peer.actorId],
+    },
+  };
+  const accounts = [
+    accountFact,
+    {
+      ...accountFact,
+      actorId: peer.actorId,
+      userId: peer.userId,
+      revision: peer.revision,
+    },
+  ].map((account) => ({
+    account,
+    age: { state: 'unknown' as const },
+  }));
+  assert({
+    given:
+      'the exact deployed composition with checked production and staging configs',
+    should:
+      'refuse group evidence by default, enable it only in staging, and preserve DM reading in both',
+    actual: [undefined, 'staging' as const].map((activation) => {
+      const reading = deployedReading(activation);
+      return [fact, group].map(
+        (channel) =>
+          reading({ channel, accounts, now: '2026-10-09T00:00:00.000Z' })
+            ?.allowed,
+      );
+    }),
+    expected: [
+      [true, false],
+      [true, true],
+    ],
+  });
+});

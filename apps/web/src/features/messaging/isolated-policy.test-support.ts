@@ -22,7 +22,7 @@ export const isolatedMessagingPolicy = (
   maxBodyBytes: messagingBetaLimits.bodyBytes,
   editWindowMs: 60000,
   posting: messagingTestPosting,
-  privateGroups: 'isolated-test-fixture',
+  privateGroups: 'enabled',
   groupPosting: messagingTestGroupPolicy,
   reading: (input) =>
     input.channel.authority.kind === 'private_group'

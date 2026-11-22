@@ -1,3 +1,4 @@
+import { captureAdmissionPolicy } from '../src/capture-admission.test-support';
 import { tryInstantMs, instantMs } from '@daisy/clock';
 import { captureRule } from '@daisy/debate-engine';
 import { requireTestServices } from '@daisy/config';
@@ -20,6 +21,7 @@ test('internal capture token admission requires a fresh exact lease and safe non
       epoch: 1,
     };
     const store = mediaCaptureOperations({
+      admission: captureAdmissionPolicy,
       sttLagMs: 60_000,
       captureRule,
       run: transaction,

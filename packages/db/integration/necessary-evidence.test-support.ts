@@ -1,3 +1,4 @@
+import { captureAdmissionPolicy } from '../src/capture-admission.test-support';
 import { captureRule } from '@daisy/debate-engine';
 import { createId } from '@paralleldrive/cuid2';
 import { randomBytes } from 'node:crypto';
@@ -20,6 +21,7 @@ export async function configuredCapture(
     leaseMs: 15000,
   });
   const store = mediaCaptureOperations({
+    admission: captureAdmissionPolicy,
     run: transaction,
     captureRule,
     sttLagMs: 60000,

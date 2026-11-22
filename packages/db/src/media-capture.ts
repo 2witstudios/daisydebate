@@ -100,6 +100,7 @@ export const mediaCaptureOperations = (dependencies: CaptureDependencies) => ({
         tx,
         input.roundId,
         tick.transcriptAdmissionCutoff,
+        dependencies,
       );
       const epoch = mediaWorkerLeaseEpoch(
         current,

@@ -121,7 +121,7 @@ const requestSession = cache(async () =>
  * composition. Pages omit those controls when it does not.
  */
 export const privateGroupsOffered = (): boolean =>
-  processApp().messagingPolicy.privateGroups === 'isolated-test-fixture';
+  processApp().messagingPolicy.privateGroups === 'enabled';
 
 /** The latest page a conversation reads: the live window, within this policy's page. */
 export const messagingLatestPageItems = (): number =>

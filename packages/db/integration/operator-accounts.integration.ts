@@ -1,3 +1,4 @@
+import { executeBetaAccessCommand } from './operator-accounts.test-support';
 import { createId } from '@paralleldrive/cuid2';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
@@ -17,7 +18,7 @@ describe('operator beta access commands (ADR 0079)', () => {
       const { userId } = await pendingAccount(fixture);
       const input = command(userId, 'approved', 1);
       const outcome = await withDatabase(url, (database) =>
-        database.runBetaAccessCommand(input),
+        executeBetaAccessCommand(database, input),
       );
       const [state] =
         await fixture.sql`select state, revision, decided_at is not null as decided from account_beta_access where user_id = ${userId}`;
@@ -75,7 +76,7 @@ describe('operator beta access commands (ADR 0079)', () => {
       const { userId } = await pendingAccount(fixture);
       const approval = command(userId, 'approved', 1);
       const read = await withDatabase(url, async (database) => {
-        const outcome = await database.runBetaAccessCommand(approval);
+        const outcome = await executeBetaAccessCommand(database, approval);
         return {
           outcome,
           own: await database.readOperatorCommand({
@@ -118,11 +119,11 @@ describe('operator beta access commands (ADR 0079)', () => {
         ]);
       const pending = await grants();
       await withDatabase(url, (database) =>
-        database.runBetaAccessCommand(command(userId, 'approved', 1)),
+        executeBetaAccessCommand(database, command(userId, 'approved', 1)),
       );
       const approved = await grants();
       await withDatabase(url, (database) =>
-        database.runBetaAccessCommand(command(userId, 'revoked', 2)),
+        executeBetaAccessCommand(database, command(userId, 'revoked', 2)),
       );
       assert({
         given: 'a pending account approved, then revoked, by operator commands',
@@ -149,13 +150,13 @@ describe('operator beta access commands (ADR 0079)', () => {
       const { userId } = await pendingAccount(fixture);
       await withDatabase(url, async (database) => {
         const input = command(userId, 'approved', 1);
-        await database.runBetaAccessCommand(input);
-        const replay = await database.runBetaAccessCommand(input);
+        await executeBetaAccessCommand(database, input);
+        const replay = await executeBetaAccessCommand(database, input);
         await assertRejects({
           given: 'the same command id with a different request',
           should: 'conflict',
           actual: () =>
-            database.runBetaAccessCommand({
+            executeBetaAccessCommand(database, {
               ...input,
               requestDigest: 'b'.repeat(64),
             }),
@@ -165,10 +166,11 @@ describe('operator beta access commands (ADR 0079)', () => {
           given: 'a revocation against a revision that moved',
           should: 'conflict as stale',
           actual: () =>
-            database.runBetaAccessCommand(command(userId, 'revoked', 1)),
+            executeBetaAccessCommand(database, command(userId, 'revoked', 1)),
           code: 'CONFLICT',
         });
-        const noop = await database.runBetaAccessCommand(
+        const noop = await executeBetaAccessCommand(
+          database,
           command(userId, 'approved', 2),
         );
         const [events] =
@@ -196,10 +198,10 @@ describe('operator beta access commands (ADR 0079)', () => {
       const input = command(userId, 'approved', 1);
       await withDatabase(url, async (database) => {
         const outcomes = await Promise.all([
-          database.runBetaAccessCommand(input),
-          database.runBetaAccessCommand(input),
+          executeBetaAccessCommand(database, input),
+          executeBetaAccessCommand(database, input),
         ]);
-        const replay = await database.runBetaAccessCommand({
+        const replay = await executeBetaAccessCommand(database, {
           ...input,
           authorize: () => false,
           live: () => false,
@@ -245,7 +247,7 @@ describe('operator beta access commands (ADR 0079)', () => {
         adminAuditHead: 'invalid',
       });
       const outcomes = await withDatabase(url, (database) =>
-        Promise.allSettled([database.runBetaAccessCommand(input)]),
+        Promise.allSettled([executeBetaAccessCommand(database, input)]),
       );
       const [counts] = await fixture.sql`select
         (select revision from account_beta_access where user_id=${userId}) as revision,
@@ -269,7 +271,10 @@ describe('operator beta access commands (ADR 0079)', () => {
     await withFixture(url, async (fixture) => {
       const { userId, actorId, sessionId } = await pendingAccount(fixture);
       await withDatabase(url, async (database) => {
-        await database.runBetaAccessCommand(command(userId, 'approved', 1));
+        await executeBetaAccessCommand(
+          database,
+          command(userId, 'approved', 1),
+        );
         const db = drizzle({ client: fixture.sql });
         const input = {
           sessionId,
@@ -278,7 +283,8 @@ describe('operator beta access commands (ADR 0079)', () => {
           now: new Date().toISOString(),
         };
         const before = await loadAuthorizationSession(db, input);
-        const revoked = await database.runBetaAccessCommand(
+        const revoked = await executeBetaAccessCommand(
+          database,
           command(userId, 'revoked', 2),
         );
         const after = await loadAuthorizationSession(db, input);
@@ -306,8 +312,8 @@ describe('operator beta access commands (ADR 0079)', () => {
       const { userId } = await pendingAccount(fixture);
       await withDatabase(url, async (database) => {
         const outcomes = await Promise.allSettled([
-          database.runBetaAccessCommand(command(userId, 'approved', 1)),
-          database.runBetaAccessCommand(command(userId, 'revoked', 1)),
+          executeBetaAccessCommand(database, command(userId, 'approved', 1)),
+          executeBetaAccessCommand(database, command(userId, 'revoked', 1)),
         ]);
         const [row] =
           await fixture.sql`select revision from account_beta_access where user_id = ${userId}`;
@@ -332,7 +338,8 @@ describe('operator beta access commands (ADR 0079)', () => {
       await withDatabase(url, async (database) => {
         const outcomes = await Promise.allSettled(
           [first.userId, second.userId].map((userId) =>
-            database.runBetaAccessCommand(
+            executeBetaAccessCommand(
+              database,
               command(userId, 'approved', 1, { commandId }),
             ),
           ),
@@ -363,7 +370,7 @@ describe('operator beta access commands (ADR 0079)', () => {
           given: 'an approval for a pending account with no age record',
           should: 'refuse as an invariant and change nothing',
           actual: () =>
-            database.runBetaAccessCommand(command(userId, 'approved', 1)),
+            executeBetaAccessCommand(database, command(userId, 'approved', 1)),
           code: 'INVARIANT',
         });
       });
@@ -386,7 +393,10 @@ describe('operator beta access commands (ADR 0079)', () => {
           given: 'a command for an account that does not exist',
           should: 'answer not found',
           actual: () =>
-            database.runBetaAccessCommand(command(createId(), 'approved', 1)),
+            executeBetaAccessCommand(
+              database,
+              command(createId(), 'approved', 1),
+            ),
           code: 'NOT_FOUND',
         });
         const erased = await pendingAccount(fixture);
@@ -395,7 +405,8 @@ describe('operator beta access commands (ADR 0079)', () => {
           given: 'a command for an erased account (ISSUE-684)',
           should: 'answer not found, as for an unknown one',
           actual: () =>
-            database.runBetaAccessCommand(
+            executeBetaAccessCommand(
+              database,
               command(erased.userId, 'approved', 1),
             ),
           code: 'NOT_FOUND',
@@ -404,7 +415,8 @@ describe('operator beta access commands (ADR 0079)', () => {
           given: 'a command the operator service may not issue',
           should: 'be refused without a change',
           actual: () =>
-            database.runBetaAccessCommand(
+            executeBetaAccessCommand(
+              database,
               command(userId, 'approved', 1, { authorize: () => false }),
             ),
           code: 'AUTHORIZATION',
