@@ -26,10 +26,10 @@ const objects = createObjects({
   },
 });
 const logger = createLogger({ service: 'broadcast-worker' });
-let stopping = false;
+const shutdown = new AbortController();
 for (const signal of ['SIGTERM', 'SIGINT'] as const)
   process.on(signal, () => {
-    stopping = true;
+    shutdown.abort();
   });
 const scratchDir = (broadcastId: string) =>
   join(tmpdir(), 'broadcast-worker', broadcastId);
@@ -38,7 +38,8 @@ const edges = {
   objects,
   now: Date.now,
   sleep: Bun.sleep,
-  stopped: () => stopping,
+  stopped: () => shutdown.signal.aborted,
+  signal: shutdown.signal,
   report: (
     event:
       | 'broadcast.release_failed'

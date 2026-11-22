@@ -95,6 +95,7 @@
         "zod": "4.6.6",
       },
       "devDependencies": {
+        "@daisy/config": "workspace:*",
         "riteway": "9.3.0",
       },
     },

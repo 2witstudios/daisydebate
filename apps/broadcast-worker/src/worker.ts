@@ -39,6 +39,8 @@ export const runWorker = async (deps: {
   readonly now: () => number;
   readonly sleep: (ms: number) => Promise<void>;
   readonly stopped: () => boolean;
+  /** Process shutdown cancels an encoder without waiting for its own timeout. */
+  readonly signal?: AbortSignal;
   readonly report: (
     event:
       | 'broadcast.release_failed'
@@ -95,7 +97,8 @@ export const runWorker = async (deps: {
         let renewedAt = deps.now();
         while (!finishedNow()) {
           await deps.sleep(RENEW_MS);
-          if (finishedNow() || deps.now() - renewedAt < RENEW_MS) continue;
+          if (finishedNow() || deps.stopped()) return;
+          if (deps.now() - renewedAt < RENEW_MS) continue;
           const row = await store
             .renew({
               id: job.id,
@@ -120,198 +123,210 @@ export const runWorker = async (deps: {
       /** Checked before each public write: a takedown must never be undone by a late one. */
       const ensureLease = () => {
         if (
+          deps.stopped() ||
           lease.ended ||
           stepping.signal.aborted ||
           deps.now() >= leaseUntilMs
         )
           throw new LeaseEnded();
       };
-      while (!deps.stopped() && facts.completedAt === null && !lease.ended) {
-        // Set by the encode port while the step runs.
-        const step: { encoded: boolean; attempting: number | null } = {
-          encoded: false,
-          attempting: null,
-        };
-        // A failed step keeps the job: dropping it waits out this worker's own lease.
-        try {
-          if (facts.stoppedAt !== null) {
-            await withdrawFeed(facts, feedWithdrawalPorts(job.id, deps));
-            break;
-          }
-          const hold = holdAttemptPrefix(
-            broadcastHoldPrefix(job.id),
-            generation,
-          );
-          const result = await releaseStep(
-            {
-              policy: facts.releasePolicy,
-              nextSegment: next,
-              holdCursor: cursor,
-              attemptIndex: generation - 1,
-              laterAttemptStartedMs:
-                facts.egressGeneration > generation
-                  ? (facts.egressStartedAt?.getTime() ?? 0)
-                  : null,
-              streamEnded: facts.streamEndedAt !== null,
-              skippedClips: skipped,
-              nowMs: deps.now(),
-              finalMediaEndMs: facts.finalMediaEndAt?.getTime() ?? null,
-              heartbeatMs: facts.controlHeartbeatAt?.getTime() ?? null,
-              releasedThroughMs: Math.max(
-                facts.releasedThroughAt?.getTime() ?? 0,
-                passedThroughMs,
-              ),
-              stage: stageTimeline({
-                ...(await store.readStageHistory(job.id)),
-                knownThroughMs: facts.controlHeartbeatAt?.getTime() ?? null,
-                captureFromMs: facts.createdAt.getTime(),
-              }),
-            },
-            {
-              readHoldPlaylist: () => objects.readHoldText(`${hold}p.m3u8`),
-              encode: async (clip) => {
-                step.encoded = true;
-                step.attempting = clip.capturedAtMs;
-                const { source, interval, capturedAtMs, offsetMs, durationMs } =
-                  clip;
-                const { name } = source;
-                const input = `${dir}/${name}`;
-                const output = (r: string) => `${dir}/${capturedAtMs}-${r}.ts`;
-                await objects.ensureDir(dir);
-                if (interval.kind !== 'private') {
-                  if (!(await objects.holdExists(`${hold}${name}`)))
-                    throw new UnreadableClip();
-                  await objects.copyHoldToFile(`${hold}${name}`, input);
-                }
-                const whole = durationMs === source.durationMs;
-                const args =
-                  interval.kind === 'private'
-                    ? slateEncoderArgs(output, capturedAtMs, durationMs)
-                    : interval.kind === 'between'
-                      ? silentEncoderArgs(input, output, capturedAtMs, {
-                          offsetMs,
-                          durationMs,
-                        })
-                      : encoderArgs(
-                          input,
-                          output,
-                          capturedAtMs,
-                          whole ? undefined : { offsetMs, durationMs },
-                        );
-                const code = await Bun.spawn([...args], {
-                  stderr: 'ignore',
-                  signal: AbortSignal.any([
-                    stepping.signal,
-                    AbortSignal.timeout(ENCODE_TIMEOUT_MS),
-                  ]),
-                }).exited;
-                ensureLease();
-                if (code !== 0) throw new UnreadableClip();
-                return RENDITIONS.map((r) => ({
-                  rendition: r.name,
-                  file: output(r.name),
-                }));
-              },
-              publishSegment: async (seq, rendition, file) => {
-                ensureLease();
-                await objects.putSegment(
-                  `${live}${rendition}/seg-${seq}.ts`,
-                  file,
-                );
-              },
-              publishManifest: async (key, text) => {
-                ensureLease();
-                await objects.putManifest(`${live}${key}`, text);
-              },
-              recordReleased: (segment, mediaEndMs) =>
-                store.recordReleased({
-                  id: job.id,
-                  owner: deps.owner,
-                  epoch: job.leaseEpoch,
-                  segment,
-                  mediaEnd: new Date(mediaEndMs),
+      try {
+        while (!deps.stopped() && facts.completedAt === null && !lease.ended) {
+          // Set by the encode port while the step runs.
+          const step: { encoded: boolean; attempting: number | null } = {
+            encoded: false,
+            attempting: null,
+          };
+          // A failed step keeps the job: dropping it waits out this worker's own lease.
+          try {
+            if (facts.stoppedAt !== null) {
+              await withdrawFeed(facts, feedWithdrawalPorts(job.id, deps));
+              break;
+            }
+            const hold = holdAttemptPrefix(
+              broadcastHoldPrefix(job.id),
+              generation,
+            );
+            const result = await releaseStep(
+              {
+                policy: facts.releasePolicy,
+                nextSegment: next,
+                holdCursor: cursor,
+                attemptIndex: generation - 1,
+                laterAttemptStartedMs:
+                  facts.egressGeneration > generation
+                    ? (facts.egressStartedAt?.getTime() ?? 0)
+                    : null,
+                streamEnded: facts.streamEndedAt !== null,
+                skippedClips: skipped,
+                nowMs: deps.now(),
+                finalMediaEndMs: facts.finalMediaEndAt?.getTime() ?? null,
+                heartbeatMs: facts.controlHeartbeatAt?.getTime() ?? null,
+                releasedThroughMs: Math.max(
+                  facts.releasedThroughAt?.getTime() ?? 0,
+                  passedThroughMs,
+                ),
+                stage: stageTimeline({
+                  ...(await store.readStageHistory(job.id)),
+                  knownThroughMs: facts.controlHeartbeatAt?.getTime() ?? null,
+                  captureFromMs: facts.createdAt.getTime(),
                 }),
-              recordPassed: async (throughMs) => {
-                const held = await store.recordPassed({
-                  id: job.id,
-                  owner: deps.owner,
-                  epoch: job.leaseEpoch,
-                  through: new Date(throughMs),
-                });
-                passedThroughMs = throughMs;
-                return held;
               },
-              recordEnded: (mediaEndMs) =>
-                store.recordEnded({
-                  id: job.id,
-                  owner: deps.owner,
-                  epoch: job.leaseEpoch,
-                  mediaEnd: new Date(mediaEndMs),
-                  now: new Date(deps.now()),
-                }),
-              recordAdvanced: () =>
-                store.recordAdvanced({
-                  id: job.id,
-                  owner: deps.owner,
-                  epoch: job.leaseEpoch,
-                  generation,
-                }),
-            },
-          );
-          if (result.kind === 'fenced') break;
-          if (result.kind === 'lapsed') {
-            if (!lapsedSaid) deps.report('broadcast.release_lapsed');
-            lapsedSaid = true;
-          } else lapsedSaid = false;
-          if (result.kind === 'released') {
-            next += 1;
-            cursor += 1;
-          } else if (result.kind === 'advanced') {
-            generation += 1;
-            cursor = 0;
-          } else if (result.kind === 'ended')
-            facts = { ...facts, streamEndedAt: new Date(deps.now()) };
-          else if (
-            result.kind === 'waiting' &&
-            result.nextDueMs !== undefined &&
-            result.nextDueMs - deps.now() > PARK_AFTER_MS
-          ) {
-            await store.park({
-              id: job.id,
-              owner: deps.owner,
-              epoch: job.leaseEpoch,
-              until: new Date(result.nextDueMs),
-            });
-            break;
-          } else await deps.sleep(IDLE_MS);
-        } catch (error) {
-          if (!(error instanceof LeaseEnded)) {
-            deps.report('broadcast.release_failed');
-            const clipMs = step.attempting;
-            if (error instanceof UnreadableClip && clipMs !== null) {
-              const attempts = (clipFailures.get(clipMs) ?? 0) + 1;
-              clipFailures.set(clipMs, attempts);
-              if (attempts >= CLIP_ATTEMPTS) {
-                await store.recordSkipped({
-                  id: job.id,
-                  owner: deps.owner,
-                  epoch: job.leaseEpoch,
-                  capturedAtMs: clipMs,
-                });
-                skipped = [...skipped, clipMs];
-                deps.report('broadcast.clip_skipped');
-              } else await deps.sleep(CLIP_RETRY_MS * 2 ** (attempts - 1));
+              {
+                readHoldPlaylist: () => objects.readHoldText(`${hold}p.m3u8`),
+                encode: async (clip) => {
+                  step.encoded = true;
+                  step.attempting = clip.capturedAtMs;
+                  const {
+                    source,
+                    interval,
+                    capturedAtMs,
+                    offsetMs,
+                    durationMs,
+                  } = clip;
+                  const { name } = source;
+                  const input = `${dir}/${name}`;
+                  const output = (r: string) =>
+                    `${dir}/${capturedAtMs}-${r}.ts`;
+                  await objects.ensureDir(dir);
+                  if (interval.kind !== 'private') {
+                    if (!(await objects.holdExists(`${hold}${name}`)))
+                      throw new UnreadableClip();
+                    await objects.copyHoldToFile(`${hold}${name}`, input);
+                  }
+                  const whole = durationMs === source.durationMs;
+                  const args =
+                    interval.kind === 'private'
+                      ? slateEncoderArgs(output, capturedAtMs, durationMs)
+                      : interval.kind === 'between'
+                        ? silentEncoderArgs(input, output, capturedAtMs, {
+                            offsetMs,
+                            durationMs,
+                          })
+                        : encoderArgs(
+                            input,
+                            output,
+                            capturedAtMs,
+                            whole ? undefined : { offsetMs, durationMs },
+                          );
+                  const code = await Bun.spawn([...args], {
+                    stderr: 'ignore',
+                    signal: AbortSignal.any([
+                      stepping.signal,
+                      ...(deps.signal ? [deps.signal] : []),
+                      AbortSignal.timeout(ENCODE_TIMEOUT_MS),
+                    ]),
+                  }).exited;
+                  ensureLease();
+                  if (code !== 0) throw new UnreadableClip();
+                  return RENDITIONS.map((r) => ({
+                    rendition: r.name,
+                    file: output(r.name),
+                  }));
+                },
+                publishSegment: async (seq, rendition, file) => {
+                  ensureLease();
+                  await objects.putSegment(
+                    `${live}${rendition}/seg-${seq}.ts`,
+                    file,
+                  );
+                },
+                publishManifest: async (key, text) => {
+                  ensureLease();
+                  await objects.putManifest(`${live}${key}`, text);
+                },
+                recordReleased: (segment, mediaEndMs) =>
+                  store.recordReleased({
+                    id: job.id,
+                    owner: deps.owner,
+                    epoch: job.leaseEpoch,
+                    segment,
+                    mediaEnd: new Date(mediaEndMs),
+                  }),
+                recordPassed: async (throughMs) => {
+                  const held = await store.recordPassed({
+                    id: job.id,
+                    owner: deps.owner,
+                    epoch: job.leaseEpoch,
+                    through: new Date(throughMs),
+                  });
+                  passedThroughMs = throughMs;
+                  return held;
+                },
+                recordEnded: (mediaEndMs) =>
+                  store.recordEnded({
+                    id: job.id,
+                    owner: deps.owner,
+                    epoch: job.leaseEpoch,
+                    mediaEnd: new Date(mediaEndMs),
+                    now: new Date(deps.now()),
+                  }),
+                recordAdvanced: () =>
+                  store.recordAdvanced({
+                    id: job.id,
+                    owner: deps.owner,
+                    epoch: job.leaseEpoch,
+                    generation,
+                  }),
+              },
+            );
+            if (result.kind === 'fenced') break;
+            if (result.kind === 'lapsed') {
+              if (!lapsedSaid) deps.report('broadcast.release_lapsed');
+              lapsedSaid = true;
+            } else lapsedSaid = false;
+            if (result.kind === 'released') {
+              next += 1;
+              cursor += 1;
+            } else if (result.kind === 'advanced') {
+              generation += 1;
+              cursor = 0;
+            } else if (result.kind === 'ended')
+              facts = { ...facts, streamEndedAt: new Date(deps.now()) };
+            else if (
+              result.kind === 'waiting' &&
+              result.nextDueMs !== undefined &&
+              result.nextDueMs - deps.now() > PARK_AFTER_MS
+            ) {
+              await store.park({
+                id: job.id,
+                owner: deps.owner,
+                epoch: job.leaseEpoch,
+                until: new Date(result.nextDueMs),
+              });
+              break;
             } else await deps.sleep(IDLE_MS);
+          } catch (error) {
+            if (!(error instanceof LeaseEnded)) {
+              deps.report('broadcast.release_failed');
+              const clipMs = step.attempting;
+              if (error instanceof UnreadableClip && clipMs !== null) {
+                const attempts = (clipFailures.get(clipMs) ?? 0) + 1;
+                clipFailures.set(clipMs, attempts);
+                if (attempts >= CLIP_ATTEMPTS) {
+                  await store.recordSkipped({
+                    id: job.id,
+                    owner: deps.owner,
+                    epoch: job.leaseEpoch,
+                    capturedAtMs: clipMs,
+                  });
+                  skipped = [...skipped, clipMs];
+                  deps.report('broadcast.clip_skipped');
+                } else await deps.sleep(CLIP_RETRY_MS * 2 ** (attempts - 1));
+              } else await deps.sleep(IDLE_MS);
+            }
+          } finally {
+            if (step.encoded)
+              await scratch
+                .clear(job.id)
+                .catch(() => deps.report('broadcast.release_failed'));
           }
-        } finally {
-          if (step.encoded)
-            await scratch
-              .clear(job.id)
-              .catch(() => deps.report('broadcast.release_failed'));
         }
+      } finally {
+        finished = true;
+        stepping.abort();
+        await renewing;
       }
-      finished = true;
-      await renewing;
     } catch {
       deps.report('broadcast.release_failed');
       await deps.sleep(IDLE_MS);

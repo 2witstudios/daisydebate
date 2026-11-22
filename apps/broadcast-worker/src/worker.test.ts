@@ -416,3 +416,61 @@ test('a long delay gives the slot back, until something is due', async () => {
     expected: [[900_000 + 86_400_000 - 10_000], 2],
   });
 });
+
+test('a failed gap record retires the renewal before the slot stops', async () => {
+  let stopping = false;
+  let renewals = 0;
+  let now = 900_000;
+  const renewalWait = Promise.withResolvers<void>();
+  const skipAttempt = Promise.withResolvers<void>();
+  const run = runWorker({
+    owner: 'w',
+    now: () => now,
+    sleep: (ms) => (ms === 5000 ? renewalWait.promise : Promise.resolve()),
+    stopped: () => stopping,
+    report: () => {},
+    scratch: noScratch,
+    objects: {
+      putManifest: async () => {},
+      ensureDir: async () => {},
+      holdExists: async () => false,
+      readHoldText: async () =>
+        '#EXTM3U\n#EXT-X-PROGRAM-DATE-TIME:1970-01-01T00:00:00.000Z\n#EXTINF:4.0,\ns_0.ts\n',
+    } as never,
+    store: {
+      claim: async () => dueFromWorker([]),
+      readStageHistory: async () => ({
+        segments: [{ startedAtMs: 0, endedAtMs: 900_000, durationMs: 900_000 }],
+        privateSpans: [],
+      }),
+      recordSkipped: async () => {
+        stopping = true;
+        skipAttempt.resolve();
+        throw new Error('gap record unavailable');
+      },
+      renew: async () => {
+        renewals += 1;
+        // A leaked renewal must not make this negative control spin forever.
+        await new Promise<void>(() => {});
+      },
+    } as never,
+  });
+  let settled = false;
+  void run.then(() => {
+    settled = true;
+  });
+  await skipAttempt.promise;
+  // Let the rejected record unwind before the already-sleeping heartbeat wakes.
+  for (let turn = 0; turn < 20; turn += 1) await Promise.resolve();
+  const settledBeforeRenewal = settled;
+  now += 5000;
+  renewalWait.resolve();
+  await run;
+  assert({
+    given:
+      'a gap write rejecting while its renewal sleeps, followed by shutdown',
+    should: 'settle the slot without renewing a job it no longer runs',
+    actual: { renewals, settledBeforeRenewal },
+    expected: { renewals: 0, settledBeforeRenewal: false },
+  });
+});

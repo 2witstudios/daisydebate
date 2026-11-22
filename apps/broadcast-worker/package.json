@@ -6,7 +6,8 @@
   "scripts": {
     "typecheck": "tsgo --noEmit",
     "test": "bun test src",
-    "start": "bun src/start.ts"
+    "start": "bun src/start.ts",
+    "test:integration": "bun ../../scripts/test-integration.ts"
   },
   "dependencies": {
     "@daisy/clock": "workspace:*",
@@ -18,6 +19,7 @@
     "zod": "4.6.6"
   },
   "devDependencies": {
-    "riteway": "9.3.0"
+    "riteway": "9.3.0",
+    "@daisy/config": "workspace:*"
   }
 }

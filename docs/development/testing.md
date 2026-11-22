@@ -879,3 +879,16 @@ with persisted sources, excludes a genuine pending judge invitation, refuses
 a foreign event and rechecks canonical revocation. The live lists show
 obligations as unconfigured; school affiliation never proves that a school
 furnished a judge. Panel demand and lateness without a producer stay absent.
+
+## Broadcast worker shutdown qualification
+
+`apps/broadcast-worker/integration/shutdown.integration.ts` starts the real
+worker entry point with a restricted broadcast-worker login, durable PostgreSQL
+claim/cursor rows and a local S3 HTTP adapter. A replacement encoder executable
+holds an actual child process inside encoding until cancellation. SIGTERM must
+stop and reap it, drain in eight seconds (within Fly's thirty-second grace),
+leave both durable cursors unchanged and publish nothing after shutdown.
+The replacement is a controlled stall, not proof of ffmpeg output quality.
+The unit regression separately proves a rejected gap record drains its sleeping
+renewal before the slot returns. These checks qualify the bounded broadcast
+repair, not the full R4.7 worker lifecycle migration or audience integration net.
