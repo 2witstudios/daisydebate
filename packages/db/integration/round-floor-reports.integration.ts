@@ -1,3 +1,4 @@
+import { testModerationCommands } from './content-moderation-command.test-support';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { withFixture } from './constraint-helpers';
@@ -37,11 +38,13 @@ describe('private floor reports and own withdrawal', () => {
             reason: 'spam',
           }),
         );
-        const ops = contentModerationOperations({
-          database: db,
-          chat: spectatorChatModeration,
-          floor: roundFloorModeration,
-        });
+        const ops = testModerationCommands(
+          contentModerationOperations({
+            database: db,
+            chat: spectatorChatModeration,
+            floor: roundFloorModeration,
+          }),
+        );
         const generic = await ops.readReportTargetFacts({
           reporterUserId: scope.userId,
           reporterActorId: scope.actorId,

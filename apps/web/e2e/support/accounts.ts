@@ -119,8 +119,13 @@ export const birthAged = (now: string, years: number): BirthMonth => {
 export async function signUpMember(
   request: APIRequestContext,
   birth: BirthMonth = adultBirth,
+  usernamePrefix = 'member',
 ) {
-  const { email, username } = await signUpWaitlisted(request, birth);
+  const { email, username } = await signUpWaitlisted(
+    request,
+    birth,
+    usernamePrefix,
+  );
   await approveBetaAccounts(email);
   return { email, username };
 }
@@ -129,9 +134,10 @@ export async function signUpMember(
 export async function signUpWaitlisted(
   request: APIRequestContext,
   birth: BirthMonth = adultBirth,
+  usernamePrefix = 'member',
 ) {
   const { email } = await signUpProvisional(request, birth);
-  const username = uniqueName('member');
+  const username = uniqueName(usernamePrefix);
   const claimed = await request.post('/api/account/username', {
     headers: { origin },
     data: { username },

@@ -49,6 +49,7 @@ export const api = (overrides: Partial<OperatorApiDependencies> = {}) => {
       readOperatorProfilePhoto: async () => null,
       readModerationReport: async () => null,
       runModerationCommand: async () => ({ v: 1, outcome: 'applied' }),
+      chatRemovalCommand: async () => ({ v: 1, outcome: 'applied' }),
       recordingWithdrawalCommand: async () => ({ v: 1, outcome: 'applied' }),
     },
     store: {

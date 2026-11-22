@@ -482,3 +482,13 @@ reason and preserves applied-feed precedence. Existing Recording materializers
 retain evidence holds, legal-removal override and version fences; participant
 withdrawal remains separate. Other moderation actions retain their own existing
 operations and atomic owner ports.
+
+## Operator chat removal
+
+The operator application tries spectator chat, Round floor and Room chat in that
+order, only continuing after a missing result. A found unchanged message stops
+lookup. `chatRemovalCommand` retains the existing command gate, typed replay,
+database time, owner fences, receipt and final-liveness transaction; replay
+exposes no owner operation and escaped operations are closed. A missing message
+or failed application leaves no partial removal or receipt. Each existing owner
+keeps its own conditional write and stream/content bookkeeping.
