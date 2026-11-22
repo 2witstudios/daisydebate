@@ -1,3 +1,4 @@
+import { decisionRelease as roundDecisionReleasePolicy } from '../src/features/notifications/decision-release';
 import { requireTestServices } from '@daisy/config';
 import { createDatabase, type Database } from '@daisy/db';
 import { seedRatingSeason } from '@daisy/db/testing';
@@ -34,7 +35,11 @@ export async function withClients<T>(
   work: (clients: readonly Database[]) => Promise<T>,
 ) {
   const clients = Array.from({ length: count }, () =>
-    createDatabase({ url: databaseUrl, nextActorId: createId }),
+    createDatabase({
+      decisionRelease: roundDecisionReleasePolicy,
+      url: databaseUrl,
+      nextActorId: createId,
+    }),
   );
   try {
     return await work(clients);

@@ -1,3 +1,4 @@
+import { roundDecisionReleasePolicy } from '@daisy/protocol/round-decision-release';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { canReleaseFreeJudgeBinding } from '@daisy/auth/authorization';
@@ -15,6 +16,7 @@ test('production usage recovery rediscovers abandoned bundles with current servi
   await withFreeBundle(
     async ({ f, actorId, roundId, replacement, admission }) => {
       const store = createDatabase({
+        decisionRelease: roundDecisionReleasePolicy,
         url: databaseUrl,
         client: f.sql,
         nextActorId: createId,
@@ -98,6 +100,7 @@ test('production usage recovery rediscovers abandoned bundles with current servi
 test('recovery loses service authority while waiting on the account fence', async () => {
   await withFreeBundle(async ({ f, run, actorId, roundId }) => {
     const store = createDatabase({
+      decisionRelease: roundDecisionReleasePolicy,
       url: databaseUrl,
       client: f.sql,
       nextActorId: createId,

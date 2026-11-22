@@ -1,3 +1,4 @@
+import type { DecisionReleasePolicy } from '@daisy/protocol/round-decision-release';
 import { createAppError } from '@daisy/errors';
 import type { RoundProjection } from '@daisy/protocol/runtime';
 import { eq } from 'drizzle-orm';
@@ -16,6 +17,7 @@ import type { Tx } from './tx';
 
 export type LockedRoundTickInput = {
   readonly roundId: string;
+  readonly decisionRelease?: DecisionReleasePolicy | undefined;
   /**
    * This tick also runs an opening: its strikes and its start. Capture and
    * attendance ticks only keep an active Round's clock current.
@@ -48,6 +50,7 @@ export async function executeLockedRoundTick(
       current,
       projection,
       now,
+      input.decisionRelease,
     );
     await writeSpeakingProjection(tx, {
       roundId: input.roundId,

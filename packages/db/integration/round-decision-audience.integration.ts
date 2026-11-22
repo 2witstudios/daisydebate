@@ -1,3 +1,4 @@
+import { roundDecisionReleasePolicy } from '@daisy/protocol/round-decision-release';
 import { requireTestServices } from '@daisy/config';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -27,6 +28,7 @@ test('a judge replaced before the decision is not told it; the replacement is (A
     const audience = await roundDecisionAudience(
       drizzle({ client: f.sql }),
       roundId,
+      roundDecisionReleasePolicy,
     );
     const byUser = new Map(audience.map((row) => [row.userId, row.about]));
     assert({
@@ -74,6 +76,7 @@ test('a judge is told about the first declared side, not the first by name (TAB-
     const audience = await roundDecisionAudience(
       drizzle({ client: f.sql }),
       roundId,
+      roundDecisionReleasePolicy,
     );
     assert({
       given: 'a judged Round whose rules declare Negative before Affirmative',

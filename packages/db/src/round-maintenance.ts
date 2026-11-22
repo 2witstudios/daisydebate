@@ -1,3 +1,4 @@
+import type { DecisionReleasePolicy } from '@daisy/protocol/round-decision-release';
 import { lifecycleSql } from './lifecycle-sql';
 import type { RoundTimeSource } from './round-execution-time';
 import { requireCurrentWeb } from './web-service-authority';
@@ -29,6 +30,7 @@ type DueInput = LockedRoundTickInput & { readonly instanceId: string };
 export function roundMaintenanceOperations(
   run: BoundedTransaction,
   roundTime?: RoundTimeSource,
+  decisionRelease?: DecisionReleasePolicy,
 ) {
   const withRound = <T>(
     input: DueInput,
@@ -124,13 +126,20 @@ export function roundMaintenanceOperations(
       });
     },
     tickDueRound: (input: DueInput) =>
-      withRound(input, (tx) => executeLockedRoundTick(tx, input, roundTime)),
+      withRound(input, (tx) =>
+        executeLockedRoundTick(tx, { ...input, decisionRelease }, roundTime),
+      ),
     finalizeDueRoundTranscript: (
       input: DueInput &
         Pick<FreezeRequest, 'planJudging' | 'botGrantUnused' | 'captureRule'>,
     ) =>
       withRound(input, (tx, assertCurrent) =>
-        finalizeLockedRoundTranscript(tx, input, assertCurrent, roundTime),
+        finalizeLockedRoundTranscript(
+          tx,
+          { ...input, decisionRelease },
+          assertCurrent,
+          roundTime,
+        ),
       ),
   };
 }

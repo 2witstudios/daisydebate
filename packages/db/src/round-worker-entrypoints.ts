@@ -1,3 +1,4 @@
+import type { DecisionReleasePolicy } from '@daisy/protocol/round-decision-release';
 import { createAppError } from '@daisy/errors';
 import { createRoundJudgingJobs } from './round-judging-jobs';
 import { createBotPublicationOperations } from './bot-publication';
@@ -5,7 +6,7 @@ import type { BoundedTransaction } from './bounded-transaction';
 
 export type JudgingOptions = Omit<
   Parameters<typeof createRoundJudgingJobs>[0],
-  'run' | 'nextId'
+  'run' | 'nextId' | 'decisionRelease'
 >;
 export type BotPublicationOptions = Omit<
   Parameters<typeof createBotPublicationOperations>[0],
@@ -25,6 +26,7 @@ function configured<T>(value: T | undefined): T {
 /** The durable workers share the root's actual writer/watchdog admission counter. */
 export function roundWorkerEntrypoints(input: {
   readonly run: BoundedTransaction;
+  readonly decisionRelease?: DecisionReleasePolicy | undefined;
   readonly nextId: () => string;
   readonly judging: JudgingOptions | undefined;
   readonly botPublication: BotPublicationOptions | undefined;
@@ -34,6 +36,7 @@ export function roundWorkerEntrypoints(input: {
         run: input.run,
         nextId: input.nextId,
         ...input.judging,
+        decisionRelease: input.decisionRelease,
       })
     : undefined;
   const workers = input.botPublication

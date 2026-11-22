@@ -1,3 +1,5 @@
+import { createAppError } from '@daisy/errors';
+import type { DecisionReleasePolicy } from '@daisy/protocol/round-decision-release';
 import { createId } from '@paralleldrive/cuid2';
 import { sql } from 'drizzle-orm';
 import type { NotificationRecipient } from './notifications/owe';
@@ -11,31 +13,38 @@ import { z } from 'zod';
  * now, each about the member across from them (a judge, about the first
  * side's first seat).
  */
-export const roundDecisionAudience = async (
+export async function roundDecisionAudience(
   tx: Tx,
   roundId: string,
-): Promise<readonly NotificationRecipient[]> =>
-  (
-    await query(
-      tx,
-      z.object({ user_id: z.string(), about: z.string() }),
-      sql`select distinct on (u.id) u.id as user_id,
-          coalesce((select o.actor_id from round_participants o
-            where o.round_id=p.round_id and o.seat_kind='side'
-              and o.side is distinct from p.side
-              and public.daisy_round_participant_is_current(o.id)
-            order by (select e.ord from jsonb_array_elements(r.rules_snapshot->'sides')
-                with ordinality as e(side,ord) where e.side->>'key'=o.side),o.slot
-            limit 1),p.actor_id) as about
-        from round_participants p
-        join rounds r on r.id=p.round_id
-        join actors a on a.id=p.actor_id
-        join users u on u.id=a.user_id and u.deleted_at is null
-        where p.round_id=${roundId}
-          and public.daisy_round_participant_is_current(p.id)
-        order by u.id,coalesce(p.side,p.seat_kind),p.slot`,
-    )
-  ).map((row) => ({ userId: row.user_id, about: row.about }));
+  policy: DecisionReleasePolicy,
+): Promise<readonly NotificationRecipient[]> {
+  const seats = await query(
+    tx,
+    z.object({
+      actorId: z.string(),
+      userId: z.string().nullable(),
+      erased: z.boolean(),
+      current: z.boolean(),
+      kind: z.string(),
+      side: z.string().nullable(),
+      slot: z.number(),
+      sideOrder: z.number().nullable(),
+    }),
+    sql`select p.actor_id as "actorId", u.id as "userId",
+      u.deleted_at is not null as erased,
+      coalesce(public.daisy_round_participant_is_current(p.id),false) as current,
+      p.seat_kind as kind,p.side,p.slot,
+      (select e.ord::int from jsonb_array_elements(r.rules_snapshot->'sides')
+        with ordinality as e(side,ord) where e.side->>'key'=p.side) as "sideOrder"
+    from round_participants p
+    join rounds r on r.id=p.round_id
+    join actors a on a.id=p.actor_id
+    left join users u on u.id=a.user_id
+    where p.round_id=${roundId}
+    order by u.id,coalesce(p.side,p.seat_kind),p.slot`,
+  );
+  return policy.audience(seats);
+}
 
 /**
  * Tells `recipients` a Round's decision is in (ADR 0144). Finalization calls
@@ -63,16 +72,22 @@ export async function releaseRoundDecision(
 export async function releaseFinalizedDecision(
   tx: Tx,
   input: { readonly roundId: string; readonly at: string },
+  policy: DecisionReleasePolicy | undefined,
 ): Promise<void> {
+  if (!policy)
+    throw createAppError(
+      'INVARIANT',
+      'Finalization requires decision release policy',
+    );
   const [round] = await query(
     tx,
     z.object({ decision_release: z.string() }),
     sql`select decision_release from rounds where id=${input.roundId}`,
   );
-  if (round?.decision_release !== 'on_finalize') return;
+  if (!policy.release(round?.decision_release ?? null)) return;
   await releaseRoundDecision(tx, {
     ...input,
-    recipients: await roundDecisionAudience(tx, input.roundId),
+    recipients: await roundDecisionAudience(tx, input.roundId, policy),
   });
 }
 

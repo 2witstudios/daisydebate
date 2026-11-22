@@ -1,3 +1,4 @@
+import { roundDecisionReleasePolicy } from '@daisy/protocol/round-decision-release';
 import { sha3Hex } from '@daisy/digest';
 import { sql as query } from 'drizzle-orm';
 import { roundCommands } from '../src/schema/round-commands';
@@ -101,6 +102,7 @@ async function completeOrdinaryForfeit(
       now,
     });
     await commitRoundCommand(tx, {
+      decisionRelease: roundDecisionReleasePolicy,
       roundId,
       current,
       projection,

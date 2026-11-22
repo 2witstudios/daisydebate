@@ -1,3 +1,4 @@
+import { roundDecisionReleasePolicy } from '@daisy/protocol/round-decision-release';
 import { createId } from '@paralleldrive/cuid2';
 import type { RoundCommandEnvelope } from '@daisy/protocol/round-command';
 import { createDatabase } from '../src';
@@ -23,7 +24,11 @@ export const withAuthoredRound = (
       created_by_actor_id: actorId,
       ...round,
     });
-    const database = createDatabase({ url, nextActorId: createId });
+    const database = createDatabase({
+      decisionRelease: roundDecisionReleasePolicy,
+      url,
+      nextActorId: createId,
+    });
     await work(fixture, { actorId, roundId, database });
   });
 

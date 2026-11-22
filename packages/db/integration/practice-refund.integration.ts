@@ -1,3 +1,4 @@
+import { roundDecisionReleasePolicy } from '@daisy/protocol/round-decision-release';
 import { judgedRound } from './judged-round.test-support';
 import { existingBotJudgeSeat } from './bot-seat.test-support';
 import { requireTestServices } from '@daisy/config';
@@ -38,6 +39,7 @@ const abandon = ({ run, target }: Generation) =>
         effects: [],
       },
       now,
+      roundDecisionReleasePolicy,
     );
   });
 

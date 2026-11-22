@@ -1,3 +1,4 @@
+import { roundDecisionReleasePolicy } from '@daisy/protocol/round-decision-release';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { isCapacityRefusal } from '../src/capacity';
 import { requireTestServices } from '@daisy/config';
@@ -8,6 +9,7 @@ setupRitewayBun();
 
 /** With no audience lane, an operation on it refuses and any other reaches the client. */
 const database = createDatabase({
+  decisionRelease: roundDecisionReleasePolicy,
   url: requireTestServices(process.env).databaseUrl,
   nextActorId: () => 'a'.repeat(24),
   profile: {

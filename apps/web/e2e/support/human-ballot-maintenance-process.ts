@@ -1,3 +1,4 @@
+import { decisionRelease } from '../../src/features/notifications/decision-release';
 import { resolve } from 'node:path';
 import { createDatabase } from '@daisy/db';
 import { createId } from '@paralleldrive/cuid2';
@@ -18,6 +19,7 @@ if (import.meta.main) {
   if (!roundIds.length || roundIds.length > 8)
     throw new Error('Explicit bounded ballot fixture scope required');
   const database = createDatabase({
+    decisionRelease,
     url: process.env.E2E_DATABASE_URL!,
     nextActorId: createId,
   });

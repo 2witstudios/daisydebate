@@ -1,3 +1,4 @@
+import type { DecisionReleasePolicy } from '@daisy/protocol/round-decision-release';
 import {
   readMediaBotLeases,
   mediaHearingSeats,
@@ -31,6 +32,7 @@ import { reconcileLive } from './media-reconcile-rules';
 import type { Tx } from './tx';
 
 export type MediaSessionRead = {
+  readonly decisionRelease?: DecisionReleasePolicy | undefined;
   readonly roundId: string;
   /** ADR 0075: participant access, read for every human seat's fenced facts. */
   readonly admits: ParticipantAdmission;
@@ -60,6 +62,7 @@ export async function lockedMediaSnapshot(tx: Tx, input: MediaSessionRead) {
     authority.participants,
   );
   const tick = await executeLockedRoundTick(tx, {
+    decisionRelease: input.decisionRelease,
     roundId,
     buildProjection: input.buildProjection,
   });

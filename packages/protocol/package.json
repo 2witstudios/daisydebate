@@ -140,6 +140,7 @@
     "./moderation": "./src/moderation.ts",
     "./necessary-evidence": "./src/necessary-evidence.ts",
     "./notifications": "./src/notifications.ts",
+    "./round-decision-release": "./src/round-decision-release.ts",
     "./observation": "./src/observation.ts",
     "./official-feed": "./src/official-feed.ts",
     "./onboarding": "./src/onboarding.ts",

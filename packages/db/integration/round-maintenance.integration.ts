@@ -1,3 +1,4 @@
+import { roundDecisionReleasePolicy } from '@daisy/protocol/round-decision-release';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
@@ -11,6 +12,7 @@ setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
 const maintenanceStore = (client: SQL) =>
   createDatabase({
+    decisionRelease: roundDecisionReleasePolicy,
     url: databaseUrl,
     client,
     nextActorId: createId,

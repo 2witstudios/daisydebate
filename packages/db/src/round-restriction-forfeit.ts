@@ -1,3 +1,4 @@
+import type { DecisionReleasePolicy } from '@daisy/protocol/round-decision-release';
 import { commandDigest } from '@daisy/digest';
 import { isRoundRunning, runningRoundStatuses } from '@daisy/protocol/round';
 import { isDebatingSeatSql } from './seat-columns';
@@ -71,6 +72,7 @@ export async function forfeitMemberRounds(
   tx: Tx,
   actorId: string,
   context: {
+    readonly decisionRelease?: DecisionReleasePolicy | undefined;
     readonly nextId: () => string;
     readonly forfeit: RoundForfeitRule;
     readonly eventSink: DatabaseEventSink | undefined;
@@ -95,6 +97,7 @@ export async function forfeitMemberRounds(
     const projection = await decideForfeit(tx, roundId, actorId, now, context);
     if (!projection) continue;
     await commitRoundCommand(tx, {
+      decisionRelease: context.decisionRelease,
       roundId,
       current,
       projection,

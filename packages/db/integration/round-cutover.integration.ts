@@ -1,3 +1,4 @@
+import { roundDecisionReleasePolicy } from '@daisy/protocol/round-decision-release';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { type RoundProjection } from '@daisy/protocol/runtime';
@@ -98,7 +99,11 @@ test('one write closes a speech and opens the next under the one-open-row index'
       ],
       effects: [],
     };
-    const database = createDatabase({ url, nextActorId: createId });
+    const database = createDatabase({
+      decisionRelease: roundDecisionReleasePolicy,
+      url,
+      nextActorId: createId,
+    });
     try {
       await database.executeRoundTick({
         roundId,
@@ -138,7 +143,11 @@ test('hydration orders closed segments by their schedule sequence', async () => 
         duration_ms: 240_000,
       });
     }
-    const database = createDatabase({ url, nextActorId: createId });
+    const database = createDatabase({
+      decisionRelease: roundDecisionReleasePolicy,
+      url,
+      nextActorId: createId,
+    });
     try {
       const round = await database.getRound(roundId);
       assert({

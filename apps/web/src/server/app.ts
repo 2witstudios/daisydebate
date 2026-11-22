@@ -1,3 +1,4 @@
+import { decisionRelease } from '../features/notifications/decision-release';
 import { nowMs } from '@daisy/clock';
 import { isTemporaryRefusal } from '@daisy/db/capacity';
 import {
@@ -157,6 +158,7 @@ export function createApp({
   const logger = withAlertRecording(baseLogger, alertRecorder, metrics);
   const requestNetwork = createRequestNetwork();
   const database = createDatabase({
+    decisionRelease,
     url: config.DATABASE_URL,
     eventSink: logger.log,
     fairnessKey: requestNetwork.current,

@@ -1,3 +1,4 @@
+import { roundDecisionReleasePolicy } from '@daisy/protocol/round-decision-release';
 import {
   ratingEligibility,
   ratingCompetition,
@@ -227,7 +228,11 @@ export const withRatings = (
   body: (context: RatingContext) => Promise<void>,
 ) =>
   withFixture(url, async (fixture) => {
-    const database = createDatabase({ url, nextActorId: createId });
+    const database = createDatabase({
+      decisionRelease: roundDecisionReleasePolicy,
+      url,
+      nextActorId: createId,
+    });
     const rounds: string[] = [];
     const actors: string[] = [];
     const track = (roundIds: string[], actorIds: string[]) => {

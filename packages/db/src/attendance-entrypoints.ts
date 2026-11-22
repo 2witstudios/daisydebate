@@ -1,3 +1,4 @@
+import type { DecisionReleasePolicy } from '@daisy/protocol/round-decision-release';
 import type { RoundTimeSource } from './round-execution-time';
 import { attendanceTimingPolicy } from '@daisy/protocol/attendance';
 import {
@@ -15,6 +16,7 @@ import type { BoundedTransaction } from './bounded-transaction';
 /** Shares the existing writer/watchdog admission counter and pool with transcript work. */
 export function attendanceEntrypoints(input: {
   readonly run: BoundedTransaction;
+  readonly decisionRelease?: DecisionReleasePolicy | undefined;
   readonly nextId: () => string;
   readonly roundTime?: RoundTimeSource | undefined;
 }) {
@@ -48,6 +50,7 @@ export function attendanceEntrypoints(input: {
     evaluateRoundAttendance: createAttendanceEvaluator(
       transaction,
       input.roundTime,
+      input.decisionRelease,
     ),
     reconcileRoundCheckInAttempts: (limit: number) =>
       transaction((tx) => reconcileCheckInAttempts(tx, limit)),

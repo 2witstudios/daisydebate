@@ -1,3 +1,4 @@
+import type { DecisionReleasePolicy } from '@daisy/protocol/round-decision-release';
 import type { RoundCommandReceipt } from '@daisy/protocol/round-command';
 import type { RoundProjection } from '@daisy/protocol/runtime';
 import {
@@ -16,6 +17,7 @@ export async function commitRoundCommand(
   tx: Tx,
   input: {
     readonly roundId: string;
+    readonly decisionRelease?: DecisionReleasePolicy | undefined;
     readonly current: Awaited<ReturnType<typeof lockedRoundVersion>>;
     readonly projection: RoundProjection;
     readonly now: string;
@@ -35,6 +37,7 @@ export async function commitRoundCommand(
     current,
     projection,
     input.now,
+    input.decisionRelease,
   );
   const resultingVersion = current.version + (changed ? 1 : 0);
   const receipt = {

@@ -1,3 +1,4 @@
+import { roundDecisionReleasePolicy } from '@daisy/protocol/round-decision-release';
 import { requireTestServices } from '@daisy/config';
 import { buildRoomTopic } from '@daisy/protocol/topics';
 import { emptyRuntimeCheckpointFor } from '@daisy/protocol/round';
@@ -87,6 +88,7 @@ const advance = (f: Fixture, roundId: string, status: 'active' | 'completed') =>
             },
       ),
       now,
+      roundDecisionReleasePolicy,
     );
   });
 

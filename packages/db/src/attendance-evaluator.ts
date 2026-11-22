@@ -1,3 +1,4 @@
+import type { DecisionReleasePolicy } from '@daisy/protocol/round-decision-release';
 import { requireCurrentWeb } from './web-service-authority';
 import { endOpenJudgingJobs, type JudgingEndRule } from './round-judging-end';
 import { createAppError } from '@daisy/errors';
@@ -87,6 +88,7 @@ export type AttendanceEvaluation =
 export function createAttendanceEvaluator(
   transaction: AttendanceTransaction,
   roundTime?: RoundTimeSource,
+  decisionRelease?: DecisionReleasePolicy,
 ) {
   return async (input: {
     readonly roundId: string;
@@ -195,6 +197,7 @@ export function createAttendanceEvaluator(
               current,
               resolution.projection,
               now,
+              decisionRelease,
             )
           : false;
         const resultingVersion = current.version + (changed ? 1 : 0);

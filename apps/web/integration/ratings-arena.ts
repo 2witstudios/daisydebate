@@ -1,3 +1,4 @@
+import { decisionRelease as roundDecisionReleasePolicy } from '../src/features/notifications/decision-release';
 import { createId } from '@paralleldrive/cuid2';
 import type { RatingDivision } from '@daisy/protocol/ladder';
 import type { RatingStyle } from '@daisy/protocol/primitives';
@@ -56,6 +57,7 @@ export async function arena(
   } = {},
 ) {
   const database = createDatabase({
+    decisionRelease: roundDecisionReleasePolicy,
     url: testDatabaseUrl,
     nextActorId: createId,
   });

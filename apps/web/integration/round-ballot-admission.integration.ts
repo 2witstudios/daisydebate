@@ -1,3 +1,4 @@
+import { judgingProgression } from '../src/features/round-judging/progression';
 import { randomBytes } from 'node:crypto';
 import { canUseAiAllowance } from '@daisy/auth/authorization';
 import { atFinalJudgingStage } from '@daisy/db/testing';
@@ -281,6 +282,7 @@ test('the actual cached AI result uses shared admission and rolls back refusal w
         nextToken: () => randomBytes(32).toString('base64url'),
         contractVersion: 'fixture-contract',
         rules: judgingJobRules,
+        progression: judgingProgression,
         accountEligible: canUseAiAllowance,
       },
     },
