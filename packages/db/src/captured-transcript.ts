@@ -18,7 +18,7 @@ import {
 } from './media-capture-context';
 import { transcriptSegments } from './schema/transcript-segments';
 import { utterances } from './schema/utterances';
-import { clipDigests, requireCapturedWindow } from './capture-rules';
+import { clipDigests } from './capture-rules';
 import type { Tx } from './tx';
 
 type Clip = z.infer<typeof captureClipSchema>;
@@ -36,7 +36,7 @@ export async function appendCapturedTranscript(
   );
   const { segment, stream, now } = context;
   const history = await captureHistory(tx, input, segment);
-  requireCapturedWindow(input, segment, now, history);
+  dependencies.admission.requireWindow(input, segment, now, history);
   const after = instantMs(input.after);
   const { clipKey, bodyDigest } = clipDigests(input);
   const [existing] = await tx
@@ -55,9 +55,13 @@ export async function appendCapturedTranscript(
     throw createAppError('CONFLICT', 'Capture stream is sealed');
   const id = dependencies.nextId();
   validCaptureIds(id);
-  const mutationNow = await freshCaptureMutation(tx, input.roundId, context);
-  if (after > mutationNow.getTime())
-    throw createAppError('CONFLICT', 'Capture window is in the future');
+  const mutationNow = await freshCaptureMutation(
+    tx,
+    input.roundId,
+    context,
+    dependencies,
+  );
+  dependencies.admission.requireAppendReceipt(after, mutationNow);
   await tx.insert(utterances).values({
     id,
     roundId: input.roundId,

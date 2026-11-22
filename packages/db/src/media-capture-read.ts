@@ -72,7 +72,7 @@ export async function readMediaCaptureState(
 ) {
   const tick = await lockCaptureRound(tx, input, dependencies);
   const lease = await lockCaptureLease(tx, input);
-  await requireCaptureSession(tx, input);
+  await requireCaptureSession(tx, input, dependencies);
   if (
     input.expectedVersion !== undefined &&
     input.expectedVersion !== tick.resultingVersion
@@ -126,6 +126,7 @@ export async function readMediaCaptureState(
     tx,
     input.roundId,
     tick.transcriptAdmissionCutoff,
+    dependencies,
   );
   requireLiveCaptureLease(lease.expiresAt, now);
   return {

@@ -1,3 +1,4 @@
+import { captureAdmissionPolicy } from '../apps/web/src/features/media-capture/capture-policy';
 import { botGrantUnused } from '@daisy/debate-engine';
 import { judgingPolicy } from '@daisy/protocol/judging-policy';
 import { captureRule } from '@daisy/debate-engine';
@@ -89,6 +90,7 @@ async function startShortRound(
 }
 function ingress(f: Fixture, deps: ReturnType<typeof mediaDependencies>) {
   const capture = f.store.createMediaCaptureOperations({
+    admission: captureAdmissionPolicy,
     sttLagMs: CAPTURE_STT_LAG_MS,
     captureRule,
     nextId,

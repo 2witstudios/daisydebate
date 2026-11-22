@@ -1,3 +1,4 @@
+import { captureAdmissionPolicy } from '../src/features/media-capture/capture-policy';
 import { sha3Hex } from '@daisy/digest';
 import { existsSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -29,6 +30,7 @@ if (import.meta.main) {
     authority,
   });
   const capture = database.createMediaCaptureOperations({
+    admission: captureAdmissionPolicy,
     sttLagMs: CAPTURE_STT_LAG_MS,
     captureRule,
     nextId: createId,

@@ -109,3 +109,20 @@ full outward window against durable speaking history. Its source is synthetic
 PCM; it proves observation cadence and the historical read seam, not human STT,
 complete stream coverage or an accepted worker deployment. Unit negative controls
 remove sequence and burst guards separately and must fail before restored GREEN.
+
+## Fenced ingress admission
+
+The media-capture application supplies the canonical capture admission policy to
+its existing bounded adapter. Append, evidence reservation, observation and seal
+invoke it after the existing account/Round/session/worker/stream fences. The
+adapter supplies freshly sampled PostgreSQL receipt time again immediately
+before mutation; a worker timestamp never substitutes for it. No whole-day or
+unfenced snapshot authorizes a write.
+
+Clip grants and segment ends remain strict; observation ends are inclusive.
+Audio must precede a session close strictly, with receipt allowed exactly at the
+speech-to-text lag boundary. Reads and seals carry no audio timestamp. Immutable
+seal retry/count checks precede timeline-open eligibility, preserving retry
+precedence. Digest identity, lease/epoch binding, row decoding, capacity,
+positive-evidence holds and atomic mutation/revision stay in storage. There is
+no default adapter policy or alternate ingress path.

@@ -4,7 +4,6 @@ import { nextEpoch } from './lease-policy';
 import { and, eq, isNull } from 'drizzle-orm';
 import {
   captureAdmission,
-  captureSessionAdmits,
   lockCaptureLease,
   lockCaptureRound,
   type CaptureDependencies,
@@ -47,6 +46,7 @@ export async function verifyMediaWorkerLease(
     tx,
     input.roundId,
     tick.transcriptAdmissionCutoff,
+    dependencies,
   );
   if (!session || !round || !isRoundRunning(round.status) || session.endedAt)
     throw createRefusal(
@@ -66,7 +66,7 @@ export async function verifyMediaWorkerLease(
   // rechecks that outcome immediately before credential construction.
   if (
     purpose === 'mint' &&
-    (!captureSessionAdmits(session, {
+    (!dependencies.admission.sessionAdmits(session, {
       capturedUntil: now,
       receivedAt: now,
       sttLagMs: dependencies.sttLagMs,
