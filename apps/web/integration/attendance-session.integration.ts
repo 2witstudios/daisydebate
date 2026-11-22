@@ -198,3 +198,69 @@ test('signed receipt replay waiting on the canonical account fence sees revocati
     }
   }, member);
 });
+
+test('a receipt apply that outlives its callback cannot reopen a released session', async () =>
+  withAttendanceRound(
+    async ({ f, attendance: original, roundId, segmentId }) => {
+      let escaped: AttendanceReceiptSession | undefined;
+      let pending: Promise<void> | undefined;
+      await original.checkIn(
+        { kind: 'human', actorId: f.host.actorId },
+        roundId,
+        { version: 1, commandId: createId(), segmentId },
+      );
+      const commandId = createId();
+      const store: AttendanceStore = {
+        withAttendanceDiscovery: f.store.withAttendanceDiscovery,
+        withAttendanceReceipt: (input, work) =>
+          f.store.withAttendanceReceipt(input, async (session) => {
+            escaped = session;
+            await work({
+              ...session,
+              apply: async () => {
+                // Deliberately return before storage completes, as a faulty caller could.
+                pending = session.apply();
+                void pending.catch(() => {});
+              },
+            });
+          }),
+      };
+      const attendance = createAttendanceFeature({
+        checkIns: store,
+        evaluate: f.store.evaluateRoundAttendance,
+        nextId: createId,
+        instanceId: createId(),
+      });
+      await assertRejects({
+        given:
+          'an application callback returning with its write still in flight',
+        should: 'refuse an unsettled transaction',
+        actual: () =>
+          attendance.checkIn(
+            { kind: 'human', actorId: f.host.actorId },
+            roundId,
+            { version: 1, commandId, segmentId },
+          ),
+        code: 'CONFLICT',
+      });
+      if (!escaped || !pending) throw new Error('In-flight apply required');
+      await Promise.allSettled([pending]);
+      const released = escaped;
+      await assertRejects({
+        given: 'the delayed apply has finished after callback release',
+        should: 'keep the reader closed before any query',
+        actual: () => released.readClosedSegments(),
+        code: 'CONFLICT',
+      });
+      const [row] = await f.sql`select
+      (select count(*)::int from round_commands where command_id=${commandId}) as aliases,
+      (select count(*)::int from round_check_ins where command_id=${commandId}) as receipts,
+      (select count(*)::int from round_check_in_attempts where command_id=${commandId} and state='aborted') as aborted`;
+      assert({
+        given: 'the escaped write',
+        should: 'roll back both writes and settle its attempt',
+        actual: { ...row },
+        expected: { aliases: 0, receipts: 0, aborted: 1 },
+      });
+    },
+  ));
