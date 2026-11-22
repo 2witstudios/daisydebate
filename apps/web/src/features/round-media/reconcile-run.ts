@@ -40,7 +40,7 @@ import {
   mediaPassReply,
   type HeldOutcome,
   type RoomReconcileOutcome,
-} from './model/reconcile-outcome';
+} from './reconciliation/model/pass-outcome';
 
 /** What a vendor mutation's authorization reads, under its locks. */
 type AuthorizeContext = Parameters<

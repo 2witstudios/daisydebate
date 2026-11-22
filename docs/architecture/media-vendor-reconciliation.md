@@ -122,6 +122,16 @@ pass fault is deferred and rethrown before a callback fault or the caller’s
 own refusal. Initial cleanup is not repeated by the closing uncertainty
 check. Unread faults and expected refusals keep distinct incident evidence.
 
+The server reconciliation model lives under
+`round-media/reconciliation/model`, separate from the browser playback and
+capture model under `round-media/model`. Both retain the ambient-purity lint
+fence; the browser model’s stricter adapter/import guard stays unchanged.
+Snapshot and room-read phases supply the evidence required by completed
+variants. An occupied-call result requires an occupied room read; cleanup
+and held callbacks complete once. Invalid body events cannot manufacture a
+clean unread pass or replace a terminal failure. Closing cleanup may add
+proof while preserving the first fault.
+
 This outcome is a record of what happened, never a preauthorized plan.
 The reconcile lease does not freeze Round or account authority. Every
 vendor intent keeps its own fresh transaction and authorization; closes
