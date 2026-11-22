@@ -373,6 +373,12 @@ export const tenantIsolationManifest: TenantIsolationManifest = {
         'Projects the participant’s own hold and generic counterpart waiting.',
     },
     {
+      name: 'daisy_lock_protection_accounts',
+      executors: ['daisy_web'],
+      reason:
+        'Locks the child and active guardian accounts for a scoped protection change, returning no account data.',
+    },
+    {
       name: 'daisy_set_protection_level',
       executors: ['daisy_web'],
       reason:

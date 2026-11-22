@@ -1,3 +1,38 @@
+CREATE FUNCTION public.daisy_lock_protection_accounts(child_id text)
+RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = pg_catalog, public, pg_temp
+AS $$
+DECLARE
+  guardian_ids text[];
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public.daisy_protection_guardians(child_id)
+    WHERE user_id = public.daisy_subject_scope()) THEN
+    RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Protection level cannot be changed';
+  END IF;
+  SELECT ARRAY(SELECT guardian_user_id FROM public.guardian_links
+    WHERE minor_user_id = child_id AND status = 'active') INTO guardian_ids;
+  -- Fence active link accounts, including anyone whose age band is about to change.
+  -- Notice inserts need a key-share lock on each recipient. Fence the whole
+  -- group in account order before taking the child-choice or request locks.
+  PERFORM id FROM public.users WHERE id = child_id OR id = ANY(guardian_ids)
+    ORDER BY id FOR SHARE;
+  IF NOT EXISTS (SELECT 1 FROM public.daisy_protection_guardians(child_id)
+    WHERE user_id = public.daisy_subject_scope()) THEN
+    RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Protection level cannot be changed';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.guardian_links
+    WHERE minor_user_id = child_id AND status = 'active'
+      AND NOT guardian_user_id = ANY(guardian_ids)) THEN
+    RAISE EXCEPTION USING ERRCODE = '40001', MESSAGE = 'Protection guardians changed';
+  END IF;
+END
+$$;
+--> statement-breakpoint
+REVOKE ALL ON FUNCTION public.daisy_lock_protection_accounts(text) FROM PUBLIC;
+--> statement-breakpoint
+GRANT EXECUTE ON FUNCTION public.daisy_lock_protection_accounts(text) TO daisy_web;
+--> statement-breakpoint
 CREATE OR REPLACE FUNCTION public.daisy_set_protection_level(child_id text, selected jsonb,
   happened_at timestamptz DEFAULT statement_timestamp(), notice_ids text[] DEFAULT NULL)
 RETURNS integer
@@ -14,18 +49,8 @@ DECLARE
   slots integer;
   first_slot integer := 1;
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM public.daisy_protection_guardians(child_id)
-    WHERE user_id = public.daisy_subject_scope()) THEN
-    RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Protection level cannot be changed';
-  END IF;
-  -- Match the authorization account fence's user-id order.
-  PERFORM id FROM public.users WHERE id IN (child_id, public.daisy_subject_scope())
-    ORDER BY id FOR UPDATE;
+  PERFORM public.daisy_lock_protection_accounts(child_id);
   PERFORM public.daisy_protection_choice_lock(child_id);
-  IF NOT EXISTS (SELECT 1 FROM public.daisy_protection_guardians(child_id)
-    WHERE user_id = public.daisy_subject_scope()) THEN
-    RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Protection level cannot be changed';
-  END IF;
   previous_choice := public.daisy_effective_protection_choice(child_id);
   -- Freeze the pending rows before planning IDs. The child account lock
   -- fences contact commands; the request lock also fences counterpart erasure.
@@ -54,7 +79,10 @@ BEGIN
   SELECT count(*)::integer INTO recipients FROM public.daisy_protection_guardians(child_id);
   -- The application supplies one additional ID for each new approval row.
   slots := new_holds + jsonb_array_length(newly_covered) * recipients;
-  IF slots > 0 AND notice_ids IS NULL THEN
+  -- Counterpart age can cross the policy threshold between the two calls.
+  -- An undersized allocation replans without persisting the choice or holds.
+  IF slots > coalesce(cardinality(notice_ids), 0) THEN
+    PERFORM public.daisy_require_notice_ids(notice_ids, 0);
     RETURN slots;
   END IF;
   PERFORM public.daisy_require_notice_ids(notice_ids, slots);
