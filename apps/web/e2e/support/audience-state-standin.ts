@@ -39,13 +39,13 @@ export const startAudienceStateStandIn = (input: {
     }
     const results = await Promise.allSettled(
       publishing.map(async (broadcast) => {
-        const [timeline, audience] = await Promise.all([
-          store.readSpectatorTimeline({
-            roundId: broadcast.roundId,
-            horizonOf: (facts) => spectatorTimelineHorizon({ ...facts, nowMs }),
-          }),
-          store.readAudienceSnapshot({ roundId: broadcast.roundId }),
-        ]);
+        const timeline = await store.readSpectatorTimeline({
+          roundId: broadcast.roundId,
+          horizonOf: (facts) => spectatorTimelineHorizon({ ...facts, nowMs }),
+        });
+        const audience = await store.readAudienceSnapshot({
+          roundId: broadcast.roundId,
+        });
         if (!timeline || !audience) return;
         const path = audienceStatePath(
           audienceStateKey(broadcast.feedKey, broadcast.linkHash),
@@ -74,7 +74,10 @@ export const startAudienceStateStandIn = (input: {
       }),
     );
     const failed = results.filter(({ status }) => status === 'rejected').length;
-    if (failed) console.error(`e2e audience state: ${failed} publications failed`);
+    if (failed)
+      console.error(
+        JSON.stringify({ event: 'e2e.audience_state.publish_failed', failed }),
+      );
   };
   // A slow pass must drain its reads before another pass queues work on the pool.
   let publishing = false;
@@ -84,7 +87,9 @@ export const startAudienceStateStandIn = (input: {
     try {
       await pass();
     } catch {
-      console.error('e2e audience state: could not read publishing broadcasts');
+      console.error(
+        JSON.stringify({ event: 'e2e.audience_state.read_failed' }),
+      );
     } finally {
       publishing = false;
     }
