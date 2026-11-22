@@ -1,14 +1,11 @@
+import { runPreapprovalCommand } from '../src/features/operator-api/preapproval-command';
 import { z } from 'zod';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
-import { createDatabase } from '@daisy/db';
 import { instantMs } from '@daisy/clock';
 import { sha3Hex } from '@daisy/digest';
-import {
-  decidePreapprovalChange,
-  type PreapprovalCommand,
-} from '@daisy/protocol/beta-preapproval';
-import { withSql, testDatabaseUrl } from './fixtures';
+import { type PreapprovalCommand } from '@daisy/protocol/beta-preapproval';
+import { withBeta } from './preapproval.test-support';
 import { readBetaInvitationDelivery } from '../src/features/beta-access/invitation-delivery';
 import { createMailIntentDelivery } from '../src/features/beta-access/mail-delivery';
 import { createResendSender } from '../src/features/mail/resend-sender';
@@ -16,7 +13,6 @@ import { createResendSender } from '../src/features/mail/resend-sender';
 setupRitewayBun();
 const inputFor = (command: PreapprovalCommand) => ({
   command,
-  decide: decidePreapprovalChange,
   serviceId: 'daisy-admin',
   operatorRef: 'o'.repeat(24),
   requestDigest: sha3Hex(JSON.stringify(command)),
@@ -31,64 +27,7 @@ const add = (email: string, invite = false): PreapprovalCommand => ({
   email,
   invite,
 });
-type Db = ReturnType<typeof createDatabase>;
-type Sql = Parameters<Parameters<typeof withSql>[0]>[0];
-
-/** Actual store/claim/settle operations; cleanup names only this fixture's records. */
-async function withBeta(
-  work: (input: {
-    sql: Sql;
-    db: Db;
-    account: () => Promise<{ userId: string; actorId: string; email: string }>;
-  }) => Promise<void>,
-) {
-  await withSql(async (sql) => {
-    const database = createDatabase({
-      url: testDatabaseUrl,
-      nextActorId: createId,
-    });
-    const users: string[] = [],
-      actors: string[] = [],
-      commands: string[] = [],
-      grants: string[] = [];
-    const db: Db = {
-      ...database,
-      runPreapprovalCommand: async (input) => {
-        commands.push(input.command.commandId);
-        const result = await database.runPreapprovalCommand(input);
-        grants.push(result.preapprovalId);
-        return result;
-      },
-    };
-    const account = async () => {
-      const userId = createId(),
-        actorId = createId();
-      users.push(userId);
-      actors.push(actorId);
-      const email = `${userId}@operator.invalid`;
-      await sql`insert into users(id,username,email,email_verified) values(${userId},${userId},${email},true)`;
-      await sql`insert into actors(id,kind,user_id) values(${actorId},'human',${userId})`;
-      await sql`insert into account_beta_access(user_id,state,requested_at,provenance) values(${userId},'pending',now(),'signup')`;
-      await sql`insert into account_age(user_id,birth_month,version,recorded_at) values(${userId},'2000-01',1,now())`;
-      return { userId, actorId, email };
-    };
-    try {
-      await work({ sql, db, account });
-    } finally {
-      await database.close();
-      for (const id of commands) {
-        await sql`delete from mail_intents where dedupe_key=${`beta-invitation:${id}`}`;
-        await sql`delete from operator_command_receipts where command_id=${id}`;
-      }
-      for (const id of grants)
-        await sql`delete from beta_preapprovals where id=${id}`;
-      for (const id of users)
-        await sql`delete from account_entitlement_grants where user_id=${id}`;
-      for (const id of actors) await sql`delete from actors where id=${id}`;
-      for (const id of users) await sql`delete from users where id=${id}`;
-    }
-  });
-}
+type Db = import('@daisy/db').Database;
 
 /** Real application worker and Resend adapter; its HTTP edge is a test provider. */
 function worker(db: Db) {
@@ -130,7 +69,8 @@ function worker(db: Db) {
 test('a claimed invitation stops being owed when its verified email changes', async () => {
   await withBeta(async ({ sql, db, account }) => {
     const person = await account();
-    const saved = await db.runPreapprovalCommand(
+    const saved = await runPreapprovalCommand(
+      db,
       inputFor(add(person.email, true)),
     );
     await sql`update users set email=${`${createId()}@example.test`} where id=${person.userId}`;
@@ -150,7 +90,8 @@ test('a claimed invitation stops being owed when its verified email changes', as
         : read;
     let refused = false;
     try {
-      await db.runPreapprovalCommand(
+      await runPreapprovalCommand(
+        db,
         inputFor({
           v: 1,
           commandId: createId(),
@@ -184,7 +125,7 @@ test('a claimed invitation stops being owed when its verified email changes', as
 test('long-outage invitation recovery preserves the grant and never assumes an expired provider key is safe', async () => {
   await withBeta(async ({ sql, db }) => {
     const command = add(`${createId()}@example.test`, true);
-    const saved = await db.runPreapprovalCommand(inputFor(command));
+    const saved = await runPreapprovalCommand(db, inputFor(command));
     const claims = await db.claimMailIntents({
       limit: 50,
       leaseMs: 60000,
@@ -216,7 +157,8 @@ test('long-outage invitation recovery preserves the grant and never assumes an e
       commandId: command.commandId,
       serviceId: 'daisy-admin',
     });
-    const resent = await db.runPreapprovalCommand(
+    const resent = await runPreapprovalCommand(
+      db,
       inputFor({
         v: 1,
         commandId: createId(),
@@ -267,7 +209,8 @@ test('the real application worker sends eligible invitations and cancels fresh i
     const recipients: string[] = [];
     for (const change of cases) {
       const person = await account();
-      const saved = await db.runPreapprovalCommand(
+      const saved = await runPreapprovalCommand(
+        db,
         inputFor(add(person.email, true)),
       );
       const [intent] =
@@ -332,7 +275,7 @@ test('fresh verified matching accounts block only erased, restricted or revoked 
     for (const state of ['pending', 'revoked'] as const) {
       const email = `${createId()}@example.test`;
       if (state === 'pending') recipients.push(email);
-      const saved = await db.runPreapprovalCommand(inputFor(add(email, true)));
+      const saved = await runPreapprovalCommand(db, inputFor(add(email, true)));
       // The account appears after enqueue, without the separate participant claim.
       const person = await account();
       await sql`update users set email=${email} where id=${person.userId}`;

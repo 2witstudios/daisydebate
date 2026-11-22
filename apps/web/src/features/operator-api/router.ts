@@ -1,3 +1,4 @@
+import { runPreapprovalCommand } from './preapproval-command';
 import { mayReadOperatorCommand } from './command-access';
 import {
   ageAdmitted,
@@ -7,7 +8,6 @@ import {
 } from '@daisy/auth/authorization';
 import {
   preapprovalCommandSchema,
-  decidePreapprovalChange,
   preapprovalPageSchema,
   preapprovalQuerySchema,
 } from '@daisy/protocol/beta-preapproval';
@@ -89,7 +89,7 @@ const operatorService = {
 type Store = Pick<
   Database,
   | 'listBetaPreapprovals'
-  | 'runPreapprovalCommand'
+  | 'preapprovalCommand'
   | 'listOperatorAccounts'
   | 'runFlagCommand'
   | 'runBetaAccessCommand'
@@ -640,9 +640,8 @@ async function updatePreapproval(
           parsed.data.preapprovalId,
           parsed.data.expectedRevision,
         ];
-  return deps.store.runPreapprovalCommand({
+  return runPreapprovalCommand(deps.store, {
     command: parsed.data,
-    decide: decidePreapprovalChange,
     serviceId: principal.serviceId,
     operatorRef: principal.operatorRef,
     requestDigest: deps.crypto.sha3Hex(

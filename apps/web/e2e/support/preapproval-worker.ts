@@ -1,10 +1,8 @@
+import { runPreapprovalCommand } from '../../src/features/operator-api/preapproval-command';
 import { sha3Hex } from '@daisy/digest';
 import { createId } from '@paralleldrive/cuid2';
 import { createDatabase } from '@daisy/db';
-import {
-  decidePreapprovalChange,
-  preapprovalEmailSchema,
-} from '@daisy/protocol/beta-preapproval';
+import { preapprovalEmailSchema } from '@daisy/protocol/beta-preapproval';
 import { betaAccessTarget } from './beta-access-target';
 import { z } from 'zod';
 
@@ -23,9 +21,8 @@ try {
     adminAuditHead: 'a'.repeat(64),
     ...input,
   } as const;
-  await database.runPreapprovalCommand({
+  await runPreapprovalCommand(database, {
     command,
-    decide: decidePreapprovalChange,
     serviceId: 'daisy-admin',
     operatorRef: 'o'.repeat(24),
     requestDigest: sha3Hex(JSON.stringify(command)),

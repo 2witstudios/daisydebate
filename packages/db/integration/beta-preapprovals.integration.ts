@@ -1,3 +1,4 @@
+import { executePreapprovalCommand } from './preapproval-command.test-support';
 import { decidePreapprovalChange } from '@daisy/protocol/beta-preapproval';
 import { sha3Hex } from '@daisy/digest';
 import { assertRejects } from '@daisy/errors/testing';
@@ -38,10 +39,10 @@ const trackedDatabase = (
   return {
     ...db,
     runPreapprovalCommand: async (
-      input: Parameters<typeof db.runPreapprovalCommand>[0],
+      input: Parameters<typeof executePreapprovalCommand>[1],
     ) => {
       commandIds.push(input.command.commandId);
-      const result = await db.runPreapprovalCommand(input);
+      const result = await executePreapprovalCommand(db, input);
       grants.push(result.preapprovalId);
       return result;
     },
