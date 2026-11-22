@@ -208,12 +208,18 @@ test('deployed realtime composition keeps group reading off in production and on
       activeMemberActorIds: [principal.actorId, peer.actorId],
     },
   };
-  const accounts = [accountFact, { ...accountFact, ...peer }].map(
-    (account) => ({
-      account,
-      age: { state: 'unknown' as const },
-    }),
-  );
+  const accounts = [
+    accountFact,
+    {
+      ...accountFact,
+      actorId: peer.actorId,
+      userId: peer.userId,
+      revision: peer.revision,
+    },
+  ].map((account) => ({
+    account,
+    age: { state: 'unknown' as const },
+  }));
   assert({
     given:
       'the exact deployed composition with checked production and staging configs',
