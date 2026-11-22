@@ -1,8 +1,8 @@
-import type { Page, Route } from '@playwright/test';
+import type { Page, Route, TestInfo } from '@playwright/test';
 import { expect } from './fixtures';
 
 /** The device tile must not move Settings between its pointer check and click. */
-export async function proveStableDeviceHydration(page: Page) {
+export async function proveStableDeviceHydration(page: Page, info: TestInfo) {
   let release = () => {};
   const hydration = new Promise<void>((resolve) => {
     release = resolve;
@@ -29,17 +29,29 @@ export async function proveStableDeviceHydration(page: Page) {
     await page.evaluate(async () => {
       await document.fonts.ready;
     });
-    await settings.scrollIntoViewIfNeeded();
-    const before = await settings.boundingBox();
-    expect(before).not.toBeNull();
+    // Document coordinates isolate layout from Next's hydration-time scroll restoration.
+    const position = () =>
+      settings.evaluate((link) => {
+        const box = link.getBoundingClientRect();
+        return {
+          x: box.x + window.scrollX,
+          y: box.y + window.scrollY,
+          width: box.width,
+          height: box.height,
+        };
+      });
+    const before = await position();
     release();
     await expect(turnOn).toBeEnabled();
-    const after = await settings.boundingBox();
-    expect(after).not.toBeNull();
-    expect(after!.x).toBeCloseTo(before!.x, 1);
-    expect(after!.y).toBeCloseTo(before!.y, 1);
-    expect(after!.width).toBeCloseTo(before!.width, 1);
-    expect(after!.height).toBeCloseTo(before!.height, 1);
+    const after = await position();
+    expect(after.x).toBeCloseTo(before.x, 1);
+    expect(after.y).toBeCloseTo(before.y, 1);
+    expect(after.width).toBeCloseTo(before.width, 1);
+    expect(after.height).toBeCloseTo(before.height, 1);
+    await info.attach('settings-hydration-position', {
+      body: JSON.stringify({ before, after }),
+      contentType: 'application/json',
+    });
   } finally {
     release();
     await page.unroute('**/_next/static/**', holdScripts);

@@ -154,7 +154,7 @@ export async function proveGathering(
   } finally {
     await editor.close();
   }
-  await proveStableDeviceHydration(page);
+  await proveStableDeviceHydration(page, info);
   await proveSiblingSave(page);
   await visualStates(page, info);
   await proveClosedRoomNavigation(page);
