@@ -82,7 +82,7 @@ const journey = async (
         };
       });
       expect(column).toEqual({
-        width: 56,
+        width: viewport.width >= 1101 ? 184 : 56,
         top: 0,
         bottom: viewport.height,
         borderWidth: '1px',
@@ -90,7 +90,23 @@ const journey = async (
       });
       const prep = rail.getByRole('link', { name: 'Prep', exact: true });
       await expect(prep).toBeVisible();
-      expect(await prep.boundingBox()).toMatchObject({ width: 44, height: 44 });
+      const prepTarget = await prep.boundingBox();
+      expect(prepTarget?.width).toBeGreaterThanOrEqual(44);
+      expect(prepTarget?.height).toBe(44);
+      if (viewport.width >= 1101) {
+        const minimize = rail.getByRole('button', { name: 'Minimize' });
+        const expand = rail.getByRole('button', { name: 'Expand' });
+        await minimize.click();
+        await expect(expand).toBeVisible();
+        await rail.getByRole('link', { name: 'Home', exact: true }).click();
+        await expect(page).toHaveURL(`${origin}/`);
+        await expect(expand).toBeVisible();
+        await prep.click();
+        await expect(page).toHaveURL(`${origin}/prep`);
+        await expect(expand).toBeVisible();
+        await expand.click();
+        await expect(minimize).toBeVisible();
+      }
     }
     await testInfo.attach(`prep-${viewport.width}`, {
       body: await page.screenshot(),
