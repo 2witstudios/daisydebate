@@ -6,7 +6,7 @@ clause of the App shell decision in `docs/development/ui-conventions.md`
 (RRD-1, 2026-10-12) and extends the amendment note in
 [ADR 0024](0024-ecs-ui-shell-state.md).
 
-Amended by [ADR 0113](0113-document-without-page-layout.md): the manager fills its frame, its editor has no page layout, and Prep uses an icon-only rail.
+See [ADR 0113](0113-document-without-page-layout.md) for the Prep workspace layout.
 
 ## Context
 

@@ -226,9 +226,8 @@ Both shell sidebars follow the selected theme: light cream/white surfaces in
 light mode and normal green surfaces in dark mode (owner, 2026-11-04,
 overruling DEC-359). The navigation rail and people sidebar use `--surface`;
 the people sidebar uses `--text`, and neither forces a dark color scheme.
-A page that marks itself
-`data-workspace` fills the viewport and scrolls its own panes, and the rail is
-icon-only beside it whatever the saved choice says (ADR 0113), by CSS alone.
+Prep marks itself `data-workspace` to fill the viewport and scroll its own
+panes. Its navigation rail follows the same saved choice as other shell pages.
 
 The choice to minimize to the icon-only rail — names as screen-reader text
 with a tooltip, the 56px column — persists in a cookie the server reads per

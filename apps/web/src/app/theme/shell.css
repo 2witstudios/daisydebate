@@ -46,9 +46,6 @@
 @utility grid-shell-extended {
   @media (width >= 1101px) {
     --shell-left: var(--spacing-nav-rail-extended);
-    &:has([data-workspace]) {
-      --shell-left: var(--spacing-nav-rail);
-    }
   }
 }
 

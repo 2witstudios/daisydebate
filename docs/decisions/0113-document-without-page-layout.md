@@ -26,9 +26,8 @@ centred column, so a document read as a window in the middle of the screen.
    on every control.
 3. The document manager draws no frame of its own. A page gives it one, and at
    Prep the frame is the whole middle section.
-4. Prep's Files is a sub-sidebar attached to the main rail, which is icon-only
-   on that page whatever the viewer's saved choice says. The saved choice from
-   ADR 0091 applies everywhere else.
+4. Prep's Files is a sub-sidebar attached to the main rail. The saved rail
+   choice from ADR 0091 applies on Prep as on other shell pages.
 
 ## Consequences
 
