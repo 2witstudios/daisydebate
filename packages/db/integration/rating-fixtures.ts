@@ -1,4 +1,8 @@
-import { ratingEligibility } from '@daisy/debate-engine';
+import {
+  ratingEligibility,
+  ratingCompetition,
+  requireRatingStandingRules,
+} from '@daisy/debate-engine';
 import { createId } from '@paralleldrive/cuid2';
 import {
   emptyRuntimeCheckpointFor,
@@ -38,6 +42,8 @@ const deltaFor = (outcome: RatingPlanFacts['outcome'], side: string) =>
  */
 export const stub = (seen: RatingPlanFacts[] = []): RatingDecision => ({
   eligibility: ratingEligibility,
+  competition: ratingCompetition,
+  requireStandingRules: requireRatingStandingRules,
   plan: (facts) => {
     seen.push(facts);
     const change = (side: 'affirmative' | 'negative') => {

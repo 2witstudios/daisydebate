@@ -3,6 +3,8 @@ import {
   planRating,
   rateDebate,
   ratingEligibility,
+  ratingCompetition,
+  requireRatingStandingRules,
   ratingPolicy,
 } from '@daisy/debate-engine';
 import { assertRejects, rejectionOf } from '@daisy/errors/testing';
@@ -188,6 +190,8 @@ test('a posting that fails after its ledger insert leaves nothing and the next s
             nextChangeId: createId,
             decide: {
               eligibility: ratingEligibility,
+              competition: ratingCompetition,
+              requireStandingRules: requireRatingStandingRules,
               plan: (facts) => {
                 const plan = planRating(facts);
                 return {

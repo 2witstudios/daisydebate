@@ -1,11 +1,13 @@
 import type {
   RatingEligibility,
+  RatingCompetition,
   RatingEligibilityFacts,
   RatingPlan,
   RatingPlanFacts,
   RatingState,
   RatingUnrated,
 } from '@daisy/protocol/ratings';
+import type { SideKey } from '@daisy/protocol/seats';
 import type { RoundRatingScope } from '@daisy/protocol/rating-ladder';
 
 /**
@@ -16,6 +18,10 @@ import type { RoundRatingScope } from '@daisy/protocol/rating-ladder';
 
 export type RatingDecision = {
   eligibility(facts: RatingEligibilityFacts): RatingEligibility;
+  /** Invoked after the frozen season fence, before projection locks. */
+  competition(sides: readonly SideKey[]): RatingCompetition;
+  /** Invoked on freshly loaded prior-season facts under projection locks. */
+  requireStandingRules(input: { readonly previousWithoutRules: boolean }): void;
   plan(facts: RatingPlanFacts): RatingPlan;
 };
 
