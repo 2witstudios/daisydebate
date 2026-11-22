@@ -207,6 +207,9 @@ jobs:
         run: bun test:e2e:qualify
         env:
           CI: true
+          # The step bounds the three passes together. A local queue deadline
+          # must not kill an individual hosted pass before its report is written.
+          DAISY_HEAVY_TIMEOUT_MINUTES: '165'
           E2E_DATABASE_URL: postgres://daisy_e2e:e2e-loopback-only@localhost:5432/daisy_e2e
           E2E_REDIS_URL: redis://localhost:6379/2
 
