@@ -1,3 +1,4 @@
+import type { createClubSeatCommands } from '../clubs/invitation-resend';
 import type Stripe from 'stripe';
 import { z } from 'zod';
 import { isAppError } from '@daisy/errors';
@@ -17,7 +18,7 @@ import { clubSubscriptionSchema } from './club-subscription-facts';
 type Subject = { readonly userId: string; readonly actorId: string };
 type PurchaseStore = ReturnType<Database['billingPurchases']>;
 type MemberStore = ReturnType<Database['billingMember']>;
-type SeatStore = ReturnType<Database['clubSeats']>;
+type SeatStore = Pick<ReturnType<typeof createClubSeatCommands>, 'command'>;
 type PortalCreate = Parameters<typeof createPortalSession>[0]['create'];
 
 /** Stripe calls a Club plan makes beyond Premium's: its subscription and invoices. */
