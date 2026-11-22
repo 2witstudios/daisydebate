@@ -206,18 +206,29 @@ describe('the durable mail queue (ADR 0075)', () => {
         assert({
           given:
             'approval mail for an approved, a since-revoked and an erased account',
-          should: 'address only the approved account, by its current address',
+          should:
+            'expose fresh recipient facts for application delivery decisions',
           actual: await Promise.all(
             ids.map((id) => database.readMailIntentDelivery(id)),
           ),
           expected: [
             {
-              kind: 'member',
-              to: `${approved}@beta.invalid`,
-              username: `m-${approved}`,
+              kind: 'beta-approved',
+              recipient: {
+                email: `${approved}@beta.invalid`,
+                username: `m-${approved}`,
+                state: 'approved',
+              },
             },
-            { kind: 'not-owed' },
-            { kind: 'recipient-gone' },
+            {
+              kind: 'beta-approved',
+              recipient: {
+                email: `${revoked}@beta.invalid`,
+                username: `m-${revoked}`,
+                state: 'revoked',
+              },
+            },
+            { kind: 'beta-approved', recipient: null },
           ],
         });
       });

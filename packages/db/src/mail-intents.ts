@@ -53,9 +53,12 @@ export type MailIntentRead =
       ) => Promise<readonly string[]>;
     }
   | {
-      readonly kind: 'member';
-      readonly to: string;
-      readonly username: string;
+      readonly kind: 'beta-approved';
+      readonly recipient: {
+        readonly email: string | null;
+        readonly username: string | null;
+        readonly state: string | null;
+      } | null;
     }
   | {
       /** A Club seat offer (ADR 0148): the link names the invitation; the verified address accepts it. */
@@ -221,15 +224,7 @@ export function mailIntentOperations({
             from users u left join account_beta_access b on b.user_id = u.id
             where u.id = ${intent.recipient_user_id} and u.deleted_at is null`,
           );
-          const member = row;
-          if (!member?.email || !member.username)
-            return { kind: 'recipient-gone' };
-          if (member.state !== 'approved') return { kind: 'not-owed' };
-          return {
-            kind: 'member',
-            to: member.email,
-            username: member.username,
-          };
+          return { kind: 'beta-approved', recipient: row ?? null };
         }
         const [row] = await query(
           database,

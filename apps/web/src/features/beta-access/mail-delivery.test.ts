@@ -67,9 +67,49 @@ const scripted = (input: {
 };
 
 describe('mail intent delivery (ADR 0075)', () => {
+  test('fresh approval facts preserve cancellation precedence', async () => {
+    const outcomes = [];
+    for (const recipient of [
+      null,
+      { email: null, username: 'mia', state: 'revoked' },
+      { email: 'm@daisy.invalid', username: '', state: 'approved' },
+      { email: 'm@daisy.invalid', username: 'mia', state: 'revoked' },
+      { email: 'm@daisy.invalid', username: 'mia', state: null },
+      { email: 'm@daisy.invalid', username: 'mia', state: 'approved' },
+    ]) {
+      const { delivery, sent, settled } = scripted({
+        delivery: { kind: 'beta-approved', recipient },
+      });
+      await delivery.run(10);
+      outcomes.push([sent.length, settled[0]?.outcome]);
+    }
+    assert({
+      given:
+        'missing identity, missing address/name, revoked, absent or approved access',
+      should:
+        'prefer recipient-gone, then not-owed, and send only the current approved identity',
+      actual: outcomes,
+      expected: [
+        [0, { kind: 'cancelled', errorCode: 'recipient-gone' }],
+        [0, { kind: 'cancelled', errorCode: 'recipient-gone' }],
+        [0, { kind: 'cancelled', errorCode: 'recipient-gone' }],
+        [0, { kind: 'cancelled', errorCode: 'not-owed' }],
+        [0, { kind: 'cancelled', errorCode: 'not-owed' }],
+        [1, { kind: 'sent' }],
+      ],
+    });
+  });
+
   test('an approval goes to the member under the intent id', async () => {
     const { delivery, sent, settled } = scripted({
-      delivery: { kind: 'member', to: 'm@daisy.invalid', username: 'mia' },
+      delivery: {
+        kind: 'beta-approved',
+        recipient: {
+          email: 'm@daisy.invalid',
+          username: 'mia',
+          state: 'approved',
+        },
+      },
     });
     const count = await delivery.run(10);
     assert({
@@ -146,9 +186,12 @@ describe('mail intent delivery (ADR 0075)', () => {
       throw new Error('provider down');
     };
     const member = {
-      kind: 'member',
-      to: 'm@daisy.invalid',
-      username: 'mia',
+      kind: 'beta-approved',
+      recipient: {
+        state: 'approved',
+        email: 'm@daisy.invalid',
+        username: 'mia',
+      },
     } as const;
     const early = scripted({ delivery: member, deliver: failing, attempts: 2 });
     const last = scripted({ delivery: member, deliver: failing, attempts: 8 });
@@ -214,7 +257,14 @@ test('an intent whose read fails never aborts the batch, and stops at the attemp
             },
           };
         if (id !== 'owed') throw new Error('read failed');
-        return { kind: 'member', to: 'm@daisy.invalid', username: 'mia' };
+        return {
+          kind: 'beta-approved',
+          recipient: {
+            email: 'm@daisy.invalid',
+            username: 'mia',
+            state: 'approved',
+          },
+        };
       },
       settleMailIntent: async (settle) => {
         settled.push(settle);
