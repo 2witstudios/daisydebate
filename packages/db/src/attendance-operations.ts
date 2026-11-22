@@ -82,7 +82,7 @@ export type AttendanceDiscoverySession = CommonSession & {
 export type AttendanceReceiptSession = CommonSession & {
   readonly readClosedSegments: () => Promise<readonly string[]>;
   readonly replay: (participantId: string) => Promise<AttendanceReceipt | null>;
-  readonly prepare: (
+  readonly prepareReceipt: (
     participantId: string,
   ) => Promise<{ readonly receivedAt: string }>;
   readonly apply: () => Promise<void>;
@@ -264,7 +264,7 @@ export function createAttendanceOperations(deps: {
                 if (receipt) state = { kind: 'settled', receipt };
                 return receipt;
               },
-              prepare: async (participantId) => {
+              prepareReceipt: async (participantId) => {
                 open();
                 requireParticipant(locked, input, participantId);
                 const segmentId = input.envelope.segmentId;

@@ -1,3 +1,4 @@
+import { panelAdmission } from '../src/features/round-finalization/admission';
 import {
   botGrantUnused,
   captureRule,
@@ -35,6 +36,7 @@ test('internal zerojudge completion requires real freeze and settled attendance 
       commandId: createId(),
       freezeRevision: 1,
       buildProjection: roundTickProjection(createId),
+      ...panelAdmission,
       buildCompletion: panelCompletion(createId),
       judgingEndReason: judgingJobEndReason,
       attendanceSettled,
@@ -154,6 +156,7 @@ test('internal zerojudge completion preserves a prior competitive abandonment an
       commandId: createId(),
       freezeRevision: 1,
       buildProjection: roundTickProjection(createId),
+      ...panelAdmission,
       buildCompletion: panelCompletion(createId),
       judgingEndReason: judgingJobEndReason,
       attendanceSettled,

@@ -1,3 +1,4 @@
+import { panelAdmission } from './admission';
 import { instantMs } from '@daisy/clock';
 import type { IdGenerator } from '@daisy/clock';
 import type { AttendanceEvaluation } from '@daisy/db/attendance';
@@ -148,6 +149,7 @@ export function createRoundMaintenanceOperations(input: {
       if (result.status !== 'frozen') return result;
       try {
         await input.store.completePanelRound({
+          ...panelAdmission,
           instanceId: input.instanceId,
           roundId,
           commandId: input.ids.next(),
