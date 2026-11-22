@@ -28,7 +28,8 @@ Measured on 19 November 2026 at `417ad45a0`:
    No second generator, hand-rolled or library.
 2. **Every property run is seeded.** `@daisy/seeded-random/testing` is the
    one helper: `seededCheck` (an arbitrary and its problems), `seededDraws`
-   (an input built from a tape of draws) and `seededWalk` (a walk over the
+   and `seededAsyncDraws` (an input built from a tape of draws, including
+   async public operations) and `seededWalk` (a walk over the
    moves each state allows). Each takes a fixed seed and a run count, so a
    run never varies, and reports the shrunk failure as text a RITEway
    assertion compares with `null`.
