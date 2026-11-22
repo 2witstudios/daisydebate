@@ -1,3 +1,4 @@
+import type { DecisionReleasePolicy } from '@daisy/protocol/round-decision-release';
 import type {
   CaptureAdmissionPolicy,
   CaptureWriteTiming,
@@ -36,6 +37,7 @@ export type CaptureStream = {
   readonly roundParticipantId: string;
 };
 export type CaptureDependencies = {
+  readonly decisionRelease?: DecisionReleasePolicy | undefined;
   readonly admission: CaptureAdmissionPolicy;
   /** Explicit local qualification admission; absent in production composition. */
   readonly evidence?: {
@@ -72,6 +74,7 @@ export async function lockCaptureRound(
 ) {
   validCaptureIds(input.roundId, input.sessionId);
   const tick = await executeLockedRoundTick(tx, {
+    decisionRelease: dependencies.decisionRelease,
     roundId: input.roundId,
     buildProjection: dependencies.buildProjection,
   });

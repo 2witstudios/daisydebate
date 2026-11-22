@@ -1,3 +1,4 @@
+import type { DecisionReleasePolicy } from '@daisy/protocol/round-decision-release';
 import { instantMs } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
 import { isRoundRunning } from '@daisy/protocol/round';
@@ -124,6 +125,7 @@ async function readWatch(tx: Tx, roundId: string) {
  */
 export function createRoundIncidentStore(deps: {
   readonly run: BoundedTransaction;
+  readonly decisionRelease?: DecisionReleasePolicy | undefined;
 }) {
   return {
     /** An ordinary pass's unlocked read, so a healthy Round costs no Round lock. */
@@ -186,6 +188,7 @@ export function createRoundIncidentStore(deps: {
             locked,
             settling,
             now,
+            deps.decisionRelease,
           ));
         if (settling)
           await writeSpeakingProjection(tx, {
@@ -219,6 +222,7 @@ export function createRoundIncidentStore(deps: {
           current,
           projection,
           now,
+          deps.decisionRelease,
         );
         await writeSpeakingProjection(tx, {
           roundId: input.roundId,

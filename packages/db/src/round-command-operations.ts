@@ -1,3 +1,4 @@
+import type { DecisionReleasePolicy } from '@daisy/protocol/round-decision-release';
 import type { RoundTimeSource } from './round-execution-time';
 import {
   fenceRoundWrite,
@@ -81,7 +82,9 @@ export const roundCommandOperations = ({
   database,
   eventSink,
   roundTime,
+  decisionRelease,
 }: {
+  readonly decisionRelease?: DecisionReleasePolicy | undefined;
   readonly database: TxSource;
   readonly roundTime?: RoundTimeSource | undefined;
   readonly eventSink?: DatabaseEventSink | undefined;
@@ -92,7 +95,7 @@ export const roundCommandOperations = ({
       throw createAppError('VALIDATION');
     return instrumented(eventSink, 'executeRoundTick', () =>
       inTransaction(database, (tx) =>
-        executeLockedRoundTick(tx, input, roundTime),
+        executeLockedRoundTick(tx, { ...input, decisionRelease }, roundTime),
       ),
     );
   },
@@ -127,6 +130,7 @@ export const roundCommandOperations = ({
           throw createRefusal('CONFLICT', 'stale-version');
         const projection = input.buildProjection(context);
         return commitRoundCommand(tx, {
+          decisionRelease,
           roundId: input.roundId,
           current,
           projection,

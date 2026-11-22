@@ -1,3 +1,4 @@
+import type { DecisionReleasePolicy } from '@daisy/protocol/round-decision-release';
 import type { RoundTimeSource } from './round-execution-time';
 export type { RoundTimeSource } from './round-execution-time';
 export type { RoundRoomAuthority } from './round-room-authority';
@@ -245,8 +246,11 @@ export function createDatabase({
   botPublication,
   roundAnalysis,
   roundTime,
+  decisionRelease,
 }: {
   url: string;
+  /** Required capability for completing a Round; absence refuses atomically, never defaults. */
+  decisionRelease?: DecisionReleasePolicy;
   /** Trusted Round persistence time resource; absent in production composition. */
   roundTime?: RoundTimeSource;
   /** The process's lane reservations; web unless a caller asks for another. */
@@ -309,9 +313,18 @@ export function createDatabase({
       nextId: nextActorId,
     }),
     ...botAdmissionOperations,
-    ...roundMaintenanceOperations(competitiveTransaction, roundTime),
-    ...roundPanelCompletionOperations(competitiveTransaction, roundTime),
+    ...roundMaintenanceOperations(
+      competitiveTransaction,
+      roundTime,
+      decisionRelease,
+    ),
+    ...roundPanelCompletionOperations(
+      competitiveTransaction,
+      roundTime,
+      decisionRelease,
+    ),
     ...roundWorkerEntrypoints({
+      decisionRelease,
       run: competitiveTransaction,
       nextId: nextActorId,
       judging,
@@ -325,21 +338,29 @@ export function createDatabase({
     }),
     ...roundAnalysisReads({ database, allowance: aiAllowance }),
     roundIncidents: namedLaneOperations(
-      createRoundIncidentStore({ run: competitiveTransaction }),
+      createRoundIncidentStore({
+        run: competitiveTransaction,
+        decisionRelease,
+      }),
     ),
     roundStartGates: namedLaneOperations(
-      createRoundStartGateStore({ run: competitiveTransaction }),
+      createRoundStartGateStore({
+        run: competitiveTransaction,
+        decisionRelease,
+      }),
     ),
     broadcasts: createBroadcastStore(database),
     recordingCaptures: createRecordingCaptureStore(database),
     mediaSessions: namedLaneOperations(
       createMediaSessionStore({
+        decisionRelease,
         database,
         run: competitiveTransaction,
         nextId: nextActorId,
       }),
     ),
     ...attendanceEntrypoints({
+      decisionRelease,
       roundTime,
       run: competitiveTransaction,
       nextId: nextActorId,
@@ -470,7 +491,12 @@ export function createDatabase({
       eventSink,
     }),
     ...challengeReadOperations({ database: social, eventSink }),
-    ...reportOperations({ database: control, eventSink, moderationReactions }),
+    ...reportOperations({
+      database: control,
+      eventSink,
+      moderationReactions: (rules) =>
+        moderationReactions(rules, decisionRelease),
+    }),
     ...moderationOperations({ database: control, eventSink }),
     challengeStore: (authorize: ContactAuthorizationFence) =>
       createChallengeStore({ database: social, authorize }),
@@ -529,8 +555,18 @@ export function createDatabase({
       ),
     }),
     ...roundOperations({ database, eventSink }),
-    ...roundCommandOperations({ database, eventSink, roundTime }),
-    ...roundBallotOperations({ database, eventSink, roundTime }),
+    ...roundCommandOperations({
+      database,
+      eventSink,
+      roundTime,
+      decisionRelease,
+    }),
+    ...roundBallotOperations({
+      database,
+      eventSink,
+      roundTime,
+      decisionRelease,
+    }),
     ...roundProtectedReads({ database }),
     ...roundSpeakingRead({ database }),
     ...utteranceOperations({ database, eventSink }),
@@ -554,6 +590,7 @@ export function createDatabase({
       namedLaneOperations(
         mediaCaptureOperations({
           ...input,
+          decisionRelease,
           run: competitiveTransaction,
         }),
       ),

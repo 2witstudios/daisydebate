@@ -1,3 +1,4 @@
+import type { DecisionReleasePolicy } from '@daisy/protocol/round-decision-release';
 import { createAppError } from '@daisy/errors';
 import {
   bindMediaParticipant,
@@ -37,16 +38,18 @@ export function createMediaSessionStore({
   database,
   run,
   nextId,
+  decisionRelease,
 }: {
+  readonly decisionRelease?: DecisionReleasePolicy | undefined;
   readonly database: TxSource;
   readonly run: BoundedTransaction;
   readonly nextId: () => string;
 }) {
   return {
-    ...createMediaReconcileStore({ database, run, nextId }),
+    ...createMediaReconcileStore({ database, run, nextId, decisionRelease }),
     ...createMediaAdmissionStore(run),
     readMediaSession: (input: MediaSessionRead) =>
-      run((tx) => lockedMediaSnapshot(tx, input)),
+      run((tx) => lockedMediaSnapshot(tx, { ...input, decisionRelease })),
     async ensureBinding(input: {
       readonly roundId: string;
       readonly caller: MediaCaller;
@@ -70,6 +73,7 @@ export function createMediaSessionStore({
           nextId,
         });
         const tick = await executeLockedRoundTick(tx, {
+          decisionRelease,
           roundId,
           buildProjection: input.buildProjection,
         });
@@ -94,6 +98,7 @@ export function createMediaSessionStore({
           nextId,
         });
         const tick = await executeLockedRoundTick(tx, {
+          decisionRelease,
           roundId: scope.roundId,
           buildProjection: input.buildProjection,
         });

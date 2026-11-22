@@ -1,3 +1,4 @@
+import { roundDecisionReleasePolicy } from '@daisy/protocol/round-decision-release';
 import { judgedRound } from './judged-round.test-support';
 import { canUseAiAllowance } from '@daisy/auth/authorization';
 import { atFinalJudgingStage } from '../src/testing-judging';
@@ -27,6 +28,7 @@ test('configured root judging aliases share the owned pool and claim actual froz
     });
     try {
       const inert = createDatabase({
+        decisionRelease: roundDecisionReleasePolicy,
         url: services.databaseUrl,
         client,
         nextActorId: createId,
@@ -97,6 +99,7 @@ test('configured root judging aliases share the owned pool and claim actual froz
           code: 'INFRASTRUCTURE',
         });
       const store = createDatabase({
+        decisionRelease: roundDecisionReleasePolicy,
         url: services.databaseUrl,
         client,
         nextActorId: createId,

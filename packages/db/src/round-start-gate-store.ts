@@ -1,3 +1,4 @@
+import type { DecisionReleasePolicy } from '@daisy/protocol/round-decision-release';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol/primitives';
 import { type RoundProjection } from '@daisy/protocol/runtime';
@@ -15,6 +16,7 @@ import { rounds } from './schema/rounds';
 /** A speech's start gate moves with the Round, in one commit, under the Round's lock. */
 export function createRoundStartGateStore(deps: {
   readonly run: BoundedTransaction;
+  readonly decisionRelease?: DecisionReleasePolicy | undefined;
 }) {
   return {
     /** An ordinary report's unlocked read: most reports change nothing. */
@@ -45,6 +47,7 @@ export function createRoundStartGateStore(deps: {
           current,
           projection,
           now,
+          deps.decisionRelease,
         );
         await writeSpeakingProjection(tx, {
           roundId: input.roundId,

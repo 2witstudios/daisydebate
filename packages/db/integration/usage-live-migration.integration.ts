@@ -1,3 +1,4 @@
+import { roundDecisionReleasePolicy } from '@daisy/protocol/round-decision-release';
 import { instantMs } from '@daisy/clock';
 import { SQL } from 'bun';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -123,6 +124,7 @@ for (const ending of ['ordinary', 'recovery_bound'] as const) {
                     : {}),
                 },
                 now,
+                roundDecisionReleasePolicy,
               );
             });
             const [after] = await f.sql`select r.status,u.source,u.state,

@@ -1,3 +1,4 @@
+import type { DecisionReleasePolicy } from '@daisy/protocol/round-decision-release';
 import {
   ballotTextScreeningSchema,
   type BallotWrittenRecord,
@@ -80,6 +81,7 @@ export type LockedRoundBallotContext = {
   readonly now: string;
 };
 export type LockedRoundBallotInput = {
+  readonly decisionRelease?: DecisionReleasePolicy | undefined;
   readonly roundId: string;
   readonly principal: RoundCommandPrincipal;
   readonly envelope: RoundBallotEnvelope;
@@ -229,6 +231,7 @@ async function persistBallotResult(
         current,
         projection,
         context.now,
+        input.decisionRelease,
       )
     : false;
   const receipt = ballotReceipt({
@@ -328,7 +331,9 @@ export const roundBallotOperations = ({
   database,
   eventSink,
   roundTime,
+  decisionRelease,
 }: {
+  readonly decisionRelease?: DecisionReleasePolicy | undefined;
   readonly database: TxSource;
   readonly roundTime?: RoundTimeSource | undefined;
   readonly eventSink?: DatabaseEventSink | undefined;
@@ -337,7 +342,7 @@ export const roundBallotOperations = ({
   executeRoundBallot: (input: LockedRoundBallotInput) =>
     instrumented(eventSink, 'executeRoundBallot', () =>
       inTransaction(database, (tx) =>
-        executeLockedRoundBallot(tx, input, roundTime),
+        executeLockedRoundBallot(tx, { ...input, decisionRelease }, roundTime),
       ),
     ),
 });

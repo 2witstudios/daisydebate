@@ -1,3 +1,4 @@
+import type { DecisionReleasePolicy } from '@daisy/protocol/round-decision-release';
 import { endMemberOffers } from './challenges/frame';
 import type { ModerationReactions } from './moderation/store';
 import {
@@ -20,6 +21,7 @@ export type RestrictionRules = RoomReleaseRules & {
  */
 export const moderationReactions = (
   rules: RestrictionRules,
+  decisionRelease?: DecisionReleasePolicy,
 ): ModerationReactions => ({
   onRestricted: [
     endMemberOffers,
@@ -28,6 +30,7 @@ export const moderationReactions = (
         nextId,
         eventSink,
         forfeit: rules.forfeitRound,
+        decisionRelease,
       }),
     (tx, actorId, { now }) =>
       releaseMemberFromRooms(tx, actorId, { now, rules }),

@@ -1,3 +1,4 @@
+import { roundDecisionReleasePolicy } from '@daisy/protocol/round-decision-release';
 import { causeChainMember } from '../src/capacity-refusal';
 import { SQL } from 'bun';
 import {
@@ -652,7 +653,11 @@ export const roundAuthoring = async (fixture: Fixture, url: string) => {
     actorId,
     formatId,
     rules: validRules,
-    database: createDatabase({ url, nextActorId: createId }),
+    database: createDatabase({
+      url,
+      nextActorId: createId,
+      decisionRelease: roundDecisionReleasePolicy,
+    }),
     testOnly: createTestOnlyOperations({ client: fixture.sql }),
   };
 };
@@ -699,7 +704,11 @@ export const withDatabase = async <T>(
   url: string,
   run: (database: ReturnType<typeof createDatabase>) => Promise<T>,
 ): Promise<T> => {
-  const database = createDatabase({ url, nextActorId: createId });
+  const database = createDatabase({
+    url,
+    nextActorId: createId,
+    decisionRelease: roundDecisionReleasePolicy,
+  });
   try {
     return await run(database);
   } finally {

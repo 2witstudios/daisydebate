@@ -467,3 +467,19 @@ open state and a strict expiry comparison against the same scoped transaction
 time, retaining UTC microsecond precision. Storage keeps purpose, lease and
 dedupe/invitation binding, tenant scoping and row-existence checks. No provider
 call runs inside that read transaction.
+
+## Default Round decision notifications
+
+The Notifications application supplies the pure `DecisionReleasePolicy` when
+composing the database. At the existing completion writer, `release` chooses
+from the frozen release policy; a held decision never reads the audience.
+For an on-finalize decision, storage loads ordered current-cast/account facts
+and the application selects each live account once, about the first current
+opposite-side seat in frozen side order (judges use the first declared side).
+Explicit organizer releases continue to supply their own recipients.
+
+Selection and notification obligations remain inside the original finalization
+transaction, after the existing account/Round fences. No provider work or later
+notification transaction is introduced. Missing application capability or a
+selection exception rolls back the completion and its receipt; replay does not
+select or owe again. Read-only database clients need no completion capability.

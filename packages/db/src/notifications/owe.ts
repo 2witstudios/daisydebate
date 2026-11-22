@@ -1,3 +1,4 @@
+import type { NotificationRecipient } from '@daisy/protocol/notifications';
 import { buildUserInboxTopic } from '@daisy/protocol/topics';
 import {
   isEmailedNotificationKind,
@@ -21,11 +22,7 @@ export type NotificationSubjectIds<K extends NotificationKind> = {
 };
 
 /** One member a producer owes a notification, and who it is about. */
-export type NotificationRecipient = {
-  readonly userId: string;
-  /** The account it is about (the challenger, the host), or null when none is. */
-  readonly about: string | null;
-};
+export type { NotificationRecipient } from '@daisy/protocol/notifications';
 
 /** One event a producer just recorded, owed to each of its recipients (ADR 0144). */
 export type OwedNotifications<K extends NotificationKind> = {

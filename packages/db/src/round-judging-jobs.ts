@@ -1,3 +1,4 @@
+import type { DecisionReleasePolicy } from '@daisy/protocol/round-decision-release';
 import { eq, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import { ballotRecordSchema } from '@daisy/protocol/ballot-schema';
@@ -161,6 +162,7 @@ async function deferLockedJudgingJob(
 /** Durable intents use the same injected bounded transaction; no provider I/O occurs under locks. */
 export function createRoundJudgingJobs(input: {
   readonly run: BoundedTransaction;
+  readonly decisionRelease?: DecisionReleasePolicy | undefined;
   readonly nextId: () => string;
   readonly nextToken: () => string;
   readonly leaseMs: number;
@@ -223,7 +225,12 @@ export function createRoundJudgingJobs(input: {
       token: string,
       prepared: LockedRoundBallotInput,
     ) =>
-      input.run((tx) => submitLockedJudgingResult(tx, scope, token, prepared)),
+      input.run((tx) =>
+        submitLockedJudgingResult(tx, scope, token, {
+          ...prepared,
+          decisionRelease: input.decisionRelease,
+        }),
+      ),
     verify: (scope: JudgingScope, token: string) =>
       withLease(scope, token, (_tx, { round, job }) => ({
         expectedVersion: round.version,

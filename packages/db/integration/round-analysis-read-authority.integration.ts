@@ -1,3 +1,4 @@
+import { roundDecisionReleasePolicy } from '@daisy/protocol/round-decision-release';
 import { createId } from '@paralleldrive/cuid2';
 import { authorize } from '@daisy/auth/authorization';
 import { requireTestServices } from '@daisy/config';
@@ -26,6 +27,7 @@ test('stored report reads survive lapse and serialize with every frozen particip
       await request(seats.aff);
       await deliverAnalysis(jobs, seats.aff, report);
       const store = createDatabase({
+        decisionRelease: roundDecisionReleasePolicy,
         url: databaseUrl,
         client: fixture.sql,
         nextActorId: createId,

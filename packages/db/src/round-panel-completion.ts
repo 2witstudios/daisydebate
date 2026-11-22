@@ -1,3 +1,4 @@
+import type { DecisionReleasePolicy } from '@daisy/protocol/round-decision-release';
 import { isAppError, createAppError } from '@daisy/errors';
 import {
   frozenCaptureOf,
@@ -192,6 +193,7 @@ async function complete(tx: Tx, input: Request, roundTime?: RoundTimeSource) {
     current,
     projection,
     now,
+    input.decisionRelease,
   );
   if (!changed)
     throw createAppError('CONFLICT', 'Panel projection did not apply');
@@ -266,12 +268,13 @@ async function complete(tx: Tx, input: Request, roundTime?: RoundTimeSource) {
 export function roundPanelCompletionOperations(
   run: BoundedTransaction,
   roundTime?: RoundTimeSource,
+  decisionRelease?: DecisionReleasePolicy,
 ) {
   return {
     async completePanelRound(input: Request): Promise<RoundPanelReceipt> {
       requirePanelRequest(input);
       const { receipt, ended, platformEnded } = await run((tx) =>
-        complete(tx, input, roundTime),
+        complete(tx, { ...input, decisionRelease }, roundTime),
       );
       if (platformEnded) input.platformEnded?.();
       // After commit, and even with no judging worker running. A job still open

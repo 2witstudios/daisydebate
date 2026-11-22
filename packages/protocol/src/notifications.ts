@@ -324,3 +324,9 @@ export type NotificationShell = z.infer<typeof notificationShellSchema>;
 export const tournamentNotificationKinds = kindsAbout(
   'fixture',
 ) as readonly TournamentNotificationKind[];
+
+/** The account owed one notification and the actor it is about. */
+export type NotificationRecipient = {
+  readonly userId: string;
+  readonly about: string | null;
+};

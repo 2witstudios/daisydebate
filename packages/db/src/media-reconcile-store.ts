@@ -1,3 +1,4 @@
+import type { DecisionReleasePolicy } from '@daisy/protocol/round-decision-release';
 import {
   readBroadcastObserverHeld,
   readConversationHeld,
@@ -55,6 +56,7 @@ import type { TxSource, Tx } from './tx';
 
 /** Durable serialization only; every provider call happens after these bounded transactions commit. */
 export function createMediaReconcileStore(input: {
+  readonly decisionRelease?: DecisionReleasePolicy | undefined;
   readonly database: TxSource;
   readonly run: BoundedTransaction;
   readonly nextId: () => string;
@@ -155,6 +157,7 @@ export function createMediaReconcileStore(input: {
           session.seats,
         );
         const tick = await executeLockedRoundTick(tx, {
+          decisionRelease: input.decisionRelease,
           roundId: session.roundId,
           buildProjection: request.buildProjection,
         });

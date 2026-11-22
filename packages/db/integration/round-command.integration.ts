@@ -1,3 +1,4 @@
+import { roundDecisionReleasePolicy } from '@daisy/protocol/round-decision-release';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -15,7 +16,11 @@ test('concurrent identical commands commit once and replay before stale-version 
       [actorId],
     );
     const roundId = await fixture.round({ created_by_actor_id: actorId });
-    const db = createDatabase({ url, nextActorId: createId });
+    const db = createDatabase({
+      decisionRelease: roundDecisionReleasePolicy,
+      url,
+      nextActorId: createId,
+    });
     const commandId = createId();
     fixture.track('round_commands', commandId);
     const envelope = {

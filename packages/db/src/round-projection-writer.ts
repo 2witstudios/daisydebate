@@ -1,3 +1,4 @@
+import type { DecisionReleasePolicy } from '@daisy/protocol/round-decision-release';
 import { instantMs } from '@daisy/clock';
 import { freezeRoundFinalization } from './round-finalization-writer';
 import {
@@ -113,6 +114,7 @@ export async function writeProjectionWithPhaseSignal(
   current: LockedRound,
   projection: RoundProjection,
   now: string,
+  decisionRelease: DecisionReleasePolicy | undefined,
 ): Promise<boolean> {
   const draw = projection.openingDraw;
   const addedStrikes = draw ? await appendRoundStrikes(tx, draw) : 0;
@@ -140,7 +142,7 @@ export async function writeProjectionWithPhaseSignal(
     await refundUnservedPracticeLocked(tx, roundId);
     await settleCasualJudgeUsageLocked(tx, roundId);
     if (projection.round && isRoundCompleted(projection.round.status))
-      await releaseFinalizedDecision(tx, { roundId, at: now });
+      await releaseFinalizedDecision(tx, { roundId, at: now }, decisionRelease);
   }
   // An opening that ends starts the debate's clock (ADR 0144).
   if (projection.round && roundBegan(current.status, projection.round.status))

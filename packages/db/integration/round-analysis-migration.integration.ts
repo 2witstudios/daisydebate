@@ -1,3 +1,4 @@
+import { roundDecisionReleasePolicy } from '@daisy/protocol/round-decision-release';
 import { afterAll } from 'bun:test';
 import { createId } from '@paralleldrive/cuid2';
 import { randomBytes } from 'node:crypto';
@@ -196,7 +197,11 @@ test(
       });
       const [usage] =
         await f.sql`select count(*)::integer as n from usage_reservations where kind='round_analysis'`;
-      const store = createDatabase({ url: scratch.url, ...storeOptions });
+      const store = createDatabase({
+        decisionRelease: roundDecisionReleasePolicy,
+        url: scratch.url,
+        ...storeOptions,
+      });
       try {
         assert({
           given: 'all migrated automatic rows',

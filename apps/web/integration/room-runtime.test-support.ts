@@ -1,3 +1,4 @@
+import { decisionRelease as roundDecisionReleasePolicy } from '../src/features/notifications/decision-release';
 import { pinRankedFixturePool } from '@daisy/db/testing';
 import { SQL } from 'bun';
 import { admitParticipants } from '@daisy/db/testing';
@@ -36,6 +37,7 @@ export async function withRoomRuntime(
     | 'botPublication'
     | 'roundAnalysis'
     | 'roundTime'
+    | 'decisionRelease'
   > & {
     /** A private scratch database whose owner drops the entire aggregate. */ readonly databaseUrl?: string;
   } = {},
@@ -58,6 +60,7 @@ async function fixture(
     | 'botPublication'
     | 'roundAnalysis'
     | 'roundTime'
+    | 'decisionRelease'
   > & { readonly databaseUrl?: string },
 ) {
   const { databaseUrl = services.databaseUrl, ...storeOptions } = options;
@@ -68,6 +71,7 @@ async function fixture(
   await client.connect();
   const redis = createRedis({ url: services.redisUrl, namespace, client });
   const store = createDatabase({
+    decisionRelease: roundDecisionReleasePolicy,
     url: databaseUrl,
     nextActorId: createId,
     ...aiAdmissionOptions({
