@@ -89,7 +89,14 @@ test('preapproval command decisions preserve revision, one-invitation and accoun
     decidePreapprovalChange({
       command: invite,
       grant,
-      claimedAccountInvitable: true,
+      claimedAccount: {
+        verified: true,
+        emailMatches: true,
+        erased: false,
+        restricted: false,
+        state: 'approved',
+        ageBand: 'adult',
+      },
       activeInvitation: false,
       ...options,
     });
@@ -113,7 +120,14 @@ test('preapproval command decisions preserve revision, one-invitation and accoun
       decide({ command: { ...invite, expectedRevision: 1 } }),
       decide({
         grant: { ...grant, claimed: true },
-        claimedAccountInvitable: false,
+        claimedAccount: {
+          verified: true,
+          emailMatches: true,
+          erased: false,
+          restricted: false,
+          state: 'revoked',
+          ageBand: 'adult',
+        },
       }),
     ].map(
       (decision) =>

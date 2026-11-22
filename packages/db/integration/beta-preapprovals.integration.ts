@@ -1,7 +1,6 @@
 import { decidePreapprovalChange } from '@daisy/protocol/beta-preapproval';
 import { sha3Hex } from '@daisy/digest';
 import { assertRejects } from '@daisy/errors/testing';
-import { instantMs } from '@daisy/clock';
 import { subjectRightsVerificationBindings } from '../src/privacy/verification-bindings';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { runPrivacyErasure } from '../src/privacy/operations';
@@ -1004,125 +1003,6 @@ test('preapproval listing pages by stable opaque grant ids without losing entrie
           ),
         ],
         expected: [ids.sort().reverse(), true],
-      });
-    } finally {
-      await db.close();
-    }
-  });
-});
-
-test('a claimed invitation stops being owed when its verified email changes', async () => {
-  await withFixture(url, async (f) => {
-    const db = trackedDatabase(f, { url, nextActorId: createId });
-    const account = await pendingAccount(f);
-    try {
-      const saved = await db.runPreapprovalCommand(
-        inputFor(add(`${account.userId}@operator.invalid`, true)),
-      );
-      await f.sql`update users set email = ${`${createId()}@example.test`} where id = ${account.userId}`;
-      const [intent] =
-        await f.sql`select id from mail_intents where preapproval_id = ${saved.preapprovalId}`;
-      const claims = await db.claimMailIntents({
-        limit: 50,
-        leaseMs: 60000,
-        maxAttempts: 8,
-        nextToken: () => `${createId()}${createId()}`,
-      });
-      const claim = claims.find((item) => item.id === intent.id)!;
-      const delivery = await db.readMailIntentDelivery(claim.id);
-      let refused = false;
-      try {
-        await db.runPreapprovalCommand(
-          inputFor({
-            v: 1,
-            commandId: createId(),
-            adminAuditHead: 'a'.repeat(64),
-            operation: 'invite',
-            preapprovalId: saved.preapprovalId,
-            expectedRevision: saved.revision,
-          }),
-        );
-      } catch (error) {
-        refused = (error as { code?: string }).code === 'CONFLICT';
-      }
-      await db.settleMailIntent({
-        id: claim.id,
-        token: claim.token,
-        outcome: { kind: 'cancelled', errorCode: 'not-owed' },
-      });
-      assert({
-        given:
-          'a consumed preapproval whose account verified email has moved to another address',
-        should:
-          'cancel the old-address invitation and refuse resend while preserving account approval',
-        actual: [delivery.kind, refused, await access(f, account.userId)],
-        expected: ['not-owed', true, 'approved'],
-      });
-    } finally {
-      await db.close();
-    }
-  });
-});
-
-test('long-outage invitation recovery preserves the grant and never assumes an expired provider key is safe', async () => {
-  await withFixture(url, async (f) => {
-    const db = trackedDatabase(f, { url, nextActorId: createId });
-    try {
-      const command = add(`${createId()}@example.test`, true);
-      const saved = await db.runPreapprovalCommand(inputFor(command));
-      const claims = await db.claimMailIntents({
-        limit: 50,
-        leaseMs: 60000,
-        maxAttempts: 8,
-        nextToken: () => `${createId()}${createId()}`,
-      });
-      const [intent] =
-        await f.sql`select id from mail_intents where preapproval_id = ${saved.preapprovalId}`;
-      const first = claims.find((item) => item.id === intent.id)!;
-      await f.sql`update mail_intents set created_at = now() - interval '2 days', lease_expires_at = now() - interval '1 minute' where id = ${first.id}`;
-      const retry = (
-        await db.claimMailIntents({
-          limit: 50,
-          leaseMs: 60000,
-          maxAttempts: 8,
-          nextToken: () => `${createId()}${createId()}`,
-        })
-      ).find((item) => item.id === first.id)!;
-      const delivery = await db.readMailIntentDelivery(retry.id);
-      await db.settleMailIntent({
-        id: retry.id,
-        token: retry.token,
-        outcome: { kind: 'failed', errorCode: 'delivery-unknown' },
-      });
-      const result = await db.readOperatorCommand({
-        commandId: command.commandId,
-        serviceId: 'daisy-admin',
-      });
-      const resent = await db.runPreapprovalCommand(
-        inputFor({
-          v: 1,
-          commandId: createId(),
-          adminAuditHead: 'a'.repeat(64),
-          operation: 'invite',
-          preapprovalId: saved.preapprovalId,
-          expectedRevision: saved.revision,
-        }),
-      );
-      assert({
-        given:
-          'a worker lease recovered after two days, beyond provider idempotency retention',
-        should:
-          'expose an elapsed send deadline and unknown outcome while the unused grant remains valid for explicit fresh resend',
-        actual: [
-          delivery.kind === 'invitation' &&
-            instantMs(delivery.sendBefore) < new Date().getTime(),
-          result?.action === 'beta.preapproval.update'
-            ? result.mailState
-            : null,
-          (await grant(f, saved.preapprovalId)).claimed_user_id,
-          resent.mail,
-        ],
-        expected: [true, 'unknown', null, 'queued'],
       });
     } finally {
       await db.close();

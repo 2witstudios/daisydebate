@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { canInviteClaimedPreapproval } from './beta-preapproval-decision';
+import { canInviteClaimedPreapproval } from './beta-preapproval';
 setupRitewayBun();
 
 test('claimed invitation eligibility follows current verified identity and access', () => {

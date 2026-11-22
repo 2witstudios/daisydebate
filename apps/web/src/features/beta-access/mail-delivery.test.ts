@@ -16,6 +16,16 @@ type Delivery = Awaited<
 >;
 type Settled = { id: string; token: string; outcome: unknown };
 
+const invitationRead = (
+  sendBefore: string,
+): Extract<Delivery, { kind: 'beta-invitation' }> => ({
+  kind: 'beta-invitation',
+  sendBefore,
+  readGrant: async () => ({ email: 'invitee@example.test', claimed: null }),
+  readAccount: async () => null,
+  readVerifiedAccounts: async () => [],
+});
+
 const scripted = (input: {
   delivery: Delivery;
   purpose?: 'beta-approved' | 'beta-invitation';
@@ -177,7 +187,7 @@ test('an intent whose read fails never aborts the batch, and stops at the attemp
       claimMailIntents: async () => [
         {
           id: 'erased',
-          purpose: 'beta-approved',
+          purpose: 'beta-invitation',
           attempts: 1,
           token: 't1',
         },
@@ -195,6 +205,14 @@ test('an intent whose read fails never aborts the batch, and stops at the attemp
         },
       ],
       readMailIntentDelivery: async (id) => {
+        if (id === 'erased')
+          return {
+            ...invitationRead('2099-01-01T00:00:00.000Z'),
+            kind: 'beta-invitation' as const,
+            readGrant: async () => {
+              throw new Error('read failed');
+            },
+          };
         if (id !== 'owed') throw new Error('read failed');
         return { kind: 'member', to: 'm@daisy.invalid', username: 'mia' };
       },
@@ -258,11 +276,7 @@ test('invitation exhaustion distinguishes definitive rejection from uncertain pr
     });
     const { delivery, settled } = scripted({
       purpose: 'beta-invitation',
-      delivery: {
-        kind: 'invitation',
-        to: 'invitee@example.test',
-        sendBefore: '2099-01-01T00:00:00.000Z',
-      },
+      delivery: invitationRead('2099-01-01T00:00:00.000Z'),
       attempts: MAIL_MAX_ATTEMPTS,
       deliver: async (message) => {
         await sender.send(message);
@@ -288,11 +302,7 @@ test('invitation exhaustion distinguishes definitive rejection from uncertain pr
 test('an invitation outside its provider idempotency window stays unknown without another send', async () => {
   const { delivery, sent, settled } = scripted({
     purpose: 'beta-invitation',
-    delivery: {
-      kind: 'invitation',
-      to: 'invitee@example.test',
-      sendBefore: '2026-10-25T23:00:00.000Z',
-    },
+    delivery: invitationRead('2026-10-25T23:00:00.000Z'),
     attempts: 2,
   });
   await delivery.run(1);

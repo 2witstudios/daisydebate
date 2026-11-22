@@ -106,7 +106,7 @@ export type PreapprovalDecision =
 export function decidePreapprovalChange(input: {
   readonly command: PreapprovalCommand;
   readonly grant: PreapprovalGrantFact | null;
-  readonly claimedAccountInvitable: boolean;
+  readonly claimedAccount: PreapprovalAccountEligibility | null;
   readonly activeInvitation: boolean;
 }): PreapprovalDecision {
   const { command, grant } = input;
@@ -132,7 +132,12 @@ export function decidePreapprovalChange(input: {
     };
   const wantsInvitation =
     command.operation === 'invite' || ('invite' in command && command.invite);
-  if (wantsInvitation && grant.claimed && !input.claimedAccountInvitable)
+  if (
+    wantsInvitation &&
+    grant.claimed &&
+    (!input.claimedAccount ||
+      !canInviteClaimedPreapproval(input.claimedAccount))
+  )
     return { kind: 'refused', code: 'CONFLICT' };
   const queueInvitation =
     wantsInvitation &&
@@ -151,3 +156,43 @@ export function decidePreapprovalChange(input: {
     },
   };
 }
+
+/** Fresh identity and authorization facts of a claimed preapproval account. */
+export type PreapprovalAccountEligibility = {
+  readonly verified: boolean;
+  readonly emailMatches: boolean;
+  readonly erased: boolean;
+  readonly restricted: boolean;
+  readonly state: string | null;
+  readonly ageBand: string | null;
+};
+
+/** The current identity gate, before loading the claimed authorization account. */
+export const isPreapprovalClaimCurrent = (
+  input: Pick<
+    PreapprovalAccountEligibility,
+    'verified' | 'emailMatches' | 'erased' | 'state'
+  >,
+): boolean =>
+  input.verified &&
+  input.emailMatches &&
+  !input.erased &&
+  input.state === 'approved';
+
+/** An erased, moderated or revoked matching account makes invitation mail unowed. */
+export const blocksPreapprovalInvitation = (
+  input: Pick<
+    PreapprovalAccountEligibility,
+    'erased' | 'restricted' | 'state'
+  > | null,
+): boolean =>
+  input !== null &&
+  (input.erased || input.restricted || input.state === 'revoked');
+
+/** One rule for command and delivery: only the still-matching eligible claim may invite. */
+export const canInviteClaimedPreapproval = (
+  input: PreapprovalAccountEligibility,
+): boolean =>
+  isPreapprovalClaimCurrent(input) &&
+  !blocksPreapprovalInvitation(input) &&
+  ageBandAdmitted(input.ageBand);
