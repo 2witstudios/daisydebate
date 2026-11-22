@@ -1,4 +1,3 @@
-import { instantMs } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol/primitives';
 import {
@@ -8,6 +7,8 @@ import {
 import {
   clubSeatBounds,
   decideClubSeating,
+  clubInvitationMailRefusal,
+  type ClubInvitationMailFacts,
   type ClubSeat,
   type ClubSeating,
   type ClubSeatingCommand,
@@ -56,7 +57,6 @@ export type ClubSeatManagerCommand =
     }
   | { readonly kind: 'remove'; readonly userId: string }
   | { readonly kind: 'cancel'; readonly invitationId: string }
-  | { readonly kind: 'resend'; readonly invitationId: string }
   /** Gives up exactly these seats and invitations before a seat decrease. */
   | {
       readonly kind: 'prepare-seat-count';
@@ -79,6 +79,14 @@ export type ClubSeatAnswer =
       readonly currentSeatCount: number;
       readonly seatCount: number;
     };
+
+/** The persisted facts available to the application's resend decision. */
+export type ClubInvitationResendFacts = {
+  readonly evidence: SubscriptionEvidence | null;
+  readonly seatCount: number;
+  readonly now: string;
+  readonly invitation: SeatInvitation | null;
+};
 
 /** A refusal decided under the lock: the transaction rolls back and answers it. */
 class Refused extends Error {
@@ -180,7 +188,7 @@ async function queueInvitationMail(
  * sends at most 20 plus one per seat a day. Counted from the durable mail
  * intents, whose dedupe key names the club and the invitation.
  */
-async function invitationMailLimit(
+async function readInvitationMailFacts(
   tx: Tx,
   input: {
     readonly organizationId: string;
@@ -198,12 +206,13 @@ async function invitationMailLimit(
       and created_at > ${input.now}::timestamptz - interval '1 day'
       and dedupe_key like ${club}`,
   );
+  const daily = Number(today?.n ?? 0);
+  // Preserve the daily-cap short circuit before any invitation-count query.
   if (
-    Number(today?.n ?? 0) >=
-    clubSeatBounds.dailyInvitationMails + input.seatCount
+    input.invitationId === null ||
+    clubInvitationMailRefusal({ daily, invitation: null }, input.seatCount)
   )
-    return 'invitation-mail-limit' as const;
-  if (input.invitationId === null) return null;
+    return { daily, invitation: null };
   const [sent] = await query(
     tx,
     z.object({ n: z.int(), recent: z.int() }),
@@ -212,10 +221,13 @@ async function invitationMailLimit(
         or created_at > ${input.now}::timestamptz - ${`${clubSeatBounds.resendAfterMs} milliseconds`}::interval)::int as recent
     from mail_intents where club_seat_invitation_id=${input.invitationId}`,
   );
-  if (Number(sent?.n ?? 0) >= clubSeatBounds.sendsPerInvitation)
-    return 'invitation-mail-limit' as const;
-  if (Number(sent?.recent ?? 0) > 0) return 'resend-too-soon' as const;
-  return null;
+  return {
+    daily,
+    invitation: {
+      total: Number(sent?.n ?? 0),
+      recentOrOwed: Number(sent?.recent ?? 0),
+    },
+  };
 }
 
 /** Writes the difference between two seatings, and ends removed holders' Premium at the end of the UTC day. */
@@ -352,8 +364,6 @@ function toSeatingCommand(
         seatCount: command.seatCount,
         release: command.release,
       };
-    case 'resend':
-      return null;
   }
 }
 
@@ -383,7 +393,6 @@ function validCommand(command: ClubSeatManagerCommand) {
           : email(command.to.email))
       );
     case 'cancel':
-    case 'resend':
       return ids([command.invitationId]);
     case 'prepare-seat-count':
       return (
@@ -443,6 +452,71 @@ export function createClubSeats(input: {
   }
 
   return {
+    /** The application decides resend eligibility while these facts remain fenced. */
+    resend(
+      subject: ClubSeatSubject,
+      organizationId: string,
+      invitationId: string,
+      decide: (
+        facts: ClubInvitationResendFacts,
+        mail: () => Promise<ClubInvitationMailFacts>,
+      ) => Promise<ClubSeatingRefusal | null>,
+    ): Promise<ClubSeatAnswer> {
+      if (
+        !idSchema.safeParse(organizationId).success ||
+        !idSchema.safeParse(invitationId).success
+      )
+        throw createAppError('VALIDATION');
+      return input.run(async (tx): Promise<ClubSeatAnswer> => {
+        const { club } = await fenced(tx, subject, organizationId, []);
+        if (club.ownerUserId !== subject.userId)
+          throw createAppError('NOT_FOUND');
+        const plan = await readPlan(tx, club.id);
+        const now = await readDatabaseTime(tx);
+        const invitations = await readInvitations(tx, club.id);
+        let open = true;
+        const counts: { pending: Promise<ClubInvitationMailFacts> | null } = {
+          pending: null,
+        };
+        const mail = () => {
+          if (!open) throw createAppError('INVARIANT');
+          counts.pending ??= readInvitationMailFacts(tx, {
+            organizationId: club.id,
+            invitationId,
+            seatCount: plan.seatCount,
+            now,
+          });
+          return counts.pending;
+        };
+        let reason: ClubSeatingRefusal | null;
+        try {
+          reason = await decide(
+            {
+              evidence: plan.evidence,
+              seatCount: plan.seatCount,
+              now: now.toISOString(),
+              invitation:
+                invitations.find(
+                  (candidate) => candidate.id === invitationId,
+                ) ?? null,
+            },
+            mail,
+          );
+          // Detached work cannot outlive the decision or overlap its queue write.
+          if (counts.pending) await counts.pending;
+        } finally {
+          open = false;
+        }
+        if (reason) return refused(reason);
+        await queueInvitationMail(tx, {
+          organizationId: club.id,
+          invitationId,
+          sendId: input.nextId(),
+        });
+        return { kind: 'changed' };
+      });
+    },
+
     /** A manager (the club's owner) changes its seats. */
     command(
       subject: ClubSeatSubject,
@@ -472,29 +546,6 @@ export function createClubSeats(input: {
           const active =
             plan.evidence !== null &&
             input.planActive(plan.evidence, now.toISOString());
-          if (command.kind === 'resend') {
-            // A lapsed plan offers no seat worth mailing.
-            if (!active) return refused('no-active-plan');
-            const invitation = before.invitations.find(
-              (candidate) => candidate.id === command.invitationId,
-            );
-            if (!invitation) return refused('invitation-not-found');
-            if (instantMs(invitation.expiresAt) <= now.getTime())
-              return refused('invitation-expired');
-            const limit = await invitationMailLimit(tx, {
-              organizationId: club.id,
-              invitationId: invitation.id,
-              seatCount: plan.seatCount,
-              now,
-            });
-            if (limit) return refused(limit);
-            await queueInvitationMail(tx, {
-              organizationId: club.id,
-              invitationId: invitation.id,
-              sendId: input.nextId(),
-            });
-            return { kind: 'changed' };
-          }
           const facts = {
             invitationId: input.nextId(),
             target: target
@@ -528,12 +579,15 @@ export function createClubSeats(input: {
             command.kind === 'invite' ||
             (command.kind === 'move' && command.to.kind === 'invite')
           ) {
-            const limit = await invitationMailLimit(tx, {
-              organizationId: club.id,
-              invitationId: null,
-              seatCount: plan.seatCount,
-              now,
-            });
+            const limit = clubInvitationMailRefusal(
+              await readInvitationMailFacts(tx, {
+                organizationId: club.id,
+                invitationId: null,
+                seatCount: plan.seatCount,
+                now,
+              }),
+              plan.seatCount,
+            );
             if (limit) return refused(limit);
           }
           const seatingCommand = toSeatingCommand(command, facts);

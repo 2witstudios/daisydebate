@@ -10,6 +10,7 @@ import { createRoundStartGateStore } from './round-start-gate-store';
 export type { RoundHydration } from './round-hydration';
 export type {
   ClubSeatAnswer,
+  ClubInvitationResendFacts,
   ClubSeatManagerCommand,
 } from './club-seat-commands';
 export type { ClubSeatingRead, ClubPerson } from './club-seat-reads';
