@@ -18,6 +18,7 @@ import { organizationCommand } from '../tab/operations/organization';
 import { stripeCheckoutPort } from '../billing/checkout-vendor';
 import { stripePortalPort } from '../billing/portal-session';
 import { createClubBilling, stripeClubPlanPort } from '../billing/club-billing';
+import { createClubSeatCommands } from './invitation-resend';
 import { composeClubRoutes, type StartClub } from './routes';
 
 /**
@@ -105,7 +106,7 @@ export function composeClubs(
         return false;
       }
     },
-    seats,
+    seats: createClubSeatCommands(seats),
     reads: app.database.clubSeatReads,
     billing: {
       checkout: billing.checkout,

@@ -70,6 +70,8 @@ export const retryPauseMs = (duty: Duty): number =>
 
 export type SpeakerState = {
   readonly duty: Duty;
+  /** Completed peer turns remain answered after the current duty is dropped. */
+  readonly answeredThroughMs: number | null;
   /** The peers between their speech starting and their turn ending. */
   readonly midTurn: readonly string[];
 };
@@ -137,6 +139,7 @@ type Step = {
 export const initialSpeakerState = (rules: DutyRules): SpeakerState => ({
   duty: !rules.crossEx || rules.asks ? owe({ kind: 'opening' }) : WAITING,
   midTurn: [],
+  answeredThroughMs: null,
 });
 
 const WAITING: Duty = {
@@ -182,6 +185,7 @@ function peerSpoke(
       if (event.audible)
         return {
           state: {
+            ...state,
             duty: yieldedTo({ kind: 'audio', peer: event.peer }),
             midTurn,
           },
@@ -191,9 +195,10 @@ function peerSpoke(
       // so far: the turn stands down, and their turn ending owes the answer.
       // A turn that has bought its answer keeps it and holds its audio.
       return event.bought
-        ? { state: { duty, midTurn }, effects: [] }
+        ? { state: { ...state, duty, midTurn }, effects: [] }
         : {
             state: {
+              ...state,
               duty: yieldedTo({
                 kind: 'turn',
                 to: duty.to,
@@ -208,6 +213,7 @@ function peerSpoke(
       // The peer replied (or spoke at all): the question is not unanswered.
       return {
         state: {
+          ...state,
           duty: duty.yielded ? yieldedTo(duty.yielded) : WAITING,
           midTurn,
         },
@@ -216,7 +222,7 @@ function peerSpoke(
     case 'owed':
     case 'over':
       return {
-        state: { duty, midTurn },
+        state: { ...state, duty, midTurn },
         effects: event.audible ? ['silence'] : [],
       };
     default:
@@ -231,9 +237,15 @@ function peerTurnEnded(
   rules: DutyRules,
 ): Step {
   if (!rules.crossEx) return { state, effects: [] };
+  if (
+    state.answeredThroughMs !== null &&
+    event.spokeUntilMs <= state.answeredThroughMs
+  )
+    return { state, effects: [] };
   const midTurn = state.midTurn.filter((peer) => peer !== event.peer);
   const { duty } = state;
-  if (duty.status === 'over') return { state: { duty, midTurn }, effects: [] };
+  if (duty.status === 'over')
+    return { state: { ...state, duty, midTurn }, effects: [] };
   // Too brief to be a turn: the peer is no longer mid-turn, and nothing is
   // owed for it or dropped because of it. What the bot gave way for is the
   // exception: giving way must never lose an answer.
@@ -244,6 +256,7 @@ function peerTurnEnded(
     if (yielded?.kind === 'turn')
       return {
         state: {
+          ...state,
           duty: {
             status: 'owed',
             to: yielded.to,
@@ -257,7 +270,7 @@ function peerTurnEnded(
       };
     // Another peer's brief sound is not what cut the bot off.
     if (yielded?.kind !== 'audio' || yielded.peer !== event.peer)
-      return { state: { duty, midTurn }, effects: [] };
+      return { state: { ...state, duty, midTurn }, effects: [] };
   }
   // Turns end in the order they are heard to, not the order they were spoken:
   // an unheard peer's turn ends late. The turn spoken last is the one owed.
@@ -266,14 +279,14 @@ function peerTurnEnded(
     duty.to.kind === 'peer-turn' &&
     duty.to.spokeUntilMs >= event.spokeUntilMs
   )
-    return { state: { duty, midTurn }, effects: [] };
+    return { state: { ...state, duty, midTurn }, effects: [] };
   const owed = owe({
     kind: 'peer-turn',
     peer: event.peer,
     spokeUntilMs: event.spokeUntilMs,
   });
   return {
-    state: { duty: owed, midTurn },
+    state: { ...state, duty: owed, midTurn },
     effects: duty.status === 'speaking' ? ['restart'] : ['drop'],
   };
 }
@@ -356,6 +369,7 @@ export function nextSpeakerState(
         !(rules.crossEx && midTurn.length > 0)
         ? {
             state: {
+              ...state,
               duty: {
                 status: 'speaking',
                 to: duty.to,
@@ -369,11 +383,17 @@ export function nextSpeakerState(
         : { state, effects: [] };
     case 'pause-ended':
       return duty.status === 'owed' && duty.paused
-        ? { state: { duty: { ...duty, paused: false }, midTurn }, effects: [] }
+        ? {
+            state: { ...state, duty: { ...duty, paused: false }, midTurn },
+            effects: [],
+          }
         : { state, effects: [] };
     case 'phrase-said':
       return duty.status === 'speaking' && duty.setbacks > 0
-        ? { state: { duty: { ...duty, setbacks: 0 }, midTurn }, effects: [] }
+        ? {
+            state: { ...state, duty: { ...duty, setbacks: 0 }, midTurn },
+            effects: [],
+          }
         : { state, effects: [] };
     case 'peer-spoke':
       return peerSpoke(state, event, rules);
@@ -384,10 +404,7 @@ export function nextSpeakerState(
         duty.unanswered &&
         midTurn.length === 0
         ? {
-            state: {
-              duty: owe({ kind: 'unanswered' }),
-              midTurn,
-            },
+            state: { ...state, duty: owe({ kind: 'unanswered' }), midTurn },
             effects: [],
           }
         : { state, effects: [] };
@@ -398,11 +415,25 @@ export function nextSpeakerState(
       // A turn already replaced or cut has no say over the duty that replaced it.
       if (duty.status !== 'speaking') return { state, effects: [] };
       const ended = turnEnded(duty, event, rules);
-      return { state: { duty: ended.duty, midTurn }, effects: ended.effects };
+      return {
+        state: {
+          ...state,
+          duty: ended.duty,
+          midTurn,
+          answeredThroughMs:
+            event.type === 'delivered' && duty.to.kind === 'peer-turn'
+              ? Math.max(
+                  state.answeredThroughMs ?? duty.to.spokeUntilMs,
+                  duty.to.spokeUntilMs,
+                )
+              : state.answeredThroughMs,
+        },
+        effects: ended.effects,
+      };
     }
     case 'stopped':
       return {
-        state: { duty: { status: 'over' }, midTurn },
+        state: { ...state, duty: { status: 'over' }, midTurn },
         effects: duty.status === 'speaking' ? ['restart', 'drop'] : ['drop'],
       };
     default:

@@ -304,3 +304,28 @@ export function fundedSeats(
     )
     .slice(0, Math.max(0, seatCount));
 }
+
+/** Durable mail counts, read under the Club fence. Recent includes owed sends. */
+export type ClubInvitationMailFacts = {
+  readonly daily: number;
+  readonly invitation: {
+    readonly total: number;
+    readonly recentOrOwed: number;
+  } | null;
+};
+
+/** One quota rule for new invitations, moves to an invite and resends (ADR 0148). */
+export function clubInvitationMailRefusal(
+  facts: ClubInvitationMailFacts,
+  seatCount: number,
+): 'invitation-mail-limit' | 'resend-too-soon' | null {
+  if (
+    facts.daily >= clubSeatBounds.dailyInvitationMails + seatCount ||
+    (facts.invitation !== null &&
+      facts.invitation.total >= clubSeatBounds.sendsPerInvitation)
+  )
+    return 'invitation-mail-limit';
+  return facts.invitation !== null && facts.invitation.recentOrOwed > 0
+    ? 'resend-too-soon'
+    : null;
+}

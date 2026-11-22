@@ -1,8 +1,37 @@
 import fc from 'fast-check';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { seededCheck, seededDraws, seededWalk } from './testing';
+import {
+  seededCheck,
+  seededDraws,
+  seededWalk,
+  seededAsyncDraws,
+} from './testing';
 
 setupRitewayBun();
+
+test('async generated draws shrink and replay a failed public operation', async () => {
+  const check = () =>
+    seededAsyncDraws({
+      seed: 43,
+      runs: 40,
+      draws: 1,
+      problems: async (draw) => {
+        await Promise.resolve();
+        const value = draw(100);
+        return value >= 10 ? [`${value} is too large`] : [];
+      },
+    });
+  const first = await check();
+  assert({
+    given: 'an async property that fails for draws from ten up',
+    should: 'shrink to ten and replay the same seed and path',
+    actual: {
+      shrunk: first.failure?.endsWith(': 10 is too large'),
+      replay: (await check()).failure,
+    },
+    expected: { shrunk: true, replay: first.failure },
+  });
+});
 
 describe('seededCheck', () => {
   test('a property that holds reports no failure', () => {
