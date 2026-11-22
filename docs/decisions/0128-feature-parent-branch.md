@@ -105,10 +105,10 @@ behind them.
   were each reviewed, and its risk is carried by the closed flag.
 - **Decision records for the feature go to main, not the parent.** A slice
   that needs one opens it as its own docs-only PR to main, where
-  `bun adr:next` claims numbers as usual, and the slice refers to it. A
-  record held only on the parent would not be reliably claimed: the claim
-  check reads at most 100 files of an open PR. This record went to main for
-  the same reason.
+  the record uses that docs PR's number, and the slice refers to it.
+  Historical identifiers, including this record's, are unchanged. A record
+  already merged into a parent retains its originating PR number at the
+  final parent merge.
 - A fix pushed after an approval moves the head, so a slice's tasks may
   land in Merged and not Done, as on main.
 - Everything else in ADR 0083 stands: one plan, one confirmation, one PR per

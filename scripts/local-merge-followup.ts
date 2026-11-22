@@ -3,6 +3,7 @@ import { realpathSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { z } from 'zod';
 import { removeMergedWorktree } from './merged-worktree';
+import { committedPreparationProblems } from './prepare-pr';
 
 const repoSchema = z.object({ full_name: z.string() });
 const prSchema = z.object({
@@ -57,6 +58,17 @@ async function localMergeFollowup(
       pr.base.repo.full_name !== repository
     )
       throw new Error('The exact same-repository merge head is required');
+    run('git', ['fetch', '--prune', 'origin']);
+    const preparation = committedPreparationProblems(
+      number,
+      `refs/remotes/origin/${pr.base.ref}`,
+      mergeHead,
+      cwd,
+    );
+    if (preparation.length)
+      throw new Error(
+        `Prepare and requalify the candidate before merging: ${preparation.join('; ')}`,
+      );
     run('gh', [
       'pr',
       'merge',

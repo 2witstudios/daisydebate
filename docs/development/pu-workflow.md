@@ -88,6 +88,10 @@ pu kill --agent <agent> && pu clean
   PR, the point guard runs `bun merge:pr <pr-number> <exact-head>` from a
   retained checkout. It invokes `gh pr merge --merge --match-head-commit`
   and immediately runs local cleanup. It never bypasses GitHub protections.
+  The entry reads the committed migration/ADR candidate against the refreshed
+  destination and refuses an unprepared head. Pending names are prepared in
+  the builder checkout before commit and exact-head qualification, never
+  silently changed during merge.
   Builders never invoke this command. To recover a merge completed outside
   this entry point, run `bun merge:followup <merged-pr-number>`.
 - **After a merge.** Local follow-up retires only a matching PurePoint worktree at the exact merged
