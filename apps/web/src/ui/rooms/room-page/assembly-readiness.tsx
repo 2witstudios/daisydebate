@@ -233,21 +233,18 @@ export function ReadyControl({
     `${buttonClass(variant)} w-full`;
   // A Ready standing from another tab still needs this tab's devices: their
   // Turn on comes first, and the host's Start waits on it.
-  const turnOn =
-    turnOnDevices &&
-    own?.kind === 'human' &&
-    !isJudgeSeat(own.seat) &&
-    !local.devicesPassed
-      ? turnOnDevices
-      : null;
+  const needsDevices =
+    own?.kind === 'human' && !isJudgeSeat(own.seat) && !local.devicesPassed;
+  const turnOn = needsDevices ? turnOnDevices : undefined;
   if (ready.type === 'unready')
     return (
       <div className="flex flex-col gap-2">
-        {turnOn ? (
+        {needsDevices ? (
           <Button
             variant="unstyled"
             type="button"
             onClick={turnOn}
+            disabled={!turnOn}
             className={full('primary')}
           >
             Turn on camera and mic
@@ -270,12 +267,13 @@ export function ReadyControl({
       </div>
     );
   // The only refusal the viewer can clear from here is their own devices.
-  if (ready.blocker === 'devices' && turnOn)
+  if (ready.blocker === 'devices')
     return (
       <Button
         variant="unstyled"
         type="button"
         onClick={turnOn}
+        disabled={!turnOn}
         className={full('primary')}
       >
         Turn on camera and mic

@@ -370,11 +370,12 @@ describe('native room readiness and Start round controls', () => {
         'CAP still reports ready while the human host has lost device checks',
       should: 'block Start round synchronously and still offer Unready',
       actual: [
-        byText(tree, Button, 'Start round')?.props.disabled,
+        Boolean(byText(tree, Button, 'Start round')),
+        byText(tree, Button, 'Turn on camera and mic')?.props.disabled,
         byText(tree, Button, 'Not ready')?.props.disabled,
         view.participants[0]?.ready,
       ],
-      expected: [true, false, 'ready'],
+      expected: [false, true, false, 'ready'],
     });
   });
 
@@ -541,3 +542,41 @@ describe('the tile’s one button (ADR 0145)', () => {
     });
   });
 });
+
+for (const standing of ['not-ready', 'ready'] as const) {
+  test(`device initialization preserves the ${standing} debater’s action`, () => {
+    const view = {
+      ...base,
+      participants: [
+        {
+          ...base.participants[0]!,
+          seat: { kind: 'side', side: 'affirmative', slot: 0 } as const,
+          ready: standing,
+        },
+      ],
+    };
+    const pending = ReadyControl({ ...props, view });
+    const initialized = ReadyControl({
+      ...props,
+      view,
+      turnOnDevices: () => {},
+    });
+    const action = (tree: typeof pending) =>
+      byText(tree, Button, 'Turn on camera and mic');
+    assert({
+      given: `a ${standing} debater before and after local devices initialize`,
+      should:
+        'keep the same action in place, disabled only until it can turn on devices, and preserve withdrawal',
+      actual: [
+        Boolean(action(pending)),
+        action(pending)?.props.disabled,
+        action(initialized)?.props.disabled ?? false,
+        Boolean(byText(pending, Button, 'Not ready')),
+        renderToStaticMarkup(<>{pending}</>).includes(
+          'Check your camera and microphone before readying.',
+        ),
+      ],
+      expected: [true, true, false, standing === 'ready', false],
+    });
+  });
+}

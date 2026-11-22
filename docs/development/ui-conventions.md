@@ -48,6 +48,16 @@ Tests of a popover assert what the reader sees: the popover, found with
 `includeHidden`, is hidden until its opener is pressed and visible after, not
 a `:popover-open` count.
 
+## Room device initialization keeps adjacent controls still
+
+The seated debater’s initial camera placeholder reserves `aspect-room-preview`,
+just like the initialized preview. Its Turn on camera and mic action stays in
+place, disabled until local device resources exist; a standing Ready also keeps
+Not ready. Hydration must not move the Settings link during a click. The canonical
+custom Room journey holds browser scripts across reload and compares that link’s
+geometry before and after device initialization, then opens Settings through its
+ordinary link and verifies the dialog.
+
 ## Browser lifetimes and native controls
 
 Browser effects, timers and requests enter through `apps/web/src/ui/edge/`.
