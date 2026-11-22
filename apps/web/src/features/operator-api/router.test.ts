@@ -18,7 +18,7 @@ setupRitewayBun();
 /** A store refusing everything a test does not name. */
 const storeOf = () => ({
   listOperatorAccounts: async () => [],
-  runBetaAccessCommand: async () => {
+  betaAccessCommand: async () => {
     throw createAppError('CONFLICT');
   },
   readOperatorCommand: async () => null,
@@ -183,7 +183,7 @@ describe('the private operator API (ADR 0079)', () => {
           throw new Error('Unexpected lift');
         },
         listOperatorAccounts: async () => [],
-        runBetaAccessCommand: async () => {
+        betaAccessCommand: async () => {
           throw createAppError('CONFLICT');
         },
         readOperatorCommand: async () => null,
@@ -303,7 +303,7 @@ test('an unexpected handler failure reaches the error reporter; a refusal does n
       listOperatorAccounts: async () => {
         throw new Error('pool exhausted');
       },
-      runBetaAccessCommand: async () => {
+      betaAccessCommand: async () => {
         throw createAppError('CONFLICT');
       },
       readOperatorCommand: async () => null,

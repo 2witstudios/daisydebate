@@ -1,3 +1,4 @@
+import { executeBetaAccessCommand } from './operator-accounts.test-support';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
@@ -31,7 +32,7 @@ test('a PUT delayed past its signed deadline behind a lock writes nothing (ADR 0
       });
     await holding;
     await withDatabase(url, async (database) => {
-      const put = database.runBetaAccessCommand(input);
+      const put = executeBetaAccessCommand(database, input);
       // The PUT is waiting on the lock; its deadline passes while it waits.
       for (;;) {
         const [waiting] =

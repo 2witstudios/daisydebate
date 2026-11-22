@@ -6,7 +6,6 @@ import {
   type BetaAccessCommandResult,
   type BetaAccessCommandState,
   type BetaAccessDecision,
-  type BetaAccessState,
 } from '@daisy/protocol/beta-access';
 import { sql } from 'drizzle-orm';
 import { lockAuthorizationActors } from './authorization';
@@ -45,7 +44,7 @@ export async function readBetaAccessCommandState(
 }
 type AccountFact = NonNullable<ReturnType<typeof authorizationAccountFact>>;
 
-/** The pure decision and authority, injected so this adapter decides nothing itself. */
+/** Invocation identity and final commit budget, bound to one fenced session. */
 export type BetaAccessCommandInput = {
   readonly commandId: string;
   readonly serviceId: string;
@@ -59,14 +58,6 @@ export type BetaAccessCommandInput = {
   readonly nextId: () => string;
   /** True while the signed request may still commit (ADR 0079, checked last). */
   readonly live: () => boolean;
-  readonly authorize: (target: AccountFact | null) => boolean;
-  readonly decide: (
-    current: {
-      readonly state: BetaAccessState;
-      readonly revision: number;
-    } | null,
-    ageBand: AccountFact['ageBand'],
-  ) => BetaAccessDecision;
 };
 
 export type BetaAccessCommandOutcome =
@@ -75,13 +66,6 @@ export type BetaAccessCommandOutcome =
 
 type Decision = BetaAccessDecision;
 type Applied = Exclude<Decision, { kind: 'refused' }>;
-
-const refusalCode = {
-  stale: 'CONFLICT',
-  'not-found': 'NOT_FOUND',
-  // ISSUE-664: approval needs a durable 13+ age record first.
-  'age-required': 'INVARIANT',
-} as const;
 
 /** The target's account fact, locked under the account fence; null without a human actor. */
 async function lockTarget(tx: Tx, userId: string) {
@@ -95,25 +79,6 @@ async function lockTarget(tx: Tx, userId: string) {
     maxActors: 1,
   });
   return fact ?? null;
-}
-
-const liveTarget = (
-  fact: AccountFact | null,
-  userId: string,
-): fact is AccountFact =>
-  fact !== null && !fact.erased && fact.userId === userId;
-
-/** The transition the fresh fact allows; a refusal throws and writes nothing. */
-function decided(
-  input: BetaAccessCommandInput,
-  fact: AccountFact | null,
-): Applied {
-  if (!liveTarget(fact, input.targetUserId)) throw createAppError('NOT_FOUND');
-  if (!input.authorize(fact)) throw createAppError('AUTHORIZATION');
-  const decision = input.decide(fact.beta, fact.ageBand);
-  if (decision.kind === 'refused')
-    throw createAppError(refusalCode[decision.reason]);
-  return decision;
 }
 
 const commandResult = (
@@ -175,35 +140,80 @@ async function applyChange(
   }
 }
 
-/**
- * One beta access command inside its transaction, under the target's
- * account fence: the receipt first (the same digest replays the stored
- * result), then authority and the transition on the fresh fact, then
- * state, audit event, owed mail or revocation push and the receipt.
- */
-export async function runBetaAccessCommand(
+type BetaAccessLoad =
+  | { readonly kind: 'replayed'; readonly result: BetaAccessCommandResult }
+  | {
+      readonly kind: 'fresh';
+      readonly account: AccountFact | null;
+      readonly apply: (decision: Applied) => Promise<void>;
+    };
+export type BetaAccessCommandWork = (session: {
+  readonly load: () => Promise<BetaAccessLoad>;
+}) => Promise<void>;
+type Lifecycle =
+  | { readonly kind: 'new' | 'loading' | 'fresh' | 'applying' | 'closed' }
+  | { readonly kind: 'settled'; readonly outcome: BetaAccessCommandOutcome };
+
+/** Command fence, account fence, then replay; fresh decisions belong to the caller. */
+export async function betaAccessCommand(
   tx: Tx,
   input: BetaAccessCommandInput,
+  work: BetaAccessCommandWork,
   eventSink: DatabaseEventSink | undefined,
 ): Promise<BetaAccessCommandOutcome> {
-  await commandGate(tx, input.commandId);
-  const fact = await lockTarget(tx, input.targetUserId);
-  const replayed = await storedResult(tx, input.commandId, input.requestDigest);
-  if (replayed)
+  const lifecycle: { current: Lifecycle } = { current: { kind: 'new' } };
+  // The callback may finish while a capability is awaiting database work.
+  const phase = () => lifecycle.current.kind;
+  const load = async (): Promise<BetaAccessLoad> => {
+    if (phase() !== 'new') throw createAppError('INVARIANT');
+    lifecycle.current = { kind: 'loading' };
+    await commandGate(tx, input.commandId);
+    const account = await lockTarget(tx, input.targetUserId);
+    const replayed = await storedResult(
+      tx,
+      input.commandId,
+      input.requestDigest,
+    );
+    if (phase() !== 'loading') throw createAppError('INVARIANT');
+    if (replayed) {
+      const result = betaAccessCommandResultSchema.parse(replayed);
+      lifecycle.current = {
+        kind: 'settled',
+        outcome: { kind: 'replayed', result },
+      };
+      return { kind: 'replayed', result };
+    }
+    lifecycle.current = { kind: 'fresh' };
     return {
-      kind: 'replayed',
-      result: betaAccessCommandResultSchema.parse(replayed),
+      kind: 'fresh',
+      account,
+      apply: async (decision) => {
+        if (phase() !== 'fresh') throw createAppError('INVARIANT');
+        lifecycle.current = { kind: 'applying' };
+        const result = betaAccessCommandResultSchema.parse(
+          commandResult(input.commandId, decision),
+        );
+        if (decision.kind === 'changed')
+          await applyChange(tx, input, decision, eventSink);
+        await writeReceipt(tx, input, input.targetUserId, {
+          action: betaAccessCommandAction,
+          result,
+        });
+        if (phase() !== 'applying') throw createAppError('INVARIANT');
+        // Replay bypasses this check; every fresh command, including no-op, must still be live.
+        if (!input.live()) throw createAppError('CONFLICT');
+        lifecycle.current = {
+          kind: 'settled',
+          outcome: { kind: 'applied', result },
+        };
+      },
     };
-  const decision = decided(input, fact);
-  const result = commandResult(input.commandId, decision);
-  if (decision.kind === 'changed')
-    await applyChange(tx, input, decision, eventSink);
-  await writeReceipt(tx, input, input.targetUserId, {
-    action: betaAccessCommandAction,
-    result,
-  });
-  // Checked last: a PUT delayed past its signed deadline (behind a lock, say)
-  // writes nothing, so an admin that waited out the deadline may abandon it.
-  if (!input.live()) throw createAppError('CONFLICT');
-  return { kind: 'applied', result };
+  };
+  try {
+    await work({ load });
+    if (lifecycle.current.kind !== 'settled') throw createAppError('INVARIANT');
+    return lifecycle.current.outcome;
+  } finally {
+    lifecycle.current = { kind: 'closed' };
+  }
 }

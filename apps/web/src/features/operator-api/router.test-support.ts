@@ -94,8 +94,24 @@ export const api = (overrides: Partial<OperatorApiDependencies> = {}) => {
         calls.lists.push(input);
         return [account, { ...account, userId: 'v'.repeat(24) }];
       },
-      runBetaAccessCommand: async (input) => {
+      betaAccessCommand: async (input, work) => {
         calls.commands.push(input);
+        await work({
+          load: async () => ({
+            kind: 'fresh',
+            account: {
+              userId: input.targetUserId,
+              actorId: 'a'.repeat(24),
+              member: true,
+              erased: false,
+              revision: 1,
+              beta: { state: 'pending', revision: 1 },
+              ageBand: 'adult',
+              restricted: false,
+            },
+            apply: async () => {},
+          }),
+        });
         return { kind: 'applied', result };
       },
       readOperatorCommand: async () => ({
