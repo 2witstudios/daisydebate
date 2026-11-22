@@ -180,8 +180,12 @@ export type ContentModerationChange =
       readonly reason: (typeof recordingLegalRemovalReasons)[number];
     }
   | {
-      readonly action:
-        'recording.restore' | 'recording.remove' | 'recording.rebuild';
+      readonly action: 'recording.remove';
+      readonly recordingId: string;
+      readonly expectedVersion: number;
+    }
+  | {
+      readonly action: 'recording.restore' | 'recording.rebuild';
       readonly recordingId: string;
       readonly expectedVersion: number;
     }
@@ -315,7 +319,7 @@ const setAudienceBan = async (
  * since only an operator's stop holds it back. The feed stops once, whichever
  * command got there first.
  */
-const endingFeed = async (
+const endRecordingFeed = async (
   tx: Tx,
   input: {
     readonly recordingId: string;
@@ -323,26 +327,32 @@ const endingFeed = async (
     readonly now: Date;
     readonly ports: Ports;
   },
-  moved: ContentModerationOutcome,
 ): Promise<ContentModerationOutcome> => {
-  if (moved === null) return null;
   const broadcastId = await input.ports.recordings.readBroadcastId(
     tx,
     input.recordingId,
   );
-  const feed = broadcastId
+  return broadcastId
     ? await endBroadcastFeed(tx, {
         id: broadcastId,
         reason: input.reason,
         now: input.now,
       })
     : null;
-  return feed === 'applied' ? 'applied' : moved;
 };
 
 const applyChange = (
   tx: Tx,
-  change: ContentModerationChange,
+  change: Exclude<
+    ContentModerationChange,
+    {
+      action:
+        | 'recording.takedown'
+        | 'recording.remove'
+        | 'recording.legal_remove'
+        | 'chat_message.remove';
+    }
+  >,
   operatorRef: string,
   now: Date,
   ports: Ports,
@@ -358,71 +368,10 @@ const applyChange = (
       });
     case 'broadcast.chat_slow_mode.update':
       return setSlowMode(tx, change);
-    case 'recording.takedown':
-      return ports.recordings
-        .takeDown(tx, {
-          recordingId: change.recordingId,
-          expectedVersion: change.expectedVersion,
-          reason: change.reason,
-          now,
-        })
-        .then((moved) =>
-          endingFeed(
-            tx,
-            {
-              recordingId: change.recordingId,
-              reason: change.reason,
-              now,
-              ports,
-            },
-            moved,
-          ),
-        );
     case 'recording.restore':
       return ports.recordings.restore(tx, change);
-    case 'recording.remove':
-      return ports.recordings.remove(tx, { ...change, now }).then((moved) =>
-        endingFeed(
-          tx,
-          {
-            recordingId: change.recordingId,
-            reason: 'recording_removed',
-            now,
-            ports,
-          },
-          moved,
-        ),
-      );
-    case 'recording.legal_remove':
-      return ports.recordings
-        .legallyRemove(tx, { ...change, now })
-        .then((moved) =>
-          endingFeed(
-            tx,
-            {
-              recordingId: change.recordingId,
-              reason: 'recording_legally_removed',
-              now,
-              ports,
-            },
-            moved,
-          ),
-        );
     case 'recording.rebuild':
       return ports.recordings.rebuild(tx, change);
-    case 'chat_message.remove':
-      return ports.chat
-        .remove(tx, { messageId: change.messageId, now })
-        .then((result) =>
-          result === null
-            ? ports.floor.remove(tx, { messageId: change.messageId, now })
-            : result,
-        )
-        .then((result) =>
-          result === null
-            ? ports.roomChat.remove(tx, { messageId: change.messageId, now })
-            : result,
-        );
     case 'profile_photo.review':
       return publicProfileModeration.reviewPhoto(tx, { ...change, now });
     case 'profile_photo.remove':
@@ -529,6 +478,62 @@ const subjectOf = async (
  * beta command does: one transaction, every statement bounded, the receipt
  * first, the commit deadline last, and a refusal writes nothing.
  */
+type ModerationCommandInput = {
+  readonly commandId: string;
+  readonly serviceId: string;
+  readonly operatorRef: string;
+  readonly requestDigest: string;
+  readonly adminAuditHead: string;
+  readonly live: () => boolean;
+  readonly change: ContentModerationChange;
+};
+type WithdrawalInput = Omit<ModerationCommandInput, 'change'> & {
+  readonly change: Extract<
+    ContentModerationChange,
+    {
+      action:
+        'recording.takedown' | 'recording.remove' | 'recording.legal_remove';
+    }
+  >;
+};
+type WithdrawalLoad =
+  | {
+      readonly kind: 'replayed';
+      readonly result: ContentModerationCommandResult;
+    }
+  | {
+      readonly kind: 'fresh';
+      readonly recording: ContentModerationOutcome;
+      readonly endFeed: (
+        reason: BroadcastFeedEndReason,
+      ) => Promise<ContentModerationOutcome>;
+      readonly settle: (
+        result: ContentModerationCommandResult,
+      ) => Promise<void>;
+    };
+type WithdrawalLifecycle =
+  | {
+      readonly kind:
+        | 'new'
+        | 'loading'
+        | 'prepared'
+        | 'ending'
+        | 'ended'
+        | 'settling'
+        | 'closed';
+    }
+  | {
+      readonly kind: 'settled' | 'replayed';
+      readonly result: ContentModerationCommandResult;
+    };
+
+type ChatRemovalPorts = {
+  readonly spectator: () => Promise<ContentModerationOutcome>;
+  readonly floor: () => Promise<ContentModerationOutcome>;
+  readonly room: () => Promise<ContentModerationOutcome>;
+};
+type ChatRemovalPhase = 'ready' | 'removing' | 'found' | 'closed';
+
 export function contentModerationOperations({
   database,
   eventSink,
@@ -665,15 +670,172 @@ export function contentModerationOperations({
           };
         },
       ),
-    runModerationCommand: (input: {
-      readonly commandId: string;
-      readonly serviceId: string;
-      readonly operatorRef: string;
-      readonly requestDigest: string;
-      readonly adminAuditHead: string;
-      readonly live: () => boolean;
-      readonly change: ContentModerationChange;
-    }): Promise<ContentModerationCommandResult> =>
+    /** Preparing Recording effects remain provisional until feed orchestration and receipt settle. */
+    recordingWithdrawalCommand: (
+      input: WithdrawalInput,
+      work: (session: {
+        readonly load: () => Promise<WithdrawalLoad>;
+      }) => Promise<void>,
+    ): Promise<ContentModerationCommandResult> =>
+      instrumented(eventSink, 'runModerationCommand', () =>
+        inTransaction(database, async (tx) => {
+          const lifecycle: { current: WithdrawalLifecycle } = {
+            current: { kind: 'new' },
+          };
+          const phase = () => lifecycle.current.kind;
+          const load = async (): Promise<WithdrawalLoad> => {
+            if (phase() !== 'new') throw createAppError('INVARIANT');
+            lifecycle.current = { kind: 'loading' };
+            await commandGate(tx, input.commandId);
+            const stored = await storedResult(
+              tx,
+              input.commandId,
+              input.requestDigest,
+            );
+            if (phase() !== 'loading') throw createAppError('INVARIANT');
+            if (stored) {
+              const result = contentModerationCommandResultSchema.parse(stored);
+              lifecycle.current = { kind: 'replayed', result };
+              return { kind: 'replayed', result };
+            }
+            const now = await dbNow(tx);
+            const change = input.change;
+            const recording =
+              change.action === 'recording.takedown'
+                ? await ports.recordings.takeDown(tx, { ...change, now })
+                : change.action === 'recording.remove'
+                  ? await ports.recordings.remove(tx, { ...change, now })
+                  : await ports.recordings.legallyRemove(tx, {
+                      ...change,
+                      now,
+                    });
+            if (phase() !== 'loading') throw createAppError('INVARIANT');
+            lifecycle.current = { kind: 'prepared' };
+            return {
+              kind: 'fresh',
+              recording,
+              endFeed: async (reason) => {
+                if (phase() !== 'prepared' || recording === null)
+                  throw createAppError('INVARIANT');
+                lifecycle.current = { kind: 'ending' };
+                const result = await endRecordingFeed(tx, {
+                  recordingId: input.change.recordingId,
+                  reason,
+                  now,
+                  ports,
+                });
+                if (phase() !== 'ending') throw createAppError('INVARIANT');
+                lifecycle.current = { kind: 'ended' };
+                return result;
+              },
+              settle: async (value) => {
+                if (phase() !== 'ended') throw createAppError('INVARIANT');
+                lifecycle.current = { kind: 'settling' };
+                const result =
+                  contentModerationCommandResultSchema.parse(value);
+                await writeReceipt(tx, input, null, {
+                  action: input.change.action,
+                  result,
+                });
+                if (phase() !== 'settling') throw createAppError('INVARIANT');
+                if (!input.live()) throw createAppError('CONFLICT');
+                lifecycle.current = { kind: 'settled', result };
+              },
+            };
+          };
+          try {
+            await work({ load });
+            if (
+              lifecycle.current.kind !== 'settled' &&
+              lifecycle.current.kind !== 'replayed'
+            )
+              throw createAppError('INVARIANT');
+            if (lifecycle.current.kind === 'settled' && !input.live())
+              throw createAppError('CONFLICT');
+            return lifecycle.current.result;
+          } finally {
+            lifecycle.current = { kind: 'closed' };
+          }
+        }),
+      ),
+    /** Fresh application fallback runs under the existing receipt and owner fences. */
+    chatRemovalCommand: (
+      input: Omit<ModerationCommandInput, 'change'> & {
+        readonly change: Extract<
+          ContentModerationChange,
+          { action: 'chat_message.remove' }
+        >;
+      },
+      work: (removers: ChatRemovalPorts) => Promise<ContentModerationOutcome>,
+    ): Promise<ContentModerationCommandResult> =>
+      instrumented(eventSink, 'runModerationCommand', () =>
+        inTransaction(database, async (tx) => {
+          await commandGate(tx, input.commandId);
+          const stored = await storedResult(
+            tx,
+            input.commandId,
+            input.requestDigest,
+          );
+          if (stored) return contentModerationCommandResultSchema.parse(stored);
+          const now = await dbNow(tx);
+          const state: { phase: ChatRemovalPhase } = { phase: 'ready' };
+          const phase = () => state.phase;
+          const remove = (owner: ChatMessageModeration) => async () => {
+            if (phase() !== 'ready') throw createAppError('INVARIANT');
+            state.phase = 'removing';
+            const result = await owner.remove(tx, {
+              messageId: input.change.messageId,
+              now,
+            });
+            if (phase() !== 'removing') throw createAppError('INVARIANT');
+            state.phase = result === null ? 'ready' : 'found';
+            return result;
+          };
+          const runFallback = async () => {
+            try {
+              const result = await work({
+                spectator: remove(ports.chat),
+                floor: remove(ports.floor),
+                room: remove(ports.roomChat),
+              });
+              if (
+                phase() === 'removing' ||
+                (result !== null && phase() !== 'found')
+              )
+                throw createAppError('INVARIANT');
+              return result;
+            } finally {
+              state.phase = 'closed';
+            }
+          };
+          const outcome = await runFallback();
+          if (outcome === null) throw createAppError('NOT_FOUND');
+          const result = contentModerationCommandResultSchema.parse({
+            v: 1,
+            outcome,
+          });
+          await writeReceipt(tx, input, null, {
+            action: 'chat_message.remove',
+            result,
+          });
+          if (!input.live()) throw createAppError('CONFLICT');
+          return result;
+        }),
+      ),
+    runModerationCommand: (
+      input: Omit<ModerationCommandInput, 'change'> & {
+        readonly change: Exclude<
+          ContentModerationChange,
+          {
+            action:
+              | 'recording.takedown'
+              | 'recording.remove'
+              | 'recording.legal_remove'
+              | 'chat_message.remove';
+          }
+        >;
+      },
+    ): Promise<ContentModerationCommandResult> =>
       instrumented(eventSink, 'runModerationCommand', () =>
         inTransaction(database, async (tx) => {
           await commandGate(tx, input.commandId);

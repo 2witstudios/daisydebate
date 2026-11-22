@@ -1,3 +1,4 @@
+import { testModerationCommands } from './content-moderation-command.test-support';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { withFixture } from './constraint-helpers';
@@ -48,12 +49,14 @@ const textOf = async (
 const operations = (
   db: Parameters<typeof contentModerationOperations>[0]['database'],
 ) =>
-  contentModerationOperations({
-    database: db,
-    chat: spectatorChatModeration,
-    floor: roundFloorModeration,
-    roomChat: roomCommunityModeration,
-  });
+  testModerationCommands(
+    contentModerationOperations({
+      database: db,
+      chat: spectatorChatModeration,
+      floor: roundFloorModeration,
+      roomChat: roomCommunityModeration,
+    }),
+  );
 
 describe('Room chat reports and own withdrawal (RCHAT-8)', () => {
   test('atomic report and existing operator review/remove', async () =>

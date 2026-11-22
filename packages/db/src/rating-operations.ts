@@ -6,7 +6,11 @@ import {
 } from '@daisy/protocol/ratings';
 import { type RoundRatingScope } from '@daisy/protocol/rating-ladder';
 import { and, eq, inArray, max, sql } from 'drizzle-orm';
-import type { RateDebateInput, RateDebateResult } from './rating-facts';
+import type {
+  RateDebateInput,
+  RateDebateResult,
+  RatingDecision,
+} from './rating-facts';
 import {
   assertRoundRatingIntegrity,
   projectionLockOrder,
@@ -46,6 +50,7 @@ async function loadStanding(
     readonly actorId: string;
     readonly pool: NonNullable<RoundRatingScope>;
   },
+  requireStandingRules: RatingDecision['requireStandingRules'],
 ): Promise<DebaterStanding> {
   const onLadder = and(
     eq(ratings.actorId, scope.actorId),
@@ -69,11 +74,9 @@ async function loadStanding(
         ),
       )
       .limit(1);
-    if (previousBetaStanding)
-      throw createAppError(
-        'CONFLICT',
-        'Season carry-over requires DEC-111 resolution',
-      );
+    requireStandingRules({
+      previousWithoutRules: previousBetaStanding !== undefined,
+    });
   }
   const [last] = await tx
     .select({ at: max(ratingChanges.occurredAt) })
@@ -174,10 +177,11 @@ async function rateOnce(
   if (!season)
     throw createAppError('INVARIANT', 'Missing frozen rating season');
 
-  const [first, second] = round.rulesSnapshot.sides;
-  if (round.rulesSnapshot.sides.length !== 2 || !first || !second)
-    return { kind: 'unrated', reason: 'competition' };
-  const sides = [first.key, second.key] as const;
+  const competition = decide.competition(
+    round.rulesSnapshot.sides.map((side) => side.key),
+  );
+  if (competition.kind === 'unrated') return competition;
+  const { sides } = competition;
   // A rating compares the two sides' seats (ADR 0055): the preset's pair.
   const seats = (
     await tx
@@ -214,10 +218,14 @@ async function rateOnce(
     await takeLock(tx, transactionLocks.ratingSeat(Number(key)));
   const standings: Record<string, DebaterStanding> = {};
   for (const { actorId } of seats)
-    standings[actorId] = await loadStanding(tx, {
-      actorId,
-      pool: eligibility.scope,
-    });
+    standings[actorId] = await loadStanding(
+      tx,
+      {
+        actorId,
+        pool: eligibility.scope,
+      },
+      decide.requireStandingRules,
+    );
 
   const plan = decide.plan({
     scope: eligibility.scope,

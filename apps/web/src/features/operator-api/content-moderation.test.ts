@@ -48,6 +48,36 @@ const withStore = (
         digests.push(input.requestDigest);
         return { v: 1, outcome: 'applied' };
       },
+      chatRemovalCommand: async (input, work) => {
+        changes.push(input.change);
+        digests.push(input.requestDigest);
+        const outcome = await work({
+          spectator: async () => 'applied',
+          floor: async () => null,
+          room: async () => null,
+        });
+        if (outcome === null) throw new Error('Expected a found message');
+        return { v: 1, outcome };
+      },
+      recordingWithdrawalCommand: async (input, work) => {
+        changes.push(input.change);
+        digests.push(input.requestDigest);
+        const saved: {
+          result: { v: 1; outcome: 'applied' | 'unchanged' } | null;
+        } = { result: null };
+        await work({
+          load: async () => ({
+            kind: 'fresh',
+            recording: 'applied',
+            endFeed: async () => null,
+            settle: async (result) => {
+              saved.result = result;
+            },
+          }),
+        });
+        if (!saved.result) throw new Error('Test takedown did not settle');
+        return saved.result;
+      },
       ...overrides,
     },
   });

@@ -1,3 +1,6 @@
+import { runChatRemovalCommand } from './chat-removal-command';
+import type { Database } from '@daisy/db';
+import { runRecordingWithdrawalCommand } from './recording-withdrawal-command';
 import {
   authorize,
   type AuthorizationPrincipal,
@@ -65,8 +68,12 @@ export type ContentModerationChange =
       readonly reason: ContentModerationCommand<'recording.legal_remove'>['reason'];
     }
   | {
-      readonly action:
-        'recording.restore' | 'recording.remove' | 'recording.rebuild';
+      readonly action: 'recording.remove';
+      readonly recordingId: string;
+      readonly expectedVersion: number;
+    }
+  | {
+      readonly action: 'recording.restore' | 'recording.rebuild';
       readonly recordingId: string;
       readonly expectedVersion: number;
     }
@@ -130,8 +137,19 @@ export type ContentModerationStore = {
     readonly requestDigest: string;
     readonly adminAuditHead: string;
     readonly live: () => boolean;
-    readonly change: ContentModerationChange;
+    readonly change: Exclude<
+      ContentModerationChange,
+      {
+        action:
+          | 'recording.takedown'
+          | 'recording.remove'
+          | 'recording.legal_remove'
+          | 'chat_message.remove';
+      }
+    >;
   }) => Promise<ContentModerationCommandResult>;
+  readonly chatRemovalCommand: Database['chatRemovalCommand'];
+  readonly recordingWithdrawalCommand: Database['recordingWithdrawalCommand'];
 };
 
 type Deps = {
@@ -463,7 +481,7 @@ async function runCommand(
 ): Promise<ContentModerationCommandResult> {
   const operator = requireCapability(principal, change.action);
   const envelope = envelopeOf(change.action, body);
-  const result = await deps.store.runModerationCommand({
+  const input = {
     commandId: envelope.commandId,
     serviceId: operator.serviceId,
     operatorRef: operator.operatorRef,
@@ -473,8 +491,15 @@ async function runCommand(
     ),
     adminAuditHead: envelope.adminAuditHead,
     live: () => deps.nowMs() <= signedAtMs + operatorLimits.skewMs,
-    change,
-  });
+  };
+  const result =
+    change.action === 'recording.takedown' ||
+    change.action === 'recording.remove' ||
+    change.action === 'recording.legal_remove'
+      ? await runRecordingWithdrawalCommand(deps.store, { ...input, change })
+      : change.action === 'chat_message.remove'
+        ? await runChatRemovalCommand(deps.store, { ...input, change })
+        : await deps.store.runModerationCommand({ ...input, change });
   deps.logger.log(
     'operator.command.applied',
     {

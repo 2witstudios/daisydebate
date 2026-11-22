@@ -43,6 +43,18 @@ atomic, and session capabilities close when the attempt ends.
 | `documents`                                     | Actor-owned documents. A Round only opens them, so removing a Round never removes one.                                                                                                                                                                                                                                                                                                                                                                                 |
 | `seasons`, `ratings`, `rating_changes`          | Glicko-2 seasons, current projection, and append-only ledger for the Ranked ladder. A season belongs to an organization its writer names, Daisy's to Daisy; a rating names Daisy's one `ladders` row, Freestyle (ADR 0142).                                                                                                                                                                                                                                            |
 
+### Rating admission
+
+The Ratings application supplies the existing engine eligibility, comparison,
+standing admission and plan decisions to `rateRound`. The adapter reads frozen
+side keys after the frozen season fence, then applies the application's two-side
+comparison choice before taking sorted projection locks. Under those locks it
+loads prior-season facts and asks the application to enforce the unchanged
+DEC-111 refusal when an earlier standing lacks approved standing rules.
+Ledger replay, Round → tenant/season → sorted projection lock order,
+frozen pool provenance, optimistic retries and atomic ledger/projection writes
+remain in storage. This ownership split does not approve season carryover.
+
 ## Lobbies, authority and the tab record
 
 These tables are the schema lock of Daisy Tab: later slices connect to them. The database holds isolation, identity and every rule one row or one key can prove; a rule that spans rows belongs to a command. No table has a `tournament_id`, and standings, season standings and divisions have no table.
@@ -467,3 +479,28 @@ open state and a strict expiry comparison against the same scoped transaction
 time, retaining UTC microsecond precision. Storage keeps purpose, lease and
 dedupe/invitation binding, tenant scoping and row-existence checks. No provider
 call runs inside that read transaction.
+
+## Operator Recording withdrawal
+
+The operator application orchestrates `recording.takedown`, `recording.remove`
+and `recording.legal_remove` through `recordingWithdrawalCommand`. Receipt replay precedes preparation; preparing load
+uses the existing Recording version-fenced transition. The application refuses
+a missing Recording, ends its bound Broadcast feed and gives a newly ended feed
+precedence over an unchanged Recording outcome. The adapter retains one
+transaction for Recording/feed effects, typed receipt and final liveness;
+missing settlement, failed work or an escaped capability cannot commit.
+Replay exposes no writer. The application selects the action-specific feed end
+reason and preserves applied-feed precedence. Existing Recording materializers
+retain evidence holds, legal-removal override and version fences; participant
+withdrawal remains separate. Other moderation actions retain their own existing
+operations and atomic owner ports.
+
+## Operator chat removal
+
+The operator application tries spectator chat, Round floor and Room chat in that
+order, only continuing after a missing result. A found unchanged message stops
+lookup. `chatRemovalCommand` retains the existing command gate, typed replay,
+database time, owner fences, receipt and final-liveness transaction; replay
+exposes no owner operation and escaped operations are closed. A missing message
+or failed application leaves no partial removal or receipt. Each existing owner
+keeps its own conditional write and stream/content bookkeeping.

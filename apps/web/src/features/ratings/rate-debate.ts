@@ -4,11 +4,18 @@ import type {
   RateDebateResult,
   RatingDecision,
 } from '@daisy/db/ratings';
-import { planRating, ratingEligibility } from '@daisy/debate-engine';
+import {
+  planRating,
+  ratingEligibility,
+  ratingCompetition,
+  requireRatingStandingRules,
+} from '@daisy/debate-engine';
 
 /** The engine's rating rules in the shape the adapter asks for (ADR 0055). */
 const ratingDecision: RatingDecision = {
   eligibility: ratingEligibility,
+  competition: ratingCompetition,
+  requireStandingRules: requireRatingStandingRules,
   plan: planRating,
 };
 
