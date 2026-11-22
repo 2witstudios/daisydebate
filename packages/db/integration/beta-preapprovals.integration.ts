@@ -1,3 +1,4 @@
+import { decidePreapprovalChange } from '@daisy/protocol/beta-preapproval';
 import { sha3Hex } from '@daisy/digest';
 import { assertRejects } from '@daisy/errors/testing';
 import { instantMs } from '@daisy/clock';
@@ -19,6 +20,7 @@ import {
 setupRitewayBun();
 const { databaseUrl: url } = requireTestServices(process.env);
 const inputFor = (command: PreapprovalCommand, live = () => true) => ({
+  decide: decidePreapprovalChange,
   command,
   serviceId: 'daisy-admin',
   operatorRef: 'o'.repeat(24),
@@ -186,6 +188,63 @@ describe('beta email grants through participant operations', () => {
             },
             other: null,
             counts: { receipts: 1, mail: 1 },
+          },
+        });
+      } finally {
+        await db.close();
+      }
+    });
+  });
+
+  test('the supplied decision sees fenced facts on fresh commands and is skipped on replay', async () => {
+    await withFixture(url, async (f) => {
+      const db = trackedDatabase(f, { url, nextActorId: createId });
+      const observed: unknown[] = [];
+      const decide: typeof decidePreapprovalChange = (facts) => {
+        observed.push({
+          revision: facts.grant?.revision,
+          invited: facts.grant?.invited,
+          activeInvitation: facts.activeInvitation,
+        });
+        return decidePreapprovalChange(facts);
+      };
+      try {
+        const input = {
+          ...inputFor(add(`${createId()}@example.test`, true)),
+          decide,
+        };
+        const saved = await db.runPreapprovalCommand(input);
+        const replay = await db.runPreapprovalCommand(input);
+        const next = await db.runPreapprovalCommand({
+          ...inputFor({
+            v: 1,
+            commandId: createId(),
+            adminAuditHead: 'a'.repeat(64),
+            operation: 'invite',
+            preapprovalId: saved.preapprovalId,
+            expectedRevision: saved.revision,
+          }),
+          decide,
+        });
+        assert({
+          given:
+            'a fresh add, identical receipt replay and a subsequent invite',
+          should:
+            'invoke the real policy only for fresh commands using current fenced invitation facts',
+          actual: {
+            observed,
+            replay,
+            nextRevision: next.revision,
+            nextMail: next.mail,
+          },
+          expected: {
+            observed: [
+              { revision: 1, invited: false, activeInvitation: false },
+              { revision: 1, invited: true, activeInvitation: true },
+            ],
+            replay: saved,
+            nextRevision: 2,
+            nextMail: 'none',
           },
         });
       } finally {

@@ -1,9 +1,6 @@
 import { normalizeEmail } from '@daisy/protocol/email';
 import { loadAuthorizationAccount } from './authorization';
-import {
-  decidePreapprovalChange,
-  canInviteClaimedPreapproval,
-} from './beta-preapproval-decision';
+import { canInviteClaimedPreapproval } from './beta-preapproval-decision';
 import { normalizedEmailSql } from './email-identity';
 import { createAppError } from '@daisy/errors';
 import { sql } from 'drizzle-orm';
@@ -13,6 +10,8 @@ import {
   preapprovalCommandSchema,
   preapprovalResultSchema,
   type PreapprovalCommand,
+  type PreapprovalDecision,
+  type PreapprovalGrantFact,
 } from '@daisy/protocol/beta-preapproval';
 import {
   claimBetaPreapproval,
@@ -82,6 +81,12 @@ export function preapprovalOperations({
       readonly requestDigest: string;
       readonly nextId: () => string;
       readonly live: () => boolean;
+      readonly decide: (facts: {
+        readonly command: PreapprovalCommand;
+        readonly grant: PreapprovalGrantFact | null;
+        readonly claimedAccountInvitable: boolean;
+        readonly activeInvitation: boolean;
+      }) => PreapprovalDecision;
     }) => {
       for (let attempt = 0; attempt < 3; attempt += 1) {
         if (!input.live()) throw createAppError('CONFLICT');
@@ -170,7 +175,7 @@ export function preapprovalOperations({
                 sql`select id from mail_intents where preapproval_id = ${grant.id} and state in ('queued', 'leased') limit 1`,
               )
             : [];
-          const decision = decidePreapprovalChange({
+          const decision = input.decide({
             command,
             grant: grant
               ? {

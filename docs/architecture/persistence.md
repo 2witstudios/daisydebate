@@ -211,6 +211,15 @@ Generate schema changes with `bun db:generate`, review SQL and snapshot metadata
 
 Email diagnostics live in `email_delivery`, `email_delivery_event`, and `email_suppression`: IDs, status rank, and a keyed SHA3-256 recipient hash, never the address or provider payload. The retention sweep removes delivery events and delivery records after their documented windows, and expired verification rows after a grace period. Suppressions remain. Revoking all sessions locks the user row before deleting sessions, so concurrent session creation is serialized against the revoke.
 
+Preapproval command policy lives in `@daisy/protocol/beta-preapproval` as
+`decidePreapprovalChange`. The operator application supplies this pure decision
+to `runPreapprovalCommand`; the adapter invokes it over the fresh grant and
+invitation facts inside the existing account-first fenced transaction. The
+adapter retains preparation writes, bounded restarts, receipt replay and atomic
+application of the decision. Receipt replay does not invoke the decision. The
+command and mail readers retain their shared claimed-invitation eligibility
+predicate.
+
 Queued mail is one lifecycle in several tables: `mail_intents` (beta access, ADR 0075), `notification_digests` (ADR 0144), Messaging's unread-messages email and `league_requests` (a League request is its own owner email, PYL-17) take their state columns and CHECKs from `mailJobColumns` and `mailJobChecks`, and `mailQueue` (`packages/db/src/mail-queue.ts`) is the only writer of that state for all of them. A job is queued, leased to one worker, and ends sent, failed or cancelled; the lease, completion and cancellation instants are `clock_timestamp()` at the write, and a retry's next attempt is the instant the worker's backoff names. A claim ends a job failed when it has already been claimed the caller's `maxAttempts` times, so a worker that keeps dying after its claim cannot hold a job in the queue. A lapsed lease may have reached the provider: for an invitation and for every notification digest the job says `delivery-unknown` from then on, whatever ends it short of a confirmed send, and any job ended at the claim's cap says it too, because its last holder never settled. Work that stops being owed is cancelled through `cancelOwed`, held or not, and a holder that chooses to wait (a digest whose member is online) puts the job back through `postpone`, spending no attempt.
 
 The outbox is a transactionally written delivery log for realtime doorbells, not event sourcing. The realtime service reads its explicitly granted projection and keeps presence in expiring Redis keys. Redis keys are validated and namespaced per deployment, with expiry set atomically; tests delete only their own namespace. Rate limiting uses atomic server-side operations and an explicit outage policy. No global flush or Redis-derived competitive outcome is permitted.

@@ -7,6 +7,7 @@ import {
 } from '@daisy/auth/authorization';
 import {
   preapprovalCommandSchema,
+  decidePreapprovalChange,
   preapprovalPageSchema,
   preapprovalQuerySchema,
 } from '@daisy/protocol/beta-preapproval';
@@ -641,6 +642,7 @@ async function updatePreapproval(
         ];
   return deps.store.runPreapprovalCommand({
     command: parsed.data,
+    decide: decidePreapprovalChange,
     serviceId: principal.serviceId,
     operatorRef: principal.operatorRef,
     requestDigest: deps.crypto.sha3Hex(
