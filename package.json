@@ -115,6 +115,7 @@
     "drill:first-word": "bun --env-file=.env apps/web/e2e/support/first-word-runner.ts",
     "drill:bot-freestyle": "bun --env-file=.env apps/web/e2e/support/bot-freestyle-runner.ts",
     "test:e2e:realtime": "bun --env-file=.env apps/web/e2e/support/realtime-runner.ts room",
+    "test:e2e:groups": "bun --env-file=.env apps/web/e2e/support/realtime-runner.ts groups",
     "test:e2e:messaging-realtime": "bun --env-file=.env apps/web/e2e/support/realtime-runner.ts messaging",
     "proof:round-judging": "bun scripts/heavy.ts bun scripts/prove-round-judging.ts",
     "proof:media-worker": "bun scripts/heavy.ts bun scripts/prove-media-worker.ts"

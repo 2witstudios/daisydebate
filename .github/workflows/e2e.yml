@@ -604,6 +604,17 @@ jobs:
       - name: Report actual messaging realtime outcomes
         if: ${{ always() && !cancelled() && matrix.cohort == 'messaging' && (steps.realtime_messaging.outcome == 'success' || steps.realtime_messaging.outcome == 'failure') }}
         run: bun scripts/e2e-report-counts.ts apps/web/test-results/messaging-realtime-results.json
+      - name: Run deployed staging group browser proof
+        id: realtime_groups
+        if: ${{ matrix.cohort == 'messaging' && !cancelled() && steps.realtime_messaging.outcome == 'success' }}
+        run: bun test:e2e:groups
+        env:
+          REALTIME_BROWSER_NODE: node
+
+      - name: Report deployed group outcomes
+        if: ${{ always() && !cancelled() && matrix.cohort == 'messaging' && (steps.realtime_groups.outcome == 'success' || steps.realtime_groups.outcome == 'failure') }}
+        run: bun scripts/e2e-report-counts.ts apps/web/test-results/group-staging-results.json
+
       - name: Report actual discovered and executed outcomes
         if: ${{ always() && !cancelled() && startsWith(matrix.cohort, 'launch-') && (steps.launch.outcome == 'success' || steps.launch.outcome == 'failure') }}
         run: bun scripts/e2e-report-counts.ts apps/web/test-results/room-launch-results.json

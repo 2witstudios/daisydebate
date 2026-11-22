@@ -48,7 +48,7 @@ Next/realtime processes. Run through the machine heavy queue and reuse one build
 ```sh
 bun doctor
 bun run build
-bun scripts/heavy.ts bun --env-file=.env run --cwd apps/web test:e2e --config=e2e/support/group-staging.config.ts
+bun test:e2e:groups
 ```
 
 The dedicated profile enables no external mail delivery: existing browser mail

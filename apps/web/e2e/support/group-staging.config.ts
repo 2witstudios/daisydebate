@@ -1,4 +1,5 @@
 import { defineConfig } from '@playwright/test';
+import { resolve } from 'node:path';
 import messaging from './messaging-realtime-config';
 
 const servers = Array.isArray(messaging.webServer) ? messaging.webServer : [];
@@ -8,6 +9,19 @@ export default defineConfig({
   ...messaging,
   grep: /native group invitation admission and refusal/,
   workers: 1,
+  outputDir: resolve(import.meta.dirname, '../../test-results/group-staging'),
+  reporter: [
+    ['list'],
+    [
+      'json',
+      {
+        outputFile: resolve(
+          import.meta.dirname,
+          '../../test-results/group-staging-results.json',
+        ),
+      },
+    ],
+  ],
   webServer: servers.map((server, index) => ({
     ...server,
     env: {

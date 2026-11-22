@@ -77,6 +77,8 @@
         "e2e/support/realtime-config.ts",
         "e2e/support/realtime-runner.ts",
         "e2e/support/messaging-realtime-config.ts",
+        // Deployed group composition, invoked by test:e2e:groups.
+        "e2e/support/group-staging.config.ts",
         "e2e/support/messaging-data-worker.ts",
         "e2e/support/transcript-seed-process.ts",
         "e2e/support/broadcast-seed-process.ts",
