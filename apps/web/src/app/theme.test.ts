@@ -159,13 +159,13 @@ describe('Tailwind theme (ADR 0028)', () => {
     });
   });
 
-  test('a workspace page keeps the icon rail whatever was saved', async () => {
+  test('a workspace page follows the same rail preference as other pages', async () => {
     const css = await compile('grid-shell-extended icon-rail:hidden');
     const rules = everyRuleOf(css);
     assert({
       given: 'the extended rail and a page marked as a workspace',
       should:
-        'narrow the rail column, and apply the icon rail variant by width or by that page',
+        'keep the rail extended on desktop and apply the icon rail variant only at narrower widths',
       actual: [
         rules.find(
           (rule) =>
@@ -178,7 +178,7 @@ describe('Tailwind theme (ADR 0028)', () => {
           .filter((rule) => rule.selector.includes('icon-rail'))
           .some((rule) => rule.selector.includes(':has([data-workspace])')),
       ],
-      expected: ['var(--spacing-nav-rail)', true, true],
+      expected: [undefined, true, false],
     });
   });
 
