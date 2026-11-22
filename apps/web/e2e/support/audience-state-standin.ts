@@ -14,14 +14,18 @@ import { audienceStatePath, officialFeedPath } from '@daisy/protocol';
  * projections, written to the feed server's memory instead of a bucket. The publish
  * loop and its sampling are proven in apps/audience-publisher and on staging.
  */
-export const startAudienceStateStandIn = (input: {
-  readonly url: string;
+export const createAudienceStatePoll = (input: {
+  readonly store: Pick<
+    ReturnType<typeof createAudiencePublisherStore>,
+    'readPublishing' | 'readSpectatorTimeline' | 'readAudienceSnapshot'
+  >;
   readonly feedOrigin: string;
   readonly publish: (path: string, body: string) => void;
   readonly withdraw: (path: string) => void;
   readonly now: () => number;
+  readonly report: (failure: AudienceStateFailure) => void;
 }) => {
-  const store = createAudiencePublisherStore(input.url);
+  const { store } = input;
   const published = new Map<string, string>();
   const pass = async () => {
     const nowMs = input.now();
@@ -75,25 +79,45 @@ export const startAudienceStateStandIn = (input: {
     );
     const failed = results.filter(({ status }) => status === 'rejected').length;
     if (failed)
-      process.stderr.write(
-        `${JSON.stringify({ event: 'e2e.audience_state.publish_failed', failed })}\n`,
-      );
+      input.report({ event: 'e2e.audience_state.publish_failed', failed });
   };
   // A slow pass must drain its reads before another pass queues work on the pool.
   let publishing = false;
-  const timer = setInterval(async () => {
+  return async () => {
     if (publishing) return;
     publishing = true;
     try {
       await pass();
     } catch {
-      process.stderr.write(
-        `${JSON.stringify({ event: 'e2e.audience_state.read_failed' })}\n`,
-      );
+      input.report({ event: 'e2e.audience_state.read_failed' });
     } finally {
       publishing = false;
     }
-  }, 500);
+  };
+};
+
+type AudienceStateFailure =
+  | { readonly event: 'e2e.audience_state.read_failed' }
+  | {
+      readonly event: 'e2e.audience_state.publish_failed';
+      readonly failed: number;
+    };
+
+export const startAudienceStateStandIn = (
+  input: Omit<
+    Parameters<typeof createAudienceStatePoll>[0],
+    'store' | 'report'
+  > & {
+    readonly url: string;
+  },
+) => {
+  const store = createAudiencePublisherStore(input.url);
+  const poll = createAudienceStatePoll({
+    ...input,
+    store,
+    report: (failure) => process.stderr.write(`${JSON.stringify(failure)}\n`),
+  });
+  const timer = setInterval(poll, 500);
   return () => {
     clearInterval(timer);
     void store.close();

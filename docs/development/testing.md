@@ -158,7 +158,8 @@ the start of every invocation and would otherwise erase each prior run's
 report before the next one starts — and fails if any of the three runs has
 a failure or an empty test selection.
 A retry-pass or a single green run is not this gate; all three outcomes are
-retained as artifacts.
+retained as artifacts. Each pass also retains the Watch fixture publisher's
+failure diagnostics before the next run replaces the server log.
 
 The manual Browser E2E job reserves 180 minutes for setup, all three complete
 passes and artifact retention (ISSUE-1501). The qualification step has a
