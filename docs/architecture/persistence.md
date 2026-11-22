@@ -415,4 +415,16 @@ cannot be used after the decision ends. No provider call runs under the fence.
 The protocol's Club invitation mail rule is shared by resend, new invitations
 and moves to an invitation. Durable counts retain the rolling-day, lifetime,
 recent-send and queued/leased semantics from ADR 0148; refusal leaves the queue
-unchanged. Other seat commands retain their existing operations.
+unchanged.
+
+Non-resend manager commands expose one fenced `managerCommand` load/apply
+session. The Club application owns active-plan and Billing-readiness refusals,
+lazy quota checks and the pure seating decision; the actual Billing seat-count
+caller uses the same operation. The adapter keeps account → Club → billing
+locks, holder-set checks, fresh plan/target facts, seating and mail writes and
+grant projection in one bounded transaction. Refusals precede apply; missing
+settlement, incompatible post-apply refusal and repeated or escaped capabilities
+cannot commit. Inactive plans still permit removal and cancellation. Billing
+receives readiness only after the named releases commit, then performs vendor
+work outside the transaction. Invitation accept/decline retains its separate
+operation and gains no active-plan guard.

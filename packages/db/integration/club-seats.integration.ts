@@ -1,11 +1,8 @@
+import { clubSeatTestCommands } from './club-manager.test-support';
 import { instantMs, addMs } from '@daisy/clock';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
-import {
-  clubSeatGrants,
-  subscriptionAccess,
-  subscriptionGrants,
-} from '@daisy/auth/authorization';
+import { clubSeatGrants, subscriptionGrants } from '@daisy/auth/authorization';
 import { requireTestServices } from '@daisy/config';
 import type { SubscriptionEvidence } from '@daisy/protocol/billing';
 import { createBillingSynchronization } from '../src/billing-synchronization';
@@ -75,7 +72,7 @@ function withPaidClub(
     readonly customerId: string;
     readonly paid: SubscriptionEvidence;
     readonly sync: Sync;
-    readonly seatStore: ReturnType<typeof createClubSeats>;
+    readonly seatStore: ReturnType<typeof clubSeatTestCommands>;
     readonly reads: ReturnType<typeof createClubSeatReads>;
     readonly clubs: string[];
   }) => Promise<void>,
@@ -136,13 +133,13 @@ function withPaidClub(
               mode: 'test',
             }),
         },
-        seatStore: createClubSeats({
-          run,
-          nextId: createId,
-          grants: clubSeatGrants,
-          planActive: (evidence, at) =>
-            subscriptionAccess(evidence, at).kind !== 'none',
-        }),
+        seatStore: clubSeatTestCommands(
+          createClubSeats({
+            run,
+            nextId: createId,
+            grants: clubSeatGrants,
+          }),
+        ),
         reads: createClubSeatReads({ run }),
         clubs,
       });

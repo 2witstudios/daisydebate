@@ -57,10 +57,7 @@ export function composeClubs(
     purchase: canPurchaseClub,
     granted: () => false,
   });
-  const seats = app.database.clubSeats(
-    clubSeatGrants,
-    (evidence, now) => subscriptionAccess(evidence, now).kind !== 'none',
-  );
+  const seats = createClubSeatCommands(app.database.clubSeats(clubSeatGrants));
   const returnOrigin = new URL(app.auth().config.PUBLIC_APP_URL).origin;
   const billing = createClubBilling({
     vendor:
@@ -106,7 +103,7 @@ export function composeClubs(
         return false;
       }
     },
-    seats: createClubSeatCommands(seats),
+    seats,
     reads: app.database.clubSeatReads,
     billing: {
       checkout: billing.checkout,
