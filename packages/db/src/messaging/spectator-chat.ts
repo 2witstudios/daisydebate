@@ -406,8 +406,9 @@ export const spectatorChatModeration: SpectatorChatModeration = {
     });
     await run(
       tx,
+      // Date rounds native microseconds down; removal cannot predate creation.
       sql`update messaging_messages set text=null,
-        removed_at=${input.now.toISOString()}::timestamptz,change_version=${changeVersion}
+        removed_at=greatest(created_at,${input.now.toISOString()}::timestamptz),change_version=${changeVersion}
       where id=${input.messageId} and channel_id=${row.channel_id}`,
     );
     return 'applied';

@@ -96,7 +96,8 @@ export function contextChannelModeration<Fact extends ContextChannelFact>(
       const [row] = await query(
         tx,
         z.object({ id: z.string() }),
-        sql`update messaging_messages set text=null,removed_at=${input.now.toISOString()}::timestamptz,change_version=${stream.changeVersion} where id=${input.messageId} and channel_id=${found.id} and removed_at is null returning id`,
+        // Date rounds native microseconds down; removal cannot predate creation.
+        sql`update messaging_messages set text=null,removed_at=greatest(created_at,${input.now.toISOString()}::timestamptz),change_version=${stream.changeVersion} where id=${input.messageId} and channel_id=${found.id} and removed_at is null returning id`,
       );
       if (!row) return 'unchanged' as const;
       await run(
