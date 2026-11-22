@@ -43,6 +43,18 @@ atomic, and session capabilities close when the attempt ends.
 | `documents`                                     | Actor-owned documents. A Round only opens them, so removing a Round never removes one.                                                                                                                                                                                                                                                                                                                                                                                 |
 | `seasons`, `ratings`, `rating_changes`          | Glicko-2 seasons, current projection, and append-only ledger for the Ranked ladder. A season belongs to an organization its writer names, Daisy's to Daisy; a rating names Daisy's one `ladders` row, Freestyle (ADR 0142).                                                                                                                                                                                                                                            |
 
+### Rating admission
+
+The Ratings application supplies the existing engine eligibility, comparison,
+standing admission and plan decisions to `rateRound`. The adapter reads frozen
+side keys after the frozen season fence, then applies the application's two-side
+comparison choice before taking sorted projection locks. Under those locks it
+loads prior-season facts and asks the application to enforce the unchanged
+DEC-111 refusal when an earlier standing lacks approved standing rules.
+Ledger replay, Round → tenant/season → sorted projection lock order,
+frozen pool provenance, optimistic retries and atomic ledger/projection writes
+remain in storage. This ownership split does not approve season carryover.
+
 ## Lobbies, authority and the tab record
 
 These tables are the schema lock of Daisy Tab: later slices connect to them. The database holds isolation, identity and every rule one row or one key can prove; a rule that spans rows belongs to a command. No table has a `tournament_id`, and standings, season standings and divisions have no table.
