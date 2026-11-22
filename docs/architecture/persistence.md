@@ -231,6 +231,16 @@ Generate schema changes with `bun db:generate`, review SQL and snapshot metadata
 
 Email diagnostics live in `email_delivery`, `email_delivery_event`, and `email_suppression`: IDs, status rank, and a keyed SHA3-256 recipient hash, never the address or provider payload. The retention sweep removes delivery events and delivery records after their documented windows, and expired verification rows after a grace period. Suppressions remain. Revoking all sessions locks the user row before deleting sessions, so concurrent session creation is serialized against the revoke.
 
+Signed Flags changes use one family-specific command session. The operator
+application authorizes inside the transaction before loading; the adapter takes
+the command, target-account and Flags fences, checks the live target before
+receipt replay, then loads a fresh snapshot and database instant. The
+application returns the stored result or decides the revision with its existing
+catalogue policy. Only fresh facts expose atomic apply; state, targeting, audit,
+receipt and the final signed-deadline check stay in the same transaction. The
+session cannot be loaded twice or applied after completion. Admission readers
+and expiry sweeps retain their existing shared/exclusive Flags lock contract.
+
 Preapproval command policy lives in `@daisy/protocol/beta-preapproval` as
 `decidePreapprovalChange`. The operator application supplies this pure decision
 to `runPreapprovalCommand`; the adapter invokes it over the fresh grant and
@@ -433,6 +443,19 @@ answer decision; the adapter retains verified-address admission, account → Clu
 materialization. Refused or missing application cannot commit; repeat and
 escaped capabilities are closed. Acceptance gains no active-plan or free-seat
 guard, and decline gains no expiry guard.
+
+## Beta approval mail delivery
+
+The Beta application selects send, recipient-gone or not-owed from the current
+approval recipient facts supplied by mail-intents. Missing identity precedes
+approval state. The adapter retains erased-recipient scoping, queue leases,
+fencing and atomic settlement; provider calls remain outside transactions
+under the intent's existing idempotency key. The application also cancels a digest with zero requests in its immutable
+window before checking owner configuration. Club application eligibility uses
+open state and a strict expiry comparison against the same scoped transaction
+time, retaining UTC microsecond precision. Storage keeps purpose, lease and
+dedupe/invitation binding, tenant scoping and row-existence checks. No provider
+call runs inside that read transaction.
 
 ## Operator Recording withdrawal
 

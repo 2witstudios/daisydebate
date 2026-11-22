@@ -23,6 +23,15 @@ Merge and release events reach the Documentation Agent through
 `PAGESPACE_TOKEN`. Scheduled PageSpace workflows run the periodic reviews
 directly against the Documentation tree.
 
+For merged PRs, `notify-merge` and `docs-replay` pass merge metadata to
+`scripts/dispatch-docs.ts`, which reads the complete changed-path list through
+`scripts/docs-merge-files.ts` inside the same process. Paths are diffed against
+the merge's first parent with `--no-renames`, retaining both sides of a rename.
+The list is never exported as an environment value: large merges can exceed
+the operating system's process-launch limit. Release events supply their
+changed paths through `DOC_CHANGED_FILES`. Replay retains the original event
+ID and commit-based idempotency key; the replay attempt selects a conversation.
+
 | Agent page           | Pipeline             | Cadence                                            | Default action                                      |
 | -------------------- | -------------------- | -------------------------------------------------- | --------------------------------------------------- |
 | Accuracy Auditor     | `accuracy-review`    | Daily for recently changed pages; weekly full scan | Mark stale or invalid; create findings              |

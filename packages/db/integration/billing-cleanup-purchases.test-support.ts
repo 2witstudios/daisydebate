@@ -5,7 +5,7 @@ import type { createBillingCleanup } from '../src/billing-cleanup';
 import { erasePrivacySubject } from '../src/privacy';
 import { bindings } from './privacy.test-support';
 import { refundRooms } from './billing-refunds.test-support';
-import { flagCommand } from './flags.test-support';
+import { executeFlagCommand, flagCommand } from './flags.test-support';
 import { offer, withBillingPurchases } from './billing-purchases.test-support';
 
 type Fixture = Parameters<Parameters<typeof withBillingPurchases>[0]>[0];
@@ -27,7 +27,7 @@ export function withClosedPurchase(
 ) {
   return withBillingPurchases(async (input) => {
     const { fixture, pool, purchases, subject, store, key } = input;
-    await store.runFlagCommand(flagCommand(key, 0));
+    await executeFlagCommand(store, flagCommand(key, 0));
     const admitted = await purchases.admit(subject, offer);
     await purchases.recover(subject, admitted.purchase.id);
     const session = {

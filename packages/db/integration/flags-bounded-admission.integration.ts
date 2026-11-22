@@ -8,13 +8,17 @@ import { requireFlagAdmission } from '../src/flags';
 import { lockFlags } from '../src/flags-lock';
 import { testLane } from '../src/testing-lane';
 import { withPool } from './bounded-transaction.test-support';
-import { withFlags, flagCommand } from './flags.test-support';
+import {
+  executeFlagCommand,
+  withFlags,
+  flagCommand,
+} from './flags.test-support';
 
 requireTestServices(process.env);
 setupRitewayBun();
 test('Flags admission works on the guarded bounded transaction facade without changing adapter-owned settings', async () => {
   await withFlags(async ({ fixture, store, key, userId, actorId }) => {
-    await store.runFlagCommand(flagCommand(key, 0));
+    await executeFlagCommand(store, flagCommand(key, 0));
     await withPool(async (client) => {
       const run = createBoundedTransaction({
         lane: testLane(client, 4),
