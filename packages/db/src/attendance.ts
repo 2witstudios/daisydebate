@@ -4,6 +4,7 @@ export type {
 } from './attendance-operations';
 export type {
   AttendanceEvaluationFacts,
+  AttendanceEvaluationAdmission,
   AttendanceEvaluation,
   AttendanceReceiptFacts,
 } from './attendance-evaluator';

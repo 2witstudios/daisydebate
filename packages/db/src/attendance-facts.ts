@@ -1,4 +1,4 @@
-import { createAppError, createRefusal } from '@daisy/errors';
+import { createAppError } from '@daisy/errors';
 import { eq, sql } from 'drizzle-orm';
 import { lockAuthorizationActors } from './authorization';
 import { actorFact } from './room-command-facts';
@@ -90,24 +90,6 @@ export async function readAttendanceSeats(
   );
   return { current, round, seats, accounts };
 }
-/** Evaluator and panel settlement retain their existing active-Round precondition. */
-export async function fenceAttendance(
-  tx: Tx,
-  roundId: string,
-  commandId: string,
-  principalActorId: string | null,
-) {
-  const locked = await lockAttendanceAuthority(
-    tx,
-    roundId,
-    commandId,
-    principalActorId,
-  );
-  if (locked.round.status !== 'active')
-    throw createRefusal('CONFLICT', 'attendance-terminal');
-  return readAttendanceSeats(tx, locked);
-}
-
 /** The speeches already decided: an immutable fact, cheap to read under the Round lock. */
 export async function finalizedAttendanceSegments(
   tx: Tx,

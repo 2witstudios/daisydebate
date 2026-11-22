@@ -129,16 +129,6 @@ const sameOutcome = (
   );
 };
 
-/** A Round with every segment played; its judges, if any, may not have ruled. */
-export function requirePanelRound<
-  Round extends {
-    readonly segments: readonly { readonly endedAt: string | null }[];
-  },
->(round: Round | null | undefined): asserts round is Round {
-  if (!round || round.segments.some((p) => p.endedAt === null))
-    throw ineligible();
-}
-
 /**
  * The requested freeze and no rating fact yet. Nobody's seat can hold a played
  * Round open: a closed account ends in a result like any other, and the deadline

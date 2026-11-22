@@ -6,7 +6,10 @@ import {
 import { type RoundPanelReceipt } from '@daisy/protocol/round-panel-completion';
 import { and, eq, sql } from 'drizzle-orm';
 import type { BoundedTransaction } from './bounded-transaction';
-import { fenceAttendance } from './attendance-facts';
+import {
+  lockAttendanceAuthority,
+  readAttendanceSeats,
+} from './attendance-facts';
 import { rounds } from './schema/rounds';
 import { refundPlatformEndedLocked } from './round-bot-admission';
 import {
@@ -17,7 +20,7 @@ import {
   executeLockedRoundTick,
   type LockedRoundTickInput,
 } from './round-clock-transaction';
-import { hydrateRoundRows } from './round-hydration';
+import { hydrateRoundRows, type RoundHydration } from './round-hydration';
 import type { JudgingPanelFacts } from '@daisy/protocol/round-panel-completion';
 import type { JudgingTerminalReason } from '@daisy/protocol/round-judging-attempt';
 import { readJudgingPanelFacts } from './judging-panel-read';
@@ -41,7 +44,6 @@ import {
   requireCompletionProjection,
   requirePanelFacts,
   requirePanelRequest,
-  requirePanelRound,
   requirePanelTerminal,
   panelDigest,
   panelReceipt,
@@ -64,6 +66,10 @@ type CompletionFacts = Parameters<
   }[];
 };
 type Request = LockedRoundTickInput & {
+  readonly requireActiveRound: (round: RoundHydration) => void;
+  readonly requirePlayedRound: (
+    round: RoundHydration | null,
+  ) => asserts round is RoundHydration;
   readonly instanceId: string;
   readonly commandId: string;
   readonly freezeRevision: number;
@@ -131,7 +137,7 @@ async function readCompletionFacts(
     from rounds where id=${input.roundId}`,
   );
   const now = await sampleRoundExecutionTime(tx, roundTime);
-  requirePanelRound(round);
+  input.requirePlayedRound(round);
   const { freeze: frozen } = requirePanelFacts({
     freezeRevision: input.freezeRevision,
     freeze,
@@ -168,7 +174,14 @@ async function complete(tx: Tx, input: Request, roundTime?: RoundTimeSource) {
   const prior = await replay(tx, input, digest, true);
   if (prior) return { receipt: prior, ended: [] };
   try {
-    await fenceAttendance(tx, input.roundId, input.commandId, null);
+    const locked = await lockAttendanceAuthority(
+      tx,
+      input.roundId,
+      input.commandId,
+      null,
+    );
+    input.requireActiveRound(locked.round);
+    await readAttendanceSeats(tx, locked);
   } catch (error) {
     if (isAppError(error) && error.reason === 'attendance-terminal') {
       const terminal = await replay(tx, input, digest, false);

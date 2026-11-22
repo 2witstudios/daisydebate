@@ -1,3 +1,5 @@
+import { requireAttendanceRound } from '../src/features/attendance/admission';
+import { attendanceEvaluationAdmission } from '../src/features/attendance/evaluation-admission';
 import { instantMs } from '@daisy/clock';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
@@ -403,6 +405,8 @@ test('attendance holds while an incident is open', async () => {
     const instanceId = createId();
     await f.store.renewServiceInstance({ instanceId, role: 'web' });
     const outcome = await f.store.evaluateRoundAttendance({
+      requireRound: requireAttendanceRound,
+      admitEvaluation: attendanceEvaluationAdmission,
       roundId: f.roundId,
       commandId: createId(),
       instanceId,

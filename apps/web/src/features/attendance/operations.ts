@@ -1,3 +1,5 @@
+import { requireAttendanceRound } from './admission';
+import { attendanceEvaluationAdmission } from './evaluation-admission';
 import { commandDigest } from '@daisy/digest';
 import { instantMs } from '@daisy/clock';
 import {
@@ -187,6 +189,8 @@ export function createAttendanceFeature(deps: {
         roundId,
         commandId: deps.nextId(),
         instanceId: deps.instanceId,
+        requireRound: requireAttendanceRound,
+        admitEvaluation: attendanceEvaluationAdmission,
         nextWindow: nextAttendanceSegment,
         judgingEndReason: judgingJobEndReason,
         judgingEnded: (reason) => {
