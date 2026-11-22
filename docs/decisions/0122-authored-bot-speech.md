@@ -175,6 +175,17 @@ first phrase; and cross-examination was not a back-and-forth.
    that peer's line covering the instant they last spoke is in the
    transcript, or after 4 s.
 
+   A completed answer consumes that peer-turn boundary for the claim:
+   repeated or older end reports do not buy or publish another answer. A
+   later turn still owes its own answer.
+
+   Waiting for peer input is event-driven: a respondent stays silent until a
+   peer turn ends, with no timer that invents a turn. Timed waits own their
+   wake-up: retry pauses back off from 200 ms to 3 s, and the asking seat may
+   press an unanswered question once after 8 s of silence. Transcript
+   catch-up has the separate 4 s bound above. Ending the claim cancels its
+   retry and silence timers; it does not change peer-input behavior.
+
 Not built, on purpose, and each a later phrase source or optimization that
 needs no change to the speaker:
 

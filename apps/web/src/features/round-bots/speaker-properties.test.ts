@@ -5,6 +5,51 @@ import { answered, harness, job } from './speaker.test-support';
 
 setupRitewayBun();
 
+test('a completed peer-turn answer ignores replay and answers the distinct next turn', async () => {
+  const answeredTurns: number[] = [];
+  const spoken: string[] = [];
+  const world = harness('cross_ex', {
+    opensExchange: false,
+    generate: async (to) => {
+      if (to.kind !== 'peer-turn')
+        throw new Error('A respondent answers peer turns');
+      answeredTurns.push(to.spokeUntilMs);
+      return answered({ phrases: [`Answer ${to.spokeUntilMs}.`] });
+    },
+    publish: async (phrase) => {
+      spoken.push(phrase.text);
+      return { complete: true, segmentEnded: false };
+    },
+  });
+  const report = async (at: number) => {
+    world.speaker.peer({
+      kind: 'end-of-turn',
+      peer: 'peer',
+      spokeUntilMs: at,
+      spokeForMs: 800,
+    });
+    world.speaker.wake();
+    await world.settle();
+    await world.settle();
+  };
+  await report(1000);
+  await report(1000);
+  await report(2000);
+  await report(1000);
+  await report(2000);
+  await world.speaker.stop();
+  assert({
+    given:
+      'a completed answer, its repeated end report, a distinct next turn and late replays of both',
+    should: 'buy and publish exactly one answer for each distinct current turn',
+    actual: { answeredTurns, spoken },
+    expected: {
+      answeredTurns: [1000, 2000],
+      spoken: ['Answer 1000.', 'Answer 2000.'],
+    },
+  });
+});
+
 test('generated speech failures preserve purchases, publication order and terminal silence', async () => {
   const proof = await seededAsyncDraws({
     seed: 4321,
