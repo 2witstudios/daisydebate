@@ -46,6 +46,9 @@ type Props = {
 };
 type Devices = ReturnType<typeof createBrowserDeviceChecks>;
 type Consent = ReturnType<typeof createLocalConsent>;
+type DeviceResources = { readonly devices: Devices; readonly consent: Consent };
+const noSubscription = () => () => {};
+const noSnapshot = () => null;
 
 function GatheringLayout({
   props,
@@ -96,28 +99,38 @@ function GatheringLayout({
   );
 }
 
-function LiveDevices({
-  devices,
-  consent,
+function GatheringWithDevices({
+  resources,
+  needsDevices,
   ...props
-}: Props & { readonly devices: Devices; readonly consent: Consent }) {
-  const snapshot = useSyncExternalStore(
-    devices.subscribe,
-    devices.readSnapshot,
-    devices.readSnapshot,
+}: Props & {
+  readonly resources: DeviceResources | null;
+  readonly needsDevices: boolean;
+}) {
+  const devices = resources?.devices;
+  const consent = resources?.consent;
+  const snapshot = useSyncExternalStore<ReturnType<
+    Devices['readSnapshot']
+  > | null>(
+    devices?.subscribe ?? noSubscription,
+    devices?.readSnapshot ?? noSnapshot,
+    noSnapshot,
   );
-  const local = useSyncExternalStore(
-    consent.subscribe,
-    consent.readSnapshot,
-    consent.readSnapshot,
+  const local = useSyncExternalStore<ReturnType<
+    Consent['readSnapshot']
+  > | null>(
+    consent?.subscribe ?? noSubscription,
+    consent?.readSnapshot ?? noSnapshot,
+    noSnapshot,
   );
   useBrowserEffect(() => {
-    consent.updateView(props.view);
+    consent?.updateView(props.view);
   }, [consent, props.view]);
   const [inputs, setInputs] = useState<readonly MediaDeviceInfo[]>([]);
   // Each check runs on its own stream, so both can start from one gesture;
   // the input list is read once after them.
   const check = async (...kinds: readonly DeviceKind[]) => {
+    if (!devices) return;
     await Promise.all(kinds.map((kind) => devices.check(kind)));
     try {
       setInputs(await navigator.mediaDevices.enumerateDevices());
@@ -125,6 +138,22 @@ function LiveDevices({
       setInputs([]);
     }
   };
+  if (!devices || !consent || !snapshot || !local)
+    return (
+      <GatheringLayout
+        props={props}
+        view={props.view}
+        action={props.action}
+        local={{ devicesPassed: false, unreadyPending: false }}
+        devices={
+          needsDevices ? (
+            <p className="rounded-xl bg-surface-sunken p-4 text-sm text-ink-muted">
+              Checking your camera and microphone…
+            </p>
+          ) : null
+        }
+      />
+    );
   const own = ownSeat(props.view, props.actorId);
   // Before the first Turn on there is nothing to pick: the tile is only the
   // preview and its button.
@@ -198,10 +227,7 @@ export function AssemblyDeviceReadiness(props: Props) {
   }, [props, sync]);
   const roomId = props.view.id;
   const actorId = props.actorId;
-  const [resources, setResources] = useState<{
-    devices: Devices;
-    consent: Consent;
-  } | null>(null);
+  const [resources, setResources] = useState<DeviceResources | null>(null);
   useBrowserEffect(() => {
     if (!needsDevices) return;
     const devices = createBrowserDeviceChecks();
@@ -237,21 +263,13 @@ export function AssemblyDeviceReadiness(props: Props) {
     };
     // Authoritative updates flow through consent.updateView, not preview recreation.
   }, [needsDevices, actorId, roomId]);
-  if (!needsDevices || !resources)
-    return (
-      <GatheringLayout
-        props={props}
-        view={props.view}
-        action={props.action}
-        local={{ devicesPassed: false, unreadyPending: false }}
-        devices={
-          needsDevices ? (
-            <p className="rounded-xl bg-surface-sunken p-4 text-sm text-ink-muted">
-              Checking your camera and microphone…
-            </p>
-          ) : null
-        }
-      />
-    );
-  return <LiveDevices {...props} {...resources} />;
+  // The gathering and its chat keep one React owner while device resources arrive.
+  return (
+    <GatheringWithDevices
+      key={`${roomId}:${actorId}`}
+      {...props}
+      needsDevices={needsDevices}
+      resources={needsDevices ? resources : null}
+    />
+  );
 }
