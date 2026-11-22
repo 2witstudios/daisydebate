@@ -11,7 +11,7 @@ import {
 import { createBillingMember } from '../src/billing-member';
 import { withBillingPurchases, offer } from './billing-purchases.test-support';
 import { withFreeBundle } from './usage-ledger.test-support';
-import { flagCommand } from './flags.test-support';
+import { executeFlagCommand, flagCommand } from './flags.test-support';
 requireTestServices(process.env);
 setupRitewayBun();
 
@@ -47,7 +47,7 @@ test('owned native member reads carry no usage and refuse forged account routing
   }));
 test('a completed Checkout owns management routing but grants no paid access or second subscription', async () =>
   withBillingPurchases(async ({ run, subject, purchases, store, key }) => {
-    await store.runFlagCommand(flagCommand(key, 0));
+    await executeFlagCommand(store, flagCommand(key, 0));
     const admitted = await purchases.admit(subject, offer);
     await purchases.recover(subject, admitted.purchase.id);
     const customerId = `cus_${createId()}`;
@@ -61,7 +61,8 @@ test('a completed Checkout owns management routing but grants no paid access or 
       },
     });
     // Kill new-purchase release after completing the original identity.
-    await store.runFlagCommand(
+    await executeFlagCommand(
+      store,
       flagCommand(key, 1, { action: 'flag.state.update', state: 'killed' }),
     );
     const member = createBillingMember({ run, ...policies });
@@ -105,7 +106,7 @@ test('a spent free bot debate leaves billing without any counter', async () =>
 test('the actual web role reads only current owned member facts and Portal routing', async () =>
   withBillingPurchases(
     async ({ run, pool, subject, purchases, store, key }) => {
-      await store.runFlagCommand(flagCommand(key, 0));
+      await executeFlagCommand(store, flagCommand(key, 0));
       const first = await purchases.admit(subject, offer);
       await purchases.recover(subject, first.purchase.id);
       const customerId = `cus_${createId()}`;
