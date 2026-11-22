@@ -561,7 +561,7 @@ type TakedownLifecycle =
         | 'closed';
     }
   | {
-      readonly kind: 'settled';
+      readonly kind: 'settled' | 'replayed';
       readonly result: ContentModerationCommandResult;
     };
 
@@ -726,7 +726,7 @@ export function contentModerationOperations({
             if (phase() !== 'loading') throw createAppError('INVARIANT');
             if (stored) {
               const result = contentModerationCommandResultSchema.parse(stored);
-              lifecycle.current = { kind: 'settled', result };
+              lifecycle.current = { kind: 'replayed', result };
               return { kind: 'replayed', result };
             }
             const now = await dbNow(tx);
@@ -772,8 +772,13 @@ export function contentModerationOperations({
           };
           try {
             await work({ load });
-            if (lifecycle.current.kind !== 'settled')
+            if (
+              lifecycle.current.kind !== 'settled' &&
+              lifecycle.current.kind !== 'replayed'
+            )
               throw createAppError('INVARIANT');
+            if (lifecycle.current.kind === 'settled' && !input.live())
+              throw createAppError('CONFLICT');
             return lifecycle.current.result;
           } finally {
             lifecycle.current = { kind: 'closed' };
