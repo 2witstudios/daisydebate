@@ -75,8 +75,8 @@ export const startAudienceStateStandIn = (input: {
     );
     const failed = results.filter(({ status }) => status === 'rejected').length;
     if (failed)
-      console.error(
-        JSON.stringify({ event: 'e2e.audience_state.publish_failed', failed }),
+      process.stderr.write(
+        `${JSON.stringify({ event: 'e2e.audience_state.publish_failed', failed })}\n`,
       );
   };
   // A slow pass must drain its reads before another pass queues work on the pool.
@@ -87,8 +87,8 @@ export const startAudienceStateStandIn = (input: {
     try {
       await pass();
     } catch {
-      console.error(
-        JSON.stringify({ event: 'e2e.audience_state.read_failed' }),
+      process.stderr.write(
+        `${JSON.stringify({ event: 'e2e.audience_state.read_failed' })}\n`,
       );
     } finally {
       publishing = false;
