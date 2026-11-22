@@ -92,7 +92,7 @@ export const recordAttendanceReceipt = (
       );
       return;
     }
-    const stamp = await session.prepare(seat.id);
+    const stamp = await session.prepareReceipt(seat.id);
     acceptAttendanceReceipt({ ...window, ...stamp }, segment.id);
     await session.apply();
   });
