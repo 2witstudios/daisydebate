@@ -1,8 +1,12 @@
 import { and, asc, eq, gt, inArray, isNull, or, sql } from 'drizzle-orm';
-import { lockAuthorizationActors } from '../authorization';
+import {
+  lockAuthorizationActors,
+  readAuthorizationActors,
+} from '../authorization';
 import type { ProtectionLevel } from '@daisy/protocol/protection-level';
 import { readProtectionLevel } from './protection-level';
 import { mintNoticeIds } from '../notifications/mint-notice-ids';
+import { run } from '../raw-rows';
 import {
   answerFriendApproval,
   readWaitingFriendApprovals,
@@ -45,6 +49,16 @@ function scopedGuardians(tx: Tx, userId: string) {
     personById: (id: string) => person(eq(users.id, id)),
     lockAccounts: (actorIds: readonly string[]) =>
       lockAuthorizationActors(tx, actorIds, { maxActors: 2 }),
+    async lockProtectionAccounts(
+      childUserId: string,
+      actorIds: readonly string[],
+    ) {
+      await run(
+        tx,
+        sql`select public.daisy_lock_protection_accounts(${childUserId})`,
+      );
+      return readAuthorizationActors(tx, actorIds, { maxActors: 2 });
+    },
     async link(id: string) {
       const [row] = await tx
         .select()

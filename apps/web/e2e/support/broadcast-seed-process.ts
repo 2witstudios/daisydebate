@@ -118,6 +118,7 @@ type Advance = {
     | 'on-air'
     | 'interrupt'
     | 'stop'
+    | 'retire'
     | 'end'
     | 'recording-ready'
     | 'recording-takedown'
@@ -329,6 +330,9 @@ const advance = async (sql: SQL, input: Advance) => {
       return;
     case 'stop':
       await sql`update broadcasts set stopped_at=now(),stop_reason='policy_violation',media_withheld=true where round_id=${roundId}`;
+      return;
+    case 'retire':
+      await sql`update broadcasts set stopped_at=coalesce(stopped_at,now()),stop_reason='policy_violation',media_withheld=true,audience_state_withdrawn_at=now() where round_id=${roundId}`;
       return;
     case 'end':
       await sql`update rounds set status='completed',current_stage=null,winning_side=${affirmativeSide},completed_at=now()-interval '3 minutes' where id=${roundId}`;

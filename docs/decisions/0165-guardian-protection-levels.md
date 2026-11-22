@@ -6,8 +6,8 @@ An active guardian chooses one per-child protection level in Settings. A
 linked child defaults to Guided. A child without a current guardian follows
 Independent. An active guardian can change the same choice when multiple
 guardians link to the child. Ending the final active link erases that choice.
-Setting a choice and ending a link serialize per child, including concurrent
-account closures.
+Setting a choice and activating or ending a link serialize per child,
+including concurrent account closures.
 
 - Independent follows Daisy's ordinary teen rules.
 - Guided requires guardian approval for an adult's incoming friend request.
@@ -29,8 +29,9 @@ from the protocol rule. The guardian action rechecks the hold under the pair
 and account locks before changing the request. The guardian's generic in-app
 notification links to their private waiting list. Other members see a pending
 request without family or age information. A new or newly actionable hold
-resurfaces a covered request for its guardian. Notice delivery resolves the
-recipients inside the private write. Subject scope fences approval reads, and the scoped
+resurfaces a covered request for its guardian. A settings change plans and
+delivers notices to the guardians current under the child's choice lock.
+Subject scope fences approval reads, and the scoped
 writer grants no direct updates. Approval records go when a request
 ends, including by block or erasure.
 

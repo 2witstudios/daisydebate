@@ -428,10 +428,11 @@ async function setProtectionLevel(
     return refused('not-found');
   const child = await session.personById(first.minorUserId);
   if (!child?.actorId) return refused('not-found');
-  const [parent, minor] = await session.lockAccounts([
-    caller.actorId,
-    child.actorId,
-  ]);
+  if (first.status !== 'active') return refused('not-active');
+  const [parent, minor] = await session.lockProtectionAccounts(
+    first.minorUserId,
+    [caller.actorId, child.actorId],
+  );
   if (
     !parent?.member ||
     parent.erased ||
