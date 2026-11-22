@@ -39,7 +39,7 @@ async function lockTarget(tx: Tx, userId: string) {
   return account ?? null;
 }
 
-export type FlagCommandLoad =
+type FlagCommandLoad =
   | { readonly kind: 'replayed'; readonly result: FlagCommandResult }
   | {
       readonly kind: 'fresh';
