@@ -22,9 +22,10 @@ import {
 } from '@daisy/protocol/operator';
 import {
   readBetaAccessCommandState,
-  runBetaAccessCommand,
+  betaAccessCommand,
   type BetaAccessCommandInput,
   type BetaAccessCommandOutcome,
+  type BetaAccessCommandWork,
 } from './beta-access-command';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { inTransaction, type Tx, type TxSource } from './tx';
@@ -140,12 +141,13 @@ export function operatorAccountOperations({
           };
         });
       }),
-    runBetaAccessCommand: (
+    betaAccessCommand: (
       input: BetaAccessCommandInput,
+      work: BetaAccessCommandWork,
     ): Promise<BetaAccessCommandOutcome> =>
       instrumented(eventSink, 'runBetaAccessCommand', () =>
         inTransaction(database, (tx) =>
-          runBetaAccessCommand(tx, input, eventSink),
+          betaAccessCommand(tx, input, work, eventSink),
         ),
       ),
     /**
