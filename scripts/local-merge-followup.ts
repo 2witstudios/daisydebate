@@ -1,7 +1,7 @@
 import { spawnSync } from 'node:child_process';
+import { realpathSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { z } from 'zod';
-import { followUpMerge, liveDeps } from './merge-followup';
 import { removeMergedWorktree } from './merged-worktree';
 
 const repoSchema = z.object({ full_name: z.string() });
@@ -26,7 +26,11 @@ const worktreeSchema = z.object({
 const statusSchema = z.object({ worktrees: z.array(worktreeSchema) });
 
 /** Local half of merge follow-up; the hosted board job has no local daemon. */
-async function localMergeFollowup(number: number, cwd = process.cwd()) {
+async function localMergeFollowup(
+  number: number,
+  mergeHead?: string,
+  cwd = process.cwd(),
+) {
   const run = (command: string, args: readonly string[]) => {
     const result = spawnSync(command, args, { cwd, encoding: 'utf8' });
     if (result.status !== 0)
@@ -40,9 +44,29 @@ async function localMergeFollowup(number: number, cwd = process.cwd()) {
     .parse(
       JSON.parse(run('gh', ['repo', 'view', '--json', 'nameWithOwner'])),
     ).nameWithOwner;
-  const pr = prSchema.parse(
-    JSON.parse(run('gh', ['api', `repos/${repository}/pulls/${number}`])),
-  );
+  const readPr = () =>
+    prSchema.parse(
+      JSON.parse(run('gh', ['api', `repos/${repository}/pulls/${number}`])),
+    );
+  let pr = readPr();
+  if (mergeHead) {
+    if (
+      !/^[a-f0-9]{40}$/.test(mergeHead) ||
+      pr.head.sha !== mergeHead ||
+      pr.head.repo?.full_name !== repository ||
+      pr.base.repo.full_name !== repository
+    )
+      throw new Error('The exact same-repository merge head is required');
+    run('gh', [
+      'pr',
+      'merge',
+      String(number),
+      '--merge',
+      '--match-head-commit',
+      mergeHead,
+    ]);
+    pr = readPr();
+  }
   if (
     !pr.merged ||
     !pr.merge_commit_sha ||
@@ -74,35 +98,13 @@ async function localMergeFollowup(number: number, cwd = process.cwd()) {
   const worktrees = status().worktrees.filter(
     (worktree) => worktree.branch === pr.head.ref,
   );
-  const board = await followUpMerge(liveDeps(repository, number), {
-    number,
-    title: pr.title,
-    body: pr.body ?? '',
-    branch: pr.head.ref,
-    headSha: pr.head.sha,
-  });
   const cleanup = worktrees.map((worktree) => {
     // The daemon deletes a conventional path, not an arbitrary manifest path.
     if (
-      resolve(worktree.path) !== resolve(project, '.pu/worktrees', worktree.id)
+      realpathSync(worktree.path) !==
+      realpathSync(resolve(project, '.pu/worktrees', worktree.id))
     )
       return { id: worktree.id, result: 'preserved: nonstandard managed path' };
-    const remote = spawnSync(
-      'git',
-      [
-        'ls-remote',
-        '--exit-code',
-        '--heads',
-        'origin',
-        `refs/heads/${pr.head.ref}`,
-      ],
-      { cwd, encoding: 'utf8' },
-    );
-    if (remote.status !== 2)
-      return {
-        id: worktree.id,
-        result: 'preserved: remote branch exists or is unavailable',
-      };
     return {
       id: worktree.id,
       result: removeMergedWorktree(
@@ -132,12 +134,16 @@ async function localMergeFollowup(number: number, cwd = process.cwd()) {
       ),
     };
   });
-  return { board, cleanup };
+  return { cleanup };
 }
 
 if (import.meta.main) {
   const number = Number(process.argv[2]);
   if (!Number.isSafeInteger(number) || number <= 0)
-    throw new Error('Usage: bun merge:followup <merged-pr-number>');
-  console.log(JSON.stringify(await localMergeFollowup(number), null, 2));
+    throw new Error(
+      'Usage: bun merge:followup <merged-pr-number> | bun merge:pr <pr-number> <exact-head>',
+    );
+  console.log(
+    JSON.stringify(await localMergeFollowup(number, process.argv[3]), null, 2),
+  );
 }

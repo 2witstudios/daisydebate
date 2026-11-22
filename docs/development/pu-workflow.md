@@ -84,17 +84,27 @@ pu kill --agent <agent> && pu clean
     guard whose merge turned it red.
   - The sweep merges at most two PRs per cycle into main. A feature parent
     takes one PR at a time (ADR 0128).
-- **After a merge.** From a retained checkout, the point guard runs
-  `bun merge:followup <merged-pr-number>`. The local follow-up reconciles the
-  board and retires only a matching PurePoint worktree at the exact merged
+- **Local merge entry point.** Once review and exact-head checks qualify the
+  PR, the point guard runs `bun merge:pr <pr-number> <exact-head>` from a
+  retained checkout. It invokes `gh pr merge --merge --match-head-commit`
+  and immediately runs local cleanup. It never bypasses GitHub protections.
+  Builders never invoke this command. To recover a merge completed outside
+  this entry point, run `bun merge:followup <merged-pr-number>`.
+- **After a merge.** Local follow-up retires only a matching PurePoint worktree at the exact merged
   head, after the merged commit is reachable from the remote destination.
   Git removes it without force before PurePoint retires its agents and
   metadata. The current checkout, advanced heads, dirty and untracked files,
   unexpected ignored files (including environment files and local notes),
-  and branches still present on the remote are preserved and reported.
+  are preserved and reported. Retained remote refs are also preserved:
+  installed PurePoint has no preserve-refs cleanup operation. This includes
+  a remote ref at the delivered head or one that has advanced. Do not
+  delete that ref just to make cleanup eligible.
   Ignored dependency/build output (`node_modules`, `.next`, `.turbo`, `dist`)
   is disposable. Do not replace a preservation report with `pu clean`:
-  resolve unique work explicitly. The hosted board job has no local daemon
+  resolve unique work explicitly. Only after non-forced Git removal, the
+  supported `pu clean` operation retires the matching agents and metadata
+  under its daemon locking contract. Application scripts never edit the
+  private manifest. The hosted board job has no local daemon
   and cannot perform this cleanup.
   The tasks the PR names move to Done when its latest
   review verdict approves ([reviews](reviews.md)); otherwise they move to
