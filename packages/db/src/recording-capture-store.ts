@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { youthRoundSql } from './youth-round-sql';
 import {
   listExpiredRecordingAdmissions,
@@ -23,8 +24,8 @@ import {
   or,
   sql,
 } from 'drizzle-orm';
-import { runningRoundStatuses, recordingHoldPrefix } from '@daisy/protocol';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
+import { runningRoundStatuses } from '@daisy/protocol/round';
+import { recordingHoldPrefix } from '@daisy/protocol/recording';
 import { readBroadcastRoom } from './broadcast-operations';
 import { controlHeartbeat, heartbeatStale } from './control-heartbeat';
 import { readEntitlementGrants } from './entitlement-grants';
@@ -49,13 +50,15 @@ import { recordingCaptures as captures } from './schema/recording-captures';
 import { recordings } from './schema/recordings';
 import { roundParticipants } from './schema/round-participants';
 import { rounds } from './schema/rounds';
+import { inTransaction, type TxSource } from './tx';
+import { run } from './raw-rows';
 
 /**
  * Recording's capture control plane: its own tables, and the Round and the
  * Broadcast as named, read-only inputs. It takes no Round lock, so nothing here
  * can delay a debate or its finalization.
  */
-export const createRecordingCaptureStore = (database: BunSQLDatabase) => ({
+export const createRecordingCaptureStore = (database: TxSource) => ({
   listExpiredTournamentAdmissions: (limit: number) =>
     listExpiredRecordingAdmissions(database, limit),
   settleUndispatchedTournamentAdmission: (roundId: string) =>
@@ -229,7 +232,7 @@ export const createRecordingCaptureStore = (database: BunSQLDatabase) => ({
     readonly stageCredentialHash: string;
     readonly now: Date;
   }): Promise<boolean> {
-    return database.transaction(async (tx) => {
+    return inTransaction(database, async (tx) => {
       const rows = await tx
         .update(captures)
         .set({
@@ -289,7 +292,7 @@ export const createRecordingCaptureStore = (database: BunSQLDatabase) => ({
   },
 
   async closeOwn(input: { readonly recordingId: string; readonly now: Date }) {
-    return database.transaction(async (tx) => {
+    return inTransaction(database, async (tx) => {
       const [address] = await tx
         .select({ roundId: captures.roundId })
         .from(captures)
@@ -315,7 +318,8 @@ export const createRecordingCaptureStore = (database: BunSQLDatabase) => ({
           egressSettledAt: own.egressSettledAt ?? now,
         })
         .where(eq(captures.recordingId, input.recordingId));
-      await tx.execute(
+      await run(
+        tx,
         sql`select public.daisy_recording_settle_tournament_admission(${address.roundId})`,
       );
       return true;
@@ -359,7 +363,7 @@ export const createRecordingCaptureStore = (database: BunSQLDatabase) => ({
       capture: {
         captureDeadlineExpired:
           admission !== null &&
-          checkedAt.getTime() >= Date.parse(admission.deadlineAt),
+          checkedAt.getTime() >= instantMs(admission.deadlineAt),
         stageCredentialHash: capture.stageCredentialHash,
         observerRevokedAt: capture.observerRevokedAt,
         completedAt: capture.endedAt,

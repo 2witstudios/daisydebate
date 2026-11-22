@@ -1,5 +1,6 @@
 'use client';
-import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { useBrowserEffect } from '../../edge/browser-sync';
+import { useCallback, useId, useRef, useState } from 'react';
 import type { EventBallotAuthoringView } from '@daisy/protocol/lobby/ballot-read';
 import { FormField } from '../../components/form-field/form-field';
 import {
@@ -42,7 +43,7 @@ export function BallotDefinitionFields({
         : null;
   }, []);
   const resets = useFormResets(anchor, remember);
-  useEffect(() => {
+  useBrowserEffect(() => {
     const name = focused.current;
     const form = anchor.current?.closest('form');
     // Only focus the remount left nowhere: a notice the answer focused keeps it.

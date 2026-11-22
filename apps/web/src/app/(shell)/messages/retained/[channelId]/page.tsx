@@ -1,7 +1,8 @@
 import { ConversationPane } from '../../../../../ui/messaging/conversation-pane';
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
-import { idSchema, messagingRetainedSchemas } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
+import { messagingRetainedSchemas } from '@daisy/protocol/messaging/retained';
 import { requireAccess } from '../../../../../lib/access';
 import type { MessagingChannelPageProps } from '../../../../../features/messaging/channel-page';
 import { RetainedDeleteForm } from '../../../../../ui/messaging/retained-delete-form';
@@ -27,6 +28,7 @@ export default async function RetainedConversationPage({
   const url = `http://in-process.invalid/api/messaging/retained/${id.data}`;
   const response = await GET(
     new Request(url, { headers: new Headers(await headers()) }),
+    { params },
   );
   const conversation = response.ok
     ? messagingRetainedSchemas.conversation.safeParse(await response.json())

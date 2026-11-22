@@ -8,6 +8,14 @@ import {
   type RoundTime,
 } from './round-time';
 
+type SampleState =
+  | { readonly kind: 'stopped' }
+  | {
+      readonly kind: 'waiting' | 'reading' | 'followup';
+      readonly debt: 'visible-only' | 'suspension';
+      readonly failures: number;
+    };
+
 const abandoned = (signal: AbortSignal) =>
   new Promise<void>((resolve) =>
     signal.addEventListener('abort', () => resolve(), { once: true }),
@@ -30,11 +38,15 @@ export function sampleRoundTime(options: {
 }) {
   const { scheduler, visibility, roundTime } = options;
   const lifetime = new AbortController();
-  let pending = false;
-  let followup = false;
-  let failures = 0;
-  let readOwed = false;
-  const mayRead = () => visibility.isVisible() || readOwed;
+  let state: SampleState = {
+    kind: 'waiting',
+    debt: 'visible-only',
+    failures: 0,
+  };
+  const currentState = (): SampleState => state;
+  const mayRead = () =>
+    state.kind !== 'stopped' &&
+    (visibility.isVisible() || state.debt === 'suspension');
   let timer: unknown = null;
   const clear = () => {
     if (timer !== null) scheduler.clearTimeout(timer);
@@ -47,23 +59,14 @@ export function sampleRoundTime(options: {
       else arm(RESAMPLE_EVERY_MS);
     }, delayMs);
   };
-  const nextDelayMs = () => {
-    failures = roundTime.status().kind === 'current' ? 0 : failures + 1;
-    if (failures === 0 && !followup) readOwed = false;
-    if (followup) return SEED_RETRY_MS;
-    return failures === 0
-      ? RESAMPLE_EVERY_MS
-      : retryDelayMs(failures, options.random());
-  };
   const resample = async () => {
-    if (lifetime.signal.aborted) return;
-    if (pending) {
-      followup = true;
+    if (state.kind === 'stopped') return;
+    if (state.kind !== 'waiting') {
+      state = { ...state, kind: 'followup' };
       return;
     }
     clear();
-    followup = false;
-    pending = true;
+    state = { ...state, kind: 'reading' };
     const attempt = new AbortController();
     const release = () => attempt.abort();
     lifetime.signal.addEventListener('abort', release, { once: true });
@@ -75,10 +78,28 @@ export function sampleRoundTime(options: {
     ]);
     scheduler.clearTimeout(deadline);
     lifetime.signal.removeEventListener('abort', release);
-    pending = false;
+    const finished = currentState();
+    if (finished.kind === 'stopped') return;
     // A Round this caller can no longer read will not answer differently.
-    if (!lifetime.signal.aborted && answer?.kind !== 'missing')
-      arm(nextDelayMs());
+    if (answer?.kind === 'missing') {
+      state = { ...finished, kind: 'waiting' };
+      return;
+    }
+    const failures =
+      roundTime.status().kind === 'current' ? 0 : finished.failures + 1;
+    const followup = finished.kind === 'followup';
+    state = {
+      kind: 'waiting',
+      debt: failures === 0 && !followup ? 'visible-only' : finished.debt,
+      failures,
+    };
+    arm(
+      followup
+        ? SEED_RETRY_MS
+        : failures === 0
+          ? RESAMPLE_EVERY_MS
+          : retryDelayMs(failures, options.random()),
+    );
   };
   const unsubscribe = visibility.onVisible(() => void resample());
   void resample();
@@ -87,10 +108,12 @@ export function sampleRoundTime(options: {
       if (mayRead()) void resample();
     },
     resumed: () => {
-      readOwed = true;
+      if (state.kind === 'stopped') return;
+      state = { ...state, debt: 'suspension' };
       void resample();
     },
     stop: () => {
+      state = { kind: 'stopped' };
       lifetime.abort();
       clear();
       unsubscribe();

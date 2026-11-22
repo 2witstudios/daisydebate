@@ -341,7 +341,7 @@ test('an Open Round gains no linked adults', async () => {
   );
 });
 
-test('a casual Youth Room’s live Round has its debaters’ linked adults too (ADR 0156)', async () => {
+test('a casual Youth Room’s live Round has its debaters’ linked adults too (ADR 0162)', async () => {
   await withRoomRuntime(async (f) =>
     withLinks(f, async (made) => {
       const people = await adults(f);

@@ -1,8 +1,6 @@
-import type {
-  FormatDefinition,
-  RoomCatalogChoice,
-  RoomConfig,
-} from '@daisy/protocol';
+import type { FormatDefinition } from '@daisy/protocol/format';
+import type { RoomCatalogChoice } from '@daisy/protocol/room-contract';
+import type { RoomConfig } from '@daisy/protocol/room';
 
 /** Freestyle's strike from Daisy's bank, or the host's own wording (ADR 0142). */
 export type ResolutionMethod = 'strike' | 'custom';

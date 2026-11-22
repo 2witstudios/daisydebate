@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { createMediaWorkerAuthentication } from '@daisy/media/internal';
 import { createMediaWorkerClient } from '@daisy/media/worker';
 import type { CaptureClient } from './capture-history';
@@ -108,8 +109,8 @@ export const longestObservationHoleMs = (
     .map(
       (entry) =>
         [
-          Date.parse(String(entry.body.observedFrom)),
-          Date.parse(String(entry.body.observedUntil)),
+          instantMs(String(entry.body.observedFrom)),
+          instantMs(String(entry.body.observedUntil)),
         ] as const,
     )
     .sort((a, b) => a[0] - b[0])

@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { tournamentCaptureAdmissionSchema } from '@daisy/protocol';
+import { tournamentCaptureAdmissionSchema } from '@daisy/protocol/tournament-capture-admission';
 import {
   check,
   foreignKey,

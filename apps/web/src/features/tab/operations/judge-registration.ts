@@ -10,7 +10,7 @@ import {
   type JudgeRegistrationWrite,
 } from '@daisy/db/tab';
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import {
   judgeCommandCatalogue,
   judgeCommandSchema,
@@ -27,7 +27,7 @@ import {
 } from '../commands/judges';
 import { CommandDenied, runLobbyCommand } from '../commands/run-command';
 import type { TabPrincipal } from '../tab-principal';
-import { commandDigest } from './command-digest';
+import { commandDigest } from '@daisy/digest';
 import { hostLobbyResource } from './host-lobby-resource';
 
 type Loaded = LoadedJudgeRegistration & { readonly minorsAllowed: boolean };

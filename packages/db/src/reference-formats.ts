@@ -3,9 +3,9 @@ import {
   negativeSide,
   sideSeat,
   twoSides,
-  type FormatDefinition,
-  type FormatSettings,
-} from '@daisy/protocol';
+} from '@daisy/protocol/seats';
+import { type FormatDefinition } from '@daisy/protocol/format';
+import { type FormatSettings } from '@daisy/protocol/format-settings';
 
 /**
  * The reference formats, as TypeScript, for tooling that runs without a

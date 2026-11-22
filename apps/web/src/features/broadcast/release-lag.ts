@@ -1,5 +1,5 @@
 import { delayAlert } from '@daisy/debate-engine';
-import type { BroadcastReleasePolicy } from '@daisy/protocol';
+import type { BroadcastReleasePolicy } from '@daisy/protocol/broadcast';
 
 const ms = (at: Date | null | undefined) => at?.getTime() ?? null;
 

@@ -7,7 +7,7 @@ import {
 } from './ballot-form.test-support';
 import { ballotPlanFor } from '../judge/ballot-plan';
 import { sampleBallotRound } from '../judge/ballot-plan.test-support';
-import { daisyWinnerBallot } from '@daisy/protocol';
+import { daisyWinnerBallot } from '@daisy/protocol/ballot-definition';
 test('strict native ballot preserves one envelope and refuses impersonation, duplicate and stale low-point confirmation', () => {
   const valid = fields();
   const parsed = ballotFields(valid, plan);

@@ -1,5 +1,7 @@
 'use client';
 
+import { Button } from '../button/button';
+import { StatusRegion } from '../status-region/status-region';
 import { useState, type ReactNode } from 'react';
 import { Icon } from '../icon/icon';
 
@@ -44,7 +46,8 @@ export function UpgradePanel({
   const [dismissed, setDismissed] = useState(false);
   if (dismissed) return null;
   return (
-    <div
+    <StatusRegion
+      as="div"
       role="status"
       className="flex flex-col gap-3 rounded-xl border border-border-strong bg-surface-raised px-4 py-4"
     >
@@ -64,7 +67,8 @@ export function UpgradePanel({
             {alternative.label}
           </a>
         ) : (
-          <button
+          <Button
+            variant="unstyled"
             type="button"
             className={quiet}
             onClick={() =>
@@ -74,9 +78,9 @@ export function UpgradePanel({
             }
           >
             {alternative.label}
-          </button>
+          </Button>
         )}
       </div>
-    </div>
+    </StatusRegion>
   );
 }

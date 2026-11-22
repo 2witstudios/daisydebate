@@ -1,5 +1,10 @@
+import { instantMs } from '@daisy/clock';
 import { requireTestServices } from '@daisy/config';
+import { assertRejects } from '@daisy/errors/testing';
+import { SQL } from 'bun';
+import { drizzle } from 'drizzle-orm/bun-sql';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { sampleRoundExecutionTime } from '../src/round-execution-time';
 import {
   authoredRoundCommand,
   withAuthoredRound,
@@ -7,6 +12,57 @@ import {
 setupRitewayBun();
 const { databaseUrl: url } = requireTestServices(process.env);
 const instant = '2026-10-07T12:00:00.000Z';
+
+test('the database clock is the default and trusted Round time bypasses SQL', async () => {
+  const client = new SQL(url, { max: 1 });
+  try {
+    const statements: string[] = [];
+    const database = drizzle({
+      client,
+      logger: { logQuery: (statement) => statements.push(statement) },
+    });
+    const [{ before }] = await client`select clock_timestamp() as before`;
+    const actual = await sampleRoundExecutionTime(database);
+    const [{ after }] = await client`select clock_timestamp() as after`;
+    const controlled = await sampleRoundExecutionTime(
+      database,
+      async () => instant,
+    );
+    await assertRejects({
+      given: 'a trusted resource with an offset timestamp',
+      should: 'require canonical UTC',
+      actual: () =>
+        sampleRoundExecutionTime(
+          database,
+          async () => '2026-10-07T13:00:00+01:00',
+        ),
+      code: 'INVARIANT',
+    });
+    assert({
+      given: 'the default database time and then two explicit time resources',
+      should:
+        'sample between the two PostgreSQL witnesses and use SQL only by default',
+      actual: {
+        between:
+          instantMs(actual) >= before.getTime() &&
+          instantMs(actual) <= after.getTime(),
+        controlled,
+        clockReads: statements.filter((query) =>
+          query.includes('clock_timestamp'),
+        ).length,
+        statements: statements.length,
+      },
+      expected: {
+        between: true,
+        controlled: instant,
+        clockReads: 1,
+        statements: 1,
+      },
+    });
+  } finally {
+    await client.close();
+  }
+});
 
 test('Round lifecycle samples after lock acquisition and survives a delayed write exactly', async () => {
   await withAuthoredRound(url, {}, async (fixture, authored) => {
@@ -96,8 +152,8 @@ test('Round lifecycle samples after lock acquisition and survives a delayed writ
         should: 'persist the one post-lock instant unchanged',
         actual: {
           exact: hydrated?.startedAt === sampled,
-          afterLock: Date.parse(sampled) >= unlockedAfter.now.getTime(),
-          beforeWrite: Date.parse(sampled) <= delayed.now.getTime(),
+          afterLock: instantMs(sampled) >= unlockedAfter.now.getTime(),
+          beforeWrite: instantMs(sampled) <= delayed.now.getTime(),
         },
         expected: { exact: true, afterLock: true, beforeWrite: true },
       });

@@ -1,12 +1,13 @@
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 
 import { retriedJob } from './retried-job';
 import { observationPurgeJobs } from './schema/observation-purge-jobs';
+import type { Tx } from './tx';
+import { run, query } from './raw-rows';
+import { z } from 'zod';
 
-type Execute = Pick<BunSQLDatabase, 'execute'>;
 const purgeJob = retriedJob(observationPurgeJobs);
 
 /** The longest a failed purge waits for its retry. */
@@ -32,16 +33,19 @@ const instant = (value: string) => {
  * or not at all.
  */
 export async function queueObservationPurge(
-  tx: Execute,
+  tx: Tx,
   userId: string,
   now: string,
 ) {
   if (!idSchema.safeParse(userId).success) throw createAppError('VALIDATION');
   instant(now);
-  await tx.execute(sql`insert into observation_purge_jobs(user_id, status, attempts, created_at, retry_at)
+  await run(
+    tx,
+    sql`insert into observation_purge_jobs(user_id, status, attempts, created_at, retry_at)
     values(${userId}, 'pending', 0, ${now}::timestamptz, ${now}::timestamptz)
     on conflict (user_id) do update set status = 'pending', retry_at = excluded.retry_at,
-      created_at = excluded.created_at, succeeded_at = null`);
+      created_at = excluded.created_at, succeeded_at = null`,
+  );
 }
 
 /**
@@ -52,7 +56,7 @@ export async function queueObservationPurge(
  * with exponential backoff, and nothing about the failure is stored.
  */
 export async function deliverObservationPurges(
-  database: Execute,
+  database: Tx,
   input: { readonly now: string; readonly limit: number },
   port: { readonly purge: () => Promise<void> },
 ): Promise<{ readonly succeeded: number; readonly retried: number }> {
@@ -63,15 +67,15 @@ export async function deliverObservationPurges(
     input.limit > MAX_BATCH
   )
     throw createAppError('VALIDATION');
-  const rows = (await database.execute(sql`select user_id as "userId", attempts,
+  const rows = await query(
+    database,
+    z.object({ userId: z.string(), attempts: z.number(), createdAt: z.date() }),
+    sql`select user_id as "userId", attempts,
       created_at as "createdAt"
     from observation_purge_jobs
     where status = 'pending' and retry_at <= ${input.now}::timestamptz
-    order by retry_at, user_id limit ${input.limit}`)) as unknown as {
-    userId: string;
-    attempts: number;
-    createdAt: Date;
-  }[];
+    order by retry_at, user_id limit ${input.limit}`,
+  );
   if (rows.length === 0) return { succeeded: 0, retried: 0 };
   const jobOf = (row: (typeof rows)[number]) => sql`user_id = ${row.userId}`;
   try {
@@ -111,13 +115,13 @@ export async function deliverObservationPurges(
  * Jobs not yet delivered, in backoff or past the batch: an unpaid obligation
  * that a run must not report as healthy (ISSUE-1007).
  */
-export async function owedObservationPurges(
-  database: Execute,
-): Promise<number> {
-  const rows = (await database.execute(sql`select count(*)::int as owed
+export async function owedObservationPurges(database: Tx): Promise<number> {
+  const rows = await query(
+    database,
+    z.object({ owed: z.number() }),
+    sql`select count(*)::int as owed
     from observation_purge_jobs
-    where status = 'pending'`)) as unknown as {
-    owed: number;
-  }[];
+    where status = 'pending'`,
+  );
   return rows[0]?.owed ?? 0;
 }

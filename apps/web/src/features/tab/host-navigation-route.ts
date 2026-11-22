@@ -1,12 +1,8 @@
 import { z } from 'zod';
-import { createAppError } from '@daisy/errors';
 import type { HostNavigationView } from '@daisy/protocol/lobby/host-navigation-read';
 import { hostNavigationViewSchema } from '@daisy/protocol/lobby/host-navigation-read';
-import { parseValidated } from '../../server/http';
-import {
-  runEvaluatedRoute,
-  type MemberBoundary,
-} from '../../server/member-boundary';
+import type { MemberBoundary } from '../../server/member-boundary';
+import { bindTabRead } from './read-route';
 import type { TabPrincipal } from './tab-principal';
 
 const querySchema = z.strictObject({
@@ -27,32 +23,19 @@ export type HostNavigationRouteDependencies = {
     target: { readonly kind: 'organization' | 'lobby'; readonly id: string },
   ) => Promise<HostNavigationView | null>;
 };
-export const createHostNavigationRoute =
-  (dependencies: HostNavigationRouteDependencies) => (request: Request) =>
-    runEvaluatedRoute(dependencies.boundary, request, {
-      name: 'tab.host.navigation',
-      readOnly: true,
-      readInput: async () => undefined,
-      operation: async (_value, principal) => {
-        if (
-          principal.kind !== 'user' ||
-          !(await dependencies.released(principal.userId))
-        )
-          throw createAppError('NOT_FOUND');
-        const query = parseValidated(
-          querySchema,
-          Object.fromEntries(new URL(request.url).searchParams),
-        );
-        const id = await (query.kind === 'organization'
-          ? dependencies.organizationIdOfHandle(query.handle)
-          : dependencies.lobbyIdOfHandle(query.handle));
-        if (!id) throw createAppError('NOT_FOUND');
-        const view = await dependencies.read(principal, {
-          kind: query.kind,
-          id,
-        });
-        if (!view) throw createAppError('NOT_FOUND');
-        return hostNavigationViewSchema.parse(view);
-      },
-      headers: { 'cache-control': 'no-store' },
-    });
+export const createHostNavigationRoute = (
+  dependencies: HostNavigationRouteDependencies,
+) =>
+  bindTabRead({
+    boundary: dependencies.boundary,
+    released: dependencies.released,
+    name: 'tab.host.navigation',
+    query: querySchema,
+    view: hostNavigationViewSchema,
+    read: async (principal, { kind, handle }) => {
+      const id = await (kind === 'organization'
+        ? dependencies.organizationIdOfHandle(handle)
+        : dependencies.lobbyIdOfHandle(handle));
+      return id ? dependencies.read(principal, { kind, id }) : null;
+    },
+  });

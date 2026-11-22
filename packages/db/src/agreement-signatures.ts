@@ -1,7 +1,6 @@
 import { and, eq, inArray, sql } from 'drizzle-orm';
-import { openRoomStatuses } from '@daisy/protocol';
+import { openRoomStatuses } from '@daisy/protocol/room-contract';
 import { lockActiveLobbySeason } from './ladder-season';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import type { PrivacyAdopter } from './privacy/contracts';
 import { exportRows } from './privacy/export-rows';
@@ -9,8 +8,9 @@ import { agreementSignatures } from './schema/agreement-signatures';
 import { actors } from './schema/actors';
 import { rooms, roomParticipants } from './schema/rooms';
 import { transactionNow } from './room-command-facts';
-
-type Tx = Pick<BunSQLDatabase, 'select' | 'insert'>;
+import { query } from './raw-rows';
+import { z } from 'zod';
+import { inTransaction, type Tx, type TxOpener } from './tx';
 
 /** Where a member stands on a version of the lobby's active season's waiver. */
 export type ContentWaiverStanding = 'signed' | 'unsigned' | 'no-active-season';
@@ -63,16 +63,13 @@ export async function recordCaptureNotice(
     .onConflictDoNothing();
 }
 
-type Transaction = <T>(run: (tx: Tx) => Promise<T>) => Promise<T>;
-
 export const agreementSignatureOperations = ({
   database,
   eventSink,
 }: {
-  readonly database: Pick<BunSQLDatabase, 'transaction'>;
+  readonly database: TxOpener;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => {
-  const transaction = database.transaction.bind(database) as Transaction;
   return {
     readContentWaiverStanding: (
       userId: string,
@@ -80,7 +77,7 @@ export const agreementSignatureOperations = ({
       lobbyId: string,
     ) =>
       instrumented(eventSink, 'readContentWaiverStanding', () =>
-        transaction((tx) =>
+        inTransaction(database, (tx) =>
           readContentWaiverStanding(tx, userId, version, lobbyId),
         ),
       ),
@@ -93,7 +90,7 @@ export const agreementSignatureOperations = ({
       readonly roomId: string;
     }): Promise<'signed' | 'no-active-season'> =>
       instrumented(eventSink, 'signContentWaiver', () =>
-        transaction(async (tx) => {
+        inTransaction(database, async (tx) => {
           const [room] = await tx
             .select({ lobbyId: rooms.lobbyId })
             .from(rooms)
@@ -120,7 +117,7 @@ export const agreementSignatureOperations = ({
               version: input.version,
               words: input.words,
               seasonId,
-              signedAt: new Date(await transactionNow(tx as never)),
+              signedAt: new Date(await transactionNow(tx)),
             })
             .onConflictDoNothing();
           return 'signed';
@@ -140,9 +137,19 @@ export const agreementSignaturePrivacyAdopter: PrivacyAdopter = {
   erase: async () => undefined,
   export: async (tx, subject) => ({
     agreement_signatures: exportRows(
-      (await tx.execute(
+      await query(
+        tx,
+        z.object({
+          agreement: z.string(),
+          version: z.string(),
+          words: z.string(),
+          season_id: z.string().nullable(),
+          room_id: z.string().nullable(),
+          lobby_id: z.string().nullable(),
+          signed_at: z.date(),
+        }),
         sql`select agreement,version,words,season_id,room_id,lobby_id,signed_at from ${agreementSignatures} where user_id=${subject.userId} order by signed_at, id`,
-      )) as unknown as Record<string, unknown>[],
+      ),
     ),
   }),
 };

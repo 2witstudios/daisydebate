@@ -1,8 +1,6 @@
-import {
-  isTwoSided,
-  type FormatDefinition,
-  type RoomConfig,
-} from '@daisy/protocol';
+import { isTwoSided } from '@daisy/protocol/seats';
+import { type FormatDefinition } from '@daisy/protocol/format';
+import { type RoomConfig } from '@daisy/protocol/room';
 
 /**
  * Who strikes first in a Custom room: a two-sided format's second side, as in

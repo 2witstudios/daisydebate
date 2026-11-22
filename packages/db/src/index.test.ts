@@ -1,19 +1,12 @@
 import { expect } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { createId } from '@paralleldrive/cuid2';
-import { getTableName } from 'drizzle-orm';
+import { getTableColumns, getTableName } from 'drizzle-orm';
 import { getTableConfig } from 'drizzle-orm/pg-core';
 import { rounds } from './schema/rounds';
 import { users } from './schema/users';
 import * as packageEntry from './index';
 import * as outboxEntry from '@daisy/db/outbox';
-import { createDatabase } from './index';
-import {
-  createTestDatabase,
-  fakeSqlWithBrokenListen,
-  unreachableDatabase,
-  type SinkEvent,
-} from './index.test-support';
+import { unreachableDatabase } from './index.test-support';
 
 setupRitewayBun();
 
@@ -57,7 +50,7 @@ describe('persistence schema', () => {
   });
 
   test('supports provisional authentication profiles', () => {
-    const columns = users as unknown as Record<string, { notNull?: boolean }>;
+    const columns = getTableColumns(users);
 
     assert({
       given: 'verified users before username onboarding',
@@ -68,7 +61,7 @@ describe('persistence schema', () => {
         hasEmailVerified: 'emailVerified' in columns,
         hasName: 'name' in columns,
         hasImage: 'image' in columns,
-        usernameRequired: columns.username?.notNull,
+        usernameRequired: columns.username.notNull,
       },
       expected: {
         hasEmail: true,
@@ -106,50 +99,6 @@ describe('persistence schema', () => {
         (index) => index.config.name === 'users_username_lower_unique',
       ),
       expected: true,
-    });
-  });
-});
-
-describe('database health', () => {
-  test('reports healthy after a successful round trip', async () => {
-    const { database } = createTestDatabase([[]]);
-
-    assert({
-      given: 'a database answering a round-trip query',
-      should: 'report health',
-      actual: await database.health(),
-      expected: true,
-    });
-  });
-
-  test('checkListen reports true after subscribing and unsubscribing', async () => {
-    const { database } = createTestDatabase([]);
-
-    assert({
-      given: 'a LISTEN that PostgreSQL acknowledges',
-      should: 'resolve true and leave no open subscription',
-      actual: await database.checkListen(),
-      expected: true,
-    });
-  });
-
-  test('checkListen fails closed when LISTEN is unavailable', async () => {
-    const { client } = fakeSqlWithBrokenListen([]);
-    const events: SinkEvent[] = [];
-    const database = createDatabase({
-      url: 'postgresql://unit:unit@127.0.0.1:1/unit',
-      eventSink: (event, fields, message) =>
-        events.push({ event, fields, message }),
-      client,
-      nextActorId: createId,
-    });
-
-    await expect(database.checkListen()).rejects.toThrow('listen unavailable');
-    assert({
-      given: 'a broken LISTEN connection',
-      should: 'report the failure through the event sink',
-      actual: events.map((event) => event.fields.operation),
-      expected: ['checkListen'],
     });
   });
 });

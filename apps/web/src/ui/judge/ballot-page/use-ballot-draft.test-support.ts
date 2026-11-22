@@ -1,5 +1,5 @@
 import { createElement } from 'react';
-import type { RoundBallotRead } from '@daisy/protocol';
+import type { RoundBallotRead } from '@daisy/protocol/round-ballot-read';
 import type { BallotDisplay } from '../../../features/round-ballots/presentation';
 import { useBallotDraft } from './use-ballot-draft';
 import { sampleBallotPlan } from '../../mock/judge.test-support';

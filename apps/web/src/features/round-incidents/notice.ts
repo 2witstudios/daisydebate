@@ -1,4 +1,5 @@
-import type { RuntimeCheckpoint } from '@daisy/protocol';
+import { instantMs } from '@daisy/clock';
+import type { RuntimeCheckpoint } from '@daisy/protocol/round';
 
 /** The words every viewer of a held Round reads: seats, judges and spectators alike. */
 const HELD =
@@ -13,7 +14,7 @@ export function roundIncidentNotice(
   if (!incident || incident.phase === 'none') return null;
   if (incident.phase === 'paused')
     return { held: HELD, resumesInSeconds: null };
-  const leftMs = Date.parse(incident.until) - nowMs;
+  const leftMs = instantMs(incident.until) - nowMs;
   return leftMs <= 0
     ? null
     : { held: HELD, resumesInSeconds: Math.ceil(leftMs / 1000) };

@@ -1,4 +1,5 @@
-import type { FormatDefinition, FormatSettings } from '@daisy/protocol';
+import type { FormatDefinition } from '@daisy/protocol/format';
+import type { FormatSettings } from '@daisy/protocol/format-settings';
 import { oneOnOneDefinition, oneOnOneSettings } from './reference-formats';
 import {
   strikeSettings,

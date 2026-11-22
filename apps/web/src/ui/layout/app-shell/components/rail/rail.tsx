@@ -1,3 +1,4 @@
+import { Button } from '../../../../components/button/button';
 import type { ReactNode } from 'react';
 import { ShellLink as Link } from '../../shell-link';
 import { DaisyLogo } from '../../../../components/daisy-mark/daisy-mark';
@@ -53,7 +54,8 @@ function ToggleItem({
   return (
     <li className="icon-rail:hidden">
       <form action={toggleRail}>
-        <button
+        <Button
+          variant="unstyled"
           type="submit"
           title={extended ? undefined : name}
           className={navItemClass(false, extended)}
@@ -62,7 +64,7 @@ function ToggleItem({
           <span className={extended ? 'icon-rail:sr-only' : 'sr-only'}>
             {name}
           </span>
-        </button>
+        </Button>
       </form>
     </li>
   );

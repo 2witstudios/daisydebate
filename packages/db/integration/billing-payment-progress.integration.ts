@@ -1,3 +1,4 @@
+import { addMs } from '@daisy/clock';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { invoicePassOwnerSchema } from '@daisy/protocol/billing';
@@ -46,9 +47,7 @@ test(
           closedAt: account!.deleted_at.toISOString(),
           period: {
             startsAt: read.source.admittedAt,
-            endsAt: new Date(
-              Date.parse(read.source.admittedAt) + 30 * 86400000,
-            ).toISOString(),
+            endsAt: addMs(read.source.admittedAt, 30 * 86400000),
           },
         });
         const passId = createId();

@@ -3,7 +3,7 @@ import {
   createAudiencePublisherStore,
 } from '@daisy/db/audience-publisher';
 import { createLogger } from '@daisy/logger';
-import { officialFeedPath } from '@daisy/protocol';
+import { officialFeedPath } from '@daisy/protocol/official-feed';
 import { createRedis } from '@daisy/redis';
 import {
   createAudienceStatePublisher,

@@ -1,5 +1,6 @@
 'use client';
 
+import { StatusRegion } from '../../components/status-region/status-region';
 import type { ReactNode } from 'react';
 import type { GuardianFormState } from '../../../features/parental-controls/form';
 import {
@@ -42,14 +43,14 @@ export function GuardianForm({
         </Button>
       </fieldset>
       {state.kind === 'refused' ? (
-        <p role="alert" className="text-sm text-live">
+        <StatusRegion as="p" role="alert" className="text-sm text-live">
           {state.error}
-        </p>
+        </StatusRegion>
       ) : null}
       {state.kind === 'sent' ? (
-        <p role="status" className="text-sm text-ink">
+        <StatusRegion as="p" role="status" className="text-sm text-ink">
           {state.message}
-        </p>
+        </StatusRegion>
       ) : null}
     </form>
   );

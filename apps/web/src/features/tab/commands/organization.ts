@@ -1,4 +1,5 @@
-import type { AgeBand } from '@daisy/protocol';
+import { instantMs } from '@daisy/clock';
+import type { AgeBand } from '@daisy/protocol/ladder';
 import type {
   OrganizationCommand,
   OrganizationRefusal,
@@ -171,7 +172,7 @@ type Decision = CommandDecision<OrganizationDecisionRefusal, OrganizationWrite>;
 
 const live = (grant: GrantFact, now: string): boolean =>
   grant.revokedAt === null &&
-  (grant.expiresAt === null || Date.parse(grant.expiresAt) > Date.parse(now));
+  (grant.expiresAt === null || instantMs(grant.expiresAt) > instantMs(now));
 
 /** A grant covers a scope when it is that scope or the organization above it. */
 const covers = (

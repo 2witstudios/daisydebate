@@ -1,5 +1,5 @@
 import { and, eq, inArray, type SQLWrapper } from 'drizzle-orm';
-import { openRoomStatuses } from '@daisy/protocol';
+import { openRoomStatuses } from '@daisy/protocol/room-contract';
 import { rooms } from './schema/rooms';
 
 /**

@@ -1,9 +1,10 @@
 'use client';
 
+import { useBrowserEffect } from '../edge/browser-sync';
 import type { PageTone } from '../../features/documents/document-manager-state';
 import { createDocument } from '@tiptap/core';
 import { EditorContent, useEditor } from '@tiptap/react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { sameDocumentHtml } from '../../features/documents/document-lines';
 import { documentExtensions } from '../../features/documents/document-schema';
 import { EditorToolbar } from './editor-toolbar';
@@ -65,7 +66,7 @@ export function DocumentEditor({
 
   // Renaming changes the accessible name on the existing view, preserving its
   // content, history and selection rather than rebuilding the editor.
-  useEffect(() => {
+  useBrowserEffect(() => {
     editor?.setOptions({
       editorProps: {
         ...editor.options.editorProps,
@@ -76,7 +77,7 @@ export function DocumentEditor({
 
   // A change from outside the editor (an applied agent edit, a server load)
   // goes into the open editor without echoing back as a local update.
-  useEffect(() => {
+  useBrowserEffect(() => {
     if (!editor || sameDocumentHtml(editor.getHTML(), document.html)) return;
     const change = outsideTextTransaction(
       editor.state,

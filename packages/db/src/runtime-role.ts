@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import { sql, type SQL as DrizzleSql } from 'drizzle-orm';
 
 /**
@@ -33,13 +34,15 @@ export const runtimeRoleFactsQuery: DrizzleSql = sql`
   where n.nspname = 'public'
 `;
 
-export type RuntimeRoleFactsRow = {
-  readonly superuser: boolean;
-  readonly bypass_rls: boolean;
-  readonly create_in_public: boolean;
-  readonly owns_public_schema: boolean;
-  readonly owned_objects_in_public: number;
-};
+export const runtimeRoleFactsRow = z.object({
+  superuser: z.boolean(),
+  bypass_rls: z.boolean(),
+  create_in_public: z.boolean(),
+  owns_public_schema: z.boolean(),
+  owned_objects_in_public: z.int().nonnegative(),
+});
+
+type RuntimeRoleFactsRow = z.output<typeof runtimeRoleFactsRow>;
 
 export const runtimeRoleFactsFrom = (
   row: RuntimeRoleFactsRow,

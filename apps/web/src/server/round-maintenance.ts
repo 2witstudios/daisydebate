@@ -1,4 +1,4 @@
-import type { JudgingTerminalReason } from '@daisy/protocol';
+import type { JudgingTerminalReason } from '@daisy/protocol/round-judging-attempt';
 import { createAppError } from '@daisy/errors';
 import type { ErrorReporter } from '@daisy/observability';
 import { workerFailures } from './recoverable-failure';

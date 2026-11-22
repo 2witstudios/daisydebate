@@ -1,8 +1,9 @@
+import { instantMs } from '@daisy/clock';
 import {
   recordingObjectPrefix,
   transitionRecording,
-  type RecordingLifecycle,
-} from '@daisy/protocol';
+} from '@daisy/protocol/recording-lifecycle';
+import { type RecordingLifecycle } from '@daisy/protocol/recording';
 import type { RecordingObjectStore, RecordingStore } from './ports';
 
 const MINUTE_MS = 60_000;
@@ -75,11 +76,11 @@ const payEndedEvidenceHolds = async (store: RecordingStore, nowMs: number) => {
 };
 
 const settled = (requestedAt: string, nowMs: number): boolean =>
-  nowMs - Date.parse(requestedAt) >= REMOVAL_SETTLE_MS;
+  nowMs - instantMs(requestedAt) >= REMOVAL_SETTLE_MS;
 
 const overdue = (lifecycle: RecordingLifecycle, nowMs: number): boolean =>
   lifecycle.status === 'removing' &&
-  nowMs - Date.parse(lifecycle.requestedAt) >= REMOVAL_OVERDUE_MS;
+  nowMs - instantMs(lifecycle.requestedAt) >= REMOVAL_OVERDUE_MS;
 
 /**
  * One bounded run. The intent is durable, so a vendor outage or a dead process

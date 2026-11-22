@@ -1,8 +1,9 @@
+import { instantMs } from '@daisy/clock';
 import type { Database } from '@daisy/db';
 import type { createRedis } from '@daisy/redis';
 import type { Clock } from '@daisy/clock';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
-import { messagingTypingSchemas } from '@daisy/protocol';
+import { messagingTypingSchemas } from '@daisy/protocol/messaging/typing';
 import { createAppError } from '@daisy/errors';
 import type { loadAccountPolicyFacts } from '../authorization/account-policy-facts';
 
@@ -130,10 +131,10 @@ export async function runTypingFrame({
     if (typing) {
       if (!current.own.lease) throw createAppError('AUTHORIZATION');
       const expiresAt = Math.min(
-        Date.parse(current.own.lease.expiresAt),
-        Date.parse(current.now) + bounds.ttlMs,
+        instantMs(current.own.lease.expiresAt),
+        instantMs(current.now) + bounds.ttlMs,
       );
-      const ttlMs = expiresAt - Date.parse(current.now);
+      const ttlMs = expiresAt - instantMs(current.now);
       if (ttlMs <= 0) throw createAppError('AUTHORIZATION');
       await write(
         { ...current.own.lease, expiresAt: new Date(expiresAt).toISOString() },
@@ -168,7 +169,7 @@ export async function runTypingFrame({
           ? bounds.refetchMs
           : Math.min(
               bounds.refetchMs,
-              Math.max(1, aggregate.expiresAt - Date.parse(now)),
+              Math.max(1, aggregate.expiresAt - instantMs(now)),
             ),
     });
   };

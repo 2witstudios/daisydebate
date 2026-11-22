@@ -1,8 +1,8 @@
+import type { TournamentHostingGrant } from '@daisy/protocol/tournament-hosting';
 import type {
-  TournamentHostingGrant,
   TournamentSponsorshipVersion,
   TournamentSponsorshipChange,
-} from '@daisy/protocol';
+} from '@daisy/protocol/tournament-sponsorship';
 import type { TournamentSponsorshipCommand } from '@daisy/protocol/lobby/sponsorship-command';
 import { tournamentHostingGrantFor } from '@daisy/auth/authorization';
 

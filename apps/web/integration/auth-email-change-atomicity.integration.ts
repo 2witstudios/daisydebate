@@ -1,6 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
-import { buildUserInboxTopic } from '@daisy/protocol';
+import { buildUserInboxTopic } from '@daisy/protocol/topics';
 import { createPasskeyFlows } from './auth-passkey-flows';
 import { cookieHeader, emailOf, userIdOf, withSql } from './fixtures';
 import { EMAIL_CHANGE_LINK_EXPIRES_IN_SECONDS } from '../src/features/auth/email-change/email-change';

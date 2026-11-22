@@ -25,6 +25,7 @@
     "test": "bun test src"
   },
   "dependencies": {
+    "@daisy/clock": "workspace:*",
     "@daisy/errors": "workspace:*",
     "@daisy/protocol": "workspace:*"
   },

@@ -2,6 +2,7 @@ import { execFile } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { createId } from '@paralleldrive/cuid2';
 import { test, expect, openPage } from './support/fixtures';
+import { hydrated } from './support/hydration';
 import {
   resetRateLimits,
   signUpMember,
@@ -27,19 +28,16 @@ const seed = (username: string, ...options: readonly string[]) =>
     ),
   );
 
-/**
- * Every audience form with JavaScript off (SPECT-1.4, WATCH-12): these contexts
- * run no script at all, so a form only script can submit fails here.
- */
-test('chat, reactions and reports work with no script, for an account never admitted', async ({
+/** Every audience form, for an account never admitted (SPECT-1.4, WATCH-12). */
+test('chat, reactions and reports work for an account never admitted', async ({
   browser,
 }) => {
-  const seeder = await browser.newContext({ javaScriptEnabled: false });
-  const visitor = await browser.newContext({ javaScriptEnabled: false });
-  const reader = await browser.newContext({ javaScriptEnabled: false });
-  const page = await openPage(seeder, 'native audience poster');
-  const stranger = await openPage(visitor, 'native audience visitor');
-  const reporter = await openPage(reader, 'native audience reporter');
+  const seeder = await browser.newContext();
+  const visitor = await browser.newContext();
+  const reader = await browser.newContext();
+  const page = await openPage(seeder, 'audience poster');
+  const stranger = await openPage(visitor, 'audience visitor');
+  const reporter = await openPage(reader, 'audience reporter');
   try {
     await resetRateLimits(page.request);
     // Waitlisted: an account with a username and no admission.
@@ -87,13 +85,13 @@ test('chat, reactions and reports work with no script, for an account never admi
 const LIVE_ROOM_COPY =
   'You are in this Round’s live room, so you cannot post in its chat. The audience watches on a delay.';
 
-test('anyone in the live room is told why they cannot post, with no script', async ({
+test('anyone in the live room is told why they cannot post', async ({
   browser,
 }) => {
-  const hostContext = await browser.newContext({ javaScriptEnabled: false });
-  const debaterContext = await browser.newContext({ javaScriptEnabled: false });
-  const hostPage = await openPage(hostContext, 'native audience host');
-  const debaterPage = await openPage(debaterContext, 'native audience debater');
+  const hostContext = await browser.newContext();
+  const debaterContext = await browser.newContext();
+  const hostPage = await openPage(hostContext, 'audience host');
+  const debaterPage = await openPage(debaterContext, 'audience debater');
   try {
     await resetRateLimits(hostPage.request);
     const host = await signUpWaitlisted(hostPage.request);
@@ -112,9 +110,19 @@ test('anyone in the live room is told why they cannot post, with no script', asy
 
     // A form rendered before they took a seat is refused, and stores nothing.
     await debaterPage.goto(here);
-    await debaterPage.getByLabel('Your message').fill('A draft');
+    const composer = debaterPage.getByRole('form', {
+      name: 'Post to spectator chat',
+    });
+    const post = composer.getByRole('button', { name: 'Post' });
+    await hydrated(post);
+    await composer.getByLabel('Your message').fill('A draft');
     await seed('seat', debater.username, roundId);
-    await debaterPage.getByRole('button', { name: 'Post' }).click();
+    await post.click();
+    await expect(composer.getByRole('alert')).toHaveText(LIVE_ROOM_COPY);
+    await expect(debaterPage.getByText('No messages yet.')).toBeVisible();
+
+    // The fresh page uses the member's new seat when rendering its controls.
+    await debaterPage.reload();
     await expect(debaterPage.getByText(LIVE_ROOM_COPY)).toBeVisible();
     await expect(debaterPage.getByRole('textbox')).toHaveCount(0);
     await expect(debaterPage.getByText('No messages yet.')).toBeVisible();
@@ -124,17 +132,15 @@ test('anyone in the live room is told why they cannot post, with no script', asy
   }
 });
 
-test('an unlisted Round opens to its link alone, for every audience form, with no script', async ({
+test('an unlisted Round opens to its link alone, for every audience form', async ({
   browser,
   baseURL,
 }) => {
   const token = 'k'.repeat(21) + createId().slice(0, 22);
-  const holderContext = await browser.newContext({ javaScriptEnabled: false });
-  const strangerContext = await browser.newContext({
-    javaScriptEnabled: false,
-  });
-  const holder = await openPage(holderContext, 'native audience link holder');
-  const stranger = await openPage(strangerContext, 'native audience stranger');
+  const holderContext = await browser.newContext();
+  const strangerContext = await browser.newContext();
+  const holder = await openPage(holderContext, 'audience link holder');
+  const stranger = await openPage(strangerContext, 'audience stranger');
   try {
     await resetRateLimits(holder.request);
     const holderAccount = await signUpWaitlisted(holder.request);
@@ -217,7 +223,7 @@ test('an unlisted Round opens to its link alone, for every audience form, with n
   }
 });
 
-test('with script, an unlisted Round refreshes by its link', async ({
+test('an unlisted Round refreshes by its link', async ({
   browser,
   baseURL,
 }) => {
@@ -254,13 +260,13 @@ test('with script, an unlisted Round refreshes by its link', async ({
   }
 });
 
-test('following, notifications, stored preferences and history work with no script', async ({
+test('following, notifications, stored preferences and history work', async ({
   browser,
 }) => {
-  const context = await browser.newContext({ javaScriptEnabled: false });
-  const other = await browser.newContext({ javaScriptEnabled: false });
-  const page = await openPage(context, 'native audience member');
-  const debaterPage = await openPage(other, 'native audience debater');
+  const context = await browser.newContext();
+  const other = await browser.newContext();
+  const page = await openPage(context, 'audience member');
+  const debaterPage = await openPage(other, 'audience debater');
   try {
     await resetRateLimits(page.request);
     const member = await signUpMember(page.request);
@@ -318,12 +324,12 @@ test('following, notifications, stored preferences and history work with no scri
   }
 });
 
-/** The same forms with script on: each stays usable after its first answer. */
-test('with script, every form answers more than once and the view refreshes itself', async ({
+/** Each form stays usable after its first answer. */
+test('every form answers more than once and the view refreshes itself', async ({
   browser,
 }) => {
   const context = await browser.newContext();
-  const page = await openPage(context, 'audience member with script');
+  const page = await openPage(context, 'audience member');
   const debaterContext = await browser.newContext();
   const debaterPage = await openPage(debaterContext, 'audience debater');
   try {

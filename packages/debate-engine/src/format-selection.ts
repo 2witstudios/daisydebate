@@ -1,13 +1,11 @@
+import { canonicalRatingStyle } from '@daisy/protocol/primitives';
 import {
-  canonicalRatingStyle,
   daisyBallotFor,
   daisyWinnerBallot,
-} from '@daisy/protocol';
-import type {
-  FormatDefinition,
-  FormatSelectionFacts,
-  FormatSettings,
-} from '@daisy/protocol';
+} from '@daisy/protocol/ballot-definition';
+import type { FormatDefinition } from '@daisy/protocol/format';
+import type { FormatSelectionFacts } from '@daisy/protocol/format-standing';
+import type { FormatSettings } from '@daisy/protocol/format-settings';
 
 export type { FormatSelectionFacts };
 import {

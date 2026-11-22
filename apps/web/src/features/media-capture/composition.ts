@@ -1,3 +1,4 @@
+import { nowMs } from '@daisy/clock';
 import { captureRule } from '@daisy/debate-engine';
 import { createRoundRuntime } from '@daisy/debate-engine';
 import { createAppError } from '@daisy/errors';
@@ -7,7 +8,7 @@ import { createRoundMediaRuntime } from '../round-media/composition';
 import { createMediaCaptureHandlers } from './handlers';
 import { createCaptureHeardRelay } from './heard-relay';
 import { createRoundStartGate } from '../round-start-gate/gate';
-import { CAPTURE_STT_LAG_MS } from '@daisy/protocol';
+import { CAPTURE_STT_LAG_MS } from '@daisy/protocol/capture-timing';
 
 type Capture = ReturnType<App['database']['createMediaCaptureOperations']>;
 /** Inert without configuration; the shared router mounts only this authenticated handler. */
@@ -44,7 +45,7 @@ export function composeMediaCaptureRoutes(app: App) {
       if (!secret) throw createAppError('INFRASTRUCTURE');
       return (authentication ??= createMediaWorkerAuthentication({
         secret,
-        now: () => Date.parse(app.clock.now()),
+        now: () => nowMs(app.clock),
       }));
     },
     capture: operations,

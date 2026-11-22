@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 /**
  * Decides whether deploy-staging ships a main commit: staging deploys when
- * the CI gate job is green, without waiting for Browser E2E (ADR 0098). The
+ * the CI gate job is green, without waiting for Browser E2E (ADR 0159). The
  * gate needs every CI job, the dependency audit included (ADR 0039), so a new
  * advisory holds staging back.
  *

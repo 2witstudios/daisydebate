@@ -10,7 +10,7 @@ import {
   type ReleaseCommandWrite,
 } from '@daisy/db/tab';
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import {
   releaseCommandEnvelopeSchema,
   releaseCommandCatalogue,
@@ -23,7 +23,7 @@ import {
 } from '../commands/result';
 import { hostLobbyResource } from './host-lobby-resource';
 import { eventSettingResolution } from './event-setting-resolution';
-import { commandDigest } from './command-digest';
+import { commandDigest } from '@daisy/digest';
 import { orderedWordings } from './resolution-wording-order';
 import type { TabPrincipal } from '../tab-principal';
 const noFixtureConflict = (): never => {

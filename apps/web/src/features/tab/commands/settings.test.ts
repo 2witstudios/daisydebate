@@ -1,4 +1,7 @@
-import { daisyWinnerBallot, storedBallotDefinition } from '@daisy/protocol';
+import {
+  daisyWinnerBallot,
+  storedBallotDefinition,
+} from '@daisy/protocol/ballot-definition';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { SettingCommand } from '@daisy/protocol/lobby/setting-command';
 import {

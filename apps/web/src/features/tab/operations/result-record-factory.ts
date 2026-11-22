@@ -1,9 +1,9 @@
+import { isDebatingSeat } from '@daisy/protocol/seats';
 import {
-  isDebatingSeat,
   roundCompetitionSourceSchema,
-  scoreUnitFor,
   type RoundCompetitionSource,
-} from '@daisy/protocol';
+} from '@daisy/protocol/round-competition-source';
+import { scoreUnitFor } from '@daisy/protocol/score-unit';
 import {
   resultCompetitionRecordSchema,
   type ResultCompetitionRecord,

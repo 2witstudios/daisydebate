@@ -1,5 +1,6 @@
 import type { ChatMessage } from './openrouter';
-import type { BallotDefinition, Side } from '@daisy/protocol';
+import type { BallotDefinition } from '@daisy/protocol/ballot-definition';
+import type { Side } from '@daisy/protocol/seats';
 import { ballotInstructions, judgeRubric } from './judge-instructions';
 import {
   evidenceRules,

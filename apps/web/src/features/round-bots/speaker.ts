@@ -300,6 +300,8 @@ export function createBotSpeaker(input: {
     let heldMs = lengthOf(job);
     const stopped = Promise.withResolvers<void>();
     const stop = () => stopped.resolve();
+    // Read live: the abort can land during the race, which narrowing cannot see.
+    const isAborted = () => signal.aborted;
     signal.addEventListener('abort', stop, { once: true });
     try {
       for (
@@ -308,11 +310,11 @@ export function createBotSpeaker(input: {
         index += 1
       ) {
         const next = progress.ahead.find((held) => held.index === index);
-        if (!next || signal.aborted) return;
+        if (!next || isAborted()) return;
         await Promise.race([next.done.catch(() => undefined), stopped.promise]);
         // A voice refused or failed ends the hold: the speech goes on.
         const voiced = next.answer?.value;
-        if (signal.aborted || !voiced) return;
+        if (isAborted() || !voiced) return;
         heldMs += lengthOf(voiced);
       }
     } finally {

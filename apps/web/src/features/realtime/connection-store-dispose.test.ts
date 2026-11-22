@@ -1,9 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import {
-  ENVELOPE_VERSION,
-  buildChannelTopic,
-  buildRoundTopic,
-} from '@daisy/protocol';
+import { ENVELOPE_VERSION } from '@daisy/protocol/realtime';
+import { buildChannelTopic, buildRoundTopic } from '@daisy/protocol/topics';
 import {
   createConnectionStore,
   type ConnectionStoreDeps,
@@ -14,7 +11,7 @@ import {
   flush,
   validTicket,
 } from './connection-store.test-support';
-import { onDocumentVisibilityChange } from './browser-adapters';
+import { onDocumentVisibilityChange } from '../../ui/edge/realtime-browser';
 
 setupRitewayBun();
 

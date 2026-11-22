@@ -3,10 +3,9 @@ import {
   ageBands,
   divisionOfAgeBand,
   type AgeBand,
-} from '@daisy/protocol';
-import { sql, type SQL } from 'drizzle-orm';
+} from '@daisy/protocol/ladder';
+import { eq, sql, type SQL } from 'drizzle-orm';
 import { accountAge } from './schema/account-age';
-import { eq } from 'drizzle-orm';
 import type { Tx } from './tx';
 
 /**

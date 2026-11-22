@@ -1,10 +1,11 @@
+import { Button } from '../../components/button/button';
+import { StatusRegion } from '../../components/status-region/status-region';
 import Link from 'next/link';
 import type { UnsubscribeView } from '../../../features/notifications/email/unsubscribe-view';
-import { buttonClass } from '../../components/button/button-class';
 
 /**
  * Stops notification email from the email's own link, with no sign-in (ADR
- * 0124, ADR 0144). A native form, so it works without JavaScript.
+ * 0124, ADR 0144). A native form, so it works before hydration.
  */
 export function UnsubscribePage({ view }: { readonly view: UnsubscribeView }) {
   return (
@@ -24,22 +25,22 @@ export function UnsubscribePage({ view }: { readonly view: UnsubscribeView }) {
           <input type="hidden" name="u" value={view.fields.u} />
           <input type="hidden" name="t" value={view.fields.t} />
           <div>
-            <button type="submit" className={buttonClass('primary')}>
+            <Button variant="primary" type="submit">
               Stop notification emails
-            </button>
+            </Button>
           </div>
         </form>
       ) : view.kind === 'done' ? (
-        <p role="status" className="text-base text-ink">
+        <StatusRegion as="p" role="status" className="text-base text-ink">
           Done. Daisy will not email you about notifications. You can turn them
           back on, or choose which kinds, in{' '}
           <Link href="/settings">Settings</Link>.
-        </p>
+        </StatusRegion>
       ) : (
-        <p role="status" className="text-base text-ink">
+        <StatusRegion as="p" role="status" className="text-base text-ink">
           This link is not valid. You can choose which emails you get in{' '}
           <Link href="/settings">Settings</Link>.
-        </p>
+        </StatusRegion>
       )}
     </main>
   );

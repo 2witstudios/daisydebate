@@ -1,5 +1,5 @@
 import type { Browser, BrowserContext, Page, TestInfo } from '@playwright/test';
-import type { RoomView } from '@daisy/protocol';
+import type { RoomView } from '@daisy/protocol/room-contract';
 import type { LobbyAction } from '../../src/features/lobby/rows';
 import { expect, openPage } from './fixtures';
 import { origin } from './accounts';
@@ -90,7 +90,7 @@ async function visualStates(page: Page, info: TestInfo) {
   }
 }
 
-/** Real saved custom Room and native server action, never a simulated Canvas interaction. */
+/** Real saved custom Room and server action, never a simulated Canvas interaction. */
 export async function proveGathering(
   browser: Browser,
   context: BrowserContext,
@@ -98,25 +98,24 @@ export async function proveGathering(
   view: RoomView,
   info: TestInfo,
 ) {
-  const native = await browser.newContext({
+  const editor = await browser.newContext({
     baseURL: origin,
     ignoreHTTPSErrors: true,
-    javaScriptEnabled: false,
     storageState: await context.storageState(),
   });
   try {
-    const room = await openPage(native, 'native exact Room durations');
+    const room = await openPage(editor, 'exact Room durations');
     await room.goto(`/rooms/${view.id}`);
     const form = await openRoomSetup(room, true);
     // A well-formed m:ss value that exceeds the pinned 60s bound.
     await form.locator('[name="duration.segment.A2"]').fill('1:03.456');
-    const before = await reread(native.request, view.id);
+    const before = await reread(editor.request, view.id);
     await form.getByRole('button', { name: 'Save round settings' }).click();
     await expect(form.getByRole('alert')).toBeVisible();
     await expect(form.locator('[name="duration.segment.A2"]')).toHaveValue(
       '1:03.456',
     );
-    expect((await reread(native.request, view.id)).config).toEqual(
+    expect((await reread(editor.request, view.id)).config).toEqual(
       before.config,
     );
     expect(new URL(room.url()).search).toBe('');
@@ -128,9 +127,9 @@ export async function proveGathering(
     await openRoomSetup(room, true);
     await form.locator('[name="duration.segment.A2"]').fill('0:43.456');
     await form.getByRole('button', { name: 'Save round settings' }).click();
-    // The accepted native save's redirect closes Settings.
+    // The accepted save closes Settings.
     await expect(form).toBeHidden();
-    const saved = await reread(native.request, view.id);
+    const saved = await reread(editor.request, view.id);
     expect(saved.rules.segments.map((segment) => segment.durationMs)).toEqual([
       41000, 43456, 47000,
     ]);
@@ -148,11 +147,11 @@ export async function proveGathering(
       .click();
     await expect(details).toBeHidden();
     expect(new URL(room.url()).hash).toBe('');
-    expect((await reread(native.request, view.id)).title).toBe(
+    expect((await reread(editor.request, view.id)).title).toBe(
       'Native setup proof',
     );
   } finally {
-    await native.close();
+    await editor.close();
   }
   await page.reload();
   await proveSiblingSave(page);

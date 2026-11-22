@@ -9,7 +9,7 @@ import { settingCommand } from '../src/features/tab/operations/settings';
 import { readLeagueLadder } from '../src/features/ratings/read-league-ladder';
 import { withRoomRuntime } from './room-runtime.test-support';
 import { createRoundRuntimeOperations } from '../src/features/round-runtime/operations';
-import { judgeSeat, sideSeat } from '@daisy/protocol';
+import { judgeSeat, sideSeat } from '@daisy/protocol/seats';
 import type { SettingCommand } from '@daisy/protocol/lobby/setting-command';
 import { as } from './tab-tournament-organization-wiring.test-support';
 import type { World } from './tab-tournament.test-support';

@@ -1,4 +1,4 @@
-import type { PresenceActivity } from '@daisy/protocol';
+import type { PresenceActivity } from '@daisy/protocol/realtime';
 import type { Scheduler } from './connection-types';
 
 /** ADR 0033 §1: idle after five minutes without input, or while hidden. */

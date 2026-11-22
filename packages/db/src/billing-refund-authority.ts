@@ -1,11 +1,13 @@
 import { and, eq, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { refundActionSchema } from '@daisy/protocol/billing';
 import { lockAuthorizationActors } from './authorization';
-import type { BoundedTransactionContext } from './transaction-context';
 import { billingRefundActions } from './schema/billing-refund-actions';
 import { users } from './schema/users';
+import type { Tx } from './tx';
+import { query } from './raw-rows';
+import { z } from 'zod';
 
 export const refundFromRow = (row: typeof billingRefundActions.$inferSelect) =>
   refundActionSchema.parse({
@@ -30,12 +32,11 @@ export const refundFromRow = (row: typeof billingRefundActions.$inferSelect) =>
   });
 
 /** Closed-account financial recovery keeps the same canonical account fence after customer deletion. */
-export async function lockRefundAccount(
-  tx: BoundedTransactionContext,
-  userId: string,
-) {
+export async function lockRefundAccount(tx: Tx, userId: string) {
   if (!idSchema.safeParse(userId).success) throw createAppError('VALIDATION');
-  const [actor] = await tx.execute(
+  const [actor] = await query(
+    tx,
+    z.object({ id: z.string() }),
     sql`select id from actors where user_id=${userId} and kind='human'`,
   );
   if (!actor || typeof actor.id !== 'string')
@@ -53,10 +54,7 @@ export async function lockRefundAccount(
   return closed.closedAt.toISOString();
 }
 
-export async function lockRefundAction(
-  tx: BoundedTransactionContext,
-  id: string,
-) {
+export async function lockRefundAction(tx: Tx, id: string) {
   if (!idSchema.safeParse(id).success) throw createAppError('VALIDATION');
   const [selector] = await tx
     .select({ userId: billingRefundActions.userId })
@@ -82,30 +80,38 @@ export async function lockRefundAction(
 
 /** Original owned mapping, possible purchase, or retained action supplies routing; never a client-selected customer. */
 export async function requireRefundCustomer(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   userId: string,
   mode: string,
   customerId: string,
 ) {
-  const [owned] = await tx.execute(sql`select exists(
+  const [owned] = await query(
+    tx,
+    z.object({ owned: z.boolean() }),
+    sql`select exists(
     select 1 from billing_customers where user_id=${userId} and mode=${mode} and vendor_customer_id=${customerId} and closed_at is not null
     union all select 1 from billing_purchases where user_id=${userId} and mode=${mode} and state->>'customerId'=${customerId}
     union all select 1 from billing_refund_actions where user_id=${userId} and mode=${mode} and vendor_customer_id=${customerId}
     union all select 1 from billing_payment_observations where user_id=${userId} and mode=${mode} and vendor_customer_id=${customerId}
-  ) as owned`);
+  ) as owned`,
+  );
   if (owned?.owned !== true) throw createAppError('AUTHORIZATION');
 }
 
 /** Retained financial routing remains usable after ordinary customer cleanup. */
 export async function lockRetainedRefundCustomer(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   mode: string,
   customerId: string,
 ) {
-  const owners = await tx.execute(sql`select user_id as "userId" from (
+  const owners = await query(
+    tx,
+    z.object({ userId: z.string().nullable() }),
+    sql`select user_id as "userId" from (
     select user_id from billing_refund_actions where mode=${mode} and vendor_customer_id=${customerId}
     union select user_id from billing_payment_observations where mode=${mode} and vendor_customer_id=${customerId}
-  ) retained_owners limit 2`);
+  ) retained_owners limit 2`,
+  );
   if (owners.length === 0) return null;
   if (owners.length !== 1) throw createAppError('CONFLICT');
   const userId = owners[0]!.userId;

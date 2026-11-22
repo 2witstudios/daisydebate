@@ -10,6 +10,7 @@ import type {
   AuthorizationDecision,
 } from '@daisy/auth/authorization';
 import type { TabStore, LeagueSeasonFacts } from '@daisy/db/tab';
+import { createAppError } from '@daisy/errors';
 import {
   seasonViewSchema,
   type SeasonView,
@@ -220,6 +221,7 @@ export const readLeagueSeason =
           }).allow
         )
           return null;
+        const organization = facts.authorization.organization;
         const projected = projectLeagueSeason(
           facts,
           principal.actorId,
@@ -229,7 +231,7 @@ export const readLeagueSeason =
         const ask = (capability: AuthorizationInput['capability']) =>
           dependencies.authorize({
             principal,
-            resource: facts.authorization.organization!,
+            resource: organization,
             context: {
               account: facts.authorization.account,
               grants: facts.authorization.grants,
@@ -242,17 +244,17 @@ export const readLeagueSeason =
         return {
           ...projected,
           handle: facts.organization.handle,
-          standingLobby: facts.standingLobby
-            ? {
-                id: facts.standingLobby.id,
-                handle: facts.standingLobby.handle,
-                name: facts.standingLobby.name,
-              }
-            : null,
+          standingLobby: {
+            id: facts.standingLobby.id,
+            handle: facts.standingLobby.handle,
+            name: facts.standingLobby.name,
+          },
           template: (() => {
             const template = facts.series.find(
               (row) => row.id === projected.view.standings.series.templateId,
-            )!;
+            );
+            if (!template)
+              throw createAppError('INVARIANT', 'Season template is missing');
             return {
               name: template.name,
               formatId: template.formatId,

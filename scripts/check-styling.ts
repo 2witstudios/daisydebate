@@ -1,8 +1,11 @@
 // Repository gate for token-locked Tailwind (ADR 0028): styling lives in
 // utilities in the markup and in CSS-only theme config, so a CSS Module or a
 // JS Tailwind config file must never reappear. Popovers go through the
-// primitive, which owns their display (ADR 0153).
+// primitive, which owns their display (ADR 0153). Forms and the JavaScript-off
+// fallbacks are markup too (ADR 0114, javascript-required.ts).
 
+import { uiPrimitiveIssues } from './ui-primitive-issues';
+import { javascriptRequiredIssues } from './javascript-required';
 import { ownedUtilitiesIn } from '../apps/web/src/ui/components/popover/popover-classes';
 
 const forbidden: readonly (readonly [RegExp, string])[] = [
@@ -22,6 +25,7 @@ export const stylingIssues = (paths: readonly string[]): readonly string[] =>
 
 const primitiveDirectory = 'apps/web/src/ui/components/popover/';
 const scannedMarkup = /\.[jt]sx$/;
+const scannedSource = /\.[cm]?[jt]sx?$/;
 
 /**
  * A raw `popover` JSX attribute: the whole name, written `popover=` with a
@@ -82,14 +86,19 @@ const trackedAndNew = async (): Promise<readonly string[]> => {
 
 if (import.meta.main) {
   const paths = await trackedAndNew();
-  const markup = paths.filter((path) => scannedMarkup.test(path));
   const sources = await Promise.all(
-    markup.map(async (path) => {
-      const file = Bun.file(path);
-      return (await file.exists())
-        ? popoverIssues(path, await file.text())
-        : [];
-    }),
+    paths
+      .filter((path) => scannedSource.test(path))
+      .map(async (path) => {
+        const file = Bun.file(path);
+        if (!(await file.exists())) return [];
+        const source = await file.text();
+        return [
+          ...popoverIssues(path, source),
+          ...uiPrimitiveIssues(path, source),
+          ...javascriptRequiredIssues(path, source),
+        ];
+      }),
   );
   const issues = [...stylingIssues(paths), ...sources.flat()];
   for (const issue of issues) console.error(issue);

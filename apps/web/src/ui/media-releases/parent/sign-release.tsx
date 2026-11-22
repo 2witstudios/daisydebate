@@ -1,5 +1,6 @@
 'use client';
 
+import { StatusRegion } from '../../components/status-region/status-region';
 import {
   initialSignState,
   parentUnacknowledged,
@@ -110,9 +111,9 @@ export function SignRelease(props: SignReleaseProps) {
             <h2 className="font-display text-xl font-bold">Sign</h2>
             <ReleaseSignatureFields minor={props.minor} values={values} />
             {refusal === undefined ? null : (
-              <p role="alert" className={errorClass}>
+              <StatusRegion as="p" role="alert" className={errorClass}>
                 {refusal}
-              </p>
+              </StatusRegion>
             )}
             <div className="flex flex-wrap gap-3">
               <Button

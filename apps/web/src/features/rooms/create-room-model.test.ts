@@ -1,10 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { freestyleChoice, unequalTemplate } from './assembly.test-support';
-import {
-  changeRoomValue,
-  chooseRoomChoice,
-  initialRoomModel,
-} from './create-room-model';
+import { changeRoomValue, initialRoomModel } from './create-room-model';
 
 setupRitewayBun();
 
@@ -74,18 +70,12 @@ describe('the create-room model', () => {
   });
 
   test('the editor opens on the catalog default with kept values re-read', () => {
-    const kept = initialRoomModel(
-      freestyle,
-      catalog,
-      { title: 'Kept', intent: 'format' },
-      true,
-    );
+    const kept = initialRoomModel(freestyle, catalog, { title: 'Kept' }, true);
     assert({
-      given: 'a refused native post carried back with a title and its intent',
-      should:
-        'keep the title, stay on the named format, and drop the consumed intent',
-      actual: [kept.values.title, kept.values.format, kept.values.intent],
-      expected: ['Kept', 'freestyle', ''],
+      given: 'a refused post carried back with a title',
+      should: 'keep the title and stay on the named format',
+      actual: [kept.values.title, kept.values.format],
+      expected: ['Kept', 'freestyle'],
     });
     const fresh = initialRoomModel(freestyle, catalog, {}, true);
     assert({
@@ -93,34 +83,6 @@ describe('the create-room model', () => {
       should: 'open ranked',
       actual: fresh.values.ranked,
       expected: 'on',
-    });
-  });
-
-  test('a stale intent never resets the preset behind an edit', () => {
-    let model = initialRoomModel(
-      freestyle,
-      catalog,
-      { intent: 'format' },
-      false,
-    );
-    assert({
-      given: 'the editor reopened from a refused Apply format post',
-      should: 'apply the next edit instead of resetting to the preset',
-      actual: changeRoomValue(model, 'resolutionMethod', 'custom', catalog)
-        .draft.custom,
-      expected: true,
-    });
-    model = changeRoomValue(model, 'resolutionMethod', 'custom', catalog);
-    model = chooseRoomChoice(model, freestyle);
-    assert({
-      given: 'choosing a choice over a retained intent',
-      should: 'clear the intent so later edits keep landing',
-      actual: [
-        model.values.intent,
-        changeRoomValue(model, 'resolutionMethod', 'custom', catalog).draft
-          .custom,
-      ],
-      expected: ['', true],
     });
   });
 });

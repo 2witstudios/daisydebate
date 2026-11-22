@@ -1,12 +1,12 @@
+import { competitionTypes } from '@daisy/protocol/round';
 import {
-  competitionTypes,
   roomListSorts,
   roomListDefaultPageSize,
   roomListQuerySchema,
   roomListStatuses,
   type RoomListQuery,
   type RoomListStatus,
-} from '@daisy/protocol';
+} from '@daisy/protocol/room-contract';
 import type { SearchParams } from '../access/decision';
 
 /** A status tab: every status, or one the listing narrows to. */

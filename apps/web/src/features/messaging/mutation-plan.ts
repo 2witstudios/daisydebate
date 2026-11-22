@@ -1,3 +1,4 @@
+import { tryInstantMs } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
 import type { MessagingMessageRecord } from '@daisy/db/messaging';
 
@@ -68,13 +69,9 @@ function requireMutationTime(
   timestamp: string,
   editWindowMs: number,
 ) {
-  const now = Date.parse(timestamp),
-    created = Date.parse(createdAt);
-  if (
-    ![Number.isFinite(now), Number.isFinite(created), now >= created].every(
-      Boolean,
-    )
-  )
+  const now = tryInstantMs(timestamp),
+    created = tryInstantMs(createdAt);
+  if (now === undefined || created === undefined || now < created)
     throw createAppError('VALIDATION');
   if (
     kind === 'edit' &&

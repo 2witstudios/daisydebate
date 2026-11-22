@@ -1,5 +1,5 @@
-import { roomCastChoiceSchema } from '@daisy/protocol';
-import type { RoomCastChoice } from '@daisy/protocol';
+import { roomCastChoiceSchema } from '@daisy/protocol/room-read';
+import type { RoomCastChoice } from '@daisy/protocol/room-contract';
 import type { APIRequestContext } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import { expect } from './fixtures';

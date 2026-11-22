@@ -1,4 +1,4 @@
-import type { SpectatorChatMessage } from '@daisy/protocol';
+import type { SpectatorChatMessage } from '@daisy/protocol/audience';
 import { ReportForm } from '../content-moderation/report-form';
 
 /** The audience's messages, oldest first. A removed one keeps its place. */

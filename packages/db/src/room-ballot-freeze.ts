@@ -4,8 +4,8 @@ import {
   ballotDefinitionSchema,
   freezeBallotJudging,
   type RoundJudging,
-  type RoundRules,
-} from '@daisy/protocol';
+} from '@daisy/protocol/ballot-definition';
+import { type RoundRules } from '@daisy/protocol/format';
 import {
   ballotDefinitions,
   ballotDefinitionVersions,
@@ -13,11 +13,11 @@ import {
 import { rooms } from './schema/rooms';
 import { lobbies } from './schema/lobbies';
 import { templates } from './schema/templates';
-import type { Tx } from './room-command-facts';
+import type { Tx } from './tx';
 
 /** Read only the immutable version actually pinned by this authorized, locked Room. */
 export const freezeRoomBallot = async (
-  tx: Pick<Tx, 'select'>,
+  tx: Tx,
   roomId: string,
   rules: RoundRules,
 ): Promise<RoundJudging> => {

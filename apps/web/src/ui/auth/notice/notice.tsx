@@ -1,3 +1,4 @@
+import { StatusRegion } from '../../components/status-region/status-region';
 import type { ReactNode } from 'react';
 import { Icon, type IconName } from '../../components/icon/icon';
 import { noticeClass, noticeIconClass, type NoticeTone } from './notice-class';
@@ -22,7 +23,8 @@ export type NoticeProps = {
  */
 export function Notice({ id, tone, title, children }: NoticeProps) {
   return (
-    <div
+    <StatusRegion
+      as="div"
       id={id}
       role={tone === 'error' ? 'alert' : 'status'}
       className={noticeClass(tone)}
@@ -36,7 +38,7 @@ export function Notice({ id, tone, title, children }: NoticeProps) {
         <strong className="font-semibold">{title}</strong>
         {children === undefined ? null : <> {children}</>}
       </p>
-    </div>
+    </StatusRegion>
   );
 }
 

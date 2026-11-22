@@ -1,4 +1,5 @@
-import type { CompetitionType, RatingStyle } from '@daisy/protocol';
+import type { CompetitionType } from '@daisy/protocol/round';
+import type { RatingStyle } from '@daisy/protocol/primitives';
 import { casualSelection } from '../rooms/format-browser';
 import type { RoomTemplate } from '../rooms/read-catalog';
 import { defaultRoomVisibility } from '../rooms/room-visibility';
@@ -18,7 +19,7 @@ export function challengeRoomForm(input: {
   readonly opponent: string;
   readonly opponentActorId: string;
   readonly mode: CompetitionType;
-  /** The lobby the pair shares (ADR 0156): the Room opens there. */
+  /** The lobby the pair shares (ADR 0162): the Room opens there. */
   readonly lobbyId: string;
   readonly template: RoomTemplate;
   readonly commandId: string;

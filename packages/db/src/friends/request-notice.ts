@@ -1,10 +1,11 @@
 import { sql } from 'drizzle-orm';
 import { oweNotifications } from '../notifications/owe';
-import { rowsOf } from '../raw-rows';
+import { z } from 'zod';
+import { query } from '../raw-rows';
 import type { Tx } from '../tx';
 
 export async function tellFriend(
-  tx: Pick<Tx, 'execute' | 'insert'>,
+  tx: Tx,
   {
     kind,
     pair,
@@ -24,8 +25,9 @@ export async function tellFriend(
     readonly nextId: () => string;
   },
 ) {
-  const members = await rowsOf<{ user_id: string }>(
+  const members = await query(
     tx,
+    z.object({ user_id: z.string() }),
     sql`select user_id from actors where id=${recipientActorId} and user_id is not null`,
   );
   await oweNotifications(tx, {

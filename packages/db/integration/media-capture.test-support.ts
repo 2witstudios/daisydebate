@@ -48,7 +48,7 @@ export async function historicalCapture(
     room_name: createId(),
   });
   const store = mediaCaptureOperations({
-    transaction,
+    run: transaction,
     sttLagMs,
     captureRule,
     nextId: createId,

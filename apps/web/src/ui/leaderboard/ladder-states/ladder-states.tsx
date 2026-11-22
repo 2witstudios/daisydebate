@@ -1,3 +1,5 @@
+import { StatusRegion } from '../../components/status-region/status-region';
+import { Button } from '../../components/button/button';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import type { Champion } from '../../../features/leaderboard/ladder-view';
@@ -23,30 +25,32 @@ export function LadderError({
   onRetry,
 }: {
   readonly retryHref: string;
-  /** With script, the boundary's retry; without, the link reloads the page. */
+  /** Once hydrated, the boundary's retry; before then, the link reloads the page. */
   readonly onRetry?: () => void;
 }) {
   return (
-    <section
+    <StatusRegion
+      as="section"
       role="alert"
       className={cn(card, 'flex flex-col items-center gap-3 py-8 text-center')}
     >
       <Icon name="alert" size={28} className="text-ink-faint" />
       <h2 className="text-lg font-bold">The ladder could not load</h2>
       {onRetry ? (
-        <button
+        <Button
+          variant="unstyled"
           type="button"
           onClick={onRetry}
           className={buttonClass('secondary')}
         >
           Try again
-        </button>
+        </Button>
       ) : (
         <Link href={retryHref} className={cn(buttonClass('secondary'), link)}>
           Try again
         </Link>
       )}
-    </section>
+    </StatusRegion>
   );
 }
 
@@ -55,7 +59,8 @@ const skeletonRows = [0, 1, 2, 3, 4, 5, 6] as const;
 /** Placeholder rows while the ladder loads; the region is announced as busy. */
 export function LadderSkeleton() {
   return (
-    <div
+    <StatusRegion
+      as="div"
       role="status"
       aria-busy="true"
       aria-label="Loading the ladder"
@@ -71,7 +76,7 @@ export function LadderSkeleton() {
           <span className="h-4 w-12 rounded-sm bg-surface-overlay" />
         </div>
       ))}
-    </div>
+    </StatusRegion>
   );
 }
 
@@ -98,12 +103,16 @@ export function LiveNotice({
 }) {
   if (changes === 0) return null;
   return (
-    <p className="flex items-center gap-3 text-sm" role="status">
+    <StatusRegion
+      as="p"
+      className="flex items-center gap-3 text-sm"
+      role="status"
+    >
       <Badge tone="live">Live</Badge>
       <Link href={refreshHref} className="font-strong">
         {`${changes} ${changes === 1 ? 'rank' : 'ranks'} changed. Refresh`}
       </Link>
-    </p>
+    </StatusRegion>
   );
 }
 

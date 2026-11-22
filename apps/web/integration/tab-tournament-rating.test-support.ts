@@ -1,28 +1,25 @@
 import { authorize } from '@daisy/auth/authorization';
 import { createTabStore } from '@daisy/db/tab';
-import { createId } from '@paralleldrive/cuid2';
 import type { TournamentSetupCommand } from '@daisy/protocol/lobby/lobby-setup-command';
-import type { SettingCommand } from '@daisy/protocol/lobby/setting-command';
 import { tournamentRatingSnapshotSchema } from '@daisy/protocol/lobby/rating-snapshot';
+import type { SettingCommand } from '@daisy/protocol/lobby/setting-command';
+import { createId } from '@paralleldrive/cuid2';
 import { assert } from 'riteway/bun';
-import { lobbyAdministrationCommand } from '../src/features/tab/operations/lobby-administration';
-import { setupCommand } from '../src/features/tab/operations/setup';
-import { settingCommand } from '../src/features/tab/operations/settings';
-import { entryEnrollmentCommand } from '../src/features/tab/operations/entry-enrollment';
-import { drawCommand } from '../src/features/tab/operations/draw-command';
-import { drawCompetition } from '../src/features/tab/operations/draw-competition';
 import { readLeagueLadder } from '../src/features/ratings/read-league-ladder';
 import {
   as,
-  underFence,
   StageFailed,
+  underFence,
 } from './tab-tournament-organization-wiring.test-support';
+import {
+  tabCommand,
+  tabLobbyCommand,
+} from './tab-tournament-transport.test-support';
 import type { World } from './tab-tournament.test-support';
 
 /** A later tournament draws a real single-elimination bracket from the league's certified games. */
 export async function ratingStage(world: World): Promise<void> {
   const store = createTabStore(world.database);
-  const common = { store, authorize, now: world.clock.now, newId: createId };
   const director = as(world.bots.Director!);
   const standingLobbyId = world.made.get('standing-lobby')!;
   const [ladder] =
@@ -54,7 +51,7 @@ export async function ratingStage(world: World): Promise<void> {
   });
   const daisyBefore =
     await world.sql`select count(*)::int as count from rating_changes`;
-  const created = await lobbyAdministrationCommand(common)(director, {
+  const created = await tabCommand(world, 'lobbyAdministration')(director, {
     version: 1,
     commandId: createId(),
     expected: {},
@@ -74,7 +71,7 @@ export async function ratingStage(world: World): Promise<void> {
   const lobbyId = created.receipt.aggregate.id;
   world.made.set('rating-tournament-lobby', lobbyId);
   let lobbyVersion = 1;
-  const setup = setupCommand(common);
+  const setup = tabCommand(world, 'setup');
   const acceptSetup = async (command: TournamentSetupCommand) => {
     const answer = await setup(director, {
       version: 1,
@@ -123,7 +120,7 @@ export async function ratingStage(world: World): Promise<void> {
       await world.sql`select id from tab_rounds where event_id=${eventId}`;
     const roundId = String(round!.id);
     let settingsVersion = 1;
-    const settings = settingCommand(common);
+    const settings = tabCommand(world, 'settings');
     for (const [key, value] of [
       ['standings.rating_ladder', { ladderId }],
       ['break.seeding', { value: 'rating' }],
@@ -149,7 +146,7 @@ export async function ratingStage(world: World): Promise<void> {
         );
       settingsVersion += 1;
     }
-    const enroll = entryEnrollmentCommand(common);
+    const enroll = tabLobbyCommand(world, 'entries');
     let entriesVersion = 1;
     for (const name of ['Debater 1', 'Debater 2', 'Debater 3', 'Debater 4']) {
       const person = world.bots[name]!;
@@ -175,7 +172,7 @@ export async function ratingStage(world: World): Promise<void> {
   const { eventId, roundId, settingsVersion, entriesVersion } =
     await prepareRatedEvent('Rated singles');
   const parallelEvent = await prepareRatedEvent('Parallel rated singles');
-  const generate = drawCommand({ ...common, competition: drawCompetition });
+  const generate = tabLobbyCommand(world, 'draw');
   const envelope = {
     version: 1,
     commandId: createId(),

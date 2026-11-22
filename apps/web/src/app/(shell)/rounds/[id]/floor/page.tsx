@@ -1,13 +1,14 @@
 import { notFound } from 'next/navigation';
 import { MediaPageLink } from '../../../../../ui/round-media/media-page-link';
 import { createAppError } from '@daisy/errors';
-import { isRoundOver, idSchema } from '@daisy/protocol';
+import { isRoundOver } from '@daisy/protocol/round';
+import { idSchema } from '@daisy/protocol/primitives';
 import { requireAccess } from '../../../../../lib/access';
 import type { SearchParams } from '../../../../../features/access/decision';
 import { FloorChat } from '../../../../../ui/round-floor/floor-chat';
 import { readPersistedRound } from '../actions';
 import { readFloorProps } from './floor-props';
-import { temporarilyRefused } from '../../../../../server/temporary-read';
+import { temporarilyRefused } from '../../../../../features/resource-sync/temporary-read';
 import { reconnectingRoundPage } from '../../../../../ui/debate-room/round-reconnecting';
 export const metadata = { title: 'Round chat' };
 export default async function RoundFloorPage({

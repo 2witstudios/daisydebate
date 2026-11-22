@@ -14,7 +14,8 @@ import {
   type CompletionWrite,
 } from '@daisy/db/tab';
 import { createAppError } from '@daisy/errors';
-import { idSchema, ballotWrittenRecordSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
+import { ballotWrittenRecordSchema } from '@daisy/protocol/ballot-schema';
 import {
   resultCommandEnvelopeSchema,
   resultCommandCatalogue,
@@ -29,7 +30,7 @@ import { decideAnnounceBreak } from '../commands/break';
 import { hostResultsAuthority } from './host-results-authority';
 import { eventBreaks } from './event-breaks';
 import { competitionReleases } from './competition-releases';
-import { commandDigest } from './command-digest';
+import { commandDigest } from '@daisy/digest';
 import type { TabPrincipal } from '../tab-principal';
 
 const envelopeSchema = z.union([

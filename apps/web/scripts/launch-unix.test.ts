@@ -119,16 +119,20 @@ test('a socket left by a killed run is replaced; a live listener is never displa
   const directory = await mkdtemp(join(tmpdir(), 'room-launch-stale-'));
   const stalePath = join(directory, 'stale.sock');
   const livePath = join(directory, 'live.sock');
-  const killed = Bun.spawn([
-    process.execPath,
-    '-e',
-    `require('node:net').createServer().listen(${JSON.stringify(stalePath)}); setInterval(() => {}, 1000);`,
-  ]);
+  // The child says so once its socket is bound; the test waits on that.
+  const killed = Bun.spawn(
+    [
+      process.execPath,
+      '-e',
+      `require('node:net').createServer().listen(${JSON.stringify(stalePath)}, () => console.log('listening')); setInterval(() => {}, 1000);`,
+    ],
+    { stdout: 'pipe' },
+  );
   const live = createServer().listen(`${livePath}`);
   try {
     if (!live.listening)
       await new Promise<void>((accept) => live.once('listening', accept));
-    while (!(await stat(stalePath).catch(() => null))) await Bun.sleep(10);
+    await killed.stdout.getReader().read();
     killed.kill('SIGKILL');
     await killed.exited;
     const replaced = await createLaunchControl({

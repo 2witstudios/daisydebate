@@ -40,7 +40,8 @@ These rules are blockers in every plan and review (owner, 2026-10-27 and
   (`isRoundRunning`, `isRoundOver`, `isOpenRoomStatus` in `@daisy/protocol`);
   TypeScript never re-spells them from status literals, except where a status
   is kept a loose string on purpose for version skew (the attendance client,
-  ISSUE-941). SQL that still spells them is tracked in ISSUE-1395. A `switch`
+  ISSUE-941). SQL comparisons and writes for Round and Room status use the
+  same protocol vocabulary, including schema CHECKs and partial indexes. A `switch`
   over a union names every member, which
   `@typescript-eslint/switch-exhaustiveness-check` enforces on workspace
   sources; `assertNever` is the `default` for a value that may arrive
@@ -60,7 +61,11 @@ These rules are blockers in every plan and review (owner, 2026-10-27 and
   consumers. A foundation whose reader is a committed leaf is the exception:
   declare it in `policy/planned-readers.json` with the task that reads it and a
   `reviewBy` date (ADR 0057), so a box may ship before its reader and still
-  go red if nobody adopts it.
+  go red if nobody adopts it. `bun policy` fails the declaration once shipping
+  source imports it, or if nothing imports it at all.
+- Protocol consumers import named contracts from their owner subpaths, such as
+  `@daisy/protocol/round-view`. The architecture check rejects a package root
+  export, a root import, or a restored root barrel.
 - A new package requires a responsibility, owner, explicit public exports,
   allowed dependencies, tests, and a package-map row. Add package-specific
   `AGENTS.md` only when its rules differ from these.

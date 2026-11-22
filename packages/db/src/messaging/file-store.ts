@@ -1,15 +1,15 @@
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { channelFileFrame, type FileStore } from '../messaging-files';
 import { scopeFileFrame } from './file-capability';
 import { readMessagingChannel, withMessagingContent } from './channel-frame';
 import type { MessagingAuthorizationFence } from './records';
+import type { TxSource } from '../tx';
 
 /** Files share the message transaction fence, never a nested transaction. */
 export function createMessagingFileStore({
   database,
   authorize,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
   readonly authorize: (
     capability: 'post' | 'read',
   ) => MessagingAuthorizationFence;

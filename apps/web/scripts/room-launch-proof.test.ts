@@ -1,4 +1,4 @@
-import { roomCreateSchema } from '@daisy/protocol';
+import { roomCreateSchema } from '@daisy/protocol/room-contract';
 import { launchCustomSelection } from '../e2e/support/room-launch-custom';
 import { decodeLaunchEvidence } from '../e2e/support/room-launch-evidence-decoder';
 import { basename, resolve } from 'node:path';

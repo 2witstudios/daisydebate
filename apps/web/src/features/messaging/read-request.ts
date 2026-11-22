@@ -3,7 +3,7 @@ import type { MessagingDmStore } from '@daisy/db/messaging';
 import {
   createMessagingSocialSchemas,
   type MessagingSocialBounds,
-} from '@daisy/protocol';
+} from '@daisy/protocol/messaging/social';
 import { parseValidated } from '../../server/http';
 import { requireMemberActor } from '../access/actor';
 

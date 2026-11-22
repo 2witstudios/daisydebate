@@ -1,6 +1,7 @@
 'use client';
 
-import type { RoomView } from '@daisy/protocol';
+import { Button } from '../../components/button/button';
+import type { RoomView } from '@daisy/protocol/room-contract';
 import type { FormFields } from '../../../features/forms/form-state';
 import type { RoomFormState } from '../../../features/rooms/command-answer';
 import { type FormAction } from '../../form-action/form-action';
@@ -57,7 +58,7 @@ export function AssemblyDetailsFields({
               required
               readOnly={!view.capabilities.canEdit}
               aria-describedby="room-topic-hint"
-              defaultValue={state.values.topic ?? view.topic ?? ''}
+              defaultValue={state.values.topic ?? view.topic}
               className={controlClass}
             />
           </FormField>
@@ -75,13 +76,14 @@ export function AssemblyDetailsFields({
       />
       <AssemblyEditFeedback state={state} roomId={view.id} />
       {view.capabilities.canEdit ? (
-        <button
+        <Button
+          variant="unstyled"
           type="submit"
           disabled={pending}
           className={buttonClass('primary')}
         >
           Save room
-        </button>
+        </Button>
       ) : (
         <p>Only the host can edit this room.</p>
       )}

@@ -1,14 +1,15 @@
+import { instantMs } from '@daisy/clock';
+import { isRoundRunning } from '@daisy/protocol/round';
+import { roundMediaPolicy } from '@daisy/protocol/round-media-policy';
 import {
-  isRoundRunning,
-  roundMediaPolicy,
   type MediaPhase,
   type MediaWindowFacts,
-} from '@daisy/protocol';
+} from '@daisy/protocol/post-round-call';
 import { postRoundCallState } from './post-round-call';
 
 /** The instant shared media closes, from the final segment's end. */
 export const mediaWindowEndsAt = (finalSegmentEndedAt: string) =>
-  Date.parse(finalSegmentEndedAt) + roundMediaPolicy.windowAfterFinalSegmentMs;
+  instantMs(finalSegmentEndedAt) + roundMediaPolicy.windowAfterFinalSegmentMs;
 
 const callPhase = {
   none: 'closed',
@@ -25,7 +26,7 @@ export const mediaPhase = (facts: MediaWindowFacts): MediaPhase => {
   if (facts.sourceVoided) return 'closed';
   if (isRoundRunning(facts.status))
     return facts.finalSegmentEndedAt !== null &&
-      Date.parse(facts.now) >= mediaWindowEndsAt(facts.finalSegmentEndedAt)
+      instantMs(facts.now) >= mediaWindowEndsAt(facts.finalSegmentEndedAt)
       ? 'closed'
       : 'round';
   return callPhase[postRoundCallState(facts.postRoundCall, facts.now).kind];

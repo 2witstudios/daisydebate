@@ -1,23 +1,25 @@
+import { instantMs } from '@daisy/clock';
 import { and, eq, isNull } from 'drizzle-orm';
-import { isRoundRunning, idSchema } from '@daisy/protocol';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
+import { isRoundRunning } from '@daisy/protocol/round';
+import { idSchema } from '@daisy/protocol/primitives';
 import { recordingCaptures as captures } from './schema/recording-captures';
 import { recordings } from './schema/recordings';
 import { rounds } from './schema/rounds';
 import { readDatabaseTime } from './database-clock';
 import { readRecordingTournamentAdmission } from './recording-tournament-admission';
 import { readLockedTournamentAdmission } from './recording-tournament-admission';
+import { inTransaction, type TxSource } from './tx';
 
 /** Durable dispatch precedes vendor I/O, so a lost answer cannot authorize a second Egress. */
 export const beginRecordingEgressAttempt = (
-  database: BunSQLDatabase,
+  database: TxSource,
   input: {
     readonly recordingId: string;
     readonly generation: number;
     readonly stageCredentialHash: string;
   },
 ) =>
-  database.transaction(async (tx) => {
+  inTransaction(database, async (tx) => {
     if (
       !idSchema.safeParse(input.recordingId).success ||
       !Number.isSafeInteger(input.generation) ||
@@ -72,7 +74,7 @@ export const beginRecordingEgressAttempt = (
       recording.eligibility.kind === 'tournament_admission' &&
       (!admission ||
         admission.admissionId !== recording.eligibility.admissionId ||
-        now.getTime() >= Date.parse(admission.deadlineAt))
+        now.getTime() >= instantMs(admission.deadlineAt))
     )
       return false;
     const rows = await tx
@@ -93,7 +95,7 @@ export const beginRecordingEgressAttempt = (
 
 /** A confirmed terminal vendor observation is independent of logical Round/capture completion. */
 export const settleRecordingEgressAttempt = (
-  database: BunSQLDatabase,
+  database: TxSource,
   input: {
     readonly recordingId: string;
     readonly generation: number;
@@ -104,7 +106,7 @@ export const settleRecordingEgressAttempt = (
       | { readonly kind: 'not-dispatched' };
   },
 ) =>
-  database.transaction(async (tx) => {
+  inTransaction(database, async (tx) => {
     const [own] = await tx
       .select()
       .from(captures)

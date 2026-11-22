@@ -1,6 +1,8 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { twoSides, type RoundView, type SeatDraw } from '@daisy/protocol';
+import { twoSides } from '@daisy/protocol/seats';
+import { type RoundView } from '@daisy/protocol/round-view';
+import { type SeatDraw } from '@daisy/protocol/seat-draw';
 import { OpeningSides, speakerLabel } from './opening-sides';
 
 setupRitewayBun();

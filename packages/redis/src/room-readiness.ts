@@ -1,4 +1,4 @@
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import type { RedisTransport } from './transport';
 import { redisKey } from './redis-key';
 import { defineScript } from './script-registry';
@@ -90,7 +90,9 @@ export function createRoomReadinessOperations({
       const ready: { actorId: string; ttlMs: number }[] = [];
       try {
         await client.connect();
-        const current = fences.filter((fence) => fence.commandId !== null);
+        const current = fences.flatMap(({ actorId, commandId }) =>
+          commandId === null ? [] : [{ actorId, commandId }],
+        );
         if (!current.length) return ready;
         const keys = current.map((fence) =>
           consentKey(
@@ -98,14 +100,14 @@ export function createRoomReadinessOperations({
             roomId,
             version,
             fence.actorId,
-            fence.commandId!,
+            fence.commandId,
           ),
         );
         const indexes = await client.send('EVAL', [
           readConsentScript,
           String(keys.length),
           ...keys,
-          ...current.map((fence) => fence.commandId!),
+          ...current.map((fence) => fence.commandId),
         ]);
         if (!Array.isArray(indexes))
           throw new Error('Unreadable Room consent result');

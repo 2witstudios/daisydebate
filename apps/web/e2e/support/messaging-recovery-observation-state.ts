@@ -1,4 +1,5 @@
-import type { clientMessageSchema, ServerMessage } from '@daisy/protocol';
+import type { clientMessageSchema } from '@daisy/protocol/realtime';
+import type { ServerMessage } from '@daisy/protocol/realtime-server';
 type ClientMessage = ReturnType<typeof clientMessageSchema.parse>;
 import { channelMessages } from '../../src/features/messaging/channel-messages';
 

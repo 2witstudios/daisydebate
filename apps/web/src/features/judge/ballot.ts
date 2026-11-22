@@ -1,14 +1,15 @@
 import { createAppError } from '@daisy/errors';
 import {
   ballotDefinitionIdentity,
-  isScoreOnScale,
-  scoreScaleFor,
+  type BallotDefinition,
+} from '@daisy/protocol/ballot-definition';
+import { isScoreOnScale, scoreScaleFor } from '@daisy/protocol/score-unit';
+import {
   ballotSchemaFor,
   isLowPointWin,
   pointsTotal,
   type Ballot,
-  type BallotDefinition,
-} from '@daisy/protocol';
+} from '@daisy/protocol/ballot-schema';
 import { accept, field, refuse, type Parsed } from '../forms/form-state';
 import { subjectChoices, type BallotPlan } from './ballot-plan';
 
@@ -253,7 +254,10 @@ const readScores = (form: FormData, plan: BallotPlan, points: BallotPoints) =>
   Object.fromEntries(
     plan.scored.map((subject) => [
       subject.key,
-      postedPoints(points, subject.key, (name) => form.get(name)?.toString()),
+      postedPoints(points, subject.key, (name) => {
+        const value = form.get(name);
+        return typeof value === 'string' ? value : undefined;
+      }),
     ]),
   );
 

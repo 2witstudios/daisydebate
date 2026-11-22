@@ -5,7 +5,7 @@ import { SQL } from 'bun';
 import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { broadcastHoldPrefix } from '@daisy/protocol';
+import { broadcastHoldPrefix } from '@daisy/protocol/broadcast-hold';
 import {
   openBroadcast,
   recordEgressStarted,

@@ -7,7 +7,8 @@ import {
   audienceStateKey,
   createAudiencePublisherStore,
 } from '@daisy/db/audience-publisher';
-import { audienceStatePath, officialFeedPath } from '@daisy/protocol';
+import { audienceStatePath } from '@daisy/protocol/audience-state';
+import { officialFeedPath } from '@daisy/protocol/official-feed';
 
 /**
  * What the publisher writes, for a suite with no publisher: the same reads and the same

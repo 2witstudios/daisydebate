@@ -1,3 +1,4 @@
+import { addMs } from '@daisy/clock';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   clubSeatBounds,
@@ -93,9 +94,7 @@ test('inviting holds a free seat and refuses when the seats are full', () => {
       id: invite(9),
       email: 'new@example.org',
       createdAt: now,
-      expiresAt: new Date(
-        Date.parse(now) + clubSeatBounds.invitationTtlMs,
-      ).toISOString(),
+      expiresAt: addMs(now, clubSeatBounds.invitationTtlMs),
     },
   });
   assert({

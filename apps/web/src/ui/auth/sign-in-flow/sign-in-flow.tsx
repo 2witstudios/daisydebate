@@ -1,6 +1,9 @@
 'use client';
+import { useBrowserEffect } from '../../edge/browser-sync';
+import { cancelDelay, delay } from '../../edge/browser-time';
+import { nowMs } from '@daisy/clock';
 
-import { useEffect, useState, useSyncExternalStore } from 'react';
+import { useState, useSyncExternalStore } from 'react';
 import type { Clock } from '@daisy/clock';
 import { useFocusAfterAnswer } from '../../form-action/form-action';
 import {
@@ -36,8 +39,8 @@ const usePageVisible = (): boolean =>
   );
 
 const browserTimers: AutofillTimers = {
-  set: (run, ms) => setTimeout(run, ms),
-  clear: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>),
+  set: (run, ms) => delay(run, ms),
+  clear: (handle) => cancelDelay(handle as ReturnType<typeof delay>),
 };
 
 export type { RequestLinkAction };
@@ -46,8 +49,8 @@ export type SignInFlowProps = {
   /** Passkey ceremonies: the Better Auth adapter in the live page. */
   readonly port: SignInPort;
   /**
-   * The email form's POST. A submission before hydration or without
-   * JavaScript is the same POST, and the page renders its answer.
+   * The email form's POST. A submission before hydration is the same
+   * POST, and the page renders its answer.
    */
   readonly requestLink: RequestLinkAction;
   /** Injected so the cooldown is testable and never reads ambient time. */
@@ -59,7 +62,7 @@ export type SignInFlowProps = {
 /**
  * Sign-in container: the reducer holds the state, the server action sends
  * links and the port runs passkey ceremonies. The first render starts from
- * the action's last answer, so a post made without JavaScript renders the
+ * the action's last answer, so a post made before hydration renders the
  * step it led to.
  */
 export function SignInFlow({
@@ -79,7 +82,7 @@ export function SignInFlow({
     !passkeyInFlight(state),
   );
 
-  useEffect(() => {
+  useBrowserEffect(() => {
     if (state.step === 'signed-in') onSignedIn();
   }, [state.step, onSignedIn]);
 
@@ -87,15 +90,15 @@ export function SignInFlow({
   // button aborts the pending autofill request, so it is offered again after,
   // and a hidden tab pauses until it is shown.
   const autofillArmed = canOfferPasskeyAutofill(state, usePageVisible());
-  useEffect(() => {
+  useBrowserEffect(() => {
     if (!autofillArmed) return;
     return startPasskeyAutofill({
       offer: () => offerPasskeyAutofillSafely(port),
       onSettled: (outcome) => dispatch({ type: 'passkey-autofilled', outcome }),
       timers: browserTimers,
-      now: () => Date.parse(clock.now()),
+      now: () => nowMs(clock),
     });
-  }, [autofillArmed, port, clock]);
+  }, [autofillArmed, port, clock, dispatch]);
 
   return renderSignInFlow(state, now, {
     typeEmail: (email) => dispatch({ type: 'email-typed', email }),

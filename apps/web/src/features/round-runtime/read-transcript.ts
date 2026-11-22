@@ -1,9 +1,9 @@
+import { idSchema } from '@daisy/protocol/primitives';
 import {
-  idSchema,
   liveTranscriptReadSchema,
   type LiveTranscriptRead,
-} from '@daisy/protocol';
-import { unavailableRead } from '../../server/temporary-read';
+} from '@daisy/protocol/round-transcript';
+import { unavailableRead } from '../resource-sync/temporary-read';
 import type { ResourceRead } from '../resource-sync/driver';
 
 type FetchLike = (url: string, init: RequestInit) => Promise<Response>;

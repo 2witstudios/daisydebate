@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { publicLobbyId } from '@daisy/db/testing';
 import { spectatorHorizon, RANKED_DELAY_SECONDS } from '@daisy/debate-engine';
 import { readSpectatorHorizon } from '@daisy/db/testing';
@@ -5,7 +6,7 @@ import { requireTestServices } from '@daisy/config';
 import {
   SPECTATOR_MARGIN_MS,
   type BroadcastReleasePolicy,
-} from '@daisy/protocol';
+} from '@daisy/protocol/broadcast';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { readRatingStandings } from '../src/features/ratings/read';
@@ -22,7 +23,7 @@ const standard: BroadcastReleasePolicy = {
   seconds: RANKED_DELAY_SECONDS,
 };
 const iso = (ms: number) => new Date(ms).toISOString();
-const completedAt = Date.parse(minute(30));
+const completedAt = instantMs(minute(30));
 
 type BroadcastState = {
   readonly policy?: BroadcastReleasePolicy;
@@ -110,10 +111,10 @@ test('the list reads and the snapshot share one rule: SQL equals the engine', as
           broadcast: state && {
             policy: state.policy ?? standard,
             releasedThroughMs: state.releasedThrough
-              ? Date.parse(state.releasedThrough)
+              ? instantMs(state.releasedThrough)
               : null,
-            completedAtMs: state.completed ? Date.parse(state.completed) : null,
-            stoppedAtMs: state.stopped ? Date.parse(state.stopped) : null,
+            completedAtMs: state.completed ? instantMs(state.completed) : null,
+            stoppedAtMs: state.stopped ? instantMs(state.stopped) : null,
           },
         });
         assert({

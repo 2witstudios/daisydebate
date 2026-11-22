@@ -1,11 +1,9 @@
+import { instantMs } from '@daisy/clock';
 import { createAppError, createRefusal } from '@daisy/errors';
 import { captureDigest } from './capture-input';
-import {
-  isRoundOver,
-  type RoundStatus,
-  speakingEndMs,
-  type CaptureInterval,
-} from '@daisy/protocol';
+import { isRoundOver, type RoundStatus } from '@daisy/protocol/round';
+import { speakingEndMs } from '@daisy/protocol/segment-end';
+import { type CaptureInterval } from '@daisy/protocol/capture-verdict';
 
 type SegmentTiming = {
   readonly startedAt: Date;
@@ -37,8 +35,8 @@ export function requireCapturedWindow(
   now: Date,
   history: readonly CaptureInterval[],
 ): void {
-  const before = Date.parse(clip.before),
-    after = Date.parse(clip.after);
+  const before = instantMs(clip.before),
+    after = instantMs(clip.after);
   const nominal = segment.startedAt.getTime() + clip.startOffsetMs;
   if (
     before >= after ||
@@ -64,8 +62,8 @@ export function requireObservationWindow(
   now: Date,
   required: readonly CaptureInterval[],
 ): { readonly from: number; readonly until: number } {
-  const from = Date.parse(observation.observedFrom),
-    until = Date.parse(observation.observedUntil);
+  const from = instantMs(observation.observedFrom),
+    until = instantMs(observation.observedUntil);
   if (
     from >= until ||
     until > now.getTime() ||

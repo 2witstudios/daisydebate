@@ -1,5 +1,5 @@
 'use client';
-import { messagingBetaLimits } from '@daisy/protocol';
+import { messagingBetaLimits } from '@daisy/protocol/messaging/core';
 import { DraftNotice } from './draft-notice';
 import { CountedTextarea } from './counted-textarea';
 import {

@@ -1,3 +1,4 @@
+import { openRoomStatuses, roomStatus } from '@daisy/protocol/room-contract';
 import { and, desc, eq, inArray, isNull, or } from 'drizzle-orm';
 import { rooms, roomParticipants } from '../schema/rooms';
 import { rounds } from '../schema/rounds';
@@ -5,7 +6,7 @@ import { actors } from '../schema/actors';
 import { users } from '../schema/users';
 import { settings } from '../schema/settings';
 import { scopeTransaction } from '../tenant-scope';
-import type { TabTransaction } from './tab-transaction';
+import type { Tx } from '../tx';
 
 /**
  * Current standing-lobby list metadata; no ballots, results or contact
@@ -13,7 +14,7 @@ import type { TabTransaction } from './tab-transaction';
  * Room only to its host and seated people.
  */
 export async function loadLeagueRoomList(
-  tx: TabTransaction,
+  tx: Tx,
   input: {
     readonly viewerUserId: string;
     readonly organizationId: string;
@@ -38,7 +39,7 @@ export async function loadLeagueRoomList(
     .where(
       and(
         eq(rooms.lobbyId, input.lobbyId),
-        inArray(rooms.status, ['assembling', 'ready', 'started']),
+        inArray(rooms.status, [...openRoomStatuses, roomStatus.started]),
         // A public Room is listed in the lobby; an unlisted or private one
         // only to its host and its seats (docs/domains/rooms.md, Visibility).
         or(

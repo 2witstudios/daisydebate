@@ -105,10 +105,13 @@ export function SettingsPage({
   familySettings,
   showParentLobbyPermission,
 }: SettingsPageProps) {
+  const hasMediaRelease = mediaRelease !== undefined && mediaRelease !== null;
+  const hasMessageRequests =
+    messageRequests !== undefined && messageRequests !== null;
   const sections = nav.filter(
     ([id]) =>
-      (id !== 'media-release' || mediaRelease) &&
-      (id !== 'messages' || messageRequests),
+      (id !== 'media-release' || hasMediaRelease) &&
+      (id !== 'messages' || hasMessageRequests),
   );
   const familyLinks: (readonly [string, string])[] = [];
   if (familySettings === 'adult')
@@ -190,7 +193,7 @@ export function SettingsPage({
               </div>
             )}
           </Section>
-          {mediaRelease ? (
+          {hasMediaRelease ? (
             <Section id="media-release" title="Media release">
               {mediaRelease}
             </Section>
@@ -208,7 +211,7 @@ export function SettingsPage({
             </p>
             <DataRights notices={dataRightsNotices} />
           </Section>
-          {messageRequests ? (
+          {hasMessageRequests ? (
             <Section id="messages" title="Messages">
               {messageRequests}
             </Section>

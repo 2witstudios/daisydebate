@@ -24,7 +24,7 @@ export type EmailChangeAction = (
 
 /**
  * Starting an email change. The form posts to `action`, a server action, so
- * a submission before hydration or without JavaScript is the same POST and
+ * a submission before hydration is the same POST and
  * the page renders its answer. JavaScript only adds the pending state, which
  * also hides the previous answer while a new one is on its way, and the
  * unavailable notice when the post never reaches the server.

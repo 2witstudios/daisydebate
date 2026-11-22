@@ -1,5 +1,6 @@
+import { instantMs } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import {
   subscriptionEvidenceSchema,
   type SubscriptionEvidence,
@@ -15,9 +16,10 @@ import { invitedAs, type ClubSeatSubject } from './club-seat-commands';
 import { readClubSeats } from './club-seat-grants';
 import { readDatabaseTime } from './database-clock';
 import { scopeTransaction } from './tenant-scope';
-import type { BoundedTransactionContext } from './transaction-context';
+import type { Tx } from './tx';
+import { query } from './raw-rows';
+import { z } from 'zod';
 
-type Tx = BoundedTransactionContext;
 export type ClubPerson = {
   readonly userId: string;
   readonly name: string;
@@ -44,7 +46,15 @@ export type ClubSeatingRead = {
 };
 
 async function readClub(tx: Tx, organizationId: string) {
-  const [row] = await tx.execute(
+  const [row] = await query(
+    tx,
+    z.object({
+      id: z.string(),
+      kind: z.string(),
+      name: z.string(),
+      handle: z.string(),
+      owner_user_id: z.string().nullable(),
+    }),
     sql`select id, kind, name, handle, owner_user_id from organizations
       where id=${organizationId} and closed_at is null and kind in ('school','family')`,
   );
@@ -59,16 +69,22 @@ async function readClub(tx: Tx, organizationId: string) {
     : null;
 }
 
+/** A nullable text column: null, or a row that is not there, reads as empty. */
+const text = (value: unknown): string =>
+  typeof value === 'string' ? value : '';
+
 async function person(tx: Tx, userId: string): Promise<ClubPerson> {
-  const [row] = await tx.execute(
+  const [row] = await query(
+    tx,
+    z.object({ name: z.string(), username: z.string().nullable() }),
     sql`select name, username from users where id=${userId}`,
   );
   const account = await loadAuthorizationAccount(tx, userId);
   const band = account?.ageBand ?? null;
   return {
     userId,
-    name: String(row?.name ?? '') || String(row?.username ?? 'Member'),
-    username: row?.username ? String(row.username) : null,
+    name: text(row?.name) || text(row?.username) || 'Member',
+    username: text(row?.username) || null,
     ageBand: band === null ? null : band === 'adult' ? 'adult' : 'minor',
   };
 }
@@ -83,7 +99,9 @@ export function createClubSeatReads(input: {
       if (!/^[a-z0-9][a-z0-9-]{1,38}[a-z0-9]$/.test(handle))
         return Promise.resolve(null);
       return input.run(async (tx) => {
-        const [row] = await tx.execute(
+        const [row] = await query(
+          tx,
+          z.object({ id: z.string() }),
           sql`select id from organizations where handle=${handle}
             and owner_user_id=${subject.userId} and closed_at is null
             and kind in ('school','family')`,
@@ -125,11 +143,20 @@ export function createClubSeatReads(input: {
             ),
           );
         const seats = await readClubSeats(tx, organizationId);
-        const invitations = await tx.execute(
+        const invitations = await query(
+          tx,
+          z.object({
+            id: z.string(),
+            email: z.string(),
+            created_at: z.date(),
+            expires_at: z.date(),
+          }),
           sql`select id, email, created_at, expires_at from club_seat_invitations
             where organization_id=${organizationId} order by created_at, id`,
         );
-        const memberRows = await tx.execute(
+        const memberRows = await query(
+          tx,
+          z.object({ user_id: z.string() }),
           sql`select user_id from memberships where organization_id=${organizationId}
             and status='active' order by user_id limit 500`,
         );
@@ -197,7 +224,9 @@ export function createClubSeatReads(input: {
         const owner = await person(tx, club.ownerUserId);
         if (!invitation) {
           // Accepted: the invitation is gone, and the link now shows the seat.
-          const [held] = await tx.execute(
+          const [held] = await query(
+            tx,
+            z.object({ assigned_at: z.date() }),
             sql`select assigned_at from club_seats where organization_id=${organizationId}
               and user_id=${subject.userId}`,
           );
@@ -206,16 +235,16 @@ export function createClubSeatReads(input: {
                 club: { name: club.name, kind: club.kind, handle: club.handle },
                 manager: owner.name,
                 email: '',
-                expiresAt: new Date(
-                  held.assigned_at as string | Date,
-                ).toISOString(),
+                expiresAt: held.assigned_at.toISOString(),
                 expired: false,
                 seatedHere: true,
                 seatedElsewhere: false,
               }
             : null;
         }
-        const own = await tx.execute(
+        const own = await query(
+          tx,
+          z.object({ organization_id: z.string() }),
           sql`select organization_id from club_seats where user_id=${subject.userId}`,
         );
         const now = (await readDatabaseTime(tx)).toISOString();
@@ -224,7 +253,7 @@ export function createClubSeatReads(input: {
           manager: owner.name,
           email: invitation.email,
           expiresAt: invitation.expiresAt,
-          expired: Date.parse(invitation.expiresAt) <= Date.parse(now),
+          expired: instantMs(invitation.expiresAt) <= instantMs(now),
           seatedHere: own.some(
             (row) => String(row.organization_id) === organizationId,
           ),
@@ -240,7 +269,9 @@ export function createClubSeatReads(input: {
       return input.run(async (tx) => {
         await scopeTransaction(tx, { subjectUserId: subject.userId });
         // Only a seat whose Premium is current: an unfunded seat or a lapsed plan shows nothing.
-        const [seat] = await tx.execute(
+        const [seat] = await query(
+          tx,
+          z.object({ organization_id: z.string() }),
           sql`select s.organization_id from club_seats s
             where s.user_id=${subject.userId} and exists (
               select 1 from account_entitlement_grants g

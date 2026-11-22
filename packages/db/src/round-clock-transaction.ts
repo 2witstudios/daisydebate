@@ -1,6 +1,5 @@
 import { createAppError } from '@daisy/errors';
-import type { RoundProjection } from '@daisy/protocol';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
+import type { RoundProjection } from '@daisy/protocol/runtime';
 import { eq } from 'drizzle-orm';
 import { rounds } from './schema/rounds';
 import { hydrateRoundRows, type RoundHydration } from './round-hydration';
@@ -13,8 +12,8 @@ import {
   type RoundTimeSource,
 } from './round-execution-time';
 import { writeSpeakingProjection } from './round-speaking-writer';
+import type { Tx } from './tx';
 
-type Tx = Pick<BunSQLDatabase, 'select' | 'update' | 'insert' | 'execute'>;
 export type LockedRoundTickInput = {
   readonly roundId: string;
   /**

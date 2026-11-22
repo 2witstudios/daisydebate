@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { createAppError } from '@daisy/errors';
-import { createMessagingSocialSchemas } from '@daisy/protocol';
+import { createMessagingSocialSchemas } from '@daisy/protocol/messaging/social';
 /** A refused protected preview is never interpreted as a request or an empty introduction. */
 export async function readRequestPreviewResponse(response: Response) {
   if (!response.ok) return null;

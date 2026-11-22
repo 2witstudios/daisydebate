@@ -1,7 +1,8 @@
 import { requireCurrentWeb } from './web-service-authority';
 import { endOpenJudgingJobs, type JudgingEndRule } from './round-judging-end';
 import { createAppError } from '@daisy/errors';
-import { idSchema, type JudgingTerminalReason } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
+import { type JudgingTerminalReason } from '@daisy/protocol/round-judging-attempt';
 import { sql } from 'drizzle-orm';
 import {
   attendanceSamples,
@@ -9,7 +10,6 @@ import {
   finalizedAttendanceSegments,
   type AttendanceFacts,
   type AttendanceTransaction,
-  type AttendanceTransactionContext,
 } from './attendance-facts';
 import {
   insertCommandRow,
@@ -29,6 +29,9 @@ import {
   type AttendanceResolution,
   type NextAttendanceWindow,
 } from './attendance-adjudication';
+import type { Tx } from './tx';
+import { run, query } from './raw-rows';
+import { z } from 'zod';
 
 /**
  * The read is capped, so an old window can still be decided on what it proves.
@@ -36,7 +39,7 @@ import {
  * unmeasured (ADR 0095).
  */
 async function withEvidence(
-  tx: AttendanceTransactionContext,
+  tx: Tx,
   facts: AttendanceReceiptFacts,
   finalizedSegmentIds: readonly string[],
   nextWindow: NextAttendanceWindow,
@@ -117,7 +120,9 @@ export function createAttendanceEvaluator(
         await requireCurrentWeb(tx, input.instanceId, true);
         if (round.checkpoint.incident.phase !== 'none')
           return { kind: 'held', reason: 'platform_incident' };
-        const pending = await tx.execute(
+        const pending = await query(
+          tx,
+          z.object({ attempt_id: z.string() }),
           sql`select attempt_id from round_check_in_attempts where round_id=${round.id} and state='pending' limit 1`,
         );
         if (pending.length > 0)
@@ -126,7 +131,13 @@ export function createAttendanceEvaluator(
           tx,
           round.id,
         );
-        const rows = await tx.execute(
+        const rows = await query(
+          tx,
+          z.object({
+            participant_id: z.string(),
+            segment_id: z.string(),
+            received_at: z.string(),
+          }),
           sql`select participant_id,segment_id,to_char(received_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as received_at from round_check_ins where round_id=${round.id}`,
         );
         const now = await sampleRoundExecutionTime(tx, roundTime);
@@ -138,13 +149,7 @@ export function createAttendanceEvaluator(
           botSeatIds: seats
             .filter((seat) => seat.kind === 'bot')
             .map((seat) => seat.id),
-          checkIns: (
-            rows as unknown as {
-              participant_id: string;
-              segment_id: string;
-              received_at: string;
-            }[]
-          ).map((row) => ({
+          checkIns: rows.map((row) => ({
             participantId: row.participant_id,
             segmentId: row.segment_id,
             receivedAt: row.received_at,
@@ -196,8 +201,11 @@ export function createAttendanceEvaluator(
           { before: current.status, projection: resolution.projection },
         );
         const columns = adjudicationColumns(resolution);
-        await tx.execute(sql`insert into round_attendance_adjudications(round_id,segment_id,command_id,decision,evidence,effective_deadline,settled_horizon,receipt_participant_id)
-    values(${round.id},${target.id},${input.commandId},${resolution.decision},${resolution.evidence},${columns.effectiveDeadline}::timestamptz,${columns.settledHorizon}::timestamptz,${columns.receiptParticipantId})`);
+        await run(
+          tx,
+          sql`insert into round_attendance_adjudications(round_id,segment_id,command_id,decision,evidence,effective_deadline,settled_horizon,receipt_participant_id)
+    values(${round.id},${target.id},${input.commandId},${resolution.decision},${resolution.evidence},${columns.effectiveDeadline}::timestamptz,${columns.settledHorizon}::timestamptz,${columns.receiptParticipantId})`,
+        );
         if (resolution.projection)
           await writeSpeakingProjection(tx, {
             roundId: round.id,

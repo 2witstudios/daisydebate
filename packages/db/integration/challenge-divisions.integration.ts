@@ -1,9 +1,10 @@
+import { addMs } from '@daisy/clock';
 import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { requireTestServices } from '@daisy/config';
 import { isAppError } from '@daisy/errors';
-import type { CompetitionType } from '@daisy/protocol';
+import type { CompetitionType } from '@daisy/protocol/round';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createChallengeStore } from '../src/challenges/store';
 import { createMessagingTestFixture } from '../src/testing';
@@ -21,7 +22,7 @@ const { databaseUrl } = requireTestServices(process.env);
  * members' divisions under the pair's lock, stores the shared one, and
  * refuses across divisions or without one. Casual is always offered.
  */
-test('a challenge stays inside one lobby and stores it (ADR 0156)', async () => {
+test('a challenge stays inside one lobby and stores it (ADR 0162)', async () => {
   const client = new SQL(databaseUrl);
   const fixture = await createMessagingTestFixture(client);
   const database = drizzle({ client });
@@ -32,7 +33,7 @@ test('a challenge stays inside one lobby and stores it (ADR 0156)', async () => 
   const youth = lobbies.find((lobby) => lobby.age_rule === 'under-18')!.id;
   const open = lobbies.find((lobby) => lobby.age_rule === 'adults')!.id;
   const now = new Date().toISOString();
-  const expiresAt = new Date(Date.parse(now) + 600_000).toISOString();
+  const expiresAt = addMs(now, 600_000);
   const send = (mode: CompetitionType) =>
     store
       .withContacts(
@@ -163,7 +164,7 @@ test(
       };
       const memberActorIds = [challenger.actorId, challenged.actorId];
       const now = new Date().toISOString();
-      const expiresAt = new Date(Date.parse(now) + 600_000).toISOString();
+      const expiresAt = addMs(now, 600_000);
       const store = createChallengeStore({
         database: drizzle({ client }),
         authorize: async () => {},

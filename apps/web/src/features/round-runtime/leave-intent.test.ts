@@ -1,11 +1,8 @@
+import { instantMs } from '@daisy/clock';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import {
-  emptyRuntimeCheckpointFor,
-  fourTeams,
-  twoSides,
-  type RoundView,
-  type SeatRef,
-} from '@daisy/protocol';
+import { emptyRuntimeCheckpointFor } from '@daisy/protocol/round';
+import { fourTeams, twoSides, type SeatRef } from '@daisy/protocol/seats';
+import { type RoundView } from '@daisy/protocol/round-view';
 import { leaveIntent } from './leave-intent';
 import {
   view,
@@ -31,12 +28,12 @@ test('Leave forfeits only a live debater’s own Round (ADR 0070)', () => {
     should:
       'forfeit while the Round is live, then leave freed: the debate is over and nothing is forfeited (ISSUE-590)',
     actual: [
-      leaveIntent(view, aff.actorId, Date.parse(at(0))),
-      leaveIntent(speaking, aff.actorId, Date.parse(at(startOf(0) + 1000))),
+      leaveIntent(view, aff.actorId, instantMs(at(0))),
+      leaveIntent(speaking, aff.actorId, instantMs(at(startOf(0) + 1000))),
       leaveIntent(
         ran(rules.length, true),
         aff.actorId,
-        Date.parse(at(startOf(rules.length) + 1000)),
+        instantMs(at(startOf(rules.length) + 1000)),
       ),
     ],
     expected: [forfeit(view), forfeit(speaking), { kind: 'freed' }],
@@ -45,7 +42,7 @@ test('Leave forfeits only a live debater’s own Round (ADR 0070)', () => {
     given: 'the judge and a viewer with no seat in a speaking Round',
     should: 'only navigate: neither can forfeit',
     actual: [judge.actorId, 'x'.repeat(24)].map((actorId) =>
-      leaveIntent(speaking, actorId, Date.parse(at(startOf(0) + 1000))),
+      leaveIntent(speaking, actorId, instantMs(at(startOf(0) + 1000))),
     ),
     expected: [{ kind: 'navigate' }, { kind: 'navigate' }],
   });
@@ -53,7 +50,7 @@ test('Leave forfeits only a live debater’s own Round (ADR 0070)', () => {
 
 test('only a debater is told they are freed while the ballot is pending (ISSUE-590)', () => {
   const judging = ran(rules.length, true);
-  const after = Date.parse(at(startOf(rules.length) + 1000));
+  const after = instantMs(at(startOf(rules.length) + 1000));
   assert({
     given: 'the judge and an unseated viewer of a Round awaiting its ballot',
     should: 'only navigate: the judge still ballots, and a viewer held nothing',
@@ -66,7 +63,7 @@ test('only a debater is told they are freed while the ballot is pending (ISSUE-5
 
 test('a seated debater whose forfeit is unavailable is held, never free to leave (ISSUE-879)', () => {
   const overran = ran(1);
-  const pastPersistedPhase = Date.parse(at(startOf(1) + 1000));
+  const pastPersistedPhase = instantMs(at(startOf(1) + 1000));
   assert({
     given: 'a debater whose speech ran out before the next phase persisted',
     should: 'hold them, because no command could confirm a departure',
@@ -94,7 +91,7 @@ test('Leave in the opening follows the engine’s forfeit rule', () => {
     should:
       'hold them, as the engine refuses that forfeit, where an unheld opening forfeits',
     actual: [opening, held].map(
-      (round) => leaveIntent(round, aff.actorId, Date.parse(at(0))).kind,
+      (round) => leaveIntent(round, aff.actorId, instantMs(at(0))).kind,
     ),
     expected: ['forfeit', 'held'],
   });
@@ -104,7 +101,7 @@ test('Leave in the opening follows the engine’s forfeit rule', () => {
     actual: leaveIntent(
       { ...opening, checkpoint: null },
       aff.actorId,
-      Date.parse(at(0)),
+      instantMs(at(0)),
     ).kind,
     expected: 'held',
   });
@@ -196,7 +193,7 @@ const unforfeitable = [
 
 for (const shape of unforfeitable)
   test(`a debater leaves ${shape.name} as absence, never held for the whole debate (TAB-6.8)`, () => {
-    const now = Date.parse(at(startOf(0) + 1000));
+    const now = instantMs(at(startOf(0) + 1000));
     const left = {
       ...shape.view,
       checkpoint: {

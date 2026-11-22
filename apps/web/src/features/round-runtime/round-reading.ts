@@ -1,15 +1,17 @@
 import {
   isDebatingSeat,
   isJudgeSeat,
-  isNamedSeat,
-  isRoundRunning,
   sameSeat,
   seatOrder,
   sideOfSeat,
+  type SeatRef,
+} from '@daisy/protocol/seats';
+import {
+  isNamedSeat,
   type RoundSeat,
   type RoundView,
-  type SeatRef,
-} from '@daisy/protocol';
+} from '@daisy/protocol/round-view';
+import { isRoundRunning } from '@daisy/protocol/round';
 import type { RoundPosition } from '@daisy/debate-engine/position';
 
 /**

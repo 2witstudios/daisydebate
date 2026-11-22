@@ -11,7 +11,7 @@ import {
 } from '../spectating/linked-adults';
 import { eventRoomOwner } from '../tab/event-room-direction';
 import { readRoundOpening, roundWaitingOn } from '@daisy/debate-engine';
-import type { LaunchedRound } from '@daisy/protocol';
+import type { LaunchedRound } from '@daisy/protocol/round-view';
 const canRead = (
   caller: { readonly userId: string; readonly actorId: string },
   round: LaunchedRound,
@@ -21,7 +21,7 @@ const canRead = (
     'round.read' | 'round.transcript.read' | 'round.observe.undelayed',
   youth: YouthLiveFact | null,
 ) => {
-  if (!authority || authority.kind === 'unavailable') return false;
+  if (authority.kind === 'unavailable') return false;
   const direction = authority.kind === 'event' ? authority.direction : null;
   const owner = direction
     ? eventRoomOwner(direction, authority.checkedAt)
@@ -96,7 +96,8 @@ export const roundViewReader =
     caller: { readonly userId: string; readonly actorId: string },
     roundId: string,
   ) => {
-    let viewerWatchesAs: 'host' | 'linked_adult' | null = null;
+    // The read's authority callback records how this viewer watches.
+    const watcher: { as: 'host' | 'linked_adult' | null } = { as: null };
     const view = await withLinkedAdults(
       caller,
       roundId,
@@ -109,7 +110,7 @@ export const roundViewReader =
             // A capability held without the links (a seatless host, an
             // event's official) is a host's; one that needs them, a linked
             // adult's (ADR 0155).
-            viewerWatchesAs = canObserveUndelayed(
+            watcher.as = canObserveUndelayed(
               caller,
               round,
               account,
@@ -124,7 +125,7 @@ export const roundViewReader =
             // A linked adult reads the Round only as its watcher (ADR 0155).
             const allowed =
               canReadRound(caller, round, account, authority) ||
-              viewerWatchesAs === 'linked_adult';
+              watcher.as === 'linked_adult';
             if (!allowed) refused();
             return allowed;
           },
@@ -136,7 +137,7 @@ export const roundViewReader =
     );
     return {
       ...view,
-      ...(viewerWatchesAs ? { viewerWatchesAs } : {}),
+      ...(watcher.as ? { viewerWatchesAs: watcher.as } : {}),
       conversationHeld: await store.broadcasts.conversationHeld(roundId),
     };
   };

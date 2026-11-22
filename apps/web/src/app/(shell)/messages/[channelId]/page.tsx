@@ -1,3 +1,4 @@
+import { StatusRegion } from '../../../../ui/components/status-region/status-region';
 import { headers } from 'next/headers';
 import {
   ConversationNavigation,
@@ -6,12 +7,10 @@ import {
 } from '../../../../ui/messaging/conversation-navigation';
 import { notFound } from 'next/navigation';
 import { systemClock, systemId } from '@daisy/clock';
-import { idSchema, messagingBetaLimits } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
+import { messagingBetaLimits } from '@daisy/protocol/messaging/core';
 import { requireAccess } from '../../../../lib/access';
-import {
-  messagingFilesAvailable,
-  messagingLatestPageItems,
-} from '../../../../lib/request-session';
+import { messagingLatestPageItems } from '../../../../lib/request-session';
 import type { SearchParams } from '../../../../features/access/decision';
 import {
   readConversationResponse,
@@ -20,7 +19,6 @@ import {
   readThroughSequence,
   conversationNames,
 } from '../../../../features/messaging/conversation';
-import { markReadUnavailableNotice } from '../../../../features/messaging/mark-read';
 import { Button } from '../../../../ui/components/button/button';
 import { Icon } from '../../../../ui/components/icon/icon';
 import { ConversationOptions } from '../../../../ui/messaging/conversation-options';
@@ -36,7 +34,7 @@ import { ConversationReconnecting } from '../../../../ui/messaging/conversation-
 import { GET } from '../../../api/messaging/channels/[channelId]/messages/route';
 import { GET as SEARCH } from '../../../api/messaging/channels/[channelId]/messages/search/route';
 import { GET as ENTRY } from '../../../api/messaging/channels/[channelId]/entry/route';
-import { markReadAction, sendMessageAction } from './actions';
+import { sendMessageAction } from './actions';
 import { reactToMessageAction } from './reactions/actions';
 export const metadata = { title: 'Messages' };
 export default async function ConversationPage({
@@ -72,7 +70,6 @@ export default async function ConversationPage({
           paging: typeof query.before === 'string',
         });
   const now = systemClock.now();
-  const filesAvailable = messagingFilesAvailable();
   const paging = typeof query.before === 'string';
   return (
     <ConversationNavigation key={id.data} requestId={requestId}>
@@ -108,34 +105,15 @@ export default async function ConversationPage({
             }
           />
         ) : conversation === null ? (
-          <p role="status" className="flex-1 p-6 text-ink-muted">
+          <StatusRegion
+            as="p"
+            role="status"
+            className="flex-1 p-6 text-ink-muted"
+          >
             This conversation is unavailable. Refresh to try again.
-          </p>
+          </StatusRegion>
         ) : (
           <>
-            {query.notice === markReadUnavailableNotice ? (
-              // Only a no-JS reader posts the native form, so only they see it.
-              <noscript>
-                <p role="status" className="px-6 pt-2 text-ink-muted">
-                  This conversation could not be marked read. Try again.
-                </p>
-              </noscript>
-            ) : null}
-            {readThrough === null ? null : (
-              <>
-                {/* With JavaScript the live history marks what it shows. */}
-                <noscript>
-                  <form
-                    action={markReadAction.bind(null, id.data, readThrough)}
-                    className="px-6 pt-2"
-                  >
-                    <button type="submit" className="text-accent underline">
-                      Mark as read
-                    </button>
-                  </form>
-                </noscript>
-              </>
-            )}
             {searchQuery === undefined && !paging ? (
               // The latest page is live on the tab's socket (ADR 0089).
               <ConversationLive
@@ -148,7 +126,7 @@ export default async function ConversationPage({
                 viewer={conversation.viewer}
                 now={now}
                 typingName={names.isGroup ? 'Someone' : names.otherAuthor}
-                filesAvailable={filesAvailable}
+                filesAvailable
                 reactAction={reactToMessageAction}
               />
             ) : (
@@ -159,7 +137,7 @@ export default async function ConversationPage({
                 otherAuthor={names.otherAuthor}
                 viewer={viewerFrom(conversation.viewer, query.unread)}
                 now={now}
-                filesAvailable={filesAvailable}
+                filesAvailable
                 reactAction={reactToMessageAction}
                 latestLink={paging || searchQuery !== undefined}
                 {...(searchQuery === undefined ? {} : { searchQuery })}
@@ -200,6 +178,7 @@ async function readChannelEntry(channelId: string) {
       `http://in-process.invalid/api/messaging/channels/${channelId}/entry`,
       { headers: new Headers(await headers()) },
     ),
+    { params: Promise.resolve({ channelId }) },
   );
   return readConversationEntryResponse(response);
 }
@@ -217,6 +196,7 @@ async function readPageConversation(channelId: string, query: SearchParams) {
       `http://in-process.invalid/api/messaging/channels/${channelId}/messages${searchQuery === undefined ? '' : '/search'}?${input}`,
       { headers: new Headers(await headers()) },
     ),
+    { params: Promise.resolve({ channelId }) },
   );
   return {
     searchQuery,
@@ -248,7 +228,6 @@ function ConversationSearch({
       <div className="absolute inset-x-0 top-pane-header z-20 border-b border-border bg-surface px-6 py-2 max-narrow:px-4">
         <ConversationSearchForm
           action={`/messages/${channelId}`}
-          method="get"
           className="flex items-center gap-3"
         >
           <label className="flex h-10 min-w-0 flex-1 items-center gap-2 rounded-md border border-border bg-surface-raised px-3 text-ink-muted focus-within:border-border-strong">

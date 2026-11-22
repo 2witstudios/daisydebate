@@ -1,4 +1,5 @@
-import { buildChannelTopic, messagingTypingSchemas } from '@daisy/protocol';
+import { buildChannelTopic } from '@daisy/protocol/topics';
+import { messagingTypingSchemas } from '@daisy/protocol/messaging/typing';
 import { readTypingResponse } from './typing-response';
 import type { ConnectionStore } from '../realtime/connection-store';
 type Timers = {
@@ -31,6 +32,8 @@ export function attachTypingReader({
     generation = 0;
   let timer: unknown = null,
     interval: number | null = recoveryAfterMs;
+  // Read live: the topic and close() change it during any await, which narrowing cannot see.
+  const isClosed = () => closed;
   const cancel = () => {
     if (timer !== null) timers.clearTimeout(timer);
     timer = null;
@@ -59,13 +62,13 @@ export function attachTypingReader({
   const drain = async () => {
     if (busy || closed) return;
     busy = true;
-    while (queued && !closed) {
+    while (queued && !isClosed()) {
       queued = false;
       const attempt = generation;
       accept(await readTypingResponse(channelId, read()), attempt);
     }
     busy = false;
-    if (!closed && interval !== null)
+    if (!isClosed() && interval !== null)
       timer = timers.setTimeout(refresh, interval);
   };
   const stopTopic = connection.subscribeTopic(

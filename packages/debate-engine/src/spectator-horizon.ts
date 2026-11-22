@@ -1,7 +1,7 @@
 import {
   SPECTATOR_MARGIN_MS,
   type BroadcastReleasePolicy,
-} from '@daisy/protocol';
+} from '@daisy/protocol/broadcast';
 import { RANKED_DELAY_SECONDS } from './broadcast-release';
 
 export type SpectatorHorizonFacts = {
@@ -47,7 +47,6 @@ export const spectatorHorizon = (
   if (broadcast.completedAtMs === null && broadcast.stoppedAtMs === null)
     return broadcast.releasedThroughMs;
   const floor = finishedFloor(broadcast.policy, facts);
-  if (floor === null) return broadcast.releasedThroughMs;
   return Math.max(broadcast.releasedThroughMs ?? floor, floor);
 };
 

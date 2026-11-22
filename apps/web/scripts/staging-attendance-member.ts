@@ -1,8 +1,9 @@
+import { sha3Hex } from '@daisy/digest';
 import { SQL } from 'bun';
 import { systemId } from '@daisy/clock';
 import { createDatabase } from '@daisy/db';
 import { ageAdmitted } from '@daisy/auth/authorization';
-import { decideBetaAccessChange } from '@daisy/protocol';
+import { decideBetaAccessChange } from '@daisy/protocol/beta-access';
 
 /** Owner-authorized staging-only synthetic identity, following the existing transcript fixture conventions. */
 export async function createStagingAttendanceMember(input: {
@@ -32,15 +33,13 @@ export async function createStagingAttendanceMember(input: {
     if (!account || account.state !== 'pending')
       throw new Error('Fresh synthetic admission state mismatch');
     const commandId = nextId();
-    const digest = new Bun.CryptoHasher('sha3-256')
-      .update(
-        JSON.stringify({
-          commandId,
-          userId,
-          purpose: 'PROBE-3 owner-authorized staging repair',
-        }),
-      )
-      .digest('hex');
+    const digest = sha3Hex(
+      JSON.stringify({
+        commandId,
+        userId,
+        purpose: 'PROBE-3 owner-authorized staging repair',
+      }),
+    );
     await database.runBetaAccessCommand({
       commandId,
       serviceId: 'staging-attendance-probe',

@@ -2,12 +2,14 @@ import { ratingEligibility } from '@daisy/debate-engine';
 import { createId } from '@paralleldrive/cuid2';
 import {
   emptyRuntimeCheckpointFor,
-  sideOfSeat,
   type CompetitionType,
+} from '@daisy/protocol/round';
+import { sideOfSeat } from '@daisy/protocol/seats';
+import {
   type DebaterStanding,
   type RatingPlanFacts,
   type RatingState,
-} from '@daisy/protocol';
+} from '@daisy/protocol/ratings';
 import { frozenJudgingFor } from '../src/round-judging-freeze';
 import { createDatabase, type Database } from '../src';
 import type { RatingDecision } from '../src/rating-facts';

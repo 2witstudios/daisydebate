@@ -1,4 +1,7 @@
-import type { RecordingMedia, RecordingSpeech } from '@daisy/protocol';
+import type {
+  RecordingMedia,
+  RecordingSpeech,
+} from '@daisy/protocol/recording';
 
 /** An accepted floor interval, read from the Round as a named, read-only input. */
 export type FloorInterval = {

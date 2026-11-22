@@ -1,7 +1,10 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { idle } from '../../../features/forms/form-state';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import type { RoomCatalogChoice, RoomView } from '@daisy/protocol';
+import type {
+  RoomCatalogChoice,
+  RoomView,
+} from '@daisy/protocol/room-contract';
 import {
   assemblySnapshot,
   unequalTemplate,
@@ -104,7 +107,7 @@ describe('FormatChoice', () => {
     assert({
       given: 'a casual room still running the Freestyle standard',
       should:
-        'offer Freestyle plus Custom, check Freestyle, and post select-format without JavaScript',
+        'offer Freestyle plus Custom, check Freestyle, and post select-format before hydration',
       actual: {
         order: [
           ...html.matchAll(

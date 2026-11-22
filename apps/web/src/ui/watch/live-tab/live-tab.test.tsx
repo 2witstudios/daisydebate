@@ -35,7 +35,7 @@ describe('LiveTab', () => {
     });
   });
 
-  test('no JavaScript contract', () => {
+  test('the filters are a plain form', () => {
     const html = render({ ...defaultLiveQuery, mode: 'ranked', q: 'a' });
     assert({
       given: 'a filtered hub',
@@ -92,7 +92,7 @@ describe('LiveTab', () => {
     const html = render(defaultLiveQuery, { ...someLive, nextBefore: 'one' });
     assert({
       given: 'a next page',
-      should: 'link to it with no script',
+      should: 'link to it before hydration',
       actual: html.includes('href="/watch?before=one"'),
       expected: true,
     });

@@ -1,6 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
-import { advanceAnalysisWork } from '@daisy/protocol';
+import { advanceAnalysisWork } from '@daisy/protocol/round-analysis-lifecycle';
 import { createId } from '@paralleldrive/cuid2';
 import { withCompletedRound } from './round-analysis.test-support';
 import { finishedOrBlockedBehind } from '../src/testing';

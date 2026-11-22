@@ -1,3 +1,4 @@
+import { instantMs, tryInstantMs } from '@daisy/clock';
 import { speakingChangesOf } from './round-speaking';
 import { closePlayedRound, startRound } from './round-commands';
 import { roundHoldsMembers } from './room-membership';
@@ -6,11 +7,13 @@ import type { RoundRuntime } from './round-runtime-api';
 import { applyRoundAdjudication } from './round-adjudication';
 import { assertAttendanceRules } from './attendance-policy';
 import { createInvariantError } from '@daisy/errors';
+import { heldSeatsComplete, leadSeatOf } from '@daisy/protocol/format-seating';
 import {
-  heldSeatsComplete,
-  leadSeatOf,
   runtimeCheckpointSchema,
-  type SideKey,
+  type RuntimeCheckpoint,
+} from '@daisy/protocol/round';
+import { type SideKey } from '@daisy/protocol/seats';
+import {
   type HydratedRound,
   type HydratedSegment,
   type RoundParticipantSeat,
@@ -19,9 +22,8 @@ import {
   type RoundProjection,
   type SegmentInsert,
   type SegmentClose,
-  type RoundRules,
-  type RuntimeCheckpoint,
-} from '@daisy/protocol';
+} from '@daisy/protocol/runtime';
+import { type RoundRules } from '@daisy/protocol/format';
 import { advanceRoundClock } from './round-clock';
 import {
   closeClockSegment,
@@ -110,13 +112,23 @@ export function createRoundRuntime(input: {
   const segmentIds = new Map(
     input.segments.map((row) => [row.sequence, row.id]),
   );
+  /** A segment's id: hydrated, or allocated when this runtime opened it. */
+  const segmentIdOf = (sequence: number): string => {
+    const id = segmentIds.get(sequence);
+    if (id === undefined)
+      throw createInvariantError(
+        debateInvariantIds.segmentMatchesRules,
+        'A clock change names a segment that was never opened',
+      );
+    return id;
+  };
 
   const capture = (on: RoundStore) => captureRoundStore(on);
   /** An internal decision applied on a scratch copy, kept only if it succeeds. */
-  const onScratch = (now: string, apply: (c: CommandContext) => void) => {
+  const onScratch = (now: number, apply: (c: CommandContext) => void) => {
     const scratch = restoreRoundStore(capture(store));
     const into = queues();
-    apply(contextOn(scratch, into, null, Date.parse(now)));
+    apply(contextOn(scratch, into, null, now));
     store = scratch;
     return project(into);
   };
@@ -166,28 +178,26 @@ export function createRoundRuntime(input: {
     transitionOn(on, into, advanceRoundClock(capture(on), rules, at));
   const project = (into: Queues): RoundProjection => {
     // IDs are allocated only after pure execution has been accepted, once per opening.
-    for (const change of into.changes)
-      if (change.kind === 'open')
-        segmentIds.set(change.row.sequence, input.nextSegmentId());
-    const segmentInserts: SegmentInsert[] = into.changes.flatMap((change) =>
-      change.kind === 'open'
-        ? [
-            {
-              id: segmentIds.get(change.row.sequence)!,
-              sequence: change.row.sequence,
-              type: change.row.type,
-              rulesSegmentKey: change.row.key,
-              startedAt: new Date(change.row.startedAtMs).toISOString(),
-              durationMs: change.row.durationMs,
-            },
-          ]
-        : [],
-    );
+    const segmentInserts: SegmentInsert[] = into.changes.flatMap((change) => {
+      if (change.kind !== 'open') return [];
+      const id = input.nextSegmentId();
+      segmentIds.set(change.row.sequence, id);
+      return [
+        {
+          id,
+          sequence: change.row.sequence,
+          type: change.row.type,
+          rulesSegmentKey: change.row.key,
+          startedAt: new Date(change.row.startedAtMs).toISOString(),
+          durationMs: change.row.durationMs,
+        },
+      ];
+    });
     const segmentCloses: SegmentClose[] = into.changes.flatMap((change) =>
       change.kind === 'close'
         ? [
             {
-              id: segmentIds.get(change.sequence)!,
+              id: segmentIdOf(change.sequence),
               endedAt: new Date(change.atMs).toISOString(),
             },
           ]
@@ -197,7 +207,7 @@ export function createRoundRuntime(input: {
       change.kind === 'resume'
         ? [
             {
-              id: segmentIds.get(change.sequence)!,
+              id: segmentIdOf(change.sequence),
               returnedMs: change.returnedMs,
             },
           ]
@@ -240,7 +250,7 @@ export function createRoundRuntime(input: {
         rules,
         participants: input.participants,
         changes: into.changes,
-        segmentIds,
+        segmentIdOf,
         floorChange: into.floorChange,
       }),
       round,
@@ -305,17 +315,17 @@ export function createRoundRuntime(input: {
 
   return {
     position(now: string): RoundPosition {
-      return positionAtState(capture(store), rules, Date.parse(now));
+      return positionAtState(capture(store), rules, instantMs(now));
     },
     debateOverAt(now): boolean {
-      const at = Date.parse(now);
+      const at = instantMs(now);
       const scratch = restoreRoundStore(capture(store));
       const into = queues();
       advance(scratch, into, at);
       return debateIsOver(contextOn(scratch, into, null, at));
     },
     execute({ command, actorId, now }): RoundProjection {
-      const at = Date.parse(now);
+      const at = instantMs(now);
       const scratch = restoreRoundStore(capture(store));
       const into = queues();
       advance(scratch, into, at);
@@ -324,7 +334,7 @@ export function createRoundRuntime(input: {
       return project(into);
     },
     adjudicate(decision): RoundProjection {
-      const at = Date.parse(decision.now);
+      const at = instantMs(decision.now);
       const scratch = restoreRoundStore(capture(store));
       const into = queues();
       advance(scratch, into, at);
@@ -338,15 +348,22 @@ export function createRoundRuntime(input: {
       return project(into);
     },
     stop: (now) =>
-      onScratch(now, (c) => {
+      onScratch(instantMs(now), (c) => {
         const ending = abandonedLifecycle(c.on.lifecycle(), c.now);
         closePlayedRound(c);
         c.on.setLifecycle(ending);
       }),
-    completePanel: (completion) =>
-      onScratch(completion.now, (c) =>
+    completePanel: (completion) => {
+      const at = tryInstantMs(completion.now);
+      if (at === undefined)
+        throw createInvariantError(
+          debateInvariantIds.panelPlayedRound,
+          'Panel completion requires a valid clock',
+        );
+      return onScratch(at, (c) =>
         applyPanelCompletion(c, completion, input.participants),
-      ),
+      );
+    },
     /**
      * The opening has run: the Round becomes active at the instant it ended,
      * and the clock catches up to `now`, so a late sweep cannot move the
@@ -355,9 +372,9 @@ export function createRoundRuntime(input: {
     activate({ at, now }): RoundProjection {
       const scratch = restoreRoundStore(capture(store));
       const into = queues();
-      const c = contextOn(scratch, into, null, Date.parse(at));
+      const c = contextOn(scratch, into, null, instantMs(at));
       startRound(c);
-      advance(scratch, into, Date.parse(now));
+      advance(scratch, into, instantMs(now));
       store = scratch;
       return project(into);
     },
@@ -395,7 +412,7 @@ export function createRoundRuntime(input: {
     },
     tick(now): RoundProjection {
       const into = queues();
-      advance(store, into, Date.parse(now));
+      advance(store, into, instantMs(now));
       return project(into);
     },
     checkpoint(): RuntimeCheckpoint {

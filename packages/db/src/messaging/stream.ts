@@ -1,8 +1,9 @@
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
+import type { Tx } from '../tx';
+import { postgresInt8, run, query } from '../raw-rows';
+import { z } from 'zod';
 
-type StreamTransaction = Pick<BunSQLDatabase, 'execute'>;
 /** The channel stream's high-water mark: the last message position and content revision. */
 export type ChannelStream = {
   readonly messageSequence: number;
@@ -30,20 +31,27 @@ const streamOf = (row: Record<string, unknown> | undefined) => {
 };
 
 /** Opens a new channel's stream at its first content revision (creation). */
-export async function openStream(tx: StreamTransaction, channelId: string) {
-  await tx.execute(sql`insert into messaging_channel_streams(channel_id, message_sequence, change_version)
-    values(${channelId}, 0, 1)`);
+export async function openStream(tx: Tx, channelId: string) {
+  await run(
+    tx,
+    sql`insert into messaging_channel_streams(channel_id, message_sequence, change_version)
+    values(${channelId}, 0, 1)`,
+  );
 }
 
 /** A reader's MVCC view of the high-water mark: never locks the stream row. */
 export async function readStream(
-  tx: StreamTransaction,
+  tx: Tx,
   channelId: string,
 ): Promise<ChannelStream> {
-  const [row] = await tx.execute(sql`
+  const [row] = await query(
+    tx,
+    z.object({ messageSequence: postgresInt8, changeVersion: postgresInt8 }),
+    sql`
     select message_sequence as "messageSequence", change_version as "changeVersion"
     from messaging_channel_streams where channel_id=${channelId}
-  `);
+  `,
+  );
   return streamOf(row);
 }
 
@@ -54,13 +62,17 @@ export async function readStream(
  * and never on the authority fence. Readers never take it.
  */
 export async function lockStream(
-  tx: StreamTransaction,
+  tx: Tx,
   channelId: string,
 ): Promise<ChannelStream> {
-  const [row] = await tx.execute(sql`
+  const [row] = await query(
+    tx,
+    z.object({ messageSequence: postgresInt8, changeVersion: postgresInt8 }),
+    sql`
     select message_sequence as "messageSequence", change_version as "changeVersion"
     from messaging_channel_streams where channel_id=${channelId} for update
-  `);
+  `,
+  );
   return streamOf(row);
 }
 
@@ -102,14 +114,17 @@ export function allocateStream(
  * throws and rolls everything back), and the counters are written once.
  */
 export async function appendStream(
-  tx: StreamTransaction,
+  tx: Tx,
   channelId: string,
   plan: StreamAppendPlan,
 ): Promise<StreamAllocation> {
   requirePlan(plan);
   const allocation = allocateStream(await lockStream(tx, channelId), plan);
-  await tx.execute(sql`update messaging_channel_streams
+  await run(
+    tx,
+    sql`update messaging_channel_streams
     set message_sequence=${allocation.messageSequence}, change_version=${allocation.changeVersion}
-    where channel_id=${channelId}`);
+    where channel_id=${channelId}`,
+  );
   return allocation;
 }

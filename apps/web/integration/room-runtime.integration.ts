@@ -3,7 +3,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { createId } from '@paralleldrive/cuid2';
 import { withRoomRuntime } from './room-runtime.test-support';
-import { isNamedSeat } from '@daisy/protocol';
+import { isNamedSeat } from '@daisy/protocol/round-view';
 requireTestServices(process.env);
 setupRitewayBun();
 

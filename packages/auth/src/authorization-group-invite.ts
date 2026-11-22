@@ -1,4 +1,4 @@
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { groupManagerCurrent } from './authorization-group-safety';
 import { socialGroupAdmissionAllowed } from './authorization-creation';
 import type {

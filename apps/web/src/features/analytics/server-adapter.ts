@@ -1,5 +1,5 @@
 import { PostHog } from 'posthog-node';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { parseProductEvent, type ProductEvent } from './events';
 import type { Consent } from './consent';
 

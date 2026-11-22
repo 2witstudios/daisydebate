@@ -1,11 +1,9 @@
+import { instantMs } from '@daisy/clock';
 import { Database } from '@adobe/data/ecs';
 import { Schema } from '@adobe/data/schema';
-import {
-  segmentTypes,
-  type RuntimeCheckpoint,
-  type SegmentType,
-  type SideKey,
-} from '@daisy/protocol';
+import { segmentTypes, type SegmentType } from '@daisy/protocol/format';
+import { type RuntimeCheckpoint } from '@daisy/protocol/round';
+import { type SideKey } from '@daisy/protocol/seats';
 
 /**
  * The Adobe ECS plugin the round store runs on (ADR 0058 §6): segment rows
@@ -14,6 +12,12 @@ import {
  */
 
 import type { Lifecycle } from './round-clock-state';
+
+// Each resource takes its type from its default. A function's return type
+// is not narrowed to the literal, so these state the whole type.
+const opening = (): Lifecycle => ({ status: 'opening' });
+const noIncident = (): RuntimeCheckpoint['incident'] => ({ phase: 'none' });
+const noPrepConsumed = (): RuntimeCheckpoint['prep_consumed_ms'] => ({});
 
 const plugin = Database.Plugin.create({
   components: {
@@ -26,15 +30,13 @@ const plugin = Database.Plugin.create({
     returnedMs: { type: 'number' },
   },
   resources: {
-    lifecycle: { default: { status: 'opening' } as Lifecycle },
-    incident: { default: { phase: 'none' } as RuntimeCheckpoint['incident'] },
+    lifecycle: { default: opening() },
+    incident: { default: noIncident() },
     prepEndedAt: { default: null as RuntimeCheckpoint['prep_ended_at'] },
     startGate: { default: null as RuntimeCheckpoint['start_gate'] },
     clockStops: { default: [] as RuntimeCheckpoint['clock_stops'] },
     /** Prep each side has spent, by side key: one keyed resource (TAB-6.2). */
-    prepConsumedMs: {
-      default: {} as RuntimeCheckpoint['prep_consumed_ms'],
-    },
+    prepConsumedMs: { default: noPrepConsumed() },
     activePrepSide: {
       ...Schema.Nullable({ type: 'string' }),
       default: null,
@@ -125,13 +127,13 @@ const plugin = Database.Plugin.create({
       store.resources.activePrepStartedAtMs =
         checkpoint.active_prep === null
           ? null
-          : Date.parse(checkpoint.active_prep.started_at);
+          : instantMs(checkpoint.active_prep.started_at);
       store.resources.floorParticipantId =
         checkpoint.floor?.holder_participant_id ?? null;
       store.resources.floorGrantedAtMs =
         checkpoint.floor === null
           ? null
-          : Date.parse(checkpoint.floor.granted_at);
+          : instantMs(checkpoint.floor.granted_at);
       store.resources.absentParticipantIds =
         checkpoint.absent_participant_ids ?? [];
     },

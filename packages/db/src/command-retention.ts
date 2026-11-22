@@ -1,16 +1,16 @@
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { deleteExpiredBatch, type RetentionBatch } from './retention';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { roomCommands } from './schema/room-commands';
 import { roundCommands } from './schema/round-commands';
 import { roundCheckInAttempts } from './schema/round-attendance';
-/** Accepted DEC-81 window is applied by the injected-clock sweep; durable attendance facts, speaking intervals and Round finalisations (ISSUE-1408) retain their referenced receipts until owning Round erasure. */
+import type { TxSource } from './tx';
+/** The ADR 0059 receipt window is applied by the injected-clock sweep; durable attendance facts, speaking intervals and Round finalisations (ISSUE-1408) retain their referenced receipts until owning Round erasure. */
 export const commandRetention = ({
   database,
   eventSink,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
   purgeExpiredRoomCommands: (batch: RetentionBatch) =>

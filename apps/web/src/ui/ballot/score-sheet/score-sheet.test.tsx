@@ -1,4 +1,4 @@
-import { ballotCategories } from '@daisy/protocol';
+import { ballotCategories } from '@daisy/protocol/ballot';
 import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
@@ -60,7 +60,7 @@ describe('ScoreSheet', () => {
     });
   });
 
-  test('without script', () => {
+  test('before hydration', () => {
     const still = render(false);
     assert({
       given: 'a sheet rendered before script runs',

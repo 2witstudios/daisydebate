@@ -1,6 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { expect } from 'bun:test';
-import { roomCreateSchema } from '@daisy/protocol';
+import { roomCreateSchema } from '@daisy/protocol/room-contract';
 import {
   stagingProofCast,
   stagingProofSelection,

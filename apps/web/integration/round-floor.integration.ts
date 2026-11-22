@@ -1,6 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
-import { roundViewSchema, sideOfSeat } from '@daisy/protocol';
+import { roundViewSchema } from '@daisy/protocol/round-view';
+import { sideOfSeat } from '@daisy/protocol/seats';
 import {
   createRoomHttpFixture,
   withHumanJudgeHttpRound,

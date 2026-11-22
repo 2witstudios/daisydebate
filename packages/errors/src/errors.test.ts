@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { errorSchema } from '@daisy/protocol';
+import { errorSchema } from '@daisy/protocol/primitives';
 import {
   createAppError,
   createInvariantError,

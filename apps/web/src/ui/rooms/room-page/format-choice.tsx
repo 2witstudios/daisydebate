@@ -1,7 +1,11 @@
 'use client';
 
+import { Button } from '../../components/button/button';
 import { useId } from 'react';
-import type { RoomCatalogChoice, RoomView } from '@daisy/protocol';
+import type {
+  RoomCatalogChoice,
+  RoomView,
+} from '@daisy/protocol/room-contract';
 import type { RoomFormState } from '../../../features/rooms/command-answer';
 import type { RoomCommandIds } from '../../../features/rooms/room-command-ids';
 import {
@@ -10,7 +14,6 @@ import {
 } from '../../../features/rooms/format-browser';
 import { formatChangeLine } from '../../../features/rooms/format-changes';
 import type { FormAction } from '../../form-action/form-action';
-import { buttonClass } from '../../components/button/button-class';
 import { AssemblyCommandForm } from './assembly-command-form';
 import { FormatTemplatePicker } from '../create-room/format-template-picker';
 import { formatTitle } from './room-labels';
@@ -104,6 +107,8 @@ const drawing = (view: RoomView) => view.executionPlan.resolutionDraw.enabled;
 function StandardsForm({ view, choices, ids, action }: FormProps) {
   const legendId = useId();
   const standing = view.format.standing;
+  const selectedStandard =
+    standing.kind === 'standard' ? standing.formatId : null;
   return (
     <AssemblyCommandForm action={action} className="flex flex-col gap-3">
       <CommandFields view={view} commandId={ids.choose} intent="choose" />
@@ -111,6 +116,7 @@ function StandardsForm({ view, choices, ids, action }: FormProps) {
         Format
       </span>
       <div
+        key={selectedStandard ?? 'custom'}
         role="radiogroup"
         aria-labelledby={legendId}
         className="grid w-full grid-cols-2 gap-2 max-compact:grid-cols-1"
@@ -122,10 +128,7 @@ function StandardsForm({ view, choices, ids, action }: FormProps) {
               name="format"
               className="sr-only"
               value={choiceTuple(choice)}
-              defaultChecked={
-                standing.kind === 'standard' &&
-                standing.formatId === choice.formatId
-              }
+              defaultChecked={selectedStandard === choice.formatId}
             />
             <span className="font-strong">{choice.label}</span>
             <span className="text-xs text-ink-muted">
@@ -150,9 +153,9 @@ function StandardsForm({ view, choices, ids, action }: FormProps) {
           </span>
         </label>
       </div>
-      <button type="submit" className={buttonClass('secondary')}>
+      <Button variant="secondary" type="submit">
         Use this format
-      </button>
+      </Button>
     </AssemblyCommandForm>
   );
 }
@@ -182,9 +185,9 @@ function CustomCard({ view, ids, action }: FormProps) {
         <AssemblyCommandForm action={action}>
           <CommandFields view={view} commandId={ids.reset} intent="reset" />
           <input type="hidden" name="format" value={tuple(basis)} />
-          <button type="submit" className={buttonClass('secondary')}>
+          <Button variant="secondary" type="submit">
             Back to {basis.name}
-          </button>
+          </Button>
         </AssemblyCommandForm>
       ) : null}
     </section>
@@ -207,9 +210,9 @@ function LeagueForm({ view, choices, ids, action }: FormProps) {
       <p className="text-xs text-ink-muted">
         The room becomes Custom, based on the league’s rules.
       </p>
-      <button type="submit" className={buttonClass('secondary')}>
+      <Button variant="secondary" type="submit">
         Start from this format
-      </button>
+      </Button>
     </AssemblyCommandForm>
   );
 }
@@ -217,7 +220,7 @@ function LeagueForm({ view, choices, ids, action }: FormProps) {
 /**
  * Room setup's format: Daisy's standards and Custom (FMT-3, FMT-4). Choosing
  * a standard posts select-format; Custom is never chosen directly, it is
- * what any edit makes the room. Every form works without JavaScript.
+ * what any edit makes the room. Every form works before hydration.
  */
 export function FormatChoice(props: FormProps) {
   return (

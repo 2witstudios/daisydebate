@@ -1,7 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { RealtimeApp } from './app';
 import { createRealtimeDelivery } from './delivery';
-import { bothLanes } from './delivery.test-support';
+import { bothLanes, testTransport } from './delivery.test-support';
 import { refuseAllReading } from './authorization.test-support';
 
 setupRitewayBun();
@@ -29,6 +29,7 @@ test('ticket admission refuses session expiry crossed during the durable await',
           resolve = done;
         }),
     }),
+    transport: testTransport,
   } as unknown as RealtimeApp;
   const delivery = createRealtimeDelivery({
     readingPolicy: refuseAllReading,
@@ -88,6 +89,7 @@ test('real delivery principal validation refuses a canonical read exceeding its 
         }),
     }),
     clock: { now: () => '2026-10-09T00:00:00.000Z' },
+    transport: testTransport,
   } as unknown as RealtimeApp;
   const delivery = createRealtimeDelivery({
     readingPolicy: refuseAllReading,

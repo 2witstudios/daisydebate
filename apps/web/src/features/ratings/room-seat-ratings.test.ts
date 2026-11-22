@@ -1,6 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { refuseCapacity } from '@daisy/db/testing';
-import { judgeSeat, sideSeat, type RoomView } from '@daisy/protocol';
+import { judgeSeat, sideSeat } from '@daisy/protocol/seats';
+import { type RoomView } from '@daisy/protocol/room-contract';
 import {
   overlaySeatRatings,
   ratedSeatActorIds,

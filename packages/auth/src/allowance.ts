@@ -1,4 +1,5 @@
-import type { EntitlementGrant } from '@daisy/protocol';
+import { tryInstantMs, instantMs } from '@daisy/clock';
+import type { EntitlementGrant } from '@daisy/protocol/entitlements';
 import type {
   AllowanceDecision,
   AllowanceFacts,
@@ -136,7 +137,7 @@ const counts = (entries: readonly { readonly spent: number }[]) =>
   );
 function validFacts(facts: AllowanceFacts, policy: Policy): boolean {
   return (
-    Number.isFinite(Date.parse(policy.now)) &&
+    tryInstantMs(policy.now) !== undefined &&
     counts(facts.usage) &&
     (facts.today === null || counts(facts.today.usage))
   );
@@ -225,7 +226,7 @@ export function admitAllowance(
 ): AllowanceDecision {
   if (!canUseAiAllowance(account)) return refuse('not-eligible');
   if (!validFacts(facts, policy)) return refuse('invalid-facts');
-  const now = Date.parse(policy.now);
+  const now = instantMs(policy.now);
   const access = facts.billing
     ? subscriptionAccess(facts.billing, policy.now)
     : ({ kind: 'none' } as const);

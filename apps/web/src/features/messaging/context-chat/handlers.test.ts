@@ -1,6 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { noopErrorReporter } from '@daisy/observability';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { z } from 'zod';
 import { silentLogger } from '../../../server/test-loggers.test-support';
 import { createContextChatHandlers } from './handlers';

@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -121,7 +122,7 @@ test(
             'open through the real engine at the stored10s deadline within500ms and keep unfinished input unfrozen',
           actual: {
             status: round.status,
-            delay: Date.parse(speech.startedAt) - Date.parse(round.startedAt!),
+            delay: instantMs(speech.startedAt) - instantMs(round.startedAt!),
             countdown: round.rules.countdownMs,
             discovered: Number(facts.lag) <= 500,
             sessions: facts.sessions,

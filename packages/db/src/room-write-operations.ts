@@ -35,18 +35,18 @@ import {
   type ContentWaiverStanding,
 } from './agreement-signatures';
 import { readEntitlementGrants } from './entitlement-grants';
+import type { EntitlementGrant } from '@daisy/protocol/entitlements';
+import type { AgeBand } from '@daisy/protocol/ladder';
 import type {
-  EntitlementGrant,
-  AgeBand,
   RoomAssemblyState,
   RoomCommandReceipt,
   RoomMutationOutcome,
   RoomRefusal,
-  TournamentCaptureAdmission,
-} from '@daisy/protocol';
+} from '@daisy/protocol/room-contract';
+import type { TournamentCaptureAdmission } from '@daisy/protocol/tournament-capture-admission';
 
 import { createAppError, createRefusal } from '@daisy/errors';
-import { isDebatingSeat, isJudgeSeat, sameSeat } from '@daisy/protocol';
+import { isDebatingSeat, isJudgeSeat, sameSeat } from '@daisy/protocol/seats';
 
 /**
  * The host a Room's admission or capture charges. A Room no person hosts
@@ -77,7 +77,6 @@ import { rooms, roomParticipants } from './schema/rooms';
 import { actors } from './schema/actors';
 
 import {
-  type Tx,
   type Caller,
   type Account,
   type AuthorizeRoom,
@@ -90,6 +89,7 @@ import {
   acceptCommand,
   transactionNow,
 } from './room-command-facts';
+import type { Tx } from './tx';
 
 /** Ready and Start require the same evidence for the seat's own lobby. */
 const readRoomSeatContentWaiverStanding = async (
@@ -337,7 +337,7 @@ async function executeOnce(
     direction?.resolutionReleasedAt === null
   )
     throw createRefusal('CONFLICT', 'resolution-not-released');
-  const execute = preparation.execute;
+  const apply = preparation.apply;
   if (state.participants.some((p) => !fencedActors.includes(p.actorId)))
     throw new RoomMoved('Cast changed while acquiring authority');
   if (state.changeVersion !== prepared.changeVersion)
@@ -427,7 +427,7 @@ async function executeOnce(
     )
       throw createRefusal('CONFLICT', 'other-division');
   }
-  const outcome = execute(
+  const outcome = apply(
     state,
     now,
     target,
@@ -622,13 +622,13 @@ async function prepareCommand(tx: Tx, input: CommandInput) {
   )
     throw createAppError('AUTHORIZATION');
   if (replay) return { replay, prepared, row: preparationRow } as const;
-  const execute = await input.prepare(
+  const apply = await input.prepare(
     prepared,
     await transactionNow(tx),
     preparationAccount,
     direction,
   );
-  return { prepared, execute, row: preparationRow } as const;
+  return { prepared, apply, row: preparationRow } as const;
 }
 
 /** A Launch whose prepared cast seats a bot debater. */

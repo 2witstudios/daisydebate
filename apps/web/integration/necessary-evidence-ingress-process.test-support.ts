@@ -1,14 +1,13 @@
+import { sha3Hex } from '@daisy/digest';
 import { existsSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { createHash, randomBytes } from 'node:crypto';
+import { randomBytes } from 'node:crypto';
 import { createDatabase } from '@daisy/db';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { captureRule } from '@daisy/debate-engine';
-import {
-  CAPTURE_STT_LAG_MS,
-  canonicalCaptureEvidenceBody,
-} from '@daisy/protocol';
+import { CAPTURE_STT_LAG_MS } from '@daisy/protocol/capture-timing';
+import { canonicalCaptureEvidenceBody } from '@daisy/protocol/capture-evidence-body';
 import { openLocalEvidenceAuthority } from '../src/features/media-capture/local-evidence-authority';
 import { openLocalEvidenceCustody } from '../src/features/media-capture/local-evidence-custody';
 import { createNecessaryEvidenceIngress } from '../src/features/media-capture/necessary-evidence-ingress';
@@ -114,16 +113,12 @@ if (import.meta.main) {
       JSON.stringify({
         reply,
         restoredDigest:
-          restored?.kind === 'encoded'
-            ? createHash('sha3-256').update(restored.json).digest('hex')
-            : null,
+          restored?.kind === 'encoded' ? sha3Hex(restored.json) : null,
         calls: { reserves, adopts },
         ownedPlaintextCleared: openedOwned
           ? openedOwned.every((byte) => byte === 0)
           : null,
-        retainedDigest: retainedCopy
-          ? createHash('sha3-256').update(retainedCopy).digest('hex')
-          : null,
+        retainedDigest: retainedCopy ? sha3Hex(retainedCopy) : null,
       }),
     );
   } finally {

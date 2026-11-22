@@ -1,7 +1,12 @@
 'use client';
 import '../../lib/zod-jitless';
-import { audienceSnapshotSchema, type AudienceSnapshot } from '@daisy/protocol';
-import { useEffect, useState } from 'react';
+import { useBrowserEffect } from '../edge/browser-sync';
+import { browserFetch } from '../edge/browser-request';
+import {
+  audienceSnapshotSchema,
+  type AudienceSnapshot,
+} from '@daisy/protocol/audience';
+import { useState } from 'react';
 import { answerOfResponse } from '../../features/spectating/poll-pace';
 import { startBrowserPoll } from '../spectating/browser-poll';
 import { usePublishedAudience } from '../spectating/published-state';
@@ -11,8 +16,8 @@ import { newerAudience } from './newer-audience';
  * The audience's activity, and from a fresh render as soon as there is one, so a
  * poster sees their own message at once. A viewer reads what the worker published
  * beside the player. Someone in the live room reads web, signed in, since what they
- * may see is their own (`audienceFor`). Without script the server's render stands. A
- * refusal or a failed read backs off, and the last view stands until one succeeds.
+ * may see is their own (`audienceFor`). A refusal or a failed read backs off,
+ * and the last view stands until one succeeds.
  */
 export function useAudienceSnapshot(
   initial: AudienceSnapshot,
@@ -31,11 +36,11 @@ export function useAudienceSnapshot(
     setSeen(published);
     setSnapshot(newerAudience(snapshot, published));
   }
-  useEffect(() => {
+  useBrowserEffect(() => {
     if (!polling || !liveRoom) return;
     let stopped = false;
     const stop = startBrowserPoll(async () => {
-      const response = await fetch(
+      const response = await browserFetch(
         `/api/rounds/${encodeURIComponent(initial.roundId)}/audience`,
         { credentials: 'same-origin' },
       );

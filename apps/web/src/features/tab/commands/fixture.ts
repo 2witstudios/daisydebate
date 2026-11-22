@@ -19,7 +19,7 @@ import type {
   StageKind,
   tournamentJudgeStatuses,
 } from '@daisy/protocol/lobby';
-import type { RoundStatus } from '@daisy/protocol';
+import type { RoundStatus } from '@daisy/protocol/round';
 import type { ResultCompetitionRecord } from '@daisy/protocol/lobby/result-record';
 import { resultCompetitionRecordSchema } from '@daisy/protocol/lobby/result-record';
 import {

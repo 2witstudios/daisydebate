@@ -1,11 +1,13 @@
 import { createId } from '@paralleldrive/cuid2';
+import { SQL } from 'bun';
 import { requireTestServices } from '@daisy/config';
+import { buildUserInboxTopic } from '@daisy/protocol/topics';
 import {
-  buildUserInboxTopic,
   isPayloadStorableOnTopic,
   outboxPayloadSchema,
-} from '@daisy/protocol';
+} from '@daisy/protocol/realtime-payloads';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { createDatabase } from '../src';
 import {
   sqlStateOf,
   withDatabase,
@@ -57,6 +59,71 @@ const withSessionOwner = (
   });
 
 describe('session revocation control (MSG-2.1-arch1, ADR 0032 §5)', () => {
+  test('revoking without a kept token deletes every session for the user only', async () => {
+    await withSessionOwner(async (fixture, { userId, actorId, id }) => {
+      const other = await session(fixture, await fixture.user());
+      const second = await session(fixture, userId);
+      const removed = await withDatabase(url, (database) =>
+        database.revokeOtherSessions(userId, null),
+      );
+      assert({
+        given: 'two sessions for one account and an unrelated session',
+        should:
+          'remove both of the account’s sessions and publish exactly their controls',
+        actual: [
+          removed,
+          await fixture.count('session', 'id', other),
+          (await controls(fixture, actorId))
+            .map(([, sessionId]) => sessionId)
+            .sort(),
+        ],
+        expected: [2, 1, [id, second].sort()],
+      });
+    });
+  });
+
+  test('a refused revocation emits the safe query failure event', async () => {
+    await withSessionOwner(async (fixture, { userId, id }) => {
+      const client = new SQL(url, { max: 1 });
+      const events: unknown[] = [];
+      const database = createDatabase({
+        url,
+        client,
+        nextActorId: createId,
+        eventSink: (event, fields, message) =>
+          events.push({ event, fields, message }),
+      });
+      try {
+        await client`set role daisy_realtime`;
+        const denied = await database.revokeOtherSessions(userId, null).then(
+          () => 'accepted',
+          (error: Error) => Reflect.get(error.cause ?? error, 'errno'),
+        );
+        assert({
+          given: 'a role unable to revoke a real account’s session',
+          should:
+            'keep the session, propagate the refusal and emit only the operation name',
+          actual: [denied, await fixture.count('session', 'id', id), events],
+          expected: [
+            '42501',
+            1,
+            [
+              {
+                event: 'db.query.failed',
+                fields: { operation: 'revokeOtherSessions' },
+                message: 'Database query failed',
+              },
+            ],
+          ],
+        });
+      } finally {
+        await client`reset role`;
+        await database.close();
+        await client.close();
+      }
+    });
+  });
+
   test('revoke-all announces exactly each deleted session, in the deleting transaction', async () => {
     await withFixture(url, async (fixture) => {
       const userId = await fixture.user();

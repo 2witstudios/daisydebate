@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { entitlementKinds } from '@daisy/protocol';
+import { entitlementKinds } from '@daisy/protocol/entitlements';
 import type {
   AllowanceFacts,
   AllowanceRequest,

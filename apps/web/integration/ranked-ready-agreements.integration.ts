@@ -2,7 +2,7 @@ import { daisyOrganizationId, publicLobbyId } from '@daisy/db/testing';
 import { requireTestServices } from '@daisy/config';
 import { isAppError } from '@daisy/errors';
 import { createId } from '@paralleldrive/cuid2';
-import { isNamedSeat } from '@daisy/protocol';
+import { isNamedSeat } from '@daisy/protocol/round-view';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   agreementWords,

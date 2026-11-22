@@ -1,12 +1,8 @@
 'use client';
 
-import {
-  startTransition,
-  useEffect,
-  useReducer,
-  useState,
-  type Dispatch,
-} from 'react';
+import { useBrowserEffect } from '../../edge/browser-sync';
+import { scheduleTick } from '../../edge/browser-time';
+import { startTransition, useReducer, useState, type Dispatch } from 'react';
 import type { Clock } from '@daisy/clock';
 import {
   useFocusAfterAnswer,
@@ -40,10 +36,9 @@ export type RequestLinkAction = (
 function useNow(clock: Clock, state: SignInState): string {
   const ticking = state.step === 'check-inbox';
   const [now, setNow] = useState(() => (ticking ? state.sentAt : ''));
-  useEffect(() => {
+  useBrowserEffect(() => {
     if (!ticking) return;
-    const timer = setInterval(() => setNow(clock.now()), 1000);
-    return () => clearInterval(timer);
+    return scheduleTick(() => setNow(clock.now()), 1000);
   }, [clock, ticking]);
   return now;
 }
@@ -62,7 +57,7 @@ export type LinkRequest = {
 /**
  * The email-link request every surface shares: the reducer holds the state,
  * the server action sends links, and the first render starts from the
- * action's last answer, so a post made without JavaScript renders the step
+ * action's last answer, so a post made before hydration renders the step
  * it led to. Each answer settles the request in flight, timed by this
  * browser's clock so the resend countdown never depends on the server's,
  * and hands focus to the step it leads to (ISSUE-107).
@@ -83,7 +78,7 @@ export function useLinkRequest(
 
   // The answer a page was rendered with settles nothing: no request is in
   // flight then.
-  useEffect(() => {
+  useBrowserEffect(() => {
     switch (answered.kind) {
       case 'idle':
         return;

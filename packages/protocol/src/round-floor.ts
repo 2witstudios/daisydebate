@@ -7,6 +7,11 @@ import {
   type MessagingCoreBounds,
 } from './messaging/core';
 
+export const roundFloorPolicySchema = z.object({
+  policyKey: z.literal('round.floor'),
+  policyRevision: z.literal(1),
+});
+
 /** Caller-specific Round authority. No judge roster or judge identity is disclosed. */
 export type RoundFloorFact = {
   readonly kind: 'round_floor';

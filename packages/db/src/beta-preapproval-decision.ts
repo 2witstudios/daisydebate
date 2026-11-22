@@ -49,8 +49,7 @@ export function decidePreapprovalChange(input: {
       result: { ...base, outcome: 'removed', mail: 'none' },
     };
   const wantsInvitation =
-    command.operation === 'invite' ||
-    (command.operation === 'add' && command.invite);
+    command.operation === 'invite' || ('invite' in command && command.invite);
   if (wantsInvitation && grant.claimed && !input.claimedAccountInvitable)
     return { kind: 'refused', code: 'CONFLICT' };
   const queueInvitation =

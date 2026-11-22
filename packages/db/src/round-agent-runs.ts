@@ -2,8 +2,9 @@ import { requireFencedParticipants } from './round-command-replay';
 import { currentRoundParticipant } from './round-current-participant';
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
-import { isJudgeSeat, isRoundOver, idSchema } from '@daisy/protocol';
-import type { BoundedTransactionContext } from './transaction-context';
+import { isJudgeSeat } from '@daisy/protocol/seats';
+import { isRoundOver } from '@daisy/protocol/round';
+import { idSchema } from '@daisy/protocol/primitives';
 import { lockAuthorizationActors } from './authorization';
 import { hydrateRoundRows } from './round-hydration';
 import { actors } from './schema/actors';
@@ -13,11 +14,9 @@ import { aiJudgeProfiles } from './schema/ai-judge-profiles';
 import { roundParticipants } from './schema/round-participants';
 import { rounds } from './schema/rounds';
 import { fencedActorIds } from './seat-eligibility';
+import type { Tx } from './tx';
 
-async function lockRoundAgentAccounts(
-  tx: BoundedTransactionContext,
-  roundId: string,
-) {
+async function lockRoundAgentAccounts(tx: Tx, roundId: string) {
   const seats = await tx
     .select({ actorId: actors.id, kind: actors.kind })
     .from(roundParticipants)
@@ -47,7 +46,7 @@ async function lockRoundAgentAccounts(
 
 /** Account fences precede the Round; callers then lock run and job/claim in that order. */
 export async function lockRoundAgentContext(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   roundId: string,
   participantId: string,
 ) {
@@ -79,7 +78,7 @@ export async function lockRoundAgentContext(
 }
 /** Called only within an already fenced Round transaction; no standalone authority bypass. */
 export async function startLockedRoundAgentRun(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   input: {
     readonly id: string;
     readonly participantId: string;
@@ -105,7 +104,7 @@ export async function startLockedRoundAgentRun(
   });
 }
 export async function endLockedRoundAgentRun(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   id: string,
   participantId: string,
 ) {

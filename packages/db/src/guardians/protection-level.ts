@@ -1,3 +1,4 @@
+import { createAppError } from '@daisy/errors';
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';
 import {
@@ -28,5 +29,6 @@ export async function messageRequestsFriendsOnly(
     z.object({ friends_only: z.boolean() }),
     sql`select public.daisy_message_requests_friends_only(${userId}) as friends_only`,
   );
-  return row!.friends_only;
+  if (!row) throw createAppError('INFRASTRUCTURE');
+  return row.friends_only;
 }

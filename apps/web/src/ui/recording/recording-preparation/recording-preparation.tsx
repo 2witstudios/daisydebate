@@ -1,9 +1,10 @@
+import { StatusRegion } from '../../components/status-region/status-region';
+import { assertNever } from '@daisy/protocol/assert-never';
 import {
-  assertNever,
   recordingBuildSteps,
   type RecordingBuildProgress,
   type RecordingPreparation,
-} from '@daisy/protocol';
+} from '@daisy/protocol/recording-processing';
 import { clockTime } from '../recording-player/recording-player-copy';
 
 /** A step in its own units: nothing here is an estimate of the whole. */
@@ -53,12 +54,12 @@ export function RecordingPreparationStatus({
       aria-label="Recording preparation"
       className="flex flex-col gap-1 text-sm"
     >
-      <p role="status">
+      <StatusRegion as="p" role="status">
         {progress
           ? `Step ${recordingBuildSteps.indexOf(progress.step) + 1} of ${recordingBuildSteps.length}. `
           : null}
         {preparationCopy(preparation ?? null)}
-      </p>
+      </StatusRegion>
       {progress && progress.total > 0 ? (
         <progress
           value={progress.done}

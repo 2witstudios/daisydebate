@@ -1,6 +1,6 @@
 import { readRoundIncidentRate } from '../src/round-incident-rate';
 import { requireTestServices } from '@daisy/config';
-import { runtimeCheckpointSchema } from '@daisy/protocol';
+import { runtimeCheckpointSchema } from '@daisy/protocol/round';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { rejectedBy, withFixture } from './constraint-helpers';

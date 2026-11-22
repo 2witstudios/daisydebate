@@ -1,4 +1,5 @@
-import type { RoomView, SeatRef } from '@daisy/protocol';
+import type { RoomView } from '@daisy/protocol/room-contract';
+import type { SeatRef } from '@daisy/protocol/seats';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { roomChatHintOf, roomChatReaderOf } from './room-chat-reader';
 
@@ -30,7 +31,7 @@ test('who reads Room chat without posting, as the Room view shows it', () => {
   const viewers = ['debater', 'judge', 'host', 'visitor'];
   assert({
     given:
-      'an Open Room and a Youth Room (ranked or casual, ADR 0156), each with a debater, the viewer’s own judge seat, another judge the viewer may not name and a seatless host, seen by each and by a seatless visitor',
+      'an Open Room and a Youth Room (ranked or casual, ADR 0162), each with a debater, the viewer’s own judge seat, another judge the viewer may not name and a seatless host, seen by each and by a seatless visitor',
     should:
       'name the judge everywhere and the seatless visitor a spectator in the Youth Room only, never the debater or the host',
     actual: {

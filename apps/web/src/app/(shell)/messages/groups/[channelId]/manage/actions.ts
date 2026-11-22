@@ -1,7 +1,7 @@
 'use server';
 import { headers } from 'next/headers';
 import { revalidatePath } from 'next/cache';
-import { messagingGroupCreationResultSchema } from '@daisy/protocol';
+import { messagingGroupCreationResultSchema } from '@daisy/protocol/messaging/social';
 import { processRoute } from '../../../../../../server/process-app';
 import { inProcessFetch } from '../../../../../../server/in-process-fetch';
 import { moveOn } from '../../../../../../server/form-action';

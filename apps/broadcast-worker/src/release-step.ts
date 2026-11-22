@@ -1,13 +1,15 @@
 import { releasedThrough, segmentDue } from '@daisy/debate-engine';
 import {
   parseHoldPlaylist,
+  type HoldEntry,
+} from '@daisy/protocol/egress-hold-playlist';
+import {
   publicClips,
   settledByHeartbeat,
-  type BroadcastReleasePolicy,
-  type HoldEntry,
   type PublicClip,
   type StageInterval,
-} from '@daisy/protocol';
+} from '@daisy/protocol/public-interval';
+import { type BroadcastReleasePolicy } from '@daisy/protocol/broadcast';
 import {
   mediaPlaylist,
   RENDITIONS,
@@ -265,6 +267,14 @@ export const releaseStep = async (
     releasedThrough(null, entry),
   );
   return recorded
-    ? { kind: 'released', released: window.segments.at(-1)! }
+    ? {
+        kind: 'released',
+        // The window ends at the cursor, so its newest segment is this entry.
+        released: {
+          seq,
+          capturedAtMs: entry.capturedAtMs,
+          durationMs: entry.durationMs,
+        },
+      }
     : { kind: 'fenced' };
 };

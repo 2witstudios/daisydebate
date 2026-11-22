@@ -1,5 +1,9 @@
+import { StatusRegion } from '../components/status-region/status-region';
 import Link from 'next/link';
-import { type RoomListEntry, type RoomListQuery } from '@daisy/protocol';
+import {
+  type RoomListEntry,
+  type RoomListQuery,
+} from '@daisy/protocol/room-contract';
 import { isFiltered, lobbyHref } from '../../features/lobby/discovery-query';
 import type { StandingLobbyChoice } from '@daisy/protocol/lobby/eligibility';
 import { lobbySections, type LobbyViewer } from '../../features/lobby/rows';
@@ -47,13 +51,13 @@ function Empty({ query }: { readonly query: RoomListQuery }) {
     query.q !== '' || query.status !== undefined || isFiltered(query);
   if (!narrowed && query.cursor !== undefined)
     return (
-      <div role="status" className={emptyClass}>
+      <StatusRegion as="div" role="status" className={emptyClass}>
         <p className="text-lg font-strong">No more rooms</p>
-      </div>
+      </StatusRegion>
     );
   if (!narrowed)
     return (
-      <div role="status" className={emptyClass}>
+      <StatusRegion as="div" role="status" className={emptyClass}>
         <p className="text-lg font-strong">No open rooms right now</p>
         <Link
           href={createHref(query.lobbyId)}
@@ -61,10 +65,10 @@ function Empty({ query }: { readonly query: RoomListQuery }) {
         >
           New room
         </Link>
-      </div>
+      </StatusRegion>
     );
   return (
-    <div role="status" className={emptyClass}>
+    <StatusRegion as="div" role="status" className={emptyClass}>
       <p className="text-lg font-strong">No rooms match</p>
       <Link
         href={lobbyHref({
@@ -76,7 +80,7 @@ function Empty({ query }: { readonly query: RoomListQuery }) {
       >
         Clear search and filters
       </Link>
-    </div>
+    </StatusRegion>
   );
 }
 
@@ -140,7 +144,8 @@ export function Lobby({
       {activeRoom ? <YourRoom room={activeRoom} /> : null}
       <LobbyFilters query={query} resultCount={rooms.length} />
       {retry ? (
-        <p
+        <StatusRegion
+          as="p"
           role="status"
           className="flex flex-wrap items-center justify-between gap-3 rounded-md bg-surface-overlay px-4 py-3"
         >
@@ -148,7 +153,7 @@ export function Lobby({
           <Link href={lobbyHref(query, cursor)} className="font-strong">
             Refresh
           </Link>
-        </p>
+        </StatusRegion>
       ) : rooms.length === 0 ? (
         <Empty query={query} />
       ) : (

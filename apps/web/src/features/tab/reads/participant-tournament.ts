@@ -1,6 +1,7 @@
 import { eventFixtureAudiences } from '../event-room-direction';
 import { shownName, showTournamentEntrant } from '../shown-entrant';
-import { isOpenRoomStatus, isRoundRunning } from '@daisy/protocol';
+import { isOpenRoomStatus } from '@daisy/protocol/room-contract';
+import { isRoundRunning } from '@daisy/protocol/round';
 import { eventSettingResolution } from '../operations/event-setting-resolution';
 import { authorize } from '@daisy/auth/authorization';
 import type {
@@ -184,7 +185,7 @@ export async function readParticipantTournament(
         ...row
       } of await schedule()) {
         const addressed =
-          round?.eventId === row.eventId && round?.roundId === row.roundId;
+          round?.eventId === row.eventId && round.roundId === row.roundId;
         if (round && !addressed) continue;
         const releases = facts.openings.filter(
           (opening) =>

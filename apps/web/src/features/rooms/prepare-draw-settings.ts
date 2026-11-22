@@ -1,4 +1,5 @@
-import type { RoomConfig, RoomView } from '@daisy/protocol';
+import type { RoomConfig } from '@daisy/protocol/room';
+import type { RoomView } from '@daisy/protocol/room-contract';
 import { readDuration } from './duration-input';
 
 /** The native field names of the Resolution strike fieldset. */

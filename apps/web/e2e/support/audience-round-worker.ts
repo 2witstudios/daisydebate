@@ -1,12 +1,10 @@
-import { createHash } from 'node:crypto';
+import { sha3Hex } from '@daisy/digest';
 import { createId } from '@paralleldrive/cuid2';
 import { validRules, publicLobbyId } from '@daisy/db/testing';
 import { SQL } from 'bun';
-import {
-  affirmativeSide,
-  emptyRuntimeCheckpointFor,
-  roundJudgeAssignmentReceiptSchema,
-} from '@daisy/protocol';
+import { affirmativeSide } from '@daisy/protocol/seats';
+import { emptyRuntimeCheckpointFor } from '@daisy/protocol/round';
+import { roundJudgeAssignmentReceiptSchema } from '@daisy/protocol/round-judge-assignment';
 import { betaAccessTarget } from './beta-access-target';
 import { seatJudges } from './seat-judges';
 
@@ -51,7 +49,7 @@ try {
         round_id: seatRound!,
         actor_id: seated!.id,
         type: 'change_judge',
-        payload_digest: createHash('sha3-256').update(commandId).digest('hex'),
+        payload_digest: sha3Hex(commandId),
         result: roundJudgeAssignmentReceiptSchema.parse({
           kind: 'judge_assignment',
           commandId,
@@ -130,9 +128,7 @@ try {
       ...(hosting ? { created_by_actor_id: hosting.id } : {}),
       ...(link
         ? {
-            audience_link_hash: createHash('sha3-256')
-              .update(link)
-              .digest('hex'),
+            audience_link_hash: sha3Hex(link),
           }
         : {}),
       room_config_snapshot: {},

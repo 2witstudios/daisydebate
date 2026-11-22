@@ -4,8 +4,8 @@ import { results } from '../schema/results';
 import { certificationResults, certifications } from '../schema/certifications';
 import { releases } from '../schema/releases';
 import { scopeTransaction } from '../tenant-scope';
+import type { Tx } from '../tx';
 import { loadLobbyAuthority } from './lobby-authority';
-import type { TabTransaction } from './tab-transaction';
 
 export type CertifiedSourceAuthority = NonNullable<
   Awaited<ReturnType<typeof loadLobbyAuthority>>
@@ -18,7 +18,7 @@ export type CertifiedSourceAuthority = NonNullable<
  * canonical account and actual organization/tournament fences.
  */
 export async function loadLeagueCertifiedRatingInputs(
-  tx: TabTransaction,
+  tx: Tx,
   input: {
     readonly viewerUserId?: string;
     readonly organizationId: string;

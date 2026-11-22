@@ -1,6 +1,8 @@
 import '../../lib/zod-jitless';
-import { systemClock } from '@daisy/clock';
-import { idSchema } from '@daisy/protocol';
+import { cancelDelay, delay } from '../edge/browser-time';
+import { browserFetch } from '../edge/browser-request';
+import { instantMs, nowMs, systemClock } from '@daisy/clock';
+import { idSchema } from '@daisy/protocol/primitives';
 import type { ChatContext } from '../../features/messaging/context-chat/chat-context';
 import type { ContextChatEffect } from '../../features/messaging/context-chat/chat-effects';
 import type { ContextChatEvent } from '../../features/messaging/context-chat/chat-events';
@@ -40,7 +42,7 @@ export function createContextChatDriver(
   const listeners = new Set<() => void>();
   let state = initialContextChatState;
   let stopped = false;
-  let expiry: ReturnType<typeof setTimeout> | undefined;
+  let expiry: ReturnType<typeof delay> | undefined;
 
   const send = (event: ContextChatEvent) => {
     if (stopped || base === null) return;
@@ -49,12 +51,12 @@ export function createContextChatDriver(
       state = step.state;
       for (const listener of listeners) listener();
     }
-    for (const effect of step.effects) run(effect);
+    for (const effect of step.effects) run(base, effect);
   };
 
-  const discover = async ({ request }: Effect<'discover'>) => {
+  const discover = async (base: string, { request }: Effect<'discover'>) => {
     try {
-      const readDiscovery = () => fetch(base!, { cache: 'no-store' });
+      const readDiscovery = () => browserFetch(base, { cache: 'no-store' });
       const waiting = () =>
         !stopped &&
         state.standing.kind === 'loading' &&
@@ -68,7 +70,7 @@ export function createContextChatDriver(
         response.headers.get('retry-after') === '1' &&
         waiting()
       ) {
-        await new Promise<void>((resolve) => setTimeout(resolve, 1000));
+        await new Promise<void>((resolve) => delay(resolve, 1000));
         if (!waiting()) return;
         response = await readDiscovery();
       }
@@ -89,10 +91,10 @@ export function createContextChatDriver(
     }
   };
 
-  const open = async ({ request }: Effect<'open'>) => {
+  const open = async (base: string, { request }: Effect<'open'>) => {
     try {
-      const response = await fetch(
-        base!,
+      const response = await browserFetch(
+        base,
         json({ version: 1, [context.ownerKey]: ownerId }),
       );
       const metadata = response.ok
@@ -112,12 +114,15 @@ export function createContextChatDriver(
     }
   };
 
-  const read = async (effect: Effect<'read-latest' | 'read-older'>) => {
+  const read = async (
+    base: string,
+    effect: Effect<'read-latest' | 'read-older'>,
+  ) => {
     const { request, channelId } = effect;
     const kind = effect.type === 'read-latest' ? 'latest' : 'older';
     try {
-      const response = await fetch(
-        `${base!}/messages?channelId=${channelId}${
+      const response = await browserFetch(
+        `${base}/messages?channelId=${channelId}${
           effect.type === 'read-older' ? `&before=${effect.before}` : ''
         }`,
         { cache: 'no-store' },
@@ -143,11 +148,11 @@ export function createContextChatDriver(
     }
   };
 
-  const markRead = async (effect: Effect<'mark-read'>) => {
+  const markRead = async (base: string, effect: Effect<'mark-read'>) => {
     const { request, channelId, sequence } = effect;
     try {
-      const response = await fetch(
-        `${base!}/read`,
+      const response = await browserFetch(
+        `${base}/read`,
         json({ version: 1, channelId, cursor: { channelId, sequence } }),
       );
       const marked = response.ok
@@ -164,27 +169,28 @@ export function createContextChatDriver(
   };
 
   const watchExpiry = ({ expiresAt }: Effect<'watch-expiry'>) => {
-    clearTimeout(expiry);
+    cancelDelay(expiry);
     if (expiresAt === null) return;
     const check = () => {
-      const remaining = Date.parse(expiresAt) - Date.parse(systemClock.now());
+      const remaining = instantMs(expiresAt) - nowMs(systemClock);
       if (remaining <= 0) send({ type: 'expiry-reached', expiresAt });
-      else expiry = setTimeout(check, Math.min(remaining, LONGEST_TIMER_MS));
+      else expiry = delay(check, Math.min(remaining, LONGEST_TIMER_MS));
     };
-    expiry = setTimeout(check, 0);
+    expiry = delay(check, 0);
   };
 
-  function run(effect: ContextChatEffect) {
+  /** Runs one effect against the chat's address, which only an addressable owner has. */
+  function run(base: string, effect: ContextChatEffect) {
     switch (effect.type) {
       case 'discover':
-        return void discover(effect);
+        return void discover(base, effect);
       case 'open':
-        return void open(effect);
+        return void open(base, effect);
       case 'read-latest':
       case 'read-older':
-        return void read(effect);
+        return void read(base, effect);
       case 'mark-read':
-        return void markRead(effect);
+        return void markRead(base, effect);
       case 'watch-expiry':
         return watchExpiry(effect);
     }
@@ -203,7 +209,7 @@ export function createContextChatDriver(
     /** Answers still on their way change nothing once the chat has left the page. */
     stop: () => {
       stopped = true;
-      clearTimeout(expiry);
+      cancelDelay(expiry);
     },
   };
 }

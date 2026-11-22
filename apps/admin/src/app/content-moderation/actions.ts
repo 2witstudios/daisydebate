@@ -7,7 +7,7 @@ import {
   recordingLegalRemovalReasons,
   recordingTakedownReasons,
 } from '@daisy/protocol/content-moderation';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { submitModeration } from '../../features/content-moderation/commands';

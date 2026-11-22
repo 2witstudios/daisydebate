@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { sha3Hex } from '@daisy/digest';
 import {
   CLIENT_IP_HEADER,
   FLY_CLIENT_IP_HEADER,
@@ -17,7 +17,7 @@ export const deriveClientIdSubkey = (secret: string): string =>
  * reversed by hashing all 2^32 of them.
  */
 export const clientIdHash = (subkey: string, client: string): string =>
-  createHash('sha3-256').update(`${subkey}\0${client}`).digest('hex');
+  sha3Hex(`${subkey}\0${client}`);
 
 type IngressRequest = {
   readonly socket: { readonly remoteAddress?: string | undefined };

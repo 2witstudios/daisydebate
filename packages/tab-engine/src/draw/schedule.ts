@@ -34,10 +34,14 @@ const roundRobinRound = (
     ...rest.slice(0, rest.length - turn),
   ];
   return Array.from({ length: n / 2 }, (_, i) => {
-    const a = turned[i]!;
-    const b = turned[n - 1 - i]!;
-    if (a === null || b === null)
-      return { kind: 'bye', entry: (a ?? b)! } as const;
+    // The circle's null is the bye.
+    const a = turned[i] ?? null;
+    const b = turned[n - 1 - i] ?? null;
+    if (a === null || b === null) {
+      const entry = a ?? b;
+      if (entry === null) throw new Error('The circle holds one bye at most');
+      return { kind: 'bye', entry } as const;
+    }
     const swap = (i + tabRound) % 2 === 1;
     return {
       kind: 'pairing',

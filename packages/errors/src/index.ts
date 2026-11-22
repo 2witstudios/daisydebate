@@ -1,4 +1,5 @@
-import type { ProtocolError, RefusalReason } from '@daisy/protocol';
+import type { ProtocolError } from '@daisy/protocol/primitives';
+import type { RefusalReason } from '@daisy/protocol/refusal-reason';
 
 /** The code vocabulary is the protocol's; this table only maps each code. */
 export type ErrorCode = ProtocolError['code'];
@@ -56,6 +57,13 @@ export function createRefusal(
   return Object.assign(createAppError(code, message ?? reason, cause), {
     reason,
   });
+}
+/**
+ * Throws a value that was caught earlier and held, exactly as it was caught,
+ * so its identity and code survive. A `throw` of anything else names an Error.
+ */
+export function rethrow(caught: unknown): never {
+  throw caught;
 }
 /** Only factory-minted errors carry a trustworthy public code. */
 export function isAppError(error: unknown): error is AppError {

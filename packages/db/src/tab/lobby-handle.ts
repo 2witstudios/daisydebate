@@ -1,9 +1,9 @@
 import { eq, sql } from 'drizzle-orm';
 import { lobbies } from '../schema/lobbies';
-import type { TabTransaction } from './tab-transaction';
+import type { Tx } from '../tx';
 /** The public address identity only; the named read still authorizes its actual lobby. */
 export const findLobbyByHandle = async (
-  tx: TabTransaction,
+  tx: Tx,
   handle: string,
 ): Promise<string | null> => {
   const [row] = await tx

@@ -1,5 +1,6 @@
 import { createAppError } from '@daisy/errors';
-import { idSchema, type RoundProjection } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
+import { type RoundProjection } from '@daisy/protocol/runtime';
 import { eq } from 'drizzle-orm';
 import type { BoundedTransaction } from './bounded-transaction';
 import { hydrateRoundRows, type RoundHydration } from './round-hydration';

@@ -1,7 +1,7 @@
 import {
   capturePartialReasons,
   type CapturePartialReason,
-} from '@daisy/protocol';
+} from '@daisy/protocol/capture-verdict';
 import { sql } from 'drizzle-orm';
 import {
   check,

@@ -1,3 +1,4 @@
+import { commandDigest } from '@daisy/digest';
 import { bindRoundCommandPrincipal } from '@daisy/auth';
 import {
   createRoundRuntime,
@@ -12,7 +13,7 @@ import {
   roundCommandEnvelopeSchema,
   type RoundCommandEnvelope,
   type RoundCommandPrincipal,
-} from '@daisy/protocol';
+} from '@daisy/protocol/round-command';
 
 /** One shared command operation for session callers and seat-scoped AgentRuns. */
 export function createRoundRuntimeOperations(input: {
@@ -47,9 +48,7 @@ export function createRoundRuntimeOperations(input: {
         roundId,
         principal,
         envelope,
-        payloadDigest: new Bun.CryptoHasher('sha3-256')
-          .update(JSON.stringify(envelope))
-          .digest('hex'),
+        payloadDigest: commandDigest(envelope),
         authorize: (context) => {
           bind(context);
         },

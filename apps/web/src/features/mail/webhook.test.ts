@@ -1,6 +1,6 @@
 import { createHmac } from 'node:crypto';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { systemClock } from '@daisy/clock';
+import { nowMs as clockNowMs, systemClock } from '@daisy/clock';
 import { createResendWebhook } from './webhook';
 
 setupRitewayBun();
@@ -10,7 +10,7 @@ const sign = (id: string, timestamp: string, body: string, key = secret) =>
   `v1,${createHmac('sha256', Buffer.from(key.slice(6), 'base64'))
     .update(`${id}.${timestamp}.${body}`)
     .digest('base64')}`;
-const nowMs = () => Date.parse(systemClock.now());
+const nowMs = () => clockNowMs(systemClock);
 const now = () => Math.floor(nowMs() / 1000);
 const isoAgo = (ms: number) => new Date(nowMs() - ms).toISOString();
 

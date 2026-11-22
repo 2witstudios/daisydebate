@@ -1,7 +1,7 @@
 import type { Clock, IdGenerator } from '@daisy/clock';
 import type { Database } from '@daisy/db';
 import { createAppError, createRefusal } from '@daisy/errors';
-import { spectatorChatPostSchema } from '@daisy/protocol';
+import { spectatorChatPostSchema } from '@daisy/protocol/audience';
 import {
   audienceRoute,
   roundIdOf,

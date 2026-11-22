@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process';
-import { systemClock } from '@daisy/clock';
+import { nowMs as clockNowMs, systemClock } from '@daisy/clock';
 import { promisify } from 'node:util';
 import {
   fillCommand,
@@ -9,7 +9,7 @@ import {
 import { isNodeUp } from '../../scripts/node-kill-drill/measure';
 
 /** The drill's wall clock in milliseconds, to compare with server timestamps. */
-export const nowMs = () => Date.parse(systemClock.now());
+export const nowMs = () => clockNowMs(systemClock);
 
 const COMMAND_LIMIT_MS = 60_000;
 const SERVE_LIMIT_MS = 60_000;

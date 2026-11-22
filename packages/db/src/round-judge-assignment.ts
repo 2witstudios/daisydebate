@@ -4,13 +4,12 @@ import {
   type JudgeRoomMembers,
 } from './room-judge-assignment-write';
 import { createAppError, createRefusal } from '@daisy/errors';
+import { idSchema } from '@daisy/protocol/primitives';
 import {
-  idSchema,
   roundJudgeAssignmentReceiptSchema,
   type RoundJudgeAssignmentReceipt,
-} from '@daisy/protocol';
+} from '@daisy/protocol/round-judge-assignment';
 import { and, eq, sql } from 'drizzle-orm';
-import type { TabTransaction } from './tab/tab-transaction';
 import { readAuthorizationActors } from './authorization';
 import {
   requireAdmittedPrincipal,
@@ -32,6 +31,8 @@ import { roundJudgeSlots } from './schema/round-judge-assignments';
 import { rounds } from './schema/rounds';
 import { rooms } from './schema/rooms';
 import { retireLockedRoundJudge } from './round-judge-retirement';
+import type { Tx } from './tx';
+import { run } from './raw-rows';
 
 type AssignmentContext = {
   readonly round: RoundHydration;
@@ -41,7 +42,7 @@ type AssignmentContext = {
 };
 /** Internal owner port; caller holds command/account/source-parent/Room fences in that order. */
 export async function changeLockedRoundJudge(
-  tx: TabTransaction,
+  tx: Tx,
   input: {
     readonly roundId: string;
     readonly roomId: string;
@@ -170,7 +171,8 @@ export async function changeLockedRoundJudge(
       side: null,
       slot: input.slot,
     });
-  await tx.execute(
+  await run(
+    tx,
     sql`select public.daisy_append_round_judge_assignment(${input.roundId},${input.slot},${input.expectedVersion},${input.expectedAssignmentVersion},${participantId},${input.commandId})`,
   );
   await writeLockedRoomJudge(tx, {

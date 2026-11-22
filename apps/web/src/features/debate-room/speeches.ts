@@ -1,4 +1,4 @@
-import type { SeatRef, SideKey } from '@daisy/protocol';
+import type { SeatRef, SideKey } from '@daisy/protocol/seats';
 
 /**
  * A side's colour in the room, by its place in the format's declared order

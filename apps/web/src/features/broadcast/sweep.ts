@@ -5,11 +5,9 @@ import {
   phasePrivateAt,
 } from '@daisy/debate-engine';
 import type { createDatabase } from '@daisy/db';
-import {
-  broadcastHoldPrefix,
-  holdAttemptPrefix,
-  isRoundOver,
-} from '@daisy/protocol';
+import { broadcastHoldPrefix } from '@daisy/protocol/broadcast-hold';
+import { holdAttemptPrefix } from '@daisy/protocol/recording';
+import { isRoundOver } from '@daisy/protocol/round';
 import { createSweepPass } from '../../lib/sweep-pass';
 import { reconcileFacts } from './reconcile-facts';
 import { releaseOverdue } from './release-lag';

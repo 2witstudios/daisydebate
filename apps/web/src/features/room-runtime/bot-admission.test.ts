@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { sameSeat, type SeatRef } from '@daisy/protocol';
+import { sameSeat, type SeatRef } from '@daisy/protocol/seats';
 import { roomBotAdmission } from './bot-admission';
 import { state, caller } from './operations.test-support';
 setupRitewayBun();

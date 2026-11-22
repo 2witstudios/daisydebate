@@ -73,11 +73,23 @@ step does that work.
   `packages/typescript-config/` and `.prettierrc.json` invalidate every
   turbo cache. Change them only when the slice needs it, and say so in the
   PR.
-- **ADR numbers.** Two open PRs can claim the same number with different
-  filenames and merge without a git conflict. Take numbers from
-  `bun adr:next`, which reads origin/main and every open PR. Announce a
-  number you claim before your PR opens. `bun policy` (in `bun check` and
-  CI) fails a branch whose ADR number an earlier-opened PR already holds.
+- **ADR numbers.** A new architecture decision uses its owning PR number.
+  Open that PR, then run `bun adr:new <pr> <slug> <completed-markdown-file>`.
+  One record holds that PR's related rulings. `bun policy` rejects a new
+  record with another number. Existing ADR and canonical DEC identifiers
+  remain immutable. Records already merged into a feature parent keep their
+  originating PR number when the parent later targets main.
+- **Pending migration order.** Before committing the final candidate, run
+  `bun pr:prepare <pr> --base origin/<destination>`. It restamps only new
+  migration folders after the destination's existing history, in declared
+  snapshot order. SQL and snapshot contents stay unchanged. A divergent
+  schema chain requires drizzle-kit reconciliation; never reparent a
+  snapshot blindly. Commit the prepared changes and requalify that head.
+  `--check` reports required changes without writing them.
+  References are resolved once against both databases' original identities;
+  qualify an ambiguous bare tag with its database migration path. A write
+  failure attempts each proof and folder restoration independently and
+  reports any path whose restoration remains incomplete.
 
 ## Inner loop
 

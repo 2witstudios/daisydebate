@@ -1,4 +1,5 @@
-import { type Person, type RatingDivision } from '@daisy/protocol';
+import { type Person } from '@daisy/protocol/people-list';
+import { type RatingDivision } from '@daisy/protocol/ladder';
 import { styleLabels } from '../../features/ratings/ladder-labels';
 import { markedRating } from '../../features/ratings/provisional-mark';
 import { statusLabels } from '../components/presence-dot/status-labels';
@@ -25,7 +26,7 @@ const ownLadderRating = (member: Person): ShownRating | null =>
 
 /**
  * Their rating as the card's status line shows it, a figure alone: "1478*"
- * (YChallenge). Only for a member of the viewer's own lobby (ADR 0156), and
+ * (YChallenge). Only for a member of the viewer's own lobby (ADR 0162), and
  * only where they have played ranked and it is not hidden from a judge.
  */
 export const ladderLine = (

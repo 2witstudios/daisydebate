@@ -1,5 +1,6 @@
+import { instantMs } from '@daisy/clock';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import type { RoomAssemblyState } from '@daisy/protocol';
+import type { RoomAssemblyState } from '@daisy/protocol/room-contract';
 import { edges } from './room-assembly.test-support';
 import { projectOpening, settleOpening, openingStep } from './round-opening';
 import {
@@ -137,7 +138,7 @@ describe('strikes', () => {
       actual: [
         settled.draw!.manifest.controllers,
         settled.draw!.strikes.map((s) => [s.kind, s.at]),
-        openingStep(settled, Date.parse(edges.now)).step,
+        openingStep(settled, instantMs(edges.now)).step,
       ],
       expected: [
         { affirmative: 'human', negative: 'automatic' },

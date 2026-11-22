@@ -1,4 +1,4 @@
-import { lobbyCommandReceiptSchema } from '@daisy/protocol/lobby/command';
+import { mapTabCommandAnswer } from './command-form-answer';
 import {
   refusedWith,
   formValues,
@@ -10,7 +10,7 @@ import {
 } from '../forms/form-state';
 import { z } from 'zod';
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { lobbySetupCommandEnvelopeSchema } from '@daisy/protocol/lobby/lobby-setup-command';
 import { settingCommandEnvelopeSchema } from '@daisy/protocol/lobby/setting-command';
 import { singleFormField } from '../forms/form-state';
@@ -106,25 +106,23 @@ export const ballotAuthoringRefused = (
 export const ballotAuthoringUnacknowledged = (
   form: FormData,
 ): BallotAuthoringState => unacknowledged(form);
-const answerSchema = z.discriminatedUnion('kind', [
-  z.object({ kind: z.literal('accepted'), receipt: lobbyCommandReceiptSchema }),
-  z.object({ kind: z.literal('refused'), refusal: z.string() }),
-]);
 export const ballotAuthoringAnswer = (
   form: FormData,
   body: unknown,
 ): { readonly kind: 'accepted' } | BallotAuthoringState => {
-  const parsed = answerSchema.safeParse(body);
-  if (!parsed.success) return ballotAuthoringUnacknowledged(form);
-  if (parsed.data.kind === 'accepted') return { kind: 'accepted' };
-  return ballotAuthoringRefused(
-    form,
-    parsed.data.refusal === 'version-conflict'
-      ? 'This event changed. Reload before trying again.'
-      : parsed.data.refusal === 'entries-exist'
-        ? 'Entries already use this event. Its ballot cannot change.'
-        : parsed.data.refusal === 'template-pinned'
-          ? 'This event follows a template. Its ballot is pinned by that template.'
-          : 'This change could not be made. Check the ballot and reload the event.',
-  );
+  return mapTabCommandAnswer(body, {
+    accepted: () => ({ kind: 'accepted' as const }),
+    unacknowledged: () => ballotAuthoringUnacknowledged(form),
+    refused: (reason) =>
+      ballotAuthoringRefused(
+        form,
+        reason === 'version-conflict'
+          ? 'This event changed. Reload before trying again.'
+          : reason === 'entries-exist'
+            ? 'Entries already use this event. Its ballot cannot change.'
+            : reason === 'template-pinned'
+              ? 'This event follows a template. Its ballot is pinned by that template.'
+              : 'This change could not be made. Check the ballot and reload the event.',
+      ),
+  });
 };

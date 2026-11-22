@@ -1,6 +1,9 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import type { RoomAssemblyState, RoomCommand } from '@daisy/protocol';
-import { affirmativeSide, fourTeams, sideSeat } from '@daisy/protocol';
+import type {
+  RoomAssemblyState,
+  RoomCommand,
+} from '@daisy/protocol/room-contract';
+import { affirmativeSide, fourTeams, sideSeat } from '@daisy/protocol/seats';
 import { executeRoomCommand } from './room-assembly';
 import { consent, edges, state } from './room-assembly.test-support';
 import { resolveSeats } from './room-seats';

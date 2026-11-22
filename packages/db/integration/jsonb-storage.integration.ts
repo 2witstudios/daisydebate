@@ -12,7 +12,7 @@ import { ballots } from '../src/schema/ballots';
 import { roundCommands } from '../src/schema/round-commands';
 import { at, roundAuthoring, digest, withFixture } from './constraint-helpers';
 import { requireTestServices } from '@daisy/config';
-import { emptyRuntimeCheckpointFor } from '@daisy/protocol';
+import { emptyRuntimeCheckpointFor } from '@daisy/protocol/round';
 import { validRules } from './round-fixtures';
 
 setupRitewayBun();

@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { spectatorClockAt } from '../src/features/spectating/spectator-clock';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
@@ -6,11 +7,8 @@ import {
   oneOnOneDefinition,
   oneOnOneSettings,
 } from '@daisy/db/reference-formats';
-import {
-  CONTENT_MODERATION_DELIVERY_BOUND_MS,
-  isJudgeSeat,
-  isModeratorSeat,
-} from '@daisy/protocol';
+import { CONTENT_MODERATION_DELIVERY_BOUND_MS } from '@daisy/protocol/content-moderation';
+import { isJudgeSeat, isModeratorSeat } from '@daisy/protocol/seats';
 import { plannedRecording } from '@daisy/debate-engine';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { audienceLinkHash } from '../src/features/audience-link/audience-link';
@@ -39,7 +37,7 @@ type RunModerationCommand = Parameters<
 
 const AUDIT_HEAD = 'b'.repeat(64);
 const at = '2026-11-02T10:00:00.000Z';
-const nowMs = Date.parse(at);
+const nowMs = instantMs(at);
 
 /** A real launched Round with a real Recording, ready, through the capture port. */
 const withReadyRecording = (

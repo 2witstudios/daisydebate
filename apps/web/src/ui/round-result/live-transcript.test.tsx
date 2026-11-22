@@ -1,7 +1,7 @@
 import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import type { LiveTranscriptRead } from '@daisy/protocol';
+import type { LiveTranscriptRead } from '@daisy/protocol/round-transcript';
 import { completed } from './result.test-support';
 import {
   liveTranscriptSections,

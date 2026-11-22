@@ -1,14 +1,13 @@
 import { createAppError } from '@daisy/errors';
-import { idSchema, messagingTypingSchemas } from '@daisy/protocol';
-import {
-  loadAuthorizationAccount,
-  type AuthorizationTransaction,
-} from '../authorization';
+import { idSchema } from '@daisy/protocol/primitives';
+import { messagingTypingSchemas } from '@daisy/protocol/messaging/typing';
+import { loadAuthorizationAccount } from '../authorization';
 import type { PrivacySubject } from './contracts';
+import type { Tx } from '../tx';
 
 /** External I/O runs outside the PostgreSQL adopter transaction, never in place of its commit. */
 export function createMessagingTypingPrivacyPort(
-  database: AuthorizationTransaction,
+  database: Tx,
   producer: {
     /** Complete own-actor snapshot; no membership filter and no Redis key in output. */
     readonly exportSubject: (actorId: string) => Promise<unknown>;

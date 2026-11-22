@@ -1,15 +1,12 @@
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
-import {
-  readAuthorizationActors,
-  type AuthorizationTransaction,
-} from '../authorization';
+import { idSchema } from '@daisy/protocol/primitives';
+import { readAuthorizationActors } from '../authorization';
 import { actorIdsOf } from './authority-frame';
 import { readMessagingChannelFacts, type MessagingChannelFact } from './social';
-
-type Tx = AuthorizationTransaction;
+import type { Tx } from '../tx';
+import { postgresInt8, query } from '../raw-rows';
 
 const invitationRow = z.object({
   channelId: idSchema,
@@ -28,13 +25,23 @@ export async function discoverInboxFacts(
 ) {
   const invitations = channelIds.length
     ? (
-        await tx.execute(sql`
+        await query(
+          tx,
+          z.object({
+            channelId: z.string(),
+            invitedByActorId: z.string(),
+            inviteeActorId: z.string(),
+            generation: postgresInt8,
+            state: z.string(),
+          }),
+          sql`
           select channel_id as "channelId", invited_by_actor_id as "invitedByActorId",
             invitee_actor_id as "inviteeActorId", generation, state
           from public.messaging_group_invitations
           where invitee_actor_id = ${actorId}
             and channel_id in (select jsonb_array_elements_text(${JSON.stringify(channelIds)}::text::jsonb))
-          order by channel_id`)
+          order by channel_id`,
+        )
       ).map((row) => {
         const parsed = invitationRow.safeParse(row);
         if (!parsed.success) throw createAppError('INFRASTRUCTURE');
@@ -127,28 +134,30 @@ export async function fenceInbox(
     maxActors: 65535,
   });
   const pairs = union.pairs.length
-    ? (
-        await tx.execute(sql`
+    ? await query(
+        tx,
+        pairRow,
+        sql`
           select p.low_actor_id as "lowActorId", p.high_actor_id as "highActorId",
             (p.low_blocks_high or p.high_blocks_low) as blocked, p.revision
           from public.contact_pairs p
           join jsonb_to_recordset(${JSON.stringify(union.pairs)}::text::jsonb) as w(low text, high text)
             on p.low_actor_id = w.low and p.high_actor_id = w.high
           order by p.low_actor_id, p.high_actor_id
-          for share of p`)
-      ).map((row) => {
-        const parsed = pairRow.safeParse(row);
-        if (!parsed.success) throw createAppError('INFRASTRUCTURE');
-        return parsed.data;
-      })
+          for share of p`,
+      )
     : [];
   // Volatile calls under ORDER BY run in sorted output order.
   const fenced = union.channels.length
-    ? await tx.execute(sql`
+    ? await query(
+        tx,
+        z.object({ channelId: z.string(), locked: z.boolean() }),
+        sql`
         select w.id as "channelId",
           public.daisy_messaging_channel_read_fence(w.id, w.low, w.high) as locked
         from jsonb_to_recordset(${JSON.stringify(union.channels)}::text::jsonb) as w(id text, low text, high text)
-        order by w.id`)
+        order by w.id`,
+      )
     : [];
   return {
     accounts: new Map(

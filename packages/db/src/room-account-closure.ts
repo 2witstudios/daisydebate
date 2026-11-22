@@ -1,10 +1,11 @@
 import { and, eq, inArray } from 'drizzle-orm';
-import type { RoomAssemblyState } from '@daisy/protocol';
+import type { RoomAssemblyState } from '@daisy/protocol/room-contract';
 import type { PrivacyAdopter } from './privacy/contracts';
 import { rooms, roomParticipants } from './schema/rooms';
-import { roomFacts, type Tx } from './room-command-facts';
+import { roomFacts } from './room-command-facts';
 import { persistRoomOutsideCommands } from './room-mutation-persistence';
 import { roomIsOpen } from './room-open';
+import type { Tx } from './tx';
 
 /** The engine's pure Room transitions, injected by the caller. */
 export type RoomClosureTransitions = {
@@ -75,14 +76,14 @@ export const createRoomAccountClosureAdopter = (
     id: 'room-closure',
     phase: 'before-auth',
     erase: async (tx, subject, { now }) => {
-      const roomTx = tx as unknown as Tx;
+      const roomTx = tx;
       await closeHosted(roomTx, subject.actorId, now);
       await freeSeats(roomTx, subject.actorId, now);
     },
     // The resolution lists the member wrote for Rooms they host: their own
     // text, exported to them though erasure keeps it on the record.
     export: async (tx, subject) => {
-      const hosted = await (tx as unknown as Tx)
+      const hosted = await tx
         .select({ id: rooms.id, config: rooms.config })
         .from(rooms)
         .where(eq(rooms.hostActorId, subject.actorId));

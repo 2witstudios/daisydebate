@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import { readRealtimeTransportConfig } from '@daisy/config';
-import { ENVELOPE_VERSION, PROTOCOL_VERSION } from '@daisy/protocol';
+import { ENVELOPE_VERSION, PROTOCOL_VERSION } from '@daisy/protocol/realtime';
 
 /** Actual issued tickets and native sockets; only fixed close codes leave the page. */
 /**

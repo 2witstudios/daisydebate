@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { z } from 'zod';
 import { idSchema } from './primitives';
 import { advanceCleanupScan, nextTurn } from './billing-cleanup-scans';
@@ -15,7 +16,7 @@ import {
   type CleanupState,
 } from './billing-cleanup';
 const idle = { kind: 'idle' } as const;
-const at = Date.parse;
+const at = instantMs;
 type Active = Exclude<CleanupState, { kind: 'acknowledged' }>;
 export type CleanupTransition =
   | {
@@ -72,25 +73,28 @@ function failure(value: Active, retryAt: string, now: string) {
     at(retryAt) > at(now) + 3_600_000
   )
     return idle;
+  if (value.kind !== 'scanning')
+    return result('failure', { ...value, claim: null, retryAt });
   const work = cleanupWork(value);
   const invoiceDebt =
-    value.kind === 'scanning'
-      ? work?.kind === 'invoice-identity'
+    work?.kind === 'invoice-identity'
+      ? advanceInvoiceIdentityDebt(value.invoiceDebt, {
+          kind: 'identity-failed',
+          id: work.invoiceId,
+        })
+      : value.turn === 'observations'
         ? advanceInvoiceIdentityDebt(value.invoiceDebt, {
-            kind: 'identity-failed',
-            id: work.invoiceId,
-          })!
-        : value.turn === 'observations'
-          ? advanceInvoiceIdentityDebt(value.invoiceDebt, {
-              kind: 'observation-step',
-            })!
-          : value.invoiceDebt
-      : { kind: 'none' as const };
+            kind: 'observation-step',
+          })
+        : value.invoiceDebt;
+  // A debt the step refuses, or a scan with no lane left, is no state.
+  if (invoiceDebt === null) return idle;
+  const turn = nextTurn(value.turn, value.scans, invoiceDebt);
+  if (turn === null) return idle;
   return result('failure', {
     ...value,
-    ...(value.kind === 'scanning'
-      ? { invoiceDebt, turn: nextTurn(value.turn, value.scans, invoiceDebt)! }
-      : {}),
+    invoiceDebt,
+    turn,
     claim: null,
     retryAt,
   });

@@ -1,7 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { attendanceMemberGates } from './member-gates.test-support';
 import { createAttendanceHandler } from './handler';
-import { createAppError } from '@daisy/errors';
 setupRitewayBun();
 const actorId = 'a'.repeat(24),
   roundId = 'b'.repeat(24),
@@ -10,14 +9,12 @@ const actorId = 'a'.repeat(24),
   origin = 'http://localhost:13140';
 test('attendance HTTP rejects body authority and foreign ingress before its durable operation', async () => {
   let writes = 0;
-  let unavailable = false;
   const handler = createAttendanceHandler({
     ...attendanceMemberGates(origin, () => actorId),
     limiter: () => ({
       consume: async () => ({ allowed: true, retryAfterSeconds: 0 }),
     }),
     checkIn: async () => {
-      if (unavailable) throw createAppError('INFRASTRUCTURE');
       writes++;
       return {
         version: 1,
@@ -74,41 +71,5 @@ test('attendance HTTP rejects body authority and foreign ingress before its dura
       receivedAt: (await response.json()).receivedAt,
     },
     expected: { status: 200, receivedAt: '2026-10-22T00:00:00.000001Z' },
-  });
-  const native = (body: string) =>
-    handler(
-      new Request(`${origin}/api/rounds/${roundId}/check-in`, {
-        method: 'POST',
-        headers: {
-          origin,
-          'content-type': 'application/x-www-form-urlencoded',
-        },
-        body,
-      }),
-      roundId,
-    );
-  const encoded = new URLSearchParams({
-    version: '1',
-    commandId,
-    segmentId,
-  }).toString();
-  const recorded = await native(encoded);
-  const refused = await native(`${encoded}&commandId=${commandId}`);
-  unavailable = true;
-  const pending = await native(encoded);
-  assert({
-    given:
-      'explicit native POST, duplicate field and uncertain durable operation',
-    should:
-      'show truthful recorded/refused/pending feedback with a next action',
-    actual: [
-      recorded.status,
-      (await recorded.text()).includes('Attendance recorded'),
-      refused.status,
-      pending.status,
-      (await pending.text()).includes('Confirmation is pending'),
-      writes,
-    ],
-    expected: [200, true, 400, 503, true, 2],
   });
 });

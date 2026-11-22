@@ -1,5 +1,5 @@
 import type { SQL } from 'bun';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { createId } from '@paralleldrive/cuid2';
 
 /** Inject an outbox failure only for this runner-owned Room, then release it. */

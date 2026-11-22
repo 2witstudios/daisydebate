@@ -1,25 +1,23 @@
+import { sha3Hex } from '@daisy/digest';
+import { instantMs } from '@daisy/clock';
 import { and, eq } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import {
   canonicalCaptureEvidenceBody,
-  captureEvidenceSpeakerSchema,
   type CaptureEvidenceBody,
-} from '@daisy/protocol';
+} from '@daisy/protocol/capture-evidence-body';
+import { captureEvidenceSpeakerSchema } from '@daisy/protocol/capture-evidence-speaker';
 import { originalEvidenceBinding } from './necessary-evidence-binding';
 import { lockOriginalNecessaryEvidence } from './necessary-evidence-subjects';
 import { requireRoundEvidenceOpen } from './necessary-evidence-rounds';
 import { sampleRoundExecutionTime } from './round-execution-time';
-import type { CaptureTx } from './media-capture-context';
 import { rounds } from './schema/rounds';
 import { roundSegments } from './schema/round-segments';
 import { roundSpeakingIntervals } from './schema/round-speaking-intervals';
 import { requireEvidenceFrontierOpen } from './necessary-evidence-frontier';
+import type { Tx } from './tx';
 /** Original authoritative history is read-only; successor capture rights never authorize these bytes. */
-async function originalHistory(
-  tx: CaptureTx,
-  body: CaptureEvidenceBody,
-  now: Date,
-) {
+async function originalHistory(tx: Tx, body: CaptureEvidenceBody, now: Date) {
   const [history] = await tx
     .select({
       start: roundSegments.startedAt,
@@ -48,28 +46,29 @@ async function originalHistory(
   if (
     !history ||
     history.start.getTime() !== body.segmentStartedAtMs ||
-    Date.parse(body.historyReadAt) > now.getTime() ||
+    instantMs(body.historyReadAt) > now.getTime() ||
     body.historyVersion < history.startedVersion ||
     body.historyVersion > history.currentVersion ||
-    Date.parse(body.before) < history.grantStart.getTime() ||
-    (history.grantEnd && Date.parse(body.after) >= history.grantEnd.getTime())
+    instantMs(body.before) < history.grantStart.getTime() ||
+    (history.grantEnd && instantMs(body.after) >= history.grantEnd.getTime())
   )
     throw createAppError('CONFLICT', 'Original evidence history is unproven');
 }
 /** Read-only original body authority after account→Round→intent fences; never a successor capture grant. */
-export async function lockOriginalEvidenceBody(tx: CaptureTx, raw: unknown) {
+export async function lockOriginalEvidenceBody(tx: Tx, raw: unknown) {
   const encoded = canonicalCaptureEvidenceBody(raw);
   if (encoded.kind !== 'encoded') throw createAppError('VALIDATION');
   const { body } = encoded;
-  const bodyDigest = new Bun.CryptoHasher('sha3-256')
-    .update(encoded.json)
-    .digest('hex');
+  const bodyDigest = sha3Hex(encoded.json);
   const current = await lockOriginalNecessaryEvidence(tx, {
     roundId: body.roundId,
     evidenceId: body.evidenceId,
   });
   await requireRoundEvidenceOpen(tx, body.roundId);
   const row = current.row;
+  const { authorityId, originalSubjectActorIds } = row;
+  if (!authorityId || !originalSubjectActorIds)
+    throw createAppError('CONFLICT', 'Original evidence binding is incomplete');
   const binding = originalEvidenceBinding(
     {
       roundId: body.roundId,
@@ -84,11 +83,11 @@ export async function lockOriginalEvidenceBody(tx: CaptureTx, raw: unknown) {
       before: body.before,
       after: body.after,
       evidenceId: body.evidenceId,
-      authorityId: row.authorityId!,
+      authorityId,
       bodyDigest,
       reservedBytes: encoded.byteLength,
     },
-    row.originalSubjectActorIds!,
+    originalSubjectActorIds,
     captureEvidenceSpeakerSchema.parse(row.originalSpeaker),
   );
   if (
@@ -105,5 +104,12 @@ export async function lockOriginalEvidenceBody(tx: CaptureTx, raw: unknown) {
   let admittedAt = new Date(await sampleRoundExecutionTime(tx));
   await originalHistory(tx, body, admittedAt);
   admittedAt = new Date(await sampleRoundExecutionTime(tx));
-  return { encoded, body, bodyDigest, binding, row, admittedAt };
+  return {
+    encoded,
+    body,
+    bodyDigest,
+    binding,
+    row: { ...row, authorityId, originalSubjectActorIds },
+    admittedAt,
+  };
 }

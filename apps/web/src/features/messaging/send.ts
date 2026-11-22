@@ -3,7 +3,7 @@ import type { Clock, IdGenerator } from '@daisy/clock';
 import {
   createMessagingCoreSchemas,
   type MessagingCoreBounds,
-} from '@daisy/protocol';
+} from '@daisy/protocol/messaging/core';
 import { parseValidated } from '../../server/http';
 import { planMessageSend } from './send-plan';
 

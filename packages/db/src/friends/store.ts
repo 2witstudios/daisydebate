@@ -1,4 +1,3 @@
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import {
   withContactPairs,
   type ContactAuthorizationFence,
@@ -7,6 +6,7 @@ import type { ContactReactions } from '../contacts/reactions';
 import type { FriendStore } from './contracts';
 import { scopeTransaction } from '../tenant-scope';
 import { friendshipFrame } from './friendship-frame';
+import type { TxSource } from '../tx';
 
 /** Friendships over the shared Contacts fence (ADR 0072). */
 export function createFriendStore({
@@ -14,7 +14,7 @@ export function createFriendStore({
   authorize,
   reactions,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
   readonly authorize: ContactAuthorizationFence;
   readonly reactions: ContactReactions;
 }): FriendStore {

@@ -53,7 +53,9 @@ export const enterCameraTurn = async (failFirstWarm: boolean) => {
         if (input?.audio) {
           microphones.push(input.audio);
           if (failFirstWarm && microphones.length === 1)
-            throw { name: 'NotFoundError' };
+            throw Object.assign(new Error('no microphone'), {
+              name: 'NotFoundError',
+            });
         }
         return stub.sdk.capture(input);
       },

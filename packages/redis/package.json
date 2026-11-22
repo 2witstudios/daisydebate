@@ -17,6 +17,7 @@
     "@daisy/protocol": "workspace:*"
   },
   "devDependencies": {
+    "@daisy/digest": "workspace:*",
     "@daisy/config": "workspace:*",
     "@paralleldrive/cuid2": "3.3.0",
     "riteway": "9.3.0"

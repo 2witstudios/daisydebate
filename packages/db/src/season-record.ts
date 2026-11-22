@@ -1,5 +1,5 @@
 import { desc, eq } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
+import type { Tx } from './tx';
 import { seasons, type seasonStatuses } from './schema/seasons';
 
 /** A season as the standings reads return it. */
@@ -25,7 +25,7 @@ const toSeasonRecord = (row: typeof seasons.$inferSelect): SeasonRecord => ({
 
 /** Seasons for the requested lobby, newest first. The operator may list all. */
 export const listSeasonRecords = async (
-  database: Pick<BunSQLDatabase, 'select'>,
+  database: Pick<Tx, 'select'>,
   lobbyId?: string,
 ): Promise<readonly SeasonRecord[]> =>
   (

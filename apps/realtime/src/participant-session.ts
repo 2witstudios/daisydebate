@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { participantAccess } from '@daisy/auth/authorization';
 
 /**
@@ -15,6 +16,6 @@ export function liveParticipantSession(
   return (
     session !== null &&
     participantAccess(session.account) &&
-    Date.parse(session.expiresAt) > Date.parse(now)
+    instantMs(session.expiresAt) > instantMs(now)
   );
 }

@@ -1,9 +1,11 @@
 import type { TabStore, HostRosterFacts } from '@daisy/db/tab';
+import { createAppError } from '@daisy/errors';
 import type {
   AuthorizationInput,
   AuthorizationDecision,
 } from '@daisy/auth/authorization';
-import { isRoundOver, isRoundRunning, idSchema } from '@daisy/protocol';
+import { isRoundOver, isRoundRunning } from '@daisy/protocol/round';
+import { idSchema } from '@daisy/protocol/primitives';
 import {
   hostRosterViewSchema,
   type HostRosterView,
@@ -57,6 +59,16 @@ function project(
   }
   const schoolName = (id: string) =>
     f.schools.find((s) => s.id === id)?.name ?? 'School';
+  const personName = (actorId: string) => {
+    const person = f.people.find((p) => p.actorId === actorId);
+    if (!person) throw createAppError('INVARIANT', 'Roster judge is missing');
+    return person.name;
+  };
+  const entryName = (entryId: string) => {
+    const entry = f.entries.find((e) => e.id === entryId);
+    if (!entry) throw createAppError('INVARIANT', 'Struck entry is missing');
+    return entry.name;
+  };
   const slots = [...f.slots].sort(
     (a, b) =>
       a.startsAt.getTime() - b.startsAt.getTime() || a.id.localeCompare(b.id),
@@ -149,6 +161,12 @@ function project(
       },
       groups: [...grouped.values()].map((rows) => {
         const first = rows[0]!;
+        const schoolId =
+          first.responsibleKind === 'school'
+            ? first.schoolOrganizationId
+            : null;
+        if (first.responsibleKind === 'school' && schoolId === null)
+          throw createAppError('INVARIANT', 'A school entry names no school');
         const makerIds = [
           ...new Set(
             rows.flatMap((e) =>
@@ -158,11 +176,11 @@ function project(
         ];
         return {
           responsible:
-            first.responsibleKind === 'school'
+            schoolId !== null
               ? {
                   kind: 'school',
-                  organizationId: first.schoolOrganizationId!,
-                  name: schoolName(first.schoolOrganizationId!),
+                  organizationId: schoolId,
+                  name: schoolName(schoolId),
                 }
               : first.responsibleKind === 'guardian'
                 ? { kind: 'guardian', name: 'Guardian-managed entries' }
@@ -232,7 +250,7 @@ function project(
             .filter((j) => j.schoolOrganizationId === schoolId)
             .map((j) => ({
               id: j.id,
-              name: f.people.find((p) => p.actorId === j.actorId)!.name,
+              name: personName(j.actorId),
               slots: slots.map((s) => judgeSlot(j, s.id)),
               clearedFor: f.clearances.some((c) => c.tournamentJudgeId === j.id)
                 ? f.clearances
@@ -248,7 +266,7 @@ function project(
                 .filter((s) => s.tournamentJudgeId === j.id)
                 .map((s) => ({
                   source: s.source,
-                  entryName: f.entries.find((e) => e.id === s.entryId)!.name,
+                  entryName: entryName(s.entryId),
                 })),
               declaredConflict: null,
             })),

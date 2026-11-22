@@ -20,7 +20,7 @@ const render = (...args: Parameters<typeof sampleRound>) =>
   renderToString(h(DebateRoom, { round: sampleRound(...args) }));
 
 describe('DebateRoom controls', () => {
-  test('controls with no server command (DEC-178)', () => {
+  test('controls with no server command', () => {
     const disabled = (html: string, label: string) =>
       new RegExp(`<button[^>]*disabled=""[^>]*>${label}<`).test(html);
     const prep = render('prep', 'casual');

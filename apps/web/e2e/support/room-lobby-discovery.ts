@@ -1,6 +1,6 @@
 import type { Browser } from '@playwright/test';
 import { createId } from '@paralleldrive/cuid2';
-import { roomViewSchema } from '@daisy/protocol';
+import { roomViewSchema } from '@daisy/protocol/room-read';
 import { expect, openPage } from './fixtures';
 import { origin } from './accounts';
 import { launchCustomSelection } from './room-launch-custom';
@@ -10,7 +10,6 @@ import { closeSettledLaunchContexts } from './room-launch-settled';
 export async function proveLobbyDiscovery(browser: Browser) {
   // Three hosts: one user holds one active Room (ADR 0070).
   const accounts = await createRoomLaunchAccounts(browser, 3);
-  let native: Awaited<ReturnType<typeof browser.newContext>> | undefined;
   try {
     const context = accounts.members[0]!.context;
     const token = `Discovery ${createId().slice(0, 8)}`;
@@ -32,13 +31,7 @@ export async function proveLobbyDiscovery(browser: Browser) {
       expect(response.status()).toBe(201);
       views.push(roomViewSchema.parse((await response.json()).view));
     }
-    native = await browser.newContext({
-      baseURL: origin,
-      ignoreHTTPSErrors: true,
-      javaScriptEnabled: false,
-      storageState: await context.storageState(),
-    });
-    const page = await openPage(native, 'native Lobby paging');
+    const page = await openPage(context, 'Lobby paging');
     await page.goto(
       `/lobby?${new URLSearchParams({ q: `  ${token}  `, pageSize: '1', utm_source: 'native-proof', next: '/lobby' })}`,
     );
@@ -78,8 +71,8 @@ export async function proveLobbyDiscovery(browser: Browser) {
     await expect(listed(firstTitle)).toBeVisible();
     await page.getByLabel('Search rooms').fill(`  ${views[2]!.title}  `);
     await page.getByRole('button', { name: 'Apply', exact: true }).click();
-    expect(new URL(page.url()).searchParams.has('cursor')).toBe(false);
     await expect(listed(views[2]!.title)).toBeVisible();
+    expect(new URL(page.url()).searchParams.has('cursor')).toBe(false);
     await expect(
       page.getByRole('link', { name: 'Next page', exact: true }),
     ).toHaveCount(0);
@@ -97,11 +90,10 @@ export async function proveLobbyDiscovery(browser: Browser) {
       'utm_source=native-proof',
       'next=/lobby',
     ]) {
-      const response = await native.request.get(`/api/rooms?${query}`);
+      const response = await context.request.get(`/api/rooms?${query}`);
       expect(response.status()).toBe(400);
     }
   } finally {
-    await native?.close();
     await closeSettledLaunchContexts(accounts);
   }
 }

@@ -1,4 +1,4 @@
-import type { RoomCastChoice } from '@daisy/protocol';
+import type { RoomCastChoice } from '@daisy/protocol/room-contract';
 
 /** A bot debater as the cast read returns it, with a stable short label. */
 export const debater = (

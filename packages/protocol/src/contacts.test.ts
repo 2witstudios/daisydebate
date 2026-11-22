@@ -3,7 +3,7 @@ import {
   contactBlockResultSchema,
   contactBlockSchema,
   contactBlockUsernameSchema,
-} from './index';
+} from './contacts';
 
 setupRitewayBun();
 const actorId = 'a'.repeat(24);

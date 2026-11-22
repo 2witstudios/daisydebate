@@ -1,4 +1,5 @@
-import type { FrameClockEvidence } from '@daisy/protocol';
+import { instantMs } from '@daisy/clock';
+import type { FrameClockEvidence } from '@daisy/protocol/frame-clock-evidence';
 import { createTrackClocks } from '@daisy/media/observation';
 import type { createAudioSubscription } from '@daisy/media/subscription';
 import type { cutCaptureClips } from './capture-clips';
@@ -131,7 +132,7 @@ export function createCaptureStaging(input: {
     /** A fresher history: what waited for it is admitted, and the rest let go. */
     refresh(calibration: Snapshot['calibration']) {
       clocks.refresh(calibration);
-      const serverNow = Date.parse(input.current().state.serverNow);
+      const serverNow = instantMs(input.current().state.serverNow);
       const stillWaiting: Waiting[] = [];
       for (const frame of waiting) {
         const admitted = admit(frame);

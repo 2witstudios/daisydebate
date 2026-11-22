@@ -1,11 +1,7 @@
 import { execFile } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import {
-  affirmativeSide,
-  negativeSide,
-  roundMediaStateSchema,
-  sideSeat,
-} from '@daisy/protocol';
+import { affirmativeSide, negativeSide, sideSeat } from '@daisy/protocol/seats';
+import { roundMediaStateSchema } from '@daisy/protocol/round-media';
 import { test, expect, openPage } from './support/fixtures';
 import { createRoomLaunchAccounts } from './support/room-launch-accounts';
 import { createLaunchContexts } from './support/room-launch-contexts';

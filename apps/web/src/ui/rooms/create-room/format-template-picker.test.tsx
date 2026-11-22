@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { roomCreateSchema } from '@daisy/protocol';
+import { roomCreateSchema } from '@daisy/protocol/room-contract';
 import { unequalTemplate } from '../../../features/rooms/assembly.test-support';
 import { FormatTemplatePicker } from './format-template-picker';
 
@@ -125,7 +125,7 @@ test('the changing selected preview is hidden before hydration', () => {
     <FormatTemplatePicker choices={[unequalTemplate]} />,
   );
   assert({
-    given: 'a native form that can change format without JavaScript',
+    given: 'a native form that can change format before hydration',
     should:
       'avoid showing an initial preview that cannot follow native selection changes',
     actual: html.includes(

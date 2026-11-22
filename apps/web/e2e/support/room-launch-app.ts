@@ -34,6 +34,8 @@ const control = await createLaunchControl({
   actions: {
     'refuse-round-reads': async () => reads.round(true),
     'allow-round-reads': async () => reads.round(false),
+    'refuse-challenge-reads': async () => reads.challenges(true),
+    'allow-challenge-reads': async () => reads.challenges(false),
     'refuse-identity-reads': async () => reads.identity(true),
     'allow-identity-reads': async () => reads.identity(false),
   },

@@ -1,4 +1,8 @@
-import { affirmativeSide, negativeSide, twoSideKeys } from '@daisy/protocol';
+import {
+  affirmativeSide,
+  negativeSide,
+  twoSideKeys,
+} from '@daisy/protocol/seats';
 import type {
   DrawView,
   DrawViewFixture,

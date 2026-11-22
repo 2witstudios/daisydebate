@@ -3,7 +3,7 @@ import { challengeWhat } from './notification-words';
 
 setupRitewayBun();
 
-test('a challenge notification names its format, never a division (ADR 0156)', () => {
+test('a challenge notification names its format, never a division (ADR 0162)', () => {
   const words = [
     challengeWhat('ranked', 'freestyle'),
     challengeWhat('casual', 'freestyle'),

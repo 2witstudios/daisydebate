@@ -1,7 +1,10 @@
 import { organizationCommand } from '../src/features/tab/operations/organization';
 import { authorize } from '@daisy/auth/authorization';
 import { createTabStore } from '@daisy/db/tab';
-import { daisyWinnerBallot, storedBallotDefinition } from '@daisy/protocol';
+import {
+  daisyWinnerBallot,
+  storedBallotDefinition,
+} from '@daisy/protocol/ballot-definition';
 import type { SettingCommand } from '@daisy/protocol/lobby/setting-command';
 import { createId } from '@paralleldrive/cuid2';
 import { assert } from 'riteway/bun';

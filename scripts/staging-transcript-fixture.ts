@@ -1,8 +1,9 @@
+import { sha3Hex } from '@daisy/digest';
 import { SQL } from 'bun';
 import { systemId } from '@daisy/clock';
 import { createDatabase } from '@daisy/db';
 import { ageAdmitted } from '@daisy/auth/authorization';
-import { decideBetaAccessChange } from '@daisy/protocol';
+import { decideBetaAccessChange } from '@daisy/protocol/beta-access';
 
 const email = 'transcript-proof@example.test';
 const username = 'staging-transcript-proof';
@@ -43,15 +44,13 @@ export async function transcriptProofFixture(
       throw new Error('Synthetic transcript access refused');
     if (account.state === 'pending') {
       const commandId = createId();
-      const digest = new Bun.CryptoHasher('sha3-256')
-        .update(
-          JSON.stringify({
-            commandId,
-            userId: user.id,
-            purpose: 'ISSUE-478 staging fixture; pu channel 579',
-          }),
-        )
-        .digest('hex');
+      const digest = sha3Hex(
+        JSON.stringify({
+          commandId,
+          userId: user.id,
+          purpose: 'ISSUE-478 staging fixture; pu channel 579',
+        }),
+      );
       await database.runBetaAccessCommand({
         commandId,
         serviceId: 'staging-transcript-proof',

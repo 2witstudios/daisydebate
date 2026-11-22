@@ -1,4 +1,4 @@
-import type { MatchHistoryEntry } from '@daisy/protocol';
+import type { MatchHistoryEntry } from '@daisy/protocol/member-profile';
 import type { ProfileView } from '../../../features/profile/read-profile';
 import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
@@ -61,7 +61,7 @@ describe('ProfilePage', () => {
     });
   });
 
-  test('no Round in the history names a ladder (ADR 0156)', () => {
+  test('no Round in the history names a ladder (ADR 0162)', () => {
     const html = render(
       profile({
         history: [

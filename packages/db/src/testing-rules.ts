@@ -1,9 +1,5 @@
-import {
-  affirmativeSide,
-  negativeSide,
-  twoSides,
-  type RoundRules,
-} from '@daisy/protocol';
+import { affirmativeSide, negativeSide, twoSides } from '@daisy/protocol/seats';
+import { type RoundRules } from '@daisy/protocol/format';
 
 /** The resolved rules every fixture round freezes, for tests that write rounds. */
 export const validRules: RoundRules = {

@@ -1,9 +1,12 @@
+import { overRoundStatuses } from '@daisy/protocol/round';
+import { lifecycleSqlList } from './lifecycle-sql';
 import { SQL } from 'bun';
 import { sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { audienceSnapshotReads } from './audience-snapshot-reads';
-import { rowsOf } from './raw-rows';
+import { run, query } from './raw-rows';
 import { spectatorTimelineReads } from './spectator-timeline-reads';
+import { z } from 'zod';
 
 export { audienceStateKey } from './audience-state-key';
 
@@ -38,17 +41,18 @@ export const createAudiencePublisherStore = (url: string) => {
       readonly settledKeepMs: number;
       readonly limit: number;
     }): Promise<readonly PublishingBroadcast[]> => {
-      const rows = await rowsOf<{
-        id: string;
-        round_id: string;
-        feed_key: string;
-        audience_link_hash: string | null;
-        over: boolean;
-      }>(
+      const rows = await query(
         database,
+        z.object({
+          id: z.string(),
+          round_id: z.string(),
+          feed_key: z.string(),
+          audience_link_hash: z.string().nullable(),
+          over: z.boolean(),
+        }),
         sql`select b.id,b.round_id,b.feed_key,r.audience_link_hash,
             coalesce(
-              case when r.status in ('completed','abandoned')
+              case when r.status in ${lifecycleSqlList(overRoundStatuses)}
                   and coalesce(b.stopped_at,b.completed_at) is not null
                   and (rc.status is null or rc.status in ('ready','failed','taken_down','removing','removed'))
                 then greatest(coalesce(b.stopped_at,b.completed_at),coalesce(rc.updated_at,b.created_at))
@@ -78,7 +82,8 @@ export const createAudiencePublisherStore = (url: string) => {
       readonly broadcastId: string;
       readonly at: Date;
     }) => {
-      await database.execute(
+      await run(
+        database,
         sql`update broadcasts set audience_state_withdrawn_at=${input.at.toISOString()}::timestamptz where id=${input.broadcastId}`,
       );
     },

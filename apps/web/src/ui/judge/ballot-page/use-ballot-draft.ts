@@ -1,12 +1,8 @@
 'use client';
-import type { RoundBallotRead } from '@daisy/protocol';
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useSyncExternalStore,
-} from 'react';
+import { useBrowserEffect } from '../../edge/browser-sync';
+import { cancelWindowDelay, windowDelay } from '../../edge/browser-time';
+import type { RoundBallotRead } from '@daisy/protocol/round-ballot-read';
+import { useCallback, useMemo, useRef, useSyncExternalStore } from 'react';
 import {
   ballotDraftKey,
   clearBallotDraft,
@@ -71,7 +67,7 @@ export function useBallotDraft(
   const pending = useRef<HTMLFormElement | null>(null);
   const timer = useRef<number | null>(null);
   const cancel = useCallback(() => {
-    if (timer.current !== null) window.clearTimeout(timer.current);
+    if (timer.current !== null) cancelWindowDelay(timer.current);
     timer.current = null;
     pending.current = null;
   }, []);
@@ -85,11 +81,11 @@ export function useBallotDraft(
   const save = useCallback(
     (form: HTMLFormElement) => {
       pending.current = form;
-      timer.current ??= window.setTimeout(flush, saveIntervalMs);
+      timer.current ??= windowDelay(flush, saveIntervalMs);
     },
     [flush],
   );
-  useEffect(() => {
+  useBrowserEffect(() => {
     const hidden = () => {
       if (document.visibilityState === 'hidden') flush();
     };
@@ -101,7 +97,7 @@ export function useBallotDraft(
       flush();
     };
   }, [flush]);
-  useEffect(() => {
+  useBrowserEffect(() => {
     const storage = tabStorage();
     if (!key) return;
     if (storage && (display === 'recorded' || display === 'decided')) {

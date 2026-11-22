@@ -3,7 +3,7 @@ import type { AiSeatAvailability } from '../../server/round-worker-policy';
 import { fixedIds } from '@daisy/clock';
 import type { AccountAuthorizationFact } from '@daisy/auth/authorization';
 import { createAppError } from '@daisy/errors';
-import { type RoomAssemblyState } from '@daisy/protocol';
+import { type RoomAssemblyState } from '@daisy/protocol/room-contract';
 import {
   oneOnOneDefinition,
   oneOnOneRankedSettings,
@@ -224,7 +224,7 @@ export function makeOperations(
     redis: {
       setRoomConsent: async () => undefined,
       readRoomConsent: async () => [{ actorId: caller.actorId, ttlMs: 60000 }],
-    } as never,
+    },
     ids: fixedIds([
       'c5n6p8r2t4v6x8z1k3b5c7d9',
       'r5n6p8r2t4v6x8z1k3b5c7d9',

@@ -1,4 +1,5 @@
-import type { RoomView } from '@daisy/protocol';
+import { StatusRegion } from '../../components/status-region/status-region';
+import type { RoomView } from '@daisy/protocol/room-contract';
 import { UpgradePanel } from '../../components/upgrade-panel/upgrade-panel';
 import { invitePeopleTitleId } from './invite-people-title';
 
@@ -36,11 +37,15 @@ export function AiJudgeNotice({
   switch (view.aiJudgeSeating) {
     case 'free':
       return (
-        <p role="status" className="py-3 text-sm text-ink-muted">
+        <StatusRegion
+          as="p"
+          role="status"
+          className="py-3 text-sm text-ink-muted"
+        >
           {view.competitionType === 'ranked'
             ? 'An AI judge is free on ranked rounds.'
             : 'Your one free bot debate includes an optional AI judge.'}
-        </p>
+        </StatusRegion>
       );
     case 'premium':
     case 'with-bot':
@@ -59,10 +64,14 @@ export function AiJudgeNotice({
       );
     case 'fair-use':
       return (
-        <p role="status" className="py-3 text-sm text-ink-muted">
+        <StatusRegion
+          as="p"
+          role="status"
+          className="py-3 text-sm text-ink-muted"
+        >
           This account has reached today’s fair-use ceiling for AI judging.
           Invite a person to judge, or try again tomorrow.
-        </p>
+        </StatusRegion>
       );
     case 'included':
     case null:

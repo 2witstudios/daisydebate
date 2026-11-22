@@ -1,5 +1,6 @@
 'use client';
 
+import { Button } from '../components/button/button';
 import type { Dispatch } from 'react';
 import { loadedDocuments } from '../../features/documents/open-documents';
 import { DocumentPane, type SaveState } from '../documents/document-pane';
@@ -53,13 +54,14 @@ export function RoomDocument({
         leading={<ShowFiles state={state} dispatch={dispatch} />}
         empty={
           <div className="flex min-h-0 flex-1 items-center justify-center p-6">
-            <button
+            <Button
+              variant="unstyled"
               type="button"
               onClick={onNew}
               className="h-room-target cursor-pointer rounded-sm bg-accent px-4 text-sm font-strong text-accent-ink hover:bg-accent-strong"
             >
               New document
-            </button>
+            </Button>
           </div>
         }
       />

@@ -1,5 +1,5 @@
 import type { MediaObservation } from '@daisy/debate-engine';
-import type { RoundIncident, RoundStatus } from '@daisy/protocol';
+import type { RoundIncident, RoundStatus } from '@daisy/protocol/round';
 import type { createAdmissionPriority } from './admission-priority';
 import type { Database } from '@daisy/db';
 import type { MediaNodes, MediaVendor } from '@daisy/media';

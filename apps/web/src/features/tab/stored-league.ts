@@ -1,4 +1,4 @@
-import { ratingDivisionForAgeRule } from '@daisy/protocol';
+import { ratingDivisionForAgeRule } from '@daisy/protocol/ladder';
 import { settingValueSchemas } from '@daisy/protocol/setting-values';
 import { lockedSetting, openSetting, type SettingLine } from './settings';
 import type { LobbyLadder } from '@daisy/protocol/lobby/lobby-read';
@@ -15,6 +15,13 @@ import type {
 import type { TimelineRail } from './tournament';
 import { linkTo } from './action';
 import { tabRoutes, hostRoutes } from './routes';
+
+const leagueTabs = [
+  { id: 'rooms', label: 'Rooms' },
+  { id: 'ladder', label: 'Ladder' },
+  { id: 'season', label: 'Season' },
+  { id: 'tournaments', label: 'Tournaments' },
+] as const;
 
 const seasonRows = (read: LeagueSeasonProjection) =>
   read.view.standings.rows.map((row) => ({
@@ -146,18 +153,10 @@ export function storedLeagueLobbyOf(
     create: rooms?.canCreate
       ? linkTo('New room', tabRoutes.newLeagueRoom(handle), true)
       : null,
-    tabs: [
-      ['rooms', 'Rooms'],
-      ['ladder', 'Ladder'],
-      ['season', 'Season'],
-      ['tournaments', 'Tournaments'],
-    ].map(([id, label]) => ({
-      id: id as 'rooms' | 'season' | 'ladder' | 'tournaments',
-      label: label!,
-      href: tabRoutes.league(
-        handle,
-        id as 'rooms' | 'season' | 'ladder' | 'tournaments',
-      ),
+    tabs: leagueTabs.map(({ id, label }) => ({
+      id,
+      label,
+      href: tabRoutes.league(handle, id),
       selected: id === tab,
     })),
     panel:

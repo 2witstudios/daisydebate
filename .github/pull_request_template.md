@@ -21,6 +21,11 @@ Builder: <your pu agent id (PU_AGENT_ID), or "owner">
 
 Commands run and results. Explain unavailable checks.
 
+## Changed test assertions
+
+List each changed or deleted assertion with its former expectation and why it
+changed. Write “none” when every existing assertion still holds.
+
 ## Operational impact
 
 Migration/deployment order, configuration changes, rollback constraints, or “none”.

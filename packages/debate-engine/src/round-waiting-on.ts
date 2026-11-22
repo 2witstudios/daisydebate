@@ -1,5 +1,8 @@
 import { attendanceSettled } from './attendance-order';
-import type { RoundWaitingFacts, RoundWaitingOn } from '@daisy/protocol';
+import type {
+  RoundWaitingFacts,
+  RoundWaitingOn,
+} from '@daisy/protocol/round-view';
 import {
   decidePanelCompletion,
   judgingPanelOf,

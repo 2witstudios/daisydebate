@@ -1,16 +1,19 @@
-import { captureWithinLimit, type FrozenCapture } from '@daisy/protocol';
-import { createInvariantError } from '@daisy/errors';
+import { instantMs } from '@daisy/clock';
 import {
-  isJudgeSeat,
+  captureWithinLimit,
+  type FrozenCapture,
+} from '@daisy/protocol/capture-judging-limit';
+import { createInvariantError } from '@daisy/errors';
+import { isJudgeSeat, type SeatRef } from '@daisy/protocol/seats';
+import {
   type JudgingPanel,
   type JudgingPanelFacts,
   type JudgeRuling,
   type PanelRuling,
-  type RoundJudging,
-  type RoundOutcome,
   type RoundPanelCompletion,
-  type SeatRef,
-} from '@daisy/protocol';
+} from '@daisy/protocol/round-panel-completion';
+import { type RoundJudging } from '@daisy/protocol/ballot-definition';
+import { type RoundOutcome } from '@daisy/protocol/round-outcome';
 import { aiSeatStanding } from './judging-job-rules';
 import { debateInvariantIds } from './invariant-ids';
 import { completedLifecycle } from './round-clock-state';
@@ -119,8 +122,9 @@ function awaitedSeat(
   const generating = unruled.flatMap((standing) =>
     standing.state === 'generating' ? [standing.deadlineAt] : [],
   );
-  if (generating.length > 0)
-    return { on: 'ai_generating', deadlineAt: generating.sort().at(-1)! };
+  const latestGenerating = generating.sort().at(-1);
+  if (latestGenerating !== undefined)
+    return { on: 'ai_generating', deadlineAt: latestGenerating };
   if (unruled.some((standing) => standing.state === 'recovering'))
     return { on: 'ai_recovering' };
   if (unruled.some((standing) => standing.state === 'blocked'))
@@ -167,7 +171,7 @@ export function decidePanelCompletion(input: {
   const noRuling = judgeSeatIds.filter((id) => !ruled.has(id));
   const window = panel.humanWindow;
   const humanWindowOpen =
-    window !== null && input.nowMs < Date.parse(window.deadlineAt);
+    window !== null && input.nowMs < instantMs(window.deadlineAt);
   const awaited = awaitedSeat(panel, ruled, humanWindowOpen);
   if (awaited) return { kind: 'pending', waiting: awaited };
   if (submitted.length > 0 && submitted.length < judging.panel.quorum)

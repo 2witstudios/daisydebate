@@ -2,13 +2,10 @@ import {
   captionHeardAtSql,
   captionKnownPublicSql,
 } from './spectator-release-sql';
-import {
-  isRoundOver,
-  recordingHiddenByModeration,
-  SPECTATOR_MARGIN_MS,
-} from '@daisy/protocol';
+import { isRoundOver } from '@daisy/protocol/round';
+import { recordingHiddenByModeration } from '@daisy/protocol/recording';
+import { SPECTATOR_MARGIN_MS } from '@daisy/protocol/broadcast';
 import { and, asc, desc, eq, sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { actors } from './schema/actors';
 import { ballots } from './schema/ballots';
@@ -26,6 +23,7 @@ import { utterances } from './schema/utterances';
 import { outcomeOfColumns } from './round-outcome-columns';
 import { scopeTransaction } from './tenant-scope';
 import { isDebatingSeatSql, seatOfColumns, seatRowOrder } from './seat-columns';
+import { inTransaction, type TxSource } from './tx';
 
 /** How many of the newest released captions one snapshot carries. */
 const CAPTION_WINDOW = 50;
@@ -54,7 +52,7 @@ export const spectatorTimelineReads = ({
   database,
   eventSink,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
   readSpectatorTimeline(input: {
@@ -62,7 +60,8 @@ export const spectatorTimelineReads = ({
     readonly horizonOf: (facts: SpectatorHorizonRead) => number | null;
   }) {
     return instrumented(eventSink, 'readSpectatorTimeline', () =>
-      database.transaction(
+      inTransaction(
+        database,
         async (tx) => {
           const [row] = await tx
             .select({
@@ -92,7 +91,7 @@ export const spectatorTimelineReads = ({
             (round.visibility !== 'public' && round.visibility !== 'unlisted')
           )
             return null;
-          const competitionType = round.competitionType as 'ranked' | 'casual';
+          const competitionType = round.competitionType;
           const [broadcast] = await tx
             .select()
             .from(broadcasts)

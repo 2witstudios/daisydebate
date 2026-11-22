@@ -1,4 +1,7 @@
-import type { MediaRoomFacts, MediaRoomFate } from '@daisy/protocol';
+import type {
+  MediaRoomFacts,
+  MediaRoomFate,
+} from '@daisy/protocol/media-room-fate';
 
 /**
  * The node holding an occupied room has gone. LiveKit has no room migration, and for
@@ -57,7 +60,7 @@ export const mediaRoomFate =
     return uncertain &&
       !facts.terminal &&
       !facts.ended &&
-      facts.nowMs - facts.uncertainSinceMs! >= retireAfterMs
+      facts.nowMs - facts.uncertainSinceMs >= retireAfterMs
       ? { kind: 'rotate', cause: 'unreachable' }
       : { kind: 'keep' };
   };

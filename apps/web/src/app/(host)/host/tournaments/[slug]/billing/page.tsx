@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { hostingAccountViewSchema } from '@daisy/protocol/lobby/hosting-read';
 import { hostingAccountPath } from '../../../../../../features/hosting-purchases/routes';
 import { hostNavigationRail } from '../../../../../../features/tab/host-navigation';

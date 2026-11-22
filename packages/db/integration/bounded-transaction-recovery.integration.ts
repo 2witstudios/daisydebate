@@ -1,6 +1,6 @@
 import { testLane } from '../src/testing-lane';
 import { requireTestServices } from '@daisy/config';
-import { isAppError } from '@daisy/errors';
+import { createAppError, isAppError } from '@daisy/errors';
 import { assertRejects } from '@daisy/errors/testing';
 import type { ReservedSQL } from 'bun';
 import { sql } from 'drizzle-orm';
@@ -9,10 +9,194 @@ import { createBoundedTransaction } from '../src/bounded-transaction';
 import type { TransactionSettlement } from '../src/transaction-settlement';
 import type { OwnedBackend } from '../src/transaction-watchdog';
 import { withFixture } from './constraint-helpers';
-import { backendOf, withPool } from './bounded-transaction.test-support';
+import {
+  backendOf,
+  withBoundedRound,
+  withPool,
+} from './bounded-transaction.test-support';
 
 setupRitewayBun();
 requireTestServices(process.env);
+
+test('a hidden backend start requires an original command receipt and cannot authorize recovery', async () => {
+  await withPool(async (client) => {
+    const reserve = client.reserve.bind(client);
+    let reservations = 0;
+    let dropRollbackReply = false;
+    const rollbackCommands: string[] = [];
+    const commitCommands: string[] = [];
+    client.reserve = async (options) => {
+      reservations += 1;
+      const reserved = await reserve(options);
+      await reserved`set role daisy_web`;
+      return new Proxy(reserved, {
+        apply(target, receiver, args) {
+          const result = Reflect.apply(target, receiver, args);
+          const template = args[0];
+          if (Array.isArray(template) && template[0] === 'commit') {
+            return result.then((receipt: { command: string }) => {
+              commitCommands.push(receipt.command);
+              return receipt;
+            });
+          }
+          if (!Array.isArray(template) || template[0] !== 'rollback')
+            return result;
+          return result.then((receipt: { command: string }) => {
+            rollbackCommands.push(receipt.command);
+            if (dropRollbackReply)
+              throw new Error('injected lost ROLLBACK reply');
+            return receipt;
+          });
+        },
+      });
+    };
+    const run = createBoundedTransaction({
+      lane: testLane(client, 4),
+      now: performance.now,
+    });
+    const committed = await run(async (tx, _signal, receipt) => {
+      const [row] = await tx.execute(sql`select 1 as value`);
+      return [row?.value, receipt.writer.backendStart];
+    });
+    await assertRejects({
+      given: 'a caught PostgreSQL error followed by the COMMIT command',
+      should:
+        'accept its ROLLBACK receipt as conclusive without issuing another command',
+      code: 'INFRASTRUCTURE',
+      message: 'Bounded transaction did not commit',
+      actual: () =>
+        run(async (tx) => {
+          try {
+            await tx.execute(sql`select 1/0`);
+          } catch {
+            // The transaction is aborted even though the callback returns.
+          }
+        }),
+    });
+    const callbackRefusal = async () => {
+      throw createAppError('CONFLICT');
+    };
+    await assertRejects({
+      given:
+        'a callback conflict followed by a ROLLBACK receipt on the same writer',
+      should: 'preserve the callback conflict',
+      code: 'CONFLICT',
+      actual: () => run(callbackRefusal),
+    });
+    dropRollbackReply = true;
+    const refusal = await run(callbackRefusal).catch((reason: unknown) => {
+      if (!isAppError(reason)) throw reason;
+      return reason;
+    });
+    const cause = refusal.cause as {
+      recovery?: string;
+      settlement?: TransactionSettlement;
+    };
+    if (!cause?.settlement) throw new Error('Missing recovery settlement');
+    const beforeConfirm = reservations;
+    const confirmed = await cause.settlement.confirm();
+    const recoveryReservations = reservations - beforeConfirm;
+    let lifecycleOpened = false;
+    await assertRejects({
+      given: 'a lifecycle that requires the hidden backend start',
+      should: 'refuse before opening its marker',
+      code: 'INVARIANT',
+      message: 'Transaction lifecycle has no backend',
+      actual: () =>
+        run(async () => undefined, {
+          lifecycle: {
+            open: async () => {
+              lifecycleOpened = true;
+            },
+            close: async () => {},
+          },
+        }),
+    });
+    assert({
+      given: 'Bun SQL on a real connection with a restricted SET ROLE',
+      should:
+        'confirm only original command receipts and leave a lost reply pending',
+      actual: [
+        committed,
+        refusal.code,
+        cause.recovery,
+        confirmed,
+        recoveryReservations,
+        lifecycleOpened,
+        rollbackCommands,
+        commitCommands,
+      ],
+      expected: [
+        [1, null],
+        'INFRASTRUCTURE',
+        'pending',
+        false,
+        0,
+        false,
+        ['ROLLBACK', 'ROLLBACK'],
+        ['COMMIT', 'ROLLBACK'],
+      ],
+    });
+  });
+});
+
+test('a failed callback rolls back its write, disposes its native writer and preserves safe errors', async () => {
+  await withBoundedRound(async (fixture, run, roundId) => {
+    const [before] =
+      await fixture.sql`select resolution from rounds where id=${roundId}`;
+    const expected = createAppError('CONFLICT', 'stale');
+    const unexpected = new TypeError('private driver detail');
+    const results = [];
+    for (const failure of [expected, unexpected]) {
+      let pid: number | undefined;
+      const caught = await run(async (tx, _signal, receipt) => {
+        pid = receipt?.writer.pid;
+        await tx.execute(
+          sql`update rounds set resolution='uncommitted test write' where id=${roundId}`,
+        );
+        throw failure;
+      }).catch((error: unknown) => {
+        if (!isAppError(error)) throw error;
+        return {
+          code: error.code,
+          message: error.message,
+          cause: error.cause === failure,
+          same: error === failure,
+        };
+      });
+      const [native] =
+        await fixture.sql`select exists(select 1 from pg_stat_activity where pid=${pid ?? 0}) as alive`;
+      results.push([caught, native?.alive]);
+    }
+    const [after] =
+      await fixture.sql`select resolution from rounds where id=${roundId}`;
+    assert({
+      given:
+        'an expected and unexpected callback failure after a write to real PostgreSQL',
+      should:
+        'roll back both writes, destroy both writers, preserve the conflict and map the unexpected error',
+      actual: [after?.resolution, results],
+      expected: [
+        before?.resolution,
+        [
+          [
+            { code: 'CONFLICT', message: 'stale', same: true, cause: false },
+            false,
+          ],
+          [
+            {
+              code: 'INFRASTRUCTURE',
+              message: 'Bounded transaction failed',
+              same: false,
+              cause: true,
+            },
+            false,
+          ],
+        ],
+      ],
+    });
+  });
+});
 
 test(
   'unconfirmed watchdog recovery stays pending and permits an idempotent retry after service recovery',
@@ -77,13 +261,26 @@ test(
           expected: { alive: true, settled: false },
         });
         client.reserve = originalReserve;
-        const confirmed = await settlement.confirm();
+        const [confirmed, again] = await Promise.all([
+          settlement.confirm(),
+          settlement.confirm(),
+        ]);
         assert({
           given: 'restored same-pool recovery capacity',
           should:
             'settle only backend absence without asserting commit outcome',
-          actual: { confirmed, state: await settlement.settled },
-          expected: { confirmed: true, state: 'backend-absent' },
+          actual: {
+            confirmed,
+            again,
+            state: await settlement.settled,
+            repeat: await settlement.confirm(),
+          },
+          expected: {
+            confirmed: true,
+            again: true,
+            state: 'backend-absent',
+            repeat: true,
+          },
         });
       } finally {
         client.reserve = originalReserve;

@@ -1,4 +1,5 @@
-import { idSchema, messagingTypingSchemas } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
+import { messagingTypingSchemas } from '@daisy/protocol/messaging/typing';
 import { redisKey } from './redis-key';
 import type { RedisTransport } from './transport';
 type Lease = ReturnType<typeof messagingTypingSchemas.lease.parse>;

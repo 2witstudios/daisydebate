@@ -1,5 +1,7 @@
+import { instantMs } from '@daisy/clock';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { emptyRuntimeCheckpointFor, twoSides } from '@daisy/protocol';
+import { emptyRuntimeCheckpointFor } from '@daisy/protocol/round';
+import { twoSides } from '@daisy/protocol/seats';
 import { roundIncidentNotice } from './notice';
 setupRitewayBun();
 
@@ -11,7 +13,7 @@ const fields = {
 } as const;
 const HELD =
   "Daisy's media server failed. Your time is safe. Resuming when everyone is back.";
-const until = Date.parse('2026-11-03T10:00:30.000Z');
+const until = instantMs('2026-11-03T10:00:30.000Z');
 const resuming = {
   ...emptyRuntimeCheckpointFor({ sides: twoSides }),
   incident: {

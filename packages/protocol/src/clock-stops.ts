@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 /**
  * Time the Round clock did not run. A stop is a closed span once its end is
  * known; an open one is still running, so anything waiting on it stays frozen.
@@ -10,8 +11,8 @@ export type ClockStop = {
 };
 
 const spanOf = (stop: ClockStop, nowMs: number) => ({
-  fromMs: Date.parse(stop.from),
-  toMs: stop.to === null ? nowMs : Date.parse(stop.to),
+  fromMs: instantMs(stop.from),
+  toMs: stop.to === null ? nowMs : instantMs(stop.to),
 });
 
 /** When a wait of `waitMs` from `anchorMs` ends, given the clock stopped in `stops`. */

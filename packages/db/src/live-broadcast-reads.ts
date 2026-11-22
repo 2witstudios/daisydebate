@@ -1,6 +1,5 @@
 import { roundLadderOf } from './member-history-rows';
 import { and, desc, eq, inArray, sql, type SQL } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { actors } from './schema/actors';
 import { botProfiles } from './schema/bot-profiles';
 import { broadcasts } from './schema/broadcasts';
@@ -15,6 +14,7 @@ import {
   spectatorHorizonSql,
   type SpectatorClock,
 } from './spectator-release-sql';
+import { inTransaction, type TxSource } from './tx';
 
 const roundColumns = {
   id: rounds.id,
@@ -96,13 +96,13 @@ const cursorRound = {
 const afterCursor = (
   before: string,
   clock: SpectatorClock,
-  lobbyId: string | undefined,
+  lobbyScope: (roomLobbyId: SQL) => SQL,
 ): SQL | undefined =>
   before === ''
     ? undefined
     : sql`(${rounds.startedAt}, ${rounds.id}) < (select c.started_at, c.id from rounds c join rooms cr on cr.id=c.room_id
         where c.id = ${before} and c.visibility = 'public'
-          and ${officialLobby(sql`cr.lobby_id`, lobbyId)}
+          and ${lobbyScope(sql`cr.lobby_id`)}
           and ${factReleasedSql(sql`c.started_at`, cursorRound, clock)})`;
 
 /**
@@ -114,7 +114,7 @@ const afterCursor = (
 export const watchableRoundOfRoomRead = ({
   database,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
 }) => ({
   async readWatchableRoundOfRoom(
     roomId: string,
@@ -141,7 +141,7 @@ export const watchableRoundOfRoomRead = ({
 export const liveBroadcastReads = ({
   database,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
 }) => ({
   listLiveBroadcasts(input: {
     readonly filter: LiveBroadcastFilter;
@@ -151,7 +151,14 @@ export const liveBroadcastReads = ({
     /** Narrows to Rounds these debaters are seated in; an empty list finds none. */
     readonly seatedUsernames?: readonly string[];
   }) {
-    return database.transaction(
+    // Profile and Friends find a named person's public broadcast. Discovery
+    // stays on official lobbies, including Watch Following's selected lobby.
+    const lobbyScope = (roomLobbyId: SQL) =>
+      input.seatedUsernames !== undefined && input.filter.lobbyId === undefined
+        ? sql`true`
+        : officialLobby(roomLobbyId, input.filter.lobbyId);
+    return inTransaction(
+      database,
       async (tx) => {
         const page = await tx
           .select({
@@ -175,10 +182,10 @@ export const liveBroadcastReads = ({
             and(
               onLive(input.clock),
               moded(input.filter.mode),
-              officialLobby(sql`${rooms.lobbyId}`, input.filter.lobbyId),
+              lobbyScope(sql`${rooms.lobbyId}`),
               searched(input.filter.q),
               seatedAny(input.seatedUsernames),
-              afterCursor(input.before, input.clock, input.filter.lobbyId),
+              afterCursor(input.before, input.clock, lobbyScope),
             ),
           )
           .orderBy(desc(rounds.startedAt), desc(rounds.id))
@@ -241,7 +248,7 @@ export const liveBroadcastReads = ({
               ladderAgeRule,
               competitionType: row.competitionType,
             }),
-            competitionType: row.competitionType as 'ranked' | 'casual',
+            competitionType: row.competitionType,
             horizonMs:
               row.horizon === null ? null : new Date(row.horizon).getTime(),
             seats: seats.filter((seat) => seat.roundId === row.id),

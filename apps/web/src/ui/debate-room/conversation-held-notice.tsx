@@ -1,9 +1,8 @@
+import { StatusRegion } from '../components/status-region/status-region';
 import { roundPositionAt } from '@daisy/debate-engine/position';
-import {
-  conversational,
-  isRoundRunning,
-  type RoundView,
-} from '@daisy/protocol';
+import { conversational } from '@daisy/protocol/runtime';
+import { isRoundRunning } from '@daisy/protocol/round';
+import { type RoundView } from '@daisy/protocol/round-view';
 
 const conversationHeldShown = (view: RoundView, nowMs: number) => {
   if (view.conversationHeld !== true || view.checkpoint === null) return false;
@@ -25,9 +24,9 @@ export function ConversationHeldNotice(props: {
   readonly nowMs: number;
 }) {
   return conversationHeldShown(props.view, props.nowMs) ? (
-    <p role="status">
+    <StatusRegion as="p" role="status">
       This conversation opens once the audience stream has switched away, so it
       stays private. Speeches are not affected.
-    </p>
+    </StatusRegion>
   ) : null;
 }

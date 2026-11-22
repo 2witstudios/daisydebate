@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { sha3Hex } from '@daisy/digest';
 
 /**
  * The zero-trust model every emailed link follows (ISSUE-2, ADR 0025): the
@@ -29,7 +29,7 @@ export function generateEmailedLinkToken(): string {
 export const emailedLinkIdentifier = (
   purpose: EmailedLinkPurpose,
   token: string,
-): string => `${purpose}:${createHash('sha3-256').update(token).digest('hex')}`;
+): string => `${purpose}:${sha3Hex(token)}`;
 
 /**
  * The prefix a sign-in link's row is stored under. Better Auth's `magicLink`

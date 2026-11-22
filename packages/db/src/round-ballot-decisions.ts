@@ -1,19 +1,19 @@
+import { instantMs } from '@daisy/clock';
 import { createAppError, createRefusal } from '@daisy/errors';
 import {
   ballotSchemaFor,
   ballotSubjectsFor,
-  captureWithinLimit,
-} from '@daisy/protocol';
+} from '@daisy/protocol/ballot-schema';
+import { captureWithinLimit } from '@daisy/protocol/capture-judging-limit';
+import type { Ballot } from '@daisy/protocol/ballot-schema';
 import type {
-  Ballot,
   RoundBallotEnvelope,
   RoundBallotReceipt,
-  RoundCommandPrincipal,
-  RoundJudging,
-  RoundOutcome,
-  RoundParticipantSeat,
-  RoundRules,
-} from '@daisy/protocol';
+} from '@daisy/protocol/round-ballot';
+import type { RoundCommandPrincipal } from '@daisy/protocol/round-command';
+import type { RoundJudging } from '@daisy/protocol/ballot-definition';
+import type { RoundOutcome } from '@daisy/protocol/round-outcome';
+import type { RoundParticipantSeat } from '@daisy/protocol/runtime';
 
 /**
  * An AI judge rules only on what can be judged (DEC-208, ADR 0110): a complete transcript,
@@ -104,7 +104,7 @@ export function requireBallotAdmission(input: {
     throw createRefusal('CONFLICT', 'round-decided');
   if (
     input.ballotDeadlineAt &&
-    Date.parse(input.now) >= input.ballotDeadlineAt.getTime()
+    instantMs(input.now) >= input.ballotDeadlineAt.getTime()
   )
     throw createRefusal('CONFLICT', 'round-decided');
   if (input.submittedJudgeIds.includes(input.judgeParticipantId))
@@ -140,7 +140,7 @@ export const ballotReceipt = (input: {
 export function requireRoundBallot(
   round: {
     readonly judging: RoundJudging;
-    readonly rules: Pick<RoundRules, 'sides' | 'segments'>;
+    readonly rules: Parameters<typeof ballotSubjectsFor>[0];
     readonly participants: readonly Pick<RoundParticipantSeat, 'id' | 'seat'>[];
   },
   ballot: unknown,

@@ -2,11 +2,12 @@ import { and, eq, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import { messagingDmPairs } from '../schema/messaging-social';
 import { messagingChannels } from '../schema/messaging-channels';
-import type { ContactPairKey, ContactTransaction } from '../contacts/reactions';
+import type { ContactPairKey } from '../contacts/reactions';
 import { advanceSocialChannelAuthority } from './social-channel-change';
+import type { Tx } from '../tx';
 
 /** A block or unblock changes who may post in the pair's DM: its authority advances. */
-async function advanceDmOnBlock(tx: ContactTransaction, pair: ContactPairKey) {
+async function advanceDmOnBlock(tx: Tx, pair: ContactPairKey) {
   const [dm] = await tx
     .select()
     .from(messagingDmPairs)

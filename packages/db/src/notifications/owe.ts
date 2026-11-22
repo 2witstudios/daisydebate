@@ -1,16 +1,17 @@
+import { buildUserInboxTopic } from '@daisy/protocol/topics';
 import {
-  buildUserInboxTopic,
   isEmailedNotificationKind,
   subjectOf,
   type NotificationKind,
   type SubjectOf,
-} from '@daisy/protocol';
+} from '@daisy/protocol/notifications';
 import { sql } from 'drizzle-orm';
-import type { AuthorizationTransaction } from '../authorization';
 import { appendOutboxEvents } from '../outbox';
-import { rowsOf } from '../raw-rows';
+import { query } from '../raw-rows';
 import { notificationSubjectColumns } from '../schema/notifications';
 import { oweDigests } from './digests';
+import type { Tx } from '../tx';
+import { z } from 'zod';
 
 type SubjectColumns = typeof notificationSubjectColumns;
 
@@ -47,7 +48,7 @@ export type OwedNotifications<K extends NotificationKind> = {
  * Returns the rows written.
  */
 export async function oweNotifications<K extends NotificationKind>(
-  tx: AuthorizationTransaction,
+  tx: Tx,
   owed: OwedNotifications<K>,
 ): Promise<number> {
   if (owed.recipients.length === 0) return 0;
@@ -66,12 +67,9 @@ export async function oweNotifications<K extends NotificationKind>(
     columns.map((column) => sql`${ids[column]}`),
     sql`,`,
   );
-  const written = await rowsOf<{
-    id: string;
-    user_id: string;
-    actor_id: string;
-  }>(
+  const written = await query(
     tx,
+    z.object({ id: z.string(), user_id: z.string(), actor_id: z.string() }),
     sql`with w as (
         insert into notifications(id,user_id,kind,${subjectNames},actor_id,created_at,surfaced_at)
         select w.id,w.user_id,${owed.kind},${subjectValues},w.actor_id,${owed.at}::timestamptz,${owed.at}::timestamptz
@@ -95,7 +93,7 @@ export async function oweNotifications<K extends NotificationKind>(
  * `user:inbox` signal, and for an emailed kind a place in their digest.
  */
 async function tellMembers(
-  tx: AuthorizationTransaction,
+  tx: Tx,
   told: {
     readonly kind: NotificationKind;
     readonly rows: readonly {
@@ -140,7 +138,7 @@ async function tellMembers(
  * the top of the inbox and is told like a new one. Returns the rows moved.
  */
 export async function resurfaceNotifications<K extends NotificationKind>(
-  tx: AuthorizationTransaction,
+  tx: Tx,
   owed: {
     readonly kind: K;
     readonly subject: NotificationSubjectIds<K>;
@@ -158,12 +156,9 @@ export async function resurfaceNotifications<K extends NotificationKind>(
     sql` and `,
   );
   const users = JSON.stringify(owed.userIds);
-  const moved = await rowsOf<{
-    id: string;
-    user_id: string;
-    actor_id: string;
-  }>(
+  const moved = await query(
     tx,
+    z.object({ id: z.string(), user_id: z.string(), actor_id: z.string() }),
     sql`with m as (
         update notifications n set surfaced_at=${owed.at}::timestamptz,read_at=null
         where n.kind=${owed.kind} and ${names}

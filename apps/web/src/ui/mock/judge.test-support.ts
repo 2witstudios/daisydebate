@@ -1,4 +1,4 @@
-import type { Ballot } from '@daisy/protocol';
+import type { Ballot } from '@daisy/protocol/ballot-schema';
 export {
   sampleBallotPlan,
   sampleBallotRound,

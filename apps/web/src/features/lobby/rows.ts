@@ -1,8 +1,7 @@
-import {
-  type AgeBand,
-  type RoomListEntry,
-  type RoundStage,
-} from '@daisy/protocol';
+import { instantMs } from '@daisy/clock';
+import { type AgeBand } from '@daisy/protocol/ladder';
+import { type RoomListEntry } from '@daisy/protocol/room-contract';
+import { type RoundStage } from '@daisy/protocol/round';
 import { mayDebate } from '@daisy/protocol/lobby/eligibility';
 import { drawnTopicLabel } from '../debate-room/vocabulary';
 import { liveHref, liveRoomHref, watchRoutes } from '../watch/routes';
@@ -92,7 +91,7 @@ const action = (
 ): LobbyAction => ({ verb, href, primary });
 
 /**
- * A row's actions for this viewer (ADR 0156). A seat they hold is Return to
+ * A row's actions for this viewer (ADR 0162). A seat they hold is Return to
  * room. Otherwise Watch sits beside the seat action: Join in a Room of their
  * own lobby, Judge in the other lobby's Room while a judge seat is free, none
  * when neither fits. A Room before its Round is watched on its own page; a
@@ -150,7 +149,7 @@ const minuteMs = 60_000;
 
 /** How long an open Room has waited for its cast, to the minute or hour. */
 const waitedFor = (now: number, since: string): string => {
-  const minutes = Math.floor((now - Date.parse(since)) / minuteMs);
+  const minutes = Math.floor((now - instantMs(since)) / minuteMs);
   if (minutes < 1) return 'Just opened';
   if (minutes < 60) return `Waiting ${minutes} min`;
   return `Waiting ${Math.floor(minutes / 60)} h`;

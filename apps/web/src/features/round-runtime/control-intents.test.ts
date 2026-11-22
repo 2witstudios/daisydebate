@@ -1,5 +1,6 @@
+import { instantMs } from '@daisy/clock';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import type { RoundView } from '@daisy/protocol';
+import type { RoundView } from '@daisy/protocol/round-view';
 import { roundControlIntents } from './control-intents';
 import {
   view,
@@ -18,7 +19,7 @@ test('Round controls follow existing runtime position and preserve floor command
       roundControlIntents(
         { ...view, viewerIsHost },
         aff.actorId,
-        Date.parse(at(0)),
+        instantMs(at(0)),
       ).map((c) => c.type),
     ),
     expected: [[], []],
@@ -33,11 +34,9 @@ test('Round controls follow existing runtime position and preserve floor command
   assert({
     given: 'the affirmative running prep before its speech',
     should: 'offer one Start intent and no separate save-the-rest command',
-    actual: roundControlIntents(
-      prepping,
-      aff.actorId,
-      Date.parse(at(2000)),
-    ).map((c) => c.type),
+    actual: roundControlIntents(prepping, aff.actorId, instantMs(at(2000))).map(
+      (c) => c.type,
+    ),
     expected: ['start_speech', 'forfeit'],
   });
   const active = ran(1);
@@ -47,7 +46,7 @@ test('Round controls follow existing runtime position and preserve floor command
     actual: roundControlIntents(
       active,
       aff.actorId,
-      Date.parse(at(startOf(0) + 1000)),
+      instantMs(at(startOf(0) + 1000)),
     ).find((c) => c.type === 'yield')?.confirm,
     expected: true,
   });
@@ -55,7 +54,7 @@ test('Round controls follow existing runtime position and preserve floor command
   const controls = roundControlIntents(
     cx,
     aff.actorId,
-    Date.parse(at(startOf(1) + 1000)),
+    instantMs(at(startOf(1) + 1000)),
   );
   assert({
     given: 'the respondent during cross-examination',
@@ -71,7 +70,7 @@ test('Round controls follow existing runtime position and preserve floor command
     actual: roundControlIntents(
       cx,
       neg.actorId,
-      Date.parse(at(startOf(1) + 1000)),
+      instantMs(at(startOf(1) + 1000)),
     ),
     expected: [],
   });
@@ -79,7 +78,7 @@ test('Round controls follow existing runtime position and preserve floor command
 
 test('between segments, prep is offered only before an own speech while prep is still spendable', () => {
   const between = ran(4);
-  const now = Date.parse(
+  const now = instantMs(
     at(startOf(3) + between.rules.segments[3]!.durationMs + 1),
   );
   const prep = between.rules.inRoundPrep!;
@@ -127,16 +126,14 @@ test('control labels name speeches and prep in words, never by code', () => {
     should: 'start the speech by its lowercased full name and offer prep time',
     actual: [
       label(
-        roundControlIntents(prepping, aff.actorId, Date.parse(at(2000))),
+        roundControlIntents(prepping, aff.actorId, instantMs(at(2000))),
         'start_speech',
       ),
       label(
         roundControlIntents(
           between,
           aff.actorId,
-          Date.parse(
-            at(startOf(3) + between.rules.segments[3]!.durationMs + 1),
-          ),
+          instantMs(at(startOf(3) + between.rules.segments[3]!.durationMs + 1)),
         ),
         'start_prep',
       ),
@@ -146,12 +143,12 @@ test('control labels name speeches and prep in words, never by code', () => {
 });
 
 test('controls act only once the persisted Round reaches the phase the clock shows (ISSUE-838)', () => {
-  const opened = Date.parse(at(startOf(0) + 100));
+  const opened = instantMs(at(startOf(0) + 100));
   const enabled = (round: RoundView) =>
     roundControlIntents(round, aff.actorId, opened)
       .filter((c) => c.enabled)
       .map((c) => c.type);
-  const expired = Date.parse(at(startOf(1) + 100));
+  const expired = instantMs(at(startOf(1) + 100));
   assert({
     given:
       'a speech the clock has opened but the server has not yet persisted, the same once persisted, and a persisted speech the clock has already closed',

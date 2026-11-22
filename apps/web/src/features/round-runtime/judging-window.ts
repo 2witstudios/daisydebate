@@ -1,4 +1,5 @@
-import type { RoundWaitingOn } from '@daisy/protocol';
+import { instantMs } from '@daisy/clock';
+import type { RoundWaitingOn } from '@daisy/protocol/round-view';
 
 /**
  * The judging window's clock: only a human judge's window, counted to the
@@ -12,6 +13,6 @@ export function judgingClockOf(
   if (status?.state !== 'human_window') return null;
   return {
     label: 'Judging window',
-    remainingMs: Math.max(0, Date.parse(status.deadlineAt) - nowMs),
+    remainingMs: Math.max(0, instantMs(status.deadlineAt) - nowMs),
   };
 }

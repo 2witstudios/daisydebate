@@ -1,3 +1,4 @@
+import { nowMs } from '@daisy/clock';
 import { lookup } from 'node:dns/promises';
 import { parseOperatorKeys } from '@daisy/auth/operator-signature';
 import { createOperatorApi } from '../features/operator-api/router';
@@ -25,10 +26,15 @@ export async function startOperatorApi(app: App, reporter: ErrorReporter) {
     );
     return null;
   }
+  const host = config.OPERATOR_LISTEN_HOST;
+  const audience = config.OPERATOR_AUDIENCE;
+  if (host === undefined || audience === undefined)
+    throw new Error(
+      'The config schema requires OPERATOR_LISTEN_HOST and OPERATOR_AUDIENCE whenever OPERATOR_API_KEYS is set',
+    );
   const keys = parseOperatorKeys(config.OPERATOR_API_KEYS, decodeBase64url);
   const listener = await startOperatorListener({
-    // The config schema requires both whenever keys are set.
-    host: config.OPERATOR_LISTEN_HOST!,
+    host,
     port: config.OPERATOR_PORT,
     resolve: async (name) => (await lookup(name, { family: 6 })).address,
     serve: ({ hostname, port, fetch }) =>
@@ -36,10 +42,10 @@ export async function startOperatorApi(app: App, reporter: ErrorReporter) {
     handle: createOperatorApi({
       contentModeration: app.database,
       profilePhotos: app.profilePhotoObjects,
-      audience: config.OPERATOR_AUDIENCE!,
+      audience,
       keys,
       crypto: nodeOperatorCrypto,
-      nowMs: () => Date.parse(app.clock.now()),
+      nowMs: () => nowMs(app.clock),
       admitNonce: (input) => app.redis.admitOperatorNonce(input),
       store: app.database,
       nextId: () => app.ids.next(),

@@ -1,13 +1,12 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   emptyRuntimeCheckpointFor,
-  twoSides,
-  isRoundEndState,
-  isRoundLifecycle,
   roundStatuses,
   runtimeCheckpointSchema,
-  type RoundOutcome,
-} from './index';
+} from './round';
+import { twoSides } from './seats';
+import { isRoundEndState, isRoundLifecycle } from './round-lifecycle';
+import { type RoundOutcome } from './round-outcome';
 
 setupRitewayBun();
 

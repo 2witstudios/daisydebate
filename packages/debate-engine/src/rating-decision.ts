@@ -1,12 +1,12 @@
+import { instantMs } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
 import {
   affirmativeSide,
   negativeSide,
-  rateableOutcome,
   sideOfSeat,
-  winnerOutcome,
   type SideKey,
-} from '@daisy/protocol';
+} from '@daisy/protocol/seats';
+import { rateableOutcome, winnerOutcome } from '@daisy/protocol/round-outcome';
 import type {
   DebaterStanding,
   EndingRating,
@@ -16,7 +16,7 @@ import type {
   RatingPlan,
   RatingPlanFacts,
   RatingState,
-} from '@daisy/protocol';
+} from '@daisy/protocol/ratings';
 import { attendanceSettled } from './attendance-order';
 import {
   carryOver,
@@ -72,7 +72,7 @@ export function endingRating(input: EndingRatingFacts): EndingRating {
     return { kind: 'unrated', reason: 'unjudged' };
   if (
     input.ending === 'judged' &&
-    !attendanceSettled(input.attendance, Date.parse(input.completedAt))
+    !attendanceSettled(input.attendance, instantMs(input.completedAt))
   )
     return { kind: 'attendance-unsettled' };
   return { kind: 'rated', outcome, occurredAt: input.completedAt };

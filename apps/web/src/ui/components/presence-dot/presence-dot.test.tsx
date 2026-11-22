@@ -2,7 +2,7 @@ import { renderToString } from 'react-dom/server';
 import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { PresenceDot } from './presence-dot';
-import { memberStatuses as statuses } from '@daisy/protocol';
+import { memberStatuses as statuses } from '@daisy/protocol/presence-setting';
 import { statusLabels } from './status-labels';
 import { presenceDotClass } from './presence-dot-class';
 

@@ -1,4 +1,4 @@
-import { segmentTypes, type SegmentType } from '@daisy/protocol';
+import { segmentTypes, type SegmentType } from '@daisy/protocol/format';
 import { sql, type SQL } from 'drizzle-orm';
 import {
   check,

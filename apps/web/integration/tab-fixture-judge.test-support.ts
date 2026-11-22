@@ -2,6 +2,8 @@ import type { SQL } from 'bun';
 import { authorize } from '@daisy/auth/authorization';
 import type { TabStore } from '@daisy/db/tab';
 import { createId } from '@paralleldrive/cuid2';
+import type { LobbyCommandAnswer } from '@daisy/protocol/lobby/command';
+import type { TabPrincipal } from '../src/features/tab/tab-principal';
 import { judgeRegistrationCommand } from '../src/features/tab/operations/judge-registration';
 import { as } from './tab-tournament-organization-wiring.test-support';
 import type { Bot, World } from './tab-tournament.test-support';
@@ -12,16 +14,23 @@ export async function registerFixtureJudge(input: {
   readonly store: Pick<TabStore, 'judgeRegistrationCommand'>;
   readonly world: Pick<World, 'bots' | 'made'>;
   readonly person: Bot;
+  readonly send?: (
+    principal: TabPrincipal,
+    lobbyId: string,
+    body: unknown,
+  ) => Promise<LobbyCommandAnswer>;
 }) {
   const { owner, store, world, person } = input,
     lobbyId = world.made.get('tournament-lobby')!;
-  const register = judgeRegistrationCommand({
-    store,
-    authorize,
-    now: () => new Date().toISOString(),
-    newId: createId,
-    minorsReleased: async () => false,
-  });
+  const register =
+    input.send ??
+    judgeRegistrationCommand({
+      store,
+      authorize,
+      now: () => new Date().toISOString(),
+      newId: createId,
+      minorsReleased: async () => false,
+    });
   const invitation = await register(as(world.bots.Director!), lobbyId, {
     version: 1,
     commandId: createId(),

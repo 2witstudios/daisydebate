@@ -1,21 +1,19 @@
-import { CryptoHasher } from 'bun';
+import { sha3Hex } from '@daisy/digest';
 import {
   isDebatingSeat,
-  isRoundOver,
   sameSeat,
   seatKey,
   seatOrder,
   sideOfSeat,
-  type FormatSeating,
-  type RoundStatus,
   type SeatRef,
   type Side,
-} from '@daisy/protocol';
+} from '@daisy/protocol/seats';
+import { isRoundOver, type RoundStatus } from '@daisy/protocol/round';
+import { type FormatSeating } from '@daisy/protocol/format-seating';
 import { seatName, sideName } from '../debate-room/seat-names';
 
 /** A CSPRNG secret for one Egress's stage page; only its hash is ever stored. */
-export const credentialHash = (secret: string) =>
-  new CryptoHasher('sha3-256').update(secret).digest('hex');
+export const credentialHash = (secret: string) => sha3Hex(secret);
 
 export const newStageCredential = (
   random: (bytes: number) => Uint8Array = (bytes) =>

@@ -2,7 +2,7 @@
 
 import { headers } from 'next/headers';
 import { revalidatePath } from 'next/cache';
-import { friendCommandResultSchema } from '@daisy/protocol';
+import { friendCommandResultSchema } from '@daisy/protocol/friends';
 import {
   friendChanged,
   friendDoneNotice,

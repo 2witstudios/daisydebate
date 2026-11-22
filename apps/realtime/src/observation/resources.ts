@@ -1,7 +1,7 @@
 import type {
   ObservationResource,
   ObservationResourceKind,
-} from '@daisy/protocol';
+} from '@daisy/protocol/observation';
 import type { SocketPrincipal } from '../subscription-state';
 import type { PermitDecision } from './permits';
 

@@ -26,6 +26,54 @@ const provisionalUser = async (fixture: Fixture) => {
 };
 
 describe('claimUsername creates the human actor (ACTOR-1, ADR 0029)', () => {
+  test('an occupied case-folded name, an existing username and an absent account are refused', async () => {
+    await withFixture(url, async (fixture) => {
+      const claimed = await provisionalUser(fixture);
+      const newcomer = await provisionalUser(fixture);
+      const name = `claim-${claimed.userId}`;
+      const database = createDatabase({
+        url,
+        nextActorId: () => claimed.actorId,
+      });
+      try {
+        await database.claimUsername({
+          userId: claimed.userId,
+          username: name,
+        });
+        const later = [
+          await database.claimUsername({
+            userId: claimed.userId,
+            username: name.toUpperCase(),
+          }),
+          await database.claimUsername({
+            userId: claimed.userId,
+            username: 'other-name',
+          }),
+          await database.claimUsername({
+            userId: createId(),
+            username: 'absent-name',
+          }),
+          await database.claimUsername({
+            userId: newcomer.userId,
+            username: name.toUpperCase(),
+          }),
+        ];
+        assert({
+          given:
+            'a case-folded retry, different name for owner, missing user and a competing claim',
+          should:
+            'return exact outcomes and create no actor for the competing account',
+          actual: [
+            later.map(({ kind }) => kind),
+            await actorIdsOf(fixture, newcomer.userId),
+          ],
+          expected: [['unchanged', 'already-set', 'unknown-user', 'taken'], []],
+        });
+      } finally {
+        await database.close();
+      }
+    });
+  });
   test('a claim inserts a human actor row using the injected id source', async () => {
     await withFixture(url, async (fixture) => {
       const { userId, actorId } = await provisionalUser(fixture);

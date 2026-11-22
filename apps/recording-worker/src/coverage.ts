@@ -1,4 +1,4 @@
-import type { PublicInterval } from '@daisy/protocol';
+import type { PublicInterval } from '@daisy/protocol/public-interval';
 
 /** One Egress attempt whose media could be read, with its place in real time. */
 export type CapturedPiece = {

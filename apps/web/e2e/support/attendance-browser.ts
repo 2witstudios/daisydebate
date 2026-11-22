@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import type {
   Frame,
   APIRequestContext,
@@ -10,7 +11,7 @@ import {
   attendanceReceiptSchema,
   attendanceTimingPolicy,
   type AttendanceReceipt,
-} from '@daisy/protocol';
+} from '@daisy/protocol/attendance';
 import { MAINTENANCE_PULSE_MS } from '../../src/features/round-finalization/service';
 import { expect, openPage } from './fixtures';
 import { currentRoundForfeit, readBallotRound } from './human-ballot-round';
@@ -44,8 +45,8 @@ export async function pastOriginalAttendanceGrace(
   await expect
     .poll(
       async () =>
-        Date.parse((await attendanceEvidence(roundId)).observedAt) -
-        Date.parse(startedAt),
+        instantMs((await attendanceEvidence(roundId)).observedAt) -
+        instantMs(startedAt),
       { timeout: 50_000, intervals: [500] },
     )
     .toBeGreaterThan(45_000);

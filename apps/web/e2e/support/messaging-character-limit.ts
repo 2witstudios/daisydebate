@@ -2,6 +2,11 @@ import { expect } from '@playwright/test';
 import { test } from './fixtures';
 import { effectsRan } from './hydration';
 import {
+  completedSend,
+  composerRequestId,
+  durableMessage,
+} from './messaging-completion';
+import {
   acceptMessagingJourney,
   openMessagingJourney,
 } from './messaging-journey';
@@ -14,7 +19,7 @@ import {
 export function testComposerCharacterLimit() {
   test('the composer counts UTF-16 units and blocks one over without truncating', async ({
     browser,
-  }) => {
+  }, info) => {
     const journey = await openMessagingJourney(browser);
     try {
       const page = await acceptMessagingJourney(journey);
@@ -42,20 +47,77 @@ export function testComposerCharacterLimit() {
       await composer.fill(exact);
       await expect(page.getByText('4,000 / 4,000 characters')).toBeVisible();
       await expect(composer).not.toHaveAttribute('aria-invalid');
-      const [action] = await Promise.all([
-        page.waitForResponse(
-          (response) =>
-            new URL(response.url()).pathname ===
-              `/messages/${journey.channelId}` &&
-            response.request().method() === 'POST' &&
-            'next-action' in response.request().headers(),
-        ),
-        page.getByRole('button', { name: 'Send message', exact: true }).click(),
-      ]);
-      expect(action.status()).toBe(200);
-      expect(await action.headerValue('x-action-revalidated')).toBeNull();
-      await expect(page).toHaveURL(/\?sent=[a-z0-9]{24}$/);
-      await expect(page.getByText(exact, { exact: true })).toBeVisible();
+      const requestId = await composerRequestId(page);
+      const path = `/messages/${journey.channelId}`;
+      const actionResponse = Promise.withResolvers<{
+        status: number;
+        body: string;
+        revalidation: string | undefined;
+      }>();
+      await page.route(
+        (url) => url.pathname === path,
+        async (route) => {
+          const request = route.request();
+          if (
+            request.method() !== 'POST' ||
+            !('next-action' in request.headers())
+          )
+            return route.continue();
+          // Read the actual Flight response before delivering it to a browser
+          // that can immediately navigate away and release its response body.
+          const response = await route.fetch();
+          actionResponse.resolve({
+            status: response.status(),
+            body: await response.text(),
+            revalidation: response.headers()['x-action-revalidated'],
+          });
+          await route.fulfill({ response });
+        },
+      );
+      await page
+        .getByRole('button', { name: 'Send message', exact: true })
+        .click();
+      const action = await actionResponse.promise;
+      expect(action.status).toBe(200);
+      const { message } = await completedSend(
+        page,
+        journey.channelId,
+        exact,
+        requestId,
+      );
+      const destination = `${path}?sent=${message.id}`;
+      expect(action.body.includes(destination)).toBe(true);
+      const replay = await page.request.post('/api/messaging/messages', {
+        headers: { origin: new URL(page.url()).origin },
+        data: {
+          version: 1,
+          channelId: journey.channelId,
+          requestId,
+          text: exact,
+        },
+      });
+      expect(replay.status()).toBe(200);
+      expect(await replay.json()).toMatchObject({
+        id: message.id,
+        sequence: message.sequence,
+        changeVersion: message.changeVersion,
+      });
+      expect(await durableMessage(page, journey.channelId, exact)).toEqual(
+        message,
+      );
+      await info.attach('send-completion-evidence', {
+        contentType: 'application/json',
+        body: JSON.stringify({
+          actionStatus: action.status,
+          destination,
+          revalidation: action.revalidation ?? null,
+          replayStatus: replay.status(),
+          messageId: message.id,
+          changeVersion: message.changeVersion,
+        }),
+      });
+      // A current-page patch can remove the composer before it consumes the receipt.
+      expect(action.revalidation).toBeUndefined();
     } finally {
       await journey.close();
     }

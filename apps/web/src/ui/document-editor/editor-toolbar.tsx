@@ -1,5 +1,6 @@
 'use client';
 
+import { Button } from '../components/button/button';
 import { useEditorState, type Editor } from '@tiptap/react';
 import { useRef, useState, type KeyboardEvent } from 'react';
 import { cn } from '../cn';
@@ -118,17 +119,18 @@ export function EditorToolbar({
         onKeyDown={onKeyDown}
       >
         {formats.map((f, index) => (
-          <button
+          <Button
+            variant="unstyled"
             key={f.id}
-            type="button"
             aria-label={f.label}
             aria-pressed={Boolean(active.formats[f.id])}
             className={tool(Boolean(active.formats[f.id]))}
             onClick={() => f.run(editor)}
             {...roving(index)}
+            type="button"
           >
             <Icon name={f.icon} size={16} />
-          </button>
+          </Button>
         ))}
       </div>
       <span className="ml-auto inline-flex shrink-0 items-center gap-1 text-xs whitespace-nowrap text-ink-faint">
@@ -136,7 +138,8 @@ export function EditorToolbar({
         {access}
       </span>
       <div role="group" aria-label="Text size" className="flex shrink-0 gap-px">
-        <button
+        <Button
+          variant="unstyled"
           type="button"
           aria-label="Smaller text"
           disabled={textSize === textSizes[0]}
@@ -144,8 +147,9 @@ export function EditorToolbar({
           onClick={() => onTextSize(stepTextSize(textSize, -1))}
         >
           A−
-        </button>
-        <button
+        </Button>
+        <Button
+          variant="unstyled"
           type="button"
           aria-label="Larger text"
           disabled={textSize === textSizes.at(-1)}
@@ -153,11 +157,12 @@ export function EditorToolbar({
           onClick={() => onTextSize(stepTextSize(textSize, 1))}
         >
           A+
-        </button>
+        </Button>
       </div>
       <div role="group" aria-label="Page tone" className="flex shrink-0 gap-px">
         {(['dark', 'light'] as const).map((tone) => (
-          <button
+          <Button
+            variant="unstyled"
             key={tone}
             type="button"
             aria-label={tone === 'dark' ? 'Dark page' : 'Light page'}
@@ -166,7 +171,7 @@ export function EditorToolbar({
             onClick={() => onPage(page === tone ? null : tone)}
           >
             <Icon name={toneIcon[tone]} size={15} />
-          </button>
+          </Button>
         ))}
       </div>
     </div>

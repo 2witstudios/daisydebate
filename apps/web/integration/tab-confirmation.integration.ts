@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { SQL } from 'bun';
 import { authorize } from '@daisy/auth/authorization';
 import { requireTestServices } from '@daisy/config';
@@ -306,7 +307,7 @@ test('actual pending confirmations preserve five-minute issuance, settle once an
       nextJudge.id,
       String(fixture!.judge_id),
     );
-    const deadline = Date.parse(expired.answer.expiresAt);
+    const deadline = instantMs(expired.answer.expiresAt);
     let checkedAt = deadline;
     const controlledStore = createConfirmationCommandStore(
       committingRuntimeTestDatabase(observer),
@@ -365,7 +366,7 @@ test('actual pending confirmations preserve five-minute issuance, settle once an
       nextJudge.id,
       String(fixture!.judge_id),
     );
-    let time = Date.parse(waiting.answer.expiresAt) - 1,
+    let time = instantMs(waiting.answer.expiresAt) - 1,
       reads = 0;
     const waitingStore = createConfirmationCommandStore(
       committingRuntimeTestDatabase(observer),
@@ -398,7 +399,7 @@ test('actual pending confirmations preserve five-minute issuance, settle once an
         actual: [blocked, reads],
         expected: ['blocked', 0],
       });
-      time = Date.parse(waiting.answer.expiresAt) + 1;
+      time = instantMs(waiting.answer.expiresAt) + 1;
       return { result };
     });
     const crossed = await held.result;

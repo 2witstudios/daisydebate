@@ -25,7 +25,10 @@ import {
   type ContentReportDetail,
   type ContentReportsPage,
 } from '@daisy/protocol/content-moderation';
-import { operatorLimits } from '@daisy/protocol/operator';
+import {
+  operatorLimits,
+  type MatchedOperatorRoutePolicy,
+} from '@daisy/protocol/operator';
 import { PROFILE_PHOTO_RENDITION_MAX_BYTES } from '@daisy/protocol/public-profile';
 import type { ProfilePhotoStatus } from '@daisy/protocol/public-profile';
 import type { z } from 'zod';
@@ -141,25 +144,10 @@ type Deps = {
 };
 
 /** The operator routes moderation answers (WATCH-7, ADR 0079). */
-export type ContentModerationRoute =
-  | 'listContentReports'
-  | 'readContentReport'
-  | 'resolveContentReport'
-  | 'stopBroadcast'
-  | 'setChatSlowMode'
-  | 'takeDownRecording'
-  | 'restoreRecording'
-  | 'removeRecording'
-  | 'legallyRemoveRecording'
-  | 'rebuildRecording'
-  | 'listRebuildableRecordings'
-  | 'removeChatMessage'
-  | 'listProfilePhotoReviews'
-  | 'readProfilePhoto'
-  | 'reviewProfilePhoto'
-  | 'removeProfilePhoto'
-  | 'removeProfileText'
-  | 'setAudienceBan';
+type ContentModerationRoute = Extract<
+  MatchedOperatorRoutePolicy,
+  { group: 'content-moderation' }
+>['endpoint'];
 
 type OperatorPrincipal = Extract<
   AuthorizationPrincipal,
@@ -504,27 +492,37 @@ export function contentModerationRoute(
   deps: Deps,
   principal: AuthorizationPrincipal,
   route: ContentModerationRoute,
-  id: string | null,
   url: URL,
   request: { readonly body: Uint8Array; readonly signedAtMs: number },
 ): Promise<unknown> {
-  // eslint-disable-next-line @typescript-eslint/switch-exhaustiveness-check -- the default is every command route, which `commandOf` is keyed by.
-  switch (route) {
+  switch (route.route) {
     case 'listContentReports':
       return listReports(deps, principal, url);
     case 'readContentReport':
-      return readReport(deps, principal, id!);
+      return readReport(deps, principal, route.id);
     case 'listRebuildableRecordings':
       return listRebuildable(deps, principal);
     case 'listProfilePhotoReviews':
       return listPhotoReviews(deps, principal);
     case 'readProfilePhoto':
-      return readPhoto(deps, principal, id!);
-    default:
+      return readPhoto(deps, principal, route.id);
+    case 'resolveContentReport':
+    case 'stopBroadcast':
+    case 'setChatSlowMode':
+    case 'takeDownRecording':
+    case 'restoreRecording':
+    case 'removeRecording':
+    case 'legallyRemoveRecording':
+    case 'rebuildRecording':
+    case 'removeChatMessage':
+    case 'reviewProfilePhoto':
+    case 'removeProfilePhoto':
+    case 'removeProfileText':
+    case 'setAudienceBan':
       return runCommand(
         deps,
         principal,
-        commandOf[route](id!, request.body),
+        commandOf[route.route](route.id, request.body),
         request.body,
         request.signedAtMs,
       );

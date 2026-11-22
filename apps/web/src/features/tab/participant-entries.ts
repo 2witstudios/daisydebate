@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { commandAction } from './action';
 import type { tournamentPageSchema } from './participant-page-read';
 

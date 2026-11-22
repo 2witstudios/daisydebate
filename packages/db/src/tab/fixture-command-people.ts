@@ -6,11 +6,11 @@ import { tournamentJudges } from '../schema/tournament-judges';
 import { roundParticipants } from '../schema/round-participants';
 import { rounds } from '../schema/rounds';
 import { currentRoundParticipant } from '../round-current-participant';
-import type { TabTransaction } from './tab-transaction';
+import type { Tx } from '../tx';
 
 /** Actual and explicitly named people, never every person in an unrelated fixture or lobby. */
 export async function fixtureCommandPeople(
-  tx: TabTransaction,
+  tx: Tx,
   input: {
     readonly lobbyId: string;
     readonly fixtureId: string;

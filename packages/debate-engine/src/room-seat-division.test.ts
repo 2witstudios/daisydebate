@@ -1,10 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import {
-  judgeSeat,
-  sideSeat,
-  type RatingDivision,
-  type SeatRef,
-} from '@daisy/protocol';
+import { judgeSeat, sideSeat, type SeatRef } from '@daisy/protocol/seats';
+import { type RatingDivision } from '@daisy/protocol/ladder';
 import { executeRoomCommand } from './room-assembly';
 import { consent, edges, state } from './room-assembly.test-support';
 
@@ -100,7 +96,7 @@ const assign = (division: RatingDivision, taker: RatingDivision) => {
   return outcome.ok ? 'seated' : outcome.refusal;
 };
 
-test('a debater seat is for the Room’s own lobby (ADR 0156)', () => {
+test('a debater seat is for the Room’s own lobby (ADR 0162)', () => {
   assert({
     given: 'a member claiming a debater seat in their own lobby’s Room',
     should: 'seat them',

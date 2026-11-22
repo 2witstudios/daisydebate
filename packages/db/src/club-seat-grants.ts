@@ -1,5 +1,8 @@
 import { createAppError } from '@daisy/errors';
-import { entitlementKinds, type EntitlementGrant } from '@daisy/protocol';
+import {
+  entitlementKinds,
+  type EntitlementGrant,
+} from '@daisy/protocol/entitlements';
 import type { SubscriptionEvidence } from '@daisy/protocol/billing';
 import type { ClubSeat } from '@daisy/protocol/club-seats';
 import { clubSeatBounds } from '@daisy/protocol/club-seats';
@@ -7,7 +10,8 @@ import { sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { lockAuthorizationActors } from './authorization';
 import { scopeTransaction } from './tenant-scope';
-import type { BoundedTransactionContext } from './transaction-context';
+import type { Tx } from './tx';
+import { run, query } from './raw-rows';
 
 type SeatGrant = Extract<EntitlementGrant, { source: 'organization_seat' }>;
 /** One holder's projected grants: what `clubSeatGrants` (auth) returns per seat. */
@@ -37,10 +41,12 @@ const holderGrantsSchema = z
 
 /** A club's seats, read under its scope (set by the caller's club lock or here). */
 export async function readClubSeats(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   organizationId: string,
 ): Promise<readonly ClubSeat[]> {
-  const rows = await tx.execute(
+  const rows = await query(
+    tx,
+    z.object({ user_id: z.string(), assigned_at: z.date() }),
     sql`select user_id, assigned_at from club_seats
       where organization_id=${organizationId} order by user_id`,
   );
@@ -57,7 +63,7 @@ export async function readClubSeats(
  * treats a different holder set as stale.
  */
 export async function lockClubSeatHolderAccounts(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   organizationId: string,
   extraUserIds: readonly string[] = [],
 ) {
@@ -67,7 +73,9 @@ export async function lockClubSeatHolderAccounts(
     ...new Set([...seats.map((seat) => seat.userId), ...extraUserIds]),
   ];
   if (userIds.length === 0) return { seats, accounts: [] };
-  const actors = await tx.execute(
+  const actors = await query(
+    tx,
+    z.object({ id: z.string(), user_id: z.string().nullable() }),
     sql`select id, user_id from actors where kind='human'
       and user_id in (${sql.join(
         userIds.map((id) => sql`${id}`),
@@ -95,7 +103,7 @@ export const sameHolders = (
  * with no projected grants (unfunded, or no access) is revoked.
  */
 export async function writeClubSeatGrants(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   organizationId: string,
   holders: readonly SeatHolderGrants[],
 ) {
@@ -107,20 +115,27 @@ export async function writeClubSeatGrants(
     )
       throw createAppError('VALIDATION');
     const grants = JSON.stringify(parsed.data);
-    await tx.execute(sql`delete from account_entitlement_grants
+    await run(
+      tx,
+      sql`delete from account_entitlement_grants
       where user_id=${holder.userId} and source='organization_seat'
       and (organization_id <> ${organizationId} or entitlement not in
-        (select value->>'entitlement' from jsonb_array_elements(${grants}::text::jsonb)))`);
+        (select value->>'entitlement' from jsonb_array_elements(${grants}::text::jsonb)))`,
+    );
     if (parsed.data.length)
-      await tx.execute(sql`insert into account_entitlement_grants
+      await run(
+        tx,
+        sql`insert into account_entitlement_grants
         (user_id, entitlement, source, organization_id, starts_at, expires_at)
         select ${holder.userId}, value->>'entitlement', 'organization_seat', ${organizationId},
           (value->>'startsAt')::timestamptz, (value->>'expiresAt')::timestamptz
         from jsonb_array_elements(${grants}::text::jsonb)
         on conflict (user_id, entitlement, source) do update
           set organization_id=excluded.organization_id,
-            starts_at=excluded.starts_at, expires_at=excluded.expires_at`);
-    await tx.execute(
+            starts_at=excluded.starts_at, expires_at=excluded.expires_at`,
+      );
+    await run(
+      tx,
       sql`update users set version=version+1 where id=${holder.userId}`,
     );
   }

@@ -1,4 +1,5 @@
-import type { ChallengeList, RatingDivision } from '@daisy/protocol';
+import type { ChallengeList } from '@daisy/protocol/challenges';
+import type { RatingDivision } from '@daisy/protocol/ladder';
 import { initialChallengeForm } from '../../features/challenges/forms';
 import { initialPersonBlock } from '../../features/contacts/block-form';
 import { initialFriendForm } from '../../features/friends/forms';

@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { fourTeams } from '@daisy/protocol';
+import { fourTeams } from '@daisy/protocol/seats';
 import { oneOnOneFormatFixture } from '@daisy/protocol/testing';
 import { oneOnOneSettings } from './runtime.test-support';
 import {

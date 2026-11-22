@@ -16,7 +16,7 @@ import { loadAuthorityContext } from './authority-context';
 import { lockEventSettingContext } from './event-setting-context';
 import { loadLobbyAuthority } from './lobby-authority';
 import { appendHistory, storedCommand } from './command-record';
-import type { TabDatabase, TabTransaction } from './tab-transaction';
+import { inTransaction, type Tx, type TxOpener } from '../tx';
 
 type Input = {
   readonly senderUserId: string;
@@ -24,7 +24,7 @@ type Input = {
   readonly lobbyId: string;
   readonly command: SanctionCommand;
 };
-async function load(tx: TabTransaction, input: Input) {
+async function load(tx: Tx, input: Input) {
   const scope = {
     subjectUserId: input.senderUserId,
     organizationId: input.organizationId,
@@ -42,23 +42,14 @@ async function load(tx: TabTransaction, input: Input) {
           : eq(sanctions.id, input.command.sanctionId),
       ),
     );
-  if (
-    input.command.type !== 'request-sanction' &&
-    (!sanction || sanction.lobbyId !== input.lobbyId)
-  )
-    return null;
-  const eventId =
+  const target =
     input.command.type === 'request-sanction'
-      ? input.command.eventId
-      : sanction!.eventId;
-  const templateId =
-    input.command.type === 'request-sanction'
-      ? input.command.templateId
-      : sanction!.templateId;
-  const seasonId =
-    input.command.type === 'request-sanction'
-      ? input.command.seasonId
-      : sanction!.seasonId;
+      ? input.command
+      : sanction?.lobbyId === input.lobbyId
+        ? sanction
+        : null;
+  if (!target) return null;
+  const { eventId, templateId, seasonId } = target;
   const configuration = await lockEventSettingContext(tx, {
     lobbyId: input.lobbyId,
     eventId,
@@ -175,7 +166,7 @@ export type SanctionStoreWrite =
         readonly version: number;
       };
     };
-export const createSanctionCommandStore = (database: TabDatabase) => ({
+export const createSanctionCommandStore = (database: TxOpener) => ({
   sanctionCommand: <Answer>(
     input: Input,
     work: (session: {
@@ -188,7 +179,7 @@ export const createSanctionCommandStore = (database: TabDatabase) => ({
       ) => Promise<void>;
     }) => Promise<Answer>,
   ): Promise<Answer> =>
-    database.transaction(async (tx) =>
+    inTransaction(database, async (tx) =>
       work({
         load: () => load(tx, input),
         stored: (id) => storedCommand(tx, id),

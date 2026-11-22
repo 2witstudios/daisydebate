@@ -1,12 +1,10 @@
 import { and, asc, desc, eq, sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
+import { maxHostedRooms, type HostedRoom } from '@daisy/protocol/hosted-rooms';
+import { type ActiveRoomFacts } from '@daisy/protocol/active-room';
 import {
-  maxHostedRooms,
-  type ActiveRoomFacts,
-  type HostedRoom,
   type RoomAssemblyState,
   type RoomMutationOutcome,
-} from '@daisy/protocol';
+} from '@daisy/protocol/room-contract';
 import { createAppError } from '@daisy/errors';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { roomParticipants, rooms } from './schema/rooms';
@@ -22,6 +20,7 @@ import {
   transactionNow,
 } from './room-command-facts';
 import { roomIsOpen } from './room-open';
+import { inTransaction, type TxSource } from './tx';
 
 type Maintain = (
   state: RoomAssemblyState,
@@ -37,7 +36,7 @@ export const roomLifecycleOperations = ({
   eventSink,
   commandTransaction,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
   readonly eventSink?: DatabaseEventSink | undefined;
   readonly commandTransaction: ReturnType<typeof roomCommandTransaction>;
 }) => ({
@@ -47,7 +46,7 @@ export const roomLifecycleOperations = ({
     authorize: (account: Account) => boolean,
   ): Promise<ActiveRoomFacts | null> {
     return instrumented(eventSink, 'readActiveRoomFacts', () =>
-      database.transaction(async (tx) => {
+      inTransaction(database, async (tx) => {
         await requireAccount(tx, caller, authorize);
         return activeRoomFacts(tx, caller.actorId);
       }),
@@ -63,7 +62,7 @@ export const roomLifecycleOperations = ({
     authorize: (account: Account) => boolean,
   ): Promise<readonly HostedRoom[]> {
     return instrumented(eventSink, 'listHostedRooms', () =>
-      database.transaction(async (tx) => {
+      inTransaction(database, async (tx) => {
         await requireAccount(tx, caller, authorize);
         return tx
           .select({

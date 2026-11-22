@@ -23,6 +23,7 @@ export default async function MessageAttachmentsPage({
       `http://in-process.invalid/api/messaging/channels/${channelId}/files?messageId=${messageId}`,
       { headers: incoming },
     ),
+    { params },
   );
   if (!response.ok)
     return (

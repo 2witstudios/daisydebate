@@ -1,5 +1,5 @@
 import { assertRejects } from '@daisy/errors/testing';
-import type { RatingPlan } from '@daisy/protocol';
+import type { RatingPlan } from '@daisy/protocol/ratings';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   assertRoundRatingIntegrity,
@@ -35,7 +35,7 @@ const plan: RatingPlan = {
       expectedVersion: 3,
     },
   ],
-} as unknown as RatingPlan;
+};
 
 test('only ranked Rounds pin a preset and ladder', async () => {
   assert({

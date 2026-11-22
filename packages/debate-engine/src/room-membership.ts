@@ -1,12 +1,12 @@
-import { activeRoomHref, isRoundRunning } from '@daisy/protocol';
+import { activeRoomHref } from '@daisy/protocol/active-room';
+import { isRoundRunning } from '@daisy/protocol/round';
+import type { ActiveRoom, ActiveRoomFacts } from '@daisy/protocol/active-room';
 import type {
-  ActiveRoom,
-  ActiveRoomFacts,
   OpenRoomStatus,
   RoomAssemblyState,
   RoomRoundLink,
-  RoundStatus,
-} from '@daisy/protocol';
+} from '@daisy/protocol/room-contract';
+import type { RoundStatus } from '@daisy/protocol/round';
 
 type Holding = RoomRoundLink & {
   /** Whether the launched Round's last speech has ended; false before Launch. */

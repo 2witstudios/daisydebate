@@ -1,5 +1,5 @@
 import type { BallotDefinitionValue } from '@daisy/protocol/lobby/ballot-read';
-import { isScoreOnScale } from '@daisy/protocol';
+import { isScoreOnScale } from '@daisy/protocol/score-unit';
 import { type TabAction } from './action';
 import { type ResolvedSetting } from './settings';
 import type { EventSwitch } from './setup';

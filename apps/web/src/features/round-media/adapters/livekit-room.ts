@@ -12,7 +12,7 @@ import {
   setLogLevel,
   type LocalTrack,
 } from 'livekit-client';
-import type { RoundMediaAdmission } from '@daisy/protocol';
+import type { RoundMediaAdmission } from '@daisy/protocol/round-media';
 import type { CheckedDeviceRead } from '../../video/device-selection';
 import type { RoomEvent as MediaRoomEvent } from '../model/media-events';
 import type { ObservedTrack, Source } from '../model/media-state';
@@ -21,7 +21,9 @@ import { cameraResolution } from './camera-resolution';
 
 /** How long a connection may try to resume before it counts as a drop. */
 export const RESUME_BUDGET_MS = 5_000;
-const RESUME_DELAYS_MS = [0, 300, 1_000, 1_500];
+/** Every retry past the schedule waits as long as its last step. */
+const RESUME_LAST_DELAY_MS = 1_500;
+const RESUME_DELAYS_MS = [0, 300, 1_000, RESUME_LAST_DELAY_MS];
 /**
  * A blip resumes the same connection with its tracks. Past the budget the SDK gives up,
  * and the drop joins the one recovery loop, so a dead node still rejoins within its bar.
@@ -35,7 +37,7 @@ export const resumeDelayMs = ({
 }): number | null =>
   elapsedMs >= RESUME_BUDGET_MS
     ? null
-    : (RESUME_DELAYS_MS[retryCount] ?? RESUME_DELAYS_MS.at(-1)!);
+    : (RESUME_DELAYS_MS[retryCount] ?? RESUME_LAST_DELAY_MS);
 
 /** The SDK surface used: livekit-client in the browser, a stub in tests. */
 export type MediaSdk = {
@@ -96,6 +98,8 @@ export function createLiveKitRoom(
   setLogLevel(LogLevel.silent);
   const room = sdk.room();
   let released = false;
+  // Read live: release() can run during any await, which narrowing cannot see.
+  const isReleased = () => released;
   let camera: RoundMediaAdmission['camera'] = 'standard';
   // The SDK also fires Disconnected for a connect that fails, just before rejecting.
   let connected = false;
@@ -138,7 +142,7 @@ export function createLiveKitRoom(
         if (
           source &&
           publication.track &&
-          publication.track.mediaStreamTrack?.readyState !== 'ended'
+          publication.track.mediaStreamTrack.readyState !== 'ended'
         )
           snapshot.push({
             identity: participant.identity,
@@ -175,7 +179,7 @@ export function createLiveKitRoom(
   };
   const reportEndedTracks = () => {
     for (const [source, resource] of held)
-      if (resource.track.mediaStreamTrack?.readyState === 'ended')
+      if (resource.track.mediaStreamTrack.readyState === 'ended')
         say({ type: 'track-ended', source });
   };
   const playback = () =>
@@ -242,7 +246,7 @@ export function createLiveKitRoom(
       .on(TrackEvent.Restarted, () => {
         if (
           resource.deviceId !== null &&
-          resource.track.mediaStreamTrack?.getSettings().deviceId !==
+          resource.track.mediaStreamTrack.getSettings().deviceId !==
             resource.deviceId
         )
           say({ type: 'device-swapped', source });
@@ -308,7 +312,7 @@ export function createLiveKitRoom(
       if (
         current?.held &&
         (useDefaults || current.deviceId === deviceId) &&
-        current.track.mediaStreamTrack?.readyState !== 'ended'
+        current.track.mediaStreamTrack.readyState !== 'ended'
       ) {
         say({ type: 'captured', source });
         return;
@@ -382,7 +386,7 @@ export function createLiveKitRoom(
         return;
       }
       // Release already stopped it, and nothing listens to a stopped track.
-      if (released) return;
+      if (isReleased()) return;
       watch(source, resource);
       say({ type: 'published', source });
       // A device lost while publishing ended before the model could hear it.

@@ -1,13 +1,13 @@
 import type { LiveBroadcastPage } from '@daisy/db';
 import { releasedStage } from '@daisy/debate-engine';
+import { everySeatOf } from '@daisy/protocol/format-seating';
 import {
-  everySeatOf,
   isDebatingSeat,
   sameSeat,
   sideOfSeat,
-  type Ladder,
   type SeatRef,
-} from '@daisy/protocol';
+} from '@daisy/protocol/seats';
+import { type Ladder } from '@daisy/protocol/ladder';
 import { seatName, sideShortName } from '../debate-room/seat-names';
 import { modeLabel } from './labels';
 import { liveHref } from './routes';
@@ -91,7 +91,7 @@ export function liveCardOf(row: LiveRow): LiveCard {
   return {
     id: row.id,
     href: liveHref(row.id),
-    title: row.title ?? 'Debate',
+    title: row.title,
     ranked: row.competitionType === 'ranked',
     ladder: row.ladder,
     mode: modeLabel(row.competitionType),

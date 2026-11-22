@@ -1,3 +1,4 @@
+import { scheduleDelay } from '../edge/browser-time';
 import {
   startPacedPoll,
   type PollAnswer,
@@ -6,8 +7,7 @@ import {
 const spread = () => crypto.getRandomValues(new Uint32Array(1))[0]! / 2 ** 32;
 
 const schedule = (ms: number, run: () => void) => {
-  const timer = setTimeout(run, ms);
-  return () => clearTimeout(timer);
+  return scheduleDelay(run, ms);
 };
 
 /** A viewer's read loop on the browser's clock and entropy; returns its stop. */

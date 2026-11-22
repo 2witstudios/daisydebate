@@ -1,8 +1,9 @@
+import { StatusRegion } from '../../../../../../ui/components/status-region/status-region';
 import { ConversationPane } from '../../../../../../ui/messaging/conversation-pane';
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { systemId } from '@daisy/clock';
-import { messagingGroupInvitationResultSchema } from '@daisy/protocol';
+import { messagingGroupInvitationResultSchema } from '@daisy/protocol/messaging/social';
 import {
   readMessagingPageChannel,
   type MessagingPageScope,
@@ -22,6 +23,7 @@ export default async function GroupInvitationPage({
       `http://in-process.invalid/api/messaging/groups/${channel}/invitation`,
       { headers: new Headers(await headers()) },
     ),
+    { params },
   );
   if (response.status === 404) notFound();
   const result = response.ok
@@ -54,9 +56,9 @@ export default async function GroupInvitationPage({
           />
         </section>
       ) : (
-        <p role="status">
+        <StatusRegion as="p" role="status">
           This invitation is unavailable. Refresh to try again.
-        </p>
+        </StatusRegion>
       )}
     </ConversationPane>
   );

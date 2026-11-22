@@ -5,9 +5,9 @@ import type {
   RoundCommand,
   RoundPosition,
   RoundProjection,
-  RoundPanelCompletion,
-  RuntimeCheckpoint,
-} from '@daisy/protocol';
+} from '@daisy/protocol/runtime';
+import type { RoundPanelCompletion } from '@daisy/protocol/round-panel-completion';
+import type { RuntimeCheckpoint } from '@daisy/protocol/round';
 
 /** What createRoundRuntime returns: reads, decisions and the clock, each projecting its writes. */
 export type RoundRuntime = {

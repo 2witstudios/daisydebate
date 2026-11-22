@@ -1,4 +1,4 @@
-import { roundStartPolicy } from '@daisy/protocol';
+import { roundStartPolicy } from '@daisy/protocol/round-start-policy';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { floorBoundaries, floorDueAt, type FloorClock } from './floor-clock';
 

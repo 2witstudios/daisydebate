@@ -9,7 +9,6 @@ type Env = Readonly<Record<string, string | undefined>>;
 // Chromium-only: cross-browser parity for them is outside this epic's scope.
 export const AUTH_JOURNEY_SPECS = [
   '**/journey.e2e.ts',
-  '**/journey-no-js.e2e.ts',
   '**/onboarding.e2e.ts',
   '**/form-transport.e2e.ts',
   '**/answer-focus.e2e.ts',
@@ -148,9 +147,18 @@ export default defineConfig({
     baseURL: origin,
     // The edge presents a per-run self-signed certificate for localhost.
     ignoreHTTPSErrors: true,
-    screenshot: 'only-on-failure',
-    trace: 'retain-on-failure',
-    video: 'retain-on-failure',
+    screenshot:
+      process.env.DAISY_BROWSER_REVIEW_EVIDENCE === '1'
+        ? 'on'
+        : 'only-on-failure',
+    trace:
+      process.env.DAISY_BROWSER_REVIEW_EVIDENCE === '1'
+        ? 'on'
+        : 'retain-on-failure',
+    video:
+      process.env.DAISY_BROWSER_REVIEW_EVIDENCE === '1'
+        ? 'on'
+        : 'retain-on-failure',
   },
   projects: [
     // Chromium carries the whole functional suite (app/dashboard chrome,

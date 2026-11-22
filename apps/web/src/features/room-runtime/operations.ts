@@ -1,3 +1,4 @@
+import { addMs } from '@daisy/clock';
 import { createAppError, createRefusal } from '@daisy/errors';
 import { canOfferFreshRoom } from './fresh-room';
 import { roomBotAdmission } from './bot-admission';
@@ -34,10 +35,10 @@ import { spectatorClockAt } from '../spectating/spectator-clock';
 import { withSeatRatings } from '../ratings/room-seat-ratings';
 import { replayPublishedStandings } from '../ratings/replay-published-standings';
 import type { createRedis } from '@daisy/redis';
+import type { ActiveRoom } from '@daisy/protocol/active-room';
+import type { AgeBand } from '@daisy/protocol/ladder';
+import type { HostedRoom } from '@daisy/protocol/hosted-rooms';
 import type {
-  ActiveRoom,
-  AgeBand,
-  HostedRoom,
   RoomListPage,
   RoomListQuery,
   RoomAssemblyState,
@@ -46,13 +47,11 @@ import type {
   RoomCommandResponse,
   RoomCreate,
   RoomView,
-} from '@daisy/protocol';
-import {
-  isDebatingSeat,
-  isOpenRoomStatus,
-  isRoundOver,
-  type RoomWatch,
-} from '@daisy/protocol';
+} from '@daisy/protocol/room-contract';
+import { isDebatingSeat } from '@daisy/protocol/seats';
+import { isOpenRoomStatus } from '@daisy/protocol/room-contract';
+import { isRoundOver } from '@daisy/protocol/round';
+import { type RoomWatch } from '@daisy/protocol/room-read';
 import { liveAudience } from '@daisy/auth/live-audience';
 import type { LinkedAdultsOf } from '../spectating/linked-adults';
 import { createdSides } from './created-sides';
@@ -174,10 +173,7 @@ export function createRoomRuntimeOperations({
         available: true,
         readyActorIds: leases.map((lease) => lease.actorId),
         validUntil: leases.length
-          ? new Date(
-              Date.parse(beforeRead) +
-                Math.min(...leases.map((lease) => lease.ttlMs)),
-            ).toISOString()
+          ? addMs(beforeRead, Math.min(...leases.map((lease) => lease.ttlMs)))
           : null,
       };
     } catch {
@@ -251,6 +247,7 @@ export function createRoomRuntimeOperations({
           caller.actorId,
           currentRoomConsent(consent, now),
           now,
+          { resolutionHeld: facts.resolutionHeld },
         ),
         {
           // A seat's rating waits for the spectator timeline, as a card's does.
@@ -398,7 +395,7 @@ export function createRoomRuntimeOperations({
     const receipt = await store.createRoomCommand({
       caller,
       // The Room opens in the creator's own lobby unless club staff chose
-      // Youth (ADR 0156); the store decides under the account lock.
+      // Youth (ADR 0162); the store decides under the account lock.
       lobbyChoice: body.lobby ?? null,
       authorize: (account) => can(caller, 'room.create', account),
       // A new Room holds the humans its cast seats, never a host without a

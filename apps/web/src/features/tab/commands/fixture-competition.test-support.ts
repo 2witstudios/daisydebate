@@ -1,11 +1,10 @@
+import { ballotCategories } from '@daisy/protocol/ballot';
 import {
-  ballotCategories,
   daisyWinnerBallot,
   daisyBallotSource,
-  judgeSeat,
-  sideSeat,
   panelRuleFor,
-} from '@daisy/protocol';
+} from '@daisy/protocol/ballot-definition';
+import { judgeSeat, sideSeat } from '@daisy/protocol/seats';
 import { fixtureRules, oneOnOneFormatFixture } from '@daisy/protocol/testing';
 import type { ResultCompetitionRecord } from '@daisy/protocol/lobby/result-record';
 const id = (letter: string) => letter.repeat(24);

@@ -1,13 +1,17 @@
+import type { LobbyCommandAnswer } from '@daisy/protocol/lobby/command';
 import { createId } from '@paralleldrive/cuid2';
 import { assert } from 'riteway/bun';
-import type { lobbyAdministrationCommand } from '../src/features/tab/operations/lobby-administration';
+import type { TabPrincipal } from '../src/features/tab/tab-principal';
 import {
   as,
   deniedAsNotFound,
 } from './tab-tournament-organization-wiring.test-support';
 import type { Bot, World } from './tab-tournament.test-support';
 
-type Send = ReturnType<typeof lobbyAdministrationCommand>;
+type Send = (
+  principal: TabPrincipal,
+  body: unknown,
+) => Promise<LobbyCommandAnswer>;
 export const lobbyLifecycle = async (
   world: World,
   send: Send,
@@ -50,6 +54,7 @@ export const lobbyLifecycle = async (
     throw new Error('tournament creation refused');
   const lobbyId = created.receipt.aggregate.id;
   world.made.set('tournament-lobby', lobbyId);
+  world.made.set('tournament-handle', command.handle);
   const [owner] =
     await world.sql`select owner_user_id,owner_organization_id from lobbies where id=${lobbyId}`;
   assert({

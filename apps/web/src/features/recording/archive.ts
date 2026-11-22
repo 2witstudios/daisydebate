@@ -1,12 +1,12 @@
 import {
   isDebatingSeat,
   sideOfSeat,
-  type CompetitionType,
-  type RecordingStatus,
-  type RoundOutcome,
   type SeatRef,
   type Side,
-} from '@daisy/protocol';
+} from '@daisy/protocol/seats';
+import { type CompetitionType } from '@daisy/protocol/round';
+import { type RecordingStatus } from '@daisy/protocol/recording';
+import { type RoundOutcome } from '@daisy/protocol/round-outcome';
 import { sideName } from '../debate-room/seat-names';
 import type { spectatorClockAt } from '../spectating/spectator-clock';
 import { replayHref } from '../watch/routes';

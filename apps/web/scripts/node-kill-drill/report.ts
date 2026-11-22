@@ -1,4 +1,4 @@
-import { CAPTURE_COVERAGE_TOLERANCE } from '@daisy/protocol';
+import { CAPTURE_COVERAGE_TOLERANCE } from '@daisy/protocol/capture-timing';
 import { z } from 'zod';
 import { incidentRate, percentile } from './measure';
 

@@ -1,5 +1,5 @@
 import { reportJudgingRecovery } from './round-judging-recovery-report';
-import type { JudgingTerminalReason } from '@daisy/protocol';
+import type { JudgingTerminalReason } from '@daisy/protocol/round-judging-attempt';
 import type { RoundJudgingPolicy } from '@daisy/config';
 import { createAppError } from '@daisy/errors';
 import type { ErrorReporter } from '@daisy/observability';

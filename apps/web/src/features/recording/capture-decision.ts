@@ -5,16 +5,16 @@ import {
   type StagePhaseFact,
   type StagePrivacyAction,
 } from '@daisy/debate-engine';
+import { assertNever } from '@daisy/protocol/assert-never';
 import {
-  assertNever,
   capturedMediaMs,
   recordingBuildCeilingMs,
-} from '@daisy/protocol';
+} from '@daisy/protocol/recording-processing';
+import type { RecordingJobState } from '@daisy/protocol/recording-processing';
 import type {
-  RecordingJobState,
   RecordingLifecycle,
   RecordingSource,
-} from '@daisy/protocol';
+} from '@daisy/protocol/recording';
 
 type EgressAttempt = {
   readonly attempt: number;

@@ -1,4 +1,4 @@
-import type { BallotWrittenRecord } from '@daisy/protocol';
+import type { BallotWrittenRecord } from '@daisy/protocol/ballot-schema';
 import type { ReleaseAudience } from '@daisy/protocol/release-audience';
 import { releaseAudiences } from '@daisy/protocol/release-audience';
 import type {

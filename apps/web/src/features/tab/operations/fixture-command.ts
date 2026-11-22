@@ -14,7 +14,7 @@ import {
   type LoadedFixtureCommand,
 } from '@daisy/db/tab';
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import {
   fixtureCommandEnvelopeSchema,
   fixtureCommandDefinition,
@@ -26,7 +26,7 @@ import { decideFixture } from '../commands/fixture';
 import { fixtureAuthority } from './fixture-authority';
 import { fixtureFacts } from './fixture-facts';
 
-import { commandDigest } from './command-digest';
+import { commandDigest } from '@daisy/digest';
 import type { TabPrincipal } from '../tab-principal';
 
 /** Addressed officiating commands preserve ordinary owner lifecycle and immutable competitive provenance. */

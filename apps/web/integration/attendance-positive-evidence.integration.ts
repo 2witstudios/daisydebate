@@ -1,13 +1,9 @@
 import { decisionOf } from './attendance-evaluation.test-support';
 import { passAttendanceCutoff } from './round-attendance-fixture.test-support';
 import { requireTestServices } from '@daisy/config';
-import {
-  attendanceTimingPolicy,
-  buildRoundTopic,
-  isSideSeat,
-  sameSeat,
-  sideOfSeat,
-} from '@daisy/protocol';
+import { attendanceTimingPolicy } from '@daisy/protocol/attendance';
+import { buildRoundTopic } from '@daisy/protocol/topics';
+import { isSideSeat, sameSeat, sideOfSeat } from '@daisy/protocol/seats';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { withAttendanceRound } from './attendance.test-support';

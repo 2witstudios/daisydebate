@@ -1,3 +1,4 @@
+import { tryInstantMs } from '@daisy/clock';
 import { currentAgeFact } from './authorization-age';
 import type {
   ChannelAuthorizationFact,
@@ -19,16 +20,14 @@ function policyRevisionsMatch(
       (authority.kind === 'dm' ? authority.revision : authority.generation)
   );
 }
-function policyTimeCurrent(
-  policy: SocialPolicyEvidence,
-  now: string | undefined,
-) {
-  if (now === undefined) return false;
-  const instant = Date.parse(now),
-    observed = Date.parse(policy.evaluatedAt),
-    expiry = Date.parse(policy.validUntil);
+function policyTimeCurrent(policy: SocialPolicyEvidence, now: string) {
+  const instant = tryInstantMs(now),
+    observed = tryInstantMs(policy.evaluatedAt),
+    expiry = tryInstantMs(policy.validUntil);
   return (
-    [instant, observed, expiry].every(Number.isFinite) &&
+    instant !== undefined &&
+    observed !== undefined &&
+    expiry !== undefined &&
     observed <= instant &&
     instant < expiry
   );
@@ -63,6 +62,7 @@ function policyAccountsCurrent(
   resource: ChannelAuthorizationFact,
   policy: SocialPolicyEvidence,
   context: AuthorizationInput['context'],
+  now: string,
   posting: boolean,
 ) {
   const accounts = context.socialAccounts;
@@ -84,7 +84,7 @@ function policyAccountsCurrent(
     return (
       row !== undefined &&
       evidence !== undefined &&
-      policyAccountCurrent(row, evidence, context.now!, posting)
+      policyAccountCurrent(row, evidence, now, posting)
     );
   });
 }
@@ -106,11 +106,13 @@ export function policyEvidenceCurrent(
   context: AuthorizationInput['context'],
   posting = false,
 ) {
+  const { now } = context;
   return (
     policy?.allowed === true &&
+    now !== undefined &&
     policyRevisionsMatch(resource, policy) &&
-    policyTimeCurrent(policy, context.now) &&
-    policyAccountsCurrent(resource, policy, context, posting) &&
+    policyTimeCurrent(policy, now) &&
+    policyAccountsCurrent(resource, policy, context, now, posting) &&
     policySelfCurrent(context)
   );
 }

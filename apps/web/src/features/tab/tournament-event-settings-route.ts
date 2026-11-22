@@ -1,15 +1,11 @@
-import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import {
   tournamentEventSettingsViewSchema,
   type TournamentEventSettingsView,
 } from '@daisy/protocol/lobby/resolved-settings-read';
 import { z } from 'zod';
-import { parseValidated } from '../../server/http';
-import {
-  runEvaluatedRoute,
-  type MemberBoundary,
-} from '../../server/member-boundary';
+import type { MemberBoundary } from '../../server/member-boundary';
+import { bindTabRead } from './read-route';
 import type { TabPrincipal } from './tab-principal';
 const querySchema = z.strictObject({
   lobbyId: idSchema,
@@ -35,26 +31,14 @@ export type TournamentEventSettingsRouteDependencies = {
   ) => Promise<TournamentEventSettingsView | null>;
 };
 /** The host's resolved event settings, behind the same closed release as its commands. */
-export const createTournamentEventSettingsRoute =
-  (dependencies: TournamentEventSettingsRouteDependencies) =>
-  (request: Request) =>
-    runEvaluatedRoute(dependencies.boundary, request, {
-      name: 'tab.tournament.event.settings',
-      readOnly: true,
-      readInput: async () => undefined,
-      operation: async (_value, principal) => {
-        if (
-          principal.kind !== 'user' ||
-          !(await dependencies.released(principal.userId))
-        )
-          throw createAppError('NOT_FOUND');
-        const input = parseValidated(
-          querySchema,
-          Object.fromEntries(new URL(request.url).searchParams),
-        );
-        const view = await dependencies.read(principal, input);
-        if (view === null) throw createAppError('NOT_FOUND');
-        return tournamentEventSettingsViewSchema.parse(view);
-      },
-      headers: { 'cache-control': 'no-store' },
-    });
+export const createTournamentEventSettingsRoute = (
+  dependencies: TournamentEventSettingsRouteDependencies,
+) =>
+  bindTabRead({
+    boundary: dependencies.boundary,
+    released: dependencies.released,
+    name: 'tab.tournament.event.settings',
+    query: querySchema,
+    view: tournamentEventSettingsViewSchema,
+    read: dependencies.read,
+  });

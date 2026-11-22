@@ -1,19 +1,17 @@
 import {
   partialReasonsStateLoss,
   type CaptureRule,
-  type FrozenCapture,
-} from '@daisy/protocol';
+} from '@daisy/protocol/capture-verdict';
+import { type FrozenCapture } from '@daisy/protocol/capture-judging-limit';
 import { and, eq, ne, sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { closedStreamGaps, streamKey } from './capture-gaps';
 import { roundSpeakingIntervals } from './schema/round-speaking-intervals';
 import { transcriptSegments } from './schema/transcript-segments';
-
-type Reader = Pick<BunSQLDatabase, 'select'>;
+import type { Tx } from './tx';
 
 /** How much speech a Round owed and lost, read once its streams have closed. */
 export async function readCaptureShortfall(
-  tx: Reader,
+  tx: Tx,
   roundId: string,
   rule: CaptureRule,
 ) {

@@ -1,4 +1,5 @@
-import { canonicalJson, digestOf } from '@daisy/seeded-random';
+import { sha3Hex } from '@daisy/digest';
+import { canonicalJson } from '@daisy/seeded-random';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { assess } from '../assess';
 import { ASSESS_VERSION } from '../assess/assessment';
@@ -174,7 +175,7 @@ corpus['sections second round'] = secondRound(
 
 const current = (input: DrawInput): LockEntry => {
   const d: Draw = drawsOf(draw(input))[0]!;
-  return { versions: d.inputs.engine, digest: digestOf(canonicalJson(d)) };
+  return { versions: d.inputs.engine, digest: sha3Hex(canonicalJson(d)) };
 };
 
 const field = entries(11, 4);
@@ -216,15 +217,15 @@ const handPlanned = (() => {
 const folds: Record<string, LockEntry> = {
   'assess of a hand plan': {
     versions: { assess: ASSESS_VERSION },
-    digest: digestOf(canonicalJson(handPlanned)),
+    digest: sha3Hex(canonicalJson(handPlanned)),
   },
   standings: {
     versions: { standings: STANDINGS_VERSION },
-    digest: digestOf(canonicalJson(standings(fold))),
+    digest: sha3Hex(canonicalJson(standings(fold))),
   },
   breaks: {
     versions: { breaks: BREAKS_VERSION },
-    digest: digestOf(
+    digest: sha3Hex(
       canonicalJson(
         breaks({
           ...fold,
@@ -236,7 +237,7 @@ const folds: Record<string, LockEntry> = {
   },
   'season standings': {
     versions: { season: SEASON_VERSION },
-    digest: digestOf(
+    digest: sha3Hex(
       canonicalJson(
         seasonStandings(
           [
@@ -265,7 +266,7 @@ const folds: Record<string, LockEntry> = {
   },
   'ladder input': {
     versions: { ladder: LADDER_INPUT_VERSION },
-    digest: digestOf(
+    digest: sha3Hex(
       canonicalJson(
         ladderInput({
           rooms: [],

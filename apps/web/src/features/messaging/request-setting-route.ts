@@ -1,5 +1,5 @@
 import type { Database } from '@daisy/db';
-import { messageRequestSettingSchema } from '@daisy/protocol';
+import { messageRequestSettingSchema } from '@daisy/protocol/messaging/social';
 import {
   accountRoute,
   type AccountRouteDeps,

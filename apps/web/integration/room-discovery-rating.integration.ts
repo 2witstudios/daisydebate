@@ -5,7 +5,8 @@ import {
   seedRatingSeason,
   validRules,
 } from '@daisy/db/testing';
-import { emptyRuntimeCheckpointFor, isNamedSeat } from '@daisy/protocol';
+import { emptyRuntimeCheckpointFor } from '@daisy/protocol/round';
+import { isNamedSeat } from '@daisy/protocol/round-view';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { readyRankedRoom } from './ranked-room.test-support';

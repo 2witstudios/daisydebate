@@ -1,21 +1,24 @@
+import { instantMs, tryInstantMs } from '@daisy/clock';
 import type { Browser, BrowserContext, Page } from '@playwright/test';
 import { createId } from '@paralleldrive/cuid2';
 import {
   affirmativeSide,
-  attendanceTimingPolicy,
-  isNamedSeat,
   judgeSeat,
   negativeSide,
-  roundViewSchema,
   sameSeat,
   seatKey,
   sideSeat,
   twoSideKeys,
-  winnerOutcome,
-  type RoomView,
-  type RoundView,
   type TwoSideKey,
-} from '@daisy/protocol';
+} from '@daisy/protocol/seats';
+import { attendanceTimingPolicy } from '@daisy/protocol/attendance';
+import {
+  isNamedSeat,
+  roundViewSchema,
+  type RoundView,
+} from '@daisy/protocol/round-view';
+import { winnerOutcome } from '@daisy/protocol/round-outcome';
+import { type RoomView } from '@daisy/protocol/room-contract';
 import { expectRoundResult } from './round-result-proof';
 import { expect, openPage } from './fixtures';
 import { origin } from './accounts';
@@ -205,7 +208,7 @@ async function attendanceSettled(judge: Page, roundId: string) {
     attendanceEvidence(roundId),
   ]);
   const buffer = attendanceTimingPolicy.finalizationBufferMs;
-  const now = Date.parse(evidence.observedAt);
+  const now = instantMs(evidence.observedAt);
   return view.segments
     .filter((segment) => segment.type === 'speech')
     .slice(0, -1)
@@ -216,10 +219,13 @@ async function attendanceSettled(judge: Page, roundId: string) {
       if (ruled?.decision !== 'attended') return false;
       // An on-time receipt settles alone (ADR 0095); anything else needs its horizon.
       if (ruled.evidence === 'on_time_receipt') return true;
-      const deadline = Date.parse(ruled.effectiveDeadline ?? '');
+      const deadline = tryInstantMs(ruled.effectiveDeadline);
+      const horizon = tryInstantMs(ruled.settledHorizon);
       return (
+        deadline !== undefined &&
+        horizon !== undefined &&
         deadline <= now - buffer &&
-        Date.parse(ruled.settledHorizon ?? '') >= deadline + buffer
+        horizon >= deadline + buffer
       );
     });
 }

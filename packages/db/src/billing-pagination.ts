@@ -1,5 +1,5 @@
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 
 export type BillingPage = {
   readonly mode: 'test' | 'live';

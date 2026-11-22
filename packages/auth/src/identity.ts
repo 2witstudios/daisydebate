@@ -1,7 +1,8 @@
-import type { BetaAccessState } from '@daisy/protocol';
+import { tryInstantMs } from '@daisy/clock';
+import type { BetaAccessState } from '@daisy/protocol/beta-access';
 import type { Principal } from './index';
 import { ageAdmitted, participantAccess } from './authorization';
-import type { AgeBand } from '@daisy/protocol';
+import type { AgeBand } from '@daisy/protocol/ladder';
 
 /** Facts about a durable session, verified by the injected reader. */
 export type VerifiedSession = {
@@ -131,10 +132,10 @@ export async function resolveIdentity({
     return failedRead(error);
   }
   if (!found || found.emailVerified !== true) return ANONYMOUS;
-  const instant = Date.parse(now());
-  if (!Number.isFinite(instant)) return UNAVAILABLE;
-  const expires = Date.parse(found.expiresAt);
-  if (Number.isNaN(expires) || expires <= instant) return ANONYMOUS;
+  const instant = tryInstantMs(now());
+  if (instant === undefined) return UNAVAILABLE;
+  const expires = tryInstantMs(found.expiresAt);
+  if (expires === undefined || expires <= instant) return ANONYMOUS;
   return identityFromSession(found, readActor, readParticipation, failedRead);
 }
 

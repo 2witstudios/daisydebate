@@ -1,15 +1,15 @@
+import { instantMs } from '@daisy/clock';
 import { Room } from '@livekit/rtc-node';
 import { createMediaService } from '@daisy/media';
+import { leadSeatOf } from '@daisy/protocol/format-seating';
+import { roomViewSchema } from '@daisy/protocol/room-read';
+import { roundViewSchema, type RoundView } from '@daisy/protocol/round-view';
 import {
-  leadSeatOf,
-  roomViewSchema,
-  roundViewSchema,
   sameSeat,
   sideOfSeat,
   sideSeat,
-  type RoundView,
   type SideKey,
-} from '@daisy/protocol';
+} from '@daisy/protocol/seats';
 import { floorSelection } from './format';
 import { newCommandId, type HttpSession } from './http-session';
 import type { DriverArgs, DriverTarget } from './target';
@@ -293,7 +293,7 @@ export async function driveRound(input: {
         .filter((segment) => segment.endedAt !== null)
         .at(-1)?.endedAt;
       if (!endedAt) throw new Error('Speech end missing');
-      const dueAt = Date.parse(endedAt) + args.countdownMs - offsetMs;
+      const dueAt = instantMs(endedAt) + args.countdownMs - offsetMs;
       void read();
       const atBoundary = setTimeout(
         () => {

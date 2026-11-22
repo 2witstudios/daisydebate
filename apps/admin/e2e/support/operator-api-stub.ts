@@ -1,15 +1,19 @@
+import { sha3Hex } from '@daisy/digest';
 import {
   preapprovalCommandSchema,
   type PreapprovalPage,
   type PreapprovalResult,
   type invitationStates,
 } from '@daisy/protocol/beta-preapproval';
-import { decideBetaAccessChange } from '@daisy/protocol';
+import { decideBetaAccessChange } from '@daisy/protocol/beta-access';
 import {
   verifyOperatorRequest,
   type OperatorCrypto,
 } from '@daisy/auth/operator-signature';
-import type { BetaAccessCommandResult, BetaAccessState } from '@daisy/protocol';
+import type {
+  BetaAccessCommandResult,
+  BetaAccessState,
+} from '@daisy/protocol/beta-access';
 import {
   betaAccessCommandSchema,
   matchOperatorRoute,
@@ -61,7 +65,7 @@ const participantCrypto: OperatorCrypto = {
   hmacSha256: (key, text) =>
     createHmac('sha256', key).update(text, 'utf8').digest('base64url'),
   sha256Hex: (bytes) => createHash('sha256').update(bytes).digest('hex'),
-  sha3Hex: (text) => createHash('sha3-256').update(text, 'utf8').digest('hex'),
+  sha3Hex,
 };
 
 const parsedBody = (bytes: Uint8Array): unknown =>

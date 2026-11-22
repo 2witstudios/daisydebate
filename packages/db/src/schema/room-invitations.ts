@@ -1,8 +1,5 @@
-import {
-  roomInvitationStates,
-  seatKinds,
-  type SeatKind,
-} from '@daisy/protocol';
+import { roomInvitationStates } from '@daisy/protocol/room-invitations';
+import { seatKinds, type SeatKind } from '@daisy/protocol/seats';
 import { sql } from 'drizzle-orm';
 import { check, index, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
 import { createdAtColumn, oneOf, timestampColumn } from './columns';

@@ -1,13 +1,13 @@
 import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import type { Page } from '@playwright/test';
-import { systemClock } from '@daisy/clock';
+import { instantMs, systemClock } from '@daisy/clock';
 import {
   affirmativeSide,
   negativeSide,
-  roundTranscriptReadSchema,
   sideOfSeat,
-} from '@daisy/protocol';
+} from '@daisy/protocol/seats';
+import { roundTranscriptReadSchema } from '@daisy/protocol/round-transcript';
 import {
   captureBackAfter,
   captureCoverage,
@@ -65,7 +65,7 @@ import {
 } from './support/round-media';
 
 /**
- * Spike step 3, on demand and never in CI: kill the node holding a live Round,
+ * On demand and nightly against scratch nodes: kill the node holding a live Round,
  * through a real browser per seat, and measure from the kill. Each kill is its
  * own Round. A sample records what happened and passes; the last test writes
  * the report and fails if a bar did. See node-kill-drill-runner.ts.
@@ -90,7 +90,7 @@ const PLAY_OUT_LIMIT_MS = 300_000;
 const SEAL_LIMIT_MS = 180_000;
 
 const pause = (ms: number) => new Promise((done) => setTimeout(done, ms));
-const ms = (value: string) => Date.parse(value);
+const ms = (value: string) => instantMs(value);
 
 type Member = Awaited<
   ReturnType<typeof createRoomLaunchAccounts>
@@ -239,7 +239,7 @@ async function playOutRound(members: readonly Member[], roundId: string) {
       speechesHeld += 1;
     }
     const hold = speechesHeld === 1 ? NEXT_SPEECH_MS : LATER_SPEECH_MS;
-    if (open?.startedAt && nowMs() - Date.parse(open.startedAt) >= hold)
+    if (open?.startedAt && nowMs() - instantMs(open.startedAt) >= hold)
       await endOpenSpeech(members, roundId).catch(() => false);
     await pause(1000);
   }
@@ -403,7 +403,7 @@ async function drillOneKill(
         intervals: [2000],
       })
       .toBeGreaterThan(0);
-    const into = nowMs() - Date.parse(speech.startedAt!);
+    const into = nowMs() - instantMs(speech.startedAt!);
     if (into < SPEECH_BEFORE_KILL_MS) await pause(SPEECH_BEFORE_KILL_MS - into);
     const transports: readonly IceTransport[] = before.flat();
     node = nodeCarrying(target.nodes, transports);
@@ -415,7 +415,7 @@ async function drillOneKill(
     while (watches.some((watch) => watch.reads.length < 2))
       await pause(READ_EVERY_MS);
     const killSentAt = systemClock.now();
-    const killMs = Date.parse(killSentAt);
+    const killMs = instantMs(killSentAt);
     const admissions = seats.map((seat) => countAdmissions(seat.page));
     await killNode(target, node);
     const killCommandMs = nowMs() - killMs;

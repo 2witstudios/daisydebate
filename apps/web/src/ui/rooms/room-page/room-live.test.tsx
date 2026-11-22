@@ -9,7 +9,7 @@ import {
 } from '../../../features/rooms/assembly.test-support';
 import { roomCommandIds } from '../../../features/rooms/room-command-ids';
 import { WithAppRouter } from '../../test-support/app-router';
-import type { RoomView } from '@daisy/protocol';
+import type { RoomView } from '@daisy/protocol/room-contract';
 import type { RoomNotice } from '../../../features/rooms/command-answer';
 import { initialInvitationForm } from '../../../features/room-invitations/submit';
 import { RoomLive } from './room-live';

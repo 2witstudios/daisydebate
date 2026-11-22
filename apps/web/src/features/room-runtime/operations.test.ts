@@ -2,7 +2,7 @@ import { noLinkedAdults } from '../spectating/linked-adults';
 import { fixedIds } from '@daisy/clock';
 import { refuseCapacity } from '@daisy/db/testing';
 import { createAppError } from '@daisy/errors';
-import type { RoomCreate } from '@daisy/protocol';
+import type { RoomCreate } from '@daisy/protocol/room-contract';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createRoomRuntimeOperations, type Store } from './operations';
 import {

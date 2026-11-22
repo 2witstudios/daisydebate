@@ -1,7 +1,8 @@
+import { addMs, instantMs } from '@daisy/clock';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { ResolutionDrawState } from '@daisy/protocol/resolution-draw';
-import type { SeatDraw } from '@daisy/protocol';
-import { judgeSeat, sideSeat } from '@daisy/protocol';
+import type { SeatDraw } from '@daisy/protocol/seat-draw';
+import { judgeSeat, sideSeat } from '@daisy/protocol/seats';
 import {
   openingStep,
   projectOpening,
@@ -16,8 +17,7 @@ setupRitewayBun();
 
 const STARTED_AT = '2026-11-02T12:00:00.000Z';
 const PREP_MS = 20 * 60_000;
-const after = (ms: number, from = STARTED_AT) =>
-  new Date(Date.parse(from) + ms).toISOString();
+const after = (ms: number, from = STARTED_AT) => addMs(from, ms);
 
 const humanDraw = (): ResolutionDrawState => ({
   ...begin().draw!.state,
@@ -41,7 +41,7 @@ describe('openingStep', () => {
     assert({
       given: 'no draw and no prep',
       should: 'be complete at the Start round instant',
-      actual: openingStep(opening(null, null), Date.parse(STARTED_AT)),
+      actual: openingStep(opening(null, null), instantMs(STARTED_AT)),
       expected: { step: 'complete', at: STARTED_AT },
     });
   });
@@ -50,7 +50,7 @@ describe('openingStep', () => {
     assert({
       given: 'prep and no draw',
       should: 'prep from Start round for its full length',
-      actual: openingStep(opening(null, PREP_MS), Date.parse(STARTED_AT)),
+      actual: openingStep(opening(null, PREP_MS), instantMs(STARTED_AT)),
       expected: {
         step: 'prep',
         startedAt: STARTED_AT,
@@ -62,7 +62,7 @@ describe('openingStep', () => {
   test('an unrevealed draw is the strike step whatever prep follows', () => {
     const step = openingStep(
       opening(humanDraw(), PREP_MS),
-      Date.parse(STARTED_AT),
+      instantMs(STARTED_AT),
     );
     assert({
       given: 'a draw with no strikes yet',

@@ -125,10 +125,10 @@ test('a refusal reports each operation holding the lane (ISSUE-1110)', async () 
 
 test('a lazy query counts under its operation, not only an async one', async () => {
   // A query builder: it starts when awaited, after the callback has returned.
-  const lazy = {
-    then: (resolve: (operation: string) => void) =>
-      resolve(currentLaneOperation()),
-  } as unknown as Promise<string>;
+  const lazy: PromiseLike<string> = {
+    then: (resolve, reject) =>
+      Promise.resolve(currentLaneOperation()).then(resolve, reject),
+  };
   const seen = await instrumented(undefined, 'lookup', () => lazy);
   assert({
     given: 'an operation returning a thenable that runs when awaited',

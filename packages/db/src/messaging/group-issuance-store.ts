@@ -1,8 +1,7 @@
 import { groupLifecycleOf } from './social';
 import { readMessagingGroupCommand } from './group-command-row';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { withLockedMessagingAuthority } from './authority-frame';
 import { lockGroupContacts } from './group-contact-locks';
 import { writeGroupIssuance } from './group-issuance-write';
@@ -10,10 +9,11 @@ import type {
   MessagingGroupIssuanceFence,
   MessagingGroupIssuanceStore,
 } from './group-issuance-contracts';
+import { inTransaction, type TxSource } from '../tx';
 type Facts = Parameters<MessagingGroupIssuanceFence>[2];
 /** Prospective pairs precede the channel fence; committed replay never materializes them. */
 export function createMessagingGroupIssuanceStore(input: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
   readonly authorize: MessagingGroupIssuanceFence;
 }): MessagingGroupIssuanceStore {
   return {
@@ -24,7 +24,7 @@ export function createMessagingGroupIssuanceStore(input: {
         new Set(scope.inviteeActorIds).size !== scope.inviteeActorIds.length
       )
         throw createAppError('VALIDATION');
-      return input.database.transaction(async (tx) => {
+      return inTransaction(input.database, async (tx) => {
         let receipt: Facts['receipt'] = null;
         let contactPairs: Facts['contactPairs'] = [];
         return withLockedMessagingAuthority(

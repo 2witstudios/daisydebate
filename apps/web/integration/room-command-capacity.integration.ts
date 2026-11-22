@@ -9,7 +9,7 @@ import { consentBarrier } from './room-consent-barrier.test-support';
 import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { assertRejects } from '@daisy/errors/testing';
-import { isNamedSeat } from '@daisy/protocol';
+import { isNamedSeat } from '@daisy/protocol/round-view';
 const services = requireTestServices(process.env);
 setupRitewayBun();
 

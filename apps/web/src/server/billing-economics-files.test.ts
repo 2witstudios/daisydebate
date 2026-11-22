@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import {
   mkdtemp,
   writeFile,
@@ -291,7 +292,7 @@ test('a feed whose collection window has passed is removed whatever its age', as
   try {
     const { utimes } = await import('node:fs/promises');
     // Written an hour before the sweep, far inside 30 days.
-    const written = new Date(Date.parse(now) - 3600000);
+    const written = new Date(instantMs(now) - 3600000);
     for (const name of ['feed-2026-09.json', 'feed-2026-10.json']) {
       await writeFile(join(directory, name), '{}', { mode: 0o600 });
       await utimes(join(directory, name), written, written);

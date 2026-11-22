@@ -2,7 +2,7 @@ import { admitsPrincipalAccess } from '@daisy/auth/authorization';
 import { requireTestServices } from '@daisy/config';
 import { catalogFormats } from '@daisy/db/catalog-formats';
 import { assertRejects } from '@daisy/errors/testing';
-import type { RoomView } from '@daisy/protocol';
+import type { RoomView } from '@daisy/protocol/room-contract';
 import { Room } from '@livekit/rtc-node';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';

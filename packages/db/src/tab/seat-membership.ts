@@ -3,7 +3,9 @@ import {
   applyOrganizationWrites,
   type OrganizationWrite,
 } from './organization-writes';
-import type { TabTransaction } from './tab-transaction';
+import type { Tx } from '../tx';
+import { query } from '../raw-rows';
+import { z } from 'zod';
 
 /**
  * Tab's published transition for a Club seat holder (ADR 0148): accepting a
@@ -14,17 +16,21 @@ import type { TabTransaction } from './tab-transaction';
  * is left as they are. The caller holds the club row lock and its scope.
  */
 export async function activateSeatMembership(
-  tx: TabTransaction,
+  tx: Tx,
   input: {
     readonly organizationId: string;
     readonly userId: string;
     readonly now: string;
   },
 ): Promise<void> {
-  const [organization] = await tx.execute(
+  const [organization] = await query(
+    tx,
+    z.object({ version: z.int() }),
     sql`select version from organizations where id=${input.organizationId}`,
   );
-  const [membership] = await tx.execute(
+  const [membership] = await query(
+    tx,
+    z.object({ status: z.string(), version: z.int() }),
     sql`select status, version from memberships
       where organization_id=${input.organizationId} and user_id=${input.userId}`,
   );

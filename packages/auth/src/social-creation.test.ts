@@ -65,6 +65,29 @@ test('prospective requests consume facts without fabricating channel membership'
   });
 });
 
+test('DM creation requires the DM policy even when the evaluation key matches', () => {
+  const wrongKey = 'social.private_group';
+  assert({
+    given: 'a DM creation fact and evaluation that both carry a group policy',
+    should: 'deny the request',
+    actual: authorize({
+      principal: { kind: 'user', userId: 'a', actorId: 'a' },
+      capability: 'channel.dm.request',
+      resource: {
+        ...resource,
+        policyKey: wrongKey,
+      } as unknown as typeof resource,
+      context: {
+        account: accounts[0]!.account,
+        now,
+        socialAccounts: accounts,
+        socialCreationPolicy: { ...policy, key: wrongKey },
+      },
+    }).allow,
+    expected: false,
+  });
+});
+
 test('group creation requires explicit block scope and complete current accounts', () => {
   const current = [...accounts, adultAccount('c')];
   const group = {

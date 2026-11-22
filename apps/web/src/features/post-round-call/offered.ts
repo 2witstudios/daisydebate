@@ -1,8 +1,7 @@
-import {
-  isRoundCompleted,
-  postRoundCallPolicy,
-  type RoundView,
-} from '@daisy/protocol';
+import { instantMs } from '@daisy/clock';
+import { isRoundCompleted } from '@daisy/protocol/round';
+import { postRoundCallPolicy } from '@daisy/protocol/post-round-call';
+import { type RoundView } from '@daisy/protocol/round-view';
 
 type CallView = Pick<RoundView, 'status' | 'postRoundCall' | 'completedAt'>;
 
@@ -13,7 +12,7 @@ export const postRoundCallChosen = (view: CallView): boolean =>
 /** The latest instant the call can last to, or null for a Round with no call. */
 export const postRoundCallEndsAtMs = (view: CallView): number | null =>
   postRoundCallChosen(view) && view.completedAt !== null
-    ? Date.parse(view.completedAt) + postRoundCallPolicy.maxMs
+    ? instantMs(view.completedAt) + postRoundCallPolicy.maxMs
     : null;
 
 /**

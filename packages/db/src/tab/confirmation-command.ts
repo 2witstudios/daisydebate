@@ -18,7 +18,7 @@ import { applyFixtureWrites } from './fixture-writes';
 import { applyResultWrites } from './result-writes';
 import type { FixtureOwnerEffects } from './fixture-owner-write';
 import type { ConfirmationWrite } from './confirmation-write';
-import type { TabDatabase } from './tab-transaction';
+import { inTransaction, type TxOpener } from '../tx';
 
 export type ConfirmationOwnerEffects = {
   readonly notificationIds: () => string;
@@ -27,7 +27,7 @@ export type ConfirmationOwnerEffects = {
 };
 /** Settlement, original owner effects and both immutable receipts commit together or roll back together. */
 export const createConfirmationCommandStore = (
-  database: TabDatabase,
+  database: TxOpener,
   readTime: typeof readDatabaseTime = readDatabaseTime,
 ) => ({
   confirmationCommand: <Answer>(
@@ -49,7 +49,7 @@ export const createConfirmationCommandStore = (
       ) => Promise<void>;
     }) => Promise<Answer>,
   ): Promise<Answer> =>
-    database.transaction(async (tx) => {
+    inTransaction(database, async (tx) => {
       let loaded: LoadedConfirmationCommand | null = null;
       return work({
         load: async () => {

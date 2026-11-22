@@ -1,8 +1,10 @@
+import { instantMs, nowMs as clockNowMs } from '@daisy/clock';
 import type { Clock } from '@daisy/clock';
 import { spectatorTimelineHorizon } from '@daisy/debate-engine';
 import type { Database } from '@daisy/db';
 import { isTemporaryRefusal } from '@daisy/db/capacity';
-import { idSchema, type SpectatorTimeline } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
+import { type SpectatorTimeline } from '@daisy/protocol/spectator-timeline';
 import { audienceAdmits } from '../audience-link/audience-link';
 import { publishedStateUrl } from './published-state-url';
 import { createSnapshotMemo } from './snapshot-memo';
@@ -48,7 +50,7 @@ export async function readAudienceSnapshot(
   },
 ): Promise<AudienceSnapshot | null> {
   if (!idSchema.safeParse(input.roundId).success) return null;
-  const nowMs = Date.parse(input.now);
+  const nowMs = instantMs(input.now);
   const read = await store.readSpectatorTimeline({
     roundId: input.roundId,
     horizonOf: (facts) => spectatorTimelineHorizon({ ...facts, nowMs }),
@@ -99,7 +101,7 @@ export const createWatchRoundSnapshots = (deps: {
   const memo = createSnapshotMemo<
     (AudienceSnapshot & { readonly body: string }) | null
   >({
-    nowMs: () => Date.parse(deps.clock.now()),
+    nowMs: () => clockNowMs(deps.clock),
     ttlMs: SNAPSHOT_TTL_MS,
     maxEntries: SNAPSHOT_ROUNDS,
     keepsFailure: isTemporaryRefusal,

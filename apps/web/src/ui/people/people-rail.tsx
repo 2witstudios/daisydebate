@@ -1,5 +1,6 @@
 'use client';
 
+import { Button } from '../components/button/button';
 import { useRef } from 'react';
 import { Avatar } from '../components/avatar/avatar';
 import { profilePhotoSrc } from '../profile/photo-src';
@@ -44,7 +45,8 @@ function PeopleControls() {
         />
       </label>
       <div role="group" aria-label="Show" className="flex gap-1">
-        <button
+        <Button
+          variant="unstyled"
           type="button"
           aria-pressed={filter === 'all'}
           onClick={() => setFilter('all')}
@@ -54,8 +56,9 @@ function PeopleControls() {
           <span className="font-book text-ink-faint tabular-nums">
             {list.counts.everyone}
           </span>
-        </button>
-        <button
+        </Button>
+        <Button
+          variant="unstyled"
           type="button"
           aria-pressed={filter === 'friends'}
           onClick={() => setFilter('friends')}
@@ -65,7 +68,7 @@ function PeopleControls() {
           <span className="font-book text-ink-faint tabular-nums">
             {list.counts.friends}
           </span>
-        </button>
+        </Button>
       </div>
     </>
   );
@@ -83,14 +86,15 @@ function RailToggle({
   return (
     <form action={action}>
       <input type="hidden" name="rail" value={to} />
-      <button
+      <Button
+        variant="unstyled"
         type="submit"
         aria-label={label}
         title={label}
         className="flex size-nav-target items-center justify-center rounded-sm text-ink-muted hover:bg-surface-overlay hover:text-ink"
       >
         <Icon name="panelRight" size={20} />
-      </button>
+      </Button>
     </form>
   );
 }
@@ -164,9 +168,10 @@ export function PeopleRail({
               {index === friends.length && friends.length > 0 ? (
                 <hr className="mx-auto my-1 w-8 border-border" />
               ) : null}
-              <button
-                type="button"
+              <Button
+                variant="unstyled"
                 {...overlay.rowProps(member.username)}
+                type="button"
                 onClick={(event) =>
                   overlay.open(member.username, event.currentTarget)
                 }
@@ -184,7 +189,7 @@ export function PeopleRail({
                   size="sm"
                   nameVisible
                 />
-              </button>
+              </Button>
             </li>
           ))}
         </ul>

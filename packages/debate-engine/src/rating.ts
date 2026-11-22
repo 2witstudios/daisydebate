@@ -1,10 +1,11 @@
+import { tryInstantMs } from '@daisy/clock';
 import { createAppError, createInvariantError } from '@daisy/errors';
 import {
   affirmativeSide,
   negativeSide,
   type TwoSideKey,
-  type WinnerOutcome,
-} from '@daisy/protocol';
+} from '@daisy/protocol/seats';
+import { type WinnerOutcome } from '@daisy/protocol/round-outcome';
 import {
   GLICKO2_SCALE,
   ratePeriod,
@@ -83,20 +84,15 @@ function assertBounded(state: Glicko2State): void {
     );
 }
 
-const UTC_INSTANT = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.(\d+))?Z$/;
+const UTC_INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/;
 
 /**
  * Milliseconds since the epoch of a UTC ISO 8601 instant, at any fractional
- * precision. Anything else is refused: `Date.parse` reads an offset-free
- * time in the host's zone and rolls an impossible date into the next month,
- * either of which would make a rating depend on the machine computing it.
+ * precision. Rate only against zoned UTC values at the precision of the rating ledger.
  */
 function instant(timestamp: string): number {
-  const match = UTC_INSTANT.exec(timestamp);
-  const fraction = (match?.[2] ?? '').slice(0, 3).padEnd(3, '0');
-  const canonical = match ? `${match[1]}.${fraction}Z` : '';
-  const ms = Date.parse(canonical);
-  if (Number.isNaN(ms) || new Date(ms).toISOString() !== canonical)
+  const ms = UTC_INSTANT.test(timestamp) ? tryInstantMs(timestamp) : undefined;
+  if (ms === undefined)
     throw createAppError(
       'VALIDATION',
       'A rating timestamp is not UTC ISO 8601',

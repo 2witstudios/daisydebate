@@ -28,7 +28,7 @@ describe('LiveCard', () => {
     });
   });
 
-  test('names no ladder (ADR 0156)', () => {
+  test('names no ladder', () => {
     assert({
       given: 'a ranked Round on Open – Freestyle',
       should: 'show no ladder badge',

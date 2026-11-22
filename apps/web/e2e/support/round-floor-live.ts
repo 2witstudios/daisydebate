@@ -1,13 +1,9 @@
 import type { Page } from '@playwright/test';
 import { createId } from '@paralleldrive/cuid2';
-import {
-  affirmativeSide,
-  isNamedSeat,
-  roomViewSchema,
-  roundViewSchema,
-  serverMessageSchema,
-  sideOfSeat,
-} from '@daisy/protocol';
+import { affirmativeSide, sideOfSeat } from '@daisy/protocol/seats';
+import { isNamedSeat, roundViewSchema } from '@daisy/protocol/round-view';
+import { roomViewSchema } from '@daisy/protocol/room-read';
+import { serverMessageSchema } from '@daisy/protocol/realtime-server';
 import { LIVE_IDLE_MAX_MS } from '../../src/lib/worker-loop';
 import { foundationSelection } from '../../integration/foundation-selection.test-support';
 import { expect, openPage, test } from './fixtures';

@@ -1,13 +1,18 @@
 'use client';
 
+import { useBrowserEffect } from '../../edge/browser-sync';
+import { navigateDocument } from '../../edge/browser-navigation';
+import { Dialog } from '../../components/dialog/dialog';
 import {
-  useEffect,
   useRef,
   type KeyboardEvent,
   type MouseEvent,
   type RefObject,
 } from 'react';
-import type { RoomCatalogChoice, RoomView } from '@daisy/protocol';
+import type {
+  RoomCatalogChoice,
+  RoomView,
+} from '@daisy/protocol/room-contract';
 import type { RoomCommandIds } from '../../../features/rooms/room-command-ids';
 import type { RoomFormState } from '../../../features/rooms/command-answer';
 import type { FormAction } from '../../form-action/form-action';
@@ -25,9 +30,9 @@ const competition = {
 } as const;
 
 /**
- * Closing is a link to the room itself, so it works without script and a
+ * Closing is a link to the room itself, so it works before hydration and a
  * refused save (which keeps the sheet open to show its error) is cleared by
- * the navigation. With script and nothing refused, closing just drops the
+ * the navigation. Once hydrated and with nothing refused, closing just drops the
  * fragment.
  */
 function closeSheet(sheet: HTMLElement | null): boolean {
@@ -49,7 +54,7 @@ function useModalSheet(
   sheet: RefObject<HTMLElement | null>,
   heading: RefObject<HTMLHeadingElement | null>,
 ) {
-  useEffect(() => {
+  useBrowserEffect(() => {
     const element = sheet.current;
     if (!element) return;
     return modalSheet({
@@ -68,7 +73,7 @@ function useSheetFocus(roomHref: string) {
   const key = (event: KeyboardEvent<HTMLElement>) => {
     if (event.key !== 'Escape') return;
     event.preventDefault();
-    if (!closeSheet(sheet.current)) window.location.assign(roomHref);
+    if (!closeSheet(sheet.current)) navigateDocument(roomHref);
   };
   const close = (event: MouseEvent<HTMLAnchorElement>) => {
     if (closeSheet(sheet.current)) event.preventDefault();
@@ -77,7 +82,7 @@ function useSheetFocus(roomHref: string) {
   const saved = () => {
     finishSetupSave(
       () => closeSheet(sheet.current),
-      () => window.location.assign(roomHref),
+      () => navigateDocument(roomHref),
     );
   };
   return { sheet, heading, key, close, saved };
@@ -114,10 +119,11 @@ export function RoomSetup({
   const roomHref = `/rooms/${view.id}`;
   const { sheet, heading, key, close, saved } = useSheetFocus(roomHref);
   return (
-    <section
+    <Dialog
+      as="section"
       ref={sheet}
       id={ROOM_SETUP_ID}
-      role="dialog"
+
       aria-modal="true"
       aria-labelledby="room-setup-title"
       onKeyDown={key}
@@ -224,6 +230,6 @@ export function RoomSetup({
           </section>
         </div>
       </div>
-    </section>
+    </Dialog>
   );
 }

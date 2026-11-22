@@ -1,3 +1,4 @@
+import { addMs, instantMs } from '@daisy/clock';
 import { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { requireTestServices } from '@daisy/config';
@@ -76,7 +77,7 @@ test('an erasure queues a durable observation purge that survives a Redis outage
     const idle = await deliverObservationPurges(
       database,
       {
-        now: new Date(Date.parse(retryAt) + 3_600_000).toISOString(),
+        now: addMs(retryAt, 3_600_000),
         limit: 16,
       },
       {
@@ -94,7 +95,7 @@ test('an erasure queues a durable observation purge that survives a Redis outage
         queued: queued?.status,
         outage,
         afterOutage: [afterOutage?.status, afterOutage?.attempts],
-        backedOff: Date.parse(retryAt) - Date.parse(queuedAt) >= 1_000,
+        backedOff: instantMs(retryAt) - instantMs(queuedAt) >= 1_000,
         early,
         confirmed,
         done: [done?.status, done?.attempts, done?.succeededAt !== null],
@@ -119,11 +120,7 @@ test('an erasure queues a durable observation purge that survives a Redis outage
     });
     // A later erasure of the same member re-arms the obligation.
     await database.transaction((tx) =>
-      queueObservationPurge(
-        tx,
-        fixture.userId,
-        new Date(Date.parse(retryAt) + 60_000).toISOString(),
-      ),
+      queueObservationPurge(tx, fixture.userId, addMs(retryAt, 60_000)),
     );
     assert({
       given: 'a new erasure after a succeeded purge',
@@ -205,7 +202,7 @@ test('a purge that a newer erasure overtook is not reported as delivered', async
           queueObservationPurge(
             database,
             fixture.userId,
-            new Date(Date.parse(queuedAt) + 60_000).toISOString(),
+            addMs(queuedAt, 60_000),
           ),
       },
     );

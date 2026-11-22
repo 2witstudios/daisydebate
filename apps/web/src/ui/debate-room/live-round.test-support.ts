@@ -1,8 +1,7 @@
-import type {
-  RoundLifecycleColumns,
-  RoundOutcome,
-  RoundView,
-} from '@daisy/protocol';
+import { instantMs } from '@daisy/clock';
+import type { RoundLifecycleColumns } from '@daisy/protocol/round-lifecycle';
+import type { RoundOutcome } from '@daisy/protocol/round-outcome';
+import type { RoundView } from '@daisy/protocol/round-view';
 import {
   inLifecycle,
   launched,
@@ -42,7 +41,7 @@ export const view: OpeningRoundView = {
 /** A Round view once it has started and before it ends. */
 type ActiveRoundView = Extract<RoundView, { readonly status: 'active' }>;
 export const rules = view.rules.segments;
-export const origin = Date.parse('2026-10-12T18:00:00.000Z');
+export const origin = instantMs('2026-10-12T18:00:00.000Z');
 export const at = (ms: number) => new Date(origin + ms).toISOString();
 export const countdown = view.rules.countdownMs;
 

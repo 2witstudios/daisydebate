@@ -1,9 +1,12 @@
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
+import { drizzle } from 'drizzle-orm/bun-sql';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { readMessagingChannelFact } from '../src/messaging/social';
 import { createMessagingStore } from '../src/messaging/store';
+import { createMessagingPrivacyAdopter } from '../src/messaging/privacy';
+import { lockAuthorizationActors } from '../src/authorization';
 import {
   acknowledgeErasedFileDeletion,
   pendingFileDeletions,
@@ -35,6 +38,83 @@ const retained = {
   intents: 2,
 };
 const openDm = () => openDmAt(databaseUrl);
+
+test('Messaging erasure fences content and rolls back before file or receipt association cleanup on overflow', async () => {
+  const dm = await openDm();
+  const { client, subject, channelId, ids } = dm;
+  const statements: string[] = [];
+  const database = drizzle({
+    client,
+    logger: { logQuery: (query) => statements.push(query.trim()) },
+  });
+  const adopted = createMessagingPrivacyAdopter();
+  const erase = () =>
+    database.transaction(async (tx) => {
+      await lockAuthorizationActors(tx, [subject.actorId], { maxActors: 1 });
+      await adopted.erase(tx, subject, { now: '2026-10-27T12:00:01.000Z' });
+    });
+  try {
+    await client`insert into messaging_reactions(channel_id,message_id,actor_id,reaction) values(${channelId},${ids.reply},${subject.actorId},'yes')`;
+    await client`update messaging_channel_streams set change_version=${Number.MAX_SAFE_INTEGER} where channel_id=${channelId}`;
+    const before = await dm.residue();
+    await assertRejects({
+      given: 'a real retained DM at its stream ceiling',
+      should: 'refuse canonical erasure before association or file mutation',
+      actual: erase,
+      code: 'CONFLICT',
+    });
+    const afterRefusal = await dm.residue();
+    const refusedDeletes = statements.some((sql) =>
+      sql.startsWith('delete from'),
+    );
+    await client`update messaging_channel_streams set change_version=3 where channel_id=${channelId}`;
+    statements.length = 0;
+    await erase();
+    const [stream] =
+      await client`select authority_revision::int as authority,change_version::int as content from messaging_channels join messaging_channel_streams on channel_id=id where id=${channelId}`;
+    const [peer] =
+      await client`select text,change_version::int as version from messaging_messages where id=${ids.reply}`;
+    const [bells] =
+      await client`select count(*)::int as count from outbox where payload->>'channelId'=${channelId}`;
+    const channels = statements.findIndex(
+      (sql) =>
+        sql.startsWith('select id from messaging_channels') &&
+        sql.includes('order by id for update'),
+    );
+    const intent = statements.findIndex((sql) =>
+      sql.startsWith('insert into messaging_file_deletion_intents'),
+    );
+    const deleted = statements.findIndex((sql) =>
+      sql.startsWith('delete from messaging_files'),
+    );
+    assert({
+      given:
+        'a real subject post and subject reaction on the surviving peer’s post',
+      should:
+        'refuse overflow atomically, then fence channels first, transfer charges before delete, and advance content without a doorbell',
+      actual: [
+        adopted.phase,
+        afterRefusal,
+        refusedDeletes,
+        channels >= 0 && channels < intent && intent < deleted,
+        stream,
+        peer,
+        bells?.count,
+      ],
+      expected: [
+        'before-auth',
+        before,
+        false,
+        true,
+        { authority: 2, content: 6 },
+        { text: 'Survivor reply', version: 5 },
+        0,
+      ],
+    });
+  } finally {
+    await dm.close();
+  }
+});
 
 test('erasing one DM member keeps only the survivor’s own rows, with nothing pointing at the subject (DEC-126, ISSUE-644)', async () => {
   const dm = await openDm();

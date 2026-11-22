@@ -1,4 +1,4 @@
-import { notificationShellSchema } from '@daisy/protocol';
+import { notificationShellSchema } from '@daisy/protocol/notifications';
 import { headers } from 'next/headers';
 import { GET as readShellRoute } from '../../api/notifications/shell/route';
 

@@ -1,14 +1,7 @@
 'use client';
 
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-  type Dispatch,
-} from 'react';
+import { useBrowserEffect, useBrowserLayoutEffect } from '../edge/browser-sync';
+import { useCallback, useMemo, useRef, useState, type Dispatch } from 'react';
 import { systemClock } from '@daisy/clock';
 import type { ManagerAction } from '../../features/documents/document-manager-state';
 import {
@@ -107,7 +100,7 @@ export function useDrive({
     initialRecent,
   );
   const scope = useMemo(() => createDriveOperations(sync), [sync]);
-  useLayoutEffect(() => {
+  useBrowserLayoutEffect(() => {
     scope.activate();
     return scope.close;
   }, [scope]);
@@ -115,7 +108,7 @@ export function useDrive({
   const inOrder = scope.run;
   const generation = useRef(0);
   const known = useRef(opened);
-  useEffect(() => {
+  useBrowserEffect(() => {
     known.current = opened;
   }, [opened]);
 
@@ -214,7 +207,7 @@ export function useDrive({
     [dispatch, readSucceeded],
   );
 
-  useEffect(() => {
+  useBrowserEffect(() => {
     if (!sync) return;
     const readRoot = () =>
       void listFolder(null, null, true).catch((error) =>
@@ -347,7 +340,8 @@ export function useDrive({
             const documentIds = answer.deletedDocumentIds ?? [];
             sync?.forgetAll(documentIds);
             dispatch({ type: 'drive/folder-deleted', id, documentIds });
-          } else if (path === 'folders/create' && answer.folder) {
+          } else if (answer.folder) {
+            // The one path left is folders/create, the only one answering a folder.
             dispatch({
               type: 'drive/add',
               folderId: orNull(fields.parentFolderId),
@@ -380,7 +374,7 @@ export function useDrive({
                 targetId === null ||
                 found.some((folder) => folder.id === targetId);
               if (!sourceExists) missing(id);
-              if (!targetExists && targetId !== null) missing(targetId);
+              if (!targetExists) missing(targetId);
               setProblem({
                 kind: !sourceExists || !targetExists ? 'missing' : 'change',
                 message: !sourceExists

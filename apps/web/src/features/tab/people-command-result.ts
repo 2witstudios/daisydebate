@@ -1,15 +1,5 @@
-import { z } from 'zod';
-import { lobbyCommandReceiptSchema } from '@daisy/protocol/lobby/command';
+import { mapTabCommandAnswer } from './command-form-answer';
 
-const answerSchema = z.discriminatedUnion('kind', [
-  z.object({ kind: z.literal('accepted'), receipt: lobbyCommandReceiptSchema }),
-  z.object({ kind: z.literal('refused'), refusal: z.string() }),
-  z.object({
-    kind: z.literal('pending'),
-    pendingCommandId: z.string(),
-    expiresAt: z.string(),
-  }),
-]);
 const refusalWords: Readonly<Record<string, string>> = {
   'version-conflict': 'People changed. Reload this page before trying again.',
   'already-granted': 'That person already holds this role here.',
@@ -29,10 +19,8 @@ export const peopleCommandResult = (
   intent: 'give' | 'remove' | 'cancel',
   body: unknown,
 ) => {
-  const parsed = answerSchema.safeParse(body);
-  if (!parsed.success) return { kind: 'unacknowledged' as const };
-  if (parsed.data.kind === 'accepted')
-    return {
+  return mapTabCommandAnswer(body, {
+    accepted: () => ({
       kind: 'changed' as const,
       notice:
         intent === 'give'
@@ -40,13 +28,20 @@ export const peopleCommandResult = (
           : intent === 'cancel'
             ? 'Invitation cancelled.'
             : 'Role ended.',
-    };
-  return {
-    kind: 'refused' as const,
-    error:
-      parsed.data.kind === 'refused'
-        ? (refusalWords[parsed.data.refusal] ??
-          'This change could not be made. Reload this page.')
-        : 'This change is waiting for confirmation.',
-  };
+    }),
+    refused: (reason) => ({
+      kind: 'refused' as const,
+      error:
+        refusalWords[reason] ??
+        'This change could not be made. Reload this page.',
+    }),
+    unacknowledged: () => ({ kind: 'unacknowledged' as const }),
+    pending: {
+      contract: 'people',
+      answer: () => ({
+        kind: 'refused' as const,
+        error: 'This change is waiting for confirmation.',
+      }),
+    },
+  });
 };

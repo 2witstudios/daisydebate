@@ -1,4 +1,4 @@
-import type { FriendshipState } from '@daisy/protocol';
+import type { FriendshipState } from '@daisy/protocol/friends';
 import type { SocialRequestLimits } from '../contacts/request-budget';
 import type { ContactFact, ContactInput } from '../contacts/fence';
 

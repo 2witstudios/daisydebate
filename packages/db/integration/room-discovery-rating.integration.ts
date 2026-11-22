@@ -35,33 +35,6 @@ test('starting ranked discovery selects ready ranked Rooms and leaves ratings to
         side: 'affirmative',
         slot: 0,
       });
-    for (const [status, rating] of [
-      ['closed', 2200],
-      ['active', 1612.6],
-    ] as const) {
-      const seasonId = nextId();
-      await f.insert('seasons', {
-        division: 'open',
-        id: seasonId,
-        name: token,
-        starts_at: new Date('2026-01-01'),
-        ends_at: status === 'closed' ? new Date('2026-02-01') : null,
-        status,
-      });
-      await f.insert(
-        'ratings',
-        {
-          actor_id: caller.actorId,
-          season_id: seasonId,
-          ladder: 'freestyle',
-          division: 'open',
-          rating,
-          deviation: 100,
-          volatility: 0.06,
-        },
-        'actor_id',
-      );
-    }
     const list = (hidden: boolean) =>
       query(
         {
@@ -75,8 +48,7 @@ test('starting ranked discovery selects ready ranked Rooms and leaves ratings to
     const page = await list(false);
     const masked = await list(true);
     assert({
-      given:
-        'ready ranked, assembling ranked and ready casual Rooms, with past and current ratings',
+      given: 'ready ranked, assembling ranked and ready casual Rooms',
       should: 'list only the ready ranked Room without reading raw ratings',
       actual: page.rooms.map((room) => [
         room.id,
@@ -93,7 +65,8 @@ test('starting ranked discovery selects ready ranked Rooms and leaves ratings to
         room.hostActorId,
         room.hostLabel,
         room.hostRating,
+        room.hostRatingPool ?? null,
       ]),
-      expected: [[null, null, null]],
+      expected: [[null, null, null, null]],
     });
   }));

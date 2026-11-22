@@ -164,6 +164,8 @@ const control = await createLaunchControl({
     },
     'refuse-round-reads': () => everyWeb('refuse-round-reads'),
     'allow-round-reads': () => everyWeb('allow-round-reads'),
+    'refuse-challenge-reads': () => everyWeb('refuse-challenge-reads'),
+    'allow-challenge-reads': () => everyWeb('allow-challenge-reads'),
     'refuse-identity-reads': () => everyWeb('refuse-identity-reads'),
     'allow-identity-reads': () => everyWeb('allow-identity-reads'),
     'stop-realtime': realtime.stop,

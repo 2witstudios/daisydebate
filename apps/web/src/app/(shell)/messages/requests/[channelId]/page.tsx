@@ -1,3 +1,4 @@
+import { StatusRegion } from '../../../../../ui/components/status-region/status-region';
 import { ConversationPane } from '../../../../../ui/messaging/conversation-pane';
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
@@ -20,6 +21,7 @@ export default async function MessageRequestPage({
     new Request(`http://in-process.invalid/api/messaging/requests/${channel}`, {
       headers: new Headers(await headers()),
     }),
+    { params },
   );
   if (response.status === 404) notFound();
   const preview = await readRequestPreviewResponse(response);
@@ -36,9 +38,9 @@ export default async function MessageRequestPage({
           />
         </section>
       ) : (
-        <p role="status" className="text-ink-muted">
+        <StatusRegion as="p" role="status" className="text-ink-muted">
           This request is unavailable. Refresh to try again.
-        </p>
+        </StatusRegion>
       )}
     </ConversationPane>
   );

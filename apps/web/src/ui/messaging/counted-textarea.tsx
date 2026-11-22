@@ -1,10 +1,6 @@
 'use client';
-import {
-  useEffect,
-  useRef,
-  useState,
-  type ComponentPropsWithoutRef,
-} from 'react';
+import { useBrowserEffect } from '../edge/browser-sync';
+import { useRef, useState, type ComponentPropsWithoutRef } from 'react';
 
 import { cn } from '../cn';
 
@@ -28,7 +24,7 @@ export function characterCountText(count: number, maxUnits: number) {
 /**
  * A text field with a visible count instead of `maxLength`, which would
  * silently cut a paste. Over the limit, native validation blocks the submit
- * with the same words; without JavaScript the server refuses and keeps it.
+ * with the same words; before hydration the server refuses and keeps it.
  */
 export function CountedTextarea({
   id,
@@ -52,7 +48,7 @@ export function CountedTextarea({
   const [count, setCount] = useState(defaultValue.length);
   const text = characterCountText(count, maxUnits);
   const ref = useRef<HTMLTextAreaElement>(null);
-  useEffect(() => {
+  useBrowserEffect(() => {
     ref.current?.setCustomValidity(text.over ?? '');
   }, [text.over]);
   return (

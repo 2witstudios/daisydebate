@@ -1,4 +1,4 @@
-import { formatDefinitionSchema } from '@daisy/protocol';
+import { formatDefinitionSchema } from '@daisy/protocol/format';
 import { attendancePolicy } from './attendance';
 import {
   resolvePreRoundPrep,
@@ -12,12 +12,8 @@ import {
   type ResolveRefusalKind,
   type Step,
 } from './resolve-steps';
-import type {
-  FormatDefinition,
-  RoomConfig,
-  RoomExecutionPlan,
-  RoundRules,
-} from '@daisy/protocol';
+import type { FormatDefinition, RoundRules } from '@daisy/protocol/format';
+import type { RoomConfig, RoomExecutionPlan } from '@daisy/protocol/room';
 
 /**
  * The one compiler (ADR 0058): pure and total over two declared inputs. For

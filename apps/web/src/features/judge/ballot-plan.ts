@@ -1,15 +1,16 @@
+import { ballotSubjectsFor, type Ballot } from '@daisy/protocol/ballot-schema';
 import {
-  ballotSubjectsFor,
   daisyBallotDefinitions,
+  type BallotDefinition,
+  type BallotSubjects,
+} from '@daisy/protocol/ballot-definition';
+import {
   isDebatingSeat,
   seatOrder,
   sideOfSeat,
-  type Ballot,
-  type BallotDefinition,
-  type BallotSubjects,
-  type RoundRules,
   type SeatRef,
-} from '@daisy/protocol';
+} from '@daisy/protocol/seats';
+import { type RoundRules } from '@daisy/protocol/format';
 import { createAppError } from '@daisy/errors';
 import { seatName } from '../debate-room/seat-names';
 
@@ -158,10 +159,10 @@ export const storedBallotPlan = (
   plan: BallotPlan,
   ballot: Pick<Ballot, 'rubricVersion'>,
 ): BallotPlan => {
-  const stored: BallotDefinition | undefined =
-    daisyBallotDefinitions[
-      ballot.rubricVersion as keyof typeof daisyBallotDefinitions
-    ];
+  // A stored revision may be one Daisy no longer knows.
+  const known: Readonly<Record<string, BallotDefinition>> =
+    daisyBallotDefinitions;
+  const stored = known[ballot.rubricVersion];
   return stored && stored.key === plan.definition.key
     ? { ...plan, definition: stored }
     : plan;

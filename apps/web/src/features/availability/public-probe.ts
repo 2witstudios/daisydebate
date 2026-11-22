@@ -1,4 +1,5 @@
-import { attendanceReceiptSchema, idSchema } from '@daisy/protocol';
+import { attendanceReceiptSchema } from '@daisy/protocol/attendance';
+import { idSchema } from '@daisy/protocol/primitives';
 import { nextWaitMs, type IdleBackoff } from '../../lib/idle-backoff';
 export type PublicCheckInProbeConfiguration = {
   readonly origin: string;

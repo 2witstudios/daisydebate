@@ -1,9 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import {
-  emptyRuntimeCheckpointFor,
-  isNamedSeat,
-  roundViewSchema,
-} from './index';
+import { emptyRuntimeCheckpointFor } from './round';
+import { isNamedSeat, roundViewSchema } from './round-view';
 import { twoSides } from './seats';
 import {
   fixtureRules,

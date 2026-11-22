@@ -1,12 +1,8 @@
 'use client';
 
-import {
-  useLayoutEffect,
-  useRef,
-  useState,
-  type Dispatch,
-  type ReactNode,
-} from 'react';
+import { useBrowserLayoutEffect } from '../edge/browser-sync';
+import { Button } from '../components/button/button';
+import { useRef, useState, type Dispatch, type ReactNode } from 'react';
 import type { ManagerAction } from '../../features/documents/document-manager-state';
 import type {
   DriveFolderNode,
@@ -94,12 +90,12 @@ function NodeRow({
   const rowButton = useRef<HTMLButtonElement>(null);
   const wasRenaming = useRef(renaming);
   const returnAfterRename = useRef(false);
-  useLayoutEffect(() => {
+  useBrowserLayoutEffect(() => {
     if (wasRenaming.current && !renaming && returnAfterRename.current)
       rowButton.current?.focus();
     wasRenaming.current = renaming;
   }, [renaming]);
-  useLayoutEffect(() => {
+  useBrowserLayoutEffect(() => {
     const element = rowElement.current;
     return () => {
       if (!element?.contains(document.activeElement)) return;
@@ -129,7 +125,8 @@ function NodeRow({
         </span>
       ) : (
         <>
-          <button
+          <Button
+            variant="unstyled"
             type="button"
             ref={rowButton}
             aria-expanded={expanded}
@@ -139,7 +136,7 @@ function NodeRow({
           >
             {leading}
             <span className="min-w-0 flex-1 truncate">{label}</span>
-          </button>
+          </Button>
           <FileMenu
             drive={drive}
             node={node}
@@ -170,6 +167,7 @@ function Contents({
 }) {
   const { active, renaming, dispatch, drive } = context;
   if (contents.state === 'unread') return null;
+  const { next } = contents;
   return (
     <ul className="flex flex-col">
       {contents.entries.map((node) =>
@@ -195,15 +193,16 @@ function Contents({
           </li>
         ),
       )}
-      {contents.next ? (
+      {next ? (
         <li>
-          <button
+          <Button
+            variant="unstyled"
             type="button"
             className="h-dense-target cursor-pointer px-2 text-sm text-ink-muted underline"
-            onClick={() => drive.more(folderId, contents.next!)}
+            onClick={() => drive.more(folderId, next)}
           >
             Show more
-          </button>
+          </Button>
         </li>
       ) : null}
     </ul>
@@ -229,7 +228,11 @@ function FolderRow({
         dispatch={dispatch}
         drive={drive}
         onOpen={() =>
-          drive.toggle(node.id, !node.expanded, node.contents.state === 'read')
+          void drive.toggle(
+            node.id,
+            !node.expanded,
+            node.contents.state === 'read',
+          )
         }
         leading={
           <>
@@ -284,7 +287,8 @@ export function FileTree({
           <h2 className="min-w-0 flex-1 truncate text-sm font-strong">
             {heading.title}
           </h2>
-          <button
+          <Button
+            variant="unstyled"
             type="button"
             aria-label="New"
             title="New"
@@ -292,10 +296,11 @@ export function FileTree({
             onClick={() => dispatch({ type: 'palette/open', mode: 'create' })}
           >
             <Icon name="plus" size={16} />
-          </button>
+          </Button>
         </div>
       ) : null}
-      <button
+      <Button
+        variant="unstyled"
         type="button"
         aria-keyshortcuts="Meta+K Control+K"
         className="mx-2 mb-2 flex h-dense-target shrink-0 cursor-pointer items-center gap-2 rounded-sm bg-surface-overlay px-2 text-sm text-ink-muted hover:text-ink"
@@ -304,7 +309,7 @@ export function FileTree({
         <Icon name="search" size={14} />
         <span className="min-w-0 flex-1 truncate text-left">Search files</span>
         <kbd className="font-body text-xs">⌘K</kbd>
-      </button>
+      </Button>
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-1 pb-3">
         {heading && drive.recent.length > 0 ? (
           <section aria-label="Recent" className="flex flex-col">
@@ -314,7 +319,8 @@ export function FileTree({
             <ul className="flex flex-col">
               {drive.recent.map((document) => (
                 <li key={document.id}>
-                  <button
+                  <Button
+                    variant="unstyled"
                     type="button"
                     className="flex h-dense-target w-full min-w-0 cursor-pointer items-center gap-1 rounded-sm px-2 text-left text-sm text-ink hover:bg-surface-overlay"
                     onClick={() => drive.open(document.id, document.title)}
@@ -323,7 +329,7 @@ export function FileTree({
                     <span className="min-w-0 flex-1 truncate">
                       {document.title}
                     </span>
-                  </button>
+                  </Button>
                 </li>
               ))}
             </ul>

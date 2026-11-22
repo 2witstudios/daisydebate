@@ -1,6 +1,7 @@
+import { sha3Hex } from '@daisy/digest';
 import { z } from 'zod';
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 export const policy = z.strictObject({
   leaseMs: z.number().int().min(1).max(60000),
   quietMs: z.number().int().min(100).max(60000),
@@ -25,5 +26,5 @@ export type Claim = z.infer<typeof claimInput>;
 export function claimDigest(token: string) {
   if (!/^[A-Za-z0-9_-]{43,128}$/.test(token))
     throw createAppError('AUTHORIZATION');
-  return new Bun.CryptoHasher('sha3-256').update(token).digest('hex');
+  return sha3Hex(token);
 }

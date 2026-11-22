@@ -1,7 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { Identity } from '@daisy/auth';
 import { createRefusal } from '@daisy/errors';
-import type { RoomInvitationRefusal } from '@daisy/protocol';
+import type { RoomInvitationRefusal } from '@daisy/protocol/room-invitations';
 import { noopErrorReporter } from '@daisy/observability';
 import { origin } from '../../server/member-boundary.test-support';
 import { silentLogger } from '../../server/test-loggers.test-support';

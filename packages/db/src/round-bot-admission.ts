@@ -1,9 +1,12 @@
+import { runningRoundStatuses } from '@daisy/protocol/round';
+import { lifecycleSqlList } from './lifecycle-sql';
+import { z } from 'zod';
+import { query } from './raw-rows';
 import { roundHasAiJudge } from './round-ai-judge';
 import { isDebatingSeatSql } from './seat-columns';
 import { and, eq, sql } from 'drizzle-orm';
 import { createAppError, createRefusal } from '@daisy/errors';
 import type { BoundedTransaction } from './bounded-transaction';
-import type { BoundedTransactionContext } from './transaction-context';
 import { lockAuthorizationActors } from './authorization';
 import { rounds } from './schema/rounds';
 import { usageReservations } from './schema/usage-reservations';
@@ -19,6 +22,8 @@ import {
   type AllowanceAccountPolicy,
 } from './usage-ledger';
 import { usageStateSchema } from '@daisy/protocol/billing';
+import type { Tx } from './tx';
+import { takeLock, transactionLocks } from './locks';
 export {
   refundUnservedPracticeLocked,
   refundPlatformEndedLocked,
@@ -27,9 +32,9 @@ export {
 type Target = { readonly actorId: string; readonly roundId: string };
 type Reservation = Target & { readonly id: string };
 /** Global bot capacity precedes canonical account then Room/Round and usage fences. */
-export const lockBotAdmission = (tx: BoundedTransactionContext) =>
-  tx.execute(sql`select pg_advisory_xact_lock(59003, 1)`);
-async function lockSponsor(tx: BoundedTransactionContext, target: Target) {
+export const lockBotAdmission = (tx: Tx) =>
+  takeLock(tx, transactionLocks.botAdmission());
+async function lockSponsor(tx: Tx, target: Target) {
   requireAdmissionTarget(target);
   const [account] = await lockAuthorizationActors(tx, [target.actorId], {
     maxActors: 1,
@@ -45,7 +50,7 @@ async function lockSponsor(tx: BoundedTransactionContext, target: Target) {
 
 /** First model-call count and provider-run creation share the caller's transaction. */
 export async function markLockedRoundBotModelCall(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   input: {
     readonly roundId: string;
     readonly before: string;
@@ -90,7 +95,17 @@ const liveBotDebaterRounds = (exceptRoundId?: string) =>
   sql`select count(distinct r.id)::int from rounds r
     join round_participants p on p.round_id=r.id and ${isDebatingSeatSql(sql`p.seat_kind`)}
     join actors a on a.id=p.actor_id and a.kind='bot'
-    where r.status in ('opening','active') and r.id<>${exceptRoundId ?? ''}`;
+    where r.status in ${lifecycleSqlList(runningRoundStatuses)} and r.id<>${exceptRoundId ?? ''}`;
+
+async function countLiveBotRounds(tx: Tx, exceptRoundId?: string) {
+  const [row] = await query(
+    tx,
+    z.object({ count: z.int() }),
+    liveBotDebaterRounds(exceptRoundId),
+  );
+  if (!row) throw createAppError('INVARIANT', 'Bot admission count is missing');
+  return row.count;
+}
 
 function admissionRefusal(
   decision: Awaited<ReturnType<typeof readAllowanceLocked>>['decision'],
@@ -121,7 +136,7 @@ export function createRoundBotAdmission(input: {
 }) {
   requireBusyCap(input.busyCap);
   const reserveLocked = async (
-    tx: BoundedTransactionContext,
+    tx: Tx,
     target: Target,
   ): Promise<Reservation> => {
     const account = await lockSponsor(tx, target);
@@ -147,8 +162,7 @@ export function createRoundBotAdmission(input: {
       },
     });
     if (!existing) {
-      const [row] = await tx.execute(liveBotDebaterRounds(target.roundId));
-      if (Number((row as { count: number }).count) >= input.busyCap)
+      if ((await countLiveBotRounds(tx, target.roundId)) >= input.busyCap)
         throw createRefusal('CONFLICT', 'bots-busy');
     }
     const bot = rows.find((row) => row.kind === 'ai_round');
@@ -168,9 +182,7 @@ export function createRoundBotAdmission(input: {
         const [account] = await lockAuthorizationActors(tx, [actorId], {
           maxActors: 1,
         });
-        const [{ count: busy }] = (await tx.execute(
-          liveBotDebaterRounds(),
-        )) as unknown as [{ count: number }];
+        const busy = await countLiveBotRounds(tx);
         // Preview never establishes binding or grants dispatch authority.
         const result = await readAllowanceLocked(tx, {
           account: account ?? null,

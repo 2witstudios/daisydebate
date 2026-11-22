@@ -1,28 +1,34 @@
-import { createId } from '@paralleldrive/cuid2';
 import { isAppError } from '@daisy/errors';
-import { deniedAsNotFound } from './tab-tournament-organization-wiring.test-support';
-import { ratingStage } from './tab-tournament-rating.test-support';
-import { notificationsStage } from './tab-tournament-notifications.test-support';
-import { seasonStage } from './tab-tournament-season.test-support';
-import { completionStage } from './tab-tournament-completion.test-support';
-import { resultsStage } from './tab-tournament-results.test-support';
-import { standingsStage } from './tab-tournament-standings.test-support';
-import { officiatingStage } from './tab-tournament-officiating.test-support';
-import { publishDrawStage } from './tab-tournament-publication.test-support';
-import { draftDrawStage } from './tab-tournament-draw-draft.test-support';
-import { leagueConfigurationStage } from './tab-tournament-league-configuration.test-support';
-import { entryEnrollmentStage } from './tab-tournament-entry-enrollment.test-support';
-import { judgeRegistrationStage } from './tab-tournament-judge-registration.test-support';
-import { setupStage } from './tab-tournament-setup.test-support';
-import { leagueAdministrationStage } from './tab-tournament-league-administration.test-support';
+import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { withRoomRuntime } from './room-runtime.test-support';
 import {
-  scratchDatabase,
   committingRuntimeTestDatabase,
+  scratchDatabase,
 } from '@daisy/db/testing';
 import { SQL } from 'bun';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { createTestApp } from './fixtures';
+import { deniedAsNotFound } from './tab-tournament-organization-wiring.test-support';
+import { completionStage } from './tab-tournament-completion.test-support';
+import { draftDrawStage } from './tab-tournament-draw-draft.test-support';
+import { entryEnrollmentStage } from './tab-tournament-entry-enrollment.test-support';
+import {
+  openTournamentHttp,
+  tournamentBotEmail,
+} from './tab-tournament-http.test-support';
+import { judgeRegistrationStage } from './tab-tournament-judge-registration.test-support';
+import { leagueAdministrationStage } from './tab-tournament-league-administration.test-support';
+import { leagueConfigurationStage } from './tab-tournament-league-configuration.test-support';
+import { notificationsStage } from './tab-tournament-notifications.test-support';
+import { officiatingStage } from './tab-tournament-officiating.test-support';
+import { organizationStage } from './tab-tournament-organization.test-support';
+import { publishDrawStage } from './tab-tournament-publication.test-support';
+import { ratingStage } from './tab-tournament-rating.test-support';
+import { resultsStage } from './tab-tournament-results.test-support';
+import { seasonStage } from './tab-tournament-season.test-support';
+import { setupStage } from './tab-tournament-setup.test-support';
+import { standingsStage } from './tab-tournament-standings.test-support';
 import {
   createBots,
   reportLines,
@@ -31,7 +37,6 @@ import {
   type Stage,
   type World,
 } from './tab-tournament.test-support';
-import { organizationStage } from './tab-tournament-organization.test-support';
 
 /**
  * The scripted tournament (TAB-8.18), the parent branch's gate: bots take a
@@ -43,6 +48,18 @@ import { organizationStage } from './tab-tournament-organization.test-support';
 
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
+const scratch = scratchDatabase(databaseUrl, 'fulltournament');
+const clock = scriptClock(Date.now() - 60 * 60_000);
+// The HTTP app must see the same Postgres fences as the browser runtime.
+const runtimeDatabase = new URL(scratch.url);
+runtimeDatabase.searchParams.set('role', 'daisy_web');
+const app = createTestApp(
+  { DATABASE_URL: runtimeDatabase.href },
+  undefined,
+  clock,
+  undefined,
+  scratch.drop,
+);
 
 /** The tournament, in the plan's dependency order. */
 const stages: readonly Stage<World>[] = [
@@ -119,24 +136,34 @@ test('the scripted tournament', async () => {
   // The entire private database is dropped. Each command commits under the
   // actual runtime role, so ordinary Room/Round requests see real publication
   // and later stages cannot depend on an uncommitted owner transaction.
-  const scratch = scratchDatabase(databaseUrl, 'fulltournament');
   await scratch.create();
   const owner = new SQL(scratch.url, { max: 4 });
   let reports;
   try {
     await scratch.migrate(() => true);
     const bots = await createBots(owner, names);
-    reports = await runStages(stages, {
-      database: committingRuntimeTestDatabase(owner),
-      sql: owner,
-      runtimeDatabaseUrl: scratch.url,
-      clock: scriptClock(Date.now() - 60 * 60_000),
-      bots: Object.fromEntries(bots.map((bot) => [bot.name, bot])),
-      made: new Map(),
-    });
+    await owner`insert into release_flags (key, state, revision)
+      values ('daisy-tab', 'enabled', 1)
+      on conflict (key) do update set state = excluded.state,
+        revision = release_flags.revision + 1`;
+    for (const bot of bots)
+      await owner`update users set email = ${tournamentBotEmail(bot)} where id = ${bot.userId}`;
+    const http = await openTournamentHttp(app, bots);
+    try {
+      reports = await runStages(stages, {
+        database: committingRuntimeTestDatabase(owner),
+        sql: owner,
+        runtimeDatabaseUrl: scratch.url,
+        clock,
+        http: http.request,
+        bots: Object.fromEntries(bots.map((bot) => [bot.name, bot])),
+        made: new Map(),
+      });
+    } finally {
+      await http.close();
+    }
   } finally {
     await owner.close();
-    await scratch.drop();
   }
   process.stdout.write(`${reportLines(reports)}\n`);
   assert({

@@ -150,6 +150,7 @@ const imageProblems = (source: string, all = workspaces) => {
     'apps/admin/src',
     'packages/auth/src/operator-signature.ts',
     'packages/clock/src',
+    'packages/digest/src',
     'packages/logger/src',
     'packages/protocol/src',
   ]) {

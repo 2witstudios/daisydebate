@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { SQL } from 'bun';
 import { createDatabase } from '@daisy/db';
 import { validRules } from '@daisy/db/testing';
@@ -8,7 +9,7 @@ export async function withHistoricalSeat(
   work: (input: {
     readonly binding: { roomName: string; identity: string };
     readonly calibrate: () => Promise<
-      import('@daisy/protocol').ClockCalibration
+      import('@daisy/protocol/frame-clock-evidence').ClockCalibration
     >;
     readonly authorizeWindow: (window: {
       before: string;
@@ -48,7 +49,7 @@ export async function withHistoricalSeat(
       binding,
       calibrate: async () => {
         const sentAtMs = performance.now();
-        const serverNowMs = Date.parse(await db.databaseNow());
+        const serverNowMs = instantMs(await db.databaseNow());
         return {
           sentAtMs,
           receivedAtMs: performance.now(),

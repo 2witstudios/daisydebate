@@ -1,9 +1,11 @@
+import { nowMs } from '@daisy/clock';
 import type { Clock } from '@daisy/clock';
 import { isTemporaryRefusal } from '@daisy/db/capacity';
 import { CLIENT_IP_HEADER } from '@daisy/ingress/client-ip';
 import type { Logger } from '@daisy/logger';
 import type { ErrorReporter } from '@daisy/observability';
-import { idSchema, viewerPulseSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
+import { viewerPulseSchema } from '@daisy/protocol/audience';
 import { createAppError } from '@daisy/errors';
 import { presentedLinkHash } from '../audience-link/audience-link';
 import { admitAudience } from '../spectating/read-timeline';
@@ -67,7 +69,7 @@ export function createViewerPulseRoute(deps: {
   const onAir = createSnapshotMemo<{
     readonly visibility: 'public' | 'unlisted';
   } | null>({
-    nowMs: () => Date.parse(deps.clock.now()),
+    nowMs: () => nowMs(deps.clock),
     ttlMs: ON_AIR_TTL_MS,
     maxEntries: ON_AIR_ROUNDS,
     keepsFailure: isTemporaryRefusal,
@@ -127,7 +129,7 @@ export function createViewerPulseRoute(deps: {
           )
             await deps.counts.recordViewerPulse({
               roundId,
-              bucket: viewerBucketOf(Date.parse(deps.clock.now())),
+              bucket: viewerBucketOf(nowMs(deps.clock)),
               token,
               ttlMs: VIEWER_BUCKET_TTL_MS,
             });

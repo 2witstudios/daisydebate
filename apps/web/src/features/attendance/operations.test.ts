@@ -1,3 +1,5 @@
+import { sha3Hex } from '@daisy/digest';
+import { instantMs } from '@daisy/clock';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import type {
@@ -10,11 +12,9 @@ import {
   oneOnOneSettings,
 } from '@daisy/db/reference-formats';
 import { resolveRoomConfiguration } from '@daisy/debate-engine';
-import {
-  attendanceTimingPolicy,
-  emptyRuntimeCheckpointFor,
-  twoSides,
-} from '@daisy/protocol';
+import { attendanceTimingPolicy } from '@daisy/protocol/attendance';
+import { emptyRuntimeCheckpointFor } from '@daisy/protocol/round';
+import { twoSides } from '@daisy/protocol/seats';
 import { createAttendanceFeature } from './operations';
 setupRitewayBun();
 
@@ -22,7 +22,7 @@ const compiled = resolveRoomConfiguration(oneOnOneDefinition, oneOnOneSettings);
 if (!compiled.ok) throw new Error('Canonical rules fixture refused');
 const rules = compiled.rules;
 const firstSpeech = rules.segments.find((s) => s.type === 'speech')!;
-const openedAtMs = Date.parse('2026-10-22T00:02:00.000Z');
+const openedAtMs = instantMs('2026-10-22T00:02:00.000Z');
 const iso = (ms: number) => new Date(ms).toISOString();
 const segment = {
   id: 'actual-first',
@@ -291,7 +291,7 @@ test('a missing bot speaker receipt abandons through the shared engine projectio
   });
 });
 
-test('targets expose only open unrecorded windows and native forms carry fresh commands', async () => {
+test('targets expose only open unrecorded windows', async () => {
   const open = { now: iso(openedAtMs + 10000) };
   assert({
     given: 'an open actual speech window',
@@ -319,14 +319,6 @@ test('targets expose only open unrecorded windows and native forms carry fresh c
       actual: await feature(read as never).instance.targets(principal, 'round'),
       expected: [],
     });
-  assert({
-    given: 'a native read of an open window',
-    should: 'issue a fresh command id per target',
-    actual: (
-      await feature(open).instance.nativeState(principal, 'round')
-    ).targets.map((target) => target.commandId),
-    expected: ['command00000000000000001'],
-  });
 });
 
 test('check-in validates the envelope and records a SHA3 digest of it', async () => {
@@ -351,12 +343,6 @@ test('check-in validates the envelope and records a SHA3 digest of it', async ()
     given: 'a valid envelope',
     should: 'record it with the digest of its parsed form',
     actual: [recorded.length, input!.envelope, input!.payloadDigest],
-    expected: [
-      1,
-      envelope,
-      new Bun.CryptoHasher('sha3-256')
-        .update(JSON.stringify(envelope))
-        .digest('hex'),
-    ],
+    expected: [1, envelope, sha3Hex(JSON.stringify(envelope))],
   });
 });

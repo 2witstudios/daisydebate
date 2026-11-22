@@ -1,9 +1,9 @@
 import { and, eq } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { messagingSocialCommands } from '../schema/messaging-social';
+import type { Tx } from '../tx';
 /** Only the actual caller/request row can become a group receipt result. */
 export async function readMessagingGroupCommand(
-  tx: Pick<BunSQLDatabase, 'select'>,
+  tx: Tx,
   actorId: string,
   requestId: string,
 ) {

@@ -1,9 +1,9 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { refuseCapacity } from '@daisy/db/testing';
-import { buildRoundTopic } from '@daisy/protocol';
+import { buildRoundTopic } from '@daisy/protocol/topics';
 import type { RealtimeApp } from './app';
 import { createRealtimeDelivery } from './delivery';
-import { bothLanes } from './delivery.test-support';
+import { bothLanes, testTransport } from './delivery.test-support';
 import { refuseAllReading } from './authorization.test-support';
 
 setupRitewayBun();
@@ -43,6 +43,7 @@ function subscribeRig(reads: unknown) {
       logger: {
         log: (event: string, fields: unknown) => logged.push([event, fields]),
       },
+      transport: testTransport,
     } as unknown as RealtimeApp,
     now: () => 0,
     publish: () => {},

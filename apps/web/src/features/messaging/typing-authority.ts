@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import {
   authorize,
   type AuthorizationInput,
@@ -7,7 +8,7 @@ import {
   type SocialPolicyEvidence,
 } from '@daisy/auth/authorization';
 import { socialPostingPolicy } from '@daisy/auth/social-policy';
-import { messagingTypingSchemas } from '@daisy/protocol';
+import { messagingTypingSchemas } from '@daisy/protocol/messaging/typing';
 import type { MessagingRuntimePolicy } from './composition';
 type Lease = ReturnType<typeof messagingTypingSchemas.lease.parse>;
 export function typingAuthority({
@@ -75,8 +76,8 @@ function qualifies(lease: Lease, current: Lease, now: string) {
     lease.accountRevision === current.accountRevision &&
     lease.ageRevision === current.ageRevision &&
     lease.policyRevision === current.policyRevision &&
-    Date.parse(lease.expiresAt) > Date.parse(now) &&
-    Date.parse(lease.expiresAt) <= Date.parse(current.expiresAt)
+    instantMs(lease.expiresAt) > instantMs(now) &&
+    instantMs(lease.expiresAt) <= instantMs(current.expiresAt)
   );
 }
 /** Lease existence never grants permission: current canonical post facts qualify it for each read. */
@@ -100,8 +101,8 @@ export function typingAggregate(
     const readingDeadline = row.input.context.socialReading?.validUntil;
     return [
       Math.min(
-        Date.parse(lease.expiresAt),
-        Date.parse(readingDeadline ?? row.lease.expiresAt),
+        instantMs(lease.expiresAt),
+        instantMs(readingDeadline ?? row.lease.expiresAt),
       ),
     ];
   });

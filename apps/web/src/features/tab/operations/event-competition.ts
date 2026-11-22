@@ -1,7 +1,7 @@
 import { tournamentEntryRatings } from '../../ratings/tournament-entry-ratings';
 import type { EventCompetitionFacts } from '@daisy/db/tab';
 import { createAppError } from '@daisy/errors';
-import { formatDefinitionSchema } from '@daisy/protocol';
+import { formatDefinitionSchema } from '@daisy/protocol/format';
 import type {
   Fixture,
   Result,

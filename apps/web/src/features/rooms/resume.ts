@@ -1,4 +1,4 @@
-import type { ActiveRoom } from '@daisy/protocol';
+import type { ActiveRoom } from '@daisy/protocol/active-room';
 
 /**
  * The returned member's eligibility to auto-resume their live Round

@@ -1,5 +1,6 @@
 'use client';
 
+import { StatusRegion } from '../../components/status-region/status-region';
 import { Button } from '../../components/button/button';
 import { buttonClass } from '../../components/button/button-class';
 import { SignOutForm } from '../../components/sign-out-form/sign-out-form';
@@ -37,7 +38,12 @@ function PasskeyList({
   readonly onRenamed: (id: string, name: string) => void;
   readonly onRemoved: (id: string) => void;
 }) {
-  if (lists.kind !== 'read') return <p role="status">Loading passkeys…</p>;
+  if (lists.kind !== 'read')
+    return (
+      <StatusRegion as="p" role="status">
+        Loading passkeys…
+      </StatusRegion>
+    );
   if (lists.passkeys.kind === 'unavailable')
     return <UnreadNotice id="passkeys-load-notice" list={lists.passkeys} />;
   return (
@@ -61,7 +67,12 @@ function SessionList({
   readonly lists: SecurityLists;
   readonly onRevoked: (id: string) => void;
 }) {
-  if (lists.kind !== 'read') return <p role="status">Loading sessions…</p>;
+  if (lists.kind !== 'read')
+    return (
+      <StatusRegion as="p" role="status">
+        Loading sessions…
+      </StatusRegion>
+    );
   if (lists.sessions.kind === 'unavailable') return null;
   return (
     <ul>

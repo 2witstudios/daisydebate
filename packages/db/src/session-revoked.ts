@@ -1,10 +1,8 @@
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
-import { buildUserInboxTopic } from '@daisy/protocol';
+import { buildUserInboxTopic } from '@daisy/protocol/topics';
 import { appendOutboxEvent } from './outbox';
 import { queryActorByUserId } from './actor-operations';
 import type { DatabaseEventSink } from './instrumented';
-
-type Tx = Pick<BunSQLDatabase, 'select' | 'execute' | 'insert'>;
+import type { Tx } from './tx';
 
 /**
  * The actor-wide `session.revoked` append for revocations that end access

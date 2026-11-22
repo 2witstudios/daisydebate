@@ -67,6 +67,7 @@ test('canonical evidence refuses malformed PCM/provenance, header mismatch and c
   const invalid = [
     { ...original, frames: [{ ...original.frames[0], pcmS16le: 'AA==' }] },
     { ...original, before: iso(at) },
+    { ...original, before: 'garbage' },
     { ...original, historyReadAt: iso(at) },
     { ...original, durationMs: 20 },
     { ...original, bodyDigest: 'b'.repeat(64) },

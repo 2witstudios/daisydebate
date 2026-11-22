@@ -1,11 +1,11 @@
-import { createHash } from 'node:crypto';
+import { commandDigest } from '@daisy/digest';
 import { createAppError } from '@daisy/errors';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { MessagingReactionStore } from '@daisy/db/messaging';
 import {
   createMessagingReactionSchemas,
   type MessagingReactionPolicy,
-} from '@daisy/protocol';
+} from '@daisy/protocol/messaging/reactions';
 import { parseValidated } from '../../server/http';
 import { requireMemberActor } from '../access/actor';
 
@@ -25,18 +25,14 @@ export async function changeMessagingReaction(
   const schemas = createMessagingReactionSchemas(dependencies.policy);
   const command = parseValidated(schemas.command, input);
   await dependencies.limit(actor.actorId, command.channelId);
-  const payloadDigest = createHash('sha3-256')
-    .update(
-      JSON.stringify([
-        'reaction',
-        command.version,
-        command.channelId,
-        command.messageId,
-        command.reaction,
-        command.active,
-      ]),
-    )
-    .digest('hex');
+  const payloadDigest = commandDigest([
+    'reaction',
+    command.version,
+    command.channelId,
+    command.messageId,
+    command.reaction,
+    command.active,
+  ]);
   const result = schemas.result.safeParse(
     await dependencies.store.change(
       { ...actor, channelId: command.channelId },

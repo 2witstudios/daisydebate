@@ -1,9 +1,6 @@
-import {
-  isNamedSeat,
-  sideOfSeat,
-  type RoundView,
-  type SideKey,
-} from '@daisy/protocol';
+import { instantMs } from '@daisy/clock';
+import { isNamedSeat, type RoundView } from '@daisy/protocol/round-view';
+import { sideOfSeat, type SideKey } from '@daisy/protocol/seats';
 import { sideName } from '../../features/debate-room/seat-names';
 import { countdownClock } from '../../features/rooms/duration-input';
 import {
@@ -51,7 +48,7 @@ function Countdown({
         {mine ? 'Your time' : 'Their time'}
       </span>
       <span className="font-display text-3xl font-semibold tabular-nums">
-        {countdownClock(Math.max(0, Date.parse(draw.turn.dueAt) - nowMs))}
+        {countdownClock(Math.max(0, instantMs(draw.turn.dueAt) - nowMs))}
       </span>
     </p>
   );
@@ -177,7 +174,7 @@ function StrikeForm({
 
 /**
  * The opening's strike (ADR 0104): the resolutions and nothing else. A native
- * form, so it works without JavaScript; a strike can't be undone, so the
+ * form, so it works before hydration; a strike can't be undone, so the
  * submit asks once more with it.
  */
 export function OpeningStrike({
@@ -323,7 +320,7 @@ export function OpeningStatus({
       <p role="timer" aria-label="Prep before the round">
         Prep ·{' '}
         <span className="tabular-nums">
-          {countdownClock(Math.max(0, Date.parse(step.endsAt) - nowMs))}
+          {countdownClock(Math.max(0, instantMs(step.endsAt) - nowMs))}
         </span>
       </p>
     );

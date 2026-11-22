@@ -3,7 +3,7 @@ import {
   attendanceReceiptSchema,
   attendanceRoundReadSchema,
   attendanceTimingPolicy,
-} from '@daisy/protocol';
+} from '@daisy/protocol/attendance';
 
 const closedWindow = z.object({
   refusal: z.enum([

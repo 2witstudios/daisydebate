@@ -1,4 +1,5 @@
-import type { RoomView } from '@daisy/protocol';
+import { Button } from '../../components/button/button';
+import type { RoomView } from '@daisy/protocol/room-contract';
 import type { RoomFormState } from '../../../features/rooms/command-answer';
 import {
   DEFAULT_RELEASE_CHOICE,
@@ -13,7 +14,7 @@ import { UpgradePanel } from '../../components/upgrade-panel/upgrade-panel';
 
 /**
  * The host's two separate choices and the release choice (WATCH-8). Plain
- * fields in a native form, so all of it works with no script; choosing asks
+ * fields in a native form, so all of it works before hydration; choosing asks
  * every seat to Ready again, with the notice saying what was chosen.
  */
 export function CaptureChoice({
@@ -54,9 +55,13 @@ export function CaptureChoice({
               version={view.version}
               commandId={commandId}
             />
-            <button type="submit" className="self-start text-sm font-strong">
+            <Button
+              variant="unstyled"
+              type="submit"
+              className="self-start text-sm font-strong"
+            >
               Turn off broadcast and recording
-            </button>
+            </Button>
           </AssemblyCommandForm>
         ) : null}
       </>
@@ -111,9 +116,13 @@ export function CaptureChoice({
           />
           Record this round
         </label>
-        <button type="submit" className="self-start text-sm font-strong">
+        <Button
+          variant="unstyled"
+          type="submit"
+          className="self-start text-sm font-strong"
+        >
           Save broadcast and recording
-        </button>
+        </Button>
       </div>
     </AssemblyCommandForm>
   );

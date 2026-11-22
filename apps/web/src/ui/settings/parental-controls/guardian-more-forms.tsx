@@ -1,5 +1,6 @@
 'use client';
 
+import { StatusRegion } from '../../components/status-region/status-region';
 import { Button } from '../../components/button/button';
 import {
   ReleasePaidAdsFields,
@@ -32,10 +33,10 @@ export function LinkedGuardianReleaseForm({
   );
   if (state.kind === 'done')
     return (
-      <p role="status">
+      <StatusRegion as="p" role="status">
         Media release signed. A copy and a withdrawal link will be sent to your
         account email.
-      </p>
+      </StatusRegion>
     );
   const { error, values } = formFields(state);
   return (
@@ -47,15 +48,15 @@ export function LinkedGuardianReleaseForm({
       <ReleasePaidAdsFields minor={minor} values={values} />
       <ReleaseSignatureFields minor={minor} values={values} />
       {error ? (
-        <p role="alert" className="text-sm text-live">
+        <StatusRegion as="p" role="alert" className="text-sm text-live">
           {error}
-        </p>
+        </StatusRegion>
       ) : null}
       {state.kind === 'unacknowledged' ? (
-        <p role="alert">
+        <StatusRegion as="p" role="alert">
           We couldn’t confirm the signature. Reload to check whether it was
           saved.
-        </p>
+        </StatusRegion>
       ) : null}
       <Button type="submit" className="self-start" aria-disabled={pending}>
         Sign release
@@ -89,15 +90,15 @@ export function CloseChildAccountForm({ action }: { readonly action: Action }) {
         I withdraw my consent and confirm that Daisy should close this account.
       </label>
       {error ? (
-        <p role="alert" className="text-sm text-live">
+        <StatusRegion as="p" role="alert" className="text-sm text-live">
           {error}
-        </p>
+        </StatusRegion>
       ) : null}
       {state.kind === 'unacknowledged' ? (
-        <p role="alert">
+        <StatusRegion as="p" role="alert">
           We couldn’t confirm closure. Return to Parental controls to check the
           account.
-        </p>
+        </StatusRegion>
       ) : null}
       <Button type="submit" variant="secondary" aria-disabled={pending}>
         Withdraw consent and close account

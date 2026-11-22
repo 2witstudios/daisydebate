@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 /**
  * ISSUE-882: a debater's round display must advance from the server's own
  * read-backed sample plus monotonic elapsed time, never from the browser's
@@ -24,12 +25,9 @@ import {
 } from './support/room-launch-flow';
 import { closeSettledLaunchContexts } from './support/room-launch-settled';
 import { displayDeltaMs } from './support/round-clock';
-import {
-  affirmativeSide,
-  roundMediaStateSchema,
-  roundViewSchema,
-  sideOfSeat,
-} from '@daisy/protocol';
+import { affirmativeSide, sideOfSeat } from '@daisy/protocol/seats';
+import { roundMediaStateSchema } from '@daisy/protocol/round-media';
+import { roundViewSchema } from '@daisy/protocol/round-view';
 import { turnOnDevices } from './support/turn-on-devices';
 
 const TWO_MINUTE_SKEW_MS = 120_000;
@@ -261,7 +259,7 @@ test('a live debater clock reads the server read, not the adjusted browser wall 
     );
     const view = roundViewSchema.parse(await response.json());
     const segment = view.segments[0]!;
-    const deadline = Date.parse(segment.startedAt) + segment.durationMs;
+    const deadline = instantMs(segment.startedAt) + segment.durationMs;
     const seat = view.participants.find(
       (participant) => sideOfSeat(participant.seat) === affirmativeSide,
     );

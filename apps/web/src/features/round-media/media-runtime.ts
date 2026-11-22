@@ -2,7 +2,7 @@ import {
   roundMediaAdmissionSchema,
   roundMediaStateSchema,
   type RoundMediaAdmission,
-} from '@daisy/protocol';
+} from '@daisy/protocol/round-media';
 import type { MediaRoom, TrackHandle } from './adapters/livekit-room';
 import { cancelMediaWork } from './cancel-media-work';
 import { requestFailureOf } from './media-failure';
@@ -120,7 +120,7 @@ export function createMediaRuntime(input: {
         let room: MediaRoom;
         try {
           room = input.openRoom({
-            report: (event) => dispatch({ ...event, connection } as MediaEvent),
+            report: (event) => dispatch({ ...event, connection }),
             handles: (next) => {
               if (rooms.get(connection) !== room) return;
               handles = next;

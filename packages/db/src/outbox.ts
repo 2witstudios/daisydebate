@@ -1,15 +1,16 @@
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';
+import { cursorSchema } from '@daisy/protocol/realtime';
 import {
-  cursorSchema,
   isPayloadStorableOnTopic,
   outboxPayloadSchema,
-} from '@daisy/protocol';
+} from '@daisy/protocol/realtime-payloads';
 import { outbox } from './schema/outbox';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import type { RetentionBatch } from './retention';
 import { deleteExpiredOutboxPrefix } from './outbox-retention';
+import type { Tx } from './tx';
+import { postgresInt8, run, query } from './raw-rows';
 
 /**
  * Full validation of the append input (RT-2.2 hazard note, plan revision
@@ -39,9 +40,6 @@ export type OutboxRow = OutboxPosition & {
   readonly payload: unknown;
   readonly createdAt: string;
 };
-
-/** A transaction handle: what `database.transaction(async (tx) => ...)` hands the caller. */
-type Tx = Pick<BunSQLDatabase, 'execute' | 'insert'>;
 
 const XID8_MAX = 2n ** 64n - 1n;
 const BIGSERIAL_MAX = 2n ** 63n - 1n;
@@ -117,7 +115,8 @@ export async function appendOutboxEvent(
     txid: String(row.txid),
     seq: BigInt(row.seq),
   };
-  await tx.execute(
+  await run(
+    tx,
     sql`select pg_notify('outbox', ${encodeOutboxCursor(position)})`,
   );
   return position;
@@ -160,7 +159,8 @@ export async function appendOutboxEvents(
   const last = written.at(-1);
   if (!last || written.length !== rows.length)
     throw new Error('Outbox insert returned too few rows');
-  await tx.execute(
+  await run(
+    tx,
     sql`select pg_notify('outbox', ${encodeOutboxCursor({
       txid: String(last.txid),
       seq: BigInt(last.seq),
@@ -169,6 +169,8 @@ export async function appendOutboxEvents(
 }
 
 const MAX_DRAIN_LIMIT = 500;
+
+const outboxRawPosition = z.object({ txid: postgresInt8, seq: postgresInt8 });
 
 /**
  * Commit-ordered drain (plan: "Cursor correctness"). Reads only rows whose
@@ -179,26 +181,36 @@ const MAX_DRAIN_LIMIT = 500;
  * drained past it.
  */
 export async function drainOutbox(
-  db: Pick<BunSQLDatabase, 'execute'>,
+  db: Tx,
   cursor: OutboxPosition,
   limit = MAX_DRAIN_LIMIT,
 ): Promise<readonly OutboxRow[]> {
   if (!Number.isSafeInteger(limit) || limit < 1 || limit > MAX_DRAIN_LIMIT)
     throw new Error('Invalid outbox drain limit');
-  const result = await db.execute(sql`
+  const result = await query(
+    db,
+    outboxRawPosition.extend({
+      topic: z.string(),
+      kind: z.string(),
+      version: z.int(),
+      payload: z.json(),
+      createdAt: z.union([z.date(), z.string()]),
+    }),
+    sql`
     select seq, txid, topic, kind, version, payload, created_at as "createdAt"
     from outbox
     where (txid, seq) > (${cursor.txid}::xid8, ${cursor.seq.toString()}::bigint)
       and txid < pg_snapshot_xmin(pg_current_snapshot())
     order by txid, seq
     limit ${limit}
-  `);
-  return (result as unknown as Record<string, unknown>[]).map((row) => ({
-    seq: BigInt(row.seq as string | number | bigint),
+  `,
+  );
+  return result.map((row) => ({
+    seq: BigInt(row.seq),
     txid: String(row.txid),
-    topic: String(row.topic),
-    kind: String(row.kind),
-    version: Number(row.version),
+    topic: row.topic,
+    kind: row.kind,
+    version: row.version,
     payload: row.payload,
     createdAt:
       row.createdAt instanceof Date
@@ -215,21 +227,23 @@ export async function drainOutbox(
  * own cursors. An empty outbox has no final position, so the origin stands
  * in for "nothing yet".
  */
-export async function readOutboxHighWaterMark(
-  db: Pick<BunSQLDatabase, 'execute'>,
-): Promise<OutboxPosition> {
-  const result = await db.execute(sql`
+export async function readOutboxHighWaterMark(db: Tx): Promise<OutboxPosition> {
+  const result = await query(
+    db,
+    outboxRawPosition,
+    sql`
     select txid, seq
     from outbox
     where txid < pg_snapshot_xmin(pg_current_snapshot())
     order by txid desc, seq desc
     limit 1
-  `);
-  const [row] = result as unknown as Record<string, unknown>[];
+  `,
+  );
+  const [row] = result;
   if (!row) return OUTBOX_ORIGIN;
   return {
     txid: String(row.txid),
-    seq: BigInt(row.seq as string | number | bigint),
+    seq: BigInt(row.seq),
   };
 }
 
@@ -244,7 +258,7 @@ export const outboxOperations = ({
   database,
   eventSink,
 }: {
-  readonly database: Pick<BunSQLDatabase, 'execute'>;
+  readonly database: Tx;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
   /**

@@ -1,4 +1,4 @@
-import type { BroadcastStream } from '@daisy/protocol';
+import type { BroadcastStream } from '@daisy/protocol/spectator-timeline';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   attemptOf,

@@ -1,4 +1,7 @@
-import type { BroadcastStream, SpectatorTimeline } from '@daisy/protocol';
+import type {
+  BroadcastStream,
+  SpectatorTimeline,
+} from '@daisy/protocol/spectator-timeline';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   PUBLISHING_STALE_AFTER_MS,

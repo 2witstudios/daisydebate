@@ -2,7 +2,7 @@ import { SQL } from 'bun';
 import { resolve } from 'node:path';
 import { z } from 'zod';
 import { systemClock } from '@daisy/clock';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import {
   seedMessagingBrowserAccounts,
   cleanupMessagingBrowserData,

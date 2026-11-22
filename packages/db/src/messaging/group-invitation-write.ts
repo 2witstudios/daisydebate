@@ -1,5 +1,4 @@
 import { and, eq, isNotNull } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import { messagingChannels } from '../schema/messaging-channels';
 import {
@@ -14,7 +13,7 @@ import type {
   MessagingGroupInvitationFact,
   MessagingGroupInvitationScope,
 } from './group-invitation-contracts';
-type Tx = Pick<BunSQLDatabase, 'select' | 'insert' | 'update' | 'execute'>;
+import type { Tx } from '../tx';
 type Command = Parameters<MessagingGroupInvitationFrame['commitDecision']>[0];
 const outcomes = {
   accept: 'accepted',

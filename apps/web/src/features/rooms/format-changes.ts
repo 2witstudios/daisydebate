@@ -1,4 +1,5 @@
-import type { FormatChange, Side } from '@daisy/protocol';
+import type { FormatChange } from '@daisy/protocol/format-standing';
+import type { Side } from '@daisy/protocol/seats';
 import { interruptionLabel, strikeSummary } from '../debate-room/vocabulary';
 import { sideShortName } from '../debate-room/seat-names';
 import { clockDuration } from './duration-input';

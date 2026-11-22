@@ -1,6 +1,13 @@
 'use client';
-import type { BroadcastStream, SpectatorTimeline } from '@daisy/protocol';
-import { useEffect, useRef, useState, type RefObject } from 'react';
+import { useBrowserEffect } from '../edge/browser-sync';
+import { cancelDelay, delay } from '../edge/browser-time';
+import { StatusRegion } from '../components/status-region/status-region';
+import { Button } from '../components/button/button';
+import type {
+  BroadcastStream,
+  SpectatorTimeline,
+} from '@daisy/protocol/spectator-timeline';
+import { useRef, useState, type RefObject } from 'react';
 import { broadcastDocumentStale } from '../../features/spectating/browser-policy';
 import { seatLabelIn } from './spectator-timeline-copy';
 import { StreamVideo } from './stream-video';
@@ -16,17 +23,17 @@ const JUMP_SLATE_MS = 4000;
  */
 const useInterruptionSlate = (video: RefObject<HTMLVideoElement | null>) => {
   const [shown, setShown] = useState(false);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const timer = useRef<ReturnType<typeof delay> | null>(null);
   const clear = () => {
-    if (timer.current !== null) clearTimeout(timer.current);
+    if (timer.current !== null) cancelDelay(timer.current);
     timer.current = null;
   };
-  useEffect(() => {
+  useBrowserEffect(() => {
     const element = video.current;
     if (!element) return undefined;
     const stalled = () => {
       clear();
-      timer.current = setTimeout(() => setShown(true), STALL_SLATE_MS);
+      timer.current = delay(() => setShown(true), STALL_SLATE_MS);
     };
     const moving = () => {
       clear();
@@ -43,7 +50,7 @@ const useInterruptionSlate = (video: RefObject<HTMLVideoElement | null>) => {
   const jumped = () => {
     clear();
     setShown(true);
-    timer.current = setTimeout(() => setShown(false), JUMP_SLATE_MS);
+    timer.current = delay(() => setShown(false), JUMP_SLATE_MS);
   };
   return { shown, jumped };
 };
@@ -51,7 +58,8 @@ const useInterruptionSlate = (video: RefObject<HTMLVideoElement | null>) => {
 /** Hides the last frame, so a viewer never reads it as what is happening now. */
 function InterruptionSlate() {
   return (
-    <div
+    <StatusRegion
+      as="div"
       role="status"
       data-testid="broadcast-interruption-slate"
       className="absolute inset-0 flex flex-col items-center justify-center gap-1 rounded-xl bg-surface-stage text-center text-ink-on-media"
@@ -60,7 +68,7 @@ function InterruptionSlate() {
       <span className="text-sm">
         It picks up here by itself. Part of the debate may not be shown.
       </span>
-    </div>
+    </StatusRegion>
   );
 }
 
@@ -115,14 +123,15 @@ export function BroadcastPlayer({
         </p>
       ) : null}
       {captions.length > 0 ? (
-        <button
+        <Button
+          variant="unstyled"
           type="button"
           aria-pressed={showCaptions}
           onClick={() => setShowCaptions((shown) => !shown)}
           className="self-start text-sm font-strong"
         >
           Captions
-        </button>
+        </Button>
       ) : null}
     </div>
   );

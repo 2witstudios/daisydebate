@@ -1,22 +1,23 @@
+import { createAppError } from '@daisy/errors';
 import { and, asc, desc, eq, isNotNull, isNull, or, sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { actors } from '../schema/actors';
 import { users } from '../schema/users';
 import { contactPairs } from '../schema/contacts';
 import { friendships } from '../schema/friends';
-import type { ChosenStatus, FriendshipState } from '@daisy/protocol';
+import type { ChosenStatus } from '@daisy/protocol/presence-setting';
+import type { FriendshipState } from '@daisy/protocol/friends';
 import { chosenStatusOf } from '../presence/settings';
-import type { MemberPlacement } from '@daisy/protocol';
+import type { MemberPlacement } from '@daisy/protocol/presence-setting';
 import { placementOf } from '../presence/availability';
 import {
   readOwnCollection,
   requireOwnScope,
   type OwnCollectionFence,
 } from '../authorization';
-import type { TxOpener } from '../tx';
 import { scopeTransaction } from '../tenant-scope';
 import { guardianWaitingLabel } from './guardian-approval-standing';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
+import type { TxOpener, TxSource, Tx } from '../tx';
 
 export type FriendshipRow = {
   readonly otherActorId: string;
@@ -62,7 +63,7 @@ export const friendshipReadOperations = ({
   database,
   eventSink,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
   /** One member's own friendships and requests (ADR 0072). */
@@ -76,7 +77,7 @@ export const friendshipReadOperations = ({
 });
 
 async function readRows(
-  tx: Pick<BunSQLDatabase, 'select'>,
+  tx: Tx,
   actorId: string,
 ): Promise<readonly FriendshipRow[]> {
   const other = sql<string>`case when ${friendships.lowActorId} = ${actorId} then ${friendships.highActorId} else ${friendships.lowActorId} end`;
@@ -115,14 +116,17 @@ async function readRows(
     )
     .orderBy(asc(friendships.state), desc(friendships.requestedAt))
     .limit(FRIENDSHIP_LIST_MAX);
-  return rows.map((row) => ({
-    otherActorId: row.otherActorId,
-    username: row.username!,
-    state: row.state,
-    ...(row.waiting ? { waiting: row.waiting } : {}),
-    requesterActorId: row.requesterActorId,
-    requestedAt: row.requestedAt.toISOString(),
-    otherChosen: row.otherChosen,
-    otherPlacement: row.otherPlacement,
-  }));
+  return rows.map((row) => {
+    if (row.username === null) throw createAppError('INVARIANT');
+    return {
+      otherActorId: row.otherActorId,
+      username: row.username,
+      state: row.state,
+      ...(row.waiting ? { waiting: row.waiting } : {}),
+      requesterActorId: row.requesterActorId,
+      requestedAt: row.requestedAt.toISOString(),
+      otherChosen: row.otherChosen,
+      otherPlacement: row.otherPlacement,
+    };
+  });
 }

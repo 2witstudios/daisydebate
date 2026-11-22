@@ -1,9 +1,9 @@
 import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
-import { idSchema } from '@daisy/protocol';
-import type { BoundedTransactionContext } from './transaction-context';
+import { idSchema } from '@daisy/protocol/primitives';
 import { billingRefundActions } from './schema/billing-refund-actions';
 import { lockRefundAction } from './billing-refund-authority';
+import type { Tx } from './tx';
 
 const reference = (prefix: string) =>
   z
@@ -19,7 +19,7 @@ export const refundReceiptTarget = z.strictObject({
 
 /** Signed refund events only wake reconciliation of an already owned action; they never settle it. */
 export async function resolveRefundReceipt(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   mode: 'test' | 'live',
   refund: z.infer<typeof refundReceiptTarget>,
 ) {

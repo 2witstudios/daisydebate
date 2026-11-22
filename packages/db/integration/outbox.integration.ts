@@ -1,7 +1,7 @@
 import { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { createId } from '@paralleldrive/cuid2';
-import { buildUserInboxTopic } from '@daisy/protocol';
+import { buildUserInboxTopic } from '@daisy/protocol/topics';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createTestOnlyOperations } from '../src/test-only-operations';
 import {
@@ -13,6 +13,7 @@ import {
 import { waitForOutboxFinality } from '../src/testing';
 import { requireTestServices } from '@daisy/config';
 import { openOutOfOrderTransactions } from './two-transaction-race.test-support';
+import { invalidateMessagingInboxes } from '../src/messaging/inbox-change';
 
 setupRitewayBun();
 
@@ -41,6 +42,80 @@ const notificationLog = () => {
       }),
   };
 };
+
+test('inbox invalidation validates the full recipient batch and commits one owner-only bell', async () => {
+  const writer = new SQL(url, { max: 1 });
+  const listener = new SQL(url, { max: 1 });
+  const actorId = createId();
+  const topic = buildUserInboxTopic(actorId);
+  const marker = createId();
+  const notices: string[] = [];
+  const observed = Promise.withResolvers<void>();
+  try {
+    const subscription = await listener.listen('outbox', (payload) => {
+      if (payload === marker) observed.resolve();
+      else notices.push(payload);
+    });
+    try {
+      const db = drizzle({ client: writer });
+      const refused = await db
+        .transaction((tx) => invalidateMessagingInboxes(tx, [actorId, 'bad']))
+        .then(
+          () => false,
+          () => true,
+        );
+      const rows = () => writer<
+        {
+          topic: string;
+          kind: string;
+          version: number;
+          payload: unknown;
+          seq: string;
+        }[]
+      >`select topic, kind, version, payload, seq::text as seq
+        from outbox where topic=${topic}`;
+      const partial = await rows();
+      await db.transaction((tx) =>
+        invalidateMessagingInboxes(tx, [actorId, actorId]),
+      );
+      await writer`select pg_notify('outbox', ${marker})`;
+      await observed.promise;
+      const committed = await rows();
+      assert({
+        given:
+          'a mixed valid/invalid batch, then the same valid recipient twice',
+        should:
+          'write no partial result and commit exactly one content-free event and wake',
+        actual: {
+          refused,
+          partial,
+          events: committed.map(({ seq: _seq, ...event }) => event),
+          wakes: notices.map((payload) =>
+            decodeOutboxCursor(payload).seq.toString(),
+          ),
+        },
+        expected: {
+          refused: true,
+          partial: [],
+          events: [
+            {
+              topic,
+              kind: 'messaging.inbox.changed',
+              version: 1,
+              payload: { kind: 'messaging.inbox.changed' },
+            },
+          ],
+          wakes: [committed[0]?.seq],
+        },
+      });
+    } finally {
+      await subscription.unlisten();
+    }
+  } finally {
+    await writer`delete from outbox where topic=${topic}`;
+    await Promise.all([writer.close(), listener.close()]);
+  }
+});
 
 test('a committed transaction delivers its outbox row with a txid, a NOTIFY and an object payload; a rolled-back one delivers nothing', async () => {
   const client = new SQL(url);

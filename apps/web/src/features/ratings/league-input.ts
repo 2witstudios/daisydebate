@@ -58,20 +58,26 @@ function certifiedTournaments(
       record,
     ]);
   return [...fixtures.values()].flatMap((records) => {
-    const latest = records.at(-1)!;
+    const latest = records.at(-1);
+    if (!latest) return [];
     const record = latest.competitionRecord;
     if (
       record.fixture.kind !== 'pairing' ||
       record.fixture.entries.length !== 2
     )
       return [];
-    const members = (entryId: string) =>
-      record.kind === 'decided'
-        ? record.cast
-            .filter((person) => person.entryId === entryId)
-            .map((person) => person.actorId)
-        : record.fixture.entries.find((entry) => entry.entryId === entryId)!
-            .members;
+    const members = (entryId: string) => {
+      if (record.kind === 'decided')
+        return record.cast
+          .filter((person) => person.entryId === entryId)
+          .map((person) => person.actorId);
+      const entry = record.fixture.entries.find(
+        (entry) => entry.entryId === entryId,
+      );
+      if (!entry)
+        throw createAppError('INVARIANT', 'Missing rating input entry');
+      return entry.members;
+    };
     const sides = record.fixture.entries.map((entry) => entry.entryId);
     const projected = records.flatMap((row) => {
       const projected = projectResultCompetition(row.competitionRecord, {

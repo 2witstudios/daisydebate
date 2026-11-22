@@ -1,4 +1,4 @@
-import { ENVELOPE_VERSION } from '@daisy/protocol';
+import { ENVELOPE_VERSION } from '@daisy/protocol/realtime';
 import {
   createConnectionStore,
   type Scheduler,
@@ -36,11 +36,11 @@ export function createTimerQueue(
     pending: () => timers.size,
     advance(ms: number) {
       const target = clock + ms;
-      while (true) {
-        const due = [...timers.entries()]
+      const nextDue = () =>
+        [...timers.entries()]
           .filter(([, t]) => t.at <= target)
           .sort((a, b) => a[1].at - b[1].at)[0];
-        if (!due) break;
+      for (let due = nextDue(); due; due = nextDue()) {
         const [id, t] = due;
         timers.delete(id);
         clock = t.at;

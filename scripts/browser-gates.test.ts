@@ -1,3 +1,4 @@
+import { runInNewContext } from 'node:vm';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 setupRitewayBun();
 
@@ -41,7 +42,7 @@ describe('browser workflow triggers', () => {
       jobs: Record<
         string,
         {
-          'timeout-minutes': number;
+          'timeout-minutes': number | string;
           strategy: { matrix: { cohort: string[] } };
           steps: Step[];
         }
@@ -51,7 +52,9 @@ describe('browser workflow triggers', () => {
     const launch = job.strategy.matrix.cohort.filter((cohort) =>
       cohort.startsWith('launch-'),
     );
-    const step = job.steps.find((candidate) => candidate.id === 'launch');
+    const step = job.steps.find((candidate) => candidate.id === 'launch') as
+      (Step & { env?: Record<string, string> }) | undefined;
+    const minutes = job['timeout-minutes'];
     // The step's own shell works the shard out of the cohort's name.
     const shards = launch.map((cohort) =>
       Bun.spawnSync(
@@ -72,7 +75,23 @@ describe('browser workflow triggers', () => {
       actual: {
         shards,
         onlyLaunch: step?.if,
-        bounded: job['timeout-minutes'] <= 45,
+        bounded: launch.every((cohort) => {
+          const resolved =
+            typeof minutes === 'number'
+              ? minutes
+              : Number(
+                  runInNewContext(
+                    minutes.replace(/^\$\{\{\s*|\s*\}\}$/g, ''),
+                    { matrix: { cohort } },
+                    { timeout: 500 },
+                  ),
+                );
+          return resolved <= 45;
+        }),
+        // One share for each shard, none empty.
+        shares: (step?.env?.PWTEST_SHARD_WEIGHTS ?? '')
+          .split(':')
+          .filter((share) => Number(share) > 0).length,
       },
       expected: {
         shards: launch.map(
@@ -80,6 +99,7 @@ describe('browser workflow triggers', () => {
         ),
         onlyLaunch: "${{ startsWith(matrix.cohort, 'launch-') }}",
         bounded: true,
+        shares: launch.length,
       },
     });
   });
@@ -87,6 +107,7 @@ describe('browser workflow triggers', () => {
 
 describe('browser prerequisite outcomes', () => {
   type Job = {
+    name?: string;
     needs?: string | string[];
     if?: string;
     steps?: { run?: string }[];
@@ -136,12 +157,38 @@ describe('browser prerequisite outcomes', () => {
     });
   });
 
+  test('a successful review-only run publishes a distinct check', async () => {
+    const gate = (await jobs())['playwright-gate'];
+    const name = (review_spec: string): string =>
+      String(
+        runInNewContext(
+          gate.name?.replace(/^\$\{\{\s*|\s*\}\}$/g, '') ?? '',
+          { inputs: { review_spec } },
+          { timeout: 500 },
+        ),
+      );
+    assert({
+      given: 'a successful review-only dispatch and successful full suite',
+      should:
+        'reserve the required Playwright E2E check name for full coverage',
+      actual: {
+        pass: passes(gate, { SUITE: 'success' }),
+        names: [name('e2e/pricing.e2e.ts'), name('')],
+      },
+      expected: {
+        pass: true,
+        names: ['Browser review evidence', 'Playwright E2E'],
+      },
+    });
+  });
+
   test('a skipped or failed native suite cannot mint Isolated Room Launch E2E', async () => {
     const workflow = await jobs();
     const gate = workflow['native-gate'];
     assert({
       given: 'a failed, skipped, cancelled or passing native suite',
-      should: 'pass only on success, with nothing gating the suite itself',
+      should:
+        'pass only on success for full qualification; skip native work for targeted capture',
       actual: {
         suiteNeeds: workflow['room-launch'].needs,
         suiteIf: workflow['room-launch'].if,
@@ -153,8 +200,8 @@ describe('browser prerequisite outcomes', () => {
       },
       expected: {
         suiteNeeds: undefined,
-        suiteIf: undefined,
-        condition: 'always()',
+        suiteIf: '${{ !inputs.review_spec }}',
+        condition: '${{ always() && !inputs.review_spec }}',
         needs: ['room-launch'],
         results: [false, false, false, true],
       },

@@ -1,14 +1,16 @@
 import { and, eq, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import {
   billingOwnerOf,
   billingSyncStateSchema,
 } from '@daisy/protocol/billing';
 import { lockAuthorizationActors } from './authorization';
-import type { BoundedTransactionContext } from './transaction-context';
 import { billingCustomers } from './schema/billing-customers';
 import { lockClub, type LockedClub } from './billing-owner-lock';
+import type { Tx } from './tx';
+import { query } from './raw-rows';
+import { z } from 'zod';
 
 type Account = NonNullable<
   Awaited<ReturnType<typeof lockAuthorizationActors>>[number]
@@ -40,7 +42,7 @@ export const billingOwnerRevision = (locked: LockedBillingCustomer) =>
   locked.kind === 'account' ? locked.account.revision : locked.club.revision;
 
 async function lockCustomerRow(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   customerId: string,
 ): Promise<Customer | null> {
   const [customer] = await tx
@@ -63,7 +65,7 @@ async function lockCustomerRow(
  * calling this (account fences, then the club, then billing rows).
  */
 export async function lockBillingCustomer(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   customerId: string,
 ): Promise<LockedBillingCustomer | null> {
   if (!idSchema.safeParse(customerId).success)
@@ -84,7 +86,9 @@ export async function lockBillingCustomer(
       ? { kind: 'organization', club, customer }
       : null;
   }
-  const [actor] = await tx.execute(
+  const [actor] = await query(
+    tx,
+    z.object({ id: z.string() }),
     sql`select id from actors where user_id=${owner.userId} and kind='human'`,
   );
   if (!actor || typeof actor.id !== 'string') return null;

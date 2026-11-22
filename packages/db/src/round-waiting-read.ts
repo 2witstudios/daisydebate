@@ -1,12 +1,15 @@
+import { createAppError } from '@daisy/errors';
 import type {
   LaunchedRound,
   RoundWaitingFacts,
   RoundWaitingOn,
-} from '@daisy/protocol';
+} from '@daisy/protocol/round-view';
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { readAttendanceLedger } from './attendance-settlement';
 import { readJudgingPanelFacts } from './judging-panel-read';
+import type { Tx } from './tx';
+import { query as queryRows } from './raw-rows';
+import { z } from 'zod';
 
 /** Spares the hottest read this query for the whole of a running debate. */
 const speechesEnded = (round: Pick<LaunchedRound, 'rules' | 'segments'>) =>
@@ -15,20 +18,23 @@ const speechesEnded = (round: Pick<LaunchedRound, 'rules' | 'segments'>) =>
 
 /** Facts only: the injected engine decision says what they mean. */
 async function readWaitingFacts(
-  tx: Pick<BunSQLDatabase, 'select' | 'execute'>,
+  tx: Tx,
   round: Pick<LaunchedRound, 'id' | 'transcriptCompleteness'>,
 ): Promise<RoundWaitingFacts> {
-  const [facts] = (await tx.execute(sql`select
-    clock_timestamp()::text as now,
+  const [facts] = await queryRows(
+    tx,
+    z.object({ now: z.date(), ended: z.boolean() }),
+    sql`select
+    clock_timestamp() as now,
     r.final_segment_ended_at is not null as ended
-    from rounds r where r.id=${round.id}`)) as unknown as {
-    now: string;
-    ended: boolean;
-  }[];
-  if (!facts!.ended) return { speeches: 'running' };
+    from rounds r where r.id=${round.id}`,
+  );
+  if (!facts)
+    throw createAppError('INVARIANT', 'Round waiting facts are missing');
+  if (!facts.ended) return { speeches: 'running' };
   return {
     speeches: 'ended',
-    nowMs: Date.parse(facts!.now),
+    nowMs: facts.now.getTime(),
     attendance: await readAttendanceLedger(tx, round.id),
     frozen: round.transcriptCompleteness
       ? await readJudgingPanelFacts(tx, {
@@ -41,7 +47,7 @@ async function readWaitingFacts(
 
 /** What a Round is waiting on, by the engine's injected decision; null unless it is active and played. */
 export const readWaitingOn = async (
-  tx: Pick<BunSQLDatabase, 'select' | 'execute'>,
+  tx: Tx,
   round: Pick<
     LaunchedRound,
     'id' | 'status' | 'rules' | 'segments' | 'transcriptCompleteness'

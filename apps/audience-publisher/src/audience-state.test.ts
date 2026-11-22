@@ -2,9 +2,9 @@ import {
   VIEWER_BUCKET_MS,
   audienceStateSchema,
   type AudienceState,
-  twoSides,
   viewersFromSample,
-} from '@daisy/protocol';
+} from '@daisy/protocol/audience-state';
+import { twoSides } from '@daisy/protocol/seats';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   createAudienceStatePublisher,

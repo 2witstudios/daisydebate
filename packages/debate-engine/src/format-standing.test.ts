@@ -1,9 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import type {
-  FormatChange,
-  FormatDefinition,
-  RoomConfig,
-} from '@daisy/protocol';
+import type { FormatChange } from '@daisy/protocol/format-standing';
+import type { FormatDefinition } from '@daisy/protocol/format';
+import type { RoomConfig } from '@daisy/protocol/room';
 import { oneOnOneFormatFixture } from '@daisy/protocol/testing';
 import { oneOnOneSettings } from './runtime.test-support';
 import { formatStanding, type StandingBasis } from './format-standing';

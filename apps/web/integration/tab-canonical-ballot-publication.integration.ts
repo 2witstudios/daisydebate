@@ -4,7 +4,10 @@ import { requireTestServices } from '@daisy/config';
 import { createTabStore } from '@daisy/db/tab';
 import { withRolledBackDatabase } from '@daisy/db/testing';
 import { isAppError } from '@daisy/errors';
-import { daisyWinnerBallot, storedBallotDefinition } from '@daisy/protocol';
+import {
+  daisyWinnerBallot,
+  storedBallotDefinition,
+} from '@daisy/protocol/ballot-definition';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { setupCommand } from '../src/features/tab/operations/setup';

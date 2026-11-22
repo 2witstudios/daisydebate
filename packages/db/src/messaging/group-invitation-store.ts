@@ -1,7 +1,6 @@
 import { and, eq } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { messagingSocialCommands } from '../schema/messaging-social';
 import {
   castChanged,
@@ -21,12 +20,13 @@ import type {
   MessagingGroupInvitationFence,
   MessagingGroupInvitationStore,
 } from './group-invitation-contracts';
+import { inTransaction, type TxSource, type Tx } from '../tx';
 /** Account -> selected contact pairs -> channel. Invitation associations never become grants. */
 export function createMessagingGroupInvitationStore({
   database,
   authorize,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
   readonly authorize: MessagingGroupInvitationFence;
 }): MessagingGroupInvitationStore {
   return {
@@ -39,12 +39,10 @@ export function createMessagingGroupInvitationStore({
       const fenced = reading
         ? withSharedMessagingAuthority
         : withLockedMessagingAuthority;
-      const run = <R>(
-        work: (
-          tx: Parameters<Parameters<BunSQLDatabase['transaction']>[0]>[0],
-        ) => Promise<R>,
-      ) =>
-        reading ? restartingRead(database, work) : database.transaction(work);
+      const run = <R>(work: (tx: Tx) => Promise<R>) =>
+        reading
+          ? restartingRead(database, work)
+          : inTransaction(database, work);
       return run(async (tx) => {
         const discovered = await readGroupInvitationRow(tx, scope);
         let contacts: MessagingGroupInvitationFact['contactPairs'] = [];

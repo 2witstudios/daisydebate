@@ -1,12 +1,14 @@
+import { instantMs } from '@daisy/clock';
 import {
   isJudgeSeat,
-  roundStartPolicy,
   sameSeat,
   sideSeat,
   type SeatRef,
-} from '@daisy/protocol';
+} from '@daisy/protocol/seats';
+import { roundStartPolicy } from '@daisy/protocol/round-start-policy';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import type { HydratedSegment, RuntimeCheckpoint } from '@daisy/protocol';
+import type { HydratedSegment } from '@daisy/protocol/runtime';
+import type { RuntimeCheckpoint } from '@daisy/protocol/round';
 import { mediaGrants } from './media-grants';
 import { createRoundRuntime } from './round-runtime';
 import { settleOpening, strikeOpening } from './round-opening';
@@ -57,15 +59,15 @@ const runtimeOf = (
 const pause = (atMs: number, confirmedUntilMs: number | null) =>
   ({
     kind: 'pause',
-    atMs: Date.parse(roundAt(atMs)),
+    atMs: instantMs(roundAt(atMs)),
     cause: 'room_retired',
     confirmedUntilMs:
-      confirmedUntilMs === null ? null : Date.parse(roundAt(confirmedUntilMs)),
+      confirmedUntilMs === null ? null : instantMs(roundAt(confirmedUntilMs)),
   }) as const;
 const beginResume = (atMs: number) =>
   ({
     kind: 'begin_resume',
-    atMs: Date.parse(roundAt(atMs)),
+    atMs: instantMs(roundAt(atMs)),
     countdownMs: 5 * secondMs,
   }) as const;
 
@@ -272,7 +274,7 @@ test('every event from every phase is defined', () => {
   const events = {
     pause: pause(42_000, 38_000),
     begin_resume: beginResume(42_000),
-    end: { kind: 'end', atMs: Date.parse(roundAt(42_000)) } as const,
+    end: { kind: 'end', atMs: instantMs(roundAt(42_000)) } as const,
   };
   const expected: Record<string, string> = {
     'none/pause': 'paused',
@@ -322,7 +324,7 @@ test('ending for an incident', () => {
   runtime.applyIncident(pause(40_000, 37_000));
   const projection = runtime.applyIncident({
     kind: 'end',
-    atMs: Date.parse(roundAt(130_000)),
+    atMs: instantMs(roundAt(130_000)),
   });
   assert({
     given: 'no recovery within the bound',
@@ -357,7 +359,7 @@ test('ending for an incident', () => {
     should: 'abandon with no start',
     actual: opening.applyIncident({
       kind: 'end',
-      atMs: Date.parse(roundAt(100_000)),
+      atMs: instantMs(roundAt(100_000)),
     }).round?.startedAt,
     expected: null,
   });
@@ -426,7 +428,7 @@ test('commands are refused while held', () => {
           state,
           participants: oneOnOneSeats,
           seat: oneOnOneSeats[0]!,
-          nowMs: Date.parse(roundAt(41_000)),
+          nowMs: instantMs(roundAt(41_000)),
         },
         type,
       ),
@@ -634,7 +636,7 @@ test('a speech starts when capture has its speaker, or a short bound passes', ()
     const run = runtimeOf([]);
     run.applyStartGate({
       kind: 'await',
-      atMs: Date.parse(roundAt(due - 1_500)),
+      atMs: instantMs(roundAt(due - 1_500)),
       seats: [seat.id],
       boundMs: 1_500,
     });
@@ -644,7 +646,7 @@ test('a speech starts when capture has its speaker, or a short bound passes', ()
     const run = awaiting();
     const projection = run.applyStartGate({
       kind: 'heard',
-      atMs: Date.parse(roundAt(atMs)),
+      atMs: instantMs(roundAt(atMs)),
       seat: seat.id,
     });
     return { run, projection };
@@ -679,7 +681,7 @@ test('a speech starts when capture has its speaker, or a short bound passes', ()
   const nobody = runtimeOf([]);
   nobody.applyStartGate({
     kind: 'await',
-    atMs: Date.parse(roundAt(due - 1_500)),
+    atMs: instantMs(roundAt(due - 1_500)),
     seats: [],
     boundMs: 1_500,
   });
@@ -692,7 +694,7 @@ test('a speech starts when capture has its speaker, or a short bound passes', ()
   const other = awaiting();
   other.applyStartGate({
     kind: 'heard',
-    atMs: Date.parse(roundAt(due - 500)),
+    atMs: instantMs(roundAt(due - 500)),
     seat: 'someone-else',
   });
   assert({
@@ -716,7 +718,7 @@ test('prep taken inside the lead leaves the next start to gate afresh', () => {
   const run = runtimeOf([]);
   run.applyStartGate({
     kind: 'await',
-    atMs: Date.parse(roundAt(due - 1_500)),
+    atMs: instantMs(roundAt(due - 1_500)),
     seats: [seat.id],
     boundMs: 1_500,
   });
@@ -727,7 +729,7 @@ test('prep taken inside the lead leaves the next start to gate afresh', () => {
   });
   const after = run.applyStartGate({
     kind: 'heard',
-    atMs: Date.parse(roundAt(due - 900)),
+    atMs: instantMs(roundAt(due - 900)),
     seat: seat.id,
   });
   assert({
@@ -744,14 +746,14 @@ test('an incident spends a start gate, so a stale report moves nothing', () => {
   const run = runtimeOf([]);
   run.applyStartGate({
     kind: 'await',
-    atMs: Date.parse(roundAt(due - 1_500)),
+    atMs: instantMs(roundAt(due - 1_500)),
     seats: [seat.id],
     boundMs: 1_500,
   });
   run.applyIncident(pause(due - 1_000, null));
   const after = run.applyStartGate({
     kind: 'heard',
-    atMs: Date.parse(roundAt(due - 900)),
+    atMs: instantMs(roundAt(due - 900)),
     seat: seat.id,
   });
   assert({
@@ -768,7 +770,7 @@ test('a start gate does not move the microphone it waits for', () => {
   const run = runtimeOf([]);
   run.applyStartGate({
     kind: 'await',
-    atMs: Date.parse(roundAt(due - 1_500)),
+    atMs: instantMs(roundAt(due - 1_500)),
     seats: [seat.id],
     boundMs: 1_500,
   });

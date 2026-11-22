@@ -1,5 +1,5 @@
 import { createAppError, isAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import {
   AudioFrame,
   AudioSource,
@@ -100,7 +100,7 @@ export async function createAudioPublication(input: {
     await room.disconnect();
     throw publicationStopError('connect', 'Native audio publication failed');
   }
-  const trackSid = track.sid!;
+  const trackSid = track.sid;
   return {
     /** The published track's server id, as capture names the track it hears. */
     trackSid,

@@ -1,4 +1,5 @@
-import type { RuntimeCheckpoint } from '@daisy/protocol';
+import { StatusRegion } from '../components/status-region/status-region';
+import type { RuntimeCheckpoint } from '@daisy/protocol/round';
 import { roundIncidentNotice } from '../../features/round-incidents/notice';
 
 /** Why the Round stopped and when it runs again, for everyone in the room. */
@@ -17,7 +18,9 @@ export function RoundIncidentBanner({
       className="rounded-md bg-surface-overlay px-4 py-3 font-strong"
     >
       {/* Announced once: a count that changes each second is not read aloud each second. */}
-      <span role="status">{notice.held}</span>
+      <StatusRegion as="span" role="status">
+        {notice.held}
+      </StatusRegion>
       {notice.resumesInSeconds === null
         ? null
         : ` Resuming in ${notice.resumesInSeconds} s.`}

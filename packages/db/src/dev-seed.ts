@@ -9,13 +9,12 @@ import { roundParticipants } from './schema/round-participants';
 import { rounds } from './schema/rounds';
 import { seedVersions } from './schema/seed-versions';
 import { users } from './schema/users';
-import {
-  emptyRuntimeCheckpointFor,
-  type RoundRules,
-  type SideSeat,
-} from '@daisy/protocol';
+import { roundStatus, emptyRuntimeCheckpointFor } from '@daisy/protocol/round';
+import { type RoundRules } from '@daisy/protocol/format';
+import { type SideSeat } from '@daisy/protocol/seats';
 import { frozenJudgingFor } from './round-judging-freeze';
 import { columnsOfSeat } from './seat-columns';
+import { inTransaction } from './tx';
 
 /**
  * Dev and demo content for `bun db:seed` (ISSUE-8 AC4): fixed-id people,
@@ -73,7 +72,7 @@ export async function applyDevSeed({
 }): Promise<void> {
   const client = new SQL(url, { max: 1 });
   try {
-    await drizzle({ client }).transaction(async (tx) => {
+    await inTransaction(drizzle({ client }), async (tx) => {
       for (const person of seed.people) {
         await tx
           .insert(users)
@@ -154,7 +153,7 @@ export async function applyDevSeed({
         rulesSnapshot: seed.round.rules,
         judging: frozenJudgingFor(seed.round.rules),
         runtimeState: emptyRuntimeCheckpointFor(seed.round.rules),
-        status: 'opening',
+        status: roundStatus.opening,
         ladderId: null,
       });
       for (const seat of seed.round.seats) {

@@ -1,4 +1,6 @@
-import { pointsTotal, seatKey, type SpectatorTimeline } from '@daisy/protocol';
+import { pointsTotal } from '@daisy/protocol/ballot-schema';
+import { seatKey } from '@daisy/protocol/seats';
+import { type SpectatorTimeline } from '@daisy/protocol/spectator-timeline';
 import { sideName } from '../../features/debate-room/seat-names';
 import { formatCountdown } from '../../lib/clock-display';
 import {

@@ -1,5 +1,6 @@
+import { instantMs } from '@daisy/clock';
 import type { Browser } from '@playwright/test';
-import { attendanceTimingPolicy } from '@daisy/protocol';
+import { attendanceTimingPolicy } from '@daisy/protocol/attendance';
 import { expect } from './fixtures';
 import { createRoomLaunchAccounts } from './room-launch-accounts';
 import { createHumanBallotRound } from './human-ballot-round';
@@ -90,7 +91,7 @@ export async function rollingAttendancePeer({
           return facts.instances.filter(
             (row) =>
               row.role === 'web' &&
-              Date.parse(facts.observedAt) - Date.parse(row.renewedAt) < 3_000,
+              instantMs(facts.observedAt) - instantMs(row.renewedAt) < 3_000,
           ).length;
         },
         { timeout: 15_000 },
@@ -107,7 +108,7 @@ export async function rollingAttendancePeer({
           return facts.instances.some(
             (row) =>
               row.role === 'web' &&
-              Date.parse(facts.observedAt) - Date.parse(row.renewedAt) > 3_000,
+              instantMs(facts.observedAt) - instantMs(row.renewedAt) > 3_000,
           );
         },
         { timeout: 10_000 },

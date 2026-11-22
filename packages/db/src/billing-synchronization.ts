@@ -1,6 +1,7 @@
 import { and, eq } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
-import { idSchema, type EntitlementGrant } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
+import { type EntitlementGrant } from '@daisy/protocol/entitlements';
 import {
   advanceBillingSync,
   billingOwnerSchema,
@@ -31,7 +32,7 @@ import {
   writeClubSeatGrants,
   type ClubSeatGrantProjection,
 } from './club-seat-grants';
-import type { BoundedTransactionContext } from './transaction-context';
+import type { Tx } from './tx';
 
 export type BillingSynchronizationClaim = {
   readonly customerId: string;
@@ -60,7 +61,6 @@ export type GrantProjections = {
   ) => readonly EntitlementGrant[];
   readonly club: ClubSeatGrantProjection;
 };
-type Tx = BoundedTransactionContext;
 async function currentSubscription(tx: Tx, owner: BillingOwner) {
   const [row] = await tx
     .select()

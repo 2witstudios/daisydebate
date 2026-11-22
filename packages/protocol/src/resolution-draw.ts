@@ -170,7 +170,7 @@ const turnSchema = z
     ordinal: z.int().min(0),
     side: strikeSideSchema,
     dueAt: timestamp,
-    /** Time left on the turn as of the read: a page without scripts shows it as is. */
+    /** Time left on the turn as of the read: the server render shows it as is. */
     remainingMs: z.int().min(0).max(MAX_STRIKE_WINDOW_MS),
   })
   .nullable();

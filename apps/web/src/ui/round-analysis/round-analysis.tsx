@@ -1,6 +1,7 @@
+import { StatusRegion } from '../components/status-region/status-region';
 import { Button } from '../components/button/button';
 import { UpgradePanel } from '../components/upgrade-panel/upgrade-panel';
-import type { RoundAnalysisView } from '@daisy/protocol';
+import type { RoundAnalysisView } from '@daisy/protocol/round-analysis';
 import {
   roundAnalysisPanel,
   type CitedLine,
@@ -138,10 +139,10 @@ export function RoundAnalysis({
         </p>
       </div>
       {notice ? (
-        <p role="status" className="text-ink-muted">
+        <StatusRegion as="p" role="status" className="text-ink-muted">
           Your analysis request could not be accepted. Check its status and try
           again.
-        </p>
+        </StatusRegion>
       ) : null}
       {panel.kind === 'report' ? (
         <Report panel={panel} />

@@ -1,3 +1,4 @@
+import { StatusRegion } from '../../components/status-region/status-region';
 import Link from 'next/link';
 import { SignOutForm } from '../../components/sign-out-form/sign-out-form';
 import { SIGN_OUT_FAILED_NOTICE } from '../../components/sign-out-form/sign-out-notice';
@@ -7,7 +8,7 @@ export const accountExitLink =
 
 /**
  * The account's way out (ISSUE-691, plan BETA §5): a native form, so it
- * signs out without JavaScript, beside the page's links.
+ * signs out before hydration, beside the page's links.
  */
 export function AccountExit({
   failed,
@@ -22,9 +23,9 @@ export function AccountExit({
   return (
     <div className="flex flex-col gap-3">
       {failed ? (
-        <p role="alert" className="text-md text-ink">
+        <StatusRegion as="p" role="alert" className="text-md text-ink">
           {SIGN_OUT_FAILED_NOTICE}
-        </p>
+        </StatusRegion>
       ) : null}
       <div className="flex flex-wrap gap-3">
         {children}

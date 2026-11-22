@@ -34,12 +34,8 @@ const openSeasons = () =>
     ),
   );
 
-const contextFor = (browser: Browser, javaScriptEnabled = true) =>
-  browser.newContext({
-    baseURL: origin,
-    ignoreHTTPSErrors: true,
-    javaScriptEnabled,
-  });
+const contextFor = (browser: Browser) =>
+  browser.newContext({ baseURL: origin, ignoreHTTPSErrors: true });
 
 /** The lobby switch (YLLobbySwitch): two links, the current one marked. */
 const lobbySwitch = (page: Page) =>
@@ -56,40 +52,38 @@ const lobbyRow = (page: Page, title: string) =>
     .getByRole('listitem')
     .filter({ hasText: title });
 
-test('each member lands in their own lobby and switches to the other, with and without script', async ({
+test('each member lands in their own lobby and switches to the other', async ({
   browser,
 }) => {
   test.setTimeout(120_000);
   const contexts: BrowserContext[] = [];
   try {
-    for (const javaScriptEnabled of [true, false]) {
-      const adultContext = await contextFor(browser, javaScriptEnabled);
-      const youthContext = await contextFor(browser, javaScriptEnabled);
-      contexts.push(adultContext, youthContext);
-      const adult = await openPage(adultContext, 'adult member');
-      const youth = await openPage(youthContext, 'youth member');
-      await resetRateLimits(adult.request);
-      await signUpMember(adult.request);
-      await signUpMember(youth.request, youthBirth(systemClock.now()));
+    const adultContext = await contextFor(browser);
+    const youthContext = await contextFor(browser);
+    contexts.push(adultContext, youthContext);
+    const adult = await openPage(adultContext, 'adult member');
+    const youth = await openPage(youthContext, 'youth member');
+    await resetRateLimits(adult.request);
+    await signUpMember(adult.request);
+    await signUpMember(youth.request, youthBirth(systemClock.now()));
 
-      await adult.goto('/lobby');
-      await expectLobby(adult, 'Open');
-      await youth.goto('/lobby');
-      await expectLobby(youth, 'Youth');
+    await adult.goto('/lobby');
+    await expectLobby(adult, 'Open');
+    await youth.goto('/lobby');
+    await expectLobby(youth, 'Youth');
 
-      await lobbySwitch(adult)
-        .getByRole('link', { name: 'Youth', exact: true })
-        .click();
-      await expect(adult).toHaveURL(/[?&]lobby=[a-z0-9]{24}/);
-      await expectLobby(adult, 'Youth');
-      await lobbySwitch(youth)
-        .getByRole('link', { name: 'Open', exact: true })
-        .click();
-      await expect(youth).toHaveURL(/[?&]lobby=[a-z0-9]{24}/);
-      await expectLobby(youth, 'Open');
-      // The Division filter is gone: the lobby is the switch (ADR 0156).
-      await expect(adult.locator('select[name="division"]')).toHaveCount(0);
-    }
+    await lobbySwitch(adult)
+      .getByRole('link', { name: 'Youth', exact: true })
+      .click();
+    await expect(adult).toHaveURL(/[?&]lobby=[a-z0-9]{24}/);
+    await expectLobby(adult, 'Youth');
+    await lobbySwitch(youth)
+      .getByRole('link', { name: 'Open', exact: true })
+      .click();
+    await expect(youth).toHaveURL(/[?&]lobby=[a-z0-9]{24}/);
+    await expectLobby(youth, 'Open');
+    // The Division filter is gone: the lobby is the switch (ADR 0162).
+    await expect(adult.locator('select[name="division"]')).toHaveCount(0);
   } finally {
     for (const context of contexts) await context.close();
   }

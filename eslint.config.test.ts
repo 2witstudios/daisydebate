@@ -1,3 +1,4 @@
+import { registerClockDigestTests } from './eslint.config-clock-digest.test-support';
 import { registerProcessEdgeTests } from './eslint.config-process.test-support';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
@@ -14,8 +15,52 @@ import {
 
 setupRitewayBun();
 registerProcessEdgeTests();
+registerClockDigestTests();
 
 describe('repository ESLint configuration', () => {
+  test('rejects pathname splitting under the App Router', async () => {
+    const [result] = await repositoryEslint().lintText(
+      "const url = new URL('https://example.com'); url.pathname.split('/'); url['pathname']['split']('/'); url[`pathname`].split('/'); url.pathname[`split`]('/'); url.search.split('&'); const pathname = 'slug'; const lookup = { slug: 'a-b' }; lookup[pathname]?.split('-');",
+      { filePath: 'apps/web/src/app/api/rooms/[roomId]/route.ts' },
+    );
+    assert({
+      given: 'dot and bracket pathname splits and unrelated string splits',
+      should: 'reject the four pathname splits',
+      actual: result?.messages.map(({ message }) => message),
+      expected: Array<string>(4).fill(
+        'Use Next.js route params or pass the bound value to the server action.',
+      ),
+    });
+  });
+
+  test('rejects ambient globals in feature models', async () => {
+    const eslint = repositoryEslint();
+    const source = 'performance.now(); setTimeout(() => {}, 1);';
+    const results = await Promise.all(
+      ['model/nested/pulse.ts', 'browser-adapter.ts'].map((path) =>
+        eslint.lintText(source, {
+          filePath: `apps/web/src/features/realtime/${path}`,
+        }),
+      ),
+    );
+    assert({
+      given: 'ambient clock and timer reads in a feature model and an adapter',
+      should: 'report the model reads through the package purity rule',
+      actual: results.map(([result]) =>
+        result.messages
+          .filter(({ ruleId }) => ruleId === 'no-restricted-globals')
+          .map(({ line, column }) => [line, column]),
+      ),
+      expected: [
+        [
+          [1, 1],
+          [1, 20],
+        ],
+        [],
+      ],
+    });
+  });
+
   test('rejects ambient time and identity reads outside the allowlist', async () => {
     const eslint = repositoryEslint();
     const [result] = await eslint.lintText(
@@ -38,6 +83,37 @@ describe('repository ESLint configuration', () => {
         { ruleId: 'no-restricted-globals', severity: 2 },
         { ruleId: 'no-restricted-syntax', severity: 2 },
       ],
+    });
+  });
+});
+
+describe('form actions before hydration (ADR 0114)', () => {
+  test('requires callable form actions wherever the form omits a method', async () => {
+    const [result] = await typedRepositoryEslint().lintText(
+      `export function Forms({
+        address, post, optional,
+      }: {
+        address: string;
+        post: (data: FormData) => void;
+        optional?: (data: FormData) => void;
+      }) {
+        return <>
+          <form action={address} />
+          <form action={optional} />
+          <form action={address} method="post" />
+          <form action={post} />
+        </>;
+      }`,
+      { filePath: 'apps/admin/src/app/search-form.tsx' },
+    );
+    assert({
+      given: 'form addresses, optional actions, and callable actions',
+      should: 'reject only the address and optional action without a method',
+      actual: result!.messages.map(({ ruleId, line }) => ({ ruleId, line })),
+      expected: [9, 10].map((line) => ({
+        ruleId: 'daisy-form/require-callable-action',
+        line,
+      })),
     });
   });
 });
@@ -369,6 +445,88 @@ test('pure packages reject Bun runtime subpaths while delivery adapters retain S
   });
 });
 
+describe('a cast that changes nothing is refused', () => {
+  const filePath = 'packages/protocol/src/assert-never.ts';
+  const rule = '@typescript-eslint/no-unnecessary-type-assertion';
+  const problems = async (source: string) => {
+    const [result] = await typedRepositoryEslint().lintText(source, {
+      filePath,
+    });
+    return result!.messages.filter(({ ruleId }) => ruleId === rule).length;
+  };
+  test('a needless assertion fails and a narrowing one passes', async () => {
+    assert({
+      given:
+        'a string asserted to be a string, a non-null value asserted non-null, and an unknown value narrowed',
+      should: 'report the two that change nothing',
+      actual: [
+        await problems(
+          'export const same = (name: string): string => name as string;',
+        ),
+        await problems(
+          'export const present = (name: string): string => name!;',
+        ),
+        await problems(
+          'export const narrowed = (value: unknown): string => value as string;',
+        ),
+      ],
+      expected: [1, 1, 0],
+    });
+  });
+});
+
+describe('a promise is awaited and what is thrown is an Error', () => {
+  const filePath = 'packages/protocol/src/assert-never.ts';
+  const count = async (rule: string, source: string) => {
+    const [result] = await typedRepositoryEslint().lintText(source, {
+      filePath,
+    });
+    return result!.messages.filter(({ ruleId }) => ruleId === rule).length;
+  };
+  test('a dropped promise fails; an awaited or voided one passes', async () => {
+    const rule = '@typescript-eslint/no-floating-promises';
+    const work = 'const work = async (): Promise<void> => {};';
+    assert({
+      given: 'a promise dropped, one marked void and one awaited',
+      should: 'report only the dropped one',
+      actual: [
+        await count(
+          rule,
+          `${work} export const run = (): void => { work(); };`,
+        ),
+        await count(
+          rule,
+          `${work} export const run = (): void => { void work(); };`,
+        ),
+        await count(
+          rule,
+          `${work} export const run = async (): Promise<void> => { await work(); };`,
+        ),
+      ],
+      expected: [1, 0, 0],
+    });
+  });
+  test('throwing a non-error fails; an Error or a caught value passes', async () => {
+    const rule = '@typescript-eslint/only-throw-error';
+    assert({
+      given: 'a thrown string, a thrown Error and a rethrown caught value',
+      should: 'report only the string',
+      actual: [
+        await count(rule, "export const fail = (): never => { throw 'no'; };"),
+        await count(
+          rule,
+          "export const fail = (): never => { throw new Error('no'); };",
+        ),
+        await count(
+          rule,
+          'export const again = (caught: unknown): never => { throw caught; };',
+        ),
+      ],
+      expected: [1, 0, 0],
+    });
+  });
+});
+
 describe('a switch over a union names every member', () => {
   // The rule reads types, so the probe is linted as a source file on disk.
   const filePath = 'packages/protocol/src/assert-never.ts';
@@ -398,6 +556,649 @@ describe('a switch over a union names every member', () => {
         await problems("case 'opening': case 'active': return status;"),
       ],
       expected: [0, 1, 1],
+    });
+  });
+});
+
+describe('a check the type already answers is refused', () => {
+  const filePath = 'packages/protocol/src/assert-never.ts';
+  const rule = '@typescript-eslint/no-unnecessary-condition';
+  const problems = async (source: string) => {
+    const [result] = await typedRepositoryEslint().lintText(source, {
+      filePath,
+    });
+    return result!.messages.filter(({ ruleId }) => ruleId === rule).length;
+  };
+  test('a dead check fails and a live one passes', async () => {
+    assert({
+      given:
+        'a string checked for null, a fallback for a value that cannot be missing, and an optional value checked',
+      should: 'report the two the type already answers',
+      actual: [
+        await problems(
+          "export const name = (value: string): string => (value === null ? 'none' : value);",
+        ),
+        await problems(
+          "export const name = (value: string): string => value ?? 'none';",
+        ),
+        await problems(
+          "export const name = (value?: string): string => value ?? 'none';",
+        ),
+      ],
+      expected: [1, 1, 0],
+    });
+  });
+  test('the rule rejects a dead fallback in packages/db/src', async () => {
+    const [result] = await typedRepositoryEslint().lintText(
+      "export const name = (value: string): string => value ?? 'none';",
+      { filePath: 'packages/db/src/index.ts' },
+    );
+    assert({
+      given: 'a dead fallback in the database package',
+      should: 'report it',
+      actual: result!.messages.filter(({ ruleId }) => ruleId === rule).length,
+      expected: 1,
+    });
+  });
+});
+
+describe('a non-null assertion is refused except on an index', () => {
+  const rule = 'daisy/no-non-null-assertion';
+  const count = async (source: string, filePath: string) => {
+    const [result] = await repositoryEslint().lintText(source, { filePath });
+    return result!.messages.filter(({ ruleId }) => ruleId === rule).length;
+  };
+  const source = (expression: string) =>
+    `declare const value: string | undefined;
+     declare const record: { name?: string };
+     declare const names: Map<string, string>;
+     declare const find: () => string | undefined;
+     declare const list: readonly string[];
+     declare const index: number;
+     export const read = (): string => ${expression};`;
+  test('value, named property and call assertions fail; array index assertions pass', async () => {
+    const path = 'packages/protocol/src/x.ts';
+    assert({
+      given:
+        'assertions on a value, a named property with or without type syntax, a map read, a call, and array indices',
+      should: 'report the value, property and call assertions',
+      actual: [
+        await count(source('value!'), path),
+        await count(source('record.name!'), path),
+        await count(source("record['name']!"), path),
+        await count(source('record[`name`]!'), path),
+        await count(source("record['name' as const]!"), path),
+        await count(source("record['name' satisfies string]!"), path),
+        await count(source("names.get('a')!"), path),
+        await count(source('find()!'), path),
+        await count(source('list[index]!'), path),
+        await count(source('list[0]!'), path),
+        await count(source('list[0 as const]!'), path),
+      ],
+      expected: [1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0],
+    });
+  });
+  test('the rule covers app and database source and skips unit tests', async () => {
+    assert({
+      given: 'value! in app source, a test file and the database package',
+      should: 'report it in app and database source',
+      actual: [
+        await count(source('value!'), web('x.tsx')),
+        await count(source('value!'), 'packages/protocol/src/x.test.ts'),
+        await count(source('value!'), 'packages/db/src/x.ts'),
+      ],
+      expected: [1, 0, 1],
+    });
+  });
+});
+
+describe('unit tests run on virtual time (ADR 0164)', () => {
+  const sleeps = async (code: string, filePath: string) => {
+    const [result] = await repositoryEslint().lintText(code, { filePath });
+    return result!.messages.filter(
+      ({ ruleId }) => ruleId === 'test-time/no-real-sleep',
+    ).length;
+  };
+  const timed = [
+    "import { setTimeout as timerSleep } from 'node:timers/promises';",
+    "import * as timers from 'node:timers';",
+    'await Bun.sleep(300);',
+    'await globalThis.Bun.sleep(300);',
+    "await Bun['sleep'](300);",
+    'Bun.sleepSync(5);',
+    'await new Promise((done) => setTimeout(done, 20));',
+    'const wait = (ms: number) => new Promise((done) => setTimeout(done, ms));',
+    'globalThis.setTimeout(() => undefined);',
+    'const beat = setInterval(() => undefined, 10);',
+    'await timerSleep(20);',
+    'timers.setTimeout(() => undefined, 20);',
+  ].join('\n');
+  const yields = [
+    "import { setTimeout as timerSleep } from 'node:timers/promises';",
+    'await Bun.sleep(0);',
+    'await new Promise((done) => setTimeout(done, 0));',
+    'await new Promise((done) => setImmediate(done));',
+    'await timerSleep(0);',
+  ].join('\n');
+  test('a timed wait in a unit test or its support is an error; a zero delay is not', async () => {
+    assert({
+      given:
+        'ten timed waits and four zero-delay yields, in unit tests, test support, an integration suite and production code',
+      should:
+        'report each timed wait in unit test code only, and no yield anywhere',
+      actual: {
+        unit: await sleeps(timed, web('features/clock-probe.test.ts')),
+        tsx: await sleeps(timed, web('ui/clock-probe.test.tsx')),
+        support: await sleeps(
+          timed,
+          'packages/media/src/probe.test-support.ts',
+        ),
+        script: await sleeps(timed, 'scripts/clock-probe.test.ts'),
+        yields: await sleeps(yields, web('features/clock-probe.test.ts')),
+        integration: await sleeps(
+          timed,
+          'apps/web/integration/clock-probe.integration.ts',
+        ),
+        integrationSupport: await sleeps(
+          timed,
+          'packages/db/integration/probe.test-support.ts',
+        ),
+        e2e: await sleeps(timed, 'apps/web/e2e/clock-probe.e2e.ts'),
+        production: await sleeps(timed, 'packages/media/src/clock-probe.ts'),
+      },
+      expected: {
+        unit: 10,
+        tsx: 10,
+        support: 10,
+        script: 10,
+        yields: 0,
+        integration: 0,
+        integrationSupport: 0,
+        e2e: 0,
+        production: 0,
+      },
+    });
+  });
+});
+
+describe('database statement and lock boundaries', () => {
+  test('reserves each raw database form for its owning module', async () => {
+    const db = 'packages/db/src';
+    const boundaryCases = [
+      [
+        'tx.ts',
+        "import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres'; export type Database = BunSQLDatabase;",
+      ],
+      [
+        'tx.ts',
+        "export type Database = import('drizzle-orm/bun-sql/postgres').BunSQLDatabase;",
+      ],
+      [
+        'tx.ts',
+        "import type * as Driver from 'drizzle-orm/bun-sql/postgres'; export type Database = Driver.BunSQLDatabase;",
+      ],
+      ['tx.ts', 'connection.transaction(work);'],
+      ['tx.ts', "connection['transaction'](work);"],
+      ['raw-rows.ts', 'connection.execute(statement);'],
+      ['raw-rows.ts', "connection['execute'](statement);"],
+      ['raw-rows.ts', 'export const rows = result as unknown as Row[];'],
+      [
+        'locks.ts',
+        'export const statement = sql`select PG_TRY_ADVISORY_LOCK(1)`;',
+      ],
+      ['locks.ts', "export const statement = 'pg_advisory_unlock';"],
+      ['locks.ts', 'export const probe = /pg_advisory_lock/;'],
+    ] as const;
+    const cases: Problems[] = boundaryCases.flatMap(([home, code]) => [
+      [code, `${db}/feature/probe.ts`, 1],
+      [code, `${db}/${home}`, 0],
+      [code, 'packages/db/integration/probe.integration.ts', 0],
+    ]);
+    const { actual, expected } = table(cases);
+    assert({
+      given:
+        'each direct DB form in a feature, its owning module, and an integration suite',
+      should: 'require the owning boundary within DB source',
+      actual: await actual,
+      expected,
+    });
+  });
+
+  test('native SQL consumption matrix preserves the decoder boundary', async () => {
+    const lint = typedRepositoryEslint();
+    const rule = 'db-native-rows/require-query';
+    const feature = 'packages/db/src/attendance-facts.ts';
+    const source = (body: string, imports = '') =>
+      'import type { SQL } from "bun";\n' +
+      imports +
+      'export async function read(client: SQL) { ' +
+      body +
+      ' }';
+    const tagged = 'client`select 1 as value`';
+    const imports =
+      'import { z } from "zod";\n' +
+      'import { availabilityEvidenceRow, availabilitySamplesFrom } from "./availability-operations";\n' +
+      'import { query } from "./raw-rows";\n';
+    const typedStatement = 'client<{ value: number }[]>`select 1 as value`';
+    const parsedStatement =
+      'query(' + tagged + ', z.object({ value: z.int() }))';
+    const directCases = [
+      [
+        1,
+        source(
+          'return z.array(availabilityEvidenceRow).parse(await availabilitySamplesFrom((strings, ...values) => client(strings, ...values), "2026-11-20T00:00:00Z"));',
+          'import { z } from "zod";\nimport { availabilityEvidenceRow, availabilitySamplesFrom } from "./availability-operations";\n',
+        ),
+        feature,
+      ],
+      [1, source('return ' + tagged + ';'), feature],
+      [
+        1,
+        'import type { SQL } from "bun"; export const read = async (client: SQL) => ' +
+          tagged +
+          ';',
+        feature,
+      ],
+      [1, source('return ' + tagged + '.then((rows) => rows);'), feature],
+      [1, source('return await ' + tagged + ';'), feature],
+      [1, source('return await client.unsafe("select 1 as value");'), feature],
+      [
+        1,
+        source('return await client["unsafe"]("select 1 as value");'),
+        feature,
+      ],
+      [
+        0,
+        source(
+          'return query(' + tagged + ', z.object({ value: z.int() }));',
+          'import { z } from "zod";\nimport { query } from "./raw-rows";\n',
+        ),
+        feature,
+      ],
+      [0, source('await client`delete from fixture`;'), feature],
+      [
+        0,
+        source(
+          'const receipt = await client<{ command: string }>`commit`; return receipt.command;',
+        ),
+        'packages/db/src/bounded-transaction.ts',
+      ],
+      [
+        0,
+        source('return ' + tagged + ';'),
+        'packages/db/integration/db-boundary.integration.ts',
+      ],
+      [
+        0,
+        source('return ' + tagged + ';'),
+        'packages/db/src/transaction-client.ts',
+      ],
+      [
+        1,
+        source('return await ' + tagged + ';'),
+        'packages/db/src/transaction-client.ts',
+      ],
+    ] as const;
+    const settlementCases = [
+      [
+        1,
+        `const raw = ${typedStatement};
+         const adapter = { all: (inputs: (typeof raw)[]) => Promise.all(inputs.map((input) => query(input, z.object({ value: z.int() })))) };
+         adapter.all = Promise.all;
+         { const [rows] = await adapter.all([raw]); return rows?.[0]?.value; }`,
+      ],
+      [
+        0,
+        `const raw = ${typedStatement};
+         const adapter: { all: (input: (typeof raw)[]) => Promise<Awaited<typeof raw>[]> } = { all: Promise.all };
+         adapter.all = (inputs) => Promise.all(inputs.map((input) => query(input, z.object({ value: z.int() }))));
+         try { const [rows] = await adapter.all([raw]); return rows?.[0]?.value; } finally { }`,
+      ],
+      [
+        0,
+        `const raw = ${typedStatement};
+         const adapter: { all: (input: (typeof raw)[]) => Promise<Awaited<typeof raw>[]> } = { all: Promise.all };
+         adapter.all = (inputs) => Promise.all(inputs.map((input) => query(input, z.object({ value: z.int() }))));
+         const [rows] = await adapter.all([raw]); return rows?.[0]?.value;`,
+      ],
+      [
+        1,
+        `const raw = ${typedStatement};
+         const adapter = { all: (inputs: (typeof raw)[]) => Promise.all(inputs.map((input) => query(input, z.object({ value: z.int() })))) };
+         adapter.all = Promise.all; const [rows] = await adapter.all([raw]); return rows?.[0]?.value;`,
+      ],
+      [
+        1,
+        `const raw = ${typedStatement}; const all = Promise.all<[typeof raw]>;
+         const apply = (Reflect.apply<typeof Promise, [[typeof raw]], ReturnType<typeof all>>).bind(Reflect, all, Promise);
+         const adapter = { apply }; const [rows] = await adapter.apply([[raw]]); return rows[0]?.value;`,
+      ],
+      [
+        1,
+        `const raw = ${typedStatement};
+         const { all }: { all: (input: (typeof raw)[]) => Promise<Awaited<typeof raw>[]> } = Promise;
+         const [rows] = await all.call(Promise, [raw]); return rows[0]?.value;`,
+      ],
+      [
+        0,
+        `const decoded = query(${typedStatement}, z.object({ value: z.int() }));
+         const all = Promise.all<[typeof decoded]>;
+         const apply = (Reflect.apply<typeof Promise, [[typeof decoded]], ReturnType<typeof all>>).bind(Reflect, all, Promise);
+         const adapter = { apply }; const [rows] = await adapter.apply([[decoded]]); return rows[0]?.value;`,
+      ],
+      [1, `const [rows] = await Promise.all([${tagged}]); return rows[0];`],
+      [1, `return Promise.resolve(${tagged});`],
+      [
+        1,
+        `return z.array(availabilityEvidenceRow).parse(await Promise.resolve(availabilitySamplesFrom((strings, ...values) => client(strings, ...values), '2026-11-20T00:00:00Z')));`,
+      ],
+      [1, `return Promise.allSettled([${tagged}]);`],
+      [1, `return globalThis.Promise.any(new Set([${tagged}]));`],
+      [
+        1,
+        `const queries = [${tagged}] as const; const settle = Promise; return settle['race'](queries);`,
+      ],
+      [
+        1,
+        `const resolve = Promise.resolve.bind(Promise); return resolve(${tagged});`,
+      ],
+      [1, `return Promise.all(...[[${tagged}]] as const);`],
+      [
+        1,
+        `function* queries() { yield ${tagged}; } return Promise.all(queries());`,
+      ],
+      [1, `return Promise.resolve.call(Promise, ${tagged});`],
+      [1, `return Promise.all.apply(Promise, [[${tagged}]]);`],
+      [
+        1,
+        'const raw = client<{ value: number }[]>`select 1 as value`; const [rows] = await (Promise.all<[typeof raw]>).bind(Promise, [raw])(); return rows[0]?.value;',
+      ],
+      [
+        1,
+        'const raw = client<{ value: number }[]>`select 1 as value`; return (Promise.try<Awaited<typeof raw>>).bind(Promise, () => raw)();',
+      ],
+      [
+        1,
+        'const raw = client<{ value: number }[]>`select 1 as value`; return Promise.all.call(...[Promise, [raw]] as const);',
+      ],
+      [1, `return Reflect.apply(Promise.all, Promise, [[${tagged}]]);`],
+      [
+        1,
+        `const iterator: typeof Symbol.iterator = Symbol.iterator; return Promise.all({ *[iterator]() { yield ${tagged}; } });`,
+      ],
+      [
+        1,
+        `const settle = <T extends SQL.Query<unknown>>(value: T) => Promise.resolve(value); return settle(${tagged});`,
+      ],
+      [1, `const rows = await Promise.try(() => ${tagged}); return rows[0];`],
+      [
+        1,
+        `return z.array(availabilityEvidenceRow).parse(await Promise.try(() => availabilitySamplesFrom((strings, ...values) => client(strings, ...values), '2026-11-20T00:00:00Z')));`,
+      ],
+      [
+        1,
+        `const raw = ${tagged}; const rows = await new Promise<Awaited<typeof raw>>((resolve) => resolve(raw)); return rows[0];`,
+      ],
+      [0, `return Promise.all([${parsedStatement}]);`],
+      [0, `return Promise.resolve(${parsedStatement});`],
+      [0, `return Promise.all.bind(Promise, [${parsedStatement}])();`],
+      [
+        0,
+        `const rows = await Promise.try(() => ${parsedStatement}); return rows[0];`,
+      ],
+      [
+        1,
+        `function* values() { yield 1; return ${tagged}; } return Promise.all(values());`,
+      ],
+      [
+        0,
+        'const writer = async () => { await client`delete from fixture`; }; return Promise.all([writer()]);',
+      ],
+      [
+        0,
+        'const receipt = await client<{ command: string }>`commit`; return Promise.resolve(receipt.command);',
+      ],
+      [
+        1,
+        `const raw = ${typedStatement};
+       const all = Promise.all<[typeof raw]>;
+       const apply = (Reflect.apply<typeof Promise, [[typeof raw]], ReturnType<typeof all>>).bind(Reflect, all, Promise);
+       const [rows] = await apply([[raw]]); return rows[0]?.value;`,
+      ],
+      [
+        1,
+        `const raw = ${typedStatement}; const all = Promise.all<[typeof raw]>;
+       return Reflect.apply(all.bind, all, [Promise, [raw]])();`,
+      ],
+      [
+        1,
+        `const raw = ${typedStatement};
+       const all: (input: Iterable<typeof raw>) => Promise<Awaited<typeof raw>[]> = Promise.all;
+       const apply = (Reflect.apply<typeof Promise, [Set<typeof raw>], ReturnType<typeof all>>).bind(Reflect, all, Promise);
+       const [rows] = await apply([new Set([raw])]); return rows?.[0]?.value;`,
+      ],
+      [
+        1,
+        `const raw = ${typedStatement}; const attempt = Promise.try<Awaited<typeof raw>>;
+       const apply = (Reflect.apply<typeof Promise, [() => typeof raw], ReturnType<typeof attempt>>).bind(Reflect, attempt, Promise);
+       const rows = await apply([() => raw]); return rows[0]?.value;`,
+      ],
+      [
+        1,
+        `const raw = ${typedStatement}; const all = Promise.all<[typeof raw, [typeof raw]]>;
+       const apply = (Reflect.apply<typeof Promise, [[typeof raw, [typeof raw]]], ReturnType<typeof all>>).bind(Reflect, all, Promise);
+       const [rows] = await apply([[raw, [raw]]]); return rows[0]?.value;`,
+      ],
+      [
+        1,
+        `const raw = ${typedStatement};
+       const all: (input: Set<typeof raw>) => Promise<Awaited<typeof raw>[]> = Promise.all;
+       const invoke: (target: typeof all, receiver: typeof Promise, args: [Set<typeof raw>]) => ReturnType<typeof all> = Reflect.apply;
+       const [rows] = await invoke(all, Promise, [new Set([raw])]); return rows?.[0]?.value;`,
+      ],
+      [
+        1,
+        `const raw = ${typedStatement};
+       const all: (input: Set<typeof raw>) => Promise<Awaited<typeof raw>[]> = Promise.all;
+       const args = [Reflect, all, Promise] as const;
+       const apply = (Reflect.apply<typeof Promise, [Set<typeof raw>], ReturnType<typeof all>>).bind(...args);
+       const [rows] = await apply([new Set([raw])]); return rows?.[0]?.value;`,
+      ],
+      [1, `return Promise.resolve().then(() => ${typedStatement});`],
+      [
+        0,
+        `const parsed = query(${typedStatement}, z.object({ value: z.int() }));
+       const all = Promise.all<[typeof parsed]>;
+       const apply = (Reflect.apply<typeof Promise, [[typeof parsed]], ReturnType<typeof all>>).bind(Reflect, all, Promise);
+       const [rows] = await apply([[parsed]]); return rows[0]?.value;`,
+      ],
+      [
+        0,
+        'const discard = async (connection: SQL) => { await connection`delete from fixture`; }; await discard(client);',
+      ],
+      [
+        0,
+        `const raw = ${typedStatement}; const decode = async (inputs: Set<typeof raw>) =>
+         Promise.all([...inputs].map((input) => query(input, z.object({ value: z.int() }))));
+       return decode(new Set([raw]));`,
+      ],
+      [
+        0,
+        `const raw = ${typedStatement}; const keep = (inputs: Set<typeof raw>) => inputs;
+       const preserved = Reflect.apply(keep, undefined, [new Set([raw])]);
+       for (const input of preserved) return query(input, z.object({ value: z.int() }));
+       return [];`,
+      ],
+      [
+        0,
+        `const raw = ${typedStatement}; const [input] = await Promise.resolve([raw] as const);
+       return query(input, z.object({ value: z.int() }));`,
+      ],
+      [
+        1,
+        'const raw = ' +
+          typedStatement +
+          '; const all: (input: (typeof raw)[]) => Promise<Awaited<typeof raw>[]> = Promise.all; const settle = all.bind(Promise); const [rows] = await settle([raw]); return rows?.[0]?.value;',
+      ],
+      [
+        1,
+        'const raw = ' +
+          typedStatement +
+          '; const all: (input: Set<typeof raw>) => Promise<Awaited<typeof raw>[]> = Promise.all; const settle = all.bind(Promise); const [rows] = await settle(new Set([raw])); return rows?.[0]?.value;',
+      ],
+      [
+        1,
+        'const raw = ' +
+          typedStatement +
+          '; const all: (input: (typeof raw)[]) => Promise<Awaited<typeof raw>[]> = Promise.all; const apply = Reflect.apply<typeof Promise, [(typeof raw)[]], ReturnType<typeof all>>; const [rows] = await apply.call(Reflect, all, Promise, [[raw]]); return rows?.[0]?.value;',
+      ],
+      [
+        1,
+        'const raw = ' +
+          typedStatement +
+          '; const all = Promise.all<[typeof raw]>; const apply = (Reflect.apply<typeof Promise, [[typeof raw]], ReturnType<typeof all>>).bind(Reflect, all, Promise); const [rows] = await apply.call(undefined, [[raw]]); return rows[0]?.value;',
+      ],
+      [
+        1,
+        'const raw = ' +
+          typedStatement +
+          '; const all = Promise.all<[typeof raw]>; const apply = (Reflect.apply<typeof Promise, [[typeof raw]], ReturnType<typeof all>>).bind(Reflect, all, Promise); const [rows] = await Reflect.apply(apply, undefined, [[[raw]]]); return rows[0]?.value;',
+      ],
+      [
+        0,
+        'const decoded = query(' +
+          typedStatement +
+          ', z.object({ value: z.int() })); const all = Promise.all<[typeof decoded]>; const apply = (Reflect.apply<typeof Promise, [[typeof decoded]], ReturnType<typeof all>>).bind(Reflect, all, Promise); const [rows] = await Reflect.apply(apply, undefined, [[[decoded]]]); return rows[0]?.value;',
+      ],
+    ] as const;
+    const cases = [
+      ...directCases,
+      ...settlementCases.map(
+        ([expected, body]) =>
+          [expected, source(body, imports), feature] as const,
+      ),
+    ];
+    const mismatches = (
+      await Promise.all(
+        cases.map(async ([expected, code, filePath]) => {
+          const [result] = await lint.lintText(code, { filePath });
+          const actual =
+            result?.messages.filter(({ ruleId }) => ruleId === rule).length ??
+            0;
+          return { code, filePath, expected, actual };
+        }),
+      )
+    ).filter(({ expected, actual }) => expected !== actual);
+    assert({
+      given:
+        'native reads, composed Promise settlement and preserved decoder controls',
+      should: 'report exactly the unvalidated reads',
+      actual: mismatches,
+      expected: [],
+    });
+  });
+});
+
+describe('browser edges', () => {
+  const rule = 'daisy-client/browser-edge';
+  const probe = async (filePath: string, source: string) => {
+    const [result] = await repositoryEslint().lintText(source, { filePath });
+    return result.messages.filter(({ ruleId }) => ruleId === rule).length;
+  };
+
+  test('owns React effects and host calls', async () => {
+    assert({
+      given:
+        'aliased imports, namespace effects, direct and bracket host calls',
+      should: 'report each bypass',
+      actual: await probe(
+        web('ui/room/controls.tsx'),
+        `import React, { useEffect as reactEffect } from 'react';
+         export { useLayoutEffect } from 'react';
+         reactEffect(() => {}, []);
+         React.useLayoutEffect(() => {}, []);
+         setTimeout(() => {}, 10);
+         window['clearTimeout'](1);
+         void globalThis.fetch('/api/rooms');`,
+      ),
+      expected: 6,
+    });
+  });
+
+  test('reports destructuring and React references above their import', async () => {
+    assert({
+      given:
+        'an extracted timer and a namespace effect before its hoisted import',
+      should: 'report both paths to runtime effects',
+      actual: await probe(
+        web('ui/room/controls.tsx'),
+        `const { setTimeout: schedule } = window;
+         schedule(() => {}, 1);
+         React.useEffect(() => {}, []);
+         import * as React from 'react';
+         export const { useLayoutEffect: syncLayout } = React;`,
+      ),
+      expected: 3,
+    });
+  });
+
+  test('reports browser and React defaults while allowing injected ports', async () => {
+    assert({
+      given:
+        'destructured global defaults and locally injected window and React objects',
+      should: 'report the host defaults and respect the local bindings',
+      actual: await probe(
+        web('ui/room/controls.tsx'),
+        `import * as React from 'react';
+         export function schedule({ setTimeout: delay } = window) {
+           return delay(() => {}, 1);
+         }
+         export function useSchedule({ useEffect: onEffect } = React) {
+           onEffect(() => {}, []);
+         }
+         export function injected(
+           window: Pick<Window, 'setTimeout'>,
+           React: { useEffect: () => void },
+         ) {
+           const { setTimeout: delay } = window;
+           const { useEffect: onEffect } = React;
+           delay(() => {}, 1);
+           onEffect();
+         }`,
+      ),
+      expected: 2,
+    });
+  });
+
+  test('keeps the browser transport out of server process composition', async () => {
+    assert({
+      given:
+        'a server module that statically imports, reexports or dynamically imports the browser adapter',
+      should: 'report each cross-boundary module dependency',
+      actual: await probe(
+        web('server/probe.ts'),
+        `import { browserFetch } from '../ui/edge/browser-request';
+         export { browserFetch as transport } from '../ui/edge/browser-request';
+         export const read = () => import('../ui/edge/browser-request');
+         export const fetcher = browserFetch;`,
+      ),
+      expected: 3,
+    });
+  });
+
+  test('accepts the owner, injected ports and a server request', async () => {
+    assert({
+      given: 'edge code, a client’s injected ports and a server’s fetch',
+      should: 'allow each',
+      actual: await Promise.all([
+        probe(web('ui/edge/probe.ts'), 'void fetch("/endpoint");'),
+        probe(
+          web('ui/probe.ts'),
+          'export const read = (fetch: () => void) => fetch();',
+        ),
+        probe(web('server/probe.ts'), 'void fetch("https://example.test");'),
+      ]),
+      expected: [0, 0, 0],
     });
   });
 });

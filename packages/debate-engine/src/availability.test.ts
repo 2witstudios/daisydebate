@@ -1,6 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
-import { availabilityRecoveryPolicy } from '@daisy/protocol';
+import { availabilityRecoveryPolicy } from '@daisy/protocol/attendance';
 import {
   deriveOutageIntervals,
   effectiveAttendanceDeadline,

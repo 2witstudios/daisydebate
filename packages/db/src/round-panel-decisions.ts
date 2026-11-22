@@ -1,13 +1,12 @@
-import { CryptoHasher } from 'bun';
+import { commandDigest } from '@daisy/digest';
 import { createAppError, createRefusal } from '@daisy/errors';
+import { idSchema } from '@daisy/protocol/primitives';
 import {
-  idSchema,
   roundPanelReceiptSchema,
-  type RoundOutcome,
-  type RoundProjection,
   type RoundPanelReceipt,
-} from '@daisy/protocol';
-import type { hydrateRoundRows } from './round-hydration';
+} from '@daisy/protocol/round-panel-completion';
+import { type RoundOutcome } from '@daisy/protocol/round-outcome';
+import { type RoundProjection } from '@daisy/protocol/runtime';
 import type { roundCommands } from './schema/round-commands';
 
 /** The identity of one internal panel completion request. */
@@ -18,7 +17,6 @@ export type PanelRequest = {
   readonly freezeRevision: number;
 };
 type CommandRow = typeof roundCommands.$inferSelect;
-type HydratedRound = Awaited<ReturnType<typeof hydrateRoundRows>>;
 /** Durable Round facts read under the Round lock. */
 export type PanelDurableFacts = {
   readonly final_segment_ended_at: unknown;
@@ -44,15 +42,11 @@ export function requirePanelRequest(input: PanelRequest): void {
 
 /** Binds a command row to this Round and frozen revision, never to the caller. */
 export const panelDigest = (input: PanelRequest) =>
-  new CryptoHasher('sha3-256')
-    .update(
-      JSON.stringify({
-        purpose: 'complete-panel',
-        roundId: input.roundId,
-        freezeRevision: input.freezeRevision,
-      }),
-    )
-    .digest('hex');
+  commandDigest({
+    purpose: 'complete-panel',
+    roundId: input.roundId,
+    freezeRevision: input.freezeRevision,
+  });
 
 function requireReceiptCommand(
   row: CommandRow,
@@ -136,9 +130,11 @@ const sameOutcome = (
 };
 
 /** A Round with every segment played; its judges, if any, may not have ruled. */
-export function requirePanelRound(
-  round: HydratedRound,
-): asserts round is NonNullable<HydratedRound> {
+export function requirePanelRound<
+  Round extends {
+    readonly segments: readonly { readonly endedAt: string | null }[];
+  },
+>(round: Round | null | undefined): asserts round is Round {
   if (!round || round.segments.some((p) => p.endedAt === null))
     throw ineligible();
 }
@@ -178,10 +174,21 @@ export function requirePanelFacts<
  * The engine's completion finishes the Round with no segment change, and
  * names a winner exactly when some judges ruled (`partial`).
  */
+type CompletionRound = Pick<
+  NonNullable<RoundProjection['round']>,
+  'status' | 'outcome'
+>;
+
 export function requireCompletionProjection(completion: {
-  readonly projection: RoundProjection;
+  readonly projection: {
+    readonly round?: CompletionRound | null | undefined;
+    readonly segmentInserts: readonly unknown[];
+    readonly segmentCloses: readonly unknown[];
+  };
   readonly ruling: RoundPanelReceipt['ruling'];
-}): void {
+}): asserts completion is typeof completion & {
+  readonly projection: { readonly round: CompletionRound };
+} {
   const { projection } = completion;
   if (
     projection.round?.status !== 'completed' ||

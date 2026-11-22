@@ -1,3 +1,4 @@
+import { StatusRegion } from '../../components/status-region/status-region';
 import type { ReactNode } from 'react';
 import { AuthFrame, AuthHeading, taglinePanel } from '../auth-frame/auth-frame';
 import { CHECK_INBOX_HEADING_ID, CheckInbox } from '../check-inbox/check-inbox';
@@ -76,7 +77,9 @@ export function renderSignInFlow(
       return (
         <AuthFrame panel={taglinePanel}>
           <AuthHeading eyebrow="Signed in" title="You're in.">
-            <span role="status">Taking you to Daisy Debate…</span>
+            <StatusRegion as="span" role="status">
+              Taking you to Daisy Debate…
+            </StatusRegion>
           </AuthHeading>
         </AuthFrame>
       );

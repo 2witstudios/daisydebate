@@ -1,15 +1,15 @@
-import { roundViewSchema, type RoundView } from '@daisy/protocol';
+import { roundViewSchema, type RoundView } from '@daisy/protocol/round-view';
 import { createId } from '@paralleldrive/cuid2';
 import {
   affirmativeSide,
-  buildRoundTopic,
   judgeSeat,
   negativeSide,
-  roomViewSchema,
   sameSeat,
   sideSeat,
-  type RoomView,
-} from '@daisy/protocol';
+} from '@daisy/protocol/seats';
+import { buildRoundTopic } from '@daisy/protocol/topics';
+import { roomViewSchema } from '@daisy/protocol/room-read';
+import { type RoomView } from '@daisy/protocol/room-contract';
 import {
   oneOnOneDefinition,
   oneOnOneRankedSettings,

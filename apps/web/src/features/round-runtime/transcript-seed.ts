@@ -1,4 +1,4 @@
-import type { LiveTranscriptRead } from '@daisy/protocol';
+import type { LiveTranscriptRead } from '@daisy/protocol/round-transcript';
 import type { ResourceRead } from '../resource-sync/driver';
 
 /** What a page whose transcript seed was refused knows now. */

@@ -1,5 +1,5 @@
 import { renderToString } from 'react-dom/server';
-import type { RoomView } from '@daisy/protocol';
+import type { RoomView } from '@daisy/protocol/room-contract';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { AiJudgeNotice, aiJudgeSeatable } from './ai-judge-notice';
 

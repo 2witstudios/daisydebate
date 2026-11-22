@@ -9,9 +9,9 @@ import { createAppError } from '@daisy/errors';
 import {
   channelHistoryView,
   channelMessageView,
-  createMessagingCoreSchemas,
-  contentReportCreateSchema,
-} from '@daisy/protocol';
+} from '@daisy/protocol/messaging/channel-messages';
+import { createMessagingCoreSchemas } from '@daisy/protocol/messaging/core';
+import { contentReportCreateSchema } from '@daisy/protocol/content-moderation';
 import type { App } from '../../../server/app';
 import { parseValidated } from '../../../server/http';
 import { consumeWindowsOrThrow } from '../../../server/rate-limit';
@@ -144,11 +144,7 @@ export function contextChatOperations<Fact extends ContextChannelFact>(
               messages: page.messages.map(channelHistoryView),
             }),
             authors: await frame.readAuthors([
-              ...new Set(
-                page.messages.flatMap((message) =>
-                  message.authorActorId === null ? [] : [message.authorActorId],
-                ),
-              ),
+              ...new Set(page.messages.map((message) => message.authorActorId)),
             ]),
           };
         });

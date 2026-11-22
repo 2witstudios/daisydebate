@@ -1,24 +1,26 @@
+import { lifecycleSql, lifecycleSqlList } from './lifecycle-sql';
 import { sql, type SQL } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import { defaultStandingLobby } from '@daisy/protocol/lobby/eligibility';
+import { runningRoundStatuses } from '@daisy/protocol/round';
 import {
+  openRoomStatuses,
+  roomStatus,
   roomListQuerySchema,
+  roomListPageSchema,
   type RoomListQuery,
   type RoomListEntry,
   type RoomListPage,
-  type RoundRatingScope,
-  type SeatKind,
-  type SeatRef,
-} from '@daisy/protocol';
+} from '@daisy/protocol/room-contract';
+import { seatKindSchema, type SeatRef } from '@daisy/protocol/seats';
+import { type RoundRatingScope } from '@daisy/protocol/rating-ladder';
 import { seatOfColumns } from './seat-columns';
-import {
-  sharedAccount,
-  type Caller,
-  type Account,
-  type Tx,
-} from './room-command-facts';
+import { sharedAccount, type Caller, type Account } from './room-command-facts';
 import { loadAuthorizationAccount } from './authorization';
 import { currentRoomTopic, type ReadOpeningTopic } from './round-opening-read';
+import type { Tx } from './tx';
+import { run, query as queryRows } from './raw-rows';
+import { z } from 'zod';
 import { readOfficialStandingLobbies } from './official-standing-lobbies';
 import { readCompetitionAgeBand } from './ladder-division-band';
 import { scopeTransaction } from './tenant-scope';
@@ -66,10 +68,10 @@ const inLaunchedRound = (caller: Caller) =>
 /** The open-Room states a status filter selects; live Rooms come from their Round. */
 const assemblyStatuses = (status: RoomListQuery['status']) =>
   status === 'open'
-    ? sql`('assembling')`
+    ? lifecycleSqlList([roomStatus.assembling])
     : status === 'starting'
-      ? sql`('ready')`
-      : sql`('assembling','ready')`;
+      ? lifecycleSqlList([roomStatus.ready])
+      : lifecycleSqlList(openRoomStatuses);
 /** Which discovery branches a status filter keeps: open Rooms, launched ones or both. */
 const statusScope = (status: RoomListQuery['status']) => ({
   assembly: status !== 'live',
@@ -82,7 +84,7 @@ const lobbyMatches = (lobbyId: string) => sql`r.lobby_id=${lobbyId}`;
 const openJudgeSeats = sql`greatest(0, (r.rules_snapshot->'seats'->>'judges')::int - (select count(*)::int from room_participants j where j.room_id=r.id and j.seat_kind='judge'))`;
 /** Seat totals and the format label, read with the page; never a lock target. */
 const seatCount = sql`((select coalesce(sum(n.count::int),0) from jsonb_each_text(r.rules_snapshot->'seats'->'sides') as n(side,count))::int+(r.rules_snapshot->'seats'->>'speakers')::int+(r.rules_snapshot->'seats'->>'judges')::int+(r.rules_snapshot->'seats'->>'moderators')::int)`;
-const seatsTaken = sql`case when r.status='started' then (select count(*)::int from round_participants s where s.round_id=d.id) else (select count(*)::int from room_participants s where s.room_id=r.id) end`;
+const seatsTaken = sql`case when r.status=${lifecycleSql(roomStatus.started)} then (select count(*)::int from round_participants s where s.round_id=d.id) else (select count(*)::int from room_participants s where s.room_id=r.id) end`;
 const search = (q: string, topic: SQL) =>
   sql`(${q}='' or strpos(lower(r.title),lower(${q}))>0 or strpos(lower(${topic}),lower(${q}))>0 or (strpos(lower(${hostLabel}),lower(${q}))>0 and not ${hostIsHumanJudge}))`;
 // Hostless event Rooms publish their waiting topic through Tab's scoped read.
@@ -136,18 +138,22 @@ export async function discoverRooms(
       );
   if (!lobby) return { rooms: [], nextCursor: null, retry: false };
   const order = pageOrder(sort, cursor, caller, lobby.id);
-  const candidates = (await tx.execute(sql`
+  const candidates = await queryRows(
+    tx,
+    z.object({ id: z.string() }),
+    sql`
   select id from (
     (select r.id,r.created_at from rooms r ${joins}
       where ${assembly} and r.status in ${assemblyStatuses(status)} and ${modeMatches(mode)} and ${lobbyMatches(lobby.id)} and ${order.after} and ${visible(caller)} and ${search(q, waitingTopic)}
       order by r.created_at ${order.direction},r.id collate "C" ${order.direction} limit ${pageSize + 1})
     union all
     (select r.id,r.created_at from rounds d join rooms r on r.id=d.room_id ${joins}
-      where ${launched} and ${modeMatches(mode)} and ${lobbyMatches(lobby.id)} and d.status in ('opening','active') and d.room_id is not null and r.status='started'
+      where ${launched} and ${modeMatches(mode)} and ${lobbyMatches(lobby.id)} and d.status in ${lifecycleSqlList(runningRoundStatuses)} and d.room_id is not null and r.status=${lifecycleSql(roomStatus.started)}
         and ${order.after} and ${visible(caller)} and ${inLaunchedRound(caller)} and ${search(q, launchedTopic)}
       order by r.created_at ${order.direction},r.id collate "C" ${order.direction} limit ${pageSize + 1})
   ) candidates order by created_at ${order.direction},id collate "C" ${order.direction} limit ${pageSize + 1}
- `)) as unknown as { id: string }[];
+ `,
+  );
   const ids = candidates.slice(0, pageSize).map((r) => r.id);
   const more = candidates.length > pageSize;
   if (!ids.length) return { rooms: [], nextCursor: null, retry: false };
@@ -155,25 +161,54 @@ export async function discoverRooms(
     ids.map((id) => sql`${id}`),
     sql`, `,
   )}]::text[]`;
-  await tx.execute(
+  await run(
+    tx,
     sql`select id from rooms where id=any(${idSet}) order by id for share`,
   );
-  await tx.execute(
+  await run(
+    tx,
     sql`select id from rounds where room_id=any(${idSet}) order by id for share`,
   );
   // Producer facts are read again after every downstream lock wait.
   account = await loadAuthorizationAccount(tx, caller.userId);
   if (!authorizeCollection(account)) throw createAppError('AUTHORIZATION');
   await scopeTransaction(tx, { lobbyId: lobby.id });
-  const rows = (await tx.execute(sql`
+  const fields = roomListPageSchema.shape.rooms.unwrap().element.shape;
+  const rowSchema = z.object({
+    ...fields,
+    waitingSince: z.union([z.date(), z.string()]).nullable(),
+    live: z
+      .object({
+        stage: fields.live.unwrap().shape.stage,
+        startedAt: z.union([z.date(), z.string()]).nullable(),
+      })
+      .nullable(),
+    seatKind: seatKindSchema.nullable(),
+    side: z.string().nullable(),
+    slot: z.int().nullable(),
+    roundVersion: z.int().nullable(),
+    roundCreator: z.string().nullable(),
+    roundVisibility: fields.visibility.nullable(),
+    roundSeatKind: seatKindSchema.nullable(),
+    roundSide: z.string().nullable(),
+    roundSlot: z.int().nullable(),
+    hostIsHumanJudge: z.boolean().nullable(),
+    selectedLadderId: z.string().nullable(),
+    frozenLadderId: z.string().nullable(),
+    frozenSeasonId: z.string().nullable(),
+  });
+  const rows = await queryRows(
+    tx,
+    rowSchema,
+    sql`
   select r.id,r.version,r.title,${launchedTopic} as topic,r.visibility,r.host_actor_id as "hostActorId",
    ${hostLabel} as "hostLabel",${hostIsHumanJudge} as "hostIsHumanJudge",r.status,r.competition_type as "competitionType",
    p.actor_id is not null as seated,p.seat_kind as "seatKind",p.side,p.slot,
-   case when r.status='started' then json_build_object('id',d.id,'status',d.status) else null end as "roundRef",
+   case when r.status=${lifecycleSql(roomStatus.started)} then json_build_object('id',d.id,'status',d.status) else null end as "roundRef",
    d.version as "roundVersion",d.created_by_actor_id as "roundCreator",d.visibility as "roundVisibility",rp.seat_kind as "roundSeatKind",rp.side as "roundSide",rp.slot as "roundSlot",
    f.name as "formatLabel",${seatsTaken} as "seatsTaken",${seatCount} as "seatCount",
-   case when r.status in ('assembling','ready') then r.created_at end as "waitingSince",
-   case when r.status='started' then json_build_object('stage',d.current_stage,'startedAt',d.started_at) else null end as "live",
+   case when r.status in ${lifecycleSqlList(openRoomStatuses)} then r.created_at end as "waitingSince",
+   case when r.status=${lifecycleSql(roomStatus.started)} then json_build_object('stage',d.current_stage,'startedAt',d.started_at) else null end as "live",
    null::int as "hostRating",r.lobby_id as "lobbyId",lb.age_rule as "ageRule",
    r.league_ladder_id as "selectedLadderId",d.ladder_id as "frozenLadderId",d.season_id as "frozenSeasonId",
    ${openJudgeSeats} as "openJudgeSeats"
@@ -185,31 +220,13 @@ export async function discoverRooms(
   left join round_participants rp on rp.round_id=d.id and rp.actor_id=${caller.actorId}
   where r.id=any(${idSet}) and ${visible(caller)} and ${search(q, launchedTopic)}
    and ${modeMatches(mode)} and ${lobbyMatches(lobby.id)}
-   and ((${assembly} and r.status in ${assemblyStatuses(status)}) or (${launched} and r.status='started' and d.status in ('opening','active') and ${inLaunchedRound(caller)}))
+   and ((${assembly} and r.status in ${assemblyStatuses(status)}) or (${launched} and r.status=${lifecycleSql(roomStatus.started)} and d.status in ${lifecycleSqlList(runningRoundStatuses)} and ${inLaunchedRound(caller)}))
   order by r.created_at ${order.direction},r.id collate "C" ${order.direction}
- `)) as unknown as (Omit<RoomListEntry, 'waitingSince' | 'live'> & {
-    waitingSince: Date | string | null;
-    live: {
-      stage: NonNullable<RoomListEntry['live']>['stage'];
-      startedAt: Date | string | null;
-    } | null;
-    seatKind: SeatKind | null;
-    side: string | null;
-    slot: number | null;
-    roundVersion: number;
-    roundCreator: string | null;
-    roundVisibility: RoomListEntry['visibility'];
-    roundSeatKind: SeatKind | null;
-    roundSide: string | null;
-    roundSlot: number | null;
-    hostActorId: string | null;
-    hostIsHumanJudge: boolean;
-    selectedLadderId: string | null;
-    frozenLadderId: string | null;
-    frozenSeasonId: string | null;
-  })[];
+ `,
+  );
   const fact = (r: (typeof rows)[number]): RoomDiscoveryFact => ({
     ...r,
+    hostIsHumanJudge: r.hostIsHumanJudge === true,
     participants:
       r.seated && r.seatKind && typeof r.slot === 'number'
         ? [
@@ -223,29 +240,30 @@ export async function discoverRooms(
             },
           ]
         : [],
-    round: r.roundRef
-      ? {
-          kind: 'round',
-          roundId: r.roundRef.id,
-          status: r.roundRef.status,
-          revision: r.roundVersion,
-          createdByActorId: r.roundCreator,
-          visibility: r.roundVisibility,
-          participants:
-            r.roundSeatKind && typeof r.roundSlot === 'number'
-              ? [
-                  {
-                    actorId: caller.actorId,
-                    seat: seatOfColumns({
-                      seatKind: r.roundSeatKind,
-                      side: r.roundSide,
-                      slot: r.roundSlot,
-                    }),
-                  },
-                ]
-              : [],
-        }
-      : null,
+    round:
+      r.roundRef && r.roundVersion !== null && r.roundVisibility !== null
+        ? {
+            kind: 'round',
+            roundId: r.roundRef.id,
+            status: r.roundRef.status,
+            revision: r.roundVersion,
+            createdByActorId: r.roundCreator,
+            visibility: r.roundVisibility,
+            participants:
+              r.roundSeatKind && typeof r.roundSlot === 'number'
+                ? [
+                    {
+                      actorId: caller.actorId,
+                      seat: seatOfColumns({
+                        seatKind: r.roundSeatKind,
+                        side: r.roundSide,
+                        slot: r.roundSlot,
+                      }),
+                    },
+                  ]
+                : [],
+          }
+        : null,
   });
   const entries = rows
     .filter((r) => authorize(fact(r), account))

@@ -1,11 +1,8 @@
 import { resolveRoomConfiguration } from '@daisy/debate-engine';
-import {
-  formatDefinitionSchema,
-  roomConfigSchema,
-  twoSideKeys,
-  type RoomConfig,
-  type RoomCapture,
-} from '@daisy/protocol';
+import { formatDefinitionSchema } from '@daisy/protocol/format';
+import { roomConfigSchema, type RoomConfig } from '@daisy/protocol/room';
+import { twoSideKeys } from '@daisy/protocol/seats';
+import { type RoomCapture } from '@daisy/protocol/room-capture';
 import type { LoadedDrawCommand } from '@daisy/db/tab';
 import { eventSettingResolution } from './event-setting-resolution';
 import { orderedWordings } from './resolution-wording-order';

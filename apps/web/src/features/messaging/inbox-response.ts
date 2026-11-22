@@ -1,7 +1,7 @@
 import { realtimePublicUrlSchema } from '@daisy/config';
 import { z } from 'zod';
 import { createAppError } from '@daisy/errors';
-import { createMessagingInboxSchemas } from '@daisy/protocol';
+import { createMessagingInboxSchemas } from '@daisy/protocol/messaging/inbox';
 export async function readMessagingInboxResponse(response: Response) {
   if (!response.ok) return null;
   // jitless: the browser's strict CSP refuses Zod's eval-compiled parser.

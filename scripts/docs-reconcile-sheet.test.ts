@@ -1,3 +1,4 @@
+import { virtualClock } from '@daisy/clock/testing';
 import { describe, test } from 'riteway/bun';
 import { setupRitewayBun, assert } from 'riteway/bun';
 import { readRunRecords } from './docs-reconcile';
@@ -6,6 +7,24 @@ import { RUN_RECORD_COLUMNS } from './docs-runs-sheet';
 setupRitewayBun();
 
 const REPOSITORY = '2witstudios/daisydebate';
+
+/** A virtual clock, and the timeout signals it fires, for `readRunRecords`. */
+const virtualTime = () => {
+  const clock = virtualClock();
+  return {
+    clock,
+    nowMs: clock.nowMs,
+    timeoutSignal: (ms: number) => {
+      const timeout = new AbortController();
+      void clock
+        .sleep(ms)
+        .then(() =>
+          timeout.abort(new DOMException('timed out', 'TimeoutError')),
+        );
+      return timeout.signal;
+    },
+  };
+};
 
 describe('readRunRecords', async () => {
   const cell = (raw: string) => ({ raw, value: raw });
@@ -145,14 +164,19 @@ describe('readRunRecords', async () => {
           reject(new DOMException('timed out', 'TimeoutError')),
         );
       })) as unknown as typeof fetch;
+    const { clock, nowMs, timeoutSignal } = virtualTime();
     let message = 'no throw';
     try {
-      await readRunRecords({
-        token: 'tok',
-        apiUrl: 'https://pagespace.test',
-        fetchImpl,
-        timeoutMs: 20,
-      });
+      await clock.run(
+        readRunRecords({
+          token: 'tok',
+          apiUrl: 'https://pagespace.test',
+          fetchImpl,
+          timeoutMs: 20,
+          nowMs,
+          timeoutSignal,
+        }),
+      );
     } catch (error) {
       message = (error as Error).message;
     }
@@ -167,13 +191,14 @@ describe('readRunRecords', async () => {
   });
 
   test('bounds the whole sheet read by one deadline', async () => {
+    const { clock, nowMs, timeoutSignal } = virtualTime();
     let page = 0;
     const fetchImpl = ((_url: unknown, init?: RequestInit) =>
       new Promise<Response>((resolve, reject) => {
         init?.signal?.addEventListener('abort', () =>
           reject(new DOMException('timed out', 'TimeoutError')),
         );
-        setTimeout(() => {
+        void clock.sleep(15).then(() => {
           page += 1;
           resolve(
             new Response(
@@ -185,16 +210,20 @@ describe('readRunRecords', async () => {
               { status: 200 },
             ),
           );
-        }, 15);
+        });
       })) as unknown as typeof fetch;
     let message = 'no throw';
     try {
-      await readRunRecords({
-        token: 'tok',
-        apiUrl: 'https://pagespace.test',
-        fetchImpl,
-        timeoutMs: 50,
-      });
+      await clock.run(
+        readRunRecords({
+          token: 'tok',
+          apiUrl: 'https://pagespace.test',
+          fetchImpl,
+          timeoutMs: 50,
+          nowMs,
+          timeoutSignal,
+        }),
+      );
     } catch (error) {
       message = (error as Error).message;
     }

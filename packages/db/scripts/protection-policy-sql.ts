@@ -1,4 +1,5 @@
-import { ageBands, messageRequestSettings } from '@daisy/protocol';
+import { ageBands } from '@daisy/protocol/ladder';
+import { messageRequestSettings } from '@daisy/protocol/messaging/social';
 import { dmRequestAction } from '@daisy/protocol/dm-policy';
 import {
   friendApprovalLimits,

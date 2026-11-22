@@ -1,6 +1,9 @@
-import { idSchema } from '@daisy/protocol';
+import { runningRoundStatuses } from '@daisy/protocol/round';
+import { idSchema } from '@daisy/protocol/primitives';
 import { SQL } from 'bun';
 import { createAppError } from '@daisy/errors';
+import { z } from 'zod';
+import { query } from './raw-rows';
 import { RUNTIME_SESSION } from './session-bounds';
 
 /** The only relations `daisy_media_worker` is granted SELECT on. */
@@ -65,18 +68,21 @@ export function createMediaWorkerDatabase(input: {
         !excluded.every((id) => idSchema.safeParse(id).success)
       )
         throw createAppError('VALIDATION');
-      const rows: { round_id: string; session_id: string }[] = await client`
+      const rows = await query(
+        client`
         select s.round_id, s.id as session_id
         from media_sessions s
         join rounds r on r.id = s.round_id
         left join media_worker_leases l on l.session_id = s.id
         where s.ended_at is null and s.unsafe_at is null
           and s.deletion_requested_at is null
-          and r.status in ('opening', 'active')
+          and r.status in ${client([...runningRoundStatuses])}
           and (l.session_id is null or l.expires_at <= clock_timestamp())
           and s.id <> all(string_to_array(${excluded.join(',')}, ','))
         order by s.created_at, s.id
-        limit ${limit}`;
+        limit ${limit}`,
+        z.object({ round_id: z.string(), session_id: z.string() }),
+      );
       return rows.map((row) => ({
         roundId: row.round_id,
         sessionId: row.session_id,
@@ -84,9 +90,8 @@ export function createMediaWorkerDatabase(input: {
     },
     /** Startup refuses any login broader than `daisy_media_worker`. */
     async privilegeProblems() {
-      const [facts]: Partial<
-        Record<keyof typeof PRIVILEGE_PROBLEMS, boolean | null>
-      >[] = await client`
+      const [facts] = await query(
+        client`
         select r.rolsuper as superuser, r.rolcreaterole as createrole,
           r.rolcreatedb as createdb, r.rolbypassrls as bypassrls,
           r.rolreplication as replication,
@@ -129,7 +134,20 @@ export function createMediaWorkerDatabase(input: {
             where o.rolname not in (current_user, 'daisy_media_worker')
               and pg_has_role(current_user, o.oid, 'member')
           ) as others
-        from pg_roles r where r.rolname = current_user`;
+        from pg_roles r where r.rolname = current_user`,
+        z.object({
+          superuser: z.boolean(),
+          createrole: z.boolean(),
+          createdb: z.boolean(),
+          bypassrls: z.boolean(),
+          replication: z.boolean(),
+          outsider: z.boolean(),
+          writes: z.boolean(),
+          creates: z.boolean(),
+          reads: z.boolean(),
+          others: z.boolean(),
+        }),
+      );
       // A missing or unknown fact is a problem: startup fails closed.
       return Object.entries(PRIVILEGE_PROBLEMS).flatMap(([fact, problem]) =>
         facts?.[fact as keyof typeof PRIVILEGE_PROBLEMS] === false

@@ -283,7 +283,7 @@ export const settingRowSchema = z
     ...row,
     value: (settingsCatalogue[row.key] as SettingDefinition).value.parse(
       row.value,
-    ) as unknown,
+    ),
   }));
 export type SettingRow<Key extends SettingKey = SettingKey> = {
   readonly scope: SettingScope;

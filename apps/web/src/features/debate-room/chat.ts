@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import type { Channel } from './workspace';
 
 export type ChatMessage = {
@@ -21,12 +22,12 @@ export function unreadCount(
   readAt: string | null,
   selfId: string,
 ): number {
-  const since = readAt === null ? Number.NEGATIVE_INFINITY : Date.parse(readAt);
+  const since = readAt === null ? Number.NEGATIVE_INFINITY : instantMs(readAt);
   return messages.filter(
     (m) =>
       m.channelId === channelId &&
       m.author.id !== selfId &&
-      Date.parse(m.sentAt) > since,
+      instantMs(m.sentAt) > since,
   ).length;
 }
 

@@ -5,7 +5,8 @@ import type {
   AuthorizationDecision,
 } from '@daisy/auth/authorization';
 import type { EventCompetitionFacts, TabStore } from '@daisy/db/tab';
-import { idSchema } from '@daisy/protocol';
+import { createAppError } from '@daisy/errors';
+import { idSchema } from '@daisy/protocol/primitives';
 import { resultCompetitionRecordSchema } from '@daisy/protocol/lobby/result-record';
 import {
   standingsViewSchema,
@@ -135,14 +136,19 @@ export function standingsViewOf(
         }
       : {}),
     rows: folded.rows.map((row, i) => {
-      const entry = facts.entries.find((entry) => entry.id === row.entry)!;
-      const values = metrics.rows.find(
-        (one) => one.entry === row.entry,
-      )!.values;
-      const value = (metric: 'wins' | 'total_points' | 'opponent_wins') =>
-        values
-          .find((one) => one.metric === metric)!
-          .value.reduce((sum, fraction) => sum + fraction.n / fraction.d, 0);
+      const entry = facts.entries.find((entry) => entry.id === row.entry);
+      const measured = metrics.rows.find((one) => one.entry === row.entry);
+      if (!entry || !measured)
+        throw createAppError('INVARIANT', 'Standing entry is missing');
+      const value = (metric: 'wins' | 'total_points' | 'opponent_wins') => {
+        const found = measured.values.find((one) => one.metric === metric);
+        if (!found)
+          throw createAppError('INVARIANT', 'Standing metric is missing');
+        return found.value.reduce(
+          (sum, fraction) => sum + fraction.n / fraction.d,
+          0,
+        );
+      };
       const rating = input.ratings?.entries.find(
         (one) => one.entry === entry.id,
       );

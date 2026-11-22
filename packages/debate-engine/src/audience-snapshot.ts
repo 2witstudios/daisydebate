@@ -2,7 +2,7 @@ import {
   audienceReactionKinds,
   type AudienceReactionKind,
   type AudienceSnapshot,
-} from '@daisy/protocol';
+} from '@daisy/protocol/audience';
 
 /** The audience's rows, as moderation left them. This module imports no adapter. */
 export type AudienceSnapshotRead = {

@@ -1,6 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createAppError } from '@daisy/errors';
-import type { RatingEligibilityFacts } from '@daisy/protocol';
+import type { RatingEligibilityFacts } from '@daisy/protocol/ratings';
 import { createRatingSweep } from './sweep';
 
 setupRitewayBun();

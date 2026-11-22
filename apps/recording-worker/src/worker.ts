@@ -1,9 +1,9 @@
 import type { createRecordingWorkerStore } from '@daisy/db/recording-worker';
+import type { PublicInterval } from '@daisy/protocol/public-interval';
 import type {
-  PublicInterval,
   RecordingBuildProgress,
   RecordingJobState,
-} from '@daisy/protocol';
+} from '@daisy/protocol/recording-processing';
 import { RecordingVerificationError } from './build-recording';
 
 const LEASE_MS = 60_000;
@@ -112,11 +112,13 @@ export const runWorker = async (deps: {
     const lost = new AbortController();
     const startedAtMs = deps.now();
     let released = false;
+    // Released by the caller while this loop sleeps, so it is read fresh.
+    const releasedNow = () => released;
     let overran = false;
     void (async () => {
-      while (!released) {
+      while (!releasedNow()) {
         await deps.sleep(RENEW_MS);
-        if (released) return;
+        if (releasedNow()) return;
         if (ceilingMs !== undefined && deps.now() - startedAtMs > ceilingMs) {
           overran = true;
           lost.abort();

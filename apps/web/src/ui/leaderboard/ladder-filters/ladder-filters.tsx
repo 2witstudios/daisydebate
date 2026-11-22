@@ -1,10 +1,8 @@
+import { Button } from '../../components/button/button';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import {
-  ratingStyles,
-  type Ladder,
-  type RatingDivision,
-} from '@daisy/protocol';
+import { ratingStyles } from '@daisy/protocol/primitives';
+import { type Ladder, type RatingDivision } from '@daisy/protocol/ladder';
 import {
   MAX_SEARCH_LENGTH,
   activeFilterCount,
@@ -24,7 +22,6 @@ import {
   seasonLabel,
   type Season,
 } from '../../../features/leaderboard/season';
-import { buttonClass } from '../../components/button/button-class';
 import { Icon } from '../../components/icon/icon';
 import { AutoSubmitForm } from '../../components/filter-bar/auto-submit-form';
 import { controlClass } from '../../components/filter-bar/filter-bar-class';
@@ -223,9 +220,9 @@ export function LadderFilters({
               Clear
             </Link>
           ) : null}
-          <button type="submit" className={buttonClass('secondary')}>
+          <Button variant="secondary" type="submit">
             Apply
-          </button>
+          </Button>
         </>
       </details>
     </AutoSubmitForm>

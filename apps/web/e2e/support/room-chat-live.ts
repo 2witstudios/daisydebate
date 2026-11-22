@@ -1,4 +1,4 @@
-import { sideSeat, affirmativeSide, negativeSide } from '@daisy/protocol';
+import { sideSeat, affirmativeSide, negativeSide } from '@daisy/protocol/seats';
 import type { Page } from '@playwright/test';
 import { expect, openPage, test } from './fixtures';
 import { origin, signUpMember } from './accounts';
@@ -76,6 +76,20 @@ export function testRoomChatLive() {
 
       const hostPage = await openPage(host.context, 'Room chat seated host');
       const visitorPage = await openPage(visitor.context, 'Room chat visitor');
+      let refusedHostDiscovery = false;
+      // Follow the server's admission-refusal contract once. The retry and
+      // all message transport still go through the real services.
+      await hostPage.route(
+        `**${address}`,
+        (route) => {
+          refusedHostDiscovery = true;
+          return route.fulfill({
+            status: 503,
+            headers: { 'retry-after': '1' },
+          });
+        },
+        { times: 1 },
+      );
       await hostPage.goto(`/rooms/${room.id}`);
       await visitorPage.goto(`/rooms/${room.id}`);
       for (const page of [hostPage, visitorPage]) {
@@ -101,6 +115,7 @@ export function testRoomChatLive() {
       const fromHost = 'The host answers: in two minutes';
       await post(visitorPage, fromVisitor);
       await expect(row(hostPage, fromVisitor)).toBeVisible();
+      expect(refusedHostDiscovery).toBe(true);
       await post(hostPage, fromHost);
       await expect(row(visitorPage, fromHost)).toBeVisible();
 

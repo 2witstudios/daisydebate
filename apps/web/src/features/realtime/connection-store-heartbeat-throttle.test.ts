@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { ENVELOPE_VERSION, heartbeatMs } from '@daisy/protocol';
+import { ENVELOPE_VERSION, heartbeatMs } from '@daisy/protocol/realtime';
 import { createConnectionStore } from './connection-store';
 import {
   FakeSocket,

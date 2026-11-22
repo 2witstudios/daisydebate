@@ -1,30 +1,28 @@
 import { roundOutcomeForAudience } from './round-outcome-audience';
 import type { RoundRoomAuthority } from './round-room-authority';
 import { createAppError } from '@daisy/errors';
+import { idSchema } from '@daisy/protocol/primitives';
 import {
-  idSchema,
   roundTranscriptReadSchema,
   TRANSCRIPT_CONTRACT_VERSION,
-  type LaunchedRound,
-} from '@daisy/protocol';
+} from '@daisy/protocol/round-transcript';
+import { type LaunchedRound } from '@daisy/protocol/round-view';
 import { eq } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { type Caller, type Account } from './room-command-facts';
 import { readAuthorizedRound } from './round-read-authority';
 import { readOrderedRoundUtterances } from './round-utterance-projection';
 import { readTranscriptFreeze } from './frozen-transcript';
 import { transcriptRevision } from './capture-history';
 import { closedStreamGaps, streamKey } from './capture-gaps';
-import type { CaptureRule } from '@daisy/protocol';
+import type { CaptureRule } from '@daisy/protocol/capture-verdict';
 import { transcriptSegments } from './schema/transcript-segments';
 import { roundViewFor } from './round-view-projection';
-
-type Reader = Pick<BunSQLDatabase, 'select'>;
+import { inTransaction, type TxSource, type Tx } from './tx';
 
 export const roundProtectedReads = ({
   database,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
 }) => ({
   async readRoundTranscript(input: {
     readonly roundId: string;
@@ -40,7 +38,7 @@ export const roundProtectedReads = ({
   }) {
     if (!idSchema.safeParse(input.roundId).success)
       throw createAppError('VALIDATION');
-    return database.transaction(async (tx) => {
+    return inTransaction(database, async (tx) => {
       const { round, owner } = await readAuthorizedRound(tx, input);
       return roundTranscriptReadSchema.parse({
         contractVersion: TRANSCRIPT_CONTRACT_VERSION,
@@ -61,7 +59,7 @@ export const roundProtectedReads = ({
  * revision, so its doorbell still refetches (never a stale "Capturing").
  */
 export async function readTranscriptSnapshot(
-  tx: Reader,
+  tx: Tx,
   roundId: string,
   captureRule: CaptureRule,
 ) {

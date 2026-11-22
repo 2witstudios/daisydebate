@@ -1,8 +1,11 @@
-import { entitlementGrantSchema, type EntitlementGrant } from '@daisy/protocol';
+import {
+  entitlementGrantSchema,
+  type EntitlementGrant,
+} from '@daisy/protocol/entitlements';
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
-
-type Executor = Pick<BunSQLDatabase, 'execute'>;
+import type { Tx } from './tx';
+import { run, query } from './raw-rows';
+import { z } from 'zod';
 
 /**
  * An account's entitlement grants. Read inside the caller's transaction:
@@ -10,11 +13,20 @@ type Executor = Pick<BunSQLDatabase, 'execute'>;
  * beta command, which bumps the same fence, cannot change underneath it.
  */
 export async function readEntitlementGrants(
-  tx: Executor,
+  tx: Tx,
   userId: string,
 ): Promise<readonly EntitlementGrant[]> {
-  const rows =
-    (await tx.execute(sql`select g.entitlement, g.source, g.organization_id as "organizationId",
+  const rows = await query(
+    tx,
+    z.object({
+      entitlement: z.string(),
+      source: z.string(),
+      organizationId: z.string().nullable(),
+      startsAt: z.string().nullable(),
+      expiresAt: z.string().nullable(),
+      hosting: z.json(),
+    }),
+    sql`select g.entitlement, g.source, g.organization_id as "organizationId",
       to_char(g.starts_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as "startsAt",
       to_char(g.expires_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as "expiresAt",
       case when v.id is not null then jsonb_build_object(
@@ -27,9 +39,9 @@ export async function readEntitlementGrants(
     left join account_hosting_versions v on v.id = g.hosting_version_id
       and v.user_id = g.user_id and v.source = g.source
     where g.user_id = ${userId} and g.revoked_at is null
-    order by g.entitlement, g.source`)) as unknown as unknown[];
-  return rows.map((row) => {
-    const value = row as Record<string, unknown>;
+    order by g.entitlement, g.source`,
+  );
+  return rows.map((value) => {
     return entitlementGrantSchema.parse(
       value.entitlement === 'tournament_hosting'
         ? {
@@ -70,16 +82,20 @@ const betaGrants = [
  * removes them.
  */
 export async function applyBetaEntitlementGrants(
-  tx: Executor,
+  tx: Tx,
   userId: string,
   state: 'approved' | 'revoked',
 ) {
   if (state === 'approved')
-    await tx.execute(sql`insert into account_entitlement_grants (user_id, entitlement, source)
+    await run(
+      tx,
+      sql`insert into account_entitlement_grants (user_id, entitlement, source)
       select ${userId}, entitlement, 'beta' from unnest(${`{${betaGrants.join(',')}}`}::text[]) as entitlement
-      on conflict do nothing`);
+      on conflict do nothing`,
+    );
   else
-    await tx.execute(
+    await run(
+      tx,
       sql`delete from account_entitlement_grants where user_id = ${userId} and source = 'beta'`,
     );
 }

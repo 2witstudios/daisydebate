@@ -1,11 +1,12 @@
+import { instantMs } from '@daisy/clock';
 import { assertRejects } from '@daisy/errors/testing';
+import { roundLifecycleFault } from '@daisy/protocol/round-lifecycle';
+import { runtimeCheckpointSchema } from '@daisy/protocol/round';
 import {
-  roundLifecycleFault,
-  runtimeCheckpointSchema,
   type HydratedSegment,
   type RoundCommand,
   type RoundProjection,
-} from '@daisy/protocol';
+} from '@daisy/protocol/runtime';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { RoundRuntime } from './round-runtime-api';
 import { createRoundRuntime } from './round-runtime';
@@ -120,13 +121,13 @@ const walk = (
       pick([
         {
           kind: 'pause',
-          atMs: Date.parse(now),
+          atMs: instantMs(now),
           cause: 'vendor_unreachable',
           confirmedUntilMs: null,
         },
-        { kind: 'begin_resume', atMs: Date.parse(now), countdownMs: 5_000 },
+        { kind: 'begin_resume', atMs: instantMs(now), countdownMs: 5_000 },
         ...(seed % 7 === 0
-          ? [{ kind: 'end', atMs: Date.parse(now) } as const]
+          ? [{ kind: 'end', atMs: instantMs(now) } as const]
           : []),
       ] as const),
     );

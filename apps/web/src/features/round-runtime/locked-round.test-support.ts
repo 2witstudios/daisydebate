@@ -1,11 +1,11 @@
-import { daisyBallotSource } from '@daisy/protocol';
+import { daisyBallotSource } from '@daisy/protocol/ballot-definition';
 import type { LockedRoundCommandContext } from '@daisy/db/rounds';
 import {
   daisyWinnerBallot,
-  emptyRuntimeCheckpointFor,
   panelRuleFor,
-  twoSides,
-} from '@daisy/protocol';
+} from '@daisy/protocol/ballot-definition';
+import { emptyRuntimeCheckpointFor } from '@daisy/protocol/round';
+import { twoSides } from '@daisy/protocol/seats';
 import { caller, now } from '../room-runtime/operations.test-support';
 import { launched } from './round.test-support';
 

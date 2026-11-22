@@ -33,7 +33,7 @@ const challengeSummary = {
   username: z.string(),
   mode: z.enum(competitionTypes),
   format: z.enum(ratingStyles),
-  /** The lobby both members share (ADR 0156), set at send; its Room opens there. */
+  /** The lobby both members share (ADR 0162), set at send; its Room opens there. */
   lobbyId: idSchema,
   createdAt: z.iso.datetime(),
   expiresAt: z.iso.datetime(),

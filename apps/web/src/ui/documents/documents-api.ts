@@ -1,3 +1,4 @@
+import { browserFetch } from '../edge/browser-request';
 import { serializeSaveBody } from './keepalive-budget';
 import type { DocumentsApi, StoredDocument } from './document-sync';
 
@@ -53,7 +54,7 @@ const receiptRevision = (value: unknown): number => {
  * so a stalled save fails instead of holding the saves queued behind it.
  */
 export function createDocumentsApi({
-  send = (path, init) => fetch(path, init),
+  send = (path, init) => browserFetch(path, init),
   signal = () => AbortSignal.timeout(REQUEST_TIMEOUT_MS),
 }: {
   readonly send?: Fetch;

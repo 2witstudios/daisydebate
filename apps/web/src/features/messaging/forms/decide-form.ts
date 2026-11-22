@@ -41,7 +41,8 @@ export function parseDmDecisionForm(channel: unknown, input: unknown) {
   const decision = form.get('decision');
   if (
     form.getAll('decision').length !== 1 ||
-    !['accept', 'decline', 'cancel'].includes(String(decision))
+    typeof decision !== 'string' ||
+    !['accept', 'decline', 'cancel'].includes(decision)
   )
     throw createAppError('VALIDATION');
   return {

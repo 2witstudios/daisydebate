@@ -1,7 +1,7 @@
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { drizzle } from 'drizzle-orm/bun-sql';
-import type { RoomListQuery } from '@daisy/protocol';
+import type { RoomListQuery } from '@daisy/protocol/room-contract';
 import { discoverRooms } from '../src/room-discovery';
 import { withFixture, type Fixture } from './constraint-helpers';
 import { createAuthorizationSubject } from './authorization.test-support';

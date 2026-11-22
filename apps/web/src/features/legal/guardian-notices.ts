@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { sha3Hex } from '@daisy/digest';
 import type { GuardianNoticeKind } from '@daisy/protocol/guardians';
 import type { LegalDocument } from './documents';
 import { agreementWords } from './agreements';
@@ -107,7 +107,7 @@ export function servedNotice(kind: GuardianNoticeKind): ServedNotice {
     kind,
     version: document.version,
     words,
-    digest: createHash('sha3-256').update(words).digest('hex'),
+    digest: sha3Hex(words),
   };
 }
 

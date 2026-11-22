@@ -1,5 +1,5 @@
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import type { Idle, Moved, Refused } from '../../forms/form-state';
 import { formRequestId, parseMessagingFormScope } from './form-scope';
 
@@ -55,7 +55,8 @@ export function parseReactionForm(
   if (
     !messageId.success ||
     typeof reaction !== 'string' ||
-    !['true', 'false'].includes(String(active)) ||
+    typeof active !== 'string' ||
+    !['true', 'false'].includes(active) ||
     form.getAll('reaction').length !== 1 ||
     form.getAll('active').length !== 1
   )

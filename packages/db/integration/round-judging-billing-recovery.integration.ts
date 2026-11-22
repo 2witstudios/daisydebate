@@ -1,6 +1,6 @@
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
-import { judgingPolicy } from '@daisy/protocol';
+import { judgingPolicy } from '@daisy/protocol/judging-policy';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { withJudgingJob } from './round-judging.test-support';
 setupRitewayBun();

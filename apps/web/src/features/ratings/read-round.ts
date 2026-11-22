@@ -1,13 +1,15 @@
 import {
   affirmativeSide,
   isDebatingSeat,
-  isRoundOver,
   negativeSide,
   sideOfSeat,
-  winnerOutcome,
-} from '@daisy/protocol';
+} from '@daisy/protocol/seats';
+import { isRoundOver } from '@daisy/protocol/round';
+import { winnerOutcome } from '@daisy/protocol/round-outcome';
 import type { Database } from '@daisy/db';
-import type { Ladder, RoundView } from '@daisy/protocol';
+import { createAppError } from '@daisy/errors';
+import type { Ladder } from '@daisy/protocol/ladder';
+import type { RoundView } from '@daisy/protocol/round-view';
 import {
   postingInstant,
   rateDebateSides,
@@ -80,6 +82,12 @@ export async function readRoundRatings(
     published.seasons.find((s) => s.id === postings[0]?.seasonId) ??
     published.seasons.find((s) => s.status === 'active');
   if (!season) return noSeason;
+  let ratedAt = now;
+  if (season.status === 'closed') {
+    if (season.endsAt === null)
+      throw createAppError('INTERNAL', 'A closed season has no end instant');
+    ratedAt = season.endsAt;
+  }
   const summaries = published.summaries.filter((s) => s.seasonId === season.id);
   const seats = round.participants.filter((p) => isDebatingSeat(p.seat));
   const standing = (actorId: string) =>
@@ -97,7 +105,9 @@ export async function readRoundRatings(
     const visible = (
       side: typeof first,
     ): side is NonNullable<ReturnType<typeof standing>>[] =>
-      Boolean(side?.length) && side!.every((row) => row !== undefined);
+      side !== undefined &&
+      side.length > 0 &&
+      side.every((row) => row !== undefined);
     if (visible(first) && visible(second)) {
       const participants = [...first, ...second];
       const input = {
@@ -161,11 +171,7 @@ export async function readRoundRatings(
       const current = standing(seat.actorId);
       const posted = postings.find((p) => p.actorId === seat.actorId);
       const view = current
-        ? ratingStanding(
-            current,
-            current.lastRatedAt,
-            season.status === 'closed' ? season.endsAt! : now,
-          )
+        ? ratingStanding(current, current.lastRatedAt, ratedAt)
         : null;
       const stake = stakes.get(seat.actorId);
       return [

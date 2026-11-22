@@ -1,35 +1,44 @@
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { z } from 'zod';
 import { createAppError } from '@daisy/errors';
-import { idSchema, type ChannelHistoryRecord } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
+import { type ChannelHistoryRecord } from '@daisy/protocol/messaging/channel-messages';
+import type { Tx } from '../tx';
+import { query, postgresInt8 } from '../raw-rows';
 
 /** The owner's header batch ceiling, matching the SQL function's slice. */
 const OBSERVATION_HEADER_BATCH = 1024;
 /** Shared counts only: the function returns no reactor, so none can be sent. */
-const reactionCounts = z.array(
+export const observationReactionCounts = z.array(
   z.object({ reaction: z.string(), count: z.number().int().positive() }),
 );
+export const observationWindowRow = z.object({
+  id: z.string().nullable(),
+  author_actor_id: z.string().nullable(),
+  text: z.string().nullable(),
+  reply_to_message_id: z.string().nullable(),
+  created_at: z.date().nullable(),
+  edited_at: z.date().nullable(),
+  removed_at: z.date().nullable(),
+  reactions: observationReactionCounts.nullable(),
+  authority_revision: postgresInt8,
+  change_version: postgresInt8,
+  sequence: postgresInt8.nullable(),
+  message_change_version: postgresInt8.nullable(),
+});
 const revision = (value: unknown) => {
   const parsed = Number(value);
   if (!Number.isSafeInteger(parsed) || parsed < 0)
     throw createAppError('INFRASTRUCTURE');
   return parsed;
 };
-const iso = (value: unknown) =>
-  value === null || value === undefined
-    ? null
-    : (value instanceof Date ? value : new Date(String(value))).toISOString();
-
 /**
  * Channel observation reads (ADR 0089), through two SECURITY DEFINER
  * functions only (`daisy_observation_channel_*`): the realtime role holds EXECUTE, never a
  * grant on message content. Headers go on the `headers` lane, windows on
  * `projection`; the composition root decides which pool each one gets.
  */
-export function channelObservationReads(
-  database: Pick<BunSQLDatabase, 'execute'>,
-) {
+export function channelObservationReads(database: Tx) {
   return {
     /** Current content (stream) and disclosure (authority) revisions; absent ids are deleted channels. */
     async readChannelObservationHeaders(channelIds: readonly string[]): Promise<
@@ -45,13 +54,19 @@ export function channelObservationReads(
         throw createAppError('VALIDATION');
       const ids = channelIds.map((id) => idSchema.parse(id));
       if (ids.length === 0) return new Map();
-      const rows = (await database.execute(
+      const rows = await query(
+        database,
+        z.object({
+          channel_id: z.string(),
+          change_version: postgresInt8,
+          authority_revision: postgresInt8,
+        }),
         sql`select channel_id, change_version, authority_revision
           from public.daisy_observation_channel_headers(array[${sql.join(
             ids.map((id) => sql`${id}`),
             sql`, `,
           )}]::text[])`,
-      )) as unknown as Array<Record<string, unknown>>;
+      );
       return new Map(
         rows.map((row) => [
           String(row.channel_id),
@@ -67,32 +82,43 @@ export function channelObservationReads(
       idSchema.parse(channelId);
       if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100)
         throw createAppError('VALIDATION');
-      const rows = (await database.execute(
+      const rows = await query(
+        database,
+        observationWindowRow,
         sql`select * from public.daisy_observation_channel_messages(${channelId}::text, ${limit}::integer)`,
-      )) as unknown as Array<Record<string, unknown>>;
+      );
       const header = rows[0];
       if (!header) return null;
-      const records: ChannelHistoryRecord[] = rows.flatMap((row) =>
-        row.id === null || row.id === undefined
-          ? []
-          : [
-              {
-                id: String(row.id),
-                channelId,
-                authorActorId: String(row.author_actor_id),
-                sequence: revision(row.sequence),
-                changeVersion: revision(row.message_change_version),
-                text: row.text === null ? null : String(row.text),
-                createdAt: iso(row.created_at)!,
-                editedAt: iso(row.edited_at),
-                removedAt: iso(row.removed_at),
-                reactions: reactionCounts.parse(row.reactions ?? []),
-                ...(row.reply_to_message_id === null
-                  ? {}
-                  : { replyToMessageId: String(row.reply_to_message_id) }),
-              },
-            ],
-      );
+      const records: ChannelHistoryRecord[] = rows.flatMap((row) => {
+        if (row.id === null) return [];
+        if (
+          row.author_actor_id === null ||
+          row.sequence === null ||
+          row.message_change_version === null ||
+          row.created_at === null
+        )
+          throw createAppError(
+            'INVARIANT',
+            'A channel message row is incomplete',
+          );
+        return [
+          {
+            id: row.id,
+            channelId,
+            authorActorId: row.author_actor_id,
+            sequence: revision(row.sequence),
+            changeVersion: revision(row.message_change_version),
+            text: row.text,
+            createdAt: row.created_at.toISOString(),
+            editedAt: row.edited_at?.toISOString() ?? null,
+            removedAt: row.removed_at?.toISOString() ?? null,
+            reactions: row.reactions ?? [],
+            ...(row.reply_to_message_id === null
+              ? {}
+              : { replyToMessageId: row.reply_to_message_id }),
+          },
+        ];
+      });
       return {
         contentRevision: revision(header.change_version),
         disclosureRevision: revision(header.authority_revision),

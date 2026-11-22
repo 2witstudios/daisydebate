@@ -1,4 +1,7 @@
-import { storedBallotDefinition, type BallotDefinition } from '@daisy/protocol';
+import {
+  storedBallotDefinition,
+  type BallotDefinition,
+} from '@daisy/protocol/ballot-definition';
 import type {
   SettingCommand,
   SettingRefusal,
@@ -481,7 +484,7 @@ function setSetting(
     key,
     hold,
     value,
-  } as SettingRow;
+  };
   if (
     facts.reached.some(({ chain }) =>
       enforcedAbove(key, chain, command.scope, facts.rows),
@@ -873,7 +876,7 @@ function stopFollowing(facts: SettingFacts, event: EventFact): Decision {
     const fromLeaving =
       (source.kind === 'organization' || source.kind === 'template') &&
       !after.some((scope) => sameScope(scope, source));
-    return fromLeaving ? [{ key, value: resolved.value as unknown }] : [];
+    return fromLeaving ? [{ key, value: resolved.value }] : [];
   });
   const kept = writeIntoEvent(event, after, facts.rows, leaving);
   if (

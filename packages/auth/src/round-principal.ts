@@ -2,7 +2,7 @@ import type {
   RoundCommandAuthority,
   RoundCommandPrincipal,
   RoundRefusal,
-} from '@daisy/protocol';
+} from '@daisy/protocol/round-command';
 import { admitsPrincipalAccess } from './participant-access';
 
 export function runScopeMatches(

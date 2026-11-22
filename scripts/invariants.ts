@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { attendanceInvariantFixtures } from './invariants-attendance';
 import { invariantIdOf as invariantId } from './invariant-error';
 import { readFile } from 'node:fs/promises';
@@ -16,19 +17,25 @@ import {
 import { roundPositionAt } from '@daisy/debate-engine/position';
 import {
   affirmativeSide,
-  daisyWinnerBallot,
-  emptyRuntimeCheckpointFor,
   judgeSeat,
   negativeSide,
-  panelRuleFor,
   sideSeat,
   twoSides,
-  type HydratedSegment,
-  type RoundLifecycle,
-  type RoundParticipantSeat,
-  type RoundRules,
+} from '@daisy/protocol/seats';
+import {
+  daisyWinnerBallot,
+  panelRuleFor,
+} from '@daisy/protocol/ballot-definition';
+import {
+  emptyRuntimeCheckpointFor,
   type RoundStatus,
-} from '@daisy/protocol';
+} from '@daisy/protocol/round';
+import {
+  type HydratedSegment,
+  type RoundParticipantSeat,
+} from '@daisy/protocol/runtime';
+import { type RoundLifecycle } from '@daisy/protocol/round-lifecycle';
+import { type RoundRules } from '@daisy/protocol/format';
 
 const root = resolve(import.meta.dir, '..');
 const t0 = '2026-01-01T00:00:00.000Z';
@@ -167,7 +174,7 @@ const fixtures: Readonly<Record<string, Fixture>> = {
       rules: rules(),
       checkpoint: freshCheckpoint,
       segments: [],
-      nowMs: Date.parse(t0),
+      nowMs: instantMs(t0),
     }),
   'stage-matches-clock': () =>
     createRoundRuntime({

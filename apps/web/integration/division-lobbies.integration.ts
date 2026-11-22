@@ -7,8 +7,8 @@ import {
   judgeSeat,
   negativeSide,
   sideSeat,
-  type RoomView,
-} from '@daisy/protocol';
+} from '@daisy/protocol/seats';
+import { type RoomView } from '@daisy/protocol/room-contract';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { withRoomRuntime } from './room-runtime.test-support';
 import { everyoneReady } from './round-judging.test-support';
@@ -168,7 +168,7 @@ test('older Open and newer Youth seasons agree across Open admission paths', asy
   );
 });
 
-/** Makes `member` the owner of a school club: club staff (ADR 0151, ADR 0156). */
+/** Makes `member` the owner of a school club: club staff (ADR 0151, ADR 0162). */
 const makeClubStaff = async (f: Fixture, member: Member) => {
   const id = createId();
   await f.sql`insert into organizations(id,kind,name,handle,owner_user_id)
@@ -176,7 +176,7 @@ const makeClubStaff = async (f: Fixture, member: Member) => {
   return id;
 };
 
-test('a Room belongs to the lobby it is created in (ADR 0156)', async () => {
+test('a Room belongs to the lobby it is created in (ADR 0162)', async () => {
   await withRoomRuntime(async (f) =>
     withSeasons(f, async () => {
       await setAge(f, f.host, 'seventeen');

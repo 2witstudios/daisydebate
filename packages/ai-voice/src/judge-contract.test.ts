@@ -1,10 +1,7 @@
-import {
-  ballotCategories,
-  ballotLimits,
-  daisyWinnerBallot,
-  type JudgingFinish,
-  twoSides,
-} from '@daisy/protocol';
+import { ballotCategories, ballotLimits } from '@daisy/protocol/ballot';
+import { daisyWinnerBallot } from '@daisy/protocol/ballot-definition';
+import { type JudgingFinish } from '@daisy/protocol/round-judging-attempt';
+import { twoSides } from '@daisy/protocol/seats';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { aiJudgeFor } from './ai-judge';
 import { ballotInstructions } from './judge-instructions';

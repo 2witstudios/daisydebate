@@ -276,7 +276,7 @@ and `_`; it is not a wildcard expression. Removed/scrubbed message text cannot
 match or return a message identifier. Results carry the existing validated
 history envelope and preserve the query when following an earlier-page cursor.
 
-The conversation's GET search form works without JavaScript. Search text stays
+The conversation's search is a GET `SearchForm`. Search text stays
 in the request/browser navigation; this implementation adds no query log,
 durable search record, event payload or analytics field. Existing reading-policy holds and erasure rules remain applicable. Contract and protected-refusal tests are branch proof;
 the new real database/HTTP and browser controls remain scheduled acceptance.
@@ -381,8 +381,8 @@ pair, then evaluates current authorization and policy before creating a request.
 Discovery cannot replace that transaction or grant admission.
 
 The participant inbox links to native username-based DM and private-group
-creation forms. Both preserve draft text and the request identity on refusal,
-and submit without JavaScript. The HTTP boundary requires the current signed-in
+creation forms. Both preserve draft text and the request identity on refusal.
+The HTTP boundary requires the current signed-in
 member and same origin before validated, rate-limited username discovery. Both
 actor-ID and username entry points converge on the same account/pair/channel
 transaction and canonical creation evaluator. Proposed usernames never install
@@ -435,7 +435,7 @@ channel ID and lifecycle and cannot renew a grant or repeat a mutation. Current
 account erasure still refuses replay. Group inbox entries distinguish authorized
 group conversations for membership navigation; this adds no title or member
 list projection. Native membership forms preserve target and retry identity on
-refusal and work with JavaScript disabled. The expanded management integration
+refusal and keep a target typed before hydration. The expanded management integration
 and browser controls require execution on their exact composed candidate;
 source tests alone do not establish transactional or browser acceptance.
 
@@ -503,7 +503,7 @@ The dedicated preference store reads and updates existing actor-state selections
 
 Own clear first fences the current account, locks the actual scoped actor-state row, and uses `channel.preferences.clear` only for that persisted row. It deletes only that row, without upsert, membership recreation or content access. An absent row gets only current own-collection authorization and returns `cleared:false`. Removed members may clear their own saved state while preference reads remain concealed. Existing canonical actor-state privacy declarations and pending lawful-basis/retention decisions apply unchanged.
 
-The mounted JSON read/update/clear routes and `/messages/[channelId]/preferences` native form share this store and canonical authorization. Every selection is explicit; missing selections are not product defaults. The form works before hydration and with JavaScript disabled, retaining choices after refusal. Branch PostgreSQL and browser proofs are required before this increment is accepted; no production policy is supplied.
+The mounted JSON read/update/clear routes and `/messages/[channelId]/preferences` native form share this store and canonical authorization. Every selection is explicit; missing selections are not product defaults. The form works before hydration, retaining choices after refusal. Branch PostgreSQL and browser proofs are required before this increment is accepted; no production policy is supplied.
 
 ### Ephemeral typing aggregate
 
@@ -554,7 +554,7 @@ acceptance; no production privacy-worker scheduling is claimed.
 
 Addition uses current `channel.post`. Removal uses distinct `channel.reaction.remove` with `MessagingReactionAuthorizationFact` (`kind:channel_reaction`, current `channel`, and existing locked `reaction:{actorId,channelId,messageId,reaction}`). MSG must project this from the persisted reaction joined to its same-channel message; a request intent or absent row is not an association fact. The evaluator requires the caller's current bound non-erased member account, caller-owned association, matching channel, valid message identifier and nonempty canonical reaction value, plus current channel entitlement and approved fresh reading evidence. Archived or posting-ineligible channels may permit this cleanup; it grants no read, post or message-text removal. MSG retains scoped deletion, message/reaction binding, change-version and own receipt checks under the same transaction. No reaction choice or size default is introduced; existing reaction inventory and pending policy declarations apply.
 
-The mounted reaction consumer accepts explicit deployment-injected size and addition choices; missing configuration is unavailable. Native reaction forms work with and without JavaScript. The current scoped summary exposes only choice/count/own status, never actor lists. The reactions page reads that summary over authorized HTTP. History batches reaction summaries per page, with viewer ownership carried only in its HTTP viewer block. Shared observation carries `{reaction,count}` on each live message, never viewer ownership or reactor identities (ADR 0115); removed messages disclose neither. The reader's own actions update their overlay. HTTP-only latest, older and search views use the accepted addition count, or a separately authorized summary read after withdrawal, because withdrawal itself grants no read authority. Each actual association change advances the channel and message change versions without consuming message sequence or marking text edited. Changes remain current message snapshots with their shared reaction counts; the scoped summary endpoint also serves the dedicated reaction controls.
+The mounted reaction consumer accepts explicit deployment-injected size and addition choices; missing configuration is unavailable. The current scoped summary exposes only choice/count/own status, never actor lists. The reactions page reads that summary over authorized HTTP. History batches reaction summaries per page, with viewer ownership carried only in its HTTP viewer block. Shared observation carries `{reaction,count}` on each live message, never viewer ownership or reactor identities (ADR 0115); removed messages disclose neither. The reader's own actions update their overlay. HTTP-only latest, older and search views use the accepted addition count, or a separately authorized summary read after withdrawal, because withdrawal itself grants no read authority. Each actual association change advances the channel and message change versions without consuming message sequence or marking text edited. Changes remain current message snapshots with their shared reaction counts; the scoped summary endpoint also serves the dedicated reaction controls.
 
 Own actor/channel/request receipts bind the message and canonical operation fingerprint. A matching retry reads the current aggregate and never restores an association deleted since the original request. Conflicting payloads refuse; an absent own row cannot mint cleanup authority. Actual removals scope actor/channel/message/choice, preserve other participants' associations, and use the canonical removal capability after the locked row is read. Existing reaction associations and values remain personal/private under the canonical inventory and pending PRIV3/PRIV4 declarations; no new schema or retention exception is introduced. New mounted/native assertions require exact-candidate service/browser proof before acceptance.
 

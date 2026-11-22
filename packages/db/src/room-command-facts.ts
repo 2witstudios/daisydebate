@@ -1,19 +1,22 @@
 import { isMinorAgeBand } from './guardians/lobby-permissions';
 import { and, eq, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type {
   RoomAssemblyState,
   RoomCommandReceipt,
   RoomParticipant,
-  FormatDefinition,
-  AiRole,
-} from '@daisy/protocol';
-import { buildRoomTopic } from '@daisy/protocol';
-import { botDifficulties } from '@daisy/protocol';
-import { idSchema, roomRoundLinkOf } from '@daisy/protocol';
+} from '@daisy/protocol/room-contract';
+import type { FormatDefinition } from '@daisy/protocol/format';
+import type { AiRole } from '@daisy/protocol/ai-roles';
+import { buildRoomTopic } from '@daisy/protocol/topics';
+import { botDifficulties } from '@daisy/protocol/room-read';
+import { idSchema } from '@daisy/protocol/primitives';
+import { roomRoundLinkOf } from '@daisy/protocol/room-contract';
 import { createAppError, createRefusal } from '@daisy/errors';
-import { authorizationAccountFact } from './authorization-account';
+import {
+  authorizationAccountFact,
+  authorizationAccountRow,
+} from './authorization-account';
 import {
   lockAuthorizationActors,
   loadAuthorizationAccount,
@@ -24,7 +27,7 @@ import { actors } from './schema/actors';
 import { basisSource } from './room-basis';
 import { users } from './schema/users';
 import { accountAge } from './schema/account-age';
-import type { AgeBand } from '@daisy/protocol';
+import type { AgeBand } from '@daisy/protocol/ladder';
 import { lobbies } from './schema/lobbies';
 import type { LobbyAgeRule } from '@daisy/protocol/lobby/eligibility';
 import { divisionAgeBand } from './ladder-division-band';
@@ -39,11 +42,11 @@ import { rounds } from './schema/rounds';
 
 import { formats } from './schema/formats';
 import { formatRevisions } from './schema/format-revisions';
+import type { Tx } from './tx';
+import { takeLock, transactionLocks } from './locks';
+import { query } from './raw-rows';
+import { z } from 'zod';
 
-export type Tx = Pick<
-  BunSQLDatabase,
-  'select' | 'insert' | 'update' | 'delete' | 'execute'
->;
 export type Caller = { readonly userId: string; readonly actorId: string };
 export type Account = ReturnType<typeof authorizationAccountFact>;
 export type AuthorizeRoom = (
@@ -70,7 +73,7 @@ export const requireAccount = async (
 };
 /** Standalone reads only: never upgrade this compatible reader fence to a writer fence. */
 export const sharedAccount = async (
-  tx: Pick<Tx, 'execute'>,
+  tx: Tx,
   caller: Caller,
 ): Promise<Account> => {
   if (
@@ -78,13 +81,12 @@ export const sharedAccount = async (
     !idSchema.safeParse(caller.actorId).success
   )
     throw createAppError('VALIDATION');
-  const rows = await tx.execute(
+  const rows = await query(
+    tx,
+    authorizationAccountRow,
     sql`select * from public.daisy_room_read_account_v2(${caller.actorId}::text, ${caller.userId}::text)`,
   );
-  return authorizationAccountFact(
-    (rows as unknown as Parameters<typeof authorizationAccountFact>[0][])[0] ??
-      null,
-  );
+  return authorizationAccountFact(rows[0] ?? null);
 };
 export type Actor = {
   readonly guardianLobbyIds?: readonly string[] | undefined;
@@ -110,7 +112,7 @@ const aiRoleOf = (
   return null;
 };
 export const actorFact = async (
-  tx: Pick<BunSQLDatabase, 'select'>,
+  tx: Tx,
   actorId: string,
   eligibility?: {
     readonly lobbyId: string;
@@ -330,9 +332,7 @@ const hydrateRoom = async (
   };
 };
 export const lockCommand = (tx: Tx, commandId: string) =>
-  tx.execute(
-    sql`select pg_advisory_xact_lock(hashtextextended(${commandId}, 59001))`,
-  );
+  takeLock(tx, transactionLocks.roomCommand(commandId));
 export const replayReceipt = async (
   tx: Tx,
   commandId: string,
@@ -396,9 +396,11 @@ export const appendRoomChanged = (
     },
   });
 export const transactionNow = async (tx: Tx): Promise<string> => {
-  const [row] = (await tx.execute(
+  const [row] = await query(
+    tx,
+    z.object({ now: z.date() }),
     sql`select statement_timestamp() as now`,
-  )) as unknown as Array<{ now: Date }>;
+  );
   if (!row) throw createAppError('INFRASTRUCTURE');
   return new Date(row.now).toISOString();
 };

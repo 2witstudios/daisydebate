@@ -4,7 +4,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   defaultNotificationChoices,
   notificationChoicePairs,
-} from '@daisy/protocol';
+} from '@daisy/protocol/notifications';
 import { NotificationPreferencesForm } from './notification-preferences-form';
 
 setupRitewayBun();

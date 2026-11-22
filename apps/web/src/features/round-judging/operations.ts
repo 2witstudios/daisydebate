@@ -11,7 +11,7 @@ import type {
   JudgingAttemptCategory,
   JudgingAttemptDiagnostic,
   JudgingRecoveryReason,
-} from '@daisy/protocol';
+} from '@daisy/protocol/round-judging-attempt';
 import type { Database } from '@daisy/db';
 import { createAppError } from '@daisy/errors';
 import { prepareRoundBallotSubmission } from '../round-ballots/operations';
@@ -114,13 +114,14 @@ export function createRoundJudgingOperations(input: {
           );
           return 'concluded';
         }
-        const saved = await input.store.saveRoundJudgingResult(
+        // A saved final ballot is always held for submission.
+        await input.store.saveRoundJudgingResult(
           scope,
           token,
           judged.ballot,
           usage,
         );
-        return saved.kind === 'held' ? 'ballot_held' : 'concluded';
+        return 'ballot_held';
       };
       /**
        * One provider attempt buys the one stage the job needs (ADR 0125): a

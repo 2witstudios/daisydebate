@@ -1,10 +1,8 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
-import {
-  isRoundLifecycle,
-  roundStatuses,
-  type RoundOutcome,
-} from '@daisy/protocol';
+import { isRoundLifecycle } from '@daisy/protocol/round-lifecycle';
+import { roundStatuses } from '@daisy/protocol/round';
+import { type RoundOutcome } from '@daisy/protocol/round-outcome';
 import { rejected, withFixture } from './constraint-helpers';
 
 setupRitewayBun();

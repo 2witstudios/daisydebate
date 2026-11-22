@@ -3,7 +3,7 @@ import type {
   AuthorizationInput,
   AuthorizationDecision,
 } from '@daisy/auth/authorization';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import {
   hostDrawOverviewSchema,
   type HostDrawOverview,

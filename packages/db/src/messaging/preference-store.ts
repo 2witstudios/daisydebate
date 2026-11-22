@@ -1,6 +1,4 @@
-import type { AuthorizationTransaction } from '../authorization';
 import { invalidateMessagingInboxes } from './inbox-change';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type { MessagingAuthorizationFence } from './records';
 import {
   restartingRead,
@@ -11,9 +9,10 @@ import {
   clearOwnMessagingPreference,
   type MessagingPreferenceClearFence,
 } from './preference-clear';
+import { inTransaction, type TxSource, type Tx } from '../tx';
 /** Dedicated methods always use their own explicit capability, never a caller-selected weaker fence. */
 export function createMessagingPreferenceStore(
-  database: BunSQLDatabase,
+  database: TxSource,
   authorize: {
     readonly read: MessagingAuthorizationFence;
     readonly update: MessagingAuthorizationFence;
@@ -25,7 +24,7 @@ export function createMessagingPreferenceStore(
     scope: Scope,
     work: (
       frame: ReturnType<typeof channelPreferenceFrame>,
-      tx: AuthorizationTransaction,
+      tx: Tx,
     ) => Promise<T>,
   ) =>
     // Read state is the actor's own row: shared fences, like reads (MSG-2.2-arch1).
@@ -54,7 +53,7 @@ export function createMessagingPreferenceStore(
         return result;
       }),
     clear: (scope: Scope) =>
-      database.transaction((tx) =>
+      inTransaction(database, (tx) =>
         clearOwnMessagingPreference(tx, scope, authorize.clear),
       ),
   };

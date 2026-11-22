@@ -1,3 +1,4 @@
+import { StatusRegion } from '../../../../ui/components/status-region/status-region';
 import { analysisRequestNotice } from '../../../../features/round-analysis/request-notice';
 import { floorProps } from './floor/floor-props';
 import { BoundedDocuments } from '../../../../ui/documents/bounded-documents';
@@ -10,12 +11,14 @@ import { RoundRatings } from '../../../../ui/ranked/round-ratings';
 import { readPersistedBallot } from '../../judge/ballot/[roundId]/actions';
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { systemClock } from '@daisy/clock';
+import { nowMs, systemClock } from '@daisy/clock';
 import { postRoundCallOffered } from '../../../../features/post-round-call/offered';
 import { MediaPageLink } from '../../../../ui/round-media/media-page-link';
 import { notFound, redirect } from 'next/navigation';
 import { createAppError } from '@daisy/errors';
-import { idSchema, isDebatingSeat, type RoundView } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
+import { isDebatingSeat } from '@daisy/protocol/seats';
+import { type RoundView } from '@daisy/protocol/round-view';
 import type { SearchParams } from '../../../../features/access/decision';
 import { accessOrTemporary } from '../../../../lib/access';
 import { isLiveDebater } from '../../../../ui/debate-room/live-round';
@@ -33,7 +36,7 @@ import { drawReconnectDelaySeconds } from '../../../../ui/debate-room/reconnect-
 import { audienceLinkPageHref } from '../../../../features/audience-link/audience-link';
 import { RoundAnalysis } from '../../../../ui/round-analysis/round-analysis';
 import { isTemporaryRefusal } from '@daisy/db/capacity';
-import { temporarilyRefused } from '../../../../server/temporary-read';
+import { temporarilyRefused } from '../../../../features/resource-sync/temporary-read';
 import { transcriptLines } from '../../../../ui/round-result/result-view';
 
 import {
@@ -136,7 +139,7 @@ export default async function RoundPage({
   // A seated human may go back to the Round's post-round call (ADR 0127).
   const onCall =
     identity.state === 'member' &&
-    postRoundCallOffered(result.round, Date.parse(systemClock.now())) &&
+    postRoundCallOffered(result.round, nowMs(systemClock)) &&
     result.round.participants.some(
       (p) =>
         !('anonymous' in p) &&
@@ -187,9 +190,13 @@ export default async function RoundPage({
         {identity.state === 'member' ? (
           <>
             {reported ? (
-              <p role="status" className="text-sm text-ink-muted">
+              <StatusRegion
+                as="p"
+                role="status"
+                className="text-sm text-ink-muted"
+              >
                 {reportAnswerText(reported)}
-              </p>
+              </StatusRegion>
             ) : null}
             <ReportForm
               targetKind="round"
@@ -200,7 +207,7 @@ export default async function RoundPage({
           </>
         ) : null}
       </RoundReceipt>
-      {ownsFiles && filePrincipal !== null ? (
+      {ownsFiles ? (
         <BoundedDocuments>
           <DocumentManager principalId={filePrincipal.userId} />
         </BoundedDocuments>

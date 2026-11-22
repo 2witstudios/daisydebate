@@ -1,6 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { state } from './room-assembly.test-support';
-import { sideSeat, type PendingRoomInvitation } from '@daisy/protocol';
+import { sideSeat } from '@daisy/protocol/seats';
+import { type PendingRoomInvitation } from '@daisy/protocol/room-invitations';
 import { decideInvitationEnd, decideRoomInvitation } from './room-invitations';
 
 setupRitewayBun();

@@ -1,3 +1,6 @@
+import { StatusRegion } from '../components/status-region/status-region';
+import { RefusedPageRetries } from '../debate-room/refused-page-retries-client';
+
 type ReadFailure = 'temporary' | 'lasting';
 
 /** A part of the result: what was read, and how its read failed, if it did. */
@@ -39,9 +42,9 @@ export const resultRetryOf = (
 };
 
 /**
- * Part of a finished Round's result was not read. With `retrySeconds`, a plain
- * refresh brings it back with or without script, always as a GET, and applies
- * every rule again; without it, asking again is the reader's choice.
+ * Part of a finished Round's result was not read. With `retrySeconds`, the
+ * server is asked again in place, which applies every rule again; without it,
+ * asking again is the reader's choice.
  */
 export function ResultUnavailable({
   retrySeconds,
@@ -51,13 +54,13 @@ export function ResultUnavailable({
   return (
     <section className="flex flex-col gap-2 rounded-xl bg-surface p-6 shadow-1">
       {retrySeconds === null ? null : (
-        <meta httpEquiv="refresh" content={String(retrySeconds)} />
+        <RefusedPageRetries firstWaitMs={retrySeconds * 1000} />
       )}
-      <p role="status">
+      <StatusRegion as="p" role="status">
         {retrySeconds === null
           ? 'Part of this result could not load.'
           : 'Part of this result could not load. Trying again.'}
-      </p>
+      </StatusRegion>
       <a className="font-strong underline" href="">
         Try now
       </a>

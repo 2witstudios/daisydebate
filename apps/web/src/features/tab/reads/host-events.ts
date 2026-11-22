@@ -4,7 +4,7 @@ import type {
   AuthorizationDecision,
 } from '@daisy/auth/authorization';
 import type { TabStore } from '@daisy/db/tab';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import {
   hostEventsViewSchema,
   type HostEventsView,
@@ -116,14 +116,19 @@ export const readHostEvents =
               wording: null,
               resolution: { poolId: pool.id, poolResolutionId: null },
             })),
-            ...facts.resolutions.map((word) => ({
-              key: `word:${word.id}`,
-              label: setup.pools.find((pool) => pool.id === word.poolId)!.name,
-              wording: canReadWord(word.id)
-                ? { kind: 'shown', text: word.text }
-                : { kind: 'withheld', addedAt: word.createdAt.toISOString() },
-              resolution: { poolId: word.poolId, poolResolutionId: word.id },
-            })),
+            ...facts.resolutions.map((word) => {
+              const pool = setup.pools.find((one) => one.id === word.poolId);
+              if (!pool)
+                throw createAppError('INVARIANT', 'Resolution pool is missing');
+              return {
+                key: `word:${word.id}`,
+                label: pool.name,
+                wording: canReadWord(word.id)
+                  ? { kind: 'shown', text: word.text }
+                  : { kind: 'withheld', addedAt: word.createdAt.toISOString() },
+                resolution: { poolId: word.poolId, poolResolutionId: word.id },
+              };
+            }),
           ],
           pinOptions: [
             ...facts.formats.map((format) => ({

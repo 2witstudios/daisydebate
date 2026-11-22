@@ -1,7 +1,7 @@
 import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import type { CoverageGap } from '@daisy/protocol';
+import type { CoverageGap } from '@daisy/protocol/recording';
 import { coverageParts } from '../../../features/recording/coverage-statement';
 import type { RecordingMediaPanel } from '../../../features/recording/history';
 import { RecordingPlayer } from './recording-player';

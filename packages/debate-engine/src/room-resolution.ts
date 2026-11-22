@@ -1,4 +1,4 @@
-import type { RoomResolutionSelection } from '@daisy/protocol';
+import type { RoomResolutionSelection } from '@daisy/protocol/room-resolution';
 
 /**
  * The resolution a new Room starts with (ADR 0092, amended by ADR 0142). The

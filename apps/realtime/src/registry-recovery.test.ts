@@ -119,7 +119,7 @@ test('a denial on one topic leaves another topic attached', async () => {
 
 test('access.revoked ends exactly the named subscription on its request', async () => {
   const { buildRoundTopic, buildUserInboxTopic } =
-    await import('@daisy/protocol');
+    await import('@daisy/protocol/topics');
   const revoked = 'f'.repeat(24);
   const kept = 'g'.repeat(24);
   const f = fixture();

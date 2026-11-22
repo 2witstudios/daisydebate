@@ -1,6 +1,6 @@
 import { ladderBoardHref } from '../../features/leaderboard/query';
 import Link from 'next/link';
-import type { RatingDivision } from '@daisy/protocol';
+import type { RatingDivision } from '@daisy/protocol/ladder';
 import {
   noLadderReason,
   rankedRoomLadder,
@@ -17,7 +17,7 @@ const heading = 'text-xs font-bold tracking-widest text-ink-muted uppercase';
 const ladderCard = 'flex flex-col gap-3 rounded-md bg-surface-overlay p-4';
 
 /**
- * The member's one ranked rating, on their own lobby's ladder (ADR 0156):
+ * The member's one ranked rating, on their own lobby's ladder (ADR 0162):
  * this season's standing; a standing kept from an earlier season is no
  * rating this season.
  */
@@ -38,7 +38,7 @@ export const rankedLadderView = (
 
 /**
  * The Ranked page's ratings, as YRanked and YRankedAdult draw them: one
- * rating, named by no ladder, style or division (owner copy, ADR 0156). With no age on record, the age prompt.
+ * rating, named by no ladder, style or division. With no age on record, the age prompt.
  */
 export function RankedLadders({
   standings,

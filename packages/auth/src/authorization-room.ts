@@ -1,4 +1,4 @@
-import { isDebatingSeat } from '@daisy/protocol';
+import { isDebatingSeat } from '@daisy/protocol/seats';
 import { liveAudience } from './live-audience';
 import type {
   AuthorizationCapability,

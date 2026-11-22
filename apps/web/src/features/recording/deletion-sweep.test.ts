@@ -1,4 +1,5 @@
-import type { RecordingLifecycle } from '@daisy/protocol';
+import { instantMs } from '@daisy/clock';
+import type { RecordingLifecycle } from '@daisy/protocol/recording';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   deletionRetryAt,
@@ -226,7 +227,7 @@ test('deletionRetryAt doubles from a minute to an hour', () => {
     given: 'growing attempts',
     should: 'back off and stop at an hour',
     actual: [0, 1, 20].map(
-      (attempts) => Date.parse(deletionRetryAt(0, attempts)) / 60_000,
+      (attempts) => instantMs(deletionRetryAt(0, attempts)) / 60_000,
     ),
     expected: [1, 2, 60],
   });

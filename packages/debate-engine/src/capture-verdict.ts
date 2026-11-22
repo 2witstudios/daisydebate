@@ -1,6 +1,6 @@
 import { botGrantUnused } from './bot-grant';
+import { CAPTURE_COVERAGE_TOLERANCE } from '@daisy/protocol/capture-timing';
 import {
-  CAPTURE_COVERAGE_TOLERANCE,
   type CaptureFacts,
   type CaptureGap,
   type CaptureInterval,
@@ -9,7 +9,7 @@ import {
   type CaptureVerdict,
   type CoverageEdges,
   type StreamCoverage,
-} from '@daisy/protocol';
+} from '@daisy/protocol/capture-verdict';
 
 type Range = CaptureGap;
 

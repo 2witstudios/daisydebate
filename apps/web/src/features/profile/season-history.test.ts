@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import type { Ladder } from '@daisy/protocol';
+import type { Ladder } from '@daisy/protocol/ladder';
 import { seasonHistoryOf } from './season-history';
 
 setupRitewayBun();

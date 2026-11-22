@@ -15,7 +15,7 @@ import {
   type StaffMinimumBand,
 } from './staff-minimum-band';
 import type { TenantScope } from '../tenant-scope';
-import type { TabTransaction } from './tab-transaction';
+import type { Tx } from '../tx';
 
 /** An `organizations` row, as the commands read it. */
 export type OrganizationRow = {
@@ -93,7 +93,7 @@ const organizationColumns = {
 
 /** The organization's row, locked for the command that changes it. */
 export const lockOrganization = async (
-  tx: TabTransaction,
+  tx: Tx,
   organizationId: string,
   strength: 'update' | 'share' | null = 'update',
 ): Promise<OrganizationRow | null> => {
@@ -107,7 +107,7 @@ export const lockOrganization = async (
 
 /** Whether another organization holds the handle, case-insensitively. */
 const handleTaken = async (
-  tx: TabTransaction,
+  tx: Tx,
   handle: string,
   organizationId: string,
 ): Promise<boolean> => {
@@ -126,7 +126,7 @@ const handleTaken = async (
 
 /** `staff.minimum_band` resolved at this organization. */
 export const loadStaffMinimumBand = async (
-  tx: TabTransaction,
+  tx: Tx,
   organizationId: string,
 ): Promise<StaffMinimumBand> => {
   const [row] = await tx
@@ -144,7 +144,7 @@ export const loadStaffMinimumBand = async (
 
 /** This organization's memberships of the people named. */
 export const loadMemberships = async (
-  tx: TabTransaction,
+  tx: Tx,
   organizationId: string,
   userIds: readonly string[],
 ): Promise<readonly MembershipRow[]> =>
@@ -167,7 +167,7 @@ export const loadMemberships = async (
 
 /** The people's memberships and grants in an organization that exists. */
 const peopleRows = async (
-  tx: TabTransaction,
+  tx: Tx,
   scope: TenantScope,
   organization: OrganizationRow | null,
   people: readonly string[],
@@ -185,7 +185,7 @@ const peopleRows = async (
       };
 
 const roleNamedOf = async (
-  tx: TabTransaction,
+  tx: Tx,
   command: OrganizationCommand,
 ): Promise<RoleRow | null> => {
   if (command.type !== 'give-grant') return null;
@@ -199,7 +199,7 @@ const roleNamedOf = async (
  * row locked.
  */
 export const loadOrganizationFacts = async (
-  tx: TabTransaction,
+  tx: Tx,
   input: OrganizationCommandInput,
   scope: TenantScope,
 ): Promise<OrganizationCommandFacts> => {

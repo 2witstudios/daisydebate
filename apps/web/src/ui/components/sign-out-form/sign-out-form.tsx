@@ -1,11 +1,12 @@
 'use client';
 
+import { Button } from '../button/button';
 import { clearAccountResumeRecords } from '../../../features/rooms/resume-departure';
 import { clearAccountMediaPreferences } from '../../../features/round-media/account-signout-cleanup';
 
 /**
  * The one sign-out control (ISSUE-691, review F9): a native form posting to
- * /auth/sign-out, so it works without JavaScript. `next` is this page, where
+ * /auth/sign-out, so it works before hydration. `next` is this page, where
  * a failed sign-out returns with `?signOut=failed`; success lands on /sign-in.
  */
 export function SignOutForm({
@@ -25,9 +26,9 @@ export function SignOutForm({
       }}
     >
       <input type="hidden" name="next" value={next} />
-      <button type="submit" className={className}>
+      <Button variant="unstyled" type="submit" className={className}>
         Sign out
-      </button>
+      </Button>
     </form>
   );
 }

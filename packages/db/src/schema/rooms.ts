@@ -1,18 +1,23 @@
+import { lifecycleSqlList } from '../lifecycle-sql';
 import { ladders } from './ladders';
 import {
-  competitionTypes,
-  twoSideKeys,
-  type TwoSideKey,
-  roomCaptureSchema,
-  roomConfigSchema,
-  seatKinds,
+  openRoomStatuses,
   roomStatuses,
   type RoomView,
-  roomExecutionPlanSchema,
-  roundRulesSchema,
-  type CompetitionType,
+} from '@daisy/protocol/room-contract';
+import { competitionTypes, type CompetitionType } from '@daisy/protocol/round';
+import {
+  twoSideKeys,
+  type TwoSideKey,
+  seatKinds,
   type SeatKind,
-} from '@daisy/protocol';
+} from '@daisy/protocol/seats';
+import { roomCaptureSchema } from '@daisy/protocol/room-capture';
+import {
+  roomConfigSchema,
+  roomExecutionPlanSchema,
+} from '@daisy/protocol/room';
+import { roundRulesSchema } from '@daisy/protocol/format';
 import type { lobbyKinds } from '@daisy/protocol/lobby';
 import { sql } from 'drizzle-orm';
 import {
@@ -173,7 +178,7 @@ export const rooms = pgTable(
     ),
     index('rooms_discovery_assembly_idx')
       .on(table.lobbyId, table.createdAt, sql`${table.id} collate "C"`)
-      .where(sql`${table.status} in ('assembling', 'ready')`),
+      .where(sql`${table.status} in ${lifecycleSqlList(openRoomStatuses)}`),
     index('rooms_host_actor_idx').on(table.hostActorId),
     unique('rooms_id_lobby_unique').on(table.id, table.lobbyId),
     index('rooms_lobby_kind_idx').on(table.lobbyId, table.lobbyKind),
@@ -246,7 +251,7 @@ export const rooms = pgTable(
     // its seats take the drawn sides and team 1's side reads Affirmative.
     check(
       'rooms_ranked_sides_open_check',
-      sql`${table.competitionType} <> 'ranked' or ${table.status} not in ('assembling', 'ready') or ${table.teamOneSide} is null`,
+      sql`${table.competitionType} <> 'ranked' or ${table.status} not in ${lifecycleSqlList(openRoomStatuses)} or ${table.teamOneSide} is null`,
     ),
     check(
       'rooms_visibility_check',

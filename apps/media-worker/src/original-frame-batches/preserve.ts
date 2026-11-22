@@ -2,9 +2,9 @@ import { createAppError } from '@daisy/errors';
 import { isTransientControlFailure } from '@daisy/media/worker';
 import {
   canonicalCaptureEvidenceBody,
-  evidenceIngressReplySchema,
   type CaptureEvidenceBody,
-} from '@daisy/protocol';
+} from '@daisy/protocol/capture-evidence-body';
+import { evidenceIngressReplySchema } from '@daisy/protocol/evidence-ingress-reply';
 import { CAPTURE_OUTAGE_BUDGET_MS } from '../capture-memory';
 
 /** Local admission only: a committed original payload is not permission to publish or proof of hearing. */

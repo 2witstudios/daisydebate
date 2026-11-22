@@ -1,7 +1,7 @@
 import type { Database } from '@daisy/db';
 import { createAppError } from '@daisy/errors';
 import { CLIENT_IP_HEADER } from '@daisy/ingress/client-ip';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { releaseRecipientSchema } from '@daisy/protocol/media-release';
 import { z } from 'zod';
 import {
@@ -191,14 +191,14 @@ export function composeMediaReleaseHandlers(
             const needing =
               await deps.store.mediaReleaseClubs.countClubReleasesNeeded(
                 caller.userId,
-                decodeURIComponent(club),
+                club,
               );
             if (needing === null) throw createAppError('NOT_FOUND');
             return { needing };
           }
           const read = await deps.store.mediaReleaseClubs.readClubReleases(
             caller.userId,
-            decodeURIComponent(club),
+            club,
           );
           if (read === null) throw createAppError('NOT_FOUND');
           return { read, nowMs: deps.nowMs() };

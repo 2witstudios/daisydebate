@@ -1,3 +1,4 @@
+import { addMs } from '@daisy/clock';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
@@ -48,9 +49,10 @@ test(
           !claimed.state.claim
         )
           throw Error('Missing short initial claim');
-        claimed.state.claim.expiresAt = new Date(
-          Date.parse(claimed.state.claim.claimedAt) + 700,
-        ).toISOString();
+        claimed.state.claim.expiresAt = addMs(
+          claimed.state.claim.claimedAt,
+          700,
+        );
         await fixture.sql`update privacy_jobs set billing_cleanup=${JSON.stringify(claimed.state)}::text::jsonb where id=${jobId}`;
         const [before] =
           await fixture.sql`select attempts,retry_at,billing_cleanup from privacy_jobs where id=${jobId}`;

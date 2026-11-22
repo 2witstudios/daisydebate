@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useTick } from '../../edge/use-tick';
+import { useState } from 'react';
 import { clockLabel } from '../../../features/watch/labels';
 
 export type LiveClockProps = {
-  /** Seconds left when the page rendered: what shows with no script. */
+  /** Seconds left when the page rendered: what shows before hydration. */
   readonly initialSeconds: number;
   readonly className?: string;
 };
@@ -16,13 +17,7 @@ export type LiveClockProps = {
  */
 export function LiveClock({ initialSeconds, className }: LiveClockProps) {
   const [seconds, setSeconds] = useState(initialSeconds);
-  useEffect(() => {
-    const timer = setInterval(
-      () => setSeconds((left) => Math.max(0, left - 1)),
-      1000,
-    );
-    return () => clearInterval(timer);
-  }, []);
+  useTick(() => setSeconds((left) => Math.max(0, left - 1)), 1000);
   return (
     <span role="timer" className={className}>
       {clockLabel(seconds)}

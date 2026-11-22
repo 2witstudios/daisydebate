@@ -1,4 +1,4 @@
-import type { BroadcastReleasePolicy } from '@daisy/protocol';
+import type { BroadcastReleasePolicy } from '@daisy/protocol/broadcast';
 
 /**
  * When a Broadcast may release its media and audience facts. The delay is a

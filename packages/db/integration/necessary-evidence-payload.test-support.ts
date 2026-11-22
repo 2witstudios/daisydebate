@@ -1,7 +1,6 @@
-import {
-  canonicalCaptureEvidenceBody,
-  necessaryEvidencePolicy,
-} from '@daisy/protocol';
+import { sha3Hex } from '@daisy/digest';
+import { canonicalCaptureEvidenceBody } from '@daisy/protocol/capture-evidence-body';
+import { necessaryEvidencePolicy } from '@daisy/protocol/necessary-evidence';
 import { createId } from '@paralleldrive/cuid2';
 import { withBoundedRound } from './bounded-transaction.test-support';
 import { configuredCapture } from './necessary-evidence.test-support';
@@ -59,9 +58,7 @@ async function prepare(...[f, transaction, roundId, client]: Inputs) {
   const encoded = canonicalCaptureEvidenceBody(body);
   if (encoded.kind !== 'encoded')
     throw new Error('Invalid synthetic native-body fixture');
-  const digest = new Bun.CryptoHasher('sha3-256')
-    .update(encoded.json)
-    .digest('hex');
+  const digest = sha3Hex(encoded.json);
   const intent = await store.reserveCaptureEvidence({
     ...window,
     evidenceId: body.evidenceId,

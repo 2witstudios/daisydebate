@@ -202,10 +202,7 @@ test('two guardians share one choice and only current guardians can clear a hold
       const inbox = (user: typeof parent) =>
         db.transaction((tx) =>
           notificationInboxOperations({
-            database: {
-              execute: tx.execute.bind(tx),
-              transaction: db.transaction,
-            },
+            database: tx,
           }).readNotifications({
             userId: user.userId,
             limit: 10,
@@ -291,7 +288,14 @@ test('two guardians share one choice and only current guardians can clear a hold
         'waiting-for-guardian',
       );
       expect((await listRequests(stranger))[0]?.waiting).toBe('waiting');
-      expect((await exportFriends(child)).friendships).toMatchObject([
+      const childExport = await exportFriends(child);
+      expect(childExport.friend_guardian_approvals).toEqual([
+        { id: approvalId, cleared: false },
+      ]);
+      expect((await exportFriends(stranger)).friend_guardian_approvals).toEqual(
+        [],
+      );
+      expect(childExport.friendships).toMatchObject([
         { state: 'waiting-for-guardian' },
       ]);
       expect((await exportFriends(stranger)).friendships).toMatchObject([

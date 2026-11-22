@@ -12,9 +12,11 @@ export function createUsageRecovery(input: {
 }) {
   let afterId: string | undefined;
   let stopped = false;
+  /** Read afresh after every await: stop() lands between them. */
+  const isStopped = () => stopped;
   return {
     async run() {
-      if (stopped) return;
+      if (isStopped()) return;
       try {
         const page = await input.store.readAbandonedUsageCandidates({
           instanceId: input.instanceId,
@@ -22,7 +24,7 @@ export function createUsageRecovery(input: {
           limit: 25,
         });
         for (const candidate of page.candidates) {
-          if (stopped) return;
+          if (isStopped()) return;
           try {
             await input.store.releaseAbandonedUsage(
               { ...candidate, instanceId: input.instanceId },

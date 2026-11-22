@@ -1,7 +1,7 @@
 import { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { waitForOutboxFinality } from '../src/testing';
+import type { TxSource } from '../src/tx';
 
 export type RaceRow = {
   readonly txid: string | bigint;
@@ -28,7 +28,7 @@ export async function openOutOfOrderTransactions(
   readonly connA: SQL;
   readonly connB: SQL;
   readonly connC: SQL;
-  readonly drizzleC: BunSQLDatabase;
+  readonly drizzleC: TxSource;
   readonly rowA: RaceRow;
   readonly rowB: RaceRow;
   readonly commitA: () => Promise<void>;

@@ -46,8 +46,9 @@ const circleOf = (request: EventRequest, seed: Uint8Array): Fixture[] => {
   ];
   const fixtures: Fixture[] = [];
   for (let i = 0; i < n / 2; i += 1) {
-    const a = turned[i]!;
-    const b = turned[n - 1 - i]!;
+    // The circle's null is the bye.
+    const a = turned[i] ?? null;
+    const b = turned[n - 1 - i] ?? null;
     if (a === null || b === null) {
       const entry = a ?? b;
       if (entry !== null) fixtures.push({ kind: 'bye', entry });
@@ -96,8 +97,8 @@ export const scheduleViolations = (
   const drawn = [
     ...plan.keep
       .filter((k) => !fixed.has(k.id))
-      .map((k) => fixtureName(k.fixture as Fixture)),
-    ...plan.add.map((a) => fixtureName(a.fixture as Fixture)),
+      .map((k) => fixtureName(k.fixture)),
+    ...plan.add.map((a) => fixtureName(a.fixture)),
   ];
   const left = [...drawn];
   const missing: string[] = [];

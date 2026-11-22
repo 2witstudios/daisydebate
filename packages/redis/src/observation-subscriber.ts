@@ -1,5 +1,5 @@
 import { RedisClient } from 'bun';
-import type { ObservationResource } from '@daisy/protocol';
+import type { ObservationResource } from '@daisy/protocol/observation';
 import {
   createObservationKeys,
   parseObservationHint,
@@ -148,5 +148,5 @@ export const dialObservationSubscriber =
       enableOfflineQueue: false,
       autoReconnect: false,
     });
-    return client as unknown as SubscriberTransport;
+    return client;
   };

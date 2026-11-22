@@ -1,14 +1,13 @@
 import { canonicalJson } from '@daisy/seeded-random';
 import type {
   FormatChange,
-  FormatDefinition,
-  FormatSettings,
   FormatStanding,
-  RoomConfig,
-  RoomExecutionPlan,
-  RoundRules,
-} from '@daisy/protocol';
-import { freezeRoomExecutionPlan, sideKeysOf } from '@daisy/protocol';
+} from '@daisy/protocol/format-standing';
+import type { FormatDefinition, RoundRules } from '@daisy/protocol/format';
+import type { FormatSettings } from '@daisy/protocol/format-settings';
+import type { RoomConfig, RoomExecutionPlan } from '@daisy/protocol/room';
+import { freezeRoomExecutionPlan } from '@daisy/protocol/room';
+import { sideKeysOf } from '@daisy/protocol/format-seating';
 import { resolveRoomConfiguration } from './resolve-room-configuration';
 
 type ActiveFormat = {
@@ -77,32 +76,43 @@ const countOf = (rules: RoundRules, group: SeatGroup): number => {
 function segmentChanges(from: RoundRules, to: RoundRules): FormatChange[] {
   const fromKeys = from.segments.map((s) => s.key);
   const toKeys = to.segments.map((s) => s.key);
-  const kept = toKeys.filter((key) => fromKeys.includes(key));
+  // Each segment both formats keep, with its rule on either side.
+  const kept = to.segments.flatMap((toSegment) => {
+    const fromSegment = from.segments.find((s) => s.key === toSegment.key);
+    return fromSegment === undefined
+      ? []
+      : [{ key: toSegment.key, from: fromSegment, to: toSegment }];
+  });
+  const keptKeys = kept.map((pair) => pair.key);
   // Position counts among kept segments only, so removing or adding one
   // never marks every later segment as changed.
-  const identity = (rules: RoundRules, key: string) => {
-    const segment = rules.segments.find((s) => s.key === key)!;
+  const identity = (
+    rules: RoundRules,
+    segment: RoundRules['segments'][number],
+  ) => {
     const order = rules.segments
       .map((s) => s.key)
-      .filter((k) => kept.includes(k))
-      .indexOf(key);
+      .filter((k) => keptKeys.includes(k))
+      .indexOf(segment.key);
     return [order, segment.label, segment.type, segment.speak];
   };
   const structure = {
     kind: 'segments' as const,
     added: toKeys.filter((key) => !fromKeys.includes(key)),
     removed: fromKeys.filter((key) => !toKeys.includes(key)),
-    changed: kept.filter(
-      (key) => !same(identity(from, key), identity(to, key)),
-    ),
+    changed: kept
+      .filter((pair) => !same(identity(from, pair.from), identity(to, pair.to)))
+      .map((pair) => pair.key),
   };
-  const durations = kept.flatMap((key) => {
-    const fromMs = from.segments.find((s) => s.key === key)!.durationMs;
-    const toMs = to.segments.find((s) => s.key === key)!.durationMs;
-    return fromMs === toMs
-      ? []
-      : [{ kind: 'segment-duration' as const, key, fromMs, toMs }];
-  });
+  const durations = kept.flatMap(
+    ({ key, from: fromSegment, to: toSegment }) => {
+      const fromMs = fromSegment.durationMs;
+      const toMs = toSegment.durationMs;
+      return fromMs === toMs
+        ? []
+        : [{ kind: 'segment-duration' as const, key, fromMs, toMs }];
+    },
+  );
   const restructured =
     structure.added.length +
       structure.removed.length +

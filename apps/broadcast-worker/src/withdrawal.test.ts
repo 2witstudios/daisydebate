@@ -1,4 +1,5 @@
-import { CONTENT_MODERATION_DELIVERY_BOUND_MS } from '@daisy/protocol';
+import { instantMs } from '@daisy/clock';
+import { CONTENT_MODERATION_DELIVERY_BOUND_MS } from '@daisy/protocol/content-moderation';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   FEED_END_GRACE_MS,
@@ -9,7 +10,7 @@ import {
 
 setupRitewayBun();
 
-const NOW = Date.parse('2026-11-03T12:00:00.000Z');
+const NOW = instantMs('2026-11-03T12:00:00.000Z');
 const LONG_AGO = new Date(NOW - 3_600_000);
 const run = async (
   finalMediaEndAt: Date | null,

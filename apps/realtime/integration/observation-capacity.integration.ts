@@ -7,7 +7,7 @@ import { createRealtimeDatabase, WORKLOAD_PROFILES } from '@daisy/db';
 import { createMessagingTestFixture } from '@daisy/db/testing';
 import { messagingTestReading } from '@daisy/auth/testing';
 import { testNamespace } from '@daisy/redis/testing';
-import { buildUserInboxTopic } from '@daisy/protocol';
+import { buildUserInboxTopic } from '@daisy/protocol/topics';
 import { createRealtimeApp } from '../src/app';
 import { startObservationRuntime } from '../src/observation/runtime';
 import type { ObservationConnection } from '../src/observation/node';

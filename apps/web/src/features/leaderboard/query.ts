@@ -1,9 +1,6 @@
 import { z } from 'zod';
-import {
-  idSchema,
-  ratingDivisions,
-  type RatingDivision,
-} from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
+import { ratingDivisions, type RatingDivision } from '@daisy/protocol/ladder';
 import type { SearchParams } from '../access/decision';
 
 const scopes = ['top', 'around'] as const;
@@ -85,7 +82,7 @@ export function parseLadderQuery(params: SearchParams): LadderQuery {
     Object.fromEntries(
       keys.map((key) => [key, first(params[key]) ?? undefined]),
     ),
-  ) as LadderQuery;
+  );
 }
 
 const PATH = '/leaderboard';

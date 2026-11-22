@@ -1,7 +1,9 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
-import type { createBrowserDeviceChecks } from '../../../features/video/browser-device-checks';
+import { useBrowserEffect } from '../../edge/browser-sync';
+import { StatusRegion } from '../../components/status-region/status-region';
+import { useRef } from 'react';
+import type { createBrowserDeviceChecks } from '../../round-media/browser-device-checks';
 import type { DeviceKind } from '../../../features/video/device-check-controller';
 import { Icon } from '../../components/icon/icon';
 import { MicLevel } from './mic-level';
@@ -73,7 +75,7 @@ export function CameraPreview({
 }) {
   const video = useRef<HTMLVideoElement>(null);
   const { generation, status } = snapshot.camera;
-  useEffect(() => {
+  useBrowserEffect(() => {
     const element = video.current;
     if (element) element.srcObject = devices.preview('camera');
     return () => {
@@ -153,10 +155,10 @@ export function DeviceChoice({
         </select>
       </label>
       {failed ? (
-        <p role="alert" className="text-sm text-live">
+        <StatusRegion as="p" role="alert" className="text-sm text-live">
           {`${kindLabel[kind]}: ${words}.`}
           {help ? ` ${help}` : null}
-        </p>
+        </StatusRegion>
       ) : null}
     </div>
   );

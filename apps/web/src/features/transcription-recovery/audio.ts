@@ -1,7 +1,7 @@
 import {
   canonicalCaptureEvidenceBody,
   type CaptureEvidenceBody,
-} from '@daisy/protocol';
+} from '@daisy/protocol/capture-evidence-body';
 import { verifyFrameClockEvidence } from '@daisy/media/observation';
 import { encodePcmWave } from '@daisy/media/pcm';
 const runOf = (body: CaptureEvidenceBody) =>
@@ -47,8 +47,12 @@ export function assembleOriginalAudio(input: {
     if (durationMs > 30000) return refused;
     const previous = bodies.at(-1);
     if (previous) {
-      const last = previous.frames.at(-1)!.clock,
-        first = body.frames[0]!.clock;
+      const lastFrame = previous.frames.at(-1),
+        firstFrame = body.frames[0];
+      // A canonical body holds at least one frame.
+      if (lastFrame === undefined || firstFrame === undefined) return refused;
+      const last = lastFrame.clock,
+        first = firstFrame.clock;
       if (
         runOf(previous) !== runOf(body) ||
         previous.startOffsetMs + previous.durationMs !== body.startOffsetMs ||

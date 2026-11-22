@@ -1,6 +1,6 @@
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
-import type { AgeBand } from '@daisy/protocol';
+import type { AgeBand } from '@daisy/protocol/ladder';
 import { mayDebate } from '@daisy/protocol/lobby/eligibility';
 import { tournamentFirstDay } from '@daisy/protocol/lobby/tournament-schedule';
 import { divisionAgeBand } from '../ladder-division-band';
@@ -13,11 +13,11 @@ import { actors } from '../schema/actors';
 import { timeSlots } from '../schema/events';
 import { lobbies } from '../schema/lobbies';
 import { scopeTransaction, type TenantScope } from '../tenant-scope';
-import type { TabTransaction } from './tab-transaction';
+import type { Tx } from '../tx';
 
 /** Resolve the live rule under the specific tournament's tenant and parent. */
 export async function loadTournamentEligibility(
-  tx: TabTransaction,
+  tx: Tx,
   scope: TenantScope,
   lobby: typeof lobbies.$inferSelect,
 ) {
@@ -63,7 +63,7 @@ type TournamentAgeSource =
   | { readonly kind: 'own'; readonly ageAsOf: string };
 
 export async function tournamentAgeSource(
-  tx: TabTransaction,
+  tx: Tx,
   eligibility: TournamentEligibility,
   now: string,
 ): Promise<TournamentAgeSource> {
@@ -89,7 +89,7 @@ export function tournamentDebaterAgeBand(source: TournamentAgeSource) {
 
 /** Call after authorization, with the named cast and competition already fenced. */
 export async function tournamentDebatersAllowed(
-  tx: TabTransaction,
+  tx: Tx,
   scope: TenantScope,
   eligibility: TournamentEligibility,
   actorIds: readonly string[],

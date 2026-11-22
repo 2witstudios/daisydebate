@@ -4,7 +4,6 @@ import { hostingAccountViewSchema } from '@daisy/protocol/lobby/hosting-read';
 import {
   hostingOffers,
   isHostingTier,
-  type PaidHostingTier,
 } from '@daisy/protocol/lobby/hosting-tier';
 import {
   hostingAccountPath,
@@ -60,7 +59,7 @@ export default async function Page({
   }));
   const wanted =
     typeof tier === 'string' && isHostingTier(tier) && tier !== 'free'
-      ? (tier as PaidHostingTier)
+      ? tier
       : null;
   const initial =
     options.find((option) => option.tier === wanted)?.tier ?? options[0]!.tier;

@@ -1,4 +1,7 @@
-import type { RoundMediaAdmission, RoundMediaState } from '@daisy/protocol';
+import type {
+  RoundMediaAdmission,
+  RoundMediaState,
+} from '@daisy/protocol/round-media';
 import type { MediaReadEvent } from '../media-read-intent';
 import type { DeviceFailureKind, SourceFailureKind } from '../source-failure';
 import type { MediaTimer } from './media-effects';

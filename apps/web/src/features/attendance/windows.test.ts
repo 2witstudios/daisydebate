@@ -1,4 +1,6 @@
-import { emptyRuntimeCheckpointFor, twoSides } from '@daisy/protocol';
+import { instantMs, addMs } from '@daisy/clock';
+import { emptyRuntimeCheckpointFor } from '@daisy/protocol/round';
+import { twoSides } from '@daisy/protocol/seats';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   oneOnOneDefinition,
@@ -7,7 +9,7 @@ import {
 import { resolveRoomConfiguration } from '@daisy/debate-engine';
 import type { LockedAttendanceCheckIn } from '@daisy/db/attendance';
 import { isAppError } from '@daisy/errors';
-import { attendanceTimingPolicy } from '@daisy/protocol';
+import { attendanceTimingPolicy } from '@daisy/protocol/attendance';
 import { acceptAttendanceReceipt } from './receipt-window';
 import { attendanceWindowFor } from './windows';
 setupRitewayBun();
@@ -82,7 +84,7 @@ test('attendance uses actual opening and scheduled speaker slot after later runt
     actual: result,
     expected: {
       segmentId: actual.id,
-      openedAtMs: Date.parse(actual.startedAt),
+      openedAtMs: instantMs(actual.startedAt),
       speakerId: 'a1',
       speakerSide: 'affirmative',
       forfeitsTo: 'negative',
@@ -125,7 +127,7 @@ test('last speech classification comes from frozen rules not latest currently pe
 
 /** Healthy one-second samples settling the whole grace period and beyond. */
 const healthy = Array.from({ length: 50 }, (_, i) => ({
-  at: new Date(Date.parse(actual.startedAt) + (i - 2) * 1000).toISOString(),
+  at: addMs(actual.startedAt, (i - 2) * 1000),
   healthy: true,
 }));
 const receipt = (
@@ -149,7 +151,7 @@ const receipt = (
     samples: change.unsettled ? [] : healthy,
     finalizedSegmentIds: change.finalized ? [actual.id] : [],
     participantId: 'a0',
-    receivedAt: new Date(Date.parse(actual.startedAt) + offsetMs).toISOString(),
+    receivedAt: addMs(actual.startedAt, offsetMs),
   } as unknown as LockedAttendanceCheckIn;
   try {
     acceptAttendanceReceipt(facts, change.segmentId ?? actual.id);

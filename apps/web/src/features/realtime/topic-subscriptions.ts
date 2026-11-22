@@ -1,9 +1,9 @@
+import { ENVELOPE_VERSION } from '@daisy/protocol/realtime';
+import { parseTopic } from '@daisy/protocol/topics';
 import {
-  ENVELOPE_VERSION,
-  parseTopic,
   serverMessageSchema,
   type ServerMessage,
-} from '@daisy/protocol';
+} from '@daisy/protocol/realtime-server';
 
 type Listener = (frame: ServerMessage) => void;
 type Entry = {

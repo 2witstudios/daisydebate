@@ -1,6 +1,6 @@
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
-import { sideOfSeat } from '@daisy/protocol';
+import { sideOfSeat } from '@daisy/protocol/seats';
 import { createId } from '@paralleldrive/cuid2';
 import type { SQL } from 'bun';
 import { assert, setupRitewayBun, test } from 'riteway/bun';

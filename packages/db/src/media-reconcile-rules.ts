@@ -1,4 +1,4 @@
-import type { MediaRoomFate } from '@daisy/protocol';
+import type { MediaRoomFate } from '@daisy/protocol/media-room-fate';
 import { createAppError } from '@daisy/errors';
 import type {
   MediaReconcileFence,

@@ -1,3 +1,5 @@
+import { Button } from '../../components/button/button';
+import { StatusRegion } from '../../components/status-region/status-region';
 import { BotAdmissionNotice } from './bot-admission-notice';
 import { AssemblyCommandForm } from './assembly-command-form';
 import { CaptureSummary } from './capture-choice';
@@ -5,11 +7,9 @@ import { ContentWaiverForm } from './content-waiver-form';
 import type { RoomFormState } from '../../../features/rooms/command-answer';
 import type { FormAction } from '../../form-action/form-action';
 import type { ReactNode } from 'react';
-import {
-  freezePostRoundCall,
-  isJudgeSeat,
-  type RoomView,
-} from '@daisy/protocol';
+import { freezePostRoundCall } from '@daisy/protocol/post-round-call';
+import { isJudgeSeat } from '@daisy/protocol/seats';
+import { type RoomView } from '@daisy/protocol/room-contract';
 import { AssemblyCommandFields } from './assembly-command-fields';
 import { buttonClass } from '../../components/button/button-class';
 import { PopoverDialog } from '../../components/popover/popover-dialog';
@@ -112,9 +112,14 @@ function CommandForm({
       {noticeVersion !== null ? (
         <input type="hidden" name="noticeVersion" value={noticeVersion} />
       ) : null}
-      <button type="submit" disabled={!enabled} className={className}>
+      <Button
+        variant="unstyled"
+        type="submit"
+        disabled={!enabled}
+        className={className}
+      >
         {label}
-      </button>
+      </Button>
     </AssemblyCommandForm>
   );
 }
@@ -124,7 +129,7 @@ const confirmId = 'ready-confirm';
 /**
  * What a seat agrees to by readying, asked only when I'm ready is pressed:
  * the ranked waiver while unsigned, the casual capture notice, the post-round
- * call. A native popover, so it opens without script; null when there is
+ * call. A native popover, so it opens before hydration; null when there is
  * nothing to ask.
  */
 function ReadyConfirm({
@@ -163,14 +168,15 @@ function ReadyConfirm({
           ) : null}
           {call ? <p className="text-sm">{postRoundCallText}</p> : null}
           <div className="flex flex-wrap justify-end gap-2">
-            <button
+            <Button
+              variant="unstyled"
               type="button"
               popoverTarget={confirmId}
               popoverTargetAction="hide"
               className={buttonClass('secondary')}
             >
               Cancel
-            </button>
+            </Button>
             {ready}
           </div>
         </>
@@ -183,8 +189,7 @@ function startBlocked(view: View, actorId: string, local: LocalReadiness) {
   const admissionBlocked =
     view.botAdmission !== null &&
     (view.botAdmission.kind === 'unavailable' ||
-      (view.botAdmission.kind === 'allowance' &&
-        view.botAdmission.refusal !== null));
+      view.botAdmission.refusal !== null);
   return (
     !view.capabilities.canStart ||
     startFence(view, actorId, local) ||
@@ -239,9 +244,14 @@ export function ReadyControl({
     return (
       <div className="flex flex-col gap-2">
         {turnOn ? (
-          <button type="button" onClick={turnOn} className={full('primary')}>
+          <Button
+            variant="unstyled"
+            type="button"
+            onClick={turnOn}
+            className={full('primary')}
+          >
             Turn on camera and mic
-          </button>
+          </Button>
         ) : (
           start
         )}
@@ -262,9 +272,14 @@ export function ReadyControl({
   // The only refusal the viewer can clear from here is their own devices.
   if (ready.blocker === 'devices' && turnOn)
     return (
-      <button type="button" onClick={turnOn} className={full('primary')}>
+      <Button
+        variant="unstyled"
+        type="button"
+        onClick={turnOn}
+        className={full('primary')}
+      >
         Turn on camera and mic
-      </button>
+      </Button>
     );
   const readyForm = (className: string) =>
     CommandForm({
@@ -288,22 +303,23 @@ export function ReadyControl({
     <div className="flex flex-col gap-2">
       {confirm && askable ? (
         <>
-          <button
+          <Button
+            variant="unstyled"
             type="button"
             popoverTarget={confirmId}
             className={full('primary')}
           >
             I’m ready
-          </button>
+          </Button>
           {confirm}
         </>
       ) : (
         readyForm(full('primary'))
       )}
       {ready.reason && !askable ? (
-        <p role="status" className="text-sm text-ink-muted">
+        <StatusRegion as="p" role="status" className="text-sm text-ink-muted">
           {ready.reason}
-        </p>
+        </StatusRegion>
       ) : null}
     </div>
   );
@@ -325,9 +341,13 @@ export function StartControl({ view, actorId, local }: Props) {
       {view.capabilities.host ? (
         <BotAdmissionNotice admission={view.botAdmission} />
       ) : null}
-      <p role="status" className="text-right text-sm text-ink-muted">
+      <StatusRegion
+        as="p"
+        role="status"
+        className="text-right text-sm text-ink-muted"
+      >
         {notice}
-      </p>
+      </StatusRegion>
     </div>
   );
 }

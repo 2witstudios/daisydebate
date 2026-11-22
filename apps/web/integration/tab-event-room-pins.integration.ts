@@ -2,10 +2,8 @@ import { authorize } from '@daisy/auth/authorization';
 import { requireTestServices } from '@daisy/config';
 import { createTabStore } from '@daisy/db/tab';
 import { withRolledBackDatabase } from '@daisy/db/testing';
-import {
-  formatDefinitionSchema,
-  roomExecutionPlanSchema,
-} from '@daisy/protocol';
+import { formatDefinitionSchema } from '@daisy/protocol/format';
+import { roomExecutionPlanSchema } from '@daisy/protocol/room';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { drawCommand } from '../src/features/tab/operations/draw-command';

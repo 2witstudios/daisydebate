@@ -1,3 +1,4 @@
+import { nowMs, instantMs } from '@daisy/clock';
 import {
   preapprovalAction,
   type PreapprovalCommand,
@@ -13,7 +14,7 @@ import {
   type OperatorFact,
 } from '../../authorization/authorize-operator';
 import type { AdminDatabase } from '../../db/client';
-import { betaAccessCommandAction } from '@daisy/protocol';
+import { betaAccessCommandAction } from '@daisy/protocol/beta-access';
 import { operatorLimits } from '@daisy/protocol/operator';
 import type { OperatorClient } from '../operator-client/client';
 import { auditedOutcome, commandView, mailDetail } from './outcome';
@@ -248,8 +249,7 @@ async function resendOrAbandon(
       : 'account.beta_access.update',
   );
   const inFlight =
-    Date.parse(deps.clock.now()) - Date.parse(command.lastSignedAt) <
-    ABANDON_AFTER_MS;
+    nowMs(deps.clock) - instantMs(command.lastSignedAt) < ABANDON_AFTER_MS;
   if (refused !== null && inFlight) return { kind: 'open' };
   if (refused !== null)
     return settledBy(

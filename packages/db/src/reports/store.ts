@@ -1,7 +1,11 @@
 import { and, eq, isNull, sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
-import type { ReportReason, ReportSurface } from '@daisy/protocol';
+import {
+  type ReportReason,
+  type ReportSurface,
+  reportReasons,
+  reportSurfaces,
+} from '@daisy/protocol/reports';
 import {
   reportResolveCommandAction,
   type ReportResolveResult,
@@ -19,13 +23,11 @@ import {
   type ModerationReactions,
   type Sanction,
 } from '../moderation/store';
-import {
-  commandGate,
-  storedResult,
-  writeReceipt,
-  type OperatorCommandTransaction as Transaction,
-} from '../operator-command';
+import { commandGate, storedResult, writeReceipt } from '../operator-command';
 import { reports } from '../schema/reports';
+import { inTransaction, type TxSource, type Tx } from '../tx';
+import { query } from '../raw-rows';
+import { z } from 'zod';
 
 /** Reports over the shared Contacts fence (ADR 0103). */
 export type ReportStore = {
@@ -49,7 +51,7 @@ export function createReportStore({
   database,
   authorize,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
   readonly authorize: ContactAuthorizationFence;
 }): ReportStore {
   return {
@@ -127,7 +129,7 @@ export type ReportResolveInput = {
  * outcome calls for one, and the receipt, all or nothing.
  */
 async function resolveReport(
-  tx: Transaction,
+  tx: Tx,
   input: ReportResolveInput,
   dependencies: {
     readonly eventSink: DatabaseEventSink | undefined;
@@ -137,13 +139,13 @@ async function resolveReport(
   await commandGate(tx, input.commandId);
   const replayed = await storedResult(tx, input.commandId, input.requestDigest);
   if (replayed) return replayed as ReportResolveResult;
-  const [row] =
-    (await tx.execute(sql`select r.subject_actor_id as "actorId", a.user_id as "userId"
+  const [row] = await query(
+    tx,
+    z.object({ actorId: z.string(), userId: z.string() }),
+    sql`select r.subject_actor_id as "actorId", a.user_id as "userId"
     from reports r join actors a on a.id = r.subject_actor_id
-    where r.id = ${input.reportId}`)) as unknown as {
-      actorId: string;
-      userId: string;
-    }[];
+    where r.id = ${input.reportId}`,
+  );
   if (!row) throw createAppError('NOT_FOUND');
   await lockAuthorizationActors(tx, [row.actorId], { maxActors: 1 });
   const closed = await tx
@@ -191,7 +193,7 @@ export const reportOperations = ({
   eventSink,
   moderationReactions,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
   readonly eventSink?: DatabaseEventSink | undefined;
   readonly moderationReactions: (
     rules: RestrictionRules,
@@ -202,7 +204,19 @@ export const reportOperations = ({
     readonly limit: number;
   }): Promise<readonly OperatorReportRow[]> =>
     instrumented(eventSink, 'listOperatorReports', async () => {
-      const rows = (await database.execute(sql`
+      const rows = await query(
+        database,
+        z.object({
+          id: z.string(),
+          reason: z.enum(reportReasons),
+          subject: z.string().nullable(),
+          reporter: z.string().nullable(),
+          subjectUserId: z.string(),
+          surface: z.enum(reportSurfaces),
+          reportsOnSubject: z.number(),
+          createdAt: z.union([z.string(), z.date()]),
+        }),
+        sql`
         select r.id, ru.username as reporter, su.username as subject,
           su.id as "subjectUserId", r.reason, r.surface, r.created_at as "createdAt",
           (select count(*)::int from reports o where o.subject_actor_id = r.subject_actor_id) as "reportsOnSubject"
@@ -213,15 +227,13 @@ export const reportOperations = ({
         join users su on su.id = sa.user_id
         where r.closed_at is null
         order by r.created_at, r.id
-        limit ${input.limit}`)) as unknown as (Omit<
-        OperatorReportRow,
-        'createdAt'
-      > & { createdAt: Date | string })[];
+        limit ${input.limit}`,
+      );
       return rows.map((row) => ({ ...row, createdAt: iso(row.createdAt) }));
     }),
   resolveReport: (input: ReportResolveInput) =>
     instrumented(eventSink, 'resolveReport', () =>
-      database.transaction((tx) =>
+      inTransaction(database, (tx) =>
         resolveReport(tx, input, {
           eventSink,
           reactions: moderationReactions(input.restrictionRules),
@@ -234,12 +246,16 @@ export const reportOperations = ({
     readonly limit: number;
   }): Promise<number> =>
     instrumented(eventSink, 'purgeClosedReports', async () => {
-      const rows = await database.execute(sql`
+      const rows = await query(
+        database,
+        z.object({ id: z.string() }),
+        sql`
         delete from reports where id in (
           select id from reports
           where purge_after is not null and purge_after <= ${new Date(input.now)}
           limit ${input.limit})
-        returning id`);
+        returning id`,
+      );
       return rows.length;
     }),
 });

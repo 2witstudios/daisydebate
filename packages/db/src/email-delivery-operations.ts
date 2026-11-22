@@ -1,9 +1,8 @@
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { and, eq, lt } from 'drizzle-orm';
 import type {
   EmailDeliveryStatus,
   EmailSuppressionReason,
-} from '@daisy/protocol';
+} from '@daisy/protocol/email-delivery';
 import { verifications } from './schema/auth';
 import {
   emailDeliveries,
@@ -12,6 +11,7 @@ import {
 } from './schema/email-delivery';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { deleteExpiredBatch, type RetentionBatch } from './retention';
+import { inTransaction, type TxSource } from './tx';
 
 /**
  * The email area (ISSUE-8 AC1, ADR 0025): delivery ledger, suppressions and
@@ -21,7 +21,7 @@ export const emailDeliveryOperations = ({
   database,
   eventSink,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
   /**
@@ -122,10 +122,11 @@ export const emailDeliveryOperations = ({
     suppress: EmailSuppressionReason | null;
     at: string;
   }): Promise<'applied' | 'duplicate' | 'unknown-message'> {
-    const unknown = Symbol('unknown-message');
+    // Thrown inside the transaction so the event row it inserted rolls back.
+    class UnknownMessage extends Error {}
     return instrumented(eventSink, 'applyEmailDeliveryEvent', async () => {
       try {
-        return await database.transaction(async (tx) => {
+        return await inTransaction(database, async (tx) => {
           const inserted = await tx
             .insert(emailDeliveryEvents)
             .values({
@@ -145,7 +146,7 @@ export const emailDeliveryOperations = ({
               eq(emailDeliveries.providerMessageId, input.providerMessageId),
             )
             .limit(1);
-          if (!delivery) throw unknown;
+          if (!delivery) throw new UnknownMessage();
           await tx
             .update(emailDeliveries)
             .set({
@@ -172,7 +173,7 @@ export const emailDeliveryOperations = ({
           return 'applied' as const;
         });
       } catch (error) {
-        if (error === unknown) return 'unknown-message' as const;
+        if (error instanceof UnknownMessage) return 'unknown-message' as const;
         throw error;
       }
     });

@@ -1,5 +1,7 @@
+import { instantMs } from '@daisy/clock';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import type { RoundBallotRead, RoundWaitingOn } from '@daisy/protocol';
+import type { RoundBallotRead } from '@daisy/protocol/round-ballot-read';
+import type { RoundWaitingOn } from '@daisy/protocol/round-view';
 import {
   ballotRefreshCeilingMs,
   ballotRefreshEveryMs,
@@ -10,7 +12,7 @@ import {
 
 setupRitewayBun();
 
-const deadline = Date.parse('2026-10-22T00:30:00.000Z');
+const deadline = instantMs('2026-10-22T00:30:00.000Z');
 const deadlineAt = new Date(deadline).toISOString();
 const ballot = (
   status: RoundBallotRead['round']['status'],

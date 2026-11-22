@@ -1,12 +1,13 @@
+import { addMs } from '@daisy/clock';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { noPostRoundCall } from '@daisy/protocol';
+import { noPostRoundCall } from '@daisy/protocol/post-round-call';
 import { seatGrants } from './projection';
 import { rules } from './media-world-seats.test-support';
 
 setupRitewayBun();
 
 const startedAt = '2026-11-02T12:00:00.000Z';
-const at = (ms: number) => new Date(Date.parse(startedAt) + ms).toISOString();
+const at = (ms: number) => addMs(startedAt, ms);
 const seats = [
   {
     id: 'a'.repeat(24),

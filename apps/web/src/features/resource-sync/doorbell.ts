@@ -1,4 +1,4 @@
-import type { ServerMessage } from '@daisy/protocol';
+import type { ServerMessage } from '@daisy/protocol/realtime-server';
 import type { ConnectionStore } from '../realtime/connection-store';
 import { attachInvalidationTopic } from '../realtime/invalidation-topic';
 

@@ -12,15 +12,14 @@ import {
 import { createAppError, createRefusal } from '@daisy/errors';
 import {
   roundCommandEnvelopeSchema,
-  idSchema,
   type RoundCommandEnvelope,
   type RoundCommandPrincipal,
   type RoundCommandReceipt,
   type RoundCommandAuthority,
-  type RoundProjection,
-} from '@daisy/protocol';
+} from '@daisy/protocol/round-command';
+import { idSchema } from '@daisy/protocol/primitives';
+import { type RoundProjection } from '@daisy/protocol/runtime';
 import { eq } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type { RoundHydration } from './round-hydration';
 import { commitRoundCommand } from './round-command-commit';
 import { lockedRoundVersion } from './round-projection-writer';
@@ -31,8 +30,8 @@ import {
   requireFencedParticipants,
   requireSameCommand,
 } from './round-command-replay';
+import { inTransaction, type Tx, type TxSource } from './tx';
 
-type Tx = Parameters<Parameters<BunSQLDatabase['transaction']>[0]>[0];
 /** Facts read after authorization and Round fences; callbacks are pure and synchronous. */
 export type LockedRoundCommandContext = {
   readonly round: RoundHydration;
@@ -83,7 +82,7 @@ export const roundCommandOperations = ({
   eventSink,
   roundTime,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
   readonly roundTime?: RoundTimeSource | undefined;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
@@ -92,7 +91,7 @@ export const roundCommandOperations = ({
     if (!idSchema.safeParse(input.roundId).success)
       throw createAppError('VALIDATION');
     return instrumented(eventSink, 'executeRoundTick', () =>
-      database.transaction((tx) =>
+      inTransaction(database, (tx) =>
         executeLockedRoundTick(tx, input, roundTime),
       ),
     );
@@ -100,7 +99,7 @@ export const roundCommandOperations = ({
   async executeRoundCommand(input: CommandInput): Promise<RoundCommandReceipt> {
     requireCommandInput(input, roundCommandEnvelopeSchema);
     return instrumented(eventSink, 'executeRoundCommand', () =>
-      database.transaction(async (tx) => {
+      inTransaction(database, async (tx) => {
         const fenced = await fenceRoundWrite(tx, {
           ...input,
           commandId: input.envelope.commandId,

@@ -1,16 +1,15 @@
 import { roundSourceVoided } from './round-source-state';
 import { currentRoundParticipant } from './round-current-participant';
 import { createAppError } from '@daisy/errors';
+import { idSchema } from '@daisy/protocol/primitives';
+import { isAbsentSeat } from '@daisy/protocol/round';
 import {
-  idSchema,
-  isAbsentSeat,
   type MediaPhase,
   type MediaWindowFacts,
-  type RoundCommandAuthority,
-} from '@daisy/protocol';
+} from '@daisy/protocol/post-round-call';
+import { type RoundCommandAuthority } from '@daisy/protocol/round-command';
 import { and, eq } from 'drizzle-orm';
 import { lockAuthorizationActors } from './authorization';
-import type { BoundedTransactionContext } from './transaction-context';
 import { actorFact } from './room-command-facts';
 import { hydrateRoundRows, type RoundHydration } from './round-hydration';
 import { rounds } from './schema/rounds';
@@ -22,6 +21,7 @@ import {
   requireAdmittedPrincipal,
   type ParticipantAdmission,
 } from './participant-admission';
+import type { Tx } from './tx';
 
 /**
  * A human caller and the participant-access rule its own fenced facts must
@@ -63,7 +63,7 @@ function boundCaller(
 
 /** Account fences precede the Round fence, matching competitive writes and erasure. */
 export async function lockMediaRound(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   roundId: string,
   mediaCaller?: MediaCaller,
 ) {
@@ -117,7 +117,7 @@ export async function lockMediaRound(
 }
 
 /** The one refusal a human gets for a Round it holds no live seat in, or that does not exist. */
-export const unseatedRefusal = () => createAppError('AUTHORIZATION');
+const unseatedRefusal = () => createAppError('AUTHORIZATION');
 
 /** The engine's decision (`mediaPhase`); the adapter only applies it. */
 export type MediaWindowRule = (facts: MediaWindowFacts) => MediaPhase;
@@ -128,7 +128,7 @@ export type MediaWindowRule = (facts: MediaWindowFacts) => MediaPhase;
  * than the row's.
  */
 export async function readMediaWindowFacts(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   roundId: string,
   at: {
     readonly now: string;

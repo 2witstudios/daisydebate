@@ -1,4 +1,5 @@
-import { mediaBindingRevoked } from '@daisy/protocol';
+import { instantMs } from '@daisy/clock';
+import { mediaBindingRevoked } from '@daisy/protocol/media-binding-authority';
 import {
   createRoundRuntime,
   inPreRoundPrep,
@@ -7,11 +8,9 @@ import {
   postRoundCallGrants,
 } from '@daisy/debate-engine';
 import type { Database } from '@daisy/db';
-import {
-  conversational,
-  isJudgeSeat,
-  type RoundMediaState,
-} from '@daisy/protocol';
+import { conversational } from '@daisy/protocol/runtime';
+import { isJudgeSeat } from '@daisy/protocol/seats';
+import { type RoundMediaState } from '@daisy/protocol/round-media';
 
 type Store = Database['mediaSessions'];
 export type MediaSnapshot = NonNullable<
@@ -122,7 +121,7 @@ export const conversationHeldOverdue = (
   if (!conversational(mediaRuntime(snapshot, nextId).position(snapshot.now)))
     return false;
   const since = snapshot.finalSegmentEndedAt ?? snapshot.round.launchedAt;
-  return Date.parse(snapshot.now) - Date.parse(since) > HELD_ALERT_MS;
+  return instantMs(snapshot.now) - instantMs(since) > HELD_ALERT_MS;
 };
 
 export function projectMedia(

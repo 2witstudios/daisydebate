@@ -1,8 +1,10 @@
+import { StatusRegion } from '../../../../../../ui/components/status-region/status-region';
 import { ConversationPane } from '../../../../../../ui/messaging/conversation-pane';
 import { headers } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
 import { systemId } from '@daisy/clock';
-import { idSchema, messagingDmResultSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
+import { messagingDmResultSchema } from '@daisy/protocol/messaging/social';
 import { requireAccess } from '../../../../../../lib/access';
 import type { MessagingChannelPageProps } from '../../../../../../features/messaging/channel-page';
 import { RequestDecision } from '../../../../../../ui/messaging/request-decision';
@@ -22,6 +24,7 @@ export default async function SentRequestPage({
       `http://in-process.invalid/api/messaging/requests/${id.data}/status`,
       { headers: new Headers(await headers()) },
     ),
+    { params },
   );
   const result = response.ok
     ? messagingDmResultSchema.safeParse(await response.json())
@@ -47,10 +50,10 @@ export default async function SentRequestPage({
           />
         </>
       ) : (
-        <p role="status">
+        <StatusRegion as="p" role="status">
           This request is unavailable or has already been decided. Return to
           messages for its current status.
-        </p>
+        </StatusRegion>
       )}
     </ConversationPane>
   );
@@ -64,6 +67,7 @@ async function recipientCanOpen(channelId: string) {
         headers: new Headers(await headers()),
       },
     ),
+    { params: Promise.resolve({ channelId }) },
   );
   return response.ok;
 }

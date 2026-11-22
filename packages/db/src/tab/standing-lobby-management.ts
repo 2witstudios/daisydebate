@@ -8,9 +8,9 @@ import { organizations } from '../schema/organizations';
 import { seasons } from '../schema/seasons';
 import { loadAuthorityContext } from './authority-context';
 import { fenceOrganizationRead } from './organization-fence';
-import type { TabDatabase, TabTransaction } from './tab-transaction';
+import { inTransaction, type Tx, type TxOpener } from '../tx';
 
-async function loadStandingLobbies(tx: TabTransaction, organizationId: string) {
+async function loadStandingLobbies(tx: Tx, organizationId: string) {
   const lobbyRows = await tx
     .select({
       id: lobbies.id,
@@ -53,9 +53,9 @@ async function loadStandingLobbies(tx: TabTransaction, organizationId: string) {
   }));
 }
 
-export const createStandingLobbyManagementStore = (database: TabDatabase) => ({
+export const createStandingLobbyManagementStore = (database: TxOpener) => ({
   hostedLeagueCandidates: (viewerUserId: string) =>
-    database.transaction(async (tx) => {
+    inTransaction(database, async (tx) => {
       await scopeTransaction(tx, { subjectUserId: viewerUserId });
       const assigned = tx
         .select({ id: grants.organizationId })
@@ -90,7 +90,7 @@ export const createStandingLobbyManagementStore = (database: TabDatabase) => ({
       read: () => ReturnType<typeof loadStandingLobbies>,
     ) => Promise<Answer>,
   ) =>
-    database.transaction(async (tx) => {
+    inTransaction(database, async (tx) => {
       const scope = await fenceOrganizationRead(tx, input);
       const [organization] = await tx
         .select({ name: organizations.name })

@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { fixedClock } from '@daisy/clock';
+import { instantMs, fixedClock } from '@daisy/clock';
 import { advanceRefund } from '@daisy/protocol/billing';
 import { refundFixture } from './refund.test-support';
 import { createRefundVendor, type RefundPort } from './refund-vendor';
@@ -25,7 +25,7 @@ test('refund vendor checks mode and current claim before I/O and preserves same 
     vendor().run(action, 'x'.repeat(24)),
     vendor().run(base, claimId),
     vendor().run(
-      { ...action, paidAtSeconds: Date.parse(action.closedAt) / 1000 },
+      { ...action, paidAtSeconds: instantMs(action.closedAt) / 1000 },
       claimId,
     ),
   ]);

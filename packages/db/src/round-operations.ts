@@ -1,34 +1,26 @@
-import {
-  emptyRuntimeCheckpointFor,
-  roundRulesSchema,
-  type RoundRules,
-} from '@daisy/protocol';
+import { roundStatus, emptyRuntimeCheckpointFor } from '@daisy/protocol/round';
+import { roundRulesSchema, type RoundRules } from '@daisy/protocol/format';
 import { frozenJudgingFor } from './round-judging-freeze';
-import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
+import { readDatabaseTime } from './database-clock';
 import { createAppError } from '@daisy/errors';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { hydrateRound, type RoundHydration } from './round-hydration';
 import { isUniqueViolation } from './unique-violation';
 import { rounds } from './schema/rounds';
+import type { TxSource } from './tx';
 
 export const roundOperations = ({
   database,
   eventSink,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
   /** Read-only wall-clock prediction; lifecycle authority is sampled inside execution. */
   async databaseNow(): Promise<string> {
-    return instrumented(eventSink, 'databaseNow', async () => {
-      const [row] = (await database.execute(
-        sql`select clock_timestamp() as now`,
-      )) as unknown as Array<{ now: Date }>;
-      if (!row)
-        throw createAppError('INFRASTRUCTURE', 'The clock is unreadable');
-      return row.now.toISOString();
-    });
+    return instrumented(eventSink, 'databaseNow', async () =>
+      (await readDatabaseTime(database)).toISOString(),
+    );
   },
 
   /**
@@ -69,7 +61,7 @@ export const roundOperations = ({
           rulesSnapshot: input.rules,
           judging: frozenJudgingFor(input.rules),
           runtimeState: emptyRuntimeCheckpointFor(input.rules),
-          status: 'opening',
+          status: roundStatus.opening,
           ladderId: null,
         });
       } catch (error) {

@@ -1,8 +1,7 @@
 import { groupLifecycleOf } from './social';
 import { and, eq, sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { lockAuthorizationActors } from '../authorization';
 import { messagingSocialCommands } from '../schema/messaging-social';
 import { readMessagingChannelFact, type MessagingChannelFact } from './social';
@@ -13,6 +12,9 @@ import type {
   MessagingGroupCreationFence,
   MessagingGroupCreationStore,
 } from './group-creation-contracts';
+import { inTransaction, type TxSource } from '../tx';
+import { query } from '../raw-rows';
+import { z } from 'zod';
 function proposalActors(scope: MessagingGroupCreationScope) {
   const actors = [...scope.proposedActorIds].sort();
   if (
@@ -37,13 +39,13 @@ function requireGroupFact(fact: MessagingChannelFact | null) {
 }
 /** Authorization projection discovery precedes one ordered fence; receipt payload is read only after canonical allow. */
 export function createMessagingGroupCreationStore(
-  database: BunSQLDatabase,
+  database: TxSource,
   authorize: MessagingGroupCreationFence,
 ): MessagingGroupCreationStore {
   return {
     withCreation: (scope, work) => {
       const proposed = proposalActors(scope);
-      return database.transaction(async (tx) => {
+      return inTransaction(database, async (tx) => {
         const ownReceipt = and(
           eq(messagingSocialCommands.actorId, scope.actorId),
           eq(messagingSocialCommands.requestId, scope.requestId),
@@ -84,7 +86,9 @@ export function createMessagingGroupCreationStore(
             await creation();
             throw createAppError('CONFLICT');
           }
-          const locked = await tx.execute(
+          const locked = await query(
+            tx,
+            z.object({ locked: z.boolean() }),
             sql`select public.daisy_messaging_channel_fence(${fact.channelId}::text,null::text,null::text) as locked`,
           );
           if (locked[0]?.locked !== true) throw createAppError('NOT_FOUND');

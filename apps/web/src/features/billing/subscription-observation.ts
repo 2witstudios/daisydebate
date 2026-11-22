@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { z } from 'zod';
 import {
   subscriptionEvidenceSchema,
@@ -138,7 +139,7 @@ function mostRecentPayment(
 ) {
   if (!current) return previous;
   if (!previous) return current;
-  return Date.parse(current.period.endsAt) >= Date.parse(previous.period.endsAt)
+  return instantMs(current.period.endsAt) >= instantMs(previous.period.endsAt)
     ? current
     : previous;
 }

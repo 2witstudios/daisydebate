@@ -6,12 +6,9 @@ import {
   requireAttendanceDecision,
   adjudicateAttendance,
 } from '@daisy/debate-engine';
-import {
-  affirmativeSide,
-  negativeSide,
-  type RoundParticipantSeat,
-  type RoundRules,
-} from '@daisy/protocol';
+import { affirmativeSide, negativeSide } from '@daisy/protocol/seats';
+import { type RoundParticipantSeat } from '@daisy/protocol/runtime';
+import { type RoundRules } from '@daisy/protocol/format';
 
 /** Actual attendance refusal fixtures used by the invariant registry gate. */
 export function attendanceInvariantFixtures(

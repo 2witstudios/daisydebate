@@ -1,9 +1,8 @@
 import { eraseBetaPreapprovals } from './beta-preapproval-erasure';
 import { claimBetaPreapproval } from './beta-preapproval-claim';
 import { and, eq, isNull, sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { exportRows } from './privacy/export-rows';
 import type { PrivacyAdopter } from './privacy/contracts';
@@ -15,6 +14,9 @@ import {
 } from './provisional-cleanup';
 import { users } from './schema/users';
 import { lockOpenAccount } from './lock-open-account';
+import { inTransaction, type TxOpener } from './tx';
+import { run, query } from './raw-rows';
+import { z } from 'zod';
 import { ageBand } from '@daisy/auth';
 import {
   claimChildAccount,
@@ -51,16 +53,7 @@ export const ageStepOperations = ({
   database,
   eventSink,
 }: {
-  readonly database: {
-    readonly transaction: <T>(
-      work: (
-        tx: Pick<
-          BunSQLDatabase,
-          'select' | 'execute' | 'insert' | 'update' | 'delete'
-        >,
-      ) => Promise<T>,
-    ) => Promise<T>;
-  };
+  readonly database: TxOpener;
   readonly eventSink: DatabaseEventSink | undefined;
 }) => ({
   async recordAgeStep(
@@ -74,7 +67,7 @@ export const ageStepOperations = ({
     )
       throw createAppError('VALIDATION');
     return instrumented(eventSink, 'recordAgeStep', () =>
-      database.transaction(async (tx) => {
+      inTransaction(database, async (tx) => {
         const now = new Date(input.now);
         const invitation = input.parentalControls
           ? await lockChildAccountRequest(tx, input.userId, now)
@@ -123,7 +116,7 @@ export const ageStepOperations = ({
     readonly birthMonth: string;
   } | null> {
     return instrumented(eventSink, 'childAccountBinding', () =>
-      database.transaction(async (tx) => {
+      inTransaction(database, async (tx) => {
         const at = new Date(now);
         const request = await readChildAccountRequest(tx, userId, at);
         if (!request) return null;
@@ -139,9 +132,11 @@ export const ageStepOperations = ({
   async hasRecordedAge(userId: string): Promise<boolean> {
     if (!idSchema.safeParse(userId).success) throw createAppError('VALIDATION');
     return instrumented(eventSink, 'hasRecordedAge', () =>
-      database.transaction(async (tx) => {
-        const rows = await tx.execute(
-          sql`select 1 from ${accountAge} where user_id=${userId}`,
+      inTransaction(database, async (tx) => {
+        const rows = await query(
+          tx,
+          z.object({ present: z.literal(1) }),
+          sql`select 1 as present from ${accountAge} where user_id=${userId}`,
         );
         return rows.length > 0;
       }),
@@ -164,7 +159,7 @@ export const ageStepOperations = ({
     if (!idSchema.safeParse(input.userId).success)
       throw createAppError('VALIDATION');
     return instrumented(eventSink, 'deleteProvisionalUser', () =>
-      database.transaction(async (tx) => {
+      inTransaction(database, async (tx) => {
         const [user] = await tx
           .select({ email: users.email })
           .from(users)
@@ -199,15 +194,22 @@ export const accountTermsPrivacyAdopter: PrivacyAdopter = {
   id: 'account-terms',
   phase: 'after-close',
   erase: async (tx, subject) => {
-    await tx.execute(
+    await run(
+      tx,
       sql`delete from ${accountTerms} where user_id=${subject.userId}`,
     );
   },
   export: async (tx, subject) => ({
     account_terms: exportRows(
-      (await tx.execute(
+      await query(
+        tx,
+        z.object({
+          user_id: z.string(),
+          terms_version: z.string(),
+          accepted_at: z.date(),
+        }),
         sql`select user_id,terms_version,accepted_at from ${accountTerms} where user_id=${subject.userId}`,
-      )) as unknown as Record<string, unknown>[],
+      ),
     ),
   }),
 };

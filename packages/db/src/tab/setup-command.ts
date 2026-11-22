@@ -1,4 +1,4 @@
-import { and, eq, or, sql } from 'drizzle-orm';
+import { and, eq, or } from 'drizzle-orm';
 import type { TournamentSetupCommand } from '@daisy/protocol/lobby/lobby-setup-command';
 import type {
   ActionHistoryEntry,
@@ -22,7 +22,8 @@ import {
 } from './command-record';
 import { applySetupWrites } from './setup-writes';
 import type { SetupWrite } from './setup-write';
-import type { TabDatabase, TabTransaction } from './tab-transaction';
+import { inTransaction, type Tx, type TxOpener } from '../tx';
+import { takeLock, transactionLocks } from '../locks';
 
 export type SetupCommandInput = {
   readonly senderUserId: string;
@@ -30,12 +31,10 @@ export type SetupCommandInput = {
   readonly newIds: { readonly primary: string; readonly secondary: string };
   readonly now: string;
 };
-const load = async (tx: TabTransaction, input: SetupCommandInput) => {
+const load = async (tx: Tx, input: SetupCommandInput) => {
   await scopeTransaction(tx, { subjectUserId: input.senderUserId });
   await lockTabCommandAccounts(tx, [input.senderUserId]);
-  await tx.execute(
-    sql`select pg_advisory_xact_lock(hashtextextended('tab-settings-chains', 0))`,
-  );
+  await takeLock(tx, transactionLocks.tabSettingsChains());
   const [found] = await tx
     .select()
     .from(lobbies)
@@ -135,12 +134,12 @@ export type SetupCommandSession = {
     receipt: LobbyCommandReceipt,
   ) => Promise<void>;
 };
-export const createSetupCommandStore = (database: TabDatabase) => ({
+export const createSetupCommandStore = (database: TxOpener) => ({
   setupCommand: <Answer>(
     input: SetupCommandInput,
     work: (session: SetupCommandSession) => Promise<Answer>,
   ): Promise<Answer> =>
-    database.transaction(async (tx) =>
+    inTransaction(database, async (tx) =>
       work({
         load: () => load(tx, input),
         stored: (id) => storedCommand(tx, id),

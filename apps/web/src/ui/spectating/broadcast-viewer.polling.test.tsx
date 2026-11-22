@@ -1,4 +1,5 @@
-import type { AudienceState, SpectatorTimeline } from '@daisy/protocol';
+import type { AudienceState } from '@daisy/protocol/audience-state';
+import type { SpectatorTimeline } from '@daisy/protocol/spectator-timeline';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { mountBrowserClient } from '../test-support/browser-client.test-support';
 import type * as Client from './broadcast-viewer.test-support';
@@ -66,9 +67,9 @@ const mount = async () => {
       TextDecoder,
       performance,
       crypto,
-      // A poll waits seconds; everything React schedules runs at once.
+      // A poll waits seconds; everything React schedules runs on the next turn.
       setTimeout: (run: () => void, ms = 0) => {
-        if (ms < 1000) return setTimeout(run, ms);
+        if (ms < 1000) return setTimeout(run, 0);
         const handle = {};
         polls.set(handle, run);
         return handle;

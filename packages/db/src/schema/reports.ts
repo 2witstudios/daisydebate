@@ -2,7 +2,7 @@ import {
   reportOutcomes,
   reportSurfaces,
   storedReportReasons,
-} from '@daisy/protocol';
+} from '@daisy/protocol/reports';
 import { sql } from 'drizzle-orm';
 import { check, index, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
 import { oneOf, timestampColumn } from './columns';

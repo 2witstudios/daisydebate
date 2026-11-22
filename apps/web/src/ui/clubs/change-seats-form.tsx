@@ -1,5 +1,6 @@
 'use client';
 
+import { StatusRegion } from '../components/status-region/status-region';
 import { useState } from 'react';
 import {
   prorationEstimateMinor,
@@ -164,9 +165,13 @@ export function ChangeSeatsForm({
             </Button>
           </div>
           {done ? (
-            <p role="status" className="text-sm text-ink-muted">
+            <StatusRegion
+              as="p"
+              role="status"
+              className="text-sm text-ink-muted"
+            >
               Seats updated. The new count shows once Stripe confirms it.
-            </p>
+            </StatusRegion>
           ) : null}
         </>
       )}

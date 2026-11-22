@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { ENVELOPE_VERSION } from '@daisy/protocol';
+import { ENVELOPE_VERSION } from '@daisy/protocol/realtime';
 import { harness, openAndReady } from './connection-store.test-support';
 
 setupRitewayBun();
@@ -84,8 +84,9 @@ test('resync clears a historical cursor before the feature resubscribes', async 
 test('each registration retains authority to the shared topic until its own removal', async () => {
   const h = harness();
   const received: string[] = [];
-  const listener = (frame: import('@daisy/protocol').ServerMessage) =>
-    received.push(frame.type);
+  const listener = (
+    frame: import('@daisy/protocol/realtime-server').ServerMessage,
+  ) => received.push(frame.type);
   const first = h.store.subscribeTopic(topic, listener);
   const second = h.store.subscribeTopic(topic, listener);
   await openAndReady(h);

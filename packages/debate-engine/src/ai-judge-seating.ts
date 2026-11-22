@@ -1,4 +1,5 @@
-import { isJudgeSeat, type RoomAssemblyState } from '@daisy/protocol';
+import { isJudgeSeat } from '@daisy/protocol/seats';
+import { type RoomAssemblyState } from '@daisy/protocol/room-contract';
 
 /**
  * Owner decision 2026-11-02 (WATCH-16): seating an AI judge is free on a

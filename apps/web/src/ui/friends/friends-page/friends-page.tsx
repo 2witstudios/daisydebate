@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import type { FriendList } from '@daisy/protocol';
+import type { FriendList } from '@daisy/protocol/friends';
 import type { FriendFormState } from '../../../features/friends/forms';
 import { Avatar } from '../../components/avatar/avatar';
 import { PageHeader } from '../../components/page-header/page-header';

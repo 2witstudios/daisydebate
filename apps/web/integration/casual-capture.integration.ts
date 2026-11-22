@@ -1,11 +1,11 @@
 import { requireTestServices } from '@daisy/config';
 import {
   affirmativeSide,
-  isNamedSeat,
   judgeSeat,
   negativeSide,
   sideSeat,
-} from '@daisy/protocol';
+} from '@daisy/protocol/seats';
+import { isNamedSeat } from '@daisy/protocol/round-view';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { casualCaptureNotice } from '../src/features/legal/agreements';

@@ -1,5 +1,4 @@
 import { and, asc, eq } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import { roundTranscriptFreezes } from './schema/round-transcript-freezes';
 import {
@@ -8,9 +7,9 @@ import {
 } from './schema/transcript-segments';
 import { roundSegments } from './schema/round-segments';
 import { readOrderedRoundUtterances } from './round-utterance-projection';
+import type { Tx } from './tx';
 
-type Reader = Pick<BunSQLDatabase, 'select'>;
-export const readTranscriptFreeze = async (reader: Reader, roundId: string) => {
+export const readTranscriptFreeze = async (reader: Tx, roundId: string) => {
   const [row] = await reader
     .select()
     .from(roundTranscriptFreezes)
@@ -20,7 +19,7 @@ export const readTranscriptFreeze = async (reader: Reader, roundId: string) => {
 
 /** Reuses the caller's existing Round lock/transaction; never starts a transaction. */
 export async function readLockedFrozenRoundTranscript(
-  reader: Reader,
+  reader: Tx,
   roundId: string,
 ) {
   const freeze = await readTranscriptFreeze(reader, roundId);

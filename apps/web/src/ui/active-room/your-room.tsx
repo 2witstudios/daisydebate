@@ -1,4 +1,4 @@
-import type { ActiveRoom } from '@daisy/protocol';
+import type { ActiveRoom } from '@daisy/protocol/active-room';
 import { roomStatusLabels } from '../../features/rooms/status-labels';
 import { buttonClass } from '../components/button/button-class';
 import { statusDotClass } from '../components/status-line/status-line-class';

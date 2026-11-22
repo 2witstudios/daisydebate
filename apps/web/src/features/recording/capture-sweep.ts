@@ -1,19 +1,22 @@
+import { instantMs } from '@daisy/clock';
 import {
   plannedBroadcast,
   plannedRecording,
   type StageEgressFact,
   type StagePhaseFact,
 } from '@daisy/debate-engine';
+import { isRoundOver } from '@daisy/protocol/round';
 import {
-  isRoundOver,
   holdAttemptPrefix,
-  publicIntervals,
-  recordingBuildDelayed,
   recordingHoldPrefix,
-  type BuiltRecordingMedia,
-  type EntitlementGrant,
   type RecordingSource,
-} from '@daisy/protocol';
+} from '@daisy/protocol/recording';
+import { publicIntervals } from '@daisy/protocol/public-interval';
+import {
+  recordingBuildDelayed,
+  type BuiltRecordingMedia,
+} from '@daisy/protocol/recording-processing';
+import { type EntitlementGrant } from '@daisy/protocol/entitlements';
 import type { createDatabase } from '@daisy/db';
 import {
   answerRecordingJob,
@@ -201,7 +204,7 @@ export const createRecordingCaptureSweep = (deps: {
     roundEnded: isRoundOver(open.roundStatus),
     captureDeadlineAtMs:
       open.eligibility.kind === 'tournament_admission'
-        ? Date.parse(open.eligibility.deadlineAt)
+        ? instantMs(open.eligibility.deadlineAt)
         : null,
     path: {
       kind: 'own',

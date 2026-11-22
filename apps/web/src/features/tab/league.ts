@@ -1,4 +1,4 @@
-import type { Ladder } from '@daisy/protocol';
+import type { Ladder } from '@daisy/protocol/ladder';
 import type { StandingRoomCreation } from './standing-room-creation';
 import type { TabAction } from './action';
 import type { ResolvedSettingsView } from '@daisy/protocol/lobby/resolved-settings-read';

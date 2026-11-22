@@ -1,12 +1,9 @@
 'use client';
 
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useReducer,
-  useRef,
-} from 'react';
+import { useBrowserEffect, useBrowserLayoutEffect } from '../edge/browser-sync';
+import { StatusRegion } from '../components/status-region/status-region';
+import { Button } from '../components/button/button';
+import { useCallback, useReducer, useRef } from 'react';
 import {
   initialManagerState,
   reduceManager,
@@ -128,14 +125,14 @@ export function ManagerWorkspace({
       movingFocus.current = false;
     }
   }, []);
-  useLayoutEffect(() => {
+  useBrowserLayoutEffect(() => {
     if (
       state.navigation.focus !== null &&
       window.matchMedia('(width < 901px)').matches
     )
       focusPane(state.navigation.focus);
   }, [state.navigation, focusPane]);
-  useEffect(() => {
+  useBrowserEffect(() => {
     const narrow = window.matchMedia('(width < 901px)');
     const remember = (event: FocusEvent) => {
       if (event.target === document.body) return;
@@ -180,7 +177,7 @@ export function ManagerWorkspace({
     };
   }, [state.navigation.pane, focusPane]);
   const opened = useRef(false);
-  useEffect(() => {
+  useBrowserEffect(() => {
     if (openId === null || opened.current) return;
     opened.current = true;
     drive.open(openId, 'your document', 'link');
@@ -201,13 +198,14 @@ export function ManagerWorkspace({
       {[...new Set([problem ?? notice, drive.problem, pageNotice])]
         .filter(Boolean)
         .map((message) => (
-          <p
+          <StatusRegion
+            as="p"
             key={message}
             role="alert"
             className="border-b border-border px-4 py-2 text-sm"
           >
             {message}
-          </p>
+          </StatusRegion>
         ))}
       <RecoveredDrafts
         documents={loadedDocuments(state.opened)}
@@ -255,7 +253,8 @@ export function ManagerWorkspace({
             onLastTabClosed={() => focusPane('files')}
             save={save}
             leading={
-              <button
+              <Button
+                variant="unstyled"
                 type="button"
                 ref={backToFiles}
                 aria-label="Back to Files"
@@ -263,7 +262,7 @@ export function ManagerWorkspace({
                 onClick={() => dispatch({ type: 'pane/files' })}
               >
                 <Icon name="chevronLeft" size={16} />
-              </button>
+              </Button>
             }
             empty={
               <p className="px-10 pt-6 text-sm text-ink-muted max-compact:px-4">

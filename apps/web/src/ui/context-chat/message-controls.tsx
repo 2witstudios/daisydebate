@@ -1,5 +1,8 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
+import { useBrowserEffect } from '../edge/browser-sync';
+import { StatusRegion } from '../components/status-region/status-region';
+import { Button } from '../components/button/button';
+import { useRef, useState } from 'react';
 import { systemId } from '@daisy/clock';
 import { contextChatFormUnavailable } from '../../features/messaging/context-chat/form';
 import {
@@ -72,7 +75,7 @@ export function ContextChatMessageControls({
     contextChatFormUnavailable,
   );
   const seen = useRef(answer);
-  useEffect(() => {
+  useBrowserEffect(() => {
     const accepted = contextChatAcceptedMessage(answer);
     if (accepted !== undefined && answer !== seen.current) {
       seen.current = answer;
@@ -84,7 +87,7 @@ export function ContextChatMessageControls({
   const removing = useRef(false);
   const form = useRef<HTMLFormElement>(null);
   const ownedFocus = useRef(false);
-  useEffect(() => {
+  useBrowserEffect(() => {
     if (!locked || !ownedFocus.current) return;
     if (
       document.activeElement === document.body ||
@@ -94,7 +97,7 @@ export function ContextChatMessageControls({
     ownedFocus.current = false;
   }, [locked, returnFocusId]);
 
-  useEffect(
+  useBrowserEffect(
     () => () => {
       if (removing.current && document.activeElement === document.body)
         document.getElementById(returnFocusId)?.focus();
@@ -151,7 +154,7 @@ export function ContextChatMessageControls({
         onBlurCapture={(event) => {
           if (
             event.relatedTarget &&
-            !event.currentTarget.contains(event.relatedTarget as Node)
+            !event.currentTarget.contains(event.relatedTarget)
           )
             ownedFocus.current = false;
         }}
@@ -222,11 +225,12 @@ export function ContextChatMessageControls({
           <input type="hidden" name="reason" value={reason} />
         ) : null}
         {notice ? (
-          <p id={noticeId} role="status" tabIndex={-1}>
+          <StatusRegion as="p" id={noticeId} role="status" tabIndex={-1}>
             {notice}
-          </p>
+          </StatusRegion>
         ) : null}
-        <button
+        <Button
+          variant="unstyled"
           id={submitId}
           type="submit"
           disabled={pending || locked || (kind === 'edit' && editingLocked)}
@@ -241,7 +245,7 @@ export function ContextChatMessageControls({
                 : kind === 'remove'
                   ? 'Remove message'
                   : 'Submit report'}
-        </button>
+        </Button>
       </form>
     </details>
   );

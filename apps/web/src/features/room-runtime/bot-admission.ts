@@ -3,7 +3,7 @@ import {
   isOpenRoomStatus,
   type RoomAssemblyState,
   type RoomView,
-} from '@daisy/protocol';
+} from '@daisy/protocol/room-contract';
 import type { BotAdmissionStatus } from '@daisy/db/round-bot-admission';
 /** Economic metadata is scoped to the current host; it grants no competitive authority. */
 export async function roomBotAdmission(

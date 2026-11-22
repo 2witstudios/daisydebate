@@ -1,13 +1,13 @@
-import { speakingEndMs } from '@daisy/protocol';
+import { speakingEndMs } from '@daisy/protocol/segment-end';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { mediaSessions } from './schema/media-sessions';
 import { roundIncidents } from './schema/round-incidents';
-import type { CaptureTx } from './media-capture-context';
 import { mediaVendorMutations } from './schema/media-vendor-mutations';
+import type { Tx } from './tx';
 
 /** Vendor lifecycle evidence survives rotation, even when no PCM or text was persisted. */
 export async function captureSessionInterrupted(
-  tx: CaptureTx,
+  tx: Tx,
   sessionId: string,
   segment: {
     readonly startedAt: Date;

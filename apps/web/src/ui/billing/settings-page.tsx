@@ -1,3 +1,4 @@
+import { StatusRegion } from '../components/status-region/status-region';
 import Link from 'next/link';
 import type { BillingSettings } from '../../features/billing/settings-view';
 import {
@@ -211,7 +212,8 @@ function PremiumConfirmed({
   readonly settings: BillingSettings;
 }) {
   return (
-    <section
+    <StatusRegion
+      as="section"
       role="status"
       className="flex flex-col gap-4 rounded-xl border border-border bg-surface-raised p-6"
     >
@@ -265,7 +267,7 @@ function PremiumConfirmed({
           Back to billing
         </Link>
       </div>
-    </section>
+    </StatusRegion>
   );
 }
 
@@ -292,9 +294,13 @@ export function BillingSettingsPage({
     <ReadingPage>
       <PageHeader title="Billing" />
       {message ? (
-        <p role="status" className="rounded-lg bg-surface-sunken px-4 py-3">
+        <StatusRegion
+          as="p"
+          role="status"
+          className="rounded-lg bg-surface-sunken px-4 py-3"
+        >
           {message}
-        </p>
+        </StatusRegion>
       ) : null}
       {!settings ? (
         <Panel title="Billing unavailable">

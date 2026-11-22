@@ -1,3 +1,4 @@
+import { Button } from '../button/button';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { buttonClass } from '../button/button-class';
@@ -18,7 +19,7 @@ export function ClearFilters({ href }: { readonly href: string | null }) {
 
 /**
  * The tail of a GET filter form: the result count (phone only), any extra
- * control such as a sort, and the Apply button that works without script.
+ * control such as a sort, and the Apply button that works before hydration.
  */
 export function FilterFooter({
   count,
@@ -36,9 +37,13 @@ export function FilterFooter({
         {`${count} ${count === 1 ? noun : `${noun}s`}`}
       </p>
       {children}
-      <button type="submit" className={`${buttonClass('secondary')} order-8`}>
+      <Button
+        variant="unstyled"
+        type="submit"
+        className={`${buttonClass('secondary')} order-8`}
+      >
         Apply
-      </button>
+      </Button>
     </div>
   );
 }

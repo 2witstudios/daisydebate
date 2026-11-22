@@ -19,9 +19,7 @@ import { claimUsername } from './support/forms';
 import { effectsRan } from './support/hydration';
 import { walkOnboarding } from './support/onboarding';
 
-// The username step with JavaScript on: what the hydrated page adds to the
-// form's POST. The same step with JavaScript off is proven in
-// journey.e2e.ts.
+// The username step: what the hydrated page adds to the form's POST.
 /** The birth month and year that many whole months before now, in UTC. */
 const monthsAgo = (months: number) => {
   const now = new Date(systemClock.now());
@@ -33,7 +31,7 @@ test.beforeEach(async ({ request }) => {
   await resetRateLimits(request);
 });
 
-test('a claim made with JavaScript moves on without the server fetching the next page', async ({
+test('a claim moves on without the server fetching the next page', async ({
   page,
 }) => {
   await signUpProvisional(page.request);
@@ -94,7 +92,7 @@ test('a new claim hides the last refusal while it is pending', async ({
   ).toBeVisible();
 });
 
-test('a new member walks onboarding with JavaScript and the answers stay saved', async ({
+test('a new member walks onboarding and the answers stay saved', async ({
   page,
 }) => {
   const { email } = await signUpProvisional(page.request);
@@ -254,77 +252,55 @@ test('a 13-year-old is admitted and told they are in the Youth lobby', async ({
   await expect(page).toHaveURL(/\/onboarding\/username\?next=(\/|%2F)lobby$/);
 });
 
-test.describe('the age step with JavaScript off', () => {
-  test.use({ javaScriptEnabled: false });
-
-  test('a native post leads to the username', async ({ page }) => {
-    await signUpBeforeAge(page.request);
-    await page.goto('/onboarding/age?next=%2Flobby');
-    await page.getByRole('button', { name: 'Continue' }).click();
-    // Native validation keeps an unanswered form from posting.
-    await expect(page).toHaveURL(/\/onboarding\/age/);
-    await answerAgeStep(page);
-    await expect(page).toHaveURL(/\/onboarding\/username\?next=(\/|%2F)lobby$/);
-  });
-
-  test('a 13-year-old posts natively, lands on Youth and goes on to the username', async ({
-    page,
-  }) => {
-    await signUpBeforeAge(page.request);
-    await page.goto('/onboarding/age?next=%2Flobby');
-    await answerAtThirteen(page);
-    await expect(page).toHaveURL(/\/onboarding\/lobby\?next=(\/|%2F)lobby$/);
-    await expect(
-      page.getByRole('heading', { name: 'You’re in the Youth lobby' }),
-    ).toBeVisible();
-    await page.getByRole('link', { name: 'Continue' }).click();
-    await expect(page).toHaveURL(/\/onboarding\/username\?next=(\/|%2F)lobby$/);
-  });
+test('an unanswered age step does not post; an answered one leads to the username', async ({
+  page,
+}) => {
+  await signUpBeforeAge(page.request);
+  await page.goto('/onboarding/age?next=%2Flobby');
+  await page.getByRole('button', { name: 'Continue' }).click();
+  // Native validation keeps an unanswered form from posting.
+  await expect(page).toHaveURL(/\/onboarding\/age/);
+  await answerAgeStep(page);
+  await expect(page).toHaveURL(/\/onboarding\/username\?next=(\/|%2F)lobby$/);
 });
 
-test.describe('onboarding answers in Settings without JavaScript', () => {
-  test.use({ javaScriptEnabled: false });
-
-  // ISSUE-324: a member sees what they answered and can change it.
-  test('Settings lists the answers, and each Edit changes one answer and returns straight to Settings', async ({
-    page,
-  }) => {
-    await signUpMember(page.request);
-    const saved = await page.request.post('/api/account/onboarding', {
-      headers: { origin },
-      data: { step: 'topics', topics: ['law'] },
-    });
-    expect(saved.status()).toBe(200);
-
-    await page.goto('/settings');
-    await expect(page.getByText('Your onboarding answers')).toBeVisible();
-    await expect(page.getByText('Law', { exact: true })).toBeVisible();
-
-    // Each Edit changes one answer and comes straight back: no walk on
-    // through the later steps or Ready.
-    await page.getByRole('link', { name: 'Edit topics' }).click();
-    await expect(page).toHaveURL(
-      /\/onboarding\/topics\?next=%2Fsettings&edit=1$/,
-    );
-    // Edit mode: Save goes back, and there is no Skip to detour through Ready.
-    await expect(page.getByRole('button', { name: 'Skip' })).toHaveCount(0);
-    await page.locator('label', { hasText: 'Economics' }).click();
-    await page.getByRole('button', { name: 'Save' }).click();
-    await expect(page).toHaveURL(/\/settings$/);
-    const row = (edit: string) =>
-      page
-        .getByRole('definition')
-        .filter({ has: page.getByRole('link', { name: edit }) });
-    await expect(row('Edit topics')).toContainText('Economics');
-    await expect(row('Edit topics')).toContainText('Law');
-
-    await page.getByRole('link', { name: 'Edit club' }).click();
-    await expect(page).toHaveURL(
-      /\/onboarding\/about\?next=%2Fsettings&edit=1$/,
-    );
-    await page.locator('label', { hasText: 'On my own' }).click();
-    await page.getByRole('button', { name: 'Save' }).click();
-    await expect(page).toHaveURL(/\/settings$/);
-    await expect(row('Edit club')).toContainText('On my own');
+// ISSUE-324: a member sees what they answered and can change it.
+test('Settings lists the answers, and each Edit changes one answer and returns straight to Settings', async ({
+  page,
+}) => {
+  await signUpMember(page.request);
+  const saved = await page.request.post('/api/account/onboarding', {
+    headers: { origin },
+    data: { step: 'topics', topics: ['law'] },
   });
+  expect(saved.status()).toBe(200);
+
+  await page.goto('/settings');
+  await expect(page.getByText('Your onboarding answers')).toBeVisible();
+  await expect(page.getByText('Law', { exact: true })).toBeVisible();
+
+  // Each Edit changes one answer and comes straight back: no walk on
+  // through the later steps or Ready.
+  await page.getByRole('link', { name: 'Edit topics' }).click();
+  await expect(page).toHaveURL(
+    /\/onboarding\/topics\?next=%2Fsettings&edit=1$/,
+  );
+  // Edit mode: Save goes back, and there is no Skip to detour through Ready.
+  await expect(page.getByRole('button', { name: 'Skip' })).toHaveCount(0);
+  await page.locator('label', { hasText: 'Economics' }).click();
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page).toHaveURL(/\/settings$/);
+  const row = (edit: string) =>
+    page
+      .getByRole('definition')
+      .filter({ has: page.getByRole('link', { name: edit }) });
+  await expect(row('Edit topics')).toContainText('Economics');
+  await expect(row('Edit topics')).toContainText('Law');
+
+  await page.getByRole('link', { name: 'Edit club' }).click();
+  await expect(page).toHaveURL(/\/onboarding\/about\?next=%2Fsettings&edit=1$/);
+  await page.locator('label', { hasText: 'On my own' }).click();
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page).toHaveURL(/\/settings$/);
+  await expect(row('Edit club')).toContainText('On my own');
 });

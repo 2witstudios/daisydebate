@@ -6,7 +6,7 @@ import { lobbies } from './schema/lobbies';
 import { organizations } from './schema/organizations';
 import { settings } from './schema/settings';
 import { scopeTransaction } from './tenant-scope';
-import type { Tx } from './room-command-facts';
+import type { Tx } from './tx';
 
 /** A league's own configured ladder; a foreign or Daisy ladder is never selectable. */
 export async function leagueRoomSelection(

@@ -5,7 +5,7 @@ type Job = {
   needs?: string | string[];
   if?: string;
   uses?: string;
-  strategy?: { matrix: Record<string, string[]> };
+  strategy?: { matrix: Record<string, string[] | string> };
   steps?: { run?: string }[];
 };
 const readJobs = async (name: string) =>
@@ -16,8 +16,11 @@ const readJobs = async (name: string) =>
   ).jobs;
 const width = (job: Job) =>
   job.strategy
-    ? Object.values(job.strategy.matrix).reduce(
-        (total, dimension) => total * dimension.length,
+    ? Object.entries(job.strategy.matrix).reduce(
+        (total, [name, dimension]) =>
+          name === 'include' || name === 'exclude' || !Array.isArray(dimension)
+            ? total
+            : total * dimension.length,
         1,
       )
     : 1;
@@ -55,11 +58,11 @@ describe('CI quick prerequisite topology', () => {
       given: 'the checks matrix after quick success',
       should: 'run only what the quick check does not',
       actual: ci.checks.strategy?.matrix.task,
-      expected: ['policy', 'invariants', 'build', 'knip'],
+      expected: ['policy', 'invariants', 'build', 'knip', 'knip:production'],
     });
   });
 
-  test('reports warn without holding the gate, while knip is a required check', async () => {
+  test('reports warn without holding the gate, while both knip passes are required checks', async () => {
     const ci = await readJobs('ci');
     const steps = (ci.reports.steps ?? []) as {
       run?: string;
@@ -70,23 +73,25 @@ describe('CI quick prerequisite topology', () => {
     assert({
       given: 'the advisory reports job and the checks matrix',
       should:
-        'never gate CI on a report, and run the dead-code check among the required checks',
+        'never gate CI on a report, and run both dead-code passes among the required checks',
       actual: {
         gated: ci.gate.needs?.includes('reports'),
         reports: [
-          'bun run knip:production',
           'bun run duplication',
           'bun run evidence',
           'bun run metrics:check',
         ].map(allowance),
         knipIsRequired:
           ci.checks.strategy?.matrix.task.includes('knip') &&
+          ci.checks.strategy.matrix.task.includes('knip:production') &&
           ci.gate.needs?.includes('checks'),
-        knipIsAReport: steps.some((step) => step.run === 'bun run knip'),
+        knipIsAReport: steps.some((step) =>
+          ['bun run knip', 'bun run knip:production'].includes(step.run ?? ''),
+        ),
       },
       expected: {
         gated: false,
-        reports: [true, true, true, true],
+        reports: [true, true, true],
         knipIsRequired: true,
         knipIsAReport: false,
       },

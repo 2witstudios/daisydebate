@@ -1,4 +1,4 @@
-import { messagingTypingSchemas } from '@daisy/protocol';
+import { messagingTypingSchemas } from '@daisy/protocol/messaging/typing';
 import type { App } from '../../server/app';
 import { parseValidated } from '../../server/http';
 import {

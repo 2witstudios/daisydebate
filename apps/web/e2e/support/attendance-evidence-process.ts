@@ -1,4 +1,4 @@
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { readLaunchDatabase } from './launch-evidence-database';
 import { decodeAttendanceEvidence } from './attendance-evidence-decoder';
 

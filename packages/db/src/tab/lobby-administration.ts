@@ -12,7 +12,6 @@ import { scopeTransaction, type TenantScope } from '../tenant-scope';
 import { appendHistory, storedCommand } from './command-record';
 import { loadAuthorityContext } from './authority-context';
 import { ladders } from '../schema/ladders';
-import type { TabDatabase, TabTransaction } from './tab-transaction';
 import { applyLobbyAdministrationWrites } from './lobby-administration-writes';
 
 import type {
@@ -23,16 +22,14 @@ import type {
 import { actors } from '../schema/actors';
 import { grants } from '../schema/grants';
 
-const fence = async (tx: TabTransaction, input: LobbyAdministrationInput) => {
+const fence = async (tx: Tx, input: LobbyAdministrationInput) => {
   const { command } = input;
   await scopeTransaction(tx, { subjectUserId: input.senderUserId });
   await lockTabCommandAccounts(tx, [input.senderUserId]);
   if (command.type === 'create-lobby') {
     // A handle is public identity. Serialize its first writer so concurrent
     // retries can find the receipt, and competing creates answer handle-taken.
-    await tx.execute(
-      sql`select pg_advisory_xact_lock(hashtextextended(${`tab-lobby-handle:${command.handle.toLowerCase()}`}, 0))`,
-    );
+    await takeLock(tx, transactionLocks.tabLobbyHandle(command.handle));
   }
   const addressedOrganization =
     'organizationId' in command ? command.organizationId : undefined;
@@ -73,7 +70,7 @@ const fence = async (tx: TabTransaction, input: LobbyAdministrationInput) => {
 };
 
 const load = async (
-  tx: TabTransaction,
+  tx: Tx,
   input: LobbyAdministrationInput,
   initialScope: TenantScope,
 ): Promise<LobbyAdministrationFacts> => {
@@ -274,12 +271,15 @@ const load = async (
   };
 };
 
-export const createLobbyAdministrationStore = (database: TabDatabase) => ({
+import { inTransaction, type Tx, type TxOpener } from '../tx';
+import { takeLock, transactionLocks } from '../locks';
+
+export const createLobbyAdministrationStore = (database: TxOpener) => ({
   lobbyAdministrationCommand: <Answer>(
     input: LobbyAdministrationInput,
     work: (session: LobbyAdministrationSession) => Promise<Answer>,
   ): Promise<Answer> =>
-    database.transaction(async (tx) => {
+    inTransaction(database, async (tx) => {
       const scope = await fence(tx, input);
       return work({
         stored: (id) => replayRecord(tx, input, scope, id),
@@ -293,7 +293,7 @@ export const createLobbyAdministrationStore = (database: TabDatabase) => ({
 });
 
 const replayRecord = async (
-  tx: TabTransaction,
+  tx: Tx,
   input: LobbyAdministrationInput,
   scope: TenantScope,
   commandId: string,

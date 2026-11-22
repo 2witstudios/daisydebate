@@ -10,6 +10,7 @@ import { publicationOf } from './media-publication';
 import { statusOf } from './media-status';
 import { testPolicy } from './media-state.test-support';
 import { reduceMedia } from './reduce-media';
+import { seededWalk } from '@daisy/seeded-random/testing';
 
 setupRitewayBun();
 
@@ -122,62 +123,54 @@ test('an ended call absorbs every event', () => {
   });
 });
 
-/** Seeded and reproducible: no ambient randomness in tests. */
-const seeded = (seed: number) => {
-  let value = seed >>> 0;
-  return (limit: number) => {
-    value = (value * 1664525 + 1013904223) >>> 0;
-    return value % limit;
-  };
-};
-
 test('any sequence of events keeps the invariants', () => {
-  const failures: string[] = [];
-  for (let seed = 1; seed <= 200; seed++) {
-    const pick = seeded(seed);
-    let state = initialMediaState({
-      roundViewVersion: 1,
-      microphoneMuted: false,
-    });
-    let atMs = 0;
-    const trace: string[] = [];
-    for (let step = 0; step < 120 && failures.length === 0; step++) {
+  type Walk = { readonly state: MediaState; readonly atMs: number };
+  const report = seededWalk({
+    seed: 1,
+    runs: 400,
+    steps: 120,
+    start: (): Walk => ({
+      state: initialMediaState({ roundViewVersion: 1, microphoneMuted: false }),
+      atMs: 0,
+    }),
+    moves: ({ state }: Walk) => {
       const link = state.link as {
         connection?: number;
         reads?: { flight: { ticket: number } | null };
       };
-      const events = everyEvent(
+      return everyEvent(
         link.connection ?? 1,
         link.reads?.flight?.ticket ?? 1,
         state.timers,
       ).filter(
         (event) => event.type !== 'page-left' && event.type !== 'round-ended',
       );
-      const event = events[pick(events.length)]!;
-      trace.push(event.type);
-      atMs += pick(3_000);
+    },
+    label: (event) => event.type,
+    step: ({ state, atMs: before }, event, draw) => {
+      const atMs = before + draw(3_000);
       const next = reduceMedia(state, event, { atMs, policy: testPolicy });
       const started = next.effects.filter(
-        (e) => e.type === 'start-read',
+        (effect) => effect.type === 'start-read',
       ).length;
       const hadFlight =
         state.link.phase === 'live' && state.link.reads.flight !== null;
-      if (
+      const secondRead =
         started > 1 ||
-        (started === 1 && hadFlight && event.type !== 'timer-fired')
-      )
-        failures.push(
-          `seed ${seed}: a second read started: ${trace.join(' ')}`,
-        );
-      state = next.state;
-      for (const problem of violations(state))
-        failures.push(`seed ${seed}: ${problem}: ${trace.join(' ')}`);
-    }
-  }
+        (started === 1 && hadFlight && event.type !== 'timer-fired');
+      return {
+        state: { state: next.state, atMs },
+        problems: [
+          ...(secondRead ? ['a second read started'] : []),
+          ...violations(next.state),
+        ],
+      };
+    },
+  });
   assert({
-    given: 'two hundred seeded sequences of a hundred and twenty events',
+    given: 'four hundred seeded walks of up to a hundred and twenty events',
     should: 'hold every invariant, and run at most one read at a time',
-    actual: failures.slice(0, 2),
-    expected: [],
+    actual: report.failure,
+    expected: null,
   });
 });

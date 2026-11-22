@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { createElement as h } from 'react';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import type { RoomView } from '@daisy/protocol';
+import type { RoomView } from '@daisy/protocol/room-contract';
 import {
   assemblySnapshot,
   pendingInvitation,

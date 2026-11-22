@@ -1,12 +1,12 @@
 'use server';
 import { headers } from 'next/headers';
 import { revalidatePath } from 'next/cache';
-import { messagingPreferenceSchemas } from '@daisy/protocol';
+import { messagingPreferenceSchemas } from '@daisy/protocol/messaging/preferences';
 import { processRoute } from '../../../../../server/process-app';
 import { inProcessFetch } from '../../../../../server/in-process-fetch';
 import { moveOn } from '../../../../../server/form-action';
+import { parsePreferenceForm } from '../../../../../features/messaging/forms/preference-form-parse';
 import {
-  parsePreferenceForm,
   preferenceUnavailable,
   preferenceSaved,
   preferenceSelections,

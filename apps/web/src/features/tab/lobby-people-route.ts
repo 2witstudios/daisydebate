@@ -1,15 +1,11 @@
 import { z } from 'zod';
-import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import {
   lobbyPeopleViewSchema,
   type LobbyPeopleView,
 } from '@daisy/protocol/lobby/lobby-people-read';
-import { parseValidated } from '../../server/http';
-import {
-  runEvaluatedRoute,
-  type MemberBoundary,
-} from '../../server/member-boundary';
+import type { MemberBoundary } from '../../server/member-boundary';
+import { bindTabRead } from './read-route';
 import type { TabPrincipal } from './tab-principal';
 
 const querySchema = z.strictObject({ lobbyId: idSchema });
@@ -23,25 +19,14 @@ export type LobbyPeopleRouteDependencies = {
     lobbyId: string,
   ) => Promise<LobbyPeopleView | null>;
 };
-export const createLobbyPeopleRoute =
-  (dependencies: LobbyPeopleRouteDependencies) => (request: Request) =>
-    runEvaluatedRoute(dependencies.boundary, request, {
-      name: 'tab.lobby.people',
-      readOnly: true,
-      readInput: async () => undefined,
-      operation: async (_input, principal) => {
-        if (
-          principal.kind !== 'user' ||
-          !(await dependencies.released(principal.userId))
-        )
-          throw createAppError('NOT_FOUND');
-        const { lobbyId } = parseValidated(
-          querySchema,
-          Object.fromEntries(new URL(request.url).searchParams),
-        );
-        const view = await dependencies.read(principal, lobbyId);
-        if (view === null) throw createAppError('NOT_FOUND');
-        return lobbyPeopleViewSchema.parse(view);
-      },
-      headers: { 'cache-control': 'no-store' },
-    });
+export const createLobbyPeopleRoute = (
+  dependencies: LobbyPeopleRouteDependencies,
+) =>
+  bindTabRead({
+    boundary: dependencies.boundary,
+    released: dependencies.released,
+    name: 'tab.lobby.people',
+    query: querySchema,
+    view: lobbyPeopleViewSchema,
+    read: (principal, { lobbyId }) => dependencies.read(principal, lobbyId),
+  });

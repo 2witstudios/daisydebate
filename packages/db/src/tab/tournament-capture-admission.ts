@@ -2,14 +2,14 @@ import { createAppError, createRefusal } from '@daisy/errors';
 import {
   tournamentCaptureAdmissionSchema,
   type TournamentCaptureAdmission,
-} from '@daisy/protocol';
+} from '@daisy/protocol/tournament-capture-admission';
 import { tournamentCaptureAdmissions } from '../schema/tournament-capture-admissions';
 import {
   NONRANKED_CAPTURE_FLEET_LIMIT,
   readNonrankedCaptureCapacity,
 } from '../nonranked-capture-capacity';
-import type { TabTransaction } from './tab-transaction';
 import type { RoomDirectionInput } from './room-direction';
+import type { Tx } from '../tx';
 
 /** The admission names exactly the grant or paid purchase its funder holds now. */
 const basisHeld = (
@@ -36,7 +36,7 @@ const basisHeld = (
 
 /** Called after the named Round/receipt insert under the already held physical-capacity lock. */
 export const reserveTournamentCapture = async (
-  tx: TabTransaction,
+  tx: Tx,
   input: {
     readonly admission: TournamentCaptureAdmission;
     readonly direction: RoomDirectionInput;

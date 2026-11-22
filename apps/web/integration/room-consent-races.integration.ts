@@ -1,4 +1,5 @@
-import { isNamedSeat, type RoomView } from '@daisy/protocol';
+import { isNamedSeat } from '@daisy/protocol/round-view';
+import { type RoomView } from '@daisy/protocol/room-contract';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';

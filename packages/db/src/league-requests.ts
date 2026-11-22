@@ -1,3 +1,4 @@
+import { commandDigest } from '@daisy/digest';
 import type { LeagueRequest } from '@daisy/protocol/league-request';
 import {
   leagueRequestDivisions,
@@ -5,9 +6,7 @@ import {
   leagueRequestSeasonCounts,
   leagueRequestStyles,
 } from '@daisy/protocol/league-request';
-import { createHash } from 'node:crypto';
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { z } from 'zod';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import {
@@ -15,14 +14,13 @@ import {
   type MailJobClaimInput,
   type MailJobOutcome,
 } from './mail-queue';
-import { rowsOf } from './raw-rows';
+import { query } from './raw-rows';
 import { deleteExpiredBatch, type RetentionBatch } from './retention';
 import {
   leagueRequestNoticeErrorCodes,
   leagueRequests,
 } from './schema/league-requests';
-
-type Database = Pick<BunSQLDatabase, 'transaction' | 'execute'>;
+import type { TxSource } from './tx';
 
 /**
  * A lapsed lease is not marked `delivery-unknown`: the next claim sends the
@@ -84,22 +82,18 @@ const requestRow = z.object({
  * once.
  */
 const leagueRequestDigest = (request: LeagueRequest): string =>
-  createHash('sha3-256')
-    .update(
-      JSON.stringify([
-        request.leagueName,
-        request.schools,
-        request.seasons,
-        request.style,
-        request.divisions,
-        request.needs,
-        request.contactName,
-        request.contactRole,
-        request.contactEmail,
-        request.contactPhone,
-      ]),
-    )
-    .digest('hex');
+  commandDigest([
+    request.leagueName,
+    request.schools,
+    request.seasons,
+    request.style,
+    request.divisions,
+    request.needs,
+    request.contactName,
+    request.contactRole,
+    request.contactEmail,
+    request.contactPhone,
+  ]);
 
 /**
  * League requests (PYL-17): stored once per request id, then told to the
@@ -110,7 +104,7 @@ export function leagueRequestOperations({
   database,
   eventSink,
 }: {
-  readonly database: Database;
+  readonly database: TxSource;
   readonly eventSink: DatabaseEventSink | undefined;
 }) {
   return {
@@ -120,9 +114,10 @@ export function leagueRequestOperations({
      */
     leagueRequestUnchanged: (request: LeagueRequest): Promise<boolean> =>
       instrumented(eventSink, 'leagueRequestUnchanged', async () => {
-        const rows = await rowsOf(
+        const rows = await query(
           database,
-          sql`select 1 from league_requests where form_id = ${request.requestId}
+          z.object({ present: z.literal(1) }),
+          sql`select 1 as present from league_requests where form_id = ${request.requestId}
             and fields_digest = ${leagueRequestDigest(request)}`,
         );
         return rows.length === 1;
@@ -143,8 +138,9 @@ export function leagueRequestOperations({
     ): Promise<void> =>
       instrumented(eventSink, 'recordLeagueRequest', async () => {
         const insert = (id: string) =>
-          rowsOf(
+          query(
             database,
+            z.object({ id: z.string() }),
             sql`insert into league_requests (
               id, form_id, fields_digest, league_name, schools, seasons, style,
               divisions, needs, contact_name, contact_role, contact_email,
@@ -166,14 +162,33 @@ export function leagueRequestOperations({
       input: MailJobClaimInput,
     ): Promise<readonly LeagueRequestNoticeClaim[]> =>
       instrumented(eventSink, 'claimLeagueRequestNotices', async () =>
-        (await noticeQueue.claimDue(database, input, sql`id, attempts`)).map(
-          ({ row, token }) => ({ ...claimRow.parse(row), token }),
-        ),
+        (
+          await noticeQueue.claimDue(
+            database,
+            input,
+            sql`id, attempts`,
+            claimRow,
+          )
+        ).map(({ row, token }) => ({ ...row, token })),
       ),
     readLeagueRequestNotice: (id: string): Promise<LeagueRequestNotice> =>
       instrumented(eventSink, 'readLeagueRequestNotice', async () => {
-        const [row] = await rowsOf<unknown>(
+        const [row] = await query(
           database,
+          z.object({
+            id: z.string(),
+            league_name: z.string(),
+            schools: z.string(),
+            seasons: z.string(),
+            style: z.string(),
+            divisions: z.string(),
+            needs: z.string(),
+            contact_name: z.string(),
+            contact_role: z.string(),
+            contact_email: z.string(),
+            contact_phone: z.string().nullable(),
+            received_at: z.string(),
+          }),
           sql`select id, league_name, schools, seasons, style, divisions, needs,
               contact_name, contact_role, contact_email, contact_phone,
               to_char(created_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as received_at

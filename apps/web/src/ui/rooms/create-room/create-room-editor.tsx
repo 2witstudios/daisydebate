@@ -1,10 +1,13 @@
 'use client';
 
+import { StatusRegion } from '../../components/status-region/status-region';
+import { Button } from '../../components/button/button';
 import type { CreateLobbyChoice } from '../../../features/rooms/create-lobby-choice';
 
 import { useState } from 'react';
 import { casualCaptureNotice } from '../../../features/legal/agreements';
-import { type RatingDivision, type RoomCatalogChoice } from '@daisy/protocol';
+import { type RatingDivision } from '@daisy/protocol/ladder';
+import { type RoomCatalogChoice } from '@daisy/protocol/room-contract';
 import {
   changeRoomValue,
   chooseRoomChoice,
@@ -52,7 +55,7 @@ export function CreateRoomEditor({
    */
   readonly memberDivision: RatingDivision | null;
   /**
-   * Club staff's Lobby choice and its default (ADR 0156, YLCreateRoomClub):
+   * Club staff's Lobby choice and its default:
    * they may open a Youth Room for their students. Null for everyone else,
    * whose Room opens in their own lobby with no choice shown.
    */
@@ -178,17 +181,6 @@ export function CreateRoomEditor({
               </label>
             ))}
           </div>
-          <noscript>
-            <button
-              type="submit"
-              name="intent"
-              value="format"
-              formNoValidate
-              className={buttonClass('secondary')}
-            >
-              Apply format
-            </button>
-          </noscript>
           {mayRank ? (
             <div className="create-room-ranked">
               <label>
@@ -241,13 +233,13 @@ export function CreateRoomEditor({
           {isRanked && values.recording === 'on' ? (
             <input type="hidden" name="recording" value="on" />
           ) : null}
-          <p id="create-recording-notice" role="status">
+          <StatusRegion as="p" id="create-recording-notice" role="status">
             {isRanked
               ? 'Recording is on for ranked matches.'
               : values.recording === 'on'
                 ? 'Recording is subject to available capacity.'
                 : null}
-          </p>
+          </StatusRegion>
           {!isRanked && values.recording === 'on' ? (
             <>
               <p>{casualCaptureNotice.text}</p>
@@ -303,17 +295,6 @@ export function CreateRoomEditor({
                   ))}
                 </select>
               </label>
-              <noscript>
-                <button
-                  type="submit"
-                  name="intent"
-                  value="template"
-                  formNoValidate
-                  className={buttonClass('secondary')}
-                >
-                  Apply template
-                </button>
-              </noscript>
               <p>Based on {draft.basis.label}</p>
             </details>
           ) : null}
@@ -340,17 +321,6 @@ export function CreateRoomEditor({
                 <option value="custom">Custom</option>
               </select>
             </label>
-            <noscript>
-              <button
-                type="submit"
-                name="intent"
-                value="configure"
-                formNoValidate
-                className={buttonClass('secondary')}
-              >
-                Apply resolution
-              </button>
-            </noscript>
             {values.resolutionMethod === 'strike' ? (
               <p>Chosen by strike before the round</p>
             ) : null}
@@ -411,7 +381,8 @@ export function CreateRoomEditor({
           )}
         </section>
         <div className="create-room-actions">
-          <button
+          <Button
+            variant="unstyled"
             type="submit"
             name="intent"
             value="create"
@@ -419,7 +390,7 @@ export function CreateRoomEditor({
             disabled={pending}
           >
             {pending ? 'Creating…' : 'Create room'}
-          </button>
+          </Button>
         </div>
       </fieldset>
       <DraftPreview

@@ -6,7 +6,7 @@ description: >
   Use when asked to plan a slice or epic, break work into board tasks, sync progress, replan, or
   check the board against the plan, or when the user says "/task", "/task sync", "/task replan",
   "/task validate".
-compatibility: Requires the pagespace CLI with an active key (it also posts to the Delivery channel), gh, and pu. In a repository with bun board:*, bun decision:record or bun adr:next (Daisy) it uses them.
+compatibility: Requires the pagespace CLI with an active key (it also posts to the Delivery channel), gh, and pu. In a repository with bun board:*, bun decision:record or bun adr:new (Daisy) it uses them.
 ---
 
 # 🗺️ task
@@ -48,7 +48,7 @@ plan() {
    3. Ideal design: how you would build it from scratch to serve that intent (layers, ownership, names, data flow). Write this BEFORE studying the current implementation in depth.
    4. Current state and divergence: where today's code differs from the ideal, and why.
    5. Refactors first: each divergence that matters becomes a refactor at the start of the slice. Never build on a wrong shape.
-   6. Build: what changes, where, and why; migrations and ADRs (numbers from `bun adr:next`, announced on the Delivery channel when you claim one). Then the task list, one line per task, `<CODE> — Given X, should Y` (reuse existing codes for inherited leaves and issues; new tasks take the slice's prefix; human-only tasks are marked `(human, <who>)`); the verification (local targeted checks, what CI proves, any staging proof); and the decisions and open questions.
+   6. Build: what changes, where, and why; migrations and ADRs (new ADRs use their owning PR number through `bun adr:new`; prepare pending migration order with `bun pr:prepare` before qualification). Then the task list, one line per task, `<CODE> — Given X, should Y` (reuse existing codes for inherited leaves and issues; new tasks take the slice's prefix; human-only tasks are marked `(human, <who>)`); the verification (local targeted checks, what CI proves, any staging proof); and the decisions and open questions.
    - Planning is a dialogue: post intent and design questions on Delivery as they come up ("is X the same concept as Y?", "the code does Z, the ideal is W: refactor?"). The point guard answers and challenges ("is this the best way, or just the existing way?"). The plan is confirmed only after its Ideal design and Divergence have been discussed.
    - The repository's architecture rules (Daisy: AGENTS.md "Architecture rules") are blockers.
 2. Board: one leaf per task code under the slice's epic in Roadmap (`bun board:create` when present), so the merge automation can move them. Reuse existing leaves; never duplicate a code. A finding outside the slice is an issue, always in a bucket: `bun board:create --issue --bucket <name>`.

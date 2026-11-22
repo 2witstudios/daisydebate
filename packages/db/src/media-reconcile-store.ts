@@ -6,8 +6,8 @@ import { revokedBoundSeats, rotateMediaRoom } from './media-session-rotation';
 import type {
   MediaRoomFacts,
   MediaRoomFate,
-  MediaWindowFacts,
-} from '@daisy/protocol';
+} from '@daisy/protocol/media-room-fate';
+import type { MediaWindowFacts } from '@daisy/protocol/post-round-call';
 import {
   readMediaBotLeases,
   mediaHearingSeats,
@@ -16,9 +16,7 @@ import {
 } from './media-publication-authority';
 import { createAppError } from '@daisy/errors';
 import { and, count, eq, isNull } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type { BoundedTransaction } from './bounded-transaction';
-import type { BoundedTransactionContext } from './transaction-context';
 import {
   lockMediaRound,
   mediaId,
@@ -30,7 +28,7 @@ import {
   type LockedRoundTickInput,
 } from './round-clock-transaction';
 import { hydrateRoundRows, type RoundHydration } from './round-hydration';
-import type { RoundCommandAuthority } from '@daisy/protocol';
+import type { RoundCommandAuthority } from '@daisy/protocol/round-command';
 import {
   withdrawnSeats,
   type ParticipantAdmission,
@@ -53,14 +51,15 @@ import {
   requireMutationAdmissible,
   requireReconcileLease,
 } from './media-reconcile-rules';
+import type { TxSource, Tx } from './tx';
 
 /** Durable serialization only; every provider call happens after these bounded transactions commit. */
 export function createMediaReconcileStore(input: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
   readonly run: BoundedTransaction;
   readonly nextId: () => string;
 }) {
-  const pending = (tx: BoundedTransactionContext, sessionId: string) =>
+  const pending = (tx: Tx, sessionId: string) =>
     tx
       .select({
         id: mediaVendorMutations.id,
@@ -73,17 +72,15 @@ export function createMediaReconcileStore(input: {
           isNull(mediaVendorMutations.settledAt),
         ),
       );
-  const mutationCount = async (
-    tx: BoundedTransactionContext,
-    sessionId: string,
-  ) => {
+  const mutationCount = async (tx: Tx, sessionId: string) => {
     const [row] = await tx
       .select({ count: count() })
       .from(mediaVendorMutations)
       .where(eq(mediaVendorMutations.sessionId, sessionId));
-    return row!.count;
+    if (!row) throw createAppError('INVARIANT');
+    return row.count;
   };
-  const locked = async (tx: BoundedTransactionContext, sessionId: string) => {
+  const locked = async (tx: Tx, sessionId: string) => {
     const [initial] = await tx
       .select({ roundId: mediaSessions.roundId })
       .from(mediaSessions)
@@ -106,7 +103,7 @@ export function createMediaReconcileStore(input: {
   const withFence = <T>(
     request: MediaReconcileFence,
     work: (
-      tx: BoundedTransactionContext,
+      tx: Tx,
       session: Awaited<ReturnType<typeof locked>>,
       now: Date,
     ) => Promise<T>,

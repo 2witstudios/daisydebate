@@ -1,9 +1,11 @@
 import { processRoute } from '../../../../../../../server/process-app';
+type Params = Awaited<
+  RouteContext<'/api/messaging/channels/[channelId]/files/discard'>['params']
+>;
+
 export const runtime = 'nodejs';
-export const POST = processRoute(
-  (routes) => (request) =>
-    routes.messaging.files.discard(
-      request,
-      new URL(request.url).pathname.split('/')[4] ?? '',
-    ),
+export const POST = processRoute.withParams<Params>(
+  (routes) =>
+    (request, { channelId }) =>
+      routes.messaging.files.discard(request, channelId),
 );

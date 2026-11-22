@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { ballotDefinitionSchema } from '@daisy/protocol';
+import { ballotDefinitionSchema } from '@daisy/protocol/ballot-definition';
 import {
   boolean,
   check,

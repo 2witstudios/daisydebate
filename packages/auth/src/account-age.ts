@@ -1,4 +1,5 @@
-import type { AgeBand } from '@daisy/protocol';
+import { instantMs, tryInstantMs } from '@daisy/clock';
+import type { AgeBand } from '@daisy/protocol/ladder';
 import { ageBand } from './age-band';
 import { ageAdmitted } from './participant-access';
 import type { AccountAuthorizationFact } from './authorization';
@@ -66,12 +67,12 @@ function knownAccount(
   );
 }
 function validSource(source: AccountAgeSource, instant: Date) {
-  const recorded = Date.parse(source.recordedAt);
+  const recorded = tryInstantMs(source.recordedAt);
   return (
     Number.isSafeInteger(source.revision) &&
     source.revision > 0 &&
     Number.isFinite(instant.getTime()) &&
-    Number.isFinite(recorded) &&
+    recorded !== undefined &&
     recorded <= instant.getTime()
   );
 }
@@ -88,12 +89,12 @@ export function admitsOptionalAnswers(
   actorId: string,
   now: string,
 ): boolean {
-  const instant = Date.parse(now);
+  const instant = tryInstantMs(now);
   return (
     fact.state === 'known' &&
     fact.actorId === actorId &&
     ageAdmitted(fact.band) &&
-    Number.isFinite(instant) &&
-    instant < Date.parse(fact.validUntil)
+    instant !== undefined &&
+    instant < instantMs(fact.validUntil)
   );
 }

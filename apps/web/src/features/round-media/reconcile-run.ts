@@ -26,12 +26,10 @@ import type {
   MediaOperationInput,
 } from './operation-context';
 import { OperationTimedOut } from '@daisy/observability';
-import {
-  isDebatingSeat,
-  isRoundRunning,
-  roundStartPolicy,
-  type MediaRoomRead,
-} from '@daisy/protocol';
+import { isDebatingSeat } from '@daisy/protocol/seats';
+import { isRoundRunning } from '@daisy/protocol/round';
+import { roundStartPolicy } from '@daisy/protocol/round-start-policy';
+import { type MediaRoomRead } from '@daisy/protocol/media-room-fate';
 import { createMediaMutations } from './mutation';
 
 /** What a vendor mutation's authorization reads, under its locks. */
@@ -368,11 +366,11 @@ export function createMediaReconcileRun(
           (entry) => entry.identity === identity,
         )?.microphoneTrack;
         // A failed read is not yet heard, and the next pass asks again.
-        const heard =
-          Boolean(track) &&
-          (await input
-            .readCaptureHeard(state.round.id, track!)
-            .catch(() => null)) === seatId;
+        const heard = track
+          ? (await input
+              .readCaptureHeard(state.round.id, track)
+              .catch(() => null)) === seatId
+          : false;
         return { seatId, heard };
       }),
     );

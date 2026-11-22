@@ -8,18 +8,23 @@ import {
   type MessagingCoreBounds,
 } from './messaging/core';
 
+export const roomCommunityPolicySchema = z.object({
+  policyKey: z.literal('room.community'),
+  policyRevision: z.literal(1),
+});
+
 /**
  * Caller-specific Room chat authority: raw facts about the Room and about this
  * one actor (whether they host it, and their own seat). `decideRoomCommunity`
  * derives what they may do. It says nothing about anyone else and never
  * reaches the wire; the caller is told only whether their chat is read-only.
  */
-export type RoomCommunityFact = {
+export type RoomCommunityFact = Readonly<
+  z.infer<typeof roomCommunityPolicySchema>
+> & {
   readonly kind: 'room_community';
   readonly roomId: string;
   readonly channelId: string | null;
-  readonly policyKey: 'room.community';
-  readonly policyRevision: 1;
   readonly revision: number;
   readonly status: RoomStatus;
   readonly visibility: RoomView['visibility'];
@@ -50,7 +55,7 @@ export const roomCommunitySeatReadsOnly = (
 ): boolean => seatKind === 'judge';
 /**
  * A Youth Room (decision 84): a Room of the Youth lobby, casual included
- * (ADR 0156). `daisy_room_community_fact` reads the same rule in SQL.
+ * (ADR 0162). `daisy_room_community_fact` reads the same rule in SQL.
  */
 export const youthRoomOf = (room: {
   readonly ageRule: LobbyAgeRule;

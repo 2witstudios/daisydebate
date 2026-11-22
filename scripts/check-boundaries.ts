@@ -1,6 +1,14 @@
+import { existsSync } from 'node:fs';
 import { readdir } from 'node:fs/promises';
 import { resolve, relative, dirname } from 'node:path';
 import ts from 'typescript';
+import {
+  protocolBarrel,
+  protocolPackage,
+  protocolRootExportIssue,
+  protocolRootReferences,
+  repositorySources,
+} from './protocol-root';
 import { flagBoundaryProblems } from './flag-boundaries';
 import { flagCatalogue } from '../apps/web/src/features/flags/catalogue';
 import {
@@ -51,6 +59,22 @@ const byName = new Map(
   workspaces.map((workspace) => [workspace.manifest.name, workspace]),
 );
 const issues: string[] = [];
+const rootExport = protocolRootExportIssue(
+  byName.get(protocolPackage)?.manifest.exports,
+);
+if (rootExport) issues.push(rootExport);
+if (existsSync(resolve(root, protocolBarrel)))
+  issues.push(`${protocolBarrel}: protocol has no root barrel`);
+for (const { path, source } of repositorySources(root)) {
+  for (const { specifier } of protocolRootReferences(path, source)) {
+    const { line } = specifier
+      .getSourceFile()
+      .getLineAndCharacterOfPosition(specifier.getStart());
+    issues.push(
+      `${path}:${line + 1}: import a protocol owner subpath instead of ${specifier.text}`,
+    );
+  }
+}
 const flagSources = new Map<string, string>();
 /** The text of an identifier, string or JSX text node: what the reserved-word check reads. */
 const wordOf = (node: ts.Node) =>

@@ -3,10 +3,12 @@ import type { Logger } from '@daisy/logger';
 import {
   clientMessageSchema,
   ENVELOPE_VERSION,
-  serverMessageSchema,
   type PresenceActivity,
+} from '@daisy/protocol/realtime';
+import {
+  serverMessageSchema,
   type ServerMessage,
-} from '@daisy/protocol';
+} from '@daisy/protocol/realtime-server';
 import type {
   SocketPrincipal,
   SubscriptionRegistry,

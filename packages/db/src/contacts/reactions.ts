@@ -1,16 +1,11 @@
 import type { SQL } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
+import type { Tx } from '../tx';
 
 /** One canonical member pair, as Contacts names it to its consumers. */
 export type ContactPairKey = {
   readonly lowActorId: string;
   readonly highActorId: string;
 };
-
-export type ContactTransaction = Pick<
-  BunSQLDatabase,
-  'select' | 'insert' | 'update' | 'delete' | 'execute'
->;
 
 /**
  * What each capability built on Contacts registers at the database
@@ -23,7 +18,7 @@ export type ContactTransaction = Pick<
  */
 export type ContactReactions = {
   readonly onBlock: readonly ((
-    tx: ContactTransaction,
+    tx: Tx,
     pair: ContactPairKey,
     blocked: boolean,
   ) => Promise<void>)[];

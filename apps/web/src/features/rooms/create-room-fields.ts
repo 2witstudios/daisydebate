@@ -1,12 +1,11 @@
 import { formatStanding } from '@daisy/debate-engine';
 import {
   formatDefinitionSchema,
-  roomConfigSchema,
-  twoSideKeys,
   type FormatDefinition,
-  type RoomCatalogChoice,
-  type RoomConfig,
-} from '@daisy/protocol';
+} from '@daisy/protocol/format';
+import { roomConfigSchema, type RoomConfig } from '@daisy/protocol/room';
+import { twoSideKeys } from '@daisy/protocol/seats';
+import { type RoomCatalogChoice } from '@daisy/protocol/room-contract';
 import {
   createRoomDraft,
   type CreateRoomDraft,
@@ -113,12 +112,7 @@ export function readRoomDraft(
           (choice) =>
             choice.role === 'standard' && choice.formatId === values.format,
         );
-  const resetSelectedPreset =
-    selected &&
-    (roomChoiceKey(selected) !== roomChoiceKey(source) ||
-      (values.intent === 'format' && selected.role === 'standard') ||
-      (values.intent === 'template' && selected.role === 'template'));
-  if (selected && resetSelectedPreset) {
+  if (selected && roomChoiceKey(selected) !== roomChoiceKey(source)) {
     const draft = createRoomDraft(selected);
     return {
       ok: true,

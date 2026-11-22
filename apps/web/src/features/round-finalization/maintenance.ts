@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import type { IdGenerator } from '@daisy/clock';
 import type { AttendanceEvaluation } from '@daisy/db/attendance';
 import type { Database } from '@daisy/db';
@@ -14,11 +15,9 @@ import {
   participatingRulings,
 } from '@daisy/debate-engine';
 import { createAppError, isAppError, createRefusal } from '@daisy/errors';
-import {
-  isJudgeSeat,
-  judgingPolicy,
-  type JudgingTerminalReason,
-} from '@daisy/protocol';
+import { isJudgeSeat } from '@daisy/protocol/seats';
+import { judgingPolicy } from '@daisy/protocol/judging-policy';
+import { type JudgingTerminalReason } from '@daisy/protocol/round-judging-attempt';
 import { createRatingSweep } from '../ratings/sweep';
 import { roundTickProjection } from './operations';
 
@@ -41,7 +40,7 @@ type CompletionBuilder = Parameters<
 export const panelCompletion =
   (nextId: () => string): CompletionBuilder =>
   ({ round, now, panel: facts, ballotIds }) => {
-    const nowMs = Date.parse(now);
+    const nowMs = instantMs(now);
     const panel = judgingPanelOf(facts, nowMs);
     if (panel === null) throw createRefusal('CONFLICT', 'panel-ineligible');
     const { judging, completeness, ballots } = facts;

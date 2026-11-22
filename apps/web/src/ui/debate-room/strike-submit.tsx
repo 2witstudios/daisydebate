@@ -1,7 +1,7 @@
 'use client';
 
+import { Button } from '../components/button/button';
 import { useState } from 'react';
-import { buttonClass } from '../components/button/button-class';
 
 /**
  * What a press does, given the position the prompt names (null before the
@@ -19,7 +19,7 @@ export function strikePress(
 }
 
 /**
- * The strike's submit. Without JavaScript the button is the confirmation;
+ * The strike's submit. Before hydration the button is the confirmation;
  * with it, the first press names the chosen resolution and asks once more,
  * because a strike can't be undone (FMT-7.2).
  */
@@ -41,9 +41,9 @@ export function StrikeSubmit({
           Strike ‘{texts[confirming] ?? ''}’? You can’t undo a strike.
         </p>
         <div className="flex flex-wrap items-center gap-3">
-          <button
+          <Button
+            variant="primary"
             type="submit"
-            className={buttonClass('primary')}
             // The prompt's own button takes focus as it appears.
             autoFocus
             onClick={(event) => {
@@ -57,22 +57,22 @@ export function StrikeSubmit({
             }}
           >
             Strike it
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="secondary"
             type="button"
-            className={buttonClass('secondary')}
             onClick={() => setConfirming(null)}
           >
             Keep choosing
-          </button>
+          </Button>
         </div>
       </div>
     );
   return (
     <div className="flex flex-wrap items-center gap-3">
-      <button
+      <Button
+        variant="primary"
         type="submit"
-        className={buttonClass('primary')}
         onClick={(event) => {
           // Nothing chosen: the native required check speaks.
           const press = strikePress(null, chosenIn(event.currentTarget.form));
@@ -82,7 +82,7 @@ export function StrikeSubmit({
         }}
       >
         Strike this resolution
-      </button>
+      </Button>
       <span className="text-sm text-ink-muted">
         A strike can’t be undone. If time runs out, Daisy strikes for you.
       </span>

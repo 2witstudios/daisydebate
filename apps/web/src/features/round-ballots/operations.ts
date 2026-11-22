@@ -1,3 +1,5 @@
+import { commandDigest } from '@daisy/digest';
+import { instantMs } from '@daisy/clock';
 import { screenBallotContacts } from '@daisy/debate-engine/ballot-contact-screening';
 import { bindRoundBallotPrincipal } from '@daisy/auth';
 import {
@@ -14,9 +16,9 @@ import { createAppError, createRefusal } from '@daisy/errors';
 import {
   roundBallotEnvelopeSchema,
   type RoundBallotEnvelope,
-  type RoundCommandPrincipal,
   type RoundBallotReceipt,
-} from '@daisy/protocol';
+} from '@daisy/protocol/round-ballot';
+import { type RoundCommandPrincipal } from '@daisy/protocol/round-command';
 
 type Submission = {
   readonly principal: RoundCommandPrincipal;
@@ -51,9 +53,7 @@ export function prepareRoundBallotSubmission(
     envelope,
     nextBallotId: input.nextBallotId,
     screenWritten: screenBallotContacts,
-    payloadDigest: new Bun.CryptoHasher('sha3-256')
-      .update(JSON.stringify(envelope))
-      .digest('hex'),
+    payloadDigest: commandDigest(envelope),
     authorize,
     attendanceSettled,
     /**
@@ -62,7 +62,7 @@ export function prepareRoundBallotSubmission(
      * with its ruling, on maintenance's next pass.
      */
     buildProjection: (context) => {
-      const nowMs = Date.parse(context.now);
+      const nowMs = instantMs(context.now);
       const panel = judgingPanelOf(context.panel, nowMs);
       if (panel === null) return null;
       const { judging, completeness, ballots } = context.panel;

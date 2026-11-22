@@ -4,7 +4,8 @@ import type {
   AuthorizationInput,
 } from '@daisy/auth/authorization';
 import type { LeagueSeasonFacts } from '@daisy/db/tab';
-import { seatsOfKind, isRoundRunning } from '@daisy/protocol';
+import { seatsOfKind } from '@daisy/protocol/format-seating';
+import { isRoundRunning } from '@daisy/protocol/round';
 import { releaseAudiences } from '@daisy/protocol/release-audience';
 import { roomChain, resolveSetting } from '@daisy/protocol/setting-resolution';
 import type { LeaguePanel } from '../league';
@@ -25,7 +26,7 @@ export function readLeagueRooms(
   authorize: (input: AuthorizationInput) => AuthorizationDecision,
 ): LeagueRoomsRead | null {
   const lobby = facts.standingLobby;
-  if (!lobby || !facts.authorization.organization) return null;
+  if (!facts.authorization.organization) return null;
   const hosted = hostLobbyResource(
     lobby,
     facts.authorization.organization,

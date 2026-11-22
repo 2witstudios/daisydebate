@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createRetentionSweep } from '../../server/retention-sweep';
 import { silentLogger } from '../../server/test-loggers.test-support';
@@ -12,7 +13,7 @@ import { createScheduledWorker } from './scheduled-worker';
 
 setupRitewayBun();
 
-const START = Date.parse('2026-11-02T00:00:00.000Z');
+const START = instantMs('2026-11-02T00:00:00.000Z');
 const MINUTE_MS = 60_000;
 
 /**

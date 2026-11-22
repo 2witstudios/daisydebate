@@ -1,11 +1,11 @@
 'use client';
 
+import { useBrowserEffect } from '../edge/browser-sync';
 import { ShellLink as Link } from '../layout/app-shell/shell-link';
 import { useRouter } from 'next/navigation';
 import {
   createContext,
   useContext,
-  useEffect,
   useRef,
   useState,
   useSyncExternalStore,
@@ -26,6 +26,7 @@ import {
   type FormAction,
 } from '../form-action/form-action';
 import { followAnswer } from '../form-action/use-moved-on';
+import { SearchForm } from '../components/search-form/search-form';
 
 function createScope(requestId: string, changed: () => void) {
   let state = initialCompletionOwnership(requestId);
@@ -80,8 +81,8 @@ export function ConversationNavigation({
   readonly requestId: string;
 }) {
   const [holder] = useState(() => createLifetime(requestId));
-  useEffect(() => holder.mount(), [holder]);
-  useEffect(() => {
+  useBrowserEffect(() => holder.mount(), [holder]);
+  useBrowserEffect(() => {
     holder.current().accept({ type: 'rendered', requestId });
   }, [holder, requestId]);
   return <Navigation value={holder}>{children}</Navigation>;
@@ -100,11 +101,11 @@ export function ConversationLink(
 }
 
 export function ConversationSearchForm(
-  props: Omit<ComponentProps<'form'>, 'onSubmit'>,
+  props: Omit<ComponentProps<typeof SearchForm>, 'onSubmit'>,
 ) {
   const navigation = useContext(Navigation);
   return (
-    <form
+    <SearchForm
       {...props}
       onSubmit={() => navigation?.current().accept({ type: 'navigate' })}
     />
@@ -147,7 +148,7 @@ export function useConversationAction(
 ): FormAction<CompletionAnswer> {
   const navigation = useNavigation();
   const latest = useRef<Origin | null>(null);
-  useEffect(() => {
+  useBrowserEffect(() => {
     return () => {
       const captured = latest.current;
       if (captured !== null)
@@ -177,7 +178,7 @@ export function useConversationCompletion(
 ) {
   const router = useRouter();
   const seen = useRef(answer);
-  useEffect(() => {
+  useBrowserEffect(() => {
     if (pending || seen.current === answer) return;
     seen.current = answer;
     const captured = answer.completion;

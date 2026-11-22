@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import type { ParentLinkRead } from '@daisy/db';
 import type {
   MediaReleaseRecord,
@@ -14,7 +15,7 @@ import {
 
 setupRitewayBun();
 
-const t0 = Date.parse('2026-11-15T12:00:00.000Z');
+const t0 = instantMs('2026-11-15T12:00:00.000Z');
 const DAY = 24 * 60 * 60 * 1000;
 const iso = (ms: number) => new Date(ms).toISOString();
 

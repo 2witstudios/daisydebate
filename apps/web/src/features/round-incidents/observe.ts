@@ -1,4 +1,5 @@
-import { isRoundRunning } from '@daisy/protocol';
+import { instantMs } from '@daisy/clock';
+import { isRoundRunning } from '@daisy/protocol/round';
 import {
   createRoundRuntime,
   incidentDecision,
@@ -9,7 +10,7 @@ import { createAppError } from '@daisy/errors';
 import type { Database, RoundHydration } from '@daisy/db';
 import type { Logger } from '@daisy/logger';
 import type { ErrorReporter } from '@daisy/observability';
-import { roundIncidentPolicy } from '@daisy/protocol';
+import { roundIncidentPolicy } from '@daisy/protocol/round-incident-policy';
 import type { MediaPassReport } from '../round-media/operation-context';
 
 type Store = Pick<
@@ -57,14 +58,14 @@ export function createRoundIncidentObserver(input: {
         unreachableSince,
         confirmedUntil,
       }) => {
-        const nowMs = Date.parse(now);
+        const nowMs = instantMs(now);
         const decision = incidentDecision({
           incident: round.checkpoint.incident,
           nowMs,
           observation,
           roomRetired,
           unreachableSinceMs:
-            unreachableSince === null ? null : Date.parse(unreachableSince),
+            unreachableSince === null ? null : instantMs(unreachableSince),
           captureExpected: round.status === 'active',
         });
         if (decision === null) return null;
@@ -78,7 +79,7 @@ export function createRoundIncidentObserver(input: {
                 atMs: nowMs,
                 cause: decision.cause,
                 confirmedUntilMs:
-                  confirmed === null ? null : Date.parse(confirmed),
+                  confirmed === null ? null : instantMs(confirmed),
               }),
             };
           }
@@ -134,7 +135,7 @@ export function createRoundIncidentObserver(input: {
           unreachableSinceMs:
             watch.unreachableSince === null
               ? null
-              : Date.parse(watch.unreachableSince),
+              : instantMs(watch.unreachableSince),
           captureExpected: known.status === 'active',
         })
       )

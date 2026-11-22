@@ -8,7 +8,7 @@ import {
   type TournamentEventSettingFacts,
 } from '@daisy/db/tab';
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import type { TournamentEventSettingsView } from '@daisy/protocol/lobby/resolved-settings-read';
 import { eventChain } from '@daisy/protocol/setting-resolution';
 import type { SettingScope } from '@daisy/protocol/settings';

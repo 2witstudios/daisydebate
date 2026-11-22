@@ -5,12 +5,12 @@ import type { Page } from '@playwright/test';
 import { createId } from '@paralleldrive/cuid2';
 import {
   affirmativeSide,
-  isOpenRoomStatus,
-  isNamedSeat,
   judgeSeat,
   negativeSide,
   sideSeat,
-} from '@daisy/protocol';
+} from '@daisy/protocol/seats';
+import { isOpenRoomStatus } from '@daisy/protocol/room-contract';
+import { isNamedSeat } from '@daisy/protocol/round-view';
 import { systemClock } from '@daisy/clock';
 import {
   birthAged,

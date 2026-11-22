@@ -1,3 +1,4 @@
+import { StatusRegion } from '../../../ui/components/status-region/status-region';
 import { systemClock } from '@daisy/clock';
 import { headers } from 'next/headers';
 import Link from 'next/link';
@@ -12,7 +13,7 @@ import { GET } from '../../api/messaging/inbox/route';
 
 export const metadata = { title: 'Messages' };
 
-/** Search or a later page for a reader with no JavaScript: the list's own read. */
+/** Results at the address for a search or a later page of the inbox. */
 async function InboxResults({
   q,
   after,
@@ -38,9 +39,9 @@ async function InboxResults({
   return (
     <ConversationPane title={title}>
       {inbox === null ? (
-        <p role="status" className="text-ink-muted">
+        <StatusRegion as="p" role="status" className="text-ink-muted">
           That search could not be read. Try again.
-        </p>
+        </StatusRegion>
       ) : inbox.entries.length === 0 ? (
         <p className="text-ink-muted">
           {q === undefined

@@ -1,5 +1,4 @@
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import { lockAuthorizationActors } from '../src/authorization';
 import type { createMessagingTestFixture } from '../src/testing';
@@ -8,17 +7,14 @@ import {
   type FileFrame,
   type FilePolicy,
 } from '../src/messaging-files';
+import type { TxSource, Tx } from '../src/tx';
 
 type Fixture = Awaited<ReturnType<typeof createMessagingTestFixture>>;
-type ProofTransaction = Pick<
-  BunSQLDatabase,
-  'select' | 'insert' | 'update' | 'execute'
->;
 export function withFileProofTransaction<T>(
-  database: BunSQLDatabase,
+  database: TxSource,
   fixture: Fixture,
   work: (
-    tx: ProofTransaction,
+    tx: Tx,
     counters: { channelId: string; changeVersion: number },
   ) => Promise<T>,
 ) {
@@ -40,7 +36,7 @@ export function withFileProofTransaction<T>(
   });
 }
 export function withFileProofFrame<T>(
-  database: BunSQLDatabase,
+  database: TxSource,
   fixture: Fixture,
   work: (frame: FileFrame) => Promise<T>,
   denied = false,

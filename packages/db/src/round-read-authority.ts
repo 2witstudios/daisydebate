@@ -2,17 +2,17 @@ import {
   readRoundRoomAuthority,
   type RoundRoomAuthority,
 } from './round-room-authority';
-import type { TabTransaction } from './tab/tab-transaction';
 import { createAppError } from '@daisy/errors';
-import type { LaunchedRound } from '@daisy/protocol';
+import type { LaunchedRound } from '@daisy/protocol/round-view';
 import { sharedAccount, type Caller, type Account } from './room-command-facts';
 import { launchedRoundRows } from './launched-round-read';
 import { eq } from 'drizzle-orm';
 import { rounds } from './schema/rounds';
 import { readDatabaseTime } from './database-clock';
+import type { Tx } from './tx';
 /** Canonical account fence followed by a fresh protected Round snapshot for private competitive reads. */
 export async function readAuthorizedRound(
-  tx: TabTransaction,
+  tx: Tx,
   input: {
     readonly roundId: string;
     readonly caller: Caller;

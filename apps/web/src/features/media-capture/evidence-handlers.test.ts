@@ -3,7 +3,7 @@ import { createAppError } from '@daisy/errors';
 import { noopErrorReporter } from '@daisy/observability';
 import { createMediaWorkerAuthentication } from '@daisy/media/internal';
 import { createFrameClock } from '@daisy/media/observation';
-import { necessaryEvidencePolicy } from '@daisy/protocol';
+import { necessaryEvidencePolicy } from '@daisy/protocol/necessary-evidence';
 import { silentLogger } from '../../server/test-loggers.test-support';
 import { createMediaCaptureHandlers } from './handlers';
 setupRitewayBun();

@@ -1,5 +1,5 @@
 import { refuseCapacity } from '@daisy/db/testing';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { z } from 'zod';
 import type { IncomingMessage } from 'node:http';
 import type { App } from '../../src/server/app';

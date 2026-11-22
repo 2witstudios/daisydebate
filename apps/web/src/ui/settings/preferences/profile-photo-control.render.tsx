@@ -1,3 +1,4 @@
+import { StatusRegion } from '../../components/status-region/status-region';
 import {
   profilePhotoMimes,
   type OwnPublicProfileView,
@@ -105,9 +106,9 @@ export function renderProfilePhotoControl({
         ) : null}
       </div>
       {notice ? (
-        <p role="status" className="text-sm text-ink-muted">
+        <StatusRegion as="p" role="status" className="text-sm text-ink-muted">
           {notice}
-        </p>
+        </StatusRegion>
       ) : null}
     </div>
   );

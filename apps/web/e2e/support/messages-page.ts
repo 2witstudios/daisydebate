@@ -172,47 +172,24 @@ export function testMessagesPage() {
     }
   });
 
-  for (const javaScriptEnabled of [true, false])
-    test(`a conversation search finds what a row shows, JavaScript ${javaScriptEnabled ? 'on' : 'off'}`, async ({
-      browser,
-    }) => {
-      const journey = await openMessagingJourney(browser, javaScriptEnabled);
-      try {
-        const page = await acceptMessagingJourney(journey);
-        const origin = new URL(page.url()).origin;
-        const needle = `findable${createId()}`;
-        await post(journey.sender, journey, origin, `A line with ${needle}`);
-        await page.goto('/messages');
-        await page
-          .getByRole('searchbox', { name: 'Search conversations' })
-          .fill(needle);
-        if (javaScriptEnabled)
-          await expect(list(page).getByText(needle)).toBeVisible();
-        else {
-          await page
-            .getByRole('searchbox', { name: 'Search conversations' })
-            .press('Enter');
-          await expect(
-            pane(page)
-              .getByRole('list', { name: 'Search results' })
-              .getByText(needle),
-          ).toBeVisible();
-        }
-        await page
-          .getByRole('searchbox', { name: 'Search conversations' })
-          .fill(`absent${createId()}`);
-        if (javaScriptEnabled)
-          await expect(page.getByText('No conversations match.')).toBeVisible();
-        else {
-          await page
-            .getByRole('searchbox', { name: 'Search conversations' })
-            .press('Enter');
-          await expect(
-            pane(page).getByText('No conversations match.'),
-          ).toBeVisible();
-        }
-      } finally {
-        await journey.close();
-      }
-    });
+  test('a conversation search finds what a row shows', async ({ browser }) => {
+    const journey = await openMessagingJourney(browser);
+    try {
+      const page = await acceptMessagingJourney(journey);
+      const origin = new URL(page.url()).origin;
+      const needle = `findable${createId()}`;
+      await post(journey.sender, journey, origin, `A line with ${needle}`);
+      await page.goto('/messages');
+      await page
+        .getByRole('searchbox', { name: 'Search conversations' })
+        .fill(needle);
+      await expect(list(page).getByText(needle)).toBeVisible();
+      await page
+        .getByRole('searchbox', { name: 'Search conversations' })
+        .fill(`absent${createId()}`);
+      await expect(page.getByText('No conversations match.')).toBeVisible();
+    } finally {
+      await journey.close();
+    }
+  });
 }

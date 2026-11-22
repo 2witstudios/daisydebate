@@ -15,11 +15,8 @@
  * standing lobby with a youth cast, only the youth debaters are included.
  */
 
-import {
-  isYouthRound,
-  type AgeBand,
-  type RatingDivision,
-} from '@daisy/protocol';
+import { isYouthRound } from '@daisy/protocol/youth-round';
+import { type AgeBand, type RatingDivision } from '@daisy/protocol/ladder';
 
 export type LinkedAdultFacts = {
   readonly round: {
@@ -128,19 +125,18 @@ export const linkedAdultsOfRound = (
     return { debaters: [] };
   const userOf = (actorId: string) =>
     facts.actors.find((actor) => actor.id === actorId)?.userId ?? null;
-  const eligibleDebater = (userId: string | null) =>
-    userId !== null &&
-    (facts.round.youthDebaterUserIds === null ||
-      facts.round.youthDebaterUserIds.includes(userId));
+  const eligibleDebater = (userId: string) =>
+    facts.round.youthDebaterUserIds === null ||
+    facts.round.youthDebaterUserIds.includes(userId);
   const debaters = sorted(
     facts.seats
       .filter((seat) => seat.debating && seat.current)
-      .map((seat) => seat.actorId)
-      .filter((actorId) => eligibleDebater(userOf(actorId))),
+      .map((seat) => seat.actorId),
   );
   return {
-    debaters: debaters.map((actorId) => {
-      const userId = userOf(actorId)!;
+    debaters: debaters.flatMap((actorId) => {
+      const userId = userOf(actorId);
+      if (userId === null || !eligibleDebater(userId)) return [];
       const adults = linkedAdultsOf(facts, userId);
       return {
         actorId,

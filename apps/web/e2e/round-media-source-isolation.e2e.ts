@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import { z } from 'zod';
-import { roundMediaStateSchema } from '@daisy/protocol';
+import { roundMediaStateSchema } from '@daisy/protocol/round-media';
 import { test, expect, openPage } from './support/fixtures';
 import { floorReturnsChoice } from './support/human-round-selection';
 import { createRoomLaunchAccounts } from './support/room-launch-accounts';

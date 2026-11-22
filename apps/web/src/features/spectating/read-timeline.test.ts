@@ -1,4 +1,4 @@
-import { audienceStatePath } from '@daisy/protocol';
+import { audienceStatePath } from '@daisy/protocol/audience-state';
 import { audienceStateKey } from '@daisy/db/audience-state-key';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {

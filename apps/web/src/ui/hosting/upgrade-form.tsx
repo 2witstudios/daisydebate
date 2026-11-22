@@ -1,5 +1,6 @@
 'use client';
 
+import { Button } from '../components/button/button';
 import { useState } from 'react';
 import type { PaidHostingTier } from '@daisy/protocol/lobby/hosting-tier';
 import {
@@ -20,7 +21,7 @@ const included = [
 /**
  * Upgrade one event (PYL-15): choose a tier, see what it costs today, and
  * post to checkout. The form posts the tier alone; the server decides the
- * amount. Without JavaScript it still posts, with the summary of the first
+ * amount. Before hydration it still posts, with the summary of the first
  * choice.
  */
 export function UpgradeForm({
@@ -134,13 +135,14 @@ export function UpgradeForm({
               : `The ${waitingEntries} waiting entries can be accepted as soon as payment is confirmed.`}
           </p>
         ) : null}
-        <button
+        <Button
+          variant="unstyled"
           type="submit"
           className={cn(buttonClass('primary'), 'min-h-12 w-full text-base')}
         >
           <Icon name="card" size={18} />
           Continue to checkout · {formatUsd(current.owed)}
-        </button>
+        </Button>
         <a href={notNowHref} className={cn(buttonClass('ghost'), 'w-full')}>
           Not now
         </a>

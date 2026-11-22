@@ -22,16 +22,11 @@ import { reports } from '../schema/reports';
 import { scopeTransaction } from '../tenant-scope';
 import { inTransaction, type Tx, type TxOpener } from '../tx';
 
-type GuardianTx = Pick<
-  Tx,
-  'select' | 'execute' | 'insert' | 'update' | 'delete'
->;
-
 export type GuardianLinkRow = typeof guardianLinks.$inferSelect;
 type LinkInsert = typeof guardianLinks.$inferInsert;
 type RequestInsert = typeof childAccountRequests.$inferInsert;
 
-function scopedGuardians(tx: GuardianTx, userId: string) {
+function scopedGuardians(tx: Tx, userId: string) {
   const person = async (where: ReturnType<typeof eq>) => {
     const [row] = await tx
       .select({

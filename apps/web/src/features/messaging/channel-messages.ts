@@ -1,7 +1,7 @@
 import {
   createMessagingCoreSchemas,
   messagingBetaLimits,
-} from '@daisy/protocol';
+} from '@daisy/protocol/messaging/core';
 import type { ObservationDescriptor } from '../realtime/observation-provider';
 import type { MessagingConversation } from './conversation';
 

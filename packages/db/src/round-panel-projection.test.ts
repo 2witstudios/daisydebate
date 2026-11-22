@@ -1,37 +1,45 @@
 import { assertRejects } from '@daisy/errors/testing';
-import type { RoundProjection } from '@daisy/protocol';
+import {
+  winnerOutcome,
+  type RoundOutcome,
+} from '@daisy/protocol/round-outcome';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireCompletionProjection } from './round-panel-decisions';
 
 setupRitewayBun();
 
 test('the completion must finish the Round, name a winner exactly when partly judged, and change no segment', async () => {
-  const completed = (outcome: string | null) =>
-    ({
-      round: { status: 'completed', outcome },
-      segmentInserts: [],
-      segmentCloses: [],
-    }) as unknown as RoundProjection;
+  type Projection = Parameters<
+    typeof requireCompletionProjection
+  >[0]['projection'];
+  const completed = (outcome: RoundOutcome | null): Projection => ({
+    round: { status: 'completed', outcome },
+    segmentInserts: [],
+    segmentCloses: [],
+  });
   const completion = (
     ruling: 'unjudged' | 'judges-did-not-rule' | 'partial',
-    projection: RoundProjection,
+    projection: Projection,
   ) => ({ ruling, projection });
   for (const [label, candidate] of [
     [
       'an active Round',
       completion('unjudged', {
         ...completed(null),
-        round: { status: 'active' },
-      } as unknown as RoundProjection),
+        round: { status: 'active', outcome: null },
+      }),
     ],
     [
       'no Round change',
       completion('unjudged', {
         ...completed(null),
         round: undefined,
-      } as unknown as RoundProjection),
+      }),
     ],
-    ['an unjudged winner', completion('unjudged', completed('negative'))],
+    [
+      'an unjudged winner',
+      completion('unjudged', completed(winnerOutcome('negative'))),
+    ],
     [
       'a partial ruling without a winner',
       completion('partial', completed(null)),
@@ -41,14 +49,14 @@ test('the completion must finish the Round, name a winner exactly when partly ju
       completion('unjudged', {
         ...completed(null),
         segmentInserts: [{}],
-      } as unknown as RoundProjection),
+      }),
     ],
     [
       'a segment close',
       completion('judges-did-not-rule', {
         ...completed(null),
         segmentCloses: [{}],
-      } as unknown as RoundProjection),
+      }),
     ],
   ] as const)
     await assertRejects({
@@ -67,7 +75,7 @@ test('the completion must finish the Round, name a winner exactly when partly ju
         completion('judges-did-not-rule', completed(null)),
       ),
       requireCompletionProjection(
-        completion('partial', completed('affirmative')),
+        completion('partial', completed(winnerOutcome('affirmative'))),
       ),
     ],
     expected: [undefined, undefined, undefined],

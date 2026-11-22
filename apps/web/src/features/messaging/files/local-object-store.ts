@@ -1,7 +1,7 @@
 import { mkdir, open, readFile, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import type { PrivateObjectStore } from './ports';
 /** Private isolated local storage for real-service proofs; no web/static mount. */
 export function createLocalPrivateObjectStore(

@@ -22,13 +22,15 @@ export async function maintainCaptureLease(input: {
 }) {
   let pauseMs = RENEW_EVERY_MS;
   let giveUpAt: number | null = null;
-  while (!input.signal.aborted) {
+  // The signal aborts while this loop awaits, so it is read fresh each time.
+  const aborted = () => input.signal.aborted;
+  while (!aborted()) {
     await input
       .waitUntilMs(input.nowMs() + pauseMs, input.signal)
       .catch((error) => {
-        if (!input.signal.aborted) throw error;
+        if (!aborted()) throw error;
       });
-    if (input.signal.aborted) return;
+    if (aborted()) return;
     try {
       const renewed = await input.lease(15000, input.signal, input.epoch);
       if (renewed.epoch !== input.epoch)
@@ -36,7 +38,7 @@ export async function maintainCaptureLease(input: {
       pauseMs = RENEW_EVERY_MS;
       giveUpAt = null;
     } catch (error) {
-      if (input.signal.aborted) return;
+      if (aborted()) return;
       if (!isTransientControlFailure(error)) throw error;
       giveUpAt ??= input.nowMs() + CAPTURE_OUTAGE_BUDGET_MS;
       if (input.nowMs() >= giveUpAt) throw error;

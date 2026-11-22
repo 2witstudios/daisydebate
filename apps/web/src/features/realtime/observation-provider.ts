@@ -1,8 +1,8 @@
 import {
   observationResourceKey,
   type ObservationResource,
-  type ServerMessage,
-} from '@daisy/protocol';
+} from '@daisy/protocol/observation';
+import { type ServerMessage } from '@daisy/protocol/realtime-server';
 import type { ConnectionStore, Scheduler } from './connection-types';
 
 /**

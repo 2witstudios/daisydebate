@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { subscriptionLifecycles } from '@daisy/protocol/billing';
 import { subscribedPriceSchema } from './premium-price';
 

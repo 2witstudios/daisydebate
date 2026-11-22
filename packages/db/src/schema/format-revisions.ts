@@ -1,4 +1,4 @@
-import { formatDefinitionSchema } from '@daisy/protocol';
+import { formatDefinitionSchema } from '@daisy/protocol/format';
 import { sql } from 'drizzle-orm';
 import { check, integer, pgTable, primaryKey, text } from 'drizzle-orm/pg-core';
 import { createdAtColumn, jsonbColumn, jsonbIsObject } from './columns';

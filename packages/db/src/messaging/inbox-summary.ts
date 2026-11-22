@@ -1,8 +1,9 @@
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
-import type { AuthorizationTransaction } from '../authorization';
+import { idSchema } from '@daisy/protocol/primitives';
+import type { Tx } from '../tx';
+import { query } from '../raw-rows';
 
 export type MessagingInboxSummary = {
   readonly title: string | null;
@@ -99,7 +100,7 @@ function conversationSummary(
  * introduction; never both, so a request never exposes history.
  */
 export async function readMessagingInboxSummary(
-  tx: AuthorizationTransaction,
+  tx: Tx,
   input: SummaryInput,
 ): Promise<MessagingInboxSummary> {
   const [summary] = await readMessagingInboxSummaries(tx, input.actorId, [
@@ -114,7 +115,7 @@ export async function readMessagingInboxSummary(
  * input order; a channel or request that vanished is null at its index.
  */
 export async function readMessagingInboxSummaries(
-  tx: AuthorizationTransaction,
+  tx: Tx,
   actorId: string,
   inputs: readonly Omit<SummaryInput, 'actorId'>[],
 ): Promise<readonly (MessagingInboxSummary | null)[]> {
@@ -126,7 +127,10 @@ export async function readMessagingInboxSummaries(
     counterpart: input.counterpartActorId,
     messages: input.content === 'messages',
   }));
-  const rows = await tx.execute(sql`
+  const rows = await query(
+    tx,
+    rowSchema,
+    sql`
     select c.id as "channelId", c.title as "title",
       (select u.username from public.actors a join public.users u on u.id = a.user_id
         where a.id = w.counterpart and u.deleted_at is null) as "counterpart",
@@ -149,13 +153,9 @@ export async function readMessagingInboxSummaries(
       from public.messaging_messages m
       where w.messages and m.channel_id = c.id and m.removed_at is null
       order by m.sequence desc limit 1) last on true
-  `);
-  const found = new Map<string, SummaryRow>();
-  for (const raw of rows) {
-    const row = rowSchema.safeParse(raw);
-    if (!row.success) throw createAppError('INFRASTRUCTURE');
-    found.set(row.data.channelId, row.data);
-  }
+  `,
+  );
+  const found = new Map(rows.map((row) => [row.channelId, row]));
   return inputs.map((input) => {
     const row = found.get(input.channelId);
     if (!row) return null;

@@ -2,8 +2,10 @@ import { sql } from 'drizzle-orm';
 import {
   lockAuthorizationActors,
   readAuthorizationActors,
-  type AuthorizationTransaction,
 } from '../authorization';
+import type { Tx } from '../tx';
+import { query } from '../raw-rows';
+import { z } from 'zod';
 import { scopeTransaction } from '../tenant-scope';
 
 export type GuardianChildAuthority = {
@@ -13,24 +15,28 @@ export type GuardianChildAuthority = {
 
 /** Resolve the child from the guardian's link and recheck it under the account fence. */
 export async function findActiveGuardianChild(
-  tx: AuthorizationTransaction,
+  tx: Tx,
   { guardian, linkId }: GuardianChildAuthority,
   mode: 'read' | 'write',
 ) {
   await scopeTransaction(tx, { subjectUserId: guardian.userId });
   const readLink = async () => {
-    const [link] = (await tx.execute(sql`
+    const [link] = await query(
+      tx,
+      z.object({
+        userId: z.string(),
+        actorId: z.string(),
+        username: z.string().nullable(),
+      }),
+      sql`
       select l.minor_user_id as "userId", a.id as "actorId", u.username
       from guardian_links l
       join actors a on a.user_id = l.minor_user_id
       join users u on u.id = l.minor_user_id
       where l.id = ${linkId} and l.guardian_user_id = ${guardian.userId}
         and l.status = 'active'
-    `)) as unknown as {
-      userId: string;
-      actorId: string;
-      username: string | null;
-    }[];
+    `,
+    );
     return link;
   };
   try {

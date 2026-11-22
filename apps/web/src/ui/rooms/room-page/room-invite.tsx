@@ -1,5 +1,7 @@
 'use client';
 
+import { Button } from '../../components/button/button';
+import { StatusRegion } from '../../components/status-region/status-region';
 import { useState, useSyncExternalStore } from 'react';
 import { buttonClass } from '../../components/button/button-class';
 const subscribeNever = () => () => undefined;
@@ -45,15 +47,21 @@ export function RoomInvite({
     );
   return (
     <span className="relative inline-flex">
-      <button type="button" onClick={() => void copy()} className={className}>
+      <Button
+        variant="unstyled"
+        type="button"
+        onClick={() => void copy()}
+        className={className}
+      >
         {label}
-      </button>
-      <span
+      </Button>
+      <StatusRegion
+        as="span"
         role="status"
         className="absolute top-full right-0 mt-1 text-sm whitespace-nowrap text-ink-muted"
       >
         {notice}
-      </span>
+      </StatusRegion>
     </span>
   );
 }

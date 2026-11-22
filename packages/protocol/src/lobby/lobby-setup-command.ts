@@ -1,3 +1,4 @@
+import { isInstantBefore } from '@daisy/clock';
 import { roomConfigSchema } from '../room';
 import { z } from 'zod';
 import { idSchema } from '../primitives';
@@ -131,8 +132,7 @@ const createSeason = z
   })
   .refine(
     (season) =>
-      season.endsAt === null ||
-      Date.parse(season.endsAt) > Date.parse(season.startsAt),
+      season.endsAt === null || isInstantBefore(season.startsAt, season.endsAt),
     { message: 'A season ends after it starts.', path: ['endsAt'] },
   );
 
@@ -262,13 +262,10 @@ const stageTimingSchema = z.discriminatedUnion('timing', [
       opensAt: instantSchema,
       closesAt: instantSchema,
     })
-    .refine(
-      (window) => Date.parse(window.closesAt) > Date.parse(window.opensAt),
-      {
-        message: 'A window closes after it opens.',
-        path: ['closesAt'],
-      },
-    ),
+    .refine((window) => isInstantBefore(window.opensAt, window.closesAt), {
+      message: 'A window closes after it opens.',
+      path: ['closesAt'],
+    }),
 ]);
 
 const stageFields = {

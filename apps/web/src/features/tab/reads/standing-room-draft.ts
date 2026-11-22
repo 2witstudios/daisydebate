@@ -7,7 +7,7 @@ import type {
   AuthorizationInput,
 } from '@daisy/auth/authorization';
 import type { StandingRoomDraftFacts, TabStore } from '@daisy/db/tab';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { templateViewSchema } from '@daisy/protocol/lobby/template-read';
 import { roomChain, resolveSetting } from '@daisy/protocol/setting-resolution';
 import type { SettingScope } from '@daisy/protocol/settings';

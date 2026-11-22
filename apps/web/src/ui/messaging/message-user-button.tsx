@@ -1,4 +1,5 @@
 'use client';
+import { StatusRegion } from '../components/status-region/status-region';
 import { useFormAction, type FormAction } from '../form-action/form-action';
 import { useMovedOn } from '../form-action/use-moved-on';
 import { Button } from '../components/button/button';
@@ -13,8 +14,8 @@ import {
 /**
  * One-click "Message" for a known member: posts the native direct-request
  * form, which opens the existing conversation or request with them, or sends
- * a new request without an introduction. Works as a plain POST without
- * JavaScript; the action is the page's own DM creation action.
+ * a new request without an introduction. Works as a plain POST before
+ * hydration; the action is the page's own DM creation action.
  */
 export function MessageUserButton({
   username,
@@ -72,9 +73,9 @@ export function MessageUserFields({
         Message
       </Button>
       {notice ? (
-        <p role="status" className="text-sm text-ink-muted">
+        <StatusRegion as="p" role="status" className="text-sm text-ink-muted">
           {`Could not open a conversation with @${username}. Try again.`}
-        </p>
+        </StatusRegion>
       ) : null}
     </form>
   );

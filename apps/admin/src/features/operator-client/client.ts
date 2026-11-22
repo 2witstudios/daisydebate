@@ -1,9 +1,10 @@
+import { instantMs } from '@daisy/clock';
 import type { Clock } from '@daisy/clock';
 import {
   signOperatorRequest,
   type OperatorCrypto,
 } from '@daisy/auth/operator-signature';
-import { betaAccessCommandResultSchema } from '@daisy/protocol';
+import { betaAccessCommandResultSchema } from '@daisy/protocol/beta-access';
 import {
   moderationLiftResultSchema,
   operatorAccountsPageSchema,
@@ -137,7 +138,7 @@ export function createOperatorClient(deps: {
         path: request.path,
         query: request.query,
         keyId: config.keyId,
-        timestamp: String(Date.parse(request.signedAt ?? deps.clock.now())),
+        timestamp: String(instantMs(request.signedAt ?? deps.clock.now())),
         nonce: toBase64Url(deps.random(NONCE_BYTES)),
         operatorRef,
         body: new TextEncoder().encode(request.body ?? ''),

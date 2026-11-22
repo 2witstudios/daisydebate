@@ -1,4 +1,4 @@
-import type { RoomConsent } from '@daisy/protocol';
+import type { RoomConsent } from '@daisy/protocol/room-contract';
 export type PreparedRoomConsent = RoomConsent & {
   readonly validUntil: string | null;
 };

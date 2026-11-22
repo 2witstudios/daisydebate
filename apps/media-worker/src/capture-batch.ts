@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import {
   CLIP_PAUSE_MS,
   MAX_CUT_FRAMES,
@@ -31,11 +32,12 @@ export function flushClipCarry(
   const key = streamKey(stream.segmentId, stream.roundParticipantId);
   const carry = carries.get(key);
   carries.delete(key);
-  if (!carry?.frames.length) return [];
+  const last = carry?.frames.at(-1);
+  if (carry === undefined || last === undefined) return [];
   return cutCaptureClips({
     roundId,
     roundParticipantId: stream.roundParticipantId,
-    serverNowMs: carry.frames.at(-1)!.frame.afterMs,
+    serverNowMs: last.frame.afterMs,
     segments: [],
     intervals: [],
     frames: [],
@@ -124,7 +126,7 @@ export async function validateCaptureBatch(input: {
       continue;
     }
     // The history authorizes frames up to its read time only (cutCaptureClips).
-    const readMs = Date.parse(history.state.serverNow);
+    const readMs = instantMs(history.state.serverNow);
     const valid = frames.filter((f) => f.frame.afterMs <= readMs);
     input.held(frames.filter((f) => f.frame.afterMs > readMs));
     for (const { frame } of valid)
@@ -150,6 +152,7 @@ export async function validateCaptureBatch(input: {
       const cut = cutStream(
         input,
         history.state,
+        segment,
         first.seat,
         valid.slice(at, at + MAX_CUT_FRAMES),
       );
@@ -165,21 +168,22 @@ function cutStream(
     'roundId' | 'carries'
   >,
   state: Awaited<ReturnType<CaptureClient['read']>>['state'],
+  segment: NonNullable<
+    Awaited<ReturnType<CaptureClient['read']>>['state']['segment']
+  >,
   seat: string,
   frames: readonly StagedFrame[],
 ) {
-  const segment = state.segment!;
   const key = streamKey(segment.id, seat);
   const cut = cutCaptureClips({
     roundId: input.roundId,
     roundParticipantId: seat,
-    serverNowMs: Date.parse(state.serverNow),
+    serverNowMs: instantMs(state.serverNow),
     segments: [
       {
         id: segment.id,
-        startedAtMs: Date.parse(segment.startedAt),
-        endedAtMs:
-          segment.endedAt === null ? null : Date.parse(segment.endedAt),
+        startedAtMs: instantMs(segment.startedAt),
+        endedAtMs: segment.endedAt === null ? null : instantMs(segment.endedAt),
         durationMs: segment.durationMs,
         returnedMs: segment.returnedMs,
       },
@@ -187,8 +191,8 @@ function cutStream(
     intervals: state.intervals.map((i) => ({
       segmentId: segment.id,
       roundParticipantId: i.roundParticipantId,
-      startedAtMs: Date.parse(i.startedAt),
-      endedAtMs: i.endedAt === null ? null : Date.parse(i.endedAt),
+      startedAtMs: instantMs(i.startedAt),
+      endedAtMs: i.endedAt === null ? null : instantMs(i.endedAt),
     })),
     frames: frames.map((f) => f.frame),
     carry: input.carries.get(key) ?? null,

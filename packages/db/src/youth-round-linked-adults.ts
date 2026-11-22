@@ -1,4 +1,4 @@
-import type { YouthLiveFact } from '@daisy/protocol';
+import type { YouthLiveFact } from '@daisy/protocol/youth-live';
 import type { YouthRoundPeople } from './youth-people-cache';
 
 /** Bounded: a full map drops its oldest Round first. */
@@ -24,14 +24,14 @@ const factOf = ({ debaters }: People): YouthLiveFact => ({
 
 /**
  * A Round's linked adults for its live audience (ADR 0155): on a Youth Room's
- * Round (ADR 0156),
+ * Round (ADR 0162),
  * the actors of every youth debater's coaches and guardians, the same people
  * as its Recording's audience (ADR 0150), read through the injected 15-second
  * cache; null on every other Round. Whether a Round is a Youth one is frozen
  * at Start, so it is read once per Round; a missing Round is asked again.
  */
 export const youthRoundLinkedAdults = (deps: {
-  /** True when the Round's Room is in the Youth lobby (ADR 0156); null when there is no such Round. */
+  /** True when the Round's Room is in the Youth lobby (ADR 0162); null when there is no such Round. */
   readonly readRoundYouth: (roundId: string) => Promise<boolean | null>;
   readonly people: ((roundId: string) => Promise<People>) & {
     readonly peek?: (roundId: string) => People | undefined;

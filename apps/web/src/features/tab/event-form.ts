@@ -1,6 +1,8 @@
+import { mapTabCommandAnswer } from './command-form-answer';
 import { z } from 'zod';
 import { createAppError } from '@daisy/errors';
-import { idSchema, ballotDefinitionPinSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
+import { ballotDefinitionPinSchema } from '@daisy/protocol/ballot-definition';
 import {
   lobbySetupCommandEnvelopeSchema,
   entryShapeSchema,
@@ -20,7 +22,6 @@ import {
   type Unacknowledged,
   type Moved,
 } from '../forms/form-state';
-import { lobbyCommandReceiptSchema } from '@daisy/protocol/lobby/command';
 export const eventFormContextSchema = z.strictObject({
   handle: z.string().min(1).max(80),
   lobbyId: idSchema,
@@ -204,10 +205,6 @@ export const eventFormRefused = (
 ): EventFormState => refusedWith(formValues(form), message);
 export const eventFormUnacknowledged = (form: FormData): EventFormState =>
   unacknowledged(form);
-const answerSchema = z.discriminatedUnion('kind', [
-  z.object({ kind: z.literal('accepted'), receipt: lobbyCommandReceiptSchema }),
-  z.object({ kind: z.literal('refused'), refusal: z.string() }),
-]);
 const eventRefusalWords = (refusal: string) => {
   switch (refusal) {
     case 'over-youth-age':
@@ -224,10 +221,11 @@ const eventRefusalWords = (refusal: string) => {
 };
 
 export function eventFormAnswer(form: FormData, body: unknown) {
-  const parsed = answerSchema.safeParse(body);
-  if (!parsed.success) return eventFormUnacknowledged(form);
-  if (parsed.data.kind === 'accepted') return parsed.data;
-  return eventFormRefused(form, eventRefusalWords(parsed.data.refusal));
+  return mapTabCommandAnswer(body, {
+    accepted: (receipt) => ({ kind: 'accepted' as const, receipt }),
+    unacknowledged: () => eventFormUnacknowledged(form),
+    refused: (reason) => eventFormRefused(form, eventRefusalWords(reason)),
+  });
 }
 
 const utcFormInstant = (value: string): string =>

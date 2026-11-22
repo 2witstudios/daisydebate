@@ -3,15 +3,15 @@ import type { Browser } from '@playwright/test';
 import {
   affirmativeSide,
   judgeSeat,
-  judgingStages,
   negativeSide,
   sameSeat,
   sideOfSeat,
   sideSeat,
   twoSideKeys,
-  winningSideOf,
   type SeatRef,
-} from '@daisy/protocol';
+} from '@daisy/protocol/seats';
+import { judgingStages } from '@daisy/protocol/round-judging-attempt';
+import { winningSideOf } from '@daisy/protocol/round-outcome';
 import { expect, openPage } from './fixtures';
 import { origin } from './accounts';
 import { createRoomLaunchAccounts } from './room-launch-accounts';
@@ -183,7 +183,7 @@ export async function proveHumanBotJourney(browser: Browser) {
     await expect(
       receipt.getByText(/^Result · (Affirmative|Negative) won$/),
     ).toBeVisible();
-    await expectHistoryTranscript(browser, receipt, host.username, view.id);
+    await expectHistoryTranscript(receipt, host.username, view.id);
   } finally {
     await accounts.closeContexts();
   }

@@ -1,4 +1,4 @@
-import { twoSides } from '@daisy/protocol';
+import { twoSides } from '@daisy/protocol/seats';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   credentialHash,

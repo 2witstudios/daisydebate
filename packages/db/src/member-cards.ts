@@ -1,14 +1,15 @@
 import { and, eq, sql } from 'drizzle-orm';
+import { inTransaction, type TxSource } from './tx';
+import { query } from './raw-rows';
+import { z } from 'zod';
 import type { LobbyAgeRule } from '@daisy/protocol/lobby/eligibility';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
-import {
-  type RatingDivision,
-  type RatingStyle,
-  type RoundOutcome,
-  type SeatRef,
-} from '@daisy/protocol';
+import { type RatingDivision } from '@daisy/protocol/ladder';
+import { type RatingStyle } from '@daisy/protocol/primitives';
+import { roundOutcomeSchema } from '@daisy/protocol/round-outcome';
+import { roundStatusSchema } from '@daisy/protocol/round';
+import { seatKindSchema } from '@daisy/protocol/seats';
 import { roundOutcomeSql } from './round-outcome-sql';
-import { seatOfColumns, type SeatColumns } from './seat-columns';
+import { seatOfColumns } from './seat-columns';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { readOfficialRatingLadderCatalog } from './official-standing-lobbies';
 import {
@@ -17,7 +18,7 @@ import {
   type PublishStandings,
 } from './standings';
 import { lobbies as standingLobbies } from './schema/lobbies';
-import { ratingDivisionForAgeRule } from '@daisy/protocol';
+import { ratingDivisionForAgeRule } from '@daisy/protocol/ladder';
 import {
   outcomeReleasedSql,
   roundAliasR,
@@ -37,22 +38,15 @@ type CardRatingRow = {
   readonly lastRatedAt: string | null;
 };
 
-type CardRecordRow = {
-  readonly actorId: string;
-  readonly status: string;
-  readonly outcome: RoundOutcome | null;
-  readonly seat: SeatRef;
-  readonly rounds: number;
-};
-
 const readCardRatings = (
-  database: BunSQLDatabase,
+  database: TxSource,
   actorIds: readonly string[],
   clock: SpectatorClock,
   publish?: PublishStandings,
   pool?: LobbyRatingSelection,
 ): Promise<readonly CardRatingRow[]> =>
-  database.transaction(
+  inTransaction(
+    database,
     async (tx) => {
       const lobbies = pool
         ? (
@@ -126,8 +120,8 @@ export const memberCardOperations = ({
   ratingDatabase = database,
   eventSink,
 }: {
-  readonly database: BunSQLDatabase;
-  readonly ratingDatabase?: BunSQLDatabase;
+  readonly database: TxSource;
+  readonly ratingDatabase?: TxSource;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
   /** Public Rounds only, in either lobby, for any viewer. */
@@ -139,20 +133,29 @@ export const memberCardOperations = ({
     instrumented(eventSink, 'readMemberCards', async () => {
       if (actorIds.length === 0) return { ratings: [], records: [] };
       const ids = actorIdArray(actorIds);
-      const recordsRead = database.execute(sql`
+      const recordsRead = query(
+        database,
+        z.object({
+          actorId: z.string(),
+          status: roundStatusSchema,
+          outcome: roundOutcomeSchema.nullable(),
+          seatKind: seatKindSchema,
+          side: z.string().nullable(),
+          slot: z.int(),
+          rounds: z.int(),
+        }),
+        sql`
         select p.actor_id as "actorId", r.status, ${roundOutcomeSql('r')} as outcome,
           p.seat_kind as "seatKind", p.side, p.slot, count(*)::int as rounds
         from round_participants p join rounds r on r.id = p.round_id
         where p.actor_id = any(${ids}) and r.room_id is not null and r.visibility = 'public'
           and ${outcomeReleasedSql(roundAliasR, clock)}
-        group by p.actor_id, r.status, 3, p.seat_kind, p.side, p.slot`);
-      const [ratings, records] = (await Promise.all([
+        group by p.actor_id, r.status, 3, p.seat_kind, p.side, p.slot`,
+      );
+      const [ratings, records] = await Promise.all([
         readCardRatings(ratingDatabase, actorIds, clock, publish),
         recordsRead,
-      ])) as unknown as [
-        CardRatingRow[],
-        (Omit<CardRecordRow, 'seat'> & SeatColumns)[],
-      ];
+      ]);
       return {
         ratings,
         records: records.map(({ seatKind, side, slot, ...row }) => ({

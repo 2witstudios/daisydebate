@@ -1,5 +1,7 @@
+import { tryInstantMs } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
-import { createMessagingFileSchemas, idSchema } from '@daisy/protocol';
+import { createMessagingFileSchemas } from '@daisy/protocol/messaging/files';
+import { idSchema } from '@daisy/protocol/primitives';
 import type { FilePolicy, FileReserveCommand } from './records';
 
 export function requireReservation(
@@ -20,7 +22,7 @@ export function requireReservation(
     !valid.success ||
     !idSchema.safeParse(command.id).success ||
     !idSchema.safeParse(command.objectKey).success ||
-    !Number.isFinite(Date.parse(now))
+    tryInstantMs(now) === undefined
   )
     throw createAppError('VALIDATION');
 }

@@ -32,7 +32,7 @@ import {
   foundationDefinition,
   foundationSettings,
 } from '@daisy/db/reference-formats';
-import { affirmativeSide, negativeSide } from '@daisy/protocol';
+import { affirmativeSide, negativeSide } from '@daisy/protocol/seats';
 import { refusalForActualName, refusalForStagingSeed } from './restore-guard';
 import { emailedLinkIdentifier, randomSeedToken } from './restore-seed-token';
 

@@ -1,10 +1,12 @@
+import { instantMs } from '@daisy/clock';
 import type { AuthorityResources } from './authorization';
 import {
   authorizationPrincipal as principal,
   refuseAllReading,
 } from './authorization.test-support';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { buildRoundTopic, sideSeat } from '@daisy/protocol';
+import { buildRoundTopic } from '@daisy/protocol/topics';
+import { sideSeat } from '@daisy/protocol/seats';
 import type { RoundAuthorizationFact } from '@daisy/auth/authorization';
 import { createRealtimeAuthorization } from './authorization';
 setupRitewayBun();
@@ -25,7 +27,7 @@ for (const mode of [
     let sessions = 0;
     let projected: unknown;
     let factReads = 0;
-    const epoch = Date.parse('2026-10-09T00:00:00.000Z');
+    const epoch = instantMs('2026-10-09T00:00:00.000Z');
     const account = {
       userId: principal.userId,
       actorId: principal.actorId,

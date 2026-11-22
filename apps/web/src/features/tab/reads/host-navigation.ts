@@ -4,7 +4,7 @@ import {
   type AuthorizationDecision,
 } from '@daisy/auth/authorization';
 import { EventSettingParentsChanged, type TabStore } from '@daisy/db/tab';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { hostNavigationViewSchema } from '@daisy/protocol/lobby/host-navigation-read';
 import { hostLobbyResource } from '../operations/host-lobby-resource';
 import type { TabPrincipal } from '../tab-principal';

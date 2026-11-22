@@ -1,6 +1,8 @@
+import { sha3Hex } from '@daisy/digest';
 import { createAppError } from '@daisy/errors';
 import { encodePcmWave } from '@daisy/media/pcm';
-import { idSchema, segmentDueAtMs, speakingEndMs } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
+import { segmentDueAtMs, speakingEndMs } from '@daisy/protocol/segment-end';
 
 type Segment = {
   readonly id: string;
@@ -164,17 +166,15 @@ function clip(input: Input, frames: readonly Admitted[], audible: boolean) {
     after: new Date(
       Math.max(...frames.map((f) => f.frame.afterMs)),
     ).toISOString(),
-    clipKey: new Bun.CryptoHasher('sha3-256')
-      .update(
-        JSON.stringify([
-          input.roundId,
-          first.segment.id,
-          input.roundParticipantId,
-          first.frame.trackId,
-          startOffsetMs,
-        ]),
-      )
-      .digest('hex'),
+    clipKey: sha3Hex(
+      JSON.stringify([
+        input.roundId,
+        first.segment.id,
+        input.roundParticipantId,
+        first.frame.trackId,
+        startOffsetMs,
+      ]),
+    ),
   };
   // A silent clip has no audio, so it cannot reach speech-to-text.
   return audible

@@ -1,6 +1,6 @@
 import { and, eq } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import {
   billingOwnerOf,
   purchaseSchema,
@@ -8,7 +8,6 @@ import {
   type Purchase,
 } from '@daisy/protocol/billing';
 import { lockAuthorizationActors, requireOwnScope } from './authorization';
-import type { BoundedTransactionContext } from './transaction-context';
 import { billingCustomers } from './schema/billing-customers';
 import { billingPurchases } from './schema/billing-purchases';
 import { billingSubscriptions } from './schema/billing-subscriptions';
@@ -21,6 +20,7 @@ import {
   ownedBy,
   type LockedClub,
 } from './billing-owner-lock';
+import type { Tx } from './tx';
 
 /**
  * The acting account, and the club it buys for when it buys Club seats
@@ -59,7 +59,7 @@ export const purchaseFromRow = (row: typeof billingPurchases.$inferSelect) =>
  * the club's billing) before the club's billing rows.
  */
 export async function lockPurchaseSubject(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   subject: PurchaseSubject,
 ): Promise<{
   readonly account: NonNullable<
@@ -91,11 +91,7 @@ export async function lockPurchaseSubject(
   return { account, owner, club, customer, subscription };
 }
 
-async function findOwnedPurchase(
-  tx: BoundedTransactionContext,
-  owner: BillingOwner,
-  id: string,
-) {
+async function findOwnedPurchase(tx: Tx, owner: BillingOwner, id: string) {
   if (!idSchema.safeParse(id).success) throw createAppError('VALIDATION');
   const [row] = await tx
     .select()
@@ -106,7 +102,7 @@ async function findOwnedPurchase(
 }
 
 export async function ownedPurchase(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   subject: PurchaseSubject,
   id: string,
 ) {
@@ -115,10 +111,7 @@ export async function ownedPurchase(
   return purchase;
 }
 
-export async function savePurchase(
-  tx: BoundedTransactionContext,
-  purchase: Purchase,
-) {
+export async function savePurchase(tx: Tx, purchase: Purchase) {
   const checked = parsePurchase(purchase);
   await tx
     .update(billingPurchases)
@@ -127,10 +120,7 @@ export async function savePurchase(
 }
 
 /** A selector is only a hint; closure and every business fact are read after the owner's fence. */
-export async function lockPurchaseId(
-  tx: BoundedTransactionContext,
-  id: string,
-) {
+export async function lockPurchaseId(tx: Tx, id: string) {
   if (!idSchema.safeParse(id).success) throw createAppError('VALIDATION');
   const [selector] = await tx
     .select({
@@ -146,11 +136,7 @@ export async function lockPurchaseId(
     : lockClubPurchaseId(tx, owner.organizationId, id);
 }
 
-async function lockAccountPurchaseId(
-  tx: BoundedTransactionContext,
-  userId: string,
-  id: string,
-) {
+async function lockAccountPurchaseId(tx: Tx, userId: string, id: string) {
   const [subject] = await tx
     .select({ userId: actors.userId, actorId: actors.id })
     .from(actors)
@@ -170,11 +156,7 @@ async function lockAccountPurchaseId(
 }
 
 /** Service recovery of a club's purchase: no acting account, the club row is the fence. */
-async function lockClubPurchaseId(
-  tx: BoundedTransactionContext,
-  organizationId: string,
-  id: string,
-) {
+async function lockClubPurchaseId(tx: Tx, organizationId: string, id: string) {
   const club = await lockClub(tx, organizationId);
   if (!club) return null;
   const owner: BillingOwner = { kind: 'organization', organizationId };
@@ -198,7 +180,7 @@ async function lockClubPurchaseId(
 }
 
 async function purchaseClosure(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   locked: Awaited<ReturnType<typeof lockPurchaseSubject>>,
   userId: string,
 ) {

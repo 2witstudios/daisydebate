@@ -2,7 +2,7 @@ import type { CaptureSummary } from './capture-summary';
 import {
   CAPTURE_CALL_DEADLINE_MS,
   CAPTURE_STT_TIMEOUT_MS,
-} from '@daisy/protocol';
+} from '@daisy/protocol/capture-timing';
 import {
   createAudioSubscription,
   disposeAudioRuntime,
@@ -11,9 +11,10 @@ import { consumeCaptureClips } from './capture-consumer';
 import { createOpenRouter } from '@daisy/ai-voice';
 import { createMediaWorkerClient } from '@daisy/media/worker';
 import { createMediaWorkerAuthentication } from '@daisy/media/internal';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { createAppError } from '@daisy/errors';
 import { runCaptureSession } from './capture-session';
+import { waitUntilPerformanceMs } from './capture-history';
 import { CAPTURE_FINISHED_EXIT } from './supervisor';
 import {
   CAPTURE_UNCAUGHT_EXIT,
@@ -110,10 +111,7 @@ export async function runCaptureProcess(input: {
         consume: consumeCaptureClips,
         pendingBytes,
         nowMs: performance.now,
-        waitUntilMs: async (due, signal) => {
-          while (performance.now() < due && !signal.aborted)
-            await Bun.sleep(Math.max(1, Math.min(25, due - performance.now())));
-        },
+        waitUntilMs: waitUntilPerformanceMs,
       },
       stop.signal,
     );

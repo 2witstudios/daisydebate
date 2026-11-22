@@ -2,17 +2,21 @@ import { type ZodType } from 'zod';
 import { realtimeEndpointOf } from '../realtime/endpoint-header';
 import {
   activeRoomReadSchema,
+  type ActiveRoom,
+} from '@daisy/protocol/active-room';
+import {
   hostedRoomsReadSchema,
-  idSchema,
-  roomViewSchema,
+  type HostedRoom,
+} from '@daisy/protocol/hosted-rooms';
+import { idSchema } from '@daisy/protocol/primitives';
+import { roomViewSchema } from '@daisy/protocol/room-read';
+import {
   roomListPageSchema,
   roomListQuerySchema,
-  type ActiveRoom,
-  type HostedRoom,
   type RoomListPage,
   type RoomListQuery,
   type RoomView,
-} from '@daisy/protocol';
+} from '@daisy/protocol/room-contract';
 
 type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
 type Read<T> =

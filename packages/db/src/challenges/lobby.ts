@@ -1,9 +1,6 @@
 import { and, eq, isNull, sql } from 'drizzle-orm';
-import {
-  ageBands,
-  competitionTypes,
-  type CompetitionType,
-} from '@daisy/protocol';
+import { ageBands } from '@daisy/protocol/ladder';
+import { competitionTypes, type CompetitionType } from '@daisy/protocol/round';
 import { z } from 'zod';
 import {
   defaultStandingLobby,
@@ -16,7 +13,7 @@ import {
   isMinorAgeBand,
   readGuardianLobbyIds,
 } from '../guardians/lobby-permissions';
-import type { AgeBand } from '@daisy/protocol';
+import type { AgeBand } from '@daisy/protocol/ladder';
 import { actors } from '../schema/actors';
 import { query } from '../raw-rows';
 import { users } from '../schema/users';

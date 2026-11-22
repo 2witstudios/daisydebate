@@ -6,6 +6,8 @@ import type {
   MessagingPreferenceAuthorizationFact,
 } from '@daisy/auth/authorization';
 import { authorizeOwnPreferenceClear } from './preference-composition';
+import type { Tx } from '@daisy/db/tx';
+import { unusedTx } from '@daisy/db/testing';
 setupRitewayBun();
 const input = {
   actorId: 'a'.repeat(24),
@@ -85,7 +87,8 @@ test('real preference factory binds separate channel fences and row-derived clea
     await import('./preference-composition');
   const { messagingUnitPolicy } = await import('./typing.test-support');
   const calls: string[] = [];
-  const tx = {
+  const tx: Tx = {
+    ...unusedTx,
     execute: () => {
       throw new Error('No database call expected');
     },

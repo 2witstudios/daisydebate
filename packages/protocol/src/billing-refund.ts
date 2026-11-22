@@ -1,13 +1,14 @@
+import { instantMs } from '@daisy/clock';
 import { z } from 'zod';
 import { idSchema } from './primitives';
 
-const instant = z.iso.datetime({ precision: 3 });
+const instant = z.iso.datetime({ precision: 3, abort: true });
 const vendorId = (prefix: string) =>
   z
     .string()
     .regex(new RegExp(`^${prefix}_[A-Za-z0-9_]+$`))
     .max(255);
-const at = Date.parse;
+const at = instantMs;
 export const refundBounds = {
   creationMs: 300_000,
   claimMs: 30_000,

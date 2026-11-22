@@ -1,7 +1,7 @@
 'use client';
 
+import { useNavigation } from '../edge/use-navigation';
 import { useRouter } from 'next/navigation';
-import { useEffect, useRef } from 'react';
 import { browserDocument } from '../round-media/browser-document';
 import { replaceRoute } from '../round-media/replace-route';
 
@@ -13,7 +13,7 @@ export const followAnswer = (router: RouteReplacer, next: string): void =>
 
 /**
  * Navigates to `next` once a form's server action has answered with it. A
- * form posted without JavaScript is moved on by a 303 instead (`moveOn`);
+ * form posted before hydration is moved on by a 303 instead (`moveOn`);
  * this is the hydrated page doing the same (`replaceRoute` loads a media
  * page as a document when this one lacks its Permissions-Policy).
  */
@@ -22,14 +22,8 @@ export function useMovedOn(
   beforeNavigate?: () => void,
 ): void {
   const router = useRouter();
-  const before = useRef(beforeNavigate);
-  useEffect(() => {
-    before.current = beforeNavigate;
-  }, [beforeNavigate]);
-  useEffect(() => {
-    if (next !== undefined) {
-      before.current?.();
-      followAnswer(router, next);
-    }
-  }, [next, router]);
+  useNavigation(router, next, (navigator, destination) => {
+    beforeNavigate?.();
+    followAnswer(navigator, destination);
+  });
 }

@@ -1,6 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
-import { isJudgeSeat } from '@daisy/protocol';
+import { isJudgeSeat } from '@daisy/protocol/seats';
 import {
   oneOnOneCast,
   oneOnOneSeats,

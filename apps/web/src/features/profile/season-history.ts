@@ -1,4 +1,4 @@
-import { daisyLadders, ladderKey, type Ladder } from '@daisy/protocol';
+import { daisyLadders, ladderKey, type Ladder } from '@daisy/protocol/ladder';
 import { readRatingStandings, type RatingReadStore } from '../ratings/read';
 
 /**

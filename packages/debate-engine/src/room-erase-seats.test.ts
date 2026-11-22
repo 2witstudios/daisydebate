@@ -5,12 +5,8 @@ import {
   projectRoom,
   releaseRestrictedMember,
 } from './room-assembly';
-import {
-  judgeSeat,
-  sideSeat,
-  type RoomAssemblyState,
-  type SeatRef,
-} from '@daisy/protocol';
+import { judgeSeat, sideSeat, type SeatRef } from '@daisy/protocol/seats';
+import { type RoomAssemblyState } from '@daisy/protocol/room-contract';
 import { consent, edges, started, state } from './room-assembly.test-support';
 
 const seatOf = (

@@ -1,7 +1,7 @@
 import { asc, eq, inArray, or } from 'drizzle-orm';
 import type { Permission } from '@daisy/protocol/lobby';
 import { rolePermissions, roles } from '../schema/organizations';
-import type { TabTransaction } from './tab-transaction';
+import type { Tx } from '../tx';
 
 /** A `roles` row with its `role_permissions`. Rank 1 is the highest. */
 export type RoleRow = {
@@ -14,7 +14,7 @@ export type RoleRow = {
 };
 
 const withPermissions = async (
-  tx: TabTransaction,
+  tx: Tx,
   found: readonly Omit<RoleRow, 'permissions'>[],
 ): Promise<readonly RoleRow[]> => {
   if (found.length === 0) return [];
@@ -49,7 +49,7 @@ const columns = {
 
 /** The roles with these ids, with their permissions. */
 export const loadRoles = async (
-  tx: TabTransaction,
+  tx: Tx,
   ids: readonly string[],
 ): Promise<readonly RoleRow[]> =>
   ids.length === 0
@@ -68,7 +68,7 @@ export const loadRoles = async (
  * organization and receives only the shared presets.
  */
 export const loadOfferedRoles = async (
-  tx: TabTransaction,
+  tx: Tx,
   organizationId: string | null,
 ): Promise<readonly RoleRow[]> =>
   withPermissions(

@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import type { Browser } from '@playwright/test';
 import { expect } from './fixtures';
 import { createRoomLaunchAccounts } from './room-launch-accounts';
@@ -60,8 +61,7 @@ export async function serviceAttendanceOutage(
             leases.length > 0 &&
             leases.every(
               (row) =>
-                Date.parse(facts.observedAt) - Date.parse(row.renewedAt) >
-                3_000,
+                instantMs(facts.observedAt) - instantMs(row.renewedAt) > 3_000,
             )
           );
         },

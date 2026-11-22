@@ -1,10 +1,6 @@
-import {
-  heldSeatsComplete,
-  judgeSeat,
-  sideSeat,
-  type FormatDefinition,
-  type SeatRef,
-} from '@daisy/protocol';
+import { heldSeatsComplete } from '@daisy/protocol/format-seating';
+import { judgeSeat, sideSeat, type SeatRef } from '@daisy/protocol/seats';
+import { type FormatDefinition } from '@daisy/protocol/format';
 import type { DrawFixtureFacts } from '../commands/draw';
 
 /** The actual fixture must fill the immutable Room's ordinary seats exactly. */
@@ -17,15 +13,16 @@ export const eventRoomCast = (
     (a, b) => a.position - b.position,
   )) {
     for (const [slot, actorId] of entry.members.entries()) {
+      if (fixture.kind === 'section') {
+        cast.push({
+          actorId,
+          seat: { kind: 'speaker', slot: entry.position + slot },
+        });
+        continue;
+      }
       const side = definition.sides[entry.position];
-      if (fixture.kind !== 'section' && !side) return null;
-      cast.push({
-        actorId,
-        seat:
-          fixture.kind === 'section'
-            ? { kind: 'speaker', slot: entry.position + slot }
-            : sideSeat(side!.key, slot),
-      });
+      if (!side) return null;
+      cast.push({ actorId, seat: sideSeat(side.key, slot) });
     }
   }
   for (const [slot, judge] of [...fixture.judges]

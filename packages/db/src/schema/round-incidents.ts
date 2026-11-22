@@ -1,7 +1,7 @@
 import {
   platformIncidentCauses,
   type PlatformIncidentCause,
-} from '@daisy/protocol';
+} from '@daisy/protocol/round';
 import { sql } from 'drizzle-orm';
 import {
   check,

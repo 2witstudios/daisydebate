@@ -1,7 +1,7 @@
 import {
   ballotDefinitionBodySchema,
   type BallotDefinition,
-} from '@daisy/protocol';
+} from '@daisy/protocol/ballot-definition';
 import type { EventBallotAuthoringView } from '@daisy/protocol/lobby/ballot-read';
 import { isAppError } from '@daisy/errors';
 import { ZodError } from 'zod';

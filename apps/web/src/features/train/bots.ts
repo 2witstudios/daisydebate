@@ -1,4 +1,4 @@
-import type { RoomCastChoice } from '@daisy/protocol';
+import type { RoomCastChoice } from '@daisy/protocol/room-contract';
 import type { SearchParams } from '../access/decision';
 import { trainDestinations } from './actions';
 
@@ -29,7 +29,7 @@ type OpponentCard = {
   readonly difficulty: RoomCastChoice['difficulty'] | null;
   readonly eligible: boolean;
   readonly selected: boolean;
-  /** The card's address, so choosing works without JavaScript. */
+  /** The card's address, so choosing works before hydration. */
   readonly href: string;
 };
 

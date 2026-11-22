@@ -4,11 +4,10 @@ import {
   roundAnalysisReportSchema,
   roundAnalysisSkills,
   roundAnalysisVersion,
-  type SeatRef,
-  type Side,
   type RoundAnalysisReport,
   type RoundAnalysisSkill,
-} from '@daisy/protocol';
+} from '@daisy/protocol/round-analysis';
+import { type SeatRef, type Side } from '@daisy/protocol/seats';
 import { modelJson } from './model-json';
 import type { ChatMessage } from './openrouter';
 import {

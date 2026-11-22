@@ -1,4 +1,5 @@
-import type { AgeBand } from '@daisy/protocol';
+import { addMs, isInstantBefore, tryInstantMs } from '@daisy/clock';
+import type { AgeBand } from '@daisy/protocol/ladder';
 import type { GuardianRefusal } from '@daisy/protocol/guardians';
 import { ageBand } from '@daisy/auth';
 
@@ -17,14 +18,13 @@ const INVITATION_DAYS = 14;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 export const invitationExpiresAt = (createdAt: string): string =>
-  new Date(Date.parse(createdAt) + INVITATION_DAYS * DAY_MS).toISOString();
+  addMs(createdAt, INVITATION_DAYS * DAY_MS);
 
 const invitationLive = (
   invitation: { readonly status: string; readonly expiresAt: string },
   now: string,
 ): boolean =>
-  invitation.status === 'open' &&
-  Date.parse(invitation.expiresAt) > Date.parse(now);
+  invitation.status === 'open' && isInstantBefore(now, invitation.expiresAt);
 
 /** Who already holds the address the parent typed, as the server alone knows it. */
 type AddressHolder =
@@ -136,8 +136,8 @@ export function claimInvitations(
     .filter((invitation) => childBand(invitation.birthMonth, now) === 'minor')
     .sort(
       (a, b) =>
-        Date.parse(a.createdAt) - Date.parse(b.createdAt) ||
-        (a.id < b.id ? -1 : 1),
+        (tryInstantMs(a.createdAt) ?? Number.NaN) -
+          (tryInstantMs(b.createdAt) ?? Number.NaN) || (a.id < b.id ? -1 : 1),
     );
   const [created, ...asked] = live;
   if (!created) return null;

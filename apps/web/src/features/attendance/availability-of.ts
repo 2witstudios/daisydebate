@@ -1,5 +1,5 @@
 import { deriveOutageIntervals, withClockStops } from '@daisy/debate-engine';
-import { clockStopsOf } from '@daisy/protocol';
+import { clockStopsOf } from '@daisy/protocol/round';
 import type { AttendanceEvaluationFacts } from '@daisy/db/attendance';
 import { attendanceReceiptTime } from './receipt-time';
 

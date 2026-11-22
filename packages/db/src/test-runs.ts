@@ -9,7 +9,11 @@
  * it.
  */
 import type { SQL } from 'bun';
+import { createAppError } from '@daisy/errors';
+import { z } from 'zod';
+import { sessionLocks } from './locks';
 import { quoteIdentifier } from './identifiers';
+import { query } from './raw-rows';
 
 const tokenPattern = /^[0-9a-f]{8}$/;
 const runSuffix = /^(.*_test)_run_[0-9a-f]{8}$/;
@@ -40,8 +44,6 @@ export function testRunDatabaseName(
 export const slotDatabaseOfRun = (name: string): string | undefined =>
   runSuffix.exec(name)?.[1];
 
-const lockKey = (name: string) => `hashtextextended('${name}', 0)`;
-
 /**
  * Creates the run's database from `template0` while holding its liveness
  * lock. The lock is taken first, so a concurrent sweep never sees the
@@ -53,19 +55,19 @@ export async function claimTestRunDatabase(
   name: string,
 ): Promise<number> {
   const quoted = quoteIdentifier(name);
-  const [{ free }] = (await admin.unsafe(
-    `select pg_try_advisory_lock(${lockKey(name)}) as free`,
-  )) as [{ free: boolean }];
-  if (!free) throw new Error(`Run database ${name} is already claimed`);
+  if (!(await sessionLocks.testRun.tryTake(admin, name)))
+    throw new Error(`Run database ${name} is already claimed`);
   await admin.unsafe(`create database ${quoted} template template0`);
   return backendPid(admin);
 }
 
 const backendPid = async (admin: SQL): Promise<number> => {
-  const [{ pid }] = (await admin.unsafe('select pg_backend_pid() as pid')) as [
-    { pid: number },
-  ];
-  return pid;
+  const [row] = await query(
+    admin`select pg_backend_pid() as pid`,
+    z.object({ pid: z.int().positive() }),
+  );
+  if (!row) throw createAppError('INVARIANT', 'Test run backend is missing');
+  return row.pid;
 };
 
 /**
@@ -99,10 +101,12 @@ export async function dropTestRunDatabase(
 }
 
 async function runDatabasesOf(admin: SQL, slotTestDatabase: string) {
-  const rows = (await admin`
-    select datname as name from pg_database
-    where starts_with(datname, ${`${slotTestDatabase}_run_`})
-    order by datname`) as Array<{ name: string }>;
+  const rows = await query(
+    admin`select datname as name from pg_database
+      where starts_with(datname, ${`${slotTestDatabase}_run_`})
+      order by datname`,
+    z.object({ name: z.string() }),
+  );
   return rows
     .map(({ name }) => name)
     .filter((name) => slotDatabaseOfRun(name) === slotTestDatabase);
@@ -114,11 +118,12 @@ async function runDatabasesOf(admin: SQL, slotTestDatabase: string) {
  * run may last cannot belong to a live run.
  */
 async function sessionsOn(admin: SQL, name: string, maxRunMs: number) {
-  const [row] = (await admin.unsafe(
-    `select count(*)::int as sessions,
-       (count(*) filter (where backend_start >= now() - ${Number(maxRunMs)} * interval '1 millisecond'))::int as young
-     from pg_stat_activity where datname = '${quoteIdentifier(name).slice(1, -1)}' and pid <> pg_backend_pid()`,
-  )) as [{ sessions: number; young: number }];
+  const [row] = await query(
+    admin`select count(*)::int as sessions,
+       (count(*) filter (where backend_start >= now() - ${maxRunMs}::float8 * interval '1 millisecond'))::int as young
+     from pg_stat_activity where datname = ${name} and pid <> pg_backend_pid()`,
+    z.object({ sessions: z.int(), young: z.int() }),
+  );
   return row ?? { sessions: 0, young: 0 };
 }
 
@@ -138,11 +143,7 @@ export async function sweepTestRunDatabases(
 ): Promise<readonly string[]> {
   const dropped: string[] = [];
   for (const name of await runDatabasesOf(admin, slotTestDatabase)) {
-    const key = lockKey(quoteIdentifier(name).slice(1, -1));
-    const [{ free }] = (await admin.unsafe(
-      `select pg_try_advisory_lock(${key}) as free`,
-    )) as [{ free: boolean }];
-    if (!free) continue;
+    if (!(await sessionLocks.testRun.tryTake(admin, name))) continue;
     try {
       // A free lock with a session started within the run bound is a live
       // run whose runner's connection was cut (ISSUE-250): never drop under
@@ -152,7 +153,7 @@ export async function sweepTestRunDatabases(
       await dropTestRunDatabase(admin, name);
       dropped.push(name);
     } finally {
-      await admin.unsafe(`select pg_advisory_unlock(${key})`);
+      await sessionLocks.testRun.release(admin, name);
     }
   }
   return dropped;

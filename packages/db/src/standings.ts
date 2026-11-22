@@ -1,12 +1,12 @@
 import { createAppError } from '@daisy/errors';
-import {
-  ratingStyles,
-  sideKeySchema,
-  type SideKey,
-  type WinnerOutcome,
-} from '@daisy/protocol';
+import { ratingStyles } from '@daisy/protocol/primitives';
+import { twoSideKeys, type TwoSideKey } from '@daisy/protocol/seats';
+import { type WinnerOutcome } from '@daisy/protocol/round-outcome';
 import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
+import { lifecycleSqlList } from './lifecycle-sql';
+import { runningRoundStatuses } from '@daisy/protocol/round';
+import { query } from './raw-rows';
+import { z } from 'zod';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { readOfficialRatingLadderCatalog } from './official-standing-lobbies';
 import { isDebatingSeatSql } from './seat-columns';
@@ -30,7 +30,7 @@ import {
   loadLeagueCertifiedRatingInputs,
   type CertifiedRatingResults,
 } from './tab/league-certified-rating-inputs';
-import type { TabTransaction } from './tab/tab-transaction';
+import { inTransaction, type Tx, type TxSource } from './tx';
 
 /**
  * The leaderboard's reads (ADR 0055): the seasons a ladder can show, the
@@ -63,7 +63,7 @@ export type StandingChange = {
   readonly deviationAfter: number;
   readonly occurredAt: string;
   /** A rating compares the two sides (ADR 0055): the preset's pair. */
-  readonly side: SideKey;
+  readonly side: TwoSideKey;
   readonly outcome: WinnerOutcome;
 };
 
@@ -94,7 +94,7 @@ type StandingCertification = {
 };
 
 const publishedCertifications = async (
-  tx: TabTransaction,
+  tx: Tx,
   input: {
     readonly lobbyId: string;
     readonly seasonIds: readonly string[];
@@ -150,6 +150,9 @@ const publishedCertifications = async (
   return published;
 };
 
+const isTwoSideKey = (key: string | null): key is TwoSideKey =>
+  twoSideKeys.some((side) => side === key);
+
 /**
  * A posting's side and outcome as a rated result. A ledger row is only ever
  * written for a debater's side of a Round a side won, so anything else is
@@ -159,34 +162,33 @@ export function ratedSeat(
   side: string | null,
   winningSide: string | null,
 ): Pick<StandingChange, 'side' | 'outcome'> {
-  const seat = sideKeySchema.safeParse(side);
-  const winner = sideKeySchema.safeParse(winningSide);
-  if (!seat.success || !winner.success)
+  if (!isTwoSideKey(side) || !isTwoSideKey(winningSide))
     throw createAppError(
       'INTERNAL',
       'A ledger posting has no rated seat or outcome',
     );
-  return { side: seat.data, outcome: { kind: 'winner', side: winner.data } };
+  return { side, outcome: { kind: 'winner', side: winningSide } };
 }
 
 export const standingsOperations = ({
   database,
   eventSink,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
   /** Ratings hidden from a member until their current judging assignment is ruled. */
   async readRatingBlindings(viewerActorId: string): Promise<readonly string[]> {
-    const rows =
-      await database.execute(sql`select distinct opponent.actor_id from round_participants judge
+    const rows = await query(
+      database,
+      z.object({ actor_id: z.string() }),
+      sql`select distinct opponent.actor_id from round_participants judge
       join rounds r on r.id=judge.round_id
       join round_participants opponent on opponent.round_id=r.id and ${isDebatingSeatSql(sql`opponent.seat_kind`)}
-      where judge.actor_id=${viewerActorId} and judge.seat_kind='judge' and r.status in ('opening','active')
-      and not exists(select 1 from ballots b where b.judge_participant_id=judge.id)`);
-    return (rows as unknown as { actor_id: string }[]).map(
-      (row) => row.actor_id,
+      where judge.actor_id=${viewerActorId} and judge.seat_kind='judge' and r.status in ${lifecycleSqlList(runningRoundStatuses)}
+      and not exists(select 1 from ballots b where b.judge_participant_id=judge.id)`,
     );
+    return rows.map((row) => row.actor_id);
   },
 
   /** The seasons a ladder can show, newest start first. */
@@ -238,7 +240,7 @@ export const standingsOperations = ({
     return instrumented(eventSink, 'readStandings', () =>
       input.seasonIds.length === 0
         ? Promise.resolve({ ratings: [], changes: [] })
-        : database.transaction((tx) => readStandingsWithin(tx, input), {
+        : inTransaction(database, (tx) => readStandingsWithin(tx, input), {
             isolationLevel: 'repeatable read',
             accessMode: 'read only',
           }),
@@ -267,7 +269,7 @@ export type LobbyRatingSelection = {
 
 /** Read the selected ladder in the active season or a Room's frozen season. */
 export async function readLobbyPublishedRatings(
-  tx: TabTransaction,
+  tx: Tx,
   input: Pick<
     StandingsInput,
     'lobbyId' | 'ladderId' | 'clock' | 'leaguePublication'
@@ -302,7 +304,7 @@ export async function readLobbyPublishedRatings(
 
 /** Load projections and their inputs from the caller's one database snapshot. */
 async function readStandingsWithin(
-  tx: TabTransaction,
+  tx: Tx,
   input: StandingsInput,
 ): Promise<StandingsRead> {
   if (input.seasonIds.length === 0) return { ratings: [], changes: [] };

@@ -2,11 +2,13 @@ import { createAppError } from '@daisy/errors';
 import { tightenOnly } from '../../server/tighten-only';
 import {
   createMessagingCoreSchemas,
-  createMessagingSocialSchemas,
   messagingBetaLimits,
   type MessagingCoreBounds,
+} from '@daisy/protocol/messaging/core';
+import {
+  createMessagingSocialSchemas,
   type MessagingSocialBounds,
-} from '@daisy/protocol';
+} from '@daisy/protocol/messaging/social';
 
 type MessagingPolicyLimits = {
   readonly bounds: MessagingCoreBounds;

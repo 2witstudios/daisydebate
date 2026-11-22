@@ -1,9 +1,10 @@
-import type { SQL } from 'bun';
-import { createId } from '@paralleldrive/cuid2';
 import {
   admitParticipants,
   type SavepointTestDatabase,
 } from '@daisy/db/testing';
+import { createId } from '@paralleldrive/cuid2';
+import type { SQL } from 'bun';
+import type { TournamentHttp } from './tab-tournament-transport.test-support';
 
 /**
  * The scripted tournament's frame (TAB-8.18): bots on a real database, an
@@ -28,6 +29,7 @@ export type Bot = {
 export type World = {
   readonly database: SavepointTestDatabase;
   readonly runtimeDatabaseUrl?: string;
+  readonly http?: TournamentHttp;
   readonly sql: SQL;
   readonly clock: ScriptClock;
   readonly bots: Readonly<Record<string, Bot>>;
@@ -73,6 +75,19 @@ export const createBots = async (
   );
   return bots;
 };
+
+/** Change the gate only inside the scripted tournament's disposable database. */
+export async function withClosedTabRelease<T>(
+  world: World,
+  work: () => Promise<T>,
+) {
+  await world.sql`update release_flags set state = 'disabled', revision = revision + 1 where key = 'daisy-tab'`;
+  try {
+    return await work();
+  } finally {
+    await world.sql`update release_flags set state = 'enabled', revision = revision + 1 where key = 'daisy-tab'`;
+  }
+}
 
 export type Stage<World> =
   | { readonly name: string; readonly run: (world: World) => Promise<void> }

@@ -1,13 +1,12 @@
+import { caseMapSchema, type CaseMap } from '@daisy/protocol/case-map';
 import {
-  caseMapSchema,
-  type CaseMap,
   judgingBallotFields,
   judgingRecordedIssueLimit,
-  type Ballot,
   type JudgingAttemptDiagnostic,
   type JudgingFinish,
   type JudgingIssueCode,
-} from '@daisy/protocol';
+} from '@daisy/protocol/round-judging-attempt';
+import { type Ballot } from '@daisy/protocol/ballot-schema';
 import type { z } from 'zod';
 import { modelJson } from './model-json';
 
@@ -33,9 +32,7 @@ const fieldOf = (issue: z.core.$ZodIssue): IssueRecord['field'] => {
   if (issue.code === 'unrecognized_keys') return 'unknown_field';
   const path = issue.path.join('.');
   if (path.startsWith('citations')) return 'citations';
-  return knownFields.has(path)
-    ? (path as IssueRecord['field'])
-    : 'unknown_field';
+  return knownFields.has(path) ? path : 'unknown_field';
 };
 const limitOf = (issue: z.core.$ZodIssue): number | undefined => {
   const limit =

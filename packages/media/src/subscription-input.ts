@@ -1,5 +1,5 @@
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 
 /** The admitted participant identities, validated at the trust boundary. */
 export const identitiesOf = (values: readonly string[]) => {

@@ -6,7 +6,7 @@ import { drizzle } from 'drizzle-orm/bun-sql';
 import { createMediaSessionStore } from '../src/media-session';
 import { createBoundedTransaction } from '../src/bounded-transaction';
 import type { LockedRoundTickInput } from '../src/round-clock-transaction';
-import type { RoundLifecycle } from '@daisy/protocol';
+import type { RoundLifecycle } from '@daisy/protocol/round-lifecycle';
 
 /** The Round's own lifecycle columns, one status at a time so each keeps its instants. */
 const lifecycleOf = (round: RoundLifecycle): RoundLifecycle => {

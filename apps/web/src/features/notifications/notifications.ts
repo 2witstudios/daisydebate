@@ -1,4 +1,5 @@
-import { idSchema } from '@daisy/protocol';
+import { instantMs } from '@daisy/clock';
+import { idSchema } from '@daisy/protocol/primitives';
 import type { SearchParams } from '../access/decision';
 
 /** A position in the list: the last row the page before showed. */
@@ -18,7 +19,7 @@ const first = (value: string | readonly string[] | undefined) =>
 
 /** `<epoch ms>-<id>`: short, and needs no escaping in an address. */
 const cursorWords = (cursor: NotificationsCursor) =>
-  `${Date.parse(cursor.surfacedAt)}-${cursor.id}`;
+  `${instantMs(cursor.surfacedAt)}-${cursor.id}`;
 
 const parseCursor = (value: string | undefined): NotificationsCursor | null => {
   const match = value === undefined ? null : /^(\d{1,15})-(.+)$/.exec(value);

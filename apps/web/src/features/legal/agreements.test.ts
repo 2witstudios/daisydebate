@@ -1,3 +1,4 @@
+import { sha3Hex } from '@daisy/digest';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   agreementWords,
@@ -31,8 +32,7 @@ const draft = (file: string) =>
     new URL(`../../../../../docs/legal/${file}`, import.meta.url),
   ).text();
 
-const digest = (value: unknown) =>
-  new Bun.CryptoHasher('sha3-256').update(JSON.stringify(value)).digest('hex');
+const digest = (value: unknown) => sha3Hex(JSON.stringify(value));
 
 describe('agreements', () => {
   test('a signature names exact words', () => {

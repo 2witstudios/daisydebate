@@ -1,11 +1,9 @@
+import { instantMs } from '@daisy/clock';
 import { assertRejects } from '@daisy/errors/testing';
-import {
-  emptyRuntimeCheckpointFor,
-  fourTeams,
-  type RoundParticipantSeat,
-  type RoundRules,
-  type SeatRef,
-} from '@daisy/protocol';
+import { emptyRuntimeCheckpointFor } from '@daisy/protocol/round';
+import { fourTeams, type SeatRef } from '@daisy/protocol/seats';
+import { type RoundParticipantSeat } from '@daisy/protocol/runtime';
+import { type RoundRules } from '@daisy/protocol/format';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { roundCommandOptions } from './round-command-legality';
 import { normalizeRoundClock } from './round-clock-state';
@@ -129,7 +127,7 @@ for (const shape of shapes)
         rules,
         participants: shape.participants,
         seat,
-        nowMs: Date.parse(roundAt(1_000)),
+        nowMs: instantMs(roundAt(1_000)),
         state: normalizeRoundClock({
           round: {
             status: 'active',

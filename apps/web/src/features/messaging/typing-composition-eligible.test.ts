@@ -3,6 +3,8 @@ import { assertRejects } from '@daisy/errors/testing';
 import type { Database } from '@daisy/db';
 import { composeMessagingTyping } from './typing-operations';
 import { typingWorld } from './typing.test-support';
+import type { Tx } from '@daisy/db/tx';
+import { unusedTx } from '@daisy/db/testing';
 setupRitewayBun();
 test('typing factory threads one fenced transaction through canonical facts and rereads trusted time after producer awaits', async () => {
   const f = typingWorld(),
@@ -11,7 +13,8 @@ test('typing factory threads one fenced transaction through canonical facts and 
   let leases: typeof f.leases = [],
     now = f.now;
   const writes: unknown[] = [];
-  const tx = {
+  const tx: Tx = {
+    ...unusedTx,
     execute: () => {
       throw new Error('Injected canonical facts are supplied by the test port');
     },
@@ -102,6 +105,7 @@ function completingTransaction(completedAt: string) {
         throw new Error('Foreign completion scope');
       const result = await work({
         tx: {
+          ...unusedTx,
           execute: () => {
             throw new Error('No SQL through injected fact reader');
           },

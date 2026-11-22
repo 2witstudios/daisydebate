@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { drizzle } from 'drizzle-orm/bun-sql';
@@ -10,7 +11,7 @@ setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
 
 const MINUTE = 60_000;
-const start = Date.parse('2026-11-01T12:00:00.000Z');
+const start = instantMs('2026-11-01T12:00:00.000Z');
 const minute = (n: number) => new Date(start + n * MINUTE).toISOString();
 
 /** A member with a verified address, and a way to owe them friend requests. */

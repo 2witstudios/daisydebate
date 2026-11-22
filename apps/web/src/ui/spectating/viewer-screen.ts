@@ -1,4 +1,7 @@
-import type { BroadcastStream, SpectatorTimeline } from '@daisy/protocol';
+import type {
+  BroadcastStream,
+  SpectatorTimeline,
+} from '@daisy/protocol/spectator-timeline';
 import type { Viewing } from './viewing';
 
 /** A shown notice beside a playing video. */

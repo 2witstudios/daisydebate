@@ -14,7 +14,7 @@ import {
   type DrawWrite,
 } from '@daisy/db/tab';
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { closeRoom, activeRoomMembers } from '@daisy/debate-engine';
 import {
   drawCommandDefinition,
@@ -28,7 +28,7 @@ import {
 import { decideDraw } from '../commands/draw';
 import { CommandDenied, runLobbyCommand } from '../commands/run-command';
 import type { TabPrincipal } from '../tab-principal';
-import { commandDigest } from './command-digest';
+import { commandDigest } from '@daisy/digest';
 import { drawFacts, type DrawCompetition } from './draw-facts';
 import { drawAuthority } from './draw-authority';
 import { tabEngine } from './tab-engine';

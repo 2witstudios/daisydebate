@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import type {
   LinkRequestOutcome,
   PasskeyAutofillOutcome,
@@ -64,7 +65,7 @@ const isIdle = (state: SignInState): state is EnterEmail =>
 
 /** Milliseconds until a resend is allowed; both times are UTC ISO strings. */
 export const resendRemainingMs = (sentAt: string, now: string): number =>
-  Math.max(0, Date.parse(sentAt) + RESEND_COOLDOWN_MS - Date.parse(now));
+  Math.max(0, instantMs(sentAt) + RESEND_COOLDOWN_MS - instantMs(now));
 
 export const canRequestLink = (state: SignInState): boolean =>
   isIdle(state) && state.email.trim() !== '';

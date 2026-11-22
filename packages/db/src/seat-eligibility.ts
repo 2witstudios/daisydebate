@@ -1,9 +1,5 @@
-import {
-  aiRoleFits,
-  isDebatingSeat,
-  type AiRole,
-  type SeatRef,
-} from '@daisy/protocol';
+import { aiRoleFits, type AiRole } from '@daisy/protocol/ai-roles';
+import { isDebatingSeat, type SeatRef } from '@daisy/protocol/seats';
 
 type ActorFact = {
   readonly kind: 'human' | 'bot';

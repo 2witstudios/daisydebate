@@ -1,6 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
-import { ENVELOPE_VERSION, PROTOCOL_VERSION } from '@daisy/protocol';
+import { ENVELOPE_VERSION, PROTOCOL_VERSION } from '@daisy/protocol/realtime';
 import {
   socketAuthorityFixture,
   authenticatedAuthorityPeer,

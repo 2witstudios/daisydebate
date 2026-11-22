@@ -1,4 +1,4 @@
-import type { AudienceReactionKind } from '@daisy/protocol';
+import type { AudienceReactionKind } from '@daisy/protocol/audience';
 
 export const reactionLabels: Readonly<Record<AudienceReactionKind, string>> = {
   sharp_point: 'Sharp point',

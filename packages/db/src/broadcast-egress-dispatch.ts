@@ -1,20 +1,21 @@
 import { and, eq, isNull } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
-import { idSchema, isRoundRunning } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
+import { isRoundRunning } from '@daisy/protocol/round';
 import { broadcasts } from './schema/broadcasts';
 import { rounds } from './schema/rounds';
 import { readDatabaseTime } from './database-clock';
+import { inTransaction, type TxSource } from './tx';
 
 /** A vendor request is durably fenced before I/O; a lost answer cannot start another generation. */
 export const beginBroadcastEgressAttempt = (
-  database: BunSQLDatabase,
+  database: TxSource,
   input: {
     readonly id: string;
     readonly generation: number;
     readonly stageCredentialHash: string;
   },
 ) =>
-  database.transaction(async (tx) => {
+  inTransaction(database, async (tx) => {
     if (
       !idSchema.safeParse(input.id).success ||
       !Number.isSafeInteger(input.generation) ||
@@ -58,7 +59,7 @@ export const beginBroadcastEgressAttempt = (
 
 /** Only the exact attempt's confirmed terminal observation settles physical work. */
 export const settleBroadcastEgressAttempt = (
-  database: BunSQLDatabase,
+  database: TxSource,
   input: {
     readonly id: string;
     readonly generation: number;
@@ -68,7 +69,7 @@ export const settleBroadcastEgressAttempt = (
       | { readonly kind: 'failed'; readonly id: string };
   },
 ) =>
-  database.transaction(async (tx) => {
+  inTransaction(database, async (tx) => {
     const [own] = await tx
       .select()
       .from(broadcasts)

@@ -1,4 +1,8 @@
-import { isOpenRoomStatus, type RoomAssemblyState } from '@daisy/protocol';
+import { instantMs } from '@daisy/clock';
+import {
+  isOpenRoomStatus,
+  type RoomAssemblyState,
+} from '@daisy/protocol/room-contract';
 import { acceptedRoomMutation } from './room-assembly-facts';
 import { closeRoom } from './room-consent-transitions';
 
@@ -18,8 +22,8 @@ export function maintainRoom(
   if (!isOpenRoomStatus(room.status) || input.idleTimeoutMs === null)
     return null;
   if (
-    Date.parse(input.lastCommandAt) + input.idleTimeoutMs >
-    Date.parse(input.now)
+    instantMs(input.lastCommandAt) + input.idleTimeoutMs >
+    instantMs(input.now)
   )
     return null;
   return acceptedRoomMutation({

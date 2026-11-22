@@ -54,8 +54,7 @@ export function composeMessagingFileRoutes(app: App) {
       const files = configured(),
         runtime = app.messagingFiles,
         policy = app.messagingPolicy;
-      if (!files || !runtime || !policy)
-        return unavailableMessagingHandler(app, request);
+      if (!files || !runtime) return unavailableMessagingHandler(app, request);
       return nativeFileCleanup(
         {
           boundary: memberHttpBoundary(app),

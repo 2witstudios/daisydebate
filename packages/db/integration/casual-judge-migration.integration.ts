@@ -1,5 +1,6 @@
+import { instantMs } from '@daisy/clock';
 import { SQL } from 'bun';
-import { judgingPolicy } from '@daisy/protocol';
+import { judgingPolicy } from '@daisy/protocol/judging-policy';
 import { atFinalJudgingStage } from '../src/testing-judging';
 import { readFile } from 'node:fs/promises';
 import { createHash, randomBytes } from 'node:crypto';
@@ -111,8 +112,8 @@ test(
               state.kind,
               'countedAt' in state
                 ? row.mode === 'missing_attempt'
-                  ? Date.parse(state.countedAt) >= beforeMigration &&
-                    Date.parse(state.countedAt) <= afterMigration
+                  ? instantMs(state.countedAt) >= beforeMigration &&
+                    instantMs(state.countedAt) <= afterMigration
                     ? 'migration_observation'
                     : 'invalid_observation'
                   : new Date(state.countedAt).toISOString()

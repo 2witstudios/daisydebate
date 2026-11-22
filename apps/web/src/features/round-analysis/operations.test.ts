@@ -1,7 +1,7 @@
 import { assertRejects } from '@daisy/errors/testing';
 import { createOpenRouter } from '@daisy/ai-voice';
 import { sampleRoundAnalysisReport as report } from '@daisy/protocol/round-analysis-testing';
-import { twoSides } from '@daisy/protocol';
+import { twoSides } from '@daisy/protocol/seats';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   frozen,

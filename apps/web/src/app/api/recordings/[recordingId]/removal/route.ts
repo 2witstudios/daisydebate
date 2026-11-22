@@ -1,10 +1,12 @@
 import { processRoute } from '../../../../../server/process-app';
 
+type Params = Awaited<
+  RouteContext<'/api/recordings/[recordingId]/removal'>['params']
+>;
+
 export const runtime = 'nodejs';
-export const POST = processRoute(
-  (routes) => (request) =>
-    routes.recordings.removal(
-      request,
-      new URL(request.url).pathname.split('/')[3] ?? '',
-    ),
+export const POST = processRoute.withParams<Params>(
+  (routes) =>
+    (request, { recordingId }) =>
+      routes.recordings.removal(request, recordingId),
 );

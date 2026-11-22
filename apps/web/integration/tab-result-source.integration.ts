@@ -12,7 +12,7 @@ import {
   committingRuntimeTestDatabase,
 } from '@daisy/db/testing';
 import { createTabStore } from '@daisy/db/tab';
-import { isDebatingSeat, seatOrder } from '@daisy/protocol';
+import { isDebatingSeat, seatOrder } from '@daisy/protocol/seats';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { withRoomRuntime } from './room-runtime.test-support';

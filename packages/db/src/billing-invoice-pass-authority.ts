@@ -9,7 +9,6 @@ import {
   type InvoicePassOwner,
   type CleanupWork,
 } from '@daisy/protocol/billing';
-import type { BoundedTransactionContext } from './transaction-context';
 import {
   lockCleanupJob,
   cleanupFacts,
@@ -19,10 +18,11 @@ import type { CleanupInvoiceRequest } from './billing-invoice-pass-retention';
 import { billingPaymentObservations } from './schema/billing-payment-observations';
 import { paymentObservationFromRow } from './billing-payment-observation-record';
 import { readFrozenBillingOffer } from './billing-frozen-offer';
+import type { Tx } from './tx';
 
 /** Frozen historical offer ownership is checked against durable purchase facts, never today's configured price. */
 export async function verifyInvoicePassOwner(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   owner: InvoicePassOwner,
   route: Awaited<ReturnType<typeof cleanupFacts>>['route'],
 ) {
@@ -49,7 +49,7 @@ export async function verifyInvoicePassOwner(
 }
 /** Only the complete bounded HEAD members are loaded; historical invoice membership is never scanned here. */
 export async function currentPassMembers(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   pass: Extract<InvoicePass, { phase: 'verify-invoice' }>,
 ) {
   const ids = pass.head.reads.map((read) => read.invoicePaymentId);
@@ -106,7 +106,7 @@ function eventMatchesOwner(
 }
 
 export async function lockInvoiceExecution(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   jobId: string,
   claimId: string,
   work: CleanupWork,

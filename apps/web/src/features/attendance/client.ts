@@ -3,6 +3,18 @@ type Snapshot = {
   readonly status: string;
   readonly segments: readonly { readonly id: string; readonly type: string }[];
 };
+type Dispatch =
+  | { readonly kind: 'idle' }
+  | {
+      readonly kind: 'sending' | 'resend-queued';
+      readonly done: Promise<void>;
+    };
+type PausedAttendance = {
+  readonly kind: 'waiting' | 'terminal' | 'stopped';
+  readonly settling: Promise<void> | null;
+};
+type AttendanceState =
+  { readonly kind: 'active'; readonly dispatch: Dispatch } | PausedAttendance;
 type Pending = {
   readonly commandId: string;
   readonly segmentId: string;
@@ -46,33 +58,42 @@ export function createAttendanceClient(deps: {
   const { nowMs } = deps;
   const pending = new Map<string, Pending>();
   const retired = new Set<string>();
-  let active = true;
-  let stopped = false;
-  let terminal = false;
-  let inFlight: Promise<void> | null = null;
-  let forceQueued = false;
+  let state: AttendanceState = { kind: 'active', dispatch: { kind: 'idle' } };
+  const currentState = (): AttendanceState => state;
+  const isActive = () => state.kind === 'active';
+  const isHalted = () => state.kind === 'stopped' || state.kind === 'terminal';
   /** The wait the last failing pass set, or null while check-ins succeed. */
   let retryWaitMs: number | null = null;
   let retryAtMs = 0;
-  const signOut = () => {
-    if (stopped) return;
-    stopped = true;
-    active = false;
+  const pause = (kind: PausedAttendance['kind']) => {
+    const settling =
+      state.kind === 'active'
+        ? state.dispatch.kind === 'idle'
+          ? null
+          : state.dispatch.done
+        : state.settling;
+    state = { kind, settling };
     pending.clear();
+  };
+  const signOut = () => {
+    if (state.kind === 'stopped') return;
+    pause('stopped');
     deps.signedOut?.();
   };
   /** `tickAt` is when the tick that asked began, before any read. */
   const send = async (force: boolean, tickAt: number): Promise<void> => {
-    if (!active) return;
-    if (inFlight) {
-      forceQueued ||= force;
-      await inFlight;
+    if (state.kind !== 'active') return;
+    const { dispatch } = state;
+    if (dispatch.kind !== 'idle') {
+      if (force)
+        state = { ...state, dispatch: { ...dispatch, kind: 'resend-queued' } };
+      await dispatch.done;
       return;
     }
-    inFlight = (async () => {
+    const sendPending = async () => {
       let failed = false;
       for (const item of [...pending.values()].reverse()) {
-        if (!active) break;
+        if (!isActive()) break;
         if (item.acknowledged && !force) continue;
         try {
           const result = await deps.send({
@@ -99,26 +120,41 @@ export function createAttendanceClient(deps: {
       // Measured from the tick's start, before its read, so no request's
       // latency can make the due heartbeat skip a retry.
       retryAtMs = tickAt + (retryWaitMs ?? 0);
-    })();
+    };
+    const done = sendPending();
+    const started = currentState();
+    state =
+      started.kind === 'active'
+        ? { kind: 'active', dispatch: { kind: 'sending', done } }
+        : { ...started, settling: done };
     try {
-      await inFlight;
+      await done;
     } finally {
-      inFlight = null;
-      if (forceQueued) {
-        forceQueued = false;
-        await send(true, nowMs());
-      }
+      const settled = currentState();
+      if (settled.kind === 'active') {
+        state = { kind: 'active', dispatch: { kind: 'idle' } };
+        if (settled.dispatch.kind === 'resend-queued')
+          await send(true, nowMs());
+      } else state = { ...settled, settling: null };
     }
   };
   /** Takes a snapshot's speeches; returns how many it had not seen before. */
   const adopt = (snapshot: Snapshot): number => {
-    if (stopped || terminal) return 0;
-    active = snapshot.status === 'active';
-    if (!active) {
-      terminal =
-        snapshot.status === 'completed' || snapshot.status === 'abandoned';
-      pending.clear();
+    if (isHalted()) return 0;
+    if (snapshot.status !== 'active') {
+      pause(
+        snapshot.status === 'completed' || snapshot.status === 'abandoned'
+          ? 'terminal'
+          : 'waiting',
+      );
       return 0;
+    }
+    if (state.kind === 'waiting') {
+      const done = state.settling;
+      state = {
+        kind: 'active',
+        dispatch: done === null ? { kind: 'idle' } : { kind: 'sending', done },
+      };
     }
     let added = 0;
     for (const segment of snapshot.segments)
@@ -147,10 +183,10 @@ export function createAttendanceClient(deps: {
     slackMs: number,
   ) => force || added > 0 || tickAt >= retryAtMs - slackMs;
   const refresh = async (force: boolean) => {
-    if (stopped || terminal) return;
+    if (isHalted()) return;
     const tickAt = nowMs();
     const snapshot = await deps.read().catch(() => null);
-    if (stopped || terminal) return;
+    if (isHalted()) return;
     if (snapshot === 'signed-out') {
       signOut();
       return;
@@ -169,10 +205,6 @@ export function createAttendanceClient(deps: {
     },
     reconnect: () => refresh(true),
     heartbeat: () => refresh(false),
-    stop() {
-      stopped = true;
-      active = false;
-      pending.clear();
-    },
+    stop: () => pause('stopped'),
   };
 }

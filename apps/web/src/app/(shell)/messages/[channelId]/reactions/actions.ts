@@ -13,7 +13,7 @@ import {
   type ReactionFormState,
 } from '../../../../../features/messaging/forms/reaction-form';
 import { systemId } from '@daisy/clock';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import {
   reactionCounted,
   reactionMarked,

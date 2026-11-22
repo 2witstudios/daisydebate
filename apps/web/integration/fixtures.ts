@@ -2,7 +2,7 @@ import { afterAll, setDefaultTimeout } from 'bun:test';
 import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
-import { buildUserInboxTopic } from '@daisy/protocol';
+import { buildUserInboxTopic } from '@daisy/protocol/topics';
 import { deleteNamespace } from '@daisy/redis/namespaces';
 import { removeUnowedBetaDigests } from '@daisy/db/testing';
 import {
@@ -95,6 +95,7 @@ export function createTestApp(
       init?: RequestInit,
     ) => Promise<Response>,
   ) => (input: string | URL | Request, init?: RequestInit) => Promise<Response>,
+  afterAppClose?: () => Promise<unknown>,
 ) {
   // Real Postgres/Redis and hundreds of concurrent requests: allow shared CI
   // machines headroom instead of a 5s default that fails on contention alone.
@@ -243,6 +244,7 @@ export function createTestApp(
     await step(() => withSql((sql) => removeMailRecords(sql, mailbox)));
     await step(clearRedisNamespace);
     await step(() => app.close());
+    if (afterAppClose) await step(afterAppClose);
     if (errors.length > 0)
       throw new AggregateError(errors, 'createTestApp teardown failed');
   });

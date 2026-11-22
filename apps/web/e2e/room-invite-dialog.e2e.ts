@@ -1,6 +1,6 @@
 import type { Browser, Page } from '@playwright/test';
 import { createId } from '@paralleldrive/cuid2';
-import { roomViewSchema } from '@daisy/protocol';
+import { roomViewSchema } from '@daisy/protocol/room-read';
 import { expect, openPage, test } from './support/fixtures';
 import { origin, resetRateLimits, signUpMember } from './support/accounts';
 import { expectFocusOn } from './support/focus';

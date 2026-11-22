@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import type { Clock, IdGenerator } from '@daisy/clock';
 import type { Logger } from '@daisy/logger';
 import { admitLogLine, type DropReason } from '@daisy/logger/ingest';
@@ -131,7 +132,7 @@ const samePlacement = (record: Placement, placement: Placement) =>
   (placement.instance === undefined || record.instance === placement.instance);
 
 const nearReceipt = (at: string, receivedAt: string) => {
-  const skew = Date.parse(at) - Date.parse(receivedAt);
+  const skew = instantMs(at) - instantMs(receivedAt);
   return skew <= MAX_AHEAD_MS && skew >= -MAX_BEHIND_MS;
 };
 

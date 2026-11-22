@@ -1,4 +1,4 @@
-import { analysisWorkSchema } from '@daisy/protocol';
+import { analysisWorkSchema } from '@daisy/protocol/round-analysis-work';
 import { sql, type SQL } from 'drizzle-orm';
 import {
   check,

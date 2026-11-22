@@ -3,7 +3,8 @@ import {
   oneOnOneDefinition,
   oneOnOneSettings,
 } from '@daisy/db/reference-formats';
-import { sideOfSeat, type FormatSettings } from '@daisy/protocol';
+import { sideOfSeat } from '@daisy/protocol/seats';
+import { type FormatSettings } from '@daisy/protocol/format-settings';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { roundTickProjection } from '../src/features/round-finalization/operations';

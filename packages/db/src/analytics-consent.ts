@@ -1,22 +1,23 @@
+import { tryInstantMs } from '@daisy/clock';
 import { eq, sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import {
   analyticsConsentSchema,
-  idSchema,
   type AnalyticsConsent,
-} from '@daisy/protocol';
+} from '@daisy/protocol/analytics-consent';
+import { idSchema } from '@daisy/protocol/primitives';
 import { createAppError } from '@daisy/errors';
 import { consentRecord } from './schema/consent-record';
 import type { PrivacyAdopter } from './privacy/contracts';
 import { exportRows } from './privacy/export-rows';
 import { lockOpenAccount } from './lock-open-account';
+import { inTransaction, type TxOpener } from './tx';
+import { run, query } from './raw-rows';
+import { z } from 'zod';
 
-export const analyticsConsentOperations = (
-  database: Pick<BunSQLDatabase, 'transaction'>,
-) => ({
+export const analyticsConsentOperations = (database: TxOpener) => ({
   async readAnalyticsConsent(userId: string): Promise<AnalyticsConsent | null> {
     if (!idSchema.safeParse(userId).success) throw createAppError('VALIDATION');
-    return database.transaction(async (tx) => {
+    return inTransaction(database, async (tx) => {
       const [row] = await tx
         .select()
         .from(consentRecord)
@@ -42,14 +43,14 @@ export const analyticsConsentOperations = (
     if (
       !result.success ||
       !idSchema.safeParse(input.userId).success ||
-      !Number.isFinite(Date.parse(input.now)) ||
+      tryInstantMs(input.now) === undefined ||
       (input.deletionJobId !== undefined &&
         (!idSchema.safeParse(input.deletionJobId).success ||
           input.consent.analytics !== 'denied' ||
           input.adopt))
     )
       throw createAppError('VALIDATION');
-    await database.transaction(async (tx) => {
+    await inTransaction(database, async (tx) => {
       await lockOpenAccount(tx, input.userId);
       const values = { ...result.data, recordedAt: new Date(input.now) };
       const insert = tx
@@ -63,11 +64,14 @@ export const analyticsConsentOperations = (
           set: values,
         });
       if (input.deletionJobId)
-        await tx.execute(sql`insert into privacy_jobs
+        await run(
+          tx,
+          sql`insert into privacy_jobs
         (id,subject_ref,vendor,status,attempts,created_at,retry_at)
         values (${input.deletionJobId},${input.userId},'posthog','pending',0,${input.now}::timestamptz,${input.now}::timestamptz)
         on conflict (subject_ref,vendor) do update set id=excluded.id,status='pending',attempts=0,
-        created_at=excluded.created_at,retry_at=excluded.retry_at,succeeded_at=null`);
+        created_at=excluded.created_at,retry_at=excluded.retry_at,succeeded_at=null`,
+        );
     });
   },
 });
@@ -76,15 +80,25 @@ export const analyticsConsentPrivacyAdopter: PrivacyAdopter = {
   id: 'analytics-consent',
   phase: 'after-close',
   erase: async (tx, subject) => {
-    await tx.execute(
+    await run(
+      tx,
       sql`delete from ${consentRecord} where user_id=${subject.userId}`,
     );
   },
   export: async (tx, subject) => ({
     consent_record: exportRows(
-      (await tx.execute(
+      await query(
+        tx,
+        z.object({
+          user_id: z.string(),
+          version: z.int(),
+          necessary: z.string(),
+          analytics: z.string(),
+          replay: z.string(),
+          recorded_at: z.date(),
+        }),
         sql`select * from ${consentRecord} where user_id=${subject.userId}`,
-      )) as unknown as Record<string, unknown>[],
+      ),
     ),
   }),
 };

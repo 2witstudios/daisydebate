@@ -1,6 +1,6 @@
 import { hostBallotBoard } from '../../../../../../features/tab/host-ballot-board';
 import { systemId } from '@daisy/clock';
-import { roundBallotReadSchema } from '@daisy/protocol';
+import { roundBallotReadSchema } from '@daisy/protocol/round-ballot-read';
 import { hostBallotsViewSchema } from '@daisy/protocol/lobby/host-ballots-read';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
@@ -51,7 +51,10 @@ export default async function Page({
   if (typeof query.round === 'string' && !selected) notFound();
   const view = selected
     ? await readOwnRoute(
-        ballotGET,
+        (request) =>
+          ballotGET(request, {
+            params: Promise.resolve({ roundId: selected.roundId }),
+          }),
         `/api/rounds/${selected.roundId}/ballots`,
         roundBallotReadSchema,
       )

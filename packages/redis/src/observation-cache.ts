@@ -6,7 +6,7 @@ import {
   utf8Bytes,
   type ObservationBase,
   type ObservationResource,
-} from '@daisy/protocol';
+} from '@daisy/protocol/observation';
 import { redisKey, redisSegmentPattern } from './redis-key';
 import { defineScript } from './script-registry';
 import type { RedisTransport } from './transport';
@@ -529,13 +529,16 @@ export function createObservationCacheOperations({
       readonly contentRevision: number;
       readonly body: string;
     } | null> {
-      const reply = (await run(
+      // A missing entry replies nil; a present one, its three fields.
+      const reply: unknown = await run(
         'readObservation',
         readScript,
         [keys.sentinel, keys.guard(resource), keys.cache(resource)],
         [segment(partition)],
-      )) as unknown[];
-      const [disclosure, revision, body] = reply ?? [];
+      );
+      const [disclosure, revision, body]: unknown[] = Array.isArray(reply)
+        ? reply
+        : [];
       return typeof body === 'string' &&
         numberOrNull(disclosure) !== null &&
         numberOrNull(revision) !== null

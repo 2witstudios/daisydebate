@@ -1,4 +1,4 @@
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import type { Logger } from '@daisy/logger';
 import type { ErrorReporter } from '@daisy/observability';
 import type { Clock } from '@daisy/clock';
@@ -57,13 +57,14 @@ export const AGE_HOLD_COOKIE_OPTIONS = {
 
 /** The Set-Cookie line for a refusal, from the hold's one definition. */
 const holdCookie = (refusal: AgeRefusal): string => {
-  const { path, maxAge, secure, httpOnly, sameSite } = AGE_HOLD_COOKIE_OPTIONS;
+  // The hold is always Secure and HttpOnly (both literally `true` above).
+  const { path, maxAge, sameSite } = AGE_HOLD_COOKIE_OPTIONS;
   return [
     `${AGE_HOLD_COOKIE}=${refusal}`,
     `Path=${path}`,
     `Max-Age=${maxAge}`,
-    ...(secure ? ['Secure'] : []),
-    ...(httpOnly ? ['HttpOnly'] : []),
+    'Secure',
+    'HttpOnly',
     `SameSite=${sameSite[0]!.toUpperCase()}${sameSite.slice(1)}`,
   ].join('; ');
 };

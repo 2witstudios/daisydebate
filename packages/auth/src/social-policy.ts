@@ -1,3 +1,4 @@
+import { instantMs, tryInstantMs } from '@daisy/clock';
 import { currentAgeFact } from './authorization-age';
 import type { AccountAgeFact } from './account-age';
 import {
@@ -161,10 +162,10 @@ export function socialPostingPolicy({
     authority.kind === 'dm'
       ? [authority.lowActorId, authority.highActorId]
       : authority.activeMemberActorIds;
-  const instant = Date.parse(now);
+  const instant = tryInstantMs(now);
   if (
     !policyMatches(channel, policy) ||
-    !Number.isFinite(instant) ||
+    instant === undefined ||
     channel.lifecycle !== 'active' ||
     (authority.kind === 'dm' && authority.blocked) ||
     !memberSetMatches(members, accounts)
@@ -198,10 +199,10 @@ export function socialAccountsEligible(
   policy: SocialContactPolicy,
   initiation: DmInitiation | null,
 ): boolean {
-  const instant = Date.parse(now);
+  const instant = tryInstantMs(now);
   if (
     policy.state !== 'approved' ||
-    !Number.isFinite(instant) ||
+    instant === undefined ||
     !memberSetMatches(members, accounts)
   )
     return false;
@@ -253,7 +254,7 @@ export function socialPolicyEvidence(
     nextMonth.getTime(),
     ...accounts.map((row) =>
       row.age.state === 'known'
-        ? Date.parse(row.age.validUntil)
+        ? instantMs(row.age.validUntil)
         : nextMonth.getTime(),
     ),
   );
@@ -322,14 +323,14 @@ export function dmRequestOffer(
   initiatorActorId: string,
   recipientActorId: string,
 ): DmRequestAction {
-  const instant = Date.parse(now);
+  const instant = tryInstantMs(now);
   const initiator = accounts.find(
     (row) => row.account.actorId === initiatorActorId,
   );
   const recipient = accounts.find(
     (row) => row.account.actorId === recipientActorId,
   );
-  if (initiatorActorId === recipientActorId || !Number.isFinite(instant))
+  if (initiatorActorId === recipientActorId || instant === undefined)
     return 'none';
   const action = scopedRequestAction(initiator, recipient);
   if (action !== undefined) return action;

@@ -1,11 +1,12 @@
+import { addMs, instantMs } from '@daisy/clock';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   noPostRoundCall,
   postRoundCallPolicy,
-  roundMediaPolicy,
   type PostRoundCallFacts,
-  type RoundStatus,
-} from '@daisy/protocol';
+} from '@daisy/protocol/post-round-call';
+import { roundMediaPolicy } from '@daisy/protocol/round-media-policy';
+import { type RoundStatus } from '@daisy/protocol/round';
 import {
   mediaPhase,
   mediaWindowClosed,
@@ -15,7 +16,7 @@ import {
 setupRitewayBun();
 
 const end = '2026-10-22T12:00:00.000Z';
-const at = (ms: number) => new Date(Date.parse(end) + ms).toISOString();
+const at = (ms: number) => addMs(end, ms);
 const facts = (
   status: RoundStatus,
   now: string,
@@ -145,7 +146,7 @@ test('mediaWindowEndsAt()', () => {
   assert({
     given: 'a final segment end',
     should: 'add the media policy window',
-    actual: mediaWindowEndsAt(end) - Date.parse(end),
+    actual: mediaWindowEndsAt(end) - instantMs(end),
     expected: roundMediaPolicy.windowAfterFinalSegmentMs,
   });
 });

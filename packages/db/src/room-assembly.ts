@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { requireRankedProtection } from './guardians/ranked-protection';
 import { readGuardianLobbyIds } from './guardians/lobby-permissions';
 import { leagueRoomSelection } from './league-room-selection';
@@ -7,9 +8,9 @@ import {
   ROOM_SEAT_HOLD_MS,
   type RoomAssemblyState,
   type RoomMutationOutcome,
-  type RoomCapture,
-  type SeatRef,
-} from '@daisy/protocol';
+} from '@daisy/protocol/room-contract';
+import { type RoomCapture } from '@daisy/protocol/room-capture';
+import { type SeatRef } from '@daisy/protocol/seats';
 import type { CasualJudgeAdmission } from './casual-judge-admission';
 import { actors } from './schema/actors';
 import { botProfiles } from './schema/bot-profiles';
@@ -25,8 +26,8 @@ import {
   transactionNow,
   type Actor,
   type Caller,
-  type Tx,
 } from './room-command-facts';
+import type { Tx } from './tx';
 
 /** One initial seat a create applies before anyone joins. */
 export type InitialCastSeat = {
@@ -114,7 +115,7 @@ export const assembleRoom = async (
       .for('share');
     if (known.length !== heldActors.length)
       throw createRefusal('CONFLICT', 'illegal-config');
-    const until = new Date(Date.parse(input.now) + ROOM_SEAT_HOLD_MS);
+    const until = new Date(instantMs(input.now) + ROOM_SEAT_HOLD_MS);
     await tx.insert(roomSeatHolds).values(
       heldActors.map((actorId) => ({
         roomId: input.room.id,

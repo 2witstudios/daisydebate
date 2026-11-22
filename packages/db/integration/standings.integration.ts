@@ -1,8 +1,12 @@
 import { publicLobbyId } from '../src/daisy-reference';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
+import { assertRejects } from '@daisy/errors/testing';
+import { drizzle } from 'drizzle-orm/bun-sql';
+import { sql } from 'drizzle-orm';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createDatabase } from '../src';
+import { standingsOperations } from '../src/standings';
 import { withFixture } from './constraint-helpers';
 import { at, change, completed, rating, season } from './standings-fixtures';
 
@@ -11,6 +15,85 @@ const affirmativeWin = { kind: 'winner', side: 'affirmative' } as const;
 setupRitewayBun();
 
 const { databaseUrl: url } = requireTestServices(process.env);
+const scope = {
+  ladderId: 'freestyle',
+  lobbyId: publicLobbyId,
+  clock: { now: '2026-11-02T00:00:00.000Z', rankedDelaySeconds: 0 },
+} as const;
+
+test('standings opens one actual read-only repeatable snapshot only when there are seasons', async () => {
+  await withFixture(url, async (fixture) => {
+    const db = drizzle({ client: fixture.sql });
+    const transaction = db.transaction.bind(db);
+    const settings: unknown[] = [];
+    db.transaction = (work, config) =>
+      transaction(async (tx) => {
+        const [setting] =
+          await tx.execute(sql`select current_setting('transaction_isolation') as isolation,
+        current_setting('transaction_read_only') as read_only`);
+        settings.push(setting);
+        return work(tx);
+      }, config);
+    const standings = standingsOperations({
+      database: db,
+      eventSink: undefined,
+    });
+    const empty = await standings.readStandings({ ...scope, seasonIds: [] });
+    const before = settings.length;
+    await standings.readStandings({ ...scope, seasonIds: [createId()] });
+    assert({
+      given: 'an empty request followed by a request naming a season',
+      should:
+        'skip the empty snapshot and use one read-only repeatable snapshot for both reads',
+      actual: [empty, before, settings],
+      expected: [
+        { ratings: [], changes: [] },
+        0,
+        [{ isolation: 'repeatable read', read_only: 'on' }],
+      ],
+    });
+  });
+});
+
+test('standings refuses a posting with an invalid two-sided outcome', async () => {
+  await withFixture(url, async (fixture) => {
+    const seasonId = await season(fixture, 'closed', at(1));
+    const affirmative = await fixture.actor();
+    const negative = await fixture.actor();
+    const roundId = await completed(fixture, {
+      formatId: 'freestyle',
+      affirmative,
+      negative,
+      outcome: 'affirmative',
+      seasonId,
+      visibility: 'public',
+    });
+    await change(fixture, {
+      seasonId,
+      roundId,
+      actorId: affirmative,
+      formatId: 'freestyle',
+      ladder: 'freestyle',
+      before: 1500,
+      after: 1516,
+      occurredAt: at(5),
+    });
+    const standings = standingsOperations({
+      database: drizzle({ client: fixture.sql }),
+      eventSink: undefined,
+    });
+    for (const outcome of ['other_side', null]) {
+      await fixture.sql`update rounds set winning_side = ${outcome} where id = ${roundId}`;
+      await assertRejects({
+        given: `a persisted posting with outcome ${outcome ?? 'missing'}`,
+        should: 'refuse as an internal error without inventing a result',
+        actual: () =>
+          standings.readStandings({ ...scope, seasonIds: [seasonId] }),
+        code: 'INTERNAL',
+      });
+    }
+  });
+});
 
 describe('standings reads (RATE-1.4.1)', () => {
   test('lists active and closed seasons newest first, and ranked formats by name', async () => {
@@ -69,6 +152,7 @@ describe('standings reads (RATE-1.4.1)', () => {
             negative: loser,
             outcome: 'affirmative',
             seasonId: scope.seasonId,
+            visibility: 'public',
           });
           for (const [actorId, after] of [
             [winner, winnerAfter],
@@ -181,13 +265,22 @@ describe('standings reads (RATE-1.4.1)', () => {
             read.changes,
             (row) => row.ratingAfter,
           ).map(
-            ({ seasonId, roundId, actorId, side, outcome, ratingAfter }) => ({
+            ({
+              seasonId,
+              roundId,
+              actorId,
+              side,
+              outcome,
+              ratingAfter,
+              occurredAt,
+            }) => ({
               seasonId,
               roundId,
               actorId,
               side: side as string,
               outcome,
               ratingAfter,
+              occurredAt,
             }),
           ),
           expected: bySeasonThenRating(
@@ -199,6 +292,7 @@ describe('standings reads (RATE-1.4.1)', () => {
                 side: 'affirmative',
                 outcome: affirmativeWin,
                 ratingAfter: 1516,
+                occurredAt: at(5).toISOString(),
               },
               {
                 seasonId: first,
@@ -207,6 +301,7 @@ describe('standings reads (RATE-1.4.1)', () => {
                 side: 'negative',
                 outcome: affirmativeWin,
                 ratingAfter: 1484,
+                occurredAt: at(5).toISOString(),
               },
               {
                 seasonId: second,
@@ -215,6 +310,7 @@ describe('standings reads (RATE-1.4.1)', () => {
                 side: 'affirmative',
                 outcome: affirmativeWin,
                 ratingAfter: 1520,
+                occurredAt: at(5).toISOString(),
               },
               {
                 seasonId: second,
@@ -223,6 +319,7 @@ describe('standings reads (RATE-1.4.1)', () => {
                 side: 'negative',
                 outcome: affirmativeWin,
                 ratingAfter: 1480,
+                occurredAt: at(5).toISOString(),
               },
             ],
             (row) => row.ratingAfter,

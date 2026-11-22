@@ -14,11 +14,6 @@ import { holdForGuardian } from './hold-for-guardian';
 import { liveGuardianHold } from './guardian-approval-standing';
 import { tellFriend } from './request-notice';
 
-type ApprovalTx = Pick<
-  Tx,
-  'select' | 'update' | 'delete' | 'execute' | 'insert'
->;
-
 /** The signed-in guardian's live approval inbox; no contact data or free text. */
 export async function readWaitingFriendApprovals(
   tx: Pick<Tx, 'execute'>,
@@ -52,7 +47,7 @@ export async function readWaitingFriendApprovals(
 }
 
 export async function answerFriendApproval(
-  tx: ApprovalTx,
+  tx: Tx,
   input: {
     readonly approvalId: string;
     readonly caller: { readonly userId: string; readonly actorId: string };

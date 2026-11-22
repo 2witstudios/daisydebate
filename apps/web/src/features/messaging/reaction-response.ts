@@ -1,6 +1,6 @@
 import { realtimePublicUrlSchema } from '@daisy/config';
 import { z } from 'zod';
-import { createMessagingReactionSchemas } from '@daisy/protocol';
+import { createMessagingReactionSchemas } from '@daisy/protocol/messaging/reactions';
 /** The reaction page accepts only the requested current aggregate and explicit deployment choices. */
 export async function readReactionResponse(
   response: Response,

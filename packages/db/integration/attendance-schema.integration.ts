@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -206,8 +207,8 @@ test('pending check-in markers and immutable facts keep global receipt and ownin
 test('a Round whose final speech ended always holds its attendance cutoff (ISSUE-982)', async () => {
   await withFixture(url, async (fixture) => {
     const finalEnd = '2026-10-31T17:02:40.012Z';
-    const admission = new Date(Date.parse(finalEnd) + 120_000);
-    const cutoff = new Date(Date.parse(finalEnd) + 60 * 60_000);
+    const admission = new Date(instantMs(finalEnd) + 120_000);
+    const cutoff = new Date(instantMs(finalEnd) + 60 * 60_000);
     const live = {
       status: 'active',
       current_stage: 'live',

@@ -1,4 +1,4 @@
-import type { RoomRefusal, RoomView } from '@daisy/protocol';
+import type { RoomRefusal, RoomView } from '@daisy/protocol/room-contract';
 import {
   blankFields,
   formFields,

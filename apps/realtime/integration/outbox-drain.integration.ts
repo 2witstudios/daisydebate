@@ -3,7 +3,7 @@ import { assert, test, setupRitewayBun } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { systemId } from '@daisy/clock';
 import type { OutboxRow } from '@daisy/db/outbox';
-import { buildRoundTopic } from '@daisy/protocol';
+import { buildRoundTopic } from '@daisy/protocol/topics';
 import {
   bootServer,
   databaseUrl,

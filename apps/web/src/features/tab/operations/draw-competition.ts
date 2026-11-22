@@ -3,7 +3,7 @@ import type { DrawCommand } from '@daisy/protocol/lobby/draw-command';
 import type { LoadedDrawCommand } from '@daisy/db/tab';
 import { createAppError } from '@daisy/errors';
 import { z } from 'zod';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { drawStageSnapshotSchema, type DrawCompetition } from './draw-facts';
 import { eventCompetition } from './event-competition';
 import { eventBreaks } from './event-breaks';
@@ -57,19 +57,15 @@ export function drawCompetitionAt(
   const published =
     addressed ??
     facts.versions
-      .filter(
-        (draw) =>
-          draw.status === 'published' &&
-          facts.rounds.some(
-            (round) =>
-              round.id === draw.tabRoundId && round.stageId === stage.id,
-          ),
-      )
-      .sort((a, b) => {
-        const first = facts.rounds.find((round) => round.id === a.tabRoundId)!,
-          second = facts.rounds.find((round) => round.id === b.tabRoundId)!;
-        return first.number - second.number || a.version - b.version;
-      })[0];
+      .flatMap((draw) => {
+        if (draw.status !== 'published') return [];
+        const round = facts.rounds.find(
+          (one) => one.id === draw.tabRoundId && one.stageId === stage.id,
+        );
+        return round ? [{ draw, number: round.number }] : [];
+      })
+      .sort((a, b) => a.number - b.number || a.draw.version - b.draw.version)[0]
+      ?.draw;
   if (published) {
     const frozen = frozenStageSchema.parse(published.inputs);
     if (

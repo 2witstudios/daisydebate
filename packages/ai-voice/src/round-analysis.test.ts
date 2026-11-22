@@ -1,4 +1,5 @@
-import { daisyWinnerBallot, sideSeat, twoSides } from '@daisy/protocol';
+import { daisyWinnerBallot } from '@daisy/protocol/ballot-definition';
+import { sideSeat, twoSides } from '@daisy/protocol/seats';
 import { assertRejects } from '@daisy/errors/testing';
 import { sampleRoundAnalysisReport as report } from '@daisy/protocol/round-analysis-testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';

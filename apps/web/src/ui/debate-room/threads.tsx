@@ -1,5 +1,6 @@
 'use client';
 
+import { Button } from '../components/button/button';
 import type { ChatMessage } from '../../features/debate-room/chat';
 import { cn } from '../cn';
 import { Icon } from '../components/icon/icon';
@@ -69,20 +70,22 @@ function EditCard({ turn, outcome, documentTitle, onDecide }: EditCardProps) {
         <span className="pt-1 text-xs font-strong text-hue-teal">Applied</span>
       ) : (
         <div className="flex gap-2 pt-1">
-          <button
+          <Button
+            variant="unstyled"
             type="button"
             className="h-room-target cursor-pointer rounded-sm bg-hue-plum px-3 text-sm font-strong text-background"
             onClick={() => onDecide('applied')}
           >
             Apply
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="unstyled"
             type="button"
             className="h-room-target cursor-pointer rounded-sm border border-border-strong px-3 text-sm text-ink-muted"
             onClick={() => onDecide('discarded')}
           >
             Discard
-          </button>
+          </Button>
         </div>
       )}
     </div>
@@ -142,7 +145,7 @@ type ComposerProps = {
 
 /**
  * The message box. Nothing delivers a round message or answers an ask yet
- * (CHAT-1, ISSUE-420), so the field and Send are shown disabled (DEC-178).
+ * (CHAT-1, ISSUE-420), so the field and Send are shown disabled.
  */
 export function Composer({ label, tone }: ComposerProps) {
   return (
@@ -152,7 +155,8 @@ export function Composer({ label, tone }: ComposerProps) {
         disabled
         className="h-room-target min-w-0 flex-1 rounded-sm border border-border-strong bg-background px-3 text-sm disabled:cursor-not-allowed disabled:opacity-60"
       />
-      <button
+      <Button
+        variant="unstyled"
         type="button"
         aria-label="Send"
         disabled
@@ -162,7 +166,7 @@ export function Composer({ label, tone }: ComposerProps) {
         )}
       >
         <Icon name="send" size={17} />
-      </button>
+      </Button>
     </div>
   );
 }

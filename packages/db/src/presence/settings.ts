@@ -1,15 +1,15 @@
 import { sql, eq, type SQL } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
-import { buildUserInboxTopic, type ChosenStatus } from '@daisy/protocol';
+import { buildUserInboxTopic } from '@daisy/protocol/topics';
+import { type ChosenStatus } from '@daisy/protocol/presence-setting';
 import { presenceSettings } from '../schema/presence';
 import {
   readOwnCollection,
   requireOwnScope,
-  type AuthorizationTransaction,
   type OwnCollectionFence,
 } from '../authorization';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
 import { appendOutboxEvent } from '../outbox';
+import type { Tx, TxSource } from '../tx';
 
 /** The member whose own presence setting is read or written. */
 type PresenceScope = {
@@ -24,10 +24,7 @@ type PresenceScope = {
 export const chosenStatusOf = (actorId: SQL) =>
   sql<ChosenStatus>`coalesce((select ${presenceSettings.chosenStatus} from ${presenceSettings} where ${presenceSettings.actorId} = ${actorId}), 'online')`;
 
-const chosen = async (
-  tx: Pick<BunSQLDatabase, 'select'>,
-  actorId: string,
-): Promise<ChosenStatus> => {
+const chosen = async (tx: Tx, actorId: string): Promise<ChosenStatus> => {
   const [row] = await tx
     .select({ chosenStatus: presenceSettings.chosenStatus })
     .from(presenceSettings)
@@ -37,7 +34,7 @@ const chosen = async (
 
 /** The status the member chose; no row means online. */
 export function readChosenStatus(
-  database: BunSQLDatabase,
+  database: TxSource,
   scope: PresenceScope,
   authorize: OwnCollectionFence<PresenceScope>,
 ): Promise<ChosenStatus> {
@@ -53,7 +50,7 @@ export function readChosenStatus(
  * on their own inbox, and is never forwarded to a client.
  */
 export function writeChosenStatus(
-  database: BunSQLDatabase,
+  database: TxSource,
   scope: PresenceScope,
   input: { readonly status: ChosenStatus; readonly now: string },
   authorize: OwnCollectionFence<PresenceScope>,
@@ -71,7 +68,7 @@ export function writeChosenStatus(
         target: presenceSettings.actorId,
         set: values,
       });
-    await appendOutboxEvent(tx as AuthorizationTransaction, {
+    await appendOutboxEvent(tx, {
       topic: buildUserInboxTopic(scope.actorId),
       kind: 'actor.presence-preference-changed',
       version: 1,
@@ -90,7 +87,7 @@ export const presenceSettingOperations = ({
   database,
   eventSink,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
   readChosenStatus: (

@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { unknownPaymentFacts } from './billing-payment-observation-facts';
 import {
   billingPaymentObservationSchema,
@@ -35,7 +36,7 @@ export const proof: ObservedClosurePayment = {
   chargeId: 'ch_owned',
   amountMinor: 1000,
   currency: 'usd',
-  paidAtSeconds: Date.parse('2026-11-05T00:00:03.000Z') / 1000,
+  paidAtSeconds: instantMs('2026-11-05T00:00:03.000Z') / 1000,
   period: {
     startsAt: '2026-11-01T00:00:00.000Z',
     endsAt: '2026-12-01T00:00:00.000Z',

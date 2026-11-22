@@ -1,7 +1,6 @@
-import type { Browser, Page } from '@playwright/test';
-import { roundTranscriptReadSchema } from '@daisy/protocol';
+import type { Page } from '@playwright/test';
+import { roundTranscriptReadSchema } from '@daisy/protocol/round-transcript';
 import { expect, openPage } from './fixtures';
-import { origin } from './accounts';
 
 /** Actual capture text must reach the mounted viewer before the Round ends. */
 export async function expectLiveTranscript(page: Page, roundId: string) {
@@ -20,9 +19,8 @@ export async function expectLiveTranscript(page: Page, roundId: string) {
   await expect(page).toHaveURL(`/rounds/${roundId}/room`);
 }
 
-/** Native history navigation reaches the same retained text with JavaScript disabled. */
+/** Match history navigation reaches the same retained text. */
 export async function expectHistoryTranscript(
-  browser: Browser,
   page: Page,
   username: string,
   roundId: string,
@@ -31,17 +29,11 @@ export async function expectHistoryTranscript(
   expect(response.status()).toBe(200);
   const value = roundTranscriptReadSchema.parse(await response.json());
   expect(value.utterances.length).toBeGreaterThan(0);
-  const native = await browser.newContext({
-    baseURL: origin,
-    ignoreHTTPSErrors: false,
-    javaScriptEnabled: false,
-    storageState: await page.context().storageState(),
-  });
+  const history = await openPage(
+    page.context(),
+    'transcript from match history',
+  );
   try {
-    const history = await openPage(
-      native,
-      'native transcript from match history',
-    );
     await history.goto(`/profile/${username}`);
     await history
       .locator(`[aria-label="Match history"] a[href="/rounds/${roundId}"]`)
@@ -54,6 +46,6 @@ export async function expectHistoryTranscript(
         transcript.getByText(line.text, { exact: false }).first(),
       ).toBeVisible();
   } finally {
-    await native.close();
+    await history.close();
   }
 }

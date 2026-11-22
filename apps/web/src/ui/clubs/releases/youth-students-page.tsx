@@ -1,3 +1,4 @@
+import { Button } from '../../components/button/button';
 import Link from 'next/link';
 import type { YouthStudentFilter } from '../../../features/media-releases/club-releases';
 import type { StandingBadge } from '../../../features/media-releases/release-words';
@@ -50,11 +51,14 @@ function Tile({
  * it once Youth events open; until then it lists the students themselves.
  */
 export function YouthStudentsPage({
+  address,
   clubId,
   filter,
   tallies,
   rows,
 }: {
+  /** The page's own address, whose query the filter sets. */
+  readonly address: string;
   readonly clubId: string;
   readonly filter: YouthStudentFilter;
   readonly tallies: {
@@ -96,7 +100,10 @@ export function YouthStudentsPage({
           }
         />
       </div>
-      <AutoSubmitForm className="flex flex-wrap items-end gap-3">
+      <AutoSubmitForm
+        action={address}
+        className="flex flex-wrap items-end gap-3"
+      >
         <div className="flex min-w-0 flex-col gap-1">
           <label htmlFor="youth-release" className="text-sm font-strong">
             Release
@@ -114,9 +121,9 @@ export function YouthStudentsPage({
             ))}
           </select>
         </div>
-        <button type="submit" className={buttonClass('secondary')}>
+        <Button variant="secondary" type="submit">
           Apply
-        </button>
+        </Button>
       </AutoSubmitForm>
       <section
         aria-labelledby="youth-students-h"

@@ -121,26 +121,26 @@ describe('superseded decisions', () => {
   test('labels a superseded ADR in the prompt so a plan cannot lean on it', () => {
     const adrs = adrIndex([
       {
-        file: '0022-legacy.md',
-        firstLine: '# 0022: Legacy identifier compatibility',
+        file: '0992-legacy.md',
+        firstLine: '# 0992: Legacy identifier compatibility',
         status:
-          'Status: superseded by [ADR 0023](0023-greenfield-baseline.md).',
+          'Status: superseded by [ADR 0993](0993-greenfield-baseline.md).',
       },
       {
-        file: '0023-greenfield.md',
-        firstLine: '# 0023: Greenfield baseline',
+        file: '0993-greenfield.md',
+        firstLine: '# 0993: Greenfield baseline',
         status: 'Status: accepted.',
       },
     ]);
     const prompt = planReviewPrompt({ agents: '', adrs, plan: '' });
     assert({
-      given: 'a superseded ADR 0022 and an accepted ADR 0023',
-      should: 'mark 0022 as superseded and 0023 as in force',
+      given: 'a superseded ADR 0992 and an accepted ADR 0993',
+      should: 'mark 0992 as superseded and 0993 as in force',
       actual: [
         prompt.includes(
-          'ADR 0022: Legacy identifier compatibility (superseded: not in force)',
+          'ADR 0992: Legacy identifier compatibility (superseded: not in force)',
         ),
-        prompt.includes('ADR 0023: Greenfield baseline\n'),
+        prompt.includes('ADR 0993: Greenfield baseline\n'),
       ],
       expected: [true, true],
     });

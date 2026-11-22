@@ -1,6 +1,7 @@
+import { instantMs } from '@daisy/clock';
 import { and, asc, desc, gt, lte, sql } from 'drizzle-orm';
 import { z } from 'zod';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { billingCleanupSchema } from '@daisy/protocol/billing';
 import { createAppError } from '@daisy/errors';
 import type { BoundedTransaction } from './bounded-transaction';
@@ -61,7 +62,7 @@ export function createBillingCleanupRechecks(input: {
             parsed.data.jobId !== row.id
           )
             throw createAppError('INVARIANT');
-          return Date.parse(parsed.data.nextAt) <= now
+          return instantMs(parsed.data.nextAt) <= now
             ? [{ jobId: row.id }]
             : [];
         });
@@ -69,7 +70,7 @@ export function createBillingCleanupRechecks(input: {
           rows: eligible,
           next:
             rows.length > batch
-              ? { afterId: page.at(-1)!.id, throughId }
+              ? { afterId: page[page.length - 1]!.id, throughId }
               : null,
         };
       });
@@ -88,7 +89,7 @@ export function createBillingCleanupRechecks(input: {
         if (
           state.kind !== 'acknowledged' ||
           state.jobId !== jobId ||
-          Date.parse(state.nextAt) > Date.parse(now)
+          instantMs(state.nextAt) > instantMs(now)
         )
           return 'idle' as const;
         await enqueuePrivacyJob(tx, {

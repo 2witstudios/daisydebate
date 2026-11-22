@@ -1,4 +1,4 @@
-import { audienceReactionKinds } from '@daisy/protocol';
+import { audienceReactionKinds } from '@daisy/protocol/audience';
 import { check, index, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
 import { oneOf, timestampColumn } from './columns';
 import { rounds } from './rounds';

@@ -1,12 +1,12 @@
 import { requireTestServices } from '@daisy/config';
+import { ballotCategories } from '@daisy/protocol/ballot';
+import { isJudgeSeat } from '@daisy/protocol/seats';
 import {
-  ballotCategories,
-  isJudgeSeat,
   roundBallotReadSchema,
-  roundBallotReceiptSchema,
   roundJudgeAssignmentsSchema,
-  type Ballot,
-} from '@daisy/protocol';
+} from '@daisy/protocol/round-ballot-read';
+import { roundBallotReceiptSchema } from '@daisy/protocol/round-ballot';
+import { type Ballot } from '@daisy/protocol/ballot-schema';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { finalizeAsWeb } from './round-maintenance.test-support';

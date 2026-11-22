@@ -1,4 +1,4 @@
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { createAppError } from '@daisy/errors';
 import type { Idle, Moved, Refused } from '../../forms/form-state';
 import { parseMessagingFormScope, formRequestId } from './form-scope';

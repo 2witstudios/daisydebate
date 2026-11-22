@@ -247,6 +247,9 @@ export function largeJudgeList(
   ordinary: JudgeListView,
   before: boolean,
 ): JudgeListView {
+  const { need } = ordinary;
+  if (need === null)
+    throw new Error('The ordinary judge list has no staffing target');
   const timeSlots = Array.from({ length: 6 }, (_, k) => {
     const name = `Round ${k + 1}`;
     return {
@@ -298,15 +301,15 @@ export function largeJudgeList(
     },
     need: before
       ? {
-          ...ordinary.need!,
+          ...need,
           timeSlotId: timeSlots[0]!.id,
           judgesNeeded: 120,
           judgesCounted: judges.length,
         }
       : {
-          ...ordinary.need!,
+          ...need,
           tabRoundName: 'Round 6',
-          timeSlotId: timeSlots.at(-1)!.id,
+          timeSlotId: timeSlots[timeSlots.length - 1]!.id,
           judgesNeeded: 120,
           judgesCounted: judges.filter(
             (judge) => judge.slots.at(-1)?.state === 'free',

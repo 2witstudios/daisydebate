@@ -1,7 +1,7 @@
 import { currentRoundParticipant } from './round-current-participant';
-import { isDebatingSeat, type CaptureRule } from '@daisy/protocol';
+import { isDebatingSeat } from '@daisy/protocol/seats';
+import { type CaptureRule } from '@daisy/protocol/capture-verdict';
 import { and, asc, eq, sql, type SQL } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { readBroadcastRelease } from './broadcast-operations';
 import type { SpectatorClock } from './spectator-release-sql';
 import { namedSeats, roundLadderOf } from './member-history-rows';
@@ -17,6 +17,7 @@ import { rooms } from './schema/rooms';
 import { rounds } from './schema/rounds';
 import { outcomeOfColumns } from './round-outcome-columns';
 import { isDebatingSeatSql, seatOfColumns, seatRowOrder } from './seat-columns';
+import { inTransaction, type TxSource } from './tx';
 
 /**
  * Recording's published read: the `recordings` row named by `recording` in the
@@ -34,10 +35,10 @@ export const recordingReady = (recording: SQL) =>
 export const recordingRoundReadOperations = ({
   database,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
 }) => ({
   async readRecordingRound(roundId: string) {
-    return database.transaction(async (tx) => {
+    return inTransaction(database, async (tx) => {
       const [round] = await tx
         .select({
           id: rounds.id,
@@ -128,7 +129,7 @@ export const recordingRoundReadOperations = ({
 
   /** The frozen transcript with its revision and honest coverage; null before one. */
   async readRecordingTranscript(roundId: string, captureRule: CaptureRule) {
-    return database.transaction(async (tx) => {
+    return inTransaction(database, async (tx) => {
       const freeze = await readTranscriptFreeze(tx, roundId);
       if (!freeze) return null;
       const transcript = await audienceTranscript(

@@ -1,8 +1,9 @@
-import { canonicalJson, digestOf } from '@daisy/seeded-random';
+import { sha3Hex } from '@daisy/digest';
+import { canonicalJson } from '@daisy/seeded-random';
 import { breaks } from '../breaks';
 import { check, checkBreaks, checkStandings } from '../checker';
 import { draw } from '../draw';
-import type { Entry, FormatDescriptor, Id } from '../shapes/competition';
+import type { Entry, Id } from '../shapes/competition';
 import type {
   Commitment,
   Draw,
@@ -63,7 +64,7 @@ const drawChecked = (
   } as DrawInput;
   log.kept.push({
     where,
-    digest: digestOf(canonicalJson(answer)),
+    digest: sha3Hex(canonicalJson(answer)),
     input: recorded,
   });
   log.calls += 1;
@@ -103,11 +104,7 @@ const judgePool = (
       sum +
       Math.ceil(
         e.entries /
-          (e.format.outcome === 'winner'
-            ? 2
-            : e.format.outcome === 'ranking' && 'sides' in e.format
-              ? 4
-              : 6),
+          (e.format.outcome === 'winner' ? 2 : 'sides' in e.format ? 4 : 6),
       ),
     0,
   );
@@ -214,6 +211,13 @@ const drawSlot = (
   const settings = new Map(
     slotEvents.map(({ plan }) => [plan.id, plan.settings]),
   );
+  /** An event of this slot's settings, as relaxed so far. */
+  const settingsOf = (event: Id) => {
+    const found = settings.get(event);
+    if (found === undefined)
+      throw new Error(`Event ${event} is not drawn in this slot`);
+    return found;
+  };
   const groups = scenario.together ? [slotEvents] : slotEvents.map((e) => [e]);
   let commitments: Commitment[] = [];
   for (const [g, group] of groups.entries()) {
@@ -223,7 +227,7 @@ const drawSlot = (
         slot: label,
         events: group.map(({ plan, state }) =>
           requestFor(
-            { ...plan, settings: settings.get(plan.id)! },
+            { ...plan, settings: settingsOf(plan.id) },
             state,
             tabRound,
             cutoff,
@@ -244,7 +248,7 @@ const drawSlot = (
         settings.set(
           answer.event,
           relax(
-            settings.get(answer.event)!,
+            settingsOf(answer.event),
             answer.broken.map((b) => b.key),
           ),
         );
@@ -270,7 +274,7 @@ const drawSlot = (
         case 'rules':
           settings.set(
             answer.event,
-            relax(settings.get(answer.event)!, answer.rules),
+            relax(settingsOf(answer.event), answer.rules),
           );
           break;
         case 'slot':
@@ -278,10 +282,11 @@ const drawSlot = (
             const holder = [...collision.holders]
               .reverse()
               .find((h) => h.kind === 'entry');
-            const state =
-              holder &&
-              slotEvents.find((e) => e.plan.id === holder.event)?.state;
-            if (state && holder?.kind === 'entry')
+            if (holder === undefined) continue;
+            const state = slotEvents.find(
+              (e) => e.plan.id === holder.event,
+            )?.state;
+            if (state)
               state.entries = state.entries.map((e) =>
                 e.id === holder.entry ? { ...e, status: 'withdrawn' } : e,
               );
@@ -548,17 +553,15 @@ export const simulate = (
   const judges = judgePool(scenario, d, d.chance(25));
   const events = scenario.events.map((plan) => {
     const entries = entriesFor(plan, scenario, d);
-    return {
-      plan,
-      state: {
-        id: plan.id,
-        format: plan.format as FormatDescriptor,
-        entries,
-        history: { fixtures: [], results: [] },
-        late: [],
-        strength: new Map(entries.map((e) => [e.id, d.below(60)])),
-      } as EventState,
+    const state: EventState = {
+      id: plan.id,
+      format: plan.format,
+      entries,
+      history: { fixtures: [], results: [] },
+      late: [],
+      strength: new Map(entries.map((e) => [e.id, d.below(60)])),
     };
+    return { plan, state };
   });
   if (scenario.personInTwoEvents && events.length > 1) {
     const [a, b] = [events[0]!.state, events[1]!.state];
@@ -616,10 +619,13 @@ export const simulate = (
             ? {
                 judges,
                 commitments: events
-                  .filter((e) => e.plan.id !== plan.id && drawn.has(e.plan.id))
-                  .flatMap((e) =>
-                    occupying(drawn.get(e.plan.id)!, judges, e.state.entries),
-                  ),
+                  .filter((e) => e.plan.id !== plan.id)
+                  .flatMap((e) => {
+                    const prior = drawn.get(e.plan.id);
+                    return prior === undefined
+                      ? []
+                      : occupying(prior, judges, e.state.entries);
+                  }),
               }
             : null,
         );
@@ -658,7 +664,7 @@ export const simulate = (
           ...corrections.map((c) => roundOf.get(c.fixture) ?? round),
         );
         const at = (history: EventState['history']) =>
-          digestOf(
+          sha3Hex(
             canonicalJson(
               standings({
                 ...standingsInput(plan, state, earliest - 1, null, seed),
@@ -710,7 +716,7 @@ export const simulate = (
    * value; nothing a later correction does can reach it.
    */
   for (const { where, digest, input } of log.kept)
-    if (digestOf(canonicalJson(draw(input))) !== digest)
+    if (sha3Hex(canonicalJson(draw(input))) !== digest)
       log.rejections.push({
         where: `replay ${where}`,
         violations: ['the same input gave another answer'],

@@ -1,5 +1,6 @@
 'use client';
 
+import { Button } from '../components/button/button';
 import { loadedDocuments } from '../../features/documents/open-documents';
 import type { Dispatch } from 'react';
 import type { Clock } from '@daisy/clock';
@@ -48,7 +49,8 @@ export function AgentPanel({ round, state, dispatch, clock }: PanelProps) {
           className="flex flex-wrap gap-1 border-b border-border p-2"
         >
           {agents.map((a) => (
-            <button
+            <Button
+              variant="unstyled"
               key={a.id}
               type="button"
               aria-pressed={a.id === agent.id}
@@ -56,7 +58,7 @@ export function AgentPanel({ round, state, dispatch, clock }: PanelProps) {
               onClick={() => dispatch({ type: 'agent/select', agentId: a.id })}
             >
               {a.title}
-            </button>
+            </Button>
           ))}
         </div>
       ) : null}
@@ -82,14 +84,15 @@ export function AgentPanel({ round, state, dispatch, clock }: PanelProps) {
       />
       <div className="flex flex-wrap gap-1 px-2 pb-2">
         {(round.agentPrompts[agent.id] ?? []).map((prompt) => (
-          <button
+          <Button
+            variant="unstyled"
             key={prompt}
             type="button"
             className="h-room-target cursor-not-allowed rounded-round border border-border-strong px-3 text-xs opacity-60"
             disabled
           >
             {prompt}
-          </button>
+          </Button>
         ))}
       </div>
       <Composer label={`Ask ${agent.title}`} tone="ai" />
@@ -113,14 +116,15 @@ export function ChatPanel({ round, state, dispatch, clock }: PanelProps) {
     return (
       <>
         <div className="flex shrink-0 items-center gap-1 border-b border-border pr-4 pl-1">
-          <button
+          <Button
+            variant="unstyled"
             type="button"
             aria-label="Back to channels"
             onClick={() => dispatch({ type: 'channel/list' })}
             className="flex size-room-target cursor-pointer items-center justify-center rounded-sm hover:bg-surface-raised"
           >
             <Icon name="chevronLeft" size={16} />
-          </button>
+          </Button>
           <h2 className="truncate text-sm font-strong"># {channel.title}</h2>
         </div>
         <ChatThread
@@ -140,7 +144,8 @@ export function ChatPanel({ round, state, dispatch, clock }: PanelProps) {
           Channels
         </h2>
         {round.channels.map((c) => (
-          <button
+          <Button
+            variant="unstyled"
             key={c.id}
             type="button"
             className={listRow}
@@ -154,7 +159,7 @@ export function ChatPanel({ round, state, dispatch, clock }: PanelProps) {
           >
             <span className="min-w-0 flex-1 truncate"># {c.title}</span>
             <Badge count={unread[c.id] ?? 0} />
-          </button>
+          </Button>
         ))}
       </section>
       <section className="flex flex-col gap-px">

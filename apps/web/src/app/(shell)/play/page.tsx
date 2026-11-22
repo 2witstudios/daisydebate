@@ -12,7 +12,7 @@ export const metadata: Metadata = { title: 'Play' };
 
 /**
  * The Play dialog's choices as a page: where the Lobby's Play link lands
- * when no script has run to open the dialog.
+ * when nothing has hydrated to open the dialog.
  */
 export default async function PlayPage({
   searchParams,

@@ -6,10 +6,8 @@ import { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { contentModerationOperations } from '../src/content-moderation-operations';
-import {
-  CONTENT_MODERATION_DELIVERY_BOUND_MS,
-  daisyBallotDefinitions,
-} from '@daisy/protocol';
+import { CONTENT_MODERATION_DELIVERY_BOUND_MS } from '@daisy/protocol/content-moderation';
+import { daisyBallotDefinitions } from '@daisy/protocol/ballot-definition';
 import {
   claimFeedWithdrawal,
   openBroadcast,

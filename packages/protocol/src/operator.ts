@@ -1,9 +1,5 @@
 import { z } from 'zod';
-import {
-  flagCommandResultSchema,
-  flagCommandStateSchema,
-  flagOperatorRoutes,
-} from './flags';
+import { flagCommandResultSchema, flagCommandStateSchema } from './flags';
 import {
   preapprovalStateSchema,
   preapprovalReceiptSchema,
@@ -18,7 +14,6 @@ import {
 import {
   contentModerationCommandResultSchema,
   contentModerationCommandStateSchema,
-  contentModerationOperatorRoutes,
 } from './content-moderation';
 import { idSchema } from './primitives';
 import { reportOutcomes, storedReportReasons, reportSurfaces } from './reports';
@@ -61,70 +56,11 @@ export const operatorAudienceSchema = z
 export const operatorKeyIdSchema = z.string().regex(/^[a-z0-9]{3,32}$/);
 export const operatorNonceSchema = z.string().regex(/^[A-Za-z0-9_-]{22}$/);
 
-/** Each route: its method, its path shape and the query keys it accepts. */
-export const operatorRoutes = {
-  listPreapprovals: {
-    method: 'GET',
-    path: /^\/operator\/v1\/beta-preapprovals$/,
-    query: ['limit', 'cursor'],
-  },
-  updatePreapproval: {
-    method: 'PUT',
-    path: /^\/operator\/v1\/beta-preapprovals$/,
-    query: [],
-  },
-  listAccounts: {
-    method: 'GET',
-    path: /^\/operator\/v1\/accounts$/,
-    query: ['access', 'cursor', 'limit'],
-  },
-  setBetaAccess: {
-    method: 'PUT',
-    path: /^\/operator\/v1\/accounts\/([a-z0-9]{24})\/beta-access$/,
-    query: [],
-  },
-  listReports: {
-    method: 'GET',
-    path: /^\/operator\/v1\/reports$/,
-    query: ['cursor', 'limit'],
-  },
-  resolveReport: {
-    method: 'PUT',
-    path: /^\/operator\/v1\/reports\/([a-z0-9]{24})\/resolution$/,
-    query: [],
-  },
-  listRestrictions: {
-    method: 'GET',
-    path: /^\/operator\/v1\/moderation$/,
-    query: ['cursor', 'limit'],
-  },
-  liftModeration: {
-    method: 'PUT',
-    path: /^\/operator\/v1\/moderation\/([a-z0-9]{24})\/lift$/,
-    query: [],
-  },
-  readCommand: {
-    method: 'GET',
-    path: /^\/operator\/v1\/commands\/([a-z0-9]{24})$/,
-    query: [],
-  },
-  ...contentModerationOperatorRoutes,
-  ...flagOperatorRoutes,
-} as const;
-export type OperatorRoute = keyof typeof operatorRoutes;
-
-/** The route a method and path name, or null for anything else. */
-export function matchOperatorRoute(
-  method: string,
-  path: string,
-): { readonly route: OperatorRoute; readonly id: string | null } | null {
-  for (const [route, spec] of Object.entries(operatorRoutes)) {
-    if (spec.method !== method) continue;
-    const match = spec.path.exec(path);
-    if (match) return { route: route as OperatorRoute, id: match[1] ?? null };
-  }
-  return null;
-}
+export {
+  matchOperatorRoute,
+  matchOperatorRoutePolicy,
+  type MatchedOperatorRoutePolicy,
+} from './operator-routes';
 
 const accessFilter = z.enum(betaAccessStates);
 

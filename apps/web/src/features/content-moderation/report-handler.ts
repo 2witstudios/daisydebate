@@ -5,7 +5,7 @@ import type { ErrorReporter } from '@daisy/observability';
 import {
   contentReportCreateSchema,
   type ContentReportCreate,
-} from '@daisy/protocol';
+} from '@daisy/protocol/content-moderation';
 import {
   handleOperation,
   parseValidated,

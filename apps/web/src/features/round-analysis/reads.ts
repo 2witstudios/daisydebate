@@ -1,5 +1,6 @@
-import { idSchema, roundAnalysisViewSchema } from '@daisy/protocol';
-import { unavailableRead } from '../../server/temporary-read';
+import { idSchema } from '@daisy/protocol/primitives';
+import { roundAnalysisViewSchema } from '@daisy/protocol/round-analysis';
+import { unavailableRead } from '../resource-sync/temporary-read';
 type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
 /** The caller's own round analysis through its API; missing for anyone who did not debate. */
 export async function readRoundAnalysis(fetch: FetchLike, roundId: string) {

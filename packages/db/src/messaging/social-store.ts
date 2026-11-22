@@ -1,7 +1,6 @@
 import { and, eq } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { messagingSocialCommands } from '../schema/messaging-social';
 import {
   withContactPairs,
@@ -10,6 +9,7 @@ import {
 import { dmRequestFrame } from './social-request';
 import type { ContactReactions } from '../contacts/reactions';
 import type { MessagingSocialStore } from './social-contracts';
+import type { TxSource } from '../tx';
 import { readOpenDmFact, type MessagingChannelFact } from './social';
 
 type DmRequestFence = (
@@ -28,7 +28,7 @@ export function createMessagingSocialStore({
   authorize,
   reactions,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
   readonly authorize: DmRequestFence;
   readonly reactions: ContactReactions;
 }): MessagingSocialStore {

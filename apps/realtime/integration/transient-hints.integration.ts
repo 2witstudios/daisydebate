@@ -4,7 +4,7 @@ import { requireTestServices } from '@daisy/config';
 import { systemId } from '@daisy/clock';
 import { createMessagingTestFixture } from '@daisy/db/testing';
 import { messagingTestReading } from '@daisy/auth/testing';
-import { buildChannelTopic } from '@daisy/protocol';
+import { buildChannelTopic } from '@daisy/protocol/topics';
 import type { SocketData } from '../src/socket';
 import {
   issueAuthorityTicket,

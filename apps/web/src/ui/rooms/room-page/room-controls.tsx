@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, type ChangeEvent, type ReactNode } from 'react';
-import type { RoomView } from '@daisy/protocol';
+import type { RoomView } from '@daisy/protocol/room-contract';
 import type { RoomFormState } from '../../../features/rooms/command-answer';
 import {
   DEFAULT_RELEASE_CHOICE,

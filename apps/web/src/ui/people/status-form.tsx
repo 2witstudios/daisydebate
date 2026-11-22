@@ -1,7 +1,12 @@
 'use client';
 
-import { chosenStatuses, type ChosenStatus } from '@daisy/protocol';
-import { useEffect } from 'react';
+import { Button } from '../components/button/button';
+import { StatusRegion } from '../components/status-region/status-region';
+import {
+  chosenStatuses,
+  type ChosenStatus,
+} from '@daisy/protocol/presence-setting';
+
 import {
   initialPresenceForm,
   presenceFields,
@@ -56,7 +61,8 @@ function StatusChoice({
   readonly pending: boolean;
 }) {
   return (
-    <button
+    <Button
+      variant="unstyled"
       type="submit"
       name="status"
       value={status}
@@ -74,7 +80,7 @@ function StatusChoice({
       {status === current ? (
         <Icon name="check" size={16} className="ml-auto" />
       ) : null}
-    </button>
+    </Button>
   );
 }
 
@@ -95,14 +101,12 @@ export function StatusForm({
     action,
     initialPresenceForm,
     presenceFormUnavailable,
+    (next) => {
+      if (presenceFields(next).status) people?.refresh();
+    },
   );
   const { status, notice } = presenceFields(answer);
   const current = status ?? chosen;
-  useEffect(() => {
-    if (status) people?.refresh();
-    // Refresh once per answer; `people` changes with every list read.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [answer]);
   return (
     <form
       action={post}
@@ -118,9 +122,13 @@ export function StatusForm({
         />
       ))}
       {notice ? (
-        <p role="status" className="px-3 pb-1 text-xs text-ink-muted">
+        <StatusRegion
+          as="p"
+          role="status"
+          className="px-3 pb-1 text-xs text-ink-muted"
+        >
           {notice}
-        </p>
+        </StatusRegion>
       ) : null}
     </form>
   );

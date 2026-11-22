@@ -2,18 +2,17 @@ import { foundationChoice, humanRoundSelection } from './human-round-selection';
 import { createId } from '@paralleldrive/cuid2';
 import {
   affirmativeSide,
-  attendanceReceiptSchema,
   judgeSeat,
   negativeSide,
-  roomViewSchema,
-  roundViewSchema,
   sameSeat,
   sideOfSeat,
   sideSeat,
   twoSideKeys,
-  type RoomView,
-  type RoundView,
-} from '@daisy/protocol';
+} from '@daisy/protocol/seats';
+import { attendanceReceiptSchema } from '@daisy/protocol/attendance';
+import { roomViewSchema } from '@daisy/protocol/room-read';
+import { roundViewSchema, type RoundView } from '@daisy/protocol/round-view';
+import { type RoomView } from '@daisy/protocol/room-contract';
 import { createPublicCheckInProbe } from '../../src/features/availability/public-probe';
 import {
   createLaunchProbeMember,

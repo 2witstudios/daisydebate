@@ -71,7 +71,9 @@ export async function compose(
         response.json = () => json().finally(finish);
         return response;
       };
-      if (String(url).endsWith('/session')) {
+      const href =
+        typeof url === 'string' ? url : url instanceof URL ? url.href : url.url;
+      if (href.endsWith('/session')) {
         counts.admissions++;
         return responseOf(admission);
       }

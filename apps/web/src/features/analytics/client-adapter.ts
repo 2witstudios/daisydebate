@@ -1,5 +1,5 @@
 import posthog from 'posthog-js';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import {
   parseProductEvent,
   parseSdkProductEvent,
@@ -98,7 +98,7 @@ export function syncAnalytics(input: {
       before_send: (event) => {
         if (paused) return null;
         const sanitized = sanitizeCapture(event);
-        return event && sanitized
+        return sanitized
           ? {
               uuid: event.uuid,
               event: sanitized.event,

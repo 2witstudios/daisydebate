@@ -1,5 +1,6 @@
 'use client';
 
+import { StatusRegion } from '../../components/status-region/status-region';
 import {
   ageFields,
   ageFormUnavailable,
@@ -37,7 +38,7 @@ const missingCopy = {
  * The age step (WAIT-4.6): the birth month and year, with no default and no
  * mention of any age the answer is held to, and the Terms and Privacy
  * acceptance. A real POST to a server action, so it works before hydration
- * and without JavaScript; the server bands the answer and decides.
+ * and before hydration; the server bands the answer and decides.
  */
 export function AgeStep({
   action,
@@ -151,7 +152,11 @@ export function AgeStep({
             .
           </span>
         </label>
-        <div role="alert" className="flex flex-col gap-1 empty:hidden">
+        <StatusRegion
+          as="div"
+          role="alert"
+          className="flex flex-col gap-1 empty:hidden"
+        >
           {errors.map((error) => (
             <p key={error} className="text-sm font-semibold text-live">
               {error}
@@ -162,7 +167,7 @@ export function AgeStep({
               That didn’t save. Try again.
             </p>
           ) : null}
-        </div>
+        </StatusRegion>
         <Button
           type="submit"
           disabled={pending}

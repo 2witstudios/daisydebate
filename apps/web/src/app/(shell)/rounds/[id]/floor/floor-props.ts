@@ -1,5 +1,5 @@
 import { systemId } from '@daisy/clock';
-import { unavailableRead } from '../../../../../server/temporary-read';
+import { unavailableRead } from '../../../../../features/resource-sync/temporary-read';
 import { parseContextChatDiscovery } from '../../../../../features/messaging/context-chat/view';
 import { roundFloorContext } from '../../../../../features/messaging/round-floor/floor-context';
 import type { FloorChatProps } from '../../../../../ui/round-floor/floor-chat';

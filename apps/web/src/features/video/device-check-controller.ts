@@ -197,7 +197,7 @@ export function createDeviceCheckController(edge: Edge) {
           unwatch();
           return;
         }
-        resources[kind]!.unwatch = unwatch;
+        resources[kind].unwatch = unwatch;
         update(kind, { ...snapshot[kind], deviceId: capture.deviceId });
         if (!current(kind, generation)) return;
         await capture.confirm(abort.signal);

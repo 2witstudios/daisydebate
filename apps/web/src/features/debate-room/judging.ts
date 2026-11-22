@@ -1,8 +1,6 @@
-import {
-  assertNever,
-  type CompetitionType,
-  type RoundWaitingOn,
-} from '@daisy/protocol';
+import { assertNever } from '@daisy/protocol/assert-never';
+import { type CompetitionType } from '@daisy/protocol/round';
+import { type RoundWaitingOn } from '@daisy/protocol/round-view';
 
 /**
  * The ballots a round is judged by. One ballot decides it: the human
@@ -75,7 +73,7 @@ const decidingStatus = (
 
 /**
  * What each ballot is doing. The round completes, and the room hands off to
- * the receipt, the moment the deciding ballot lands (DEC-80).
+ * the receipt, the moment the deciding ballot lands.
  */
 export function ballotLines(
   ballots: JudgingBallots,

@@ -1,7 +1,6 @@
 import { and, eq, sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
-import type { ModerationNotice } from '@daisy/protocol';
+import type { ModerationNotice } from '@daisy/protocol/moderation';
 import {
   moderationLiftCommandAction,
   type ModerationLiftResult,
@@ -13,15 +12,13 @@ import {
   type OwnCollectionFence,
 } from '../authorization';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
-import {
-  commandGate,
-  storedResult,
-  writeReceipt,
-  type OperatorCommandTransaction as Transaction,
-} from '../operator-command';
+import { commandGate, storedResult, writeReceipt } from '../operator-command';
 import { moderationActions } from '../schema/moderation';
 import { appendSessionRevokedFor } from '../session-revoked';
 import { actionInForce } from './in-force';
+import { inTransaction, type Tx, type TxSource } from '../tx';
+import { run, query } from '../raw-rows';
+import { z } from 'zod';
 
 /** What a reviewer does to an account (ADR 0103). */
 export type Sanction =
@@ -36,7 +33,7 @@ export type Sanction =
  */
 export type ModerationReactions = {
   readonly onRestricted: readonly ((
-    tx: Transaction,
+    tx: Tx,
     actorId: string,
     context: {
       readonly now: string;
@@ -52,7 +49,7 @@ export type ModerationReactions = {
  * revokes the sessions and runs each reaction.
  */
 export async function applySanction(
-  tx: Transaction,
+  tx: Tx,
   input: {
     readonly id: string;
     readonly userId: string;
@@ -77,7 +74,8 @@ export async function applySanction(
       ? { endsAt: new Date(input.sanction.endsAt) }
       : {}),
   });
-  await tx.execute(
+  await run(
+    tx,
     sql`update users set version = version + 1 where id = ${input.userId}`,
   );
   if (input.sanction.kind === 'warning') return;
@@ -122,19 +120,19 @@ const mActionInForce = (at: Date) =>
 
 /** Lifts a suspension or ban in force; the row stays for the record. */
 async function liftModeration(
-  tx: Transaction,
+  tx: Tx,
   input: ModerationLiftInput,
 ): Promise<ModerationLiftResult> {
   await commandGate(tx, input.commandId);
   const replayed = await storedResult(tx, input.commandId, input.requestDigest);
   if (replayed) return replayed as ModerationLiftResult;
-  const [row] =
-    (await tx.execute(sql`select m.user_id as "userId", a.id as "actorId"
+  const [row] = await query(
+    tx,
+    z.object({ userId: z.string(), actorId: z.string() }),
+    sql`select m.user_id as "userId", a.id as "actorId"
     from moderation_actions m join actors a on a.user_id = m.user_id and a.kind = 'human'
-    where m.id = ${input.actionId}`)) as unknown as {
-      userId: string;
-      actorId: string;
-    }[];
+    where m.id = ${input.actionId}`,
+  );
   if (!row) throw createAppError('NOT_FOUND');
   await lockAuthorizationActors(tx, [row.actorId], { maxActors: 1 });
   const lifted = await tx
@@ -148,7 +146,8 @@ async function liftModeration(
     )
     .returning({ id: moderationActions.id });
   if (!lifted[0]) throw createAppError('CONFLICT');
-  await tx.execute(
+  await run(
+    tx,
     sql`update users set version = version + 1 where id = ${row.userId}`,
   );
   const result: ModerationLiftResult = {
@@ -170,7 +169,7 @@ export const moderationOperations = ({
   database,
   eventSink,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
   /** One keyset page of suspensions and bans in force, newest first. */
@@ -180,7 +179,17 @@ export const moderationOperations = ({
     readonly after: { readonly startsAt: string; readonly id: string } | null;
   }): Promise<readonly OperatorRestrictionRow[]> =>
     instrumented(eventSink, 'listOperatorRestrictions', async () => {
-      const rows = (await database.execute(sql`
+      const rows = await query(
+        database,
+        z.object({
+          kind: z.enum(['suspension', 'ban']),
+          id: z.string(),
+          username: z.string().nullable(),
+          userId: z.string(),
+          startsAt: z.union([z.string(), z.date()]),
+          endsAt: z.union([z.string(), z.date()]).nullable(),
+        }),
+        sql`
         select m.id, m.user_id as "userId", u.username, m.kind,
           m.starts_at as "startsAt", m.ends_at as "endsAt"
         from moderation_actions m join users u on u.id = m.user_id
@@ -191,10 +200,8 @@ export const moderationOperations = ({
               : sql``
           }
         order by m.starts_at desc, m.id desc
-        limit ${input.limit}`)) as unknown as (Omit<
-        OperatorRestrictionRow,
-        'startsAt' | 'endsAt'
-      > & { startsAt: Date | string; endsAt: Date | string | null })[];
+        limit ${input.limit}`,
+      );
       return rows.map((row) => ({
         ...row,
         startsAt: iso(row.startsAt),
@@ -203,7 +210,7 @@ export const moderationOperations = ({
     }),
   liftModeration: (input: ModerationLiftInput) =>
     instrumented(eventSink, 'liftModeration', () =>
-      database.transaction((tx) => liftModeration(tx, input)),
+      inTransaction(database, (tx) => liftModeration(tx, input)),
     ),
   /** When the account's restriction in force ends; null for a ban or nothing. */
   readRestrictionEnd: (input: {
@@ -211,12 +218,14 @@ export const moderationOperations = ({
     readonly now: string;
   }): Promise<string | null> =>
     instrumented(eventSink, 'readRestrictionEnd', async () => {
-      const [row] = (await database.execute(sql`
+      const [row] = await query(
+        database,
+        z.object({ endsAt: z.union([z.string(), z.date()]).nullable() }),
+        sql`
         select case when bool_or(m.kind = 'ban') then null else max(m.ends_at) end as "endsAt"
         from moderation_actions m
-        where m.user_id = ${input.userId} and ${mActionInForce(new Date(input.now))}`)) as unknown as {
-        endsAt: Date | string | null;
-      }[];
+        where m.user_id = ${input.userId} and ${mActionInForce(new Date(input.now))}`,
+      );
       return row?.endsAt ? iso(row.endsAt) : null;
     }),
   /** The member's own warnings they have not acknowledged. */
@@ -227,14 +236,18 @@ export const moderationOperations = ({
     requireOwnScope(scope);
     return instrumented(eventSink, 'listModerationNotices', () =>
       readOwnCollection(database, scope, authorize, async (tx) => {
-        const rows = (await tx.execute(sql`
+        const rows = await query(
+          tx,
+          z.object({
+            id: z.string(),
+            kind: z.enum(['suspension', 'ban', 'warning']),
+            startsAt: z.union([z.string(), z.date()]),
+          }),
+          sql`
           select id, kind, starts_at as "startsAt" from moderation_actions
           where user_id = ${scope.userId} and kind = 'warning' and acknowledged_at is null
-          order by starts_at desc limit 5`)) as unknown as {
-          id: string;
-          kind: ModerationNotice['kind'];
-          startsAt: Date | string;
-        }[];
+          order by starts_at desc limit 5`,
+        );
         return rows.map((row) => ({ ...row, startsAt: iso(row.startsAt) }));
       }),
     );
@@ -248,9 +261,12 @@ export const moderationOperations = ({
     requireOwnScope(scope);
     return instrumented(eventSink, 'acknowledgeModerationNotice', () =>
       readOwnCollection(database, scope, authorize, async (tx) => {
-        await tx.execute(sql`update moderation_actions
+        await run(
+          tx,
+          sql`update moderation_actions
           set acknowledged_at = ${new Date(input.now)}
-          where id = ${input.id} and user_id = ${scope.userId} and kind = 'warning' and acknowledged_at is null`);
+          where id = ${input.id} and user_id = ${scope.userId} and kind = 'warning' and acknowledged_at is null`,
+        );
       }),
     );
   },
@@ -260,12 +276,16 @@ export const moderationOperations = ({
     readonly limit: number;
   }): Promise<number> =>
     instrumented(eventSink, 'purgeErasedModeration', async () => {
-      const rows = await database.execute(sql`
+      const rows = await query(
+        database,
+        z.object({ id: z.string() }),
+        sql`
         delete from moderation_actions where id in (
           select m.id from moderation_actions m join users u on u.id = m.user_id
           where u.deleted_at <= ${new Date(input.before)}
           limit ${input.limit})
-        returning id`);
+        returning id`,
+      );
       return rows.length;
     }),
 });

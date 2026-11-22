@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import {
   participantAccess,
   tournamentHostingGrantFor,
@@ -6,9 +7,9 @@ import type { RoomDirectionInput } from '@daisy/db/tab';
 import {
   tournamentCaptureAdmissionSchema,
   tournamentCaptureExecutionBudgetMs,
-  type RoomAssemblyState,
   type TournamentOfficialAuthority,
-} from '@daisy/protocol';
+} from '@daisy/protocol/tournament-capture-admission';
+import { type RoomAssemblyState } from '@daisy/protocol/room-contract';
 import { eventRoomDirectionDecision } from './event-room-direction';
 import { hostingCaptureConcurrency } from '@daisy/protocol/lobby/hosting-tier';
 
@@ -60,7 +61,12 @@ export const eventCaptureAdmission = (input: {
     funding.ownerUserId === funding.userId
       ? funding.hostingPurchase
       : null;
-  if (!grant && !purchase) return null;
+  const basis = grant
+    ? { kind: 'grant' as const, grant }
+    : purchase
+      ? { kind: 'hosting-purchase' as const, purchase }
+      : null;
+  if (basis === null) return null;
   const decision = eventRoomDirectionDecision(
     caller,
     'room.manage',
@@ -106,23 +112,27 @@ export const eventCaptureAdmission = (input: {
     room.executionPlan,
   );
   const deadline = Math.min(
-    grant ? Date.parse(grant.hosting.expiresAt) : Infinity,
-    Date.parse(now) + executionBudgetMs,
+    basis.kind === 'grant'
+      ? instantMs(basis.grant.hosting.expiresAt)
+      : Infinity,
+    instantMs(now) + executionBudgetMs,
   );
-  const limit = grant
-    ? {
-        sponsorLimit: grant.hosting.coverage.sponsorConcurrencyLimit,
-        tournamentLimit: grant.hosting.coverage.tournamentConcurrencyLimit,
-      }
-    : {
-        sponsorLimit: hostingCaptureConcurrency[purchase!.tier],
-        tournamentLimit: hostingCaptureConcurrency[purchase!.tier],
-      };
+  const limit =
+    basis.kind === 'grant'
+      ? {
+          sponsorLimit: basis.grant.hosting.coverage.sponsorConcurrencyLimit,
+          tournamentLimit:
+            basis.grant.hosting.coverage.tournamentConcurrencyLimit,
+        }
+      : {
+          sponsorLimit: hostingCaptureConcurrency[basis.purchase.tier],
+          tournamentLimit: hostingCaptureConcurrency[basis.purchase.tier],
+        };
   if (
     !Number.isSafeInteger(executionBudgetMs) ||
     executionBudgetMs <= 0 ||
     !Number.isFinite(deadline) ||
-    deadline <= Date.parse(now)
+    deadline <= instantMs(now)
   )
     return null;
   const parsed = tournamentCaptureAdmissionSchema.safeParse({
@@ -140,9 +150,7 @@ export const eventCaptureAdmission = (input: {
           organizationId: funding.ownerOrganizationId,
           sponsorshipVersionId: sponsorship?.id,
         },
-    basis: grant
-      ? { kind: 'grant', grant }
-      : { kind: 'hosting-purchase', purchase },
+    basis,
     official: { userId: caller.userId, actorId: caller.actorId, authority },
     admittedAt: now,
     deadlineAt: new Date(deadline).toISOString(),

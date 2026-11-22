@@ -1,18 +1,22 @@
+import { isNamedSeat } from '@daisy/protocol/round-view';
 import {
-  isNamedSeat,
   isOpenRoomStatus,
-  sameSeat,
-  seatTotalOf,
-  seatsTwoTeams,
-  sideOfTeam,
-  sideSeat,
-  teamOfPlacement,
   type RoomRefusal,
   type RoomView,
+} from '@daisy/protocol/room-contract';
+import {
+  sameSeat,
+  sideSeat,
   type SeatRef,
   type Side,
   type TwoSideKey,
-} from '@daisy/protocol';
+} from '@daisy/protocol/seats';
+import { seatTotalOf } from '@daisy/protocol/format-seating';
+import {
+  seatsTwoTeams,
+  sideOfTeam,
+  teamOfPlacement,
+} from '@daisy/protocol/seat-draw';
 import {
   strikeSummary,
   roundLength,
@@ -100,7 +104,7 @@ export function waitingOn(
 }
 
 export const ROOM_SETUP_ID = 'room-setup';
-/** Every way into Room setup is this fragment link, so it opens without script. */
+/** Every way into Room setup is this fragment link, so it opens before hydration. */
 export const ROOM_SETUP_HREF = `#${ROOM_SETUP_ID}`;
 
 /** "Setting up · 1 of 3 seats filled": the room's one status line. */
@@ -175,7 +179,7 @@ const refusalText: Readonly<Record<RoomRefusal, string>> = {
   'ballot-definition-unavailable': 'a valid pinned ballot for this room',
   'format-unavailable': 'a format that is currently offered',
   'ranked-unavailable': 'an active Ranked season',
-  // A debater seat is for the Room's own lobby (ADR 0156).
+  // A debater seat is for the Room's own lobby (ADR 0162).
   'other-division': 'a debater seat in your own lobby',
   'draw-unavailable': 'enough resolutions to draw from',
   'bots-busy': 'a free bot: bots are busy, try again shortly',

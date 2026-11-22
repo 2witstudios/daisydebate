@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { z } from 'zod';
 import { sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
@@ -5,6 +6,7 @@ import type { BoundedTransaction } from './bounded-transaction';
 import { currentWebTransaction } from './web-service-authority';
 
 import { billingEconomicsSnapshotSchema } from '@daisy/protocol/billing-economics';
+import { query } from './raw-rows';
 const instant = z.iso.datetime({ precision: 3 });
 /** Service-only read: one READ COMMITTED statement, no identifiers/content in the result and no current-grant attribution. */
 export function createBillingEconomicsReader(input: {
@@ -17,12 +19,15 @@ export function createBillingEconomicsReader(input: {
       if (
         !instant.safeParse(window.startsAt).success ||
         !instant.safeParse(window.endsAt).success ||
-        Date.parse(window.endsAt) <= Date.parse(window.startsAt) ||
-        Date.parse(window.endsAt) - Date.parse(window.startsAt) > 32 * 86400000
+        instantMs(window.endsAt) <= instantMs(window.startsAt) ||
+        instantMs(window.endsAt) - instantMs(window.startsAt) > 32 * 86400000
       )
         throw createAppError('VALIDATION');
       return run(async (tx) => {
-        const rows = await tx.execute(sql`
+        const rows = await query(
+          tx,
+          z.object({ snapshot: billingEconomicsSnapshotSchema }),
+          sql`
 with agent_facts as (
  select case when a.kind='judging' then 'casual_ai_judge' when a.kind in ('tts','stt') then 'speech' else 'ai_round' end as feature,
  a.model,a.provider,a.started_at as at,
@@ -76,20 +81,18 @@ with agent_facts as (
 )
  select jsonb_build_object('startsAt',${window.startsAt}::text,'endsAt',${window.endsAt}::text,'observedAt',to_char(clock_timestamp() at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
  'attempts',coalesce((select jsonb_agg(jsonb_build_object('feature',feature,'model',model,'provider',provider,'sourceKind',source_kind,'sourceStartsAt',source_starts_at,'sourceEndsAt',source_ends_at,'firstAt',first_at,'lastAt',last_at,'runs',runs,'knownResponses',known_responses,'unmeasuredResponses',unmeasured_responses,'unknownCalls',unknown_calls,'definiteFailures',definite_failures,'inputTokens',input_tokens,'outputTokens',output_tokens,'characters',characters)) from attempts),'[]'::jsonb),
- 'usage',coalesce((select jsonb_agg(jsonb_build_object('feature',feature,'sourceKind',source_kind,'sourceStartsAt',source_starts_at,'sourceEndsAt',source_ends_at,'state',state,'providerOutcome',provider_outcome,'countBasis',count_basis,'reservations',reservations)) from usage),'[]'::jsonb)) as snapshot`);
-        const parsed = billingEconomicsSnapshotSchema.safeParse(
-          rows[0]?.snapshot,
+ 'usage',coalesce((select jsonb_agg(jsonb_build_object('feature',feature,'sourceKind',source_kind,'sourceStartsAt',source_starts_at,'sourceEndsAt',source_ends_at,'state',state,'providerOutcome',provider_outcome,'countBasis',count_basis,'reservations',reservations)) from usage),'[]'::jsonb)) as snapshot`,
         );
-        if (!parsed.success)
+        const snapshot = rows[0]?.snapshot;
+        if (!snapshot)
           throw createAppError(
             'INFRASTRUCTURE',
             'Billing economics snapshot unavailable',
           );
         return {
-          ...parsed.data,
+          ...snapshot,
           complete:
-            parsed.data.attempts.length < 1001 &&
-            parsed.data.usage.length < 1001,
+            snapshot.attempts.length < 1001 && snapshot.usage.length < 1001,
         };
       });
     },

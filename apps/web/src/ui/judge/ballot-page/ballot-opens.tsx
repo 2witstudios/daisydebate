@@ -1,7 +1,10 @@
 'use client';
-import type { RoundView } from '@daisy/protocol';
-import { systemClock } from '@daisy/clock';
-import { useEffect, useRef, useState } from 'react';
+import { useBrowserEffect } from '../../edge/browser-sync';
+import { scheduleTick } from '../../edge/browser-time';
+import { StatusRegion } from '../../components/status-region/status-region';
+import type { RoundView } from '@daisy/protocol/round-view';
+import { nowMs, systemClock } from '@daisy/clock';
+import { useRef, useState } from 'react';
 import { formatCountdown } from '../../../lib/clock-display';
 import {
   attendanceSettlesAtMs,
@@ -11,7 +14,7 @@ import {
 } from '../../../features/round-ballots/settling';
 
 const deviceInstant = () => ({
-  wallMs: Date.parse(systemClock.now()),
+  wallMs: nowMs(systemClock),
   monotonicMs: performance.now(),
 });
 
@@ -33,11 +36,11 @@ export function useServerAnchoredNow(
   const now = elapsed.base === renderedAtMs ? elapsed.nowMs : renderedAtMs;
   const running = runsAt(now);
   const mount = useRef<ReturnType<typeof countdownMount> | null>(null);
-  useEffect(() => {
+  useBrowserEffect(() => {
     if (!running) return;
     mount.current = countdownMount(mount.current, renderedAtMs, deviceInstant);
     const { mounted } = mount.current;
-    const tick = window.setInterval(
+    return scheduleTick(
       () =>
         setElapsed({
           base: renderedAtMs,
@@ -48,8 +51,8 @@ export function useServerAnchoredNow(
           }),
         }),
       1000,
+      window,
     );
-    return () => window.clearInterval(tick);
   }, [running, renderedAtMs]);
   return now;
 }
@@ -74,7 +77,7 @@ export function useBallotOpensIn(
 /**
  * The judge may fill in the ballot while attendance for the last speeches
  * settles; this says when submitting opens. The sentence names the clock
- * time and the wait as rendered, so it holds without script and is not
+ * time and the wait as rendered, so it holds before hydration and is not
  * re-announced every second; only the visual countdown ticks.
  */
 export function BallotOpensNotice({
@@ -90,7 +93,8 @@ export function BallotOpensNotice({
   if (opensInMs === null || at === null) return null;
   const seconds = Math.ceil((at - renderedAtMs) / 1000);
   return (
-    <div
+    <StatusRegion
+      as="div"
       role="status"
       className="flex items-center gap-4 rounded-lg border border-border bg-hue-sky-soft px-5 py-4 max-narrow:px-4"
     >
@@ -104,6 +108,6 @@ export function BallotOpensNotice({
         <span className="font-strong">{`Submitting opens in about ${seconds} seconds.`}</span>{' '}
         {`Attendance for the last speeches is still being confirmed, until ${new Date(at).toISOString().slice(11, 19)} UTC. Fill in your ballot now; nothing you enter is lost.`}
       </p>
-    </div>
+    </StatusRegion>
   );
 }

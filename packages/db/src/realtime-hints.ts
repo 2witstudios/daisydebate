@@ -1,5 +1,8 @@
 import type { SQL } from 'bun';
-import { serverMessageSchema, type ServerMessage } from '@daisy/protocol';
+import {
+  serverMessageSchema,
+  type ServerMessage,
+} from '@daisy/protocol/realtime-server';
 
 type TypingHint = Extract<ServerMessage, { type: 'typing_changed' }>;
 export type RealtimeHintHandlers = {

@@ -1,5 +1,5 @@
 import { createFrameClock } from '@daisy/media/observation';
-import { canonicalCaptureEvidenceBody } from '@daisy/protocol';
+import { canonicalCaptureEvidenceBody } from '@daisy/protocol/capture-evidence-body';
 export function originalBodies(count = 2, framesPerBody = 1) {
   const at = 1800000000100;
   const clock = createFrameClock({
@@ -16,13 +16,19 @@ export function originalBodies(count = 2, framesPerBody = 1) {
         beforeMs: 10 + sequence * 10,
         afterMs: 10 + sequence * 10,
       });
-      const evidence = clock.evidence()!;
+      const evidence = clock.evidence();
+      if (evidence === null)
+        throw new Error('An observed frame has clock evidence');
       const pcm = Buffer.alloc(320);
       pcm.writeInt16LE(sequence === 0 ? -1 : 1, 0);
       return { pcmS16le: pcm.toString('base64'), clock: evidence };
     });
-    const first = frames[0]!.clock,
-      last = frames.at(-1)!.clock;
+    const firstFrame = frames[0],
+      lastFrame = frames.at(-1);
+    if (firstFrame === undefined || lastFrame === undefined)
+      throw new Error('A body holds at least one frame');
+    const first = firstFrame.clock,
+      last = lastFrame.clock;
     const encoded = canonicalCaptureEvidenceBody({
       version: 1,
       evidenceId: `e${index.toString(36).padStart(23, '0')}`,

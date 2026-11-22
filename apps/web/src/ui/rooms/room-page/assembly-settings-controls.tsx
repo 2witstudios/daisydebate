@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import type { RoomView } from '@daisy/protocol';
+import type { RoomView } from '@daisy/protocol/room-contract';
 import type { FormFields } from '../../../features/forms/form-state';
 import { controlClass } from '../../components/form-field/form-field-class';
 import { clockDuration } from '../../../features/rooms/duration-input';

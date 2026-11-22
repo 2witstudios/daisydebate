@@ -1,5 +1,7 @@
+import { addMs } from '@daisy/clock';
 import { requireTestServices } from '@daisy/config';
-import { emptyRuntimeCheckpointFor, twoSides } from '@daisy/protocol';
+import { emptyRuntimeCheckpointFor } from '@daisy/protocol/round';
+import { twoSides } from '@daisy/protocol/seats';
 import { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -10,9 +12,7 @@ setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
 
 const at = (seconds: number) =>
-  new Date(
-    Date.parse('2026-11-03T10:00:00.000Z') + seconds * 1000,
-  ).toISOString();
+  addMs('2026-11-03T10:00:00.000Z', seconds * 1000);
 const live = { status: 'active', currentStage: 'live' };
 const idle = emptyRuntimeCheckpointFor({ sides: twoSides });
 const prepping = {

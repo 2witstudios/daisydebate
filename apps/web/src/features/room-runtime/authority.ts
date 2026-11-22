@@ -1,3 +1,4 @@
+import { commandDigest } from '@daisy/digest';
 import { eventRoomAuthority } from '../tab/event-room-direction';
 import type { RoomDirectionInput } from '@daisy/db/tab';
 import {
@@ -6,7 +7,10 @@ import {
   type AuthorizationCapability,
   type RoomAuthorizationFact,
 } from '@daisy/auth/authorization';
-import type { RoomCommand, RoomAssemblyState } from '@daisy/protocol';
+import type {
+  RoomCommand,
+  RoomAssemblyState,
+} from '@daisy/protocol/room-contract';
 import type { Caller } from './operations';
 type RoomFactSource = Pick<
   RoomAssemblyState,
@@ -54,5 +58,4 @@ const canonical = (value: unknown): string => {
       .join(',')}}`;
   return JSON.stringify(value);
 };
-export const digest = (value: unknown) =>
-  new Bun.CryptoHasher('sha3-256').update(canonical(value)).digest('hex');
+export const digest = (value: unknown) => commandDigest(value, canonical);

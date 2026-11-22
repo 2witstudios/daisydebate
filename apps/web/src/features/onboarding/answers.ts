@@ -7,7 +7,7 @@ import {
   type Experience,
   type InterestCategory,
   type Want,
-} from '@daisy/protocol';
+} from '@daisy/protocol/onboarding';
 
 type AboutAnswers = {
   readonly wants: readonly Want[];
@@ -51,8 +51,10 @@ export type ParsedStep =
   | { readonly ok: true; readonly value: StepAnswers }
   | { readonly ok: false; readonly reason: StepRefusal };
 
-class Refused {
-  constructor(readonly reason: StepRefusal) {}
+class Refused extends Error {
+  constructor(readonly reason: StepRefusal) {
+    super(reason);
+  }
 }
 
 const isOneOf = <T extends string>(

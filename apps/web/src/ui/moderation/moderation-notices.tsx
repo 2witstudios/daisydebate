@@ -1,4 +1,4 @@
-import type { ModerationNotice } from '@daisy/protocol';
+import type { ModerationNotice } from '@daisy/protocol/moderation';
 import { Button } from '../components/button/button';
 import { Notice } from '../components/notice/notice';
 

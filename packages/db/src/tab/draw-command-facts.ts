@@ -33,7 +33,7 @@ import {
   tournamentDebatersAllowed,
 } from './tournament-eligibility';
 import { loadDrawResolutionPool } from './draw-resolution-pool';
-import type { TabTransaction } from './tab-transaction';
+import type { Tx } from '../tx';
 
 export type DrawCommandInput = {
   readonly senderUserId: string;
@@ -43,7 +43,7 @@ export type DrawCommandInput = {
 /** The potential cast changed while the command acquired its canonical account fences. */
 export class DrawPeopleChanged extends Error {}
 
-const namedRound = async (tx: TabTransaction, input: DrawCommandInput) => {
+const namedRound = async (tx: Tx, input: DrawCommandInput) => {
   if (input.command.type === 'generate-draw') {
     const [round] = await tx
       .select()
@@ -75,7 +75,7 @@ const namedRound = async (tx: TabTransaction, input: DrawCommandInput) => {
  * privileged reverse-dependency enumeration is involved.
  */
 export const loadDrawContext = async (
-  tx: TabTransaction,
+  tx: Tx,
   input: {
     readonly senderUserId: string;
     readonly lobbyId: string;
@@ -385,10 +385,7 @@ export const loadDrawContext = async (
       : [],
   };
 };
-export const loadDrawCommandFacts = async (
-  tx: TabTransaction,
-  input: DrawCommandInput,
-) => {
+export const loadDrawCommandFacts = async (tx: Tx, input: DrawCommandInput) => {
   await scopeTransaction(tx, {
     subjectUserId: input.senderUserId,
     lobbyId: input.lobbyId,

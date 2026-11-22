@@ -10,7 +10,7 @@ import {
 } from '../../../../../../features/tab/standing-room-form';
 import { refused } from '../../../../../../features/forms/form-state';
 import { moveOn } from '../../../../../../server/form-action';
-import { inProcessFetch } from '../../../../../../server/in-process-fetch';
+import { runTabCommandForm } from '../../../../../../features/tab/command-form-action';
 import { POST } from '../../../../../api/tab/lobby-command/route';
 export async function standingRoomCreateAction(
   context: StandingRoomContext,
@@ -27,27 +27,19 @@ export async function standingRoomCreateAction(
     );
   }
   const incoming = new Headers(await headers());
-  let answer;
-  try {
-    const response = await inProcessFetch(POST, incoming)(
-      '/api/tab/lobby-command',
-      {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(envelope),
-      },
-    );
-    if (!response.ok)
-      return response.status >= 500
-        ? standingRoomUnavailable(form)
-        : refused(
-            form,
-            'This room cannot be created. Check your access, eligibility and league settings before retrying.',
-          );
-    answer = standingRoomAnswer(form, await response.json());
-  } catch {
-    return standingRoomUnavailable(form);
-  }
+  const answer = await runTabCommandForm({
+    post: POST,
+    incoming,
+    path: '/api/tab/lobby-command',
+    body: envelope,
+    answer: (response) => standingRoomAnswer(form, response),
+    refused: () =>
+      refused(
+        form,
+        'This room cannot be created. Check your access, eligibility and league settings before retrying.',
+      ),
+    unacknowledged: () => standingRoomUnavailable(form),
+  });
   if (answer.kind !== 'accepted') return answer;
   revalidatePath('/leagues');
   return moveOn(incoming, `/rooms/${answer.roomId}`);

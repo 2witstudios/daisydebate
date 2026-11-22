@@ -1,4 +1,5 @@
-import { observationPermitMs } from '@daisy/protocol';
+import { instantMs } from '@daisy/clock';
+import { observationPermitMs } from '@daisy/protocol/observation';
 import type { loadAuthorizationSession } from '@daisy/db/authorization';
 import type { PermitDecision } from './permits';
 
@@ -28,7 +29,7 @@ export function contextChannelPermit({
 }): PermitDecision {
   if (!session || !decision.allow) return { status: 'denied' };
   const bound = (expiry: string) =>
-    now + Math.max(0, Date.parse(expiry) - Date.parse(instant));
+    now + Math.max(0, instantMs(expiry) - instantMs(instant));
   const validUntil = Math.min(
     started + observationPermitMs,
     bound(session.expiresAt),

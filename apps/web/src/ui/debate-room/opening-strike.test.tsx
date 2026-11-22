@@ -1,13 +1,15 @@
+import { instantMs } from '@daisy/clock';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { twoSides, type RoundView } from '@daisy/protocol';
+import { twoSides } from '@daisy/protocol/seats';
+import { type RoundView } from '@daisy/protocol/round-view';
 import { OpeningChosen, OpeningStatus, OpeningStrike } from './opening-strike';
 
 setupRitewayBun();
 
 const SENTINEL = 'A drawn resolution';
 const dueAt = '2026-10-12T00:01:00.000Z';
-const nowMs = Date.parse('2026-10-12T00:00:00.000Z');
+const nowMs = instantMs('2026-10-12T00:00:00.000Z');
 const turn = {
   ordinal: 0,
   side: 'negative',
@@ -76,7 +78,7 @@ describe('OpeningStrike', () => {
   test('the striker gets one native form with the turn it means to take', () => {
     const html = render('neg', true);
     assert({
-      given: 'the Negative on its turn, as a page without scripts renders it',
+      given: 'the Negative on its turn, as the server renders it',
       should:
         'name its strike, count down from the due instant, and post the ordinal and seat',
       actual: [

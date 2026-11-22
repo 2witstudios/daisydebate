@@ -1,19 +1,15 @@
-import type { Browser, BrowserContext, Page } from '@playwright/test';
-import { idSchema } from '@daisy/protocol';
+import type { Browser, BrowserContext, Page, Request } from '@playwright/test';
+import { idSchema } from '@daisy/protocol/primitives';
 import { expect, openPage } from './fixtures';
 import { reportingTeardown, runEveryStep } from './journey-teardown';
 import { createRoomAccounts } from './room-accounts';
 import { origin } from './accounts';
 import { openMessagingBrowserData } from './messaging-data';
-import { hydrated } from './hydration';
-
-/** The journey contexts whose pages run scripts, so a form there hydrates. */
-const scripted = new WeakSet<BrowserContext>();
+import { holdScripts, hydrated } from './hydration';
 
 /** Actual signup/cookies, explicit isolated age policy inputs, and scoped teardown. */
 async function openJourney(
   browser: Browser,
-  javaScriptEnabled: boolean,
   kind: 'dm' | 'private_group',
   retainCompetitiveRecords = false,
 ) {
@@ -44,10 +40,8 @@ async function openJourney(
       const context = await browser.newContext({
         baseURL: origin,
         ignoreHTTPSErrors: true,
-        javaScriptEnabled,
         storageState: await member.context.storageState(),
       });
-      if (javaScriptEnabled) scripted.add(context);
       contexts.push(context);
     }
     const [sender, recipient, outsider] = contexts;
@@ -99,21 +93,12 @@ async function openJourney(
 }
 export function openMessagingJourney(
   browser: Browser,
-  javaScriptEnabled = true,
   retainCompetitiveRecords = false,
 ) {
-  return openJourney(
-    browser,
-    javaScriptEnabled,
-    'dm',
-    retainCompetitiveRecords,
-  );
+  return openJourney(browser, 'dm', retainCompetitiveRecords);
 }
-export function openMessagingGroupJourney(
-  browser: Browser,
-  javaScriptEnabled = true,
-) {
-  return openJourney(browser, javaScriptEnabled, 'private_group');
+export function openMessagingGroupJourney(browser: Browser) {
+  return openJourney(browser, 'private_group');
 }
 async function createNativeConversation(
   page: Page,
@@ -179,11 +164,19 @@ export async function acceptMessagingJourney(
   return page;
 }
 
+/**
+ * When the membership change is made: on a page left to hydrate as it will
+ * (default), with the username typed before scripts run and submitted once
+ * they have, or typed and submitted before any script runs (ADR 0114).
+ */
+type GroupFormTiming = 'any' | 'typedBeforeHydration' | 'beforeHydration';
+
 export async function manageNativeMessagingGroup(
   page: Page,
   channelId: string,
   operation: 'invite' | 'remove' | 'transfer' | 'archive' | 'leave',
   target?: string,
+  timing: GroupFormTiming = 'any',
 ) {
   const labels = {
     invite: 'Invite a person',
@@ -192,28 +185,54 @@ export async function manageNativeMessagingGroup(
     archive: 'Archive group',
     leave: 'Leave group',
   };
-  await page.goto(
-    `/messages/groups/${channelId}/manage?operation=${operation}`,
-  );
-  const submit = page.getByRole('button', {
-    name: labels[operation],
-    exact: true,
-  });
-  // A username typed before the form hydrates is lost when it does, and the
-  // empty required field then refuses the submit without a word (PR 816's
-  // run 44566778836). Where scripts run, the form is hydrated first.
-  if (scripted.has(page.context())) await hydrated(submit);
+  const release = timing === 'any' ? () => undefined : await holdScripts(page);
+  const requests: Request[] = [];
+  const record = (request: Request) => requests.push(request);
+  const path = `/messages/groups/${channelId}/manage`;
+  page.on('request', record);
+  try {
+    await page.goto(`${path}?operation=${operation}`, { waitUntil: 'commit' });
+    const submit = page.getByRole('button', {
+      name: labels[operation],
+      exact: true,
+    });
+    const field = page.getByLabel('Member username', { exact: true });
+    if (target !== undefined) await field.fill(target);
+    if (timing === 'typedBeforeHydration') {
+      release();
+      await hydrated(submit);
+      if (target !== undefined) await expect(field).toHaveValue(target);
+    }
+    await submit.click();
+    await expect(page).toHaveURL(
+      operation === 'leave'
+        ? /\/messages$/
+        : new RegExp(`/messages/${channelId}$`),
+    );
+    if (timing !== 'any') {
+      const post = requests.find(
+        (request) =>
+          request.method() === 'POST' &&
+          new URL(request.url()).pathname === path,
+      );
+      expect(post, 'membership form sends a POST').toBeDefined();
+      expect(post?.isNavigationRequest()).toBe(timing === 'beforeHydration');
+      if (target !== undefined) expect(post?.postData()).toContain(target);
+      if (timing === 'beforeHydration')
+        expect((await post?.response())?.status()).toBe(303);
+    }
+  } finally {
+    release();
+    page.off('request', record);
+  }
+  // Before hydration or after, the form posts: nothing typed reaches a URL.
   if (target !== undefined)
-    await page.getByLabel('Member username', { exact: true }).fill(target);
-  await submit.click();
-  await expect(page).toHaveURL(
-    operation === 'leave'
-      ? /\/messages$/
-      : new RegExp(`/messages/${channelId}$`),
-  );
+    expect(
+      requests.filter((request) => request.url().includes(target)),
+    ).toEqual([]);
 }
 
-/** Both JS modes exercise renewed admission and approved pre-join history. */
+/** Renewed admission preserves approved pre-join history. */
 export async function renewNativeGroupInvitation(
   journey: Awaited<ReturnType<typeof openMessagingGroupJourney>>,
   creator: Page,

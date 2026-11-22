@@ -7,16 +7,17 @@ import {
 import {
   encodeEvidencePrivacyScope,
   type EvidencePrivacyScope,
-} from '@daisy/protocol';
+} from '@daisy/protocol/evidence-privacy';
 import { createAppError } from '@daisy/errors';
 import { chmodSync, closeSync, openSync } from 'node:fs';
 import { Database } from 'bun:sqlite';
-import { idSchema, necessaryEvidencePolicy } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
+import { necessaryEvidencePolicy } from '@daisy/protocol/necessary-evidence';
 import type {
   EvidenceIdentity,
   EvidenceCustodyReceipt,
   EvidenceRefusal,
-} from '@daisy/protocol';
+} from '@daisy/protocol/necessary-evidence';
 
 export type EvidenceAuthorityRecord = {
   readonly kind: 'current';
@@ -152,9 +153,11 @@ export function openLocalEvidenceAuthority(input: {
     )
       throw createAppError('INFRASTRUCTURE');
     db.query('UPDATE authority SET last_now=max(last_now,?)').run(sampled);
-    const time = db
+    const clock = db
       .query<{ last_now: number }, []>('SELECT last_now FROM authority')
-      .get()!.last_now;
+      .get();
+    if (clock === null) throw createAppError('INFRASTRUCTURE');
+    const time = clock.last_now;
     if (
       !Number.isSafeInteger(time) ||
       time > Number.MAX_SAFE_INTEGER - necessaryEvidencePolicy.maxAgeMs
@@ -171,14 +174,15 @@ export function openLocalEvidenceAuthority(input: {
     if (current.revoked) return refused('revoked');
     if (current.expires <= time) return refused('expired');
     if (current.binding !== identity.bindingDigest) return refused('conflict');
-    if (!current.scope_digest) return refused('uncertain');
+    if (!current.scope_digest || current.payload === null)
+      return refused('uncertain');
     const scope = privacy.scope(current.scope_digest);
     if ('kind' in scope) return scope;
     const privacyStatus = privacy.status(scope);
     if (privacyStatus) return privacyStatus;
     return {
       kind: 'current',
-      payloadDigest: current.payload!,
+      payloadDigest: current.payload,
       privacyScopeDigest: current.scope_digest,
       keyDigest: current.key_digest,
       receipt: {
@@ -288,7 +292,8 @@ export function openLocalEvidenceAuthority(input: {
       db.query(
         'INSERT OR IGNORE INTO evidence(id,binding,received,expires,revoked) VALUES(?,?,?,?,1)',
       ).run(identity.evidenceId, identity.bindingDigest, time, time);
-      const existing = row(identity.evidenceId)!;
+      const existing = row(identity.evidenceId);
+      if (existing === null) throw createAppError('INFRASTRUCTURE');
       if (existing.binding !== identity.bindingDigest)
         return refused('conflict');
       db.query('UPDATE evidence SET revoked=1 WHERE id=?').run(

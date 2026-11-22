@@ -1,8 +1,9 @@
+import { tryInstantMs } from '@daisy/clock';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { IdGenerator } from '@daisy/clock';
 import type { MessagingGroupCreationStore } from '@daisy/db/messaging';
 import { createAppError } from '@daisy/errors';
-import { createMessagingSocialSchemas } from '@daisy/protocol';
+import { createMessagingSocialSchemas } from '@daisy/protocol/messaging/social';
 
 import {
   parseSocialCommand,
@@ -51,7 +52,7 @@ export async function createMessagingGroup(
       await dependencies.limit(actor.actorId);
       await frame.authorize();
       const now = dependencies.clock.now();
-      if (!Number.isFinite(Date.parse(now))) throw createAppError('VALIDATION');
+      if (tryInstantMs(now) === undefined) throw createAppError('VALIDATION');
       const channelId = dependencies.ids.next();
       const result = await frame.commit({
         channelId,

@@ -1,6 +1,6 @@
 'use server';
 
-import type { RoomListQuery } from '@daisy/protocol';
+import type { RoomListQuery } from '@daisy/protocol/room-contract';
 import { headers } from 'next/headers';
 import {
   readHostedRooms,

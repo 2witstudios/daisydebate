@@ -1,4 +1,4 @@
-import type { RoundMediaState } from '@daisy/protocol';
+import type { RoundMediaState } from '@daisy/protocol/round-media';
 import { snapshot } from '../media-fixtures.test-support';
 import {
   initialMediaState,

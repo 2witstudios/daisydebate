@@ -170,7 +170,7 @@ describe('SignInForm', () => {
     });
   });
 
-  test('renders a form the browser can post without JavaScript', () => {
+  test('renders a form the browser can post before hydration', () => {
     const page = html();
     assert({
       given: 'the server render',

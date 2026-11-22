@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   activeReleaseOf,
@@ -29,7 +30,7 @@ import {
 setupRitewayBun();
 
 const minor = 'm'.repeat(24);
-const t0 = Date.parse('2026-11-15T12:00:00.000Z');
+const t0 = instantMs('2026-11-15T12:00:00.000Z');
 const iso = (ms: number) => new Date(ms).toISOString();
 const DAY = 24 * 60 * 60 * 1000;
 

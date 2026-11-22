@@ -1,4 +1,4 @@
-import { pointsTotal, type Ballot } from '@daisy/protocol';
+import { pointsTotal, type Ballot } from '@daisy/protocol/ballot-schema';
 import {
   storedBallotPlan,
   type BallotPlan,

@@ -1,12 +1,9 @@
+import { instantMs } from '@daisy/clock';
 import { credentialHash } from '../src/features/stage-capture/stage-access';
 import { requireTestServices } from '@daisy/config';
 import { plannedRecording } from '@daisy/debate-engine';
-import {
-  isJudgeSeat,
-  isModeratorSeat,
-  judgeSeat,
-  type RecordingPolicy,
-} from '@daisy/protocol';
+import { isJudgeSeat, isModeratorSeat, judgeSeat } from '@daisy/protocol/seats';
+import { type RecordingPolicy } from '@daisy/protocol/room-capture';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
@@ -133,7 +130,7 @@ async function sightOf(f: Fixture, database: Database, roundId: string) {
     userId: createId(),
     actorId,
   });
-  const nowMs = Date.parse(completedAt) + 60_000;
+  const nowMs = instantMs(completedAt) + 60_000;
   const media = (actorId: string, at = nowMs) =>
     roundEvidencePermissions(round, release, viewer(actorId), null, at).media;
   const deletion = recordingDeletionDueMs(round);
@@ -147,7 +144,7 @@ async function sightOf(f: Fixture, database: Database, roundId: string) {
       stranger: media(createId()),
       judgeAfterDeletion: media(
         f.outsider.actorId,
-        Date.parse(completedAt) + OFFICIALS_RECORDING_RETENTION_MS,
+        instantMs(completedAt) + OFFICIALS_RECORDING_RETENTION_MS,
       ),
     },
   };

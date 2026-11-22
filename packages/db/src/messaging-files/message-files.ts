@@ -1,15 +1,16 @@
+import { tryInstantMs } from '@daisy/clock';
 import { and, eq, inArray, isNull } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { messagingFiles } from '../schema/messaging-files';
 import { messagingMessages } from '../schema/messaging-messages';
 import { requireFilePolicy } from './policy';
 import type { FileFrame } from './records';
+import type { Tx } from '../tx';
 
 /** Caller supplies canonical visible history IDs inside the existing read transaction. */
 export function createFileListing(
-  tx: Pick<BunSQLDatabase, 'select'>,
+  tx: Tx,
   channelId: string,
   authorize: () => Promise<void>,
   access: FileFrame['access'],
@@ -17,7 +18,7 @@ export function createFileListing(
   return async (messageIds, now, supplied) => {
     await authorize();
     const policy = requireFilePolicy(supplied);
-    if (!Array.isArray(messageIds) || !Number.isFinite(Date.parse(now)))
+    if (!Array.isArray(messageIds) || tryInstantMs(now) === undefined)
       throw createAppError('VALIDATION');
     const ids = [...new Set(messageIds)];
     if (ids.some((id) => !idSchema.safeParse(id).success))

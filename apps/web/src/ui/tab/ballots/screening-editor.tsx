@@ -1,6 +1,6 @@
 'use client';
 import { useId } from 'react';
-import type { BallotWrittenRecord } from '@daisy/protocol';
+import type { BallotWrittenRecord } from '@daisy/protocol/ballot-schema';
 import {
   CompletionCommandForm,
   type CompletionAction,

@@ -1,12 +1,12 @@
 import { and, eq, inArray, notInArray, sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
-import { roomRoundLinkOf, type ActiveRoomFacts } from '@daisy/protocol';
+import { roomRoundLinkOf } from '@daisy/protocol/room-contract';
+import { type ActiveRoomFacts } from '@daisy/protocol/active-room';
 import { createRefusal } from '@daisy/errors';
 import { activeSeats, roomParticipants, rooms } from './schema/rooms';
 import { hostPersonOf } from './room-host';
 import { rounds } from './schema/rounds';
-
-type Tx = Pick<BunSQLDatabase, 'select' | 'insert' | 'delete'>;
+import type { Tx } from './tx';
+import { run } from './raw-rows';
 
 /**
  * Makes a Room's active seats exactly the engine's member set (ADR 0070,
@@ -46,29 +46,28 @@ export async function holdActiveRoomMembers(
 }
 
 /** A Round that ends frees every member of its Room: no terminal state holds anyone. */
-export const releaseRoundRoomMembers = (
-  tx: Pick<BunSQLDatabase, 'execute'>,
-  roundId: string,
-) =>
-  tx.execute(
+export const releaseRoundRoomMembers = (tx: Tx, roundId: string) =>
+  run(
+    tx,
     sql`delete from ${activeSeats} where ${activeSeats.roomId} = (select ${rounds.roomId} from ${rounds} where ${rounds.id} = ${roundId})`,
   );
 
 /** A seat that left a Round frees its member alone: the Room holds the rest (TAB-6.8). */
 export const releaseLeftMembers = (
-  tx: Pick<BunSQLDatabase, 'execute'>,
+  tx: Tx,
   roundId: string,
   actorIds: readonly string[],
 ) =>
   actorIds.length === 0
     ? Promise.resolve()
-    : tx.execute(
+    : run(
+        tx,
         sql`delete from ${activeSeats} where ${activeSeats.roomId} = (select ${rounds.roomId} from ${rounds} where ${rounds.id} = ${roundId}) and ${inArray(activeSeats.actorId, [...actorIds])}`,
       );
 
 /** The persisted facts of the one Room an actor's active seat names, or null. */
 export async function activeRoomFacts(
-  tx: Pick<BunSQLDatabase, 'select'>,
+  tx: Tx,
   actorId: string,
 ): Promise<ActiveRoomFacts | null> {
   const [row] = await tx

@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createCaptureRule, decideStreamCapture } from './capture-verdict';
 
@@ -21,7 +22,7 @@ const sealState = ({
       epoch: row.epoch,
     })),
   }).state;
-const t0 = Date.parse('2026-10-22T12:00:00.000Z');
+const t0 = instantMs('2026-10-22T12:00:00.000Z');
 const grant = [{ start: t0, end: t0 + 10_000 }];
 
 test('a partial stream always says why, even with no gaps', () => {

@@ -4,11 +4,11 @@ import { createLaunchControl } from './room-launch-control';
 import type { App } from '../../src/server/app';
 import { createMessagingPressure } from './messaging-pressure';
 import { createMessagingPressureControl } from './messaging-pressure-control';
-import { systemClock } from '@daisy/clock';
+import { nowMs, systemClock } from '@daisy/clock';
 import { capacityRefusalFields } from '@daisy/db/capacity';
 import { isAppError } from '@daisy/errors';
 import { z } from 'zod';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import type { IncomingMessage } from 'node:http';
 import { STEP_LIMIT_MS } from './bounded-step';
 
@@ -44,7 +44,7 @@ export async function createMessagingRecoveryControl(app: App, port: number) {
       process.stdout.write(
         JSON.stringify({
           event: 'e2e.messaging.pressure',
-          time: Date.parse(systemClock.now()),
+          time: nowMs(systemClock),
           ...sample,
           causes: errors.map((error) => {
             const cause = capacityRefusalFields(error)?.cause;

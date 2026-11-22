@@ -1,11 +1,8 @@
 import type { Browser, Page } from '@playwright/test';
 import { createId } from '@paralleldrive/cuid2';
-import {
-  roomCatalogChoiceSchema,
-  type RoomCatalogChoice,
-} from '@daisy/protocol';
+import { roomCatalogChoiceSchema } from '@daisy/protocol/room-read';
+import { type RoomCatalogChoice } from '@daisy/protocol/room-contract';
 import { expect, openPage } from './fixtures';
-import { origin } from './accounts';
 import { hydrated } from './hydration';
 import { createRoomLaunchAccounts } from './room-launch-accounts';
 import { closeSettledLaunchContexts } from './room-launch-settled';
@@ -43,11 +40,6 @@ async function expectTemplatePreview(page: Page, chosen: RoomCatalogChoice) {
 export async function proveFormatPicker(browser: Browser) {
   const accounts = await createRoomLaunchAccounts(browser, 1);
   const host = accounts.members[0]!.context;
-  const noScript = await browser.newContext({
-    baseURL: origin,
-    javaScriptEnabled: false,
-    storageState: await host.storageState(),
-  });
   try {
     const page = await openPage(host, 'Custom library host');
     await page.goto('/play/room');
@@ -86,42 +78,19 @@ export async function proveFormatPicker(browser: Browser) {
     await expect(form.locator('[name="basis"]')).toHaveValue(key);
     await expectTemplatePreview(page, chosen);
 
-    // Repeat the selection and submit through the real native form with scripts off.
-    const nativePage = await openPage(
-      noScript,
-      'Custom template, no JavaScript',
-    );
-    await nativePage.goto('/play/room');
-    const native = nativePage.getByRole('form', { name: 'Create a room' });
-    await native.locator('[name="format"][value="custom"]').check();
-    await native
-      .getByRole('button', { name: 'Apply format', exact: true })
-      .click();
-    await native
-      .getByText('Start from a league template', { exact: true })
-      .click();
-    await native
-      .getByRole('combobox', { name: 'League template', exact: true })
-      .selectOption(key);
-    await native
-      .getByRole('button', { name: 'Apply template', exact: true })
-      .click();
-    await expect(native.locator('[name="basis"]')).toHaveValue(key);
+    // The chosen template is what the Room is created with.
+    await expect(form.locator('[name="format"][value="custom"]')).toBeChecked();
     await expect(
-      native.locator('[name="format"][value="custom"]'),
-    ).toBeChecked();
-    await expect(
-      native.getByRole('checkbox', { name: 'Ranked', exact: true }),
+      form.getByRole('checkbox', { name: 'Ranked', exact: true }),
     ).toBeDisabled();
-    await expectTemplatePreview(nativePage, chosen);
-    await native
+    await form
       .getByLabel('Room name', { exact: true })
       .fill(`Library ${createId().slice(0, 8)}`);
     if (!chosen.preset.config.resolutionDraw.enabled)
-      await native
+      await form
         .getByLabel('Custom resolution', { exact: true })
         .fill('Proof cities should fund transit');
-    const stored = await createConfiguredRoom(nativePage);
+    const stored = await createConfiguredRoom(page);
     expect(stored.competitionType).toBe('casual');
     expect(stored.format.standing.kind).toBe('custom');
     expect(stored.format.basis).toMatchObject({
@@ -133,7 +102,6 @@ export async function proveFormatPicker(browser: Browser) {
     expect(stored.definition.seats).toEqual(chosen.definition.seats);
     expect(stored.definition.segments).toEqual(chosen.definition.segments);
   } finally {
-    await noScript.close();
     await closeSettledLaunchContexts(accounts);
   }
 }

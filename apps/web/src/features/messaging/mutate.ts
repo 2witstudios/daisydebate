@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { commandDigest } from '@daisy/digest';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { Clock } from '@daisy/clock';
 import type {
@@ -13,7 +13,7 @@ import { createAppError } from '@daisy/errors';
 import {
   createMessagingCoreSchemas,
   type MessagingCoreBounds,
-} from '@daisy/protocol';
+} from '@daisy/protocol/messaging/core';
 import { parseValidated } from '../../server/http';
 
 import { planMessageMutation } from './mutation-plan';
@@ -35,16 +35,12 @@ type MutationStore = {
 };
 
 const digest = (command: MessagingMutationCommand) =>
-  createHash('sha3-256')
-    .update(
-      JSON.stringify([
-        command.version,
-        command.kind,
-        command.messageId,
-        command.kind === 'edit' ? command.text : null,
-      ]),
-    )
-    .digest('hex');
+  commandDigest([
+    command.version,
+    command.kind,
+    command.messageId,
+    command.kind === 'edit' ? command.text : null,
+  ]);
 
 function replay(
   command: MessagingMutationCommand,

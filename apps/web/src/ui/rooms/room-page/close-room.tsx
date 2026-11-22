@@ -1,8 +1,8 @@
 'use client';
 
+import { Button } from '../../components/button/button';
 import type { RoomFormState } from '../../../features/rooms/command-answer';
 import type { FormAction } from '../../form-action/form-action';
-import { buttonClass } from '../../components/button/button-class';
 import { AssemblyCommandFields } from './assembly-command-fields';
 import { AssemblyCommandForm } from './assembly-command-form';
 import { RoomDialog, RoomDialogClose } from './room-dialog';
@@ -34,9 +34,9 @@ export function CloseRoom({
             version={version}
             commandId={commandId}
           />
-          <button type="submit" className={buttonClass('primary')}>
+          <Button variant="primary" type="submit">
             Close room for everyone
-          </button>
+          </Button>
         </AssemblyCommandForm>
       </div>
     </RoomDialog>

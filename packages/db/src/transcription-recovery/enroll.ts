@@ -1,12 +1,12 @@
 import { eq, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
-import type { BoundedTransactionContext } from '../transaction-context';
 import { lockOriginalEvidenceBody } from '../necessary-evidence-body';
 import { necessaryEvidence } from '../schema/necessary-evidence';
 import { sampleRoundExecutionTime } from '../round-execution-time';
 import { register } from './register';
+import type { Tx } from '../tx';
 /** Application must authenticate the restored original body/current custody first. Never uses replacement capture rights. */
-export async function enroll(tx: BoundedTransactionContext, raw: unknown) {
+export async function enroll(tx: Tx, raw: unknown) {
   const original = await lockOriginalEvidenceBody(tx, raw);
   // Existing subject/intent projection is deliberately payload-free; inspect presence without selecting ciphertext.
   const [row] = await tx

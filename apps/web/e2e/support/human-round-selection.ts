@@ -4,12 +4,9 @@ import {
   oneOnOneSettings,
 } from '@daisy/db/reference-formats';
 import { foundationProofConfig } from '../../integration/foundation-selection.test-support';
-import {
-  affirmativeSide,
-  sideSeat,
-  type FormatDefinition,
-  type RoomConfig,
-} from '@daisy/protocol';
+import { affirmativeSide, sideSeat } from '@daisy/protocol/seats';
+import { type FormatDefinition } from '@daisy/protocol/format';
+import { type RoomConfig } from '@daisy/protocol/room';
 
 export type ProofChoice = {
   readonly definition: FormatDefinition;

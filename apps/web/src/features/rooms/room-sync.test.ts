@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import type { RoomView } from '@daisy/protocol';
+import type { RoomView } from '@daisy/protocol/room-contract';
 import { canOfferFreshRoom } from '../room-runtime/fresh-room';
 import { roundEntry } from './round-entry';
 import { assemblySnapshot } from './assembly.test-support';

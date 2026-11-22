@@ -1,10 +1,9 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import {
-  emptyRuntimeCheckpointFor,
-  twoSides,
-  type LaunchedRound,
-  type SeatRef,
-} from '@daisy/protocol';
+import { emptyRuntimeCheckpointFor } from '@daisy/protocol/round';
+import { twoSides, type SeatRef } from '@daisy/protocol/seats';
+import { type LaunchedRound } from '@daisy/protocol/round-view';
+import { foundationSettings } from './reference-formats';
+import { validRules } from './testing-rules';
 import { readableCheckpoint, roundViewFor } from './round-view-projection';
 
 setupRitewayBun();
@@ -34,7 +33,7 @@ const aff = { ...seat('a', 'affirmative'), actorId: id('b') };
 const neg = { ...seat('c', 'negative'), actorId: id('d') };
 const judge = { ...seat('e', 'judge'), actorId: id('f'), label: 'Riley Judge' };
 const host = id('h');
-const round = {
+const round: LaunchedRound = {
   id: id('r'),
   roomId: id('m'),
   version: 1,
@@ -45,12 +44,20 @@ const round = {
   hostActorId: host,
   hostInherited: false,
   participants: [aff, neg, judge],
-  startedAt: null,
+  ladder: null,
+  config: foundationSettings,
+  rules: validRules,
+  postRoundCall: false,
+  panelRuling: null,
+  platformEnding: null,
+  transcriptCompleteness: null,
+  resolutionAudit: null,
+  startedAt: '2026-10-12T00:00:00.000Z',
   completedAt: null,
   outcome: null,
   checkpoint: emptyRuntimeCheckpoint,
   segments: [],
-} as unknown as LaunchedRound;
+};
 
 /** Every judge identity a serialized view could leak. */
 const leaks = (value: unknown) =>
@@ -192,7 +199,9 @@ describe('readableCheckpoint', () => {
 });
 
 describe('ended draw envelope (PR #472 review, orchestrator B)', () => {
-  const audit = (kind: 'host' | 'bank') => ({
+  const audit = (
+    kind: 'host' | 'bank',
+  ): NonNullable<LaunchedRound['resolutionAudit']> => ({
     manifest: {
       version: 1,
       algorithm: 'daisy-draw-v1',
@@ -227,12 +236,12 @@ describe('ended draw envelope (PR #472 review, orchestrator B)', () => {
     inputsErased: false,
     textsWithheld: false,
   });
-  const ended = (kind: 'host' | 'bank') =>
-    ({
-      ...round,
-      status: 'completed',
-      resolutionAudit: audit(kind),
-    }) as unknown as LaunchedRound;
+  const ended = (kind: 'host' | 'bank'): LaunchedRound => ({
+    ...round,
+    status: 'completed',
+    completedAt: '2026-10-12T01:00:00.000Z',
+    resolutionAudit: audit(kind),
+  });
   const seen = (kind: 'host' | 'bank', viewer: string | null) => {
     const view = roundViewFor(ended(kind), viewer).resolutionAudit;
     return [view?.items.map((item) => item.text), view?.textsWithheld];

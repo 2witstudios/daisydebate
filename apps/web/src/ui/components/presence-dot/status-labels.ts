@@ -1,4 +1,4 @@
-import type { MemberStatus } from '@daisy/protocol';
+import type { MemberStatus } from '@daisy/protocol/presence-setting';
 
 /** The one set of words for a member's status. */
 export const statusLabels: Readonly<Record<MemberStatus, string>> = {

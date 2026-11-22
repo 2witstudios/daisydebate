@@ -3,7 +3,7 @@ import { assertRejects } from '@daisy/errors/testing';
 import { createAppError } from '@daisy/errors';
 import { fixedClock } from '@daisy/clock';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
-import { reportCommandSchema, reportReasons } from '@daisy/protocol';
+import { reportCommandSchema, reportReasons } from '@daisy/protocol/reports';
 import { fileReport } from './operations';
 
 setupRitewayBun();

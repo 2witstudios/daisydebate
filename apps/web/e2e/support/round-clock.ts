@@ -1,9 +1,7 @@
+import { instantMs } from '@daisy/clock';
 import type { BrowserContext, Page } from '@playwright/test';
-import {
-  roundViewSchema,
-  segmentDueAtMs,
-  type RoundView,
-} from '@daisy/protocol';
+import { roundViewSchema, type RoundView } from '@daisy/protocol/round-view';
+import { segmentDueAtMs } from '@daisy/protocol/segment-end';
 
 /** The m:ss reading of a live round clock ("aria-label": label m:ss). */
 const parseClock = (aria: string | null): number => {
@@ -24,7 +22,7 @@ const openSegmentRemaining = (view: RoundView, atMs: number) => {
   if (!row || row.endedAt !== null) return null;
   return (
     segmentDueAtMs({
-      startedAtMs: Date.parse(row.startedAt),
+      startedAtMs: instantMs(row.startedAt),
       durationMs: row.durationMs,
       returnedMs: row.returnedMs,
     }) - atMs

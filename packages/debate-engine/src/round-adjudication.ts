@@ -1,13 +1,12 @@
+import { instantMs } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
+import { leadSeatOf } from '@daisy/protocol/format-seating';
+import { otherSide, sameSeat, sideOfSeat } from '@daisy/protocol/seats';
+import { winnerOutcome } from '@daisy/protocol/round-outcome';
 import {
-  leadSeatOf,
-  otherSide,
-  sameSeat,
-  sideOfSeat,
-  winnerOutcome,
   type HydratedSegment,
   type RoundParticipantSeat,
-} from '@daisy/protocol';
+} from '@daisy/protocol/runtime';
 import { forfeitsToOpponent } from './round-outcome';
 import {
   attendancePolicy,
@@ -96,7 +95,7 @@ function requireSettledTime(
   if (
     !Number.isFinite(deadline) ||
     !Number.isFinite(c.now) ||
-    deadline < Date.parse(row.startedAt) + attendancePolicy.graceMs ||
+    deadline < instantMs(row.startedAt) + attendancePolicy.graceMs ||
     c.now < deadline + attendancePolicy.finalizationBufferMs
   )
     throw createAppError('INVARIANT');

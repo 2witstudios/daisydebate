@@ -1,6 +1,6 @@
+import { sha3Hex } from '@daisy/digest';
 import { expect, test } from 'bun:test';
 import { createId } from '@paralleldrive/cuid2';
-import { createHash } from 'node:crypto';
 import { requireTestServices } from '@daisy/config';
 import { createRedis, redisKey } from '../src';
 import { testNamespace } from '../src/testing';
@@ -8,8 +8,7 @@ import { rawClient } from './test-support';
 
 const { redisUrl: url } = requireTestServices(process.env);
 
-const sha3 = (value: string) =>
-  createHash('sha3-256').update(value).digest('hex');
+const sha3 = (value: string) => sha3Hex(value);
 
 /** A fresh namespace, binding and ticket hash for one test's own ticket. */
 function ticketFixture() {

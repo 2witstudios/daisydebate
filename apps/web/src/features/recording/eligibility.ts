@@ -1,7 +1,6 @@
-import {
-  type CompetitionType,
-  type RecordingEligibility,
-} from '@daisy/protocol';
+import { instantMs } from '@daisy/clock';
+import { type CompetitionType } from '@daisy/protocol/round';
+import { type RecordingEligibility } from '@daisy/protocol/recording';
 
 /**
  * Whether a Round is captured. Ranked always is, as the deal for competing. Any
@@ -31,7 +30,7 @@ export const captureEligibility = (input: {
     admitted &&
     admitted.roundId === input.roundId &&
     input.now &&
-    Date.parse(input.now) < Date.parse(admitted.deadlineAt)
+    instantMs(input.now) < instantMs(admitted.deadlineAt)
   )
     return {
       kind: 'tournament_admission',

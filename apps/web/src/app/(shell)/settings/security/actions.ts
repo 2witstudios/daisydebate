@@ -13,7 +13,7 @@ const authRoute = processRoute((routes) => routes.auth.POST);
 
 /**
  * The email-change form's POST, as a server action: a change can start
- * before hydration and without JavaScript. It runs the mounted
+ * before hydration. It runs the mounted
  * POST /api/auth/change-email handler in process with this request's
  * headers, so the same-origin, session, fresh-session and rate-limit gates
  * all apply. The form is read defensively; the answer is action state,

@@ -34,11 +34,11 @@ type Placed = { readonly ref: FixtureRef; readonly fixture: Fixture };
 export const placedOf = (plan: Plan): Placed[] => [
   ...plan.keep.map((k) => ({
     ref: { kind: 'existing', id: k.id } as const,
-    fixture: k.fixture as Fixture,
+    fixture: k.fixture,
   })),
   ...plan.add.map((a) => ({
     ref: { kind: 'new', ordinal: a.ordinal } as const,
-    fixture: a.fixture as Fixture,
+    fixture: a.fixture,
   })),
 ];
 
@@ -71,17 +71,17 @@ const structuralFacts = (
     if (times > 1) out.push({ fact: 'entry_placed_twice', event, entry });
   const status = new Map(prepared.request.entries.map((e) => [e.id, e.status]));
   for (const a of plan.add)
-    for (const e of entriesOf(a.fixture as Fixture))
+    for (const e of entriesOf(a.fixture))
       if (status.get(e) !== 'active')
         out.push({ fact: 'withdrawn_entry_placed', event, entry: e });
   if (prepared.request.stage.kind === 'preliminary')
     for (const entry of prepared.request.entries)
       if (entry.status === 'active' && !seen.has(entry.id))
         out.push({ fact: 'entry_not_placed', event, entry: entry.id });
-  const kept = new Map(plan.keep.map((k) => [k.id, k.fixture as Fixture]));
+  const kept = new Map(plan.keep.map((k) => [k.id, k.fixture]));
   const withdrawn = new Set(plan.withdraw);
   for (const existing of prepared.request.existing) {
-    const fixture = existing.fixture as Fixture;
+    const fixture = existing.fixture;
     const keptAs = kept.get(existing.id);
     if (
       (keptAs === undefined) === !withdrawn.has(existing.id) ||
@@ -173,7 +173,10 @@ const bestExchange = (
   const keys = pairingKeys.filter(
     (key) => forceOf(facts.settings, key) !== 'off',
   );
-  let best: { gain: number[]; exchange: Exchange } | null = null;
+  // The callbacks below improve it; a holder keeps its type visible to them.
+  const search: { best: { gain: number[]; exchange: Exchange } | null } = {
+    best: null,
+  };
   placed.forEach((other, o) => {
     if (o === index || other.fixture.kind !== own.fixture.kind) return;
     const before = [
@@ -188,7 +191,11 @@ const bestExchange = (
         const delta = after[0]!.map(
           (v, k) => v + after[1]![k]! - before[0]![k]! - before[1]![k]!,
         );
-        if (best !== null && compareVectors(delta, best.gain) >= 0) return;
+        if (
+          search.best !== null &&
+          compareVectors(delta, search.best.gain) >= 0
+        )
+          return;
         const difference = keys.flatMap((key) => {
           const cost = (f: Fixture) => pairingTerms[key](facts, f) ?? [];
           const diff = [cost(a), cost(b)][0]!.map(
@@ -198,18 +205,16 @@ const bestExchange = (
               (cost(own.fixture)[k] ?? 0) -
               (cost(other.fixture)[k] ?? 0),
           );
-          return diff.some((d) => d !== 0)
-            ? [{ key: key as CostKey, cost: diff }]
-            : [];
+          return diff.some((d) => d !== 0) ? [{ key: key, cost: diff }] : [];
         });
-        best = {
+        search.best = {
           gain: delta,
           exchange: { with: other.ref, entries: [x, y], difference },
         };
       }),
     );
   });
-  return best === null ? null : (best as { exchange: Exchange }).exchange;
+  return search.best === null ? null : search.best.exchange;
 };
 
 /**

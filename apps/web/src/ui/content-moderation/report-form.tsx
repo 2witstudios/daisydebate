@@ -1,12 +1,13 @@
+import { Button } from '../components/button/button';
 import {
   reasonsForTarget,
   type ContentReportTargetKind,
-} from '@daisy/protocol';
+} from '@daisy/protocol/content-moderation';
 import { reportReasonLabels } from '../../features/content-moderation/report-labels';
 
 /**
  * Report a thing, with a closed reason. A native post under a closed details
- * element, so it needs no script and stays out of the way until wanted.
+ * element, so it needs no hydration and stays out of the way until wanted.
  */
 export function ReportForm({
   targetKind,
@@ -35,9 +36,9 @@ export function ReportForm({
             ))}
           </select>
         </label>
-        <button type="submit" className="font-strong">
+        <Button variant="unstyled" type="submit" className="font-strong">
           Send report
-        </button>
+        </Button>
       </form>
     </details>
   );

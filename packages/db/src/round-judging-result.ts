@@ -4,7 +4,6 @@ import {
   executeLockedRoundBallot,
   type LockedRoundBallotInput,
 } from './round-ballot-operations';
-import type { BoundedTransactionContext } from './transaction-context';
 import {
   assertLockedJudgingLease,
   judgingJobWhere,
@@ -13,10 +12,11 @@ import {
 import { endLockedRoundAgentRun } from './round-agent-runs';
 import { roundJudgingJobs } from './schema/round-judging-jobs';
 import { settleCasualJudgeUsageLocked } from './casual-judge-usage';
+import type { Tx } from './tx';
 
 /** Feature supplies the actual shared ballot preparation. D1 owns lock acquisition order. */
 export async function submitLockedJudgingResult(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   scope: JudgingScope,
   token: string,
   prepared: LockedRoundBallotInput,

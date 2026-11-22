@@ -1,5 +1,5 @@
 import { createAppError, createRefusal } from '@daisy/errors';
-import { isDebatingSeat, type SeatRef } from '@daisy/protocol';
+import { isDebatingSeat, type SeatRef } from '@daisy/protocol/seats';
 import type { AttendancePrincipal } from './attendance-facts';
 
 type Seat = {

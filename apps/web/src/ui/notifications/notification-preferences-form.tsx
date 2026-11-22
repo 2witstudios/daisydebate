@@ -1,11 +1,12 @@
 'use client';
+import { StatusRegion } from '../components/status-region/status-region';
 import {
   notificationChannelsOf,
   notificationKinds,
   type NotificationChannel,
   type NotificationChoices,
   type NotificationKind,
-} from '@daisy/protocol';
+} from '@daisy/protocol/notifications';
 import {
   choiceField,
   chosen,
@@ -99,9 +100,9 @@ export function NotificationPreferencesForm({
           Save
         </Button>
         {notice ? (
-          <p role="status" className="text-sm text-ink-muted">
+          <StatusRegion as="p" role="status" className="text-sm text-ink-muted">
             {notice}
-          </p>
+          </StatusRegion>
         ) : null}
       </div>
     </form>

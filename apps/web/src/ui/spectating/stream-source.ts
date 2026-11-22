@@ -1,4 +1,4 @@
-import type { BroadcastStream } from '@daisy/protocol';
+import type { BroadcastStream } from '@daisy/protocol/spectator-timeline';
 
 export type StreamEngine = 'hlsjs' | 'native';
 

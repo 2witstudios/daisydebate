@@ -1,5 +1,5 @@
 'use client';
-import type { AudienceSnapshot } from '@daisy/protocol';
+import type { AudienceSnapshot } from '@daisy/protocol/audience';
 import { SpectatorChatList } from './spectator-chat-list';
 import { useAudienceSnapshot } from './use-audience-snapshot';
 

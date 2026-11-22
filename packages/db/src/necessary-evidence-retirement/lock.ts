@@ -1,9 +1,9 @@
 import { eq } from 'drizzle-orm';
-import type { BoundedTransactionContext } from '../transaction-context';
 import { rounds } from '../schema/rounds';
 import { necessaryEvidence } from '../schema/necessary-evidence';
+import type { Tx } from '../tx';
 /** Destructive cleanup never requires now-erased subjects. No account lock follows Round. Payload is never selected. */
-export async function lock(tx: BoundedTransactionContext, evidenceId: string) {
+export async function lock(tx: Tx, evidenceId: string) {
   const [scope] = await tx
     .select({ roundId: necessaryEvidence.roundId })
     .from(necessaryEvidence)

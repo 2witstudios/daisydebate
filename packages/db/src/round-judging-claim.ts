@@ -1,7 +1,7 @@
 import { and, asc, eq, isNull, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
-import { isJudgeSeat, judgingPolicy } from '@daisy/protocol';
-import type { BoundedTransactionContext } from './transaction-context';
+import { isJudgeSeat } from '@daisy/protocol/seats';
+import { judgingPolicy } from '@daisy/protocol/judging-policy';
 import { agentRuns } from './schema/agent-runs';
 import {
   roundJudgingAttempts,
@@ -18,9 +18,11 @@ import { readDatabaseTime } from './database-clock';
 import { judgingJobWhere, type JudgingScope } from './round-judging-context';
 import { nextEpoch } from './lease-policy';
 import { firstPassLost, requireClaimableJob } from './round-judging-decisions';
+import type { Tx } from './tx';
+import { takeLock, transactionLocks } from './locks';
 
 export async function claimLockedJudgingJob(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   target: Pick<JudgingScope, 'roundId' | 'judgeParticipantId'>,
   input: {
     nextId: () => string;
@@ -35,9 +37,7 @@ export async function claimLockedJudgingJob(
     .where(judgingJobWhere(target));
   if (!initial) throw createAppError('NOT_FOUND');
   const commandId = initial.commandId ?? input.nextId();
-  await tx.execute(
-    sql`select pg_advisory_xact_lock(hashtextextended(${commandId},59002))`,
-  );
+  await takeLock(tx, transactionLocks.roundCommand(commandId));
   const { round, seat } = await lockRoundAgentContext(
     tx,
     target.roundId,

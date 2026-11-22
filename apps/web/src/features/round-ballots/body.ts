@@ -1,5 +1,5 @@
 import { createAppError } from '@daisy/errors';
-import { roundBallotEnvelopeSchema } from '@daisy/protocol';
+import { roundBallotEnvelopeSchema } from '@daisy/protocol/round-ballot';
 import { parseValidated, readBytes, readJson } from '../../server/http';
 import type { BallotPlan } from '../judge/ballot-plan';
 import { ballotFields } from './fields';

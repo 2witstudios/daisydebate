@@ -1,21 +1,22 @@
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import {
   lockAuthorizationActors,
   readAuthorizationActors,
-  type AuthorizationTransaction,
 } from '../authorization';
 import { readMessagingChannelFact, type MessagingChannelFact } from './social';
 import { channelObservationReads } from './observation-reads';
+import { inTransaction, type Tx, type TxOpener, type TxSource } from '../tx';
+import { postgresInt8, query } from '../raw-rows';
+import { z } from 'zod';
 type Scope = {
   readonly channelId: string;
   readonly actorId: string;
   readonly userId: string;
 };
 type AuthorityFrame = {
-  readonly tx: AuthorizationTransaction;
+  readonly tx: Tx;
   readonly fact: MessagingChannelFact;
   readonly accounts: Awaited<ReturnType<typeof lockAuthorizationActors>>;
 };
@@ -68,15 +69,19 @@ const fences = {
 } as const;
 
 async function lockChannel(
-  tx: AuthorizationTransaction,
+  tx: Tx,
   channelId: string,
   authority: MessagingChannelFact['authority'],
   mode: FenceMode,
 ) {
   const pair = authority.kind === 'dm' ? authority : null;
-  const rows = await tx.execute(sql`select ${fences[mode].channel}(
+  const rows = await query(
+    tx,
+    z.object({ locked: z.boolean() }),
+    sql`select ${fences[mode].channel}(
     ${channelId}::text, ${pair?.lowActorId ?? null}::text, ${pair?.highActorId ?? null}::text
-  ) as locked`);
+  ) as locked`,
+  );
   return rows[0]?.locked === true;
 }
 
@@ -96,7 +101,7 @@ type Extension = {
 };
 /** Authority only: canonical accounts -> pair -> id-only channel lock -> fresh cast/facts. */
 export const withLockedMessagingAuthority = <T>(
-  tx: AuthorizationTransaction,
+  tx: Tx,
   input: Scope,
   work: (frame: AuthorityFrame) => Promise<T>,
   extension?: Extension,
@@ -108,14 +113,14 @@ export const withLockedMessagingAuthority = <T>(
  * restarts the whole read.
  */
 export const withSharedMessagingAuthority = <T>(
-  tx: AuthorizationTransaction,
+  tx: Tx,
   input: Scope,
   work: (frame: AuthorityFrame) => Promise<T>,
   extension?: Extension,
 ): Promise<T> => fencedAuthority(tx, input, work, 'shared', extension);
 
 async function fencedAuthority<T>(
-  tx: AuthorizationTransaction,
+  tx: Tx,
   input: Scope,
   work: (frame: AuthorityFrame) => Promise<T>,
   mode: FenceMode,
@@ -158,14 +163,12 @@ const READ_RESTARTS = 2;
  * stale answer (MSG-2.1-arch1).
  */
 export async function restartingRead<T>(
-  database: Pick<BunSQLDatabase, 'transaction'>,
-  read: (
-    tx: Parameters<Parameters<BunSQLDatabase['transaction']>[0]>[0],
-  ) => Promise<T>,
+  database: TxOpener,
+  read: (tx: Tx) => Promise<T>,
 ): Promise<T> {
   for (let attempt = 0; ; attempt += 1) {
     try {
-      return await database.transaction(read);
+      return await inTransaction(database, read);
     } catch (error) {
       if (!isCastChange(error)) throw error;
       if (attempt >= READ_RESTARTS)
@@ -178,7 +181,7 @@ export async function restartingRead<T>(
  * this same tx. Its consumers (inbox entries, realtime subscribe decisions)
  * only read, so it takes the shared fences.
  */
-export function createMessagingChannelAuthority(database: BunSQLDatabase) {
+export function createMessagingChannelAuthority(database: TxSource) {
   return <T>(
     input: Scope,
     work: (frame: AuthorityFrame) => Promise<T>,
@@ -197,9 +200,7 @@ export function createMessagingChannelAuthority(database: BunSQLDatabase) {
  * (one grant read for a group, none for a DM) apart from one age read per
  * distinct account.
  */
-export function createMessagingChannelCohortAuthority(
-  database: BunSQLDatabase,
-) {
+export function createMessagingChannelCohortAuthority(database: TxSource) {
   return <T>(
     input: {
       readonly channelId: string;
@@ -209,7 +210,7 @@ export function createMessagingChannelCohortAuthority(
       }[];
     },
     work: (frame: {
-      readonly tx: AuthorizationTransaction;
+      readonly tx: Tx;
       readonly accounts: AuthorityFrame['accounts'];
       readonly factFor: (actorId: string) => MessagingChannelFact;
       /** The stream's content revision this read sees: the viewers' content floor. */
@@ -258,26 +259,30 @@ export function createMessagingChannelCohortAuthority(
  * derivation as `readMessagingChannelFact`'s group branch.
  */
 async function viewerFacts(
-  tx: AuthorizationTransaction,
+  tx: Tx,
   fact: MessagingChannelFact,
   actorIds: readonly string[],
 ): Promise<ReadonlyMap<string, MessagingChannelFact>> {
   const { authority } = fact;
   if (authority.kind === 'dm')
     return new Map(actorIds.map((actorId) => [actorId, fact]));
-  const rows = (await tx.execute(sql`
+  const rows = await query(
+    tx,
+    z.object({
+      actorId: z.string(),
+      role: z.string(),
+      revokedAt: z.date().nullable(),
+      generation: postgresInt8,
+    }),
+    sql`
     select actor_id as "actorId", role, revoked_at as "revokedAt", generation
     from messaging_group_grants
     where channel_id = ${fact.channelId} and actor_id = any(array[${sql.join(
       actorIds.map((actorId) => sql`${actorId}`),
       sql`, `,
     )}]::text[])
-  `)) as unknown as {
-    actorId: string;
-    role: 'manager' | 'member';
-    revokedAt: unknown;
-    generation: number;
-  }[];
+  `,
+  );
   const grants = new Map(rows.map((row) => [row.actorId, row]));
   return new Map(
     actorIds.map((actorId): [string, MessagingChannelFact] => {

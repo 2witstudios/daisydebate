@@ -1,6 +1,6 @@
-import { isRoundOver, isRoundRunning } from '@daisy/protocol';
+import { isRoundOver, isRoundRunning } from '@daisy/protocol/round';
 import { drawnTopicLabel } from '../debate-room/vocabulary';
-import type { RoundJudgeAssignment } from '@daisy/protocol';
+import type { RoundJudgeAssignment } from '@daisy/protocol/round-ballot-read';
 export type AssignedDebate = {
   readonly id: string;
   readonly title: string;

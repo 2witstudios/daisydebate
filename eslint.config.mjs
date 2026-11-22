@@ -1,8 +1,58 @@
+import { clientEdgeRules } from './eslint.config-client-edge.mjs';
+import { clockDigestRules } from './eslint.config-clock-digest.mjs';
 import js from '@eslint/js';
+import ts from 'typescript';
 import tseslint from 'typescript-eslint';
 import nextVitals from 'eslint-config-next/core-web-vitals';
 import betterTailwind from 'eslint-plugin-better-tailwindcss';
 import { getDefaultSelectors } from 'eslint-plugin-better-tailwindcss/defaults';
+
+// The styling gate checks JSX attributes. Type information distinguishes a
+// URL variable from a callable React action, which supplies its own POST.
+const formActionPlugin = {
+  rules: {
+    'require-callable-action': {
+      meta: {
+        messages: {
+          method:
+            'Use method="post" for a form address. An omitted method requires a callable React action (ADR 0114).',
+        },
+      },
+      create(context) {
+        const { program, esTreeNodeToTSNodeMap } =
+          context.sourceCode.parserServices;
+        const checker = program.getTypeChecker();
+        return {
+          JSXOpeningElement(node) {
+            if (node.name.type !== 'JSXIdentifier' || node.name.name !== 'form')
+              return;
+            const named = (name) =>
+              node.attributes.find(
+                (attribute) =>
+                  attribute.type === 'JSXAttribute' &&
+                  attribute.name.type === 'JSXIdentifier' &&
+                  attribute.name.name === name,
+              );
+            if (named('method')) return;
+            const value = named('action')?.value;
+            if (
+              value?.type !== 'JSXExpressionContainer' ||
+              value.expression.type === 'JSXEmptyExpression'
+            )
+              return;
+            const expression = esTreeNodeToTSNodeMap.get(value.expression);
+            const type = checker.getTypeAtLocation(expression);
+            const members = type.isUnion() ? type.types : [type];
+            if (
+              members.some((member) => member.getCallSignatures().length === 0)
+            )
+              context.report({ node: value, messageId: 'method' });
+          },
+        };
+      },
+    },
+  },
+};
 
 /**
  * Shared between the repo-wide `no-restricted-syntax` entry and the
@@ -258,6 +308,9 @@ const processEdgeLoads = [
       'Use a literal import() specifier so the import boundaries can check it.',
   },
 ];
+
+const memberNamed = (name) =>
+  `:matches([computed=false][property.name="${name}"], [computed=true][property.value="${name}"], [computed=true][property.type="TemplateLiteral"][property.expressions.length=0][property.quasis.0.value.cooked="${name}"])`;
 const processEntries = [
   'apps/web/src/proxy.ts',
   'apps/web/src/instrumentation.ts',
@@ -395,6 +448,100 @@ const refusalReadRestrictions = [
   },
 ];
 
+/**
+ * A unit test never waits on real time (ADR 0164): a sleep makes it slow
+ * and, under load, wrong. Timed work takes its clock as a resource, and the
+ * test hands it `virtualClock` from `@daisy/clock/testing`. A zero delay is
+ * not a sleep (it yields one turn of the event loop), so `setTimeout(f, 0)`
+ * and `Bun.sleep(0)` stay; every other `Bun.sleep`, `Bun.sleepSync`,
+ * `setTimeout` and `setInterval` is an error.
+ */
+const zeroDelay = (node) =>
+  node !== undefined && node.type === 'Literal' && node.value === 0;
+const callableName = (node) => {
+  if (node.type === 'Identifier') return node.name;
+  if (node.type !== 'MemberExpression') return null;
+  const receiver = callableName(node.object);
+  const member = node.computed
+    ? node.property.type === 'Literal' &&
+      typeof node.property.value === 'string'
+      ? node.property.value
+      : null
+    : node.property.type === 'Identifier'
+      ? node.property.name
+      : null;
+  return receiver === null || member === null ? null : `${receiver}.${member}`;
+};
+const timerMethods = ['setTimeout', 'setInterval'];
+const importedTimers = (program) => {
+  const timers = new Map();
+  for (const statement of program.body) {
+    if (statement.type !== 'ImportDeclaration') continue;
+    const moduleName = String(statement.source.value).replace(/^node:/, '');
+    if (moduleName !== 'timers' && moduleName !== 'timers/promises') continue;
+    const delayArgument = moduleName === 'timers' ? 1 : 0;
+    for (const specifier of statement.specifiers) {
+      if (specifier.type === 'ImportSpecifier') {
+        const name = callableName(specifier.imported);
+        if (timerMethods.includes(name))
+          timers.set(specifier.local.name, { name, delayArgument });
+      } else {
+        for (const name of timerMethods)
+          timers.set(`${specifier.local.name}.${name}`, {
+            name,
+            delayArgument,
+          });
+      }
+    }
+  }
+  return timers;
+};
+const timedWait = (call, timers) => {
+  const name = callableName(call.callee)?.replace(/^globalThis\./, '');
+  const imported = timers.get(name);
+  if (imported !== undefined)
+    return imported.name === 'setInterval' ||
+      !zeroDelay(call.arguments[imported.delayArgument])
+      ? imported.name
+      : null;
+  if (name === 'Bun.sleep' || name === 'Bun.sleepSync')
+    return zeroDelay(call.arguments[0]) ? null : name;
+  if (name === 'setTimeout')
+    return zeroDelay(call.arguments[1]) ? null : 'setTimeout';
+  return name === 'setInterval' ? name : null;
+};
+const testTimePlugin = {
+  rules: {
+    'no-real-sleep': {
+      meta: {
+        type: 'problem',
+        messages: {
+          sleep:
+            '{{name}} waits on real time in a unit test. Inject the clock and drive it with virtualClock from @daisy/clock/testing (ADR 0164).',
+        },
+        schema: [],
+      },
+      create: (context) => {
+        let timers = new Map();
+        return {
+          Program: (program) => {
+            timers = importedTimers(program);
+          },
+          CallExpression: (call) => {
+            const name = timedWait(call, timers);
+            if (name !== null)
+              context.report({
+                node: call,
+                messageId: 'sleep',
+                data: { name },
+              });
+          },
+        };
+      },
+    },
+  },
+};
+
 /** The repo-wide `no-restricted-syntax` list; overrides extend or replace it. */
 const repoSyntaxRestrictions = [
   ...refusalMintRestrictions,
@@ -425,6 +572,634 @@ const repoSyntaxRestrictions = [
   ...processMutationRestrictions,
 ];
 
+const dbOpeningRestrictions = [
+  {
+    selector:
+      "ImportSpecifier[imported.name='BunSQLDatabase'], TSImportType[qualifier.name='BunSQLDatabase'], TSQualifiedName[right.name='BunSQLDatabase']",
+    message: 'Use Tx or TxSource from the database transaction boundary.',
+  },
+  {
+    selector:
+      "MemberExpression:matches([property.name='transaction'], [property.value='transaction'])",
+    message: 'Open database transactions with inTransaction.',
+  },
+];
+const dbRawStatementRestrictions = [
+  {
+    selector:
+      "MemberExpression:matches([property.name='execute'], [property.value='execute'])",
+    message: 'Use query for parsed rows or run to discard them.',
+  },
+  {
+    selector:
+      ':matches(TSAsExpression, TSTypeAssertion) > :matches(TSAsExpression, TSTypeAssertion)[typeAnnotation.type="TSUnknownKeyword"]',
+    message:
+      'Validate database rows instead of asserting them through unknown.',
+  },
+];
+const dbAdvisoryLockRestrictions = [
+  {
+    selector:
+      'Literal[value=/pg_(try_)?advisory/i], TemplateElement[value.raw=/pg_(try_)?advisory/i], Literal[regex.pattern=/pg_(try_)?advisory/i]',
+    message: 'Take the named advisory lock from the database lock registry.',
+  },
+];
+const dbBoundaryRestrictions = {
+  'tx.ts': dbOpeningRestrictions,
+  'raw-rows.ts': dbRawStatementRestrictions,
+  'locks.ts': dbAdvisoryLockRestrictions,
+};
+
+const dbNativeRowsPlugin = {
+  rules: {
+    'require-query': {
+      meta: {
+        messages: { boundary: 'Validate native database rows with query.' },
+      },
+      create(context) {
+        const { program, esTreeNodeToTSNodeMap, tsNodeToESTreeNodeMap } =
+          context.sourceCode.parserServices;
+        if (!program) return {};
+        const checker = program.getTypeChecker();
+        // The bounded client's transport proxy forwards the driver's queries
+        // to Drizzle. Any row consumption inside it still needs query.
+        const forwardsQueries = context.filename.endsWith(
+          '/packages/db/src/transaction-client.ts',
+        );
+        const types = (type) =>
+          type.isUnionOrIntersection() ? type.types : [type];
+        const typeAt = (node) =>
+          checker.getTypeAtLocation(esTreeNodeToTSNodeMap.get(node));
+        const constrainedType = (type) =>
+          type.isTypeParameter()
+            ? (checker.getBaseConstraintOfType(type) ?? type)
+            : type;
+        const nativeType = (input) => {
+          if (input === undefined) return false;
+          const type = constrainedType(input);
+          if (type.isUnionOrIntersection()) return type.types.some(nativeType);
+          const symbol = type.getSymbol();
+          return (
+            symbol?.name === 'Query' &&
+            symbol
+              .getDeclarations()
+              ?.some((declaration) =>
+                declaration
+                  .getSourceFile()
+                  .fileName.endsWith('/bun-types/sql.d.ts'),
+              )
+          );
+        };
+        const nativeQuery = (expression) =>
+          expression != null && nativeType(typeAt(expression));
+        const returnsNativeRows = (callback) =>
+          callback
+            .getCallSignatures()
+            .some((signature) => nativeType(signature.getReturnType()));
+        const builtInMethod = (signature) => {
+          const declaration = signature?.getDeclaration();
+          if (!declaration) return undefined;
+          const owner = (
+            declaration.parent.name ?? declaration.parent.parent?.name
+          )?.getText();
+          const sourceFile = declaration.getSourceFile();
+          if (
+            program.isSourceFileDefaultLibrary(sourceFile) ||
+            (owner === 'PromiseConstructor' &&
+              sourceFile.fileName.endsWith('/bun-types/globals.d.ts'))
+          )
+            return { owner, name: declaration.name?.getText() };
+        };
+        const declarationOf = (expression) => {
+          const location = esTreeNodeToTSNodeMap.get(expression);
+          return (
+            ts.isShorthandPropertyAssignment(location.parent)
+              ? checker.getShorthandAssignmentValueSymbol(location.parent)
+              : checker.getSymbolAtLocation(location)
+          )?.valueDeclaration;
+        };
+        const constantDeclaration = (declaration) =>
+          declaration &&
+          ts.isVariableDeclaration(declaration) &&
+          (ts.getCombinedNodeFlags(declaration) & ts.NodeFlags.Const) !== 0;
+        const staticKey = (key, computed) => {
+          if (!computed && key.type === 'Identifier') return key.name;
+          if (
+            key.type === 'Literal' &&
+            (typeof key.value === 'string' || typeof key.value === 'number')
+          )
+            return String(key.value);
+        };
+        const literalMember = (object, key) => {
+          if (object?.type !== 'ObjectExpression' || key === undefined)
+            return undefined;
+          for (const property of [...object.properties].reverse()) {
+            if (property.type === 'SpreadElement') return undefined;
+            if (staticKey(property.key, property.computed) === key)
+              return property.kind === 'init' ? property.value : undefined;
+          }
+        };
+        const destructuredMember = (declaration) => {
+          if (
+            !declaration ||
+            !ts.isBindingElement(declaration) ||
+            !ts.isObjectBindingPattern(declaration.parent) ||
+            declaration.dotDotDotToken ||
+            declaration.initializer
+          )
+            return undefined;
+          const owner = declaration.parent.parent;
+          const property = declaration.propertyName ?? declaration.name;
+          if (
+            !constantDeclaration(owner) ||
+            !owner.initializer ||
+            !(
+              ts.isIdentifier(property) ||
+              ts.isStringLiteralLike(property) ||
+              ts.isNumericLiteral(property)
+            )
+          )
+            return undefined;
+          const expression = tsNodeToESTreeNodeMap.get(owner.initializer);
+          return expression ? { expression, key: property.text } : undefined;
+        };
+        const localMember = (receiver, key, read, seen) => {
+          const object = constantSource(receiver, seen);
+          if (object?.type !== 'ObjectExpression' || key === undefined)
+            return undefined;
+          // Check preceding statements in the read's block and its enclosing
+          // blocks. Writes outside the current function have separate timing.
+          for (
+            let statement = read;
+            statement.parent;
+            statement = statement.parent
+          ) {
+            const block = statement.parent;
+            if (
+              [
+                'ArrowFunctionExpression',
+                'FunctionExpression',
+                'FunctionDeclaration',
+              ].includes(block.type)
+            )
+              break;
+            if (!['BlockStatement', 'Program'].includes(block.type)) continue;
+            for (
+              let index = block.body.indexOf(statement) - 1;
+              index >= 0;
+              index -= 1
+            ) {
+              const candidate = block.body[index];
+              if (candidate.range[0] <= object.range[0]) break;
+              if (candidate.type !== 'ExpressionStatement') continue;
+              const assignment = candidate.expression;
+              if (
+                assignment.type === 'AssignmentExpression' &&
+                assignment.operator === '=' &&
+                assignment.left.type === 'MemberExpression' &&
+                staticKey(
+                  assignment.left.property,
+                  assignment.left.computed,
+                ) === key &&
+                constantSource(assignment.left.object) === object
+              )
+                return assignment.right;
+            }
+          }
+          return literalMember(object, key);
+        };
+        const constantSource = (value, seen = new Set()) => {
+          if (!value) return undefined;
+          while (!seen.has(value)) {
+            seen.add(value);
+            if (
+              [
+                'TSAsExpression',
+                'TSSatisfiesExpression',
+                'TSNonNullExpression',
+                'TSInstantiationExpression',
+                'TSTypeAssertion',
+              ].includes(value.type)
+            ) {
+              value = value.expression;
+              continue;
+            }
+            let initializer;
+            if (value.type === 'MemberExpression') {
+              initializer = localMember(
+                value.object,
+                staticKey(value.property, value.computed),
+                value,
+                seen,
+              );
+            }
+            if (value.type === 'Identifier') {
+              const declaration = declarationOf(value);
+              if (constantDeclaration(declaration) && declaration.initializer)
+                initializer = tsNodeToESTreeNodeMap.get(
+                  declaration.initializer,
+                );
+              const member = destructuredMember(declaration);
+              if (member)
+                initializer = localMember(
+                  member.expression,
+                  member.key,
+                  member.expression,
+                  seen,
+                );
+            }
+            if (!initializer) break;
+            value = initializer;
+          }
+          return value;
+        };
+        const originalCallableType = (source) => {
+          const member =
+            source.type === 'Identifier' &&
+            destructuredMember(declarationOf(source));
+          if (member) {
+            const object = constantSource(member.expression);
+            const property = typeAt(object).getProperty(member.key);
+            if (property)
+              return checker.getTypeOfSymbolAtLocation(
+                property,
+                esTreeNodeToTSNodeMap.get(object),
+              );
+          }
+          return typeAt(source);
+        };
+        const functionAdapter = (method) =>
+          ['CallableFunction', 'Function'].includes(method.owner) &&
+          ['call', 'apply', 'bind'].includes(method.name);
+        const reflectApply = (method) =>
+          method.owner === 'Reflect' && method.name === 'apply';
+        const promiseMethod = (method) =>
+          (method.owner === 'PromiseConstructor' &&
+            ['resolve', 'all', 'allSettled', 'any', 'race', 'try'].includes(
+              method.name,
+            )) ||
+          (['Promise', 'PromiseLike'].includes(method.owner) &&
+            ['then', 'catch', 'finally'].includes(method.name));
+        const supportedMethod = (method) =>
+          method !== undefined &&
+          (promiseMethod(method) ||
+            functionAdapter(method) ||
+            reflectApply(method));
+        const inputValue = (expression) => {
+          const location = esTreeNodeToTSNodeMap.get(expression);
+          return {
+            expression,
+            location,
+            type: checker.getTypeAtLocation(location),
+          };
+        };
+        const inputAt = (inputs, index) => {
+          const rest = inputs.findIndex((input) => input?.rest);
+          return inputs[rest >= 0 && rest <= index ? rest : index];
+        };
+        const afterReceiver = (inputs) =>
+          inputs[0]?.rest ? inputs : inputs.slice(1);
+        const packedInputs = (input) => {
+          if (!input) return [];
+          const source = constantSource(input.expression);
+          if (source?.type === 'ArrayExpression')
+            return callInputs(source.elements);
+          const type = constrainedType(input.type);
+          if (checker.isTupleType(type))
+            return checker
+              .getTypeArguments(type)
+              .map((type) => ({ type, location: input.location }));
+          const element = type.getNumberIndexType();
+          return element
+            ? [{ type: element, location: input.location, rest: true }]
+            : [];
+        };
+        const callInputs = (args) =>
+          args.flatMap((argument) => {
+            if (argument?.type === 'SpreadElement')
+              return packedInputs(inputValue(argument.argument));
+            return [argument ? inputValue(argument) : undefined];
+          });
+        const callableInput = (input, active, remaining) => {
+          if (!input || remaining === 0) return undefined;
+          const source = constantSource(input.expression);
+          if (source?.type === 'CallExpression' && !active.has(source)) {
+            active.add(source);
+            const binding = resolveCall(source, active, remaining - 1)?.binding;
+            active.delete(source);
+            if (binding) return { binding };
+          }
+          const type = source ? originalCallableType(source) : input.type;
+          const method = type
+            .getCallSignatures()
+            .map(builtInMethod)
+            .find(supportedMethod);
+          return method ? { method } : undefined;
+        };
+        const invoke = (callable, receiver, inputs, active, remaining) => {
+          if (!callable || remaining === 0) return undefined;
+          if (callable.binding) {
+            const { target, receiver, inputs: bound } = callable.binding;
+            return invoke(
+              target,
+              receiver,
+              [...bound, ...inputs],
+              active,
+              remaining - 1,
+            );
+          }
+          const { method } = callable;
+          if (reflectApply(method))
+            return invoke(
+              callableInput(inputAt(inputs, 0), active, remaining - 1),
+              inputAt(inputs, 1),
+              packedInputs(inputAt(inputs, 2)),
+              active,
+              remaining - 1,
+            );
+          if (functionAdapter(method)) {
+            const target = callableInput(receiver, active, remaining - 1);
+            if (!target) return undefined;
+            const thisArg = inputAt(inputs, 0);
+            if (method.name === 'bind')
+              return {
+                binding: {
+                  target,
+                  receiver: thisArg,
+                  inputs: afterReceiver(inputs),
+                },
+              };
+            const unwrapped =
+              method.name === 'apply'
+                ? packedInputs(inputAt(inputs, 1))
+                : afterReceiver(inputs);
+            return invoke(target, thisArg, unwrapped, active, remaining - 1);
+          }
+          return { method, inputs };
+        };
+        const resolveCall = (call, active, remaining, signature) => {
+          const { callee, arguments: args } = call;
+          const source = callableInput(
+            inputValue(callee),
+            active,
+            remaining - 1,
+          );
+          const method = builtInMethod(
+            signature ??
+              checker.getResolvedSignature(esTreeNodeToTSNodeMap.get(call)),
+          );
+          const callable =
+            source ?? (supportedMethod(method) ? { method } : undefined);
+          if (!callable) return undefined;
+          const receiver =
+            callee.type === 'MemberExpression'
+              ? inputValue(callee.object)
+              : undefined;
+          return invoke(
+            callable,
+            receiver,
+            callInputs(args),
+            active,
+            remaining - 1,
+          );
+        };
+        const promiseInputs = (call, signature) => {
+          // Aliases in incomplete or recursive source can point back to the call.
+          const active = new Set([call]);
+          const plan = resolveCall(call, active, 32, signature);
+          return plan?.binding
+            ? invoke({ binding: plan.binding }, undefined, [], active, 32)
+            : plan;
+        };
+        // Use the well-known symbol's identity, including when a declaration
+        // spells its iterator key through an alias.
+        const iteratorKey = (() => {
+          const symbol = checker.resolveName(
+            'Symbol',
+            undefined,
+            ts.SymbolFlags.Value,
+            false,
+          );
+          if (!symbol) return undefined;
+          const iterator = checker
+            .getTypeOfSymbol(symbol)
+            .getProperty('iterator');
+          if (iterator) {
+            const key = checker.getTypeOfSymbol(iterator);
+            if (key.flags & ts.TypeFlags.UniqueESSymbol) return key.escapedName;
+          }
+        })();
+        const nativeIterable = (inputType, location) => {
+          if (!iteratorKey) return false;
+          const propertyType = (symbol) =>
+            checker.getTypeOfSymbolAtLocation(symbol, location);
+          const methodResults = (symbol) =>
+            propertyType(symbol)
+              .getCallSignatures()
+              .map((signature) => signature.getReturnType());
+          return types(constrainedType(inputType)).some((type) => {
+            // Promise combinators assimilate each value yielded by the
+            // iterable. Inspect next().value, including Set and generators.
+            const iterator = type
+              .getProperties()
+              .find((symbol) => symbol.escapedName === iteratorKey);
+            if (!iterator) return false;
+            return methodResults(iterator).some((result) => {
+              const next = result.getProperty('next');
+              if (!next) return false;
+              return methodResults(next)
+                .flatMap(types)
+                .some((step) => {
+                  const done = step.getProperty('done');
+                  if (
+                    done &&
+                    checker.isTypeAssignableTo(
+                      propertyType(done),
+                      checker.getTrueType(),
+                    )
+                  )
+                    return false;
+                  const value = step.getProperty('value');
+                  return value !== undefined && nativeType(propertyType(value));
+                });
+            });
+          });
+        };
+        // Command metadata lives on the Bun result outside the rows.
+        const commandReceipt = (statement) =>
+          statement.type === 'TaggedTemplateExpression' &&
+          statement.quasi.expressions.length === 0 &&
+          ['commit', 'rollback'].includes(statement.quasi.quasis[0]?.value.raw);
+        const report = (node) =>
+          context.report({ node, messageId: 'boundary' });
+        return {
+          AwaitExpression(node) {
+            if (
+              node.parent.type !== 'ExpressionStatement' &&
+              !commandReceipt(node.argument) &&
+              nativeQuery(node.argument)
+            )
+              report(node);
+          },
+          ReturnStatement(node) {
+            if (!forwardsQueries && nativeQuery(node.argument)) report(node);
+          },
+          ArrowFunctionExpression(node) {
+            if (
+              node.async &&
+              node.expression &&
+              !forwardsQueries &&
+              nativeQuery(node.body)
+            )
+              report(node.body);
+          },
+          CallExpression(node) {
+            const callee = node.callee;
+            if (callee.type === 'MemberExpression') {
+              const method = callee.computed
+                ? callee.property.value
+                : callee.property.name;
+              if (
+                ['then', 'catch', 'finally'].includes(method) &&
+                nativeQuery(callee.object)
+              ) {
+                report(node);
+                return;
+              }
+            }
+            if (node.arguments.length === 0) return;
+            const signature = checker.getResolvedSignature(
+              esTreeNodeToTSNodeMap.get(node),
+            );
+            const boundary = signature
+              ?.getDeclaration()
+              ?.getSourceFile()
+              .fileName.endsWith('/packages/db/src/raw-rows.ts');
+            // Passing the thenable directly hands its execution to the callee,
+            // including native Promise executor and deferred resolve functions.
+            if (
+              !forwardsQueries &&
+              !boundary &&
+              node.arguments.some(
+                (argument) =>
+                  argument.type !== 'SpreadElement' &&
+                  nativeQuery(argument) &&
+                  !nativeType(
+                    checker.getContextualType(
+                      esTreeNodeToTSNodeMap.get(argument),
+                    ),
+                  ),
+              )
+            ) {
+              report(node);
+              return;
+            }
+            const settlement = promiseInputs(node, signature);
+            if (!settlement?.method) return;
+            const { method, inputs } = settlement;
+            if (method.owner !== 'PromiseConstructor') {
+              if (
+                inputs.some((input) => input && returnsNativeRows(input.type))
+              )
+                report(node);
+              return;
+            }
+            const input = inputAt(inputs, 0);
+            if (!input) return;
+            const { type: inputType, location } = input;
+            if (method.name === 'resolve') {
+              if (nativeType(inputType)) report(node);
+              return;
+            }
+            if (method.name === 'try') {
+              if (returnsNativeRows(inputType)) report(node);
+              return;
+            }
+            if (nativeIterable(inputType, location)) report(node);
+          },
+        };
+      },
+    },
+  },
+};
+
+/**
+ * The rules that read types. They run on workspace source only, which a
+ * TypeScript project owns; a probe under an invented path turns them off
+ * (eslint.config.test-support.ts).
+ */
+export const typedRules = {
+  'daisy-form/require-callable-action': 'error',
+  '@typescript-eslint/switch-exhaustiveness-check': [
+    'error',
+    {
+      considerDefaultExhaustiveForUnions: false,
+      requireDefaultForNonUnion: false,
+    },
+  ],
+  // A cast that changes nothing hides the one that does. State a type
+  // where the value is made (an annotation, a type argument), not after.
+  '@typescript-eslint/no-unnecessary-type-assertion': 'error',
+  // A promise nobody awaits loses its failure. Await it, return it, or mark
+  // it `void` where the callee reports its own failures.
+  '@typescript-eslint/no-floating-promises': 'error',
+  '@typescript-eslint/no-misused-promises': 'error',
+  '@typescript-eslint/await-thenable': 'error',
+  // What is thrown is an Error, so every catch can read a stack and a
+  // cause. A caught value thrown again keeps its identity.
+  // Text made from a value with no text of its own reads "[object Object]".
+  '@typescript-eslint/no-base-to-string': 'error',
+  '@typescript-eslint/only-throw-error': [
+    'error',
+    { allowThrowingAny: false, allowThrowingUnknown: true },
+  ],
+  // A check the type already answers is dead code or a wrong type. Correct
+  // the type where the value is made, or delete the branch; never widen a
+  // type to keep a check alive.
+  '@typescript-eslint/no-unnecessary-condition': 'error',
+};
+
+/**
+ * A non-null assertion claims what the type does not say. Model the state
+ * instead: a union, a narrowing, or a function that returns the value it
+ * found. The one form left is `array[index]!`, which
+ * `noUncheckedIndexedAccess` asks for where a bound proves the index. A
+ * property name in brackets still names a property. The rule reads syntax
+ * only, so it needs no type information.
+ */
+const nonNullAssertion = {
+  meta: {
+    type: 'problem',
+    schema: [],
+    messages: {
+      assertion:
+        'Model the state instead of asserting non-null: a union, a narrowing, or a returned value. Only `array[index]!` is allowed, where a bound proves the index.',
+    },
+  },
+  create: (context) => ({
+    TSNonNullExpression(node) {
+      const { expression } = node;
+      if (expression.type === 'MemberExpression' && expression.computed) {
+        let key = expression.property;
+        while (
+          key.type === 'TSAsExpression' ||
+          key.type === 'TSSatisfiesExpression' ||
+          key.type === 'TSTypeAssertion' ||
+          key.type === 'TSNonNullExpression'
+        )
+          key = key.expression;
+        if (
+          key.type !== 'TemplateLiteral' &&
+          (key.type !== 'Literal' || typeof key.value === 'number')
+        )
+          return;
+      }
+      context.report({ node, messageId: 'assertion' });
+    },
+  }),
+};
+const daisyPlugin = { rules: { 'no-non-null-assertion': nonNullAssertion } };
+
 export default [
   {
     ignores: [
@@ -438,8 +1213,11 @@ export default [
       '**/test-results/**',
     ],
   },
+  ...clockDigestRules,
+  clientEdgeRules,
   js.configs.recommended,
   ...tseslint.configs.recommended,
+  { plugins: { 'daisy-form': formActionPlugin } },
   {
     files: ['**/*.{js,mjs,ts,tsx}'],
     rules: {
@@ -461,13 +1239,8 @@ export default [
         'error',
         { argsIgnorePattern: '^_' },
       ],
-      // Size and complexity are signals, not gates (ADR 0083): they warn,
-      // and the review loop's /simplify pass acts on them.
-      complexity: ['warn', 10],
-      'max-lines': [
-        'warn',
-        { max: 300, skipBlankLines: true, skipComments: true },
-      ],
+      // Size and complexity are not lint rules: a warning nobody must act on
+      // buried the errors in 1,119 lines. `bun metrics` reports both (ADR 0083).
     },
   },
   // Token-locked Tailwind (ADR 0028): classes must come from the Daisy theme in
@@ -592,10 +1365,6 @@ export default [
     },
   },
   {
-    files: purePackages,
-    rules: { 'no-restricted-globals': ['error', ...pureAmbientGlobals] },
-  },
-  {
     files: ['packages/db/**/*.ts'],
     rules: {
       'no-restricted-imports': [
@@ -648,13 +1417,6 @@ export default [
     // CLI glue exactly like the root scripts/ tree, not application source.
     files: ['scripts/**/*.ts', 'apps/web/scripts/**/*.ts'],
     rules: {
-      // Repo tooling is procedural CLI glue; application source keeps the
-      // lower complexity and size thresholds.
-      complexity: ['warn', 15],
-      'max-lines': [
-        'warn',
-        { max: 400, skipBlankLines: true, skipComments: true },
-      ],
       'no-console': 'off',
     },
   },
@@ -811,6 +1573,44 @@ export default [
     },
   },
   {
+    files: ['packages/db/src/**/*.ts'],
+    ignores: Object.keys(dbBoundaryRestrictions).map(
+      (home) => `packages/db/src/${home}`,
+    ),
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        ...repoSyntaxRestrictions,
+        ...Object.values(dbBoundaryRestrictions).flat(),
+      ],
+    },
+  },
+  ...Object.keys(dbBoundaryRestrictions).map((home) => ({
+    files: [`packages/db/src/${home}`],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        ...repoSyntaxRestrictions,
+        ...Object.entries(dbBoundaryRestrictions).flatMap(
+          ([owner, restrictions]) => (owner === home ? [] : restrictions),
+        ),
+      ],
+    },
+  })),
+  {
+    files: ['packages/db/src/**/*.ts'],
+    ignores: [
+      'packages/db/src/raw-rows.ts',
+      'packages/db/src/**/testing*.ts',
+      'packages/db/src/**/*-testing.ts',
+      'packages/db/src/**/*-fixture.ts',
+      'packages/db/src/**/*.test.ts',
+      'packages/db/src/**/*.test-support.ts',
+    ],
+    plugins: { 'db-native-rows': dbNativeRowsPlugin },
+    rules: { 'db-native-rows/require-query': 'error' },
+  },
+  {
     files: ['apps/web/src/app/**/route.ts', 'apps/web/src/app/**/actions.ts'],
     rules: {
       'no-restricted-imports': [
@@ -820,6 +1620,21 @@ export default [
             ...appImportRestrictions,
             { ...processEdgeImport, allowImportNames: ['processRoute'] },
           ],
+        },
+      ],
+    },
+  },
+  {
+    files: ['apps/web/src/app/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        ...repoSyntaxRestrictions,
+        ...processEdgeLoads,
+        {
+          selector: `CallExpression > MemberExpression.callee${memberNamed('split')} > MemberExpression.object${memberNamed('pathname')}`,
+          message:
+            'Use Next.js route params or pass the bound value to the server action.',
         },
       ],
     },
@@ -869,8 +1684,20 @@ export default [
     },
   },
   {
+    files: [...purePackages, 'apps/web/src/features/**/model/**/*.{ts,tsx}'],
+    rules: { 'no-restricted-globals': ['error', ...pureAmbientGlobals] },
+  },
+  {
     files: ['**/*.config.*'],
     rules: { 'no-console': 'off' },
+  },
+  // Unit tests run on a virtual clock (ADR 0164); integration and browser
+  // suites drive real services and keep real time.
+  {
+    files: ['**/*.test.{ts,tsx}', '**/*.test-support.{ts,tsx}'],
+    ignores: ['**/integration/**', '**/e2e/**'],
+    plugins: { 'test-time': testTimePlugin },
+    rules: { 'test-time/no-real-sleep': 'error' },
   },
   // ADR 0037's vendor seam, declared last so it wins over every earlier
   // `no-restricted-imports` entry: the Sentry adapters (web's telemetry
@@ -902,14 +1729,12 @@ export default [
         tsconfigRootDir: import.meta.dirname,
       },
     },
-    rules: {
-      '@typescript-eslint/switch-exhaustiveness-check': [
-        'error',
-        {
-          considerDefaultExhaustiveForUnions: false,
-          requireDefaultForNonUnion: false,
-        },
-      ],
-    },
+    rules: typedRules,
+  },
+  {
+    files: ['packages/*/src/**/*.ts', 'apps/*/src/**/*.{ts,tsx}'],
+    ignores: ['**/*.test.{ts,tsx}'],
+    plugins: { daisy: daisyPlugin },
+    rules: { 'daisy/no-non-null-assertion': 'error' },
   },
 ];

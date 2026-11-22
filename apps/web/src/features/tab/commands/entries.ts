@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import type { SharedLobbyRefusal } from '@daisy/protocol/lobby/command';
 import type {
   EntryCommand,
@@ -225,7 +226,7 @@ export type EntryDecision = CommandDecision<
   EntryWrite
 >;
 
-const before = (a: string, b: string) => Date.parse(a) < Date.parse(b);
+const before = (a: string, b: string) => instantMs(a) < instantMs(b);
 
 const registrationOpen = (facts: EntryFacts): boolean => {
   const { opensAt, closesAt } = facts.event.registration;

@@ -3,9 +3,9 @@ import { pending as transcriptionRecoveryPending } from './transcription-recover
 import { readCaptureShortfall } from './capture-shortfall';
 import {
   frozenCaptureColumns,
-  type CaptureRule,
   type FrozenCapture,
-} from '@daisy/protocol';
+} from '@daisy/protocol/capture-judging-limit';
+import { type CaptureRule } from '@daisy/protocol/capture-verdict';
 import {
   appendRoundPhaseChanged,
   lockedRoundVersion,
@@ -13,8 +13,6 @@ import {
 import { appendTranscriptChanged } from './transcript-signal';
 import { createAppError } from '@daisy/errors';
 import { eq, sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
-import type { BoundedTransactionContext } from './transaction-context';
 import {
   executeLockedRoundTick,
   type LockedRoundTickInput,
@@ -36,9 +34,12 @@ import { roundTranscriptFreezes } from './schema/round-transcript-freezes';
 import { roundTranscripts } from './schema/transcript-segments';
 import { rounds } from './schema/rounds';
 import { notifyWork } from './work-wake';
+import type { TxSource, Tx } from './tx';
+import { run, query } from './raw-rows';
+import { z } from 'zod';
 
 export const transcriptFinalizationOperations = (input: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
 }) => ({
   /** Callers enforce private transcript/judge authorization before this internal read. */
   readFrozenRoundTranscript: (roundId: string) =>
@@ -70,19 +71,21 @@ export type FreezeRequest = LockedRoundTickInput & {
  * judging intent per eligible bot judge, unless the plan withholds AI judging.
  */
 async function planFrozenJudging(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   request: FreezeRequest,
   completeness: 'complete' | 'incomplete',
   capture: FrozenCapture,
 ) {
-  const [judges] =
-    (await tx.execute(sql`select exists(select 1 from round_participants p join actors a on a.id=p.actor_id
-    where p.round_id=${request.roundId} and p.seat_kind='judge' and public.daisy_round_participant_is_current(p.id) and a.kind='human') as "humanJudges"`)) as unknown as {
-      humanJudges: boolean;
-    }[];
+  const [judges] = await query(
+    tx,
+    z.object({ humanJudges: z.boolean() }),
+    sql`select exists(select 1 from round_participants p join actors a on a.id=p.actor_id
+    where p.round_id=${request.roundId} and p.seat_kind='judge' and public.daisy_round_participant_is_current(p.id) and a.kind='human') as "humanJudges"`,
+  );
+  if (!judges) throw createAppError('INVARIANT');
   const plan = request.planJudging({
     completeness,
-    humanJudges: judges!.humanJudges,
+    humanJudges: judges.humanJudges,
     capture,
   });
   if (plan.ballotDeadlineMs !== null) {
@@ -91,7 +94,8 @@ async function planFrozenJudging(
       plan.ballotDeadlineMs < 0
     )
       throw createAppError('VALIDATION');
-    await tx.execute(
+    await run(
+      tx,
       sql`update rounds set ballot_deadline_at=(select frozen_at from round_transcript_freezes where round_id=${request.roundId})+${plan.ballotDeadlineMs}*interval '1 millisecond' where id=${request.roundId}`,
     );
   }
@@ -102,15 +106,18 @@ async function planFrozenJudging(
   )
     throw createAppError('VALIDATION');
   // The AI judge is eligible by its own profile (ISSUE-750); kind alone is insufficient.
-  await tx.execute(sql`insert into round_judging_jobs (round_id,freeze_revision,judge_participant_id,status,attempts,generation_deadline_at)
+  await run(
+    tx,
+    sql`insert into round_judging_jobs (round_id,freeze_revision,judge_participant_id,status,attempts,generation_deadline_at)
     select ${request.roundId},1,p.id,'queued',0,(select frozen_at from round_transcript_freezes where round_id=${request.roundId})+${plan.aiJudgingBudgetMs}*interval '1 millisecond' from round_participants p join actors a on a.id=p.actor_id join ai_judge_profiles j on j.actor_id=a.id
     where p.round_id=${request.roundId} and p.seat_kind='judge' and public.daisy_round_participant_is_current(p.id) and a.kind='bot'
-    on conflict (round_id,judge_participant_id) do nothing`);
+    on conflict (round_id,judge_participant_id) do nothing`,
+  );
   await notifyWork(tx, 'judging');
 }
 /** Existing Round/lease/stream operation; a service consumer can recheck its lease after waits. */
 export async function finalizeLockedRoundTranscript(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   request: FreezeRequest,
   assertCurrent: () => Promise<void> = async () => {},
   roundTime?: RoundTimeSource,
@@ -175,6 +182,7 @@ export async function finalizeLockedRoundTranscript(
       captureGaps: shortfall.captureGaps,
     })
     .returning();
+  if (!freeze) throw createAppError('INVARIANT');
   await planFrozenJudging(tx, request, state, shortfall.capture);
   await appendTranscriptChanged(tx, request.roundId, revision + 1);
   // What the Round waits on changes here, so the room must read it: a new version
@@ -187,6 +195,6 @@ export async function finalizeLockedRoundTranscript(
   await appendRoundPhaseChanged(tx, request.roundId, version + 1);
   return {
     status: 'frozen' as const,
-    freeze: { ...freeze!, frozenAt: freeze!.frozenAt.toISOString() },
+    freeze: { ...freeze, frozenAt: freeze.frozenAt.toISOString() },
   };
 }

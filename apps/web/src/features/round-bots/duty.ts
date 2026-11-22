@@ -1,4 +1,4 @@
-import { assertNever } from '@daisy/protocol';
+import { assertNever } from '@daisy/protocol/assert-never';
 
 /** What a turn answers. */
 export type Owed =

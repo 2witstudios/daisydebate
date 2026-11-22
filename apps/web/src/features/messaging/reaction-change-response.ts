@@ -1,7 +1,5 @@
-import {
-  createMessagingReactionResultSchema,
-  messagingReactionMaxUnits,
-} from '@daisy/protocol';
+import { createMessagingReactionResultSchema } from '@daisy/protocol/messaging/reactions';
+import { messagingReactionMaxUnits } from '@daisy/protocol/messaging/core';
 
 /** The accepted aggregate belongs to this message, never an unrelated answer. */
 export async function readReactionChangeResponse(

@@ -1,13 +1,16 @@
 import { createMediaWorkerAuthentication } from '@daisy/media/internal';
 import { createMediaWorkerClient } from '@daisy/media/worker';
-import {
-  canonicalCaptureEvidenceBody,
-  captureStateReply,
-} from '@daisy/protocol';
+import { canonicalCaptureEvidenceBody } from '@daisy/protocol/capture-evidence-body';
+import { captureStateReply } from '@daisy/protocol/capture-worker-replies';
 import { validateCaptureBatch, type ClipCarries } from './capture-batch';
+import { waitUntilPerformanceMs } from './capture-history';
 import { OriginalFrameBatches } from './original-frame-batches/original-frame-batches';
 
-/** Synthetic original callback samples over real signed ingress; never a played-media claim. */
+/**
+ * Synthetic original callback samples over real signed ingress; never a
+ * played-media claim. A real worker process on the worker's own real time,
+ * driven by apps/web/integration/necessary-evidence-signed.integration.ts.
+ */
 async function main() {
   const raw = JSON.parse(await Bun.stdin.text()) as unknown;
   const encoded = canonicalCaptureEvidenceBody(raw);
@@ -99,9 +102,7 @@ async function main() {
     epoch: body.epoch,
     signal: new AbortController().signal,
     nowMs: performance.now,
-    waitUntilMs: async (due) => {
-      await Bun.sleep(Math.max(0, due - performance.now()));
-    },
+    waitUntilMs: waitUntilPerformanceMs,
     dropped: (count) => {
       if (count) throw new Error('Unexpected sample discard');
     },
@@ -131,9 +132,7 @@ async function main() {
           bodies: prepared.bodies,
           send: client.preserve,
           nowMs: performance.now,
-          waitUntilMs: async (due) => {
-            await Bun.sleep(Math.max(0, due - performance.now()));
-          },
+          waitUntilMs: waitUntilPerformanceMs,
         },
         signal,
       );
@@ -149,6 +148,7 @@ async function main() {
       wavs,
     }) + '\n',
   );
-  await Bun.sleep(60000);
+  // Stay alive with the carry nonempty until the parent kills this process.
+  await new Promise((ended) => process.once('SIGTERM', ended));
 }
 if (import.meta.main) await main();

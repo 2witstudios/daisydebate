@@ -1,10 +1,11 @@
+import { instantMs, tryInstantMs } from '@daisy/clock';
+import { isRoundCompleted } from '@daisy/protocol/round';
 import {
-  isRoundCompleted,
   postRoundCallPolicy,
-  type MediaRoomRead,
   type PostRoundCallFacts,
   type PostRoundCallState,
-} from '@daisy/protocol';
+} from '@daisy/protocol/post-round-call';
+import { type MediaRoomRead } from '@daisy/protocol/media-room-fate';
 import type { RoundMediaGrants } from './media-grants';
 
 /**
@@ -24,18 +25,15 @@ export const postRoundCallState = (
     facts.roundEndedAt === null
   )
     return { kind: 'none' };
-  const nowMs = Date.parse(now);
-  const endsAtMs = Date.parse(facts.roundEndedAt) + postRoundCallPolicy.maxMs;
-  if (
-    !Number.isFinite(nowMs) ||
-    !Number.isFinite(endsAtMs) ||
-    nowMs >= endsAtMs
-  )
-    return { kind: 'over' };
+  const nowMs = tryInstantMs(now);
+  const endedAt = tryInstantMs(facts.roundEndedAt);
+  if (nowMs === undefined || endedAt === undefined) return { kind: 'over' };
+  const endsAtMs = endedAt + postRoundCallPolicy.maxMs;
+  if (nowMs >= endsAtMs) return { kind: 'over' };
   if (facts.openedAt === null) return { kind: 'opening', endsAtMs };
   if (
     facts.vacantSince !== null &&
-    nowMs - Date.parse(facts.vacantSince) >= postRoundCallPolicy.vacantGraceMs
+    nowMs - instantMs(facts.vacantSince) >= postRoundCallPolicy.vacantGraceMs
   )
     return { kind: 'over' };
   return { kind: 'open', endsAtMs };

@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { OutboxRow } from '@daisy/db/outbox';
 import { createDeliveryScheduler } from './delivery-scheduler';
@@ -150,7 +151,7 @@ test('the oldest publication age follows the injected wall clock and clears on s
     deliver: gated.deliver,
     overflow: () => {},
   });
-  const created = Date.parse('2026-10-27T00:00:00.000Z');
+  const created = instantMs('2026-10-27T00:00:00.000Z');
   const only = row('t:a', '2026-10-27T00:00:00.000Z');
   scheduler.enqueue([only]);
   const waiting = scheduler.backlog(created + 1500).oldestAgeMs;

@@ -1,6 +1,6 @@
 import type { HostResultsFacts } from '@daisy/db/tab';
 import { createAppError } from '@daisy/errors';
-import { isRoundRunning, isRoundOver } from '@daisy/protocol';
+import { isRoundRunning, isRoundOver } from '@daisy/protocol/round';
 import type { HostResultsView } from '@daisy/protocol/lobby/results-read';
 import { z } from 'zod';
 import { drawStageSnapshotSchema } from '../operations/draw-facts';
@@ -15,6 +15,11 @@ export function hostResultStages(
   facts: HostResultsFacts,
 ): HostResultsView['stages'] {
   const competition = facts.competition;
+  const entryName = (entryId: string) => {
+    const entry = competition.entries.find((one) => one.id === entryId);
+    if (!entry) throw createAppError('INVARIANT', 'Fixture entry is missing');
+    return entry.name;
+  };
   const current = competition.results.filter(
     (row) =>
       !competition.results.some((other) => other.supersedesResultId === row.id),
@@ -26,17 +31,14 @@ export function hostResultStages(
         .filter((round) => round.stageId === stage.id)
         .sort((a, b) => a.number - b.number);
       const publishedDraw = competition.draws
-        .filter(
-          (draw) =>
-            draw.status === 'published' &&
-            rounds.some((round) => round.id === draw.tabRoundId),
-        )
+        .flatMap((draw) => {
+          if (draw.status !== 'published') return [];
+          const round = rounds.find((one) => one.id === draw.tabRoundId);
+          return round ? [{ draw, number: round.number }] : [];
+        })
         .sort(
-          (a, b) =>
-            rounds.find((round) => round.id === a.tabRoundId)!.number -
-              rounds.find((round) => round.id === b.tabRoundId)!.number ||
-            a.version - b.version,
-        )[0];
+          (a, b) => a.number - b.number || a.draw.version - b.draw.version,
+        )[0]?.draw;
       const snapshot = publishedDraw
         ? frozenStage.parse(publishedDraw.inputs).stage
         : null;
@@ -90,12 +92,7 @@ export function hostResultStages(
                     return {
                       entryId: one.entryId,
                       seed: seed === -1 ? null : seed + 1,
-                      shown: {
-                        kind: 'name',
-                        name: competition.entries.find(
-                          (entry) => entry.id === one.entryId,
-                        )!.name,
-                      },
+                      shown: { kind: 'name', name: entryName(one.entryId) },
                     };
                   }),
                 state:

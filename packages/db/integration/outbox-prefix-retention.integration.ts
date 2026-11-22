@@ -1,10 +1,11 @@
 import { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { deleteExpiredOutboxPrefix } from '../src/outbox-retention';
+import { readOutboxCatchup } from '../src/outbox-catchup';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
-import { buildRoomTopic, buildUserInboxTopic } from '@daisy/protocol';
+import { buildRoomTopic, buildUserInboxTopic } from '@daisy/protocol/topics';
 import { expect } from 'bun:test';
 import { createDatabase } from '../src';
 import { encodeOutboxCursor, type OutboxPosition } from '@daisy/db/outbox';
@@ -289,6 +290,77 @@ test('a missing boundary refuses deletion and an empty unknown history refuses r
       });
       // Restore only this test transaction's metadata before committing.
       await tx`insert into outbox_retention_boundary(singleton,txid,seq) values(true,${first.txid}::xid8,0)`;
+    });
+  });
+});
+
+test('outbox catchup requires resync beyond a bounded PostgreSQL window', async () => {
+  await fixture(async (f) => {
+    const first = await f.insert(false);
+    await f.insert(false);
+    const last = await f.insert(false);
+    const since = encodeOutboxCursor(first);
+    const complete = await f.database.readOutboxCatchup(
+      f.topic,
+      since,
+      last,
+      2,
+    );
+    assert({
+      given: 'two durable outbox rows after the starting cursor',
+      should:
+        'return ordered bigint cursors at the limit and require resync below it',
+      actual: {
+        complete: [complete.resync, complete.rows.map((row) => typeof row.seq)],
+        over: await f.database.readOutboxCatchup(f.topic, since, last, 1),
+      },
+      expected: {
+        complete: [false, ['bigint', 'bigint']],
+        over: { rows: [], resync: true },
+      },
+    });
+    await f.sql.begin(async (tx) => {
+      await tx`delete from public.outbox_retention_boundary where singleton`;
+      const client = drizzle({ client: tx });
+      assert({
+        given: 'the same rows with an absent retention boundary',
+        should: 'require resync instead of certifying the history',
+        actual: await readOutboxCatchup(client, f.topic, since, last, 2),
+        expected: { rows: [], resync: true },
+      });
+      await tx`insert into public.outbox_retention_boundary values(true,${first.txid}::xid8,0)`;
+    });
+    const sql: string[] = [];
+    const client = drizzle({
+      client: f.sql,
+      logger: { logQuery: (statement) => sql.push(statement) },
+    });
+    let refused = 0;
+    for (const [topic, cursor, end, limit] of [
+      ['invalid', since, last, 1],
+      [f.topic, 'invalid', last, 1],
+      [f.topic, since, { txid: last.txid, seq: -1n }, 1],
+      ...[0, 501, 1.5].map((size) => [f.topic, since, last, size] as const),
+    ] as const) {
+      try {
+        await readOutboxCatchup(client, topic, cursor, end, limit);
+      } catch {
+        refused++;
+      }
+    }
+    for (const limit of [0, 501, 1.5]) {
+      try {
+        await deleteExpiredOutboxPrefix(client, { before: cutoff, limit });
+      } catch {
+        refused++;
+      }
+    }
+    assert({
+      given: 'malformed topics, cursor bounds and limits',
+      should:
+        'refuse catchup and retention requests before either adapter sends a statement',
+      actual: { refused, statements: sql.length },
+      expected: { refused: 9, statements: 0 },
     });
   });
 });

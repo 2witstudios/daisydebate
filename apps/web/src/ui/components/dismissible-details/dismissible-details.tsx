@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useMount } from '../../edge/use-mount';
+import { useRef, type ReactNode } from 'react';
 import { cn } from '../../cn';
 
 /**
  * A native disclosure that also closes when the pointer lands outside it or
  * Escape is pressed. The `<details>`/`<summary>` stay in the server-rendered
- * markup, so the disclosure still opens without JavaScript; this component only
+ * markup, so the disclosure still opens before hydration; this component only
  * adds the dismiss-on-outside-click enhancement once hydrated.
  */
 export function DismissibleDetails({
@@ -27,7 +28,7 @@ export function DismissibleDetails({
   const ref = useRef<HTMLDetailsElement>(null);
   const summaryRef = useRef<HTMLElement>(null);
 
-  useEffect(() => {
+  useMount(() => {
     const element = ref.current;
     if (!element) return;
 
@@ -55,7 +56,7 @@ export function DismissibleDetails({
       document.removeEventListener('click', onDocumentClick);
       document.removeEventListener('keydown', onKeydown);
     };
-  }, []);
+  });
 
   return (
     <details ref={ref} className={cn(className)}>

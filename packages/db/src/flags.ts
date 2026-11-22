@@ -1,7 +1,8 @@
 import { createAppError } from '@daisy/errors';
 import type { FlagSnapshot } from '@daisy/protocol/flags';
 import { lockFlags } from './flags-lock';
-import { readFlagSnapshot, type FlagReadTransaction } from './flags-read';
+import { readFlagSnapshot } from './flags-read';
+import type { Tx } from './tx';
 
 /** Trusted catalogue closure and a synchronous pure decision, not transaction callbacks. */
 export type ReleaseAdmission = {
@@ -16,7 +17,7 @@ export type ReleaseAdmission = {
  * Already admitted attempts recover through their owner's separate contract.
  */
 export async function requireFlagAdmission(
-  tx: FlagReadTransaction,
+  tx: Tx,
   accountId: string,
   policy: ReleaseAdmission,
 ): Promise<{ readonly admittedAt: string }> {

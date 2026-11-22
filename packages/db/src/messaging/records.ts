@@ -1,10 +1,10 @@
 import type {
   ChannelHistoryRecord,
   ChannelMessageRecord,
-} from '@daisy/protocol';
-import type { AuthorizationTransaction } from '../authorization';
+} from '@daisy/protocol/messaging/channel-messages';
 import type { MessagingChannelFact } from './social';
 import type { authorizationAccountFact } from '../authorization-account';
+import type { Tx } from '../tx';
 
 /** One stored message: the shape the shared channel mapper reads (ADR 0089). */
 export type MessagingMessageRecord = ChannelMessageRecord;
@@ -55,7 +55,7 @@ export type MessagingMutationPlan = {
   readonly payloadDigest: string;
 };
 export type MessagingAuthorizationFence = (
-  tx: AuthorizationTransaction,
+  tx: Tx,
   input: {
     readonly channelId: string;
     readonly userId: string;

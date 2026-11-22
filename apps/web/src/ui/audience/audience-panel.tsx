@@ -1,9 +1,10 @@
 'use client';
+import { StatusRegion } from '../components/status-region/status-region';
 import {
   audienceReactionKinds,
   SPECTATOR_CHAT_UNITS,
   type AudienceSnapshot,
-} from '@daisy/protocol';
+} from '@daisy/protocol/audience';
 import Link from 'next/link';
 import type { FormStateAction } from '../form-action/action-form';
 import { ActionForm } from '../form-action/action-form';
@@ -75,9 +76,9 @@ function ChatComposer({
             />
           </label>
           {error ? (
-            <p role="alert" className="text-sm text-live">
+            <StatusRegion as="p" role="alert" className="text-sm text-live">
               {error}
-            </p>
+            </StatusRegion>
           ) : null}
           <Button type="submit" variant="secondary" disabled={pending}>
             Post
@@ -119,9 +120,9 @@ function ReactionBar({
               </Button>
             ))}
             {error ? (
-              <p role="alert" className="text-sm text-live">
+              <StatusRegion as="p" role="alert" className="text-sm text-live">
                 {error}
-              </p>
+              </StatusRegion>
             ) : null}
           </>
         )}
@@ -139,7 +140,7 @@ function ReactionBar({
 /**
  * The audience's own activity on a Round: chat, reactions and the count, in near
  * real time. Anyone reads; an account takes part, unless it is in the live room,
- * which does not post. Every form is a native post, and with script the view
+ * which does not post. Every form is a native post, and once hydrated the view
  * refreshes itself.
  */
 export function AudiencePanel({

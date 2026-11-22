@@ -1,31 +1,19 @@
-import { idSchema } from '@daisy/protocol';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
+import { idSchema } from '@daisy/protocol/primitives';
 import { createAppError } from '@daisy/errors';
-import {
-  readAuthorizationActors,
-  type AuthorizationTransaction,
-} from '../authorization';
+import { readAuthorizationActors } from '../authorization';
 import type { ContextChannelFact } from './context-channel-contracts';
 import { channelObservationReads } from './observation-reads';
+import { inTransaction, type Tx, type TxSource } from '../tx';
 
 /** What one context supplies so realtime can decide a cohort of viewers of its channel. */
 export type ContextChannelObservationOwner<Fact extends ContextChannelFact> = {
   /** The owner of this context's channel, or null when the channel is not this context's. */
-  readonly ownerOf: (
-    tx: AuthorizationTransaction,
-    channelId: string,
-  ) => Promise<string | null>;
-  readonly fence: (
-    tx: AuthorizationTransaction,
-    ownerId: string,
-  ) => Promise<boolean>;
-  readonly fenceChannel: (
-    tx: AuthorizationTransaction,
-    channelId: string,
-  ) => Promise<boolean>;
+  readonly ownerOf: (tx: Tx, channelId: string) => Promise<string | null>;
+  readonly fence: (tx: Tx, ownerId: string) => Promise<boolean>;
+  readonly fenceChannel: (tx: Tx, channelId: string) => Promise<boolean>;
   /** One cohort statement: only the requested callers' facts cross the boundary. */
   readonly readFacts: (
-    tx: AuthorizationTransaction,
+    tx: Tx,
     ownerId: string,
     actorIds: readonly string[],
   ) => Promise<ReadonlyMap<string, Fact>>;
@@ -34,7 +22,7 @@ export type ContextChannelObservationOwner<Fact extends ContextChannelFact> = {
 /** A context's adoption of the existing channel-messages observation resource. */
 export function createContextChannelCohortAuthority<
   Fact extends ContextChannelFact,
->(database: BunSQLDatabase, owner: ContextChannelObservationOwner<Fact>) {
+>(database: TxSource, owner: ContextChannelObservationOwner<Fact>) {
   return async <T>(
     input: {
       readonly channelId: string;
@@ -44,7 +32,7 @@ export function createContextChannelCohortAuthority<
       }[];
     },
     work: (frame: {
-      readonly tx: AuthorizationTransaction;
+      readonly tx: Tx;
       readonly accounts: Awaited<ReturnType<typeof readAuthorizationActors>>;
       readonly factFor: (actorId: string) => Fact;
       readonly contentRevision: number;
@@ -56,7 +44,7 @@ export function createContextChannelCohortAuthority<
     ].sort();
     if (actorIds.length === 0 || input.viewers.length > 65535)
       throw createAppError('VALIDATION');
-    return database.transaction(async (tx) => {
+    return inTransaction(database, async (tx) => {
       const accounts = await readAuthorizationActors(tx, actorIds, {
         maxActors: 65535,
       });

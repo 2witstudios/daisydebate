@@ -1,9 +1,6 @@
-import {
-  isAbsentSeat,
-  isDebatingSeat,
-  isNamedSeat,
-  type RoundView,
-} from '@daisy/protocol';
+import { isAbsentSeat } from '@daisy/protocol/round';
+import { isDebatingSeat } from '@daisy/protocol/seats';
+import { isNamedSeat, type RoundView } from '@daisy/protocol/round-view';
 import {
   forfeitsToOpponent,
   roundPositionAt,

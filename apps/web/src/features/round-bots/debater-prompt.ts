@@ -1,17 +1,13 @@
+import { instantMs } from '@daisy/clock';
 import { roundDebaterMessages, roundSpeakerMessages } from '@daisy/ai-voice';
 import type {
   createBotPublicationOperations,
   BotPublicationScope,
 } from '@daisy/db/bot-publication';
 import { createAppError } from '@daisy/errors';
-import {
-  leadSeatOf,
-  sameSeat,
-  seatLabel,
-  seatsOfKind,
-  segmentDueAtMs,
-  sideOfSeat,
-} from '@daisy/protocol';
+import { leadSeatOf, seatsOfKind } from '@daisy/protocol/format-seating';
+import { sameSeat, seatLabel, sideOfSeat } from '@daisy/protocol/seats';
+import { segmentDueAtMs } from '@daisy/protocol/segment-end';
 import type { Owed } from './duty';
 
 type Context = Awaited<
@@ -23,7 +19,7 @@ type Segment = Context['round']['segments'][number];
 type Rule = Context['round']['rules']['segments'][number];
 const dueAtOf = (segment: Segment) =>
   segmentDueAtMs({
-    startedAtMs: Date.parse(segment.startedAt),
+    startedAtMs: instantMs(segment.startedAt),
     durationMs: segment.durationMs,
     returnedMs: segment.returnedMs,
   });

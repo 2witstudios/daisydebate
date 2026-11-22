@@ -1,6 +1,8 @@
 'use client';
 
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useBrowserEffect } from '../../edge/browser-sync';
+import { Button } from '../../components/button/button';
+import { useRef, useState, useSyncExternalStore } from 'react';
 import { feedbackField } from '../../../features/judge/ballot';
 import type { BallotPlan } from '../../../features/judge/ballot-plan';
 import {
@@ -50,7 +52,7 @@ const limitHelper = (limit: {
  * The ballot's fields, rendered from the answer so far: the last posted
  * values after a refusal, or a fresh sheet. The controls are uncontrolled,
  * seeded from those values, so a refusal restores what was posted with or
- * without JavaScript; state only drives the read-outs that follow them.
+ * before hydration; state only drives the read-outs that follow them.
  * A judge can pick and score before the page hydrates, so on mount the
  * read-outs start from what the controls hold, not from the answer. What
  * is asked, and of whom, is the Round's own ballot definition (TAB-6.17).
@@ -69,7 +71,7 @@ export function BallotFields({
   readonly error: string | undefined;
   readonly pending: boolean;
   readonly errorId?: string;
-  /** While attendance settles, Submit waits, but only with script: a native post always submits. */
+  /** While attendance settles, Submit waits, but only once hydrated: a native post always submits. */
   readonly opensInMs?: number | null;
   readonly reasonAudienceLabel?: string;
 }) {
@@ -86,7 +88,7 @@ export function BallotFields({
   const [winner, setWinner] = useState<string | null>(postedWinner);
   const [scores, setScores] = useState<SheetScores>(posted);
   const root = useRef<HTMLDivElement>(null);
-  useEffect(() => {
+  useBrowserEffect(() => {
     const form = root.current?.closest('form');
     if (!form) return;
     const held = formValues(new FormData(form));
@@ -301,14 +303,15 @@ function SubmitRow({
   const waiting = live && opensInMs !== null;
   return (
     <div className="flex flex-wrap items-center gap-4">
-      <button
+      <Button
+        variant="unstyled"
         type="submit"
         disabled={pending || waiting}
         aria-describedby={waiting ? OPENS_ID : undefined}
         className={buttonClass('primary')}
       >
         {pending ? 'Submitting…' : 'Submit ballot'}
-      </button>
+      </Button>
       {waiting ? (
         <p id={OPENS_ID} className="text-base text-ink-muted">
           {`Opens in ${formatCountdown(opensInMs)}`}

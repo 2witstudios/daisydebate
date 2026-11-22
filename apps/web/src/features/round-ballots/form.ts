@@ -1,9 +1,9 @@
 import type { BallotPlan } from '../judge/ballot-plan';
+import { idSchema } from '@daisy/protocol/primitives';
 import {
-  idSchema,
   roundBallotReceiptSchema,
   type RoundBallotReceipt,
-} from '@daisy/protocol';
+} from '@daisy/protocol/round-ballot';
 import {
   blankFields,
   formFields,
@@ -50,7 +50,7 @@ export function ballotFormFields(answer: RoundBallotFormState): FormFields {
       return formFields(answer);
   }
 }
-/** The same strict API boundary before hydration, without JavaScript and with enhanced retry. */
+/** The same strict API boundary before hydration and with enhanced retry. */
 export async function submitRoundBallotForm(
   fetch: FetchLike,
   roundId: string,

@@ -29,7 +29,7 @@ export type DatabaseEventSink = (
 export async function instrumented<T>(
   eventSink: DatabaseEventSink | undefined,
   operation: string,
-  fn: () => Promise<T>,
+  fn: () => PromiseLike<T>,
 ): Promise<T> {
   try {
     return await withLaneOperation(operation, async () => fn());

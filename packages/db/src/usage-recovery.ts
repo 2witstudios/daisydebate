@@ -1,6 +1,7 @@
 import { and, asc, eq, gt, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { roundStatus } from '@daisy/protocol/round';
+import { idSchema } from '@daisy/protocol/primitives';
 import type { BoundedTransaction } from './bounded-transaction';
 import { currentWebTransaction } from './web-service-authority';
 import { createUsageRelease } from './usage-release';
@@ -37,7 +38,7 @@ export function usageRecoveryOperations(run: BoundedTransaction) {
           .innerJoin(users, eq(users.id, actors.userId))
           .where(
             and(
-              eq(rounds.status, 'abandoned'),
+              eq(rounds.status, roundStatus.abandoned),
               sql`${users.deletedAt} is null`,
               ...(input.afterId === undefined
                 ? []

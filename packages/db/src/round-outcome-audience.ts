@@ -1,4 +1,4 @@
-import type { RoundRecord } from '@daisy/protocol';
+import type { RoundRecord } from '@daisy/protocol/round-view';
 import type { RoundRoomAuthority } from './round-room-authority';
 
 /** A completed event Round is not itself a release of its decision. */

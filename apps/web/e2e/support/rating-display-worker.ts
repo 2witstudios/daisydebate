@@ -2,13 +2,9 @@ import { SQL } from 'bun';
 import { z } from 'zod';
 import { createId } from '@paralleldrive/cuid2';
 import { createDatabase } from '@daisy/db';
-import {
-  affirmativeSide,
-  emptyRuntimeCheckpointFor,
-  idSchema,
-  negativeSide,
-  ratingStyles,
-} from '@daisy/protocol';
+import { affirmativeSide, negativeSide } from '@daisy/protocol/seats';
+import { emptyRuntimeCheckpointFor } from '@daisy/protocol/round';
+import { idSchema, ratingStyles } from '@daisy/protocol/primitives';
 import { rateCompletedRound } from '../../src/features/ratings/rate-debate';
 import { betaAccessTarget } from './beta-access-target';
 import { seatJudges } from './seat-judges';

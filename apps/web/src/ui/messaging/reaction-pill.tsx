@@ -1,4 +1,5 @@
 'use client';
+import { Button } from '../components/button/button';
 import { useCallback } from 'react';
 import { useFormAction, type FormAction } from '../form-action/form-action';
 import {
@@ -61,7 +62,8 @@ export function ReactionPill({
       <input type="hidden" name="reaction" value={reaction} />
       <input type="hidden" name="observed" value={String(observed)} />
       <input type="hidden" name="active" value={String(!own)} />
-      <button
+      <Button
+        variant="unstyled"
         type="submit"
         disabled={pending}
         aria-pressed={own}
@@ -76,7 +78,7 @@ export function ReactionPill({
       >
         <span aria-hidden="true">{reaction}</span>
         <span aria-hidden="true">{shownCount}</span>
-      </button>
+      </Button>
     </form>
   );
 }

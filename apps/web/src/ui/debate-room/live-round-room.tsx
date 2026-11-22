@@ -1,16 +1,17 @@
 'use client';
 
 import '../../lib/zod-jitless';
+import { StatusRegion } from '../components/status-region/status-region';
 import type { FloorChatProps } from '../round-floor/floor-chat';
 import type { LocalPublication } from '../../features/round-media/model/media-publication';
-import { roundMediaSlot } from '../../features/round-media/media-session';
+import { roundMediaSlot } from '../round-media/media-session';
 import { clearAccountResumeRecords } from '../../features/rooms/resume-departure';
 import { useRoundMediaTab } from './use-round-media-tab';
-import { useRoundAttendance } from '../../features/attendance/use-round-attendance';
+import { useRoundAttendance } from './use-round-attendance';
 import { createAttendanceReconnect } from '../../features/attendance/reconnect';
 import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import { systemId } from '@daisy/clock';
-import type { RoundView } from '@daisy/protocol';
+import type { RoundView } from '@daisy/protocol/round-view';
 import type { RoundRead } from '../../features/round-runtime/read-round';
 import { FreshnessNotice } from '../resource-sync/freshness-notice';
 import { useLiveRoundView } from './use-live-round-view';
@@ -208,9 +209,9 @@ export function LiveRoundRoom({
       ) : null}
       <RoundIncidentBanner checkpoint={view.checkpoint} nowMs={now} />
       {outcome ? (
-        <p role="status" className="sr-only">
+        <StatusRegion as="p" role="status" className="sr-only">
           {outcome}
-        </p>
+        </StatusRegion>
       ) : null}
       {attendanceSlot}
       {view.opening?.draw ? (

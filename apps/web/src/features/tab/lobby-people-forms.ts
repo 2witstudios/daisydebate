@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { createAppError } from '@daisy/errors';
-import { parseUsername } from '@daisy/protocol';
+import { parseUsername } from '@daisy/protocol/username';
 import { organizationCommandEnvelopeSchema } from '@daisy/protocol/lobby/organization-command';
 import { singleFormField } from '../forms/form-state';
 import {

@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { fixedClock } from '@daisy/clock';
+import { instantMs, fixedClock } from '@daisy/clock';
 import {
   createAlertRecorder,
   withAlertRecording,
@@ -147,7 +147,7 @@ describe('createAlertRecorder (AUTH-7.7)', () => {
   test('counts auth-operation http completions into the current minute bucket, 5xx separately', () => {
     const { redis, calls } = fakeAlertRedis();
     const recorder = createAlertRecorder({ redis, clock: fixedClock(NOW) });
-    const bucket = Math.floor(Date.parse(NOW) / 60_000);
+    const bucket = Math.floor(instantMs(NOW) / 60_000);
     recorder.observe('http.request.completed', {
       operation: 'auth.request',
       status: 200,
@@ -178,7 +178,7 @@ describe('createAlertRecorder (AUTH-7.7)', () => {
   test('counts shed work and network denials into their minute buckets, keyed by time only (ISSUE-220, AUTH-3.10)', () => {
     const { redis, calls } = fakeAlertRedis();
     const recorder = createAlertRecorder({ redis, clock: fixedClock(NOW) });
-    const bucket = Math.floor(Date.parse(NOW) / 60_000);
+    const bucket = Math.floor(instantMs(NOW) / 60_000);
     recorder.observe('mail.shed', {
       operation: 'auth.after-response',
       pending: 68,

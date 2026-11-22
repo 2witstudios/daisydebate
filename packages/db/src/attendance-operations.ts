@@ -6,10 +6,10 @@ import {
 import {
   attendanceEnvelopeSchema,
   attendanceReceiptSchema,
-  idSchema,
   type AttendanceEnvelope,
   type AttendanceReceipt,
-} from '@daisy/protocol';
+} from '@daisy/protocol/attendance';
+import { idSchema } from '@daisy/protocol/primitives';
 import { eq, sql } from 'drizzle-orm';
 import { insertCommandRow } from './round-projection-writer';
 import { roundCommands } from './schema/round-commands';
@@ -23,7 +23,6 @@ import {
   fenceAttendance,
   finalizedAttendanceSegments,
   principalColumns,
-  type AttendanceTransactionContext,
   type AttendanceTransaction,
   type AttendancePrincipal,
   type LockedAttendanceCheckIn,
@@ -44,9 +43,12 @@ import {
   requireSameCheckIn,
   selectAttendanceSeat,
 } from './attendance-decisions';
+import type { Tx } from './tx';
+import { run as runStatement, query } from './raw-rows';
+import { z } from 'zod';
 
 type WorkerVerifier = (
-  tx: AttendanceTransactionContext,
+  tx: Tx,
   principal: Extract<AttendancePrincipal, { kind: 'agent' }>,
   roundId: string,
 ) => Promise<void>;
@@ -61,7 +63,7 @@ type CheckInInput = {
 };
 type Fenced = Awaited<ReturnType<typeof fenceAttendance>>;
 async function authorizeSeat(
-  tx: AttendanceTransactionContext,
+  tx: Tx,
   principal: AttendancePrincipal,
   fenced: Fenced,
   verifyWorker: WorkerVerifier,
@@ -78,7 +80,7 @@ async function authorizeSeat(
   return seat;
 }
 async function readReplay(
-  tx: AttendanceTransactionContext,
+  tx: Tx,
   input: CheckInInput,
   columns: PrincipalColumns,
   participantId: string,
@@ -103,7 +105,7 @@ async function readReplay(
 }
 /** Attendance stores facts only; competitive decisions/projections remain pure engine work. */
 export function createAttendanceOperations(deps: {
-  readonly transaction: AttendanceTransaction;
+  readonly run: AttendanceTransaction;
   readonly roundTime?: RoundTimeSource | undefined;
   readonly nextAttemptId: () => string;
   readonly verifyWorker: WorkerVerifier;
@@ -117,7 +119,7 @@ export function createAttendanceOperations(deps: {
     }) {
       if (!idSchema.safeParse(input.roundId).success)
         throw createAppError('VALIDATION');
-      return deps.transaction(async (tx) => {
+      return deps.run(async (tx) => {
         const columns = principalColumns(input.principal);
         const fenced = await fenceAttendance(
           tx,
@@ -146,7 +148,9 @@ export function createAttendanceOperations(deps: {
           finalizedSegmentIds,
           samples: await attendanceSamples(tx, undecided?.startedAt ?? null),
         };
-        const recorded = await tx.execute(
+        const recorded = await query(
+          tx,
+          z.object({ segment_id: z.string(), received_at: z.string() }),
           sql`select segment_id,to_char(received_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as received_at from round_check_ins where round_id=${input.roundId} and participant_id=${seat.id} order by received_at,segment_id`,
         );
         return {
@@ -154,9 +158,7 @@ export function createAttendanceOperations(deps: {
           ...evidence,
           participantId: seat.id,
           eligibleParticipantIds: eligibleCompetitorIds(fenced.seats),
-          receipts: (
-            recorded as unknown as { segment_id: string; received_at: string }[]
-          ).map((row) => ({
+          receipts: recorded.map((row) => ({
             segmentId: row.segment_id,
             receivedAt: row.received_at,
           })),
@@ -166,7 +168,7 @@ export function createAttendanceOperations(deps: {
     },
     async recordRoundCheckIn(input: CheckInInput): Promise<AttendanceReceipt> {
       requireCommandInput(input, attendanceEnvelopeSchema);
-      return deps.transaction(
+      return deps.run(
         async (tx, first) => {
           const columns = principalColumns(input.principal);
           const fenced = await fenceAttendance(
@@ -207,12 +209,12 @@ export function createAttendanceOperations(deps: {
             input.acceptWindow({ ...facts, receivedAt: replay.receivedAt });
             return replay;
           }
-          const existing = await tx.execute(
+          const existing = await query(
+            tx,
+            z.object({ received_at: z.string() }),
             sql`select to_char(received_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as received_at from round_check_ins where round_id=${round.id} and segment_id=${segment.id} and participant_id=${seat.id}`,
           );
-          const stamp =
-            (existing as unknown as { received_at: string }[])[0]
-              ?.received_at ?? first.receivedAt;
+          const stamp = existing[0]?.received_at ?? first.receivedAt;
           input.acceptWindow({ ...facts, receivedAt: stamp });
           const receipt: AttendanceReceipt = {
             version: 1,
@@ -237,7 +239,8 @@ export function createAttendanceOperations(deps: {
             current.version,
           );
           if (existing.length === 0)
-            await tx.execute(
+            await runStatement(
+              tx,
               sql`insert into round_check_ins(command_id,round_id,segment_id,participant_id,received_at) values(${input.envelope.commandId},${round.id},${segment.id},${seat.id},${stamp}::timestamptz)`,
             );
           return receipt;

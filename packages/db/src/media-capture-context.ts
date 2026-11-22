@@ -1,9 +1,8 @@
-import type { CaptureRule } from '@daisy/protocol';
+import type { CaptureRule } from '@daisy/protocol/capture-verdict';
 import { createAppError, createRefusal } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { and, eq } from 'drizzle-orm';
 import type { BoundedTransaction } from './bounded-transaction';
-import type { BoundedTransactionContext } from './transaction-context';
 import {
   executeLockedRoundTick,
   type LockedRoundTickInput,
@@ -23,6 +22,7 @@ import {
   captureAdmissionClosed,
   requireLiveCaptureLease,
 } from './capture-rules';
+import type { Tx } from './tx';
 
 export type CaptureIdentity = {
   readonly roundId: string;
@@ -43,7 +43,7 @@ export type CaptureDependencies = {
     readonly maxGlobalBytes: number;
     readonly maxOutstandingIntents: number;
   };
-  readonly transaction: BoundedTransaction;
+  readonly run: BoundedTransaction;
   /** Injected policy: how long after a session closes earlier audio may still arrive (CAP-E.1-r8). */
   readonly sttLagMs: number;
   /** The engine's decisions on capture evidence (DEC-212, DEC-218, DEC-220). */
@@ -59,13 +59,12 @@ export type CaptureDependencies = {
   readonly nextId: () => string;
   readonly buildProjection: LockedRoundTickInput['buildProjection'];
 };
-export type CaptureTx = BoundedTransactionContext;
 export const validCaptureIds = (...ids: readonly string[]) => {
   if (!ids.every((id) => idSchema.safeParse(id).success))
     throw createAppError('VALIDATION');
 };
 export async function lockCaptureRound(
-  tx: CaptureTx,
+  tx: Tx,
   input: { readonly roundId: string; readonly sessionId: string },
   dependencies: CaptureDependencies,
 ) {
@@ -87,7 +86,7 @@ export async function lockCaptureRound(
   return tick;
 }
 export async function captureAdmission(
-  tx: CaptureTx,
+  tx: Tx,
   roundId: string,
   cutoff: string | null,
 ) {
@@ -154,7 +153,7 @@ export function captureSessionAdmits(
 }
 /** Refuses work the session no longer admits; shares the Round lock already held. */
 export async function requireCaptureSession(
-  tx: CaptureTx,
+  tx: Tx,
   input: { readonly sessionId: string },
   write?: CaptureWriteTiming,
 ) {
@@ -173,7 +172,7 @@ export async function requireCaptureSession(
       'Capture session is closed',
     );
 }
-export async function lockCaptureLease(tx: CaptureTx, input: CaptureIdentity) {
+export async function lockCaptureLease(tx: Tx, input: CaptureIdentity) {
   validCaptureIds(input.workerId);
   if (!Number.isSafeInteger(input.epoch) || input.epoch < 1)
     throw createAppError('VALIDATION');
@@ -192,7 +191,7 @@ export async function lockCaptureLease(tx: CaptureTx, input: CaptureIdentity) {
 }
 /** A bot seat is never captured: its words are authored (ADR 0122). */
 async function refuseBotSeat(
-  tx: CaptureTx,
+  tx: Tx,
   input: Pick<
     CaptureIdentity & CaptureStream,
     'roundId' | 'roundParticipantId'
@@ -212,7 +211,7 @@ async function refuseBotSeat(
     throw createRefusal('CONFLICT', 'bot-authored', 'A bot is never captured');
 }
 async function lockCaptureStream(
-  tx: CaptureTx,
+  tx: Tx,
   input: CaptureIdentity & CaptureStream,
 ) {
   validCaptureIds(input.segmentId, input.roundParticipantId);
@@ -256,7 +255,7 @@ async function lockCaptureStream(
   return { segment, stream, created: created.length > 0 };
 }
 export async function captureWriteContext(
-  tx: CaptureTx,
+  tx: Tx,
   input: CaptureIdentity & CaptureStream,
   dependencies: CaptureDependencies,
   /** The end of the audio this write records; none for a seal. */
@@ -290,7 +289,7 @@ export async function captureWriteContext(
 
 /** Resample after evidence reads, immediately before the durable mutation. */
 export async function freshCaptureMutation(
-  tx: CaptureTx,
+  tx: Tx,
   roundId: string,
   context: {
     readonly cutoff: string | null;

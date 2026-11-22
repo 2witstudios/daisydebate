@@ -1,6 +1,5 @@
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { messagingChannels } from '../schema/messaging-channels';
 import {
   messagingGroupGrants,
@@ -14,9 +13,10 @@ import type {
   MessagingGroupCreationFrame,
   MessagingGroupCreationScope,
 } from './group-creation-contracts';
+import type { Tx } from '../tx';
 /** Accounts/pairs and fresh canonical prospective admission precede this atomic creation. */
 export async function writeMessagingGroupCreation(
-  tx: Pick<BunSQLDatabase, 'insert' | 'execute'>,
+  tx: Tx,
   scope: MessagingGroupCreationScope,
   command: Parameters<MessagingGroupCreationFrame['commit']>[0],
 ) {

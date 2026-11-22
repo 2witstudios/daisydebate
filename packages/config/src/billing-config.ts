@@ -152,3 +152,16 @@ export function withBillingConfig<Config extends BillingFields>({
       : { kind: 'disabled' };
   return { ...config, billing };
 }
+
+export const billingEconomicsFields = {
+  BILLING_ECONOMICS_DIRECTORY: z
+    .string()
+    .min(1)
+    .max(4096)
+    .refine(
+      (path) =>
+        path.startsWith('/') &&
+        !['\0', '\r', '\n'].some((character) => path.includes(character)),
+    )
+    .optional(),
+};

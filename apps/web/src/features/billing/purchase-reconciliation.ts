@@ -38,6 +38,8 @@ export function createPurchaseReconciliation(input: {
 }) {
   let afterId: string | undefined;
   let stopped = false;
+  /** Read afresh after every await: stop() lands between them. */
+  const isStopped = () => stopped;
   const observe = (inspection: Inspection): Promise<Observation | null> => {
     const { purchase } = inspection;
     const work =
@@ -51,7 +53,7 @@ export function createPurchaseReconciliation(input: {
   };
   async function recover(purchaseId: string) {
     const inspection = await input.store.inspect(purchaseId);
-    if (!inspection || stopped) return;
+    if (!inspection || isStopped()) return;
     if (inspection.purchase.mode !== input.mode)
       throw createAppError('CONFLICT');
     const observed = await observe(inspection);
@@ -71,7 +73,7 @@ export function createPurchaseReconciliation(input: {
   return {
     /** One pass; returns how many rows it handled. */
     async run(): Promise<number> {
-      if (stopped) return 0;
+      if (isStopped()) return 0;
       try {
         const page = await input.store.purchases({
           mode: input.mode,
@@ -79,7 +81,7 @@ export function createPurchaseReconciliation(input: {
           ...(afterId === undefined ? {} : { afterId }),
         });
         for (const { purchaseId } of page.rows) {
-          if (stopped) return page.rows.length;
+          if (isStopped()) return page.rows.length;
           try {
             await recover(purchaseId);
           } catch (error) {

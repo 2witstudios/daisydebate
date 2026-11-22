@@ -11,18 +11,25 @@ requireTestServices(process.env);
 test('canonical account age adopter exports and erases only this subject in the caller transaction', async () => {
   await withPrivacySubject(
     async ({ client, database, userId, actorId, otherId }) => {
+      const subject = { userId, actorId };
+      const adopters = [accountAgePrivacyAdopter];
+      const empty = await runPrivacyExport(database, subject, adopters);
+      assert({
+        given: 'an account with no recorded birth month',
+        should: 'include the empty export collection',
+        actual: empty.account_age,
+        expected: [],
+      });
       await client.unsafe(
         'insert into account_age(user_id,birth_month,recorded_at) values($1,$2,$3),($4,$5,$3)',
         [userId, '2000-01', now, otherId, '2001-02'],
       );
-      const subject = { userId, actorId };
       try {
-        const adopted = [accountAgePrivacyAdopter];
-        const exported = await runPrivacyExport(database, subject, adopted);
+        const exported = await runPrivacyExport(database, subject, adopters);
         await runPrivacyErasure(
           database,
           { subject, now, vendors: [], jobIds: [] },
-          adopted,
+          adopters,
           bindings,
         );
         const remaining = await client.unsafe(

@@ -1,4 +1,4 @@
-import type { RoundMediaAdmission } from '@daisy/protocol';
+import type { RoundMediaAdmission } from '@daisy/protocol/round-media';
 import { settle } from './adapters/livekit-room.test-support';
 import {
   createMediaHarness,

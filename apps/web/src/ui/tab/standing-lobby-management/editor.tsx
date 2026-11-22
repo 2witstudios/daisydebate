@@ -12,6 +12,7 @@ import {
 import type { StandingLobbyFormState } from '../../../features/tab/standing-lobby-form';
 import { ActionButton } from '../action-control/action-control';
 import { ListCard, ListHeading } from '../list-card/list-card';
+import { StatusRegion } from '../../components/status-region/status-region';
 import { Button } from '../../components/button/button';
 import { controlClass } from '../../components/form-field/form-field-class';
 import { FormField } from '../../components/form-field/form-field';
@@ -177,7 +178,8 @@ export function StandingLobbyEditor({
             ))
           : null}
         {fields.error || retry ? (
-          <p
+          <StatusRegion
+            as="p"
             id={notice}
             role="status"
             tabIndex={-1}
@@ -186,7 +188,7 @@ export function StandingLobbyEditor({
             {retry
               ? 'The answer was lost. Retry the same change, or reload to check what was saved.'
               : fields.error}
-          </p>
+          </StatusRegion>
         ) : null}
         <div className="flex flex-wrap gap-3">
           <Button type="submit" disabled={pending || next !== undefined}>

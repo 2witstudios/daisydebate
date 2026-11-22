@@ -1,5 +1,6 @@
 'use client';
 
+import { Button } from '../../components/button/button';
 import Link from 'next/link';
 import {
   contentWaiverAt,
@@ -8,13 +9,12 @@ import {
 } from '../../../features/legal/agreements';
 import { contentWaiverFields } from '../../../features/agreements/submit-content-waiver';
 import type { RoomFormState } from '../../../features/rooms/command-answer';
-import { buttonClass } from '../../components/button/button-class';
 import type { FormAction } from '../../form-action/form-action';
 import { RoomAnswerForm } from './assembly-command-form';
 
 /**
  * The season's content waiver, signed in place before Ready (WATCH-15). A
- * native form with a required box: it works without JavaScript, and the server
+ * native form with a required box: it works before hydration, and the server
  * refuses a post without the tick. The waiver stays on screen whatever the
  * answer: when one is lost the member signs again, which is the same
  * signature. A member under 18 signs the Youth waiver, which grants no
@@ -74,9 +74,9 @@ export function ContentWaiverForm({
           <input type="checkbox" name="accepted" value="yes" required />
           <span>I agree to the {name} for this season.</span>
         </label>
-        <button type="submit" className={buttonClass('primary')}>
+        <Button variant="primary" type="submit">
           Sign waiver
-        </button>
+        </Button>
       </section>
     </RoomAnswerForm>
   );

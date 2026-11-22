@@ -1,4 +1,4 @@
-import type { CompetitionType } from '@daisy/protocol';
+import type { CompetitionType } from '@daisy/protocol/round';
 import {
   mayDebate,
   type DebaterEligibility,
@@ -11,9 +11,10 @@ import {
   readGuardianLobbyIds,
 } from './guardians/lobby-permissions';
 import { readCompetitionAgeBand } from './ladder-division-band';
-import { rowsOf } from './raw-rows';
-import type { Tx } from './room-command-facts';
+import { query } from './raw-rows';
 import { currentTenantScope, scopeTransaction } from './tenant-scope';
+import type { Tx } from './tx';
+import { z } from 'zod';
 
 export const mayHostStandingRoom = (
   creator: DebaterEligibility & { readonly clubStaff: boolean },
@@ -42,8 +43,9 @@ export async function readRoomCreator(
   const ageBand = await readCompetitionAgeBand(tx, userId, lobbyId);
   const scope = await currentTenantScope(tx);
   await scopeTransaction(tx, { subjectUserId: userId });
-  const [staff] = await rowsOf<{ staff: boolean }>(
+  const [staff] = await query(
     tx,
+    z.object({ staff: z.boolean() }),
     sql`select exists (
         select 1 from organizations o
         where o.owner_user_id = ${userId} and o.closed_at is null

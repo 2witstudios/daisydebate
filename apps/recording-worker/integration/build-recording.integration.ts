@@ -1,4 +1,5 @@
-import type { RecordingBuildProgress } from '@daisy/protocol';
+import { instantMs } from '@daisy/clock';
+import type { RecordingBuildProgress } from '@daisy/protocol/recording-processing';
 import { afterAll } from 'bun:test';
 import { mkdir, mkdtemp, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -21,7 +22,7 @@ const ffmpeg = (...args: readonly string[]) =>
     ...args,
   ]);
 
-const T0 = Date.parse('2026-11-03T10:00:00.000Z');
+const T0 = instantMs('2026-11-03T10:00:00.000Z');
 const slatePath = new URL('../assets/gap-slate.png', import.meta.url).pathname;
 
 /** A real, moving, audible picture of one attempt: green, so a slate stands apart. */

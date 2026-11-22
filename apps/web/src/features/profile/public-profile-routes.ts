@@ -1,3 +1,4 @@
+import { nowMs } from '@daisy/clock';
 import { requireAuthorization } from '@daisy/auth/request-authorization';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { OwnPublicProfile } from '@daisy/db';
@@ -18,10 +19,8 @@ import {
   type ProfilePhotoStatus,
 } from '@daisy/protocol/public-profile';
 import type { Identity } from '@daisy/auth';
-import {
-  CONTENT_MODERATION_DELIVERY_BOUND_MS,
-  idSchema,
-} from '@daisy/protocol';
+import { CONTENT_MODERATION_DELIVERY_BOUND_MS } from '@daisy/protocol/content-moderation';
+import { idSchema } from '@daisy/protocol/primitives';
 import { requireMemberActor } from '../access/actor';
 import { squareWebpRenditions } from '../image-intake/square-renditions';
 import type { App } from '../../server/app';
@@ -135,7 +134,7 @@ export function composePublicProfileRoutes(app: App) {
         await app.limiter.consume(`profile-photo-image:${client}`, IMAGE_RULE),
       );
     } catch {
-      const at = Date.parse(app.clock.now());
+      const at = nowMs(app.clock);
       if (at - budgetOutageLoggedAt >= 60_000) {
         budgetOutageLoggedAt = at;
         app.logger.log(

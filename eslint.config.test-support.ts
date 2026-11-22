@@ -1,4 +1,5 @@
 import { ESLint } from 'eslint';
+import { typedRules } from './eslint.config.mjs';
 
 // One instance for the whole file: building the typed-lint program is the
 // expensive step, and under machine load it dominated every test. The lint
@@ -6,8 +7,8 @@ import { ESLint } from 'eslint';
 let shared: ESLint | undefined;
 /**
  * The repository's rules for probe text under invented paths. Such a path is
- * in no TypeScript project, so the one typed rule is off here;
- * `typedRepositoryEslint` proves that rule on a path that exists.
+ * in no TypeScript project, so the rules that read types are off here;
+ * `typedRepositoryEslint` proves those on a path that exists.
  */
 export const repositoryEslint = (): ESLint =>
   (shared ??= new ESLint({
@@ -17,7 +18,9 @@ export const repositoryEslint = (): ESLint =>
       {
         files: ['**/*.{ts,tsx}'],
         languageOptions: { parserOptions: { projectService: false } },
-        rules: { '@typescript-eslint/switch-exhaustiveness-check': 'off' },
+        rules: Object.fromEntries(
+          Object.keys(typedRules).map((rule) => [rule, 'off']),
+        ),
       },
     ],
   }));

@@ -1,10 +1,11 @@
+import { instantMs, tryInstantMs } from '@daisy/clock';
 import { Resend } from 'resend';
 import type { Clock } from '@daisy/clock';
 import {
   emailDeliveryStatusRank,
   type EmailDeliveryStatus,
   type EmailSuppressionReason,
-} from '@daisy/protocol';
+} from '@daisy/protocol/email-delivery';
 import { readBoundedBody } from '../../server/bounded-body';
 
 const MAX_BODY_BYTES = 64 * 1024;
@@ -122,9 +123,9 @@ export function createResendWebhook({
   };
   /** A racing event is retried by the provider once the send is recorded. */
   const unknownResponse = (event: ProviderEvent, at: string) => {
-    const emitted = Date.parse(event.created_at ?? '');
+    const emitted = tryInstantMs(event.created_at);
     const recent =
-      Number.isFinite(emitted) && Date.parse(at) - emitted < RACE_WINDOW_MS;
+      emitted !== undefined && instantMs(at) - emitted < RACE_WINDOW_MS;
     return recent
       ? respond(503, { status: 'retry' }, { 'Retry-After': '5' })
       : respond(200, { status: 'ignored' });

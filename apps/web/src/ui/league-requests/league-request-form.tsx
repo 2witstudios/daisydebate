@@ -1,4 +1,5 @@
 'use client';
+import { StatusRegion } from '../components/status-region/status-region';
 import type { ReactNode } from 'react';
 import { styleLabels } from '../../features/ratings/ladder-labels';
 import {
@@ -289,14 +290,15 @@ export function LeagueRequestForm({
         </Field>
       </div>
       {(fields.notice ?? fields.errors.requestId) ? (
-        <p
+        <StatusRegion
+          as="p"
           id={NOTICE_ID}
           role="alert"
           tabIndex={-1}
           className="text-sm text-live"
         >
           {fields.notice ?? fields.errors.requestId}
-        </p>
+        </StatusRegion>
       ) : null}
       <div className="flex flex-wrap gap-3">
         <Button type="submit" disabled={pending}>

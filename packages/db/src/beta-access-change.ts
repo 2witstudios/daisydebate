@@ -1,9 +1,10 @@
+import { z } from 'zod';
 import { createAppError } from '@daisy/errors';
-import type { BetaAccessDecision } from '@daisy/protocol';
+import type { BetaAccessDecision } from '@daisy/protocol/beta-access';
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { applyBetaEntitlementGrants } from './entitlement-grants';
-import { rowsOf } from './raw-rows';
+import { query, run } from './raw-rows';
+import type { Tx } from './tx';
 
 /**
  * The one write of a decided beta access change (ADR 0075), under the
@@ -12,7 +13,7 @@ import { rowsOf } from './raw-rows';
  * grants, the account fact's revision and the audit event of that same move.
  */
 export async function writeBetaAccessChange(
-  tx: Pick<BunSQLDatabase, 'execute'>,
+  tx: Tx,
   input: {
     readonly userId: string;
     readonly change: Extract<BetaAccessDecision, { kind: 'changed' }>;
@@ -22,8 +23,9 @@ export async function writeBetaAccessChange(
   },
 ): Promise<void> {
   const { change, userId } = input;
-  const moved = await rowsOf(
+  const moved = await query(
     tx,
+    z.object({ user_id: z.string() }),
     sql`update account_beta_access set state = ${change.to},
         revision = ${change.revision}, decided_at = now()
       where user_id = ${userId} and state = ${change.from}
@@ -35,11 +37,15 @@ export async function writeBetaAccessChange(
   // Premium entitlements are their own fact, written with the state change.
   await applyBetaEntitlementGrants(tx, userId, change.to);
   // The account fact's revision moves, so live realtime sessions re-check.
-  await tx.execute(
+  await run(
+    tx,
     sql`update users set version = version + 1 where id = ${userId}`,
   );
-  await tx.execute(sql`insert into account_access_events
+  await run(
+    tx,
+    sql`insert into account_access_events
       (id, user_id, command_id, from_state, to_state, revision, principal)
     values (${input.eventId}, ${userId}, ${input.commandId},
-      ${change.from}, ${change.to}, ${change.revision}, ${input.principal})`);
+      ${change.from}, ${change.to}, ${change.revision}, ${input.principal})`,
+  );
 }

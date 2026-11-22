@@ -1,3 +1,4 @@
+import { addMs } from '@daisy/clock';
 import { openMessagingFixture } from './messaging-fixture.test-support';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -145,7 +146,7 @@ test('canonical prospective authorization creates one pending DM and enforces du
       "update messaging_dm_pairs set request_state='declined',decided_at=$2 where channel_id=$1",
       [fixture.channelId, fixture.now],
     );
-    now = new Date(Date.parse(fixture.now) + 1000).toISOString();
+    now = addMs(fixture.now, 1000);
     const renewal = { ...command, requestId: createId() };
     const renewed = await requestMessagingDm(renewal, principal, deps);
     assert({

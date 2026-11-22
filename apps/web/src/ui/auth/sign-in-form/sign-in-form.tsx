@@ -1,3 +1,4 @@
+import { StatusRegion } from '../../components/status-region/status-region';
 import { Button } from '../../components/button/button';
 import { Icon } from '../../components/icon/icon';
 import { AuthFrame, AuthHeading, taglinePanel } from '../auth-frame/auth-frame';
@@ -13,7 +14,7 @@ export type SignInFormProps = {
   readonly typeEmail: (email: string) => void;
   /**
    * The form's POST. Given a server action, React renders a form the browser
-   * can submit before hydration or without JavaScript.
+   * can submit before hydration.
    */
   readonly action: (form: FormData) => void;
   /** Marks the request in flight; false when the form must not post. */
@@ -34,7 +35,7 @@ const pendingStatus = {
 
 /**
  * One email field for new and returning people alike. It is a real POST:
- * before hydration, or without JavaScript, the browser submits it to the
+ * before hydration, the browser submits it to the
  * same server action and the page renders the inbox step. A saved passkey is
  * offered by the browser's autofill (`username webauthn`) and by the quieter
  * passkey button for browsers without it. The button can only use a passkey
@@ -103,9 +104,9 @@ export function SignInForm({
           For returning users. New here? Use your email.
         </p>
       </div>
-      <p role="status" className="sr-only">
+      <StatusRegion as="p" role="status" className="sr-only">
         {pendingStatus[pending]}
-      </p>
+      </StatusRegion>
     </AuthFrame>
   );
 }

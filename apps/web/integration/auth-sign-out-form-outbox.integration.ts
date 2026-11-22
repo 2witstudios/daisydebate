@@ -2,7 +2,7 @@ import { SQL } from 'bun';
 import { noopErrorReporter } from '@daisy/observability';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { buildUserInboxTopic } from '@daisy/protocol';
+import { buildUserInboxTopic } from '@daisy/protocol/topics';
 import { requireTestServices } from '@daisy/config';
 import { createAuthRouteHandlers } from '../src/features/auth/handlers';
 import { createSignOutFormHandler } from '../src/features/auth/sessions/sign-out-form';
@@ -20,7 +20,7 @@ setupRitewayBun();
 const { databaseUrl: url } = requireTestServices(process.env);
 
 /**
- * The no-JS form (ISSUE-691) is a fifth session-deleting caller: through the
+ * The pre-hydration form (ISSUE-691) is a fifth session-deleting caller: through the
  * real route wrapper and the real `signOutFailsClosedPlugin`, a refused
  * delete returns the person to the form's page still signed in, never to
  * /sign-in with a cleared cookie (ISSUE-719).

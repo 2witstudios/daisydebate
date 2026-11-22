@@ -28,7 +28,13 @@ import { SECTIONS_VERSION } from './sections';
 import { slotCollisions } from './slot';
 import { TWO_SIDED_VERSION } from './two-sided';
 
-const versionOf = (prepared: Prepared): Record<string, string> => {
+const versionOf = (
+  prepared: Prepared,
+): {
+  readonly method: string;
+  readonly judges: string;
+  readonly assess: string;
+} => {
   const method = (() => {
     switch (prepared.method.kind) {
       case 'matched':
@@ -141,7 +147,10 @@ const fixtureEntries = (prepared: Prepared, placed: Placed): Entry[] => {
   return [...placed.kept.map((k) => k.fixture), ...placed.added]
     .filter((f) => f.kind !== 'bye')
     .flatMap((f) => entriesOf(f))
-    .flatMap((id) => (byId.has(id) ? [byId.get(id)!] : []));
+    .flatMap((id) => {
+      const entry = byId.get(id);
+      return entry === undefined ? [] : [entry];
+    });
 };
 
 /**
@@ -168,7 +177,7 @@ const releasedMovable = (
   /** This event's movable seats, claimed in canonical order: the first fixture keeps a shared judge. */
   const local = new Set<Id>();
   for (const f of p.request.existing) {
-    const fixture = f.fixture as Fixture;
+    const fixture = f.fixture;
     if (f.hold !== 'movable' || fixture.kind === 'bye') continue;
     const competitors = new Set(
       entriesOf(fixture).flatMap((e) => people.get(e) ?? []),
@@ -335,7 +344,7 @@ export const draw = (input: DrawInput): DrawAnswer => {
                 plan: {
                   ...w.plan,
                   withdraw: [...w.plan.withdraw, ...finalReleased],
-                } as Plan,
+                },
               })),
             };
       }
@@ -363,7 +372,7 @@ export const draw = (input: DrawInput): DrawAnswer => {
         return {
           kind: 'unresolved',
           event: p.request.event,
-          method: versionOf(p).method!,
+          method: versionOf(p).method,
           attempt,
           broken: attempt.assessment.broken,
         };

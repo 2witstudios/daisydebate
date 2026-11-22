@@ -1,11 +1,12 @@
+import { addMs } from '@daisy/clock';
 import {
   type HydratedRound,
   type HydratedSegment,
-  type RoundLifecycle,
   type RoundParticipantSeat,
-  type RoundRules,
-  type RoundStatus,
-} from '@daisy/protocol';
+} from '@daisy/protocol/runtime';
+import { type RoundLifecycle } from '@daisy/protocol/round-lifecycle';
+import { type RoundRules } from '@daisy/protocol/format';
+import { type RoundStatus } from '@daisy/protocol/round';
 import {
   oneOnOneFormatFixture,
   oneOnOneSettingsFixture,
@@ -44,8 +45,7 @@ const sequentialSegmentIds = (): (() => string) => {
 const t0 = '2026-10-06T09:00:00.000Z';
 
 /** An ISO instant `ms` after the tests' clock start. */
-export const roundAt = (ms: number): string =>
-  new Date(Date.parse(t0) + ms).toISOString();
+export const roundAt = (ms: number): string => addMs(t0, ms);
 
 const affirmativeActor = 'k2v9x0f4m8q3w1z7c5n6b4d2';
 const negativeActor = 'a7b3c9d1e5f2k4m6n8p1r3t5';

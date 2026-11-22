@@ -1,5 +1,5 @@
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import type { LobbyCommandAnswer } from '@daisy/protocol/lobby/command';
 import type { OperationName } from '../ops/operation-names';
 import { readJson } from '../../server/http';

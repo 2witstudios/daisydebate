@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { sha3Hex } from '@daisy/digest';
 import { createAppError } from '@daisy/errors';
 
 /** Fixed-window allowance one key may consume. */
@@ -31,11 +31,7 @@ type ConsumingRedis = {
  */
 export function createRateLimiter(redis: ConsumingRedis): RateLimiter {
   return {
-    consume: (key, rule) =>
-      redis.consumeRateLimit(
-        createHash('sha3-256').update(key).digest('hex'),
-        rule,
-      ),
+    consume: (key, rule) => redis.consumeRateLimit(sha3Hex(key), rule),
   };
 }
 

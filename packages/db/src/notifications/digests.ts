@@ -1,15 +1,14 @@
 import { createAppError } from '@daisy/errors';
-import type { EmailedNotificationKind } from '@daisy/protocol';
+import type { EmailedNotificationKind } from '@daisy/protocol/notifications';
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';
-import type { AuthorizationTransaction } from '../authorization';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
 import {
   mailQueue,
   type MailJobClaimInput,
   type MailJobOutcome,
 } from '../mail-queue';
-import { rowsOf } from '../raw-rows';
+import { run, query } from '../raw-rows';
 import { retriedOnceIfQueuedMeanwhile } from '../mail-queue';
 import { deleteExpiredBatch, type RetentionBatch } from '../retention';
 import {
@@ -20,10 +19,8 @@ import { readInboxRows, type InboxRow } from './inbox';
 import { wants } from './preferences';
 import { emailsMember } from './presentation';
 import { notificationStands } from './standing';
+import { inTransaction, type Tx, type TxSource } from '../tx';
 import { scopeTransaction } from '../tenant-scope';
-import type { Tx, TxOpener } from '../tx';
-
-type Database = Pick<Tx, 'execute'> & TxOpener;
 
 /** A digest waits this long after its latest notification, so a burst is one email. */
 const DIGEST_QUIET_MS = 15 * 60_000;
@@ -78,7 +75,7 @@ const DIGEST_ITEMS = 20;
  * member who turned this kind's email off, or all email, is owed none.
  */
 export async function oweDigests(
-  tx: AuthorizationTransaction,
+  tx: Tx,
   owed: {
     readonly kind: EmailedNotificationKind;
     readonly rows: readonly { readonly id: string; readonly userId: string }[];
@@ -93,7 +90,9 @@ export async function oweDigests(
   );
   const rows = JSON.stringify(owed.rows.map((row) => row.id));
   const at = sql`${owed.at}::timestamptz`;
-  await tx.execute(sql`with d as (
+  await run(
+    tx,
+    sql`with d as (
       insert into notification_digests(id,user_id,first_owed_at,state,attempts,next_attempt_at,created_at)
       select j.id,j.user_id,${at},'queued',0,${at}+${DIGEST_QUIET_MS}*interval '1 millisecond',${at}
       from jsonb_to_recordset(${digests}::text::jsonb) as j(id text,user_id text)
@@ -104,7 +103,8 @@ export async function oweDigests(
       returning id,user_id)
     update notifications n set digest_id=d.id from d
     where n.user_id=d.user_id
-      and n.id in (select jsonb_array_elements_text(${rows}::text::jsonb))`);
+      and n.id in (select jsonb_array_elements_text(${rows}::text::jsonb))`,
+  );
 }
 
 /**
@@ -117,7 +117,7 @@ export function notificationDigestOperations({
   database,
   eventSink,
 }: {
-  readonly database: Database;
+  readonly database: TxSource;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) {
   return {
@@ -125,9 +125,9 @@ export function notificationDigestOperations({
       input: MailJobClaimInput,
     ): Promise<readonly NotificationDigestClaim[]> =>
       instrumented(eventSink, 'claimNotificationDigests', async () =>
-        (await queue.claimDue(database, input, sql`id, attempts`)).map(
-          ({ row, token }) => ({ ...claimRow.parse(row), token }),
-        ),
+        (
+          await queue.claimDue(database, input, sql`id, attempts`, claimRow)
+        ).map(({ row, token }) => ({ ...row, token })),
       ),
     /**
      * Reads what a claimed digest should say now: its notifications that are
@@ -139,14 +139,15 @@ export function notificationDigestOperations({
       id: string,
     ): Promise<NotificationDigestDelivery> =>
       instrumented(eventSink, 'readNotificationDigestDelivery', async () => {
-        const [member] = await rowsOf<{
-          user_id: string;
-          actor_id: string | null;
-          email: string | null;
-          verified: boolean | null;
-          emails: boolean;
-        }>(
+        const [member] = await query(
           database,
+          z.object({
+            user_id: z.string(),
+            actor_id: z.string().nullable(),
+            email: z.string().nullable(),
+            verified: z.boolean().nullable(),
+            emails: z.boolean(),
+          }),
           sql`select d.user_id,a.id as actor_id,u.email,u.email_verified as verified,
               ${emailsMember(sql`d.user_id`)} as emails
             from notification_digests d
@@ -158,7 +159,7 @@ export function notificationDigestOperations({
         if (!member.email || !member.verified || !member.actor_id)
           return { kind: 'cancel', errorCode: 'recipient-gone' };
         if (!member.emails) return { kind: 'cancel', errorCode: 'not-owed' };
-        const items = await database.transaction(async (tx) => {
+        const items = await inTransaction(database, async (tx) => {
           await scopeTransaction(tx, { subjectUserId: member.user_id });
           return readInboxRows(tx, {
             where: sql`n.digest_id=${id} and n.user_id=${member.user_id} and n.read_at is null
@@ -201,9 +202,10 @@ export function notificationDigestOperations({
         // A job owed while this one was held can take the one queued place
         // first; the second attempt then sees it and joins it.
         retriedOnceIfQueuedMeanwhile(() =>
-          database.transaction(async (tx) => {
-            const [next] = await rowsOf<{ id: string }>(
+          inTransaction(database, async (tx) => {
+            const [next] = await query(
               tx,
+              z.object({ id: z.string() }),
               sql`select q.id from notification_digests q
               join notification_digests d on d.user_id=q.user_id and d.id=${input.id}
               where q.state='queued' for update of q`,
@@ -215,8 +217,11 @@ export function notificationDigestOperations({
               outcome: { kind: 'cancelled', errorCode: 'not-owed' },
             });
             if (ended)
-              await tx.execute(sql`update notifications set digest_id=${next.id}
-              where digest_id=${input.id}`);
+              await run(
+                tx,
+                sql`update notifications set digest_id=${next.id}
+              where digest_id=${input.id}`,
+              );
             return ended;
           }),
         ),

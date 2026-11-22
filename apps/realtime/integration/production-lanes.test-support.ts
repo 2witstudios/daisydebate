@@ -2,7 +2,7 @@ import { SQL } from 'bun';
 import { systemId } from '@daisy/clock';
 import { createRealtimeDatabase } from '@daisy/db';
 import { requireTestServices } from '@daisy/config';
-import { ENVELOPE_VERSION, PROTOCOL_VERSION } from '@daisy/protocol';
+import { ENVELOPE_VERSION, PROTOCOL_VERSION } from '@daisy/protocol/realtime';
 import { testNamespace } from '@daisy/redis/testing';
 import { createRealtimeApp } from '../src/app';
 import { refuseAllReading } from '../src/authorization.test-support';

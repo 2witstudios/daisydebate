@@ -1,7 +1,8 @@
 import { defineScript } from './script-registry';
 import type { RedisTransport } from './transport';
-import { idSchema, presenceActivitySchema } from '@daisy/protocol';
-import type { PresenceActivity } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
+import { presenceActivitySchema } from '@daisy/protocol/realtime';
+import type { PresenceActivity } from '@daisy/protocol/realtime';
 import { redisSegmentPattern } from './redis-key';
 
 /**

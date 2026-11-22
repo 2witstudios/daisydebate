@@ -1,4 +1,7 @@
-import type { RoundMediaAdmission, RoundMediaState } from '@daisy/protocol';
+import type {
+  RoundMediaAdmission,
+  RoundMediaState,
+} from '@daisy/protocol/round-media';
 import {
   createLiveKitRoom,
   type MediaRoom,
@@ -128,7 +131,7 @@ const stubRoom = (
       transport.stopTracks();
       void transport.disconnect().catch(() => undefined);
     },
-  } as unknown as MediaRoom;
+  };
 };
 
 export function createMediaHarness(input: {

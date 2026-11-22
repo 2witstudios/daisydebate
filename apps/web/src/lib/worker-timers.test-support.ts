@@ -46,8 +46,9 @@ export function manualTimers() {
     for (let turn = 0; turn < 50 && shots.size === 0; turn += 1)
       await new Promise((settle) => setTimeout(settle, 0));
     const [ms] = [...shots.values()];
-    if (ms === undefined) throw new Error('No worker pass armed');
-    await tasks.get(ms)!();
+    const pass = ms === undefined ? undefined : tasks.get(ms);
+    if (pass === undefined) throw new Error('No worker pass armed');
+    await pass();
   };
   return { tasks, timers, waits, nextPass };
 }
@@ -70,17 +71,6 @@ export const inertTimers: WorkerTimers = {
   clearInterval: () => {},
   setTimeout: () => 1,
   clearTimeout: () => {},
-};
-
-/** The process's own timers, for integration proofs that run in real time. */
-export const realWorkerTimers: WorkerTimers = {
-  now: () => performance.now(),
-  setInterval: (task, ms) => setInterval(() => void task(), ms),
-  clearInterval: (handle) =>
-    clearInterval(handle as ReturnType<typeof setInterval>),
-  setTimeout: (run, ms) => setTimeout(() => void run(), ms),
-  clearTimeout: (handle) =>
-    clearTimeout(handle as ReturnType<typeof setTimeout>),
 };
 
 /**

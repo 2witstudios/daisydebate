@@ -1,12 +1,9 @@
 import { authoredJudgedRound, judgedRound } from './judged-round.test-support';
 import { judgingJobRules } from '@daisy/debate-engine';
-import {
-  ballotCategories,
-  ballotSchemaFor,
-  daisyWinnerBallot,
-  twoSideKeys,
-  type Ballot,
-} from '@daisy/protocol';
+import { ballotCategories } from '@daisy/protocol/ballot';
+import { ballotSchemaFor, type Ballot } from '@daisy/protocol/ballot-schema';
+import { daisyWinnerBallot } from '@daisy/protocol/ballot-definition';
+import { twoSideKeys } from '@daisy/protocol/seats';
 
 /** Today's two-sided Round's ballot: Daisy's winner ballot over the preset's sides. */
 const twoSidedBallot = ballotSchemaFor(daisyWinnerBallot, {

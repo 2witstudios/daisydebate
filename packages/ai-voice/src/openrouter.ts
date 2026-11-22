@@ -8,6 +8,39 @@ import { finishOf } from './completion-finish';
 
 export type Fetch = (url: string, init: RequestInit) => Promise<Response>;
 
+/** Resolves `ms` from now, or at once when `signal` aborts: what bounds a call in time. */
+type Sleep = (ms: number, signal: AbortSignal) => Promise<void>;
+
+const deadlineFor = (ms: number, streamed: boolean, sleep?: Sleep) => {
+  if (!streamed && sleep === undefined)
+    return { signal: AbortSignal.timeout(ms), disarm: () => {} };
+
+  const deadline = new AbortController();
+  if (sleep === undefined) {
+    const timer = setTimeout(() => deadline.abort(), ms);
+    return { signal: deadline.signal, disarm: () => clearTimeout(timer) };
+  }
+
+  const cancellation = new AbortController();
+  void sleep(ms, cancellation.signal).then(
+    () => {
+      if (cancellation.signal.aborted) return;
+      deadline.abort(
+        streamed
+          ? undefined
+          : new DOMException('The operation timed out.', 'TimeoutError'),
+      );
+    },
+    (cause: unknown) => deadline.abort(cause),
+  );
+  return {
+    signal: deadline.signal,
+    disarm: () => {
+      if (streamed) cancellation.abort();
+    },
+  };
+};
+
 export type ChatMessage = {
   readonly role: 'system' | 'user' | 'assistant';
   readonly content: string;
@@ -111,10 +144,13 @@ export function createOpenRouter({
   fetch,
   timeoutMs = 60_000,
   appUrl,
+  sleep,
 }: {
   readonly apiKey: string;
   readonly fetch: Fetch;
   readonly timeoutMs?: number;
+  /** The clock that times each call's bound; the process's own by default. */
+  readonly sleep?: Sleep;
   /** Sent as HTTP-Referer for OpenRouter's app attribution. */
   readonly appUrl?: string;
 }) {
@@ -146,11 +182,9 @@ export function createOpenRouter({
       throw definite(
         createAppError('CONFLICT', 'Provider operation cancelled'),
       );
-    const late = new AbortController();
-    const waiting = streamed
-      ? setTimeout(() => late.abort(), limitMs)
-      : undefined;
-    const bound = streamed ? late.signal : AbortSignal.timeout(limitMs);
+    // A streamed call's bound is disarmed once the response begins; any
+    // other call's bound stays armed through its body, as a timeout signal.
+    const { signal: bound, disarm } = deadlineFor(limitMs, streamed, sleep);
     let response: Response;
     try {
       response = await fetch(`${BASE}${path}`, {
@@ -158,7 +192,7 @@ export function createOpenRouter({
         headers,
         body: JSON.stringify(body),
         signal: signal ? AbortSignal.any([signal, bound]) : bound,
-      }).finally(() => clearTimeout(waiting));
+      }).finally(disarm);
     } catch (cause) {
       requireProviderNotCancelled(signal);
       throw createAppError(

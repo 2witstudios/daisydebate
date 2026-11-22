@@ -2,12 +2,12 @@ import type { Browser, Page } from '@playwright/test';
 import { createId } from '@paralleldrive/cuid2';
 import {
   affirmativeSide,
-  isNamedSeat,
   negativeSide,
-  roomViewSchema,
   sideOfSeat,
   type TwoSideKey,
-} from '@daisy/protocol';
+} from '@daisy/protocol/seats';
+import { isNamedSeat } from '@daisy/protocol/round-view';
+import { roomViewSchema } from '@daisy/protocol/room-read';
 import { expect, openPage } from './fixtures';
 import { origin } from './accounts';
 import { foundationSelection } from '../../integration/foundation-selection.test-support';

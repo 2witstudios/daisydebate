@@ -1,13 +1,10 @@
 import { and, eq } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
-import {
-  lockAuthorizationActors,
-  type AuthorizationTransaction,
-} from '../authorization';
+import { idSchema } from '@daisy/protocol/primitives';
+import { lockAuthorizationActors } from '../authorization';
 import type { authorizationAccountFact } from '../authorization-account';
 import { contactPairs } from '../schema/contacts';
+import { inTransaction, type Tx, type TxSource } from '../tx';
 
 /** One canonical member pair as the fence decided it. */
 export type ContactFact = {
@@ -25,7 +22,7 @@ export type ContactInput = {
 };
 /** The capability's authorization over the locked accounts and pairs. */
 export type ContactAuthorizationFence = (
-  tx: AuthorizationTransaction,
+  tx: Tx,
   input: ContactInput,
   facts: {
     readonly contacts: readonly ContactFact[];
@@ -48,7 +45,7 @@ export type LockedContacts = {
  * the caller's transaction (ADR 0061, ADR 0072).
  */
 async function lockContactPairs(
-  tx: Parameters<Parameters<BunSQLDatabase['transaction']>[0]>[0],
+  tx: Tx,
   input: ContactInput,
   authorize: ContactAuthorizationFence,
 ): Promise<LockedContacts> {
@@ -94,13 +91,10 @@ async function lockContactPairs(
  * fences the pairs, then runs `work` on the locked contacts.
  */
 export function withContactPairs<T>(
-  database: BunSQLDatabase,
+  database: TxSource,
   authorize: ContactAuthorizationFence,
   input: ContactInput,
-  work: (
-    tx: Parameters<Parameters<BunSQLDatabase['transaction']>[0]>[0],
-    locked: LockedContacts,
-  ) => Promise<T>,
+  work: (tx: Tx, locked: LockedContacts) => Promise<T>,
 ): Promise<T> {
   const members = [...input.memberActorIds].sort();
   if (
@@ -113,7 +107,7 @@ export function withContactPairs<T>(
   // A technical bound prevents unbounded SQL construction; product bounds live at the edge.
   if ((members.length * (members.length - 1)) / 2 > 65535)
     throw createAppError('VALIDATION');
-  return database.transaction(async (tx) =>
+  return inTransaction(database, async (tx) =>
     work(tx, await lockContactPairs(tx, input, authorize)),
   );
 }

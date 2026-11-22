@@ -13,26 +13,23 @@ import { scopeTransaction } from '../tenant-scope';
 import { loadAuthorityContext } from './authority-context';
 import { loadTournamentEligibility } from './tournament-eligibility';
 import { loadTemplateRows } from './setting-definition-rows';
-import type { TabDatabase, TabTransaction } from './tab-transaction';
+import { inTransaction, type Tx, type TxOpener } from '../tx';
 
 type Input = { readonly viewerUserId: string; readonly lobbyId: string };
-const eventRows = (tx: TabTransaction, lobbyId: string) =>
+const eventRows = (tx: Tx, lobbyId: string) =>
   tx
     .select()
     .from(events)
     .where(eq(events.lobbyId, lobbyId))
     .orderBy(asc(events.id));
-const sanctionRows = (tx: TabTransaction, lobbyId: string) =>
+const sanctionRows = (tx: Tx, lobbyId: string) =>
   tx
     .select()
     .from(sanctions)
     .where(eq(sanctions.lobbyId, lobbyId))
     .orderBy(asc(sanctions.id));
 /** A host's addressed tournament metadata; resolution text is never selected. */
-export const loadTournamentSetupFacts = async (
-  tx: TabTransaction,
-  input: Input,
-) => {
+export const loadTournamentSetupFacts = async (tx: Tx, input: Input) => {
   await scopeTransaction(tx, { subjectUserId: input.viewerUserId });
   await fenceTabAccountRead(tx, input.viewerUserId);
   const [found] = await tx
@@ -98,13 +95,13 @@ export const loadTournamentSetupFacts = async (
     currentEvents.some(
       (row, index) =>
         row.id !== initialEvents[index]?.id ||
-        row.templateId !== initialEvents[index]?.templateId,
+        row.templateId !== initialEvents[index].templateId,
     ) ||
     currentSanctions.length !== initialSanctions.length ||
     currentSanctions.some(
       (row, index) =>
         row.id !== initialSanctions[index]?.id ||
-        row.organizationId !== initialSanctions[index]?.organizationId,
+        row.organizationId !== initialSanctions[index].organizationId,
     )
   )
     return null;
@@ -211,12 +208,12 @@ export const loadTournamentSetupFacts = async (
 export type TournamentSetupFacts = NonNullable<
   Awaited<ReturnType<typeof loadTournamentSetupFacts>>
 >;
-export const createTournamentSetupReadStore = (database: TabDatabase) => ({
+export const createTournamentSetupReadStore = (database: TxOpener) => ({
   tournamentSetup: <Answer>(
     input: Input,
     work: (facts: TournamentSetupFacts | null) => Promise<Answer>,
   ): Promise<Answer> =>
-    database.transaction(async (tx) =>
+    inTransaction(database, async (tx) =>
       work(await loadTournamentSetupFacts(tx, input)),
     ),
 });

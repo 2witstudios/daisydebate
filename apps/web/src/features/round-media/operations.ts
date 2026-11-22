@@ -1,10 +1,16 @@
+import { addMs } from '@daisy/clock';
 import { admitsPrincipalAccess } from '@daisy/auth/authorization';
-import { createAppError, isAppError, createRefusal } from '@daisy/errors';
+import {
+  createAppError,
+  isAppError,
+  createRefusal,
+  rethrow,
+} from '@daisy/errors';
 import { mediaPhase } from '@daisy/debate-engine';
 import {
   roundMediaAdmissionSchema,
   type RoundMediaState,
-} from '@daisy/protocol';
+} from '@daisy/protocol/round-media';
 import {
   admissionRevoked,
   mediaEnded,
@@ -229,7 +235,14 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
     const sign = async (context: AdmissionContext) => {
       // Post-lock PostgreSQL eligibility, not the earlier unlocked read. Only the
       // caller's own seat is a refusal; another's revocation is a room still rotating.
-      if (ownSeatRevoked(context, context.participantId))
+      const caller = context.participants.find(
+        (seat) => seat.id === context.participantId,
+      );
+      // A missing seat is a revoked one: `ownSeatRevoked` refuses it too.
+      if (
+        caller === undefined ||
+        ownSeatRevoked(context, context.participantId)
+      )
         throw createAppError('CONFLICT', 'Round media admission is closed');
       if (admissionRevoked(context)) throw createAppError('INFRASTRUCTURE');
       // A hearing grant rests on the projected hearing seats, the same fact
@@ -258,12 +271,7 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
               ...(principal.kind === 'bot' ? { subscribe: false } : {}),
             },
       );
-      const own = {
-        ...context,
-        caller: context.participants.find(
-          (seat) => seat.id === context.participantId,
-        )!,
-      };
+      const own = { ...context, caller };
       return {
         ...projectMedia(own, true, input.nextId),
         state: 'ready' as const,
@@ -273,7 +281,7 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
           principal.kind === 'bot'
             ? input.urlsFor(context.binding.roomName).workerUrl
             : input.urlsFor(context.binding.roomName).publicUrl,
-        expiresAt: new Date(Date.parse(context.now) + 60_000).toISOString(),
+        expiresAt: addMs(context.now, 60_000),
         sessionId: context.session.id,
         roomName: context.binding.roomName,
       };
@@ -313,7 +321,7 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
       refusal = await run(claim, principal, issue);
     }
     if (held.issued) return held.issued;
-    throw await notIssued(roundId, principal, refusal);
+    return rethrow(await notIssued(roundId, principal, refusal));
   };
   /**
    * Why the reconcile never reached the issue: a human caller revoked

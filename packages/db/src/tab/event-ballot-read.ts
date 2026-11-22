@@ -5,10 +5,10 @@ import {
   ballotDefinitionVersions,
 } from '../schema/ballot-definitions';
 import { loadTournamentEventSettingFacts } from './tournament-event-settings';
-import type { TabDatabase, TabTransaction } from './tab-transaction';
+import { inTransaction, type Tx, type TxOpener } from '../tx';
 
 const load = async (
-  tx: TabTransaction,
+  tx: Tx,
   input: {
     readonly viewerUserId: string;
     readonly lobbyId: string;
@@ -54,7 +54,7 @@ const load = async (
   return { ...context, definitions, versions, entriesExist: held.length > 0 };
 };
 export type EventBallotFacts = NonNullable<Awaited<ReturnType<typeof load>>>;
-export const createEventBallotReadStore = (database: TabDatabase) => ({
+export const createEventBallotReadStore = (database: TxOpener) => ({
   eventBallot: <Answer>(
     input: {
       readonly viewerUserId: string;
@@ -63,5 +63,5 @@ export const createEventBallotReadStore = (database: TabDatabase) => ({
     },
     work: (facts: EventBallotFacts | null) => Promise<Answer>,
   ): Promise<Answer> =>
-    database.transaction(async (tx) => work(await load(tx, input))),
+    inTransaction(database, async (tx) => work(await load(tx, input))),
 });

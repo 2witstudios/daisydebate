@@ -66,8 +66,8 @@ export function watchDraftIdentity(
       const response = await resources.fetchSession(controller.signal);
       if (!response.ok) return;
       const next = readSessionPrincipal(await response.json());
+      // Stopping the watch aborts its pending read, so an abort covers it.
       if (
-        !live ||
         pending !== controller ||
         controller.signal.aborted ||
         next === undefined
@@ -100,6 +100,9 @@ export function watchDraftIdentity(
     }
     if (needed) await read();
   };
+  // Neither rejects: each catches what its read can throw.
+  const focused = () => void check();
+  const asked = () => void read();
   const visible = () => {
     if (visibility.visibilityState === 'visible') void check();
   };
@@ -107,8 +110,8 @@ export function watchDraftIdentity(
     const { key, newValue } = event as StorageEvent;
     if (key === DRAFTS_PRINCIPAL_KEY) syncPrincipal(newValue || null);
   };
-  events.addEventListener('focus', check);
-  events.addEventListener(DRAFTS_IDENTITY_CHECK_EVENT, read);
+  events.addEventListener('focus', focused);
+  events.addEventListener(DRAFTS_IDENTITY_CHECK_EVENT, asked);
   events.addEventListener('storage', otherTab);
   visibility.addEventListener('visibilitychange', visible);
   // A mark must settle even with no copies stored yet, or it could purge text
@@ -117,8 +120,8 @@ export function watchDraftIdentity(
   return () => {
     live = false;
     pending?.abort();
-    events.removeEventListener('focus', check);
-    events.removeEventListener(DRAFTS_IDENTITY_CHECK_EVENT, read);
+    events.removeEventListener('focus', focused);
+    events.removeEventListener(DRAFTS_IDENTITY_CHECK_EVENT, asked);
     events.removeEventListener('storage', otherTab);
     visibility.removeEventListener('visibilitychange', visible);
   };

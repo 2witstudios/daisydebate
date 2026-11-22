@@ -68,7 +68,7 @@ export function planReviewPrompt(input: {
     '- actual concurrent writer collisions, migration generation conflicts, unresolved product authority and acceptance prerequisites; sequence actual shared mutations, not all readers of a shared concept;',
     '- deferred checks without a reason, responsible agent, discharge stage and remaining proof; branch failures may be provisional, all required checks must pass before the slice PR merges;',
     'Do not require another owner approval for planning, task administration, experimentation, integration, reviewer spawning or fixes within an already authorized objective. Escalate ambiguous or conflicting product choices, changed intent, scope cuts and protected production actions.',
-    '- ADR or migration numbers the plan claims (they come from bun adr:next at the time, not the plan);',
+    '- New ADRs use their owning PR number; pending migration timestamps are prepared against the destination before qualification, with landed history preserved;',
     '- acceptance criteria that are ambiguous, untestable or cannot be proven by a test that fails when the behaviour is removed.',
     'End with exactly one line: "PLAN REVIEW: APPROVE" or "PLAN REVIEW: CHANGES REQUESTED".',
     '',

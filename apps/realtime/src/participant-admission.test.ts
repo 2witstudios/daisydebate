@@ -1,10 +1,11 @@
+import { instantMs } from '@daisy/clock';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { RealtimeApp } from './app';
 import { createRealtimeAuthorization } from './authorization';
 import { createRealtimeDelivery } from './delivery';
 import { liveParticipantSession } from './participant-session';
 import { refuseAllReading } from './authorization.test-support';
-import { bothLanes } from './delivery.test-support';
+import { bothLanes, testTransport } from './delivery.test-support';
 
 setupRitewayBun();
 
@@ -87,6 +88,7 @@ const sessionReader = (account: unknown) =>
         account,
       }),
     }),
+    transport: testTransport,
   }) as unknown as RealtimeApp;
 
 const delivery = (resources: RealtimeApp) =>
@@ -125,7 +127,7 @@ test('principal validation keeps a socket only while it holds participant access
       createRealtimeAuthorization({
         readingPolicy: refuseAllReading,
         resources: lane(sessionReader(account)),
-        now: () => Date.parse(now),
+        now: () => instantMs(now),
       }).validatePrincipal(principal),
     ),
   );

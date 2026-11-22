@@ -1,18 +1,21 @@
 import { sql } from 'drizzle-orm';
 import type { RoomCommunityFact } from '@daisy/protocol/room-community';
-import type { AuthorizationTransaction } from '../authorization';
-import { rowsOf } from '../raw-rows';
+import { postgresInt8, query } from '../raw-rows';
+import type { Tx } from '../tx';
+import { seatKindSchema } from '@daisy/protocol/seats';
+import { roomStatuses } from '@daisy/protocol/room-contract';
+import { z } from 'zod';
 
 type RoomCommunityRow = {
   readonly actor_id: string;
-  readonly version: number;
+  readonly version: z.output<typeof postgresInt8>;
   readonly status: RoomCommunityFact['status'];
   readonly visibility: RoomCommunityFact['visibility'];
   readonly ended_at: Date | null;
-  readonly host: boolean;
+  readonly host: boolean | null;
   readonly seat_kind: RoomCommunityFact['seatKind'];
   readonly channel_id: string | null;
-  readonly authority_revision: number | null;
+  readonly authority_revision: z.output<typeof postgresInt8> | null;
   readonly youth_room: boolean;
   readonly youth_staff: boolean;
 };
@@ -35,13 +38,26 @@ const factOf = (roomId: string, row: RoomCommunityRow): RoomCommunityFact => ({
 
 /** Only the requested callers' own facts cross the boundary, in one cohort statement. */
 export async function readRoomCommunityFacts(
-  tx: AuthorizationTransaction,
+  tx: Tx,
   roomId: string,
   actorIds: readonly string[],
 ): Promise<ReadonlyMap<string, RoomCommunityFact>> {
   if (actorIds.length === 0) return new Map();
-  const rows = await rowsOf<RoomCommunityRow>(
+  const rows = await query(
     tx,
+    z.object({
+      actor_id: z.string(),
+      version: postgresInt8,
+      status: z.enum(roomStatuses),
+      visibility: z.enum(['public', 'unlisted', 'private']),
+      ended_at: z.date().nullable(),
+      host: z.boolean().nullable(),
+      seat_kind: seatKindSchema.nullable(),
+      channel_id: z.string().nullable(),
+      authority_revision: postgresInt8.nullable(),
+      youth_room: z.boolean(),
+      youth_staff: z.boolean(),
+    }),
     sql`select wanted.actor_id,f.* from unnest(array[${sql.join(
       actorIds.map((id) => sql`${id}`),
       sql`, `,
@@ -50,7 +66,7 @@ export async function readRoomCommunityFacts(
   return new Map(rows.map((row) => [row.actor_id, factOf(roomId, row)]));
 }
 export async function readRoomCommunityFact(
-  tx: AuthorizationTransaction,
+  tx: Tx,
   roomId: string,
   actorId: string,
 ): Promise<RoomCommunityFact | null> {
@@ -64,11 +80,10 @@ export async function readRoomCommunityFact(
  * commands hold the Room row exclusively, so Start and close wait for a chat
  * write in flight and every later one sees the Room they left.
  */
-export async function fenceRoomCommunity(
-  tx: AuthorizationTransaction,
-  roomId: string,
-) {
-  const [row] = await tx.execute(
+export async function fenceRoomCommunity(tx: Tx, roomId: string) {
+  const [row] = await query(
+    tx,
+    z.object({ locked: z.boolean() }),
     sql`select public.daisy_room_community_read_fence(${roomId}::text) as locked`,
   );
   return row?.locked === true;

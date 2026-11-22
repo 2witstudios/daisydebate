@@ -1,4 +1,5 @@
 'use client';
+import { StatusRegion } from '../../components/status-region/status-region';
 import { useId, useState } from 'react';
 import type { StandingRoomView } from '../../../features/tab/standing-room-view';
 import { standingRoomUnavailableReason } from '../../../features/tab/standing-room-view';
@@ -25,6 +26,7 @@ import { ReadingPage } from '../../components/reading-page/reading-page';
 import { BackButton } from '../action-control/action-control';
 import { ListCard, ListHeading } from '../list-card/list-card';
 import { SettingRow } from '../setting-row/setting-row';
+import { SearchForm } from '../../components/search-form/search-form';
 /** Native creation preserves the exact displayed pins/config and submitted pool wording on uncertain retry. */
 export function StoredCreateRoom({
   view,
@@ -65,8 +67,7 @@ export function StoredCreateRoom({
         label={view.lobby.name}
       />
       <PageHeader title="Create a room" />
-      <form
-        method="get"
+      <SearchForm
         action={roomAddress}
         aria-label="Choose a league template"
         className="flex flex-wrap items-end gap-3"
@@ -89,7 +90,7 @@ export function StoredCreateRoom({
         <Button type="submit" variant="secondary" disabled={pending || frozen}>
           Use template
         </Button>
-      </form>
+      </SearchForm>
       <form
         action={submit}
         aria-label="Create a room"
@@ -247,15 +248,16 @@ export function StoredCreateRoom({
           </p>
         </fieldset>
         {unavailable ? (
-          <p role="status" className="text-sm text-ink-muted">
+          <StatusRegion as="p" role="status" className="text-sm text-ink-muted">
             {unavailable}
-          </p>
+          </StatusRegion>
         ) : null}
         <Button type="submit" disabled={disabled || !!unavailable}>
           {frozen ? 'Retry create room' : 'Create room'}
         </Button>
         {fields.error || frozen ? (
-          <p
+          <StatusRegion
+            as="p"
             id={notice}
             tabIndex={-1}
             role="status"
@@ -264,7 +266,7 @@ export function StoredCreateRoom({
             {frozen
               ? 'The answer was lost. Retry the same room, or reload to check whether it was created.'
               : fields.error}
-          </p>
+          </StatusRegion>
         ) : null}
       </form>
     </ReadingPage>

@@ -1,5 +1,6 @@
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
+import { exactField } from '../../forms/form-state';
 /** Bound scope and the idempotency field both round-trip through an untrusted form. */
 export function parseMessagingFormScope(channel: unknown, input: unknown) {
   if (!(input instanceof FormData)) throw createAppError('VALIDATION');
@@ -13,7 +14,4 @@ export function parseMessagingFormScope(channel: unknown, input: unknown) {
     throw createAppError('VALIDATION');
   return { form: input, channelId: channelId.data, requestId: requestId.data };
 }
-export const formRequestId = (form: FormData) =>
-  typeof form.get('requestId') === 'string'
-    ? String(form.get('requestId'))
-    : '';
+export const formRequestId = (form: FormData) => exactField(form, 'requestId');

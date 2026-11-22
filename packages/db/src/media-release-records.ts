@@ -6,26 +6,15 @@ import {
 import { sql } from 'drizzle-orm';
 import { divisionAgeBand, divisionOfBandSql } from './ladder-division-band';
 import { scopeTransaction } from './tenant-scope';
-import type { BoundedTransactionContext } from './transaction-context';
 import type { MediaReleaseMailKind } from './media-release-mail';
-
-/**
- * Media release records as the commands read and write them (ADR 0151): a
- * minor's releases (with a club's attestation, read under the minor's subject
- * scope), their requests, their ladder division, and the writes every command
- * shares.
- */
-type Tx = BoundedTransactionContext;
+import type { Tx } from './tx';
+import { run, query as queryRows } from './raw-rows';
+import { z } from 'zod';
 
 export const iso = (value: unknown): string =>
   new Date(value as string | Date).toISOString();
 export const isoOrNull = (value: unknown): string | null =>
   value === null || value === undefined ? null : iso(value);
-
-export const rows = async <Row>(
-  tx: Pick<Tx, 'execute'>,
-  query: ReturnType<typeof sql>,
-) => (await tx.execute(query)) as unknown as Row[];
 
 type ReleaseRow = {
   id: string;
@@ -102,15 +91,35 @@ const requestOf = (row: RequestRow): ReleaseRequest => ({
  * `lock` takes the minor's release rows for the rest of the transaction.
  */
 export async function readReleasesOf(
-  tx: Pick<Tx, 'execute'>,
+  tx: Tx,
   userIds: readonly string[],
   lock: boolean,
 ): Promise<readonly MediaReleaseRecord[]> {
   const found: MediaReleaseRecord[] = [];
   for (const userId of userIds) {
     await scopeTransaction(tx, { subjectUserId: userId });
-    const read = await rows<ReleaseRow>(
+    const read = await queryRows(
       tx,
+      z.object({
+        id: z.string(),
+        user_id: z.string(),
+        scope: z.enum(['publish', 'paid_ads']),
+        source: z.enum(['parent', 'club']),
+        signer_name: z.string().nullable(),
+        signer_relation: z.enum(['parent', 'legal_guardian']).nullable(),
+        signer_email: z.string().nullable(),
+        wording_version: z.string(),
+        signed_at: z.union([z.string(), z.date()]),
+        withdrawn_at: z.union([z.string(), z.date()]).nullable(),
+        withdrawn_by: z
+          .enum(['parent', 'club', 'erasure', 'superseded'])
+          .nullable(),
+        organization_id: z.string().nullable(),
+        organization_name: z.string().nullable(),
+        attested_by_user_id: z.string().nullable(),
+        attester_name: z.string().nullable(),
+        attester_role: z.string().nullable(),
+      }),
       sql`select r.id, r.user_id, r.scope, r.source, r.signer_name,
           r.signer_relation, r.signer_email, r.wording_version, r.signed_at,
           r.withdrawn_at, r.withdrawn_by, a.organization_id,
@@ -130,12 +139,33 @@ export async function readReleasesOf(
 
 /** A minor's recent requests, newest first. */
 export async function readRequestsOf(
-  tx: Pick<Tx, 'execute'>,
+  tx: Tx,
   userId: string,
   lock: boolean,
 ): Promise<readonly ReleaseRequest[]> {
-  const read = await rows<RequestRow>(
+  const read = await queryRows(
     tx,
+    z.object({
+      id: z.string(),
+      user_id: z.string(),
+      recipient_email: z.string(),
+      requested_at: z.union([z.string(), z.date()]),
+      expires_at: z.union([z.string(), z.date()]),
+      outcome: z
+        .enum([
+          'signed',
+          'declined',
+          'not_me',
+          'cancelled',
+          'superseded',
+          'expired',
+          'stopped',
+        ])
+        .nullable(),
+      resolved_at: z.union([z.string(), z.date()]).nullable(),
+      sends: z.number(),
+      last_sent_at: z.union([z.string(), z.date()]).nullable(),
+    }),
     sql`select id, user_id, recipient_email, requested_at, expires_at, outcome,
         resolved_at, sends, last_sent_at
       from media_release_requests where user_id = ${userId}
@@ -147,11 +177,12 @@ export async function readRequestsOf(
 
 /** A member's ladder division, decided as every ranked command decides it. */
 export async function readDivisionOf(
-  tx: Pick<Tx, 'execute'>,
+  tx: Tx,
   userId: string,
 ): Promise<'open' | 'youth' | null> {
-  const [row] = await rows<{ division: 'open' | 'youth' | null }>(
+  const [row] = await queryRows(
     tx,
+    z.object({ division: z.enum(['open', 'youth']).nullable() }),
     sql`select ${divisionOfBandSql(divisionAgeBand())} as division
       from account_age where account_age.user_id = ${userId}`,
   );
@@ -164,7 +195,9 @@ export async function readDivisionOf(
  * consent is separate and is recorded again only when explicitly selected.
  */
 export const supersedeOldRelease = (tx: Tx, userId: string, now: Date) =>
-  tx.execute(sql`update media_releases r
+  run(
+    tx,
+    sql`update media_releases r
     set withdrawn_at = ${now.toISOString()}, withdrawn_by = 'superseded'
     where r.user_id = ${userId} and r.withdrawn_at is null
       and exists (select 1 from media_releases old
@@ -173,7 +206,8 @@ export const supersedeOldRelease = (tx: Tx, userId: string, now: Date) =>
           and old.wording_version not in (${sql.join(
             reuseLicensingWordings.map((version) => sql`${version}`),
             sql`, `,
-          )}))`);
+          )}))`,
+  );
 
 /** Writes one release scope; the unique index holds one active per minor per scope. */
 export async function insertMediaRelease(
@@ -192,7 +226,8 @@ export async function insertMediaRelease(
     readonly now: Date;
   },
 ) {
-  await tx.execute(
+  await run(
+    tx,
     sql`insert into media_releases (id, user_id, scope, source, request_id,
         signer_name, signer_relation, signer_email, wording_version, signed_at)
       values (${input.id}, ${input.userId}, ${input.scope},
@@ -204,7 +239,7 @@ export async function insertMediaRelease(
 }
 
 export async function queueMediaReleaseMail(
-  tx: Pick<Tx, 'execute'>,
+  tx: Tx,
   input: {
     readonly id: string;
     readonly kind: MediaReleaseMailKind;
@@ -212,7 +247,8 @@ export async function queueMediaReleaseMail(
     readonly at: SqlInstant;
   },
 ) {
-  await tx.execute(
+  await run(
+    tx,
     sql`insert into media_release_mails (id, kind, request_id, next_attempt_at)
       values (${input.id}, ${input.kind}, ${input.requestId}, ${input.at})`,
   );

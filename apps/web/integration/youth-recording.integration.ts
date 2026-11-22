@@ -2,12 +2,8 @@ import { seedGuardianLink } from './guardian-link.test-support';
 import { requireTestServices } from '@daisy/config';
 import { plannedRecording } from '@daisy/debate-engine';
 import { assertRejects } from '@daisy/errors/testing';
-import {
-  isJudgeSeat,
-  isModeratorSeat,
-  judgeSeat,
-  type RoomCapture,
-} from '@daisy/protocol';
+import { isJudgeSeat, isModeratorSeat, judgeSeat } from '@daisy/protocol/seats';
+import { type RoomCapture } from '@daisy/protocol/room-capture';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
@@ -336,7 +332,7 @@ type BroadcastDiscovery = {
 
 /**
  * A casual Round with one human judge, its host opted into a Broadcast and a
- * Recording, launched and ended. Its Room takes its host's lobby (ADR 0156).
+ * Recording, launched and ended. Its Room takes its host's lobby (ADR 0162).
  */
 const endedCasualRound = async (
   f: Fixture,

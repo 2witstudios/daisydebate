@@ -3,17 +3,16 @@ import { roundFinalizationJudgeAssignments } from './schema/round-finalization-j
 import { roundSourceVoided } from './round-source-state';
 import { and, eq, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
+import { roundStatus } from '@daisy/protocol/round';
+import { idSchema } from '@daisy/protocol/primitives';
+import { isJudgeSeat, seatOrder } from '@daisy/protocol/seats';
 import {
-  idSchema,
-  isJudgeSeat,
   roundCompetitionSourceSchema,
-  roundJudgingSchema,
-  roundRulesSchema,
-  seatOrder,
   type RoundCompetitionSource,
-} from '@daisy/protocol';
+} from '@daisy/protocol/round-competition-source';
+import { roundJudgingSchema } from '@daisy/protocol/ballot-definition';
+import { roundRulesSchema } from '@daisy/protocol/format';
 import { recordedEnding } from './recorded-ending';
 import { seatOfColumns } from './seat-columns';
 import { rounds } from './schema/rounds';
@@ -23,10 +22,11 @@ import {
   roundFinalizations,
   roundFinalizationBallots,
 } from './schema/round-finalizations';
+import type { Tx } from './tx';
 
 /** Caller authorizes the addressed source and holds its owning aggregate fences; this export has no private words. */
 export const readRoundCompetitionSource = async (
-  tx: Pick<BunSQLDatabase, 'select'>,
+  tx: Tx,
   input: { readonly roundId: string; readonly roomId: string },
 ): Promise<RoundCompetitionSource | null> => {
   idSchema.parse(input.roundId);
@@ -50,7 +50,7 @@ export const readRoundCompetitionSource = async (
       and(
         eq(r.id, input.roundId),
         eq(r.roomId, input.roomId),
-        eq(r.status, 'completed'),
+        eq(r.status, roundStatus.completed),
         sql`not ${roundSourceVoided(r.id)}`,
       ),
     )
@@ -235,10 +235,7 @@ export const readRoundCompetitionSource = async (
 };
 
 /** Room's published competitive progress, used only while creating a result. */
-export const readRoomCompetitionProgress = async (
-  tx: Pick<BunSQLDatabase, 'select'>,
-  roomId: string,
-) => {
+export const readRoomCompetitionProgress = async (tx: Tx, roomId: string) => {
   const [round] = await tx
     .select({ id: rounds.id, status: rounds.status })
     .from(rounds)

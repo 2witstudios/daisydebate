@@ -1,15 +1,16 @@
+import { addMs } from '@daisy/clock';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { Clock } from '@daisy/clock';
 import type { ChallengeListRow, ChallengeStore } from '@daisy/db/challenges';
 import { createAppError, createRefusal, isAppError } from '@daisy/errors';
-import { ROOM_SEAT_HOLD_MS } from '@daisy/protocol';
+import { ROOM_SEAT_HOLD_MS } from '@daisy/protocol/room-contract';
+import type { RatingStyle } from '@daisy/protocol/primitives';
 import type {
-  RatingStyle,
   ChallengeList,
-  CompetitionType,
   ChallengeResult,
-  PresenceActivity,
-} from '@daisy/protocol';
+} from '@daisy/protocol/challenges';
+import type { CompetitionType } from '@daisy/protocol/round';
+import type { PresenceActivity } from '@daisy/protocol/realtime';
 import type { DiscoverActor } from '../account/username-discovery';
 import { requireMemberActor } from '../access/actor';
 
@@ -107,9 +108,7 @@ export async function sendChallenge(
             mode: input.mode,
             format: input.format,
             now,
-            expiresAt: new Date(
-              Date.parse(now) + CHALLENGE_TTL_MS,
-            ).toISOString(),
+            expiresAt: addMs(now, CHALLENGE_TTL_MS),
           }),
       ),
   );
@@ -137,9 +136,7 @@ export async function acceptChallenge(
             challengeId: input.challengeId,
             roomId: input.roomId,
             now,
-            followUntil: new Date(
-              Date.parse(now) + ROOM_SEAT_HOLD_MS,
-            ).toISOString(),
+            followUntil: addMs(now, ROOM_SEAT_HOLD_MS),
             nextId: dependencies.nextId,
           }),
       ),

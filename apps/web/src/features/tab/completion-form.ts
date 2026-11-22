@@ -1,10 +1,10 @@
+import { mapTabCommandAnswer } from './command-form-answer';
 import { releaseAudiences } from '@daisy/protocol/release-audience';
 import { releaseCommandEnvelopeSchema } from '@daisy/protocol/lobby/result-command';
 import { z } from 'zod';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { breakCommandEnvelopeSchema } from '@daisy/protocol/lobby/break-command';
 import { resultCommandEnvelopeSchema } from '@daisy/protocol/lobby/result-command';
-import { lobbyCommandReceiptSchema } from '@daisy/protocol/lobby/command';
 import { singleFormField } from '../forms/form-state';
 import {
   formValues,
@@ -103,7 +103,7 @@ export function completionEnvelope(value: CompletionContext, form: FormData) {
           feedback: Object.fromEntries(
             target.feedbackKeys.map((key) => [
               key,
-              singleFormField(form, `feedback:${key}`) ?? '',
+              singleFormField(form, `feedback:${key}`),
             ]),
           ),
         }
@@ -126,10 +126,6 @@ export const completionRefused = (
 ): CompletionFormState => refusedWith(formValues(form), message);
 export const completionUnacknowledged = (form: FormData): CompletionFormState =>
   unacknowledged(form);
-const answerSchema = z.discriminatedUnion('kind', [
-  z.object({ kind: z.literal('accepted'), receipt: lobbyCommandReceiptSchema }),
-  z.object({ kind: z.literal('refused'), refusal: z.string() }),
-]);
 const refusalText = (refusal: string): string => {
   switch (refusal) {
     case 'version-conflict':
@@ -156,9 +152,9 @@ export function completionAnswer(
   form: FormData,
   body: unknown,
 ): { readonly kind: 'accepted' } | CompletionFormState {
-  const parsed = answerSchema.safeParse(body);
-  if (!parsed.success) return completionUnacknowledged(form);
-  return parsed.data.kind === 'accepted'
-    ? { kind: 'accepted' }
-    : completionRefused(form, refusalText(parsed.data.refusal));
+  return mapTabCommandAnswer(body, {
+    accepted: () => ({ kind: 'accepted' as const }),
+    unacknowledged: () => completionUnacknowledged(form),
+    refused: (reason) => completionRefused(form, refusalText(reason)),
+  });
 }

@@ -1,7 +1,14 @@
+import { lifecycleSql } from './lifecycle-sql';
 import { createAppError } from '@daisy/errors';
-import { judgingWorkKinds, type JudgingWorkKind } from '@daisy/protocol';
+import { roundStatus } from '@daisy/protocol/round';
+import {
+  judgingWorkKinds,
+  type JudgingWorkKind,
+} from '@daisy/protocol/judging-policy';
 import { sql } from 'drizzle-orm';
-import type { BoundedTransactionContext } from './transaction-context';
+import type { Tx } from './tx';
+import { query } from './raw-rows';
+import { z } from 'zod';
 
 type DueJudge = {
   readonly roundId: string;
@@ -11,7 +18,7 @@ type DueJudge = {
 
 /** Advisory discovery pages eligible Rounds, never siblings a live claim fences. */
 export async function discoverRoundJudgingJobs(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   limit: number,
   workKind: JudgingWorkKind,
 ): Promise<readonly DueJudge[]> {
@@ -19,13 +26,20 @@ export async function discoverRoundJudgingJobs(
     throw createAppError('VALIDATION');
   if (!judgingWorkKinds.includes(workKind)) throw createAppError('VALIDATION');
   const lane = sql`and holds_ballot=${workKind === 'submission'}`;
-  return (await tx.execute(sql`
+  return await query(
+    tx,
+    z.object({
+      roundId: z.string(),
+      judgeParticipantId: z.string(),
+      holdsBallot: z.boolean(),
+    }),
+    sql`
     with sampled as materialized (select clock_timestamp() as now),
     turns as (
       select j.round_id,max(j.last_claimed_at) as last_claimed_at,
         min(j.created_at) as first_created_at
       from round_judging_jobs j join rounds r on r.id=j.round_id
-      where r.status='active' group by j.round_id
+      where r.status=${lifecycleSql(roundStatus.active)} group by j.round_id
     ),
     due as (
       select j.round_id,j.judge_participant_id,
@@ -50,5 +64,6 @@ export async function discoverRoundJudgingJobs(
     from due where round_turn=1 ${lane}
     order by service_turn_at,round_id,created_at,judge_participant_id
     limit ${limit}
-  `)) as unknown as readonly DueJudge[];
+  `,
+  );
 }

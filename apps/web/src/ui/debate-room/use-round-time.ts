@@ -1,17 +1,16 @@
 'use client';
-import { systemClock } from '@daisy/clock';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useBrowserEffect } from '../edge/browser-sync';
+import { browserFetch } from '../edge/browser-request';
+import { nowMs, systemClock } from '@daisy/clock';
+import { useCallback, useRef, useState } from 'react';
 import { readRoundClock } from '../../features/round-runtime/read-round-clock';
 import {
   createMeasuredRead,
   createRoundTime,
 } from '../../features/round-runtime/round-time';
 import { runRoundClock } from '../../features/round-runtime/run-round-clock';
-import { browserSyncEdges } from '../../features/resource-sync/browser';
-import {
-  secureRandom,
-  systemScheduler,
-} from '../../features/realtime/browser-adapters';
+import { browserSyncEdges } from '../resource-sync/browser';
+import { secureRandom, systemScheduler } from '../edge/realtime-browser';
 
 const noWake = () => {};
 
@@ -30,18 +29,22 @@ export function useRoundTime(options: {
   );
   const wake = useRef(noWake);
   const wakeClock = useCallback(() => wake.current(), []);
-  useEffect(() => {
+  useBrowserEffect(() => {
     const clock = runRoundClock({
       read: createMeasuredRead({
         read: (signal) =>
-          readRoundClock((url, init) => fetch(url, init), clockUrl, signal),
+          readRoundClock(
+            (url, init) => browserFetch(url, init),
+            clockUrl,
+            signal,
+          ),
         roundTime,
       }),
       roundTime,
       scheduler: systemScheduler,
       visibility: browserSyncEdges(null).visibility,
       random: secureRandom,
-      wallNowMs: () => Date.parse(systemClock.now()),
+      wallNowMs: () => nowMs(systemClock),
       events: window,
     });
     wake.current = clock.wake;

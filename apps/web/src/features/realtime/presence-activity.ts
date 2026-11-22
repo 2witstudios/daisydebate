@@ -1,4 +1,7 @@
-import { ENVELOPE_VERSION, type PresenceActivity } from '@daisy/protocol';
+import {
+  ENVELOPE_VERSION,
+  type PresenceActivity,
+} from '@daisy/protocol/realtime';
 
 /**
  * A tab's last reported presence activity (ADR 0033 §1, ADR 0072). Only a

@@ -1,6 +1,7 @@
 'use client';
 
 import type { ComponentPropsWithoutRef } from 'react';
+import { Dialog } from '../dialog/dialog';
 import {
   popoverClasses,
   type PopoverClassName,
@@ -21,7 +22,7 @@ export type PopoverDialogProps<C extends string> = Omit<
 };
 
 /**
- * A native `popover="auto"` dialog that opens without script. It is hidden
+ * A native `popover="auto"` dialog that opens before hydration. It is hidden
  * until open and owns its display (ADR 0153). When it opens, focus moves to
  * the element marked `data-initial-focus`, else its first control; closing
  * returns focus to the opener natively.
@@ -32,10 +33,10 @@ export function PopoverDialog<C extends string = string>({
   ...props
 }: PopoverDialogProps<C>) {
   return (
-    <div
+    <Dialog
+      as="div"
       {...props}
       popover="auto"
-      role="dialog"
       className={popoverClasses({ layout, className })}
       onToggle={(event) => {
         props.onToggle?.(event);

@@ -1,9 +1,10 @@
 import {
   createMessagingCoreSchemas,
-  contentReportCreateSchema,
-  idSchema,
   messagingBetaLimits,
-} from '@daisy/protocol';
+} from '@daisy/protocol/messaging/core';
+import { contentReportCreateSchema } from '@daisy/protocol/content-moderation';
+import { idSchema } from '@daisy/protocol/primitives';
+import { exactField } from '../../forms/form-state';
 import { messageDraft, messageUnsentNotice } from '../forms/send-form';
 import type { ChatContext } from './chat-context';
 import {
@@ -47,7 +48,7 @@ export async function submitContextChatChange(
   try {
     idSchema.parse(scope.ownerId);
     messageId = idSchema.parse(form.get('messageId'));
-    kind = report ? 'report' : String(form.get('kind'));
+    kind = report ? 'report' : exactField(form, 'kind');
     const base = {
       version: 1 as const,
       channelId: idSchema.parse(scope.channelId),

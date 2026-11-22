@@ -1,5 +1,5 @@
-import type { AuthorizationTransaction } from '../authorization';
 import type { MessagingAuthorizationFence } from './records';
+import type { Tx } from '../tx';
 
 type Scope = Parameters<MessagingAuthorizationFence>[1];
 type Authority = Parameters<MessagingAuthorizationFence>[2];
@@ -30,7 +30,7 @@ type MessagingReactionResult = {
   }[];
 };
 export type MessagingReactionFence = (
-  tx: AuthorizationTransaction,
+  tx: Tx,
   scope: Scope,
   authority: Authority,
   operation: 'read' | 'add' | 'remove',

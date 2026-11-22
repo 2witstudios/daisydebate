@@ -18,10 +18,10 @@ export function fixture(
   let now = 0;
   let buffered = 0;
   const closed: number[] = [];
-  const sent: import('@daisy/protocol').ServerMessage[] = [];
+  const sent: import('@daisy/protocol/realtime-server').ServerMessage[] = [];
   const attached = new Set<string>();
   const socket = {
-    send: (frame: import('@daisy/protocol').ServerMessage) => {
+    send: (frame: import('@daisy/protocol/realtime-server').ServerMessage) => {
       sent.push(frame);
     },
     subscribe: (value: string) => {

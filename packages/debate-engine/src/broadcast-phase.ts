@@ -1,4 +1,6 @@
-import type { RoundStage, RoundStatus, SegmentType } from '@daisy/protocol';
+import { instantMs } from '@daisy/clock';
+import type { RoundStage, RoundStatus } from '@daisy/protocol/round';
+import type { SegmentType } from '@daisy/protocol/format';
 import type { BroadcastFacts } from './broadcast-lifecycle';
 
 type Publicity = 'public' | 'private';
@@ -58,6 +60,6 @@ export const broadcastPhase = (
   if (position.openSegment)
     return position.openSegment.sequence < lastSequence
       ? { kind: 'public' }
-      : { kind: 'private-at', atMs: Date.parse(position.openSegment.endsAt) };
+      : { kind: 'private-at', atMs: instantMs(position.openSegment.endsAt) };
   return position.nextSegment ? { kind: 'public' } : { kind: 'private' };
 };

@@ -6,7 +6,6 @@ import type {
   ActionHistoryEntry,
   LobbyCommandReceipt,
 } from '@daisy/protocol/lobby/command';
-import type { TabDatabase } from './tab-transaction';
 import {
   loadDrawCommandFacts,
   type DrawCommandInput,
@@ -19,6 +18,7 @@ import {
 } from './command-record';
 import { applyDrawWrites, type DrawRoomAssembly } from './draw-writes';
 import type { DrawWrite } from './draw-write';
+import { inTransaction, type TxOpener } from '../tx';
 export type DrawCommandSession = {
   readonly lobbyAuthority: () => ReturnType<typeof loadLobbyAuthority>;
   readonly ratingInputs: (
@@ -35,12 +35,12 @@ export type DrawCommandSession = {
     assembly: DrawRoomAssembly,
   ) => Promise<void>;
 };
-export const createDrawCommandStore = (database: TabDatabase) => ({
+export const createDrawCommandStore = (database: TxOpener) => ({
   drawCommand: <Answer>(
     input: DrawCommandInput,
     work: (session: DrawCommandSession) => Promise<Answer>,
   ): Promise<Answer> =>
-    database.transaction(async (tx) => {
+    inTransaction(database, async (tx) => {
       let loaded: LoadedDrawCommand | null = null;
       return work({
         lobbyAuthority: () =>

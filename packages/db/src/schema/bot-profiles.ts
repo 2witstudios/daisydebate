@@ -1,7 +1,7 @@
 import { check, pgTable, text } from 'drizzle-orm/pg-core';
 import { actors } from './actors';
 import { oneOf } from './columns';
-import { botDifficulties } from '@daisy/protocol';
+import { botDifficulties } from '@daisy/protocol/room-read';
 
 export { botDifficulties };
 

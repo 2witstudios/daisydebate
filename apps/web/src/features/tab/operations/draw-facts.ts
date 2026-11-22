@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { createAppError } from '@daisy/errors';
 import type { LoadedDrawCommand } from '@daisy/db/tab';
-import { formatDefinitionSchema } from '@daisy/protocol';
+import { formatDefinitionSchema } from '@daisy/protocol/format';
 import { audiences, releaseThings } from '@daisy/protocol/lobby';
 import { drawOverrideSchema } from '@daisy/protocol/lobby/draw-command';
 import {
@@ -15,11 +15,11 @@ import type {
   EngineRatings,
   EngineFormat,
 } from '../commands/tab-engine';
-import { commandDigest } from './command-digest';
+import { commandDigest } from '@daisy/digest';
 import { engineSettings } from './engine-settings';
 import { eventSettingResolution } from './event-setting-resolution';
 import { eligibleTournamentActors } from './tournament-participant-admission';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 export const drawStageSnapshotSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('preliminary') }),
   z.strictObject({

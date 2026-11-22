@@ -20,7 +20,7 @@ test('the admin edge hash primitives', () => {
     expected: [
       createHmac('sha256', key).update(text, 'utf8').digest('base64url'),
       createHash('sha256').update(bytes).digest('hex'),
-      createHash('sha3-256').update(text, 'utf8').digest('hex'),
+      '5bc9aaa3acee669e7d8fbd8f98aba7724fd68205c11a4caa6a209a73499056f9',
     ],
   });
 });

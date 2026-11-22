@@ -9,10 +9,8 @@ import {
 } from '@daisy/db/testing';
 import { createId } from '@paralleldrive/cuid2';
 import { provisionalLinkPurposes } from '../src/features/auth/mail/provisional-mail';
-import {
-  createRetentionSweep,
-  retentionTargets,
-} from '../src/server/retention-sweep';
+import { createRetentionSweep } from '../src/server/retention-sweep';
+import { retentionTargets } from '../src/server/retention-targets';
 import { silentLogger } from '../src/server/test-loggers.test-support';
 
 const { databaseUrl } = requireTestServices(process.env);
@@ -69,10 +67,7 @@ test('the scheduled notification sweep drains bounded batches and keeps recent p
             purgeReadNotifications: (batch) =>
               db.transaction(async (tx) => {
                 const { purgeReadNotifications } = notificationInboxOperations({
-                  database: {
-                    execute: tx.execute.bind(tx),
-                    transaction: db.transaction,
-                  },
+                  database: tx,
                 });
                 const count = await purgeReadNotifications(batch);
                 calls.push({ ...batch, count });

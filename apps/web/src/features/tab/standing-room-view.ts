@@ -104,10 +104,7 @@ export function standingRoomUnavailableReason(
       : null;
   if (policy.method === 'draw')
     return policy.choices.length === 0 ? 'No resolutions are available.' : null;
-  if (
-    !creation.config.resolutionDraw.enabled ||
-    creation.config.resolutionDraw.drawSize === undefined
-  )
+  if (!creation.config.resolutionDraw.enabled)
     return 'There are not enough resolutions in the pool.';
   const required = Math.max(2, creation.config.resolutionDraw.drawSize);
   return policy.choices.length < required

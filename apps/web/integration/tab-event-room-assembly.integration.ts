@@ -6,11 +6,9 @@ import {
 import { requireTestServices } from '@daisy/config';
 import { withRolledBackDatabase } from '@daisy/db/testing';
 import { assembleRoom } from '@daisy/db/room-assembly';
-import {
-  formatDefinitionSchema,
-  roomConfigSchema,
-  sideSeat,
-} from '@daisy/protocol';
+import { formatDefinitionSchema } from '@daisy/protocol/format';
+import { roomConfigSchema } from '@daisy/protocol/room';
+import { sideSeat } from '@daisy/protocol/seats';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { organizationStage } from './tab-tournament-organization.test-support';

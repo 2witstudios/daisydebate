@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
-import type { CaptureDependencies, CaptureTx } from './media-capture-context';
+import type { CaptureDependencies } from './media-capture-context';
 import { lockOriginalNecessaryEvidence } from './necessary-evidence-subjects';
 import { requireRoundEvidenceOpen } from './necessary-evidence-rounds';
 import {
@@ -10,9 +10,10 @@ import {
 import { nextEpoch } from './lease-policy';
 import { sampleRoundExecutionTime } from './round-execution-time';
 import { necessaryEvidence } from './schema/necessary-evidence';
+import type { Tx } from './tx';
 /** Acquisition metadata only: no capture grant, PCM receipt, decryption or competitive write. */
 export async function claimEvidenceAcquisition(
-  tx: CaptureTx,
+  tx: Tx,
   input: {
     readonly roundId: string;
     readonly evidenceId: string;

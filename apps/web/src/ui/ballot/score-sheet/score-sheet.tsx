@@ -33,11 +33,11 @@ export type { SheetScores };
  * The scores the Round's ballot definition asks for: one row per criterion
  * (or one holistic row), a slider on the definition's scale for each scored
  * subject, and each subject's total. Every slider is a named range
- * input the browser owns (`defaultValue`), so the sheet posts without
- * JavaScript and a form reset after a refusal restores what was posted; the
+ * input the browser owns (`defaultValue`), so the sheet posts before
+ * hydration and a form reset after a refusal restores what was posted; the
  * disclosure under each category opens what a 1, a 3 and a 5 look like. The numbers beside
- * the sliders and the totals follow the sliders only with script running,
- * so without it they are left out rather than shown stale.
+ * the sliders and the totals follow the sliders only once hydrated,
+ * so before then they are left out rather than shown stale.
  */
 export function ScoreSheet({
   points,

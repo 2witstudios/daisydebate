@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { createBotListening } from './listening';
 
 const id = (c: string) => c.repeat(24);
@@ -7,7 +8,7 @@ export const scope = {
 } as never;
 export const peer = id('p');
 export const latePeer = id('l');
-const T0 = Date.parse('2026-10-27T12:00:00.000Z');
+const T0 = instantMs('2026-10-27T12:00:00.000Z');
 
 /** One fake media session: grants, subscriptions and the frames a test plays into them. */
 export function session(
@@ -142,8 +143,12 @@ export function session(
     /** 200 ms of loud audio from `identities` on the latest subscription, from frame `first`. */
     speak: (identities: readonly string[], first = 0) => {
       for (let sequence = first; sequence < first + 20; sequence++) {
-        for (const identity of identities)
-          subscriptions.at(-1)!.frame(identity, sequence, 8000);
+        for (const identity of identities) {
+          const latest = subscriptions.at(-1);
+          if (latest === undefined)
+            throw new Error('Nothing has subscribed yet');
+          latest.frame(identity, sequence, 8000);
+        }
         now += 10;
       }
     },

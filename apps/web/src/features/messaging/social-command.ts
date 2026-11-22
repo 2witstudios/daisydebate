@@ -2,7 +2,7 @@ import type { Clock } from '@daisy/clock';
 import {
   createMessagingSocialSchemas,
   type MessagingSocialBounds,
-} from '@daisy/protocol';
+} from '@daisy/protocol/messaging/social';
 import type { ZodType } from 'zod';
 import { parseValidated } from '../../server/http';
 /** Shared command boundary for the actual social operations. */

@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { interestCategoryChoices } from '@daisy/protocol';
+import { interestCategoryChoices } from '@daisy/protocol/onboarding';
 import { emptyAnswers, parseStepAnswers } from './answers';
 
 setupRitewayBun();

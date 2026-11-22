@@ -131,6 +131,23 @@ test('createTournamentAnswer', () => {
       'unacknowledged',
     ],
   });
+  const standingLobbyId = 's'.padEnd(24, '1');
+  const leagueForm = new FormData();
+  leagueForm.set('name', 'League Cup');
+  leagueForm.set('standingLobbyId', standingLobbyId);
+  assert({
+    given: 'a league host whose standing lobby closed before submission',
+    should: 'retain the form values and tell the host to choose an open lobby',
+    actual: createTournamentAnswer(leagueForm, {
+      kind: 'refused',
+      refusal: 'standing-lobby-required',
+    }),
+    expected: {
+      kind: 'refused',
+      values: { name: 'League Cup', standingLobbyId },
+      error: 'Choose an open standing lobby from this league.',
+    },
+  });
 });
 
 test('runCreateTournament', async () => {

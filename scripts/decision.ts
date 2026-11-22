@@ -1,13 +1,16 @@
 #!/usr/bin/env bun
 /**
  * `bun decision:record "<decision>" --context <pageId> [--why "<reason>"]`
- *. A decision an agent makes on the owner's behalf goes on the
+ * A decision an agent makes on the owner's behalf goes on the
  * drive's Pending decisions list as an open DEC-n task, linked to where it
  * was made, and the owner is notified in Epic Updates. It stays open (To Do)
  * until the owner moves it to Confirmed or Overruled.
  */
 import { sessionIsAgent } from './agent-session';
 import { runBoard } from './board';
+import { renameSync, rmSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { snapshotDecisionList } from './decision-status';
 
 export const PENDING_DECISIONS_ID = 'jdesqcu11mczngtmahbcybc3';
 const EPIC_UPDATES_CHANNEL_ID = 'ywfbps4h7dgnfnv3phwjs1yn';
@@ -21,6 +24,7 @@ export type DecisionDeps = {
     readonly title?: string;
   };
   readonly notify: (message: string) => boolean;
+  readonly sync: () => boolean;
   readonly out: (text: string) => void;
 };
 
@@ -44,10 +48,11 @@ export function recordDecision(
   deps: DecisionDeps,
   argv: readonly string[],
 ): number {
+  if (argv.length === 1 && argv[0] === '--sync') return deps.sync() ? 0 : 1;
   const { decision, context, why } = parse(argv);
   if (decision === '' || !PAGE_ID.test(context)) {
     deps.out(
-      'usage: bun decision:record "<decision>" --context <pageId> [--why "<reason>"]\n',
+      'usage: bun decision:record "<decision>" --context <pageId> [--why "<reason>"]\n       bun decision:record --sync\n',
     );
     return 2;
   }
@@ -70,7 +75,8 @@ export function recordDecision(
   deps.out(
     `${created.title ?? decision} recorded; owner ${notified ? 'notified' : 'NOT notified (channel send failed)'}\n`,
   );
-  return notified ? 0 : 1;
+  const synced = deps.sync();
+  return notified && synced ? 0 : 1;
 }
 
 if (import.meta.main) {
@@ -102,6 +108,33 @@ if (import.meta.main) {
       },
       notify: (message) =>
         run(['channels', 'send', EPIC_UPDATES_CHANNEL_ID, message]).code === 0,
+      sync: () => {
+        const path = join(import.meta.dir, '../policy/decision-status.json');
+        const temp = `${path}.${process.pid}.tmp`;
+        try {
+          const result = run(['--json', 'tasks', 'list', PENDING_DECISIONS_ID]);
+          if (result.code !== 0) throw new Error('Could not read the DEC list');
+          const snapshot = snapshotDecisionList(JSON.parse(result.stdout));
+          writeFileSync(temp, `${JSON.stringify(snapshot, null, 2)}\n`);
+          renameSync(temp, path);
+          console.log(
+            `Refreshed ${Object.keys(snapshot.decisions).length} DEC statuses in policy/decision-status.json`,
+          );
+          return true;
+        } catch (error) {
+          console.error(
+            error instanceof Error
+              ? error.message
+              : 'Decision snapshot refresh failed',
+          );
+          console.error(
+            'Retry with bun decision:record --sync before committing the snapshot.',
+          );
+          return false;
+        } finally {
+          rmSync(temp, { force: true });
+        }
+      },
       out: (text) => process.stdout.write(text),
     },
     process.argv.slice(2),

@@ -51,11 +51,13 @@ export const minimumCostAssignment = (
             j1 = j;
           }
         }
+      // No more rows than columns: a row left to place has an unused column.
+      if (delta === null) throw new Error('An unplaced row has a free column');
       for (let j = 0; j <= columns; j += 1)
         if (used[j]) {
-          u[owner[j]!] = u[owner[j]!]! + delta!;
-          v[j] = v[j]! - delta!;
-        } else minv[j] = minv[j]! - delta!;
+          u[owner[j]!] = u[owner[j]!]! + delta;
+          v[j] = v[j]! - delta;
+        } else minv[j] = minv[j]! - delta;
       j0 = j1;
     } while (owner[j0] !== 0);
     do {

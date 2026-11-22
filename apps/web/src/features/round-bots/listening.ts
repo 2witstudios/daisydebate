@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import type { BotPublicationScope } from '@daisy/db/bot-publication';
 import { errorCodeOf, isRefusal } from '@daisy/errors';
 import { createTrackClocks } from '@daisy/media/observation';
@@ -266,7 +267,7 @@ export function createBotListening(
       : CALIBRATE_FIRST_RETRY_MS;
     if (sentAtMs - calibrationReadAt < periodMs) return;
     calibrationReadAt = sentAtMs;
-    const server = Date.parse(await input.databaseNow());
+    const server = instantMs(await input.databaseNow());
     const receivedAtMs = input.monotonicNowMs();
     // A slow read keeps the previous calibration; the next period retries.
     if (receivedAtMs - sentAtMs > MAX_CALIBRATION_RTT_MS)

@@ -1,4 +1,4 @@
-import { ballotDefinitionSchema } from '@daisy/protocol';
+import { ballotDefinitionSchema } from '@daisy/protocol/ballot-definition';
 import { ballotPinCompatible } from './ballot-pin-compatible';
 import type { LoadedSettingCommand, SettingGraph } from '@daisy/db/tab';
 import type { SettingCommand } from '@daisy/protocol/lobby/setting-command';
@@ -25,7 +25,7 @@ export const settingRow = (row: StoredSetting): SettingRow => {
     key: row.key,
     hold: row.hold,
     value: row.value,
-  }) as SettingRow;
+  });
 };
 const canonicalTemplateBallot = (
   graph: SettingGraph,

@@ -1,21 +1,18 @@
+import { instantMs } from '@daisy/clock';
 import { countdownDue } from './round-start-gate';
 import {
   clockStopsOf,
   isRoundRunning,
-  leadSeatOf,
   prepConsumedOf,
-  runningMs,
-  segmentDueAtMs,
-  sideKeysOf,
-} from '@daisy/protocol';
-import type {
-  SideKey,
-  RoundLifecycle,
-  RoundPosition,
-  RoundRules,
-  RoundStage,
-  RuntimeCheckpoint,
-} from '@daisy/protocol';
+} from '@daisy/protocol/round';
+import { leadSeatOf, sideKeysOf } from '@daisy/protocol/format-seating';
+import { runningMs } from '@daisy/protocol/clock-stops';
+import { segmentDueAtMs } from '@daisy/protocol/segment-end';
+import type { SideKey } from '@daisy/protocol/seats';
+import type { RoundLifecycle } from '@daisy/protocol/round-lifecycle';
+import type { RoundPosition } from '@daisy/protocol/runtime';
+import type { RoundRules } from '@daisy/protocol/format';
+import type { RoundStage, RuntimeCheckpoint } from '@daisy/protocol/round';
 import { advanceRoundClock } from './round-clock';
 import {
   debateHasEnded,
@@ -93,12 +90,12 @@ const openSegmentOf = (
   const held = incident.phase !== 'none' ? incident.resume_point : null;
   const remainingMs = Math.max(
     0,
-    dueMs - (held === null ? now : Date.parse(held)),
+    dueMs - (held === null ? now : instantMs(held)),
   );
   const endsAtMs =
     held === null
       ? dueMs
-      : (incident.phase === 'resuming' ? Date.parse(incident.until) : now) +
+      : (incident.phase === 'resuming' ? instantMs(incident.until) : now) +
         remainingMs;
   return {
     key: open.key,
@@ -178,7 +175,7 @@ const prepOf = (
       0,
       budgetMsPerSide -
         prepConsumedOf(checkpoint, active.side) -
-        runningMs(Date.parse(active.started_at), now, clockStopsOf(checkpoint)),
+        runningMs(instantMs(active.started_at), now, clockStopsOf(checkpoint)),
     ),
   };
 };
@@ -200,7 +197,7 @@ const prepBudgetOf = (
           ? Math.max(
               0,
               runningMs(
-                Date.parse(checkpoint.active_prep.started_at),
+                instantMs(checkpoint.active_prep.started_at),
                 now,
                 clockStopsOf(checkpoint),
               ),

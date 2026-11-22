@@ -1,11 +1,10 @@
-import type { RecordingStatus } from '@daisy/protocol';
+import type { RecordingStatus } from '@daisy/protocol/recording';
 import type {
   RebuildableRecordings,
   recordingTakedownReasons,
 } from '@daisy/protocol/content-moderation';
-import type { BoundedTransactionContext } from './transaction-context';
+import type { Tx } from './tx';
 
-type Tx = BoundedTransactionContext;
 type RecordingTakedownReason = (typeof recordingTakedownReasons)[number];
 
 /** A change a port made: it was applied, it already held, or no such thing. */
@@ -17,7 +16,7 @@ export type ContentModerationOutcome = 'applied' | 'unchanged' | null;
  */
 type ReportAudience = {
   readonly roundId: string;
-  readonly visibility: 'public' | 'unlisted' | 'private';
+  readonly visibility: 'public' | 'unlisted' | 'private' | null;
   readonly audienceLinkHash: string | null;
   readonly inLiveRoom: boolean;
 };

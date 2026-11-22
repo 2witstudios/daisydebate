@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { roomCommandSchema } from '@daisy/protocol';
+import { roomCommandSchema } from '@daisy/protocol/room-contract';
 import {
   captureFromFields,
   captureLine,
@@ -10,7 +10,7 @@ import { submitAssembly } from './submit-assembly';
 
 setupRitewayBun();
 
-describe('The capture form without script', () => {
+describe('The capture form before hydration', () => {
   test('unticked boxes send nothing, and nothing chosen is off', () => {
     assert({
       given: 'no boxes, then only recording',

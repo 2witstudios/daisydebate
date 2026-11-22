@@ -13,8 +13,5 @@ export const invariant: (id: string, message: string) => never = (
   id,
   message,
 ) => {
-  throw createInvariantError(
-    id as Parameters<typeof createInvariantError>[0],
-    message,
-  );
+  throw createInvariantError(id, message);
 };

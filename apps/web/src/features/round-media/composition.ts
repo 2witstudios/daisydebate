@@ -1,3 +1,4 @@
+import { nowMs } from '@daisy/clock';
 import { createRoundStartGate } from '../round-start-gate/gate';
 import { captureRule } from '@daisy/debate-engine';
 import {
@@ -20,7 +21,7 @@ import type { MediaOperationInput } from './operation-context';
 import { observeFloor } from './floor-telemetry';
 import { createRoundMediaOperations } from './operations';
 import { MEDIA_RECOVERY_HEARTBEAT_MS } from './recovery-due';
-import { CAPTURE_STT_LAG_MS } from '@daisy/protocol';
+import { CAPTURE_STT_LAG_MS } from '@daisy/protocol/capture-timing';
 
 /** How soon a dead node stops being offered to a new join. */
 const MEDIA_NODE_PROBE_MS = 1_000;
@@ -94,7 +95,7 @@ export function createRoundMediaRuntime(
       }),
       deadline: (work) => withTimeout(work, 2_000),
       wait: () => Bun.sleep(25),
-      now: () => Date.parse(app.clock.now()),
+      now: () => nowMs(app.clock),
       recoveryHeartbeatMs: MEDIA_RECOVERY_HEARTBEAT_MS,
     };
     const floor = observeFloor(resources);

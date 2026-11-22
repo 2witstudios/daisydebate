@@ -6,14 +6,12 @@ import {
 } from '@daisy/protocol/flags';
 import { sql } from 'drizzle-orm';
 import { lockAuthorizationActors } from './authorization';
-import {
-  commandGate,
-  storedResult,
-  writeReceipt,
-  type OperatorCommandTransaction,
-} from './operator-command';
+import { commandGate, storedResult, writeReceipt } from './operator-command';
 import { lockFlags } from './flags-lock';
 import { readFlagSnapshot } from './flags-read';
+import type { Tx } from './tx';
+import { run, query } from './raw-rows';
+import { z } from 'zod';
 
 export type FlagCommandInput = {
   readonly commandId: string;
@@ -34,10 +32,12 @@ export type FlagCommandInput = {
     | { readonly kind: 'refused'; readonly reason: 'CONFLICT' | 'VALIDATION' };
 };
 
-async function lockTarget(tx: OperatorCommandTransaction, userId: string) {
-  const [actor] = (await tx.execute(
+async function lockTarget(tx: Tx, userId: string) {
+  const [actor] = await query(
+    tx,
+    z.object({ id: z.string() }),
     sql`select id from actors where user_id = ${userId} and kind = 'human'`,
-  )) as unknown as { id: string }[];
+  );
   if (!actor) return null;
   const [account] = await lockAuthorizationActors(tx, [actor.id], {
     maxActors: 1,
@@ -47,7 +47,7 @@ async function lockTarget(tx: OperatorCommandTransaction, userId: string) {
 
 /** Every change, its revision, audit and typed receipt commit together. */
 export async function runFlagCommand(
-  tx: OperatorCommandTransaction,
+  tx: Tx,
   input: FlagCommandInput,
 ): Promise<FlagCommandResult> {
   if (!input.authorize()) throw createAppError('AUTHORIZATION');
@@ -71,8 +71,11 @@ export async function runFlagCommand(
     key: input.key,
     revision: decision.revision,
   });
-  await tx.execute(sql`insert into flag_change_events (id, key, revision, command_id, change)
-    values (${input.nextId()}, ${input.key}, ${decision.revision}, ${input.commandId}, ${target === null ? 'state' : 'override'})`);
+  await run(
+    tx,
+    sql`insert into flag_change_events (id, key, revision, command_id, change)
+    values (${input.nextId()}, ${input.key}, ${decision.revision}, ${input.commandId}, ${target === null ? 'state' : 'override'})`,
+  );
   await writeReceipt(tx, input, target, {
     action: input.change.action,
     result,
@@ -90,23 +93,30 @@ function requireLiveTarget(
     throw createAppError('NOT_FOUND');
 }
 async function persistChange(
-  tx: OperatorCommandTransaction,
+  tx: Tx,
   input: FlagCommandInput,
   state: string,
   revision: number,
   now: number,
 ) {
-  await tx.execute(sql`insert into release_flags (key, state, revision)
+  await run(
+    tx,
+    sql`insert into release_flags (key, state, revision)
     values (${input.key}, ${input.change.action === 'flag.state.update' ? input.change.state : state}, ${revision})
-    on conflict (key) do update set state = excluded.state, revision = excluded.revision`);
+    on conflict (key) do update set state = excluded.state, revision = excluded.revision`,
+  );
   if (input.change.action === 'flag.override.update') {
     const { override, accountId } = input.change;
     if (override)
-      await tx.execute(sql`insert into flag_account_overrides (key, user_id, enabled, expires_at, created_at)
+      await run(
+        tx,
+        sql`insert into flag_account_overrides (key, user_id, enabled, expires_at, created_at)
       values (${input.key}, ${accountId}, ${override.enabled}, ${override.expiresAt}::timestamptz, ${new Date(now).toISOString()}::timestamptz)
-      on conflict (key, user_id) do update set enabled = excluded.enabled, expires_at = excluded.expires_at, created_at = excluded.created_at`);
+      on conflict (key, user_id) do update set enabled = excluded.enabled, expires_at = excluded.expires_at, created_at = excluded.created_at`,
+      );
     else
-      await tx.execute(
+      await run(
+        tx,
         sql`delete from flag_account_overrides where key = ${input.key} and user_id = ${accountId}`,
       );
   }

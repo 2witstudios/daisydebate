@@ -1,5 +1,4 @@
 import { and, count, eq, ne, or } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import { contactPairs } from '../schema/contacts';
 import { friendships } from '../schema/friends';
@@ -11,15 +10,11 @@ import {
   spendSocialRequest,
 } from '../contacts/request-budget';
 import type { ContactReactions } from '../contacts/reactions';
+import type { Tx } from '../tx';
 import type { lockAuthorizationActors } from '../authorization';
 import { guardianHoldsForRequest } from './guardian-approval-facts';
 import { holdForGuardian } from './hold-for-guardian';
 import { tellFriend } from './request-notice';
-
-type FriendshipTransaction = Pick<
-  BunSQLDatabase,
-  'select' | 'insert' | 'update' | 'delete' | 'execute'
->;
 
 const accepted = (actorId: string) =>
   and(
@@ -30,10 +25,7 @@ const accepted = (actorId: string) =>
     ),
   );
 
-async function countWhere(
-  tx: FriendshipTransaction,
-  where: ReturnType<typeof and>,
-) {
+async function countWhere(tx: Tx, where: ReturnType<typeof and>) {
   const [row] = await tx
     .select({ value: count() })
     .from(friendships)
@@ -47,7 +39,7 @@ async function countWhere(
  * current until commit. Every write reauthorizes first (ADR 0072).
  */
 export function friendshipFrame(
-  tx: FriendshipTransaction,
+  tx: Tx,
   input: ContactInput,
   rows: readonly (typeof contactPairs.$inferSelect)[],
   authorize: () => Promise<void>,

@@ -1,5 +1,5 @@
 import { drawCapableBounds } from '@daisy/protocol/testing';
-import type { RoomView } from '@daisy/protocol';
+import type { RoomView } from '@daisy/protocol/room-contract';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assemblySnapshot } from './assembly.test-support';
 import { prepareSettings } from './prepare-settings';

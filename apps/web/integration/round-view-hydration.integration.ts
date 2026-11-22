@@ -1,7 +1,8 @@
+import { instantMs } from '@daisy/clock';
 import { readRoundOpening, roundWaitingOn } from '@daisy/debate-engine';
 import { requireTestServices } from '@daisy/config';
 import { roundPositionAt } from '@daisy/debate-engine/position';
-import { roundViewSchema } from '@daisy/protocol';
+import { roundViewSchema } from '@daisy/protocol/round-view';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { withRoomRuntime } from './round-runtime.test-support';
 import { opponentSpeech, botControlOptions } from './bot-control.test-support';
@@ -45,7 +46,7 @@ test('a started Round reads back checkpoint and ordered segments that pass the R
       rules: round.rules,
       checkpoint: round.checkpoint,
       segments: round.segments,
-      nowMs: Math.max(Date.now(), Date.parse(round.segments[0]!.startedAt) + 1),
+      nowMs: Math.max(Date.now(), instantMs(round.segments[0]!.startedAt) + 1),
     });
     assert({
       given: 'the same payload a browser derives its live position from',

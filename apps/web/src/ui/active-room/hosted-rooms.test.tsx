@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import type { HostedRoom } from '@daisy/protocol';
+import type { HostedRoom } from '@daisy/protocol/hosted-rooms';
 import { HostedRooms } from './hosted-rooms';
 
 setupRitewayBun();

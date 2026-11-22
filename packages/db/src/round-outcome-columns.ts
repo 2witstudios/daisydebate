@@ -1,5 +1,7 @@
 import { createAppError } from '@daisy/errors';
-import type { RoundOutcome, RoundRules, SideKey } from '@daisy/protocol';
+import type { RoundOutcome } from '@daisy/protocol/round-outcome';
+import type { RoundRules } from '@daisy/protocol/format';
+import type { SideKey } from '@daisy/protocol/seats';
 
 /**
  * A Round's outcome as its row stores it (TAB-6.2): the winning side, or a

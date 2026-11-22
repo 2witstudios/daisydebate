@@ -14,11 +14,8 @@ import {
   admitParticipants,
   removeUnowedBetaDigests,
 } from '../src/beta-access-testing';
-import {
-  buildRoundTopic,
-  buildUserInboxTopic,
-  emptyRuntimeCheckpointFor,
-} from '@daisy/protocol';
+import { buildRoundTopic, buildUserInboxTopic } from '@daisy/protocol/topics';
+import { emptyRuntimeCheckpointFor } from '@daisy/protocol/round';
 import { frozenJudgingFor } from '../src/round-judging-freeze';
 
 type PostgresFailure = { errno?: unknown; constraint?: unknown };
@@ -113,7 +110,7 @@ const daisyKeys: Record<string, Row> = {
   rooms: { lobby_id: publicLobbyId },
   seasons: { organization_id: daisyOrganizationId },
 };
-/** A fixture Room is in the Open lobby unless it says otherwise (ADR 0156). */
+/** A fixture Room is in the Open lobby unless it says otherwise (ADR 0162). */
 const lobbyDivision: Row = { division: 'open' };
 
 /**

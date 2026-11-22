@@ -2,7 +2,8 @@ import { and, eq } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import { contactCommands, contactPairs } from '../schema/contacts';
 import type { ContactInput } from './fence';
-import type { ContactReactions, ContactTransaction } from './reactions';
+import type { ContactReactions } from './reactions';
+import type { Tx } from '../tx';
 
 /** A block (or unblock) of the pair's other member, and its result. */
 export type ContactBlockCommand = {
@@ -18,7 +19,7 @@ export type ContactBlockCommand = {
  * same transaction (ADR 0061, ADR 0072).
  */
 export function contactBlockWriter(
-  tx: ContactTransaction,
+  tx: Tx,
   input: ContactInput,
   rows: readonly (typeof contactPairs.$inferSelect)[],
   authorize: () => Promise<void>,

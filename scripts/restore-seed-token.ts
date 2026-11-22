@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { sha3Hex } from '@daisy/digest';
 
 /**
  * A fresh 256-bit CSPRNG value, generated only to be used once — as a
@@ -22,4 +22,4 @@ export const randomSeedToken = (): string =>
  * for the same reason as `randomSeedToken`.
  */
 export const emailedLinkIdentifier = (purpose: string, token: string): string =>
-  `${purpose}:${createHash('sha3-256').update(token).digest('hex')}`;
+  `${purpose}:${sha3Hex(token)}`;

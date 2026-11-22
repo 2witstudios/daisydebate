@@ -1,8 +1,9 @@
+import { addMs, instantMs } from '@daisy/clock';
 import {
   oneOnOneDefinition,
   oneOnOneSettings,
 } from '@daisy/db/reference-formats';
-import { sideSeat, judgeSeat } from '@daisy/protocol';
+import { sideSeat, judgeSeat } from '@daisy/protocol/seats';
 import { requireTestServices } from '@daisy/config';
 import { noopErrorReporter } from '@daisy/observability';
 import { createId } from '@paralleldrive/cuid2';
@@ -201,8 +202,7 @@ const chatBody = (text: string, requestId: string = createId()) => ({
 });
 
 const NOW = '2026-11-03T12:00:00.000Z';
-const secondsAfter = (seconds: number) =>
-  new Date(Date.parse(NOW) + seconds * 1000).toISOString();
+const secondsAfter = (seconds: number) => addMs(NOW, seconds * 1000);
 
 test('an account that was never admitted posts through the route, and the next read holds it', async () => {
   await withRoomRuntime(async (f) => {
@@ -532,7 +532,7 @@ test('a count gathers on real Redis and shows as soon as its bucket is whole', a
   await withRoomRuntime(async (f) => {
     const roundId = await onAirRound(f);
     const nowMs =
-      Math.floor(Date.parse(NOW) / VIEWER_BUCKET_MS) * VIEWER_BUCKET_MS;
+      Math.floor(instantMs(NOW) / VIEWER_BUCKET_MS) * VIEWER_BUCKET_MS;
     const now = new Date(nowMs + 1000).toISOString();
     const route = routes(
       f,
@@ -635,7 +635,7 @@ test('an unlisted Round: every audience route answers as missing with no link, a
     const reader = await unadmitted(f);
     let who: { userId: string; actorId: string | null } | null = stranger;
     const nowMs =
-      Math.floor(Date.parse(NOW) / VIEWER_BUCKET_MS) * VIEWER_BUCKET_MS;
+      Math.floor(instantMs(NOW) / VIEWER_BUCKET_MS) * VIEWER_BUCKET_MS;
     let now = new Date(nowMs + 1000).toISOString();
     const route = routes(
       f,
@@ -853,7 +853,7 @@ test('a pulse stores nothing for a Round off the air', async () => {
         response.status,
         await f.redis.readViewerCount(
           roundId,
-          Math.floor(Date.parse(NOW) / VIEWER_BUCKET_MS),
+          Math.floor(instantMs(NOW) / VIEWER_BUCKET_MS),
         ),
       ],
       expected: [204, 0],

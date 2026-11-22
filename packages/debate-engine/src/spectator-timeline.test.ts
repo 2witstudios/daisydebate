@@ -1,9 +1,6 @@
-import {
-  SPECTATOR_MARGIN_MS,
-  sideSeat,
-  twoSides,
-  winnerOutcome,
-} from '@daisy/protocol';
+import { SPECTATOR_MARGIN_MS } from '@daisy/protocol/broadcast';
+import { sideSeat, twoSides } from '@daisy/protocol/seats';
+import { winnerOutcome } from '@daisy/protocol/round-outcome';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   BROADCAST_INTERRUPTED_AFTER_MS,

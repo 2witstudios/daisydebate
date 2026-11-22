@@ -1,9 +1,9 @@
-import { daisyBallotSource } from '@daisy/protocol';
+import { daisyBallotSource } from '@daisy/protocol/ballot-definition';
 import { idle } from '../../../features/forms/form-state';
 import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import type { RoundBallotRead } from '@daisy/protocol';
+import type { RoundBallotRead } from '@daisy/protocol/round-ballot-read';
 import { mockNextRouter } from '../../../lib/testing/mock-router';
 import {
   asActive,
@@ -16,7 +16,10 @@ import {
 } from '../../debate-room/live-round.test-support';
 import { attendanceSettlesAtMs } from '../../../features/round-ballots/settling';
 import { sampleJudgeBallot } from '../../mock/judge.test-support';
-import { daisyWinnerBallot, panelRuleFor } from '@daisy/protocol';
+import {
+  daisyWinnerBallot,
+  panelRuleFor,
+} from '@daisy/protocol/ballot-definition';
 setupRitewayBun();
 await mockNextRouter();
 const { BallotPage } = await import('./ballot-page');
@@ -182,7 +185,7 @@ describe('a ballot opened before attendance settles', () => {
     assert({
       given: 'the frozen transcript 12 seconds before attendance settles',
       should:
-        'say when submitting opens and that entries are kept, above the full ballot whose Submit still posts without script',
+        'say when submitting opens and that entries are kept, above the full ballot whose Submit still posts before hydration',
       actual: [
         html.includes('Submitting opens in about 12 seconds.'),
         html.includes(

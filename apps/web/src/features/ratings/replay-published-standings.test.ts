@@ -1,5 +1,5 @@
 import { rateDebate, ratingPolicy } from '@daisy/debate-engine';
-import { winnerOutcome } from '@daisy/protocol';
+import { winnerOutcome } from '@daisy/protocol/round-outcome';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { replayPublishedStandings } from './replay-published-standings';
 
@@ -17,7 +17,7 @@ test('both competitors progress after a hidden game using only public results', 
   const rooms = [
     { ...publicGame, actorId: 'ada', side: 'affirmative' },
     { ...publicGame, actorId: 'ben', side: 'negative' },
-  ];
+  ] as const;
   const people = ['ada', 'ben'].map((actorId) => ({
     actorId,
     username: actorId,

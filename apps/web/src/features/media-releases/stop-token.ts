@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { sha3Hex } from '@daisy/digest';
 import { deriveSubkey } from '../mail/recipient-key';
 
 /**
@@ -9,8 +9,7 @@ import { deriveSubkey } from '../mail/recipient-key';
 export const deriveReleaseStopSubkey = (secret: string): string =>
   deriveSubkey(secret, 'media-release-stop');
 
-const digest = (value: string) =>
-  createHash('sha3-256').update(value).digest('hex');
+const digest = (value: string) => sha3Hex(value);
 
 export const releaseStopToken = (subkey: string, recipientHash: string) =>
   digest(`${subkey}\0${recipientHash}\0media-release-stop`);

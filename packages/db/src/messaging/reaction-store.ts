@@ -1,18 +1,18 @@
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
-import type { MessagingReactionPolicy } from '@daisy/protocol';
+import type { MessagingReactionPolicy } from '@daisy/protocol/messaging/reactions';
 import { readMessagingChannel, withMessagingContent } from './channel-frame';
 import { channelReactionFrame } from './reaction-frame';
 import type {
   MessagingReactionFence,
   MessagingReactionStore,
 } from './reaction-contracts';
+import type { TxSource } from '../tx';
 
 /**
  * Dedicated reaction methods on the account/pair/channel fence: a change
  * takes it exclusively, a summary read shares it (MSG-2.1-arch1).
  */
 export function createMessagingReactionStore(
-  database: BunSQLDatabase,
+  database: TxSource,
   policy: MessagingReactionPolicy,
   authorize: MessagingReactionFence,
 ): MessagingReactionStore {

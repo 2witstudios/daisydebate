@@ -1,8 +1,10 @@
 'use client';
-import { useEffect, useMemo, useState } from 'react';
+import { useBrowserEffect } from '../edge/browser-sync';
+import { StatusRegion } from '../components/status-region/status-region';
+import { useMemo, useState } from 'react';
 import { createBrowserTypingReader } from './typing-browser';
-import { tabConnection } from '../../features/realtime/browser-adapters';
-import { useRealtime } from '../../features/realtime/use-realtime';
+import { tabConnection } from '../edge/realtime-browser';
+import { useRealtime } from '../realtime/use-realtime';
 import { channelMessages } from '../../features/messaging/channel-messages';
 import {
   readThroughSequence,
@@ -46,7 +48,7 @@ export function ConversationLive({
   const descriptor = useMemo(() => channelMessages(channelId), [channelId]);
   const view = useRealtime(descriptor, history, socketUrl);
   const [typing, showTyping] = useState<boolean | null>(null);
-  useEffect(() => {
+  useBrowserEffect(() => {
     if (socketUrl === null) return;
     const connection = tabConnection(socketUrl);
     const reader = createBrowserTypingReader(
@@ -63,9 +65,9 @@ export function ConversationLive({
   }, [channelId, socketUrl, typingRefetchMs]);
   if (view.status === 'hidden')
     return (
-      <p role="status" className="flex-1 p-6 text-ink-muted">
+      <StatusRegion as="p" role="status" className="flex-1 p-6 text-ink-muted">
         This conversation is no longer available to you.
-      </p>
+      </StatusRegion>
     );
   const shown = view.body ?? history;
   // What is on screen is what is read: a live message advances the cursor too.
@@ -90,7 +92,11 @@ export function ConversationLive({
       />
       {/* Reserved, so a typing line never moves the conversation. */}
       <div className="h-typing-row shrink-0 px-6 pt-1 text-xs text-ink-muted max-narrow:px-4">
-        {typing === true ? <p role="status">{typingName} is typing…</p> : null}
+        {typing === true ? (
+          <StatusRegion as="p" role="status">
+            {typingName} is typing…
+          </StatusRegion>
+        ) : null}
       </div>
     </>
   );

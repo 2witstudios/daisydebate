@@ -1,7 +1,7 @@
-import type { TournamentHostingGrant } from '@daisy/protocol';
+import type { TournamentHostingGrant } from '@daisy/protocol/tournament-hosting';
 import { readDatabaseTime } from '../database-clock';
 import { readEntitlementGrants } from '../entitlement-grants';
-import type { TabTransaction } from './tab-transaction';
+import type { Tx } from '../tx';
 
 export type AccountHostingFacts = {
   readonly checkedAt: string;
@@ -10,7 +10,7 @@ export type AccountHostingFacts = {
 
 /** Caller holds the canonical account and all parent locks; no unrelated connection or wall clock. */
 export const loadAccountHostingFacts = async (
-  tx: TabTransaction,
+  tx: Tx,
   userId: string,
 ): Promise<AccountHostingFacts> => {
   const grants = await readEntitlementGrants(tx, userId);

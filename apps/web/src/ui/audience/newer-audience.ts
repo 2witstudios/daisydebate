@@ -1,4 +1,4 @@
-import type { AudienceSnapshot } from '@daisy/protocol';
+import type { AudienceSnapshot } from '@daisy/protocol/audience';
 
 const newestSequence = (snapshot: AudienceSnapshot) =>
   snapshot.messages.at(-1)?.sequence ?? 0;

@@ -2,22 +2,22 @@ import {
   ADMITTED_AGE_BANDS,
   type AuthorizationPrincipal,
 } from '@daisy/auth/authorization';
-import type { AgeBand, RatingDivision } from '@daisy/protocol';
+import type { AgeBand, RatingDivision } from '@daisy/protocol/ladder';
 import { tallyRecord } from '@daisy/debate-engine';
 import { createAppError } from '@daisy/errors';
 import type {
   PeopleFilter,
   Person,
   PeopleList,
-  PresenceActivity,
-  RatingStyle,
-  RatingState,
-  RoundStatus,
-  RoundOutcome,
-  SeatRef,
-} from '@daisy/protocol';
+} from '@daisy/protocol/people-list';
+import type { PresenceActivity } from '@daisy/protocol/realtime';
+import type { RatingStyle } from '@daisy/protocol/primitives';
+import type { RatingState } from '@daisy/protocol/ratings';
+import type { RoundStatus } from '@daisy/protocol/round';
+import type { RoundOutcome } from '@daisy/protocol/round-outcome';
+import type { SeatRef } from '@daisy/protocol/seats';
 import type { PublicProfileCard } from '@daisy/db';
-import { daisyLadders } from '@daisy/protocol';
+import { daisyLadders } from '@daisy/protocol/ladder';
 import type {
   PeopleListCursor,
   PersonRow,
@@ -199,10 +199,9 @@ export async function readPeopleList(
       status,
       relation: relationOf(row, actorId),
       ratings: daisyLadders.map((ladder) => {
+        // Freestyle is every rating's style (ADR 0142); the division picks the ladder.
         const state = rated.find(
-          (rating) =>
-            rating.ladder === ladder.style &&
-            rating.division === ladder.division,
+          (rating) => rating.division === ladder.division,
         );
         if (hidden.has(row.actorId))
           return { ladder, rating: null, provisional: false, hidden: true };

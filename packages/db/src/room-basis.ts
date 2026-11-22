@@ -1,11 +1,11 @@
 import { and, eq } from 'drizzle-orm';
-import type { RoomAssemblyState } from '@daisy/protocol';
+import type { RoomAssemblyState } from '@daisy/protocol/room-contract';
 import { createAppError } from '@daisy/errors';
-import type { Tx } from './room-command-facts';
 import { formats } from './schema/formats';
 import { formatPresets } from './schema/format-presets';
 import { formatRevisions } from './schema/format-revisions';
 import type { rooms } from './schema/rooms';
+import type { Tx } from './tx';
 
 /**
  * The catalog preset a room is based on, with its pinned revision, for

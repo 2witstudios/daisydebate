@@ -1,14 +1,16 @@
-import { authorize } from '@daisy/auth/authorization';
-import { createTabStore } from '@daisy/db/tab';
+import { hostRosterViewSchema } from '@daisy/protocol/lobby/entry-read';
 import { createId } from '@paralleldrive/cuid2';
 import { assert } from 'riteway/bun';
-import { entryEnrollmentCommand } from '../src/features/tab/operations/entry-enrollment';
-import { settingCommand } from '../src/features/tab/operations/settings';
 import {
   as,
   deniedAsNotFound,
   StageFailed,
 } from './tab-tournament-organization-wiring.test-support';
+import {
+  readTab,
+  tabCommand,
+  tabLobbyCommand,
+} from './tab-tournament-transport.test-support';
 import type { World } from './tab-tournament.test-support';
 
 export const entryEnrollmentStage = async (
@@ -18,13 +20,7 @@ export const entryEnrollmentStage = async (
   const director = world.bots.Director!;
   const lobbyId = world.made.get('tournament-lobby')!;
   const eventId = world.made.get('event')!;
-  const store = createTabStore(world.database);
-  const settings = settingCommand({
-    store,
-    authorize,
-    now: world.clock.now,
-    newId: createId,
-  });
+  const settings = tabCommand(world, 'settings');
   const [initial] =
     await world.sql`select settings_version, entries_version from events where id=${eventId}`;
   if (!initial) throw new StageFailed('entry event is missing');
@@ -49,12 +45,7 @@ export const entryEnrollmentStage = async (
       throw new StageFailed(`entry setting ${key}: ${JSON.stringify(answer)}`);
     settingsVersion += 1;
   }
-  const send = entryEnrollmentCommand({
-    store,
-    authorize,
-    now: world.clock.now,
-    newId: createId,
-  });
+  const send = tabLobbyCommand(world, 'entries');
   let entriesVersion = Number(initial.entries_version);
   const setAge = (userId: string, age: string) =>
     world.sql`update account_age set birth_month=to_char(now() - ${age}::interval,'YYYY-MM'), version=version+1 where user_id=${userId}`;
@@ -196,5 +187,25 @@ export const entryEnrollmentStage = async (
       (name) => ['accepted', 'accepted', world.bots[name]!.userId],
     ),
   });
+  if (world.http) {
+    const roster = await readTab(
+      world.http,
+      director,
+      'host-roster',
+      { lobbyId, eventId },
+      hostRosterViewSchema,
+    );
+    assert({
+      given: 'the four accepted entries read back through the host roster',
+      should: 'show the accepted entrants in their event',
+      actual: [
+        roster?.entries.counts.accepted,
+        roster?.entries.groups
+          .flatMap((group) => group.entries.map((entry) => entry.name))
+          .sort(),
+      ],
+      expected: [4, ['Debater 1', 'Debater 2', 'Debater 3', 'Debater 4']],
+    });
+  }
   world.made.set('entries-version', String(entriesVersion));
 };

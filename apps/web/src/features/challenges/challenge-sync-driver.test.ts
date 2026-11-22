@@ -1,9 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import {
-  buildUserInboxTopic,
-  ENVELOPE_VERSION,
-  type ChallengeList,
-} from '@daisy/protocol';
+import { buildUserInboxTopic } from '@daisy/protocol/topics';
+import { ENVELOPE_VERSION } from '@daisy/protocol/realtime';
+import { type ChallengeList } from '@daisy/protocol/challenges';
 import type { ResourceRead } from '../resource-sync/driver';
 import { driverEdges } from '../resource-sync/driver.test-support';
 import {

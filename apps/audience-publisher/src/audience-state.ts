@@ -15,7 +15,7 @@ import {
   pulseRateFor,
   viewerBucketOf,
   viewersFromSample,
-} from '@daisy/protocol';
+} from '@daisy/protocol/audience-state';
 
 /** How long a Broadcast's state stays once it is over and its Recording has settled. */
 const STATE_SETTLED_KEEP_MS = 10 * 60_000;

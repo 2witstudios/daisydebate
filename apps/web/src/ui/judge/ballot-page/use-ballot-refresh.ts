@@ -1,7 +1,9 @@
 'use client';
-import { systemClock } from '@daisy/clock';
-import type { RoundBallotRead } from '@daisy/protocol';
-import { useEffect, useRef } from 'react';
+import { useBrowserEffect } from '../../edge/browser-sync';
+import { cancelWindowDelay, windowDelay } from '../../edge/browser-time';
+import { nowMs, systemClock } from '@daisy/clock';
+import type { RoundBallotRead } from '@daisy/protocol/round-ballot-read';
+import { useRef } from 'react';
 import {
   ballotRefresh,
   ballotWaitSince,
@@ -74,13 +76,13 @@ export function refreshOnSchedule({
 }
 
 const deviceInstant = () => ({
-  wallMs: Date.parse(systemClock.now()),
+  wallMs: nowMs(systemClock),
   monotonicMs: performance.now(),
 });
 
 const browserEdges: RefreshEdges = {
-  setTimeout: (run, inMs) => window.setTimeout(run, inMs),
-  clearTimeout: (timer) => window.clearTimeout(timer),
+  setTimeout: (run, inMs) => windowDelay(run, inMs),
+  clearTimeout: (timer) => cancelWindowDelay(timer),
   visible: () => document.visibilityState === 'visible',
   onVisibilityChange: (run) => {
     document.addEventListener('visibilitychange', run);
@@ -104,7 +106,7 @@ export function useBallotRefresh(
 ): void {
   const { status, waitingOn } = view.round;
   const wait = useRef<BallotWait | null>(null);
-  useEffect(() => {
+  useBrowserEffect(() => {
     const mounted = deviceInstant();
     const { sinceMs } = (wait.current = ballotWaitSince(
       wait.current,

@@ -1,15 +1,19 @@
 import { eq, sql } from 'drizzle-orm';
 import type { LobbyAgeRule } from '@daisy/protocol/lobby/eligibility';
 
-import type { RoomAssemblyState, RoomMutationOutcome } from '@daisy/protocol';
+import type {
+  RoomAssemblyState,
+  RoomMutationOutcome,
+} from '@daisy/protocol/room-contract';
 import {
   emptyRuntimeCheckpointFor,
-  aiBallotAdmissionRefusal,
-  isJudgeSeat,
-  freezePostRoundCall,
-  freezeRoomConfig,
   roundBegan,
-} from '@daisy/protocol';
+  roundStatus,
+} from '@daisy/protocol/round';
+import { aiBallotAdmissionRefusal } from '@daisy/protocol/ai-ballot-admission';
+import { isJudgeSeat } from '@daisy/protocol/seats';
+import { freezePostRoundCall } from '@daisy/protocol/post-round-call';
+import { freezeRoomConfig } from '@daisy/protocol/room';
 import { createRefusal, createAppError } from '@daisy/errors';
 import { insertRoundDraw } from './room-draw-persistence';
 
@@ -26,14 +30,11 @@ import { freezeRoomBallot } from './room-ballot-freeze';
 import { columnsOfSeat } from './seat-columns';
 import { refuseIneligibleDebaters } from './room-start-eligibility';
 
-import {
-  appendRoomChanged,
-  type Tx,
-  publishDefinition,
-} from './room-command-facts';
-import { isOpenRoomStatus } from '@daisy/protocol';
+import { appendRoomChanged, publishDefinition } from './room-command-facts';
+import { isOpenRoomStatus } from '@daisy/protocol/room-contract';
 import { settleRoomInvitationsAfter } from './room-invitations/store';
 import { notifyWork } from './work-wake';
+import type { Tx } from './tx';
 
 /** The room row a mutation writes; the idle anchor moves only on an accepted command. */
 const roomRow = (
@@ -173,7 +174,7 @@ export const persistRoomMutation = async (
       judging,
       runtimeState: emptyRuntimeCheckpointFor(next.rules),
       seatDraw: mutation.seatDraw,
-      status: opens ? 'opening' : 'active',
+      status: opens ? roundStatus.opening : roundStatus.active,
       ...(opens
         ? {}
         : { currentStage: 'countdown' as const, startedAt: new Date(now) }),

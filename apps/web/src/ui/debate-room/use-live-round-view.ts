@@ -1,13 +1,13 @@
 'use client';
 import { useCallback } from 'react';
-import type { RoundView } from '@daisy/protocol';
+import type { RoundView } from '@daisy/protocol/round-view';
 import type { RoundRead } from '../../features/round-runtime/read-round';
-import { browserSyncEdges } from '../../features/resource-sync/browser';
+import { browserSyncEdges } from '../resource-sync/browser';
 import {
   createRoundSyncDriver,
   seedRoundSync,
 } from '../../features/round-runtime/round-sync-driver';
-import { useResourceSync } from '../resource-sync/use-resource-sync';
+import { useDriver } from '../edge/use-driver';
 
 /** Both assigned judges and debaters follow the same canonical Round revision stream. */
 export function useLiveRoundView({
@@ -31,5 +31,5 @@ export function useLiveRoundView({
       }),
     [view, read, socketUrl, onConnectionOpen],
   );
-  return useResourceSync(() => seedRoundSync(view, 0), start);
+  return useDriver(() => seedRoundSync(view, 0), start);
 }

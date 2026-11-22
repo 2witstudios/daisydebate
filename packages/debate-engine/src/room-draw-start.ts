@@ -1,6 +1,7 @@
+import { sha3Hex } from '@daisy/digest';
 import { createAppError } from '@daisy/errors';
-import type { RoomAssemblyState } from '@daisy/protocol';
-import { canonicalJson, digestOf } from '@daisy/seeded-random';
+import type { RoomAssemblyState } from '@daisy/protocol/room-contract';
+import { canonicalJson } from '@daisy/seeded-random';
 import { bytesOf, drawCommitment, inputCommitment } from './draw-random';
 import { drawResolutions, sideControllers } from './resolution-draw';
 import type {
@@ -118,7 +119,7 @@ export function startRoundDraw(
       canonicalJson(committed),
     ),
   };
-  const manifestDigest = digestOf(canonicalJson(manifest));
+  const manifestDigest = sha3Hex(canonicalJson(manifest));
   return {
     state: {
       id: facts.drawId,

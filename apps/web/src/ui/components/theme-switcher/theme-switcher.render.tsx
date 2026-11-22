@@ -1,3 +1,4 @@
+import { Button } from '../button/button';
 import type { KeyboardEvent, ReactNode } from 'react';
 import { Icon } from '../icon/icon';
 import type { ThemePreference } from '../../../features/theme/theme-preference';
@@ -55,7 +56,8 @@ export function renderThemeSwitcher({
       {options.map(({ value, label, icon }) => {
         const checked = value === preference;
         return (
-          <button
+          <Button
+            variant="unstyled"
             key={value}
             type="button"
             role="radio"
@@ -68,7 +70,7 @@ export function renderThemeSwitcher({
           >
             <Icon name={icon} size={16} />
             {label}
-          </button>
+          </Button>
         );
       })}
     </div>

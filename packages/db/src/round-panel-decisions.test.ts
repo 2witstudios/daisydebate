@@ -49,14 +49,14 @@ const commandRow = (
   appliedAt: new Date('2026-10-22T12:00:00.000Z'),
   ...overrides,
 });
-type Round = Parameters<typeof requirePanelRound>[0];
-const round = (overrides: Record<string, unknown> = {}): Round =>
-  ({
-    competitionType: 'casual',
-    segments: [{ endedAt: '2026-10-22T12:00:00.000Z' }],
-    participants: [{ role: 'affirmative' }, { role: 'negative' }],
-    ...overrides,
-  }) as unknown as Round;
+type Round = NonNullable<Parameters<typeof requirePanelRound>[0]> & {
+  readonly participants: readonly { readonly role: string }[];
+};
+const round = (overrides: Partial<Round> = {}): Round => ({
+  segments: [{ endedAt: '2026-10-22T12:00:00.000Z' }],
+  participants: [{ role: 'affirmative' }, { role: 'negative' }],
+  ...overrides,
+});
 const durable = {
   final_segment_ended_at: '2026-10-22T12:00:00.000Z',
   transcript_admission_cutoff: '2026-10-22T12:00:02.000Z',

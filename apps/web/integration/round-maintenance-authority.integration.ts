@@ -1,5 +1,5 @@
 import { decisionOf } from './attendance-evaluation.test-support';
-import { buildRoundTopic } from '@daisy/protocol';
+import { buildRoundTopic } from '@daisy/protocol/topics';
 import { finishedOrBlockedBehind } from '@daisy/db/testing';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';

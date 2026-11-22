@@ -1,5 +1,5 @@
 import { resolveRoomConfiguration } from '@daisy/debate-engine';
-import { affirmativeSide, negativeSide } from '@daisy/protocol';
+import { affirmativeSide, negativeSide } from '@daisy/protocol/seats';
 import {
   foundationSettings,
   foundationDefinition,

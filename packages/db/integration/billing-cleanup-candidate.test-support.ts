@@ -1,3 +1,4 @@
+import { addMs } from '@daisy/clock';
 import type { TransactionSQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import {
@@ -63,10 +64,10 @@ export function cleanupCandidate(tx: TransactionSQL, initialJobId: string) {
     if (result.kind === 'idle')
       throw Error('Candidate matrix transition refused');
     if (short && result.state.kind !== 'acknowledged' && result.state.claim)
-      result.state.claim.expiresAt = new Date(
-        Date.parse(result.state.claim.claimedAt) +
-          (typeof short === 'number' ? short : 200),
-      ).toISOString();
+      result.state.claim.expiresAt = addMs(
+        result.state.claim.claimedAt,
+        typeof short === 'number' ? short : 200,
+      );
     await persist(result.state, result.kind);
     return result.state;
   };

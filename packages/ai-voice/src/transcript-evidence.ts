@@ -1,4 +1,5 @@
-import type { FrozenCaptureGaps, SeatRef } from '@daisy/protocol';
+import type { FrozenCaptureGaps } from '@daisy/protocol/capture-gap';
+import type { SeatRef } from '@daisy/protocol/seats';
 
 /**
  * A Round's frozen transcript as prompt input: sides, seats and lines, never

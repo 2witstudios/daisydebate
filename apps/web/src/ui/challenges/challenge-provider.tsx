@@ -2,11 +2,12 @@
 
 // First: protocol schemas built after this load without Zod's eval probe.
 import '../../lib/zod-jitless';
+import { browserFetch } from '../edge/browser-request';
 import {
   challengeListSchema,
   type ChallengeList,
-  type RatingDivision,
-} from '@daisy/protocol';
+} from '@daisy/protocol/challenges';
+import { type RatingDivision } from '@daisy/protocol/ladder';
 import {
   createContext,
   useCallback,
@@ -24,9 +25,9 @@ import {
   endedOffersOf,
   type EndedOffer,
 } from '../../features/challenges/challenges-held';
-import { browserSyncEdges } from '../../features/resource-sync/browser';
+import { browserSyncEdges } from '../resource-sync/browser';
 import type { ResourceRead } from '../../features/resource-sync/driver';
-import { useResourceSync } from '../resource-sync/use-resource-sync';
+import { useDriver } from '../edge/use-driver';
 
 type ChallengeView = {
   readonly challenges: ChallengeList;
@@ -57,7 +58,7 @@ export const useChallenges = (): ChallengeView => {
 const challengeRead = challengeListSchema.loose();
 
 const readList = async (): Promise<ResourceRead<ChallengeList>> => {
-  const response = await fetch('/api/challenges', {
+  const response = await browserFetch('/api/challenges', {
     credentials: 'same-origin',
     cache: 'no-store',
   });
@@ -67,7 +68,7 @@ const readList = async (): Promise<ResourceRead<ChallengeList>> => {
     { jitless: true },
   );
   return parsed.success
-    ? { kind: 'found', value: parsed.data as ChallengeList }
+    ? { kind: 'found', value: parsed.data }
     : { kind: 'unavailable' };
 };
 
@@ -102,10 +103,7 @@ export function ChallengeProvider({
       ...edges,
     });
   }, [actorId, seed, socketUrl]);
-  const [sync, driver] = useResourceSync(
-    () => seedChallengeSync(seed, 0),
-    start,
-  );
+  const [sync, driver] = useDriver(() => seedChallengeSync(seed, 0), start);
   const held = sync.value;
   const shown = useMemo(
     () => ({

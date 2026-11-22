@@ -6,9 +6,11 @@ import type {
 import {
   channelHistoryView,
   channelMessageView,
+} from '@daisy/protocol/messaging/channel-messages';
+import {
   createMessagingCoreSchemas,
   type MessagingCoreBounds,
-} from '@daisy/protocol';
+} from '@daisy/protocol/messaging/core';
 import { parseValidated } from '../../server/http';
 import { requireMemberActor } from '../access/actor';
 

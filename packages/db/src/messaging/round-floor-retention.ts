@@ -1,14 +1,16 @@
+import { overRoundStatuses } from '@daisy/protocol/round';
+import { lifecycleSqlList } from '../lifecycle-sql';
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { contextChannelRetention } from './context-channel-retention';
+import type { Tx } from '../tx';
 
 /** Terminal-end cutoff, supplied as now minus the fixed 180-day floor window. Counters survive. */
-export function roundFloorRetention(database: Pick<BunSQLDatabase, 'execute'>) {
+export function roundFloorRetention(database: Tx) {
   const purge = contextChannelRetention(
     database,
     'round_floor',
     (before) =>
-      sql`join rounds r on r.id=c.round_id where r.status in ('completed','abandoned') and r.completed_at<=${before}::timestamptz`,
+      sql`join rounds r on r.id=c.round_id where r.status in ${lifecycleSqlList(overRoundStatuses)} and r.completed_at<=${before}::timestamptz`,
   );
   return {
     purgeExpiredRoundFloorMessages: purge.purgeMessages,

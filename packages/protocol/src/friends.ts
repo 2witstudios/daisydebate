@@ -10,12 +10,10 @@ import { usernameSchema as username } from './username';
  */
 
 /** Durable pair states; a declined or removed pair has no row at all. */
-export const friendshipStates = [
-  'pending',
-  'waiting-for-guardian',
-  'accepted',
-] as const;
-export type FriendshipState = (typeof friendshipStates)[number];
+export const storedFriendshipStates = ['pending', 'accepted'] as const;
+
+export type FriendshipState =
+  (typeof storedFriendshipStates)[number] | 'waiting-for-guardian';
 
 /** One pair as the viewer sees it. */
 const friendRelations = [

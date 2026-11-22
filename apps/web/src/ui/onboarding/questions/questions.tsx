@@ -6,7 +6,7 @@ import {
   experienceChoices,
   interestCategoryChoices,
   wantChoices,
-} from '@daisy/protocol';
+} from '@daisy/protocol/onboarding';
 import type { OnboardingAnswers } from '../../../features/onboarding/answers';
 import { Icon } from '../../components/icon/icon';
 import { Notice } from '../../components/notice/notice';
@@ -23,7 +23,7 @@ import {
 export type QuestionStepProps = {
   readonly answers: OnboardingAnswers;
   /** The form's action (a server action, or useFormAction's wrapper). */
-  readonly action: string | ((form: FormData) => void);
+  readonly action: (form: FormData) => void;
   readonly pending: boolean;
   /** Set when the last post was refused or never arrived. */
   readonly refused?: boolean;
@@ -188,7 +188,7 @@ export function AboutStep({ answers, ...rest }: QuestionStepProps) {
           ))}
         </div>
         {/* Shown by CSS alone when "I have a club" is picked, so it works
-            without script like every other mutating form. */}
+            before hydration like every other mutating form. */}
         <div className="mt-4 onboarding-club-reveal flex-col gap-2">
           <label
             htmlFor="club-name"

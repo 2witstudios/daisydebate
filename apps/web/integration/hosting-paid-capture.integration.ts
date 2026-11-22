@@ -1,7 +1,7 @@
 import { SQL } from 'bun';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
-import { tournamentCaptureAdmissionSchema } from '@daisy/protocol';
+import { tournamentCaptureAdmissionSchema } from '@daisy/protocol/tournament-capture-admission';
 import { scratchDatabase } from '@daisy/db/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { withRoomRuntime } from './room-runtime.test-support';

@@ -1,13 +1,10 @@
-import type { MessageRequestSetting } from '@daisy/protocol';
-import type { DmRequestAction } from '@daisy/protocol/dm-policy';
+import { messageRequestSettingSchema } from '@daisy/protocol/messaging/social';
 import { createAppError } from '@daisy/errors';
 import { sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
-import {
-  readAuthorizationActors,
-  type AuthorizationTransaction,
-} from '../authorization';
-import { rowsOf } from '../raw-rows';
+import { z } from 'zod';
+import { readAuthorizationActors } from '../authorization';
+import { query } from '../raw-rows';
+import { inTransaction, type Tx, type TxOpener } from '../tx';
 import { currentTenantScope, scopeTransaction } from '../tenant-scope';
 
 type Account = {
@@ -31,14 +28,15 @@ const closed = {
 };
 
 async function readDmRequestAction(
-  tx: AuthorizationTransaction,
+  tx: Tx,
   recipientId: string,
   request: NewDmRequest,
 ) {
   const previous = await currentTenantScope(tx);
   await scopeTransaction(tx, { ...previous, subjectUserId: request.userId });
-  const [row] = await rowsOf<{ action: DmRequestAction | null }>(
+  const [row] = await query(
     tx,
+    z.object({ action: z.enum(['message', 'befriend', 'none']).nullable() }),
     sql`select public.daisy_dm_request_access(${recipientId}, ${request.actorId}) as action`,
   );
   await scopeTransaction(tx, previous);
@@ -47,7 +45,7 @@ async function readDmRequestAction(
     ...closed,
     dmRequest: {
       initiatorActorId: request.actorId,
-      action: row.action ?? 'none',
+      action: row.action ?? ('none' as const),
     },
   };
 }
@@ -61,8 +59,7 @@ async function readDmRequestAction(
  * account, in the order given.
  */
 export const bindMessagingContactFacts =
-  (tx: AuthorizationTransaction, request?: NewDmRequest) =>
-  async (accounts: readonly Account[]) => {
+  (tx: Tx, request?: NewDmRequest) => async (accounts: readonly Account[]) => {
     if (request) {
       const recipient = accounts.find(
         ({ account }) => account.actorId === request.recipientActorId,
@@ -88,13 +85,14 @@ export const bindMessagingContactFacts =
           (age.band === '13-15' || age.band === '16-17'),
       })),
     );
-    const rows = await rowsOf<{
-      user_id: string;
-      setting: MessageRequestSetting;
-      friend_actor_ids: string[];
-      linked_adult_user_ids: string[];
-    }>(
+    const rows = await query(
       tx,
+      z.object({
+        user_id: z.string(),
+        setting: messageRequestSettingSchema.shape.setting,
+        friend_actor_ids: z.array(z.string()),
+        linked_adult_user_ids: z.array(z.string()),
+      }),
       sql`with cast_rows as (
           select * from jsonb_to_recordset(${cast}::text::jsonb)
             as c(user_id text, actor_id text, minor boolean))
@@ -136,22 +134,26 @@ export const bindMessagingContactFacts =
  * grants nothing; a request still decides under its own locks.
  */
 export const createMessagingPairFactsRead =
-  (database: BunSQLDatabase) =>
+  (database: TxOpener) =>
   <T>(
     actorIds: readonly [string, string],
     work: (
-      tx: AuthorizationTransaction,
+      tx: Tx,
       accounts: Awaited<ReturnType<typeof readAuthorizationActors>>,
       contact: 'blocked' | 'open_dm' | 'none',
     ) => Promise<T>,
   ): Promise<T> =>
-    database.transaction(async (tx) => {
-      const [low, high] = [...actorIds].sort();
-      const accounts = await readAuthorizationActors(tx, [low!, high!], {
+    inTransaction(database, async (tx) => {
+      const [first, second] = actorIds;
+      const ordered: readonly [string, string] =
+        first <= second ? [first, second] : [second, first];
+      const [low, high] = ordered;
+      const accounts = await readAuthorizationActors(tx, ordered, {
         maxActors: 2,
       });
-      const [pair] = await rowsOf<{ blocked: boolean; open: boolean | null }>(
+      const [pair] = await query(
         tx,
+        z.object({ blocked: z.boolean(), open: z.boolean().nullable() }),
         sql`select p.low_blocks_high or p.high_blocks_low as blocked,
             d.request_state in ('pending','accepted') as open
           from contact_pairs p left join messaging_dm_pairs d

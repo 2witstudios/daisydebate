@@ -1,0 +1,85 @@
+import { createRoundRuntime } from '@daisy/debate-engine';
+import {
+  emptyRuntimeCheckpointFor,
+  type RoundStage,
+  type RuntimeCheckpoint,
+} from '@daisy/protocol/round';
+import { twoSides } from '@daisy/protocol/seats';
+import {
+  type HydratedSegment,
+  type RoundProjection,
+} from '@daisy/protocol/runtime';
+import { type RoundLifecycle } from '@daisy/protocol/round-lifecycle';
+import { type RoundRules } from '@daisy/protocol/format';
+import type { CorpusSeat } from './corpus-seats';
+
+/** What the persistence adapter holds after applying every projection so far. */
+export type Durable = {
+  readonly round: RoundLifecycle & { readonly currentStage: RoundStage | null };
+  readonly segments: readonly HydratedSegment[];
+  readonly checkpoint: RuntimeCheckpoint;
+  readonly finalSegmentEndedAt: string | null;
+};
+
+/** A Round in its opening, before any write. */
+export const opening: Durable = {
+  round: {
+    status: 'opening',
+    startedAt: null,
+    completedAt: null,
+    outcome: null,
+    currentStage: null,
+  },
+  segments: [],
+  checkpoint: emptyRuntimeCheckpointFor({ sides: twoSides }),
+  finalSegmentEndedAt: null,
+};
+
+/** The adapter's writes for one projection, applied to what it held. */
+export const persisted = (
+  held: Durable,
+  projection: RoundProjection,
+): Durable => {
+  const inserted = projection.segmentInserts.map((row) => ({
+    ...row,
+    endedAt: null,
+    returnedMs: 0,
+  }));
+  const segments = [...held.segments, ...inserted].map((row) => ({
+    ...row,
+    endedAt:
+      projection.segmentCloses.find((close) => close.id === row.id)?.endedAt ??
+      row.endedAt,
+    returnedMs:
+      projection.segmentReturns?.find((back) => back.id === row.id)
+        ?.returnedMs ?? row.returnedMs,
+  }));
+  const round = projection.round;
+  return {
+    round: round ?? held.round,
+    checkpoint: round?.checkpoint ?? held.checkpoint,
+    segments,
+    finalSegmentEndedAt:
+      projection.finalSegmentEndedAt ?? held.finalSegmentEndedAt,
+  };
+};
+
+/** A runtime hydrated from durable rows, as every server path builds one; segment ids continue the rows'. */
+export const hydrate = (
+  rules: RoundRules,
+  seats: readonly CorpusSeat[],
+  durable: Durable,
+) => {
+  let next = durable.segments.length;
+  return createRoundRuntime({
+    round: { id: 'round-1', ...durable.round },
+    rules,
+    participants: seats,
+    checkpoint: durable.checkpoint,
+    segments: durable.segments,
+    nextSegmentId: () => {
+      next += 1;
+      return `segment-${next}`;
+    },
+  });
+};

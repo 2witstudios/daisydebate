@@ -2,10 +2,10 @@ import {
   affirmativeSide,
   judgeSeat,
   negativeSide,
-  roomViewSchema,
   sideOfSeat,
   sideSeat,
-} from '@daisy/protocol';
+} from '@daisy/protocol/seats';
+import { roomViewSchema } from '@daisy/protocol/room-read';
 import { createId } from '@paralleldrive/cuid2';
 import { test, expect, openPage } from './support/fixtures';
 import { origin } from './support/accounts';

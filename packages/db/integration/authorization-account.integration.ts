@@ -2,6 +2,8 @@ import { createId } from '@paralleldrive/cuid2';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
+import { assertRejects } from '@daisy/errors/testing';
+import { authOperations } from '../src/auth-operations';
 import { sql } from 'drizzle-orm';
 import {
   lockAuthorizationActors,
@@ -155,6 +157,145 @@ test("a live session carries its account's beta and age facts (ADR 0075)", async
         'adult',
         { state: 'approved', revision: 2 },
       ],
+    });
+  });
+});
+
+test('a sign-in session is revoked in one guarded statement only when its address moved', async () => {
+  await withFixture(url, async (fixture) => {
+    const userId = await fixture.user();
+    const oldAddress = `${createId()}@example.test`;
+    const newAddress = `${createId()}@example.test`;
+    const id = createId();
+    const token = createId();
+    fixture.track('session', id);
+    await fixture.sql`update users set email=${oldAddress} where id=${userId}`;
+    await fixture.sql`insert into session(id,user_id,token,expires_at)
+      values(${id},${userId},${token},'2099-01-01T00:00:00Z')`;
+    const queries: { query: string; params: unknown[] }[] = [];
+    const database = drizzle({
+      client: fixture.sql,
+      logger: { logQuery: (query, params) => queries.push({ query, params }) },
+    });
+    const auth = authOperations({ database });
+    const retained = await auth.revokeSessionUnlessAddressHeld({
+      token,
+      email: oldAddress,
+    });
+    await fixture.sql`update users set email=${newAddress} where id=${userId}`;
+    const removed = await auth.revokeSessionUnlessAddressHeld({
+      token,
+      email: oldAddress,
+    });
+    assert({
+      given:
+        'the verified old address, then an account that has moved to a new address',
+      should:
+        'retain then delete the exact session using one guarded query each',
+      actual: {
+        results: [retained, removed],
+        queries: queries.map(({ query, params }) => [
+          query.startsWith('delete from "session"') &&
+            query.includes('not exists') &&
+            query.includes('"users"'),
+          params,
+        ]),
+        remaining: await fixture.count('session', 'id', id),
+      },
+      expected: {
+        results: [false, true],
+        queries: [
+          [true, [token, oldAddress]],
+          [true, [token, oldAddress]],
+        ],
+        remaining: 0,
+      },
+    });
+  });
+});
+
+test('the caller-bound and pool-bound session reads enforce the same current identity', async () => {
+  await withFixture(url, async (fixture) => {
+    const current = await createAuthorizationSubject(fixture);
+    const other = await createAuthorizationSubject(fixture);
+    const erased = await createAuthorizationSubject(fixture);
+    const provisional = await createAuthorizationSubject(fixture);
+    await fixture.sql`update users set email=null,image=null,name='',deleted_at=now(),
+      version=version+1 where id=${erased.userId}`;
+    await fixture.sql`update users set username=null where id=${provisional.userId}`;
+    const now = '2026-10-09T00:00:00.000Z';
+    const createSession = async (userId: string, expires: string) => {
+      const sessionId = createId();
+      fixture.track('session', sessionId);
+      await fixture.sql`insert into session(id,user_id,token,expires_at)
+        values(${sessionId},${userId},${createId()},${expires})`;
+      return sessionId;
+    };
+    const expiry = '2026-10-09T00:01:00.000Z';
+    const live = await createSession(current.userId, expiry);
+    const anchored = { ...current, sessionId: live, now };
+    const statements: string[] = [];
+    const database = drizzle({
+      client: fixture.sql,
+      logger: { logQuery: (query) => statements.push(query) },
+    });
+    const adapter = authorizationSessionOperations({ database });
+    const actual = [];
+    for (const input of [
+      anchored,
+      { ...anchored, sessionId: createId() },
+      { ...anchored, sessionId: await createSession(other.userId, expiry) },
+      { ...anchored, sessionId: await createSession(current.userId, now) },
+      { ...erased, sessionId: await createSession(erased.userId, expiry), now },
+      { ...anchored, actorId: other.actorId },
+      {
+        ...provisional,
+        sessionId: await createSession(provisional.userId, expiry),
+        now,
+      },
+    ]) {
+      const explicit = await loadAuthorizationSession(database, input);
+      const resolved = await adapter.resolveRealtimeSession(input);
+      actual.push([explicit !== null, resolved !== null]);
+    }
+    assert({
+      given:
+        'current, missing, other-user, expired, erased, other-actor and provisional sessions',
+      should:
+        'bind only the exact live session and use the shared realtime selector',
+      actual: {
+        matches: actual,
+        shared: statements.some((sql) =>
+          sql.includes('daisy_authorization_read_accounts_v2('),
+        ),
+        exclusive: statements.some(
+          (sql) =>
+            sql.includes('daisy_authorization_accounts_v2(') &&
+            sql.includes('true'),
+        ),
+      },
+      expected: {
+        matches: [
+          [true, true],
+          ...Array.from({ length: 6 }, () => [false, false]),
+        ],
+        shared: true,
+        exclusive: false,
+      },
+    });
+    statements.length = 0;
+    await assertRejects({
+      given: 'a malformed session identifier',
+      should: 'refuse before opening the transaction',
+      actual: () =>
+        adapter.readAuthorizationSession({ ...anchored, sessionId: 'invalid' }),
+      code: 'VALIDATION',
+    });
+    assert({
+      given: 'validation closed the pool-side operation',
+      should: 'send no statements',
+      actual: statements,
+      expected: [],
     });
   });
 });

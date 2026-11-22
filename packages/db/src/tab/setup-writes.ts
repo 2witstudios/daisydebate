@@ -7,17 +7,17 @@ import {
   ballotDefinitionVersions,
 } from '../schema/ballot-definitions';
 import { resolutionPools, poolResolutions } from '../schema/resolution-pools';
-import { ballotDefinitionSchema } from '@daisy/protocol';
-import type { TabTransaction } from './tab-transaction';
+import { ballotDefinitionSchema } from '@daisy/protocol/ballot-definition';
 
 import type { SetupWrite } from './setup-write';
+import type { Tx } from '../tx';
 const one = (rows: readonly unknown[]): void => {
   if (rows.length !== 1)
     throw createAppError('INVARIANT', 'Setup write did not affect one row');
 };
 const at = (instant: string | null) =>
   instant === null ? null : new Date(instant);
-const apply = async (tx: TabTransaction, write: SetupWrite): Promise<void> => {
+const apply = async (tx: Tx, write: SetupWrite): Promise<void> => {
   switch (write.table) {
     case 'lobbies':
       return one(
@@ -148,22 +148,29 @@ const apply = async (tx: TabTransaction, write: SetupWrite): Promise<void> => {
     case 'resolution_pools':
       await tx.insert(resolutionPools).values(write.row);
       return;
-    case 'pool_resolutions':
+    case 'pool_resolutions': {
       if (write.op === 'insert') {
         await tx.insert(poolResolutions).values(write.row);
         return;
       }
+      const { retiredAt } = write.set;
+      if (!retiredAt)
+        throw createAppError(
+          'INVARIANT',
+          'Resolution retirement needs an instant',
+        );
       return one(
         await tx
           .update(poolResolutions)
-          .set({ retiredAt: new Date(write.set.retiredAt!) })
+          .set({ retiredAt: new Date(retiredAt) })
           .where(eq(poolResolutions.id, write.id))
           .returning({ id: poolResolutions.id }),
       );
+    }
   }
 };
 export const applySetupWrites = async (
-  tx: TabTransaction,
+  tx: Tx,
   writes: readonly SetupWrite[],
 ): Promise<void> => {
   for (const write of writes) await apply(tx, write);

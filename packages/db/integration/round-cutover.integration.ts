@@ -1,6 +1,6 @@
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
-import { type RoundProjection } from '@daisy/protocol';
+import { type RoundProjection } from '@daisy/protocol/runtime';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createDatabase } from '../src';
 import { validConfig, validRules } from './round-fixtures';

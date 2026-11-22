@@ -1,10 +1,10 @@
 import type { Clock } from '@daisy/clock';
+import { idSchema } from '@daisy/protocol/primitives';
 import {
-  idSchema,
   roundCommandEnvelopeSchema,
   type RoundCommandResponse,
-  type RoundView,
-} from '@daisy/protocol';
+} from '@daisy/protocol/round-command';
+import { type RoundView } from '@daisy/protocol/round-view';
 import { parseValidated, readJson } from '../../server/http';
 import {
   createRoundMemberGate,

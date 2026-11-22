@@ -24,11 +24,11 @@ import {
   type StandingsRead,
 } from '../standings';
 import type { SpectatorClock } from '../spectator-release-sql';
-import type { TabDatabase, TabTransaction } from './tab-transaction';
+import { inTransaction, type Tx, type TxOpener } from '../tx';
 
 /** Supplies the lobby's active-season projections and certified competition inputs. */
 export async function loadLeagueRatingInputs(
-  tx: TabTransaction,
+  tx: Tx,
   input: {
     readonly viewerUserId: string;
     readonly ladderId: string;
@@ -194,7 +194,7 @@ export async function loadLeagueRatingInputs(
 export type LeagueRatingInputs = NonNullable<
   Awaited<ReturnType<typeof loadLeagueRatingInputs>>
 >;
-export const createLeagueRatingStore = (database: TabDatabase) => ({
+export const createLeagueRatingStore = (database: TxOpener) => ({
   leagueRatings: <Answer>(
     input: {
       readonly viewerUserId: string;
@@ -214,7 +214,8 @@ export const createLeagueRatingStore = (database: TabDatabase) => ({
       } | null,
     ) => Promise<Answer>,
   ): Promise<Answer> =>
-    database.transaction(
+    inTransaction(
+      database,
       async (tx) => {
         const authority = await loadLobbyAuthority(tx, input);
         if (

@@ -80,6 +80,7 @@ import {
 import { mediaCaptureOperations } from './media-capture';
 import { roundSpeakingRead } from './round-speaking-read';
 import { createBoundedTransaction } from './bounded-transaction';
+import { inTransaction } from './tx';
 import { readRatingCandidates, readRatingFacts } from './rating-discovery';
 import {
   deliverObservationPurges,
@@ -547,12 +548,12 @@ export function createDatabase({
         run: competitiveTransaction,
       }),
     createMediaCaptureOperations: (
-      input: Omit<Parameters<typeof mediaCaptureOperations>[0], 'transaction'>,
+      input: Omit<Parameters<typeof mediaCaptureOperations>[0], 'run'>,
     ) =>
       namedLaneOperations(
         mediaCaptureOperations({
           ...input,
-          transaction: competitiveTransaction,
+          run: competitiveTransaction,
         }),
       ),
     ...transcriptFinalizationOperations({ database }),
@@ -569,13 +570,13 @@ export function createDatabase({
     ...spectatorTimelineReads({ database: audience, eventSink }),
     ...liveBroadcastReads({ database: audience }),
     readGuardianLobbyIds: (userId: string) =>
-      browse.transaction((tx) => readGuardianLobbyIds(tx, userId)),
+      inTransaction(browse, (tx) => readGuardianLobbyIds(tx, userId)),
     hasGuardianLobbyWaiver: (
       input: Parameters<typeof hasGuardianLobbyWaiver>[1],
-    ) => browse.transaction((tx) => hasGuardianLobbyWaiver(tx, input)),
+    ) => inTransaction(browse, (tx) => hasGuardianLobbyWaiver(tx, input)),
     readOfficialStandingLobbies: () => readOfficialStandingLobbies(browse),
     readProfileChallengeModes: (userId: string, username: string) =>
-      browse.transaction((tx) =>
+      inTransaction(browse, (tx) =>
         readProfileChallengeModes(tx, userId, username),
       ),
     readCompetitionAgeBand: (userId: string, lobbyId?: string) =>

@@ -1,3 +1,4 @@
+import { addMs } from '@daisy/clock';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
@@ -40,9 +41,7 @@ test('an incompatible original-charge admission retains its positive owned obser
       ...payment,
       period: {
         ...payment.period,
-        endsAt: new Date(
-          Date.parse(payment.period.endsAt) + 86400000,
-        ).toISOString(),
+        endsAt: addMs(payment.period.endsAt, 86400000),
       },
     });
     if (!('action' in original))
@@ -190,9 +189,7 @@ test('contradictory reread of an already-linked payment preserves original linke
             ...read.evidence.payment,
             period: {
               ...read.evidence.payment.period,
-              endsAt: new Date(
-                Date.parse(read.evidence.payment.period.endsAt) + 86400000,
-              ).toISOString(),
+              endsAt: addMs(read.evidence.payment.period.endsAt, 86400000),
             },
           },
         },

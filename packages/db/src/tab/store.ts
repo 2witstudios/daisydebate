@@ -146,8 +146,8 @@ import {
   applyOrganizationWrites,
   type OrganizationWrite,
 } from './organization-writes';
-import type { TxOpener } from '../tx';
 import { createLobbyAdministrationStore } from './lobby-administration';
+import { inTransaction, type TxOpener } from '../tx';
 export type {
   LobbyAdministrationCommand,
   LobbyAdministrationFacts,
@@ -240,7 +240,7 @@ export const createTabStore = (database: TxOpener) => ({
     input: OrganizationCommandInput,
     work: (session: OrganizationCommandSession) => Promise<Answer>,
   ): Promise<Answer> =>
-    database.transaction(async (tx) => {
+    inTransaction(database, async (tx) => {
       const scope = await fenceOrganizationCommand(tx, input);
       return work({
         stored: async (commandId) => {
@@ -288,14 +288,14 @@ export const createTabStore = (database: TxOpener) => ({
     },
     work: (facts: OrganizationPeopleFacts | null) => Promise<Answer>,
   ): Promise<Answer> =>
-    database.transaction(async (tx) => {
+    inTransaction(database, async (tx) => {
       const scope = await fenceOrganizationRead(tx, input);
       return work(await loadOrganizationPeople(tx, input, scope));
     }),
   standingLobbyAddressOfHandle: (
     handle: string,
   ): Promise<{ lobbyId: string; organizationId: string } | null> =>
-    database.transaction(async (tx) => {
+    inTransaction(database, async (tx) => {
       const [row] = await tx
         .select({
           lobbyId: lobbies.id,
@@ -314,9 +314,9 @@ export const createTabStore = (database: TxOpener) => ({
         : null;
     }),
   lobbyIdOfHandle: (handle: string): Promise<string | null> =>
-    database.transaction((tx) => findLobbyByHandle(tx, handle)),
+    inTransaction(database, (tx) => findLobbyByHandle(tx, handle)),
   organizationIdOfHandle: (handle: string): Promise<string | null> =>
-    database.transaction((tx) => findOrganizationByHandle(tx, handle)),
+    inTransaction(database, (tx) => findOrganizationByHandle(tx, handle)),
 });
 
 export type TabStore = ReturnType<typeof createTabStore>;

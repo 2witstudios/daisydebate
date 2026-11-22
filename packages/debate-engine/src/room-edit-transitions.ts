@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import { mayDebate } from '@daisy/protocol/lobby/eligibility';
 import type {
   RoomAssemblyState,
@@ -5,19 +6,18 @@ import type {
   RoomConsent,
   RoomMutationOutcome,
   RoomRefusal,
-  SeatKind,
-  SeatRef,
-} from '@daisy/protocol';
+} from '@daisy/protocol/room-contract';
+import type { SeatKind, SeatRef } from '@daisy/protocol/seats';
 import {
   affirmativeSide,
-  sidesSwappable,
-  aiRoleFits,
-  freeSeatsOf,
   isDebatingSeat,
   isJudgeSeat,
   sameSeat,
-  seatExists,
-} from '@daisy/protocol';
+} from '@daisy/protocol/seats';
+import { sidesSwappable } from '@daisy/protocol/seat-draw';
+import { aiRoleFits } from '@daisy/protocol/ai-roles';
+import { freeSeatsOf } from '@daisy/protocol/room-contract';
+import { seatExists } from '@daisy/protocol/format-seating';
 
 import { resolveRoomConfiguration } from './resolve-room-configuration';
 import { decideFormatSelection } from './format-selection';
@@ -83,6 +83,8 @@ export const selectFormat = (
   edges: Edges,
 ): RoomMutationOutcome => {
   if (room.competitionType === 'ranked') return refuse('illegal-config');
+  const facts = edges.formatFacts;
+  if (!facts) return refuse('format-unavailable');
   const decision = decideFormatSelection(
     {
       intent: command.intent,
@@ -91,7 +93,7 @@ export const selectFormat = (
       presetVersion: command.presetVersion,
       basis: room.basis,
     },
-    edges.formatFacts ?? null,
+    facts,
   );
   if (!decision.ok) return refuse(decision.refusal);
   const { rules, roomPlan } = decision.resolved;
@@ -105,7 +107,6 @@ export const selectFormat = (
   if (topic === undefined) return refuse('illegal-config');
   // The policy refuses role-null facts for `choose`; a reset to a retired
   // basis keeps its pinned provenance but is no longer a standard.
-  const facts = edges.formatFacts!;
   return acceptedRoomMutation({
     ...room,
     formatId: command.formatId,
@@ -238,7 +239,7 @@ export const seatsHeldFrom = (
     (hold) =>
       hold.seat === seat &&
       hold.actorId !== actorId &&
-      Date.parse(hold.until) > Date.parse(now) &&
+      instantMs(hold.until) > instantMs(now) &&
       !arrived(hold.actorId),
   ).length;
 };

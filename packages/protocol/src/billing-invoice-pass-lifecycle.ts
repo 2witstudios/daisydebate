@@ -1,3 +1,4 @@
+import { instantMs } from '@daisy/clock';
 import {
   headRetention,
   readRetention,
@@ -67,8 +68,8 @@ export function startInvoicePass(
 function currentAuthority(context: InvoicePassAuthority) {
   return (
     invoicePassAuthoritySchema.safeParse(context).success &&
-    Date.parse(context.now) >= Date.parse(context.claim.claimedAt) &&
-    Date.parse(context.now) < Date.parse(context.claim.expiresAt)
+    instantMs(context.now) >= instantMs(context.claim.claimedAt) &&
+    instantMs(context.now) < instantMs(context.claim.expiresAt)
   );
 }
 /** Coverage concerns enumeration only. Financial unknowns/actions remain durable and are rechecked by the host operation. */
@@ -82,7 +83,7 @@ export function advanceInvoicePass(
     !currentAuthority(context) ||
     value.jobId !== context.jobId ||
     value.owner.userId !== context.userId ||
-    Date.parse(context.now) < Date.parse(value.beganAt)
+    instantMs(context.now) < instantMs(value.beganAt)
   )
     return refuse;
   if (event.kind === 'retained') return retained(value, event, context);
@@ -161,9 +162,9 @@ function freshReceipt(
     receipt.passId === value.id &&
     receipt.jobId === value.jobId &&
     receipt.claimId === context.claim.id &&
-    Date.parse(receipt.startedAt) >= Date.parse(context.claim.claimedAt) &&
-    Date.parse(receipt.observedAt) >= Date.parse(receipt.startedAt) &&
-    Date.parse(receipt.observedAt) <= Date.parse(context.now)
+    instantMs(receipt.startedAt) >= instantMs(context.claim.claimedAt) &&
+    instantMs(receipt.observedAt) >= instantMs(receipt.startedAt) &&
+    instantMs(receipt.observedAt) <= instantMs(context.now)
   );
 }
 function head(
@@ -260,6 +261,6 @@ function freshInvoiceReceipt(
   return (
     freshReceipt(value, receipt, context) &&
     sameInvoiceOwner(value.owner, receipt.owner) &&
-    Date.parse(receipt.startedAt) >= Date.parse(value.head.observedAt)
+    instantMs(receipt.startedAt) >= instantMs(value.head.observedAt)
   );
 }

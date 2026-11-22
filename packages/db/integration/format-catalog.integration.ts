@@ -1,4 +1,4 @@
-import { ratingStyles } from '@daisy/protocol';
+import { ratingStyles } from '@daisy/protocol/primitives';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { catalogFormats } from '../src/catalog-formats';

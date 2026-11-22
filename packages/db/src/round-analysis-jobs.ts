@@ -1,14 +1,19 @@
+import { instantMs } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
 import {
   analysisRequest,
   analysisWorkBounds,
   analysisWorkSchema,
-  advanceAnalysisWork,
-  roundAnalysisReportSchema,
   type AnalysisCall,
+} from '@daisy/protocol/round-analysis-work';
+import {
+  advanceAnalysisWork,
   type AnalysisWorkEvent,
+} from '@daisy/protocol/round-analysis-lifecycle';
+import {
+  roundAnalysisReportSchema,
   type RoundAnalysisReport,
-} from '@daisy/protocol';
+} from '@daisy/protocol/round-analysis';
 import { eq, sql } from 'drizzle-orm';
 import type { BoundedTransaction } from './bounded-transaction';
 import { agentLeaseDigest } from './round-agent-lease';
@@ -19,7 +24,7 @@ import {
   type AnalysisSeat,
 } from './round-analysis-authority';
 import { readDatabaseTime } from './database-clock';
-import { rowsOf } from './raw-rows';
+import { query } from './raw-rows';
 import { resurfaceRoundDecision } from './round-decision-release';
 import { roundAnalyses } from './schema/round-analyses';
 import {
@@ -28,8 +33,9 @@ import {
 } from './round-analysis-accounting';
 import { readAnalysisInput } from './round-analysis-input';
 import type { AllowanceAccountPolicy } from './usage-ledger';
+import type { Tx } from './tx';
+import { z } from 'zod';
 
-type Tx = Parameters<Parameters<BoundedTransaction>[0]>[0];
 export type RoundAnalysisSeat = AnalysisSeat;
 type WorkContext = NonNullable<Awaited<ReturnType<typeof readWork>>>;
 async function readWork(
@@ -61,9 +67,13 @@ async function evidenceAvailable(tx: Tx, context: WorkContext) {
   const request = analysisRequest(context.work);
   if (!context.authorized || !request) return false;
   await lockAnalysisEvidence(tx, context.row.roundId);
-  const [facts] = await tx.execute(sql`select z.revision,
+  const [facts] = await query(
+    tx,
+    z.object({ revision: z.int(), lines: z.int() }),
+    sql`select z.revision,
     (select count(*)::integer from utterances where round_id=${context.row.roundId}) as lines
-    from round_transcript_freezes z where z.round_id=${context.row.roundId}`);
+    from round_transcript_freezes z where z.round_id=${context.row.roundId}`,
+  );
   return (
     facts?.revision === context.row.freezeRevision &&
     facts.lines === request.evidenceLines
@@ -121,13 +131,18 @@ export function createRoundAnalysisJobs(input: {
       if (!Number.isSafeInteger(limit) || limit < 1 || limit > 64)
         throw createAppError('VALIDATION');
       return input.run(async (tx) => {
-        const rows =
-          (await tx.execute(sql`select round_id as "roundId",round_participant_id as "roundParticipantId",coalesce(work->>'requestedAt',work->'request'->>'requestedAt') as "requestedAt"
+        const rows = await query(
+          tx,
+          z.object({
+            roundId: z.string(),
+            roundParticipantId: z.string(),
+            requestedAt: z.string(),
+          }),
+          sql`select round_id as "roundId",round_participant_id as "roundParticipantId",coalesce(work->>'requestedAt',work->'request'->>'requestedAt') as "requestedAt"
           from round_analyses a where (work->>'kind'='queued' or (work->>'kind'='leased' and (work->'lease'->>'expiresAt')::timestamptz<=clock_timestamp()) or (work->>'kind' in ('purged','failed','succeeded') and exists (select 1 from usage_reservations u join round_participants p on p.actor_id=u.actor_id and p.round_id=u.round_id where p.id=a.round_participant_id and u.kind='round_analysis' and u.state->>'kind' in ('reserved','dispatched'))))
           and (${after === null} or (coalesce(work->>'requestedAt',work->'request'->>'requestedAt'), round_participant_id)>(${after?.requestedAt ?? ''},${after?.seatId ?? ''}))
-          order by coalesce(work->>'requestedAt',work->'request'->>'requestedAt'),round_participant_id limit ${limit}`)) as unknown as (AnalysisSeat & {
-            requestedAt: string;
-          })[];
+          order by coalesce(work->>'requestedAt',work->'request'->>'requestedAt'),round_participant_id limit ${limit}`,
+        );
         const last = rows.at(-1);
         after =
           rows.length === limit && last
@@ -170,7 +185,7 @@ export function createRoundAnalysisJobs(input: {
               expiresAt: new Date(
                 Math.min(
                   now.getTime() + input.leaseMs,
-                  Date.parse(request.deadlineAt),
+                  instantMs(request.deadlineAt),
                 ),
               ).toISOString(),
             },
@@ -262,8 +277,9 @@ export function createRoundAnalysisJobs(input: {
           throw createAppError('CONFLICT', 'Round analysis authority changed');
         // Published: the member's decision comes back to read it beside.
         if (decision.state.kind === 'succeeded') {
-          const members = await rowsOf<{ user_id: string }>(
+          const members = await query(
             tx,
+            z.object({ user_id: z.string() }),
             sql`select user_id from actors
               where id=${context.access.seat.actorId} and user_id is not null`,
           );

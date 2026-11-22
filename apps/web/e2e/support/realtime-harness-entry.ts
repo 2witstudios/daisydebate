@@ -1,4 +1,4 @@
-import { createBrowserConnectionStore } from '../../src/features/realtime/browser-adapters';
+import { createBrowserConnectionStore } from '../../src/ui/edge/realtime-browser';
 
 /**
  * Bundled at test time (`realtime-harness.ts`) and injected into a real page

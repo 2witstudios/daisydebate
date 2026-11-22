@@ -1,10 +1,13 @@
 import { sql } from 'drizzle-orm';
-import type { AuthorizationTransaction } from '../authorization';
-import { buildUserInboxTopic, idSchema } from '@daisy/protocol';
+import { buildUserInboxTopic } from '@daisy/protocol/topics';
+import { idSchema } from '@daisy/protocol/primitives';
 import { appendOutboxEvent } from '../outbox';
+import type { Tx } from '../tx';
+import { query } from '../raw-rows';
+import { z } from 'zod';
 /** The event says only that this owner's protected messaging collection needs a fresh read. */
 export async function invalidateMessagingInboxes(
-  tx: AuthorizationTransaction,
+  tx: Tx,
   actors: readonly string[],
 ) {
   const owners = [
@@ -18,11 +21,10 @@ export async function invalidateMessagingInboxes(
       payload: { kind: 'messaging.inbox.changed' },
     });
 }
-export async function invalidateDmInboxes(
-  tx: AuthorizationTransaction,
-  channelId: string,
-) {
-  const rows = await tx.execute(
+export async function invalidateDmInboxes(tx: Tx, channelId: string) {
+  const rows = await query(
+    tx,
+    z.object({ lowActorId: z.string(), highActorId: z.string() }),
     sql`select low_actor_id as "lowActorId", high_actor_id as "highActorId" from public.messaging_dm_pairs where channel_id=${channelId}`,
   );
   const pair = rows[0];
@@ -39,15 +41,16 @@ export async function invalidateDmInboxes(
  * members, or a group's current members. The bell carries no channel or
  * content.
  */
-export async function invalidateChannelInboxes(
-  tx: AuthorizationTransaction,
-  channelId: string,
-) {
-  const rows = await tx.execute(sql`
+export async function invalidateChannelInboxes(tx: Tx, channelId: string) {
+  const rows = await query(
+    tx,
+    z.object({ actorId: z.string() }),
+    sql`
     select low_actor_id as "actorId" from public.messaging_dm_pairs where channel_id=${channelId}
     union select high_actor_id from public.messaging_dm_pairs where channel_id=${channelId}
     union select actor_id from public.messaging_group_grants where channel_id=${channelId} and revoked_at is null
-  `);
+  `,
+  );
   await invalidateMessagingInboxes(
     tx,
     [...rows].map((row) => String(row.actorId)),

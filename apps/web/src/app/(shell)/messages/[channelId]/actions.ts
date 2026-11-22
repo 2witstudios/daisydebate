@@ -3,7 +3,7 @@ import { headers } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { systemId } from '@daisy/clock';
-import { idSchema } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
 import { processRoute } from '../../../../server/process-app';
 import { inProcessFetch } from '../../../../server/in-process-fetch';
 import { submitMessagingForm } from '../../../../server/messaging-form-submit';
@@ -15,7 +15,6 @@ import {
 import { hydratedPost, moveOn } from '../../../../server/form-action';
 import {
   formReadThrough,
-  markReadDestination,
   messagingMarkReadBody,
 } from '../../../../features/messaging/mark-read';
 import {
@@ -29,9 +28,9 @@ const send = processRoute((routes) => routes.messaging.send);
 const markRead = processRoute((routes) => routes.messaging.markRead);
 
 /**
- * ISSUE-606: marks a conversation read through `sequence` by native POST,
- * never on a GET, answering whether the route accepted it for this channel.
- * A refusal leaves it unread.
+ * ISSUE-606: marks a conversation read through `sequence` by POST, never on a
+ * GET, answering whether the route accepted it for this channel. A refusal
+ * leaves it unread.
  */
 async function markReadThrough(
   incoming: Headers,
@@ -50,25 +49,11 @@ async function markReadThrough(
       )) === 'accepted'
     );
   } catch {
-    // The next visit with JavaScript, or the next native post, marks it.
+    // The live history, or the next post, marks it.
     return false;
   }
 }
 
-/**
- * The no-JS "Mark as read" button: marks it, then returns to the page, with
- * a fixed notice when the route refused.
- */
-export async function markReadAction(
-  channelId: string,
-  sequence: number,
-): Promise<void> {
-  const incoming = new Headers(await headers());
-  const id = idSchema.parse(channelId);
-  const marked = await markReadThrough(incoming, id, sequence);
-  if (marked) revalidatePath('/messages');
-  moveOn(incoming, markReadDestination(id, marked));
-}
 export async function sendMessageAction(
   channelId: unknown,
   _previous: MessageFormState,

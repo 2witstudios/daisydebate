@@ -17,18 +17,13 @@ import {
 import { TranscriptSeedRecovery } from '../../../../../ui/round-result/transcript-seed-recovery';
 import { readPersistedJudgeRound } from '../../../../(shell)/judge/ballot/[roundId]/actions';
 import { LiveJudgeRoom } from '../../../../../ui/judging-room/live-judge-room';
-import {
-  leaveRoundAction,
-  roundCommandAction,
-  readPersistedAttendance,
-} from './actions';
-import { RoundNativeAttendance } from '../../../../../features/attendance/native-state';
+import { leaveRoundAction, roundCommandAction } from './actions';
 import { roundCommandIds } from '../../../../../features/round-runtime/command-ids';
-import { systemClock, systemId } from '@daisy/clock';
+import { nowMs, systemClock, systemId } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
-import { idSchema, type RoundView } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
+import { type RoundView } from '@daisy/protocol/round-view';
 import { ratingsUnlessRefused } from '../../../../../features/ratings/ratings-unless-refused';
-import { drawReconnectDelaySeconds } from '../../../../../ui/debate-room/reconnect-delay';
 import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
 import { postRoundCallOffered } from '../../../../../features/post-round-call/offered';
@@ -39,7 +34,7 @@ import {
   isLiveDebater,
 } from '../../../../../ui/debate-room/live-round';
 import { LiveRoundRoom } from '../../../../../ui/debate-room/live-round-room';
-import { temporarilyRefused } from '../../../../../server/temporary-read';
+import { temporarilyRefused } from '../../../../../features/resource-sync/temporary-read';
 import { reconnectingRoundPage } from '../../../../../ui/debate-room/round-reconnecting';
 import { SeatedSpectatorChat } from '../../../../(shell)/audience/seated-spectator-chat';
 import { readPersistedRound } from '../../../../(shell)/rounds/[id]/actions';
@@ -97,7 +92,7 @@ async function watchingRoom(
     judgeRound: assigned.kind === 'found' ? assigned.round : null,
     judgeOnCall:
       assigned.kind === 'found' &&
-      postRoundCallOffered(assigned.round, Date.parse(systemClock.now())),
+      postRoundCallOffered(assigned.round, nowMs(systemClock)),
     spectatorKind: spectatorKindOf(round),
   });
   if (room.kind === 'receipt') redirect(`/rounds/${id}`);
@@ -117,7 +112,7 @@ async function watchingRoom(
           )) ?? undefined
         }
         transcript={transcript}
-        renderedAtMs={Date.parse(systemClock.now())}
+        renderedAtMs={nowMs(systemClock)}
         read={readPersistedRound.bind(null, id)}
         socketUrl={socketUrl}
       />
@@ -128,7 +123,7 @@ async function watchingRoom(
       <LiveJudgeRoom
         actorId={actorId}
         view={room.round}
-        renderedAtMs={Date.parse(systemClock.now())}
+        renderedAtMs={nowMs(systemClock)}
         transcript={transcript}
         read={readPersistedJudgeRound.bind(null, id)}
         socketUrl={socketUrl}
@@ -171,7 +166,7 @@ export default async function RoundRoomPage({
   if (
     !isLiveDebater(result.round, actorId) &&
     // A debater on the post-round call keeps the room (ADR 0127).
-    !isCallDebater(result.round, actorId, Date.parse(systemClock.now()))
+    !isCallDebater(result.round, actorId, nowMs(systemClock))
   )
     return watchingRoom(
       id,
@@ -207,15 +202,6 @@ export default async function RoundRoomPage({
                 requestRoundRatings(result.round),
               )}
             />
-            <RoundNativeAttendance
-              view={result.round}
-              read={
-                result.round.status === 'active'
-                  ? await readPersistedAttendance(id)
-                  : null
-              }
-              retrySeconds={drawReconnectDelaySeconds()}
-            />
           </>
         }
         audienceSlot={<SeatedSpectatorChat roundId={id} actorId={actorId} />}
@@ -225,7 +211,7 @@ export default async function RoundRoomPage({
         view={result.round}
         actorId={actorId}
         principalId={principalId}
-        renderedAtMs={Date.parse(systemClock.now())}
+        renderedAtMs={nowMs(systemClock)}
         read={readPersistedRound.bind(null, id)}
         socketUrl={result.socketUrl}
         leave={{

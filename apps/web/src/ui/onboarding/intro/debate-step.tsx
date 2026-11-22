@@ -6,7 +6,8 @@ import { NextLink, OnboardingFrame, StepFooter } from '../frame/frame';
 import { stepNumber } from '../../../features/onboarding/steps';
 import { freestylePreset, freestyleRules, minutesOf } from './freestyle';
 import { heading, type IntroStepProps } from './intro';
-import { leadSeatOf, sideOfSeat } from '@daisy/protocol';
+import { leadSeatOf } from '@daisy/protocol/format-seating';
+import { sideOfSeat } from '@daisy/protocol/seats';
 import { sideShortName } from '../../../features/debate-room/seat-names';
 
 const plainName: Record<string, string> = {

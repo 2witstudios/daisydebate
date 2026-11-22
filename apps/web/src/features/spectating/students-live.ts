@@ -1,7 +1,7 @@
 import { isAppError } from '@daisy/errors';
 import { isTemporaryRefusal } from '@daisy/db/capacity';
 import { liveRoomHref } from '../watch/routes';
-import type { RoundView } from '@daisy/protocol';
+import type { RoundView } from '@daisy/protocol/round-view';
 import {
   observedRoundOf,
   type ObservedStage,
@@ -18,7 +18,7 @@ export type StudentLiveCard = {
   readonly href: string;
   readonly title: string;
   readonly resolution: string | null;
-  /** Ranked or casual: a Youth Room holds either (ADR 0156). */
+  /** Ranked or casual: a Youth Room holds either (ADR 0162). */
   readonly ranked: boolean;
   /** The debaters by name, then where the Round is: "maya vs jules · Speeches · 1AR". */
   readonly line: string;

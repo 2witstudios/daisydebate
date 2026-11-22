@@ -1,12 +1,15 @@
 import { createAppError } from '@daisy/errors';
-import { idSchema, MAX_FORMAT_SEATS } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol/primitives';
+import { MAX_FORMAT_SEATS } from '@daisy/protocol/format-seating';
 import { eq, sql } from 'drizzle-orm';
-import type { BoundedTransactionContext } from './transaction-context';
 import { lockAuthorizationActors, requireOwnScope } from './authorization';
 import type { Caller } from './room-command-facts';
 import { readRoundAnalysisAccess } from './round-analysis-access';
 import { roundParticipants } from './schema/round-participants';
 import { actors } from './schema/actors';
+import type { Tx } from './tx';
+import { run, query } from './raw-rows';
+import { z } from 'zod';
 
 export type AnalysisSeat = {
   readonly roundId: string;
@@ -15,7 +18,7 @@ export type AnalysisSeat = {
 
 /** All frozen human accounts first, in canonical order; no shared-to-exclusive upgrade. */
 export async function lockAnalysisAccounts(
-  tx: BoundedTransactionContext,
+  tx: Tx,
   input: {
     readonly roundId: string;
     readonly roundParticipantId?: string;
@@ -64,11 +67,10 @@ export async function lockAnalysisAccounts(
 }
 
 /** The Round lock and fresh access facts follow canonical account fences. */
-export async function lockAnalysisRound(
-  tx: BoundedTransactionContext,
-  target: AnalysisSeat,
-) {
-  const [round] = await tx.execute(
+export async function lockAnalysisRound(tx: Tx, target: AnalysisSeat) {
+  const [round] = await query(
+    tx,
+    z.object({ id: z.string() }),
     sql`select id from rounds where id=${target.roundId} for update`,
   );
   if (!round) throw createAppError('NOT_FOUND');
@@ -76,14 +78,13 @@ export async function lockAnalysisRound(
 }
 
 /** Hold actual evidence against concurrent retention, refusing a conflicting purge. */
-export async function lockAnalysisEvidence(
-  tx: BoundedTransactionContext,
-  roundId: string,
-) {
-  await tx.execute(
+export async function lockAnalysisEvidence(tx: Tx, roundId: string) {
+  await run(
+    tx,
     sql`select round_id from round_transcript_freezes where round_id=${roundId} for share nowait`,
   );
-  await tx.execute(
+  await run(
+    tx,
     sql`select id from utterances where round_id=${roundId} order by id for share nowait`,
   );
 }

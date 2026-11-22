@@ -4,10 +4,10 @@ import { formatRevisions } from '../schema/format-revisions';
 import { organizations } from '../schema/organizations';
 import { templates } from '../schema/templates';
 import { ballotDefinitions } from '../schema/ballot-definitions';
-import type { TabTransaction } from './tab-transaction';
+import type { Tx } from '../tx';
 
 /** Format definitions and their approved settings, at the pinned revision. */
-export const loadFormatRows = (tx: TabTransaction) =>
+export const loadFormatRows = (tx: Tx) =>
   tx
     .select({
       formatId: formatRevisions.formatId,
@@ -21,10 +21,7 @@ export const loadFormatRows = (tx: TabTransaction) =>
     .innerJoin(formats, eq(formats.id, formatRevisions.formatId));
 
 /** Templates keep their pins and their owner's name, including after retirement. */
-export const loadTemplateRows = (
-  tx: TabTransaction,
-  templateIds?: readonly string[],
-) =>
+export const loadTemplateRows = (tx: Tx, templateIds?: readonly string[]) =>
   tx
     .select({
       id: templates.id,

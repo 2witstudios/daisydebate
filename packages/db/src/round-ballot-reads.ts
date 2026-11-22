@@ -4,22 +4,26 @@ import type { RoundBallotAccess } from './round-ballot-audience';
 import { ballotScreenings } from './schema/ballot-screenings';
 import type { RoundRoomAuthority } from './round-room-authority';
 import { withOpening, type ReadOpening } from './round-opening-read';
-import type { RoundWaitingFacts, RoundWaitingOn } from '@daisy/protocol';
+import type {
+  RoundWaitingFacts,
+  RoundWaitingOn,
+} from '@daisy/protocol/round-view';
 import { closedStreamGaps, streamKey } from './capture-gaps';
-import type { CaptureRule } from '@daisy/protocol';
+import type { CaptureRule } from '@daisy/protocol/capture-verdict';
 import { createAppError, isAppError } from '@daisy/errors';
 import {
   ballotSubjectsFor,
-  idSchema,
   feedbackSubjectOf,
-  isJudgeSeat,
+} from '@daisy/protocol/ballot-schema';
+import { idSchema } from '@daisy/protocol/primitives';
+import { isJudgeSeat } from '@daisy/protocol/seats';
+import {
   roundBallotReadSchema,
   roundJudgeAssignmentsSchema,
-  type LaunchedRound,
   type RoundBallotRead,
-} from '@daisy/protocol';
+} from '@daisy/protocol/round-ballot-read';
+import { type LaunchedRound } from '@daisy/protocol/round-view';
 import { and, desc, eq, inArray, sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { readLockedFrozenRoundTranscript } from './frozen-transcript';
 import { sharedAccount, type Caller, type Account } from './room-command-facts';
 import { readAuthorizedRound } from './round-read-authority';
@@ -30,6 +34,8 @@ import { ballots } from './schema/ballots';
 import { rounds } from './schema/rounds';
 import { roundParticipants } from './schema/round-participants';
 import { roundTranscriptFreezes } from './schema/round-transcript-freezes';
+import { inTransaction, type TxSource } from './tx';
+import { run } from './raw-rows';
 
 /** The frozen transcript an authorized audience reads once the Round completes. */
 export async function audienceTranscript(
@@ -68,7 +74,7 @@ export async function audienceTranscript(
 export const roundBallotReads = ({
   database,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly database: TxSource;
 }) => ({
   async listRoundJudgeAssignments(input: {
     readonly caller: Caller;
@@ -80,7 +86,7 @@ export const roundBallotReads = ({
     readonly readEventDecision: (owner: RoundRoomAuthority) => boolean;
     readonly readOpening: ReadOpening;
   }) {
-    return database.transaction(async (tx) => {
+    return inTransaction(database, async (tx) => {
       const account = await sharedAccount(tx, input.caller);
       if (!account?.member || account.erased)
         throw createAppError('AUTHORIZATION');
@@ -100,7 +106,7 @@ export const roundBallotReads = ({
       for (const address of addresses) {
         // Roll back each read's locks before visiting another parent chain.
         // The account fence predates the savepoint and survives every rollback.
-        await tx.execute(sql`savepoint judge_assignment`);
+        await run(tx, sql`savepoint judge_assignment`);
         try {
           const { round, account, owner } = await readAuthorizedRound(tx, {
             ...input,
@@ -141,8 +147,8 @@ export const roundBallotReads = ({
         } catch (error) {
           if (!isAppError(error) || error.code !== 'NOT_FOUND') throw error;
         } finally {
-          await tx.execute(sql`rollback to savepoint judge_assignment`);
-          await tx.execute(sql`release savepoint judge_assignment`);
+          await run(tx, sql`rollback to savepoint judge_assignment`);
+          await run(tx, sql`release savepoint judge_assignment`);
         }
       }
       return roundJudgeAssignmentsSchema.parse(assignments);
@@ -175,7 +181,7 @@ export const roundBallotReads = ({
   }): Promise<RoundBallotRead> {
     if (!idSchema.safeParse(input.roundId).success)
       throw createAppError('VALIDATION');
-    return database.transaction(async (tx) => {
+    return inTransaction(database, async (tx) => {
       const {
         round,
         account: currentAccount,

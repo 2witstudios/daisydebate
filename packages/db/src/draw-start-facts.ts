@@ -10,7 +10,7 @@ import {
   or,
   sql,
 } from 'drizzle-orm';
-import type { RoomAssemblyState } from '@daisy/protocol';
+import type { RoomAssemblyState } from '@daisy/protocol/room-contract';
 import {
   resolutionBankEntries,
   resolutionBankRevisions,
@@ -18,11 +18,22 @@ import {
 import { actors } from './schema/actors';
 import { rounds } from './schema/rounds';
 import { roundParticipants } from './schema/round-participants';
-import type { Tx } from './room-command-facts';
 import type { DrawBankSnapshot } from '@daisy/protocol/resolution-draw';
+import type { Tx } from './tx';
 
 /** Rounds per seated human whose chosen bank entries a new draw excludes. */
 const RECENT_ROUNDS = 20;
+
+type DrawStartState = {
+  readonly executionPlan: Pick<
+    RoomAssemblyState['executionPlan'],
+    'resolutionDraw'
+  >;
+  readonly participants: readonly Pick<
+    RoomAssemblyState['participants'][number],
+    'actorId' | 'kind'
+  >[];
+};
 
 /**
  * Facts a new draw reads, loaded only for a Start round on a draw Room:
@@ -31,7 +42,7 @@ const RECENT_ROUNDS = 20;
  */
 export const drawStartFacts = async (
   tx: Tx,
-  state: RoomAssemblyState,
+  state: DrawStartState,
 ): Promise<{
   readonly bank: DrawBankSnapshot | null;
   readonly exclusions: readonly string[];
@@ -75,7 +86,7 @@ const bankSnapshot = async (tx: Tx): Promise<DrawBankSnapshot | null> => {
  * Bank entries chosen in each seated human's recent Rounds, in one query
  * bounded per actor: it runs under the Room's lock, so one round-trip.
  */
-const recentChoices = async (tx: Tx, state: RoomAssemblyState) => {
+const recentChoices = async (tx: Tx, state: DrawStartState) => {
   const humans = state.participants
     .filter((p) => p.kind === 'human')
     .map((p) => p.actorId);

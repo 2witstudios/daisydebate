@@ -1,7 +1,8 @@
 'use client';
 
-import { createContext, useContext, useEffect } from 'react';
-import type { RoomView } from '@daisy/protocol';
+import { useBrowserEffect } from '../../edge/browser-sync';
+import { createContext, useContext } from 'react';
+import type { RoomView } from '@daisy/protocol/room-contract';
 import type { RoomFormState } from '../../../features/rooms/command-answer';
 
 /** What a room form tells room sync about its answer (ADR 0066). */
@@ -19,7 +20,7 @@ export const RoomSyncContext = createContext<RoomSyncHandle | null>(null);
  */
 export function useRoomAnswer(state: RoomFormState, initial: RoomFormState) {
   const sync = useContext(RoomSyncContext);
-  useEffect(() => {
+  useBrowserEffect(() => {
     if (sync === null || state === initial) return;
     switch (state.kind) {
       case 'accepted':

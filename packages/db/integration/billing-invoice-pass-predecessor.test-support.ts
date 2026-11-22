@@ -1,3 +1,4 @@
+import { addMs } from '@daisy/clock';
 import type { TransactionSQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { retainCandidateInvoice } from './billing-cleanup-witness.test-support';
@@ -118,7 +119,7 @@ function legacyProducer(tx: TransactionSQL, jobId: string, retryAt: string) {
       claim: {
         id: createId(),
         claimedAt: at,
-        expiresAt: new Date(Date.parse(at) + 30000).toISOString(),
+        expiresAt: addMs(at, 30000),
       },
     };
     await persist();
@@ -131,7 +132,7 @@ function legacyProducer(tx: TransactionSQL, jobId: string, retryAt: string) {
     const current = scanning(),
       scans = { ...current.scans, [current.turn]: frame };
     const turn = nextLane(current.turn, scans),
-      due = new Date(Date.parse(await now()) + 1000).toISOString();
+      due = addMs(await now(), 1000);
     value = turn
       ? { ...current, scans, turn, claim: null, retryAt: due }
       : { kind: 'deleting', jobId, retryAt: due, claim: null };
@@ -150,7 +151,7 @@ function legacyProducer(tx: TransactionSQL, jobId: string, retryAt: string) {
         outcome: 'vendor-deleted',
         jobId,
         checkedAt: at,
-        nextAt: new Date(Date.parse(at) + 86400000).toISOString(),
+        nextAt: addMs(at, 86400000),
       };
       await tx`update privacy_jobs set billing_cleanup=${JSON.stringify(ack)}::text::jsonb,status='succeeded',succeeded_at=${at}::timestamptz where id=${jobId}`;
     },

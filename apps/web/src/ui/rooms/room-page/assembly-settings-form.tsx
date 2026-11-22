@@ -1,12 +1,13 @@
 'use client';
 
+import { Button } from '../../components/button/button';
 import {
   DurationField,
   PreparationFields,
   InteractionFields,
 } from './assembly-settings-controls';
 
-import type { RoomView } from '@daisy/protocol';
+import type { RoomView } from '@daisy/protocol/room-contract';
 import type { FormFields } from '../../../features/forms/form-state';
 import type { RoomFormState } from '../../../features/rooms/command-answer';
 import { type FormAction } from '../../form-action/form-action';
@@ -98,13 +99,14 @@ export function AssemblySettingsFields({
       </details>
       <AssemblyEditFeedback state={state} roomId={view.id} />
       {view.capabilities.canEdit ? (
-        <button
+        <Button
+          variant="unstyled"
           type="submit"
           disabled={pending}
           className={buttonClass('primary')}
         >
           Save round settings
-        </button>
+        </Button>
       ) : (
         <p>Only the host can change round settings.</p>
       )}

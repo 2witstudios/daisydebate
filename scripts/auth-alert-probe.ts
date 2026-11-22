@@ -7,7 +7,7 @@
  * (the scheduled `auth-alerts.yml` GitHub Actions workflow — configured for
  * every 5 minutes, though GitHub's schedule trigger does not actually run
  * that often in production; the owner accepted this best-effort cadence
- * for staging rather than build a new scheduler, see ADR 0046/DEC-33) and:
+ * for staging rather than build a new scheduler, see ADR 0046) and:
  *
  *   1. probes the public origin's readiness endpoint — one non-mutating
  *      GET, proving routing (a 200 from the expected host), TLS (the fetch

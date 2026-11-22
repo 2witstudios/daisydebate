@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import type { RoundMediaAdmission } from '@daisy/protocol';
+import type { RoundMediaAdmission } from '@daisy/protocol/round-media';
 import { createMediaHarness } from './media-harness.test-support';
 import {
   mediaFailure,

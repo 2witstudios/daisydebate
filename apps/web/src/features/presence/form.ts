@@ -1,4 +1,4 @@
-import type { ChosenStatus } from '@daisy/protocol';
+import type { ChosenStatus } from '@daisy/protocol/presence-setting';
 import {
   idle,
   refusedWith,

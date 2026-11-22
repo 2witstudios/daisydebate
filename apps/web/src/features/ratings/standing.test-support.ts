@@ -20,7 +20,6 @@ export const officialRatingLadders = async () =>
     name: 'Freestyle',
     lobbyId,
     lobbyName: lobbyId === 'open' ? 'Open' : 'Youth',
-    ageRule: (lobbyId === 'open' ? 'adults' : 'under-18') as
-      'adults' | 'under-18',
+    ageRule: lobbyId === 'open' ? ('adults' as const) : ('under-18' as const),
     openedAt: new Date('2026-10-01'),
   }));

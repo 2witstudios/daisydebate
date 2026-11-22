@@ -5,13 +5,13 @@ import type {
   RoomConsent,
   RoomRoundLink,
   RoomView,
-} from '@daisy/protocol';
+} from '@daisy/protocol/room-contract';
 import {
   freezeRoomConfig,
   freezeRoomExecutionPlan,
-  isJudgeSeat,
-  isOpenRoomStatus,
-} from '@daisy/protocol';
+} from '@daisy/protocol/room';
+import { isJudgeSeat } from '@daisy/protocol/seats';
+import { isOpenRoomStatus } from '@daisy/protocol/room-contract';
 import { namesHumanJudge, startBlocker } from './room-assembly-facts';
 const participantReady = (
   p: Pick<
@@ -125,9 +125,12 @@ export function projectRoom(
   actorId: string,
   consent: RoomConsent,
   now: string,
+  { resolutionHeld = false } = {},
 ): RoomView {
   const room = roomKnownTo(stored, actorId);
-  const blocker = startBlocker(room, consent);
+  const blocker =
+    startBlocker(room, consent) ??
+    (resolutionHeld ? 'resolution-not-released' : null);
   const hidden = hiddenJudges(room, actorId);
   const hostHidden = hostIdentityHidden(
     {
@@ -150,7 +153,7 @@ export function projectRoom(
     version: room.version,
     changeVersion: room.changeVersion,
     title: room.title,
-    topic: room.topic,
+    topic: resolutionHeld ? null : room.topic,
     visibility: room.visibility,
     hostActorId: hostHidden ? null : room.hostActorId,
     hostLabel: hostHidden ? null : room.hostLabel,

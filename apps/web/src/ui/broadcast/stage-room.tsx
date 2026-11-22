@@ -1,5 +1,8 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
+import { useBrowserEffect } from '../edge/browser-sync';
+import { browserFetch } from '../edge/browser-request';
+import { delay, scheduleTick } from '../edge/browser-time';
+import { useRef, useState } from 'react';
 import { Room, RoomEvent, Track, type RemoteTrack } from 'livekit-client';
 import {
   applyStageSubscriptions,
@@ -46,7 +49,7 @@ type StageRead = {
 /** Fills its seat, so the 540p top layer reaches the frame close to one to one. */
 function StageTile({ track }: { readonly track: RemoteTrack | undefined }) {
   const video = useRef<HTMLVideoElement>(null);
-  useEffect(() => {
+  useBrowserEffect(() => {
     const element = video.current;
     if (!track || !element) return undefined;
     track.attach(element);
@@ -82,7 +85,7 @@ export function StageRoom(props: {
   const started = useRef(false);
   const watch = useRef(stageWatchStart);
   const identities = useRef<readonly string[]>([]);
-  useEffect(() => {
+  useBrowserEffect(() => {
     const connection = createStageConnection<StageMediaRoom>({
       createRoom: () => {
         const room = new Room({ adaptiveStream: false, dynacast: false });
@@ -126,7 +129,7 @@ export function StageRoom(props: {
     /** One whole answer, body included, so the poll can order it; never rejects. */
     const read = async (): Promise<StageRead> => {
       // A web tier that is gone may never answer, so a read cannot wait for it.
-      const answer = await fetch(`/api/stage/${props.captureId}`, {
+      const answer = await browserFetch(`/api/stage/${props.captureId}`, {
         headers: { 'x-stage-credential': props.credential },
         cache: 'no-store',
         signal: AbortSignal.timeout(READ_TIMEOUT_MS),
@@ -168,8 +171,7 @@ export function StageRoom(props: {
       read,
       apply,
       every: (tick) => {
-        const handle = setInterval(tick, POLL_MS);
-        return () => clearInterval(handle);
+        return scheduleTick(tick, POLL_MS);
       },
     });
     return () => {
@@ -178,13 +180,13 @@ export function StageRoom(props: {
     };
   }, [props.captureId, props.credential]);
   const shown = stage !== null;
-  useEffect(() => {
+  useBrowserEffect(() => {
     if (!shown || started.current) return undefined;
     started.current = true;
     let mounted = true;
     void whenFontsSettle({
       load: loadFrameFaces,
-      wait: (ms) => new Promise((done) => setTimeout(done, ms)),
+      wait: (ms) => new Promise((done) => delay(done, ms)),
       limitMs: FONT_WAIT_MS,
     }).then(() => {
       if (!mayStartRecording({ mounted, ended: watch.current.ended })) return;

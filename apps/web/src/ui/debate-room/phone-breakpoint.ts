@@ -1,6 +1,7 @@
 'use client';
 
-import { useLayoutEffect, useState } from 'react';
+import { useBrowserLayoutEffect } from '../edge/browser-sync';
+import { useState } from 'react';
 
 /**
  * The room's one phone-layout threshold as a media query: `--breakpoint-compact`
@@ -25,7 +26,7 @@ export const phoneMediaQuery = (computed: {
  */
 export const usePhoneBreakpoint = (): boolean => {
   const [phone, setPhone] = useState(liveBelowBreakpoint);
-  useLayoutEffect(() => {
+  useBrowserLayoutEffect(() => {
     const query = matchMedia(
       phoneMediaQuery(getComputedStyle(document.documentElement)),
     );
