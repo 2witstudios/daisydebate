@@ -1,3 +1,4 @@
+import { judgingProgression } from '../src/features/round-judging/progression';
 import { canUseAiAllowance } from '@daisy/auth/authorization';
 import { atFinalJudgingStage } from '@daisy/db/testing';
 import {
@@ -226,6 +227,7 @@ for (const ladder of ratingStyles)
               nextToken: () => randomBytes(32).toString('base64url'),
               contractVersion: 'fixture-contract',
               rules: judgingJobRules,
+              progression: judgingProgression,
               accountEligible: canUseAiAllowance,
             },
           },

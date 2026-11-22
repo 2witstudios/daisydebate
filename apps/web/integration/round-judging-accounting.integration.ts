@@ -1,3 +1,4 @@
+import { judgingProgression } from '../src/features/round-judging/progression';
 import { canUseAiAllowance } from '@daisy/auth/authorization';
 import { atFinalJudgingStage } from '@daisy/db/testing';
 import { judgingJobRules } from '@daisy/debate-engine';
@@ -173,6 +174,7 @@ for (const mode of ['terminal', 'invalid-ballot', 'http-error'] as const)
           nextToken: () => randomBytes(32).toString('base64url'),
           contractVersion: 'fixture-contract',
           rules: judgingJobRules,
+          progression: judgingProgression,
           accountEligible: canUseAiAllowance,
         },
       },

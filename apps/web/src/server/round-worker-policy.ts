@@ -1,3 +1,4 @@
+import { judgingProgression } from '../features/round-judging/progression';
 import { judgeContractVersion } from '@daisy/ai-voice';
 import { judgingJobRules } from '@daisy/debate-engine';
 import { admitAllowance, canUseAiAllowance } from '@daisy/auth/authorization';
@@ -36,6 +37,7 @@ export function roundWorkerDatabaseOptions(
             nextToken,
             contractVersion: judgeContractVersion,
             rules: judgingJobRules,
+            progression: judgingProgression,
             accountEligible: canUseAiAllowance,
           },
         }

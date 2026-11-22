@@ -1,3 +1,4 @@
+import { judgingProgression } from '../src/features/round-judging/progression';
 import { canUseAiAllowance } from '@daisy/auth/authorization';
 import { atFinalJudgingStage } from '@daisy/db/testing';
 import { decisionOf } from './attendance-evaluation.test-support';
@@ -342,6 +343,7 @@ test('an unserved AI judging obligation survives its attempt window without spen
         nextToken: () => randomBytes(32).toString('base64url'),
         contractVersion: 'fixture-contract',
         rules: judgingJobRules,
+        progression: judgingProgression,
         accountEligible: canUseAiAllowance,
       },
     },
@@ -467,6 +469,7 @@ test('maintenance cannot end an unclaimed AI recovery obligation at the old dead
         nextToken: () => randomBytes(32).toString('base64url'),
         contractVersion: 'fixture-contract',
         rules: judgingJobRules,
+        progression: judgingProgression,
         accountEligible: canUseAiAllowance,
       },
     },
@@ -480,6 +483,7 @@ const judgingOptions = {
     nextToken: () => randomBytes(32).toString('base64url'),
     contractVersion: 'fixture-contract',
     rules: judgingJobRules,
+    progression: judgingProgression,
     accountEligible: canUseAiAllowance,
   },
 };
