@@ -100,6 +100,46 @@ describe('mail intent delivery (ADR 0075)', () => {
     });
   });
 
+  test('empty digest and closed or expired Club invitations are not owed', async () => {
+    const base = {
+      kind: 'club-invitation' as const,
+      to: 'invitee@example.test',
+      clubName: 'Club',
+      manager: 'Manager',
+      organizationId: 'club',
+      invitationId: 'invitation',
+      closed: false,
+      expiresAt: '2026-10-26T00:00:00.000001Z',
+      observedAt: '2026-10-26T00:00:00.000000Z',
+    };
+    const outcomes = [];
+    for (const delivery of [
+      { kind: 'owner-digest' as const, newRequests: 0, waiting: 5 },
+      { ...base, closed: true },
+      { ...base, expiresAt: base.observedAt },
+      { ...base, expiresAt: '2026-10-25T23:59:59.999999Z' },
+      base,
+    ]) {
+      const app = scripted({ delivery });
+      await app.delivery.run(10);
+      outcomes.push([app.sent.length, app.settled[0]?.outcome]);
+    }
+    assert({
+      given:
+        'empty digest without configured address, closed Club, expired or exactly-expiring invitation, and invitation one microsecond before expiry',
+      should:
+        'preserve not-owed precedence and strict database-time expiry, sending only the open unexpired invitation',
+      actual: outcomes,
+      expected: [
+        [0, { kind: 'cancelled', errorCode: 'not-owed' }],
+        [0, { kind: 'cancelled', errorCode: 'not-owed' }],
+        [0, { kind: 'cancelled', errorCode: 'not-owed' }],
+        [0, { kind: 'cancelled', errorCode: 'not-owed' }],
+        [1, { kind: 'sent' }],
+      ],
+    });
+  });
+
   test('an approval goes to the member under the intent id', async () => {
     const { delivery, sent, settled } = scripted({
       delivery: {

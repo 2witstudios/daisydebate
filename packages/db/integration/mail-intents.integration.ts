@@ -265,20 +265,26 @@ describe('the durable mail queue (ADR 0075)', () => {
           given:
             'one pending and one already approved account in a window, and an empty window',
           should:
-            'count only the waiting account, and owe nothing for the empty window',
+            'count only the waiting account and expose the empty immutable window',
           actual: {
             kind: digest.kind,
             newRequests:
               digest.kind === 'owner-digest' ? digest.newRequests : null,
             waitingCovers:
               digest.kind === 'owner-digest' ? digest.waiting >= 1 : null,
-            empty: await database.readMailIntentDelivery(empty),
+            empty: await database
+              .readMailIntentDelivery(empty)
+              .then((read) =>
+                read.kind === 'owner-digest'
+                  ? { kind: read.kind, newRequests: read.newRequests }
+                  : read,
+              ),
           },
           expected: {
             kind: 'owner-digest',
             newRequests: 1,
             waitingCovers: true,
-            empty: { kind: 'not-owed' },
+            empty: { kind: 'owner-digest', newRequests: 0 },
           },
         });
       });
