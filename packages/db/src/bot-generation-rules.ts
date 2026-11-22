@@ -99,16 +99,6 @@ export function requireSpeechPolicy(policy: SpeechPolicy) {
   return { model: policy.ttsModel, budget: policy.speechBudget };
 }
 
-/** The seat's spoken characters, including this request, stay within budget. */
-export function requireSpeechBudget(
-  spoken: number,
-  characters: number,
-  budget: number,
-): void {
-  if (spoken + characters > budget)
-    throw refuseFinalSpeech('Speech budget exhausted');
-}
-
 /** A speech request runs as tts; language generation keeps the worker's own kind. */
 export const generationRun = (
   request: GenerationRequest,
