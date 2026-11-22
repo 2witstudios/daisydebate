@@ -1,3 +1,4 @@
+import { judgingProgression } from '../src/features/round-judging/progression';
 import {
   isJudgeSeat,
   judgeSeat,
@@ -278,6 +279,7 @@ test('a ballot that exists reads the same after the host loses the casual AI jud
         nextToken: () => randomBytes(32).toString('base64url'),
         contractVersion: 'fixture-contract',
         rules: judgingJobRules,
+        progression: judgingProgression,
         accountEligible: canUseAiAllowance,
       },
     },

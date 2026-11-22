@@ -1,3 +1,4 @@
+import { judgingProgression } from '../src/features/round-judging/progression';
 import { canUseAiAllowance } from '@daisy/auth/authorization';
 import { atFinalJudgingStage } from '@daisy/db/testing';
 import { judgingJobRules } from '@daisy/debate-engine';
@@ -102,6 +103,7 @@ test('cached judging response retries actual shared completion without redispatc
         nextToken: () => randomBytes(32).toString('base64url'),
         contractVersion: 'fixture-contract',
         rules: judgingJobRules,
+        progression: judgingProgression,
         accountEligible: canUseAiAllowance,
       },
     },

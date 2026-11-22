@@ -1,3 +1,4 @@
+import { judgingProgression } from '../src/features/round-judging/progression';
 import { randomBytes } from 'node:crypto';
 import { requireTestServices } from '@daisy/config';
 import { canUseAiAllowance } from '@daisy/auth/authorization';
@@ -320,6 +321,7 @@ for (const per of ['side', 'seat', 'speech'] as const)
             nextToken: () => randomBytes(32).toString('base64url'),
             contractVersion: judgeContractVersion,
             rules: judgingJobRules,
+            progression: judgingProgression,
             accountEligible: canUseAiAllowance,
           },
         },

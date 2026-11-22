@@ -1,3 +1,4 @@
+import { judgingProgression } from '../apps/web/src/features/round-judging/progression';
 import { randomBytes } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { requireTestSlotServices } from '@daisy/config';
@@ -121,6 +122,7 @@ await withRunDatabase({
           // The production worker's judging options (round-worker-policy.ts).
           contractVersion: judgeContractVersion,
           rules: judgingJobRules,
+          progression: judgingProgression,
           accountEligible: canUseAiAllowance,
         },
       },

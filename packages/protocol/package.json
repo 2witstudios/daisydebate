@@ -195,7 +195,8 @@
     "./tournament-sponsorship": "./src/tournament-sponsorship.ts",
     "./username": "./src/username.ts",
     "./youth-live": "./src/youth-live.ts",
-    "./youth-round": "./src/youth-round.ts"
+    "./youth-round": "./src/youth-round.ts",
+    "./round-judging-progression": "./src/round-judging-progression.ts"
   },
   "scripts": {
     "typecheck": "tsgo --noEmit && tsgo --noEmit -p tsconfig.test.json",
