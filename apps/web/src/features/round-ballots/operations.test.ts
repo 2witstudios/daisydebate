@@ -8,6 +8,7 @@ import {
   panelRuleFor,
 } from '@daisy/protocol/ballot-definition';
 import { isJudgeSeat } from '@daisy/protocol/seats';
+import type { RoundCommandPrincipal } from '@daisy/protocol/round-command';
 import { type RoundBallotEnvelope } from '@daisy/protocol/round-ballot';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
@@ -32,7 +33,7 @@ const judge = { kind: 'human' as const, actorId: judgeActorId };
 
 /** Captures the prepared locked input the store would execute. */
 const prepare = async (
-  principal: typeof judge,
+  principal: RoundCommandPrincipal,
   raw: RoundBallotEnvelope = envelope,
 ) => {
   let prepared: LockedRoundBallotInput | null = null;
@@ -131,5 +132,45 @@ test('completion follows the panel decision', async () => {
       },
     }),
     expected: null,
+  });
+});
+
+test('shared preparation owns capture and human-only deadline admission', async () => {
+  const human = await prepare(judge);
+  const ai = await prepare({
+    kind: 'agent',
+    serviceId: 'service',
+    agentRunId: 'run',
+    roundId: lockedRound.round.id,
+    participantId: envelope.judgeParticipantId,
+  });
+  const frozen = {
+    completeness: 'incomplete' as const,
+    unheardMs: null,
+    expectedSpeechMs: 0,
+  };
+  const admission = {
+    round: { status: 'active' as const, outcome: null },
+    submittedJudgeIds: [],
+    now: '2026-10-22T12:00:00.000Z',
+    ballotDeadlineAt: new Date('2026-10-22T12:00:00.000Z'),
+  };
+  await assertRejects({
+    given: 'an AI result on an unmeasured incomplete freeze',
+    should: 'refuse capture before replay can be considered',
+    actual: () => ai.admitCapture(frozen),
+    code: 'INVARIANT',
+  });
+  await assertRejects({
+    given: 'a human ballot exactly at its persisted deadline',
+    should: 'refuse the new ballot',
+    actual: () => human.admitBallot(admission),
+    code: 'CONFLICT',
+  });
+  assert({
+    given: 'a human on incomplete capture and an AI at the human deadline',
+    should: 'preserve both deliberate exemptions',
+    actual: [human.admitCapture(frozen), ai.admitBallot(admission)],
+    expected: [undefined, undefined],
   });
 });

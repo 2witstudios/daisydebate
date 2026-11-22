@@ -203,6 +203,9 @@ test('durable judging claims fence epochs and preserve one command across recove
           payloadDigest: 'c'.repeat(64),
           nextBallotId: createId,
           screenWritten: screenBallotContacts,
+          // Component proof supplies trusted policy; actual shared preparation is covered in web.
+          admitCapture: () => {},
+          admitBallot: () => {},
           authorize: (
             context: import('../src/round-ballot-operations').LockedRoundBallotContext,
           ) => {
