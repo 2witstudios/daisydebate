@@ -75,9 +75,9 @@ test('shared ballot preparation admits fresh locked facts, rolls back refusal an
     const state = async () => {
       const [row] = await f.sql`select jsonb_build_object(
         'round', (select to_jsonb(r) from rounds r where id=${roundId}),
-        'ballots', (select jsonb_agg(to_jsonb(b)) from ballots b where round_id=${roundId}),
-        'receipts', (select jsonb_agg(to_jsonb(c)) from round_commands c where round_id=${roundId}),
-        'screening', (select jsonb_agg(to_jsonb(s)) from ballot_screenings s join ballots b on b.id=s.ballot_id where b.round_id=${roundId})
+        'ballots', (select jsonb_agg(to_jsonb(b) order by b.id) from ballots b where round_id=${roundId}),
+        'receipts', (select jsonb_agg(to_jsonb(c) order by c.command_id) from round_commands c where round_id=${roundId}),
+        'screening', (select jsonb_agg(to_jsonb(s) order by s.ballot_id) from ballot_screenings s join ballots b on b.id=s.ballot_id where b.round_id=${roundId})
       ) as state`;
       return row.state;
     };
@@ -238,8 +238,8 @@ test('the actual cached AI result uses shared admission and rolls back refusal w
         const [row] = await f.sql`select jsonb_build_object(
         'round', (select to_jsonb(r) from rounds r where id=${roundId}),
         'job', (select to_jsonb(j) from round_judging_jobs j where round_id=${roundId}),
-        'ballots', (select jsonb_agg(to_jsonb(b)) from ballots b where round_id=${roundId}),
-        'receipts', (select jsonb_agg(to_jsonb(c)) from round_commands c where round_id=${roundId})
+        'ballots', (select jsonb_agg(to_jsonb(b) order by b.id) from ballots b where round_id=${roundId}),
+        'receipts', (select jsonb_agg(to_jsonb(c) order by c.command_id) from round_commands c where round_id=${roundId})
       ) as state`;
         return row.state;
       };
