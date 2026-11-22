@@ -1,7 +1,10 @@
 import { sha3Hex } from '@daisy/digest';
 import { createId } from '@paralleldrive/cuid2';
 import { createDatabase } from '@daisy/db';
-import { preapprovalEmailSchema } from '@daisy/protocol/beta-preapproval';
+import {
+  decidePreapprovalChange,
+  preapprovalEmailSchema,
+} from '@daisy/protocol/beta-preapproval';
 import { betaAccessTarget } from './beta-access-target';
 import { z } from 'zod';
 
@@ -22,6 +25,7 @@ try {
   } as const;
   await database.runPreapprovalCommand({
     command,
+    decide: decidePreapprovalChange,
     serviceId: 'daisy-admin',
     operatorRef: 'o'.repeat(24),
     requestDigest: sha3Hex(JSON.stringify(command)),
