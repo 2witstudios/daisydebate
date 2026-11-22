@@ -12,3 +12,8 @@ export type {
   AttendanceStore,
   AttendanceEvaluator,
 } from './attendance-entrypoints';
+
+export type {
+  AttendanceDiscoverySession,
+  AttendanceReceiptSession,
+} from './attendance-operations';

@@ -1,9 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import {
-  eligibleCompetitorIds,
-  fencedActorIds,
-  seatEligibility,
-} from './seat-eligibility';
+import { fencedActorIds, seatEligibility } from './seat-eligibility';
+import { eligibleCompetitorIds } from '@daisy/protocol/seats';
 
 setupRitewayBun();
 

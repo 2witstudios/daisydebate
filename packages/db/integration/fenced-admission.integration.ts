@@ -1,3 +1,4 @@
+import { createAppError } from '@daisy/errors';
 import { mediaPhase } from '@daisy/debate-engine';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { admitsPrincipalAccess } from '@daisy/auth/authorization';
@@ -72,6 +73,16 @@ test('a revoked participant is refused media and attendance inside their fences,
           work(tx, { receivedAt: '2026-10-22T05:00:00.000000Z' }),
         ),
     });
+    const readAttendanceAccess = (actorId: string) =>
+      attendance.withAttendanceDiscovery(
+        { roundId, principal: { kind: 'human', actorId } },
+        async (session) => {
+          const access = session.authority.principalAccess;
+          if (!access || !admitsPrincipalAccess(access))
+            throw createAppError('AUTHORIZATION');
+          return session.authority;
+        },
+      );
     try {
       assert({
         given:
@@ -81,19 +92,11 @@ test('a revoked participant is refused media and attendance inside their fences,
         actual: {
           revokedMedia: await codeOf(bind(revoked.actorId)),
           revokedAttendance: await codeOf(
-            attendance.readRoundAttendanceTargets({
-              roundId,
-              principal: { kind: 'human', actorId: revoked.actorId },
-              admits: admitsPrincipalAccess,
-            }),
+            readAttendanceAccess(revoked.actorId),
           ),
           opponentMedia: await codeOf(bind(opponent.actorId)),
           opponentAttendance: await codeOf(
-            attendance.readRoundAttendanceTargets({
-              roundId,
-              principal: { kind: 'human', actorId: opponent.actorId },
-              admits: admitsPrincipalAccess,
-            }),
+            readAttendanceAccess(opponent.actorId),
           ),
         },
         expected: {

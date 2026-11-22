@@ -1,5 +1,4 @@
 import { requireTestServices } from '@daisy/config';
-import { admitsPrincipalAccess } from '@daisy/auth/authorization';
 import { assertRejects } from '@daisy/errors/testing';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -25,20 +24,21 @@ test('actual attendance refuses a missing Round without manufacturing pending ev
       should: 'return definite absence after a confirmed empty opening',
       code: 'NOT_FOUND',
       actual: () =>
-        store.recordRoundCheckIn({
-          roundId,
-          envelope: {
-            version: 1,
-            commandId: attempt.commandId,
-            segmentId: createId(),
+        store.withAttendanceReceipt(
+          {
+            roundId,
+            envelope: {
+              version: 1,
+              commandId: attempt.commandId,
+              segmentId: createId(),
+            },
+            principal: { kind: 'human', actorId: attempt.actorId! },
+            payloadDigest: attempt.payloadDigest,
           },
-          principal: { kind: 'human', actorId: attempt.actorId! },
-          admits: admitsPrincipalAccess,
-          payloadDigest: attempt.payloadDigest,
-          acceptWindow: () => {
+          async () => {
             accepted = true;
           },
-        }),
+        ),
     });
     const [facts] = await f.sql`
       select

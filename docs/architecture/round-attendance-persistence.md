@@ -85,6 +85,25 @@ reads its session through the public `get-session` route once an hour
 
 ## Receipts, facts and uncertain attempts
 
+The Attendance application owns admission and target selection for both signed
+member receipts and bot-worker discovery/check-in. Its discovery and receipt
+sessions read fresh authority only after the database has taken the command,
+canonical account and Round fences. Admission therefore observes revocation
+committed while waiting for an account lock, including command replay. The
+application then checks the active Round, eligible debating seat, canonical
+worker authority where applicable, requested speech and availability window.
+Discovery excludes every adjudicated speech; receipt closure continues to
+exclude only terminal adjudications, allowing later aliases of an on-time fact.
+
+The database owns session lifetime, principal/receipt binding, native PostgreSQL
+stamps and atomic persistence. A receipt callback must replay a bound receipt or
+prepare and apply exactly once. Preparation exposes the existing first stamp
+(or the durable attempt stamp); application window validation happens before
+apply. A refusal or exception rolls back the receipt alias and fact together.
+Released sessions reject further reads or writes. Replay and fresh aliases keep
+the original receipt stamp and do not advance the Round version. The evaluator
+and panel-completion database fences retain their separate active-Round guard.
+
 An adjudication records why it holds (ADR 0095). `settled_availability` carries
 the effective deadline and settled horizon. `on_time_receipt` names the
 scheduled speaker's receipt inside the base window and carries neither, so no

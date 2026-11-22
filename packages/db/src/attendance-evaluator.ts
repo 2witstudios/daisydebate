@@ -20,7 +20,7 @@ import {
   sampleRoundExecutionTime,
   type RoundTimeSource,
 } from './round-execution-time';
-import { eligibleCompetitorIds } from './seat-eligibility';
+import { eligibleCompetitorIds } from '@daisy/protocol/seats';
 import {
   adjudicationColumns,
   adjudicationCommand,
