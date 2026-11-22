@@ -3,7 +3,12 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { createId } from '@paralleldrive/cuid2';
 import { drizzle } from 'drizzle-orm/bun-sql';
-import { flagCommand, withFlags, barrier } from './flags.test-support';
+import {
+  executeFlagCommand,
+  flagCommand,
+  withFlags,
+  barrier,
+} from './flags.test-support';
 import { flagsPrivacyAdopter } from '../src/flags-privacy';
 import { runPrivacyErasure, runPrivacyExport } from '../src/privacy/operations';
 import { subjectRightsVerificationBindings } from '../src/privacy/verification-bindings';
@@ -24,7 +29,7 @@ test('Flags export owns its targeting; erasure removes targeting linkage while p
   await withFlags(
     async ({ fixture, database, store, key, userId, actorId }) => {
       const command = flagCommand(key, 0, override(userId));
-      await store.runFlagCommand(command);
+      await executeFlagCommand(store, command);
       const exported = await runPrivacyExport(database, { userId, actorId }, [
         flagsPrivacyAdopter,
       ]);
@@ -54,7 +59,7 @@ test('Flags export owns its targeting; erasure removes targeting linkage while p
       );
       await held.ready;
       const concurrent = Promise.allSettled([
-        store.runFlagCommand(flagCommand(key, 1, override(userId))),
+        executeFlagCommand(store, flagCommand(key, 1, override(userId))),
       ]);
       try {
         const deadline = Date.now() + 1500;
@@ -78,7 +83,7 @@ test('Flags export owns its targeting; erasure removes targeting linkage while p
         given:
           'an old successful targeting command retried after account erasure',
         should: 'refuse instead of restoring targeting',
-        actual: () => store.runFlagCommand(command),
+        actual: () => executeFlagCommand(store, command),
         code: 'NOT_FOUND',
       });
       const [counts] = await fixture.sql`select
@@ -110,7 +115,7 @@ test('Flags export owns its targeting; erasure removes targeting linkage while p
 
 test('Flags audit is append-only to runtime; retention is bounded and cannot erase recent evidence or live accounts', async () => {
   await withFlags(async ({ fixture, store, key, userId }) => {
-    await store.runFlagCommand(flagCommand(key, 0, override(userId)));
+    await executeFlagCommand(store, flagCommand(key, 0, override(userId)));
     const refused = await Promise.all(
       ['delete', 'update'].map((kind) =>
         sqlStateOf(() =>
@@ -134,7 +139,7 @@ test('Flags audit is append-only to runtime; retention is bounded and cannot era
       before: '9999-01-01T00:00:00.000Z',
       limit: 1,
     });
-    await store.runFlagCommand(flagCommand(key, 1));
+    await executeFlagCommand(store, flagCommand(key, 1));
     await fixture.sql`update operator_command_receipts set created_at=clock_timestamp()-interval '91 days' where result->>'key'=${key}`;
     const removed = await fixture.sql.begin(async (client) => {
       await client`set local role daisy_web`;
@@ -168,7 +173,7 @@ test('closing a targeted account unlinks only Flags receipts and preserves other
   await withFlags(
     async ({ fixture, database, store, key, userId, actorId }) => {
       const command = flagCommand(key, 0, override(userId));
-      await store.runFlagCommand(command);
+      await executeFlagCommand(store, command);
       const otherCommand = createId();
       await fixture.sql`insert into operator_command_receipts(command_id,service_id,operator_ref,action,target_user_id,request_digest,result,admin_audit_head)
       values(${otherCommand},'daisy-admin',${'o'.repeat(24)},'account.beta_access.update',${userId},${'b'.repeat(64)},'{}'::jsonb,${'a'.repeat(64)})`;

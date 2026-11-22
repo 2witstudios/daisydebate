@@ -6,10 +6,10 @@ import { sql } from 'drizzle-orm';
 import { requireFlagAdmission } from '../src/flags';
 import { lockAuthorizationActors } from '../src/authorization';
 import { lockFlags } from '../src/flags-lock';
-import { runFlagCommand } from '../src/flags-command';
 import { readFlagSnapshot } from '../src/flags-read';
 import { sqlStateOf } from './constraint-helpers';
 import {
+  executeFlagCommand,
   withFlags,
   flagCommand,
   barrier,
@@ -21,7 +21,8 @@ setupRitewayBun();
 test('expiry sweep and targeting update serialize in both real lock orders', async () => {
   for (const first of ['sweep', 'update'] as const)
     await withFlags(async ({ fixture, database, store, key, userId }) => {
-      await store.runFlagCommand(
+      await executeFlagCommand(
+        store,
         flagCommand(key, 0, {
           action: 'flag.override.update',
           accountId: userId,
@@ -46,7 +47,8 @@ test('expiry sweep and targeting update serialize in both real lock orders', asy
           limit: 1,
         });
       const update = () =>
-        store.runFlagCommand(
+        executeFlagCommand(
+          store,
           flagCommand(key, 1, {
             action: 'flag.override.update',
             accountId: userId,
@@ -102,7 +104,8 @@ test('a signed command deadline expiring behind the Flags lock rolls back state,
       await finish.ready;
     });
     await held.ready;
-    const pending = store.runFlagCommand(
+    const pending = executeFlagCommand(
+      store,
       flagCommand(key, 0, undefined, { live: () => live }),
     );
     const observed = Promise.allSettled([pending]);
@@ -137,7 +140,7 @@ test('the final migrated daisy_web role can control/read targeting and cannot de
   await withFlags(async ({ fixture, database, key, userId, actorId }) => {
     const fact = await database.transaction(async (tx) => {
       await tx.execute(sql`set local role daisy_web`);
-      await runFlagCommand(
+      await executeFlagCommand(
         tx,
         flagCommand(key, 0, {
           action: 'flag.override.update',
@@ -165,7 +168,7 @@ test('the final migrated daisy_web role can control/read targeting and cannot de
     const admitted = await admit();
     await database.transaction(async (tx) => {
       await tx.execute(sql`set local role daisy_web`);
-      await runFlagCommand(
+      await executeFlagCommand(
         tx,
         flagCommand(key, 1, { action: 'flag.state.update', state: 'killed' }),
       );
@@ -178,7 +181,7 @@ test('the final migrated daisy_web role can control/read targeting and cannot de
     });
     await database.transaction(async (tx) => {
       await tx.execute(sql`set local role daisy_web`);
-      await runFlagCommand(
+      await executeFlagCommand(
         tx,
         flagCommand(key, 2, {
           action: 'flag.override.update',

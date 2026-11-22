@@ -52,7 +52,7 @@ export const api = (overrides: Partial<OperatorApiDependencies> = {}) => {
       recordingTakedownCommand: async () => ({ v: 1, outcome: 'applied' }),
     },
     store: {
-      runFlagCommand: async (input) => {
+      flagCommand: async (input) => {
         calls.commands.push(input);
         return { commandId: input.commandId, key: input.key, revision: 1 };
       },

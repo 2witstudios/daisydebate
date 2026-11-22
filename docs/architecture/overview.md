@@ -81,7 +81,11 @@ package; this map lists only packages that exist today.
 - **Composition root.** `createApp({ env, fetch, clock, ids })`
   (`apps/web/src/server/app.ts`) validates configuration and builds the
   logger, database, Redis, auth, rate limiter, mail and webhook for one app;
-  `createRoutes(app)` builds every route handler from it. Route handlers and
+  `createRoutes(app)` binds each feature's route output. Ops owns readiness,
+  alerts and metrics construction in `features/ops/composition.ts`, with named
+  health, live startup/drain, lazy probe-token, metrics and configured worker
+  inputs. The process edge supplies resources; it does not choose Ops policy.
+  Route handlers and
   feature operations receive what they need as arguments. Exactly one module
   per app reads `process.env` or `globalThis`, its process edge:
   `apps/web/src/server/process-app.ts` keeps the process's app on

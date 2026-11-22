@@ -7,7 +7,11 @@ import { lockFlags } from '../src/flags-lock';
 import { lockAuthorizationActors } from '../src/authorization';
 import { finishedOrBlockedBehind } from '../src/testing';
 import { withHeldCommit } from './usage-ledger.test-support';
-import { flagCommand, waitingForFlags } from './flags.test-support';
+import {
+  executeFlagCommand,
+  flagCommand,
+  waitingForFlags,
+} from './flags.test-support';
 import { offer, withBillingPurchases } from './billing-purchases.test-support';
 
 requireTestServices(process.env);
@@ -21,7 +25,7 @@ test('purchase admission commits one immutable intent under the actual bounded F
       code: 'NOT_FOUND',
       actual: () => purchases.admit(subject, offer),
     });
-    await store.runFlagCommand(flagCommand(key, 0));
+    await executeFlagCommand(store, flagCommand(key, 0));
     const results = await Promise.all([
       purchases.admit(subject, offer),
       purchases.admit(subject, offer),
@@ -58,9 +62,10 @@ test('purchase admission commits one immutable intent under the actual bounded F
 
 test('a dark new-purchase gate leaves only exact-account same-intent recovery available', async () =>
   withBillingPurchases(async ({ fixture, purchases, subject, store, key }) => {
-    await store.runFlagCommand(flagCommand(key, 0));
+    await executeFlagCommand(store, flagCommand(key, 0));
     const first = await purchases.admit(subject, offer);
-    await store.runFlagCommand(
+    await executeFlagCommand(
+      store,
       flagCommand(key, 1, { action: 'flag.state.update', state: 'killed' }),
     );
     const recovered = await purchases.recover(subject, first.purchase.id);
@@ -125,7 +130,7 @@ test('a dark new-purchase gate leaves only exact-account same-intent recovery av
 test('a completed disable while admission waits is visible to its fresh post-lock Flags read', async () =>
   withBillingPurchases(
     async ({ fixture, run, purchases, subject, store, key }) => {
-      await store.runFlagCommand(flagCommand(key, 0));
+      await executeFlagCommand(store, flagCommand(key, 0));
       await withHeldCommit(run, async (held) => {
         const holder = held.run(async (tx) => {
           await lockFlags(tx, 'write');
@@ -164,7 +169,7 @@ test('a completed disable while admission waits is visible to its fresh post-loc
 test('account withdrawal wins a concurrent recovery and leaves the purchase undispatched', async () =>
   withBillingPurchases(
     async ({ fixture, run, purchases, subject, store, key }) => {
-      await store.runFlagCommand(flagCommand(key, 0));
+      await executeFlagCommand(store, flagCommand(key, 0));
       const first = await purchases.admit(subject, offer);
       await withHeldCommit(run, async (held) => {
         const holder = held.run(async (tx) => {

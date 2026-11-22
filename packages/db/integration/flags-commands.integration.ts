@@ -1,7 +1,11 @@
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
-import { flagCommand, withFlags } from './flags.test-support';
+import {
+  executeFlagCommand,
+  flagCommand,
+  withFlags,
+} from './flags.test-support';
 
 requireTestServices(process.env);
 setupRitewayBun();
@@ -9,12 +13,12 @@ test('Flags revisions serialize competing commands; identical retries have one r
   await withFlags(async ({ store, fixture, key }) => {
     const first = flagCommand(key, 0);
     const results = await Promise.allSettled([
-      store.runFlagCommand(first),
-      store.runFlagCommand(first),
+      executeFlagCommand(store, first),
+      executeFlagCommand(store, first),
     ]);
     const stale = await Promise.allSettled([
-      store.runFlagCommand(flagCommand(key, 1)),
-      store.runFlagCommand(flagCommand(key, 1)),
+      executeFlagCommand(store, flagCommand(key, 1)),
+      executeFlagCommand(store, flagCommand(key, 1)),
     ]);
     const [counts] = await fixture.sql`select
       (select count(*)::int from flag_change_events where key=${key}) as events,
@@ -40,7 +44,7 @@ test('Flags revisions serialize competing commands; identical retries have one r
       given: 'the same command id with another semantic digest',
       should: 'refuse replay',
       actual: () =>
-        store.runFlagCommand({ ...first, requestDigest: 'c'.repeat(64) }),
+        executeFlagCommand(store, { ...first, requestDigest: 'c'.repeat(64) }),
       code: 'CONFLICT',
     });
   });
@@ -51,7 +55,8 @@ test('Flags authorization, audit insertion failure and deadline refusal leave no
       given: 'an unauthorized caller',
       should: 'refuse before mutation',
       actual: () =>
-        store.runFlagCommand(
+        executeFlagCommand(
+          store,
           flagCommand(key, 0, undefined, { authorize: () => false }),
         ),
       code: 'AUTHORIZATION',
@@ -60,17 +65,19 @@ test('Flags authorization, audit insertion failure and deadline refusal leave no
       given: 'a deadline that expires before commit',
       should: 'roll back all writes',
       actual: () =>
-        store.runFlagCommand(
+        executeFlagCommand(
+          store,
           flagCommand(key, 0, undefined, { live: () => false }),
         ),
       code: 'CONFLICT',
     });
     const accepted = flagCommand(key, 0);
-    await store.runFlagCommand(accepted);
+    await executeFlagCommand(store, accepted);
     const [audit] =
       await fixture.sql`select id from flag_change_events where key=${key}`;
     const failed = await Promise.allSettled([
-      store.runFlagCommand(
+      executeFlagCommand(
+        store,
         flagCommand(key, 1, undefined, { nextId: () => audit!.id }),
       ),
     ]);
@@ -92,7 +99,8 @@ test('Flags authorization, audit insertion failure and deadline refusal leave no
 test('Flags targeting never creates paid entitlement and expiry is visible before bounded sweep', async () => {
   await withFlags(async ({ store, fixture, key, userId }) => {
     const expiresAt = new Date(Date.now() + 60_000).toISOString();
-    await store.runFlagCommand(
+    await executeFlagCommand(
+      store,
       flagCommand(key, 0, {
         action: 'flag.override.update',
         accountId: userId,
@@ -136,7 +144,7 @@ test('Flags targeting never creates paid entitlement and expiry is visible befor
     await assertRejects({
       given: 'an override update using its pre-sweep revision',
       should: 'refuse the stale update',
-      actual: () => store.runFlagCommand(flagCommand(key, 1)),
+      actual: () => executeFlagCommand(store, flagCommand(key, 1)),
       code: 'CONFLICT',
     });
   });
