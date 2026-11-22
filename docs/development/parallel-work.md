@@ -86,6 +86,10 @@ step does that work.
   schema chain requires drizzle-kit reconciliation; never reparent a
   snapshot blindly. Commit the prepared changes and requalify that head.
   `--check` reports required changes without writing them.
+  References are resolved once against both databases' original identities;
+  qualify an ambiguous bare tag with its database migration path. A write
+  failure attempts each proof and folder restoration independently and
+  reports any path whose restoration remains incomplete.
 
 ## Inner loop
 

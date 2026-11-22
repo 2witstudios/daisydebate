@@ -1,11 +1,54 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { z } from 'zod';
 
 const adr = /^docs\/decisions\/(\d{4,})-[a-z0-9-]+\.md$/;
 const lines = (value: string) => value.split('\n').filter(Boolean);
 // Owner-pinned landed Piece B history, before PR numbering was adopted.
 const adoptionBase = '58cc6c749713609a8c8d04f00572267c373033b5';
+const decisionMarkdown = (path: string) =>
+  /^docs\/decisions\/.*\.md$/.test(path) && path !== 'docs/decisions/README.md';
+
+function policyHead(
+  env: Readonly<Record<string, string | undefined>>,
+  cwd: string,
+  ciNumber: string | undefined,
+): string {
+  if (!ciNumber) return 'HEAD';
+  if (env.GITHUB_EVENT_PATH) {
+    const event = z
+      .object({
+        number: z.number().int().positive(),
+        pull_request: z.object({
+          head: z.object({ sha: z.string().regex(/^[a-f0-9]{40}$/) }),
+        }),
+      })
+      .parse(JSON.parse(readFileSync(env.GITHUB_EVENT_PATH, 'utf8')));
+    if (event.number !== Number(ciNumber))
+      throw new Error('PR event does not match the policy candidate');
+    return event.pull_request.head.sha;
+  }
+  const result = spawnSync('git', ['show', '-s', '--format=%P%n%B', 'HEAD'], {
+    cwd,
+    encoding: 'utf8',
+  });
+  if (result.status !== 0)
+    throw new Error('Cannot inspect the policy checkout');
+  const [parents = '', ...message] = result.stdout.split('\n');
+  const synthetic = /^Merge ([a-f0-9]{40}) into ([a-f0-9]{40})\b/.exec(
+    message.join('\n'),
+  );
+  const pair = parents.trim().split(' ');
+  if (
+    synthetic &&
+    pair.length === 2 &&
+    pair[0] === synthetic[2] &&
+    pair[1] === synthetic[1]
+  )
+    return pair[1]!;
+  return 'HEAD';
+}
 
 export function newAdrPath(number: number, slug: string): string {
   if (
@@ -29,11 +72,7 @@ export function pendingAdrProblems(
     (path) => !base.has(path) && adr.test(path),
   );
   const malformed = currentFiles.filter(
-    (path) =>
-      !base.has(path) &&
-      /^docs\/decisions\/.*\.md$/.test(path) &&
-      path !== 'docs/decisions/README.md' &&
-      !adr.test(path),
+    (path) => !base.has(path) && decisionMarkdown(path) && !adr.test(path),
   );
   const problems = added
     .filter((path) => Number(adr.exec(path)?.[1]) !== number)
@@ -123,6 +162,7 @@ export function prDecisionProblems(
     return result.stdout.trim();
   };
   try {
+    const ciNumber = /^refs\/pull\/(\d+)\//.exec(env.GITHUB_REF ?? '')?.[1];
     const currentFiles = lines(
       run([
         'git',
@@ -145,14 +185,16 @@ export function prDecisionProblems(
         'docs/decisions',
       ]),
     );
-    const landed = [...mainFiles, ...landedAdrFiles(cwd, currentFiles)];
+    const landed = [
+      ...mainFiles,
+      ...landedAdrFiles(cwd, currentFiles, policyHead(env, cwd, ciNumber)),
+    ];
     if (
       currentFiles
-        .filter((path) => adr.test(path))
+        .filter(decisionMarkdown)
         .every((path) => landed.includes(path))
     )
       return [];
-    const ciNumber = /^refs\/pull\/(\d+)\//.exec(env.GITHUB_REF ?? '')?.[1];
     const context =
       ciNumber && env.GITHUB_BASE_REF
         ? { number: Number(ciNumber), baseRefName: env.GITHUB_BASE_REF }

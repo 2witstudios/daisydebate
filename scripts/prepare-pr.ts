@@ -1,12 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import {
-  existsSync,
-  lstatSync,
-  readdirSync,
-  readFileSync,
-  renameSync,
-  writeFileSync,
-} from 'node:fs';
+import { existsSync, lstatSync, readdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import {
   findChainProblems,
@@ -18,12 +11,8 @@ import {
 } from './check-migrations';
 import { pendingMigrationPlan } from './pending-migration-stamps';
 import { landedAdrFiles, pendingAdrProblems } from './pr-decision-numbers';
-
-const exactReference = (value: string) =>
-  new RegExp(
-    `(?<![A-Za-z0-9_])${value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![A-Za-z0-9_])`,
-    'g',
-  );
+import { pendingMigrationReferences } from './pending-migration-references';
+import { applyPendingPreparation } from './pending-preparation-writes';
 
 /** Prepare pending names only. No DDL, snapshot rewriting or Git commits. */
 export function preparePendingPr(
@@ -57,6 +46,7 @@ export function preparePendingPr(
   };
   const problems: string[] = [];
   const renames: { from: string; to: string }[] = [];
+  const migrationIdentities: string[] = [];
   const baseFiles = run([
     'ls-tree',
     '-r',
@@ -118,6 +108,9 @@ export function preparePendingPr(
     const byTag = new Map(
       current.migrations.map((migration) => [migration.tag, migration]),
     );
+    migrationIdentities.push(
+      ...current.migrations.map(({ tag }) => `${folder}/${tag}`),
+    );
     for (const landed of base.migrations) {
       const present = byTag.get(landed.tag);
       if (
@@ -169,14 +162,7 @@ export function preparePendingPr(
     ...run(['diff', '--name-only', options.baseRef]).split('\n'),
     ...run(['ls-files', '--others', '--exclude-standard']).split('\n'),
   ]);
-  const references: { path: string; before: string; after: string }[] = [];
-  const tags = new Map<string, Set<string>>();
-  for (const { from, to } of renames) {
-    const tag = from.split('/').at(-1)!;
-    const choices = tags.get(tag) ?? new Set<string>();
-    choices.add(to.split('/').at(-1)!);
-    tags.set(tag, choices);
-  }
+  const sources: { path: string; text: string }[] = [];
   for (const path of changed) {
     if (
       !/\.(?:[cm]?[jt]sx?|md|json|ya?ml|sh)$/.test(path) ||
@@ -185,39 +171,20 @@ export function preparePendingPr(
       !lstatSync(join(cwd, path)).isFile()
     )
       continue;
-    const before = readFileSync(join(cwd, path), 'utf8');
-    let after = before;
-    for (const { from, to } of renames)
-      after = after.replace(exactReference(from), to);
-    for (const [tag, choices] of tags) {
-      if (choices.size === 1)
-        after = after.replace(exactReference(tag), [...choices][0]!);
-      else if (exactReference(tag).test(after))
-        problems.push(
-          `${path}: ambiguous pending migration reference ${tag}; qualify it with its migration folder`,
-        );
-    }
-    if (after !== before) references.push({ path, before, after });
+    sources.push({ path, text: readFileSync(join(cwd, path), 'utf8') });
   }
-  if (!problems.length && !options.check) {
-    const moved: { from: string; to: string }[] = [];
-    try {
-      for (const rename of renames) {
-        renameSync(join(cwd, rename.from), join(cwd, rename.to));
-        moved.push(rename);
-      }
-      for (const reference of references)
-        writeFileSync(join(cwd, reference.path), reference.after);
-    } catch (error) {
-      for (const reference of references)
-        writeFileSync(join(cwd, reference.path), reference.before);
-      for (const rename of moved.reverse())
-        renameSync(join(cwd, rename.to), join(cwd, rename.from));
-      throw new Error('Pending migration preparation failed; names restored', {
-        cause: error,
-      });
-    }
-  }
+  const targets = new Map(renames.map(({ from, to }) => [from, to]));
+  const referencePlan = pendingMigrationReferences(
+    migrationIdentities.map((from) => ({
+      from,
+      to: targets.get(from) ?? from,
+    })),
+    sources,
+  );
+  problems.push(...referencePlan.problems);
+  const references = referencePlan.updates;
+  if (!problems.length && !options.check)
+    applyPendingPreparation(cwd, renames, references);
   return { renames, references: references.map(({ path }) => path), problems };
 }
 
