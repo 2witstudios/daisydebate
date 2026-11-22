@@ -18,10 +18,7 @@ import {
   type ContentModerationAction,
   type ContentModerationQueue,
 } from '@daisy/protocol/content-moderation';
-import {
-  operatorCommandReceiptSchema,
-  operatorLimits,
-} from '@daisy/protocol/operator';
+import { operatorCommandReceiptSchema } from '@daisy/protocol/operator';
 import { feedbackSubjectOf } from '@daisy/protocol/ballot-schema';
 import { roundJudgingSchema } from '@daisy/protocol/ballot-definition';
 import { type BroadcastFeedEndReason } from '@daisy/protocol/broadcast';
@@ -41,8 +38,8 @@ import {
   type ChatMessageModeration,
 } from './content-moderation-ports';
 import { inTransaction, type TxSource, type Tx } from './tx';
-import { takeLock, transactionLocks } from './locks';
-import { run, query as queryRows } from './raw-rows';
+import { commandGate, storedResult, writeReceipt } from './operator-command';
+import { query as queryRows } from './raw-rows';
 
 const roundFacts = async (tx: Tx, roundId: string, actorId: string) => {
   const [round] = await queryRows(
@@ -679,24 +676,13 @@ export function contentModerationOperations({
     }): Promise<ContentModerationCommandResult> =>
       instrumented(eventSink, 'runModerationCommand', () =>
         inTransaction(database, async (tx) => {
-          await run(
+          await commandGate(tx, input.commandId);
+          const stored = await storedResult(
             tx,
-            sql.raw(
-              `set local statement_timeout = ${operatorLimits.commandBoundMs}`,
-            ),
+            input.commandId,
+            input.requestDigest,
           );
-          await takeLock(tx, transactionLocks.operatorCommand(input.commandId));
-          const [stored] = await queryRows(
-            tx,
-            z.object({ request_digest: z.string(), result: z.unknown() }),
-            sql`select request_digest, result from operator_command_receipts
-              where command_id = ${input.commandId}`,
-          );
-          if (stored) {
-            if (stored.request_digest !== input.requestDigest)
-              throw createAppError('CONFLICT');
-            return contentModerationCommandResultSchema.parse(stored.result);
-          }
+          if (stored) return contentModerationCommandResultSchema.parse(stored);
           const outcome = await applyChange(
             tx,
             input.change,
@@ -714,15 +700,7 @@ export function contentModerationOperations({
             input.change.action === 'account.audience_ban.update'
               ? input.change.userId
               : null;
-          await run(
-            tx,
-            sql`insert into operator_command_receipts
-              (command_id, service_id, operator_ref, action, target_user_id,
-               request_digest, result, admin_audit_head)
-            values (${input.commandId}, ${input.serviceId}, ${input.operatorRef},
-              ${receipt.action}, ${targetUserId}, ${input.requestDigest},
-              ${JSON.stringify(receipt.result)}::text::jsonb, ${input.adminAuditHead})`,
-          );
+          await writeReceipt(tx, input, targetUserId, receipt);
           // Checked last: a command delayed past its deadline writes nothing.
           if (!input.live()) throw createAppError('CONFLICT');
           return contentModerationCommandResultSchema.parse(receipt.result);
