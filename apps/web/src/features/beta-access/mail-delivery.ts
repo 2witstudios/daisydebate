@@ -10,6 +10,7 @@ import {
 } from '../clubs/invitation-email';
 import { retryOrFail as backOff } from '../mail/retry-policy';
 import { readBetaInvitationDelivery } from './invitation-delivery';
+import { decideApprovalDelivery } from './approval-delivery';
 import { runMailQueue } from '../mail/run-queue';
 
 type Store = Pick<
@@ -44,7 +45,9 @@ export function createMailIntentDelivery(input: {
     const delivery =
       read.kind === 'beta-invitation'
         ? await readBetaInvitationDelivery(read)
-        : read;
+        : read.kind === 'beta-approved'
+          ? decideApprovalDelivery(read.recipient)
+          : read;
     if (delivery.kind === 'recipient-gone' || delivery.kind === 'not-owed')
       return { kind: 'cancelled', errorCode: delivery.kind };
     if (

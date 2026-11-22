@@ -31,6 +31,7 @@ type Db = import('@daisy/db').Database;
 
 /** Real application worker and Resend adapter; its HTTP edge is a test provider. */
 function worker(db: Db) {
+  const keys: (string | null)[] = [];
   const sent: string[][] = [],
     failed: unknown[] = [];
   const sender = createResendSender({
@@ -39,6 +40,7 @@ function worker(db: Db) {
     nowMs: Date.now,
     ids: { next: createId },
     fetch: async (_request, init) => {
+      keys.push(new Headers(init?.headers).get('Idempotency-Key'));
       sent.push(
         z
           .object({ to: z.array(z.string()) })
@@ -49,6 +51,7 @@ function worker(db: Db) {
   });
   return {
     sent,
+    keys,
     failed,
     run: createMailIntentDelivery({
       store: db,
@@ -315,5 +318,69 @@ test('fresh verified matching accounts block only erased, restricted or revoked 
         ],
       ],
     });
+  });
+});
+
+test('the actual worker sends current approval identity and cancels revoked or erased approvals', async () => {
+  await withBeta(async ({ sql, db, account }) => {
+    const people = [await account(), await account(), await account()];
+    const ids: string[] = [];
+    try {
+      for (const person of people) {
+        const id = createId();
+        ids.push(id);
+        await sql`update account_beta_access set state='approved', decided_at=now() where user_id=${person.userId}`;
+        await sql`insert into mail_intents(id,purpose,recipient_user_id,dedupe_key,next_attempt_at)
+          values(${id},'beta-approved',${person.userId},${`test:${id}`},'2000-01-01')`;
+      }
+      const [approved, revoked, erased] = people;
+      if (!approved || !revoked || !erased)
+        throw new Error('Missing approval fixture');
+      const currentEmail = `${createId()}@example.test`;
+      await sql`update users set email=${currentEmail},username='current-member' where id=${approved.userId}`;
+      await sql`update account_beta_access set state='revoked' where user_id=${revoked.userId}`;
+      await sql`update users set deleted_at=now(),email=null,username=null where id=${erased.userId}`;
+      const app = worker(db);
+      await app.run(50);
+      await app.run(50);
+      const outcomes = [];
+      for (const id of ids) {
+        const [row] =
+          await sql`select state,last_error_code,completed_at is not null as completed from mail_intents where id=${id}`;
+        outcomes.push(row);
+      }
+      assert({
+        given:
+          'queued approval mail followed by identity change, revocation or erasure',
+        should:
+          'send only the fresh approved identity under its intent key, atomically cancel others, and not resend completed mail',
+        actual: {
+          sent: app.sent,
+          keys: app.keys,
+          failures: app.failed.length,
+          outcomes,
+        },
+        expected: {
+          sent: [[currentEmail]],
+          keys: [ids[0]],
+          failures: 0,
+          outcomes: [
+            { state: 'sent', last_error_code: null, completed: true },
+            {
+              state: 'cancelled',
+              last_error_code: 'not-owed',
+              completed: true,
+            },
+            {
+              state: 'cancelled',
+              last_error_code: 'recipient-gone',
+              completed: true,
+            },
+          ],
+        },
+      });
+    } finally {
+      for (const id of ids) await sql`delete from mail_intents where id=${id}`;
+    }
   });
 });
