@@ -43,7 +43,10 @@ export async function applyJudgingProgression<T>(
     await progression({
       ...request,
       apply: async (decision) => {
-        if (phase().kind !== 'open') throw createAppError('CONFLICT');
+        if (phase().kind !== 'open') {
+          state = { kind: 'closed' };
+          throw createAppError('CONFLICT');
+        }
         state = { kind: 'applying' };
         pending = (async () => {
           const result = await apply(decision, writing);

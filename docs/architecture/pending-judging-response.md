@@ -121,7 +121,8 @@ no fallback progression policy. Ballot preparation/submission remains a separate
 round-ballots operation.
 
 A family-local progression frame permits one bound apply and closes when its
-application callback returns. Missing, repeated or released apply refuses; guards
+application callback returns. Missing, repeated or released apply refuses; a duplicate irreversibly closes
+the frame even when its local rejection is caught; guards
 after awaited effects keep closure terminal. Any pending bound work is drained
 inside the transaction before refusal/rollback, so nested SQL cannot outlive it. Application refusal or exception
 rolls back local stage, attempt or takeover changes. Current lease authority is

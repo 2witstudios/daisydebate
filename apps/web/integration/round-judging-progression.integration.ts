@@ -288,8 +288,14 @@ for (const kind of ['takeover', 'dispatch', 'record', 'failure'] as const)
       kind +
       ' refuses partial or released progression without losing accounted identity',
     async () => {
-      let attack: 'none' | 'refuse' | 'exception' | 'missing' | 'repeat' =
-        'none';
+      let attack:
+        | 'none'
+        | 'refuse'
+        | 'exception'
+        | 'missing'
+        | 'repeat'
+        | 'caught-repeat'
+        | 'caught-concurrent' = 'none';
       let released: (() => Promise<void>) | undefined;
       await withRoomRuntime(
         async (f) => {
@@ -351,6 +357,8 @@ for (const kind of ['takeover', 'dispatch', 'record', 'failure'] as const)
             'exception',
             'missing',
             'repeat',
+            'caught-repeat',
+            'caught-concurrent',
           ] as const) {
             attack = mode;
             const code = await request().then(
@@ -403,7 +411,16 @@ for (const kind of ['takeover', 'dispatch', 'record', 'failure'] as const)
             apply: async (decision) => {
               released = () => session.apply(decision);
               if (attack === 'missing') return;
+              if (attack === 'caught-concurrent') {
+                await Promise.allSettled([
+                  session.apply(decision),
+                  session.apply(decision),
+                ]);
+                return;
+              }
               await session.apply(decision);
+              if (attack === 'caught-repeat')
+                await Promise.allSettled([session.apply(decision)]);
               if (attack === 'exception')
                 throw Error('controlled post-apply exception');
               if (attack === 'repeat') await session.apply(decision);

@@ -144,3 +144,99 @@ for (const kind of ['takeover', 'dispatch', 'record', 'failure'] as const)
         'first',
       ),
   );
+
+for (const kind of ['takeover', 'dispatch', 'record', 'failure'] as const)
+  for (const mode of ['sequential', 'concurrent'] as const)
+    test(
+      'caught ' + mode + ' repeat invalidates judging ' + kind + ' atomically',
+      () =>
+        withJudgingJob(
+          async ({ run, target, fixture, jobs }) => {
+            const claim = await jobs.claim(target);
+            if (kind === 'record' || kind === 'failure') {
+              await jobs.beginModelCall(claim.scope, claim.token, 'first');
+              await jobs.recordUsage(claim.scope, claim.token, {
+                inputTokens: 11,
+                outputTokens: 5,
+              });
+            }
+            if (kind === 'takeover')
+              await fixture.sql`update round_judging_jobs set lease_expires_at=clock_timestamp()-interval '1 second' where round_id=${target.roundId}`;
+            const snapshot = async () => {
+              const [row] =
+                await fixture.sql`select row_to_json(j)::text as job,
+            (select json_agg(a order by a.id)::text from agent_runs a where round_participant_id=${target.judgeParticipantId}) as runs,
+            (select json_agg(t order by t.agent_run_id)::text from round_judging_attempts t where round_id=${target.roundId}) as attempts
+            from round_judging_jobs j where round_id=${target.roundId}`;
+              return { ...row };
+            };
+            const before = await snapshot();
+            const guarded = createRoundJudgingJobs({
+              run,
+              nextId: createId,
+              nextToken: () => randomBytes(32).toString('base64url'),
+              leaseMs: 30000,
+              model: 'fixture-model',
+              contractVersion: 'fixture-contract',
+              rules: judgingJobRules,
+              accountEligible: canUseAiAllowance,
+              progression: (session) =>
+                fixtureJudgingProgression({
+                  ...session,
+                  apply: async (decision) => {
+                    if (session.kind !== kind) return session.apply(decision);
+                    if (mode === 'sequential') {
+                      await session.apply(decision);
+                      await Promise.allSettled([session.apply(decision)]);
+                    } else
+                      await Promise.allSettled([
+                        session.apply(decision),
+                        session.apply(decision),
+                      ]);
+                  },
+                }),
+            });
+            await assertRejects({
+              given:
+                'the application catches its ' +
+                mode +
+                ' repeated ' +
+                kind +
+                ' apply error',
+              should: 'still refuse the entire enclosing operation',
+              code: 'CONFLICT',
+              actual: () =>
+                kind === 'takeover'
+                  ? guarded.claim(target)
+                  : kind === 'dispatch'
+                    ? guarded.beginModelCall(claim.scope, claim.token, 'first')
+                    : kind === 'record'
+                      ? guarded.saveStage(
+                          claim.scope,
+                          claim.token,
+                          { stage: 'first', ballot: syntheticPendingBallot },
+                          { inputTokens: 11, outputTokens: 5 },
+                        )
+                      : guarded.recordAttemptFailure(claim.scope, claim.token, {
+                          diagnostic: {
+                            category: 'schema_rejected',
+                            finish: 'stop',
+                            issueCount: 0,
+                            issues: [],
+                          },
+                          final: false,
+                        }),
+            });
+            assert({
+              given: 'caught ' + mode + ' repeated ' + kind + ' apply',
+              should:
+                'preserve exact original jobs, runs, attempts and separately accounted usage',
+              actual: await snapshot(),
+              expected: before,
+            });
+          },
+          'complete',
+          undefined,
+          'first',
+        ),
+    );
