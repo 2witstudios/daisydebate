@@ -8,7 +8,7 @@ import { join, relative, resolve } from 'node:path';
 import * as ts from 'typescript';
 
 import { auditPolicyProblems } from './audit';
-import { numberCollisionProblems } from './number-claims';
+import { prDecisionProblems } from './pr-decision-numbers';
 import {
   validateMigrationBaselines,
   type MigrationBaseline,
@@ -357,7 +357,7 @@ export async function collectPolicy(): Promise<PolicyReport> {
       importers: collectImporters(repositoryFiles),
     }),
     ...duplicateAdrNumberProblems(knownPaths),
-    ...numberCollisionProblems(),
+    ...prDecisionProblems(),
     ...collectWorkflowHardeningProblems(root),
   ];
   const exceptions = new Set(

@@ -86,8 +86,10 @@ exception registries as fixes.
    `meta/` file included), a snapshot with no `migration.sql`, SQL with no
    snapshot, two folders sharing a timestamp, a broken `prevIds` chain, and
    any shared migration removed, displaced or edited (SQL or snapshot)
-   relative to the merge base. Migration numbers no longer exist, so
-   `bun adr:next` claims ADR numbers only.
+   relative to the merge base. Migration numbers no longer exist. Pending
+   folders are ordered by `bun pr:prepare` before qualification; it never
+   edits landed history or snapshot contents. New ADRs use their owning PR
+   number rather than a separately claimed sequence.
 4. **Runtime roles live in the baseline.** `daisy_web` (created if missing,
    LOGIN, no password) holds `SELECT, INSERT, UPDATE, DELETE` on every
    `public` table and `USAGE, SELECT` on every sequence, extended to later
