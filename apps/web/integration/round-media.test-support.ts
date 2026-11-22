@@ -1,3 +1,4 @@
+import { captureAdmissionPolicy } from '../src/features/media-capture/capture-policy';
 import { captureRule } from '@daisy/debate-engine';
 import {
   createAdmissionPriority,
@@ -118,6 +119,7 @@ export const captureOperations = (
   fixture: Parameters<Parameters<typeof withMediaRound>[0]>[0],
 ) =>
   fixture.store.createMediaCaptureOperations({
+    admission: captureAdmissionPolicy,
     sttLagMs: CAPTURE_STT_LAG_MS,
     captureRule,
     nextId: createId,
@@ -140,6 +142,7 @@ export async function openRoundCapture(
     sessionId,
     workerId,
     capture: f.store.createMediaCaptureOperations({
+      admission: captureAdmissionPolicy,
       sttLagMs: CAPTURE_STT_LAG_MS,
       captureRule,
       nextId: createId,

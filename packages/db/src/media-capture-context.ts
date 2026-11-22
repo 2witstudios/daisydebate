@@ -1,3 +1,7 @@
+import type {
+  CaptureAdmissionPolicy,
+  CaptureWriteTiming,
+} from '@daisy/protocol/capture-admission';
 import type { CaptureRule } from '@daisy/protocol/capture-verdict';
 import { createAppError, createRefusal } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol/primitives';
@@ -18,10 +22,7 @@ import { rounds } from './schema/rounds';
 import { actors } from './schema/actors';
 import { roundParticipants } from './schema/round-participants';
 import { roundSegments } from './schema/round-segments';
-import {
-  captureAdmissionClosed,
-  requireLiveCaptureLease,
-} from './capture-rules';
+import { requireLiveCaptureLease } from './capture-rules';
 import type { Tx } from './tx';
 
 export type CaptureIdentity = {
@@ -35,6 +36,7 @@ export type CaptureStream = {
   readonly roundParticipantId: string;
 };
 export type CaptureDependencies = {
+  readonly admission: CaptureAdmissionPolicy;
   /** Explicit local qualification admission; absent in production composition. */
   readonly evidence?: {
     readonly leaseMs: number;
@@ -89,6 +91,7 @@ export async function captureAdmission(
   tx: Tx,
   roundId: string,
   cutoff: string | null,
+  dependencies: CaptureDependencies,
 ) {
   const [freeze] = await tx
     .select({ id: roundTranscriptFreezes.roundId })
@@ -100,7 +103,7 @@ export async function captureAdmission(
     .where(eq(rounds.id, roundId));
   const now = await sampleRoundExecutionTime(tx);
   if (
-    captureAdmissionClosed({
+    dependencies.admission.closed({
       frozen: freeze !== undefined,
       roundStatus: round?.status,
       now,
@@ -114,47 +117,11 @@ export async function captureAdmission(
     );
   return new Date(now);
 }
-type CaptureSessionClose = {
-  readonly endedAt: Date | null;
-  readonly unsafeAt: Date | null;
-  readonly deletionRequestedAt: Date | null;
-};
-/** A write's worker capture stamp, its database receipt time and the lag policy. */
-export type CaptureWriteTiming = {
-  readonly capturedUntil: Date;
-  readonly receivedAt: Date;
-  readonly sttLagMs: number;
-};
-/**
- * The one capture-time rule for a session (CAP-E.1-r6, CAP-E.1-r8). Ending,
- * turning unsafe and a vendor-room deletion request each close it; the
- * deletion request is not data erasure, which is Round deletion. After the
- * earliest close, a write is admitted only if its audio was captured strictly
- * before that instant and it reached the database within the speech-to-text
- * lag after it; the worker stamp alone never admits late audio. Work with no
- * capture time (reads, seals) is admitted.
- */
-export function captureSessionAdmits(
-  session: CaptureSessionClose,
-  write?: CaptureWriteTiming,
-) {
-  if (write === undefined) return true;
-  const closes = [
-    session.endedAt,
-    session.unsafeAt,
-    session.deletionRequestedAt,
-  ].flatMap((at) => (at ? [at.getTime()] : []));
-  if (closes.length === 0) return true;
-  const closedAt = Math.min(...closes);
-  return (
-    write.capturedUntil.getTime() < closedAt &&
-    write.receivedAt.getTime() <= closedAt + write.sttLagMs
-  );
-}
 /** Refuses work the session no longer admits; shares the Round lock already held. */
 export async function requireCaptureSession(
   tx: Tx,
   input: { readonly sessionId: string },
+  dependencies: CaptureDependencies,
   write?: CaptureWriteTiming,
 ) {
   const [session] = await tx
@@ -165,7 +132,7 @@ export async function requireCaptureSession(
     })
     .from(mediaSessions)
     .where(eq(mediaSessions.id, input.sessionId));
-  if (!session || !captureSessionAdmits(session, write))
+  if (!session || !dependencies.admission.sessionAdmits(session, write))
     throw createRefusal(
       'CONFLICT',
       'capture-paused',
@@ -268,10 +235,12 @@ export async function captureWriteContext(
     tx,
     input.roundId,
     tick.transcriptAdmissionCutoff,
+    dependencies,
   );
   await requireCaptureSession(
     tx,
     input,
+    dependencies,
     capturedUntil && {
       capturedUntil,
       receivedAt: now,
@@ -295,8 +264,9 @@ export async function freshCaptureMutation(
     readonly cutoff: string | null;
     readonly leaseExpiresAt: Date;
   },
+  dependencies: CaptureDependencies,
 ) {
-  const now = await captureAdmission(tx, roundId, context.cutoff);
+  const now = await captureAdmission(tx, roundId, context.cutoff, dependencies);
   requireLiveCaptureLease(context.leaseExpiresAt, now);
   return now;
 }

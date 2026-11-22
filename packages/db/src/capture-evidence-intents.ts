@@ -9,7 +9,6 @@ import { createAppError } from '@daisy/errors';
 import { z } from 'zod';
 import { type captureEvidenceIntentSchema } from './capture-input';
 import { captureHistory } from './capture-history';
-import { requireCapturedWindow } from './capture-rules';
 import { nextEpoch } from './lease-policy';
 import {
   captureWriteContext,
@@ -83,7 +82,12 @@ export async function reserveCaptureEvidenceIntent(
   if (context.stream.state !== 'open')
     throw createAppError('CONFLICT', 'Capture stream is sealed');
   const history = await captureHistory(tx, input, context.segment);
-  requireCapturedWindow(input, context.segment, context.now, history);
+  dependencies.admission.requireWindow(
+    input,
+    context.segment,
+    context.now,
+    history,
+  );
   // One evidence-owned admission serialization point, through the existing bounded pool.
   await takeLock(tx, transactionLocks.necessaryEvidenceCapacity());
   const [existing] = await tx
@@ -91,8 +95,13 @@ export async function reserveCaptureEvidenceIntent(
     .from(necessaryEvidence)
     .where(eq(necessaryEvidence.id, input.evidenceId))
     .for('update');
-  const now = await freshCaptureMutation(tx, input.roundId, context);
-  await requireCaptureSession(tx, input, {
+  const now = await freshCaptureMutation(
+    tx,
+    input.roundId,
+    context,
+    dependencies,
+  );
+  await requireCaptureSession(tx, input, dependencies, {
     capturedUntil: new Date(input.after),
     receivedAt: now,
     sttLagMs: dependencies.sttLagMs,
@@ -137,8 +146,13 @@ export async function reserveCaptureEvidenceIntent(
   const token = policy.nextToken();
   const digest = evidenceLeaseDigest(token);
   // Re-sample after admission queries: neither a wait nor token acquisition renews authority.
-  const admittedAt = await freshCaptureMutation(tx, input.roundId, context);
-  await requireCaptureSession(tx, input, {
+  const admittedAt = await freshCaptureMutation(
+    tx,
+    input.roundId,
+    context,
+    dependencies,
+  );
+  await requireCaptureSession(tx, input, dependencies, {
     capturedUntil: new Date(input.after),
     receivedAt: admittedAt,
     sttLagMs: dependencies.sttLagMs,

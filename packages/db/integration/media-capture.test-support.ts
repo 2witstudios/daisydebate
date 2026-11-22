@@ -1,3 +1,4 @@
+import { captureAdmissionPolicy } from '../src/capture-admission.test-support';
 import { captureRule } from '@daisy/debate-engine';
 import { createId } from '@paralleldrive/cuid2';
 import type { BoundedTransaction } from '../src/bounded-transaction';
@@ -48,6 +49,7 @@ export async function historicalCapture(
     room_name: createId(),
   });
   const store = mediaCaptureOperations({
+    admission: captureAdmissionPolicy,
     run: transaction,
     sttLagMs,
     captureRule,

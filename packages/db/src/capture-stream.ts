@@ -18,7 +18,7 @@ import {
 } from './media-capture-context';
 import { transcriptObservations } from './schema/transcript-segments';
 import { utterances } from './schema/utterances';
-import { requireObservationWindow, sealAction } from './capture-rules';
+import { sealIntegrity } from './capture-rules';
 import type { Tx } from './tx';
 
 export async function observeCapturedStream(
@@ -34,7 +34,7 @@ export async function observeCapturedStream(
   );
   const { segment, stream, now } = context;
   const required = await captureHistory(tx, input, segment);
-  const { from, until } = requireObservationWindow(
+  const { from, until } = dependencies.admission.requireObservation(
     input,
     segment,
     now,
@@ -63,9 +63,13 @@ export async function observeCapturedStream(
     throw createAppError('CONFLICT', 'Capture stream is sealed');
   const id = dependencies.nextId();
   validCaptureIds(id);
-  const mutationNow = await freshCaptureMutation(tx, input.roundId, context);
-  if (until > mutationNow.getTime())
-    throw createAppError('CONFLICT', 'Capture observation is in the future');
+  const mutationNow = await freshCaptureMutation(
+    tx,
+    input.roundId,
+    context,
+    dependencies,
+  );
+  dependencies.admission.requireObservationReceipt(until, mutationNow);
   await tx.insert(transcriptObservations).values({
     id,
     roundId: input.roundId,
@@ -105,20 +109,19 @@ export async function sealCapturedStream(
         isNotNull(utterances.clipKey),
       ),
     );
-  const action = sealAction(
-    stream,
-    input.expectedChunkCount,
-    { segmentEnded: segment.endedAt !== null, required },
-    {
-      otherEpochChunks: chunks?.otherEpochChunks ?? 0,
-      framesLost: input.framesLost,
-    },
-  );
+  const action = sealIntegrity(stream, input.expectedChunkCount, {
+    otherEpochChunks: chunks?.otherEpochChunks ?? 0,
+    framesLost: input.framesLost,
+  });
   if (action === 'retry')
     return {
       state: stream.state as 'complete' | 'partial',
       revision: await transcriptRevision(tx, input.roundId),
     };
+  dependencies.admission.requireSeal({
+    segmentEnded: segment.endedAt !== null,
+    required,
+  });
   const observations = await tx
     .select({
       start: transcriptObservations.observedFrom,
@@ -160,7 +163,12 @@ export async function sealCapturedStream(
       ? Math.max(0, captureStart - segment.startedAt.getTime())
       : null,
   });
-  const mutationNow = await freshCaptureMutation(tx, input.roundId, context);
+  const mutationNow = await freshCaptureMutation(
+    tx,
+    input.roundId,
+    context,
+    dependencies,
+  );
   await updateCaptureStream(tx, input, {
     state: verdict.state,
     partialReasons: verdict.state === 'partial' ? [...verdict.reasons] : [],
