@@ -96,6 +96,41 @@ export function seededDraws(
   });
 }
 
+/** Generated draws for async public operations, with the same seed/shrink report. */
+export async function seededAsyncDraws(
+  run: PropertyRun & {
+    readonly draws: number;
+    readonly problems: (draw: Draw) => Promise<readonly string[]>;
+  },
+): Promise<PropertyReport> {
+  const problemsOf = async (
+    tape: readonly number[],
+  ): Promise<readonly string[]> => {
+    try {
+      return await run.problems(drawsOf(tape));
+    } catch (error) {
+      return [`threw ${String(error)}`];
+    }
+  };
+  const details = await fc.check(
+    fc.asyncProperty(
+      fc.array(fc.nat(), { minLength: run.draws, maxLength: run.draws }),
+      async (tape) => (await problemsOf(tape)).length === 0,
+    ),
+    { seed: run.seed, numRuns: run.runs },
+  );
+  if (!details.failed) return { failure: null, runs: details.numRuns };
+  const tape = details.counterexample?.[0];
+  const found =
+    tape === undefined
+      ? 'no counterexample'
+      : (await problemsOf(tape)).join('; ');
+  return {
+    failure: `seed ${run.seed}, path ${details.counterexamplePath ?? ''}: ${found}`,
+    runs: details.numRuns,
+  };
+}
+
 const drawArbitrary = fc.array(fc.nat(), {
   minLength: DRAWS_PER_STEP,
   maxLength: DRAWS_PER_STEP,

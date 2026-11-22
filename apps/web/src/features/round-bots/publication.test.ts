@@ -3,6 +3,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createAppError, createRefusal } from '@daisy/errors';
 import { assertRejects } from '@daisy/errors/testing';
 import { virtualClock, type VirtualClock } from '@daisy/clock/testing';
+import { seededAsyncDraws } from '@daisy/seeded-random/testing';
 import {
   createBotPublisher,
   playedFraction,
@@ -164,6 +165,86 @@ const signal = () => new AbortController().signal;
 const far = () => 60_000;
 /** Long enough for a phrase's queued tail (the 300 ms lead) to play out. */
 const TAIL_PLAYS_MS = 450;
+
+test('generated publisher schedules preserve line ends, credit, cutoff and claim closure', async () => {
+  const proof = await seededAsyncDraws({
+    seed: 4317,
+    runs: 60,
+    draws: 20,
+    problems: async (draw) => {
+      const { clock, claim, reveals, ends, begins, handoffs } = harness();
+      const due = 500 + draw(1500);
+      const sent = new Map<string, number>();
+      const durations = new Map<string, number>();
+      const problems: string[] = [];
+      claim.start();
+      await clock.advance(10);
+      const count = 1 + draw(4);
+      for (let index = 0; index < count; index++) {
+        const phrase = String(index).repeat(24);
+        const duration = (1 + draw(100)) * 10;
+        const before = handoffs.length;
+        durations.set(phrase, duration);
+        await clock.run(claim.publish(job(duration, phrase), signal(), due));
+        sent.set(phrase, (handoffs.length - before) * 10);
+        await clock.advance(draw(350));
+        if (draw(2) === 0) claim.silence();
+      }
+      await clock.run(claim.close());
+      const afterClose = {
+        begins: begins.length,
+        frames: handoffs.length,
+        reveals: reveals.length,
+      };
+      const refused = await clock
+        .run(claim.publish(job(100, 'z'.repeat(24)), signal(), far()))
+        .then(
+          () => false,
+          () => true,
+        );
+      await clock.advance(1000);
+      if (
+        !refused ||
+        begins.length !== afterClose.begins ||
+        handoffs.length !== afterClose.frames ||
+        reveals.length !== afterClose.reveals
+      )
+        problems.push('something began after claim closure');
+      if (handoffs.some((at) => at > due))
+        problems.push('a frame was handed over after cutoff');
+      for (const { phraseId } of reveals) {
+        const matching = ends.filter((row) => row.phraseId === phraseId);
+        if (matching.length !== 1)
+          problems.push(`${phraseId}: revealed line did not end exactly once`);
+        const ending = matching[0]?.end as
+          { kind: string; playedMs?: number } | undefined;
+        const credited =
+          ending?.kind === 'whole' ? durations.get(phraseId) : ending?.playedMs;
+        if (
+          credited === undefined ||
+          credited < 0 ||
+          credited > (sent.get(phraseId) ?? 0)
+        )
+          problems.push(`${phraseId}: credit exceeds handed audio`);
+      }
+      if (
+        ends.some(
+          ({ phraseId }) => !reveals.some((row) => row.phraseId === phraseId),
+        )
+      )
+        problems.push('an unrevealed line was ended');
+      return problems;
+    },
+  });
+  assert({
+    given:
+      'seed4317 generated phrase lengths, hard stops, clear ordering and claim shutdowns',
+    should:
+      'end each revealed line once, credit only handed audio, honor cutoff and stop all later starts',
+    actual: proof.failure,
+    expected: null,
+  });
+});
 
 test('phrases stream on the one track joined ahead of speech and close whole', async () => {
   const { clock, claim, events, ends, begins } = harness();

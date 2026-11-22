@@ -73,6 +73,7 @@ export function testTimer() {
     resume: () => run(pauses),
     /** The question has met silence for long enough. */
     elapse: () => run(replies),
+    pending: () => ({ pauses: pauses.length, replies: replies.length }),
   };
 }
 const budgetRefusals = new WeakSet<Error>();
@@ -200,5 +201,7 @@ export function harness(
     prepared,
     stages: () => failures,
     elapse: timers.elapse,
+    pendingTimers: timers.pending,
+    elapsePause: timers.resume,
   };
 }
